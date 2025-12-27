@@ -1,0 +1,199 @@
+.editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--bg-color);
+}
+
+.editor-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 60px 40px;
+}
+
+/* Milkdown Editor Styles */
+.milkdown {
+  max-width: 800px;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--text-color);
+}
+
+.milkdown .editor {
+  outline: none;
+}
+
+/* Headings */
+.milkdown h1 {
+  font-size: 2em;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.milkdown h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.milkdown h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.milkdown h4,
+.milkdown h5,
+.milkdown h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+/* Paragraphs */
+.milkdown p {
+  margin: 0.75em 0;
+}
+
+/* Links */
+.milkdown a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.milkdown a:hover {
+  text-decoration: underline;
+}
+
+/* Lists */
+.milkdown ul,
+.milkdown ol {
+  margin: 0.75em 0;
+  padding-left: 2em;
+}
+
+.milkdown li {
+  margin: 0.25em 0;
+}
+
+.milkdown ul {
+  list-style-type: disc;
+}
+
+.milkdown ol {
+  list-style-type: decimal;
+}
+
+/* Code */
+.milkdown code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background-color: var(--code-bg-color);
+  color: var(--code-text-color);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.milkdown pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background-color: var(--code-bg-color);
+  color: var(--code-text-color);
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.milkdown pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Blockquotes */
+.milkdown blockquote {
+  border-left: 4px solid var(--primary-color);
+  margin: 1em 0;
+  padding-left: 1em;
+  color: var(--meta-content-color);
+}
+
+/* Horizontal rule */
+.milkdown hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 2em 0;
+}
+
+/* Tables */
+.milkdown table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.milkdown th,
+.milkdown td {
+  border: 1px solid var(--border-color);
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.milkdown th {
+  background-color: var(--sidebar-bg);
+  font-weight: 600;
+}
+
+/* Task lists */
+.milkdown .task-list-item {
+  list-style-type: none;
+  margin-left: -1.5em;
+}
+
+.milkdown .task-list-item input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* Images */
+.milkdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* Strong and emphasis */
+.milkdown strong {
+  font-weight: 600;
+}
+
+.milkdown em {
+  font-style: italic;
+}
+
+/* Strikethrough */
+.milkdown del {
+  text-decoration: line-through;
+  color: var(--meta-content-color);
+}
+
+/* Focus mode styles (to be implemented) */
+.focus-mode .milkdown > *:not(.md-focus) {
+  color: var(--blur-text-color);
+  transition: color 0.2s ease;
+}
+
+.focus-mode .milkdown > *:not(.md-focus) img {
+  opacity: var(--blur-image-opacity);
+  filter: grayscale(30%);
+}

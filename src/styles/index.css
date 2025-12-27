@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* Theme CSS Variables */
+:root {
+  /* Core colors */
+  --bg-color: #ffffff;
+  --text-color: #24292e;
+  --primary-color: #0366d6;
+
+  /* Focus mode */
+  --blur-text-color: #c8c8c8;
+  --blur-image-opacity: 0.5;
+
+  /* Syntax elements */
+  --md-char-color: #6a737d;
+  --meta-content-color: #6a737d;
+
+  /* Code blocks */
+  --code-bg-color: #f6f8fa;
+  --code-text-color: #24292e;
+
+  /* UI chrome */
+  --sidebar-bg: #f6f8fa;
+  --sidebar-width: 240px;
+  --outline-width: 200px;
+  --border-color: #e1e4e8;
+  --selection-color: rgba(3, 102, 214, 0.2);
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+  --font-mono: "SF Mono", "Fira Code", Consolas, monospace;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #0d1117;
+    --text-color: #c9d1d9;
+    --primary-color: #58a6ff;
+    --blur-text-color: #484f58;
+    --md-char-color: #8b949e;
+    --meta-content-color: #8b949e;
+    --code-bg-color: #161b22;
+    --code-text-color: #c9d1d9;
+    --sidebar-bg: #161b22;
+    --border-color: #30363d;
+    --selection-color: rgba(88, 166, 255, 0.2);
+  }
+}
+
+/* Base styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--selection-color);
+}
+
+/* Focus states */
+*:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--md-char-color);
+}
