@@ -64,7 +64,7 @@ function App() {
             }}
           />
         )}
-        <div style={{ flex: 1, overflow: "hidden" }}>
+        <div style={{ flex: 1, minHeight: 0 }}>
           <Editor />
         </div>
         <StatusBar />
