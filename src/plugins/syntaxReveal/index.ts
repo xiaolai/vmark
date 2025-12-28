@@ -35,7 +35,6 @@ interface MarkRange {
  * Find all mark ranges that contain the given position
  */
 function findMarksAtPosition(
-  doc: Node,
   pos: number,
   $pos: ResolvedPos
 ): MarkRange[] {
@@ -53,8 +52,8 @@ function findMarksAtPosition(
     if (pos >= from && pos <= to && child.isText) {
       child.marks.forEach((mark) => {
         // Find the full extent of this mark
-        const markRange = findMarkRange(doc, from, mark);
-        if (markRange && pos >= markRange.from && pos <= markRange.to) {
+        const markRange = findMarkRange(pos, mark, parentStart, parent);
+        if (markRange) {
           // Avoid duplicates
           if (!ranges.some((r) => r.from === markRange.from && r.to === markRange.to)) {
             ranges.push(markRange);
@@ -69,57 +68,41 @@ function findMarksAtPosition(
 
 /**
  * Find the full range of a mark starting from a position
+ * Uses single-pass algorithm to find contiguous mark boundaries
  */
-function findMarkRange(doc: Node, pos: number, mark: Mark): MarkRange | null {
-  const $pos = doc.resolve(pos);
-  const parent = $pos.parent;
-  const parentStart = $pos.start();
+function findMarkRange(
+  pos: number,
+  mark: Mark,
+  parentStart: number,
+  parent: Node
+): MarkRange | null {
+  let from = -1;
+  let to = -1;
 
-  let from = pos;
-  let to = pos;
-
-  // Scan backwards
-  parent.forEach((child, childOffset) => {
-    const childFrom = parentStart + childOffset;
-    const childTo = childFrom + child.nodeSize;
-
-    if (childTo <= pos && child.isText && mark.isInSet(child.marks)) {
-      from = Math.min(from, childFrom);
-    }
-  });
-
-  // Scan forwards
-  parent.forEach((child, childOffset) => {
-    const childFrom = parentStart + childOffset;
-    const childTo = childFrom + child.nodeSize;
-
-    if (childFrom >= pos && child.isText && mark.isInSet(child.marks)) {
-      to = Math.max(to, childTo);
-    }
-  });
-
-  // Re-scan to get accurate boundaries
-  from = pos;
-  to = pos;
-  let foundStart = false;
-
+  // Single pass to find contiguous mark range containing pos
   parent.forEach((child, childOffset) => {
     const childFrom = parentStart + childOffset;
     const childTo = childFrom + child.nodeSize;
 
     if (child.isText && mark.isInSet(child.marks)) {
-      if (!foundStart) {
+      // Extend or start the range
+      if (from === -1) {
         from = childFrom;
-        foundStart = true;
       }
       to = childTo;
-    } else if (foundStart && childFrom > to) {
-      // Mark ended
+    } else if (from !== -1 && to !== -1) {
+      // Mark ended - check if pos was in this range
+      if (pos >= from && pos <= to) {
+        return; // Found it, stop processing
+      }
+      // Reset for potential next occurrence
+      from = -1;
+      to = -1;
     }
   });
 
-  // Verify the position is within this range
-  if (pos >= from && pos <= to) {
+  // Check final range
+  if (from !== -1 && to !== -1 && pos >= from && pos <= to) {
     return { mark, from, to };
   }
 
@@ -133,18 +116,9 @@ export const syntaxRevealPlugin = $prose(() => {
   return new Plugin({
     key: syntaxRevealPluginKey,
 
-    state: {
-      init() {
-        return DecorationSet.empty;
-      },
-
-      apply(tr, decorations, _oldState, newState) {
-        // Only update on selection change
-        if (!tr.selectionSet && !tr.docChanged) {
-          return decorations;
-        }
-
-        const { selection } = newState;
+    props: {
+      decorations(state) {
+        const { selection } = state;
         const { $from, empty } = selection;
 
         // Only show syntax for cursor (not selection)
@@ -153,28 +127,7 @@ export const syntaxRevealPlugin = $prose(() => {
         }
 
         const pos = $from.pos;
-        const markRanges = findMarksAtPosition(newState.doc, pos, $from);
-
-        if (markRanges.length === 0) {
-          return DecorationSet.empty;
-        }
-
-        // Create decorations (we need view for this, handled in props)
-        return decorations;
-      },
-    },
-
-    props: {
-      decorations(state) {
-        const { selection } = state;
-        const { $from, empty } = selection;
-
-        if (!empty) {
-          return DecorationSet.empty;
-        }
-
-        const pos = $from.pos;
-        const markRanges = findMarksAtPosition(state.doc, pos, $from);
+        const markRanges = findMarksAtPosition(pos, $from);
 
         if (markRanges.length === 0) {
           return DecorationSet.empty;
