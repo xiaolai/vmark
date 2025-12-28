@@ -5,6 +5,7 @@ import {
   defaultValueCtx,
   editorViewCtx,
 } from "@milkdown/kit/core";
+import { Selection } from "@milkdown/kit/prose/state";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import {
   toggleStrongCommand,
@@ -69,20 +70,44 @@ function MilkdownEditorInner() {
       })
   );
 
-  // Auto-focus on mount
+  // Auto-focus on mount - poll until editor is ready
   useEffect(() => {
-    const editor = get();
-    if (!editor) return;
+    let cancelled = false;
+    let pollInterval: ReturnType<typeof setInterval>;
+    let focusTimeout: ReturnType<typeof setTimeout>;
 
-    // Delay to ensure editor is fully mounted
-    requestAnimationFrame(() => {
-      editor.action((ctx) => {
-        const view = ctx.get(editorViewCtx);
-        view.focus();
-        // Dispatch empty transaction to ensure cursor is visible
-        view.dispatch(view.state.tr);
-      });
-    });
+    const tryFocus = () => {
+      const editor = get();
+      if (!editor) return false;
+
+      // Editor is ready, focus it
+      focusTimeout = setTimeout(() => {
+        if (cancelled) return;
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          view.focus();
+          const { state } = view;
+          const selection = Selection.atStart(state.doc);
+          view.dispatch(state.tr.setSelection(selection).scrollIntoView());
+        });
+      }, 50);
+      return true;
+    };
+
+    // Try immediately, then poll if not ready
+    if (!tryFocus()) {
+      pollInterval = setInterval(() => {
+        if (cancelled || tryFocus()) {
+          clearInterval(pollInterval);
+        }
+      }, 50);
+    }
+
+    return () => {
+      cancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+      if (focusTimeout) clearTimeout(focusTimeout);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -184,18 +209,18 @@ function MilkdownEditorInner() {
 
 export function Editor() {
   const sourceMode = useEditorStore((state) => state.sourceMode);
-  const filePath = useEditorStore((state) => state.filePath);
+  const documentId = useEditorStore((state) => state.documentId);
 
-  // Key ensures editor recreates when file changes
-  const fileKey = filePath ?? "new";
+  // Key ensures editor recreates when document changes (new file, open file, etc.)
+  const editorKey = `doc-${documentId}`;
 
   return (
     <div className="editor-container">
       <div className="editor-content">
         {sourceMode ? (
-          <SourceEditor key={fileKey} />
+          <SourceEditor key={editorKey} />
         ) : (
-          <MilkdownProvider key={fileKey}>
+          <MilkdownProvider key={editorKey}>
             <MilkdownEditorInner />
           </MilkdownProvider>
         )}

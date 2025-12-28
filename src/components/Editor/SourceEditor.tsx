@@ -105,8 +105,10 @@ export function SourceEditor() {
 
     viewRef.current = view;
 
-    // Auto-focus on mount
-    view.focus();
+    // Auto-focus on mount with delay for proper DOM sync
+    setTimeout(() => {
+      view.focus();
+    }, 50);
 
     return () => {
       view.destroy();
