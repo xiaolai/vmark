@@ -311,6 +311,11 @@
   min-height: 100%;
 }
 
+/* Source mode indicator - subtle background */
+.editor-content:has(.source-editor) {
+  background-color: var(--source-mode-bg, rgba(0, 0, 0, 0.02));
+}
+
 .source-editor .cm-editor {
   height: 100%;
   background-color: transparent;

@@ -40,6 +40,9 @@
   /* Text emphasis colors */
   --strong-color: rgb(63, 86, 99);
   --emphasis-color: rgb(91, 4, 17);
+
+  /* Source mode */
+  --source-mode-bg: rgba(0, 0, 0, 0.02);
 }
 
 /* Dark mode */
@@ -62,6 +65,7 @@
     --text-secondary: #8b949e;
     --strong-color: #79c0ff;
     --emphasis-color: #ffa198;
+    --source-mode-bg: rgba(255, 255, 255, 0.02);
   }
 }
 

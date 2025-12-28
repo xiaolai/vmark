@@ -54,16 +54,14 @@ function App() {
           overflow: "hidden",
         }}
       >
-        {/* Drag region for window movement (only when sidebar hidden) */}
-        {!sidebarVisible && (
-          <div
-            data-tauri-drag-region
-            style={{
-              height: "2em",
-              flexShrink: 0,
-            }}
-          />
-        )}
+        {/* Drag region for window movement */}
+        <div
+          data-tauri-drag-region
+          style={{
+            height: "2em",
+            flexShrink: 0,
+          }}
+        />
         <div style={{ flex: 1, minHeight: 0 }}>
           <Editor />
         </div>
