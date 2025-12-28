@@ -1,0 +1,101 @@
+/**
+ * GitHub-style Collapsible Block Styles
+ *
+ * Styles for <details>/<summary> blocks
+ */
+
+/* Details container */
+.details-block {
+  border: 1px solid var(--border-color, #d0d7de);
+  border-radius: 6px;
+  margin: 16px 0;
+  overflow: hidden;
+}
+
+/* Summary (clickable header) */
+.details-block > summary,
+.details-summary {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  background-color: var(--details-header-bg, #f6f8fa);
+  border-bottom: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  list-style: none;
+}
+
+/* Remove default marker */
+.details-block > summary::-webkit-details-marker,
+.details-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Custom disclosure triangle */
+.details-block > summary::before,
+.details-summary::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  flex-shrink: 0;
+  transition: transform 0.15s ease-out;
+}
+
+/* Hover state */
+.details-block > summary:hover,
+.details-summary:hover {
+  background-color: var(--details-header-hover-bg, #eaeef2);
+}
+
+/* Open state - rotate triangle */
+.details-block[open] > summary::before,
+.details-block[open] .details-summary::before {
+  transform: rotate(90deg);
+}
+
+/* Open state - show border */
+.details-block[open] > summary,
+.details-block[open] .details-summary {
+  border-bottom-color: var(--border-color, #d0d7de);
+}
+
+/* Content area - hidden when collapsed */
+.details-block > *:not(summary):not(.details-summary) {
+  padding: 12px;
+  display: none;
+}
+
+/* Show content when open */
+.details-block[open] > *:not(summary):not(.details-summary) {
+  display: block;
+}
+
+/* First content element */
+.details-block > *:not(summary):not(.details-summary):first-of-type {
+  margin-top: 0;
+}
+
+/* Last content element */
+.details-block > *:not(summary):not(.details-summary):last-child {
+  margin-bottom: 0;
+}
+
+/* ===================
+   DARK MODE
+   =================== */
+@media (prefers-color-scheme: dark) {
+  .details-block {
+    --border-color: #30363d;
+    --details-header-bg: #161b22;
+    --details-header-hover-bg: #21262d;
+  }
+}
