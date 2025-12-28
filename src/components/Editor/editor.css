@@ -305,25 +305,51 @@
   border-left-color: rgba(85, 85, 85, 0.12);
 }
 
-/* Source code editor - matches .milkdown spacing */
+/* Source editor (CodeMirror) - matches .milkdown styling */
 .source-editor {
   width: 100%;
   min-height: 100%;
-  padding: 0;
-  border: none;
-  outline: none;
-  resize: none;
-  font-family: var(--font-mono);
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--text-color);
-  background-color: transparent;
-  box-sizing: border-box;
-  overflow: hidden;
 }
 
-.source-editor:focus {
-  outline: none;
+.source-editor .cm-editor {
+  height: 100%;
+  background-color: transparent;
+}
+
+.source-editor .cm-scroller {
+  font-family: var(--font-sans) !important;
+  line-height: 1.8 !important;
+  overflow-x: auto !important;
+}
+
+/* Always show horizontal scrollbar when content overflows */
+.source-editor .cm-scroller::-webkit-scrollbar {
+  height: 8px;
+}
+
+.source-editor .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.source-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 4px;
+}
+
+.source-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-secondary);
+}
+
+.source-editor .cm-content {
+  color: var(--text-color);
+}
+
+.source-editor .cm-focused {
+  outline: none !important;
+}
+
+.source-editor .cm-gutters {
+  display: none;
 }
 
 /* Print styles */

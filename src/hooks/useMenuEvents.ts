@@ -46,6 +46,12 @@ export function useMenuEvents() {
       });
       if (cancelled) { unlistenOutline(); return; }
       unlistenRefs.current.push(unlistenOutline);
+
+      const unlistenWordWrap = await listen("menu:word-wrap", () => {
+        useEditorStore.getState().toggleWordWrap();
+      });
+      if (cancelled) { unlistenWordWrap(); return; }
+      unlistenRefs.current.push(unlistenWordWrap);
     };
 
     setupListeners();

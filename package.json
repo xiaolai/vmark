@@ -15,6 +15,12 @@
     "check:all": "pnpm lint && pnpm test && pnpm build"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.10.1",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/language": "^6.12.1",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.5.3",
+    "@codemirror/view": "^6.39.7",
     "@milkdown/kit": "^7.17.3",
     "@milkdown/react": "^7.17.3",
     "@milkdown/utils": "^7.17.3",
@@ -23,6 +29,7 @@
     "@tauri-apps/plugin-clipboard-manager": "^2",
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-fs": "^2",
+    "lucide-react": "^0.562.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zustand": "^5.0.3"

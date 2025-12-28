@@ -26,6 +26,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useParagraphCommands } from "@/hooks/useParagraphCommands";
 import { useFormatCommands } from "@/hooks/useFormatCommands";
 import { useTableCommands } from "@/hooks/useTableCommands";
+import { SourceEditor } from "./SourceEditor";
 import "./editor.css";
 
 const DEFAULT_CONTENT = `# Welcome to VMark
@@ -45,34 +46,6 @@ A **-style** markdown editor built with:
 
 Start writing...
 `;
-
-function SourceEditor() {
-  const content = useEditorStore((state) => state.content);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    useEditorStore.getState().setContent(e.target.value);
-  };
-
-  // Auto-resize textarea to fit content
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${textarea.scrollHeight}px`;
-    }
-  }, [content]);
-
-  return (
-    <textarea
-      ref={textareaRef}
-      className="source-editor"
-      value={content}
-      onChange={handleChange}
-      spellCheck={false}
-    />
-  );
-}
 
 function MilkdownEditorInner() {
   const content = useEditorStore((state) => state.content);

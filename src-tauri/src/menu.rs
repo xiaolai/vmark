@@ -52,10 +52,18 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,
+                "word-wrap",
+                "Toggle Word Wrap",
+                true,
+                Some("F10"),
+            )?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(
+                app,
                 "sidebar",
                 "Toggle Sidebar",
                 true,
-                Some("CmdOrCtrl+Shift+L"),
+                Some("CmdOrCtrl+Shift+B"),
             )?,
             &MenuItem::with_id(
                 app,

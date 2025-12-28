@@ -8,6 +8,7 @@ interface EditorState {
   focusModeEnabled: boolean;
   typewriterModeEnabled: boolean;
   sourceMode: boolean;
+  wordWrap: boolean;
 }
 
 interface EditorActions {
@@ -18,6 +19,7 @@ interface EditorActions {
   toggleFocusMode: () => void;
   toggleTypewriterMode: () => void;
   toggleSourceMode: () => void;
+  toggleWordWrap: () => void;
   reset: () => void;
 }
 
@@ -29,6 +31,7 @@ const initialState: EditorState = {
   focusModeEnabled: false,
   typewriterModeEnabled: false,
   sourceMode: false,
+  wordWrap: true,
 };
 
 export const useEditorStore = create<EditorState & EditorActions>((set) => ({
@@ -64,6 +67,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   toggleSourceMode: () =>
     set((state) => ({ sourceMode: !state.sourceMode })),
+
+  toggleWordWrap: () =>
+    set((state) => ({ wordWrap: !state.wordWrap })),
 
   reset: () => set(initialState),
 }));
