@@ -83,31 +83,101 @@ function Toggle({
 }
 
 function GeneralSettings() {
-  const [focusDefault, setFocusDefault] = useState(false);
-  const [typewriterDefault, setTypewriterDefault] = useState(false);
-  const [autoSave, setAutoSave] = useState(true);
+  const general = useSettingsStore((state) => state.general);
+  const updateSetting = useSettingsStore((state) => state.updateGeneralSetting);
+
+  const selectClass = `px-2 py-1 rounded border border-gray-200 dark:border-gray-700
+                       bg-[var(--bg-primary)] text-sm text-[var(--text-primary)]`;
 
   return (
     <div>
       <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
         General
       </h2>
-      <div className="space-y-1">
-        <SettingRow
-          label="Focus mode by default"
-          description="Start with focus mode enabled"
-        >
-          <Toggle checked={focusDefault} onChange={setFocusDefault} />
-        </SettingRow>
-        <SettingRow
-          label="Typewriter mode by default"
-          description="Keep cursor centered vertically"
-        >
-          <Toggle checked={typewriterDefault} onChange={setTypewriterDefault} />
-        </SettingRow>
-        <SettingRow label="Auto-save" description="Save files automatically">
-          <Toggle checked={autoSave} onChange={setAutoSave} />
-        </SettingRow>
+
+      {/* Auto-Save Section */}
+      <div className="mb-6">
+        <div className="text-sm font-medium text-[var(--text-primary)] mb-3">
+          Auto-Save
+        </div>
+        <div className="space-y-1">
+          <SettingRow
+            label="Enable auto-save"
+            description="Automatically save files when edited"
+          >
+            <Toggle
+              checked={general.autoSaveEnabled}
+              onChange={(v) => updateSetting("autoSaveEnabled", v)}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Save interval"
+            description="Time between auto-saves"
+          >
+            <select
+              value={general.autoSaveInterval}
+              onChange={(e) => updateSetting("autoSaveInterval", Number(e.target.value))}
+              className={selectClass}
+              disabled={!general.autoSaveEnabled}
+            >
+              <option value="10">10 seconds</option>
+              <option value="30">30 seconds</option>
+              <option value="60">1 minute</option>
+              <option value="120">2 minutes</option>
+              <option value="300">5 minutes</option>
+            </select>
+          </SettingRow>
+        </div>
+      </div>
+
+      {/* Document History Section */}
+      <div className="mb-6">
+        <div className="text-sm font-medium text-[var(--text-primary)] mb-3">
+          Document History
+        </div>
+        <div className="space-y-1">
+          <SettingRow
+            label="Keep document history"
+            description="Track versions for undo and recovery"
+          >
+            <Toggle
+              checked={general.historyEnabled}
+              onChange={(v) => updateSetting("historyEnabled", v)}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Maximum versions"
+            description="Number of snapshots to keep"
+          >
+            <select
+              value={general.historyMaxSnapshots}
+              onChange={(e) => updateSetting("historyMaxSnapshots", Number(e.target.value))}
+              className={selectClass}
+              disabled={!general.historyEnabled}
+            >
+              <option value="10">10 versions</option>
+              <option value="25">25 versions</option>
+              <option value="50">50 versions</option>
+              <option value="100">100 versions</option>
+            </select>
+          </SettingRow>
+          <SettingRow
+            label="Keep versions for"
+            description="Maximum age of history"
+          >
+            <select
+              value={general.historyMaxAgeDays}
+              onChange={(e) => updateSetting("historyMaxAgeDays", Number(e.target.value))}
+              className={selectClass}
+              disabled={!general.historyEnabled}
+            >
+              <option value="1">1 day</option>
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30">30 days</option>
+            </select>
+          </SettingRow>
+        </div>
       </div>
     </div>
   );

@@ -86,13 +86,28 @@ export interface MarkdownSettings {
   enableRegexSearch: boolean; // Enable regex in Find & Replace
 }
 
+export interface GeneralSettings {
+  // Auto-save
+  autoSaveEnabled: boolean;
+  autoSaveInterval: number; // seconds
+  // Document history
+  historyEnabled: boolean;
+  historyMaxSnapshots: number;
+  historyMaxAgeDays: number;
+}
+
 interface SettingsState {
+  general: GeneralSettings;
   appearance: AppearanceSettings;
   cjkFormatting: CJKFormattingSettings;
   markdown: MarkdownSettings;
 }
 
 interface SettingsActions {
+  updateGeneralSetting: <K extends keyof GeneralSettings>(
+    key: K,
+    value: GeneralSettings[K]
+  ) => void;
   updateAppearanceSetting: <K extends keyof AppearanceSettings>(
     key: K,
     value: AppearanceSettings[K]
@@ -109,6 +124,13 @@ interface SettingsActions {
 }
 
 const initialState: SettingsState = {
+  general: {
+    autoSaveEnabled: true,
+    autoSaveInterval: 30,
+    historyEnabled: true,
+    historyMaxSnapshots: 50,
+    historyMaxAgeDays: 7,
+  },
   appearance: {
     theme: "paper",
     latinFont: "system",
@@ -156,6 +178,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
   persist(
     (set) => ({
       ...initialState,
+
+      updateGeneralSetting: (key, value) =>
+        set((state) => ({
+          general: { ...state.general, [key]: value },
+        })),
 
       updateAppearanceSetting: (key, value) =>
         set((state) => ({

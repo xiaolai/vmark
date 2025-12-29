@@ -88,3 +88,27 @@
 .status-toggle.active {
   color: var(--primary-color);
 }
+
+.status-autosave {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 11px;
+  animation: autosave-fade 5s ease-out forwards;
+}
+
+@keyframes autosave-fade {
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}

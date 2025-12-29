@@ -1,10 +1,23 @@
-import { useState, useMemo } from "react";
-import { FolderOpen, TableOfContents, PanelRightOpen } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import {
+  FolderOpen,
+  TableOfContents,
+  History,
+  PanelRightOpen,
+  RotateCcw,
+} from "lucide-react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  getSnapshots,
+  revertToSnapshot,
+  type Snapshot,
+} from "@/utils/historyUtils";
+import { formatSnapshotTime, groupByDay } from "@/utils/dateUtils";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { ask } from "@tauri-apps/plugin-dialog";
 import "./Sidebar.css";
-
-type ViewMode = "files" | "outline";
 
 interface HeadingItem {
   level: number;
@@ -72,11 +85,193 @@ function OutlineView() {
   );
 }
 
+
+function HistoryView() {
+  const filePath = useEditorStore((state) => state.filePath);
+  const content = useEditorStore((state) => state.content);
+  const historyEnabled = useSettingsStore((state) => state.general.historyEnabled);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [loading, setLoading] = useState(false);
+  const requestIdRef = useRef(0);
+
+  // Fetch snapshots when filePath changes (with cancellation)
+  useEffect(() => {
+    if (!filePath || !historyEnabled) {
+      setSnapshots([]);
+      return;
+    }
+
+    // Increment request ID to cancel stale requests
+    const currentRequestId = ++requestIdRef.current;
+
+    const fetchSnapshots = async () => {
+      setLoading(true);
+      try {
+        const snaps = await getSnapshots(filePath);
+        // Only update if this is still the current request
+        if (currentRequestId === requestIdRef.current) {
+          setSnapshots(snaps);
+        }
+      } catch (error) {
+        if (currentRequestId === requestIdRef.current) {
+          console.error("Failed to fetch snapshots:", error);
+          setSnapshots([]);
+        }
+      } finally {
+        if (currentRequestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchSnapshots();
+  }, [filePath, historyEnabled]);
+
+  const handleRevert = async (snapshot: Snapshot) => {
+    if (!filePath) return;
+
+    const confirmed = await ask(
+      `Revert to version from ${formatSnapshotTime(snapshot.timestamp)}?\n\nYour current changes will be saved as a new history entry first.`,
+      {
+        title: "Revert to Earlier Version",
+        kind: "warning",
+      }
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { general } = useSettingsStore.getState();
+      const restoredContent = await revertToSnapshot(
+        filePath,
+        snapshot.id,
+        content,
+        {
+          maxSnapshots: general.historyMaxSnapshots,
+          maxAgeDays: general.historyMaxAgeDays,
+        }
+      );
+
+      if (restoredContent !== null) {
+        // Write to file
+        await writeTextFile(filePath, restoredContent);
+        // Update editor
+        useEditorStore.getState().loadContent(restoredContent, filePath);
+        // Refresh snapshots
+        const snaps = await getSnapshots(filePath);
+        setSnapshots(snaps);
+      }
+    } catch (error) {
+      console.error("Failed to revert:", error);
+    }
+  };
+
+  if (!filePath) {
+    return (
+      <div className="sidebar-view">
+        <div className="sidebar-empty">Save document to enable history</div>
+      </div>
+    );
+  }
+
+  if (!historyEnabled) {
+    return (
+      <div className="sidebar-view">
+        <div className="sidebar-empty">History is disabled in settings</div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="sidebar-view">
+        <div className="sidebar-empty">Loading...</div>
+      </div>
+    );
+  }
+
+  if (snapshots.length === 0) {
+    return (
+      <div className="sidebar-view">
+        <div className="sidebar-empty">No history yet</div>
+      </div>
+    );
+  }
+
+  const grouped = groupByDay(snapshots, (s) => s.timestamp);
+
+  return (
+    <div className="sidebar-view history-view">
+      {Array.from(grouped.entries()).map(([day, daySnapshots]) => (
+        <div key={day} className="history-group">
+          <div className="history-day">{day}</div>
+          {daySnapshots.map((snapshot) => (
+            <div key={snapshot.id} className="history-item">
+              <div className="history-item-info">
+                <span className="history-time">
+                  {new Date(snapshot.timestamp).toLocaleTimeString(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span className="history-type">({snapshot.type})</span>
+              </div>
+              <button
+                className="history-revert-btn"
+                onClick={() => handleRevert(snapshot)}
+                title="Revert to this version"
+              >
+                <RotateCcw size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Sidebar() {
-  const [viewMode, setViewMode] = useState<ViewMode>("outline");
+  const viewMode = useUIStore((state) => state.sidebarViewMode);
 
   const handleToggleView = () => {
-    setViewMode((prev) => (prev === "files" ? "outline" : "files"));
+    const { sidebarViewMode, setSidebarViewMode } = useUIStore.getState();
+    if (sidebarViewMode === "outline") setSidebarViewMode("history");
+    else if (sidebarViewMode === "history") setSidebarViewMode("files");
+    else setSidebarViewMode("outline");
+  };
+
+  const getViewIcon = () => {
+    switch (viewMode) {
+      case "files":
+        return <FolderOpen size={16} />;
+      case "outline":
+        return <TableOfContents size={16} />;
+      case "history":
+        return <History size={16} />;
+    }
+  };
+
+  const getViewTitle = () => {
+    switch (viewMode) {
+      case "files":
+        return "FILES";
+      case "outline":
+        return "OUTLINE";
+      case "history":
+        return "HISTORY";
+    }
+  };
+
+  const getNextViewName = () => {
+    switch (viewMode) {
+      case "outline":
+        return "History";
+      case "history":
+        return "Files";
+      case "files":
+        return "Outline";
+    }
   };
 
   return (
@@ -87,17 +282,11 @@ export function Sidebar() {
         <button
           className="sidebar-btn"
           onClick={handleToggleView}
-          title={viewMode === "files" ? "Show Outline" : "Show Files"}
+          title={`Show ${getNextViewName()}`}
         >
-          {viewMode === "files" ? (
-            <FolderOpen size={16} />
-          ) : (
-            <TableOfContents size={16} />
-          )}
+          {getViewIcon()}
         </button>
-        <span className="sidebar-title">
-          {viewMode === "files" ? "FILES" : "OUTLINE"}
-        </span>
+        <span className="sidebar-title">{getViewTitle()}</span>
         <button
           className="sidebar-btn"
           onClick={() => useUIStore.getState().toggleSidebar()}
@@ -108,7 +297,9 @@ export function Sidebar() {
       </div>
 
       <div className="sidebar-content">
-        {viewMode === "files" ? <FilesView /> : <OutlineView />}
+        {viewMode === "files" && <FilesView />}
+        {viewMode === "outline" && <OutlineView />}
+        {viewMode === "history" && <HistoryView />}
       </div>
     </div>
   );

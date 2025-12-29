@@ -1,7 +1,8 @@
-import { useMemo } from "react";
-import { Code2, Type, PanelLeft } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { Code2, Type, PanelLeft, Save } from "lucide-react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
+import { formatRelativeTime, formatExactTime } from "@/utils/dateUtils";
 import "./StatusBar.css";
 
 function countWords(text: string): number {
@@ -20,7 +21,34 @@ export function StatusBar() {
   const filePath = useEditorStore((state) => state.filePath);
   const isDirty = useEditorStore((state) => state.isDirty);
   const sourceMode = useEditorStore((state) => state.sourceMode);
+  const lastAutoSave = useEditorStore((state) => state.lastAutoSave);
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);
+
+  const [showAutoSave, setShowAutoSave] = useState(false);
+  const [autoSaveTime, setAutoSaveTime] = useState<string>("");
+
+  // Show auto-save indicator when lastAutoSave changes
+  useEffect(() => {
+    if (!lastAutoSave) return;
+
+    setAutoSaveTime(formatRelativeTime(lastAutoSave));
+    setShowAutoSave(true);
+
+    // Update the relative time every 10 seconds
+    const updateInterval = setInterval(() => {
+      setAutoSaveTime(formatRelativeTime(lastAutoSave));
+    }, 10000);
+
+    // Fade out after 5 seconds
+    const fadeTimeout = setTimeout(() => {
+      setShowAutoSave(false);
+    }, 5000);
+
+    return () => {
+      clearInterval(updateInterval);
+      clearTimeout(fadeTimeout);
+    };
+  }, [lastAutoSave]);
 
   const wordCount = useMemo(() => countWords(content), [content]);
   const charCount = useMemo(() => countCharacters(content), [content]);
@@ -43,6 +71,15 @@ export function StatusBar() {
           </span>
         </div>
         <div className="status-bar-right">
+          {showAutoSave && lastAutoSave && (
+            <span
+              className="status-autosave"
+              title={`Auto-saved at ${formatExactTime(lastAutoSave)}`}
+            >
+              <Save size={12} />
+              {autoSaveTime}
+            </span>
+          )}
           <span className="status-item">{wordCount} words</span>
           <span className="status-item">{charCount} characters</span>
           <button

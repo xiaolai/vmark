@@ -17,6 +17,30 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ],
     )?;
 
+    // Document History submenu
+    let history_submenu = Submenu::with_items(
+        app,
+        "Document History",
+        true,
+        &[
+            &MenuItem::with_id(
+                app,
+                "view-history",
+                "View History...",
+                true,
+                Some("CmdOrCtrl+Shift+H"),
+            )?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(
+                app,
+                "clear-history",
+                "Clear History...",
+                true,
+                None::<&str>,
+            )?,
+        ],
+    )?;
+
     // Edit menu (use PredefinedMenuItem for native behavior)
     let edit_menu = Submenu::with_items(
         app,
@@ -53,6 +77,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 true,
                 Some("CmdOrCtrl+E"),
             )?,
+            &PredefinedMenuItem::separator(app)?,
+            &history_submenu,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,

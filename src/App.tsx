@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
 import { useFileOperations } from "@/hooks/useFileOperations";
 import { useSearchCommands } from "@/hooks/useSearchCommands";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import { useTheme } from "@/hooks/useTheme";
 import { useSettingsSync } from "@/hooks/useSettingsSync";
 
@@ -25,6 +26,7 @@ function MainLayout() {
   useSearchCommands();
   useSettingsSync(); // Sync settings across windows
   useTheme();
+  useAutoSave(); // Auto-save when dirty
 
   const classNames = [
     "app-layout",

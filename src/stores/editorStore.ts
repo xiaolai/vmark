@@ -31,6 +31,7 @@ interface EditorState {
   wordWrap: boolean;
   documentId: number; // Increments on new document to force editor recreation
   cursorInfo: CursorInfo | null; // Cursor position for syncing between modes
+  lastAutoSave: number | null; // Timestamp of last auto-save
 }
 
 interface EditorActions {
@@ -38,6 +39,7 @@ interface EditorActions {
   loadContent: (content: string, filePath?: string | null) => void;
   setFilePath: (path: string | null) => void;
   markSaved: () => void;
+  markAutoSaved: () => void;
   toggleFocusMode: () => void;
   toggleTypewriterMode: () => void;
   toggleSourceMode: () => void;
@@ -57,6 +59,7 @@ const initialState: EditorState = {
   wordWrap: true,
   documentId: 0,
   cursorInfo: null,
+  lastAutoSave: null,
 };
 
 export const useEditorStore = create<EditorState & EditorActions>((set) => ({
@@ -83,6 +86,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
     set((state) => ({
       savedContent: state.content,
       isDirty: false,
+    })),
+
+  markAutoSaved: () =>
+    set((state) => ({
+      savedContent: state.content,
+      isDirty: false,
+      lastAutoSave: Date.now(),
     })),
 
   toggleFocusMode: () =>

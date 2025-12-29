@@ -3,12 +3,33 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open, save, ask } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEditorStore } from "@/stores/editorStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { createSnapshot } from "@/utils/historyUtils";
 
-async function saveToPath(path: string, content: string): Promise<boolean> {
+async function saveToPath(
+  path: string,
+  content: string,
+  saveType: "manual" | "auto" = "manual"
+): Promise<boolean> {
   try {
     await writeTextFile(path, content);
     useEditorStore.getState().setFilePath(path);
     useEditorStore.getState().markSaved();
+
+    // Create history snapshot if enabled
+    const { general } = useSettingsStore.getState();
+    if (general.historyEnabled) {
+      try {
+        await createSnapshot(path, content, saveType, {
+          maxSnapshots: general.historyMaxSnapshots,
+          maxAgeDays: general.historyMaxAgeDays,
+        });
+      } catch (historyError) {
+        console.warn("[History] Failed to create snapshot:", historyError);
+        // Don't fail the save operation if history fails
+      }
+    }
+
     return true;
   } catch (error) {
     console.error("Failed to save file:", error);
@@ -54,18 +75,13 @@ export function useFileOperations() {
   const handleSave = useCallback(async () => {
     const { content, filePath } = useEditorStore.getState();
     if (filePath) {
-      try {
-        await writeTextFile(filePath, content);
-        useEditorStore.getState().markSaved();
-      } catch (error) {
-        console.error("Failed to save file:", error);
-      }
+      await saveToPath(filePath, content, "manual");
     } else {
       const path = await save({
         filters: [{ name: "Markdown", extensions: ["md"] }],
       });
       if (path) {
-        await saveToPath(path, content);
+        await saveToPath(path, content, "manual");
       }
     }
   }, []);

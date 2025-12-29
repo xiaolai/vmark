@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
+import { clearAllHistory } from "@/utils/historyUtils";
 
 export function useMenuEvents() {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -77,6 +79,33 @@ export function useMenuEvents() {
       });
       if (cancelled) { unlistenPreferences(); return; }
       unlistenRefs.current.push(unlistenPreferences);
+
+      // History menu events
+      const unlistenViewHistory = await listen("menu:view-history", () => {
+        useUIStore.getState().showSidebarWithView("history");
+      });
+      if (cancelled) { unlistenViewHistory(); return; }
+      unlistenRefs.current.push(unlistenViewHistory);
+
+      const unlistenClearHistory = await listen("menu:clear-history", async () => {
+        const confirmed = await ask(
+          "This will permanently delete all document history. This action cannot be undone.",
+          {
+            title: "Clear All History",
+            kind: "warning",
+          }
+        );
+        if (confirmed) {
+          try {
+            await clearAllHistory();
+            console.log("[History] All history cleared");
+          } catch (error) {
+            console.error("[History] Failed to clear history:", error);
+          }
+        }
+      });
+      if (cancelled) { unlistenClearHistory(); return; }
+      unlistenRefs.current.push(unlistenClearHistory);
     };
 
     setupListeners();
