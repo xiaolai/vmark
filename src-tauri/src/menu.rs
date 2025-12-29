@@ -101,6 +101,26 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ],
     )?;
 
+    // Selection submenu
+    let selection_submenu = Submenu::with_items(
+        app,
+        "Selection",
+        true,
+        &[
+            &MenuItem::with_id(app, "select-word", "Select Word", true, None::<&str>)?,
+            &MenuItem::with_id(app, "select-line", "Select Line", true, Some("CmdOrCtrl+L"))?,
+            &MenuItem::with_id(app, "select-block", "Select Block", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(
+                app,
+                "expand-selection",
+                "Expand Selection",
+                true,
+                Some("Ctrl+Shift+Up"),
+            )?,
+        ],
+    )?;
+
     // Edit menu (use PredefinedMenuItem for native behavior)
     let edit_menu = Submenu::with_items(
         app,
@@ -114,6 +134,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &PredefinedMenuItem::copy(app, Some("Copy"))?,
             &PredefinedMenuItem::paste(app, Some("Paste"))?,
             &PredefinedMenuItem::select_all(app, Some("Select All"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &selection_submenu,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,
