@@ -13,18 +13,34 @@ export function useSettingsSync() {
       if (event.key === STORAGE_KEY && event.newValue) {
         try {
           const parsed = JSON.parse(event.newValue);
-          if (parsed.state?.appearance) {
-            // Update the store with the new state from another window
-            const currentState = useSettingsStore.getState();
-            const newAppearance = parsed.state.appearance;
+          const currentState = useSettingsStore.getState();
+          const updates: Record<string, unknown> = {};
 
-            // Only update if different to avoid loops
+          // Sync appearance settings
+          if (parsed.state?.appearance) {
+            const newAppearance = parsed.state.appearance;
             if (
               JSON.stringify(currentState.appearance) !==
               JSON.stringify(newAppearance)
             ) {
-              useSettingsStore.setState({ appearance: newAppearance });
+              updates.appearance = newAppearance;
             }
+          }
+
+          // Sync CJK formatting settings
+          if (parsed.state?.cjkFormatting) {
+            const newCjkFormatting = parsed.state.cjkFormatting;
+            if (
+              JSON.stringify(currentState.cjkFormatting) !==
+              JSON.stringify(newCjkFormatting)
+            ) {
+              updates.cjkFormatting = newCjkFormatting;
+            }
+          }
+
+          // Apply updates if any
+          if (Object.keys(updates).length > 0) {
+            useSettingsStore.setState(updates);
           }
         } catch {
           // Ignore parse errors

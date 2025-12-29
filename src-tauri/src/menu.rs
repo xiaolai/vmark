@@ -230,6 +230,21 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 true,
                 Some("CmdOrCtrl+\\"),
             )?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(
+                app,
+                "format-cjk",
+                "Format CJK Text",
+                true,
+                Some("CmdOrCtrl+Shift+F"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                "format-cjk-file",
+                "Format Entire File",
+                true,
+                Some("Alt+CmdOrCtrl+Shift+F"),
+            )?,
         ],
     )?;
 

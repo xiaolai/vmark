@@ -52,14 +52,46 @@ interface AppearanceSettings {
   paragraphSpacing: number;
 }
 
+export interface CJKFormattingSettings {
+  // Group 1: Universal
+  ellipsisNormalization: boolean;
+  newlineCollapsing: boolean;
+  // Group 2: Fullwidth Normalization
+  fullwidthAlphanumeric: boolean;
+  fullwidthPunctuation: boolean;
+  fullwidthParentheses: boolean;
+  fullwidthBrackets: boolean;
+  // Group 3: Spacing
+  cjkEnglishSpacing: boolean;
+  cjkParenthesisSpacing: boolean;
+  currencySpacing: boolean;
+  slashSpacing: boolean;
+  spaceCollapsing: boolean;
+  // Group 4: Dash & Quote
+  dashConversion: boolean;
+  emdashSpacing: boolean;
+  quoteSpacing: boolean;
+  singleQuoteSpacing: boolean;
+  cjkCornerQuotes: boolean;
+  cjkNestedQuotes: boolean;
+  // Group 5: Cleanup
+  consecutivePunctuationLimit: number; // 0=off, 1=single, 2=double
+  trailingSpaceRemoval: boolean;
+}
+
 interface SettingsState {
   appearance: AppearanceSettings;
+  cjkFormatting: CJKFormattingSettings;
 }
 
 interface SettingsActions {
   updateAppearanceSetting: <K extends keyof AppearanceSettings>(
     key: K,
     value: AppearanceSettings[K]
+  ) => void;
+  updateCJKFormattingSetting: <K extends keyof CJKFormattingSettings>(
+    key: K,
+    value: CJKFormattingSettings[K]
   ) => void;
   resetSettings: () => void;
 }
@@ -74,6 +106,32 @@ const initialState: SettingsState = {
     lineHeight: 1.6,
     paragraphSpacing: 1,
   },
+  cjkFormatting: {
+    // Group 1: Universal
+    ellipsisNormalization: true,
+    newlineCollapsing: true,
+    // Group 2: Fullwidth Normalization
+    fullwidthAlphanumeric: true,
+    fullwidthPunctuation: true,
+    fullwidthParentheses: true,
+    fullwidthBrackets: false, // OFF by default
+    // Group 3: Spacing
+    cjkEnglishSpacing: true,
+    cjkParenthesisSpacing: true,
+    currencySpacing: true,
+    slashSpacing: true,
+    spaceCollapsing: true,
+    // Group 4: Dash & Quote
+    dashConversion: true,
+    emdashSpacing: true,
+    quoteSpacing: true,
+    singleQuoteSpacing: true,
+    cjkCornerQuotes: false, // OFF by default
+    cjkNestedQuotes: false, // OFF by default
+    // Group 5: Cleanup
+    consecutivePunctuationLimit: 0, // 0=off
+    trailingSpaceRemoval: true,
+  },
 };
 
 export const useSettingsStore = create<SettingsState & SettingsActions>()(
@@ -84,6 +142,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateAppearanceSetting: (key, value) =>
         set((state) => ({
           appearance: { ...state.appearance, [key]: value },
+        })),
+
+      updateCJKFormattingSetting: (key, value) =>
+        set((state) => ({
+          cjkFormatting: { ...state.cjkFormatting, [key]: value },
         })),
 
       resetSettings: () => set(initialState),

@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Palette, Settings, FolderOpen, Zap } from "lucide-react";
+import { Palette, Settings, FolderOpen, Zap, Languages } from "lucide-react";
 import {
   useSettingsStore,
   themes,
   type ThemeId,
 } from "@/stores/settingsStore";
 import { useTheme } from "@/hooks/useTheme";
+import { CJKFormattingSettings } from "./settings/CJKFormattingSettings";
 
-type Section = "appearance" | "general" | "files" | "advanced";
+type Section = "appearance" | "formatting" | "general" | "files" | "advanced";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -69,12 +70,12 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative w-10 h-6 rounded-full transition-colors
+      className={`relative w-7 h-4 rounded-full transition-colors
                   ${checked ? "bg-[var(--accent-primary)]" : "bg-[var(--bg-tertiary)]"}`}
     >
       <span
-        className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow
-                    transition-transform ${checked ? "translate-x-4" : ""}`}
+        className={`absolute top-[3px] left-[3px] w-2.5 h-2.5 rounded-full bg-white shadow
+                    transition-transform ${checked ? "translate-x-3" : ""}`}
       />
     </button>
   );
@@ -322,6 +323,7 @@ export function SettingsPage() {
 
   const navItems = [
     { id: "appearance" as const, icon: <Palette className="w-4 h-4" />, label: "Appearance" },
+    { id: "formatting" as const, icon: <Languages className="w-4 h-4" />, label: "CJK Formatting" },
     { id: "general" as const, icon: <Settings className="w-4 h-4" />, label: "General" },
     { id: "files" as const, icon: <FolderOpen className="w-4 h-4" />, label: "Files" },
     { id: "advanced" as const, icon: <Zap className="w-4 h-4" />, label: "Advanced" },
@@ -359,6 +361,7 @@ export function SettingsPage() {
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
           {section === "appearance" && <AppearanceSettings />}
+          {section === "formatting" && <CJKFormattingSettings />}
           {section === "general" && <GeneralSettings />}
           {section === "files" && <FilesSettings />}
           {section === "advanced" && <AdvancedSettings />}

@@ -29,6 +29,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useParagraphCommands } from "@/hooks/useParagraphCommands";
 import { useFormatCommands } from "@/hooks/useFormatCommands";
 import { useTableCommands } from "@/hooks/useTableCommands";
+import { useCJKFormatCommands } from "@/hooks/useCJKFormatCommands";
 import {
   getCursorInfoFromProseMirror,
   restoreCursorInProseMirror,
@@ -191,6 +192,9 @@ function MilkdownEditorInner() {
 
   // Handle Table menu events
   useTableCommands(get);
+
+  // Handle CJK Format menu events
+  useCJKFormatCommands(get);
 
   // Handle Format menu events
   useEffect(() => {
