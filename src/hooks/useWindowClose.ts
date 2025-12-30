@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -16,65 +16,77 @@ import { useRecentFilesStore } from "../stores/recentFilesStore";
  */
 export function useWindowClose() {
   const windowLabel = useWindowLabel();
+  // Prevent re-entry during close handling (avoids duplicate dialogs)
+  const isClosingRef = useRef(false);
 
   const handleCloseRequest = useCallback(async () => {
-    const doc = useDocumentStore.getState().getDocument(windowLabel);
+    // Guard against duplicate close requests
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
 
-    // If document is not dirty, just close
-    if (!doc || !doc.isDirty) {
-      // Remove document from store and close window
-      useDocumentStore.getState().removeDocument(windowLabel);
-      await invoke("close_window", { label: windowLabel });
-      return;
-    }
+    try {
+      const doc = useDocumentStore.getState().getDocument(windowLabel);
 
-    // Show Save/Don't Save/Cancel dialog
-    const { ask, message } = await import("@tauri-apps/plugin-dialog");
-
-    const shouldSave = await ask(
-      `Do you want to save changes to "${doc.filePath || "Untitled"}"?`,
-      {
-        title: "Unsaved Changes",
-        kind: "warning",
-        okLabel: "Save",
-        cancelLabel: "Don't Save",
-      }
-    );
-
-    if (shouldSave === null) {
-      // User cancelled (closed dialog) - don't close window
-      return;
-    }
-
-    if (shouldSave) {
-      // Save the document
-      let path = doc.filePath;
-      if (!path) {
-        const newPath = await save({
-          filters: [{ name: "Markdown", extensions: ["md"] }],
-        });
-        if (!newPath) {
-          // User cancelled save dialog - don't close window
-          return;
-        }
-        path = newPath;
-      }
-
-      try {
-        await writeTextFile(path, doc.content);
-        useRecentFilesStore.getState().addFile(path);
-      } catch (error) {
-        await message(`Failed to save file: ${error}`, {
-          title: "Error",
-          kind: "error",
-        });
+      // If document is not dirty, just close
+      if (!doc || !doc.isDirty) {
+        // Remove document from store and close window
+        useDocumentStore.getState().removeDocument(windowLabel);
+        await invoke("close_window", { label: windowLabel });
         return;
       }
-    }
 
-    // Close the window
-    useDocumentStore.getState().removeDocument(windowLabel);
-    await invoke("close_window", { label: windowLabel });
+      // Show Save/Don't Save/Cancel dialog
+      const { ask, message } = await import("@tauri-apps/plugin-dialog");
+
+      const shouldSave = await ask(
+        `Do you want to save changes to "${doc.filePath || "Untitled"}"?`,
+        {
+          title: "Unsaved Changes",
+          kind: "warning",
+          okLabel: "Save",
+          cancelLabel: "Don't Save",
+        }
+      );
+
+      if (shouldSave === null) {
+        // User cancelled (closed dialog) - don't close window
+        return;
+      }
+
+      if (shouldSave) {
+        // Save the document
+        let path = doc.filePath;
+        if (!path) {
+          const newPath = await save({
+            filters: [{ name: "Markdown", extensions: ["md"] }],
+          });
+          if (!newPath) {
+            // User cancelled save dialog - don't close window
+            return;
+          }
+          path = newPath;
+        }
+
+        try {
+          await writeTextFile(path, doc.content);
+          useRecentFilesStore.getState().addFile(path);
+        } catch (error) {
+          await message(`Failed to save file: ${error}`, {
+            title: "Error",
+            kind: "error",
+          });
+          return;
+        }
+      }
+
+      // Close the window
+      useDocumentStore.getState().removeDocument(windowLabel);
+      await invoke("close_window", { label: windowLabel });
+    } catch (error) {
+      console.error("Failed to close window:", error);
+    } finally {
+      isClosingRef.current = false;
+    }
   }, [windowLabel]);
 
   useEffect(() => {

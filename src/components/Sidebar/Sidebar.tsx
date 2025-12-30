@@ -109,6 +109,7 @@ function HistoryView() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(false);
   const requestIdRef = useRef(0);
+  const isRevertingRef = useRef(false);
 
   // Fetch snapshots when filePath changes (with cancellation)
   useEffect(() => {
@@ -145,18 +146,21 @@ function HistoryView() {
 
   const handleRevert = async (snapshot: Snapshot) => {
     if (!filePath) return;
-
-    const confirmed = await ask(
-      `Revert to version from ${formatSnapshotTime(snapshot.timestamp)}?\n\nYour current changes will be saved as a new history entry first.`,
-      {
-        title: "Revert to Earlier Version",
-        kind: "warning",
-      }
-    );
-
-    if (!confirmed) return;
+    // Prevent re-entry (duplicate dialogs from rapid clicks)
+    if (isRevertingRef.current) return;
+    isRevertingRef.current = true;
 
     try {
+      const confirmed = await ask(
+        `Revert to version from ${formatSnapshotTime(snapshot.timestamp)}?\n\nYour current changes will be saved as a new history entry first.`,
+        {
+          title: "Revert to Earlier Version",
+          kind: "warning",
+        }
+      );
+
+      if (!confirmed) return;
+
       const { general } = useSettingsStore.getState();
       const restoredContent = await revertToSnapshot(
         filePath,
@@ -179,6 +183,8 @@ function HistoryView() {
       }
     } catch (error) {
       console.error("Failed to revert:", error);
+    } finally {
+      isRevertingRef.current = false;
     }
   };
 

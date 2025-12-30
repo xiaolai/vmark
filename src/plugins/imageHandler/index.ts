@@ -17,6 +17,9 @@ import { saveImageToAssets, insertImageNode } from "@/utils/imageUtils";
 
 export const imageHandlerPluginKey = new PluginKey("imageHandler");
 
+// Re-entry guard for clipboard image processing (prevents duplicate dialogs)
+let isProcessingClipboardImage = false;
+
 /**
  * Process clipboard image item.
  */
@@ -24,18 +27,22 @@ async function processClipboardImage(
   view: EditorView,
   item: DataTransferItem
 ): Promise<void> {
-  const { filePath } = useEditorStore.getState();
-
-  if (!filePath) {
-    await message(
-      "Please save the document first before pasting images. " +
-        "Images are stored relative to the document location.",
-      { title: "Unsaved Document", kind: "warning" }
-    );
-    return;
-  }
+  // Guard against rapid pastes causing duplicate dialogs
+  if (isProcessingClipboardImage) return;
+  isProcessingClipboardImage = true;
 
   try {
+    const { filePath } = useEditorStore.getState();
+
+    if (!filePath) {
+      await message(
+        "Please save the document first before pasting images. " +
+          "Images are stored relative to the document location.",
+        { title: "Unsaved Document", kind: "warning" }
+      );
+      return;
+    }
+
     const file = item.getAsFile();
     if (!file) return;
 
@@ -51,6 +58,8 @@ async function processClipboardImage(
   } catch (error) {
     console.error("Failed to process clipboard image:", error);
     await message("Failed to save image from clipboard.", { kind: "error" });
+  } finally {
+    isProcessingClipboardImage = false;
   }
 }
 

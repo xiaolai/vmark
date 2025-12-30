@@ -10,6 +10,9 @@ import { useEditorStore } from "@/stores/editorStore";
 import { copyImageToAssets } from "@/utils/imageUtils";
 import { isWindowFocused } from "@/utils/windowFocus";
 
+// Re-entry guard for image insertion (prevents duplicate dialogs)
+const isInsertingImageRef = { current: false };
+
 type GetEditor = () => Editor | undefined;
 
 export function useFormatCommands(getEditor: GetEditor) {
@@ -28,6 +31,9 @@ export function useFormatCommands(getEditor: GetEditor) {
       // Insert Image - copies to assets folder
       const unlistenImage = await listen("menu:image", async () => {
         if (!(await isWindowFocused())) return;
+        if (isInsertingImageRef.current) return;
+        isInsertingImageRef.current = true;
+
         try {
           const sourcePath = await open({
             filters: [
@@ -67,6 +73,8 @@ export function useFormatCommands(getEditor: GetEditor) {
         } catch (error) {
           console.error("Failed to insert image:", error);
           await message("Failed to insert image.", { kind: "error" });
+        } finally {
+          isInsertingImageRef.current = false;
         }
       });
       if (cancelled) { unlistenImage(); return; }

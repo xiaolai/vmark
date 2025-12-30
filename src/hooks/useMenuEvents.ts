@@ -11,6 +11,12 @@ import { clearAllHistory } from "@/utils/historyUtils";
 import { exportToHtml, exportToPdf, savePdf, copyAsHtml } from "@/utils/exportUtils";
 import { isWindowFocused } from "@/utils/windowFocus";
 
+// Re-entry guards for menu operations (prevents duplicate dialogs)
+const isClearingHistoryRef = { current: false };
+const isClearingRecentRef = { current: false };
+const isOpeningRecentRef = { current: false };
+const isExportingRef = { current: false };
+
 export function useMenuEvents() {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 
@@ -101,20 +107,25 @@ export function useMenuEvents() {
 
       const unlistenClearHistory = await listen("menu:clear-history", async () => {
         if (!(await isWindowFocused())) return;
-        const confirmed = await ask(
-          "This will permanently delete all document history. This action cannot be undone.",
-          {
-            title: "Clear All History",
-            kind: "warning",
-          }
-        );
-        if (confirmed) {
-          try {
+        if (isClearingHistoryRef.current) return;
+        isClearingHistoryRef.current = true;
+
+        try {
+          const confirmed = await ask(
+            "This will permanently delete all document history. This action cannot be undone.",
+            {
+              title: "Clear All History",
+              kind: "warning",
+            }
+          );
+          if (confirmed) {
             await clearAllHistory();
             console.log("[History] All history cleared");
-          } catch (error) {
-            console.error("[History] Failed to clear history:", error);
           }
+        } catch (error) {
+          console.error("[History] Failed to clear history:", error);
+        } finally {
+          isClearingHistoryRef.current = false;
         }
       });
       if (cancelled) { unlistenClearHistory(); return; }
@@ -123,18 +134,25 @@ export function useMenuEvents() {
       // Clear Recent Files
       const unlistenClearRecent = await listen("menu:clear-recent", async () => {
         if (!(await isWindowFocused())) return;
+        if (isClearingRecentRef.current) return;
+
         const { files } = useRecentFilesStore.getState();
         if (files.length === 0) return;
 
-        const confirmed = await ask(
-          "Clear the list of recently opened files?",
-          {
-            title: "Clear Recent Files",
-            kind: "warning",
+        isClearingRecentRef.current = true;
+        try {
+          const confirmed = await ask(
+            "Clear the list of recently opened files?",
+            {
+              title: "Clear Recent Files",
+              kind: "warning",
+            }
+          );
+          if (confirmed) {
+            useRecentFilesStore.getState().clearAll();
           }
-        );
-        if (confirmed) {
-          useRecentFilesStore.getState().clearAll();
+        } finally {
+          isClearingRecentRef.current = false;
         }
       });
       if (cancelled) { unlistenClearRecent(); return; }
@@ -143,26 +161,31 @@ export function useMenuEvents() {
       // Open Recent File from menu
       const unlistenOpenRecent = await listen<number>("menu:open-recent-file", async (event) => {
         if (!(await isWindowFocused())) return;
+        if (isOpeningRecentRef.current) return;
+        isOpeningRecentRef.current = true;
 
         const index = event.payload;
         const { files } = useRecentFilesStore.getState();
 
-        if (index < 0 || index >= files.length) return;
+        if (index < 0 || index >= files.length) {
+          isOpeningRecentRef.current = false;
+          return;
+        }
 
         const file = files[index];
 
-        // Get current window label and check for unsaved changes
-        const windowLabel = getCurrentWebviewWindow().label;
-        const doc = useDocumentStore.getState().getDocument(windowLabel);
-        if (doc?.isDirty) {
-          const confirmed = await ask("You have unsaved changes. Discard them?", {
-            title: "Unsaved Changes",
-            kind: "warning",
-          });
-          if (!confirmed) return;
-        }
-
         try {
+          // Get current window label and check for unsaved changes
+          const windowLabel = getCurrentWebviewWindow().label;
+          const doc = useDocumentStore.getState().getDocument(windowLabel);
+          if (doc?.isDirty) {
+            const confirmed = await ask("You have unsaved changes. Discard them?", {
+              title: "Unsaved Changes",
+              kind: "warning",
+            });
+            if (!confirmed) return;
+          }
+
           const content = await readTextFile(file.path);
           useDocumentStore.getState().loadContent(windowLabel, content, file.path);
           useRecentFilesStore.getState().addFile(file.path); // Move to top
@@ -175,57 +198,95 @@ export function useMenuEvents() {
           if (remove) {
             useRecentFilesStore.getState().removeFile(file.path);
           }
+        } finally {
+          isOpeningRecentRef.current = false;
         }
       });
       if (cancelled) { unlistenOpenRecent(); return; }
       unlistenRefs.current.push(unlistenOpenRecent);
 
-      // Export menu events
+      // Export menu events - share single guard (exports shouldn't run simultaneously)
       const unlistenExportHtml = await listen("menu:export-html", async () => {
         if (!(await isWindowFocused())) return;
-        const windowLabel = getCurrentWebviewWindow().label;
-        const doc = useDocumentStore.getState().getDocument(windowLabel);
-        if (!doc) return;
-        const defaultName = doc.filePath
-          ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
-          : "document";
-        await exportToHtml(doc.content, defaultName);
+        if (isExportingRef.current) return;
+        isExportingRef.current = true;
+
+        try {
+          const windowLabel = getCurrentWebviewWindow().label;
+          const doc = useDocumentStore.getState().getDocument(windowLabel);
+          if (!doc) return;
+          const defaultName = doc.filePath
+            ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
+            : "document";
+          await exportToHtml(doc.content, defaultName);
+        } catch (error) {
+          console.error("Failed to export HTML:", error);
+        } finally {
+          isExportingRef.current = false;
+        }
       });
       if (cancelled) { unlistenExportHtml(); return; }
       unlistenRefs.current.push(unlistenExportHtml);
 
       const unlistenSavePdf = await listen("menu:save-pdf", async () => {
         if (!(await isWindowFocused())) return;
-        const windowLabel = getCurrentWebviewWindow().label;
-        const doc = useDocumentStore.getState().getDocument(windowLabel);
-        if (!doc) return;
-        const defaultName = doc.filePath
-          ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
-          : "document";
-        await savePdf(doc.content, defaultName);
+        if (isExportingRef.current) return;
+        isExportingRef.current = true;
+
+        try {
+          const windowLabel = getCurrentWebviewWindow().label;
+          const doc = useDocumentStore.getState().getDocument(windowLabel);
+          if (!doc) return;
+          const defaultName = doc.filePath
+            ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
+            : "document";
+          await savePdf(doc.content, defaultName);
+        } catch (error) {
+          console.error("Failed to save PDF:", error);
+        } finally {
+          isExportingRef.current = false;
+        }
       });
       if (cancelled) { unlistenSavePdf(); return; }
       unlistenRefs.current.push(unlistenSavePdf);
 
       const unlistenExportPdf = await listen("menu:export-pdf", async () => {
         if (!(await isWindowFocused())) return;
-        const windowLabel = getCurrentWebviewWindow().label;
-        const doc = useDocumentStore.getState().getDocument(windowLabel);
-        if (!doc) return;
-        const title = doc.filePath
-          ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Document"
-          : "Document";
-        await exportToPdf(doc.content, title);
+        if (isExportingRef.current) return;
+        isExportingRef.current = true;
+
+        try {
+          const windowLabel = getCurrentWebviewWindow().label;
+          const doc = useDocumentStore.getState().getDocument(windowLabel);
+          if (!doc) return;
+          const title = doc.filePath
+            ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Document"
+            : "Document";
+          await exportToPdf(doc.content, title);
+        } catch (error) {
+          console.error("Failed to export PDF:", error);
+        } finally {
+          isExportingRef.current = false;
+        }
       });
       if (cancelled) { unlistenExportPdf(); return; }
       unlistenRefs.current.push(unlistenExportPdf);
 
       const unlistenCopyHtml = await listen("menu:copy-html", async () => {
         if (!(await isWindowFocused())) return;
-        const windowLabel = getCurrentWebviewWindow().label;
-        const doc = useDocumentStore.getState().getDocument(windowLabel);
-        if (!doc) return;
-        await copyAsHtml(doc.content);
+        if (isExportingRef.current) return;
+        isExportingRef.current = true;
+
+        try {
+          const windowLabel = getCurrentWebviewWindow().label;
+          const doc = useDocumentStore.getState().getDocument(windowLabel);
+          if (!doc) return;
+          await copyAsHtml(doc.content);
+        } catch (error) {
+          console.error("Failed to copy HTML:", error);
+        } finally {
+          isExportingRef.current = false;
+        }
       });
       if (cancelled) { unlistenCopyHtml(); return; }
       unlistenRefs.current.push(unlistenCopyHtml);

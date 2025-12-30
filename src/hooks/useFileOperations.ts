@@ -9,6 +9,10 @@ import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { createSnapshot } from "@/utils/historyUtils";
 import { isWindowFocused } from "@/utils/windowFocus";
 
+// Re-entry guards for file operations (prevents duplicate dialogs)
+const isOpeningRef = { current: false };
+const isSavingRef = { current: false };
+
 async function saveToPath(
   windowLabel: string,
   path: string,
@@ -50,16 +54,19 @@ export function useFileOperations() {
   const handleOpen = useCallback(async () => {
     // Only respond if this window is focused
     if (!(await isWindowFocused())) return;
+    // Prevent re-entry (duplicate open dialogs)
+    if (isOpeningRef.current) return;
+    isOpeningRef.current = true;
 
-    const doc = useDocumentStore.getState().getDocument(windowLabel);
-    if (doc?.isDirty) {
-      const confirmed = await ask("You have unsaved changes. Discard them?", {
-        title: "Unsaved Changes",
-        kind: "warning",
-      });
-      if (!confirmed) return;
-    }
     try {
+      const doc = useDocumentStore.getState().getDocument(windowLabel);
+      if (doc?.isDirty) {
+        const confirmed = await ask("You have unsaved changes. Discard them?", {
+          title: "Unsaved Changes",
+          kind: "warning",
+        });
+        if (!confirmed) return;
+      }
       const path = await open({
         filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }],
       });
@@ -70,40 +77,56 @@ export function useFileOperations() {
       }
     } catch (error) {
       console.error("Failed to open file:", error);
+    } finally {
+      isOpeningRef.current = false;
     }
   }, [windowLabel]);
 
   const handleSave = useCallback(async () => {
     // Only respond if this window is focused
     if (!(await isWindowFocused())) return;
+    // Prevent re-entry (duplicate save dialogs)
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
 
-    const doc = useDocumentStore.getState().getDocument(windowLabel);
-    if (!doc) return;
+    try {
+      const doc = useDocumentStore.getState().getDocument(windowLabel);
+      if (!doc) return;
 
-    if (doc.filePath) {
-      await saveToPath(windowLabel, doc.filePath, doc.content, "manual");
-    } else {
-      const path = await save({
-        filters: [{ name: "Markdown", extensions: ["md"] }],
-      });
-      if (path) {
-        await saveToPath(windowLabel, path, doc.content, "manual");
+      if (doc.filePath) {
+        await saveToPath(windowLabel, doc.filePath, doc.content, "manual");
+      } else {
+        const path = await save({
+          filters: [{ name: "Markdown", extensions: ["md"] }],
+        });
+        if (path) {
+          await saveToPath(windowLabel, path, doc.content, "manual");
+        }
       }
+    } finally {
+      isSavingRef.current = false;
     }
   }, [windowLabel]);
 
   const handleSaveAs = useCallback(async () => {
     // Only respond if this window is focused
     if (!(await isWindowFocused())) return;
+    // Prevent re-entry (duplicate save dialogs) - shares guard with handleSave
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
 
-    const doc = useDocumentStore.getState().getDocument(windowLabel);
-    if (!doc) return;
+    try {
+      const doc = useDocumentStore.getState().getDocument(windowLabel);
+      if (!doc) return;
 
-    const path = await save({
-      filters: [{ name: "Markdown", extensions: ["md"] }],
-    });
-    if (path) {
-      await saveToPath(windowLabel, path, doc.content, "manual");
+      const path = await save({
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (path) {
+        await saveToPath(windowLabel, path, doc.content, "manual");
+      }
+    } finally {
+      isSavingRef.current = false;
     }
   }, [windowLabel]);
 
