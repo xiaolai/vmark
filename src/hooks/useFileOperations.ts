@@ -132,6 +132,34 @@ export function useFileOperations() {
 
   // menu:close now handled by useWindowClose hook via Rust window event
 
+  // Handle opening file from FileExplorer
+  const handleOpenFile = useCallback(
+    async (event: { payload: { path: string } }) => {
+      // Only respond if this window is focused
+      if (!(await isWindowFocused())) return;
+
+      const { path } = event.payload;
+      const doc = useDocumentStore.getState().getDocument(windowLabel);
+
+      if (doc?.isDirty) {
+        const confirmed = await ask("You have unsaved changes. Discard them?", {
+          title: "Unsaved Changes",
+          kind: "warning",
+        });
+        if (!confirmed) return;
+      }
+
+      try {
+        const content = await readTextFile(path);
+        useDocumentStore.getState().loadContent(windowLabel, content, path);
+        useRecentFilesStore.getState().addFile(path);
+      } catch (error) {
+        console.error("Failed to open file:", error);
+      }
+    },
+    [windowLabel]
+  );
+
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 
   useEffect(() => {
@@ -157,6 +185,14 @@ export function useFileOperations() {
       const unlistenSaveAs = await listen("menu:save-as", handleSaveAs);
       if (cancelled) { unlistenSaveAs(); return; }
       unlistenRefs.current.push(unlistenSaveAs);
+
+      // Listen for open-file from FileExplorer
+      const unlistenOpenFile = await listen<{ path: string }>(
+        "open-file",
+        handleOpenFile
+      );
+      if (cancelled) { unlistenOpenFile(); return; }
+      unlistenRefs.current.push(unlistenOpenFile);
     };
 
     setupListeners();
@@ -167,5 +203,5 @@ export function useFileOperations() {
       unlistenRefs.current = [];
       fns.forEach((fn) => fn());
     };
-  }, [handleOpen, handleSave, handleSaveAs]);
+  }, [handleOpen, handleSave, handleSaveAs, handleOpenFile]);
 }

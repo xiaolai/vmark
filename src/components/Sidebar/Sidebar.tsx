@@ -5,14 +5,12 @@ import {
   History,
   PanelRightOpen,
   RotateCcw,
-  FileText,
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
   useDocumentContent,
   useDocumentFilePath,
-  useDocumentIsDirty,
   useDocumentActions,
 } from "@/hooks/useDocumentState";
 import { ask } from "@tauri-apps/plugin-dialog";
@@ -22,8 +20,8 @@ import {
   type Snapshot,
 } from "@/utils/historyUtils";
 import { formatSnapshotTime, groupByDay } from "@/utils/dateUtils";
-import { getFileName } from "@/utils/pathUtils";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { FileExplorer } from "./FileExplorer";
 import "./Sidebar.css";
 
 interface HeadingItem {
@@ -53,28 +51,7 @@ function extractHeadings(content: string): HeadingItem[] {
 
 function FilesView() {
   const filePath = useDocumentFilePath();
-  const isDirty = useDocumentIsDirty();
-  const fileName = filePath ? getFileName(filePath) : null;
-
-  return (
-    <div className="sidebar-view files-view">
-      {/* Current file */}
-      {fileName ? (
-        <div className="files-section">
-          <div className="files-section-title">Current</div>
-          <div className="sidebar-file active">
-            <FileText size={14} className="file-icon" />
-            <div className="sidebar-file-name">
-              {isDirty && <span className="file-dirty-dot" />}
-              {fileName.replace(/\.md$/, "")}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="sidebar-empty">No file open</div>
-      )}
-    </div>
-  );
+  return <FileExplorer currentFilePath={filePath} />;
 }
 
 function OutlineView() {

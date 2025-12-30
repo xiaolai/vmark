@@ -1,0 +1,86 @@
+/**
+ * Context Menu Styles - macOS System Menu Style
+ * Matches trigger-menu.css design
+ */
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  max-width: 240px;
+  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.12),
+    0 0 1px rgba(0, 0, 0, 0.08);
+  padding: 5px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: var(--border-color);
+  opacity: 0.6;
+  margin: 5px 10px;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: default;
+  color: var(--text-color);
+  transition: none;
+  user-select: none;
+}
+
+.context-menu-item:hover {
+  background: var(--primary-color, #0066cc);
+  color: white;
+}
+
+.context-menu-item:hover .context-menu-item-icon {
+  color: white;
+}
+
+.context-menu-item:hover .context-menu-item-shortcut {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.context-menu-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  opacity: 0.85;
+}
+
+.context-menu-item-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.context-menu-item-label {
+  flex: 1;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.context-menu-item-shortcut {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}

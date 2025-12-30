@@ -83,6 +83,12 @@ pub fn new_window(app: AppHandle) -> Result<String, String> {
     create_document_window(&app, None).map_err(|e| e.to_string())
 }
 
+/// Open a file in a new window (Tauri command)
+#[tauri::command]
+pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, String> {
+    create_document_window(&app, Some(&path)).map_err(|e| e.to_string())
+}
+
 /// Close a specific window by label
 #[tauri::command]
 pub fn close_window(app: AppHandle, label: String) -> Result<(), String> {

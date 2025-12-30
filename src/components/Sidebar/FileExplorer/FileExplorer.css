@@ -1,0 +1,155 @@
+.file-explorer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.file-explorer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.file-explorer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.file-explorer-btn:hover {
+  background-color: var(--selection-color);
+  color: var(--text-color);
+}
+
+.file-explorer-tree {
+  flex: 1;
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.file-explorer-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* Tree node styles */
+.file-node {
+  display: flex;
+  align-items: center;
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.file-node:hover {
+  background-color: var(--selection-color);
+}
+
+.file-node.selected {
+  background-color: var(--selection-color);
+}
+
+.file-node.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.file-node.active .file-node-icon,
+.file-node.active .file-node-arrow {
+  color: white;
+}
+
+.file-node-indent {
+  width: 4px;
+  flex-shrink: 0;
+}
+
+.file-node-arrow {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.file-node-arrow:hover {
+  color: var(--text-color);
+}
+
+.file-node-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 6px;
+  color: var(--text-secondary);
+}
+
+.file-node-name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-node-input {
+  flex: 1;
+  font-size: 13px;
+  padding: 1px 4px;
+  border: 1px solid var(--primary-color);
+  border-radius: 2px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  outline: none;
+}
+
+/* Drag and drop styles */
+.file-node[data-state="drop-target"] {
+  background-color: var(--primary-color);
+  opacity: 0.3;
+}
+
+/* react-arborist overrides */
+[role="tree"] {
+  outline: none;
+}
+
+[role="treeitem"] {
+  outline: none;
+}
+
+/* Drop indicator line */
+.file-explorer-tree [data-drop-position="before"]::before,
+.file-explorer-tree [data-drop-position="after"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--primary-color);
+}
+
+.file-explorer-tree [data-drop-position="before"]::before {
+  top: 0;
+}
+
+.file-explorer-tree [data-drop-position="after"]::after {
+  bottom: 0;
+}

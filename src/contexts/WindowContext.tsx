@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useDocumentStore } from "../stores/documentStore";
+import { useRecentFilesStore } from "../stores/recentFilesStore";
 
 interface WindowContextValue {
   windowLabel: string;
@@ -32,7 +34,22 @@ export function WindowProvider({ children }: WindowProviderProps) {
             // Check if we have a file path in the URL query params
             const urlParams = new URLSearchParams(globalThis.location?.search || "");
             const filePath = urlParams.get("file");
-            useDocumentStore.getState().initDocument(label, "", filePath ?? null);
+
+            if (filePath) {
+              // Load file content from disk
+              try {
+                const content = await readTextFile(filePath);
+                useDocumentStore.getState().initDocument(label, content, filePath);
+                useRecentFilesStore.getState().addFile(filePath);
+              } catch (error) {
+                console.error("[WindowContext] Failed to load file:", filePath, error);
+                // Initialize with empty content if file can't be read
+                useDocumentStore.getState().initDocument(label, "", null);
+              }
+            } else {
+              // No file path - initialize empty document
+              useDocumentStore.getState().initDocument(label, "", null);
+            }
           }
         }
 

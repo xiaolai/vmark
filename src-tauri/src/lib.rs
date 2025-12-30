@@ -1,5 +1,6 @@
 mod menu;
 mod menu_events;
+mod watcher;
 mod window_manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -13,9 +14,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             menu::update_recent_files,
             window_manager::new_window,
+            window_manager::open_file_in_new_window,
             window_manager::close_window,
             window_manager::force_quit,
             window_manager::request_quit,
+            watcher::start_watching,
+            watcher::stop_watching,
         ])
         .setup(|app| {
             let menu = menu::create_menu(app.handle())?;
