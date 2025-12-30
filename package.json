@@ -30,6 +30,7 @@
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-opener": "^2.5.2",
+    "alfaaz": "^1.1.0",
     "dompurify": "^3.3.1",
     "html2pdf.js": "^0.12.1",
     "katex": "^0.16.27",

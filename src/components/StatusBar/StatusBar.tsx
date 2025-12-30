@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
-import { Code2, Type, PanelLeft, Save } from "lucide-react";
+import { Code2, Type, PanelLeftOpen, PanelRightOpen, Save } from "lucide-react";
+import { countWords as alfaazCount } from "alfaaz";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import {
@@ -12,15 +13,54 @@ import { formatRelativeTime, formatExactTime } from "@/utils/dateUtils";
 import { getFileName } from "@/utils/pathUtils";
 import "./StatusBar.css";
 
-function countWords(text: string): number {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0).length;
+/**
+ * Strip markdown formatting to get plain text for word counting.
+ * Removes: headers, bold/italic, links, images, code blocks, blockquotes, lists
+ */
+function stripMarkdown(text: string): string {
+  return (
+    text
+      // Remove code blocks (``` ... ```)
+      .replace(/```[\s\S]*?```/g, "")
+      // Remove inline code (` ... `)
+      .replace(/`[^`]+`/g, "")
+      // Remove images ![alt](url)
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+      // Convert links [text](url) to just text
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      // Remove headers (# ## ### etc.)
+      .replace(/^#{1,6}\s+/gm, "")
+      // Remove bold/italic markers
+      .replace(/(\*\*|__)(.*?)\1/g, "$2")
+      .replace(/(\*|_)(.*?)\1/g, "$2")
+      // Remove blockquotes
+      .replace(/^>\s+/gm, "")
+      // Remove horizontal rules
+      .replace(/^[-*_]{3,}\s*$/gm, "")
+      // Remove list markers
+      .replace(/^[\s]*[-*+]\s+/gm, "")
+      .replace(/^[\s]*\d+\.\s+/gm, "")
+      // Clean up extra whitespace
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }
 
+/**
+ * Count words using alfaaz (supports CJK - counts each CJK char as a word)
+ */
+function countWords(text: string): number {
+  const plainText = stripMarkdown(text);
+  return alfaazCount(plainText);
+}
+
+/**
+ * Count characters (excluding markdown formatting)
+ */
 function countCharacters(text: string): number {
-  return text.length;
+  const plainText = stripMarkdown(text);
+  // Exclude whitespace for character count
+  return plainText.replace(/\s/g, "").length;
 }
 
 export function StatusBar() {
@@ -70,7 +110,7 @@ export function StatusBar() {
             title="Toggle Sidebar"
             onClick={() => useUIStore.getState().toggleSidebar()}
           >
-            <PanelLeft size={14} />
+            {sidebarVisible ? <PanelRightOpen size={14} /> : <PanelLeftOpen size={14} />}
           </button>
           <span className="status-file">
             {isDirty && <span className="status-dirty-indicator" />}
