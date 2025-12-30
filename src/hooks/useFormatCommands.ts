@@ -8,6 +8,7 @@ import type { Editor } from "@milkdown/kit/core";
 import type { Node, Mark } from "@milkdown/kit/prose/model";
 import { useEditorStore } from "@/stores/editorStore";
 import { copyImageToAssets } from "@/utils/imageUtils";
+import { isWindowFocused } from "@/utils/windowFocus";
 
 type GetEditor = () => Editor | undefined;
 
@@ -26,6 +27,7 @@ export function useFormatCommands(getEditor: GetEditor) {
 
       // Insert Image - copies to assets folder
       const unlistenImage = await listen("menu:image", async () => {
+        if (!(await isWindowFocused())) return;
         try {
           const sourcePath = await open({
             filters: [
@@ -71,7 +73,8 @@ export function useFormatCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenImage);
 
       // Clear Format
-      const unlistenClearFormat = await listen("menu:clear-format", () => {
+      const unlistenClearFormat = await listen("menu:clear-format", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action((ctx) => {

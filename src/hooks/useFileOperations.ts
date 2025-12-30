@@ -7,6 +7,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { createSnapshot } from "@/utils/historyUtils";
+import { isWindowFocused } from "@/utils/windowFocus";
 
 async function saveToPath(
   windowLabel: string,
@@ -47,6 +48,9 @@ export function useFileOperations() {
   const windowLabel = useWindowLabel();
 
   const handleOpen = useCallback(async () => {
+    // Only respond if this window is focused
+    if (!(await isWindowFocused())) return;
+
     const doc = useDocumentStore.getState().getDocument(windowLabel);
     if (doc?.isDirty) {
       const confirmed = await ask("You have unsaved changes. Discard them?", {
@@ -70,6 +74,9 @@ export function useFileOperations() {
   }, [windowLabel]);
 
   const handleSave = useCallback(async () => {
+    // Only respond if this window is focused
+    if (!(await isWindowFocused())) return;
+
     const doc = useDocumentStore.getState().getDocument(windowLabel);
     if (!doc) return;
 
@@ -86,6 +93,9 @@ export function useFileOperations() {
   }, [windowLabel]);
 
   const handleSaveAs = useCallback(async () => {
+    // Only respond if this window is focused
+    if (!(await isWindowFocused())) return;
+
     const doc = useDocumentStore.getState().getDocument(windowLabel);
     if (!doc) return;
 

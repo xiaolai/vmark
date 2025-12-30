@@ -19,6 +19,7 @@ import {
   type AlertType,
 } from "@/plugins/alertBlock";
 import { insertDetailsBlockCommand } from "@/plugins/detailsBlock";
+import { isWindowFocused } from "@/utils/windowFocus";
 
 type GetEditor = () => Editor | undefined;
 
@@ -53,7 +54,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       // Heading commands (Cmd+1 through Cmd+6)
       for (let level = 1; level <= 6; level++) {
         if (cancelled) break;
-        const unlisten = await listen(`menu:heading-${level}`, () => {
+        const unlisten = await listen(`menu:heading-${level}`, async () => {
+          if (!(await isWindowFocused())) return;
           const editor = getEditor();
           if (editor) {
             editor.action(callCommand(wrapInHeadingCommand.key, level));
@@ -66,7 +68,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       if (cancelled) return;
 
       // Paragraph (turn into text)
-      const unlistenParagraph = await listen("menu:paragraph", () => {
+      const unlistenParagraph = await listen("menu:paragraph", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(turnIntoTextCommand.key));
@@ -76,7 +79,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenParagraph);
 
       // Increase heading level (H3 -> H2 -> H1, or paragraph -> H6)
-      const unlistenIncreaseHeading = await listen("menu:increase-heading", () => {
+      const unlistenIncreaseHeading = await listen("menu:increase-heading", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           const currentLevel = getCurrentHeadingLevel(editor);
@@ -91,7 +95,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenIncreaseHeading);
 
       // Decrease heading level (H1 -> H2 -> H3, or H6 -> paragraph)
-      const unlistenDecreaseHeading = await listen("menu:decrease-heading", () => {
+      const unlistenDecreaseHeading = await listen("menu:decrease-heading", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           const currentLevel = getCurrentHeadingLevel(editor);
@@ -108,7 +113,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenDecreaseHeading);
 
       // Quote
-      const unlistenQuote = await listen("menu:quote", () => {
+      const unlistenQuote = await listen("menu:quote", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(wrapInBlockquoteCommand.key));
@@ -118,7 +124,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenQuote);
 
       // Code Fences
-      const unlistenCodeFences = await listen("menu:code-fences", () => {
+      const unlistenCodeFences = await listen("menu:code-fences", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(createCodeBlockCommand.key));
@@ -128,7 +135,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenCodeFences);
 
       // Ordered List
-      const unlistenOrderedList = await listen("menu:ordered-list", () => {
+      const unlistenOrderedList = await listen("menu:ordered-list", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(wrapInOrderedListCommand.key));
@@ -138,7 +146,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenOrderedList);
 
       // Unordered List
-      const unlistenUnorderedList = await listen("menu:unordered-list", () => {
+      const unlistenUnorderedList = await listen("menu:unordered-list", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(wrapInBulletListCommand.key));
@@ -148,7 +157,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenUnorderedList);
 
       // Task List
-      const unlistenTaskList = await listen("menu:task-list", () => {
+      const unlistenTaskList = await listen("menu:task-list", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(wrapInBulletListCommand.key));
@@ -158,7 +168,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenTaskList);
 
       // Indent (sink list item)
-      const unlistenIndent = await listen("menu:indent", () => {
+      const unlistenIndent = await listen("menu:indent", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(sinkListItemCommand.key));
@@ -168,7 +179,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenIndent);
 
       // Outdent (lift list item)
-      const unlistenOutdent = await listen("menu:outdent", () => {
+      const unlistenOutdent = await listen("menu:outdent", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(liftListItemCommand.key));
@@ -178,7 +190,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenOutdent);
 
       // Horizontal Line
-      const unlistenHorizontalLine = await listen("menu:horizontal-line", () => {
+      const unlistenHorizontalLine = await listen("menu:horizontal-line", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(insertHrCommand.key));
@@ -199,7 +212,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
         if (cancelled) break;
         const unlisten = await listen(
           `menu:info-${alertType.toLowerCase()}`,
-          () => {
+          async () => {
+            if (!(await isWindowFocused())) return;
             const editor = getEditor();
             if (editor) {
               editor.action(callCommand(insertAlertBlockCommand.key, alertType));
@@ -211,7 +225,8 @@ export function useParagraphCommands(getEditor: GetEditor) {
       }
 
       // Collapsible Block (Details)
-      const unlistenCollapsible = await listen("menu:collapsible-block", () => {
+      const unlistenCollapsible = await listen("menu:collapsible-block", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(insertDetailsBlockCommand.key));

@@ -4,6 +4,7 @@ import { editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { Editor } from "@milkdown/kit/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { isWindowFocused } from "@/utils/windowFocus";
 
 type GetEditor = () => Editor | undefined;
 
@@ -92,7 +93,8 @@ export function useSelectionCommands(getEditor: GetEditor) {
       if (cancelled) return;
 
       // Select Word (Cmd+D)
-      const unlistenSelectWord = await listen("menu:select-word", () => {
+      const unlistenSelectWord = await listen("menu:select-word", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (!editor) return;
 
@@ -124,7 +126,8 @@ export function useSelectionCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenSelectWord);
 
       // Select Line (Cmd+L)
-      const unlistenSelectLine = await listen("menu:select-line", () => {
+      const unlistenSelectLine = await listen("menu:select-line", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (!editor) return;
 
@@ -142,7 +145,8 @@ export function useSelectionCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenSelectLine);
 
       // Select Block (select current paragraph/block node)
-      const unlistenSelectBlock = await listen("menu:select-block", () => {
+      const unlistenSelectBlock = await listen("menu:select-block", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (!editor) return;
 
@@ -178,7 +182,8 @@ export function useSelectionCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenSelectBlock);
 
       // Expand Selection (progressively expand to parent)
-      const unlistenExpandSelection = await listen("menu:expand-selection", () => {
+      const unlistenExpandSelection = await listen("menu:expand-selection", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (!editor) return;
 

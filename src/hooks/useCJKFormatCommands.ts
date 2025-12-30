@@ -11,6 +11,7 @@ import {
   removeTrailingSpaces,
   collapseNewlines,
 } from "@/lib/cjkFormatter";
+import { isWindowFocused } from "@/utils/windowFocus";
 
 type GetEditor = () => Editor | undefined;
 
@@ -28,7 +29,8 @@ export function useCJKFormatCommands(getEditor: GetEditor) {
       if (cancelled) return;
 
       // Format CJK Text (selection or entire content if no selection)
-      const unlistenFormatCJK = await listen("menu:format-cjk", () => {
+      const unlistenFormatCJK = await listen("menu:format-cjk", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (!editor) return;
 
@@ -73,7 +75,8 @@ export function useCJKFormatCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenFormatCJK);
 
       // Format Entire File
-      const unlistenFormatFile = await listen("menu:format-cjk-file", () => {
+      const unlistenFormatFile = await listen("menu:format-cjk-file", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (!editor) return;
 
@@ -94,7 +97,8 @@ export function useCJKFormatCommands(getEditor: GetEditor) {
       // Remove Trailing Spaces
       const unlistenTrailingSpaces = await listen(
         "menu:remove-trailing-spaces",
-        () => {
+        async () => {
+          if (!(await isWindowFocused())) return;
           const editor = getEditor();
           if (!editor) return;
 
@@ -115,7 +119,8 @@ export function useCJKFormatCommands(getEditor: GetEditor) {
       // Collapse Blank Lines
       const unlistenCollapseLines = await listen(
         "menu:collapse-blank-lines",
-        () => {
+        async () => {
+          if (!(await isWindowFocused())) return;
           const editor = getEditor();
           if (!editor) return;
 

@@ -24,6 +24,7 @@ import { trailing } from "@milkdown/kit/plugin/trailing";
 import { replaceAll, callCommand } from "@milkdown/kit/utils";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { isWindowFocused } from "@/utils/windowFocus";
 import { useEditorStore } from "@/stores/editorStore";
 import {
   useDocumentContent,
@@ -275,7 +276,8 @@ function MilkdownEditorInner() {
 
       if (cancelled) return;
 
-      const unlistenBold = await listen("menu:bold", () => {
+      const unlistenBold = await listen("menu:bold", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = get();
         if (editor) {
           editor.action(callCommand(toggleStrongCommand.key));
@@ -284,7 +286,8 @@ function MilkdownEditorInner() {
       if (cancelled) { unlistenBold(); return; }
       formatUnlistenRefs.current.push(unlistenBold);
 
-      const unlistenItalic = await listen("menu:italic", () => {
+      const unlistenItalic = await listen("menu:italic", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = get();
         if (editor) {
           editor.action(callCommand(toggleEmphasisCommand.key));
@@ -293,7 +296,8 @@ function MilkdownEditorInner() {
       if (cancelled) { unlistenItalic(); return; }
       formatUnlistenRefs.current.push(unlistenItalic);
 
-      const unlistenStrikethrough = await listen("menu:strikethrough", () => {
+      const unlistenStrikethrough = await listen("menu:strikethrough", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = get();
         if (editor) {
           editor.action(callCommand(toggleStrikethroughCommand.key));
@@ -302,7 +306,8 @@ function MilkdownEditorInner() {
       if (cancelled) { unlistenStrikethrough(); return; }
       formatUnlistenRefs.current.push(unlistenStrikethrough);
 
-      const unlistenCode = await listen("menu:code", () => {
+      const unlistenCode = await listen("menu:code", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = get();
         if (editor) {
           editor.action(callCommand(toggleInlineCodeCommand.key));
@@ -311,7 +316,8 @@ function MilkdownEditorInner() {
       if (cancelled) { unlistenCode(); return; }
       formatUnlistenRefs.current.push(unlistenCode);
 
-      const unlistenLink = await listen("menu:link", () => {
+      const unlistenLink = await listen("menu:link", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = get();
         if (editor) {
           editor.action(callCommand(toggleLinkCommand.key, { href: "" }));

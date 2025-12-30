@@ -1,13 +1,15 @@
 import { useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useEditorStore } from "@/stores/editorStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { clearAllHistory } from "@/utils/historyUtils";
 import { exportToHtml, exportToPdf, savePdf, copyAsHtml } from "@/utils/exportUtils";
+import { isWindowFocused } from "@/utils/windowFocus";
 
 export function useMenuEvents() {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -22,38 +24,44 @@ export function useMenuEvents() {
 
       if (cancelled) return;
 
-      // View menu events
-      const unlistenSourceMode = await listen("menu:source-mode", () => {
+      // View menu events - only respond in focused window
+      const unlistenSourceMode = await listen("menu:source-mode", async () => {
+        if (!(await isWindowFocused())) return;
         useEditorStore.getState().toggleSourceMode();
       });
       if (cancelled) { unlistenSourceMode(); return; }
       unlistenRefs.current.push(unlistenSourceMode);
 
-      const unlistenFocusMode = await listen("menu:focus-mode", () => {
+      const unlistenFocusMode = await listen("menu:focus-mode", async () => {
+        if (!(await isWindowFocused())) return;
         useEditorStore.getState().toggleFocusMode();
       });
       if (cancelled) { unlistenFocusMode(); return; }
       unlistenRefs.current.push(unlistenFocusMode);
 
-      const unlistenTypewriterMode = await listen("menu:typewriter-mode", () => {
+      const unlistenTypewriterMode = await listen("menu:typewriter-mode", async () => {
+        if (!(await isWindowFocused())) return;
         useEditorStore.getState().toggleTypewriterMode();
       });
       if (cancelled) { unlistenTypewriterMode(); return; }
       unlistenRefs.current.push(unlistenTypewriterMode);
 
-      const unlistenSidebar = await listen("menu:sidebar", () => {
+      const unlistenSidebar = await listen("menu:sidebar", async () => {
+        if (!(await isWindowFocused())) return;
         useUIStore.getState().toggleSidebar();
       });
       if (cancelled) { unlistenSidebar(); return; }
       unlistenRefs.current.push(unlistenSidebar);
 
-      const unlistenOutline = await listen("menu:outline", () => {
+      const unlistenOutline = await listen("menu:outline", async () => {
+        if (!(await isWindowFocused())) return;
         useUIStore.getState().toggleOutline();
       });
       if (cancelled) { unlistenOutline(); return; }
       unlistenRefs.current.push(unlistenOutline);
 
-      const unlistenWordWrap = await listen("menu:word-wrap", () => {
+      const unlistenWordWrap = await listen("menu:word-wrap", async () => {
+        if (!(await isWindowFocused())) return;
         useEditorStore.getState().toggleWordWrap();
       });
       if (cancelled) { unlistenWordWrap(); return; }
@@ -84,13 +92,15 @@ export function useMenuEvents() {
       unlistenRefs.current.push(unlistenPreferences);
 
       // History menu events
-      const unlistenViewHistory = await listen("menu:view-history", () => {
+      const unlistenViewHistory = await listen("menu:view-history", async () => {
+        if (!(await isWindowFocused())) return;
         useUIStore.getState().showSidebarWithView("history");
       });
       if (cancelled) { unlistenViewHistory(); return; }
       unlistenRefs.current.push(unlistenViewHistory);
 
       const unlistenClearHistory = await listen("menu:clear-history", async () => {
+        if (!(await isWindowFocused())) return;
         const confirmed = await ask(
           "This will permanently delete all document history. This action cannot be undone.",
           {
@@ -112,6 +122,7 @@ export function useMenuEvents() {
 
       // Clear Recent Files
       const unlistenClearRecent = await listen("menu:clear-recent", async () => {
+        if (!(await isWindowFocused())) return;
         const { files } = useRecentFilesStore.getState();
         if (files.length === 0) return;
 
@@ -131,6 +142,8 @@ export function useMenuEvents() {
 
       // Open Recent File from menu
       const unlistenOpenRecent = await listen<number>("menu:open-recent-file", async (event) => {
+        if (!(await isWindowFocused())) return;
+
         const index = event.payload;
         const { files } = useRecentFilesStore.getState();
 
@@ -138,9 +151,10 @@ export function useMenuEvents() {
 
         const file = files[index];
 
-        // Check for unsaved changes
-        const { isDirty } = useEditorStore.getState();
-        if (isDirty) {
+        // Get current window label and check for unsaved changes
+        const windowLabel = getCurrentWebviewWindow().label;
+        const doc = useDocumentStore.getState().getDocument(windowLabel);
+        if (doc?.isDirty) {
           const confirmed = await ask("You have unsaved changes. Discard them?", {
             title: "Unsaved Changes",
             kind: "warning",
@@ -150,7 +164,7 @@ export function useMenuEvents() {
 
         try {
           const content = await readTextFile(file.path);
-          useEditorStore.getState().loadContent(content, file.path);
+          useDocumentStore.getState().loadContent(windowLabel, content, file.path);
           useRecentFilesStore.getState().addFile(file.path); // Move to top
         } catch (error) {
           console.error("Failed to open recent file:", error);
@@ -168,38 +182,50 @@ export function useMenuEvents() {
 
       // Export menu events
       const unlistenExportHtml = await listen("menu:export-html", async () => {
-        const { content, filePath } = useEditorStore.getState();
-        const defaultName = filePath
-          ? filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
+        if (!(await isWindowFocused())) return;
+        const windowLabel = getCurrentWebviewWindow().label;
+        const doc = useDocumentStore.getState().getDocument(windowLabel);
+        if (!doc) return;
+        const defaultName = doc.filePath
+          ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
           : "document";
-        await exportToHtml(content, defaultName);
+        await exportToHtml(doc.content, defaultName);
       });
       if (cancelled) { unlistenExportHtml(); return; }
       unlistenRefs.current.push(unlistenExportHtml);
 
       const unlistenSavePdf = await listen("menu:save-pdf", async () => {
-        const { content, filePath } = useEditorStore.getState();
-        const defaultName = filePath
-          ? filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
+        if (!(await isWindowFocused())) return;
+        const windowLabel = getCurrentWebviewWindow().label;
+        const doc = useDocumentStore.getState().getDocument(windowLabel);
+        if (!doc) return;
+        const defaultName = doc.filePath
+          ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "document"
           : "document";
-        await savePdf(content, defaultName);
+        await savePdf(doc.content, defaultName);
       });
       if (cancelled) { unlistenSavePdf(); return; }
       unlistenRefs.current.push(unlistenSavePdf);
 
       const unlistenExportPdf = await listen("menu:export-pdf", async () => {
-        const { content, filePath } = useEditorStore.getState();
-        const title = filePath
-          ? filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Document"
+        if (!(await isWindowFocused())) return;
+        const windowLabel = getCurrentWebviewWindow().label;
+        const doc = useDocumentStore.getState().getDocument(windowLabel);
+        if (!doc) return;
+        const title = doc.filePath
+          ? doc.filePath.split("/").pop()?.replace(/\.[^.]+$/, "") || "Document"
           : "Document";
-        await exportToPdf(content, title);
+        await exportToPdf(doc.content, title);
       });
       if (cancelled) { unlistenExportPdf(); return; }
       unlistenRefs.current.push(unlistenExportPdf);
 
       const unlistenCopyHtml = await listen("menu:copy-html", async () => {
-        const { content } = useEditorStore.getState();
-        await copyAsHtml(content);
+        if (!(await isWindowFocused())) return;
+        const windowLabel = getCurrentWebviewWindow().label;
+        const doc = useDocumentStore.getState().getDocument(windowLabel);
+        if (!doc) return;
+        await copyAsHtml(doc.content);
       });
       if (cancelled) { unlistenCopyHtml(); return; }
       unlistenRefs.current.push(unlistenCopyHtml);

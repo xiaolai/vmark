@@ -24,9 +24,6 @@ export function WindowProvider({ children }: WindowProviderProps) {
         const label = window.label;
         setWindowLabel(label);
 
-        // Debug: log window size
-        console.log(`[WindowContext] ${label} size: ${globalThis.innerWidth}x${globalThis.innerHeight}`);
-
         // CRITICAL: Only init documents for document windows (main, doc-*)
         // Settings, print-preview, etc. don't need document state
         if (label === "main" || label.startsWith("doc-")) {

@@ -18,6 +18,11 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useSearchStore } from "@/stores/searchStore";
 import {
+  useDocumentContent,
+  useDocumentCursorInfo,
+  useDocumentActions,
+} from "@/hooks/useDocumentState";
+import {
   getCursorInfoFromCodeMirror,
   restoreCursorInCodeMirror,
 } from "@/utils/cursorSync/codemirror";
@@ -33,7 +38,18 @@ export function SourceEditor() {
   const viewRef = useRef<EditorView | null>(null);
   const isInternalChange = useRef(false);
 
-  const content = useEditorStore((state) => state.content);
+  // Use document store for content (per-window state)
+  const content = useDocumentContent();
+  const cursorInfo = useDocumentCursorInfo();
+  const { setContent, setCursorInfo } = useDocumentActions();
+
+  // Refs to capture callbacks for use in CodeMirror listener
+  const setContentRef = useRef(setContent);
+  const setCursorInfoRef = useRef(setCursorInfo);
+  setContentRef.current = setContent;
+  setCursorInfoRef.current = setCursorInfo;
+
+  // Use editor store for global settings
   const wordWrap = useEditorStore((state) => state.wordWrap);
   const showBrTags = useSettingsStore((state) => state.markdown.showBrTags);
 
@@ -45,15 +61,15 @@ export function SourceEditor() {
       if (update.docChanged) {
         isInternalChange.current = true;
         const newContent = update.state.doc.toString();
-        useEditorStore.getState().setContent(newContent);
+        setContentRef.current(newContent);
         requestAnimationFrame(() => {
           isInternalChange.current = false;
         });
       }
       // Track cursor position for mode sync
       if (update.selectionSet || update.docChanged) {
-        const cursorInfo = getCursorInfoFromCodeMirror(update.view);
-        useEditorStore.getState().setCursorInfo(cursorInfo);
+        const info = getCursorInfoFromCodeMirror(update.view);
+        setCursorInfoRef.current(info);
       }
     });
 
@@ -102,12 +118,13 @@ export function SourceEditor() {
     viewRef.current = view;
 
     // Auto-focus and restore cursor on mount
+    // Capture cursorInfo at mount time (before it might change)
+    const initialCursorInfo = cursorInfo;
     setTimeout(() => {
       view.focus();
       // Restore cursor position from previous mode if available
-      const cursorInfo = useEditorStore.getState().cursorInfo;
-      if (cursorInfo) {
-        restoreCursorInCodeMirror(view, cursorInfo);
+      if (initialCursorInfo) {
+        restoreCursorInCodeMirror(view, initialCursorInfo);
       }
     }, 50);
 

@@ -12,6 +12,7 @@ import {
   setAlignCommand,
 } from "@milkdown/kit/preset/gfm";
 import type { Editor } from "@milkdown/kit/core";
+import { isWindowFocused } from "@/utils/windowFocus";
 
 type GetEditor = () => Editor | undefined;
 
@@ -40,7 +41,8 @@ export function useTableCommands(getEditor: GetEditor) {
       if (cancelled) return;
 
       // Insert Table
-      const unlistenInsertTable = await listen("menu:insert-table", () => {
+      const unlistenInsertTable = await listen("menu:insert-table", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           ensureFocusAndExecute(editor, () => {
@@ -52,7 +54,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenInsertTable);
 
       // Add Row Before
-      const unlistenAddRowBefore = await listen("menu:add-row-before", () => {
+      const unlistenAddRowBefore = await listen("menu:add-row-before", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(addRowBeforeCommand.key));
@@ -62,7 +65,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenAddRowBefore);
 
       // Add Row After
-      const unlistenAddRowAfter = await listen("menu:add-row-after", () => {
+      const unlistenAddRowAfter = await listen("menu:add-row-after", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(addRowAfterCommand.key));
@@ -72,7 +76,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenAddRowAfter);
 
       // Add Column Before
-      const unlistenAddColBefore = await listen("menu:add-col-before", () => {
+      const unlistenAddColBefore = await listen("menu:add-col-before", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(addColBeforeCommand.key));
@@ -82,7 +87,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenAddColBefore);
 
       // Add Column After
-      const unlistenAddColAfter = await listen("menu:add-col-after", () => {
+      const unlistenAddColAfter = await listen("menu:add-col-after", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(addColAfterCommand.key));
@@ -92,7 +98,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenAddColAfter);
 
       // Delete Selected Cells
-      const unlistenDeleteCells = await listen("menu:delete-selected-cells", () => {
+      const unlistenDeleteCells = await listen("menu:delete-selected-cells", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(deleteSelectedCellsCommand.key));
@@ -102,7 +109,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenDeleteCells);
 
       // Align Left
-      const unlistenAlignLeft = await listen("menu:align-left", () => {
+      const unlistenAlignLeft = await listen("menu:align-left", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(setAlignCommand.key, "left"));
@@ -112,7 +120,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenAlignLeft);
 
       // Align Center
-      const unlistenAlignCenter = await listen("menu:align-center", () => {
+      const unlistenAlignCenter = await listen("menu:align-center", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(setAlignCommand.key, "center"));
@@ -122,7 +131,8 @@ export function useTableCommands(getEditor: GetEditor) {
       unlistenRefs.current.push(unlistenAlignCenter);
 
       // Align Right
-      const unlistenAlignRight = await listen("menu:align-right", () => {
+      const unlistenAlignRight = await listen("menu:align-right", async () => {
+        if (!(await isWindowFocused())) return;
         const editor = getEditor();
         if (editor) {
           editor.action(callCommand(setAlignCommand.key, "right"));
