@@ -9,8 +9,8 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border-radius: 6px;
-  background-color: var(--color-bg-secondary, #f6f8fa);
-  border: 1px solid var(--color-border, #d1d5da);
+  background-color: var(--bg-secondary, #f6f8fa);
+  border: 1px solid var(--border-color, #d1d5da);
 }
 
 /* LaTeX preview */
@@ -45,15 +45,15 @@
 
 /* Loading state */
 .code-block-preview.mermaid-loading {
-  color: var(--color-text-muted, #656d76);
+  color: var(--text-secondary, #656d76);
   font-style: italic;
 }
 
 /* Error states */
 .code-block-preview.mermaid-error,
 .code-block-preview .math-error {
-  color: #cf222e;
-  background-color: #ffebe9;
+  color: var(--error-color, #cf222e);
+  background-color: var(--error-bg, #ffebe9);
   font-family: ui-monospace, monospace;
   font-size: 0.9em;
   white-space: pre-wrap;

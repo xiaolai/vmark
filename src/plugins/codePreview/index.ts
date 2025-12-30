@@ -10,13 +10,43 @@ import { $prose } from "@milkdown/kit/utils";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { renderLatex } from "../latex";
-import { renderMermaid } from "../mermaid";
+import { renderMermaid, updateMermaidTheme } from "../mermaid";
 import { sanitizeKatex, sanitizeSvg } from "@/utils/sanitize";
 
 export const codePreviewPluginKey = new PluginKey("codePreview");
 
 // Cache for rendered content to avoid re-rendering
 const renderCache = new Map<string, string>();
+
+// Track if theme observer is set up
+let themeObserverSetup = false;
+
+/**
+ * Set up a MutationObserver to watch for theme changes.
+ * When theme changes, clear cache so diagrams re-render with new theme.
+ */
+function setupThemeObserver() {
+  if (themeObserverSetup || typeof window === "undefined") return;
+  themeObserverSetup = true;
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.attributeName === "class") {
+        const isDark = document.documentElement.classList.contains("dark");
+        const themeChanged = updateMermaidTheme(isDark);
+        if (themeChanged) {
+          // Clear cache so mermaid diagrams re-render with new theme
+          renderCache.clear();
+        }
+      }
+    }
+  });
+
+  observer.observe(document.documentElement, { attributes: true });
+}
+
+// Set up observer when module loads
+setupThemeObserver();
 
 /**
  * Create a preview element for a code block.

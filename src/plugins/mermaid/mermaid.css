@@ -9,7 +9,7 @@
   justify-content: center;
   align-items: center;
   overflow: auto;
-  background-color: var(--color-bg-secondary, #f6f8fa);
+  background-color: var(--bg-secondary, #f6f8fa);
   border-radius: 6px;
   min-height: 100px;
 }
@@ -21,8 +21,8 @@
 
 /* Error state */
 .mermaid-error {
-  color: #cf222e;
-  background-color: #ffebe9;
+  color: var(--error-color, #cf222e);
+  background-color: var(--error-bg, #ffebe9);
   padding: 1rem;
   border-radius: 6px;
   font-family: monospace;
@@ -33,7 +33,7 @@
 
 /* Loading state */
 .mermaid-loading {
-  color: #656d76;
+  color: var(--text-secondary, #656d76);
   font-style: italic;
   padding: 1rem;
   text-align: center;

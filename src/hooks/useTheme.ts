@@ -67,6 +67,9 @@ export function useTheme() {
       root.style.setProperty("--text-tertiary", "#6b7078");
       root.style.setProperty("--accent-bg", "rgba(90, 168, 255, 0.12)");
       root.style.setProperty("--source-mode-bg", "rgba(255, 255, 255, 0.02)");
+      // Error colors for dark mode
+      root.style.setProperty("--error-color", "#f85149");
+      root.style.setProperty("--error-bg", "rgba(248, 81, 73, 0.15)");
       root.classList.add("dark-theme", "dark");
     } else {
       // Light mode defaults
@@ -82,6 +85,9 @@ export function useTheme() {
       root.style.setProperty("--text-tertiary", "#999999");
       root.style.setProperty("--accent-bg", "rgba(0, 102, 204, 0.1)");
       root.style.setProperty("--source-mode-bg", "rgba(0, 0, 0, 0.02)");
+      // Error colors for light mode
+      root.style.setProperty("--error-color", "#cf222e");
+      root.style.setProperty("--error-bg", "#ffebe9");
       root.classList.remove("dark-theme", "dark");
     }
 

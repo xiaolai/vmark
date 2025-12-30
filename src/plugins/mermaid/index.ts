@@ -7,15 +7,43 @@
 
 import mermaid from "mermaid";
 
-// Initialize mermaid with default config
+// Track current theme for re-initialization
 let mermaidInitialized = false;
+let currentTheme: "default" | "dark" = "default";
+
+/**
+ * Detect if dark mode is active by checking document class
+ */
+function isDarkMode(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
+
+/**
+ * Update Mermaid theme when app theme changes.
+ * Call this when theme switches to trigger re-render.
+ */
+export function updateMermaidTheme(isDark: boolean): boolean {
+  const newTheme = isDark ? "dark" : "default";
+  if (newTheme !== currentTheme) {
+    currentTheme = newTheme;
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: newTheme,
+      securityLevel: "strict",
+      fontFamily: "inherit",
+    });
+    return true; // Theme changed
+  }
+  return false; // No change
+}
 
 function initMermaid() {
   if (mermaidInitialized) return;
 
+  currentTheme = isDarkMode() ? "dark" : "default";
   mermaid.initialize({
     startOnLoad: false,
-    theme: "default",
+    theme: currentTheme,
     securityLevel: "strict",
     fontFamily: "inherit",
   });
