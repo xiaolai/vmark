@@ -38,9 +38,12 @@ import { useTableCommands } from "@/hooks/useTableCommands";
 import { useCJKFormatCommands } from "@/hooks/useCJKFormatCommands";
 import { useSelectionCommands } from "@/hooks/useSelectionCommands";
 import { useImageDrop } from "@/hooks/useImageDrop";
+import { useImageContextMenu } from "@/hooks/useImageContextMenu";
+import { ImageContextMenu } from "./ImageContextMenu";
 import { restoreCursorInProseMirror } from "@/utils/cursorSync/prosemirror";
 import { overrideKeymapPlugin, cursorSyncPlugin, blankDocFocusPlugin } from "@/plugins/editorPlugins";
 import { syntaxRevealPlugin } from "@/plugins/syntaxReveal";
+import { linkPopupPlugin } from "@/plugins/linkPopup";
 import { alertBlockPlugin } from "@/plugins/alertBlock";
 import { detailsBlockPlugin } from "@/plugins/detailsBlock";
 import { focusModePlugin } from "@/plugins/focusMode";
@@ -65,6 +68,7 @@ import { slashMenu, configureSlashMenu } from "@/plugins/triggerMenu";
 import { SourceEditor } from "./SourceEditor";
 import "./editor.css";
 import "@/plugins/syntaxReveal/syntax-reveal.css";
+import "@/plugins/linkPopup/link-popup.css";
 import "@/plugins/alertBlock/alert-block.css";
 import "@/plugins/detailsBlock/details-block.css";
 import "@/plugins/focusMode/focus-mode.css";
@@ -119,6 +123,7 @@ function MilkdownEditorInner() {
       .use(cursorSyncPlugin)
       .use(blankDocFocusPlugin)
       .use(syntaxRevealPlugin)
+      .use(linkPopupPlugin)
       .use(focusModePlugin)
       .use(typewriterModePlugin)
       .use(searchPlugin)
@@ -221,6 +226,9 @@ function MilkdownEditorInner() {
 
   // Handle Tauri file drop events for images
   useImageDrop(get);
+
+  // Handle image context menu actions
+  const handleImageContextMenuAction = useImageContextMenu(get);
 
   // Keep editor focused - refocus when editor loses focus (-style)
   useEffect(() => {
@@ -347,7 +355,12 @@ function MilkdownEditorInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <Milkdown />;
+  return (
+    <>
+      <Milkdown />
+      <ImageContextMenu onAction={handleImageContextMenuAction} />
+    </>
+  );
 }
 
 export function Editor() {
