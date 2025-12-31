@@ -60,9 +60,8 @@ function Select<T extends string>({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
-      className="text-xs px-2 py-1 rounded border border-[var(--border-primary)]
-                 bg-[var(--bg-primary)] text-[var(--text-primary)]
-                 focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+      className="px-2 py-1 rounded border border-gray-200 dark:border-gray-700
+                 bg-[var(--bg-primary)] text-sm text-[var(--text-primary)]"
     >
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>

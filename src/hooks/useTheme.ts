@@ -81,7 +81,8 @@ export function useTheme() {
       root.style.setProperty("--strong-color", "rgb(63, 86, 99)");
       root.style.setProperty("--emphasis-color", "rgb(91, 4, 17)");
       root.style.setProperty("--blur-text-color", "#c8c8c8");
-      root.style.setProperty("--bg-tertiary", "#f0f0f0");
+      // Use theme's border color for bg-tertiary to harmonize with colored themes
+      root.style.setProperty("--bg-tertiary", themeColors.border);
       root.style.setProperty("--text-tertiary", "#999999");
       root.style.setProperty("--accent-bg", "rgba(0, 102, 204, 0.1)");
       root.style.setProperty("--source-mode-bg", "rgba(0, 0, 0, 0.02)");
