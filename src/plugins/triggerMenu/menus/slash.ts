@@ -19,10 +19,17 @@ import {
   liftListItemCommand,
 } from "@milkdown/kit/preset/commonmark";
 import { insertTableCommand } from "@milkdown/kit/preset/gfm";
+import { open, message } from "@tauri-apps/plugin-dialog";
 import { mathBlockSchema } from "@/plugins/latex/math-block-schema";
 import { mermaidBlockSchema } from "@/plugins/mermaid/mermaid-block-schema";
+import { useDocumentStore } from "@/stores/documentStore";
+import { copyImageToAssets, insertImageNode } from "@/utils/imageUtils";
+import { getWindowLabel } from "@/utils/windowFocus";
 import { createTriggerMenu } from "../factory";
 import type { TriggerMenuItem } from "../types";
+
+// Per-window re-entry guard for image insertion
+const insertingImageWindows = new Set<string>();
 
 /**
  * Get info about the current block context.
@@ -211,6 +218,7 @@ const icons = {
   list: `<svg viewBox="0 0 24 24"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>`,
   listOrdered: `<svg viewBox="0 0 24 24"><line x1="10" x2="21" y1="6" y2="6"/><line x1="10" x2="21" y1="12" y2="12"/><line x1="10" x2="21" y1="18" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>`,
   listTodo: `<svg viewBox="0 0 24 24"><rect width="6" height="6" x="3" y="5" rx="1"/><path d="m3 17 2 2 4-4"/><line x1="13" x2="21" y1="6" y2="6"/><line x1="13" x2="21" y1="12" y2="12"/><line x1="13" x2="21" y1="18" y2="18"/></svg>`,
+  image: `<svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
   code: `<svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
   table: `<svg viewBox="0 0 24 24"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>`,
   sigma: `<svg viewBox="0 0 24 24"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>`,
@@ -333,8 +341,64 @@ const slashMenuItems: TriggerMenuItem[] = [
   {
     label: "Advanced",
     icon: icons.code,
-    keywords: ["code", "table", "math", "diagram", "mermaid"],
+    keywords: ["code", "table", "math", "diagram", "mermaid", "image"],
     children: [
+      {
+        label: "Image",
+        icon: icons.image,
+        keywords: ["picture", "photo", "img"],
+        action: (ctx) => {
+          const windowLabel = getWindowLabel();
+
+          // Per-window re-entry guard
+          if (insertingImageWindows.has(windowLabel)) return;
+          insertingImageWindows.add(windowLabel);
+
+          const view = ctx.get(editorViewCtx);
+
+          // Async operation - open file dialog
+          (async () => {
+            try {
+              const result = await open({
+                filters: [
+                  {
+                    name: "Images",
+                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
+                  },
+                ],
+              });
+
+              if (!result) return;
+
+              // Handle both string and array results (array when multiple: true)
+              const sourcePath = Array.isArray(result) ? result[0] : result;
+              if (!sourcePath) return;
+
+              const doc = useDocumentStore.getState().getDocument(windowLabel);
+              const filePath = doc?.filePath;
+
+              if (!filePath) {
+                await message(
+                  "Please save the document first to insert images.",
+                  { title: "Unsaved Document", kind: "warning" }
+                );
+                return;
+              }
+
+              // Copy to assets folder and get relative path
+              const relativePath = await copyImageToAssets(sourcePath, filePath);
+
+              // Insert image node
+              insertImageNode(view, relativePath);
+            } catch (error) {
+              console.error("Failed to insert image:", error);
+              await message("Failed to insert image.", { kind: "error" });
+            } finally {
+              insertingImageWindows.delete(windowLabel);
+            }
+          })();
+        },
+      },
       {
         label: "Code Block",
         icon: icons.code,

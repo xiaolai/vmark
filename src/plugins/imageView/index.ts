@@ -13,6 +13,7 @@ import type { NodeView } from "@milkdown/kit/prose/view";
 import type { Node } from "@milkdown/kit/prose/model";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
+import { useImagePopupStore } from "@/stores/imagePopupStore";
 import { getWindowLabel } from "@/utils/windowFocus";
 import { isRelativePath, validateImagePath } from "./security";
 
@@ -57,10 +58,12 @@ class ImageNodeView implements NodeView {
   private img: HTMLImageElement;
   private originalSrc: string;
   private getPos: () => number | undefined;
+  private resolveRequestId = 0; // Track async requests to ignore stale responses
+  private destroyed = false;
 
   constructor(node: Node, getPos: () => number | undefined) {
     this.getPos = getPos;
-    this.originalSrc = node.attrs.src || "";
+    this.originalSrc = node.attrs.src ?? "";
 
     // Create wrapper div
     this.dom = document.createElement("span");
@@ -68,14 +71,17 @@ class ImageNodeView implements NodeView {
 
     // Create img element
     this.img = document.createElement("img");
-    this.img.alt = node.attrs.alt || "";
-    this.img.title = node.attrs.title || "";
+    this.img.alt = node.attrs.alt ?? "";
+    this.img.title = node.attrs.title ?? "";
 
     // Set initial src and resolve if needed
-    this.updateSrc(node.attrs.src);
+    this.updateSrc(this.originalSrc);
 
     // Add context menu handler
     this.img.addEventListener("contextmenu", this.handleContextMenu);
+
+    // Add click handler for popup
+    this.img.addEventListener("click", this.handleClick);
 
     this.dom.appendChild(this.img);
   }
@@ -92,13 +98,46 @@ class ImageNodeView implements NodeView {
     });
   };
 
+  private handleClick = (_e: MouseEvent) => {
+    const pos = this.getPos();
+    if (pos === undefined) return;
+
+    const rect = this.img.getBoundingClientRect();
+    useImagePopupStore.getState().openPopup({
+      imageSrc: this.originalSrc,
+      imageAlt: this.img.alt ?? "",
+      imageNodePos: pos,
+      anchorRect: {
+        top: rect.top,
+        left: rect.left,
+        bottom: rect.bottom,
+        right: rect.right,
+      },
+    });
+  };
+
   private updateSrc(src: string): void {
+    // Always reset opacity first
+    this.img.style.opacity = "1";
+
+    if (!src) {
+      this.img.src = "";
+      return;
+    }
+
     if (isRelativePath(src)) {
       // Show placeholder while resolving
       this.img.src = "";
       this.img.style.opacity = "0.5";
 
+      // Increment request ID to track this specific request
+      const requestId = ++this.resolveRequestId;
+
       resolveImageSrc(src).then((resolvedSrc) => {
+        // Ignore stale responses (src changed or view destroyed)
+        if (this.destroyed || requestId !== this.resolveRequestId) {
+          return;
+        }
         this.img.src = resolvedSrc;
         this.img.style.opacity = "1";
       });
@@ -112,19 +151,22 @@ class ImageNodeView implements NodeView {
       return false;
     }
 
-    this.img.alt = node.attrs.alt || "";
-    this.img.title = node.attrs.title || "";
+    this.img.alt = node.attrs.alt ?? "";
+    this.img.title = node.attrs.title ?? "";
 
-    if (this.originalSrc !== node.attrs.src) {
-      this.originalSrc = node.attrs.src || "";
-      this.updateSrc(node.attrs.src);
+    const newSrc = node.attrs.src ?? "";
+    if (this.originalSrc !== newSrc) {
+      this.originalSrc = newSrc;
+      this.updateSrc(newSrc);
     }
 
     return true;
   }
 
   destroy(): void {
+    this.destroyed = true;
     this.img.removeEventListener("contextmenu", this.handleContextMenu);
+    this.img.removeEventListener("click", this.handleClick);
   }
 
   /**

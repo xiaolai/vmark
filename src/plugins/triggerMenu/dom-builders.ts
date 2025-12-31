@@ -12,6 +12,11 @@ import type { TriggerMenuItem } from "./types";
 export const chevronRightIcon = `<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9 18 6-6-6-6"/></svg>`;
 
 /**
+ * Chevron left icon for flipped submenu indicators.
+ */
+export const chevronLeftIcon = `<svg viewBox="0 0 24 24" width="16" height="16"><path d="m15 18-6-6 6-6"/></svg>`;
+
+/**
  * Build a menu item element using DOM APIs (XSS-safe).
  */
 export function buildMenuItem(

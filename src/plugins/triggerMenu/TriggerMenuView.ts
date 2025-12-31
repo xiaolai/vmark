@@ -11,7 +11,7 @@ import type { PluginView } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { TriggerMenuConfig, MenuLevel } from "./types";
 import { isInCodeBlock, filterItems, groupItems } from "./utils";
-import { buildMenuItem, buildGroup, buildEmptyState } from "./dom-builders";
+import { buildMenuItem, buildGroup, buildEmptyState, chevronLeftIcon, chevronRightIcon } from "./dom-builders";
 
 /**
  * Trigger menu view - manages the popup UI with nested submenu support.
@@ -24,6 +24,8 @@ export class TriggerMenuView implements PluginView {
   private editorView: EditorView;
   private menuStack: MenuLevel[] = [];
   private mouseActivated = false;
+  private isSubmenuFlipped = false;
+  private submenuTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private ctx: Ctx,
@@ -53,6 +55,7 @@ export class TriggerMenuView implements PluginView {
     this.slashProvider.onHide = () => {
       this.isVisible = false;
       this.container.style.display = "none";
+      this.clearSubmenuTimeout();
       this.closeAllSubmenus();
     };
 
@@ -97,11 +100,19 @@ export class TriggerMenuView implements PluginView {
   };
 
   destroy = () => {
+    this.clearSubmenuTimeout();
     this.editorView.dom.removeEventListener("keydown", this.handleEditorKeyDown, true);
     this.container.removeEventListener("mousemove", this.handleMouseMove);
     this.slashProvider.destroy();
     this.container.remove();
   };
+
+  private clearSubmenuTimeout() {
+    if (this.submenuTimeout !== null) {
+      clearTimeout(this.submenuTimeout);
+      this.submenuTimeout = null;
+    }
+  }
 
   private handleMouseMove = () => {
     this.mouseActivated = true;
@@ -127,12 +138,22 @@ export class TriggerMenuView implements PluginView {
       case "ArrowRight":
         e.preventDefault();
         e.stopPropagation();
-        this.openSubmenu();
+        // Swap behavior when submenu is flipped to the left
+        if (this.isSubmenuFlipped) {
+          this.closeSubmenu();
+        } else {
+          this.openSubmenu();
+        }
         break;
       case "ArrowLeft":
         e.preventDefault();
         e.stopPropagation();
-        this.closeSubmenu();
+        // Swap behavior when submenu is flipped to the left
+        if (this.isSubmenuFlipped) {
+          this.openSubmenu();
+        } else {
+          this.closeSubmenu();
+        }
         break;
       case "Tab":
       case "Enter":
@@ -198,11 +219,7 @@ export class TriggerMenuView implements PluginView {
     const submenu = document.createElement("div");
     submenu.className = "trigger-menu-submenu";
 
-    const rect = itemEl.getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
-    submenu.style.left = `${rect.right - containerRect.left}px`;
-    submenu.style.top = `${rect.top - containerRect.top}px`;
-
+    // Build submenu content first
     const elements: HTMLElement[] = [];
     item.children.forEach((child, index) => {
       const hasChildren = !!(child.children && child.children.length > 0);
@@ -225,7 +242,55 @@ export class TriggerMenuView implements PluginView {
       submenu.appendChild(childEl);
     });
 
+    // Append to measure actual width
     this.container.appendChild(submenu);
+    const actualSubmenuWidth = submenu.offsetWidth;
+
+    const rect = itemEl.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+
+    // Calculate submenu position - flip to left if not enough space on right
+    const overlap = 6; // slight overlap between menus
+    const viewportWidth = window.innerWidth;
+    const spaceOnRight = viewportWidth - containerRect.right;
+    const spaceOnLeft = containerRect.left;
+
+    let leftPos: number;
+    let isFlipped = false;
+
+    if (spaceOnRight >= actualSubmenuWidth - overlap) {
+      // Position to the right (default) - align with container right edge, slight overlap
+      leftPos = containerRect.width - overlap;
+    } else if (spaceOnLeft >= actualSubmenuWidth - overlap) {
+      // Flip to the left - position submenu's right edge to overlap container's left edge
+      // submenu.right = overlap, so submenu.left = overlap - actualSubmenuWidth
+      // Add 4 to compensate for CSS margin-left: -4px which shifts submenu left
+      leftPos = overlap - actualSubmenuWidth + 4;
+      isFlipped = true;
+    } else {
+      // Not enough space either side, pick the side with more space
+      if (spaceOnRight >= spaceOnLeft) {
+        leftPos = containerRect.width - overlap;
+      } else {
+        leftPos = overlap - actualSubmenuWidth + 4;
+        isFlipped = true;
+      }
+    }
+
+    submenu.style.left = `${leftPos}px`;
+    submenu.style.top = `${rect.top - containerRect.top}px`;
+
+    // Track flip state for arrow key behavior
+    this.isSubmenuFlipped = isFlipped;
+
+    // Flip the chevron on parent item when submenu opens to the left
+    if (isFlipped) {
+      const chevron = itemEl.querySelector(".trigger-menu-item-chevron");
+      if (chevron) {
+        chevron.innerHTML = chevronLeftIcon;
+      }
+    }
+
     this.menuStack.push({ items: item.children, selectedIndex: 0, elements, container: submenu });
   }
 
@@ -233,12 +298,41 @@ export class TriggerMenuView implements PluginView {
     if (this.menuStack.length <= 1) return;
     const level = this.menuStack.pop();
     if (level?.container) level.container.remove();
+
+    // Reset flip state when returning to root
+    if (this.menuStack.length === 1) {
+      this.isSubmenuFlipped = false;
+    }
+
+    // Restore chevron to right on parent level's selected item
+    const parentLevel = this.getCurrentLevel();
+    if (parentLevel) {
+      const parentItem = parentLevel.elements[parentLevel.selectedIndex];
+      const chevron = parentItem?.querySelector(".trigger-menu-item-chevron");
+      if (chevron) {
+        chevron.innerHTML = chevronRightIcon;
+      }
+    }
   }
 
   private closeAllSubmenus() {
     while (this.menuStack.length > 1) {
       const level = this.menuStack.pop();
       if (level?.container) level.container.remove();
+    }
+
+    // Reset flip state
+    this.isSubmenuFlipped = false;
+
+    // Restore all chevrons to right in root level
+    const rootLevel = this.menuStack[0];
+    if (rootLevel) {
+      rootLevel.elements.forEach((el) => {
+        const chevron = el.querySelector(".trigger-menu-item-chevron");
+        if (chevron) {
+          chevron.innerHTML = chevronRightIcon;
+        }
+      });
     }
   }
 
@@ -358,7 +452,9 @@ export class TriggerMenuView implements PluginView {
 
         const item = level.items[index];
         if (item?.children && item.children.length > 0) {
-          setTimeout(() => {
+          this.clearSubmenuTimeout();
+          this.submenuTimeout = setTimeout(() => {
+            this.submenuTimeout = null;
             if (level.selectedIndex === index && this.menuStack.length === 1) {
               this.openSubmenu();
             }

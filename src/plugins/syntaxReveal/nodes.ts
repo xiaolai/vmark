@@ -41,20 +41,7 @@ export function addInlineNodeSyntaxDecorations(
       }
     }
 
-    // Image node
-    if (child.type.name === "image") {
-      if (isAdjacent || (pos > nodeStart && pos < nodeEnd)) {
-        const alt = (child.attrs.alt as string) || "";
-        // Show ![alt]( before and ) after
-        addWidgetDecoration(
-          decorations,
-          nodeStart,
-          `![${alt}](`,
-          "image-open",
-          -1
-        );
-        addWidgetDecoration(decorations, nodeEnd, ")", "image-close", 1);
-      }
-    }
+    // Image node - disabled, now handled by image popup
+    // Clicking image opens popup instead of revealing syntax
   });
 }

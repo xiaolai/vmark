@@ -46,6 +46,7 @@ import { restoreCursorInProseMirror } from "@/utils/cursorSync/prosemirror";
 import { overrideKeymapPlugin, cursorSyncPlugin, blankDocFocusPlugin } from "@/plugins/editorPlugins";
 import { syntaxRevealPlugin } from "@/plugins/syntaxReveal";
 import { linkPopupPlugin } from "@/plugins/linkPopup";
+import { imagePopupPlugin } from "@/plugins/imagePopup";
 import { alertBlockPlugin } from "@/plugins/alertBlock";
 import { detailsBlockPlugin } from "@/plugins/detailsBlock";
 import { focusModePlugin } from "@/plugins/focusMode";
@@ -71,6 +72,7 @@ import { SourceEditor } from "./SourceEditor";
 import "./editor.css";
 import "@/plugins/syntaxReveal/syntax-reveal.css";
 import "@/plugins/linkPopup/link-popup.css";
+import "@/plugins/imagePopup/image-popup.css";
 import "@/plugins/alertBlock/alert-block.css";
 import "@/plugins/detailsBlock/details-block.css";
 import "@/plugins/focusMode/focus-mode.css";
@@ -216,6 +218,7 @@ function MilkdownEditorInner() {
       .use(blankDocFocusPlugin)
       .use(syntaxRevealPlugin)
       .use(linkPopupPlugin)
+      .use(imagePopupPlugin)
       .use(focusModePlugin)
       .use(typewriterModePlugin)
       .use(searchPlugin)

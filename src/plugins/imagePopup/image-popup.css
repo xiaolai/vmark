@@ -1,0 +1,122 @@
+/**
+ * Image Popup Styles - Two-row layout
+ * Row 1: src input + action buttons
+ * Row 2: caption/alt input
+ */
+
+.image-popup {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: image-popup-fade-in 0.1s ease-out;
+}
+
+@keyframes image-popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Row container */
+.image-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* URL/Path Input - borderless */
+.image-popup-src {
+  width: 220px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  outline: none;
+}
+
+/* Caption/Alt Input - full width */
+.image-popup-alt {
+  flex: 1;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+}
+
+.image-popup-src:focus,
+.image-popup-alt:focus {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.image-popup-src::placeholder,
+.image-popup-alt::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+/* Icon-only buttons */
+.image-popup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+}
+
+.image-popup-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
+}
+
+.image-popup-btn:active {
+  opacity: 0.8;
+}
+
+.image-popup-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Delete button - danger color on hover */
+.image-popup-btn-delete:hover {
+  color: #e53935;
+}
+
+/* Dark theme */
+.dark-theme .image-popup-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .image-popup-btn-delete:hover {
+  color: #ff6b6b;
+}
