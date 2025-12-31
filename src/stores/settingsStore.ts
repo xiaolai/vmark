@@ -101,11 +101,14 @@ export interface CJKFormattingSettings {
   trailingSpaceRemoval: boolean;
 }
 
+export type MediaBorderStyle = "none" | "always" | "hover";
+
 export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
   revealInlineSyntax: boolean; // Show markdown markers when cursor in formatted text
   enableRegexSearch: boolean; // Enable regex in Find & Replace
+  mediaBorderStyle: MediaBorderStyle; // Border style for images and diagrams
 }
 
 export interface GeneralSettings {
@@ -193,6 +196,7 @@ const initialState: SettingsState = {
     showBrTags: false,
     revealInlineSyntax: false,
     enableRegexSearch: true,
+    mediaBorderStyle: "none",
   },
 };
 

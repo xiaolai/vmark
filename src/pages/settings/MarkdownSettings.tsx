@@ -1,4 +1,4 @@
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, type MediaBorderStyle } from "@/stores/settingsStore";
 
 interface SettingRowProps {
   label: string;
@@ -44,6 +44,32 @@ function Toggle({
                     transition-transform ${checked ? "translate-x-3" : ""}`}
       />
     </button>
+  );
+}
+
+function Select<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as T)}
+      className="text-xs px-2 py-1 rounded border border-[var(--border-primary)]
+                 bg-[var(--bg-primary)] text-[var(--text-primary)]
+                 focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -96,6 +122,23 @@ export function MarkdownSettings() {
           <Toggle
             checked={markdown.enableRegexSearch}
             onChange={(v) => updateSetting("enableRegexSearch", v)}
+          />
+        </SettingRow>
+      </SettingsGroup>
+
+      <SettingsGroup title="Media Display">
+        <SettingRow
+          label="Image & diagram borders"
+          description="Show borders around images, Mermaid diagrams, and math blocks"
+        >
+          <Select<MediaBorderStyle>
+            value={markdown.mediaBorderStyle}
+            options={[
+              { value: "none", label: "None" },
+              { value: "always", label: "Always" },
+              { value: "hover", label: "On hover" },
+            ]}
+            onChange={(v) => updateSetting("mediaBorderStyle", v)}
           />
         </SettingRow>
       </SettingsGroup>

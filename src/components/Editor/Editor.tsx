@@ -26,6 +26,7 @@ import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { isWindowFocused } from "@/utils/windowFocus";
 import { useEditorStore } from "@/stores/editorStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import {
   useDocumentContent,
   useDocumentId,
@@ -366,12 +367,16 @@ function MilkdownEditorInner() {
 export function Editor() {
   const sourceMode = useEditorStore((state) => state.sourceMode);
   const documentId = useDocumentId();
+  const mediaBorderStyle = useSettingsStore((s) => s.markdown.mediaBorderStyle);
 
   // Key ensures editor recreates when document changes (new file, open file, etc.)
   const editorKey = `doc-${documentId}`;
 
+  // Build class name with media border style
+  const containerClass = `editor-container media-border-${mediaBorderStyle}`;
+
   return (
-    <div className="editor-container">
+    <div className={containerClass}>
       <div className="editor-content">
         {sourceMode ? (
           <SourceEditor key={editorKey} />

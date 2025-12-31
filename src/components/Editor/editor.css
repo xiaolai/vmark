@@ -277,6 +277,20 @@
   max-width: 100%;
   height: auto;
   border-radius: 4px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+/* Media border styles - applied to editor container */
+.media-border-always .milkdown img,
+.media-border-always .mermaid-block,
+.media-border-always .math-block {
+  border: 1px solid var(--border-color);
+}
+
+.media-border-hover .milkdown img:hover,
+.media-border-hover .mermaid-block:hover,
+.media-border-hover .math-block:hover {
   border: 1px solid var(--border-color);
 }
 
