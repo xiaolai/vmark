@@ -126,6 +126,18 @@ class ImageNodeView implements NodeView {
   destroy(): void {
     this.img.removeEventListener("contextmenu", this.handleContextMenu);
   }
+
+  /**
+   * Prevent ProseMirror from handling mouse events on the image.
+   * This stops the selection from expanding when clicking on images.
+   */
+  stopEvent(event: Event): boolean {
+    // Stop mousedown/click to prevent text selection
+    if (event.type === "mousedown" || event.type === "click") {
+      return true;
+    }
+    return false;
+  }
 }
 
 /**
