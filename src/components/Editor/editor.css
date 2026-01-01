@@ -396,14 +396,14 @@
   border: 1px solid var(--border-color);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  font-size: 14px;
+  font-size: 0.78em;
   line-height: 1.5;
   color: var(--text-color);
   pointer-events: auto;
 }
 
 .footnote-popup-label {
-  font-size: 13px;
+  font-size: 1em;
   font-weight: 500;
   color: var(--text-secondary);
   opacity: 0.6;
@@ -419,7 +419,7 @@
   background: transparent;
   color: var(--text-color);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 0.93em;
   line-height: 1.4;
   resize: none;
   outline: none !important;
@@ -457,8 +457,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: none;
   border-radius: 4px;
@@ -474,8 +474,8 @@
 }
 
 .footnote-popup-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
