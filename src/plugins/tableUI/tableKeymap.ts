@@ -87,6 +87,7 @@ function getCellInfo(state: { selection: Selection }): {
 
 /**
  * Move to the next cell (Tab).
+ * If at the last cell, add a new row and move to its first cell.
  */
 const goToNextCell: Command = (state, dispatch) => {
   if (!isSelectionInTable(state)) return false;
@@ -105,9 +106,39 @@ const goToNextCell: Command = (state, dispatch) => {
     nextRow = rowIndex + 1;
   }
 
-  // If we're past the last row, stay at current position
+  // If we're past the last row, add a new row
   if (nextRow >= numRows) {
-    return true; // Handled but don't move
+    if (dispatch) {
+      // Create a new row with empty cells matching the table structure
+      const lastRow = tableNode.child(numRows - 1);
+      const newCells: Node[] = [];
+      for (let c = 0; c < numCols; c++) {
+        const cellType = state.schema.nodes.table_cell;
+        const paragraphType = state.schema.nodes.paragraph;
+        const newCell = cellType.create(null, paragraphType.create());
+        newCells.push(newCell);
+      }
+      const rowType = lastRow.type;
+      const newRow = rowType.create(null, newCells);
+
+      // Insert the new row at the end of the table
+      const insertPos = tablePos + tableNode.nodeSize - 1; // Before table closing tag
+      let tr = state.tr.insert(insertPos, newRow);
+
+      // Move cursor to first cell of new row
+      const newTableNode = tr.doc.nodeAt(tablePos);
+      if (newTableNode) {
+        const newCellPos = findCellPos(newTableNode, tablePos, numRows, 0);
+        if (newCellPos >= 0) {
+          const $pos = tr.doc.resolve(newCellPos + 1);
+          const selection = Selection.near($pos);
+          tr = tr.setSelection(selection);
+        }
+      }
+
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
   }
 
   // Find the position of the next cell
