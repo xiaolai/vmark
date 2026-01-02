@@ -5,7 +5,7 @@ import {
   isContentLine,
 } from "./markdown";
 
-const CONTEXT_LENGTH = 10; // Characters of context to store
+const CONTEXT_LENGTH = 20; // Characters of context to store
 
 /**
  * Extract word and context at cursor position
@@ -178,6 +178,27 @@ function mapStrippedToOriginal(
   let originalIdx = 0;
 
   while (originalIdx < original.length && strippedIdx < strippedPos) {
+    // Check for footnote reference: [^label] - skip entirely (removed in stripped)
+    const footnoteMatch = original.slice(originalIdx).match(/^\[\^[^\]]+\]/);
+    if (footnoteMatch) {
+      originalIdx += footnoteMatch[0].length;
+      continue;
+    }
+
+    // Check for inline math: $...$
+    const mathMatch = original.slice(originalIdx).match(/^\$([^$]+)\$/);
+    if (mathMatch) {
+      const mathContent = mathMatch[1];
+      const remaining = strippedPos - strippedIdx;
+      if (remaining <= mathContent.length) {
+        // Position is within the math content
+        return originalIdx + 1 + remaining; // +1 for opening $
+      }
+      strippedIdx += mathContent.length;
+      originalIdx += mathMatch[0].length;
+      continue;
+    }
+
     // Check for link syntax: [text](url)
     const linkMatch = original.slice(originalIdx).match(/^\[([^\]]*)\]\([^)]*\)/);
     if (linkMatch) {

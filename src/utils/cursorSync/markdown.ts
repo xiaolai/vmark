@@ -98,6 +98,10 @@ export function stripMarkdownSyntax(
 export function stripInlineFormatting(text: string): string {
   return (
     text
+      // Footnote references: [^1] or [^label] - remove entirely (rendered as superscript)
+      .replace(/\[\^[^\]]+\]/g, "")
+      // Inline math: $...$ - keep content without delimiters
+      .replace(/\$([^$]+)\$/g, "$1")
       // Bold: **text** or __text__
       .replace(/\*\*(.+?)\*\*/g, "$1")
       .replace(/__(.+?)__/g, "$1")

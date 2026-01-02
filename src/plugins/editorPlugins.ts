@@ -8,8 +8,9 @@
 import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
 import { keymap } from "@milkdown/kit/prose/keymap";
 import { $prose } from "@milkdown/kit/utils";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useUIStore } from "@/stores/uiStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { getCursorInfoFromProseMirror } from "@/utils/cursorSync/prosemirror";
 
 /**
@@ -37,11 +38,13 @@ export const overrideKeymapPlugin = $prose(() =>
 
 /**
  * ProseMirror plugin to track cursor position for mode synchronization.
- * Stores cursor info in the editor store so it can be restored when
- * switching between WYSIWYG and Source modes.
+ * Stores cursor info in the document store (per-window) so it can be
+ * restored when switching between WYSIWYG and Source modes.
  */
 export const cursorSyncPlugin = $prose(() => {
   let trackingEnabled = false;
+  // Get window label synchronously (Tauri v2)
+  const windowLabel = getCurrentWebviewWindow().label;
 
   // Delay tracking to allow cursor restoration to complete first
   setTimeout(() => {
@@ -57,7 +60,7 @@ export const cursorSyncPlugin = $prose(() => {
         // Track selection changes
         if (!view.state.selection.eq(prevState.selection)) {
           const cursorInfo = getCursorInfoFromProseMirror(view);
-          useEditorStore.getState().setCursorInfo(cursorInfo);
+          useDocumentStore.getState().setCursorInfo(windowLabel, cursorInfo);
         }
       },
     }),
