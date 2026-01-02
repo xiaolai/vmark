@@ -203,3 +203,41 @@ export function findParentNodeOfType(
   }
   return null;
 }
+
+/**
+ * Check if selection is inside a table (state-based version for keymap commands).
+ * Unlike isInTable(view), this accepts any object with a selection property.
+ */
+export function isSelectionInTable(state: { selection: { $from: ResolvedPos } }): boolean {
+  const $pos = state.selection.$from;
+  for (let d = $pos.depth; d > 0; d--) {
+    if ($pos.node(d).type.name === "table") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Delete the table at the given position.
+ * Returns true if deletion succeeded, false otherwise.
+ */
+export function deleteTableAtPos(
+  view: EditorView,
+  tablePos: number
+): boolean {
+  const { state, dispatch } = view;
+
+  try {
+    const tableNode = state.doc.nodeAt(tablePos);
+    if (tableNode && tableNode.type.name === "table") {
+      const tr = state.tr.delete(tablePos, tablePos + tableNode.nodeSize);
+      dispatch(tr);
+      return true;
+    }
+  } catch (error) {
+    console.error("[table-utils] Delete table failed:", error);
+  }
+
+  return false;
+}

@@ -9,6 +9,8 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 const MIN_COLUMN_WIDTH = 50;
 const HANDLE_CLASS = "table-resize-handle";
+const INIT_DELAY_MS = 100;
+const DEBOUNCE_MS = 200;
 
 interface ResizeState {
   dragging: boolean;
@@ -18,27 +20,38 @@ interface ResizeState {
   startWidths: number[];
 }
 
-let resizeState: ResizeState = {
-  dragging: false,
-  tableElement: null,
-  columnIndex: -1,
-  startX: 0,
-  startWidths: [],
-};
+/**
+ * Create a fresh resize state.
+ */
+function createInitialResizeState(): ResizeState {
+  return {
+    dragging: false,
+    tableElement: null,
+    columnIndex: -1,
+    startX: 0,
+    startWidths: [],
+  };
+}
 
 /**
  * Column resize manager - handles adding/removing resize handles to tables.
+ * Each instance manages its own resize state to avoid conflicts.
  */
 export class ColumnResizeManager {
   private view: EditorView;
   private observer: MutationObserver | null = null;
   private updateTimeout: ReturnType<typeof setTimeout> | null = null;
+  private initTimeout: ReturnType<typeof setTimeout> | null = null;
+  private resizeState: ResizeState = createInitialResizeState();
 
   constructor(view: EditorView) {
     this.view = view;
 
     // Initial setup (delayed to not interfere with editor init)
-    setTimeout(() => this.updateHandles(), 100);
+    this.initTimeout = setTimeout(() => {
+      this.initTimeout = null;
+      this.updateHandles();
+    }, INIT_DELAY_MS);
 
     // NOTE: MutationObserver disabled - it interferes with ProseMirror's input handling
     // Table handle updates are triggered from plugin update() method instead
@@ -55,7 +68,7 @@ export class ColumnResizeManager {
     this.updateTimeout = setTimeout(() => {
       this.updateTimeout = null;
       this.updateHandles();
-    }, 200);
+    }, DEBOUNCE_MS);
   }
 
   /**
@@ -114,7 +127,7 @@ export class ColumnResizeManager {
   private startResize(table: HTMLTableElement, columnIndex: number, startX: number) {
     const startWidths = this.getColumnWidths(table);
 
-    resizeState = {
+    this.resizeState = {
       dragging: true,
       tableElement: table,
       columnIndex,
@@ -143,10 +156,10 @@ export class ColumnResizeManager {
    * Handle mouse move during resize.
    */
   private handleMouseMove = (e: MouseEvent) => {
-    if (!resizeState.dragging || !resizeState.tableElement) return;
+    if (!this.resizeState.dragging || !this.resizeState.tableElement) return;
 
-    const delta = e.clientX - resizeState.startX;
-    const { tableElement, columnIndex, startWidths } = resizeState;
+    const delta = e.clientX - this.resizeState.startX;
+    const { tableElement, columnIndex, startWidths } = this.resizeState;
 
     // Calculate new width for the current column
     const newWidth = Math.max(MIN_COLUMN_WIDTH, startWidths[columnIndex] + delta);
@@ -159,19 +172,13 @@ export class ColumnResizeManager {
    * Handle mouse up to end resize.
    */
   private handleMouseUp = () => {
-    if (resizeState.tableElement) {
+    if (this.resizeState.tableElement) {
       // Remove active class from all handles
-      const handles = resizeState.tableElement.querySelectorAll(`.${HANDLE_CLASS}`);
+      const handles = this.resizeState.tableElement.querySelectorAll(`.${HANDLE_CLASS}`);
       handles.forEach((h) => h.classList.remove("active"));
     }
 
-    resizeState = {
-      dragging: false,
-      tableElement: null,
-      columnIndex: -1,
-      startX: 0,
-      startWidths: [],
-    };
+    this.resizeState = createInitialResizeState();
 
     // Remove document-level listeners
     document.removeEventListener("mousemove", this.handleMouseMove);
@@ -221,6 +228,16 @@ export class ColumnResizeManager {
    * Clean up.
    */
   destroy() {
+    // Clear pending timeouts
+    if (this.initTimeout) {
+      clearTimeout(this.initTimeout);
+      this.initTimeout = null;
+    }
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
+    }
+
     // Stop observing
     this.observer?.disconnect();
 
@@ -229,7 +246,7 @@ export class ColumnResizeManager {
     handles.forEach((h) => h.remove());
 
     // Clean up any ongoing resize
-    if (resizeState.dragging) {
+    if (this.resizeState.dragging) {
       this.handleMouseUp();
     }
   }

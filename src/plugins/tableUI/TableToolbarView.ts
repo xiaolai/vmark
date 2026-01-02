@@ -28,6 +28,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import { deleteTableAtPos } from "./table-utils";
 
 // SVG Icons
 const icons = {
@@ -206,19 +207,9 @@ export class TableToolbarView {
   };
 
   private handleDeleteTable = () => {
-    // Delete the entire table
     const { tablePos } = useTableToolbarStore.getState();
-    const { state, dispatch } = this.editorView;
-
-    try {
-      const tableNode = state.doc.nodeAt(tablePos);
-      if (tableNode && tableNode.type.name === "table") {
-        const tr = state.tr.delete(tablePos, tablePos + tableNode.nodeSize);
-        dispatch(tr);
-        useTableToolbarStore.getState().closeToolbar();
-      }
-    } catch (error) {
-      console.error("[TableToolbar] Delete table failed:", error);
+    if (deleteTableAtPos(this.editorView, tablePos)) {
+      useTableToolbarStore.getState().closeToolbar();
     }
   };
 

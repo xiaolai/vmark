@@ -5,7 +5,6 @@ import {
   defaultValueCtx,
   editorViewCtx,
 } from "@milkdown/kit/core";
-import { Selection } from "@milkdown/kit/prose/state";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { history } from "@milkdown/kit/plugin/history";
@@ -33,7 +32,13 @@ import { useImageDrop } from "@/hooks/useImageDrop";
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { ImageContextMenu } from "./ImageContextMenu";
-import { restoreCursorInProseMirror } from "@/utils/cursorSync/prosemirror";
+import {
+  whenEditorReady,
+  focusEditorWithCursor,
+  isInteractiveElementFocused,
+  FOCUS_DELAY_MS,
+  BLUR_REFOCUS_DELAY_MS,
+} from "./editorUtils";
 import { overrideKeymapPlugin, expandedMarkTogglePlugin, cursorSyncPlugin, blankDocFocusPlugin } from "@/plugins/editorPlugins";
 import { syntaxRevealPlugin } from "@/plugins/syntaxReveal";
 import { linkPopupPlugin } from "@/plugins/linkPopup";
@@ -77,75 +82,6 @@ import "@/plugins/latex/latex.css";
 import "@/plugins/mermaid/mermaid.css";
 import "@/plugins/tableUI/table-ui.css";
 import "katex/dist/katex.min.css";
-
-// Timing constants for focus behavior
-const FOCUS_DELAY_MS = 50;
-const BLUR_REFOCUS_DELAY_MS = 10;
-
-// Helper to wait for editor ready, then execute action with optional delay
-function whenEditorReady(
-  getEditor: () => MilkdownEditor | undefined,
-  action: (editor: MilkdownEditor) => void,
-  options: { pollMs?: number; delayMs?: number } = {}
-): { cancel: () => void } {
-  const { pollMs = FOCUS_DELAY_MS, delayMs = 0 } = options;
-  let cancelled = false;
-  let pollInterval: ReturnType<typeof setInterval> | undefined;
-  let actionTimeout: ReturnType<typeof setTimeout> | undefined;
-
-  const tryExecute = () => {
-    const editor = getEditor();
-    if (!editor) return false;
-
-    // Editor ready - execute action (with optional delay)
-    if (delayMs > 0) {
-      actionTimeout = setTimeout(() => {
-        if (!cancelled) action(editor);
-      }, delayMs);
-    } else {
-      action(editor);
-    }
-    return true;
-  };
-
-  // Try immediately, then poll if not ready
-  if (!tryExecute()) {
-    pollInterval = setInterval(() => {
-      if (cancelled || tryExecute()) {
-        if (pollInterval) clearInterval(pollInterval);
-      }
-    }, pollMs);
-  }
-
-  return {
-    cancel: () => {
-      cancelled = true;
-      if (pollInterval) clearInterval(pollInterval);
-      if (actionTimeout) clearTimeout(actionTimeout);
-    },
-  };
-}
-
-// Focus editor and restore cursor position
-function focusEditorWithCursor(
-  editor: MilkdownEditor,
-  getCursorInfo: () => ReturnType<typeof useDocumentCursorInfo>
-) {
-  editor.action((ctx) => {
-    const view = ctx.get(editorViewCtx);
-    view.focus();
-
-    const cursorInfo = getCursorInfo();
-    if (cursorInfo) {
-      restoreCursorInProseMirror(view, cursorInfo);
-    } else {
-      // Default to start of document
-      const { state } = view;
-      const selection = Selection.atStart(state.doc);
-      view.dispatch(state.tr.setSelection(selection).scrollIntoView());
-    }
-  });
-}
 
 function MilkdownEditorInner() {
   const content = useDocumentContent();
@@ -243,60 +179,37 @@ function MilkdownEditorInner() {
   }, []);
 
   // Sync external content changes TO the editor
-  // Also handles case where editor becomes ready after content is set
   useEffect(() => {
     const editor = get();
     if (!editor) return;
-
-    // Skip if this change originated from the editor itself
     if (isInternalChange.current) return;
-
-    // Skip if content hasn't changed externally
     if (content === lastExternalContent.current) return;
 
-    // Update editor with external content
     lastExternalContent.current = content;
     editor.action(replaceAll(content));
   }, [content, get]);
 
   // Ensure sync happens when editor first becomes ready
-  // This catches the case where content was set before editor initialized
   useEffect(() => {
     const handle = whenEditorReady(get, (editor) => {
-      // Sync if content differs from initial and not from internal change
       if (content !== lastExternalContent.current && !isInternalChange.current) {
         lastExternalContent.current = content;
         editor.action(replaceAll(content));
       }
     });
     return () => handle.cancel();
-  // Only run on mount to catch late editor initialization
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle Paragraph menu events
+  // Handle menu commands
   useParagraphCommands(get);
-
-  // Handle extended Format menu events (Image, Clear Format)
   useFormatCommands(get);
-
-  // Handle Table menu events
   useTableCommands(get);
-
-  // Handle CJK Format menu events
   useCJKFormatCommands(get);
-
-  // Handle Selection menu events
   useSelectionCommands(get);
-
-  // Handle Tauri file drop events for images
   useImageDrop(get);
-
-  // Handle image context menu actions
-  const handleImageContextMenuAction = useImageContextMenu(get);
-
-  // Sync outline sidebar with cursor position
   useOutlineSync(get);
+  const handleImageContextMenuAction = useImageContextMenu(get);
 
   // Keep editor focused - refocus when editor loses focus (-style)
   useEffect(() => {
@@ -306,35 +219,19 @@ function MilkdownEditorInner() {
     let blurTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const handleBlur = () => {
-      // Small delay to allow intentional focus changes (e.g., to dialogs)
       blurTimeout = setTimeout(() => {
         const currentEditor = get();
         if (!currentEditor) return;
 
         currentEditor.action((ctx) => {
           const view = ctx.get(editorViewCtx);
-
-          // Re-check activeElement at refocus time to avoid stale reference
-          const activeElement = document.activeElement;
-          if (activeElement?.tagName === "INPUT" ||
-              activeElement?.tagName === "TEXTAREA" ||
-              activeElement?.tagName === "SELECT" ||
-              activeElement?.tagName === "BUTTON" ||
-              activeElement?.closest("[role='dialog']") ||
-              activeElement?.closest("[role='menu']") ||
-              activeElement?.closest(".find-bar")) {
-            return;
-          }
-
-          // Only refocus if editor doesn't already have focus
-          if (!view.hasFocus()) {
+          if (!isInteractiveElementFocused() && !view.hasFocus()) {
             view.focus();
           }
         });
       }, BLUR_REFOCUS_DELAY_MS);
     };
 
-    // Get the ProseMirror DOM element and add blur listener
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx);
       view.dom.addEventListener("blur", handleBlur);
@@ -352,9 +249,6 @@ function MilkdownEditorInner() {
     };
   }, [get]);
 
-  // Note: Format menu keyboard shortcuts (Cmd+B, Cmd+I, etc.) are handled
-  // by expandedMarkTogglePlugin in editorPlugins.ts for seamless behavior
-
   return (
     <>
       <Milkdown />
@@ -368,10 +262,7 @@ export function Editor() {
   const documentId = useDocumentId();
   const mediaBorderStyle = useSettingsStore((s) => s.markdown.mediaBorderStyle);
 
-  // Key ensures editor recreates when document changes (new file, open file, etc.)
   const editorKey = `doc-${documentId}`;
-
-  // Build class name with media border style
   const containerClass = `editor-container media-border-${mediaBorderStyle}`;
 
   return (

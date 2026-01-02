@@ -15,21 +15,7 @@ import {
   addRowAfterCommand,
   deleteSelectedCellsCommand,
 } from "@milkdown/kit/preset/gfm";
-
-/**
- * Check if selection is inside a table.
- */
-function isInTable(state: { selection: Selection }): boolean {
-  const { selection } = state;
-  const $pos = selection.$from;
-
-  for (let d = $pos.depth; d > 0; d--) {
-    if ($pos.node(d).type.name === "table") {
-      return true;
-    }
-  }
-  return false;
-}
+import { isSelectionInTable } from "./table-utils";
 
 /**
  * Get table cell info at current position.
@@ -103,7 +89,7 @@ function getCellInfo(state: { selection: Selection }): {
  * Move to the next cell (Tab).
  */
 const goToNextCell: Command = (state, dispatch) => {
-  if (!isInTable(state)) return false;
+  if (!isSelectionInTable(state)) return false;
 
   const info = getCellInfo(state);
   if (!info) return false;
@@ -142,7 +128,7 @@ const goToNextCell: Command = (state, dispatch) => {
  * Move to the previous cell (Shift+Tab).
  */
 const goToPrevCell: Command = (state, dispatch) => {
-  if (!isInTable(state)) return false;
+  if (!isSelectionInTable(state)) return false;
 
   const info = getCellInfo(state);
   if (!info) return false;
@@ -214,7 +200,7 @@ function findCellPos(
  */
 export function createTableKeymapCommands(ctx: Ctx) {
   const insertRowBelow: Command = (state, _dispatch, view) => {
-    if (!isInTable(state)) return false;
+    if (!isSelectionInTable(state)) return false;
 
     if (view) {
       // Use Milkdown command
@@ -231,7 +217,7 @@ export function createTableKeymapCommands(ctx: Ctx) {
   };
 
   const insertRowAbove: Command = (state, _dispatch, view) => {
-    if (!isInTable(state)) return false;
+    if (!isSelectionInTable(state)) return false;
 
     if (view) {
       try {
@@ -247,7 +233,7 @@ export function createTableKeymapCommands(ctx: Ctx) {
   };
 
   const deleteRow: Command = (state, _dispatch, view) => {
-    if (!isInTable(state)) return false;
+    if (!isSelectionInTable(state)) return false;
 
     if (view) {
       try {

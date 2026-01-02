@@ -17,6 +17,7 @@ import {
   setAlignCommand,
 } from "@milkdown/kit/preset/gfm";
 import { useTableToolbarStore } from "@/stores/tableToolbarStore";
+import { deleteTableAtPos } from "./table-utils";
 
 // Interface for editor-like object with action method
 interface EditorLike {
@@ -193,17 +194,8 @@ export class TableContextMenu {
 
   private handleDeleteTable() {
     const { tablePos } = useTableToolbarStore.getState();
-    const { state, dispatch } = this.editorView;
-
-    try {
-      const tableNode = state.doc.nodeAt(tablePos);
-      if (tableNode && tableNode.type.name === "table") {
-        const tr = state.tr.delete(tablePos, tablePos + tableNode.nodeSize);
-        dispatch(tr);
-        useTableToolbarStore.getState().closeToolbar();
-      }
-    } catch (error) {
-      console.error("[TableContextMenu] Delete table failed:", error);
+    if (deleteTableAtPos(this.editorView, tablePos)) {
+      useTableToolbarStore.getState().closeToolbar();
     }
   }
 
