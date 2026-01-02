@@ -19,6 +19,8 @@ import {
   addColBeforeCommand,
   addColAfterCommand,
   deleteSelectedCellsCommand,
+  selectRowCommand,
+  selectColCommand,
   setAlignCommand,
 } from "@milkdown/kit/preset/gfm";
 import { useTableToolbarStore } from "@/stores/tableToolbarStore";
@@ -181,6 +183,19 @@ export class TableToolbarView {
     editor.action(callCommand(command.key as never, payload as never));
   }
 
+  private executeCommands(commands: Array<{ key: unknown }>) {
+    const editor = this.getEditor();
+    if (!editor) return;
+
+    // Focus editor BEFORE commands to ensure selection is valid
+    this.editorView.focus();
+    editor.action((ctx) => {
+      for (const cmd of commands) {
+        callCommand(cmd.key as never)(ctx);
+      }
+    });
+  }
+
   private handleAddRowAbove = () => {
     this.executeCommand(addRowBeforeCommand);
   };
@@ -198,13 +213,13 @@ export class TableToolbarView {
   };
 
   private handleDeleteRow = () => {
-    // Delete row: select cells in row, then delete
-    this.executeCommand(deleteSelectedCellsCommand);
+    // Select row then delete in single action
+    this.executeCommands([selectRowCommand, deleteSelectedCellsCommand]);
   };
 
   private handleDeleteCol = () => {
-    // Delete column: same command handles based on selection
-    this.executeCommand(deleteSelectedCellsCommand);
+    // Select column then delete in single action
+    this.executeCommands([selectColCommand, deleteSelectedCellsCommand]);
   };
 
   private handleDeleteTable = () => {

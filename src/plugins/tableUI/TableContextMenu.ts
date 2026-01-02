@@ -14,6 +14,8 @@ import {
   addColBeforeCommand,
   addColAfterCommand,
   deleteSelectedCellsCommand,
+  selectRowCommand,
+  selectColCommand,
   setAlignCommand,
 } from "@milkdown/kit/preset/gfm";
 import { useTableToolbarStore } from "@/stores/tableToolbarStore";
@@ -185,12 +187,27 @@ export class TableContextMenu {
     editor.action(callCommand(command.key as never, payload as never));
   }
 
+  private executeCommands(commands: Array<{ key: unknown }>) {
+    const editor = this.getEditor();
+    if (!editor) return;
+
+    // Focus editor BEFORE commands to ensure selection is valid
+    this.editorView.focus();
+    editor.action((ctx) => {
+      for (const cmd of commands) {
+        callCommand(cmd.key as never)(ctx);
+      }
+    });
+  }
+
   private handleDeleteRow() {
-    this.executeCommand(deleteSelectedCellsCommand);
+    // Select row then delete in single action
+    this.executeCommands([selectRowCommand, deleteSelectedCellsCommand]);
   }
 
   private handleDeleteCol() {
-    this.executeCommand(deleteSelectedCellsCommand);
+    // Select column then delete in single action
+    this.executeCommands([selectColCommand, deleteSelectedCellsCommand]);
   }
 
   private handleDeleteTable() {
