@@ -30,7 +30,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
-import { deleteTableAtPos } from "./table-utils";
+import { deleteTableAtPos, getTableInfo } from "./table-utils";
 
 // SVG Icons
 const icons = {
@@ -183,15 +183,17 @@ export class TableToolbarView {
     editor.action(callCommand(command.key as never, payload as never));
   }
 
-  private executeCommands(commands: Array<{ key: unknown }>) {
+  private executeCommandsWithPayloads(
+    commands: Array<{ command: { key: unknown }; payload?: unknown }>
+  ) {
     const editor = this.getEditor();
     if (!editor) return;
 
     // Focus editor BEFORE commands to ensure selection is valid
     this.editorView.focus();
     editor.action((ctx) => {
-      for (const cmd of commands) {
-        callCommand(cmd.key as never)(ctx);
+      for (const { command, payload } of commands) {
+        callCommand(command.key as never, payload as never)(ctx);
       }
     });
   }
@@ -213,13 +215,25 @@ export class TableToolbarView {
   };
 
   private handleDeleteRow = () => {
-    // Select row then delete in single action
-    this.executeCommands([selectRowCommand, deleteSelectedCellsCommand]);
+    // Get current row index and select it, then delete
+    const tableInfo = getTableInfo(this.editorView);
+    if (!tableInfo) return;
+
+    this.executeCommandsWithPayloads([
+      { command: selectRowCommand, payload: { index: tableInfo.rowIndex } },
+      { command: deleteSelectedCellsCommand },
+    ]);
   };
 
   private handleDeleteCol = () => {
-    // Select column then delete in single action
-    this.executeCommands([selectColCommand, deleteSelectedCellsCommand]);
+    // Get current column index and select it, then delete
+    const tableInfo = getTableInfo(this.editorView);
+    if (!tableInfo) return;
+
+    this.executeCommandsWithPayloads([
+      { command: selectColCommand, payload: { index: tableInfo.colIndex } },
+      { command: deleteSelectedCellsCommand },
+    ]);
   };
 
   private handleDeleteTable = () => {
