@@ -12,6 +12,20 @@ export function isRelativePath(src: string): boolean {
 }
 
 /**
+ * Check if a path is an absolute local file path.
+ */
+export function isAbsolutePath(src: string): boolean {
+  return src.startsWith("/") || /^[A-Za-z]:/.test(src);
+}
+
+/**
+ * Check if a path is an external URL (http/https/data).
+ */
+export function isExternalUrl(src: string): boolean {
+  return src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:");
+}
+
+/**
  * Validate an image path for security.
  * Rejects paths that attempt path traversal via `..`.
  */

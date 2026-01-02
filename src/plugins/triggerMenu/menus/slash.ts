@@ -27,7 +27,7 @@ import {
   openPopupForNewFootnote,
 } from "@/plugins/footnotePopup/footnoteUtils";
 import { useDocumentStore } from "@/stores/documentStore";
-import { copyImageToAssets, insertImageNode } from "@/utils/imageUtils";
+import { copyImageToAssets, insertImageNode, insertBlockImageNode } from "@/utils/imageUtils";
 import { getWindowLabel } from "@/utils/windowFocus";
 import { createTriggerMenu } from "../factory";
 import type { TriggerMenuItem } from "../types";
@@ -205,6 +205,67 @@ function convertToTaskList(ctx: Ctx) {
 }
 
 /**
+ * Helper function to open file dialog and insert an image.
+ * @param ctx - Milkdown context
+ * @param asBlock - If true, insert as block image; if false, insert inline
+ */
+function insertImageFromDialog(ctx: Ctx, asBlock: boolean): void {
+  const windowLabel = getWindowLabel();
+
+  // Per-window re-entry guard
+  if (insertingImageWindows.has(windowLabel)) return;
+  insertingImageWindows.add(windowLabel);
+
+  const view = ctx.get(editorViewCtx);
+
+  // Async operation - open file dialog
+  (async () => {
+    try {
+      const result = await open({
+        filters: [
+          {
+            name: "Images",
+            extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
+          },
+        ],
+      });
+
+      if (!result) return;
+
+      // Handle both string and array results (array when multiple: true)
+      const sourcePath = Array.isArray(result) ? result[0] : result;
+      if (!sourcePath) return;
+
+      const doc = useDocumentStore.getState().getDocument(windowLabel);
+      const filePath = doc?.filePath;
+
+      if (!filePath) {
+        await message(
+          "Please save the document first to insert images.",
+          { title: "Unsaved Document", kind: "warning" }
+        );
+        return;
+      }
+
+      // Copy to assets folder and get relative path
+      const relativePath = await copyImageToAssets(sourcePath, filePath);
+
+      // Insert as block or inline based on parameter
+      if (asBlock) {
+        insertBlockImageNode(view, relativePath);
+      } else {
+        insertImageNode(view, relativePath);
+      }
+    } catch (error) {
+      console.error("Failed to insert image:", error);
+      await message("Failed to insert image.", { kind: "error" });
+    } finally {
+      insertingImageWindows.delete(windowLabel);
+    }
+  })();
+}
+
+/**
  * Lucide-style SVG icons (24x24 viewBox, stroke-based)
  */
 const icons = {
@@ -349,58 +410,25 @@ const slashMenuItems: TriggerMenuItem[] = [
       {
         label: "Image",
         icon: icons.image,
-        keywords: ["picture", "photo", "img"],
-        action: (ctx) => {
-          const windowLabel = getWindowLabel();
-
-          // Per-window re-entry guard
-          if (insertingImageWindows.has(windowLabel)) return;
-          insertingImageWindows.add(windowLabel);
-
-          const view = ctx.get(editorViewCtx);
-
-          // Async operation - open file dialog
-          (async () => {
-            try {
-              const result = await open({
-                filters: [
-                  {
-                    name: "Images",
-                    extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
-                  },
-                ],
-              });
-
-              if (!result) return;
-
-              // Handle both string and array results (array when multiple: true)
-              const sourcePath = Array.isArray(result) ? result[0] : result;
-              if (!sourcePath) return;
-
-              const doc = useDocumentStore.getState().getDocument(windowLabel);
-              const filePath = doc?.filePath;
-
-              if (!filePath) {
-                await message(
-                  "Please save the document first to insert images.",
-                  { title: "Unsaved Document", kind: "warning" }
-                );
-                return;
-              }
-
-              // Copy to assets folder and get relative path
-              const relativePath = await copyImageToAssets(sourcePath, filePath);
-
-              // Insert image node
-              insertImageNode(view, relativePath);
-            } catch (error) {
-              console.error("Failed to insert image:", error);
-              await message("Failed to insert image.", { kind: "error" });
-            } finally {
-              insertingImageWindows.delete(windowLabel);
-            }
-          })();
-        },
+        keywords: ["picture", "photo", "img", "block", "inline"],
+        children: [
+          {
+            label: "Block",
+            icon: icons.image,
+            keywords: ["block", "standalone", "figure"],
+            action: (ctx) => {
+              insertImageFromDialog(ctx, true);
+            },
+          },
+          {
+            label: "Inline",
+            icon: icons.image,
+            keywords: ["inline", "text"],
+            action: (ctx) => {
+              insertImageFromDialog(ctx, false);
+            },
+          },
+        ],
       },
       {
         label: "Code Block",

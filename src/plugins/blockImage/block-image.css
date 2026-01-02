@@ -1,0 +1,35 @@
+/**
+ * Block Image Styles
+ *
+ * Styles for block-level images (standalone, not inline).
+ */
+
+.block-image {
+  display: block;
+  margin: 1em 0;
+  text-align: center;
+}
+
+.block-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+/* Selected state */
+.ProseMirror-selectednode .block-image,
+.block-image.ProseMirror-selectednode {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Media border styles - applied via container class */
+.media-border-always .block-image img {
+  border: 1px solid var(--border-color);
+}
+
+.media-border-hover .block-image img:hover {
+  border: 1px solid var(--border-color);
+}

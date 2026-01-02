@@ -110,7 +110,7 @@ export async function copyImageToAssets(
 }
 
 /**
- * Insert an image node into the ProseMirror editor.
+ * Insert an inline image node into the ProseMirror editor.
  * Used by both paste handler and drag-drop handler.
  */
 export function insertImageNode(
@@ -129,6 +129,37 @@ export function insertImageNode(
   });
 
   const insertPos = pos ?? state.selection.from;
+  const tr = state.tr.insert(insertPos, imageNode);
+  view.dispatch(tr);
+}
+
+/**
+ * Insert a block image node into the ProseMirror editor.
+ * Block images appear on their own line, not inline with text.
+ */
+export function insertBlockImageNode(
+  view: EditorView,
+  src: string
+): void {
+  const { state } = view;
+  const blockImageType = state.schema.nodes.block_image;
+  if (!blockImageType) {
+    // Fallback to inline image if block_image schema not available
+    insertImageNode(view, src);
+    return;
+  }
+
+  const imageNode = blockImageType.create({
+    src,
+    alt: "",
+    title: "",
+  });
+
+  // Find block-level insertion point (after current block)
+  const { $from } = state.selection;
+  const endOfBlock = $from.end($from.depth);
+  const insertPos = Math.min(endOfBlock + 1, state.doc.content.size);
+
   const tr = state.tr.insert(insertPos, imageNode);
   view.dispatch(tr);
 }

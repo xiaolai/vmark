@@ -1,12 +1,11 @@
 /**
- * Image View Plugin
+ * Block Image View Plugin
  *
- * Transforms relative image paths to asset:// URLs for rendering,
- * while keeping relative paths in the document (for portability).
+ * Custom NodeView for block images.
+ * Similar to inline image view but uses figure element for block display.
  */
 
 import { $view } from "@milkdown/kit/utils";
-import { imageSchema } from "@milkdown/kit/preset/commonmark";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
 import type { NodeView } from "@milkdown/kit/prose/view";
@@ -15,7 +14,8 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useImagePopupStore } from "@/stores/imagePopupStore";
 import { getWindowLabel } from "@/utils/windowFocus";
-import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "./security";
+import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "@/plugins/imageView/security";
+import { blockImageSchema } from "./node";
 
 /**
  * Convert image path to asset URL for webview rendering.
@@ -34,9 +34,8 @@ async function resolveImageSrc(src: string): Promise<string> {
 
   // Relative paths - resolve against document directory
   if (isRelativePath(src)) {
-    // Validate path to prevent traversal attacks
     if (!validateImagePath(src)) {
-      console.warn("[ImageView] Rejected invalid image path:", src);
+      console.warn("[BlockImageView] Rejected invalid image path:", src);
       return "";
     }
 
@@ -44,7 +43,7 @@ async function resolveImageSrc(src: string): Promise<string> {
     const doc = useDocumentStore.getState().getDocument(windowLabel);
     const filePath = doc?.filePath;
     if (!filePath) {
-      return src; // No document path, can't resolve
+      return src;
     }
 
     try {
@@ -63,35 +62,38 @@ async function resolveImageSrc(src: string): Promise<string> {
 }
 
 /**
- * Custom NodeView for image nodes.
- * Renders images with resolved asset URLs while keeping relative paths in the document.
+ * Custom NodeView for block image nodes.
  */
-class ImageNodeView implements NodeView {
-  dom: HTMLImageElement;
+class BlockImageNodeView implements NodeView {
+  dom: HTMLElement;
+  private img: HTMLImageElement;
   private originalSrc: string;
   private getPos: () => number | undefined;
-  private resolveRequestId = 0; // Track async requests to ignore stale responses
+  private resolveRequestId = 0;
   private destroyed = false;
 
   constructor(node: Node, getPos: () => number | undefined) {
     this.getPos = getPos;
     this.originalSrc = node.attrs.src ?? "";
 
-    // Create img element directly as dom (no wrapper)
-    // This simplifies DOM structure and helps with selection behavior
-    this.dom = document.createElement("img");
-    this.dom.className = "inline-image";
-    this.dom.alt = node.attrs.alt ?? "";
-    this.dom.title = node.attrs.title ?? "";
+    // Create figure wrapper for block-level display
+    this.dom = document.createElement("figure");
+    this.dom.className = "block-image";
+    this.dom.setAttribute("data-type", "block_image");
+
+    // Create img element
+    this.img = document.createElement("img");
+    this.img.alt = node.attrs.alt ?? "";
+    this.img.title = node.attrs.title ?? "";
 
     // Set initial src and resolve if needed
     this.updateSrc(this.originalSrc);
 
-    // Add context menu handler
-    this.dom.addEventListener("contextmenu", this.handleContextMenu);
+    // Add event handlers
+    this.img.addEventListener("contextmenu", this.handleContextMenu);
+    this.img.addEventListener("click", this.handleClick);
 
-    // Add click handler for popup
-    this.dom.addEventListener("click", this.handleClick);
+    this.dom.appendChild(this.img);
   }
 
   private handleContextMenu = (e: MouseEvent) => {
@@ -110,11 +112,12 @@ class ImageNodeView implements NodeView {
     const pos = this.getPos();
     if (pos === undefined) return;
 
-    const rect = this.dom.getBoundingClientRect();
+    const rect = this.img.getBoundingClientRect();
     useImagePopupStore.getState().openPopup({
       imageSrc: this.originalSrc,
-      imageAlt: this.dom.alt ?? "",
+      imageAlt: this.img.alt ?? "",
       imageNodePos: pos,
+      imageNodeType: "block_image",
       anchorRect: {
         top: rect.top,
         left: rect.left,
@@ -125,45 +128,41 @@ class ImageNodeView implements NodeView {
   };
 
   private updateSrc(src: string): void {
-    // Always reset opacity first
-    this.dom.style.opacity = "1";
+    this.img.style.opacity = "1";
 
     if (!src) {
-      this.dom.src = "";
+      this.img.src = "";
       return;
     }
 
     // External URLs can be used directly
     if (isExternalUrl(src)) {
-      this.dom.src = src;
+      this.img.src = src;
       return;
     }
 
     // Relative and absolute paths need resolution
-    // Show placeholder while resolving
-    this.dom.src = "";
-    this.dom.style.opacity = "0.5";
+    this.img.src = "";
+    this.img.style.opacity = "0.5";
 
-    // Increment request ID to track this specific request
     const requestId = ++this.resolveRequestId;
 
     resolveImageSrc(src).then((resolvedSrc) => {
-      // Ignore stale responses (src changed or view destroyed)
       if (this.destroyed || requestId !== this.resolveRequestId) {
         return;
       }
-      this.dom.src = resolvedSrc;
-      this.dom.style.opacity = "1";
+      this.img.src = resolvedSrc;
+      this.img.style.opacity = "1";
     });
   }
 
   update(node: Node): boolean {
-    if (node.type.name !== "image") {
+    if (node.type.name !== "block_image") {
       return false;
     }
 
-    this.dom.alt = node.attrs.alt ?? "";
-    this.dom.title = node.attrs.title ?? "";
+    this.img.alt = node.attrs.alt ?? "";
+    this.img.title = node.attrs.title ?? "";
 
     const newSrc = node.attrs.src ?? "";
     if (this.originalSrc !== newSrc) {
@@ -176,56 +175,22 @@ class ImageNodeView implements NodeView {
 
   destroy(): void {
     this.destroyed = true;
-    this.dom.removeEventListener("contextmenu", this.handleContextMenu);
-    this.dom.removeEventListener("click", this.handleClick);
+    this.img.removeEventListener("contextmenu", this.handleContextMenu);
+    this.img.removeEventListener("click", this.handleClick);
   }
 
-  /**
-   * Prevent ProseMirror from handling mouse events on the image.
-   * This stops the selection from expanding when clicking on images.
-   */
   stopEvent(event: Event): boolean {
-    // Stop mousedown/click to prevent text selection
     if (event.type === "mousedown" || event.type === "click") {
-      return true;
+      // Only stop events targeting the img element, not the wrapper
+      return (event.target as HTMLElement) === this.img;
     }
     return false;
-  }
-
-  /**
-   * Called when this node is selected via NodeSelection.
-   * Add visual selection indicator.
-   */
-  selectNode(): void {
-    this.dom.classList.add("ProseMirror-selectednode");
-    // Fix browser selection quirk: clear native selection to prevent
-    // visual artifacts where text before image appears selected
-    requestAnimationFrame(() => {
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
-        // Only clear if selection intersects this image (NodeSelection artifact)
-        const range = sel.getRangeAt(0);
-        if (range.intersectsNode(this.dom)) {
-          sel.removeAllRanges();
-        }
-      }
-    });
-  }
-
-  /**
-   * Called when this node is deselected.
-   * Remove visual selection indicator.
-   */
-  deselectNode(): void {
-    this.dom.classList.remove("ProseMirror-selectednode");
   }
 }
 
 /**
- * Milkdown plugin for custom image rendering.
+ * Milkdown plugin for block image rendering.
  */
-export const imageViewPlugin = $view(imageSchema.node, () => {
-  return (node, _view, getPos): NodeView => new ImageNodeView(node, getPos);
+export const blockImageViewPlugin = $view(blockImageSchema.node, () => {
+  return (node, _view, getPos): NodeView => new BlockImageNodeView(node, getPos);
 });
-
-export default imageViewPlugin;

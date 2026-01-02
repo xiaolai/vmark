@@ -281,6 +281,17 @@
   transition: border-color 0.15s ease;
 }
 
+/* Inline images - override Tailwind's display: block */
+.milkdown img.inline-image {
+  display: inline;
+  vertical-align: middle;
+}
+
+/* Selected inline image styling */
+.milkdown img.inline-image.ProseMirror-selectednode {
+  border-bottom: 2px solid var(--primary-color);
+}
+
 /* Media border styles - applied to editor container */
 .media-border-always .milkdown img,
 .media-border-always .mermaid-block,

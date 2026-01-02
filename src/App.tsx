@@ -62,6 +62,7 @@ import { useWindowClose } from "@/hooks/useWindowClose";
 import { useAppQuit } from "@/hooks/useAppQuit";
 import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { useDisableContextMenu } from "@/hooks/useDisableContextMenu";
+import { useViewShortcuts } from "@/hooks/useViewShortcuts";
 
 // Separate component for window lifecycle hooks to avoid conditional hook calls
 function DocumentWindowHooks() {
@@ -120,6 +121,7 @@ function MainLayout() {
   useAutoSave(); // Auto-save when dirty
   useRecentFilesSync(); // Sync recent files to native menu
   useDisableContextMenu(); // Disable browser context menu
+  useViewShortcuts(); // F7, F8, F9 shortcuts
 
   const classNames = [
     "app-layout",

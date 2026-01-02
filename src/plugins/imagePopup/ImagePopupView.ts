@@ -23,6 +23,10 @@ const icons = {
   folder: `<svg viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`,
   copy: `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
   delete: `<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+  // Block image icon (image with frame)
+  blockImage: `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,
+  // Inline image icon (image with text line)
+  inlineImage: `<svg viewBox="0 0 24 24"><rect x="2" y="6" width="10" height="10" rx="1"/><circle cx="5" cy="9" r="1.5"/><path d="m12 13-2-2-3 5"/><line x1="16" y1="8" x2="22" y2="8"/><line x1="16" y1="12" x2="22" y2="12"/><line x1="16" y1="16" x2="22" y2="16"/></svg>`,
 };
 
 // Re-entry guard for browse action
@@ -35,6 +39,7 @@ export class ImagePopupView {
   private container: HTMLElement;
   private srcInput: HTMLInputElement;
   private altInput: HTMLInputElement;
+  private toggleBtn: HTMLElement;
   private unsubscribe: () => void;
   private editorView: EditorView;
   private justOpened = false;
@@ -51,6 +56,9 @@ export class ImagePopupView {
     this.altInput = this.container.querySelector(
       ".image-popup-alt"
     ) as HTMLInputElement;
+    this.toggleBtn = this.container.querySelector(
+      ".image-popup-btn-toggle"
+    ) as HTMLElement;
 
     // Append to document body (avoids interfering with editor DOM)
     document.body.appendChild(this.container);
@@ -88,7 +96,7 @@ export class ImagePopupView {
     srcInput.placeholder = "Image URL or path...";
     srcInput.addEventListener("keydown", this.handleInputKeydown);
 
-    // Icon buttons: browse, copy, delete
+    // Icon buttons: browse, copy, toggle, delete
     const browseBtn = this.buildIconButton(
       icons.folder,
       "Browse local file",
@@ -99,6 +107,12 @@ export class ImagePopupView {
       "Copy path",
       this.handleCopy
     );
+    const toggleBtn = this.buildIconButton(
+      icons.blockImage,
+      "Toggle block/inline",
+      this.handleToggle
+    );
+    toggleBtn.classList.add("image-popup-btn-toggle");
     const deleteBtn = this.buildIconButton(
       icons.delete,
       "Remove image",
@@ -109,6 +123,7 @@ export class ImagePopupView {
     srcRow.appendChild(srcInput);
     srcRow.appendChild(browseBtn);
     srcRow.appendChild(copyBtn);
+    srcRow.appendChild(toggleBtn);
     srcRow.appendChild(deleteBtn);
 
     // Row 2: Caption/alt input
@@ -144,10 +159,14 @@ export class ImagePopupView {
   }
 
   private show(imageSrc: string, imageAlt: string, anchorRect: AnchorRect) {
+    const { imageNodeType } = useImagePopupStore.getState();
     this.srcInput.value = imageSrc;
     this.altInput.value = imageAlt;
     this.container.style.display = "flex";
     this.container.style.position = "fixed";
+
+    // Update toggle button icon based on current type
+    this.updateToggleIcon(imageNodeType);
 
     // Set guard to prevent immediate close from same click event
     this.justOpened = true;
@@ -186,6 +205,15 @@ export class ImagePopupView {
     this.container.style.display = "none";
   }
 
+  private updateToggleIcon(nodeType: "image" | "block_image") {
+    // Show inline icon when currently block (clicking will make it inline)
+    // Show block icon when currently inline (clicking will make it block)
+    const icon = nodeType === "block_image" ? icons.inlineImage : icons.blockImage;
+    const title = nodeType === "block_image" ? "Convert to inline" : "Convert to block";
+    this.toggleBtn.innerHTML = icon;
+    this.toggleBtn.title = title;
+  }
+
   private handleInputKeydown = (e: KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -214,7 +242,7 @@ export class ImagePopupView {
       if (!editorState) return;
 
       const node = editorState.doc.nodeAt(imageNodePos);
-      if (!node || node.type.name !== "image") return;
+      if (!node || (node.type.name !== "image" && node.type.name !== "block_image")) return;
 
       // Update image src and alt
       const tr = editorState.tr.setNodeMarkup(imageNodePos, null, {
@@ -229,6 +257,63 @@ export class ImagePopupView {
     } catch (error) {
       console.error("[ImagePopup] Save failed:", error);
       state.closePopup();
+    }
+  };
+
+  private handleToggle = () => {
+    const state = useImagePopupStore.getState();
+    const { imageNodePos, imageNodeType } = state;
+
+    try {
+      const { state: editorState, dispatch } = this.editorView;
+      if (!editorState) return;
+
+      const node = editorState.doc.nodeAt(imageNodePos);
+      if (!node) return;
+
+      const attrs = { src: node.attrs.src, alt: node.attrs.alt, title: node.attrs.title };
+
+      if (imageNodeType === "block_image") {
+        // Block → Inline: Replace with inline image
+        const inlineImageType = editorState.schema.nodes.image;
+        if (!inlineImageType) {
+          console.warn("[ImagePopup] inline image schema not available");
+          return;
+        }
+
+        const inlineNode = inlineImageType.create(attrs);
+        const tr = editorState.tr.replaceWith(
+          imageNodePos,
+          imageNodePos + node.nodeSize,
+          inlineNode
+        );
+        dispatch(tr);
+
+        // Update store state and close popup (conversion complete)
+        useImagePopupStore.getState().setNodeType("image");
+        useImagePopupStore.getState().closePopup();
+      } else {
+        // Inline → Block: Replace with block image
+        const blockImageType = editorState.schema.nodes.block_image;
+        if (!blockImageType) {
+          console.warn("[ImagePopup] block_image schema not available");
+          return;
+        }
+
+        const blockNode = blockImageType.create(attrs);
+        const tr = editorState.tr.replaceWith(
+          imageNodePos,
+          imageNodePos + node.nodeSize,
+          blockNode
+        );
+        dispatch(tr);
+
+        // Update store state and close popup (conversion complete)
+        useImagePopupStore.getState().setNodeType("block_image");
+        useImagePopupStore.getState().closePopup();
+      }
+    } catch (error) {
+      console.error("[ImagePopup] Toggle failed:", error);
     }
   };
 
@@ -281,7 +366,7 @@ export class ImagePopupView {
       }
 
       const node = editorState.doc.nodeAt(imageNodePos);
-      if (!node || node.type.name !== "image") {
+      if (!node || (node.type.name !== "image" && node.type.name !== "block_image")) {
         isBrowsing = false;
         return;
       }
@@ -324,7 +409,7 @@ export class ImagePopupView {
       if (!editorState) return;
 
       const node = editorState.doc.nodeAt(imageNodePos);
-      if (!node || node.type.name !== "image") return;
+      if (!node || (node.type.name !== "image" && node.type.name !== "block_image")) return;
 
       // Delete the node
       const tr = editorState.tr.delete(imageNodePos, imageNodePos + node.nodeSize);

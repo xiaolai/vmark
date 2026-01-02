@@ -14,7 +14,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getWindowLabel } from "@/utils/windowFocus";
-import { saveImageToAssets, insertImageNode } from "@/utils/imageUtils";
+import { saveImageToAssets, insertBlockImageNode } from "@/utils/imageUtils";
 
 export const imageHandlerPluginKey = new PluginKey("imageHandler");
 
@@ -56,8 +56,8 @@ async function processClipboardImage(
     // Save image and get relative path (portable)
     const relativePath = await saveImageToAssets(imageData, filename, filePath);
 
-    // Insert image node with relative path
-    insertImageNode(view, relativePath);
+    // Insert block image node (default behavior for pasted images)
+    insertBlockImageNode(view, relativePath);
   } catch (error) {
     console.error("Failed to process clipboard image:", error);
     await message("Failed to save image from clipboard.", { kind: "error" });

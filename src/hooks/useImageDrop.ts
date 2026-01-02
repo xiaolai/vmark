@@ -22,7 +22,7 @@ import {
   saveImageToAssets,
   isImageFile,
   getFilename,
-  insertImageNode,
+  insertBlockImageNode,
 } from "@/utils/imageUtils";
 
 type GetEditor = () => Editor | undefined;
@@ -164,10 +164,10 @@ export function useImageDrop(getEditor: GetEditor) {
                 documentPath
               );
 
-              // Insert into editor at cursor position
+              // Insert block image at cursor position (default for dropped images)
               editor.action((ctx) => {
                 const view = ctx.get(editorViewCtx);
-                insertImageNode(view, relativePath);
+                insertBlockImageNode(view, relativePath);
               });
             } catch (error) {
               console.error("Failed to process dropped image:", imagePath, error);

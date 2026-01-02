@@ -13,11 +13,14 @@ interface AnchorRect {
   right: number;
 }
 
+type ImageNodeType = "image" | "block_image";
+
 interface ImagePopupState {
   isOpen: boolean;
   imageSrc: string;
   imageAlt: string;
   imageNodePos: number;
+  imageNodeType: ImageNodeType;
   anchorRect: AnchorRect | null;
 }
 
@@ -26,11 +29,13 @@ interface ImagePopupActions {
     imageSrc: string;
     imageAlt: string;
     imageNodePos: number;
+    imageNodeType?: ImageNodeType;
     anchorRect: AnchorRect;
   }) => void;
   closePopup: () => void;
   setSrc: (src: string) => void;
   setAlt: (alt: string) => void;
+  setNodeType: (type: ImageNodeType) => void;
 }
 
 type ImagePopupStore = ImagePopupState & ImagePopupActions;
@@ -40,6 +45,7 @@ const initialState: ImagePopupState = {
   imageSrc: "",
   imageAlt: "",
   imageNodePos: -1,
+  imageNodeType: "image",
   anchorRect: null,
 };
 
@@ -52,6 +58,7 @@ export const useImagePopupStore = create<ImagePopupStore>((set) => ({
       imageSrc: data.imageSrc,
       imageAlt: data.imageAlt,
       imageNodePos: data.imageNodePos,
+      imageNodeType: data.imageNodeType ?? "image",
       anchorRect: data.anchorRect,
     }),
 
@@ -60,4 +67,8 @@ export const useImagePopupStore = create<ImagePopupStore>((set) => ({
   setSrc: (src) => set({ imageSrc: src }),
 
   setAlt: (alt) => set({ imageAlt: alt }),
+
+  setNodeType: (type) => set({ imageNodeType: type }),
 }));
+
+export type { ImageNodeType };
