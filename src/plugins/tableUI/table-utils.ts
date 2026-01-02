@@ -148,11 +148,8 @@ function findColIndex(table: Node, rowIndex: number, relativePos: number): numbe
  */
 export function getTableRect(view: EditorView, tablePos: number): AnchorRect | null {
   try {
-    // Get coordinates for the start of the table
-    const coords = view.coordsAtPos(tablePos);
-
-    // Find the table DOM element
-    const domAtPos = view.domAtPos(tablePos);
+    // Use tablePos + 1 to get inside the table node (tablePos is position before table)
+    const domAtPos = view.domAtPos(tablePos + 1);
     let tableEl: Element | null = domAtPos.node instanceof Element
       ? domAtPos.node
       : domAtPos.node.parentElement;
@@ -172,7 +169,23 @@ export function getTableRect(view: EditorView, tablePos: number): AnchorRect | n
       };
     }
 
-    // Fallback to coords if DOM lookup fails
+    // Fallback: try to find table via nodeDOM
+    const tableNode = view.state.doc.nodeAt(tablePos);
+    if (tableNode) {
+      const dom = view.nodeDOM(tablePos);
+      if (dom instanceof HTMLTableElement) {
+        const rect = dom.getBoundingClientRect();
+        return {
+          top: rect.top,
+          left: rect.left,
+          bottom: rect.bottom,
+          right: rect.right,
+        };
+      }
+    }
+
+    // Last resort: use coordsAtPos (returns point, not rect - avoid this)
+    const coords = view.coordsAtPos(tablePos);
     return {
       top: coords.top,
       left: coords.left,

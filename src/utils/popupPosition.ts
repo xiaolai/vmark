@@ -39,9 +39,10 @@ export interface PopupPosition {
 /**
  * Calculate popup position relative to an anchor element.
  *
- * - Horizontally centers on anchor, constrained to horizontal bounds
- * - Vertically prefers above/below based on preference, with space detection
- * - Falls back to whichever direction has more space
+ * Positioning priority:
+ * 1. Above anchor (no overlap) - preferred
+ * 2. Below anchor (no overlap) - fallback
+ * 3. Overlap at visible anchor area - for large anchors exceeding viewport
  */
 export function calculatePopupPosition(options: PositionOptions): PopupPosition {
   const { anchor, popup, bounds, gap = 6, preferAbove = true } = options;
@@ -52,35 +53,30 @@ export function calculatePopupPosition(options: PositionOptions): PopupPosition 
   left = Math.max(bounds.horizontal.left + gap, left);
   left = Math.min(bounds.horizontal.right - popup.width - gap, left);
 
-  // Vertical: prefer above/below based on preference, with space detection
+  // Vertical: improved algorithm with overlap mode for large anchors
   const spaceAbove = anchor.top - bounds.vertical.top;
   const spaceBelow = bounds.vertical.bottom - anchor.bottom;
-  const needsHeight = popup.height + gap;
+  const neededHeight = popup.height + gap;
 
   let top: number;
-  const primaryHasSpace = preferAbove
-    ? spaceAbove >= needsHeight
-    : spaceBelow >= needsHeight;
-  const secondaryHasSpace = preferAbove
-    ? spaceBelow >= needsHeight
-    : spaceAbove >= needsHeight;
 
-  if (primaryHasSpace) {
-    top = preferAbove
-      ? anchor.top - popup.height - gap
-      : anchor.bottom + gap;
-  } else if (secondaryHasSpace) {
-    top = preferAbove
-      ? anchor.bottom + gap
-      : anchor.top - popup.height - gap;
+  if (preferAbove && spaceAbove >= neededHeight) {
+    // Case 1: Enough space above - position above (no overlap)
+    top = anchor.top - popup.height - gap;
+  } else if (spaceBelow >= neededHeight) {
+    // Case 2: Enough space below - position below (no overlap)
+    top = anchor.bottom + gap;
+  } else if (!preferAbove && spaceAbove >= neededHeight) {
+    // Case 2b: Prefer below didn't work, but above works
+    top = anchor.top - popup.height - gap;
   } else {
-    // Neither has enough space - use whichever has more
-    top = spaceAbove > spaceBelow
-      ? anchor.top - popup.height - gap
-      : anchor.bottom + gap;
+    // Case 3: Large anchor (e.g., table) - overlap mode
+    // Position at top of visible anchor area
+    const visibleTop = Math.max(anchor.top, bounds.vertical.top);
+    top = visibleTop + gap;
   }
 
-  // Final clamp to vertical bounds
+  // Final clamp to ensure popup stays in bounds
   top = Math.max(bounds.vertical.top + gap, top);
   top = Math.min(bounds.vertical.bottom - popup.height - gap, top);
 
