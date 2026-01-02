@@ -64,6 +64,76 @@ export function findAnyMarkRangeAtCursor(
   return smallestRange;
 }
 
+// Intl.Segmenter type declaration (ES2022)
+interface SegmentData {
+  segment: string;
+  index: number;
+  isWordLike?: boolean;
+}
+
+type SegmenterType = { segment: (text: string) => Iterable<SegmentData> };
+
+// Cached segmenter instance (created once, reused)
+let cachedSegmenter: SegmenterType | null = null;
+
+/**
+ * Get or create a cached Intl.Segmenter instance.
+ * Returns null if Intl.Segmenter is not available.
+ */
+function getWordSegmenter(): SegmenterType | null {
+  if (cachedSegmenter) return cachedSegmenter;
+
+  // Feature detection for Intl.Segmenter
+  if (!("Segmenter" in Intl)) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Segmenter = (Intl as any).Segmenter as new (
+    locale?: string,
+    options?: { granularity: string }
+  ) => SegmenterType;
+
+  cachedSegmenter = new Segmenter(undefined, { granularity: "word" });
+  return cachedSegmenter;
+}
+
+/**
+ * Find the word at cursor position using Intl.Segmenter.
+ * Matches browser-native word selection behavior (double-click).
+ * Returns null if cursor is in whitespace/punctuation or Segmenter unavailable.
+ */
+export function findWordAtCursor(
+  $pos: ResolvedPos
+): { from: number; to: number } | null {
+  const parent = $pos.parent;
+  if (!parent.isTextblock) return null;
+
+  const segmenter = getWordSegmenter();
+  if (!segmenter) return null;
+
+  const text = parent.textContent;
+  const offset = $pos.parentOffset;
+  const blockStart = $pos.start();
+
+  const segments = Array.from(segmenter.segment(text));
+
+  // Find segment containing cursor
+  for (const segment of segments) {
+    const segStart = segment.index;
+    const segEnd = segStart + segment.segment.length;
+
+    if (offset >= segStart && offset <= segEnd) {
+      // Skip non-word segments (punctuation, whitespace)
+      if (!segment.isWordLike) return null;
+
+      return {
+        from: blockStart + segStart,
+        to: blockStart + segEnd,
+      };
+    }
+  }
+  return null;
+}
+
 /**
  * Find all mark ranges that contain the given position
  */

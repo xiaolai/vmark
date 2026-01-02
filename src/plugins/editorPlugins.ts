@@ -13,7 +13,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getCursorInfoFromProseMirror } from "@/utils/cursorSync/prosemirror";
-import { findMarkRange, findAnyMarkRangeAtCursor } from "@/plugins/syntaxReveal/marks";
+import { findMarkRange, findAnyMarkRangeAtCursor, findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 
 /**
  * Delay (ms) before enabling cursor tracking to allow restoration to complete.
@@ -38,31 +38,59 @@ export const overrideKeymapPlugin = $prose(() =>
   })
 );
 
-// Track last removed mark for undo-like re-toggle
+// Track last removed mark for undo-like re-toggle (per-window via WeakMap)
 interface LastRemovedMark {
   markType: string;
   from: number;
   to: number;
-  docVersion: number;
+  docTextHash: number; // Simple hash of doc text content
 }
-let lastRemovedMark: LastRemovedMark | null = null;
+
+// Use WeakMap keyed by EditorView to scope state per editor instance
+const lastRemovedMarkMap = new WeakMap<EditorView, LastRemovedMark | null>();
+
+/**
+ * Simple string hash for document version detection.
+ * Detects any character change, not just size changes.
+ */
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash;
+}
 
 /**
  * Expanded toggle mark: when cursor is inside a mark, toggle the entire marked range.
  * Also supports undo-like re-toggle if no changes were made.
+ * Exported for reuse in menu command handlers.
  */
-function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
+export function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
   const { state, dispatch } = view;
   const markType = state.schema.marks[markTypeName];
   if (!markType) return false;
 
   const { from, to, empty } = state.selection;
   const $from = state.selection.$from;
-  const docVersion = state.doc.content.size;
+  const docTextHash = hashString(state.doc.textContent);
+
+  // Get per-instance state
+  const lastRemovedMark = lastRemovedMarkMap.get(view) ?? null;
+
+  const clearLastRemoved = () => {
+    lastRemovedMarkMap.set(view, null);
+  };
+
+  const setLastRemoved = (mark: LastRemovedMark) => {
+    lastRemovedMarkMap.set(view, mark);
+  };
 
   if (!empty) {
     // Has selection - standard toggle
-    lastRemovedMark = null;
+    clearLastRemoved();
     if (state.doc.rangeHasMark(from, to, markType)) {
       dispatch(state.tr.removeMark(from, to, markType));
     } else {
@@ -81,12 +109,12 @@ function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
 
   if (markRange) {
     // Cursor inside mark - remove from entire range and remember it
-    lastRemovedMark = {
+    setLastRemoved({
       markType: markTypeName,
       from: markRange.from,
       to: markRange.to,
-      docVersion,
-    };
+      docTextHash,
+    });
     dispatch(state.tr.removeMark(markRange.from, markRange.to, markType));
     return true;
   } else {
@@ -94,7 +122,7 @@ function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
     if (
       lastRemovedMark &&
       lastRemovedMark.markType === markTypeName &&
-      lastRemovedMark.docVersion === docVersion &&
+      lastRemovedMark.docTextHash === docTextHash &&
       from >= lastRemovedMark.from &&
       from <= lastRemovedMark.to
     ) {
@@ -106,7 +134,7 @@ function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
           markType.create()
         )
       );
-      lastRemovedMark = null;
+      clearLastRemoved();
       return true;
     }
 
@@ -115,7 +143,7 @@ function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
     // Exception: inline code inside link is not useful, skip this fallback
     const inheritedRange = findAnyMarkRangeAtCursor(from, $from);
     if (inheritedRange && !(markTypeName === "inlineCode" && inheritedRange.isLink)) {
-      lastRemovedMark = null;
+      clearLastRemoved();
       dispatch(
         state.tr.addMark(
           inheritedRange.from,
@@ -126,8 +154,16 @@ function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
       return true;
     }
 
+    // Fallback: select word at cursor and apply mark
+    const wordRange = findWordAtCursor($from);
+    if (wordRange) {
+      clearLastRemoved();
+      dispatch(state.tr.addMark(wordRange.from, wordRange.to, markType.create()));
+      return true;
+    }
+
     // Final fallback - toggle stored mark for new typing
-    lastRemovedMark = null;
+    clearLastRemoved();
     const storedMarks = state.storedMarks || $from.marks();
     if (markType.isInSet(storedMarks)) {
       dispatch(state.tr.removeStoredMark(markType));
@@ -145,12 +181,10 @@ function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
 export const expandedMarkTogglePlugin = $prose(() =>
   keymap({
     "Mod-b": (_state, _dispatch, view) => {
-      console.log("[expandedMarkToggle] Mod-b triggered");
       if (!view) return false;
       return expandedToggleMark(view, "strong");
     },
     "Mod-i": (_state, _dispatch, view) => {
-      console.log("[expandedMarkToggle] Mod-i triggered");
       if (!view) return false;
       return expandedToggleMark(view, "emphasis");
     },

@@ -3,78 +3,16 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Editor } from "@milkdown/kit/core";
-import type { EditorView } from "@milkdown/kit/prose/view";
 import type { Node, Mark } from "@milkdown/kit/prose/model";
 import { useDocumentStore } from "@/stores/documentStore";
 import { copyImageToAssets, insertImageNode } from "@/utils/imageUtils";
 import { isWindowFocused, getWindowLabel } from "@/utils/windowFocus";
-import { findMarkRange, findAnyMarkRangeAtCursor } from "@/plugins/syntaxReveal/marks";
+import { expandedToggleMark } from "@/plugins/editorPlugins";
 
 // Re-entry guard for image insertion (prevents duplicate dialogs)
 const isInsertingImageRef = { current: false };
 
 type GetEditor = () => Editor | undefined;
-
-/**
- * Toggle a mark on the current selection or at cursor position.
- * Replicates the expandedToggleMark behavior from editorPlugins.ts
- */
-function toggleMark(view: EditorView, markTypeName: string): boolean {
-  const { state, dispatch } = view;
-  const markType = state.schema.marks[markTypeName];
-  if (!markType) return false;
-
-  const { from, to, empty } = state.selection;
-  const $from = state.selection.$from;
-
-  if (!empty) {
-    // Has selection - standard toggle
-    if (state.doc.rangeHasMark(from, to, markType)) {
-      dispatch(state.tr.removeMark(from, to, markType));
-    } else {
-      dispatch(state.tr.addMark(from, to, markType.create()));
-    }
-    return true;
-  }
-
-  // Empty selection - find mark range at cursor
-  const markRange = findMarkRange(
-    from,
-    markType.create(),
-    $from.start(),
-    $from.parent
-  );
-
-  if (markRange) {
-    // Cursor inside mark - remove from entire range
-    dispatch(state.tr.removeMark(markRange.from, markRange.to, markType));
-    return true;
-  }
-
-  // Fallback: check if cursor is inside ANY other mark (e.g., link)
-  // If so, apply the target mark to that range
-  // Exception: inline code inside link is not useful, skip this fallback
-  const inheritedRange = findAnyMarkRangeAtCursor(from, $from);
-  if (inheritedRange && !(markTypeName === "inlineCode" && inheritedRange.isLink)) {
-    dispatch(
-      state.tr.addMark(
-        inheritedRange.from,
-        inheritedRange.to,
-        markType.create()
-      )
-    );
-    return true;
-  }
-
-  // Final fallback - toggle stored mark for new typing
-  const storedMarks = state.storedMarks || $from.marks();
-  if (markType.isInSet(storedMarks)) {
-    dispatch(state.tr.removeStoredMark(markType));
-  } else {
-    dispatch(state.tr.addStoredMark(markType.create()));
-  }
-  return true;
-}
 
 export function useFormatCommands(getEditor: GetEditor) {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -183,7 +121,7 @@ export function useFormatCommands(getEditor: GetEditor) {
             editor.action((ctx) => {
               const view = ctx.get(editorViewCtx);
               if (view) {
-                toggleMark(view, markType);
+                expandedToggleMark(view, markType);
               }
             });
           }
