@@ -10,10 +10,10 @@ import { findAndReplace, type Find, type Replace } from "mdast-util-find-and-rep
 import type { Root } from "mdast";
 
 // Regex patterns - match text between delimiters
-// Subscript: ~text~ (but not ~~strikethrough~~)
-const SUB_REGEX = /(?<![~\\])~([^~\s][^~]*[^~\s]|[^~\s])~(?!~)/g;
-// Superscript: ^text^ (but not escaped)
-const SUP_REGEX = /(?<![\\])\^([^^]+)\^/g;
+// Subscript: ~text~ (but not ~~strikethrough~~) OR <sub>text</sub>
+const SUB_REGEX = /(?<![~\\])~([^~\s][^~]*[^~\s]|[^~\s])~(?!~)|<sub>([^<]+)<\/sub>/gi;
+// Superscript: ^text^ (but not escaped) OR <sup>text</sup>
+const SUP_REGEX = /(?<![\\])\^([^^]+)\^|<sup>([^<]+)<\/sup>/gi;
 
 /**
  * Custom mdast node types for subscript/superscript
@@ -32,8 +32,10 @@ interface SuperscriptNode {
 
 /**
  * Creates a subscript node from matched text
+ * Handles both ~text~ (group 1) and <sub>text</sub> (group 2)
  */
-function createSubscriptNode(_: string, text: string): SubscriptNode {
+function createSubscriptNode(_: string, text1: string, text2: string): SubscriptNode {
+  const text = text1 || text2;
   return {
     type: "subscript",
     data: { hName: "sub" },
@@ -43,8 +45,10 @@ function createSubscriptNode(_: string, text: string): SubscriptNode {
 
 /**
  * Creates a superscript node from matched text
+ * Handles both ^text^ (group 1) and <sup>text</sup> (group 2)
  */
-function createSuperscriptNode(_: string, text: string): SuperscriptNode {
+function createSuperscriptNode(_: string, text1: string, text2: string): SuperscriptNode {
+  const text = text1 || text2;
   return {
     type: "superscript",
     data: { hName: "sup" },
