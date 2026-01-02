@@ -44,14 +44,10 @@ export function getTableInfo(view: EditorView): TableInfo | null {
   const { selection } = view.state;
   const $pos = selection.$from;
 
-  // Find table, row, and cell in ancestry using $pos.index() for correct indices
+  // Find table in ancestry
   let tableNode: Node | null = null;
   let tablePos = -1;
   let tableDepth = -1;
-  let cellNode: Node | null = null;
-  let cellPos = -1;
-  let rowIndex = -1;
-  let colIndex = -1;
 
   for (let d = $pos.depth; d > 0; d--) {
     const node = $pos.node(d);
@@ -59,19 +55,28 @@ export function getTableInfo(view: EditorView): TableInfo | null {
       tableNode = node;
       tablePos = $pos.before(d);
       tableDepth = d;
-    } else if (node.type.name === "table_row") {
-      // Row index is this node's index within the table
-      rowIndex = $pos.index(d - 1);
-    } else if (node.type.name === "table_cell" || node.type.name === "table_header") {
-      cellNode = node;
-      cellPos = $pos.before(d);
-      // Column index is this cell's index within the row
-      colIndex = $pos.index(d - 1);
+      break;
     }
   }
 
-  if (!tableNode || tablePos < 0) {
+  if (!tableNode || tablePos < 0 || tableDepth < 0) {
     return null;
+  }
+
+  // Use depth-based indexing (table structure is fixed):
+  // - table at tableDepth
+  // - row at tableDepth + 1 → rowIndex = $pos.index(tableDepth)
+  // - cell at tableDepth + 2 → colIndex = $pos.index(tableDepth + 1)
+  const rowIndex = $pos.depth > tableDepth ? $pos.index(tableDepth) : 0;
+  const colIndex = $pos.depth > tableDepth + 1 ? $pos.index(tableDepth + 1) : 0;
+
+  // Get cell info if cursor is deep enough
+  let cellNode: Node | null = null;
+  let cellPos = -1;
+  const cellDepth = tableDepth + 2;
+  if ($pos.depth >= cellDepth) {
+    cellNode = $pos.node(cellDepth);
+    cellPos = $pos.before(cellDepth);
   }
 
   // Count rows and columns
