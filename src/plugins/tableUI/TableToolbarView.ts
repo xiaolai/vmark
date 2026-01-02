@@ -123,6 +123,10 @@ export class TableToolbarView {
     btn.type = "button";
     btn.title = title;
     btn.innerHTML = iconSvg;
+    // Prevent mousedown from stealing focus from editor
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -197,19 +201,11 @@ export class TableToolbarView {
   };
 
   private handleDeleteRow = () => {
-    this.editorView.focus();
-    // Defer to next microtask to ensure focus/selection is updated
-    queueMicrotask(() => {
-      deleteRow(this.editorView);
-    });
+    deleteRow(this.editorView);
   };
 
   private handleDeleteCol = () => {
-    this.editorView.focus();
-    // Defer to next microtask to ensure focus/selection is updated
-    queueMicrotask(() => {
-      deleteColumn(this.editorView);
-    });
+    deleteColumn(this.editorView);
   };
 
   private handleDeleteTable = () => {

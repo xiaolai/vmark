@@ -118,6 +118,10 @@ export class TableContextMenu {
       menuItem.className = `table-context-menu-item${item.danger ? " table-context-menu-item-danger" : ""}`;
       menuItem.type = "button";
       menuItem.textContent = item.label;
+      // Prevent mousedown from stealing focus from editor
+      menuItem.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+      });
       menuItem.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -185,19 +189,11 @@ export class TableContextMenu {
   }
 
   private handleDeleteRow() {
-    this.editorView.focus();
-    // Defer to next microtask to ensure focus/selection is updated
-    queueMicrotask(() => {
-      deleteRow(this.editorView);
-    });
+    deleteRow(this.editorView);
   }
 
   private handleDeleteCol() {
-    this.editorView.focus();
-    // Defer to next microtask to ensure focus/selection is updated
-    queueMicrotask(() => {
-      deleteColumn(this.editorView);
-    });
+    deleteColumn(this.editorView);
   }
 
   private handleDeleteTable() {
