@@ -56,6 +56,21 @@ importers:
       alfaaz:
         specifier: ^1.1.0
         version: 1.1.0
+      dictionary-de:
+        specifier: ^3.0.0
+        version: 3.0.0
+      dictionary-en:
+        specifier: ^4.0.0
+        version: 4.0.0
+      dictionary-es:
+        specifier: ^4.0.0
+        version: 4.0.0
+      dictionary-fr:
+        specifier: ^3.0.0
+        version: 3.0.0
+      dictionary-ko:
+        specifier: ^2.0.0
+        version: 2.0.0
       dompurify:
         specifier: ^3.3.1
         version: 3.3.1
@@ -77,6 +92,9 @@ importers:
       mermaid:
         specifier: ^11.12.2
         version: 11.12.2
+      nspell:
+        specifier: ^2.1.5
+        version: 2.1.5
       react:
         specifier: ^19.1.0
         version: 19.2.3
@@ -1761,6 +1779,21 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
+  dictionary-de@3.0.0:
+    resolution: {integrity: sha512-0Xbq+YpWTscAL1e18aPPaqfG4goC2o9T595L/54v2OvOPC0/TJFFlclYanxuUoK73wutM5f9EgSuWGkvQXlOXw==}
+
+  dictionary-en@4.0.0:
+    resolution: {integrity: sha512-3NHnE1uq33ZE/CIwaZ6gqxa4BnglHnxeAcTM0GJ7cmtRGcvX9InMK/IqLtYcUMFCUpUNgybH+DzkqdgAo3F1zg==}
+
+  dictionary-es@4.0.0:
+    resolution: {integrity: sha512-8J3IYdaHYmkojxqhB+DneQpek6N/s3MwbVk3bPNGQSTBT5kxJtmbuiT0LSDP0Al6K9Vevo1sjspG8AGP9Yvxiw==}
+
+  dictionary-fr@3.0.0:
+    resolution: {integrity: sha512-fhDRX1cRyHPA69GJg8R4XgNYgSQvbNHj3kr5UqvEG1OS5pJqH6P3GbO7wpTCwvr5KMQ0NxGIsXps9P5NyXRVEg==}
+
+  dictionary-ko@2.0.0:
+    resolution: {integrity: sha512-0/0UdG9/SqUzGUcuTLZsM0BjSTagDiWdNQ51H1BdDKW7TqR7WjfBhipg+YLAKvyCG2Is6dPwCSoBIPUgOgPdxw==}
+
   dnd-core@14.0.1:
     resolution: {integrity: sha512-+PVS2VPTgKFPYWo3vAFEA8WPbTf7/xo43TifH9G8S1KqnrQu0o77A3unrF5yOugy4mIz7K5wAVFHUcha7wsz6A==}
 
@@ -1994,6 +2027,10 @@ packages:
 
   iobuffer@5.4.0:
     resolution: {integrity: sha512-DRebOWuqDvxunfkNJAlc3IzWIPD5xVxwUNbHr7xKB8E6aLJxIPfNX3CoMJghcFjpv6RWQsrcJbghtEwSPoJqMA==}
+
+  is-buffer@2.0.5:
+    resolution: {integrity: sha512-i2R6zNFDwgEHJyQUtJEk0XFi1i0dPFn/oqjK3/vPCcDeJvW5NQ83V8QbicfF1SupOaB0h8ntgBC2YiE7dfyctQ==}
+    engines: {node: '>=4'}
 
   is-extglob@2.1.1:
     resolution: {integrity: sha512-SbKbANkN603Vi4jEZv49LeVJMn4yGwsbzZworEoyEiutsN3nJYdbO36zfhGJ6QEDpOZIFkDtnq5JRxmvl3jsoQ==}
@@ -2360,6 +2397,9 @@ packages:
 
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
+
+  nspell@2.1.5:
+    resolution: {integrity: sha512-PSStyugKMiD9mHmqI/CR5xXrSIGejUXPlo88FBRq5Og1kO5QwQ5Ilu8D8O5I/SHpoS+mibpw6uKA8rd3vXd2Sg==}
 
   nwsapi@2.2.23:
     resolution: {integrity: sha512-7wfH4sLbt4M0gCDzGE6vzQBo0bfTKjU7Sfpqy/7gs1qBfYz2vEJH6vXcBKpO3+6Yu1telwd0t9HpyOoLEQQbIQ==}
@@ -5002,6 +5042,16 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
+  dictionary-de@3.0.0: {}
+
+  dictionary-en@4.0.0: {}
+
+  dictionary-es@4.0.0: {}
+
+  dictionary-fr@3.0.0: {}
+
+  dictionary-ko@2.0.0: {}
+
   dnd-core@14.0.1:
     dependencies:
       '@react-dnd/asap': 4.0.1
@@ -5253,6 +5303,8 @@ snapshots:
   internmap@2.0.3: {}
 
   iobuffer@5.4.0: {}
+
+  is-buffer@2.0.5: {}
 
   is-extglob@2.1.1: {}
 
@@ -5804,6 +5856,10 @@ snapshots:
   natural-compare@1.4.0: {}
 
   node-releases@2.0.27: {}
+
+  nspell@2.1.5:
+    dependencies:
+      is-buffer: 2.0.5
 
   nwsapi@2.2.23: {}
 

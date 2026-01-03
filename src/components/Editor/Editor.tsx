@@ -55,6 +55,7 @@ import { detailsBlockPlugin } from "@/plugins/detailsBlock";
 import { focusModePlugin } from "@/plugins/focusMode";
 import { typewriterModePlugin } from "@/plugins/typewriterMode";
 import { searchPlugin } from "@/plugins/search/searchPlugin";
+import { spellCheck } from "@/plugins/spellCheck";
 import { imageHandlerPlugin, imageInputRule } from "@/plugins/imageHandler";
 import { imageViewPlugin } from "@/plugins/imageView";
 import {
@@ -195,6 +196,7 @@ function MilkdownEditorInner() {
       .use(focusModePlugin)
       .use(typewriterModePlugin)
       .use(searchPlugin)
+      .use(spellCheck)
       .use(remarkMathPlugin)
       .use(mathInlineSchema)
       .use(mathInlineInputRule)

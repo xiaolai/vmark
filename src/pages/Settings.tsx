@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Palette, Settings, FolderOpen, Zap, Languages, FileText } from "lucide-react";
+import { Palette, Settings, FolderOpen, Zap, Languages, FileText, FlaskConical } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
@@ -10,6 +10,7 @@ import {
 import { useTheme } from "@/hooks/useTheme";
 import { CJKFormattingSettings } from "./settings/CJKFormattingSettings";
 import { MarkdownSettings } from "./settings/MarkdownSettings";
+import { DevelopingSettings } from "./settings/DevelopingSettings";
 
 // Hook to handle Cmd+W for settings window
 function useSettingsClose() {
@@ -31,7 +32,22 @@ function useSettingsClose() {
   }, []);
 }
 
-type Section = "appearance" | "formatting" | "markdown" | "general" | "files" | "advanced";
+// Hook to handle Ctrl+Option+Cmd+D for toggling dev section
+function useDevSectionShortcut() {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.altKey && e.metaKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        useSettingsStore.getState().toggleDevSection();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+}
+
+type Section = "appearance" | "formatting" | "markdown" | "general" | "files" | "advanced" | "developing";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -411,11 +427,21 @@ function AdvancedSettings() {
 
 export function SettingsPage() {
   const [section, setSection] = useState<Section>("appearance");
+  const showDevSection = useSettingsStore((state) => state.showDevSection);
 
   // Apply theme to this window
   useTheme();
   // Handle Cmd+W to close settings
   useSettingsClose();
+  // Handle Cmd+Shift+D to toggle dev section
+  useDevSectionShortcut();
+
+  // Switch to general when dev section is hidden while viewing it
+  useEffect(() => {
+    if (!showDevSection && section === "developing") {
+      setSection("general");
+    }
+  }, [showDevSection, section]);
 
   const navItems = [
     { id: "appearance" as const, icon: <Palette className="w-4 h-4" />, label: "Appearance" },
@@ -424,6 +450,7 @@ export function SettingsPage() {
     { id: "general" as const, icon: <Settings className="w-4 h-4" />, label: "General" },
     { id: "files" as const, icon: <FolderOpen className="w-4 h-4" />, label: "Files" },
     { id: "advanced" as const, icon: <Zap className="w-4 h-4" />, label: "Advanced" },
+    ...(showDevSection ? [{ id: "developing" as const, icon: <FlaskConical className="w-4 h-4" />, label: "Developing" }] : []),
   ];
 
   return (
@@ -463,6 +490,7 @@ export function SettingsPage() {
           {section === "general" && <GeneralSettings />}
           {section === "files" && <FilesSettings />}
           {section === "advanced" && <AdvancedSettings />}
+          {section === "developing" && <DevelopingSettings />}
         </div>
       </div>
 

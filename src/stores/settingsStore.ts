@@ -103,12 +103,17 @@ export interface CJKFormattingSettings {
 
 export type MediaBorderStyle = "none" | "always" | "hover";
 
+export type SpellCheckLanguage = "en" | "de" | "es" | "fr" | "ko";
+
 export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
   revealInlineSyntax: boolean; // Show markdown markers when cursor in formatted text
   enableRegexSearch: boolean; // Enable regex in Find & Replace
   mediaBorderStyle: MediaBorderStyle; // Border style for images and diagrams
+  // Spell check
+  spellCheckEnabled: boolean;
+  spellCheckLanguages: SpellCheckLanguage[];
 }
 
 export interface GeneralSettings {
@@ -126,6 +131,8 @@ interface SettingsState {
   appearance: AppearanceSettings;
   cjkFormatting: CJKFormattingSettings;
   markdown: MarkdownSettings;
+  // UI state
+  showDevSection: boolean;
 }
 
 interface SettingsActions {
@@ -145,6 +152,7 @@ interface SettingsActions {
     key: K,
     value: MarkdownSettings[K]
   ) => void;
+  toggleDevSection: () => void;
   resetSettings: () => void;
 }
 
@@ -197,11 +205,17 @@ const initialState: SettingsState = {
     revealInlineSyntax: false,
     enableRegexSearch: true,
     mediaBorderStyle: "none",
+    spellCheckEnabled: false,
+    spellCheckLanguages: ["en"],
   },
+  showDevSection: false,
 };
 
+// Object sections that can be updated with createSectionUpdater
+type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown";
+
 // Helper to create section updaters - reduces duplication
-const createSectionUpdater = <T extends keyof SettingsState>(
+const createSectionUpdater = <T extends ObjectSections>(
   set: (fn: (state: SettingsState) => Partial<SettingsState>) => void,
   section: T
 ) => <K extends keyof SettingsState[T]>(key: K, value: SettingsState[T][K]) =>
@@ -219,6 +233,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateCJKFormattingSetting: createSectionUpdater(set, "cjkFormatting"),
       updateMarkdownSetting: createSectionUpdater(set, "markdown"),
 
+      toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
       resetSettings: () => set(structuredClone(initialState)),
     }),
     {

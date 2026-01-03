@@ -1,0 +1,64 @@
+/**
+ * Spell Check Styles
+ */
+
+/* Misspelled word underline */
+.spell-error {
+  text-decoration: underline wavy;
+  text-decoration-color: #e53935;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Dark theme adjustment */
+[data-theme="night"] .spell-error {
+  text-decoration-color: #ff6b6b;
+}
+
+/* Suggestions popup */
+.spell-check-popup {
+  position: fixed;
+  z-index: 1000;
+  background: var(--background, #fff);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 160px;
+  max-width: 240px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.spell-check-popup-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--foreground, #1a1a1a);
+  transition: background-color 0.1s;
+}
+
+.spell-check-popup-item:hover {
+  background: var(--secondary, #f5f5f5);
+}
+
+.spell-check-popup-suggestion {
+  font-weight: 500;
+}
+
+.spell-check-popup-divider {
+  height: 1px;
+  background: var(--border, #e0e0e0);
+  margin: 4px 0;
+}
+
+.spell-check-popup-action {
+  color: var(--link, #0066cc);
+  font-size: 12px;
+}
+
+/* No suggestions message */
+.spell-check-popup-empty {
+  padding: 8px 12px;
+  color: var(--text-secondary, #666);
+  font-style: italic;
+}
