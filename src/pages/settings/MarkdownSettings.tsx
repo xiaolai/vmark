@@ -1,4 +1,4 @@
-import { useSettingsStore, type MediaBorderStyle } from "@/stores/settingsStore";
+import { useSettingsStore, type MediaBorderStyle, type AutoPairCJKStyle } from "@/stores/settingsStore";
 import { SettingRow, Toggle, SettingsGroup, Select } from "./components";
 
 export function MarkdownSettings() {
@@ -33,6 +33,46 @@ export function MarkdownSettings() {
             onChange={(v) => updateSetting("enableRegexSearch", v)}
           />
         </SettingRow>
+      </SettingsGroup>
+
+      <SettingsGroup title="Auto-Pairing">
+        <SettingRow
+          label="Enable auto-pairing"
+          description="Automatically insert closing brackets and quotes"
+        >
+          <Toggle
+            checked={markdown.autoPairEnabled ?? true}
+            onChange={(v) => updateSetting("autoPairEnabled", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label="CJK brackets"
+          description="Auto-pair CJK brackets like 「」【】《》"
+          disabled={!markdown.autoPairEnabled}
+        >
+          <Select<AutoPairCJKStyle>
+            value={markdown.autoPairCJKStyle ?? "auto"}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "auto", label: "Auto" },
+            ]}
+            onChange={(v) => updateSetting("autoPairCJKStyle", v)}
+            disabled={!markdown.autoPairEnabled}
+          />
+        </SettingRow>
+        {markdown.autoPairCJKStyle !== "off" && (
+          <SettingRow
+            label="Include curly quotes"
+            description={`Auto-pair \u201C\u201D and \u2018\u2019 (may conflict with IME smart quotes)`}
+            disabled={!markdown.autoPairEnabled}
+          >
+            <Toggle
+              checked={markdown.autoPairCurlyQuotes ?? false}
+              onChange={(v) => updateSetting("autoPairCurlyQuotes", v)}
+              disabled={!markdown.autoPairEnabled}
+            />
+          </SettingRow>
+        )}
       </SettingsGroup>
 
       <SettingsGroup title="Media Display">

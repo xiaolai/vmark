@@ -105,12 +105,18 @@ export type MediaBorderStyle = "none" | "always" | "hover";
 
 export type SpellCheckLanguage = "en" | "de" | "es" | "fr" | "ko";
 
+export type AutoPairCJKStyle = "off" | "auto";
+
 export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
   revealInlineSyntax: boolean; // Show markdown markers when cursor in formatted text
   enableRegexSearch: boolean; // Enable regex in Find & Replace
   mediaBorderStyle: MediaBorderStyle; // Border style for images and diagrams
+  // Auto-pair
+  autoPairEnabled: boolean; // Auto-insert closing brackets/quotes
+  autoPairCJKStyle: AutoPairCJKStyle; // CJK bracket pairing style
+  autoPairCurlyQuotes: boolean; // Include curly quotes in CJK pairing (may conflict with IME)
   // Spell check
   spellCheckEnabled: boolean;
   spellCheckLanguages: SpellCheckLanguage[];
@@ -205,6 +211,9 @@ const initialState: SettingsState = {
     revealInlineSyntax: false,
     enableRegexSearch: true,
     mediaBorderStyle: "none",
+    autoPairEnabled: true,
+    autoPairCJKStyle: "auto",
+    autoPairCurlyQuotes: false, // OFF by default (may conflict with IME smart quotes)
     spellCheckEnabled: false,
     spellCheckLanguages: ["en"],
   },

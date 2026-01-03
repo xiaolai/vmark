@@ -7,3 +7,5 @@
 export { sourceEditorTheme } from "./theme";
 export { createBrHidingPlugin } from "./brHidingPlugin";
 export { createListBlankLinePlugin } from "./listBlankLinePlugin";
+export { createMarkdownAutoPairPlugin, markdownPairBackspace } from "./markdownAutoPair";
+export { tabEscapeKeymap } from "./tabEscape";

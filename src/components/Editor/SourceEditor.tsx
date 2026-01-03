@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import {
   search,
   selectNextOccurrence,
@@ -26,12 +27,28 @@ import {
   getCursorInfoFromCodeMirror,
   restoreCursorInCodeMirror,
 } from "@/utils/cursorSync/codemirror";
-import { sourceEditorTheme, createBrHidingPlugin, createListBlankLinePlugin } from "@/plugins/codemirror";
+import {
+  sourceEditorTheme,
+  createBrHidingPlugin,
+  createListBlankLinePlugin,
+  createMarkdownAutoPairPlugin,
+  markdownPairBackspace,
+  tabEscapeKeymap,
+} from "@/plugins/codemirror";
+
+// Custom brackets config for markdown (^, standard brackets)
+const markdownCloseBrackets = markdownLanguage.data.of({
+  closeBrackets: {
+    brackets: ["(", "[", "{", '"', "'", "`", "^"],
+  },
+});
 
 // Compartment for dynamic line wrapping
 const lineWrapCompartment = new Compartment();
 // Compartment for br tag visibility
 const brVisibilityCompartment = new Compartment();
+// Compartment for auto-pairing brackets
+const autoPairCompartment = new Compartment();
 
 export function SourceEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +69,7 @@ export function SourceEditor() {
   // Use editor store for global settings
   const wordWrap = useEditorStore((state) => state.wordWrap);
   const showBrTags = useSettingsStore((state) => state.markdown.showBrTags);
+  const autoPairEnabled = useSettingsStore((state) => state.markdown.autoPairEnabled);
 
   // Create CodeMirror instance
   useEffect(() => {
@@ -75,6 +93,7 @@ export function SourceEditor() {
 
     const initialWordWrap = useEditorStore.getState().wordWrap;
     const initialShowBrTags = useSettingsStore.getState().markdown.showBrTags;
+    const initialAutoPair = useSettingsStore.getState().markdown.autoPairEnabled ?? true;
 
     const state = EditorState.create({
       doc: content,
@@ -83,6 +102,12 @@ export function SourceEditor() {
         lineWrapCompartment.of(initialWordWrap ? EditorView.lineWrapping : []),
         // BR visibility (dynamic via compartment) - hide when showBrTags is false
         brVisibilityCompartment.of(createBrHidingPlugin(!initialShowBrTags)),
+        // Auto-pair brackets (dynamic via compartment)
+        autoPairCompartment.of(initialAutoPair ? closeBrackets() : []),
+        // Custom markdown brackets config (^, ==, standard brackets)
+        markdownCloseBrackets,
+        // Markdown auto-pair with delay judgment (*, _, ~) and code fence
+        createMarkdownAutoPairPlugin(),
         // Hide blank lines between list items
         createListBlankLinePlugin(),
         // Multi-cursor support
@@ -92,10 +117,15 @@ export function SourceEditor() {
         history(),
         // Keymaps (no searchKeymap - we use our unified FindBar)
         keymap.of([
+          // Tab to jump over closing brackets (must be before default keymap)
+          tabEscapeKeymap,
+          // Backspace to delete both halves of markdown pairs
+          markdownPairBackspace,
           // Cmd+D: select next occurrence
           { key: "Mod-d", run: selectNextOccurrence, preventDefault: true },
           // Cmd+Shift+L: select all occurrences
           { key: "Mod-Shift-l", run: selectSelectionMatches, preventDefault: true },
+          ...closeBracketsKeymap,
           ...defaultKeymap,
           ...historyKeymap,
         ]),
@@ -177,6 +207,18 @@ export function SourceEditor() {
       ),
     });
   }, [showBrTags]);
+
+  // Update auto-pairing when setting changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    view.dispatch({
+      effects: autoPairCompartment.reconfigure(
+        autoPairEnabled ? closeBrackets() : []
+      ),
+    });
+  }, [autoPairEnabled]);
 
   // Subscribe to searchStore for programmatic search
   useEffect(() => {
