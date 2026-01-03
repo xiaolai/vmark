@@ -35,6 +35,7 @@ import {
   markdownPairBackspace,
   tabEscapeKeymap,
 } from "@/plugins/codemirror";
+import { sourceFormatExtension, SourceFormatPopup } from "@/plugins/sourceFormatPopup";
 
 // Custom brackets config for markdown (^, standard brackets)
 const markdownCloseBrackets = markdownLanguage.data.of({
@@ -139,6 +140,8 @@ export function SourceEditor() {
         sourceEditorTheme,
         // Allow multiple selections
         EditorState.allowMultipleSelections.of(true),
+        // Source format popup (shows on selection)
+        sourceFormatExtension,
       ],
     });
 
@@ -291,7 +294,12 @@ export function SourceEditor() {
     };
   }, []);
 
-  return <div ref={containerRef} className="source-editor" />;
+  return (
+    <>
+      <div ref={containerRef} className="source-editor" />
+      <SourceFormatPopup />
+    </>
+  );
 }
 
 export default SourceEditor;

@@ -1,0 +1,212 @@
+/**
+ * Source Format Popup Styles
+ *
+ * Floating formatting toolbar for source mode.
+ * Icon-only buttons in a horizontal row.
+ */
+
+.source-format-popup {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  animation: source-format-fade-in 0.1s ease-out;
+}
+
+@keyframes source-format-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Format buttons */
+.source-format-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.source-format-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
+}
+
+.source-format-btn:active {
+  opacity: 0.8;
+}
+
+/* Active state - when format is applied */
+.source-format-btn.active {
+  background: var(--primary-color, #0066cc);
+  color: white;
+}
+
+.source-format-btn.active:hover {
+  background: var(--primary-color-hover, #0052a3);
+  color: white;
+}
+
+/* Danger variant for delete buttons */
+.source-format-btn.danger {
+  color: var(--danger-color, #dc3545);
+}
+
+.source-format-btn.danger:hover {
+  background: var(--danger-bg, rgba(220, 53, 69, 0.1));
+  color: var(--danger-color, #dc3545);
+}
+
+.source-format-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Dark theme adjustments */
+.dark-theme .source-format-popup {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark-theme .source-format-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .source-format-btn.active {
+  background: var(--primary-color, #4a9eff);
+}
+
+.dark-theme .source-format-btn.active:hover {
+  background: var(--primary-color-hover, #3d8be0);
+}
+
+.dark-theme .source-format-btn.danger {
+  color: var(--danger-color, #f87171);
+}
+
+.dark-theme .source-format-btn.danger:hover {
+  background: rgba(248, 113, 113, 0.15);
+}
+
+/* Heading popup - active state uses theme colors instead of primary blue */
+.source-format-popup--heading .source-format-btn.active {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.1));
+  color: var(--text-color);
+}
+
+.source-format-popup--heading .source-format-btn.active:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.15));
+}
+
+.dark-theme .source-format-popup--heading .source-format-btn.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-color);
+}
+
+.dark-theme .source-format-popup--heading .source-format-btn.active:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Separator between format buttons and dropdown */
+.source-format-separator {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.dark-theme .source-format-separator {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Heading dropdown */
+.source-format-dropdown {
+  position: relative;
+}
+
+.source-format-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: auto;
+  padding: 0 4px;
+}
+
+.source-format-dropdown-trigger svg:last-child {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+.source-format-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  padding: 4px;
+  min-width: 120px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+.dark-theme .source-format-dropdown-menu {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.source-format-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 13px;
+  text-align: left;
+  cursor: default;
+  user-select: none;
+}
+
+.source-format-dropdown-item:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+}
+
+.dark-theme .source-format-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.source-format-dropdown-item svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
