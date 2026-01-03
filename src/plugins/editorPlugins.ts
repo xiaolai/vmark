@@ -174,8 +174,64 @@ export function expandedToggleMark(view: EditorView, markTypeName: string): bool
 }
 
 /**
+ * Escape from mark boundary: when cursor is at the edge of a mark,
+ * pressing ESC moves cursor outside and clears stored marks.
+ * This allows typing unformatted text after formatted text.
+ */
+function escapeMarkBoundary(view: EditorView): boolean {
+  const { state, dispatch } = view;
+  const { selection } = state;
+  const { $from, empty } = selection;
+
+  // Only handle empty selection (cursor, not range)
+  if (!empty) return false;
+
+  const pos = $from.pos;
+
+  // Find any mark range at cursor position
+  const anyMarkRange = findAnyMarkRangeAtCursor(pos, $from);
+
+  if (!anyMarkRange) {
+    // Not inside any mark - just clear stored marks if any
+    if (state.storedMarks && state.storedMarks.length > 0) {
+      dispatch(state.tr.setStoredMarks([]));
+      return true;
+    }
+    return false;
+  }
+
+  const { from: markFrom, to: markTo } = anyMarkRange;
+
+  // Determine escape direction based on cursor position
+  if (pos === markTo) {
+    // Cursor at end of mark - escape forward (stay at same position but clear marks)
+    // Clear all stored marks so new text won't inherit formatting
+    dispatch(state.tr.setStoredMarks([]));
+    return true;
+  } else if (pos === markFrom) {
+    // Cursor at start of mark - escape backward
+    // Move cursor one position left if possible, or just clear marks
+    if (markFrom > 1) {
+      const tr = state.tr.setSelection(Selection.near(state.doc.resolve(markFrom - 1)));
+      tr.setStoredMarks([]);
+      dispatch(tr);
+    } else {
+      dispatch(state.tr.setStoredMarks([]));
+    }
+    return true;
+  } else {
+    // Cursor in middle of mark - escape to end
+    const tr = state.tr.setSelection(Selection.near(state.doc.resolve(markTo)));
+    tr.setStoredMarks([]);
+    dispatch(tr);
+    return true;
+  }
+}
+
+/**
  * Keymap plugin for expanded mark toggle (seamless behavior).
  * Overrides Milkdown's default Mod-b, Mod-i, etc. to toggle entire mark ranges.
+ * Also handles ESC to escape from mark boundaries.
  */
 export const expandedMarkTogglePlugin = $prose(() =>
   keymap({
@@ -198,6 +254,10 @@ export const expandedMarkTogglePlugin = $prose(() =>
     "Mod-k": (_state, _dispatch, view) => {
       if (!view) return false;
       return expandedToggleMark(view, "link");
+    },
+    "Escape": (_state, _dispatch, view) => {
+      if (!view) return false;
+      return escapeMarkBoundary(view);
     },
   })
 );
