@@ -58,6 +58,7 @@ export class TableToolbarView {
   private editorView: EditorView;
   private getEditor: () => EditorLike | undefined;
   private wasOpen = false;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(view: EditorView, getEditor: () => EditorLike | undefined) {
     this.editorView = view;
@@ -83,6 +84,54 @@ export class TableToolbarView {
         this.wasOpen = false;
       }
     });
+  }
+
+  private getFocusableElements(): HTMLElement[] {
+    return Array.from(
+      this.container.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+  }
+
+  private setupKeyboardNavigation() {
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        useTableToolbarStore.getState().closeToolbar();
+        this.editorView.focus();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        const focusable = this.getFocusableElements();
+        if (focusable.length === 0) return;
+
+        const activeEl = document.activeElement as HTMLElement;
+        const currentIndex = focusable.indexOf(activeEl);
+
+        // Only handle Tab if focus is inside the toolbar
+        if (currentIndex === -1) return;
+
+        e.preventDefault();
+
+        if (e.shiftKey) {
+          const prevIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+          focusable[prevIndex].focus();
+        } else {
+          const nextIndex = currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1;
+          focusable[nextIndex].focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", this.keydownHandler);
+  }
+
+  private removeKeyboardNavigation() {
+    if (this.keydownHandler) {
+      document.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
   }
 
   private buildContainer(): HTMLElement {
@@ -174,6 +223,17 @@ export class TableToolbarView {
     this.container.style.display = "flex";
     this.container.style.position = "fixed";
     this.updatePosition(anchorRect);
+
+    // Set up keyboard navigation
+    this.setupKeyboardNavigation();
+
+    // Focus first button after a short delay
+    setTimeout(() => {
+      const focusable = this.getFocusableElements();
+      if (focusable.length > 0) {
+        focusable[0].focus();
+      }
+    }, 50);
   }
 
   private updatePosition(anchorRect: AnchorRect) {
@@ -202,6 +262,7 @@ export class TableToolbarView {
 
   private hide() {
     this.container.style.display = "none";
+    this.removeKeyboardNavigation();
   }
 
   private executeCommand<T>(command: { key: unknown }, payload?: T) {
@@ -261,6 +322,7 @@ export class TableToolbarView {
 
   destroy() {
     this.unsubscribe();
+    this.removeKeyboardNavigation();
     this.container.remove();
   }
 }

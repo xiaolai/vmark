@@ -44,6 +44,7 @@ export class ImagePopupView {
   private editorView: EditorView;
   private justOpened = false;
   private wasOpen = false;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
@@ -79,6 +80,48 @@ export class ImagePopupView {
 
     // Handle click outside
     document.addEventListener("mousedown", this.handleClickOutside);
+  }
+
+  private getFocusableElements(): HTMLElement[] {
+    return Array.from(
+      this.container.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+  }
+
+  private setupKeyboardNavigation() {
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (e.key === "Tab") {
+        const focusable = this.getFocusableElements();
+        if (focusable.length === 0) return;
+
+        const activeEl = document.activeElement as HTMLElement;
+        const currentIndex = focusable.indexOf(activeEl);
+
+        // Only handle Tab if focus is inside the popup
+        if (currentIndex === -1) return;
+
+        e.preventDefault();
+
+        if (e.shiftKey) {
+          const prevIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+          focusable[prevIndex].focus();
+        } else {
+          const nextIndex = currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1;
+          focusable[nextIndex].focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", this.keydownHandler);
+  }
+
+  private removeKeyboardNavigation() {
+    if (this.keydownHandler) {
+      document.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
   }
 
   private buildContainer(): HTMLElement {
@@ -194,6 +237,9 @@ export class ImagePopupView {
     this.container.style.top = `${top}px`;
     this.container.style.left = `${left}px`;
 
+    // Set up keyboard navigation
+    this.setupKeyboardNavigation();
+
     // Focus src input
     requestAnimationFrame(() => {
       this.srcInput.focus();
@@ -203,6 +249,7 @@ export class ImagePopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.removeKeyboardNavigation();
   }
 
   private updateToggleIcon(nodeType: "image" | "block_image") {
@@ -437,6 +484,7 @@ export class ImagePopupView {
 
   destroy() {
     this.unsubscribe();
+    this.removeKeyboardNavigation();
     document.removeEventListener("mousedown", this.handleClickOutside);
     this.container.remove();
   }

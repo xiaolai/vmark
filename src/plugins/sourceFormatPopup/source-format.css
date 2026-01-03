@@ -67,6 +67,20 @@
   color: var(--text-color);
 }
 
+/* Focus state for keyboard navigation */
+.source-format-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
+}
+
+.source-format-btn:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.source-format-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
+}
+
 /* Danger variant for delete buttons */
 .source-format-btn.danger {
   color: var(--danger-color, #dc3545);
@@ -257,6 +271,19 @@
 .source-format-quick-btn.active {
   background: var(--hover-bg, rgba(0, 0, 0, 0.1));
   color: var(--text-color);
+}
+
+.source-format-quick-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
+}
+
+.source-format-quick-btn:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.source-format-quick-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
 }
 
 .dark-theme .source-format-quick-btn:hover {

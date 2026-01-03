@@ -97,6 +97,20 @@
   opacity: 0.8;
 }
 
+/* Focus state for keyboard navigation */
+.image-popup-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
+}
+
+.image-popup-btn:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.image-popup-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
+}
+
 .image-popup-btn svg {
   width: 14px;
   height: 14px;

@@ -70,6 +70,20 @@
   opacity: 0.8;
 }
 
+/* Focus state for keyboard navigation */
+.table-toolbar-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
+}
+
+.table-toolbar-btn:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.table-toolbar-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary-color, #007aff);
+}
+
 .table-toolbar-btn svg {
   width: 16px;
   height: 16px;

@@ -195,6 +195,31 @@ export function SourceFormatPopup() {
     setActiveFormats(formats);
   }, [isOpen, editorView, mode]);
 
+  // Get all focusable elements in the popup
+  const getFocusableElements = useCallback(() => {
+    if (!containerRef.current) return [];
+    return Array.from(
+      containerRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+  }, []);
+
+  // Focus first element when popup opens
+  useEffect(() => {
+    if (!isOpen || !position) return;
+
+    // Delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      const focusable = getFocusableElements();
+      if (focusable.length > 0) {
+        focusable[0].focus();
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [isOpen, position, getFocusableElements]);
+
   // Handle click outside to close
   useEffect(() => {
     if (!isOpen) return;
@@ -213,6 +238,28 @@ export function SourceFormatPopup() {
       if (e.key === "Escape") {
         useSourceFormatStore.getState().closePopup();
         editorView?.focus();
+        return;
+      }
+
+      // Tab navigation within popup
+      if (e.key === "Tab") {
+        const focusable = getFocusableElements();
+        if (focusable.length === 0) return;
+
+        const activeEl = document.activeElement as HTMLElement;
+        const currentIndex = focusable.indexOf(activeEl);
+
+        if (e.shiftKey) {
+          // Shift+Tab: go backwards
+          e.preventDefault();
+          const prevIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+          focusable[prevIndex].focus();
+        } else {
+          // Tab: go forwards
+          e.preventDefault();
+          const nextIndex = currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1;
+          focusable[nextIndex].focus();
+        }
       }
     };
 
@@ -223,7 +270,7 @@ export function SourceFormatPopup() {
       document.removeEventListener("mousedown", handleMouseDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, editorView]);
+  }, [isOpen, editorView, getFocusableElements]);
 
   const handleFormat = useCallback(
     (type: FormatType) => {
