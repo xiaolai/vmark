@@ -1,5 +1,8 @@
-use tauri::menu::{Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
+use tauri::menu::{AboutMetadataBuilder, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
 use tauri::AppHandle;
+
+/// Beta version string, read from version.txt at compile time.
+const BETA_VERSION: &str = include_str!("../version.txt");
 
 pub const RECENT_FILES_SUBMENU_ID: &str = "recent-files-submenu";
 
@@ -11,8 +14,6 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "VMark",
         true,
         &[
-            &PredefinedMenuItem::about(app, Some("About VMark"), None)?,
-            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,
                 "preferences",
@@ -389,13 +390,17 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ],
     )?;
 
-    // Help menu
+    // Help menu - About dialog shows beta version
+    let about_metadata = AboutMetadataBuilder::new()
+        .name(Some("VMark"))
+        .version(Some(BETA_VERSION.trim()))
+        .build();
     let help_menu = Submenu::with_items(
         app,
         "Help",
         true,
         &[
-            &MenuItem::with_id(app, "about", "About VMark", true, None::<&str>)?,
+            &PredefinedMenuItem::about(app, Some("About VMark"), Some(about_metadata))?,
         ],
     )?;
 
