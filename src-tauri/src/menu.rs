@@ -344,6 +344,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "code", "Inline Code", true, Some("CmdOrCtrl+`"))?,
             &MenuItem::with_id(app, "subscript", "Subscript", true, None::<&str>)?,
             &MenuItem::with_id(app, "superscript", "Superscript", true, None::<&str>)?,
+            &MenuItem::with_id(app, "highlight", "Highlight", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "link", "Insert Link", true, Some("CmdOrCtrl+K"))?,
             &MenuItem::with_id(app, "image", "Insert Image...", true, Some("Alt+CmdOrCtrl+I"))?,

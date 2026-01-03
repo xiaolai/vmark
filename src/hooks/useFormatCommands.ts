@@ -164,6 +164,11 @@ export function useFormatCommands(getEditor: GetEditor) {
       const unlistenSuperscript = await createMarkListener("menu:superscript", "superscript");
       if (unlistenSuperscript) unlistenRefs.current.push(unlistenSuperscript);
       if (cancelled) return;
+
+      // Highlight
+      const unlistenHighlight = await createMarkListener("menu:highlight", "highlight");
+      if (unlistenHighlight) unlistenRefs.current.push(unlistenHighlight);
+      if (cancelled) return;
     };
 
     setupListeners();

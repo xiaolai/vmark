@@ -17,6 +17,7 @@ const MARK_SYNTAX_LENGTH: Record<string, number> = {
   strikethrough: 2, // ~~
   subscript: 1, // ~
   superscript: 1, // ^
+  highlight: 2, // ==
 };
 
 interface MarkRange {

@@ -73,6 +73,7 @@ import {
 import { codePreviewPlugin } from "@/plugins/codePreview";
 import { slashMenu, configureSlashMenu } from "@/plugins/triggerMenu";
 import { subSuperscriptPlugin } from "@/plugins/subSuperscript";
+import { highlightPlugin } from "@/plugins/highlight";
 import { SourceEditor } from "./SourceEditor";
 import "./editor.css";
 import "@/plugins/syntaxReveal/syntax-reveal.css";
@@ -88,6 +89,7 @@ import "@/plugins/latex/latex.css";
 import "@/plugins/mermaid/mermaid.css";
 import "@/plugins/tableUI/table-ui.css";
 import "@/plugins/subSuperscript/sub-super.css";
+import "@/plugins/highlight/highlight.css";
 import "katex/dist/katex.min.css";
 
 function MilkdownEditorInner() {
@@ -132,6 +134,10 @@ function MilkdownEditorInner() {
               const text = node.children?.[0]?.value ?? "";
               return `^${text}^`;
             },
+            highlight: (node: { children?: Array<{ value?: string }> }) => {
+              const text = node.children?.[0]?.value ?? "";
+              return `==${text}==`;
+            },
           },
         }));
       })
@@ -142,6 +148,8 @@ function MilkdownEditorInner() {
       .use(gfm.filter((plugin) => plugin !== strikethroughInputRule))
       // Add subscript/superscript plugin
       .use(subSuperscriptPlugin.flat())
+      // Add highlight plugin
+      .use(highlightPlugin.flat())
       .use(tableUIPlugin)
       .use(tableKeymapPlugin)
       .use(alertBlockPlugin.flat())

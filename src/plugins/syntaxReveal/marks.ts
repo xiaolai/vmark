@@ -16,6 +16,7 @@ const MARK_SYNTAX: Record<string, { open: string; close: string }> = {
   strikethrough: { open: "~~", close: "~~" },
   subscript: { open: "~", close: "~" },
   superscript: { open: "^", close: "^" },
+  highlight: { open: "==", close: "==" },
 };
 
 const LINK_MARK = "link";
