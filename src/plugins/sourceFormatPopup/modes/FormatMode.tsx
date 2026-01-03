@@ -9,6 +9,7 @@ import type { EditorView } from "@codemirror/view";
 import { icons, createIcon } from "@/utils/icons";
 import { applyFormat, type FormatType } from "../formatActions";
 import { convertToHeading } from "../headingDetection";
+import { toggleBlockquote, hasBlockquote } from "../blockquoteActions";
 import { useSourceFormatStore } from "@/stores/sourceFormatStore";
 import {
   TEXT_FORMAT_BUTTONS,
@@ -35,6 +36,13 @@ export function FormatMode({ editorView, activeFormats }: FormatModeProps) {
     setHeadingDropdownOpen(false);
     useSourceFormatStore.getState().closePopup();
   };
+
+  const handleBlockquote = () => {
+    toggleBlockquote(editorView);
+    useSourceFormatStore.getState().closePopup();
+  };
+
+  const isBlockquoteActive = hasBlockquote(editorView);
 
   return (
     <>
@@ -66,6 +74,15 @@ export function FormatMode({ editorView, activeFormats }: FormatModeProps) {
           </div>
         )}
       </div>
+      <button
+        type="button"
+        className={`source-format-btn ${isBlockquoteActive ? "active" : ""}`}
+        title="Blockquote"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={handleBlockquote}
+      >
+        {createIcon(icons.blockquote)}
+      </button>
       <div className="source-format-separator" />
       {TEXT_FORMAT_BUTTONS.map(({ type, icon, label, shortcut }) => (
         <button

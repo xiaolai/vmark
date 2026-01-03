@@ -37,7 +37,12 @@ import {
   createMarkdownAutoPairPlugin,
   markdownPairBackspace,
   tabEscapeKeymap,
+  listContinuationKeymap,
+  createSmartPastePlugin,
+  createSourceFocusModePlugin,
+  createSourceTypewriterPlugin,
 } from "@/plugins/codemirror";
+import { toggleTaskList } from "@/plugins/sourceFormatPopup/taskListActions";
 import {
   sourceFormatExtension,
   SourceFormatPopup,
@@ -120,6 +125,12 @@ export function SourceEditor() {
         createMarkdownAutoPairPlugin(),
         // Hide blank lines between list items
         createListBlankLinePlugin(),
+        // Smart paste: URL on selection creates markdown link
+        createSmartPastePlugin(),
+        // Focus mode: dim non-current paragraph
+        createSourceFocusModePlugin(),
+        // Typewriter mode: keep cursor centered
+        createSourceTypewriterPlugin(),
         // Multi-cursor support
         drawSelection(),
         dropCursor(),
@@ -127,10 +138,18 @@ export function SourceEditor() {
         history(),
         // Keymaps (no searchKeymap - we use our unified FindBar)
         keymap.of([
+          // Smart list continuation (must be before default keymap)
+          listContinuationKeymap,
           // Tab to jump over closing brackets (must be before default keymap)
           tabEscapeKeymap,
           // Backspace to delete both halves of markdown pairs
           markdownPairBackspace,
+          // Mod+Shift+Enter: toggle task list checkbox
+          {
+            key: "Mod-Shift-Enter",
+            run: (view) => toggleTaskList(view),
+            preventDefault: true,
+          },
           // Cmd+D: select next occurrence
           { key: "Mod-d", run: selectNextOccurrence, preventDefault: true },
           // Cmd+Shift+L: select all occurrences

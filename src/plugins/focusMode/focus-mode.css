@@ -71,3 +71,35 @@
 .focus-mode .milkdown .editor > .md-focus pre {
   opacity: 1;
 }
+
+/* =========================
+ * CodeMirror Focus Mode
+ * Dims non-current paragraph lines
+ * ========================= */
+
+/* Transition for smooth dimming effect */
+.focus-mode .source-editor .cm-line {
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Dim all blurred lines */
+.focus-mode .source-editor .cm-line.cm-blur {
+  color: var(--blur-text-color);
+}
+
+/* Dim syntax highlighting in blurred lines */
+.focus-mode .source-editor .cm-line.cm-blur .tok-heading,
+.focus-mode .source-editor .cm-line.cm-blur .tok-strong,
+.focus-mode .source-editor .cm-line.cm-blur .tok-emphasis,
+.focus-mode .source-editor .cm-line.cm-blur .tok-link,
+.focus-mode .source-editor .cm-line.cm-blur .tok-meta,
+.focus-mode .source-editor .cm-line.cm-blur .tok-string,
+.focus-mode .source-editor .cm-line.cm-blur .tok-keyword {
+  color: var(--blur-text-color);
+}
+
+/* Keep current paragraph visible */
+.focus-mode .source-editor .cm-line:not(.cm-blur) {
+  color: inherit;
+  opacity: 1;
+}
