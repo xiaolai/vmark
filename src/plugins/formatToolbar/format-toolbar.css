@@ -97,8 +97,206 @@
   width: 16px;
   height: 16px;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
+}
+
+/* Separator between buttons */
+.format-toolbar-separator {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.dark-theme .format-toolbar-separator {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Code mode - quick language buttons */
+.format-toolbar-quick-langs {
+  display: flex;
+  gap: 2px;
+}
+
+.format-toolbar-quick-btn {
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.format-toolbar-quick-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
+}
+
+.format-toolbar-quick-btn.active {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.1));
+  color: var(--text-color);
+}
+
+.format-toolbar-quick-btn:focus {
+  outline: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 4px 4px 0 0;
+}
+
+.format-toolbar-quick-btn:focus:not(:focus-visible) {
+  border-bottom: none;
+  border-radius: 4px;
+}
+
+.format-toolbar-quick-btn:focus-visible {
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 4px 4px 0 0;
+}
+
+.dark-theme .format-toolbar-quick-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .format-toolbar-quick-btn.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-color);
+}
+
+/* Language dropdown */
+.format-toolbar-dropdown {
+  position: relative;
+  min-width: 80px;
+}
+
+.format-toolbar-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: auto;
+  padding: 0 4px;
+}
+
+.format-toolbar-dropdown-trigger svg:last-child {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+.format-toolbar-lang-label {
+  font-size: 12px;
+  color: var(--text-color);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Language menu */
+.format-toolbar-lang-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  max-height: 280px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dark-theme .format-toolbar-lang-menu {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Search input */
+.format-toolbar-lang-search {
+  padding: 6px;
+}
+
+.format-toolbar-lang-search input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+}
+
+.format-toolbar-lang-search input:focus {
+  border-bottom-color: var(--border-color);
+}
+
+.format-toolbar-lang-search input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Language list (scrollable) */
+.format-toolbar-lang-list {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+/* Language item */
+.format-toolbar-lang-item {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-color);
+  text-align: left;
+  cursor: default;
+  user-select: none;
+}
+
+.format-toolbar-lang-item:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+}
+
+.format-toolbar-lang-item.active {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.15));
+  color: var(--text-color);
+}
+
+.format-toolbar-lang-item:focus {
+  outline: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 4px 4px 0 0;
+}
+
+.format-toolbar-lang-item:focus:not(:focus-visible) {
+  border-bottom: none;
+  border-radius: 4px;
+}
+
+.format-toolbar-lang-item:focus-visible {
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 4px 4px 0 0;
+}
+
+.dark-theme .format-toolbar-lang-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .format-toolbar-lang-item.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-color);
 }

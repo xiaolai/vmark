@@ -4,10 +4,10 @@
  * Provides Cmd+E toggle for a context-aware floating toolbar in Milkdown.
  * Similar to source mode's format popup.
  *
- * Context detection:
+ * Context detection (order matches Source mode):
+ * - Code block → shows code toolbar (language picker)
  * - Table → triggers table toolbar
- * - Code block → shows format toolbar (language picker TBD)
- * - Heading → shows format toolbar (heading levels TBD)
+ * - Heading → shows heading toolbar (heading levels)
  * - Regular text → shows format toolbar
  */
 
@@ -15,7 +15,7 @@ import { $prose } from "@milkdown/kit/utils";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { keymap } from "@milkdown/kit/prose/keymap";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { useFormatToolbarStore, type HeadingInfo, type ContextMode } from "@/stores/formatToolbarStore";
+import { useFormatToolbarStore, type HeadingInfo, type ContextMode, type CodeBlockInfo } from "@/stores/formatToolbarStore";
 import { useTableToolbarStore } from "@/stores/tableToolbarStore";
 import { isInTable, getTableInfo, getTableRect } from "@/plugins/tableUI/table-utils";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
@@ -24,17 +24,21 @@ import { FormatToolbarView } from "./FormatToolbarView";
 export const formatToolbarPluginKey = new PluginKey("formatToolbar");
 
 /**
- * Check if cursor is inside a code block node.
+ * Get code block info if cursor is inside a code block node.
+ * Returns null if not in a code block.
  */
-function isInCodeBlock(view: EditorView): boolean {
+function getCodeBlockInfo(view: EditorView): CodeBlockInfo | null {
   const { $from } = view.state.selection;
   for (let d = $from.depth; d > 0; d--) {
     const node = $from.node(d);
     if (node.type.name === "code_block" || node.type.name === "fence") {
-      return true;
+      return {
+        language: node.attrs.language || "",
+        nodePos: $from.before(d),
+      };
     }
   }
-  return false;
+  return null;
 }
 
 /**
@@ -102,10 +106,10 @@ function getContextMode(view: EditorView): ContextMode {
 
 /**
  * Context-aware toolbar toggle.
- * Routes to appropriate toolbar based on cursor location:
+ * Routes to appropriate toolbar based on cursor location (order matches Source mode):
+ * - Code block → code toolbar (language picker)
  * - Table → table toolbar
- * - Code block → format toolbar (language picker TBD)
- * - Heading → format toolbar (heading levels TBD)
+ * - Heading → heading toolbar (heading levels)
  * - Regular text → format toolbar
  */
 function toggleContextAwareToolbar(view: EditorView): boolean {
@@ -124,7 +128,15 @@ function toggleContextAwareToolbar(view: EditorView): boolean {
     return true;
   }
 
-  // 1. Check if in table → show table toolbar
+  // 1. Check if in code block → show code toolbar (language picker)
+  const codeBlockInfo = getCodeBlockInfo(view);
+  if (codeBlockInfo) {
+    const anchorRect = getCursorRect(view);
+    formatStore.openCodeToolbar(anchorRect, view, codeBlockInfo);
+    return true;
+  }
+
+  // 2. Check if in table → show table toolbar
   if (isInTable(view)) {
     const info = getTableInfo(view);
     if (info) {
@@ -137,14 +149,6 @@ function toggleContextAwareToolbar(view: EditorView): boolean {
         return true;
       }
     }
-  }
-
-  // 2. Check if in code block → show format toolbar (language picker TBD)
-  // For now, just show format toolbar
-  if (isInCodeBlock(view)) {
-    const anchorRect = getCursorRect(view);
-    formatStore.openToolbar(anchorRect, view);
-    return true;
   }
 
   // 3. Check if in heading → show heading toolbar

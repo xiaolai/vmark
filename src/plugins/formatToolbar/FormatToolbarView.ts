@@ -2,9 +2,10 @@
  * Format Toolbar View
  *
  * DOM-based floating toolbar for inline formatting in Milkdown.
- * Supports two modes:
+ * Supports three modes:
  * - format: inline formatting (bold, italic, etc.)
  * - heading: heading level selection (H1-H6, paragraph)
+ * - code: language picker for code blocks
  */
 
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -16,6 +17,13 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import {
+  QUICK_LANGUAGES,
+  getQuickLabel,
+  getRecentLanguages,
+  addRecentLanguage,
+  filterLanguages,
+} from "@/plugins/sourceFormatPopup/languages";
 
 // SVG Icons (matching source mode popup)
 const icons = {
@@ -44,6 +52,7 @@ const icons = {
   blockquote: `<svg viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3z"/></svg>`,
   table: `<svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>`,
   divider: `<svg viewBox="0 0 24 24"><line x1="3" x2="21" y1="12" y2="12"/></svg>`,
+  chevronDown: `<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`,
 };
 
 // Button definitions with mark types (reordered per requirements)
@@ -118,7 +127,12 @@ export class FormatToolbarView {
         const modeChanged = state.mode !== this.currentMode;
         const contextModeChanged = state.mode === "format" && state.contextMode !== this.currentContextMode;
         if (modeChanged || contextModeChanged) {
-          this.rebuildContainer(state.mode, state.headingInfo?.level, state.contextMode);
+          this.rebuildContainer(
+            state.mode,
+            state.headingInfo?.level,
+            state.contextMode,
+            state.codeBlockInfo?.language
+          );
           this.currentMode = state.mode;
           this.currentContextMode = state.contextMode;
         } else if (state.mode === "heading" && state.headingInfo) {
@@ -141,12 +155,15 @@ export class FormatToolbarView {
   private getFocusableElements(): HTMLElement[] {
     return Array.from(
       this.container.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
       )
     );
   }
 
   private setupKeyboardNavigation() {
+    // Remove any existing handler first to prevent duplicates
+    this.removeKeyboardNavigation();
+
     this.keydownHandler = (e: KeyboardEvent) => {
       // Only handle when toolbar is visible and open
       if (!useFormatToolbarStore.getState().isOpen) return;
@@ -174,37 +191,43 @@ export class FormatToolbarView {
         return;
       }
 
-      // Tab navigation only if focus is inside toolbar
-      if (focusInToolbar && e.key === "Tab") {
+      // Tab navigation within toolbar (match Source mode exactly)
+      // Only handle if focus is inside the toolbar
+      if (e.key === "Tab" && focusInToolbar) {
         const focusable = this.getFocusableElements();
         if (focusable.length === 0) return;
 
         const currentIndex = focusable.indexOf(activeEl);
-        if (currentIndex === -1) return;
-
-        e.preventDefault();
 
         if (e.shiftKey) {
+          // Shift+Tab: go backwards
+          e.preventDefault();
+          e.stopPropagation();
           const prevIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
           focusable[prevIndex].focus();
         } else {
+          // Tab: go forwards
+          e.preventDefault();
+          e.stopPropagation();
           const nextIndex = currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1;
           focusable[nextIndex].focus();
         }
       }
     };
 
-    document.addEventListener("keydown", this.keydownHandler);
+    // Use capture phase to ensure we handle Tab before ProseMirror
+    document.addEventListener("keydown", this.keydownHandler, true);
   }
 
   private removeKeyboardNavigation() {
     if (this.keydownHandler) {
-      document.removeEventListener("keydown", this.keydownHandler);
+      // Must match the capture phase used when adding
+      document.removeEventListener("keydown", this.keydownHandler, true);
       this.keydownHandler = null;
     }
   }
 
-  private buildContainer(mode: ToolbarMode, activeLevel?: number, contextMode: ContextMode = "format"): HTMLElement {
+  private buildContainer(mode: ToolbarMode, activeLevel?: number, contextMode: ContextMode = "format", activeLanguage?: string): HTMLElement {
     const container = document.createElement("div");
     container.className = "format-toolbar";
     container.style.display = "none";
@@ -212,7 +235,31 @@ export class FormatToolbarView {
     const row = document.createElement("div");
     row.className = "format-toolbar-row";
 
-    if (mode === "heading") {
+    if (mode === "code") {
+      // Code mode: language picker (matching Source mode)
+      const recentLangs = getRecentLanguages();
+      const quickLangs = recentLangs.length > 0
+        ? recentLangs.slice(0, 5)
+        : QUICK_LANGUAGES.map((l) => l.name);
+
+      // Quick language buttons
+      const quickContainer = document.createElement("div");
+      quickContainer.className = "format-toolbar-quick-langs";
+      for (const name of quickLangs) {
+        const btn = this.buildLanguageButton(name, activeLanguage === name);
+        quickContainer.appendChild(btn);
+      }
+      row.appendChild(quickContainer);
+
+      // Separator
+      const separator = document.createElement("div");
+      separator.className = "format-toolbar-separator";
+      row.appendChild(separator);
+
+      // Dropdown trigger for more languages
+      const dropdown = this.buildLanguageDropdown(activeLanguage || "");
+      row.appendChild(dropdown);
+    } else if (mode === "heading") {
       for (const btn of HEADING_BUTTONS) {
         const btnEl = this.buildHeadingButton(btn.icon, btn.title, btn.level);
         if (btn.level === activeLevel) {
@@ -239,11 +286,11 @@ export class FormatToolbarView {
     return container;
   }
 
-  private rebuildContainer(mode: ToolbarMode, activeLevel?: number, contextMode: ContextMode = "format") {
+  private rebuildContainer(mode: ToolbarMode, activeLevel?: number, contextMode: ContextMode = "format", activeLanguage?: string) {
     const wasVisible = this.container.style.display !== "none";
     const oldContainer = this.container;
 
-    this.container = this.buildContainer(mode, activeLevel, contextMode);
+    this.container = this.buildContainer(mode, activeLevel, contextMode, activeLanguage);
     this.container.style.display = wasVisible ? "flex" : "none";
     this.container.style.position = "fixed";
 
@@ -334,6 +381,159 @@ export class FormatToolbarView {
     });
 
     return btn;
+  }
+
+  private buildLanguageButton(name: string, isActive: boolean): HTMLElement {
+    const btn = document.createElement("button");
+    btn.className = `format-toolbar-quick-btn${isActive ? " active" : ""}`;
+    btn.type = "button";
+    btn.title = name;
+    btn.textContent = getQuickLabel(name);
+
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleLanguageChange(name);
+    });
+
+    return btn;
+  }
+
+  private buildLanguageDropdown(currentLanguage: string): HTMLElement {
+    const dropdown = document.createElement("div");
+    dropdown.className = "format-toolbar-dropdown";
+
+    const trigger = document.createElement("button");
+    trigger.className = "format-toolbar-btn format-toolbar-dropdown-trigger";
+    trigger.type = "button";
+    trigger.title = "Select language";
+
+    const label = document.createElement("span");
+    label.className = "format-toolbar-lang-label";
+    label.textContent = currentLanguage || "plain";
+    trigger.appendChild(label);
+
+    const chevron = document.createElement("span");
+    chevron.innerHTML = icons.chevronDown;
+    chevron.style.display = "flex";
+    chevron.style.width = "12px";
+    chevron.style.height = "12px";
+    trigger.appendChild(chevron);
+
+    trigger.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
+
+    trigger.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleLanguageMenu(dropdown);
+    });
+
+    dropdown.appendChild(trigger);
+    return dropdown;
+  }
+
+  private toggleLanguageMenu(dropdown: HTMLElement) {
+    const existingMenu = dropdown.querySelector(".format-toolbar-lang-menu");
+    if (existingMenu) {
+      existingMenu.remove();
+      return;
+    }
+
+    const menu = document.createElement("div");
+    menu.className = "format-toolbar-lang-menu";
+
+    // Search input
+    const searchContainer = document.createElement("div");
+    searchContainer.className = "format-toolbar-lang-search";
+    const searchInput = document.createElement("input");
+    searchInput.type = "text";
+    searchInput.placeholder = "Search...";
+    searchInput.addEventListener("input", () => {
+      this.updateLanguageList(listContainer, searchInput.value);
+    });
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        menu.remove();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const filtered = filterLanguages(searchInput.value);
+        if (filtered.length > 0) {
+          this.handleLanguageChange(filtered[0].name);
+        }
+      }
+    });
+    searchContainer.appendChild(searchInput);
+    menu.appendChild(searchContainer);
+
+    // Language list
+    const listContainer = document.createElement("div");
+    listContainer.className = "format-toolbar-lang-list";
+    this.updateLanguageList(listContainer, "");
+    menu.appendChild(listContainer);
+
+    dropdown.appendChild(menu);
+
+    // Focus search input
+    setTimeout(() => searchInput.focus(), 50);
+  }
+
+  private updateLanguageList(container: HTMLElement, query: string) {
+    container.innerHTML = "";
+    const filtered = filterLanguages(query);
+    const store = useFormatToolbarStore.getState();
+    const currentLang = store.codeBlockInfo?.language || "";
+
+    for (const { name } of filtered.slice(0, 20)) {
+      const item = document.createElement("button");
+      item.className = `format-toolbar-lang-item${name === currentLang ? " active" : ""}`;
+      item.type = "button";
+      item.textContent = name;
+
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+      });
+
+      item.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleLanguageChange(name);
+      });
+
+      container.appendChild(item);
+    }
+  }
+
+  private handleLanguageChange(language: string) {
+    const { state, dispatch } = this.editorView;
+    const store = useFormatToolbarStore.getState();
+    const codeBlockInfo = store.codeBlockInfo;
+
+    if (!codeBlockInfo) return;
+
+    const { nodePos } = codeBlockInfo;
+    const node = state.doc.nodeAt(nodePos);
+
+    if (node) {
+      const tr = state.tr.setNodeMarkup(nodePos, undefined, {
+        ...node.attrs,
+        language,
+      });
+      dispatch(tr);
+    }
+
+    // Track recent language
+    addRecentLanguage(language);
+
+    this.editorView.focus();
+    store.closeToolbar();
   }
 
   private handleFormat(markType: string) {
