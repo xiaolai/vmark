@@ -23,9 +23,11 @@ import { keymap } from "@milkdown/kit/prose/keymap";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { useFormatToolbarStore } from "@/stores/formatToolbarStore";
 import { useTableToolbarStore } from "@/stores/tableToolbarStore";
+import { useMilkdownCursorContextStore } from "@/stores/milkdownCursorContextStore";
 import { isInTable, getTableInfo, getTableRect } from "@/plugins/tableUI/table-utils";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { FormatToolbarView } from "./FormatToolbarView";
+import { computeMilkdownCursorContext } from "./cursorContext";
 import {
   getCodeBlockInfo,
   getHeadingInfo,
@@ -174,6 +176,38 @@ export const formatToolbarViewPlugin = $prose(() =>
       const toolbarView = new FormatToolbarView(editorView);
       return {
         destroy: () => toolbarView.destroy(),
+      };
+    },
+  })
+);
+
+/**
+ * Plugin that updates cursor context on every selection/doc change.
+ */
+export const cursorContextPluginKey = new PluginKey("cursorContext");
+
+export const cursorContextPlugin = $prose(() =>
+  new Plugin({
+    key: cursorContextPluginKey,
+    view: (editorView) => {
+      // Initial context update
+      const context = computeMilkdownCursorContext(editorView);
+      useMilkdownCursorContextStore.getState().setContext(context, editorView);
+
+      return {
+        update: (view, prevState) => {
+          // Update context on selection or doc change
+          if (
+            !view.state.selection.eq(prevState.selection) ||
+            !view.state.doc.eq(prevState.doc)
+          ) {
+            const ctx = computeMilkdownCursorContext(view);
+            useMilkdownCursorContextStore.getState().setContext(ctx, view);
+          }
+        },
+        destroy: () => {
+          useMilkdownCursorContextStore.getState().clearContext();
+        },
       };
     },
   })

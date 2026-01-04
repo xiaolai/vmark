@@ -62,7 +62,7 @@ export function getWordAtCursor(
     const segStart = segment.index;
     const segEnd = segStart + segment.segment.length;
 
-    if (posInLine >= segStart && posInLine <= segEnd) {
+    if (posInLine > segStart && posInLine < segEnd) {
       // Skip non-word segments (punctuation, whitespace)
       if (!segment.isWordLike) return null;
 

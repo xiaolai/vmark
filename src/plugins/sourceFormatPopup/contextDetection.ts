@@ -3,20 +3,19 @@
  *
  * Determines which toolbar mode to show based on cursor position.
  * Handles Cmd+E keyboard shortcut by routing to appropriate popup.
+ * Uses cached cursor context for fast routing, calls detection functions for full info.
  */
 
 import type { EditorView } from "@codemirror/view";
 import { useSourceFormatStore } from "@/stores/sourceFormatStore";
+import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import { getSourceTableInfo } from "./tableDetection";
 import { getHeadingInfo } from "./headingDetection";
 import { getCodeFenceInfo } from "./codeFenceDetection";
-import { getWordAtCursor } from "./wordSelection";
-import { isAtParagraphLineStart } from "./paragraphDetection";
 import { getBlockMathInfo } from "./blockMathDetection";
 import { getListItemInfo } from "./listDetection";
 import { getBlockquoteInfo } from "./blockquoteDetection";
-import { getInlineElementAtCursor } from "./inlineDetection";
-import { getSelectionRect, getCursorRect, getContextModeSource } from "./positionUtils";
+import { getSelectionRect, getCursorRect } from "./positionUtils";
 
 // Re-export for backward compatibility
 export { getSelectionRect, getCursorRect, getContextModeSource } from "./positionUtils";
@@ -24,9 +23,11 @@ export { getSelectionRect, getCursorRect, getContextModeSource } from "./positio
 /**
  * Toggle table popup visibility. Called via keyboard shortcut.
  * Shows table popup if cursor is in a table, otherwise does nothing.
+ * Uses cached context for fast check, detection function for full info.
  */
 export function toggleTablePopup(view: EditorView): boolean {
   const store = useSourceFormatStore.getState();
+  const ctx = useSourceCursorContextStore.getState().context;
 
   // If table popup is already open, close it
   if (store.isOpen && store.mode === "table") {
@@ -34,13 +35,15 @@ export function toggleTablePopup(view: EditorView): boolean {
     return true;
   }
 
-  // Check if cursor is in a table
-  const tableInfo = getSourceTableInfo(view);
-  if (!tableInfo) {
+  // Fast check using cached context
+  if (!ctx.inTable) {
     return false; // Not in table, don't consume the key
   }
 
-  // Show table popup
+  // Get full table info for popup
+  const tableInfo = getSourceTableInfo(view);
+  if (!tableInfo) return false;
+
   const { from } = view.state.selection.main;
   const rect = getCursorRect(view, from);
   if (!rect) return false;
@@ -64,15 +67,18 @@ export function toggleTablePopup(view: EditorView): boolean {
  * 5. List → LIST toolbar (merged)
  * 6. Blockquote → BLOCKQUOTE toolbar (merged)
  * 7. Has selection → FORMAT toolbar
+ * 7.5. Formatted range → FORMAT toolbar (auto-select content)
  * 8-11. Inline elements (link, image, math, footnote)
  * 12-13. Heading or paragraph line start → HEADING toolbar
- * 14-15. Formatted range or word → FORMAT toolbar (auto-select)
+ * 14-15. Word → FORMAT toolbar (auto-select)
  * 16-17. Blank line or otherwise → INSERT toolbar
+ *
+ * Uses cached cursor context for fast routing, detection functions for full info.
  */
 export function triggerFormatPopup(view: EditorView): boolean {
   const store = useSourceFormatStore.getState();
+  const ctx = useSourceCursorContextStore.getState().context;
   const { from, to } = view.state.selection.main;
-  const hasSelection = from !== to;
 
   // 1. Toggle: if popup is already open, close it
   if (store.isOpen) {
@@ -81,8 +87,10 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 2. Code fence → CODE toolbar
-  const codeFenceInfo = getCodeFenceInfo(view);
-  if (codeFenceInfo) {
+  if (ctx.inCodeBlock) {
+    const codeFenceInfo = getCodeFenceInfo(view);
+    if (!codeFenceInfo) return false;
+
     const rect = getCursorRect(view, from);
     if (!rect) return false;
 
@@ -95,8 +103,10 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 3. Block math ($$...$$) → MATH toolbar
-  const blockMathInfo = getBlockMathInfo(view);
-  if (blockMathInfo) {
+  if (ctx.inBlockMath) {
+    const blockMathInfo = getBlockMathInfo(view);
+    if (!blockMathInfo) return false;
+
     const rect = getCursorRect(view, from);
     if (!rect) return false;
 
@@ -109,8 +119,10 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 4. Table → TABLE toolbar (merged with format)
-  const tableInfo = getSourceTableInfo(view);
-  if (tableInfo) {
+  if (ctx.inTable) {
+    const tableInfo = getSourceTableInfo(view);
+    if (!tableInfo) return false;
+
     const rect = getCursorRect(view, from);
     if (!rect) return false;
 
@@ -123,8 +135,10 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 5. List → LIST toolbar (merged with format)
-  const listInfo = getListItemInfo(view);
-  if (listInfo) {
+  if (ctx.inList) {
+    const listInfo = getListItemInfo(view);
+    if (!listInfo) return false;
+
     const rect = getCursorRect(view, from);
     if (!rect) return false;
 
@@ -137,8 +151,10 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 6. Blockquote → BLOCKQUOTE toolbar (merged with format)
-  const blockquoteInfo = getBlockquoteInfo(view);
-  if (blockquoteInfo) {
+  if (ctx.inBlockquote) {
+    const blockquoteInfo = getBlockquoteInfo(view);
+    if (!blockquoteInfo) return false;
+
     const rect = getCursorRect(view, from);
     if (!rect) return false;
 
@@ -151,7 +167,7 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 7. Has selection → FORMAT toolbar (honor user's selection)
-  if (hasSelection) {
+  if (ctx.hasSelection) {
     const rect = getSelectionRect(view, from, to);
     if (!rect) return false;
 
@@ -165,44 +181,82 @@ export function triggerFormatPopup(view: EditorView): boolean {
     return true;
   }
 
-  // 8-11. Check inline elements (link, image, math, footnote)
-  const inlineElement = getInlineElementAtCursor(view);
-  if (inlineElement) {
-    // 9. Image → Do nothing (has own popup on click)
-    if (inlineElement.type === "image") {
-      return false;
-    }
-
-    // 11. Footnote → FOOTNOTE toolbar
-    if (inlineElement.type === "footnote") {
-      const rect = getSelectionRect(view, inlineElement.from, inlineElement.to);
-      if (!rect) return false;
-
-      // Auto-select the footnote reference
-      view.dispatch({
-        selection: { anchor: inlineElement.contentFrom, head: inlineElement.contentTo },
-      });
-
-      store.openFootnotePopup({
-        anchorRect: rect,
-        editorView: view,
-      });
-      return true;
-    }
-
-    // 8, 10. Link or inline math → FORMAT toolbar (auto-select content)
-    const rect = getSelectionRect(view, inlineElement.contentFrom, inlineElement.contentTo);
-    if (!rect) return false;
-
-    // Auto-select the content
+  // 7.5. Cursor in formatted range → FORMAT toolbar (auto-select content)
+  if (ctx.innermostFormat) {
+    const fmt = ctx.innermostFormat;
+    // Auto-select the content (excluding markers)
     view.dispatch({
-      selection: { anchor: inlineElement.contentFrom, head: inlineElement.contentTo },
+      selection: { anchor: fmt.contentFrom, head: fmt.contentTo },
     });
 
-    const selectedText = view.state.doc.sliceString(
-      inlineElement.contentFrom,
-      inlineElement.contentTo
-    );
+    const rect = getSelectionRect(view, fmt.contentFrom, fmt.contentTo);
+    if (!rect) return false;
+
+    const selectedText = view.state.doc.sliceString(fmt.contentFrom, fmt.contentTo);
+    store.openPopup({
+      anchorRect: rect,
+      selectedText,
+      editorView: view,
+      contextMode: "format",
+    });
+    return true;
+  }
+
+  // 8-11. Check inline elements (link, image, math, footnote)
+  // 9. Image → Do nothing (has own popup on click)
+  if (ctx.inImage) {
+    return false;
+  }
+
+  // 11. Footnote → FOOTNOTE toolbar
+  if (ctx.inFootnote) {
+    const fn = ctx.inFootnote;
+    const rect = getSelectionRect(view, fn.from, fn.to);
+    if (!rect) return false;
+
+    // Auto-select the footnote label
+    view.dispatch({
+      selection: { anchor: fn.contentFrom, head: fn.contentTo },
+    });
+
+    store.openFootnotePopup({
+      anchorRect: rect,
+      editorView: view,
+    });
+    return true;
+  }
+
+  // 8. Link → FORMAT toolbar (auto-select content)
+  if (ctx.inLink) {
+    const lnk = ctx.inLink;
+    const rect = getSelectionRect(view, lnk.contentFrom, lnk.contentTo);
+    if (!rect) return false;
+
+    view.dispatch({
+      selection: { anchor: lnk.contentFrom, head: lnk.contentTo },
+    });
+
+    const selectedText = view.state.doc.sliceString(lnk.contentFrom, lnk.contentTo);
+    store.openPopup({
+      anchorRect: rect,
+      selectedText,
+      editorView: view,
+      contextMode: "format",
+    });
+    return true;
+  }
+
+  // 10. Inline math → FORMAT toolbar (auto-select content)
+  if (ctx.inInlineMath) {
+    const mth = ctx.inInlineMath;
+    const rect = getSelectionRect(view, mth.contentFrom, mth.contentTo);
+    if (!rect) return false;
+
+    view.dispatch({
+      selection: { anchor: mth.contentFrom, head: mth.contentTo },
+    });
+
+    const selectedText = view.state.doc.sliceString(mth.contentFrom, mth.contentTo);
     store.openPopup({
       anchorRect: rect,
       selectedText,
@@ -213,8 +267,10 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 12. Heading → HEADING toolbar
-  const headingInfo = getHeadingInfo(view);
-  if (headingInfo) {
+  if (ctx.inHeading) {
+    const headingInfo = getHeadingInfo(view);
+    if (!headingInfo) return false;
+
     const rect = getCursorRect(view, from);
     if (!rect) return false;
 
@@ -227,7 +283,7 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 13. Cursor at paragraph line start → HEADING toolbar
-  if (isAtParagraphLineStart(view)) {
+  if (ctx.atLineStart) {
     const rect = getCursorRect(view, from);
     if (!rect) return false;
 
@@ -245,17 +301,16 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 14-15. Cursor in word → FORMAT toolbar (auto-select word)
-  const wordRange = getWordAtCursor(view);
-  if (wordRange) {
-    const rect = getSelectionRect(view, wordRange.from, wordRange.to);
+  if (ctx.inWord) {
+    const rect = getSelectionRect(view, ctx.inWord.from, ctx.inWord.to);
     if (!rect) return false;
 
     // Auto-select the word
     view.dispatch({
-      selection: { anchor: wordRange.from, head: wordRange.to },
+      selection: { anchor: ctx.inWord.from, head: ctx.inWord.to },
     });
 
-    const selectedText = view.state.doc.sliceString(wordRange.from, wordRange.to);
+    const selectedText = view.state.doc.sliceString(ctx.inWord.from, ctx.inWord.to);
     store.openPopup({
       anchorRect: rect,
       selectedText,
@@ -266,7 +321,6 @@ export function triggerFormatPopup(view: EditorView): boolean {
   }
 
   // 16-17. Blank line or otherwise → INSERT toolbar
-  const contextMode = getContextModeSource(view);
   const rect = getCursorRect(view, from);
   if (!rect) return false;
 
@@ -274,7 +328,7 @@ export function triggerFormatPopup(view: EditorView): boolean {
     anchorRect: rect,
     selectedText: "",
     editorView: view,
-    contextMode,
+    contextMode: ctx.contextMode,
   });
 
   return true;

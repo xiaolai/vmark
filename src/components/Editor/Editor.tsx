@@ -51,7 +51,7 @@ import { smartPastePlugin } from "@/plugins/smartPaste";
 import { taskTogglePlugin } from "@/plugins/taskToggle";
 import { listContinuationPlugin } from "@/plugins/listContinuation";
 import { toggleBlockquoteCommand } from "@/plugins/blockquoteToggle";
-import { formatToolbarKeymapPlugin, formatToolbarViewPlugin } from "@/plugins/formatToolbar";
+import { formatToolbarKeymapPlugin, formatToolbarViewPlugin, cursorContextPlugin } from "@/plugins/formatToolbar";
 import { syntaxRevealPlugin } from "@/plugins/syntaxReveal";
 import { linkPopupPlugin } from "@/plugins/linkPopup";
 import { imagePopupPlugin } from "@/plugins/imagePopup";
@@ -171,6 +171,7 @@ function MilkdownEditorInner() {
       .use(taskTogglePlugin)
       .use(formatToolbarKeymapPlugin)
       .use(formatToolbarViewPlugin)
+      .use(cursorContextPlugin)
       // Filter out default strikethrough input rule (accepts single ~)
       .use(gfm.filter((plugin) => plugin !== strikethroughInputRule))
       // Syntax highlighting for code blocks

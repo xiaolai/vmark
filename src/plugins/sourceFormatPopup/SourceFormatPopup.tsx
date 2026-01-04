@@ -186,6 +186,11 @@ export function SourceFormatPopup() {
 
     switch (mode) {
       case "format":
+      case "list":       // TODO: Add list-specific actions (indent, outdent, toggle type)
+      case "blockquote": // TODO: Add blockquote actions (increase/decrease level)
+      case "math":       // TODO: Add math preview/edit toggle
+      case "footnote":   // TODO: Add footnote navigation (go to definition)
+        // Currently all show format buttons; context-specific actions coming later
         return (
           <FormatMode editorView={editorView} activeFormats={activeFormats} contextMode={contextMode} />
         );

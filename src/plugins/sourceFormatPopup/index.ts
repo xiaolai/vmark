@@ -8,9 +8,11 @@
 
 import { EditorView } from "@codemirror/view";
 import { useSourceFormatStore } from "@/stores/sourceFormatStore";
+import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import { getHeadingInfo } from "./headingDetection";
 import { getCodeFenceInfo } from "./codeFenceDetection";
 import { getSelectionRect, getCursorRect } from "./contextDetection";
+import { computeSourceCursorContext } from "./cursorContext";
 
 // Debounce timeout for showing popup
 let showTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -56,9 +58,16 @@ function clearShowTimeout() {
 
 /**
  * CodeMirror extension that monitors selection and manages popup visibility.
+ * Also updates cursor context on every selection/doc change.
  */
 export const sourceFormatExtension = EditorView.updateListener.of((update) => {
-  // Only handle selection changes
+  // Update cursor context on selection or document changes
+  if (update.selectionSet || update.docChanged) {
+    const context = computeSourceCursorContext(update.view);
+    useSourceCursorContextStore.getState().setContext(context, update.view);
+  }
+
+  // Only handle selection changes for popup
   if (!update.selectionSet) return;
 
   const { from, to } = update.view.state.selection.main;
