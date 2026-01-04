@@ -17,7 +17,9 @@ interface HeadingModeProps {
 export function HeadingMode({ editorView, headingInfo }: HeadingModeProps) {
   const handleHeadingLevel = (level: number) => {
     setHeadingLevel(editorView, headingInfo, level);
-    useSourceFormatStore.getState().closePopup();
+    const store = useSourceFormatStore.getState();
+    store.clearOriginalCursor();
+    store.closePopup();
   };
 
   return (

@@ -55,10 +55,13 @@ export function TableMode({ editorView, tableInfo }: TableModeProps) {
       case "deleteCol":
         deleteColumn(editorView, tableInfo);
         break;
-      case "deleteTable":
+      case "deleteTable": {
         deleteTable(editorView, tableInfo);
-        useSourceFormatStore.getState().closePopup();
+        const store = useSourceFormatStore.getState();
+        store.clearOriginalCursor();
+        store.closePopup();
         break;
+      }
     }
   };
 

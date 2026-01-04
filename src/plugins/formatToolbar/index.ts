@@ -136,6 +136,9 @@ function toggleContextAwareToolbar(view: EditorView): boolean {
   const $from = view.state.selection.$from;
   const wordRange = findWordAtCursor($from);
   if (wordRange) {
+    // Save original cursor position for restore on cancel
+    const originalCursorPos = view.state.selection.from;
+
     // Auto-select the word
     const tr = view.state.tr.setSelection(
       TextSelection.create(view.state.doc, wordRange.from, wordRange.to)
@@ -143,7 +146,10 @@ function toggleContextAwareToolbar(view: EditorView): boolean {
     view.dispatch(tr);
 
     const anchorRect = getCursorRect(view);
-    formatStore.openToolbar(anchorRect, view, "format");
+    formatStore.openToolbar(anchorRect, view, {
+      contextMode: "format",
+      originalCursorPos,
+    });
     return true;
   }
 

@@ -11,6 +11,7 @@
 import { create } from "zustand";
 import type { AnchorRect } from "@/utils/popupPosition";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { TextSelection } from "@milkdown/kit/prose/state";
 
 export type ToolbarMode = "format" | "heading" | "code";
 export type ContextMode = "format" | "inline-insert" | "block-insert";
@@ -33,13 +34,22 @@ interface FormatToolbarState {
   editorView: EditorView | null;
   headingInfo: HeadingInfo | null;
   codeBlockInfo: CodeBlockInfo | null;
+  /** Original cursor position before auto-select (for restore on cancel) */
+  originalCursorPos: number | null;
+}
+
+interface OpenToolbarOptions {
+  contextMode?: ContextMode;
+  originalCursorPos?: number;
 }
 
 interface FormatToolbarActions {
-  openToolbar: (rect: AnchorRect, view: EditorView, contextMode?: ContextMode) => void;
+  openToolbar: (rect: AnchorRect, view: EditorView, options?: ContextMode | OpenToolbarOptions) => void;
   openHeadingToolbar: (rect: AnchorRect, view: EditorView, headingInfo: HeadingInfo) => void;
   openCodeToolbar: (rect: AnchorRect, view: EditorView, codeBlockInfo: CodeBlockInfo) => void;
   closeToolbar: () => void;
+  /** Clear original cursor pos after format action (so close won't restore) */
+  clearOriginalCursor: () => void;
   updatePosition: (rect: AnchorRect) => void;
 }
 
@@ -51,13 +61,20 @@ const initialState: FormatToolbarState = {
   editorView: null,
   headingInfo: null,
   codeBlockInfo: null,
+  originalCursorPos: null,
 };
 
 export const useFormatToolbarStore = create<FormatToolbarState & FormatToolbarActions>(
-  (set) => ({
+  (set, get) => ({
     ...initialState,
 
-    openToolbar: (rect, view, contextMode = "format") =>
+    openToolbar: (rect, view, options) => {
+      // Handle backward compat: options can be string (contextMode) or object
+      const opts: OpenToolbarOptions =
+        typeof options === "string" ? { contextMode: options } : options ?? {};
+      const contextMode = opts.contextMode ?? "format";
+      const originalCursorPos = opts.originalCursorPos ?? null;
+
       set({
         isOpen: true,
         mode: "format",
@@ -66,7 +83,9 @@ export const useFormatToolbarStore = create<FormatToolbarState & FormatToolbarAc
         editorView: view,
         headingInfo: null,
         codeBlockInfo: null,
-      }),
+        originalCursorPos,
+      });
+    },
 
     openHeadingToolbar: (rect, view, headingInfo) =>
       set({
@@ -88,7 +107,21 @@ export const useFormatToolbarStore = create<FormatToolbarState & FormatToolbarAc
         codeBlockInfo,
       }),
 
-    closeToolbar: () => set(initialState),
+    closeToolbar: () => {
+      const { editorView, originalCursorPos } = get();
+
+      // Restore cursor position if we auto-selected a word
+      if (editorView && originalCursorPos !== null) {
+        const tr = editorView.state.tr.setSelection(
+          TextSelection.create(editorView.state.doc, originalCursorPos)
+        );
+        editorView.dispatch(tr);
+      }
+
+      set(initialState);
+    },
+
+    clearOriginalCursor: () => set({ originalCursorPos: null }),
 
     updatePosition: (rect) => set({ anchorRect: rect }),
   })

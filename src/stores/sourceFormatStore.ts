@@ -54,6 +54,8 @@ interface SourceFormatState {
   listInfo: ListItemInfo | null;
   blockquoteInfo: BlockquoteInfo | null;
   blockMathInfo: BlockMathInfo | null;
+  /** Original cursor position before auto-select (for restore on cancel) */
+  originalCursorPos: number | null;
 }
 
 interface SourceFormatActions {
@@ -62,6 +64,7 @@ interface SourceFormatActions {
     selectedText: string;
     editorView: EditorView;
     contextMode?: ContextMode;
+    originalCursorPos?: number;
   }) => void;
   openTablePopup: (data: {
     anchorRect: AnchorRect;
@@ -97,7 +100,9 @@ interface SourceFormatActions {
     anchorRect: AnchorRect;
     editorView: EditorView;
   }) => void;
-  closePopup: () => void;
+  closePopup: () => number | null;
+  /** Clear original cursor pos after format action (so close won't restore) */
+  clearOriginalCursor: () => void;
   updatePosition: (anchorRect: AnchorRect) => void;
 }
 
@@ -116,12 +121,20 @@ const initialState: SourceFormatState = {
   listInfo: null,
   blockquoteInfo: null,
   blockMathInfo: null,
+  originalCursorPos: null,
 };
 
-export const useSourceFormatStore = create<SourceFormatStore>((set) => ({
+export const useSourceFormatStore = create<SourceFormatStore>((set, get) => ({
   ...initialState,
 
-  openPopup: (data) =>
+  openPopup: (data) => {
+    const current = get();
+    // Preserve originalCursorPos if popup is already open (don't overwrite with undefined)
+    // This handles the case where extension listener re-opens the popup after Cmd+E
+    const preservedCursorPos = current.isOpen && current.originalCursorPos !== null
+      ? current.originalCursorPos
+      : (data.originalCursorPos ?? null);
+
     set({
       ...initialState,
       isOpen: true,
@@ -130,7 +143,9 @@ export const useSourceFormatStore = create<SourceFormatStore>((set) => ({
       anchorRect: data.anchorRect,
       selectedText: data.selectedText,
       editorView: data.editorView,
-    }),
+      originalCursorPos: preservedCursorPos,
+    });
+  },
 
   openTablePopup: (data) =>
     set({
@@ -201,7 +216,17 @@ export const useSourceFormatStore = create<SourceFormatStore>((set) => ({
       editorView: data.editorView,
     }),
 
-  closePopup: () => set(initialState),
+  closePopup: () => {
+    const { originalCursorPos } = get();
+
+    // Reset state first to prevent extension listener from re-closing
+    set(initialState);
+
+    // Return original cursor pos so caller can restore after focus
+    return originalCursorPos;
+  },
+
+  clearOriginalCursor: () => set({ originalCursorPos: null }),
 
   updatePosition: (anchorRect) => set({ anchorRect }),
 }));

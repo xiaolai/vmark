@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
+import { EditorSelection } from "@codemirror/state";
 import { useSourceFormatStore } from "@/stores/sourceFormatStore";
 import {
   calculatePopupPosition,
@@ -133,14 +134,30 @@ export function SourceFormatPopup() {
       if (e.key === "e" && (e.metaKey || e.ctrlKey)) {
         if (justOpenedRef.current) return;
         e.preventDefault();
-        useSourceFormatStore.getState().closePopup();
-        editorView?.focus();
+        const originalCursorPos = useSourceFormatStore.getState().closePopup();
+        if (editorView) {
+          editorView.focus();
+          // Restore cursor position after focus (more reliable than in closePopup)
+          if (originalCursorPos !== null) {
+            editorView.dispatch({
+              selection: EditorSelection.cursor(originalCursorPos),
+            });
+          }
+        }
         return;
       }
 
       if (e.key === "Escape") {
-        useSourceFormatStore.getState().closePopup();
-        editorView?.focus();
+        const originalCursorPos = useSourceFormatStore.getState().closePopup();
+        if (editorView) {
+          editorView.focus();
+          // Restore cursor position after focus (more reliable than in closePopup)
+          if (originalCursorPos !== null) {
+            editorView.dispatch({
+              selection: EditorSelection.cursor(originalCursorPos),
+            });
+          }
+        }
         return;
       }
 

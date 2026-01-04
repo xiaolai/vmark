@@ -533,14 +533,17 @@ export class FormatToolbarView {
     addRecentLanguage(language);
 
     this.editorView.focus();
+    store.clearOriginalCursor();
     store.closeToolbar();
   }
 
   private handleFormat(markType: string) {
     this.editorView.focus();
     expandedToggleMark(this.editorView, markType);
-    // Close toolbar after action
-    useFormatToolbarStore.getState().closeToolbar();
+    // Close toolbar after action (clear original cursor so it won't restore)
+    const store = useFormatToolbarStore.getState();
+    store.clearOriginalCursor();
+    store.closeToolbar();
   }
 
   private handleHeadingChange(level: number) {
@@ -569,6 +572,7 @@ export class FormatToolbarView {
     }
 
     this.editorView.focus();
+    store.clearOriginalCursor();
     store.closeToolbar();
   }
 
@@ -616,7 +620,9 @@ export class FormatToolbarView {
     dispatch(tr);
 
     this.editorView.focus();
-    useFormatToolbarStore.getState().closeToolbar();
+    const store = useFormatToolbarStore.getState();
+    store.clearOriginalCursor();
+    store.closeToolbar();
   }
 
   private show(anchorRect: AnchorRect) {

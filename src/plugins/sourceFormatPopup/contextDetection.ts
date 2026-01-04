@@ -7,6 +7,7 @@
  */
 
 import type { EditorView } from "@codemirror/view";
+import { EditorSelection } from "@codemirror/state";
 import { useSourceFormatStore } from "@/stores/sourceFormatStore";
 import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import { getSourceTableInfo } from "./tableDetection";
@@ -29,9 +30,9 @@ export function toggleTablePopup(view: EditorView): boolean {
   const store = useSourceFormatStore.getState();
   const ctx = useSourceCursorContextStore.getState().context;
 
-  // If table popup is already open, close it
+  // If table popup is already open, close it (no cursor to restore for tables)
   if (store.isOpen && store.mode === "table") {
-    store.closePopup();
+    store.closePopup(); // Returns null for tables (no auto-select)
     return true;
   }
 
@@ -80,9 +81,14 @@ export function triggerFormatPopup(view: EditorView): boolean {
   const ctx = useSourceCursorContextStore.getState().context;
   const { from, to } = view.state.selection.main;
 
-  // 1. Toggle: if popup is already open, close it
+  // 1. Toggle: if popup is already open, close it and restore cursor
   if (store.isOpen) {
-    store.closePopup();
+    const originalCursorPos = store.closePopup();
+    if (originalCursorPos !== null) {
+      view.dispatch({
+        selection: EditorSelection.cursor(originalCursorPos),
+      });
+    }
     return true;
   }
 
@@ -304,6 +310,9 @@ export function triggerFormatPopup(view: EditorView): boolean {
     const rect = getSelectionRect(view, ctx.inWord.from, ctx.inWord.to);
     if (!rect) return false;
 
+    // Save original cursor position for restore on cancel
+    const originalCursorPos = from;
+
     // Auto-select the word
     view.dispatch({
       selection: { anchor: ctx.inWord.from, head: ctx.inWord.to },
@@ -315,6 +324,7 @@ export function triggerFormatPopup(view: EditorView): boolean {
       selectedText,
       editorView: view,
       contextMode: "format",
+      originalCursorPos,
     });
     return true;
   }

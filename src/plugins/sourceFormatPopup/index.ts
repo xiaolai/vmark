@@ -101,6 +101,12 @@ export const sourceFormatExtension = EditorView.updateListener.of((update) => {
     // Clear any pending timeout
     clearShowTimeout();
 
+    // If popup is already open (e.g., via Cmd+E), don't overwrite it
+    // This preserves originalCursorPos set by triggerFormatPopup
+    if (useSourceFormatStore.getState().isOpen) {
+      return;
+    }
+
     // Schedule popup show with delay
     showTimeout = setTimeout(() => {
       // Re-check selection (might have changed during delay)
@@ -111,6 +117,11 @@ export const sourceFormatExtension = EditorView.updateListener.of((update) => {
       if (currentTo - currentFrom < MIN_SELECTION_LENGTH) {
         // No selection - close popup (table popup is triggered by shortcut)
         useSourceFormatStore.getState().closePopup();
+        return;
+      }
+
+      // If popup opened while waiting (e.g., via Cmd+E), don't overwrite
+      if (useSourceFormatStore.getState().isOpen) {
         return;
       }
 
@@ -145,8 +156,13 @@ export const sourceFormatExtension = EditorView.updateListener.of((update) => {
     }, SHOW_DELAY);
   } else {
     // No selection - close popup (table popup is triggered by shortcut)
+    // Only close if popup was opened by mouse selection (not by Cmd+E auto-select)
+    // Check if popup is open and has no originalCursorPos (meaning it was mouse-selected)
     clearShowTimeout();
-    useSourceFormatStore.getState().closePopup();
+    const popupStore = useSourceFormatStore.getState();
+    if (popupStore.isOpen && popupStore.originalCursorPos === null) {
+      popupStore.closePopup();
+    }
   }
 });
 

@@ -44,7 +44,9 @@ export function CodeMode({
     setCodeFenceLanguage(editorView, codeFenceInfo, language);
     setLanguageDropdownOpen(false);
     setLanguageSearch("");
-    useSourceFormatStore.getState().closePopup();
+    const store = useSourceFormatStore.getState();
+    store.clearOriginalCursor();
+    store.closePopup();
     editorView.focus();
   };
 

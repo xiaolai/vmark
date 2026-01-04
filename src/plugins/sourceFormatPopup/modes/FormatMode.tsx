@@ -26,7 +26,9 @@ interface FormatModeProps {
 export function FormatMode({ editorView, activeFormats, contextMode }: FormatModeProps) {
   const handleFormat = (type: FormatType) => {
     applyFormat(editorView, type);
-    useSourceFormatStore.getState().closePopup();
+    const store = useSourceFormatStore.getState();
+    store.clearOriginalCursor();
+    store.closePopup();
   };
 
   const handleInsert = (type: InsertType) => {
@@ -71,7 +73,9 @@ export function FormatMode({ editorView, activeFormats, contextMode }: FormatMod
       changes: { from, to: from, insert: textToInsert },
     });
     editorView.focus();
-    useSourceFormatStore.getState().closePopup();
+    const store = useSourceFormatStore.getState();
+    store.clearOriginalCursor();
+    store.closePopup();
   };
 
   // Render inline insert buttons

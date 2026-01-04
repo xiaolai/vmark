@@ -124,7 +124,9 @@ export function findWordAtCursor(
     const segStart = segment.index;
     const segEnd = segStart + segment.segment.length;
 
-    if (offset >= segStart && offset <= segEnd) {
+    // Cursor must be strictly inside word (not at either boundary)
+    // This ensures "|text" and "text|" show INSERT, not FORMAT
+    if (offset > segStart && offset < segEnd) {
       // Skip non-word segments (punctuation, whitespace)
       if (!segment.isWordLike) return null;
 
