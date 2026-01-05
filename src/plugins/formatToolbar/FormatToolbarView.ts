@@ -13,6 +13,8 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import { callCommand } from "@milkdown/kit/utils";
+import { setAlignCommand } from "@milkdown/kit/preset/gfm";
 import {
   useFormatToolbarStore,
   type ToolbarMode,
@@ -456,13 +458,13 @@ export class FormatToolbarView {
     row3.className = "format-toolbar-row";
 
     row3.appendChild(this.buildActionButton(icons.alignLeft, "Align column left", () => {
-      handleAlignColumn(this.editorView, this.getEditor, "left", false);
+      this.handleColumnAlign("left");
     }));
     row3.appendChild(this.buildActionButton(icons.alignCenter, "Align column center", () => {
-      handleAlignColumn(this.editorView, this.getEditor, "center", false);
+      this.handleColumnAlign("center");
     }));
     row3.appendChild(this.buildActionButton(icons.alignRight, "Align column right", () => {
-      handleAlignColumn(this.editorView, this.getEditor, "right", false);
+      this.handleColumnAlign("right");
     }));
     row3.appendChild(this.buildDivider());
     row3.appendChild(this.buildActionButton(icons.alignAllLeft, "Align all left", () => {
@@ -841,6 +843,21 @@ export class FormatToolbarView {
     this.editorView.focus();
     store.clearOriginalCursor();
     store.closeToolbar();
+  }
+
+  /**
+   * Handle column alignment using setAlignCommand directly.
+   * This bypasses nodeActions to call the Milkdown command directly.
+   */
+  private handleColumnAlign(alignment: "left" | "center" | "right") {
+    if (!this.ctx) return;
+    this.editorView.focus();
+    try {
+      // Call the Milkdown command directly through context
+      callCommand(setAlignCommand.key, alignment)(this.ctx);
+    } catch (e) {
+      console.error("Failed to align column:", e);
+    }
   }
 
   private handleFormat(markType: string) {
