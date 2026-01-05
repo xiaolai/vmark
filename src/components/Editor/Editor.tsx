@@ -52,7 +52,7 @@ import { taskTogglePlugin } from "@/plugins/taskToggle";
 import { listContinuationPlugin } from "@/plugins/listContinuation";
 import { toggleBlockquoteCommand } from "@/plugins/blockquoteToggle";
 import { formatToolbarKeymapPlugin, formatToolbarViewPlugin, cursorContextPlugin } from "@/plugins/formatToolbar";
-import { syntaxRevealPlugin } from "@/plugins/syntaxReveal";
+import { cursorAwarePlugin } from "@/plugins/cursorAware";
 import { linkPopupPlugin } from "@/plugins/linkPopup";
 import { imagePopupPlugin } from "@/plugins/imagePopup";
 import { footnotePopupPlugin } from "@/plugins/footnotePopup";
@@ -72,7 +72,6 @@ import {
   mathInlineInputRule,
   mathInlinePlugin,
   mathInlineView,
-  mathInlineCursorPlugin,
   mathBlockInputRule,
   mathBlockSchema,
   mathBlockView,
@@ -88,7 +87,7 @@ import { subSuperscriptPlugin } from "@/plugins/subSuperscript";
 import { highlightPlugin } from "@/plugins/highlight";
 import { SourceEditor } from "./SourceEditor";
 import "./editor.css";
-import "@/plugins/syntaxReveal/syntax-reveal.css";
+import "@/plugins/cursorAware/cursor-aware.css";
 import "@/plugins/linkPopup/link-popup.css";
 import "@/plugins/imagePopup/image-popup.css";
 import "@/plugins/alertBlock/alert-block.css";
@@ -216,7 +215,7 @@ function MilkdownEditorInner() {
       })
       .use(cursorSyncPlugin)
       .use(blankDocFocusPlugin)
-      .use(syntaxRevealPlugin)
+      .use(cursorAwarePlugin)
       .use(linkPopupPlugin)
       .use(imagePopupPlugin)
       .use(footnotePopupPlugin)
@@ -230,7 +229,6 @@ function MilkdownEditorInner() {
       .use(mathInlineInputRule)
       .use(mathInlinePlugin)
       .use(mathInlineView)
-      .use(mathInlineCursorPlugin)
       .use(mathBlockSchema)
       .use(mathBlockView)
       .use(mathBlockInputRule)

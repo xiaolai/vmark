@@ -1,0 +1,61 @@
+/**
+ * Cursor-Aware Rendering Styles
+ *
+ * Styles for syntax markers shown when cursor is inside formatted content.
+ * Uses widget decorations (inserted DOM elements) for marks.
+ */
+
+/* ==========================================================================
+   Base syntax marker style (for marks)
+   ========================================================================== */
+
+.syntax-marker {
+  color: var(--md-char-color, #999);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  opacity: 0;
+  animation: syntax-fade-in 0.15s ease-out forwards;
+  user-select: none;
+  pointer-events: none;
+}
+
+@keyframes syntax-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Opening markers */
+.syntax-marker-open {
+  margin-right: 0;
+}
+
+/* Closing markers */
+.syntax-marker-close {
+  margin-left: 0;
+}
+
+/* Link markers */
+.syntax-marker-link-open {
+  color: var(--primary-color, #4183c4);
+}
+
+.syntax-marker-link-close {
+  color: var(--md-char-color, #999);
+  font-size: 0.85em;
+}
+
+/* ==========================================================================
+   Dark mode adjustments
+   ========================================================================== */
+
+.dark-theme .syntax-marker {
+  color: var(--md-char-color, #6e7681);
+}
+
+.dark-theme .syntax-marker-link-open {
+  color: var(--primary-color, #58a6ff);
+}

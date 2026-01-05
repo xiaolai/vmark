@@ -1,4 +1,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
+
+// Stable empty array to avoid creating new reference on each render
+const EMPTY_TABS: never[] = [];
 import { Code2, Type, PanelLeftOpen, PanelRightOpen, Save, Plus } from "lucide-react";
 import { countWords as alfaazCount } from "alfaaz";
 import { useEditorStore } from "@/stores/editorStore";
@@ -60,8 +63,9 @@ export function StatusBar() {
   const statusBarPinned = useUIStore((state) => state.statusBarPinned);
 
   // Tab state - only for document windows
+  // Use stable EMPTY_TABS to avoid infinite loop from new array reference
   const tabs = useTabStore((state) =>
-    isDocumentWindow ? state.tabs[windowLabel] ?? [] : []
+    isDocumentWindow ? state.tabs[windowLabel] ?? EMPTY_TABS : EMPTY_TABS
   );
   const activeTabId = useTabStore((state) =>
     isDocumentWindow ? state.activeTabId[windowLabel] : null
