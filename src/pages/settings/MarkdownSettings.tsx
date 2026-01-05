@@ -25,6 +25,17 @@ export function MarkdownSettings() {
           />
         </SettingRow>
         <SettingRow
+          label="Edit syntax markers"
+          description="Allow editing markdown markers with Backspace/Delete (** → *)"
+          disabled={!markdown.revealInlineSyntax}
+        >
+          <Toggle
+            checked={markdown.allowEditMarkers ?? false}
+            onChange={(v) => updateSetting("allowEditMarkers", v)}
+            disabled={!markdown.revealInlineSyntax}
+          />
+        </SettingRow>
+        <SettingRow
           label="Enable regex in search"
           description="Show regex toggle button in Find & Replace bar"
         >

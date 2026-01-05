@@ -13,9 +13,11 @@ import { $prose } from "@milkdown/kit/utils";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { keymap } from "@milkdown/kit/prose/keymap";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { addMarkWidgetDecorations } from "./markDecorations";
 import { addNodeDecorations } from "./nodeDecorations";
+import { handleMarkerBackspace, handleMarkerDelete, handleMarkerInput } from "./markerKeyHandlers";
 
 export const cursorAwarePluginKey = new PluginKey<DecorationSet>("cursorAware");
 
@@ -81,5 +83,28 @@ export const cursorAwarePlugin = $prose(() => {
     },
   });
 });
+
+/**
+ * Keymap plugin for editable syntax markers.
+ * Intercepts Backspace/Delete at mark boundaries for granular transitions.
+ */
+export const cursorAwareKeymap = $prose(() =>
+  keymap({
+    Backspace: handleMarkerBackspace,
+    Delete: handleMarkerDelete,
+  })
+);
+
+/**
+ * Text input plugin for mark upgrades.
+ * Intercepts `*` and `~` at mark boundaries to upgrade marks.
+ */
+export const cursorAwareInputPlugin = $prose(() =>
+  new Plugin({
+    props: {
+      handleTextInput: handleMarkerInput,
+    },
+  })
+);
 
 export default cursorAwarePlugin;
