@@ -111,7 +111,6 @@ export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
   revealInlineSyntax: boolean; // Show markdown markers when cursor in formatted text
-  allowEditMarkers: boolean; // Allow editing syntax markers (**, *, etc.) when revealed
   enableRegexSearch: boolean; // Enable regex in Find & Replace
   mediaBorderStyle: MediaBorderStyle; // Border style for images and diagrams
   // Auto-pair
@@ -210,7 +209,6 @@ const initialState: SettingsState = {
     preserveLineBreaks: false,
     showBrTags: false,
     revealInlineSyntax: false,
-    allowEditMarkers: false, // OFF by default
     enableRegexSearch: true,
     mediaBorderStyle: "none",
     autoPairEnabled: true,
@@ -257,20 +255,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           removeItem: () => {},
         }
       ),
-      // Deep merge persisted state with initial state to preserve new defaults
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<SettingsState> | undefined;
-        if (!persisted) return currentState;
-
-        return {
-          ...currentState,
-          general: { ...currentState.general, ...persisted.general },
-          appearance: { ...currentState.appearance, ...persisted.appearance },
-          cjkFormatting: { ...currentState.cjkFormatting, ...persisted.cjkFormatting },
-          markdown: { ...currentState.markdown, ...persisted.markdown },
-          showDevSection: persisted.showDevSection ?? currentState.showDevSection,
-        };
-      },
     }
   )
 );

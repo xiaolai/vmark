@@ -52,7 +52,7 @@ import { taskTogglePlugin } from "@/plugins/taskToggle";
 import { listContinuationPlugin } from "@/plugins/listContinuation";
 import { toggleBlockquoteCommand } from "@/plugins/blockquoteToggle";
 import { formatToolbarKeymapPlugin, formatToolbarViewPlugin, cursorContextPlugin } from "@/plugins/formatToolbar";
-import { cursorAwarePlugin, cursorAwareKeymap, cursorAwareInputPlugin } from "@/plugins/cursorAware";
+import { cursorAwarePlugin } from "@/plugins/cursorAware";
 import { linkPopupPlugin } from "@/plugins/linkPopup";
 import { imagePopupPlugin } from "@/plugins/imagePopup";
 import { footnotePopupPlugin } from "@/plugins/footnotePopup";
@@ -216,8 +216,6 @@ function MilkdownEditorInner() {
       .use(cursorSyncPlugin)
       .use(blankDocFocusPlugin)
       .use(cursorAwarePlugin)
-      .use(cursorAwareKeymap)
-      .use(cursorAwareInputPlugin)
       .use(linkPopupPlugin)
       .use(imagePopupPlugin)
       .use(footnotePopupPlugin)

@@ -124,57 +124,6 @@ function findMarksAtPosition(pos: number, $pos: ResolvedPos): MarkRange[] {
 }
 
 /**
- * Find mark ranges that are adjacent to cursor (ending at or starting at cursor).
- * Used for upgrades when cursor is OUTSIDE the mark: `*italic*|` or `|*italic*`
- */
-function findAdjacentMarks(pos: number, $pos: ResolvedPos): MarkRange[] {
-  const ranges: MarkRange[] = [];
-  const parent = $pos.parent;
-  const parentStart = $pos.start();
-
-  // Track all mark ranges in this parent
-  const allMarkRanges: MarkRange[] = [];
-
-  parent.forEach((child, childOffset) => {
-    if (!child.isText) return;
-
-    const from = parentStart + childOffset;
-
-    child.marks.forEach((mark) => {
-      if (!CURSOR_AWARE_MARKS.has(mark.type.name)) return;
-
-      // Find the full contiguous range for this mark
-      const markRange = findMarkRange(from, mark, parentStart, parent);
-      if (markRange) {
-        // Avoid duplicates
-        if (!allMarkRanges.some((r) =>
-          r.from === markRange.from &&
-          r.to === markRange.to &&
-          r.mark.type.name === mark.type.name
-        )) {
-          allMarkRanges.push(markRange);
-        }
-      }
-    });
-  });
-
-  // Filter to marks that end at or start at cursor position
-  for (const markRange of allMarkRanges) {
-    if (markRange.to === pos || markRange.from === pos) {
-      if (!ranges.some((r) =>
-        r.from === markRange.from &&
-        r.to === markRange.to &&
-        r.mark.type.name === markRange.mark.type.name
-      )) {
-        ranges.push(markRange);
-      }
-    }
-  }
-
-  return ranges;
-}
-
-/**
  * Add widget decoration for syntax marker.
  */
 function addWidgetDecoration(
@@ -217,6 +166,3 @@ export function addMarkWidgetDecorations(
 
 // Keep the old function name for backwards compatibility during migration
 export const addMarkDecorations = addMarkWidgetDecorations;
-
-// Export for key handlers
-export { findMarksAtPosition, findAdjacentMarks, MARK_SYNTAX };
