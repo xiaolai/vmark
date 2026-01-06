@@ -14,6 +14,11 @@ type MarkdownParseStateLike = {
   closeNode: () => void;
 };
 
+function supportsAlignmentAttr(nodeType: unknown): boolean {
+  const attrs = (nodeType as { spec?: { attrs?: Record<string, unknown> } }).spec?.attrs;
+  return Boolean(attrs && "alignment" in attrs);
+}
+
 function getTableCellAlignment(token: { attrs: Array<[string, string]> | null }): "left" | "center" | "right" | null {
   const style = token.attrs?.find(([name]) => name === "style")?.[1] ?? "";
   const match = style.match(/text-align\s*:\s*(left|center|right)/i);
@@ -94,7 +99,7 @@ export function parseMarkdownToTiptapDoc(schema: Schema, markdown: string): PMNo
     if (!nodeType || !paragraphType) return;
 
     const alignment = getTableCellAlignment(tokenWithAttrs);
-    const attrs = alignment ? { alignment } : null;
+    const attrs = alignment && supportsAlignmentAttr(nodeType) ? { alignment } : null;
 
     parseState.openNode(nodeType, attrs);
     parseState.openNode(paragraphType, null);
