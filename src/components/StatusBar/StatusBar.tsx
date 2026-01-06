@@ -10,6 +10,7 @@ import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/utils/tabUtils";
+import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import {
   useDocumentContent,
   useDocumentIsDirty,
@@ -227,7 +228,10 @@ export function StatusBar() {
             <button
               className="status-mode"
               title={sourceMode ? "Source Mode (F7)" : "Rich Text Mode (F7)"}
-              onClick={() => useEditorStore.getState().toggleSourceMode()}
+              onClick={() => {
+                flushActiveWysiwygNow();
+                useEditorStore.getState().toggleSourceMode();
+              }}
             >
               {sourceMode ? <Code2 size={14} /> : <Type size={14} />}
             </button>

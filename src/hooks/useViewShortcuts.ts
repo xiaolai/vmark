@@ -7,6 +7,7 @@
 
 import { useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
+import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 
 export function useViewShortcuts() {
   useEffect(() => {
@@ -20,6 +21,7 @@ export function useViewShortcuts() {
       switch (e.key) {
         case "F7":
           e.preventDefault();
+          flushActiveWysiwygNow();
           useEditorStore.getState().toggleSourceMode();
           break;
         case "F8":

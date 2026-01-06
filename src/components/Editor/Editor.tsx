@@ -86,6 +86,7 @@ import { slashMenu, configureSlashMenu } from "@/plugins/triggerMenu";
 import { subSuperscriptPlugin } from "@/plugins/subSuperscript";
 import { highlightPlugin } from "@/plugins/highlight";
 import { SourceEditor } from "./SourceEditor";
+import { TiptapEditorInner } from "./TiptapEditor";
 import "./editor.css";
 import "@/plugins/cursorAware/cursor-aware.css";
 import "@/plugins/linkPopup/link-popup.css";
@@ -340,12 +341,15 @@ export function Editor() {
 
   const editorKey = `doc-${documentId}`;
   const containerClass = `editor-container media-border-${mediaBorderStyle}`;
+  const useTiptapWysiwyg = (import.meta.env.VITE_WYSIWYG_ENGINE ?? "tiptap") === "tiptap";
 
   return (
     <div className={containerClass}>
       <div className="editor-content">
         {sourceMode ? (
           <SourceEditor key={editorKey} />
+        ) : useTiptapWysiwyg ? (
+          <TiptapEditorInner key={editorKey} />
         ) : (
           <MilkdownProvider key={editorKey}>
             <MilkdownEditorInner />

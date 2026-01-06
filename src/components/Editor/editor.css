@@ -15,8 +15,10 @@
   transition: padding-bottom 0.15s ease-out;
 }
 
-/* Milkdown Editor Styles - GitHub Theme */
-.milkdown {
+/* WYSIWYG Editor Styles - GitHub Theme */
+/* Both Milkdown and Tiptap editors share these styles */
+.milkdown,
+.tiptap-editor {
   width: 100%;
   font-family: var(--font-sans);
   font-size: var(--editor-font-size, 18px);

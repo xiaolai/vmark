@@ -10,10 +10,8 @@ import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { createSnapshot } from "@/utils/historyUtils";
 import { isWindowFocused } from "@/utils/windowFocus";
 import { getDefaultSaveFolder } from "@/utils/tabUtils";
-
-// Re-entry guards for file operations (prevents duplicate dialogs)
-const isOpeningRef = { current: false };
-const isSavingRef = { current: false };
+import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
+import { withReentryGuard } from "@/utils/reentryGuard";
 
 async function saveToPath(
   tabId: string,
@@ -87,11 +85,8 @@ export function useFileOperations() {
   const handleOpen = useCallback(async () => {
     // Only respond if this window is focused
     if (!(await isWindowFocused())) return;
-    // Prevent re-entry (duplicate open dialogs)
-    if (isOpeningRef.current) return;
-    isOpeningRef.current = true;
 
-    try {
+    await withReentryGuard(windowLabel, "open", async () => {
       const tabId = useTabStore.getState().activeTabId[windowLabel];
       if (!tabId) return;
 
@@ -107,26 +102,24 @@ export function useFileOperations() {
         filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }],
       });
       if (path) {
-        const content = await readTextFile(path);
-        useDocumentStore.getState().loadContent(tabId, content, path);
-        useTabStore.getState().updateTabPath(tabId, path);
-        useRecentFilesStore.getState().addFile(path);
+        try {
+          const content = await readTextFile(path);
+          useDocumentStore.getState().loadContent(tabId, content, path);
+          useTabStore.getState().updateTabPath(tabId, path);
+          useRecentFilesStore.getState().addFile(path);
+        } catch (error) {
+          console.error("Failed to open file:", error);
+        }
       }
-    } catch (error) {
-      console.error("Failed to open file:", error);
-    } finally {
-      isOpeningRef.current = false;
-    }
+    });
   }, [windowLabel]);
 
   const handleSave = useCallback(async () => {
     // Only respond if this window is focused
     if (!(await isWindowFocused())) return;
-    // Prevent re-entry (duplicate save dialogs)
-    if (isSavingRef.current) return;
-    isSavingRef.current = true;
+    flushActiveWysiwygNow();
 
-    try {
+    await withReentryGuard(windowLabel, "save", async () => {
       const tabId = useTabStore.getState().activeTabId[windowLabel];
       if (!tabId) return;
 
@@ -146,19 +139,15 @@ export function useFileOperations() {
           await saveToPath(tabId, path, doc.content, "manual");
         }
       }
-    } finally {
-      isSavingRef.current = false;
-    }
+    });
   }, [windowLabel]);
 
   const handleSaveAs = useCallback(async () => {
     // Only respond if this window is focused
     if (!(await isWindowFocused())) return;
-    // Prevent re-entry (duplicate save dialogs) - shares guard with handleSave
-    if (isSavingRef.current) return;
-    isSavingRef.current = true;
+    flushActiveWysiwygNow();
 
-    try {
+    await withReentryGuard(windowLabel, "save", async () => {
       const tabId = useTabStore.getState().activeTabId[windowLabel];
       if (!tabId) return;
 
@@ -176,9 +165,7 @@ export function useFileOperations() {
       if (path) {
         await saveToPath(tabId, path, doc.content, "manual");
       }
-    } finally {
-      isSavingRef.current = false;
-    }
+    });
   }, [windowLabel]);
 
   // menu:close now handled by useWindowClose hook via Rust window event
@@ -205,7 +192,7 @@ export function useFileOperations() {
 
       await openPathInTab(path, { forceReuse: true });
     },
-    [openPathInTab]
+    [openPathInTab, windowLabel]
   );
 
   const handleAppOpenFile = useCallback(
