@@ -84,7 +84,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   // === View ===
   { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Mod-Shift-b", menuId: "sidebar" },
   { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Mod-1", menuId: "outline" },
-  { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F7", menuId: "source-mode" },
+  { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "Mod-/", menuId: "source-mode" },
+  { id: "toggleComment", label: "Toggle Comment", category: "editing", defaultKey: "Mod-Shift-\\", description: "Insert HTML comment <!-- -->" },
   { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode" },
   { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode" },
   { id: "wordWrap", label: "Toggle Word Wrap", category: "view", defaultKey: "F10", menuId: "word-wrap" },

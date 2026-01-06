@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, toggleBlockComment } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting } from "@codemirror/language";
@@ -182,6 +182,18 @@ export function SourceEditor() {
               applyFormat(view, "code");
               return true;
             },
+            preventDefault: true,
+          },
+          // Cmd+/: override to prevent default toggle comment (used for source mode toggle)
+          {
+            key: "Mod-/",
+            run: () => true, // Consume the key, let menu handle source mode toggle
+            preventDefault: true,
+          },
+          // Cmd+Shift+\: toggle HTML comment <!-- -->
+          {
+            key: "Mod-Shift-\\",
+            run: (view) => toggleBlockComment(view),
             preventDefault: true,
           },
           ...closeBracketsKeymap,
