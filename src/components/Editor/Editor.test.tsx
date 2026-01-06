@@ -3,54 +3,64 @@ import { describe, it, expect, vi } from "vitest";
 import { Editor } from "./Editor";
 import { WindowProvider } from "@/contexts/WindowContext";
 
+type Selector<T> = (state: T) => unknown;
+
+function createZustandMock<T extends object>(state: T) {
+  const store = ((selector?: Selector<T>) => {
+    if (typeof selector === "function") {
+      return selector(state);
+    }
+    return state;
+  }) as unknown as {
+    (selector: Selector<T>): unknown;
+    getState: () => T;
+    subscribe: (listener: (state: T, prev: T) => void) => () => void;
+  };
+
+  store.getState = () => state;
+  store.subscribe = () => () => {};
+
+  return store;
+}
+
 // Mock Tauri APIs
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({ label: "main" }),
 }));
 
 // Mock useEditorStore
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: vi.fn((selector) => {
-    const state = {
-      content: "",
-      setContent: vi.fn(),
-    };
-    return selector(state);
-  }),
-}));
+vi.mock("@/stores/editorStore", () => {
+  const state = {
+    content: "",
+    setContent: vi.fn(),
+    sourceMode: false,
+    focusModeEnabled: false,
+    typewriterModeEnabled: false,
+  };
 
-// Mock useDocumentStore as a zustand hook
-const mockDocumentStore = {
-  documents: { "tab-1": { documentId: 1, content: "", isDirty: false, filePath: null } },
-  getDocument: () => ({ content: "", isDirty: false, filePath: null }),
-  initDocument: vi.fn(),
-};
+  return { useEditorStore: createZustandMock(state) };
+});
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: vi.fn((selector) => {
-    if (typeof selector === "function") {
-      return selector(mockDocumentStore);
-    }
-    return mockDocumentStore;
-  }),
-}));
+vi.mock("@/stores/documentStore", () => {
+  const mockDocumentStore = {
+    documents: { "tab-1": { documentId: 1, content: "", isDirty: false, filePath: null } },
+    getDocument: () => ({ content: "", isDirty: false, filePath: null }),
+    initDocument: vi.fn(),
+  };
 
-// Mock useTabStore as a zustand hook
-const mockTabStore = {
-  tabs: { main: [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
-  activeTabId: { main: "tab-1" },
-  getTabsByWindow: () => [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
-  createTab: vi.fn(() => "tab-1"),
-};
+  return { useDocumentStore: createZustandMock(mockDocumentStore) };
+});
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: vi.fn((selector) => {
-    if (typeof selector === "function") {
-      return selector(mockTabStore);
-    }
-    return mockTabStore;
-  }),
-}));
+vi.mock("@/stores/tabStore", () => {
+  const mockTabStore = {
+    tabs: { main: [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
+    activeTabId: { main: "tab-1" },
+    getTabsByWindow: () => [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
+    createTab: vi.fn(() => "tab-1"),
+  };
+
+  return { useTabStore: createZustandMock(mockTabStore) };
+});
 
 function renderWithProvider(ui: React.ReactElement) {
   return render(<WindowProvider>{ui}</WindowProvider>);

@@ -13,9 +13,13 @@ import type { Node, Mark, ResolvedPos } from "@milkdown/kit/prose/model";
 // Mark type to syntax mapping
 const MARK_SYNTAX: Record<string, { open: string; close: string }> = {
   strong: { open: "**", close: "**" },
+  bold: { open: "**", close: "**" },
   emphasis: { open: "*", close: "*" },
+  italic: { open: "*", close: "*" },
   inlineCode: { open: "`", close: "`" },
+  code: { open: "`", close: "`" },
   strikethrough: { open: "~~", close: "~~" },
+  strike: { open: "~~", close: "~~" },
   subscript: { open: "~", close: "~" },
   superscript: { open: "^", close: "^" },
   highlight: { open: "==", close: "==" },

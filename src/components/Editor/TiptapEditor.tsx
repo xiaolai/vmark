@@ -10,6 +10,12 @@ import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSy
 import type { CursorInfo } from "@/stores/documentStore";
 import { smartPasteExtension } from "@/plugins/smartPaste/tiptap";
 import { linkPopupExtension } from "@/plugins/linkPopup/tiptap";
+import { cursorAwareExtension } from "@/plugins/cursorAware/tiptap";
+import { searchExtension } from "@/plugins/search/tiptap";
+import { spellCheckExtension } from "@/plugins/spellCheck/tiptap";
+import { autoPairExtension } from "@/plugins/autoPair/tiptap";
+import { focusModeExtension } from "@/plugins/focusMode/tiptap";
+import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 
 const CURSOR_TRACKING_DELAY_MS = 200;
 
@@ -35,8 +41,14 @@ export function TiptapEditorInner() {
         // Keep Tiptap defaults for schema names and commands.
       }),
       Image.configure({ inline: false }),
+      cursorAwareExtension,
       smartPasteExtension,
       linkPopupExtension,
+      searchExtension,
+      spellCheckExtension,
+      autoPairExtension,
+      focusModeExtension,
+      typewriterModeExtension,
     ],
     []
   );
