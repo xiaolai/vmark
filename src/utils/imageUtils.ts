@@ -144,7 +144,24 @@ export function insertBlockImageNode(
   const { state } = view;
   const blockImageType = state.schema.nodes.block_image;
   if (!blockImageType) {
-    // Fallback to inline image if block_image schema not available
+    // No block_image schema. Prefer inserting an "image" node as a block if available.
+    const imageType = state.schema.nodes.image;
+    if (imageType && !imageType.isInline) {
+      const imageNode = imageType.create({
+        src,
+        alt: "",
+        title: "",
+      });
+
+      const { $from } = state.selection;
+      const endOfBlock = $from.end($from.depth);
+      const insertPos = Math.min(endOfBlock + 1, state.doc.content.size);
+
+      const tr = state.tr.insert(insertPos, imageNode);
+      view.dispatch(tr);
+      return;
+    }
+
     insertImageNode(view, src);
     return;
   }

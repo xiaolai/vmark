@@ -24,6 +24,11 @@ import { listContinuationExtension } from "@/plugins/listContinuation/tiptap";
 import { tableUIExtension } from "@/plugins/tableUI/tiptap";
 import { formatToolbarExtension } from "@/plugins/formatToolbar/tiptap";
 import { editorKeymapExtension } from "@/plugins/editorPlugins.tiptap";
+import { useTiptapCJKFormatCommands } from "@/hooks/useTiptapCJKFormatCommands";
+import { useTiptapFormatCommands } from "@/hooks/useTiptapFormatCommands";
+import { useTiptapParagraphCommands } from "@/hooks/useTiptapParagraphCommands";
+import { useTiptapSelectionCommands } from "@/hooks/useTiptapSelectionCommands";
+import { useTiptapTableCommands } from "@/hooks/useTiptapTableCommands";
 
 const CURSOR_TRACKING_DELAY_MS = 200;
 
@@ -195,6 +200,12 @@ export function TiptapEditorInner() {
       scheduleCursorUpdate(getCursorInfoFromTiptap(editor.view));
     },
   });
+
+  useTiptapParagraphCommands(editor);
+  useTiptapFormatCommands(editor);
+  useTiptapTableCommands(editor);
+  useTiptapSelectionCommands(editor);
+  useTiptapCJKFormatCommands(editor);
 
   // Cleanup pendingRaf on unmount to prevent memory leaks
   useEffect(() => {
