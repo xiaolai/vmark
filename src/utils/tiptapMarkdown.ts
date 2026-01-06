@@ -1,8 +1,8 @@
-import MarkdownIt from "markdown-it";
 import { MarkdownParser, MarkdownSerializer } from "prosemirror-markdown";
 import type { Schema, Node as PMNode } from "@tiptap/pm/model";
+import { createVmarkMarkdownIt } from "./markdownItVmark";
 
-const markdownIt = new MarkdownIt("commonmark", { html: false }).enable(["strikethrough", "table"]);
+const markdownIt = createVmarkMarkdownIt();
 
 const parserCache = new WeakMap<Schema, MarkdownParser>();
 
@@ -67,6 +67,9 @@ export function parseMarkdownToTiptapDoc(schema: Schema, markdown: string): PMNo
     em: { mark: "italic" },
     strong: { mark: "bold" },
     s: { mark: "strike" },
+    highlight: { mark: "highlight" },
+    subscript: { mark: "subscript" },
+    superscript: { mark: "superscript" },
     link: {
       mark: "link",
       getAttrs: (tok) => ({
@@ -249,6 +252,9 @@ const tiptapMarkdownSerializer = new MarkdownSerializer(
     italic: { open: "*", close: "*", mixable: true, expelEnclosingWhitespace: true },
     bold: { open: "**", close: "**", mixable: true, expelEnclosingWhitespace: true },
     strike: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true },
+    highlight: { open: "==", close: "==", mixable: true, expelEnclosingWhitespace: true },
+    subscript: { open: "~", close: "~", mixable: true, expelEnclosingWhitespace: true },
+    superscript: { open: "^", close: "^", mixable: true, expelEnclosingWhitespace: true },
     link: {
       open: () => "[",
       close: (_state, mark) => `](${mark.attrs.href.replace(/[()"]/g, "\\$&")})`,

@@ -24,6 +24,8 @@ import { listContinuationExtension } from "@/plugins/listContinuation/tiptap";
 import { tableUIExtension } from "@/plugins/tableUI/tiptap";
 import { formatToolbarExtension } from "@/plugins/formatToolbar/tiptap";
 import { editorKeymapExtension } from "@/plugins/editorPlugins.tiptap";
+import { highlightExtension } from "@/plugins/highlight/tiptap";
+import { subscriptExtension, superscriptExtension } from "@/plugins/subSuperscript/tiptap";
 import { useTiptapCJKFormatCommands } from "@/hooks/useTiptapCJKFormatCommands";
 import { useTiptapFormatCommands } from "@/hooks/useTiptapFormatCommands";
 import { useTiptapParagraphCommands } from "@/hooks/useTiptapParagraphCommands";
@@ -95,6 +97,9 @@ export function TiptapEditorInner() {
         // We parse/serialize markdown ourselves.
         // Keep Tiptap defaults for schema names and commands.
       }),
+      highlightExtension,
+      subscriptExtension,
+      superscriptExtension,
       Table.configure({ resizable: false }),
       TableRow,
       AlignedTableHeader,

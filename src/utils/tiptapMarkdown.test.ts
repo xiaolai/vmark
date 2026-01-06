@@ -3,6 +3,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { getSchema } from "@tiptap/core";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
+import { highlightExtension } from "@/plugins/highlight/tiptap";
+import { subscriptExtension, superscriptExtension } from "@/plugins/subSuperscript/tiptap";
 import { parseMarkdownToTiptapDoc, serializeTiptapDocToMarkdown } from "./tiptapMarkdown";
 
 const AlignedTableCell = TableCell.extend({
@@ -30,6 +32,9 @@ const AlignedTableHeader = TableHeader.extend({
 function createSchema() {
   return getSchema([
     StarterKit,
+    highlightExtension,
+    subscriptExtension,
+    superscriptExtension,
     Image,
     Table.configure({ resizable: false }),
     TableRow,
@@ -52,6 +57,18 @@ describe("tiptapMarkdown table support", () => {
   it("preserves column alignment markers", () => {
     const schema = createSchema();
     const input = ["| a | b |", "| ---: | :--- |", "| 1 | 2 |"].join("\n");
+
+    const doc = parseMarkdownToTiptapDoc(schema, input);
+    const output = serializeTiptapDocToMarkdown(doc).trim();
+
+    expect(output).toBe(input);
+  });
+});
+
+describe("tiptapMarkdown inline mark support", () => {
+  it("round-trips highlight/subscript/superscript", () => {
+    const schema = createSchema();
+    const input = "a ==hi== ~sub~ ^sup^ ~~strike~~";
 
     const doc = parseMarkdownToTiptapDoc(schema, input);
     const output = serializeTiptapDocToMarkdown(doc).trim();
