@@ -9,6 +9,7 @@ import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import type { CursorInfo } from "@/stores/documentStore";
 import { smartPasteExtension } from "@/plugins/smartPaste/tiptap";
+import { linkPopupExtension } from "@/plugins/linkPopup/tiptap";
 
 const CURSOR_TRACKING_DELAY_MS = 200;
 
@@ -35,6 +36,7 @@ export function TiptapEditorInner() {
       }),
       Image.configure({ inline: false }),
       smartPasteExtension,
+      linkPopupExtension,
     ],
     []
   );

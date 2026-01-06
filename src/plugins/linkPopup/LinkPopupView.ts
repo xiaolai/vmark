@@ -5,7 +5,6 @@
  * Shows when clicking on a link, allows editing/opening/copying/removing.
  */
 
-import type { EditorView } from "@milkdown/kit/prose/view";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import {
   calculatePopupPosition,
@@ -13,6 +12,17 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+
+type EditorViewLike = {
+  dom: HTMLElement;
+  // We keep this structural to support both Milkdown and Tiptap EditorView objects.
+  // `any` is intentional here because ProseMirror’s internal types are nominal across packages.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  state: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dispatch: (tr: any) => void;
+  focus: () => void;
+};
 
 // SVG Icons (matching project style)
 const icons = {
@@ -29,12 +39,12 @@ export class LinkPopupView {
   private container: HTMLElement;
   private input: HTMLInputElement;
   private unsubscribe: () => void;
-  private editorView: EditorView;
+  private editorView: EditorViewLike;
   private justOpened = false;
   private wasOpen = false;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
-  constructor(view: EditorView) {
+  constructor(view: EditorViewLike) {
     this.editorView = view;
 
     // Build DOM structure
