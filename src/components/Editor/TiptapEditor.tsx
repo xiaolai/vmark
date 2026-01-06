@@ -3,17 +3,29 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { useDocumentActions, useDocumentContent } from "@/hooks/useDocumentState";
+import { useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
 import { parseMarkdownToTiptapDoc, serializeTiptapDocToMarkdown } from "@/utils/tiptapMarkdown";
 import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
+import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
+import type { CursorInfo } from "@/stores/documentStore";
+import { smartPasteExtension } from "@/plugins/smartPaste/tiptap";
+
+const CURSOR_TRACKING_DELAY_MS = 200;
 
 export function TiptapEditorInner() {
   const content = useDocumentContent();
-  const { setContent } = useDocumentActions();
+  const cursorInfo = useDocumentCursorInfo();
+  const { setContent, setCursorInfo } = useDocumentActions();
 
   const isInternalChange = useRef(false);
   const lastExternalContent = useRef<string>("");
   const pendingRaf = useRef<number | null>(null);
+  const pendingCursorRaf = useRef<number | null>(null);
+  const pendingCursorInfo = useRef<CursorInfo | null>(null);
+  const cursorTrackingEnabled = useRef(false);
+  const trackingTimeoutId = useRef<number | null>(null);
+  const cursorInfoRef = useRef(cursorInfo);
+  cursorInfoRef.current = cursorInfo;
 
   const extensions = useMemo(
     () => [
@@ -22,6 +34,7 @@ export function TiptapEditorInner() {
         // Keep Tiptap defaults for schema names and commands.
       }),
       Image.configure({ inline: false }),
+      smartPasteExtension,
     ],
     []
   );
@@ -44,6 +57,23 @@ export function TiptapEditorInner() {
     [setContent]
   );
 
+  const flushCursorInfo = useCallback(() => {
+    pendingCursorRaf.current = null;
+    if (!pendingCursorInfo.current) return;
+    setCursorInfo(pendingCursorInfo.current);
+    pendingCursorInfo.current = null;
+  }, [setCursorInfo]);
+
+  const scheduleCursorUpdate = useCallback(
+    (info: CursorInfo) => {
+      pendingCursorInfo.current = info;
+      if (pendingCursorRaf.current === null) {
+        pendingCursorRaf.current = requestAnimationFrame(flushCursorInfo);
+      }
+    },
+    [flushCursorInfo]
+  );
+
   const editor = useEditor({
     extensions,
     editorProps: {
@@ -60,8 +90,23 @@ export function TiptapEditorInner() {
         console.error("[TiptapEditor] Failed to parse initial markdown:", error);
         lastExternalContent.current = content;
       }
+
+      cursorTrackingEnabled.current = false;
+      if (trackingTimeoutId.current !== null) {
+        window.clearTimeout(trackingTimeoutId.current);
+      }
+      trackingTimeoutId.current = window.setTimeout(() => {
+        cursorTrackingEnabled.current = true;
+      }, CURSOR_TRACKING_DELAY_MS);
+
       registerActiveWysiwygFlusher(() => flushToStore(editor));
-      requestAnimationFrame(() => editor.commands.focus());
+      requestAnimationFrame(() => {
+        editor.commands.focus();
+        const info = cursorInfoRef.current;
+        if (info) {
+          restoreCursorInTiptap(editor.view, info);
+        }
+      });
     },
     onUpdate: ({ editor }) => {
       if (pendingRaf.current) return;
@@ -69,6 +114,10 @@ export function TiptapEditorInner() {
         pendingRaf.current = null;
         flushToStore(editor);
       });
+    },
+    onSelectionUpdate: ({ editor }) => {
+      if (!cursorTrackingEnabled.current) return;
+      scheduleCursorUpdate(getCursorInfoFromTiptap(editor.view));
     },
   });
 
@@ -78,6 +127,14 @@ export function TiptapEditorInner() {
       if (pendingRaf.current) {
         cancelAnimationFrame(pendingRaf.current);
         pendingRaf.current = null;
+      }
+      if (pendingCursorRaf.current) {
+        cancelAnimationFrame(pendingCursorRaf.current);
+        pendingCursorRaf.current = null;
+      }
+      if (trackingTimeoutId.current !== null) {
+        window.clearTimeout(trackingTimeoutId.current);
+        trackingTimeoutId.current = null;
       }
     };
   }, []);
