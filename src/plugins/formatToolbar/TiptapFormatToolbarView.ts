@@ -10,6 +10,7 @@ import { TIPTAP_FORMAT_BUTTONS, TIPTAP_HEADING_BUTTONS, tiptapToolbarIcons } fro
 import { createToolbarButton, createToolbarRow } from "./tiptapToolbarDom";
 import { getFocusableElements, installToolbarNavigation } from "./tiptapToolbarNavigation";
 import { positionTiptapToolbar } from "./tiptapToolbarPosition";
+import { appendTiptapTableRows } from "./tiptapTableRows";
 
 export class TiptapFormatToolbarView {
   private container: HTMLElement;
@@ -90,7 +91,9 @@ export class TiptapFormatToolbarView {
     }
 
     if (mode === "merged" && nodeContext) {
-      if (nodeContext.type === "list") {
+      if (nodeContext.type === "table") {
+        appendTiptapTableRows(this.container, this.editorView);
+      } else if (nodeContext.type === "list") {
         this.container.appendChild(this.buildListRow());
       } else if (nodeContext.type === "blockquote") {
         this.container.appendChild(this.buildBlockquoteRow());

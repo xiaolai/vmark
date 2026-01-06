@@ -9,6 +9,23 @@ export function getNodeContext(view: EditorView): NodeContext {
     const node = $from.node(d);
     const typeName = node.type.name;
 
+    if (typeName === "table") {
+      const tablePos = $from.before(d);
+      const rowIndex = $from.depth > d ? $from.index(d) : 0;
+      const colIndex = $from.depth > d + 1 ? $from.index(d + 1) : 0;
+      const numRows = node.childCount;
+      const numCols = numRows > 0 ? node.child(0).childCount : 0;
+
+      return {
+        type: "table",
+        tablePos,
+        rowIndex,
+        colIndex,
+        numRows,
+        numCols,
+      };
+    }
+
     if (typeName === "bulletList" || typeName === "orderedList") {
       const listType = typeName === "orderedList" ? "ordered" : "bullet";
       let depth = 0;

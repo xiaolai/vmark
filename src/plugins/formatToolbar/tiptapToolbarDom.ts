@@ -24,3 +24,8 @@ export function createToolbarRow(): HTMLElement {
   return row;
 }
 
+export function createToolbarSeparator(): HTMLElement {
+  const separator = document.createElement("div");
+  separator.className = "format-toolbar-separator";
+  return separator;
+}
