@@ -214,3 +214,5 @@ export const editorKeymapExtension = Extension.create({
     return [keymap(bindings)];
   },
 });
+
+export { expandedToggleMark as expandedToggleMarkTiptap };

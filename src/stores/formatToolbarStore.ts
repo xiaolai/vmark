@@ -12,7 +12,6 @@
 import { create } from "zustand";
 import type { AnchorRect } from "@/utils/popupPosition";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { TextSelection } from "@milkdown/kit/prose/state";
 
 export type ToolbarMode = "format" | "heading" | "code" | "merged";
 export type ContextMode = "format" | "inline-insert" | "block-insert";
@@ -157,10 +156,15 @@ export const useFormatToolbarStore = create<FormatToolbarState & FormatToolbarAc
 
       // Restore cursor position if we auto-selected a word
       if (editorView && originalCursorPos !== null) {
-        const tr = editorView.state.tr.setSelection(
-          TextSelection.create(editorView.state.doc, originalCursorPos)
-        );
-        editorView.dispatch(tr);
+        try {
+          const pos = Math.max(0, Math.min(originalCursorPos, editorView.state.doc.content.size));
+          const selectionCtor = editorView.state.selection
+            .constructor as unknown as { near: (pos: unknown, bias?: number) => unknown };
+          const selection = selectionCtor.near(editorView.state.doc.resolve(pos));
+          editorView.dispatch(editorView.state.tr.setSelection(selection as never));
+        } catch {
+          // Ignore restoration errors (e.g., stale position after doc changes)
+        }
       }
 
       set(initialState);

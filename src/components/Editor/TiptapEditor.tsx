@@ -20,6 +20,7 @@ import { imagePopupExtension } from "@/plugins/imagePopup/tiptap";
 import { imageHandlerExtension } from "@/plugins/imageHandler/tiptap";
 import { codePreviewExtension } from "@/plugins/codePreview/tiptap";
 import { listContinuationExtension } from "@/plugins/listContinuation/tiptap";
+import { formatToolbarExtension } from "@/plugins/formatToolbar/tiptap";
 import { editorKeymapExtension } from "@/plugins/editorPlugins.tiptap";
 
 const CURSOR_TRACKING_DELAY_MS = 200;
@@ -58,6 +59,7 @@ export function TiptapEditorInner() {
       imagePopupExtension,
       codePreviewExtension,
       listContinuationExtension,
+      formatToolbarExtension,
       editorKeymapExtension,
     ],
     []
