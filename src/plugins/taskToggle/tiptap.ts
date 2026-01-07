@@ -93,7 +93,12 @@ export const taskListItemExtension = Node.create({
     };
     if (checked) inputAttrs.checked = "checked";
 
-    return ["li", attrs, ["input", inputAttrs], 0];
+    return [
+      "li",
+      attrs,
+      ["span", { class: "task-list-checkbox", contenteditable: "false" }, ["input", inputAttrs]],
+      ["span", { class: "task-list-content" }, 0],
+    ];
   },
 
   addKeyboardShortcuts() {

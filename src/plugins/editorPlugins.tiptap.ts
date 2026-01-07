@@ -5,7 +5,9 @@ import type { EditorView } from "@tiptap/pm/view";
 import { useUIStore } from "@/stores/uiStore";
 import { useFormatToolbarStore } from "@/stores/formatToolbarStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { findAnyMarkRangeAtCursor, findMarkRange } from "@/plugins/syntaxReveal/marks";
+import { openSourcePeek } from "@/utils/sourcePeek";
 
 interface LastRemovedMark {
   markType: string;
@@ -201,8 +203,24 @@ export const editorKeymapExtension = Extension.create({
       return expandedToggleMark(view, "superscript");
     });
 
+    bindIfKey(bindings, shortcuts.getShortcut("sourcePeek"), (_state, _dispatch, view) => {
+      if (!view) return false;
+      const sourcePeek = useSourcePeekStore.getState();
+      if (sourcePeek.isOpen) {
+        sourcePeek.close();
+        return true;
+      }
+      openSourcePeek(view);
+      return true;
+    });
+
     bindings.Escape = (_state: EditorState, _dispatch, view) => {
       if (!view) return false;
+      const sourcePeek = useSourcePeekStore.getState();
+      if (sourcePeek.isOpen) {
+        sourcePeek.close();
+        return true;
+      }
       const formatStore = useFormatToolbarStore.getState();
       if (formatStore.isOpen) {
         formatStore.closeToolbar();

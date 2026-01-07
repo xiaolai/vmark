@@ -60,3 +60,26 @@
   word-break: break-word;
   text-align: left;
 }
+
+.code-block-preview-placeholder {
+  color: var(--text-secondary, #656d76);
+  font-style: italic;
+}
+
+/* Hide source for preview-only code blocks */
+.milkdown pre.code-block-preview-only {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.milkdown pre.code-block-preview-only code {
+  display: none;
+}
+
+/* Highlight preview when the hidden code block is selected */
+.milkdown pre.code-block-preview-only.ProseMirror-selectednode + .code-block-preview {
+  outline: 2px solid var(--primary-color, #0a84ff);
+  outline-offset: 2px;
+}

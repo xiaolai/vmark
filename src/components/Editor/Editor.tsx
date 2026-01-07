@@ -4,6 +4,7 @@ import { useDocumentId } from "@/hooks/useDocumentState";
 import { SourceEditor } from "./SourceEditor";
 import { TiptapEditorInner } from "./TiptapEditor";
 import "./editor.css";
+import "./source-peek.css";
 import "@/plugins/cursorAware/cursor-aware.css";
 import "@/plugins/linkPopup/link-popup.css";
 import "@/plugins/imagePopup/image-popup.css";

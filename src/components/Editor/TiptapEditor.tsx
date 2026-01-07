@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
+import { Table, TableRow } from "@tiptap/extension-table";
 import { useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { parseMarkdownToTiptapDoc, serializeTiptapDocToMarkdown } from "@/utils/tiptapMarkdown";
 import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
+import { getTiptapEditorView } from "@/utils/tiptapView";
+import { scheduleTiptapFocusAndRestore } from "@/utils/tiptapFocus";
 import type { CursorInfo } from "@/stores/documentStore";
 import { smartPasteExtension } from "@/plugins/smartPaste/tiptap";
 import { linkPopupExtension } from "@/plugins/linkPopup/tiptap";
@@ -42,50 +44,11 @@ import { useTiptapParagraphCommands } from "@/hooks/useTiptapParagraphCommands";
 import { useTiptapSelectionCommands } from "@/hooks/useTiptapSelectionCommands";
 import { useTiptapTableCommands } from "@/hooks/useTiptapTableCommands";
 import { ImageContextMenu } from "./ImageContextMenu";
+import { SourcePeek } from "./SourcePeek";
+import { AlignedTableCell, AlignedTableHeader } from "./alignedTableNodes";
 
 const CURSOR_TRACKING_DELAY_MS = 200;
 
-const AlignedTableCell = TableCell.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      alignment: {
-        default: null,
-        parseHTML: (element) => {
-          const alignment = (element as HTMLElement).style.textAlign || null;
-          if (alignment === "left" || alignment === "center" || alignment === "right") return alignment;
-          return null;
-        },
-        renderHTML: (attributes) => {
-          const alignment = attributes.alignment as unknown;
-          if (alignment !== "left" && alignment !== "center" && alignment !== "right") return {};
-          return { style: `text-align:${alignment}` };
-        },
-      },
-    };
-  },
-});
-
-const AlignedTableHeader = TableHeader.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      alignment: {
-        default: null,
-        parseHTML: (element) => {
-          const alignment = (element as HTMLElement).style.textAlign || null;
-          if (alignment === "left" || alignment === "center" || alignment === "right") return alignment;
-          return null;
-        },
-        renderHTML: (attributes) => {
-          const alignment = attributes.alignment as unknown;
-          if (alignment !== "left" && alignment !== "center" && alignment !== "right") return {};
-          return { style: `text-align:${alignment}` };
-        },
-      },
-    };
-  },
-});
 
 export function TiptapEditorInner() {
   const content = useDocumentContent();
@@ -207,13 +170,11 @@ export function TiptapEditorInner() {
       }, CURSOR_TRACKING_DELAY_MS);
 
       registerActiveWysiwygFlusher(() => flushToStore(editor));
-      requestAnimationFrame(() => {
-        editor.commands.focus();
-        const info = cursorInfoRef.current;
-        if (info) {
-          restoreCursorInTiptap(editor.view, info);
-        }
-      });
+      scheduleTiptapFocusAndRestore(
+        editor,
+        () => cursorInfoRef.current,
+        restoreCursorInTiptap
+      );
     },
     onUpdate: ({ editor }) => {
       if (pendingRaf.current) return;
@@ -224,11 +185,13 @@ export function TiptapEditorInner() {
     },
     onSelectionUpdate: ({ editor }) => {
       if (!cursorTrackingEnabled.current) return;
-      scheduleCursorUpdate(getCursorInfoFromTiptap(editor.view));
+      const view = getTiptapEditorView(editor);
+      if (!view) return;
+      scheduleCursorUpdate(getCursorInfoFromTiptap(view));
     },
   });
 
-  const getEditorView = useCallback(() => editor?.view ?? null, [editor]);
+  const getEditorView = useCallback(() => getTiptapEditorView(editor), [editor]);
   const handleImageContextMenuAction = useImageContextMenu(getEditorView);
   useOutlineSync(getEditorView);
 
@@ -286,6 +249,7 @@ export function TiptapEditorInner() {
         <EditorContent editor={editor} />
       </div>
       <ImageContextMenu onAction={handleImageContextMenuAction} />
+      <SourcePeek getEditorView={getEditorView} />
     </>
   );
 }

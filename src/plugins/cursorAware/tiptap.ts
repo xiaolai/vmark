@@ -2,18 +2,11 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
 import type { Decoration } from "@tiptap/pm/view";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { addMarkWidgetDecorations } from "./markDecorations";
 import { addNodeDecorations } from "./nodeDecorations";
 
 const cursorAwarePluginKey = new PluginKey<DecorationSet>("cursorAware");
 
 function computeDecorations(state: EditorState): DecorationSet {
-  const { revealInlineSyntax } = useSettingsStore.getState().markdown;
-  if (!revealInlineSyntax) {
-    return DecorationSet.empty;
-  }
-
   const { selection, doc } = state;
   const { from, to, empty } = selection;
 
@@ -22,13 +15,7 @@ function computeDecorations(state: EditorState): DecorationSet {
   }
 
   const decorations: Decoration[] = [];
-  const $from = doc.resolve(from);
 
-  addMarkWidgetDecorations(
-    decorations as unknown as Parameters<typeof addMarkWidgetDecorations>[0],
-    from,
-    $from as unknown as Parameters<typeof addMarkWidgetDecorations>[2]
-  );
   addNodeDecorations(
     decorations as unknown as Parameters<typeof addNodeDecorations>[0],
     from,

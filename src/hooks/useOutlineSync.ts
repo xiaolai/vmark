@@ -4,6 +4,7 @@ import { Selection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { Node } from "@tiptap/pm/model";
 import { useUIStore } from "@/stores/uiStore";
+import { getTiptapEditorDom } from "@/utils/tiptapView";
 
 type EditorViewGetter = () => EditorView | null;
 
@@ -82,14 +83,15 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
 
             const { headingIndex } = event.payload;
             const view = getEditorView();
-            if (!view) return;
+            const dom = getTiptapEditorDom(view);
+            if (!view || !dom) return;
 
             const { doc } = view.state;
 
             const pos = findHeadingPosition(doc, headingIndex);
             if (pos === -1) return;
 
-            const scrollContainer = (view.dom as HTMLElement).closest(".editor-content") as HTMLElement | null;
+            const scrollContainer = dom.closest(".editor-content") as HTMLElement | null;
             try {
               const coords = view.coordsAtPos(pos);
               if (scrollContainer) {
@@ -140,7 +142,8 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
 
     const updateActiveHeading = () => {
       const view = getEditorView();
-      if (!view || cancelled) return;
+      const dom = getTiptapEditorDom(view);
+      if (!view || !dom || cancelled) return;
 
       const { selection, doc } = view.state;
       const headingIndex = findHeadingIndexAtPosition(doc, selection.anchor);
@@ -154,7 +157,8 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
 
     const setupListeners = () => {
       const view = getEditorView();
-      if (!view) {
+      const dom = getTiptapEditorDom(view);
+      if (!view || !dom) {
         // Editor not ready, poll until available or max attempts reached
         attempts++;
         if (attempts < EDITOR_POLL_MAX_ATTEMPTS && !cancelled) {
@@ -164,11 +168,11 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
       }
 
       // Capture DOM reference for cleanup
-      domRef.current = view.dom as HTMLElement;
+      domRef.current = dom;
       handlersRef.current = { keyup: handleUpdate, mouseup: handleUpdate };
 
-      view.dom.addEventListener("keyup", handleUpdate);
-      view.dom.addEventListener("mouseup", handleUpdate);
+      dom.addEventListener("keyup", handleUpdate);
+      dom.addEventListener("mouseup", handleUpdate);
 
       // Initial update
       updateActiveHeading();

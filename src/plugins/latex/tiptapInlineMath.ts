@@ -47,7 +47,7 @@ class MathInlineNodeView implements NodeView {
   private renderPreview(content: string): void {
     const trimmed = content.trim();
     if (!trimmed) {
-      this.preview.innerHTML = '<span class="math-inline-placeholder">$</span>';
+      this.preview.textContent = "";
       return;
     }
 
@@ -96,4 +96,3 @@ export const mathInlineExtension = Node.create({
     };
   },
 });
-

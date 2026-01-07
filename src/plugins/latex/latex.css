@@ -7,7 +7,7 @@
 
 /* Inline math node */
 .math-inline {
-  display: inline-block;
+  display: inline;
   padding: 0 0.15em;
   vertical-align: baseline;
 }
@@ -17,7 +17,7 @@
   border-radius: 3px;
 }
 
-/* Inline math - block style cursor-aware rendering */
+/* Inline math - preview + source */
 .math-inline.editing {
   background-color: var(--code-bg, rgba(0, 0, 0, 0.04));
   border-radius: 3px;
@@ -27,26 +27,11 @@
   display: inline;
 }
 
-.math-inline-content {
+.math-inline-preview:empty {
   display: none;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.9em;
-  color: var(--text-color, inherit);
 }
 
-/* Show $ delimiters when editing */
-.math-inline.editing::before,
-.math-inline.editing::after {
-  content: "$";
-  color: var(--text-secondary, #656d76);
-  font-family: var(--font-mono, monospace);
-}
-
-.math-inline.editing .math-inline-content {
-  display: inline;
-}
-
-.math-inline.editing .math-inline-preview {
+.math-inline-content {
   display: none;
 }
 

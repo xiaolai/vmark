@@ -1,11 +1,13 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { renderLatex } from "../latex";
 import { renderMermaid, updateMermaidTheme } from "../mermaid";
 import { sanitizeKatex, sanitizeSvg } from "@/utils/sanitize";
 
 const codePreviewPluginKey = new PluginKey("codePreview");
+const PREVIEW_ONLY_LANGUAGES = new Set(["latex", "mermaid"]);
 
 const renderCache = new Map<string, string>();
 
@@ -33,11 +35,39 @@ function setupThemeObserver() {
 
 setupThemeObserver();
 
-function createPreviewElement(language: string, rendered: string): HTMLElement {
+function installSelectHandlers(element: HTMLElement, onSelect?: () => void): void {
+  if (!onSelect) return;
+  element.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+  });
+  element.addEventListener("click", (event) => {
+    event.preventDefault();
+    onSelect();
+  });
+}
+
+function createPreviewElement(
+  language: string,
+  rendered: string,
+  onSelect?: () => void
+): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = `code-block-preview ${language}-preview`;
   const sanitized = language === "mermaid" ? sanitizeSvg(rendered) : sanitizeKatex(rendered);
   wrapper.innerHTML = sanitized;
+  installSelectHandlers(wrapper, onSelect);
+  return wrapper;
+}
+
+function createPreviewPlaceholder(
+  language: string,
+  label: string,
+  onSelect?: () => void
+): HTMLElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = `code-block-preview ${language}-preview code-block-preview-placeholder`;
+  wrapper.textContent = label;
+  installSelectHandlers(wrapper, onSelect);
   return wrapper;
 }
 
@@ -62,18 +92,43 @@ export const codePreviewExtension = Extension.create({
               if (node.type.name !== "codeBlock" && node.type.name !== "code_block") return;
 
               const language = (node.attrs.language ?? "").toLowerCase();
-              if (language !== "latex" && language !== "mermaid") return;
+              if (!PREVIEW_ONLY_LANGUAGES.has(language)) return;
 
               const content = node.textContent;
-              if (!content.trim()) return;
-
               const cacheKey = `${language}:${content}`;
+              const nodeStart = pos;
+              const nodeEnd = pos + node.nodeSize;
+              const handleSelect = (view: EditorView | null | undefined) => {
+                if (!view) return;
+                const tr = view.state.tr.setSelection(NodeSelection.create(view.state.doc, nodeStart));
+                view.dispatch(tr);
+                view.focus();
+              };
+
+              newDecorations.push(
+                Decoration.node(nodeStart, nodeEnd, {
+                  class: "code-block-preview-only",
+                  "data-language": language,
+                  contenteditable: "false",
+                })
+              );
+
+              if (!content.trim()) {
+                const placeholderLabel = language === "mermaid" ? "Empty diagram" : "Empty math block";
+                const widget = Decoration.widget(
+                  nodeEnd,
+                  (view) => createPreviewPlaceholder(language, placeholderLabel, () => handleSelect(view)),
+                  { side: 1, key: `${cacheKey}:placeholder` }
+                );
+                newDecorations.push(widget);
+                return;
+              }
 
               if (renderCache.has(cacheKey)) {
                 const rendered = renderCache.get(cacheKey)!;
                 const widget = Decoration.widget(
-                  pos + node.nodeSize,
-                  () => createPreviewElement(language, rendered),
+                  nodeEnd,
+                  (view) => createPreviewElement(language, rendered, () => handleSelect(view)),
                   { side: 1, key: cacheKey }
                 );
                 newDecorations.push(widget);
@@ -84,8 +139,8 @@ export const codePreviewExtension = Extension.create({
                 const rendered = renderLatex(content);
                 renderCache.set(cacheKey, rendered);
                 const widget = Decoration.widget(
-                  pos + node.nodeSize,
-                  () => createPreviewElement(language, rendered),
+                  nodeEnd,
+                  (view) => createPreviewElement(language, rendered, () => handleSelect(view)),
                   { side: 1, key: cacheKey }
                 );
                 newDecorations.push(widget);
@@ -98,8 +153,15 @@ export const codePreviewExtension = Extension.create({
                 placeholder.textContent = "Rendering diagram...";
 
                 const widget = Decoration.widget(
-                  pos + node.nodeSize,
-                  () => {
+                  nodeEnd,
+                  (view) => {
+                    placeholder.addEventListener("mousedown", (event) => {
+                      event.preventDefault();
+                    });
+                    placeholder.addEventListener("click", (event) => {
+                      event.preventDefault();
+                      handleSelect(view);
+                    });
                     renderMermaid(content).then((svg) => {
                       if (svg) {
                         renderCache.set(cacheKey, svg);
@@ -134,4 +196,3 @@ export const codePreviewExtension = Extension.create({
 export function clearPreviewCache() {
   renderCache.clear();
 }
-
