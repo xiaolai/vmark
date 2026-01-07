@@ -1,4 +1,5 @@
 import type { EditorView } from "@tiptap/pm/view";
+import { emit } from "@tauri-apps/api/event";
 import type { AnchorRect } from "@/utils/popupPosition";
 import { useFormatToolbarStore } from "@/stores/formatToolbarStore";
 import type { ToolbarMode, ContextMode, NodeContext } from "@/stores/formatToolbarStore";
@@ -86,7 +87,13 @@ export class TiptapFormatToolbarView {
     }
 
     // mode === "format" or "merged"
-    if (contextMode === "format" || mode === "merged") {
+    if (mode === "format") {
+      if (contextMode === "format") {
+        this.container.appendChild(this.buildFormatRow());
+      } else {
+        this.container.appendChild(this.buildInsertRow(contextMode));
+      }
+    } else if (mode === "merged") {
       this.container.appendChild(this.buildFormatRow());
     }
 
@@ -123,6 +130,24 @@ export class TiptapFormatToolbarView {
     row.appendChild(createToolbarButton({ icon: tiptapToolbarIcons.bulletList, title: "Bullet List", onClick: () => this.handleListAction("bullet") }));
     row.appendChild(createToolbarButton({ icon: tiptapToolbarIcons.orderedList, title: "Ordered List", onClick: () => this.handleListAction("ordered") }));
     row.appendChild(createToolbarButton({ icon: tiptapToolbarIcons.removeList, title: "Remove List", onClick: () => this.handleListAction("remove") }));
+    return row;
+  }
+
+  private buildInsertRow(contextMode: ContextMode): HTMLElement {
+    const row = createToolbarRow();
+    const addButton = (icon: string, title: string, onClick: () => void) => {
+      row.appendChild(createToolbarButton({ icon, title, onClick }));
+    };
+
+    addButton(tiptapToolbarIcons.image, "Insert Image", () => this.handleInsertAction("image"));
+    addButton(tiptapToolbarIcons.table, "Insert Table", () => this.handleInsertAction("table"));
+    addButton(tiptapToolbarIcons.bulletList, "Bullet List", () => this.handleInsertAction("unordered-list"));
+    addButton(tiptapToolbarIcons.orderedList, "Ordered List", () => this.handleInsertAction("ordered-list"));
+    addButton(tiptapToolbarIcons.blockquote, "Blockquote", () => this.handleInsertAction("blockquote"));
+    if (contextMode === "block-insert") {
+      addButton(tiptapToolbarIcons.divider, "Divider", () => this.handleInsertAction("divider"));
+    }
+
     return row;
   }
 
@@ -245,6 +270,18 @@ export class TiptapFormatToolbarView {
     if (action === "bullet") handleToBulletList(this.editorView);
     if (action === "ordered") handleToOrderedList(this.editorView);
     if (action === "remove") handleRemoveList(this.editorView);
+    const store = useFormatToolbarStore.getState();
+    store.clearOriginalCursor();
+    store.closeToolbar();
+  }
+
+  private handleInsertAction(action: "image" | "table" | "unordered-list" | "ordered-list" | "blockquote" | "divider") {
+    if (action === "image") void emit("menu:image");
+    if (action === "table") void emit("menu:insert-table");
+    if (action === "unordered-list") void emit("menu:unordered-list");
+    if (action === "ordered-list") void emit("menu:ordered-list");
+    if (action === "blockquote") void emit("menu:quote");
+    if (action === "divider") void emit("menu:horizontal-line");
     const store = useFormatToolbarStore.getState();
     store.clearOriginalCursor();
     store.closeToolbar();
