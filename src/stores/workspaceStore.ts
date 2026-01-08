@@ -65,8 +65,9 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       isWorkspaceMode: false,
 
       openWorkspace: (rootPath, config = null) => {
+        // Clone config to avoid mutating the passed argument
+        const finalConfig = config ? { ...config } : { ...DEFAULT_CONFIG };
         // Ensure workspace has an identity
-        const finalConfig = config ?? { ...DEFAULT_CONFIG };
         if (!finalConfig.identity) {
           finalConfig.identity = createWorkspaceIdentity();
         }

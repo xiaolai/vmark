@@ -53,5 +53,8 @@ export function shouldRefreshTree(
   }
 
   // Check if any changed path is within our tree's root
-  return event.paths.some((path) => path.startsWith(treeRootPath));
+  // Use boundary check to avoid false positives (e.g., /root matching /rootother)
+  return event.paths.some(
+    (path) => path === treeRootPath || path.startsWith(treeRootPath + "/")
+  );
 }
