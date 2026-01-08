@@ -16,6 +16,7 @@ import { getFileNameWithoutExtension } from "@/utils/pathUtils";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getActiveDocument } from "@/utils/activeDocument";
+import { resolveOpenTarget } from "@/hooks/commands";
 
 export function useMenuEvents() {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -155,7 +156,7 @@ export function useMenuEvents() {
       if (cancelled) { unlistenClearRecent(); return; }
       unlistenRefs.current.push(unlistenClearRecent);
 
-      // Open Recent File from menu - always opens in a new tab
+      // Open Recent File from menu - uses command layer for decision logic
       const unlistenOpenRecent = await listen<number>("menu:open-recent-file", async (event) => {
         if (!(await isWindowFocused())) return;
         const windowLabel = getCurrentWebviewWindow().label;
@@ -166,22 +167,41 @@ export function useMenuEvents() {
 
         const file = files[index];
 
+        // Use command to resolve where to open
+        const existingTab = useTabStore.getState().findTabByPath(windowLabel, file.path);
+        const result = resolveOpenTarget({
+          filePath: file.path,
+          windowLabel,
+          existingTabId: existingTab?.id ?? null,
+          reuseExistingTab: true, // Activate if already open
+        });
+
         await withReentryGuard(windowLabel, "open-recent", async () => {
-          try {
-            const content = await readTextFile(file.path);
-            // Always open in a new tab (per workspace-first design)
-            const tabId = useTabStore.getState().createTab(windowLabel, file.path);
-            useDocumentStore.getState().initDocument(tabId, content, file.path);
-            useRecentFilesStore.getState().addFile(file.path); // Move to top
-          } catch (error) {
-            console.error("[Menu] Failed to open recent file:", error);
-            const remove = await ask(
-              "This file could not be opened. It may have been moved or deleted.\n\nRemove from recent files?",
-              { title: "File Not Found", kind: "warning" }
-            );
-            if (remove) {
-              useRecentFilesStore.getState().removeFile(file.path);
-            }
+          // Execute based on command result
+          switch (result.action) {
+            case "activate_tab":
+              useTabStore.getState().setActiveTab(windowLabel, result.tabId);
+              break;
+            case "create_tab":
+              try {
+                const content = await readTextFile(file.path);
+                const tabId = useTabStore.getState().createTab(windowLabel, file.path);
+                useDocumentStore.getState().initDocument(tabId, content, file.path);
+                useRecentFilesStore.getState().addFile(file.path); // Move to top
+              } catch (error) {
+                console.error("[Menu] Failed to open recent file:", error);
+                const remove = await ask(
+                  "This file could not be opened. It may have been moved or deleted.\n\nRemove from recent files?",
+                  { title: "File Not Found", kind: "warning" }
+                );
+                if (remove) {
+                  useRecentFilesStore.getState().removeFile(file.path);
+                }
+              }
+              break;
+            case "no_op":
+              // Nothing to do
+              break;
           }
         });
       });
