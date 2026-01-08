@@ -4,6 +4,7 @@ import { join, basename } from "@tauri-apps/api/path";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, FsChangeEvent } from "./types";
+import { shouldRefreshTree } from "@/utils/fsEventFilter";
 
 interface LoadOptions {
   filter: (name: string, isFolder: boolean) => boolean;
@@ -139,13 +140,8 @@ export function useFileTree(
     let cancelled = false;
     listen<FsChangeEvent>("fs:changed", (event) => {
       if (cancelled) return;
-      // Only refresh if the event is for our watcher
-      if (event.payload.watchId !== watchId) return;
-      // Check if any changed path is within our root
-      const hasRelevantChange = event.payload.paths.some((p) =>
-        p.startsWith(rootPath)
-      );
-      if (hasRelevantChange) {
+      // Use pure helper to determine if we should refresh
+      if (shouldRefreshTree(event.payload, watchId, rootPath)) {
         loadTree();
       }
     }).then((unlisten) => {
