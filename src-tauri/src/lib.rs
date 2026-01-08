@@ -96,15 +96,17 @@ pub fn run() {
                         // Convert file:// URL to path
                         if let Ok(path) = url.to_file_path() {
                             if let Some(path_str) = path.to_str() {
-                                // Check if main window exists and is ready
-                                if let Some(main_window) = app.get_webview_window("main") {
-                                    // App is running - notify main window to open file
-                                    let _ = main_window.emit("app:open-file", path_str);
-                                } else {
-                                    // App just launched - store for main window to pick up
+                                // Broadcast to ALL windows - each window decides if it should claim
+                                // based on whether the file is within its workspace root
+                                let windows = app.webview_windows();
+                                if windows.is_empty() {
+                                    // App just launched - store for first window to pick up
                                     if let Ok(mut pending) = PENDING_OPEN_FILES.lock() {
                                         pending.push(path_str.to_string());
                                     }
+                                } else {
+                                    // App is running - emit to all windows
+                                    let _ = app.emit("app:open-file", path_str);
                                 }
                             }
                         }

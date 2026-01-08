@@ -7,11 +7,13 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { createSnapshot } from "@/utils/historyUtils";
 import { isWindowFocused } from "@/utils/windowFocus";
 import { getDefaultSaveFolder } from "@/utils/tabUtils";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
+import { shouldClaimFile } from "@/utils/fileOwnership";
 
 async function saveToPath(
   tabId: string,
@@ -197,7 +199,20 @@ export function useFileOperations() {
 
   const handleAppOpenFile = useCallback(
     async (event: { payload: string }) => {
-      await openPathInTab(event.payload);
+      const filePath = event.payload;
+
+      // Check if this window should claim the file
+      const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
+      const ownership = shouldClaimFile({
+        filePath,
+        isWorkspaceMode,
+        workspaceRoot: rootPath,
+      });
+
+      // Only open if this window should claim the file
+      if (ownership.shouldClaim) {
+        await openPathInTab(filePath);
+      }
     },
     [openPathInTab]
   );
