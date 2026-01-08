@@ -22,6 +22,9 @@ interface WorkspaceActions {
   closeWorkspace: () => void;
   updateConfig: (updates: Partial<WorkspaceConfig>) => void;
 
+  // Bootstrap: load config on restart when rootPath was persisted
+  bootstrapConfig: (config: WorkspaceConfig | null) => void;
+
   // Config helpers
   addExcludedFolder: (folder: string) => void;
   removeExcludedFolder: (folder: string) => void;
@@ -59,6 +62,16 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           rootPath: null,
           config: null,
           isWorkspaceMode: false,
+        });
+      },
+
+      bootstrapConfig: (config) => {
+        const { rootPath, isWorkspaceMode } = get();
+        // Only bootstrap if we have a workspace but no config
+        if (!rootPath || !isWorkspaceMode) return;
+
+        set({
+          config: config ?? { ...DEFAULT_CONFIG },
         });
       },
 

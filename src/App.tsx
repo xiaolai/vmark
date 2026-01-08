@@ -53,6 +53,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
 import { useWorkspaceMenuEvents } from "@/hooks/useWorkspaceMenuEvents";
+import { useWorkspaceBootstrap } from "@/hooks/useWorkspaceBootstrap";
 import { useFileOperations } from "@/hooks/useFileOperations";
 import { useSearchCommands } from "@/hooks/useSearchCommands";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -115,6 +116,7 @@ function MainLayout() {
   }, []);
 
   // Initialize hooks
+  useWorkspaceBootstrap(); // Load config from disk on startup (must be first)
   useMenuEvents();
   useWorkspaceMenuEvents();
   useFileOperations();
