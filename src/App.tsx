@@ -68,6 +68,7 @@ import { useViewShortcuts } from "@/hooks/useViewShortcuts";
 import { useTabShortcuts } from "@/hooks/useTabShortcuts";
 import { useReloadGuard } from "@/hooks/useReloadGuard";
 import { useDragDropOpen } from "@/hooks/useDragDropOpen";
+import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 
 // Separate component for window lifecycle hooks to avoid conditional hook calls
 function DocumentWindowHooks() {
@@ -75,6 +76,7 @@ function DocumentWindowHooks() {
   useAppQuit();
   useWindowTitle();
   useDragDropOpen(); // Open dropped markdown files
+  useExternalFileChanges(); // Handle external file changes (auto-reload or prompt)
   return null;
 }
 
