@@ -27,6 +27,7 @@ export {
   serializeMarkdown,
   setUseRemarkPipeline,
   getUseRemarkPipeline,
+  type PipelineOptions,
 } from "./adapter";
 
 // Core parsing/serialization

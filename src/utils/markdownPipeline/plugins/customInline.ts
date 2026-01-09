@@ -139,93 +139,99 @@ function isTextNode(node: unknown): node is Text {
 }
 
 /**
+ * Find a valid mark pair starting from a given position.
+ * Returns { start, end } if found, or null if no valid pair exists.
+ */
+function findMarkPair(
+  text: string,
+  mark: MarkDefinition,
+  fromIndex: number
+): { start: number; end: number } | null {
+  let startIdx = fromIndex;
+
+  while (startIdx < text.length) {
+    const foundStart = text.indexOf(mark.marker, startIdx);
+    if (foundStart === -1) return null;
+
+    // Skip if this is a double marker when skipDouble is set
+    if (mark.skipDouble && mark.markerLen === 1 && text[foundStart + 1] === mark.marker) {
+      startIdx = foundStart + 2;
+      continue;
+    }
+
+    // Find closing marker
+    let searchPos = foundStart + mark.markerLen;
+    while (searchPos < text.length) {
+      const closeIdx = text.indexOf(mark.marker, searchPos);
+      if (closeIdx === -1) break;
+
+      // Skip double markers when configured
+      if (mark.skipDouble && mark.markerLen === 1 && text[closeIdx + 1] === mark.marker) {
+        searchPos = closeIdx + 2;
+        continue;
+      }
+
+      // Valid closing marker found
+      if (closeIdx > foundStart + mark.markerLen) {
+        return { start: foundStart, end: closeIdx };
+      }
+      break;
+    }
+
+    // No valid closing marker, try next occurrence
+    startIdx = foundStart + 1;
+  }
+
+  return null;
+}
+
+/**
  * Parse custom marks from a text string.
  * Returns an array of text and mark nodes.
- * Finds the earliest mark in the text to ensure correct processing order.
+ *
+ * Uses a single-pass algorithm: finds the earliest mark across all types,
+ * processes it, then continues from where it left off. This avoids O(n²)
+ * by not re-scanning already-processed text.
  */
 function parseMarksInText(text: string): PhrasingContent[] {
   const result: PhrasingContent[] = [];
-  let remaining = text;
+  let position = 0;
 
-  while (remaining.length > 0) {
-    // Find the earliest mark (closest to start of remaining string)
-    let earliestMark: typeof MARKS[number] | null = null;
+  while (position < text.length) {
+    // Find the earliest mark starting from current position
+    let earliestMark: MarkDefinition | null = null;
     let earliestStart = -1;
     let earliestEnd = -1;
 
     for (const mark of MARKS) {
-      let startIdx = 0;
-
-      // Search for valid mark occurrence
-      while (startIdx < remaining.length) {
-        const foundStart = remaining.indexOf(mark.marker, startIdx);
-        if (foundStart === -1) break;
-
-        // Skip if this is a double marker when skipDouble is set
-        if (mark.skipDouble && mark.markerLen === 1) {
-          if (remaining[foundStart + 1] === mark.marker) {
-            startIdx = foundStart + 2;
-            continue;
-          }
-        }
-
-        // Find closing marker
-        let searchPos = foundStart + mark.markerLen;
-        let endIdx = -1;
-
-        while (searchPos < remaining.length) {
-          const closeIdx = remaining.indexOf(mark.marker, searchPos);
-          if (closeIdx === -1) break;
-
-          // Skip double markers when configured
-          if (mark.skipDouble && mark.markerLen === 1) {
-            if (remaining[closeIdx + 1] === mark.marker) {
-              searchPos = closeIdx + 2;
-              continue;
-            }
-          }
-
-          // Valid closing marker found
-          endIdx = closeIdx;
-          break;
-        }
-
-        if (endIdx === -1 || endIdx <= foundStart + mark.markerLen) {
-          // No valid closing marker, try next occurrence
-          startIdx = foundStart + 1;
-          continue;
-        }
-
-        // Valid mark pair found
-        if (earliestStart === -1 || foundStart < earliestStart) {
-          earliestMark = mark;
-          earliestStart = foundStart;
-          earliestEnd = endIdx;
-        }
-        break;
+      const pair = findMarkPair(text, mark, position);
+      if (pair && (earliestStart === -1 || pair.start < earliestStart)) {
+        earliestMark = mark;
+        earliestStart = pair.start;
+        earliestEnd = pair.end;
       }
     }
 
     if (!earliestMark || earliestStart === -1) {
       // No more marks found, add remaining as text
-      if (remaining.length > 0) {
-        result.push({ type: "text", value: remaining });
+      if (position < text.length) {
+        result.push({ type: "text", value: text.slice(position) });
       }
       break;
     }
 
     // Add text before the mark
-    if (earliestStart > 0) {
-      result.push({ type: "text", value: remaining.slice(0, earliestStart) });
+    if (earliestStart > position) {
+      result.push({ type: "text", value: text.slice(position, earliestStart) });
     }
 
     // Add the mark node
-    const content = remaining.slice(earliestStart + earliestMark.markerLen, earliestEnd);
+    const content = text.slice(earliestStart + earliestMark.markerLen, earliestEnd);
     const markNode = createMarkNode(earliestMark.name as MarkName, content);
     result.push(markNode);
 
-    // Continue with remaining text
-    remaining = remaining.slice(earliestEnd + earliestMark.markerLen);
+    // Continue from after the closing marker
+    position = earliestEnd + earliestMark.markerLen;
   }
 
   return result.length > 0 ? result : [{ type: "text", value: text }];

@@ -7,7 +7,7 @@
  * @module utils/markdownPipeline/proseMirrorToMdast
  */
 
-import type { Schema, Node as PMNode, Mark } from "@tiptap/pm/model";
+import type { Schema, Node as PMNode } from "@tiptap/pm/model";
 import type {
   Root,
   Content,
@@ -18,21 +18,11 @@ import type {
   List,
   ListItem,
   ThematicBreak,
-  Text,
-  Strong,
-  Emphasis,
-  Delete,
-  InlineCode,
-  Link,
-  Image,
-  Break,
   PhrasingContent,
   BlockContent,
-  FootnoteReference,
-  FootnoteDefinition,
 } from "mdast";
-import type { InlineMath } from "mdast-util-math";
-import type { Subscript, Superscript, Highlight, Underline } from "./types";
+import type { FootnoteDefinition } from "./types";
+import * as inlineConverters from "./pmInlineConverters";
 
 /**
  * Convert ProseMirror document to MDAST root.
@@ -105,15 +95,15 @@ class PMToMdastConverter {
       case "horizontalRule":
         return this.convertHorizontalRule();
       case "hardBreak":
-        return this.convertHardBreak();
+        return inlineConverters.convertHardBreak();
       case "image":
-        return this.convertImage(node);
+        return inlineConverters.convertImage(node);
 
       // Custom nodes
       case "math_inline":
-        return this.convertMathInline(node);
+        return inlineConverters.convertMathInline(node);
       case "footnote_reference":
-        return this.convertFootnoteReference(node);
+        return inlineConverters.convertFootnoteReference(node);
       case "footnote_definition":
         return this.convertFootnoteDefinition(node);
 
@@ -213,19 +203,6 @@ class PMToMdastConverter {
     return { type: "thematicBreak" };
   }
 
-  private convertHardBreak(): Break {
-    return { type: "break" };
-  }
-
-  private convertImage(node: PMNode): Image {
-    return {
-      type: "image",
-      url: node.attrs.src as string,
-      alt: (node.attrs.alt as string) || undefined,
-      title: (node.attrs.title as string) || undefined,
-    };
-  }
-
   // Inline content conversion
 
   /**
@@ -236,111 +213,23 @@ class PMToMdastConverter {
 
     node.forEach((child) => {
       if (child.isText) {
-        const converted = this.convertTextWithMarks(child);
+        const converted = inlineConverters.convertTextWithMarks(child);
         result.push(...converted);
       } else if (child.type.name === "hardBreak") {
-        result.push({ type: "break" });
+        result.push(inlineConverters.convertHardBreak());
       } else if (child.type.name === "image") {
-        const img = this.convertImage(child);
-        result.push(img);
+        result.push(inlineConverters.convertImage(child));
       } else if (child.type.name === "math_inline") {
-        result.push(this.convertMathInline(child));
+        result.push(inlineConverters.convertMathInline(child));
       } else if (child.type.name === "footnote_reference") {
-        result.push(this.convertFootnoteReference(child));
+        result.push(inlineConverters.convertFootnoteReference(child));
       }
     });
 
     return result;
   }
 
-  /**
-   * Convert a text node with marks to nested MDAST inline nodes.
-   */
-  private convertTextWithMarks(node: PMNode): PhrasingContent[] {
-    const text = node.text || "";
-    if (!text) return [];
-
-    const marks = node.marks;
-    if (!marks.length) {
-      return [{ type: "text", value: text } as Text];
-    }
-
-    // Build nested structure from marks
-    // Start with text node, wrap with marks from innermost to outermost
-    let content: PhrasingContent[] = [{ type: "text", value: text } as Text];
-
-    for (const mark of marks) {
-      content = this.wrapWithMark(content, mark);
-    }
-
-    return content;
-  }
-
-  /**
-   * Wrap content with an MDAST mark node.
-   */
-  private wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingContent[] {
-    const markName = mark.type.name;
-
-    switch (markName) {
-      case "bold":
-        return [{ type: "strong", children: content } as Strong];
-      case "italic":
-        return [{ type: "emphasis", children: content } as Emphasis];
-      case "strike":
-        return [{ type: "delete", children: content } as Delete];
-      case "code": {
-        // Inline code wraps text directly
-        const textContent = content
-          .filter((c): c is Text => c.type === "text")
-          .map((t) => t.value)
-          .join("");
-        return [{ type: "inlineCode", value: textContent } as InlineCode];
-      }
-      case "link":
-        return [
-          {
-            type: "link",
-            url: mark.attrs.href as string,
-            children: content,
-          } as Link,
-        ];
-
-      // Custom inline marks
-      case "subscript":
-        return [{ type: "subscript", children: content } as Subscript];
-      case "superscript":
-        return [{ type: "superscript", children: content } as Superscript];
-      case "highlight":
-        return [{ type: "highlight", children: content } as Highlight];
-      case "underline":
-        return [{ type: "underline", children: content } as Underline];
-
-      default:
-        // Unknown mark - return content as-is
-        if (import.meta.env.DEV) {
-          console.warn(`[PMToMdast] Unknown mark type: ${markName}`);
-        }
-        return content;
-    }
-  }
-
   // Custom node converters
-
-  private convertMathInline(node: PMNode): InlineMath {
-    return {
-      type: "inlineMath",
-      value: node.textContent,
-    };
-  }
-
-  private convertFootnoteReference(node: PMNode): FootnoteReference {
-    return {
-      type: "footnoteReference",
-      identifier: String(node.attrs.label ?? "1"),
-      label: String(node.attrs.label ?? "1"),
-    };
-  }
 
   private convertFootnoteDefinition(node: PMNode): FootnoteDefinition {
     const children: BlockContent[] = [];

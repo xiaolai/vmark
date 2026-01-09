@@ -29,6 +29,7 @@ import type {
 } from "mdast";
 import type { InlineMath } from "mdast-util-math";
 import type { Subscript, Superscript, Highlight, Underline } from "./types";
+import * as inlineConverters from "./mdastInlineConverters";
 
 /**
  * Convert MDAST root to ProseMirror document.
@@ -64,7 +65,7 @@ class MdastToPMConverter {
    * Convert array of MDAST children to ProseMirror nodes.
    * Accepts Content[] or PhrasingContent[] (inline content).
    */
-  private convertChildren(children: readonly Content[], marks: Mark[]): PMNode[] {
+  convertChildren(children: readonly Content[], marks: Mark[]): PMNode[] {
     const result: PMNode[] = [];
     for (const child of children) {
       const converted = this.convertNode(child, marks);
@@ -85,6 +86,7 @@ class MdastToPMConverter {
   private convertNode(node: Content, marks: Mark[]): PMNode | PMNode[] | null {
     // Use type assertion for node.type to handle custom types not in base Content union
     const nodeType = node.type as string;
+    const convertChildrenBound = this.convertChildren.bind(this);
 
     switch (nodeType) {
       // Block nodes
@@ -103,44 +105,41 @@ class MdastToPMConverter {
       case "thematicBreak":
         return this.convertThematicBreak();
 
-      // Inline nodes
+      // Inline nodes - delegated to inline converters
       case "text":
-        return this.convertText(node as Text, marks);
+        return inlineConverters.convertText(this.schema, node as Text, marks);
       case "strong":
-        return this.convertStrong(node as Strong, marks);
+        return inlineConverters.convertStrong(this.schema, node as Strong, marks, convertChildrenBound);
       case "emphasis":
-        return this.convertEmphasis(node as Emphasis, marks);
+        return inlineConverters.convertEmphasis(this.schema, node as Emphasis, marks, convertChildrenBound);
       case "delete":
-        return this.convertDelete(node as Delete, marks);
+        return inlineConverters.convertDelete(this.schema, node as Delete, marks, convertChildrenBound);
       case "inlineCode":
-        return this.convertInlineCode(node as InlineCode, marks);
+        return inlineConverters.convertInlineCode(this.schema, node as InlineCode, marks);
       case "link":
-        return this.convertLink(node as Link, marks);
+        return inlineConverters.convertLink(this.schema, node as Link, marks, convertChildrenBound);
+      case "image":
+        return inlineConverters.convertImage(this.schema, node as Image);
+      case "break":
+        return inlineConverters.convertBreak(this.schema);
 
       // Custom inline marks
       case "subscript":
-        return this.convertSubscript(node as unknown as Subscript, marks);
+        return inlineConverters.convertSubscript(this.schema, node as unknown as Subscript, marks, convertChildrenBound);
       case "superscript":
-        return this.convertSuperscript(node as unknown as Superscript, marks);
+        return inlineConverters.convertSuperscript(this.schema, node as unknown as Superscript, marks, convertChildrenBound);
       case "highlight":
-        return this.convertHighlight(node as unknown as Highlight, marks);
+        return inlineConverters.convertHighlight(this.schema, node as unknown as Highlight, marks, convertChildrenBound);
       case "underline":
-        return this.convertUnderline(node as unknown as Underline, marks);
-      case "image":
-        return this.convertImage(node as Image);
-      case "break":
-        return this.convertBreak();
+        return inlineConverters.convertUnderline(this.schema, node as unknown as Underline, marks, convertChildrenBound);
 
       // Custom nodes
       case "inlineMath":
-        return this.convertInlineMath(node as unknown as InlineMath);
+        return inlineConverters.convertInlineMath(this.schema, node as unknown as InlineMath);
       case "footnoteReference":
-        return this.convertFootnoteReference(node as unknown as FootnoteReference);
+        return inlineConverters.convertFootnoteReference(this.schema, node as unknown as FootnoteReference);
       case "footnoteDefinition":
-        return this.convertFootnoteDefinition(
-          node as unknown as FootnoteDefinition,
-          marks
-        );
+        return this.convertFootnoteDefinition(node as unknown as FootnoteDefinition, marks);
 
       // Skip frontmatter and other non-content nodes
       case "yaml":
@@ -219,92 +218,6 @@ class MdastToPMConverter {
     return type.create();
   }
 
-  // Inline converters
-
-  private convertText(node: Text, marks: Mark[]): PMNode | null {
-    if (!node.value) return null;
-    return this.schema.text(node.value, marks);
-  }
-
-  private convertStrong(node: Strong, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.bold;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.convertChildren(node.children as Content[], newMarks);
-  }
-
-  private convertEmphasis(node: Emphasis, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.italic;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.convertChildren(node.children as Content[], newMarks);
-  }
-
-  private convertDelete(node: Delete, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.strike;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.convertChildren(node.children as Content[], newMarks);
-  }
-
-  private convertInlineCode(node: InlineCode, marks: Mark[]): PMNode | null {
-    const markType = this.schema.marks.code;
-    if (!markType) {
-      return this.schema.text(node.value, marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.schema.text(node.value, newMarks);
-  }
-
-  private convertLink(node: Link, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.link;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create({ href: node.url })];
-    return this.convertChildren(node.children as Content[], newMarks);
-  }
-
-  private convertImage(node: Image): PMNode | null {
-    const type = this.schema.nodes.image;
-    if (!type) return null;
-
-    return type.create({
-      src: node.url,
-      alt: node.alt || null,
-      title: node.title || null,
-    });
-  }
-
-  private convertBreak(): PMNode | null {
-    const type = this.schema.nodes.hardBreak;
-    if (!type) return null;
-    return type.create();
-  }
-
-  // Custom node converters
-
-  private convertInlineMath(node: InlineMath): PMNode | null {
-    const type = this.schema.nodes.math_inline;
-    if (!type) return null;
-
-    const text = node.value ? this.schema.text(node.value) : null;
-    return type.create(null, text ? [text] : []);
-  }
-
-  private convertFootnoteReference(node: FootnoteReference): PMNode | null {
-    const type = this.schema.nodes.footnote_reference;
-    if (!type) return null;
-
-    return type.create({ label: node.identifier });
-  }
-
   private convertFootnoteDefinition(
     node: FootnoteDefinition,
     marks: Mark[]
@@ -314,43 +227,5 @@ class MdastToPMConverter {
 
     const children = this.convertChildren(node.children, marks);
     return type.create({ label: node.identifier }, children);
-  }
-
-  // Custom inline mark converters
-
-  private convertSubscript(node: Subscript, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.subscript;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.convertChildren(node.children as Content[], newMarks);
-  }
-
-  private convertSuperscript(node: Superscript, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.superscript;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.convertChildren(node.children as Content[], newMarks);
-  }
-
-  private convertHighlight(node: Highlight, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.highlight;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.convertChildren(node.children as Content[], newMarks);
-  }
-
-  private convertUnderline(node: Underline, marks: Mark[]): PMNode[] {
-    const markType = this.schema.marks.underline;
-    if (!markType) {
-      return this.convertChildren(node.children as Content[], marks);
-    }
-    const newMarks = [...marks, markType.create()];
-    return this.convertChildren(node.children as Content[], newMarks);
   }
 }
