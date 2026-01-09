@@ -24,21 +24,43 @@ fn get_cascaded_position(count: u32) -> (f64, f64) {
     )
 }
 
+/// Build window URL with optional query params
+fn build_window_url(file_path: Option<&str>, workspace_root: Option<&str>) -> String {
+    let mut params = Vec::new();
 
-/// Create a new document window with optional file path
-/// Returns the window label on success
+    if let Some(path) = file_path {
+        params.push(format!("file={}", urlencoding::encode(path)));
+    }
+
+    if let Some(root) = workspace_root {
+        params.push(format!("workspaceRoot={}", urlencoding::encode(root)));
+    }
+
+    if params.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/?{}", params.join("&"))
+    }
+}
+
+
+/// Create a new document window with optional file path and workspace root.
+/// Returns the window label on success.
+///
+/// # Arguments
+/// * `app` - Tauri AppHandle
+/// * `file_path` - Optional file path to open
+/// * `workspace_root` - Optional workspace root to set (for external file opens)
 pub fn create_document_window(
     app: &AppHandle,
     file_path: Option<&str>,
+    workspace_root: Option<&str>,
 ) -> Result<String, tauri::Error> {
     let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
     let label = format!("doc-{}", count);
 
-    // Build URL with optional file path query param
-    let url = match file_path {
-        Some(path) => format!("/?file={}", urlencoding::encode(path)),
-        None => "/".to_string(),
-    };
+    // Build URL with optional query params
+    let url = build_window_url(file_path, workspace_root);
 
     let title = match file_path {
         Some(path) => {
@@ -80,13 +102,31 @@ pub fn create_document_window(
 /// Create a new empty window (Tauri command)
 #[tauri::command]
 pub fn new_window(app: AppHandle) -> Result<String, String> {
-    create_document_window(&app, None).map_err(|e| e.to_string())
+    create_document_window(&app, None, None).map_err(|e| e.to_string())
 }
 
 /// Open a file in a new window (Tauri command)
 #[tauri::command]
 pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, String> {
-    create_document_window(&app, Some(&path)).map_err(|e| e.to_string())
+    create_document_window(&app, Some(&path), None).map_err(|e| e.to_string())
+}
+
+/// Open a workspace in a new window with optional file to open (Tauri command)
+///
+/// Creates a new window with the workspace root set. If a file path is provided,
+/// it will be opened in the new window after the workspace is initialized.
+#[tauri::command]
+pub fn open_workspace_in_new_window(
+    app: AppHandle,
+    workspace_root: String,
+    file_path: Option<String>,
+) -> Result<String, String> {
+    create_document_window(
+        &app,
+        file_path.as_deref(),
+        Some(&workspace_root),
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// Close a specific window by label

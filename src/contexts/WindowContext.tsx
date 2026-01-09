@@ -57,9 +57,19 @@ export function WindowProvider({ children }: WindowProviderProps) {
           const existingTabs = useTabStore.getState().getTabsByWindow(label);
           if (existingTabs.length === 0 && !initStartedRef.current) {
             initStartedRef.current = true;
-            // Check if we have a file path in the URL query params
+            // Check if we have a file path and/or workspace root in the URL query params
             const urlParams = new URLSearchParams(globalThis.location?.search || "");
             let filePath = urlParams.get("file");
+            const workspaceRootParam = urlParams.get("workspaceRoot");
+
+            // If workspace root is provided, open it first
+            if (workspaceRootParam) {
+              try {
+                await useWorkspaceStore.getState().openWorkspace(workspaceRootParam);
+              } catch (e) {
+                console.error("[WindowContext] Failed to open workspace from URL param:", e);
+              }
+            }
 
             // For main window, also check pending files from Finder launch
             if (!filePath && label === "main") {
@@ -79,9 +89,9 @@ export function WindowProvider({ children }: WindowProviderProps) {
               }
             }
 
-            // If opening fresh (no file), clear any persisted workspace
+            // If opening fresh (no file and no workspace root), clear any persisted workspace
             // This ensures a clean slate when launching the app without a file
-            if (!filePath && label === "main") {
+            if (!filePath && !workspaceRootParam && label === "main") {
               useWorkspaceStore.getState().closeWorkspace();
             }
 

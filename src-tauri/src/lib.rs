@@ -30,6 +30,7 @@ pub fn run() {
             menu::rebuild_menu,
             window_manager::new_window,
             window_manager::open_file_in_new_window,
+            window_manager::open_workspace_in_new_window,
             window_manager::close_window,
             window_manager::force_quit,
             window_manager::request_quit,
@@ -87,7 +88,7 @@ pub fn run() {
                     ..
                 } => {
                     if !has_visible_windows {
-                        let _ = window_manager::create_document_window(app, None);
+                        let _ = window_manager::create_document_window(app, None, None);
                     }
                 }
                 // Handle files opened from Finder (double-click, "Open With", etc.)
