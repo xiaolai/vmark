@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     let id = event.id().as_ref();
@@ -12,10 +12,21 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     }
 
     // "new-window" creates a new window directly in Rust
-    // "new" emits to frontend to create a new tab in the current window
     if id == "new-window" {
         let _ = crate::window_manager::create_document_window(app, None, None);
         return;
+    }
+
+    // "new" creates a tab in current window, but if no windows exist, create a new window
+    // (Cmd+N when last window closed should open a new window)
+    if id == "new" {
+        let has_windows = app.webview_windows().values().any(|w| {
+            w.label() != "settings" // Ignore settings window
+        });
+        if !has_windows {
+            let _ = crate::window_manager::create_document_window(app, None, None);
+            return;
+        }
     }
 
     // All other menu events are emitted to the frontend
