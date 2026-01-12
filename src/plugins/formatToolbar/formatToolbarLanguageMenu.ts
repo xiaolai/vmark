@@ -5,10 +5,10 @@
  */
 
 import { icons } from "./formatToolbarIcons";
-import { buildLanguageButton } from "./formatToolbarDom";
 import {
   QUICK_LANGUAGES,
   getRecentLanguages,
+  getQuickLabel,
   filterLanguages,
 } from "@/plugins/sourceFormatPopup/languages";
 import { useFormatToolbarStore } from "@/stores/formatToolbarStore";
@@ -174,4 +174,31 @@ function updateLanguageList(
 
     container.appendChild(item);
   }
+}
+
+/**
+ * Build a quick language button.
+ */
+function buildLanguageButton(
+  name: string,
+  isActive: boolean,
+  onLanguageChange: (name: string) => void
+): HTMLElement {
+  const btn = document.createElement("button");
+  btn.className = `format-toolbar-quick-btn${isActive ? " active" : ""}`;
+  btn.type = "button";
+  btn.title = name;
+  btn.textContent = getQuickLabel(name);
+
+  btn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+  });
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onLanguageChange(name);
+  });
+
+  return btn;
 }

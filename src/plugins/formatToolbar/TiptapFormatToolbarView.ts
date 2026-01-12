@@ -36,11 +36,13 @@ export class TiptapFormatToolbarView {
           this.editorView = state.editorView as unknown as EditorView;
         }
 
+        const isFirstOpen = !this.wasOpen;
         const modeChanged = state.mode !== this.currentMode;
         const contextModeChanged = state.mode === "format" && state.contextMode !== this.currentContextMode;
         const nodeContextChanged = state.mode === "merged" && state.nodeContext?.type !== this.currentNodeContext?.type;
 
-        if (modeChanged || contextModeChanged || nodeContextChanged) {
+        // Render on first open OR when mode/context changes
+        if (isFirstOpen || modeChanged || contextModeChanged || nodeContextChanged) {
           this.render(state.mode, state.contextMode, state.headingInfo?.level ?? 0, state.nodeContext);
           this.currentMode = state.mode;
           this.currentContextMode = state.contextMode;
@@ -49,7 +51,7 @@ export class TiptapFormatToolbarView {
           this.updateHeadingActiveState(state.headingInfo.level);
         }
 
-        if (!this.wasOpen) {
+        if (isFirstOpen) {
           this.show(state.anchorRect);
         } else {
           positionTiptapToolbar({ container: this.container, editorView: this.editorView, anchorRect: state.anchorRect });
