@@ -12,6 +12,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import type { EditorView } from "@tiptap/pm/view";
 import { scrollToPosition } from "./tiptapDomUtils";
 import {
@@ -171,6 +172,7 @@ export class FootnotePopupView {
   };
 
   private handleInputKeydown = (e: KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.handleSave(); }
     else if (e.key === "Escape") {
       e.preventDefault();

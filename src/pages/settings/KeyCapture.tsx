@@ -6,6 +6,7 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { formatKeyForDisplay, type ShortcutDefinition } from "@/stores/shortcutsStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 interface KeyCaptureProps {
   shortcut: ShortcutDefinition;
@@ -18,6 +19,7 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
   const [capturedKey, setCapturedKey] = useState<string | null>(null);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
     e.preventDefault();
     e.stopPropagation();
 

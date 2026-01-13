@@ -41,6 +41,7 @@ import {
   createSmartPastePlugin,
   createSourceFocusModePlugin,
   createSourceTypewriterPlugin,
+  createImeGuardPlugin,
 } from "@/plugins/codemirror";
 import { toggleTaskList } from "@/plugins/sourceFormatPopup/taskListActions";
 import {
@@ -50,6 +51,7 @@ import {
   triggerFormatPopup,
   applyFormat,
 } from "@/plugins/sourceFormatPopup";
+import { guardCodeMirrorKeyBinding, runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 
 // Custom brackets config for markdown (^, standard brackets)
 const markdownCloseBrackets = markdownLanguage.data.of({
@@ -127,6 +129,8 @@ export function SourceEditor() {
         createListBlankLinePlugin(),
         // Smart paste: URL on selection creates markdown link
         createSmartPastePlugin(),
+        // IME guard: flush queued work after composition ends
+        createImeGuardPlugin(),
         // Focus mode: dim non-current paragraph
         createSourceFocusModePlugin(),
         // Typewriter mode: keep cursor centered
@@ -145,57 +149,57 @@ export function SourceEditor() {
           // Backspace to delete both halves of markdown pairs
           markdownPairBackspace,
           // Mod+Shift+Enter: toggle task list checkbox
-          {
+          guardCodeMirrorKeyBinding({
             key: "Mod-Shift-Enter",
             run: (view) => toggleTaskList(view),
             preventDefault: true,
-          },
+          }),
           // Cmd+D: select next occurrence
-          { key: "Mod-d", run: selectNextOccurrence, preventDefault: true },
+          guardCodeMirrorKeyBinding({ key: "Mod-d", run: selectNextOccurrence, preventDefault: true }),
           // Cmd+Shift+L: select all occurrences
-          { key: "Mod-Shift-l", run: selectSelectionMatches, preventDefault: true },
+          guardCodeMirrorKeyBinding({ key: "Mod-Shift-l", run: selectSelectionMatches, preventDefault: true }),
           // Cmd+Option+W: toggle word wrap
-          {
+          guardCodeMirrorKeyBinding({
             key: "Mod-Alt-w",
             run: () => {
               useEditorStore.getState().toggleWordWrap();
               return true;
             },
             preventDefault: true,
-          },
+          }),
           // Cmd+Option+T: toggle table popup (when cursor is in table)
-          {
+          guardCodeMirrorKeyBinding({
             key: "Mod-Alt-t",
             run: (view) => toggleTablePopup(view),
             preventDefault: true,
-          },
+          }),
           // Cmd+E: trigger format popup at cursor (context-aware)
-          {
+          guardCodeMirrorKeyBinding({
             key: "Mod-e",
             run: (view) => triggerFormatPopup(view),
             preventDefault: true,
-          },
+          }),
           // Cmd+`: inline code (reassigned from Cmd+E)
-          {
+          guardCodeMirrorKeyBinding({
             key: "Mod-`",
             run: (view) => {
               applyFormat(view, "code");
               return true;
             },
             preventDefault: true,
-          },
+          }),
           // Cmd+/: override to prevent default toggle comment (used for source mode toggle)
-          {
+          guardCodeMirrorKeyBinding({
             key: "Mod-/",
             run: () => true, // Consume the key, let menu handle source mode toggle
             preventDefault: true,
-          },
+          }),
           // Cmd+Shift+\: toggle HTML comment <!-- -->
-          {
+          guardCodeMirrorKeyBinding({
             key: "Mod-Shift-\\",
             run: (view) => toggleBlockComment(view),
             preventDefault: true,
-          },
+          }),
           ...closeBracketsKeymap,
           ...defaultKeymap,
           ...historyKeymap,
@@ -249,12 +253,14 @@ export function SourceEditor() {
 
     const currentContent = view.state.doc.toString();
     if (currentContent !== content) {
-      view.dispatch({
-        changes: {
-          from: 0,
-          to: currentContent.length,
-          insert: content,
-        },
+      runOrQueueCodeMirrorAction(view, () => {
+        view.dispatch({
+          changes: {
+            from: 0,
+            to: currentContent.length,
+            insert: content,
+          },
+        });
       });
     }
   }, [content]);
@@ -264,10 +270,12 @@ export function SourceEditor() {
     const view = viewRef.current;
     if (!view) return;
 
-    view.dispatch({
-      effects: lineWrapCompartment.reconfigure(
-        wordWrap ? EditorView.lineWrapping : []
-      ),
+    runOrQueueCodeMirrorAction(view, () => {
+      view.dispatch({
+        effects: lineWrapCompartment.reconfigure(
+          wordWrap ? EditorView.lineWrapping : []
+        ),
+      });
     });
   }, [wordWrap]);
 
@@ -276,10 +284,12 @@ export function SourceEditor() {
     const view = viewRef.current;
     if (!view) return;
 
-    view.dispatch({
-      effects: brVisibilityCompartment.reconfigure(
-        createBrHidingPlugin(!showBrTags)
-      ),
+    runOrQueueCodeMirrorAction(view, () => {
+      view.dispatch({
+        effects: brVisibilityCompartment.reconfigure(
+          createBrHidingPlugin(!showBrTags)
+        ),
+      });
     });
   }, [showBrTags]);
 
@@ -288,10 +298,12 @@ export function SourceEditor() {
     const view = viewRef.current;
     if (!view) return;
 
-    view.dispatch({
-      effects: autoPairCompartment.reconfigure(
-        autoPairEnabled ? closeBrackets() : []
-      ),
+    runOrQueueCodeMirrorAction(view, () => {
+      view.dispatch({
+        effects: autoPairCompartment.reconfigure(
+          autoPairEnabled ? closeBrackets() : []
+        ),
+      });
     });
   }, [autoPairEnabled]);
 
@@ -315,10 +327,14 @@ export function SourceEditor() {
             wholeWord: state.wholeWord,
             regexp: state.useRegex,
           });
-          view.dispatch({ effects: setSearchQuery.of(query) });
+          runOrQueueCodeMirrorAction(view, () => {
+            view.dispatch({ effects: setSearchQuery.of(query) });
+          });
         } else {
           // Clear search
-          view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "" })) });
+          runOrQueueCodeMirrorAction(view, () => {
+            view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "" })) });
+          });
         }
       }
 
@@ -326,9 +342,9 @@ export function SourceEditor() {
       if (state.currentIndex !== prevState.currentIndex && state.currentIndex >= 0) {
         const direction = state.currentIndex > prevState.currentIndex ? 1 : -1;
         if (direction > 0) {
-          findNext(view);
+          runOrQueueCodeMirrorAction(view, () => findNext(view));
         } else {
-          findPrevious(view);
+          runOrQueueCodeMirrorAction(view, () => findPrevious(view));
         }
       }
 
@@ -341,19 +357,21 @@ export function SourceEditor() {
           wholeWord: state.wholeWord,
           regexp: state.useRegex,
         });
-        view.dispatch({ effects: setSearchQuery.of(query) });
+        runOrQueueCodeMirrorAction(view, () => {
+          view.dispatch({ effects: setSearchQuery.of(query) });
+        });
       }
     });
 
     // Handle replace actions via custom events
     const handleReplaceCurrent = () => {
       const view = viewRef.current;
-      if (view) replaceNext(view);
+      if (view) runOrQueueCodeMirrorAction(view, () => replaceNext(view));
     };
 
     const handleReplaceAll = () => {
       const view = viewRef.current;
-      if (view) replaceAll(view);
+      if (view) runOrQueueCodeMirrorAction(view, () => replaceAll(view));
     };
 
     window.addEventListener("search:replace-current", handleReplaceCurrent);

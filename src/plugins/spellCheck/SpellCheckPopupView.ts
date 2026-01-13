@@ -7,6 +7,7 @@
 
 import type { EditorView } from "@tiptap/pm/view";
 import { useSpellCheckStore } from "@/stores/spellCheckStore";
+import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 
 /**
  * Spell check popup view - manages the floating suggestions UI.
@@ -115,7 +116,7 @@ export class SpellCheckPopupView {
       to,
       this.editorView.state.schema.text(replacement)
     );
-    this.editorView.dispatch(tr);
+    runOrQueueProseMirrorAction(this.editorView, () => this.editorView.dispatch(tr));
     this.editorView.focus();
 
     useSpellCheckStore.getState().closePopup();
@@ -127,7 +128,7 @@ export class SpellCheckPopupView {
     this.editorView.focus();
 
     // Trigger re-check by dispatching empty transaction
-    this.editorView.dispatch(this.editorView.state.tr);
+    runOrQueueProseMirrorAction(this.editorView, () => this.editorView.dispatch(this.editorView.state.tr));
   };
 
   private handleClickOutside = (event: MouseEvent): void => {

@@ -15,6 +15,7 @@ import {
 } from "@/utils/popupPosition";
 import { createImagePopupDom, installImagePopupKeyboardNavigation, updateImagePopupToggleButton } from "./imagePopupDom";
 import { browseAndReplaceImage } from "./imagePopupActions";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 /**
  * Image popup view - manages the floating popup UI.
@@ -124,6 +125,7 @@ export class ImagePopupView {
   }
 
   private handleInputKeydown = (e: KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Enter") {
       e.preventDefault();
       this.handleSave();

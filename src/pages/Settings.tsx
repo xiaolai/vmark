@@ -19,6 +19,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTheme } from "@/hooks/useTheme";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 // Settings sections
 import { AppearanceSettings } from "./settings/AppearanceSettings";
@@ -54,6 +55,7 @@ function useSettingsClose() {
 function useDevSectionShortcut() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       if (e.ctrlKey && e.altKey && e.metaKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
         useSettingsStore.getState().toggleDevSection();

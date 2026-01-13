@@ -13,6 +13,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 export function useTabShortcuts() {
   const windowLabel = useWindowLabel();
@@ -22,6 +23,7 @@ export function useTabShortcuts() {
     if (!isDocumentWindow) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       const isMeta = e.metaKey || e.ctrlKey;
 
       // Cmd+T: New tab

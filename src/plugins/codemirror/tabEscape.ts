@@ -5,6 +5,7 @@
  */
 
 import { KeyBinding } from "@codemirror/view";
+import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 
 // Closing characters that Tab can jump over
 const CLOSING_CHARS = new Set([
@@ -25,7 +26,7 @@ const CLOSING_SEQUENCES = ["~~", "=="];
  * Handles both single chars and multi-char sequences (~~, ==).
  * Falls through to default Tab behavior (indent) otherwise.
  */
-export const tabEscapeKeymap: KeyBinding = {
+export const tabEscapeKeymap: KeyBinding = guardCodeMirrorKeyBinding({
   key: "Tab",
   run: (view) => {
     const { state } = view;
@@ -59,4 +60,4 @@ export const tabEscapeKeymap: KeyBinding = {
 
     return false; // Let default Tab handle it
   },
-};
+});

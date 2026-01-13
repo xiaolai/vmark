@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./TabContextMenu.css";
 
 export interface ContextMenuPosition {
@@ -40,6 +41,7 @@ export function TabContextMenu({
     };
 
     const handleEscape = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       if (e.key === "Escape") {
         onClose();
       }

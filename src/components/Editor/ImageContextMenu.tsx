@@ -9,6 +9,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { ImagePlus, Trash2, Copy, FolderOpen } from "lucide-react";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import "@/components/Sidebar/FileExplorer/ContextMenu.css";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 interface MenuItem {
   id: string;
@@ -52,6 +53,7 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
     };
 
     const handleEscape = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       if (e.key === "Escape") {
         closeMenu();
       }

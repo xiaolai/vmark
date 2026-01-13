@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useSearchStore } from "@/stores/searchStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./FindBar.css";
 
 export function FindBar() {
@@ -44,6 +45,7 @@ export function FindBar() {
   }, []);
 
   const handleFindKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Enter") {
       e.preventDefault();
       if (e.shiftKey) {
@@ -60,6 +62,7 @@ export function FindBar() {
   }, []);
 
   const handleReplaceKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Enter") {
       e.preventDefault();
       useSearchStore.getState().replaceCurrent();

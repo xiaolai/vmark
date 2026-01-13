@@ -7,6 +7,7 @@ import { getDictionary, preloadDictionaries } from "./dictionaryManager";
 import { tokenizeDocument } from "./tokenizer";
 import type { MisspelledWord, NSpellInstance, SpellCheckLanguage } from "./types";
 import { SpellCheckPopupView } from "./SpellCheckPopupView";
+import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 
 const spellCheckPluginKey = new PluginKey("spellCheck");
 const spellCheckPopupKey = new PluginKey("spellCheckPopup");
@@ -128,7 +129,7 @@ export const spellCheckExtension = Extension.create({
 
             misspelledWords = await checkWords(tokens, settings.spellCheckLanguages, isIgnored);
 
-            editorView.dispatch(editorView.state.tr);
+            runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(editorView.state.tr));
           } catch (e) {
             console.error("[SpellCheck] Error during spell check:", e);
           } finally {
@@ -158,7 +159,7 @@ export const spellCheckExtension = Extension.create({
             preloadDictionaries(spellCheckLanguages).then(scheduleCheck);
           } else if (!spellCheckEnabled && prevEnabled) {
             misspelledWords = [];
-            editorView.dispatch(editorView.state.tr);
+            runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(editorView.state.tr));
           }
 
           prevEnabled = spellCheckEnabled;

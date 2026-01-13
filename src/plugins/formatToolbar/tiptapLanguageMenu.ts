@@ -1,5 +1,6 @@
 import { filterLanguages } from "@/plugins/sourceFormatPopup/languages";
 import { useFormatToolbarStore } from "@/stores/formatToolbarStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 export function toggleTiptapLanguageMenu(opts: {
   dropdown: HTMLElement;
@@ -49,6 +50,7 @@ export function toggleTiptapLanguageMenu(opts: {
 
   input.addEventListener("input", () => renderList(input.value));
   input.addEventListener("keydown", (e) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
@@ -60,4 +62,3 @@ export function toggleTiptapLanguageMenu(opts: {
   opts.dropdown.appendChild(menu);
   setTimeout(() => input.focus(), 30);
 }
-

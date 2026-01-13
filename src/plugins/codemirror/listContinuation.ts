@@ -8,6 +8,7 @@
  */
 
 import type { KeyBinding } from "@codemirror/view";
+import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 
 // Pattern matching for different list types
 const TASK_PATTERN = /^(\s*)([-*+])\s\[([ xX])\]\s(.*)$/;
@@ -89,7 +90,7 @@ function getNextMarker(listMatch: ListMatch): string {
  * KeyBinding for smart list continuation.
  * Must be placed before defaultKeymap to intercept Enter.
  */
-export const listContinuationKeymap: KeyBinding = {
+export const listContinuationKeymap: KeyBinding = guardCodeMirrorKeyBinding({
   key: "Enter",
   run: (view) => {
     const { state } = view;
@@ -139,4 +140,4 @@ export const listContinuationKeymap: KeyBinding = {
 
     return true;
   },
-};
+});

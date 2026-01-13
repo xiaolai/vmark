@@ -10,6 +10,7 @@
  */
 
 import { EditorView, ViewPlugin, ViewUpdate, KeyBinding } from "@codemirror/view";
+import { guardCodeMirrorKeyBinding, isCodeMirrorComposing } from "@/utils/imeGuard";
 
 // Characters that support delay-based single/double judgment
 const DELAY_CHARS = new Set(["~", "*", "_"]);
@@ -47,6 +48,7 @@ function safeDispatch(
   try {
     // Check if view is still valid (not destroyed)
     if (!view.dom.isConnected) return false;
+    if (isCodeMirrorComposing(view)) return false;
 
     view.dispatch({
       changes,
@@ -63,7 +65,7 @@ function safeDispatch(
  * Backspace handler: delete both halves of symmetric pairs.
  * Works for both single (e.g., *|*) and double (e.g., ~~|~~) pairs.
  */
-export const markdownPairBackspace: KeyBinding = {
+export const markdownPairBackspace: KeyBinding = guardCodeMirrorKeyBinding({
   key: "Backspace",
   run: (view) => {
     const { state } = view;
@@ -107,7 +109,7 @@ export const markdownPairBackspace: KeyBinding = {
 
     return false; // Let default backspace handle it
   },
-};
+});
 
 /**
  * Creates the markdown auto-pair plugin with delay-based judgment.
@@ -120,6 +122,7 @@ export function createMarkdownAutoPairPlugin() {
       constructor(private view: EditorView) {}
 
       update(update: ViewUpdate) {
+        if (isCodeMirrorComposing(update.view)) return;
         // Check for user input transactions
         if (!update.docChanged) return;
 

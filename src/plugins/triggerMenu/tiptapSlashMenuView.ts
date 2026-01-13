@@ -63,6 +63,7 @@ export class SlashMenuView {
   }
 
   onKeyDown(event: KeyboardEvent): boolean {
+    if (event.isComposing || event.keyCode === 229) return false;
     if (!this.menuEl) return false;
     const levelIndex = this.levels.length - 1;
     const level = this.levels[levelIndex];

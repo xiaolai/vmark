@@ -12,6 +12,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 type EditorViewLike = {
   dom: HTMLElement;
@@ -83,6 +84,7 @@ export class LinkPopupView {
 
   private setupKeyboardNavigation() {
     this.keydownHandler = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       if (e.key === "Tab") {
         const focusable = this.getFocusableElements();
         if (focusable.length === 0) return;
@@ -208,6 +210,7 @@ export class LinkPopupView {
   };
 
   private handleInputKeydown = (e: KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Enter") {
       e.preventDefault();
       this.handleSave();

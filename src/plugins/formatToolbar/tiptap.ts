@@ -8,6 +8,7 @@ import { findWordAtCursor, findAnyMarkRangeAtCursor } from "@/plugins/syntaxReve
 import { getNodeContext } from "./nodeActions.tiptap";
 import { getCodeBlockInfo, getHeadingInfo, getContextMode, getCursorRect, isAtParagraphLineStart } from "./nodeDetection.tiptap";
 import { TiptapFormatToolbarView } from "./TiptapFormatToolbarView";
+import { guardProseMirrorCommand } from "@/utils/imeGuard";
 
 const formatToolbarPluginKey = new PluginKey("tiptapFormatToolbar");
 
@@ -100,10 +101,10 @@ export const formatToolbarExtension = Extension.create({
   addProseMirrorPlugins() {
     return [
       keymap({
-        "Mod-e": (_state, _dispatch, view) => {
+        "Mod-e": guardProseMirrorCommand((_state, _dispatch, view) => {
           if (!view) return false;
           return toggleContextAwareToolbar(view as unknown as EditorView);
-        },
+        }),
       }),
       new Plugin({
         key: formatToolbarPluginKey,

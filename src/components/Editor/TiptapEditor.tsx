@@ -18,6 +18,7 @@ import { cursorAwareExtension } from "@/plugins/cursorAware/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { spellCheckExtension } from "@/plugins/spellCheck/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
+import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
 import { focusModeExtension } from "@/plugins/focusMode/tiptap";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
@@ -107,6 +108,7 @@ export function TiptapEditorInner() {
       AlignedTableHeader,
       AlignedTableCell,
       tableUIExtension,
+      compositionGuardExtension,
       blockImageExtension,
       imageViewExtension,
       cursorAwareExtension,

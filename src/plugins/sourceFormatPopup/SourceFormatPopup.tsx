@@ -9,6 +9,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { EditorSelection } from "@codemirror/state";
 import { useSourceFormatStore } from "@/stores/sourceFormatStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import {
   calculatePopupPosition,
   getBoundaryRects,
@@ -131,6 +132,7 @@ export function SourceFormatPopup() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       // Cmd+E (Mod-e): toggle - close popup when already open
       // Skip if just opened (same keypress that opened the popup)
       if (e.key === "e" && (e.metaKey || e.ctrlKey)) {

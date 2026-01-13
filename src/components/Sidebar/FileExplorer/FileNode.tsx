@@ -1,4 +1,5 @@
 import { ChevronRight, ChevronDown, Folder, FileText } from "lucide-react";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import type { NodeRendererProps } from "react-arborist";
 import type { FileNode as FileNodeType } from "./types";
 
@@ -64,6 +65,7 @@ export function FileNode({ node, style, dragHandle, currentFilePath }: FileNodeP
           }}
           onBlur={() => node.reset()}
           onKeyDown={(e) => {
+            if (isImeKeyEvent(e)) return;
             if (e.key === "Escape") {
               node.reset();
             } else if (e.key === "Enter") {

@@ -3,6 +3,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useSearchStore } from "@/stores/searchStore";
+import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 
 const searchPluginKey = new PluginKey("search");
 
@@ -178,7 +179,7 @@ export const searchExtension = Extension.create({
               match.to,
               state.replaceText ? editorView.state.schema.text(state.replaceText) : []
             );
-            editorView.dispatch(tr);
+            runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(tr));
 
             requestAnimationFrame(() => {
               useSearchStore.getState().findNext();
@@ -203,7 +204,7 @@ export const searchExtension = Extension.create({
               );
             }
 
-            editorView.dispatch(tr);
+            runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(tr));
           };
 
           let prevState = {
@@ -227,7 +228,7 @@ export const searchExtension = Extension.create({
 
             if (JSON.stringify(currentState) !== JSON.stringify(prevState)) {
               prevState = currentState;
-              editorView.dispatch(editorView.state.tr);
+              runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(editorView.state.tr));
               requestAnimationFrame(scrollToMatch);
             }
           });
@@ -247,4 +248,3 @@ export const searchExtension = Extension.create({
     ];
   },
 });
-

@@ -1,5 +1,7 @@
 // Shared DOM helpers for the image popup UI.
 
+import { isImeKeyEvent } from "@/utils/imeGuard";
+
 import type { ImageNodeType } from "@/stores/imagePopupStore";
 
 // SVG Icons (matching project style)
@@ -102,6 +104,7 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
 
 export function installImagePopupKeyboardNavigation(container: HTMLElement): () => void {
   const keydownHandler = (e: KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key !== "Tab") return;
 
     const focusable = getFocusableElements(container);
@@ -127,4 +130,3 @@ export function installImagePopupKeyboardNavigation(container: HTMLElement): () 
   document.addEventListener("keydown", keydownHandler);
   return () => document.removeEventListener("keydown", keydownHandler);
 }
-

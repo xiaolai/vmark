@@ -9,6 +9,7 @@ import type { EditorView } from "@codemirror/view";
 import type { RefObject } from "react";
 import { icons, createIcon } from "@/utils/icons";
 import { useSourceFormatStore } from "@/stores/sourceFormatStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import { setCodeFenceLanguage } from "../codeFenceActions";
 import type { CodeFenceInfo } from "../codeFenceDetection";
 import {
@@ -83,6 +84,7 @@ export function CodeMode({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
           onKeyDown={(e) => {
+            if (isImeKeyEvent(e)) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               setLanguageDropdownOpen(!languageDropdownOpen);
@@ -107,6 +109,7 @@ export function CodeMode({
                 value={languageSearch}
                 onChange={(e) => setLanguageSearch(e.target.value)}
                 onKeyDown={(e) => {
+                  if (isImeKeyEvent(e)) return;
                   if (e.key === "Escape") {
                     e.preventDefault();
                     e.stopPropagation();
@@ -143,6 +146,7 @@ export function CodeMode({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleLanguageSelect(name)}
                     onKeyDown={(e) => {
+                      if (isImeKeyEvent(e)) return;
                       if (e.key === "ArrowDown") {
                         e.preventDefault();
                         const items = containerRef.current?.querySelectorAll(

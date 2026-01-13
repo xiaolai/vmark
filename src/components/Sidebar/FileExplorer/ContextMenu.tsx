@@ -8,6 +8,7 @@ import {
   Copy,
   FolderOpen,
 } from "lucide-react";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./ContextMenu.css";
 
 export type ContextMenuType = "file" | "folder" | "empty";
@@ -79,6 +80,7 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     };
 
     const handleEscape = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       if (e.key === "Escape") {
         onClose();
       }

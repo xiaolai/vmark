@@ -8,6 +8,7 @@ import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { findAnyMarkRangeAtCursor, findMarkRange } from "@/plugins/syntaxReveal/marks";
 import { openSourcePeek } from "@/utils/sourcePeek";
+import { guardProseMirrorCommand } from "@/utils/imeGuard";
 
 interface LastRemovedMark {
   markType: string;
@@ -190,7 +191,7 @@ function escapeMarkBoundary(view: EditorView): boolean {
 
 function bindIfKey(binds: Record<string, Command>, key: string, command: Command) {
   if (!key) return;
-  binds[key] = command;
+  binds[key] = guardProseMirrorCommand(command);
 }
 
 export const editorKeymapExtension = Extension.create({
@@ -249,7 +250,7 @@ export const editorKeymapExtension = Extension.create({
       return true;
     });
 
-    bindings.Escape = (_state: EditorState, _dispatch, view) => {
+    bindings.Escape = guardProseMirrorCommand((_state: EditorState, _dispatch, view) => {
       if (!view) return false;
       const sourcePeek = useSourcePeekStore.getState();
       if (sourcePeek.isOpen) {
@@ -262,7 +263,7 @@ export const editorKeymapExtension = Extension.create({
         return true;
       }
       return escapeMarkBoundary(view);
-    };
+    });
 
     return [keymap(bindings)];
   },

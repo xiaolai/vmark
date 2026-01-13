@@ -4,6 +4,7 @@ import { liftListItem, splitListItem } from "@tiptap/pm/schema-list";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { NodeType } from "@tiptap/pm/model";
+import { guardProseMirrorCommand } from "@/utils/imeGuard";
 
 function isListItemEmpty(state: EditorState, listItemType: NodeType): boolean {
   const { $from } = state.selection;
@@ -50,9 +51,8 @@ export const listContinuationExtension = Extension.create({
   addProseMirrorPlugins() {
     return [
       keymap({
-        Enter: handleListEnter,
+        Enter: guardProseMirrorCommand(handleListEnter),
       }),
     ];
   },
 });
-

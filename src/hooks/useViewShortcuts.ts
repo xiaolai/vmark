@@ -8,10 +8,12 @@
 import { useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 export function useViewShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
       // Ignore if in input/textarea
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {

@@ -7,6 +7,7 @@ import { ColumnResizeManager } from "./columnResize";
 import { TiptapTableContextMenu } from "./TiptapTableContextMenu";
 import { addRowAbove, addRowBelow, deleteCurrentRow, isInTable } from "./tableActions.tiptap";
 import { getActiveTableElement } from "./tableDom";
+import { guardProseMirrorCommand } from "@/utils/imeGuard";
 
 interface TableUIPluginState {
   contextMenu: TiptapTableContextMenu | null;
@@ -64,16 +65,16 @@ export const tableUIExtension = Extension.create({
   name: "tableUI",
   priority: 1050,
   addProseMirrorPlugins() {
-    const goNext = goToNextCell(1);
-    const goPrev = goToNextCell(-1);
+    const goNext = guardProseMirrorCommand(goToNextCell(1));
+    const goPrev = guardProseMirrorCommand(goToNextCell(-1));
 
     return [
       keymap({
         Tab: goNext,
         "Shift-Tab": goPrev,
-        "Mod-Enter": cmdWhenInTable((view) => addRowBelow(view)),
-        "Mod-Shift-Enter": cmdWhenInTable((view) => addRowAbove(view)),
-        "Mod-Backspace": cmdWhenInTable((view) => deleteCurrentRow(view)),
+        "Mod-Enter": guardProseMirrorCommand(cmdWhenInTable((view) => addRowBelow(view))),
+        "Mod-Shift-Enter": guardProseMirrorCommand(cmdWhenInTable((view) => addRowAbove(view))),
+        "Mod-Backspace": guardProseMirrorCommand(cmdWhenInTable((view) => deleteCurrentRow(view))),
       }),
       new Plugin<TableUIPluginState>({
         key: tiptapTableUIPluginKey,

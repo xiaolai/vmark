@@ -12,6 +12,7 @@ import {
   filterLanguages,
 } from "@/plugins/sourceFormatPopup/languages";
 import { useFormatToolbarStore } from "@/stores/formatToolbarStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 /**
  * Build language picker row for code mode.
@@ -116,6 +117,7 @@ function toggleLanguageMenu(
     updateLanguageList(listContainer, searchInput.value, onLanguageChange);
   });
   searchInput.addEventListener("keydown", (e) => {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();

@@ -10,6 +10,7 @@ export function installToolbarNavigation(opts: {
   onClose: () => void;
 }) {
   const keydownHandler = (e: KeyboardEvent) => {
+    if (e.isComposing || e.keyCode === 229) return;
     if (!opts.isOpen()) return;
     if (opts.container.style.display === "none") return;
 
