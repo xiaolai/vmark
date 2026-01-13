@@ -1,12 +1,12 @@
 import { Extension } from "@tiptap/core";
 import { keymap } from "@tiptap/pm/keymap";
-import { Selection, type Command, type EditorState } from "@tiptap/pm/state";
+import { Selection, TextSelection, type Command, type EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { useUIStore } from "@/stores/uiStore";
 import { useFormatToolbarStore } from "@/stores/formatToolbarStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
-import { findAnyMarkRangeAtCursor, findMarkRange } from "@/plugins/syntaxReveal/marks";
+import { findAnyMarkRangeAtCursor, findMarkRange, findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { openSourcePeek } from "@/utils/sourcePeek";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
 
@@ -131,6 +131,28 @@ function expandedToggleMark(view: EditorView, markTypeName: string): boolean {
     return true;
   }
 
+  // Auto-format word at cursor (uses Intl.Segmenter for CJK support)
+  const wordRange = findWordAtCursor($from);
+  if (wordRange) {
+    clearLastRemoved();
+    const originalPos = from;
+    let tr = state.tr;
+    if (opposingMarkType) {
+      tr = tr.removeMark(wordRange.from, wordRange.to, opposingMarkType);
+    }
+    // Toggle: remove mark if word already has it, otherwise add
+    if (tr.doc.rangeHasMark(wordRange.from, wordRange.to, markType)) {
+      tr = tr.removeMark(wordRange.from, wordRange.to, markType);
+    } else {
+      tr = tr.addMark(wordRange.from, wordRange.to, markType.create());
+    }
+    // Restore cursor to original position
+    tr = tr.setSelection(TextSelection.create(tr.doc, originalPos));
+    dispatch(tr);
+    return true;
+  }
+
+  // Fallback: toggle stored marks (for whitespace/punctuation)
   clearLastRemoved();
   const storedMarks = state.storedMarks || $from.marks();
   if (opposingMarkType && opposingMarkType.isInSet(storedMarks)) {
