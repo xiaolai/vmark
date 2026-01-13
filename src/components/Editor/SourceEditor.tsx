@@ -40,6 +40,8 @@ import {
   tabIndentFallbackKeymap,
   shiftTabIndentFallbackKeymap,
   listContinuationKeymap,
+  tableTabKeymap,
+  tableShiftTabKeymap,
   createSmartPastePlugin,
   createSourceFocusModePlugin,
   createSourceTypewriterPlugin,
@@ -146,6 +148,9 @@ export function SourceEditor() {
         keymap.of([
           // Smart list continuation (must be before default keymap)
           listContinuationKeymap,
+          // Table Tab navigation (must be before tabEscape)
+          tableTabKeymap,
+          tableShiftTabKeymap,
           // Tab to jump over closing brackets (must be before default keymap)
           tabEscapeKeymap,
           // Backspace to delete both halves of markdown pairs
