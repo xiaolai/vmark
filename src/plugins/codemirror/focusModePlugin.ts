@@ -16,6 +16,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { useEditorStore } from "@/stores/editorStore";
+import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 
 // Decoration to mark blurred (non-focused) lines
 const blurDecoration = Decoration.line({ class: "cm-blur" });
@@ -62,8 +63,8 @@ export function createSourceFocusModePlugin() {
         this.unsubscribe = useEditorStore.subscribe((state, prevState) => {
           if (state.focusModeEnabled !== prevState.focusModeEnabled) {
             this.decorations = this.buildDecorations(view);
-            // Force view update by dispatching empty transaction
-            view.dispatch({});
+            // Force view update by dispatching empty transaction (guard IME)
+            runOrQueueCodeMirrorAction(view, () => view.dispatch({}));
           }
         });
       }

@@ -1,7 +1,13 @@
 import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { flushProseMirrorCompositionQueue, getImeCleanupPrefixLength } from "@/utils/imeGuard";
+import {
+  flushProseMirrorCompositionQueue,
+  getImeCleanupPrefixLength,
+  isImeKeyEvent,
+  isProseMirrorInCompositionGrace,
+  markProseMirrorCompositionEnd,
+} from "@/utils/imeGuard";
 
 export const compositionGuardExtension = Extension.create({
   name: "compositionGuard",
@@ -70,6 +76,11 @@ export const compositionGuardExtension = Extension.create({
           return false;
         },
         props: {
+          handleKeyDown(view, event) {
+            if (isImeKeyEvent(event)) return true;
+            if (isProseMirrorInCompositionGrace(view)) return true;
+            return false;
+          },
           handleDOMEvents: {
             compositionstart(view) {
               isComposing = true;
@@ -83,6 +94,7 @@ export const compositionGuardExtension = Extension.create({
             },
             compositionend(view, event) {
               isComposing = false;
+              markProseMirrorCompositionEnd(view);
               const data = (event as CompositionEvent).data;
               if (typeof data === "string" && data.length > 0) {
                 compositionData = data;
@@ -93,6 +105,17 @@ export const compositionGuardExtension = Extension.create({
                 flushProseMirrorCompositionQueue(view);
               });
 
+              return false;
+            },
+            blur(view) {
+              if (!isComposing) return false;
+              isComposing = false;
+              compositionStartPos = null;
+              compositionData = "";
+              markProseMirrorCompositionEnd(view);
+              requestAnimationFrame(() => {
+                flushProseMirrorCompositionQueue(view);
+              });
               return false;
             },
           },
