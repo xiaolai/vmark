@@ -8,6 +8,7 @@ import {
   useSettingsStore,
   themes,
   type ThemeId,
+  type AppearanceSettings as AppearanceSettingsType,
 } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Select } from "./components";
 
@@ -18,6 +19,86 @@ const themeLabels: Record<ThemeId, string> = {
   sepia: "Sepia",
   night: "Night",
 };
+
+/** Shared option for system default */
+const SYSTEM_DEFAULT = { value: "system", label: "System Default" };
+
+/** Font option definitions (extracted to avoid recreation on each render) */
+const fontOptions = {
+  latin: [
+    SYSTEM_DEFAULT,
+    { value: "athelas", label: "Athelas" },
+    { value: "palatino", label: "Palatino" },
+    { value: "georgia", label: "Georgia" },
+    { value: "charter", label: "Charter" },
+    { value: "literata", label: "Literata" },
+  ],
+  cjk: [
+    SYSTEM_DEFAULT,
+    { value: "pingfang", label: "PingFang SC" },
+    { value: "songti", label: "Songti SC" },
+    { value: "kaiti", label: "Kaiti SC" },
+    { value: "notoserif", label: "Noto Serif CJK" },
+    { value: "sourcehans", label: "Source Han Sans" },
+  ],
+  mono: [
+    SYSTEM_DEFAULT,
+    { value: "firacode", label: "Fira Code" },
+    { value: "jetbrains", label: "JetBrains Mono" },
+    { value: "sourcecodepro", label: "Source Code Pro" },
+    { value: "consolas", label: "Consolas" },
+    { value: "inconsolata", label: "Inconsolata" },
+  ],
+};
+
+/** Numeric option definitions */
+const numericOptions = {
+  fontSize: [
+    { value: "14", label: "14px" },
+    { value: "16", label: "16px" },
+    { value: "18", label: "18px" },
+    { value: "20", label: "20px" },
+    { value: "22", label: "22px" },
+  ],
+  lineHeight: [
+    { value: "1.4", label: "1.4 (Compact)" },
+    { value: "1.6", label: "1.6 (Normal)" },
+    { value: "1.8", label: "1.8 (Relaxed)" },
+    { value: "2.0", label: "2.0 (Spacious)" },
+  ],
+  paragraphSpacing: [
+    { value: "0.5", label: "0.5em (Tight)" },
+    { value: "1", label: "1em (Normal)" },
+    { value: "1.5", label: "1.5em (Relaxed)" },
+    { value: "2", label: "2em (Spacious)" },
+  ],
+  editorWidth: [
+    { value: "36", label: "36em (Compact)" },
+    { value: "42", label: "42em (Narrow)" },
+    { value: "50", label: "50em (Medium)" },
+    { value: "60", label: "60em (Wide)" },
+    { value: "80", label: "80em (Extra Wide)" },
+    { value: "0", label: "Unlimited" },
+  ],
+};
+
+/** Typography settings configuration for data-driven rendering */
+type TypographyConfig = {
+  label: string;
+  key: keyof AppearanceSettingsType;
+  options: { value: string; label: string }[];
+  isNumeric: boolean;
+};
+
+const typographySettings: TypographyConfig[] = [
+  { label: "Latin Font", key: "latinFont", options: fontOptions.latin, isNumeric: false },
+  { label: "CJK Font", key: "cjkFont", options: fontOptions.cjk, isNumeric: false },
+  { label: "Mono Font", key: "monoFont", options: fontOptions.mono, isNumeric: false },
+  { label: "Font Size", key: "fontSize", options: numericOptions.fontSize, isNumeric: true },
+  { label: "Line Height", key: "lineHeight", options: numericOptions.lineHeight, isNumeric: true },
+  { label: "Paragraph Spacing", key: "paragraphSpacing", options: numericOptions.paragraphSpacing, isNumeric: true },
+  { label: "Editor Width", key: "editorWidth", options: numericOptions.editorWidth, isNumeric: true },
+];
 
 export function AppearanceSettings() {
   const appearance = useSettingsStore((state) => state.appearance);
@@ -33,6 +114,7 @@ export function AppearanceSettings() {
           {(Object.keys(themes) as ThemeId[]).map((id) => (
             <button
               key={id}
+              type="button"
               onClick={() => updateSetting("theme", id)}
               className="flex flex-col items-center gap-1.5"
             >
@@ -52,7 +134,7 @@ export function AppearanceSettings() {
                   ? "text-[var(--text-primary)]"
                   : "text-[var(--text-tertiary)]"
               }`}>
-                {themeLabels[id]}
+                {themeLabels[id] ?? id}
               </span>
             </button>
           ))}
@@ -61,98 +143,17 @@ export function AppearanceSettings() {
 
       {/* Typography */}
       <SettingsGroup title="Typography">
-        <SettingRow label="Latin Font">
-          <Select
-            value={appearance.latinFont}
-            options={[
-              { value: "system", label: "System Default" },
-              { value: "athelas", label: "Athelas" },
-              { value: "palatino", label: "Palatino" },
-              { value: "georgia", label: "Georgia" },
-              { value: "charter", label: "Charter" },
-              { value: "literata", label: "Literata" },
-            ]}
-            onChange={(v) => updateSetting("latinFont", v)}
-          />
-        </SettingRow>
-        <SettingRow label="CJK Font">
-          <Select
-            value={appearance.cjkFont}
-            options={[
-              { value: "system", label: "System Default" },
-              { value: "pingfang", label: "PingFang SC" },
-              { value: "songti", label: "Songti SC" },
-              { value: "kaiti", label: "Kaiti SC" },
-              { value: "notoserif", label: "Noto Serif CJK" },
-              { value: "sourcehans", label: "Source Han Sans" },
-            ]}
-            onChange={(v) => updateSetting("cjkFont", v)}
-          />
-        </SettingRow>
-        <SettingRow label="Mono Font">
-          <Select
-            value={appearance.monoFont}
-            options={[
-              { value: "system", label: "System Default" },
-              { value: "firacode", label: "Fira Code" },
-              { value: "jetbrains", label: "JetBrains Mono" },
-              { value: "sourcecodepro", label: "Source Code Pro" },
-              { value: "consolas", label: "Consolas" },
-              { value: "inconsolata", label: "Inconsolata" },
-            ]}
-            onChange={(v) => updateSetting("monoFont", v)}
-          />
-        </SettingRow>
-        <SettingRow label="Font Size">
-          <Select
-            value={String(appearance.fontSize)}
-            options={[
-              { value: "14", label: "14px" },
-              { value: "16", label: "16px" },
-              { value: "18", label: "18px" },
-              { value: "20", label: "20px" },
-              { value: "22", label: "22px" },
-            ]}
-            onChange={(v) => updateSetting("fontSize", Number(v))}
-          />
-        </SettingRow>
-        <SettingRow label="Line Height">
-          <Select
-            value={String(appearance.lineHeight)}
-            options={[
-              { value: "1.4", label: "1.4 (Compact)" },
-              { value: "1.6", label: "1.6 (Normal)" },
-              { value: "1.8", label: "1.8 (Relaxed)" },
-              { value: "2.0", label: "2.0 (Spacious)" },
-            ]}
-            onChange={(v) => updateSetting("lineHeight", Number(v))}
-          />
-        </SettingRow>
-        <SettingRow label="Paragraph Spacing">
-          <Select
-            value={String(appearance.paragraphSpacing)}
-            options={[
-              { value: "0.5", label: "0.5em (Tight)" },
-              { value: "1", label: "1em (Normal)" },
-              { value: "1.5", label: "1.5em (Relaxed)" },
-              { value: "2", label: "2em (Spacious)" },
-            ]}
-            onChange={(v) => updateSetting("paragraphSpacing", Number(v))}
-          />
-        </SettingRow>
-        <SettingRow label="Editor Width">
-          <Select
-            value={String(appearance.editorWidth)}
-            options={[
-              { value: "60", label: "60em (Narrow)" },
-              { value: "80", label: "80em (Medium)" },
-              { value: "100", label: "100em (Wide)" },
-              { value: "120", label: "120em (Extra Wide)" },
-              { value: "0", label: "Unlimited" },
-            ]}
-            onChange={(v) => updateSetting("editorWidth", Number(v))}
-          />
-        </SettingRow>
+        {typographySettings.map(({ label, key, options, isNumeric }) => (
+          <SettingRow key={key} label={label}>
+            <Select
+              value={String(appearance[key])}
+              options={options}
+              onChange={(v) =>
+                updateSetting(key, isNumeric ? Number(v) : v)
+              }
+            />
+          </SettingRow>
+        ))}
       </SettingsGroup>
     </div>
   );

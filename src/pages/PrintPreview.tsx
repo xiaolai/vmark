@@ -8,7 +8,19 @@
 import { useEffect, useState } from "react";
 import { markdownToHtml } from "@/utils/exportUtils";
 
-// GitHub-style print CSS
+/** Storage key for print content (shared with main window) */
+const PRINT_CONTENT_KEY = "vmark-print-content";
+
+/** Delay before triggering print dialog (ms) */
+const PRINT_DELAY_MS = 300;
+
+/** Delay before showing error if content never arrives (ms) */
+const ERROR_DELAY_MS = 2000;
+
+/** Shared styles for status messages */
+const statusStyle = { padding: 24 } as const;
+
+/** GitHub-style print CSS */
 const printStyles = `
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
@@ -54,8 +66,7 @@ pre {
   padding: 16px;
   overflow: auto;
   border-radius: 6px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
 }
 
 pre code {
@@ -78,13 +89,18 @@ ul, ol {
 
 table {
   border-collapse: collapse;
-  width: 100%;
+  width: max-content;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+  table-layout: auto;
   margin-bottom: 16px;
 }
 
 th, td {
   padding: 6px 13px;
   border: 1px solid #d1d5da;
+  white-space: nowrap;
 }
 
 th {
@@ -117,26 +133,30 @@ export function PrintPreviewPage() {
 
   useEffect(() => {
     // Read content from localStorage (set by main window before opening this window)
-    const markdown = localStorage.getItem("vmark-print-content");
-    if (markdown) {
+    const markdown = localStorage.getItem(PRINT_CONTENT_KEY);
+    // Use !== null to allow empty documents (empty string is valid content)
+    if (markdown !== null) {
       const html = markdownToHtml(markdown);
       setHtmlContent(html);
       setReady(true);
 
       // Clean up
-      localStorage.removeItem("vmark-print-content");
+      localStorage.removeItem(PRINT_CONTENT_KEY);
 
       // Auto-trigger print after content is rendered
-      setTimeout(() => {
+      const printTimeout = setTimeout(() => {
         window.print();
-      }, 300);
+      }, PRINT_DELAY_MS);
+
+      // Clear timeout if component unmounts before print fires
+      return () => clearTimeout(printTimeout);
     } else {
       // Set timeout to show error if content never arrives
-      const timeout = setTimeout(() => {
+      const errorTimeout = setTimeout(() => {
         setError("No content available for preview. Please try again.");
-      }, 2000);
+      }, ERROR_DELAY_MS);
 
-      return () => clearTimeout(timeout);
+      return () => clearTimeout(errorTimeout);
     }
   }, []);
 
@@ -148,12 +168,12 @@ export function PrintPreviewPage() {
         dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
       {!ready && !error && (
-        <div style={{ padding: 24, color: "#666" }}>
+        <div style={{ ...statusStyle, color: "#666" }}>
           Loading preview...
         </div>
       )}
       {error && (
-        <div style={{ padding: 24, color: "#cf222e" }}>
+        <div style={{ ...statusStyle, color: "#cf222e" }}>
           {error}
         </div>
       )}

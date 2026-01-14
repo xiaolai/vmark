@@ -1,6 +1,35 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+/**
+ * Deep merge utility for settings migration.
+ * Merges persisted state into current defaults, preserving new default properties.
+ */
+function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
+  const result = { ...target };
+  for (const key of Object.keys(source) as Array<keyof T>) {
+    const sourceValue = source[key];
+    const targetValue = target[key];
+    if (
+      sourceValue !== null &&
+      typeof sourceValue === "object" &&
+      !Array.isArray(sourceValue) &&
+      targetValue !== null &&
+      typeof targetValue === "object" &&
+      !Array.isArray(targetValue)
+    ) {
+      result[key] = deepMerge(
+        targetValue as Record<string, unknown>,
+        sourceValue as Record<string, unknown>
+      ) as T[keyof T];
+    } else if (sourceValue !== undefined && sourceValue !== null) {
+      // Skip null values to preserve defaults (null from corrupted localStorage)
+      result[key] = sourceValue as T[keyof T];
+    }
+  }
+  return result;
+}
+
 export type ThemeId = "white" | "paper" | "mint" | "sepia" | "night";
 
 export interface ThemeColors {
@@ -64,7 +93,7 @@ export const themes: Record<ThemeId, ThemeColors> = {
   },
 };
 
-interface AppearanceSettings {
+export interface AppearanceSettings {
   theme: ThemeId;
   latinFont: string;
   cjkFont: string;
@@ -185,7 +214,7 @@ const initialState: SettingsState = {
     fontSize: 18,
     lineHeight: 1.6,
     paragraphSpacing: 1,
-    editorWidth: 100, // em units, 0 = unlimited
+    editorWidth: 50, // em units, 0 = unlimited (50em ≈ 900px at 18px font)
   },
   cjkFormatting: {
     // Group 1: Universal
@@ -264,6 +293,12 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           removeItem: () => {},
         }
       ),
+      // Deep merge to preserve new default properties when loading old localStorage
+      merge: (persistedState, currentState) =>
+        deepMerge(
+          currentState as unknown as Record<string, unknown>,
+          (persistedState ?? {}) as Record<string, unknown>
+        ) as unknown as typeof currentState,
     }
   )
 );
