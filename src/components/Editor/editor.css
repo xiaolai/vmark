@@ -270,11 +270,8 @@
   padding: 0;
   word-break: initial;
   border-collapse: collapse;
-  width: max-content;
-  max-width: 100%;
+  width: 100%;
   margin: 0.8em 0;
-  display: block;
-  overflow-x: auto;
   table-layout: auto;
 }
 
