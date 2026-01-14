@@ -28,10 +28,12 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.25;
 }
 
-h1 { font-size: 2em; border-bottom: 1px solid #d1d5da; padding-bottom: 0.3em; }
+h1 { font-size: 1.75em; border-bottom: 1px solid #d1d5da; padding-bottom: 0.3em; }
 h2 { font-size: 1.5em; border-bottom: 1px solid #d1d5da; padding-bottom: 0.3em; }
 h3 { font-size: 1.25em; }
 h4 { font-size: 1em; }
+h5 { font-size: 0.875em; }
+h6 { font-size: 0.85em; color: #6e7781; }
 
 p { margin-top: 0; margin-bottom: 16px; }
 

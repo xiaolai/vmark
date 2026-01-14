@@ -103,39 +103,36 @@
   margin-top: 1rem;
   margin-bottom: 1rem;
   font-weight: bold;
-  line-height: 1.6;
+  line-height: 1.25;
   cursor: text;
 }
 
 .tiptap-editor h1 {
-  font-size: 2.25em;
-  line-height: 1.5;
+  font-size: 1.75em;
   padding-bottom: 0.3em;
   border-bottom: 1px solid var(--border-color);
 }
 
 .tiptap-editor h2 {
-  font-size: 1.75em;
-  line-height: 1.45;
+  font-size: 1.5em;
   padding-bottom: 0.3em;
   border-bottom: 1px solid var(--border-color);
 }
 
 .tiptap-editor h3 {
-  font-size: 1.5em;
-  line-height: 1.4;
-}
-
-.tiptap-editor h4 {
   font-size: 1.25em;
 }
 
-.tiptap-editor h5 {
+.tiptap-editor h4 {
   font-size: 1em;
 }
 
+.tiptap-editor h5 {
+  font-size: 0.875em;
+}
+
 .tiptap-editor h6 {
-  font-size: 1em;
+  font-size: 0.85em;
   color: var(--meta-content-color);
 }
 
