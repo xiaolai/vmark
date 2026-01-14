@@ -18,7 +18,7 @@
   padding: 10px 12px;
   cursor: pointer;
   font-weight: 600;
-  background-color: var(--details-header-bg, #f6f8fa);
+  background-color: var(--details-header-bg, var(--bg-secondary, #f6f8fa));
   border-bottom: 1px solid transparent;
   display: flex;
   align-items: center;
@@ -53,7 +53,7 @@
 /* Hover state */
 .details-block > summary:hover,
 .details-summary:hover {
-  background-color: var(--details-header-hover-bg, #eaeef2);
+  background-color: var(--details-header-hover-bg, var(--bg-tertiary, #eaeef2));
 }
 
 /* Open state - rotate triangle */
@@ -89,10 +89,4 @@
   margin-bottom: 0;
 }
 
-/* ===================
-   DARK MODE
-   =================== */
-.dark-theme .details-block {
-  --details-header-bg: var(--bg-secondary);
-  --details-header-hover-bg: var(--bg-tertiary);
-}
+/* Dark mode uses the same CSS variables - no override needed */

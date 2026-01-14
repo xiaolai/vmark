@@ -3,7 +3,10 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0; /* Prevent flex child from expanding beyond parent */
   height: 100%;
+  width: 100%;
+  overflow: hidden; /* Constrain content to container bounds */
   background-color: var(--bg-color);
 }
 
@@ -11,28 +14,35 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden; /* Prevent horizontal overflow */
   padding: 0 2em 28px; /* top: 0, left/right: 2em, bottom: statusbar height */
   transition: padding-bottom 0.15s ease-out;
+  /* Flexbox centering for narrow editor width settings */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%; /* Constrain to parent width */
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
-/* Center content when window exceeds max-width */
+/* Width constraint - works with parent flexbox centering */
 .tiptap-editor,
 .source-editor {
+  width: 100%;
   max-width: var(--editor-width, 100em);
-  margin-left: auto;
-  margin-right: auto;
 }
 
 /* WYSIWYG Editor Styles - GitHub Theme */
 /* Note: `.tiptap-editor` is the style-scope class applied to the Tiptap wrapper. */
 .tiptap-editor {
-  width: 100%;
+  /* No explicit width - block elements expand naturally to max-width with auto margins */
   height: 100%;
   min-height: 100%;
   font-family: var(--font-sans);
   font-size: var(--editor-font-size, 18px);
   line-height: var(--editor-line-height, 1.6);
   color: var(--text-color);
+  overflow-wrap: break-word; /* Break long unbroken words to prevent overflow */
 }
 
 .tiptap-editor > div {
@@ -222,6 +232,8 @@
   border-radius: 3px;
   overflow-x: auto;
   margin: 15px 0;
+  max-width: 100%;
+  white-space: pre;
 }
 
 .tiptap-editor pre code {
@@ -258,8 +270,12 @@
   padding: 0;
   word-break: initial;
   border-collapse: collapse;
-  width: 100%;
+  width: max-content;
+  max-width: 100%;
   margin: 0.8em 0;
+  display: block;
+  overflow-x: auto;
+  table-layout: auto;
 }
 
 .tiptap-editor table tr {
@@ -283,6 +299,7 @@
   margin: 0;
   padding: 4px 10px;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .tiptap-editor th:first-child,
@@ -540,7 +557,7 @@
 
 /* Source editor (CodeMirror) - matches WYSIWYG styling */
 .source-editor {
-  width: 100%;
+  /* No explicit width - block elements expand naturally to max-width with auto margins */
   min-height: 100%;
 }
 
