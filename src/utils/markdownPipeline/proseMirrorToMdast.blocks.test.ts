@@ -133,4 +133,15 @@ describe("proseMirrorToMdast blocks", () => {
 
     expect(md).toContain("![alt](image.png)");
   });
+
+  it("serializes footnote definitions", () => {
+    const md = pmToMarkdown([
+      testSchema.node("footnote_definition", { label: "1" }, [
+        testSchema.node("paragraph", null, [testSchema.text("Footnote content")]),
+      ]),
+    ]);
+
+    expect(md).toContain("[^1]:");
+    expect(md).toContain("Footnote content");
+  });
 });

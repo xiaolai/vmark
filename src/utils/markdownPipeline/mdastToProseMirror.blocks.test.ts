@@ -87,4 +87,10 @@ describe("mdastToProseMirror blocks", () => {
     const doc = parseDoc("![alt](image.png)");
     expect(doc.firstChild?.type.name).toBe("block_image");
   });
+
+  it("converts footnote definitions", () => {
+    const doc = parseDoc("[^1]: This is a footnote");
+    expect(doc.firstChild?.type.name).toBe("footnote_definition");
+    expect(doc.firstChild?.attrs.label).toBe("1");
+  });
 });

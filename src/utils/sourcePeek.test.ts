@@ -41,7 +41,7 @@ function createSchema() {
 describe("sourcePeek helpers", () => {
   it("builds a top-level block range for the selection", () => {
     const schema = createSchema();
-    const doc = parseMarkdown(schema, "Alpha\n\nBeta", { useRemark: true });
+    const doc = parseMarkdown(schema, "Alpha\n\nBeta");
     const selection = TextSelection.create(doc, 1);
     const state = EditorState.create({ doc, selection });
 
@@ -54,7 +54,7 @@ describe("sourcePeek helpers", () => {
 
   it("serializes the selection range to markdown", () => {
     const schema = createSchema();
-    const doc = parseMarkdown(schema, "Alpha\n\nBeta", { useRemark: true });
+    const doc = parseMarkdown(schema, "Alpha\n\nBeta");
     const selection = TextSelection.create(doc, 1);
     const state = EditorState.create({ doc, selection });
 

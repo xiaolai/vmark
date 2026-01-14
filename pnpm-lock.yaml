@@ -119,9 +119,6 @@ importers:
       lucide-react:
         specifier: ^0.562.0
         version: 0.562.0(react@19.2.3)
-      markdown-it:
-        specifier: ^14.1.0
-        version: 14.1.0
       marked:
         specifier: ^17.0.1
         version: 17.0.1
@@ -137,9 +134,6 @@ importers:
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0
-      prosemirror-markdown:
-        specifier: ^1.13.2
-        version: 1.13.2
       react:
         specifier: ^19.1.0
         version: 19.2.3
@@ -201,9 +195,6 @@ importers:
       '@types/katex':
         specifier: ^0.16.7
         version: 0.16.7
-      '@types/markdown-it':
-        specifier: ^14.1.2
-        version: 14.1.2
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4

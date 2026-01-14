@@ -139,7 +139,7 @@ export function TiptapEditorInner() {
         pendingRaf.current = null;
       }
 
-      const markdown = serializeMarkdown(editor.schema, editor.state.doc, { useRemark: true });
+      const markdown = serializeMarkdown(editor.schema, editor.state.doc);
       isInternalChange.current = true;
       lastExternalContent.current = markdown;
       setContent(markdown);
@@ -176,7 +176,7 @@ export function TiptapEditorInner() {
     },
     onCreate: ({ editor }) => {
       try {
-        const doc = parseMarkdown(editor.schema, content, { useRemark: true });
+        const doc = parseMarkdown(editor.schema, content);
         lastExternalContent.current = content;
         editor.commands.setContent(doc, { emitUpdate: false });
       } catch (error) {
@@ -258,7 +258,7 @@ export function TiptapEditorInner() {
     if (content === lastExternalContent.current) return;
 
     try {
-      const doc = parseMarkdown(editor.schema, content, { useRemark: true });
+      const doc = parseMarkdown(editor.schema, content);
       editor.commands.setContent(doc, { emitUpdate: false });
       // Only update lastExternalContent after successful parse to allow retry on failure
       lastExternalContent.current = content;

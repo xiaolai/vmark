@@ -64,4 +64,15 @@ describe("proseMirrorToMdast inline", () => {
 
     expect(md).toContain("++underlined++");
   });
+
+  it("serializes footnote references", () => {
+    const md = pmToMarkdown([
+      testSchema.node("paragraph", null, [
+        testSchema.text("Hello "),
+        testSchema.node("footnote_reference", { label: "1" }),
+      ]),
+    ]);
+
+    expect(md).toContain("[^1]");
+  });
 });

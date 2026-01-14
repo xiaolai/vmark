@@ -75,4 +75,13 @@ describe("mdastToProseMirror inline", () => {
     expect(htmlNode?.attrs.value).toContain('style="color: red;"');
     expect(htmlNode?.attrs.value).toContain("Hello");
   });
+
+  it("converts footnote references", () => {
+    // Footnote refs need matching definitions to be parsed as footnotes
+    const doc = parseDoc("Hello [^1]\n\n[^1]: note");
+    const para = doc.firstChild;
+    const footnoteRef = para?.content.content.find((child) => child.type.name === "footnote_reference");
+    expect(footnoteRef).toBeDefined();
+    expect(footnoteRef?.attrs.label).toBe("1");
+  });
 });

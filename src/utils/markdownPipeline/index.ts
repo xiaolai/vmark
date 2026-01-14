@@ -8,10 +8,8 @@
  * @module utils/markdownPipeline
  *
  * @example
- * // Use the adapter with feature flag
- * import { parseMarkdown, serializeMarkdown, setUseRemarkPipeline } from './markdownPipeline';
+ * import { parseMarkdown, serializeMarkdown } from './markdownPipeline';
  *
- * setUseRemarkPipeline(true); // Enable remark pipeline
  * const doc = parseMarkdown(schema, "# Hello");
  * const md = serializeMarkdown(schema, doc);
  *
@@ -21,14 +19,8 @@
  * const md = serializeMdastToMarkdown(mdast);
  */
 
-// Adapter - unified interface with feature flag
-export {
-  parseMarkdown,
-  serializeMarkdown,
-  setUseRemarkPipeline,
-  getUseRemarkPipeline,
-  type PipelineOptions,
-} from "./adapter";
+// Adapter - unified interface
+export { parseMarkdown, serializeMarkdown } from "./adapter";
 
 // Core parsing/serialization
 export { parseMarkdownToMdast } from "./parser";
