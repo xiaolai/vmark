@@ -36,14 +36,13 @@ function useSettingsClose() {
   useEffect(() => {
     const currentWindow = getCurrentWebviewWindow();
 
-    const handleClose = async () => {
-      const isFocused = await currentWindow.isFocused();
-      if (isFocused) {
+    // Note: menu:close now includes target window label in payload
+    // Settings window should only close when it's the target
+    const unlistenPromise = listen<string>("menu:close", async (event) => {
+      if (event.payload === "settings") {
         await currentWindow.close();
       }
-    };
-
-    const unlistenPromise = listen("menu:close", handleClose);
+    });
 
     return () => {
       unlistenPromise.then((fn) => fn());
