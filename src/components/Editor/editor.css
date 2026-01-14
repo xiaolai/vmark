@@ -11,8 +11,16 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 28px 10%; /* top/bottom matches find-bar row height */
+  padding: 0 2em 28px; /* top: 0, left/right: 2em, bottom: statusbar height */
   transition: padding-bottom 0.15s ease-out;
+}
+
+/* Center content when window exceeds max-width */
+.tiptap-editor,
+.source-editor {
+  max-width: var(--editor-width, 100em);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* WYSIWYG Editor Styles - GitHub Theme */

@@ -115,5 +115,11 @@ export function useTheme() {
       `${appearance.paragraphSpacing}em`
     );
 
+    // Editor width (0 = unlimited)
+    root.style.setProperty(
+      "--editor-width",
+      appearance.editorWidth > 0 ? `${appearance.editorWidth}em` : "none"
+    );
+
   }, [appearance]);
 }

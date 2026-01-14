@@ -140,6 +140,19 @@ export function AppearanceSettings() {
             onChange={(v) => updateSetting("paragraphSpacing", Number(v))}
           />
         </SettingRow>
+        <SettingRow label="Editor Width">
+          <Select
+            value={String(appearance.editorWidth)}
+            options={[
+              { value: "60", label: "60em (Narrow)" },
+              { value: "80", label: "80em (Medium)" },
+              { value: "100", label: "100em (Wide)" },
+              { value: "120", label: "120em (Extra Wide)" },
+              { value: "0", label: "Unlimited" },
+            ]}
+            onChange={(v) => updateSetting("editorWidth", Number(v))}
+          />
+        </SettingRow>
       </SettingsGroup>
     </div>
   );

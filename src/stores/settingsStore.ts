@@ -72,6 +72,7 @@ interface AppearanceSettings {
   fontSize: number;
   lineHeight: number;
   paragraphSpacing: number;
+  editorWidth: number; // Max content width in em (0 = unlimited)
 }
 
 export interface CJKFormattingSettings {
@@ -184,6 +185,7 @@ const initialState: SettingsState = {
     fontSize: 18,
     lineHeight: 1.6,
     paragraphSpacing: 1,
+    editorWidth: 100, // em units, 0 = unlimited
   },
   cjkFormatting: {
     // Group 1: Universal
