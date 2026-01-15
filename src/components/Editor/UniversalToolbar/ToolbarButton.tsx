@@ -7,7 +7,6 @@
  * @module components/Editor/UniversalToolbar/ToolbarButton
  */
 import type { ToolbarGroupButton as ButtonDef } from "./toolbarGroups";
-import { icons } from "@/utils/icons";
 
 interface ToolbarButtonProps {
   button: ButtonDef;
@@ -64,12 +63,6 @@ export function ToolbarButton({
         className="universal-toolbar-icon"
         dangerouslySetInnerHTML={{ __html: button.icon }}
       />
-      {button.type === "dropdown" && (
-        <span
-          className="universal-toolbar-caret"
-          dangerouslySetInnerHTML={{ __html: icons.chevronUp }}
-        />
-      )}
     </button>
   );
 }
