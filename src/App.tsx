@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { StatusBar } from "@/components/StatusBar";
 import { FindBar } from "@/components/FindBar";
 import { TitleBar } from "@/components/TitleBar";
+import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
 import { SettingsPage } from "@/pages/Settings";
 import { PrintPreviewPage } from "@/pages/PrintPreview";
 import { WindowProvider, useIsDocumentWindow } from "@/contexts/WindowContext";
@@ -71,6 +72,7 @@ import { useReloadGuard } from "@/hooks/useReloadGuard";
 import { useDragDropOpen } from "@/hooks/useDragDropOpen";
 import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 import { useSidebarResize } from "@/hooks/useSidebarResize";
+import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
 
 /** Height of the title bar area in pixels */
 const TITLEBAR_HEIGHT = 40;
@@ -110,6 +112,7 @@ function MainLayout() {
   useViewShortcuts(); // F7, F8, F9 shortcuts
   useTabShortcuts(); // Cmd+T, Cmd+W tab shortcuts
   useReloadGuard(); // Prevent reload when dirty
+  useUniversalToolbar(); // Ctrl+E universal toolbar toggle
 
   const classNames = [
     "app-layout",
@@ -168,6 +171,7 @@ function MainLayout() {
         <div style={{ flex: 1, minHeight: 0, minWidth: 0, marginBottom: TITLEBAR_HEIGHT }}>
           <Editor />
         </div>
+        <UniversalToolbar />
         <FindBar />
         <StatusBar />
       </div>

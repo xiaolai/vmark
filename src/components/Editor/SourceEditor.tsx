@@ -54,7 +54,6 @@ import {
   sourceFormatExtension,
   SourceFormatPopup,
   toggleTablePopup,
-  triggerFormatPopup,
   applyFormat,
 } from "@/plugins/sourceFormatPopup";
 import { guardCodeMirrorKeyBinding, runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
@@ -185,12 +184,8 @@ export function SourceEditor() {
             run: (view) => toggleTablePopup(view),
             preventDefault: true,
           }),
-          // Ctrl+E: trigger format popup at cursor (context-aware)
-          guardCodeMirrorKeyBinding({
-            key: "Ctrl-e",
-            run: (view) => triggerFormatPopup(view),
-            preventDefault: true,
-          }),
+          // Note: Ctrl+E is now handled by the universal toolbar (useUniversalToolbar hook)
+          // The context-aware popup is retired in favor of the universal toolbar.
           // Cmd+`: inline code (reassigned from Cmd+E)
           guardCodeMirrorKeyBinding({
             key: "Mod-`",

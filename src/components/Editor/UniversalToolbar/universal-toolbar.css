@@ -1,0 +1,116 @@
+/**
+ * UniversalToolbar styles
+ *
+ * Follows FindBar geometry for consistent bottom-bar alignment:
+ * - Height: 40px (--universal-toolbar-height)
+ * - Padding: 6px 12px
+ * - Row height: 28px
+ * - Z-index: 102 (above FindBar at 101, StatusBar at 100)
+ */
+
+.universal-toolbar {
+  --universal-toolbar-height: 40px;
+
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--universal-toolbar-height);
+  padding: 6px 12px;
+  z-index: 102;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+
+  /* Slide-up animation matching FindBar */
+  animation: universal-toolbar-slide-up 0.15s ease-out;
+}
+
+@keyframes universal-toolbar-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Button row container (28px height like FindBar) */
+.universal-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+}
+
+/* Group separator */
+.universal-toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background-color: var(--color-border);
+  margin: 0 4px;
+}
+
+/* Button styles */
+.universal-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.universal-toolbar-btn:hover:not(:disabled) {
+  background-color: var(--color-hover);
+}
+
+.universal-toolbar-btn:active:not(:disabled) {
+  background-color: var(--color-active);
+}
+
+.universal-toolbar-btn.active {
+  background-color: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.universal-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.universal-toolbar-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Icon container */
+.universal-toolbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.universal-toolbar-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
