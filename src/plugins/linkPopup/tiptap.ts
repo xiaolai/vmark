@@ -7,9 +7,11 @@
 
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { Mark } from "@tiptap/pm/model";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import { findHeadingById } from "@/utils/headingSlug";
 import { LinkPopupView } from "./LinkPopupView";
 
 const linkPopupPluginKey = new PluginKey("linkPopup");
@@ -84,17 +86,49 @@ function findLinkMarkRange(view: EditorView, pos: number): MarkRange | null {
 const HOVER_DELAY = 300;
 
 /**
- * Click handler: Cmd/Ctrl+click opens link in browser.
+ * Navigate to a heading within the document by scrolling and placing cursor.
+ */
+function navigateToFragment(view: EditorView, targetId: string): boolean {
+  const pos = findHeadingById(view.state.doc, targetId);
+  if (pos === null) return false;
+
+  try {
+    // Set selection near the heading
+    const $pos = view.state.doc.resolve(pos + 1);
+    const selection = TextSelection.near($pos);
+    view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+    view.focus();
+    return true;
+  } catch (error) {
+    console.error("[LinkPopup] Fragment navigation error:", error);
+    return false;
+  }
+}
+
+/**
+ * Click handler: Cmd/Ctrl+click opens link in browser or navigates to fragment.
  * Regular click just places cursor (default behavior).
  */
 function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean {
   try {
-    // Cmd/Ctrl + click: open link in browser
+    // Cmd/Ctrl + click: open link or navigate to fragment
     if (event.metaKey || event.ctrlKey) {
       const linkRange = findLinkMarkRange(view, pos);
       if (linkRange) {
-        const href = linkRange.mark.attrs.href;
+        const href = linkRange.mark.attrs.href as string;
         if (href) {
+          // Handle fragment links (internal navigation)
+          if (href.startsWith("#")) {
+            const targetId = href.slice(1);
+            if (navigateToFragment(view, targetId)) {
+              event.preventDefault();
+              return true;
+            }
+            // Fragment not found - don't try to open as external URL
+            return false;
+          }
+
+          // External link - open in browser
           import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
             openUrl(href).catch(console.error);
           });
