@@ -5,7 +5,9 @@ import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
 import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveBlockquote, handleListIndent, handleListOutdent, handleRemoveList, handleToBulletList, handleToOrderedList } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { addColLeft, addColRight, addRowAbove, addRowBelow, alignColumn, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable } from "@/plugins/tableUI/tableActions.tiptap";
+import { useHeadingPickerStore } from "@/stores/headingPickerStore";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import { extractHeadingsWithIds } from "@/utils/headingSlug";
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
 import type { WysiwygToolbarContext } from "./types";
@@ -220,8 +222,9 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
     case "link:wikiEmbed":
       return insertWikiEmbed(context);
     case "link:bookmark":
+      return insertBookmarkLink(context);
     case "link:reference":
-      // Not yet implemented - requires heading picker / reference manager
+      // Not yet implemented - requires reference manager
       return false;
     default:
       return false;
@@ -265,5 +268,44 @@ function insertWikiEmbed(context: WysiwygToolbarContext): boolean {
 
   dispatch(state.tr.replaceSelectionWith(node));
   view.focus();
+  return true;
+}
+
+function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
+  const view = context.view;
+  if (!view) return false;
+
+  const { state } = view;
+  const headings = extractHeadingsWithIds(state.doc);
+
+  if (headings.length === 0) {
+    return false;
+  }
+
+  const { from, to } = state.selection;
+  const selectedText = from !== to ? state.doc.textBetween(from, to) : "";
+
+  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
+    const linkMark = state.schema.marks.link;
+    if (!linkMark) return;
+
+    const href = `#${id}`;
+    const linkText = selectedText || text;
+
+    // Create link with the heading's ID as href
+    const tr = state.tr;
+    if (from === to) {
+      // No selection - insert new text with link mark
+      const textNode = state.schema.text(linkText, [linkMark.create({ href })]);
+      tr.insert(from, textNode);
+    } else {
+      // Has selection - apply link mark to it
+      tr.addMark(from, to, linkMark.create({ href }));
+    }
+
+    view.dispatch(tr);
+    view.focus();
+  });
+
   return true;
 }

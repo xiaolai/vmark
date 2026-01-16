@@ -9,6 +9,8 @@ import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sou
 import { getListItemInfo, indentListItem, outdentListItem, removeList, toBulletList, toOrderedList, toTaskList } from "@/plugins/sourceFormatPopup/listDetection";
 import { getSourceTableInfo } from "@/plugins/sourceFormatPopup/tableDetection";
 import { deleteColumn, deleteRow, deleteTable, insertColumnLeft, insertColumnRight, insertRowAbove, insertRowBelow, setAllColumnsAlignment, setColumnAlignment } from "@/plugins/sourceFormatPopup/tableActions";
+import { useHeadingPickerStore } from "@/stores/headingPickerStore";
+import { generateSlug, makeUniqueSlug, type HeadingWithId } from "@/utils/headingSlug";
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import type { SourceToolbarContext } from "./types";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./sourceMultiSelection";
@@ -87,6 +89,52 @@ function insertWikiSyntax(view: EditorView, prefix: string, suffix: string, defa
     selection: { anchor: from + cursorOffset },
   });
   view.focus();
+  return true;
+}
+
+function extractMarkdownHeadings(text: string): HeadingWithId[] {
+  const headings: HeadingWithId[] = [];
+  const usedSlugs = new Set<string>();
+  const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+  let match;
+
+  while ((match = headingRegex.exec(text)) !== null) {
+    const level = match[1].length;
+    const headingText = match[2].trim();
+    const baseSlug = generateSlug(headingText);
+    const id = makeUniqueSlug(baseSlug, usedSlugs);
+
+    if (id) {
+      usedSlugs.add(id);
+      headings.push({ level, text: headingText, id, pos: match.index });
+    }
+  }
+
+  return headings;
+}
+
+function insertSourceBookmarkLink(view: EditorView): boolean {
+  const docText = view.state.doc.toString();
+  const headings = extractMarkdownHeadings(docText);
+
+  if (headings.length === 0) {
+    return false;
+  }
+
+  const { from, to } = view.state.selection.main;
+  const selectedText = from !== to ? view.state.doc.sliceString(from, to) : "";
+
+  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
+    const linkText = selectedText || text;
+    const markdown = `[${linkText}](#${id})`;
+
+    view.dispatch({
+      changes: { from, to, insert: markdown },
+      selection: { anchor: from + markdown.length },
+    });
+    view.focus();
+  });
+
   return true;
 }
 
@@ -171,8 +219,9 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
     case "link:wikiEmbed":
       return insertWikiSyntax(view, "![[", "]]", "file");
     case "link:bookmark":
+      return insertSourceBookmarkLink(view);
     case "link:reference":
-      // Not yet implemented - requires heading picker / reference manager
+      // Not yet implemented - requires reference manager
       return false;
     case "clearFormatting": {
       if (clearFormattingSelections(view)) return true;
