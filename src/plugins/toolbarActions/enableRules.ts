@@ -56,6 +56,11 @@ function isWysiwygActionActive(action: string, context: WysiwygContext | null, v
     return currentLevel === level;
   }
 
+  // Insert actions are never "active" (they insert new content)
+  if (action.startsWith("link:") || action.startsWith("insert")) {
+    return false;
+  }
+
   switch (action) {
     case "bold":
       return isWysiwygMarkActive(view, "bold");
@@ -96,6 +101,11 @@ function isSourceActionActive(action: string, context: SourceContext | null): bo
     if (Number.isNaN(level)) return false;
     const currentLevel = context.inHeading?.level ?? 0;
     return currentLevel === level;
+  }
+
+  // Insert actions are never "active" (they insert new content)
+  if (action.startsWith("link:") || action.startsWith("insert")) {
+    return false;
   }
 
   switch (action) {
