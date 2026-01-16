@@ -10,13 +10,9 @@
  * side effects. Pure decision logic should go in utils.
  */
 
-import { ask } from "@tauri-apps/plugin-dialog";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
-import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 
 /**
  * Close a tab with dirty check. If the document has unsaved changes,
@@ -42,58 +38,22 @@ export async function closeTabWithDirtyCheck(
   }
 
   // Prompt user for dirty document
-  const shouldSave = await ask(
-    `Do you want to save changes to "${doc.filePath || tab.title}"?`,
-    {
-      title: "Unsaved Changes",
-      kind: "warning",
-      okLabel: "Save",
-      cancelLabel: "Don't Save",
-    }
-  );
+  const result = await promptSaveForDirtyDocument({
+    windowLabel,
+    tabId,
+    title: doc.filePath || tab.title,
+    filePath: doc.filePath,
+    content: doc.content,
+  });
 
-  // User pressed Escape - cancel close
-  if (shouldSave === null) {
+  if (result.action === "cancelled") {
     return false;
   }
 
-  // User chose "Don't Save" - close without saving
-  if (!shouldSave) {
-    useTabStore.getState().closeTab(windowLabel, tabId);
-    useDocumentStore.getState().removeDocument(tabId);
-    return true;
-  }
-
-  // User chose "Save"
-  let path = doc.filePath;
-  if (!path) {
-    const defaultFolder = await getDefaultSaveFolderWithFallback(windowLabel);
-    const newPath = await save({
-      defaultPath: defaultFolder,
-      filters: [{ name: "Markdown", extensions: ["md"] }],
-    });
-    if (!newPath) {
-      // User cancelled save dialog - cancel close
-      return false;
-    }
-    path = newPath;
-  }
-
-  try {
-    await writeTextFile(path, doc.content);
-    useRecentFilesStore.getState().addFile(path);
-    useTabStore.getState().closeTab(windowLabel, tabId);
-    useDocumentStore.getState().removeDocument(tabId);
-    return true;
-  } catch (error) {
-    console.error("Failed to save file:", error);
-    const { message } = await import("@tauri-apps/plugin-dialog");
-    await message(`Failed to save file: ${error}`, {
-      title: "Error",
-      kind: "error",
-    });
-    return false;
-  }
+  // Either saved or discarded, proceed to close
+  useTabStore.getState().closeTab(windowLabel, tabId);
+  useDocumentStore.getState().removeDocument(tabId);
+  return true;
 }
 
 /**

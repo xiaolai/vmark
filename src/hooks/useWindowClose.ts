@@ -1,13 +1,10 @@
 import { useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useWindowLabel } from "../contexts/WindowContext";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
-import { useRecentFilesStore } from "../stores/recentFilesStore";
-import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
+import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 
 // Dev-only logging for debugging window close issues
 // Logs to terminal via Rust command
@@ -71,58 +68,25 @@ export function useWindowClose() {
         return;
       }
 
-      const { ask, message } = await import("@tauri-apps/plugin-dialog");
+      const { message } = await import("@tauri-apps/plugin-dialog");
 
       // Process each dirty tab - prompt user for each one
       for (const dirtyTab of dirtyTabs) {
         const doc = useDocumentStore.getState().getDocument(dirtyTab.id);
         if (!doc?.isDirty) continue; // May have been saved in a previous iteration
 
-        const shouldSave = await ask(
-          `Do you want to save changes to "${doc.filePath || dirtyTab.title}"?`,
-          {
-            title: "Unsaved Changes",
-            kind: "warning",
-            okLabel: "Save",
-            cancelLabel: "Don't Save",
-          }
-        );
+        const result = await promptSaveForDirtyDocument({
+          windowLabel,
+          tabId: dirtyTab.id,
+          title: doc.filePath || dirtyTab.title,
+          filePath: doc.filePath,
+          content: doc.content,
+        });
 
-        // User closed dialog (Escape) - cancel window close entirely
-        if (shouldSave === null) {
+        if (result.action === "cancelled") {
           return;
         }
 
-        if (shouldSave) {
-          let path = doc.filePath;
-          if (!path) {
-            const newPath = await save({
-              defaultPath: await getDefaultSaveFolderWithFallback(windowLabel),
-              filters: [{ name: "Markdown", extensions: ["md"] }],
-            });
-            if (!newPath) {
-              // User cancelled save dialog - cancel window close
-              return;
-            }
-            path = newPath;
-          }
-
-          try {
-            await writeTextFile(path, doc.content);
-            // Update document and tab state so if user cancels later,
-            // this tab correctly shows as saved with the new path
-            useDocumentStore.getState().setFilePath(dirtyTab.id, path);
-            useDocumentStore.getState().markSaved(dirtyTab.id);
-            useTabStore.getState().updateTabPath(dirtyTab.id, path);
-            useRecentFilesStore.getState().addFile(path);
-          } catch (error) {
-            await message(`Failed to save file: ${error}`, {
-              title: "Error",
-              kind: "error",
-            });
-            return;
-          }
-        }
         // If shouldSave is false, user chose "Don't Save" - continue to next tab
       }
 

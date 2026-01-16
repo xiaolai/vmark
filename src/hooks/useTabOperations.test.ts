@@ -3,7 +3,11 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { ask, save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { saveToPath } from "@/utils/saveToPath";
+
+vi.mock("@/utils/saveToPath", () => ({
+  saveToPath: vi.fn(),
+}));
 
 const WINDOW_LABEL = "main";
 
@@ -59,7 +63,7 @@ describe("closeTabWithDirtyCheck", () => {
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(writeTextFile).not.toHaveBeenCalled();
+    expect(saveToPath).not.toHaveBeenCalled();
     expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(0);
   });
 
@@ -69,11 +73,12 @@ describe("closeTabWithDirtyCheck", () => {
     useDocumentStore.getState().setContent(tabId, "changed");
 
     vi.mocked(ask).mockResolvedValueOnce(true);
+    vi.mocked(saveToPath).mockResolvedValueOnce(true);
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(writeTextFile).toHaveBeenCalledWith("/tmp/dirty.md", "changed");
+    expect(saveToPath).toHaveBeenCalledWith(tabId, "/tmp/dirty.md", "changed", "manual");
     expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(0);
   });
 
