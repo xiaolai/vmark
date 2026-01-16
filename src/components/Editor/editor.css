@@ -25,6 +25,24 @@
   box-sizing: border-box; /* Include padding in width calculation */
 }
 
+/* Scrollbar styling for editor content (WYSIWYG mode) */
+.editor-content::-webkit-scrollbar {
+  width: 2px;
+}
+
+.editor-content::-webkit-scrollbar-track {
+  background: var(--scrollbar-track, rgba(128, 128, 128, 0.2));
+}
+
+.editor-content::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb, rgba(128, 128, 128, 0.4));
+  border-radius: 1px;
+}
+
+.editor-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover, rgba(128, 128, 128, 0.6));
+}
+
 /* Width constraint - works with parent flexbox centering */
 .tiptap-editor,
 .source-editor {
@@ -564,14 +582,17 @@
 }
 
 .editor-content:has(.source-editor) {
-  /* Remove left/bottom padding in source mode - background extends to edge */
-  padding-left: 0;
-  padding-bottom: 0;
+  /* Remove padding in source mode - let cm-scroller handle scrolling at edge */
+  padding: 0;
+  /* Disable scrolling on editor-content - cm-scroller handles it */
+  overflow: hidden;
+  /* Stretch source editor to fill container */
+  align-items: stretch;
 }
 
-/* Add left padding inside source editor to compensate */
-.source-editor {
-  padding-left: 2em;
+/* Override max-width in source mode so editor fills container */
+.editor-content:has(.source-editor) .source-editor {
+  max-width: 100%;
 }
 
 .source-editor .cm-editor {
@@ -591,27 +612,30 @@
   overflow-x: auto !important;
 }
 
-/* Always show horizontal scrollbar when content overflows */
+/* Scrollbar styling for source editor */
 .source-editor .cm-scroller::-webkit-scrollbar {
-  height: 4px;
+  width: 2px;  /* vertical scrollbar */
+  height: 2px; /* horizontal scrollbar */
 }
 
 .source-editor .cm-scroller::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track, rgba(128, 128, 128, 0.2));
 }
 
 .source-editor .cm-scroller::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
-  border-radius: 4px;
+  background-color: var(--scrollbar-thumb, rgba(128, 128, 128, 0.4));
+  border-radius: 1px;
 }
 
 .source-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-secondary);
+  background-color: var(--scrollbar-thumb-hover, rgba(128, 128, 128, 0.6));
 }
 
 .source-editor .cm-content {
   color: var(--text-color);
   line-height: var(--editor-line-height, 1.6) !important;
+  /* Padding inside scroller - keeps scrollbar at edge while text is padded */
+  padding: 0 2em;
 }
 
 .source-editor .cm-focused {
@@ -697,6 +721,22 @@
 
 .source-editor .cm-hl-invalid {
   color: #cb2431;
+}
+
+/* Dark theme scrollbar */
+.dark-theme .editor-content::-webkit-scrollbar-track,
+.dark-theme .source-editor .cm-scroller::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark-theme .editor-content::-webkit-scrollbar-thumb,
+.dark-theme .source-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.dark-theme .editor-content::-webkit-scrollbar-thumb:hover,
+.dark-theme .source-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
 /* Dark theme syntax highlighting */
