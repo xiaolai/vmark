@@ -5,13 +5,11 @@ import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
 import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveBlockquote, handleListIndent, handleListOutdent, handleRemoveList, handleToBulletList, handleToOrderedList } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { addColLeft, addColRight, addRowAbove, addRowBelow, alignColumn, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable } from "@/plugins/tableUI/tableActions.tiptap";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useLinkReferenceDialogStore } from "@/stores/linkReferenceDialogStore";
-import { extractHeadingsWithIds } from "@/utils/headingSlug";
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
-import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
 import type { WysiwygToolbarContext } from "./types";
+import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
+import { insertWikiLink, insertWikiEmbed, insertBookmarkLink, insertReferenceLink } from "./wysiwygAdapterLinks";
 
 const DEFAULT_MATH_BLOCK = "c = \\pm\\sqrt{a^2 + b^2}";
 
@@ -229,142 +227,4 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
     default:
       return false;
   }
-}
-
-function insertWikiLink(context: WysiwygToolbarContext): boolean {
-  const view = context.view;
-  if (!view) return false;
-
-  const { state, dispatch } = view;
-  const { from, to } = state.selection;
-  const selectedText = from !== to ? state.doc.textBetween(from, to) : "";
-  const wikiLinkType = state.schema.nodes.wikiLink;
-  if (!wikiLinkType) return false;
-
-  const node = wikiLinkType.create({
-    value: selectedText || "page",
-    alias: null,
-  });
-
-  dispatch(state.tr.replaceSelectionWith(node));
-  view.focus();
-  return true;
-}
-
-function insertWikiEmbed(context: WysiwygToolbarContext): boolean {
-  const view = context.view;
-  if (!view) return false;
-
-  const { state, dispatch } = view;
-  const { from, to } = state.selection;
-  const selectedText = from !== to ? state.doc.textBetween(from, to) : "";
-  const wikiEmbedType = state.schema.nodes.wikiEmbed;
-  if (!wikiEmbedType) return false;
-
-  const node = wikiEmbedType.create({
-    value: selectedText || "file",
-    alias: null,
-  });
-
-  dispatch(state.tr.replaceSelectionWith(node));
-  view.focus();
-  return true;
-}
-
-function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
-  const view = context.view;
-  if (!view) return false;
-
-  const { state } = view;
-  const headings = extractHeadingsWithIds(state.doc);
-
-  if (headings.length === 0) {
-    return false;
-  }
-
-  // Capture selected text for link text fallback (not position-sensitive)
-  const { from, to } = state.selection;
-  const capturedSelectedText = from !== to ? state.doc.textBetween(from, to) : "";
-
-  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
-    // Re-read current state to get fresh positions (doc may have changed)
-    const currentState = view.state;
-    const linkMark = currentState.schema.marks.link;
-    if (!linkMark) return;
-
-    const { from: currentFrom, to: currentTo } = currentState.selection;
-    const href = `#${id}`;
-    const linkText = capturedSelectedText || text;
-
-    // Create link with the heading's ID as href
-    const tr = currentState.tr;
-    if (currentFrom === currentTo) {
-      // No selection - insert new text with link mark
-      const textNode = currentState.schema.text(linkText, [linkMark.create({ href })]);
-      tr.insert(currentFrom, textNode);
-    } else {
-      // Has selection - apply link mark to it
-      tr.addMark(currentFrom, currentTo, linkMark.create({ href }));
-    }
-
-    view.dispatch(tr);
-    view.focus();
-  });
-
-  return true;
-}
-
-function insertReferenceLink(context: WysiwygToolbarContext): boolean {
-  const view = context.view;
-  if (!view) return false;
-
-  // Capture selected text for link text fallback (not position-sensitive)
-  const { state } = view;
-  const { from, to } = state.selection;
-  const capturedSelectedText = from !== to ? state.doc.textBetween(from, to) : "";
-
-  useLinkReferenceDialogStore.getState().openDialog(capturedSelectedText, (identifier, url, title) => {
-    // Re-read current state to get fresh positions (doc may have changed)
-    const currentState = view.state;
-    const linkRefType = currentState.schema.nodes.link_reference;
-    const linkDefType = currentState.schema.nodes.link_definition;
-
-    if (!linkRefType || !linkDefType) return;
-
-    const { from: currentFrom, to: currentTo } = currentState.selection;
-    const tr = currentState.tr;
-    const linkText = capturedSelectedText || identifier;
-
-    // Create link reference node with the text
-    const textNode = currentState.schema.text(linkText);
-    const linkRefNode = linkRefType.create(
-      { identifier, referenceType: "full" },
-      textNode
-    );
-
-    // Insert the link reference at cursor
-    if (currentFrom === currentTo) {
-      tr.insert(currentFrom, linkRefNode);
-    } else {
-      tr.replaceWith(currentFrom, currentTo, linkRefNode);
-    }
-
-    // Find end of document to insert definition
-    const docEnd = tr.doc.content.size;
-
-    // Create link definition node
-    const linkDefNode = linkDefType.create({
-      identifier,
-      url,
-      title: title || null,
-    });
-
-    // Add newline and definition at end
-    tr.insert(docEnd, linkDefNode);
-
-    view.dispatch(tr);
-    view.focus();
-  });
-
-  return true;
 }

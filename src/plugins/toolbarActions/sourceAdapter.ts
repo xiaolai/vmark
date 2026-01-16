@@ -1,177 +1,27 @@
-import { EditorSelection } from "@codemirror/state";
+/**
+ * Source Adapter
+ *
+ * Toolbar action dispatcher for source (CodeMirror) mode.
+ * Routes toolbar actions to appropriate handlers.
+ */
+
 import type { EditorView } from "@codemirror/view";
-import { applyFormat, type FormatType } from "@/plugins/sourceFormatPopup";
 import { clearAllFormatting } from "@/plugins/sourceFormatPopup/clearFormatting";
-import { applyInlineFormatToSelections } from "@/plugins/sourceFormatPopup/formatMultiSelection";
 import { buildAlertBlock, buildDetailsBlock, buildMathBlock, type AlertType } from "@/plugins/sourceFormatPopup/sourceInsertions";
 import { getBlockquoteInfo, nestBlockquote, removeBlockquote, unnestBlockquote } from "@/plugins/sourceFormatPopup/blockquoteDetection";
 import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sourceFormatPopup/headingDetection";
 import { getListItemInfo, indentListItem, outdentListItem, removeList, toBulletList, toOrderedList, toTaskList } from "@/plugins/sourceFormatPopup/listDetection";
 import { getSourceTableInfo } from "@/plugins/sourceFormatPopup/tableDetection";
 import { deleteColumn, deleteRow, deleteTable, insertColumnLeft, insertColumnRight, insertRowAbove, insertRowBelow, setAllColumnsAlignment, setColumnAlignment } from "@/plugins/sourceFormatPopup/tableActions";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
-import { useLinkReferenceDialogStore } from "@/stores/linkReferenceDialogStore";
-import { generateSlug, makeUniqueSlug, type HeadingWithId } from "@/utils/headingSlug";
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import type { SourceToolbarContext } from "./types";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./sourceMultiSelection";
+import { insertText, applyInlineFormat, clearFormattingSelections } from "./sourceAdapterHelpers";
+import { insertLink, insertWikiSyntax, insertSourceBookmarkLink, insertSourceReferenceLink } from "./sourceAdapterLinks";
 
 const TABLE_TEMPLATE = "| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n";
 
-function insertText(view: EditorView, text: string, cursorOffset?: number) {
-  const { from, to } = view.state.selection.main;
-  const anchor = from;
-
-  view.dispatch({
-    changes: { from, to, insert: text },
-    selection: {
-      anchor: typeof cursorOffset === "number" ? anchor + cursorOffset : anchor + text.length,
-    },
-  });
-  view.focus();
-}
-
-function applyInlineFormat(view: EditorView, format: FormatType): boolean {
-  const { selection } = view.state;
-  if (selection.ranges.length > 1) {
-    if (format === "footnote" || format === "image" || format === "link") return false;
-    return applyInlineFormatToSelections(view, format);
-  }
-
-  const { from, to } = selection.main;
-  if (from === to) return false;
-  applyFormat(view, format);
-  return true;
-}
-
-function clearFormattingSelections(view: EditorView): boolean {
-  const { selection, doc } = view.state;
-  if (selection.ranges.length <= 1) return false;
-  const hasSelection = selection.ranges.some((range) => range.from !== range.to);
-  if (!hasSelection) return false;
-
-  const docText = doc.toString();
-  const transaction = view.state.changeByRange((range) => {
-    if (range.from === range.to) return { range };
-    const selectedText = docText.slice(range.from, range.to);
-    const cleared = clearAllFormatting(selectedText);
-    return {
-      changes: { from: range.from, to: range.to, insert: cleared },
-      range: EditorSelection.range(range.from, range.from + cleared.length),
-    };
-  });
-
-  view.dispatch(transaction);
-  view.focus();
-  return true;
-}
-
-function insertLink(view: EditorView): boolean {
-  const { from, to } = view.state.selection.main;
-  if (from !== to) {
-    applyFormat(view, "link");
-    return true;
-  }
-
-  const text = "[](url)";
-  const cursorOffset = 3; // inside url
-  insertText(view, text, cursorOffset);
-  return true;
-}
-
-function insertWikiSyntax(view: EditorView, prefix: string, suffix: string, defaultValue: string): boolean {
-  const { from, to } = view.state.selection.main;
-  const selectedText = from !== to ? view.state.doc.sliceString(from, to) : "";
-  const value = selectedText || defaultValue;
-  const text = `${prefix}${value}${suffix}`;
-  const cursorOffset = prefix.length + value.length; // position after value, before suffix
-  view.dispatch({
-    changes: { from, to, insert: text },
-    selection: { anchor: from + cursorOffset },
-  });
-  view.focus();
-  return true;
-}
-
-function extractMarkdownHeadings(text: string): HeadingWithId[] {
-  const headings: HeadingWithId[] = [];
-  const usedSlugs = new Set<string>();
-  const headingRegex = /^(#{1,6})\s+(.+)$/gm;
-  let match;
-
-  while ((match = headingRegex.exec(text)) !== null) {
-    const level = match[1].length;
-    const headingText = match[2].trim();
-    const baseSlug = generateSlug(headingText);
-    const id = makeUniqueSlug(baseSlug, usedSlugs);
-
-    if (id) {
-      usedSlugs.add(id);
-      headings.push({ level, text: headingText, id, pos: match.index });
-    }
-  }
-
-  return headings;
-}
-
-function insertSourceBookmarkLink(view: EditorView): boolean {
-  const docText = view.state.doc.toString();
-  const headings = extractMarkdownHeadings(docText);
-
-  if (headings.length === 0) {
-    return false;
-  }
-
-  // Capture selected text for link text fallback (not position-sensitive)
-  const { from, to } = view.state.selection.main;
-  const capturedSelectedText = from !== to ? view.state.doc.sliceString(from, to) : "";
-
-  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
-    // Re-read current state to get fresh positions (doc may have changed)
-    const { from: currentFrom, to: currentTo } = view.state.selection.main;
-    const linkText = capturedSelectedText || text;
-    const markdown = `[${linkText}](#${id})`;
-
-    view.dispatch({
-      changes: { from: currentFrom, to: currentTo, insert: markdown },
-      selection: { anchor: currentFrom + markdown.length },
-    });
-    view.focus();
-  });
-
-  return true;
-}
-
-function insertSourceReferenceLink(view: EditorView): boolean {
-  // Capture selected text for link text fallback (not position-sensitive)
-  const { from, to } = view.state.selection.main;
-  const capturedSelectedText = from !== to ? view.state.doc.sliceString(from, to) : "";
-
-  useLinkReferenceDialogStore.getState().openDialog(capturedSelectedText, (identifier, url, title) => {
-    // Re-read current state to get fresh positions (doc may have changed)
-    const { from: currentFrom, to: currentTo } = view.state.selection.main;
-    const linkText = capturedSelectedText || identifier;
-    const reference = `[${linkText}][${identifier}]`;
-    const definition = title
-      ? `[${identifier}]: ${url} "${title}"`
-      : `[${identifier}]: ${url}`;
-
-    // Insert reference at cursor, definition at end of document
-    const docLength = view.state.doc.length;
-    const needsNewline = docLength > 0 && view.state.doc.sliceString(docLength - 1) !== "\n";
-
-    view.dispatch({
-      changes: [
-        { from: currentFrom, to: currentTo, insert: reference },
-        { from: docLength, insert: `${needsNewline ? "\n" : ""}\n${definition}` },
-      ],
-      selection: { anchor: currentFrom + reference.length },
-    });
-    view.focus();
-  });
-
-  return true;
-}
+// --- Simple insertion functions ---
 
 function insertImage(view: EditorView): boolean {
   insertText(view, "![](url)", 4);
@@ -207,6 +57,8 @@ function insertListMarker(view: EditorView, marker: string): boolean {
   return true;
 }
 
+// --- Exported actions ---
+
 export function setSourceHeadingLevel(context: SourceToolbarContext, level: number): boolean {
   const view = context.view;
   if (!view) return false;
@@ -231,6 +83,7 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
   if (!canRunActionInMultiSelection(action, context.multiSelection)) return false;
 
   switch (action) {
+    // Inline formatting
     case "bold":
       return applyInlineFormat(view, "bold");
     case "italic":
@@ -247,6 +100,8 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return applyInlineFormat(view, "code");
     case "underline":
       return applyInlineFormat(view, "underline");
+
+    // Links
     case "link":
       return insertLink(view);
     case "link:wiki":
@@ -257,172 +112,23 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return insertSourceBookmarkLink(view);
     case "link:reference":
       return insertSourceReferenceLink(view);
-    case "clearFormatting": {
-      if (clearFormattingSelections(view)) return true;
-      const { from, to } = view.state.selection.main;
-      if (from === to) return false;
-      const selectedText = view.state.doc.sliceString(from, to);
-      const cleared = clearAllFormatting(selectedText);
-      view.dispatch({
-        changes: { from, to, insert: cleared },
-        selection: { anchor: from, head: from + cleared.length },
-      });
-      view.focus();
-      return true;
-    }
+
+    // Clear formatting
+    case "clearFormatting":
+      return handleClearFormatting(view);
+
+    // Simple insertions
     case "insertImage":
       return insertImage(view);
     case "insertFootnote":
       return insertFootnote(view);
-    case "bulletList": {
-      if (applyMultiSelectionListAction(view, action)) return true;
-      const info = getListItemInfo(view);
-      if (!info) return false;
-      toBulletList(view, info);
-      return true;
-    }
-    case "orderedList": {
-      if (applyMultiSelectionListAction(view, action)) return true;
-      const info = getListItemInfo(view);
-      if (!info) return false;
-      toOrderedList(view, info);
-      return true;
-    }
-    case "taskList": {
-      if (applyMultiSelectionListAction(view, action)) return true;
-      const info = getListItemInfo(view);
-      if (!info) return false;
-      toTaskList(view, info);
-      return true;
-    }
-    case "indent": {
-      if (applyMultiSelectionListAction(view, action)) return true;
-      const info = getListItemInfo(view);
-      if (!info) return false;
-      indentListItem(view, info);
-      return true;
-    }
-    case "outdent": {
-      if (applyMultiSelectionListAction(view, action)) return true;
-      const info = getListItemInfo(view);
-      if (!info) return false;
-      outdentListItem(view, info);
-      return true;
-    }
-    case "removeList": {
-      if (applyMultiSelectionListAction(view, action)) return true;
-      const info = getListItemInfo(view);
-      if (!info) return false;
-      removeList(view, info);
-      return true;
-    }
-    case "insertTable":
-      return insertTable(view);
-    case "addRowAbove": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      insertRowAbove(view, info);
-      return true;
-    }
-    case "addRow": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      insertRowBelow(view, info);
-      return true;
-    }
-    case "addColLeft": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      insertColumnLeft(view, info);
-      return true;
-    }
-    case "addCol": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      insertColumnRight(view, info);
-      return true;
-    }
-    case "deleteRow": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      deleteRow(view, info);
-      return true;
-    }
-    case "deleteCol": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      deleteColumn(view, info);
-      return true;
-    }
-    case "deleteTable": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      deleteTable(view, info);
-      return true;
-    }
-    case "alignLeft": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      setColumnAlignment(view, info, "left");
-      return true;
-    }
-    case "alignCenter": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      setColumnAlignment(view, info, "center");
-      return true;
-    }
-    case "alignRight": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      setColumnAlignment(view, info, "right");
-      return true;
-    }
-    case "alignAllLeft": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      setAllColumnsAlignment(view, info, "left");
-      return true;
-    }
-    case "alignAllCenter": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      setAllColumnsAlignment(view, info, "center");
-      return true;
-    }
-    case "alignAllRight": {
-      const info = getSourceTableInfo(view);
-      if (!info) return false;
-      setAllColumnsAlignment(view, info, "right");
-      return true;
-    }
-    case "nestQuote": {
-      if (applyMultiSelectionBlockquoteAction(view, action)) return true;
-      const info = getBlockquoteInfo(view);
-      if (!info) return false;
-      nestBlockquote(view, info);
-      return true;
-    }
-    case "unnestQuote": {
-      if (applyMultiSelectionBlockquoteAction(view, action)) return true;
-      const info = getBlockquoteInfo(view);
-      if (!info) return false;
-      unnestBlockquote(view, info);
-      return true;
-    }
-    case "removeQuote": {
-      if (applyMultiSelectionBlockquoteAction(view, action)) return true;
-      const info = getBlockquoteInfo(view);
-      if (!info) return false;
-      removeBlockquote(view, info);
-      return true;
-    }
     case "insertCodeBlock":
       return insertCodeBlock(view);
     case "insertBlockquote":
       return insertBlockquote(view);
     case "insertDivider":
       return insertDivider(view);
+    case "insertTable":
     case "insertTableBlock":
       return insertTable(view);
     case "insertBulletList":
@@ -431,30 +137,187 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return insertListMarker(view, "1. ");
     case "insertTaskList":
       return insertListMarker(view, "- [ ] ");
-    case "insertDetails": {
-      const { from, to } = view.state.selection.main;
-      const selection = from === to ? "" : view.state.doc.sliceString(from, to);
-      const { text, cursorOffset } = buildDetailsBlock(selection);
-      insertText(view, text, cursorOffset);
-      return true;
-    }
+
+    // Complex insertions
+    case "insertDetails":
+      return handleInsertDetails(view);
     case "insertAlertNote":
     case "insertAlertTip":
     case "insertAlertImportant":
     case "insertAlertWarning":
-    case "insertAlertCaution": {
-      const alertType = action.replace("insertAlert", "").toUpperCase() as AlertType;
-      const { text, cursorOffset } = buildAlertBlock(alertType);
-      insertText(view, text, cursorOffset);
+    case "insertAlertCaution":
+      return handleInsertAlert(view, action);
+    case "insertMath":
+      return handleInsertMath(view);
+
+    // List operations
+    case "bulletList":
+    case "orderedList":
+    case "taskList":
+    case "indent":
+    case "outdent":
+    case "removeList":
+      return handleListAction(view, action);
+
+    // Table operations
+    case "addRowAbove":
+    case "addRow":
+    case "addColLeft":
+    case "addCol":
+    case "deleteRow":
+    case "deleteCol":
+    case "deleteTable":
+    case "alignLeft":
+    case "alignCenter":
+    case "alignRight":
+    case "alignAllLeft":
+    case "alignAllCenter":
+    case "alignAllRight":
+      return handleTableAction(view, action);
+
+    // Blockquote operations
+    case "nestQuote":
+    case "unnestQuote":
+    case "removeQuote":
+      return handleBlockquoteAction(view, action);
+
+    default:
+      return false;
+  }
+}
+
+// --- Action handlers ---
+
+function handleClearFormatting(view: EditorView): boolean {
+  if (clearFormattingSelections(view)) return true;
+  const { from, to } = view.state.selection.main;
+  if (from === to) return false;
+  const selectedText = view.state.doc.sliceString(from, to);
+  const cleared = clearAllFormatting(selectedText);
+  view.dispatch({
+    changes: { from, to, insert: cleared },
+    selection: { anchor: from, head: from + cleared.length },
+  });
+  view.focus();
+  return true;
+}
+
+function handleInsertDetails(view: EditorView): boolean {
+  const { from, to } = view.state.selection.main;
+  const selection = from === to ? "" : view.state.doc.sliceString(from, to);
+  const { text, cursorOffset } = buildDetailsBlock(selection);
+  insertText(view, text, cursorOffset);
+  return true;
+}
+
+function handleInsertAlert(view: EditorView, action: string): boolean {
+  const alertType = action.replace("insertAlert", "").toUpperCase() as AlertType;
+  const { text, cursorOffset } = buildAlertBlock(alertType);
+  insertText(view, text, cursorOffset);
+  return true;
+}
+
+function handleInsertMath(view: EditorView): boolean {
+  const { from, to } = view.state.selection.main;
+  const selection = from === to ? "" : view.state.doc.sliceString(from, to);
+  const { text, cursorOffset } = buildMathBlock(selection);
+  insertText(view, text, cursorOffset);
+  return true;
+}
+
+function handleListAction(view: EditorView, action: string): boolean {
+  if (applyMultiSelectionListAction(view, action)) return true;
+  const info = getListItemInfo(view);
+  if (!info) return false;
+
+  switch (action) {
+    case "bulletList":
+      toBulletList(view, info);
       return true;
-    }
-    case "insertMath": {
-      const { from, to } = view.state.selection.main;
-      const selection = from === to ? "" : view.state.doc.sliceString(from, to);
-      const { text, cursorOffset } = buildMathBlock(selection);
-      insertText(view, text, cursorOffset);
+    case "orderedList":
+      toOrderedList(view, info);
       return true;
-    }
+    case "taskList":
+      toTaskList(view, info);
+      return true;
+    case "indent":
+      indentListItem(view, info);
+      return true;
+    case "outdent":
+      outdentListItem(view, info);
+      return true;
+    case "removeList":
+      removeList(view, info);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function handleTableAction(view: EditorView, action: string): boolean {
+  const info = getSourceTableInfo(view);
+  if (!info) return false;
+
+  switch (action) {
+    case "addRowAbove":
+      insertRowAbove(view, info);
+      return true;
+    case "addRow":
+      insertRowBelow(view, info);
+      return true;
+    case "addColLeft":
+      insertColumnLeft(view, info);
+      return true;
+    case "addCol":
+      insertColumnRight(view, info);
+      return true;
+    case "deleteRow":
+      deleteRow(view, info);
+      return true;
+    case "deleteCol":
+      deleteColumn(view, info);
+      return true;
+    case "deleteTable":
+      deleteTable(view, info);
+      return true;
+    case "alignLeft":
+      setColumnAlignment(view, info, "left");
+      return true;
+    case "alignCenter":
+      setColumnAlignment(view, info, "center");
+      return true;
+    case "alignRight":
+      setColumnAlignment(view, info, "right");
+      return true;
+    case "alignAllLeft":
+      setAllColumnsAlignment(view, info, "left");
+      return true;
+    case "alignAllCenter":
+      setAllColumnsAlignment(view, info, "center");
+      return true;
+    case "alignAllRight":
+      setAllColumnsAlignment(view, info, "right");
+      return true;
+    default:
+      return false;
+  }
+}
+
+function handleBlockquoteAction(view: EditorView, action: string): boolean {
+  if (applyMultiSelectionBlockquoteAction(view, action)) return true;
+  const info = getBlockquoteInfo(view);
+  if (!info) return false;
+
+  switch (action) {
+    case "nestQuote":
+      nestBlockquote(view, info);
+      return true;
+    case "unnestQuote":
+      unnestBlockquote(view, info);
+      return true;
+    case "removeQuote":
+      removeBlockquote(view, info);
+      return true;
     default:
       return false;
   }

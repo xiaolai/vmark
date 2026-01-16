@@ -46,6 +46,10 @@ describe("generateSlug", () => {
   it("returns empty string for special chars only", () => {
     expect(generateSlug("!@#$%")).toBe("");
   });
+
+  it("handles whitespace-only input", () => {
+    expect(generateSlug("   ")).toBe("");
+  });
 });
 
 describe("makeUniqueSlug", () => {
