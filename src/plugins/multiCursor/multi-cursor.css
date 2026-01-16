@@ -1,0 +1,60 @@
+/**
+ * Multi-cursor styles for WYSIWYG editor
+ *
+ * Provides visual styling for secondary cursors and selections.
+ * The primary cursor uses the native browser caret.
+ */
+
+/* Secondary cursor caret */
+.multi-cursor-caret {
+  position: relative;
+  display: inline;
+  pointer-events: none;
+}
+
+.multi-cursor-caret::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 1.2em;
+  background-color: var(--multi-cursor-color, hsl(217 91% 60%));
+  animation: multi-cursor-blink 1s step-end infinite;
+}
+
+/* Cursor blink animation */
+@keyframes multi-cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Secondary selection highlight */
+.multi-cursor-selection {
+  background-color: var(--multi-cursor-selection-bg, hsla(217, 91%, 60%, 0.3));
+}
+
+/* Light theme (default) */
+:root {
+  --multi-cursor-color: hsl(217 91% 60%);
+  --multi-cursor-selection-bg: hsla(217, 91%, 60%, 0.3);
+}
+
+/* Dark theme */
+.dark {
+  --multi-cursor-color: hsl(217 91% 70%);
+  --multi-cursor-selection-bg: hsla(217, 91%, 70%, 0.25);
+}
+
+/* Reduce motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .multi-cursor-caret::before {
+    animation: none;
+    opacity: 1;
+  }
+}

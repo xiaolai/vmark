@@ -1,0 +1,268 @@
+import { describe, it, expect } from "vitest";
+import { Schema } from "@tiptap/pm/model";
+import { EditorState, TextSelection, SelectionRange } from "@tiptap/pm/state";
+import { multiCursorPlugin } from "../multiCursorPlugin";
+import { MultiSelection } from "../MultiSelection";
+import {
+  selectNextOccurrence,
+  selectAllOccurrences,
+  collapseMultiSelection,
+} from "../commands";
+
+// Simple schema for testing
+const schema = new Schema({
+  nodes: {
+    doc: { content: "paragraph+" },
+    paragraph: { content: "text*" },
+    text: { inline: true },
+  },
+});
+
+function createDoc(text: string) {
+  return schema.node("doc", null, [
+    schema.node("paragraph", null, text ? [schema.text(text)] : []),
+  ]);
+}
+
+function createState(text: string, selection?: { anchor: number; head: number }) {
+  const doc = createDoc(text);
+  const state = EditorState.create({
+    doc,
+    schema,
+    plugins: [multiCursorPlugin()],
+  });
+
+  if (selection) {
+    const tr = state.tr.setSelection(
+      TextSelection.create(doc, selection.anchor, selection.head)
+    );
+    return state.apply(tr);
+  }
+
+  return state;
+}
+
+describe("commands", () => {
+  describe("selectNextOccurrence", () => {
+    it("selects word under cursor when selection is empty and only one occurrence exists", () => {
+      // "hello world" - cursor inside "hello"
+      const state = createState("hello world", { anchor: 3, head: 3 });
+      const result = selectNextOccurrence(state);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = state.apply(result);
+        expect(newState.selection).toBeInstanceOf(MultiSelection);
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges).toHaveLength(1);
+        // Should select "hello" (pos 1-6 in doc)
+        expect(multiSel.ranges[0].$from.pos).toBe(1);
+        expect(multiSel.ranges[0].$to.pos).toBe(6);
+      }
+    });
+
+    it("selects word and adds next occurrence when selection is empty", () => {
+      // "hello hello" - cursor inside first "hello"
+      const state = createState("hello hello", { anchor: 3, head: 3 });
+      const result = selectNextOccurrence(state);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = state.apply(result);
+        expect(newState.selection).toBeInstanceOf(MultiSelection);
+
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges).toHaveLength(2);
+      }
+    });
+
+    it("finds and adds next occurrence of selected text", () => {
+      // "hello hello world" - "hello" at positions 1-6 and 7-12
+      const state = createState("hello hello world", { anchor: 1, head: 6 });
+      const result = selectNextOccurrence(state);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = state.apply(result);
+        expect(newState.selection).toBeInstanceOf(MultiSelection);
+
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges).toHaveLength(2);
+        // First range: original selection
+        expect(multiSel.ranges[0].$from.pos).toBe(1);
+        expect(multiSel.ranges[0].$to.pos).toBe(6);
+        // Second range: next occurrence
+        expect(multiSel.ranges[1].$from.pos).toBe(7);
+        expect(multiSel.ranges[1].$to.pos).toBe(12);
+      }
+    });
+
+    it("wraps around to find occurrence before cursor", () => {
+      // "hello world hello" - select second "hello" (13-18), should wrap to first
+      const state = createState("hello world hello", { anchor: 13, head: 18 });
+      const result = selectNextOccurrence(state);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = state.apply(result);
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges).toHaveLength(2);
+      }
+    });
+
+    it("does not add duplicate ranges", () => {
+      const state = createState("hello world");
+      // Create state with existing multi-selection covering all "hello"
+      const doc = state.doc;
+      const $from = doc.resolve(1);
+      const $to = doc.resolve(6);
+      const ranges = [new SelectionRange($from, $to)];
+      const multiSel = new MultiSelection(ranges, 0);
+      const stateWithMulti = state.apply(state.tr.setSelection(multiSel));
+
+      // Try to add next occurrence - should return null (no more to add)
+      const result = selectNextOccurrence(stateWithMulti);
+      expect(result).toBeNull();
+    });
+
+    it("returns null when cursor is not in a word", () => {
+      // Cursor at space
+      const state = createState("hello world", { anchor: 6, head: 6 });
+      const result = selectNextOccurrence(state);
+      // Should return null since cursor is at space position
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("selectAllOccurrences", () => {
+    it("selects all occurrences of selected text", () => {
+      // "hello hello hello" - three occurrences
+      const state = createState("hello hello hello", { anchor: 1, head: 6 });
+      const result = selectAllOccurrences(state);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = state.apply(result);
+        expect(newState.selection).toBeInstanceOf(MultiSelection);
+
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges).toHaveLength(3);
+      }
+    });
+
+    it("selects word under cursor and all occurrences when selection is empty", () => {
+      // "hello world hello" - cursor inside first "hello"
+      const state = createState("hello world hello", { anchor: 3, head: 3 });
+      const result = selectAllOccurrences(state);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = state.apply(result);
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges).toHaveLength(2);
+      }
+    });
+
+    it("returns null when no word under cursor", () => {
+      const state = createState("hello world", { anchor: 6, head: 6 });
+      const result = selectAllOccurrences(state);
+      expect(result).toBeNull();
+    });
+
+    it("handles single occurrence (no duplicates to find)", () => {
+      const state = createState("hello world", { anchor: 1, head: 6 });
+      const result = selectAllOccurrences(state);
+
+      // Should still work but with single selection
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = state.apply(result);
+        // Either TextSelection or MultiSelection with 1 range
+        expect(newState.selection.from).toBe(1);
+        expect(newState.selection.to).toBe(6);
+      }
+    });
+  });
+
+  describe("collapseMultiSelection", () => {
+    it("collapses to primary cursor", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+      const $pos1 = doc.resolve(1);
+      const $pos2 = doc.resolve(7);
+
+      const ranges = [
+        new SelectionRange($pos1, $pos1),
+        new SelectionRange($pos2, $pos2),
+      ];
+      const multiSel = new MultiSelection(ranges, 0);
+      const stateWithMulti = state.apply(state.tr.setSelection(multiSel));
+
+      const result = collapseMultiSelection(stateWithMulti);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = stateWithMulti.apply(result);
+        // Should be TextSelection at primary position (1)
+        expect(newState.selection).not.toBeInstanceOf(MultiSelection);
+        expect(newState.selection.from).toBe(1);
+        expect(newState.selection.to).toBe(1);
+      }
+    });
+
+    it("respects primary index when collapsing", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+      const $pos1 = doc.resolve(1);
+      const $pos2 = doc.resolve(7);
+
+      const ranges = [
+        new SelectionRange($pos1, $pos1),
+        new SelectionRange($pos2, $pos2),
+      ];
+      // Primary is at index 1 (position 7)
+      const multiSel = new MultiSelection(ranges, 1);
+      const stateWithMulti = state.apply(state.tr.setSelection(multiSel));
+
+      const result = collapseMultiSelection(stateWithMulti);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = stateWithMulti.apply(result);
+        expect(newState.selection.from).toBe(7);
+        expect(newState.selection.to).toBe(7);
+      }
+    });
+
+    it("preserves selection range when collapsing from selection", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+      const $from1 = doc.resolve(1);
+      const $to1 = doc.resolve(6); // "hello"
+      const $pos2 = doc.resolve(10);
+
+      const ranges = [
+        new SelectionRange($from1, $to1), // selection
+        new SelectionRange($pos2, $pos2), // cursor
+      ];
+      const multiSel = new MultiSelection(ranges, 0);
+      const stateWithMulti = state.apply(state.tr.setSelection(multiSel));
+
+      const result = collapseMultiSelection(stateWithMulti);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const newState = stateWithMulti.apply(result);
+        // Should preserve the selection "hello"
+        expect(newState.selection.from).toBe(1);
+        expect(newState.selection.to).toBe(6);
+      }
+    });
+
+    it("returns null for non-MultiSelection", () => {
+      const state = createState("hello world", { anchor: 1, head: 1 });
+      const result = collapseMultiSelection(state);
+      expect(result).toBeNull();
+    });
+  });
+});
