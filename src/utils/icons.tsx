@@ -72,6 +72,12 @@ export const icons = {
   details: `<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`,
   alertIcon: `<svg viewBox="0 0 24 24"><path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2.7a2 2 0 0 1 3.376 0l5.025 8.026a2 2 0 0 1 0 2.121L18.688 20.9a2 2 0 0 1-3.376 0L10.287 12.9a2 2 0 0 1 0-2.122L15.312 2.7Z"/></svg>`,
 
+  // Link type icons
+  hash: `<svg viewBox="0 0 24 24"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></svg>`,
+  fileText: `<svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`,
+  fileImage: `<svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="10" cy="12" r="2"/><path d="m20 17-1.296-1.296a2.41 2.41 0 0 0-3.408 0L9 22"/></svg>`,
+  bookmarkLink: `<svg viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`,
+
   // UI icons
   chevronDown: `<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`,
   chevronUp: `<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>`,
