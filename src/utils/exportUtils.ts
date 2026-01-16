@@ -5,14 +5,17 @@
  * Async operations (file saving, clipboard) are in hooks/useExportOperations.
  */
 
-import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { unified } from "unified";
+import { visit } from "unist-util-visit";
+import remarkRehype from "remark-rehype";
+import rehypeStringify from "rehype-stringify";
+import type { Root, Blockquote, Paragraph, Text, Parent, Content } from "mdast";
+import type { Alert, AlertType, Details, WikiLink, WikiEmbed, Highlight, Underline, Subscript, Superscript } from "@/utils/markdownPipeline/types";
+import { parseMarkdownToMdast } from "@/utils/markdownPipeline/parser";
+import type { MarkdownPipelineOptions } from "@/utils/markdownPipeline/types";
 
-// Configure marked for GFM (GitHub Flavored Markdown)
-marked.setOptions({
-  gfm: true,
-  breaks: false,
-});
+const ALERT_TYPES: AlertType[] = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
 
 /**
  * GitHub-style CSS for exported HTML
@@ -142,11 +145,259 @@ img {
 .markdown-alert-warning { border-color: #9a6700; background-color: #fff8c5; }
 .markdown-alert-caution { border-color: #cf222e; background-color: #ffebe9; }
 
+mark {
+  background-color: #fff8c5;
+  color: inherit;
+}
+
+details {
+  margin: 0 0 16px 0;
+  padding: 8px 12px;
+  border: 1px solid #d1d5da;
+  border-radius: 6px;
+  background-color: #f6f8fa;
+}
+
+summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wiki-link {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.wiki-embed {
+  color: #57606a;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.math-inline,
+.math-block {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  background-color: #f6f8fa;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+}
+
+.math-block {
+  display: block;
+  padding: 8px 12px;
+  margin: 12px 0;
+}
+
+.mermaid {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
 @media print {
   body { max-width: none; padding: 0; }
   pre { white-space: pre-wrap; word-wrap: break-word; }
 }
 `.trim();
+
+const DOMPURIFY_CONFIG = {
+  ADD_TAGS: ["details", "summary"],
+  ADD_ATTR: ["open"],
+};
+
+function stripAlertMarker(
+  paragraph: Paragraph
+): { alertType: AlertType; paragraph: Paragraph | null } | null {
+  const children = [...(paragraph.children ?? [])];
+  const first = children[0];
+  if (!first || first.type !== "text") return null;
+
+  const match = (first as Text).value.match(/^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:\s+)?/i);
+  if (!match) return null;
+
+  const alertType = match[1].toUpperCase() as AlertType;
+  if (!ALERT_TYPES.includes(alertType)) return null;
+
+  const rest = (first as Text).value.slice(match[0].length);
+  if (rest.length > 0) {
+    children[0] = { ...(first as Text), value: rest };
+  } else {
+    children.shift();
+  }
+
+  if (children[0]?.type === "break") {
+    children.shift();
+  }
+
+  const nextParagraph = children.length > 0 ? { ...paragraph, children } : null;
+  return { alertType, paragraph: nextParagraph };
+}
+
+function convertBlockquoteToAlert(node: Blockquote): Alert | null {
+  const firstChild = node.children[0];
+  if (!firstChild || firstChild.type !== "paragraph") return null;
+
+  const stripped = stripAlertMarker(firstChild as Paragraph);
+  if (!stripped) return null;
+
+  const alertChildren: Content[] = [];
+  if (stripped.paragraph) {
+    alertChildren.push(stripped.paragraph);
+  }
+  alertChildren.push(...node.children.slice(1));
+
+  return {
+    type: "alert",
+    alertType: stripped.alertType,
+    children: alertChildren,
+  } as Alert;
+}
+
+function transformAlertBlockquotes(tree: Root): void {
+  visit(tree, "blockquote", (node, index, parent) => {
+    if (!parent || typeof index !== "number") return;
+    const alert = convertBlockquoteToAlert(node as Blockquote);
+    if (!alert) return;
+    (parent as Parent).children[index] = alert as unknown as Content;
+  });
+}
+
+function removeFrontmatter(tree: Root): void {
+  tree.children = tree.children.filter((node) => node.type !== "yaml");
+}
+
+function buildWikiLabel(node: WikiLink | WikiEmbed): string {
+  const alias = node.alias ? `|${node.alias}` : "";
+  return `${node.value}${alias}`;
+}
+
+const rehypeHandlers = {
+  alert(state: { all: (node: Alert) => unknown[] }, node: Alert) {
+    const alertType = node.alertType || "NOTE";
+    const className = ["markdown-alert", `markdown-alert-${alertType.toLowerCase()}`];
+    return {
+      type: "element",
+      tagName: "div",
+      properties: { className },
+      children: state.all(node),
+    };
+  },
+  details(state: { all: (node: Details) => unknown[] }, node: Details) {
+    const summaryText = node.summary || "Details";
+    const summaryNode = {
+      type: "element",
+      tagName: "summary",
+      properties: {},
+      children: [{ type: "text", value: summaryText }],
+    };
+    const children = state.all(node);
+    const properties = node.open ? { open: true } : {};
+    return {
+      type: "element",
+      tagName: "details",
+      properties,
+      children: [summaryNode, ...children],
+    };
+  },
+  wikiLink(_state: unknown, node: WikiLink) {
+    const text = node.alias || node.value;
+    return {
+      type: "element",
+      tagName: "a",
+      properties: { className: ["wiki-link"], href: `#${encodeURIComponent(node.value)}` },
+      children: [{ type: "text", value: text }],
+    };
+  },
+  wikiEmbed(_state: unknown, node: WikiEmbed) {
+    return {
+      type: "element",
+      tagName: "span",
+      properties: { className: ["wiki-embed"] },
+      children: [{ type: "text", value: `![[${buildWikiLabel(node)}]]` }],
+    };
+  },
+  highlight(state: { all: (node: Highlight) => unknown[] }, node: Highlight) {
+    return {
+      type: "element",
+      tagName: "mark",
+      properties: {},
+      children: state.all(node),
+    };
+  },
+  underline(state: { all: (node: Underline) => unknown[] }, node: Underline) {
+    return {
+      type: "element",
+      tagName: "u",
+      properties: {},
+      children: state.all(node),
+    };
+  },
+  subscript(state: { all: (node: Subscript) => unknown[] }, node: Subscript) {
+    return {
+      type: "element",
+      tagName: "sub",
+      properties: {},
+      children: state.all(node),
+    };
+  },
+  superscript(state: { all: (node: Superscript) => unknown[] }, node: Superscript) {
+    return {
+      type: "element",
+      tagName: "sup",
+      properties: {},
+      children: state.all(node),
+    };
+  },
+  inlineMath(_state: unknown, node: { value?: string }) {
+    return {
+      type: "element",
+      tagName: "span",
+      properties: { className: ["math-inline"] },
+      children: [{ type: "text", value: node.value || "" }],
+    };
+  },
+  math(_state: unknown, node: { value?: string }) {
+    return {
+      type: "element",
+      tagName: "div",
+      properties: { className: ["math-block"] },
+      children: [{ type: "text", value: node.value || "" }],
+    };
+  },
+  code(_state: unknown, node: { lang?: string; value?: string }) {
+    const lang = node.lang ? String(node.lang) : "";
+    const value = node.value || "";
+    if (lang.toLowerCase() === "mermaid") {
+      return {
+        type: "element",
+        tagName: "div",
+        properties: { className: ["mermaid"] },
+        children: [{ type: "text", value }],
+      };
+    }
+    const className = lang ? [`language-${lang}`] : [];
+    return {
+      type: "element",
+      tagName: "pre",
+      properties: {},
+      children: [
+        {
+          type: "element",
+          tagName: "code",
+          properties: className.length ? { className } : {},
+          children: [{ type: "text", value }],
+        },
+      ],
+    };
+  },
+} as const;
+
+const htmlProcessor = unified()
+  .use(remarkRehype, {
+    allowDangerousHtml: true,
+    handlers: rehypeHandlers,
+  })
+  .use(rehypeStringify, { allowDangerousHtml: true });
 
 /**
  * Escape HTML special characters
@@ -163,9 +414,17 @@ export function escapeHtml(text: string): string {
 /**
  * Convert markdown to HTML (sanitized to prevent XSS)
  */
-export function markdownToHtml(markdown: string): string {
-  const rawHtml = marked.parse(markdown, { async: false }) as string;
-  return DOMPurify.sanitize(rawHtml);
+export function markdownToHtml(
+  markdown: string,
+  options: MarkdownPipelineOptions = {}
+): string {
+  const mdast = parseMarkdownToMdast(markdown, options);
+  removeFrontmatter(mdast);
+  transformAlertBlockquotes(mdast);
+
+  const hast = htmlProcessor.runSync(mdast as Root);
+  const rawHtml = htmlProcessor.stringify(hast);
+  return DOMPurify.sanitize(rawHtml, DOMPURIFY_CONFIG);
 }
 
 /**
@@ -174,9 +433,10 @@ export function markdownToHtml(markdown: string): string {
 export function generateHtmlDocument(
   markdown: string,
   title: string = "Document",
-  includeStyles: boolean = true
+  includeStyles: boolean = true,
+  options: MarkdownPipelineOptions = {}
 ): string {
-  const htmlContent = markdownToHtml(markdown);
+  const htmlContent = markdownToHtml(markdown, options);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -255,6 +515,36 @@ export function applyPdfStyles(container: HTMLElement): void {
   container.querySelectorAll("hr").forEach((el) => {
     (el as HTMLElement).style.cssText =
       "height: 2px; margin: 20px 0; background-color: #d1d5da; border: 0;";
+  });
+
+  // Alert blocks
+  container.querySelectorAll(".markdown-alert").forEach((el) => {
+    (el as HTMLElement).style.cssText +=
+      "padding: 8px 16px; margin-bottom: 16px; border-left: 4px solid; border-radius: 6px;";
+  });
+
+  // Details blocks
+  container.querySelectorAll("details").forEach((el) => {
+    (el as HTMLElement).style.cssText +=
+      "margin: 0 0 16px 0; padding: 8px 12px; border: 1px solid #d1d5da; border-radius: 6px; background-color: #f6f8fa;";
+  });
+  container.querySelectorAll("summary").forEach((el) => {
+    (el as HTMLElement).style.cssText += "font-weight: 600;";
+  });
+
+  // Mermaid blocks
+  container.querySelectorAll(".mermaid").forEach((el) => {
+    (el as HTMLElement).style.cssText +=
+      "background-color: #f6f8fa; border-radius: 6px; padding: 12px; overflow-x: auto;";
+  });
+
+  // Math blocks
+  container.querySelectorAll(".math-inline, .math-block").forEach((el) => {
+    (el as HTMLElement).style.cssText +=
+      "font-family: monospace; background-color: #f6f8fa; border-radius: 4px; padding: 2px 4px;";
+  });
+  container.querySelectorAll(".math-block").forEach((el) => {
+    (el as HTMLElement).style.cssText += "display: block; padding: 8px 12px; margin: 12px 0;";
   });
 
   // Images

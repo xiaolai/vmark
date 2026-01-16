@@ -14,11 +14,19 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useSettingsStore } from "@/stores/settingsStore";
 import {
   markdownToHtml,
   generateHtmlDocument,
   applyPdfStyles,
 } from "@/utils/exportUtils";
+import type { MarkdownPipelineOptions } from "@/utils/markdownPipeline/types";
+
+function getExportPipelineOptions(): MarkdownPipelineOptions {
+  return {
+    preserveLineBreaks: useSettingsStore.getState().markdown.preserveLineBreaks,
+  };
+}
 
 /**
  * Export markdown to HTML file
@@ -36,7 +44,7 @@ export async function exportToHtml(
     if (!path) return false;
 
     const title = defaultName.replace(/\.[^.]+$/, "");
-    const html = generateHtmlDocument(markdown, title);
+    const html = generateHtmlDocument(markdown, title, true, getExportPipelineOptions());
 
     await writeTextFile(path, html);
     return true;
@@ -83,7 +91,7 @@ export async function exportToPdf(
  */
 export async function copyAsHtml(markdown: string): Promise<boolean> {
   try {
-    const html = markdownToHtml(markdown);
+    const html = markdownToHtml(markdown, getExportPipelineOptions());
     await writeText(html);
     return true;
   } catch (error) {
@@ -109,7 +117,7 @@ export async function savePdf(
 
     // Create a temporary container for rendering
     const container = document.createElement("div");
-    container.innerHTML = markdownToHtml(markdown);
+    container.innerHTML = markdownToHtml(markdown, getExportPipelineOptions());
     container.style.cssText = `
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       font-size: 14px;

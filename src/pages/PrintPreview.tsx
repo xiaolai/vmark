@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { markdownToHtml } from "@/utils/exportUtils";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 /** Storage key for print content (shared with main window) */
 const PRINT_CONTENT_KEY = "vmark-print-content";
@@ -120,6 +121,67 @@ img {
   height: auto;
 }
 
+.markdown-alert {
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  border-left: 4px solid;
+  border-radius: 6px;
+}
+
+.markdown-alert-note { border-color: #0969da; background-color: #ddf4ff; }
+.markdown-alert-tip { border-color: #1a7f37; background-color: #dafbe1; }
+.markdown-alert-important { border-color: #8250df; background-color: #fbefff; }
+.markdown-alert-warning { border-color: #9a6700; background-color: #fff8c5; }
+.markdown-alert-caution { border-color: #cf222e; background-color: #ffebe9; }
+
+details {
+  margin: 0 0 16px 0;
+  padding: 8px 12px;
+  border: 1px solid #d1d5da;
+  border-radius: 6px;
+  background-color: #f6f8fa;
+}
+
+summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+mark {
+  background-color: #fff8c5;
+}
+
+.wiki-link {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.wiki-embed {
+  color: #57606a;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.math-inline,
+.math-block {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  background-color: #f6f8fa;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+}
+
+.math-block {
+  display: block;
+  padding: 8px 12px;
+  margin: 12px 0;
+}
+
+.mermaid {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
 @media print {
   body { padding: 0; }
   @page { margin: 1.5cm; }
@@ -130,13 +192,14 @@ export function PrintPreviewPage() {
   const [htmlContent, setHtmlContent] = useState<string>("");
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
 
   useEffect(() => {
     // Read content from localStorage (set by main window before opening this window)
     const markdown = localStorage.getItem(PRINT_CONTENT_KEY);
     // Use !== null to allow empty documents (empty string is valid content)
     if (markdown !== null) {
-      const html = markdownToHtml(markdown);
+      const html = markdownToHtml(markdown, { preserveLineBreaks });
       setHtmlContent(html);
       setReady(true);
 
