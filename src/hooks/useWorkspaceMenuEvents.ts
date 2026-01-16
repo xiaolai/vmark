@@ -8,6 +8,7 @@ import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore
 import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 
 /**
  * Hook to handle workspace-related menu events
@@ -82,28 +83,7 @@ export function useWorkspaceMenuEvents() {
         "menu:close-workspace",
         async (event) => {
           if (event.payload !== windowLabel) return;
-          const { rootPath, config, isWorkspaceMode } =
-            useWorkspaceStore.getState();
-
-          if (isWorkspaceMode && rootPath && config) {
-            // Save current open tabs
-            const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
-            const openPaths = tabs
-              .filter((t) => t.filePath !== null)
-              .map((t) => t.filePath as string);
-
-            // Update and save config
-            const updatedConfig = { ...config, lastOpenTabs: openPaths };
-            try {
-              await invoke("write_workspace_config", {
-                rootPath,
-                config: updatedConfig,
-              });
-            } catch (error) {
-              console.error("Failed to save workspace config:", error);
-            }
-          }
-
+          await persistWorkspaceSession(windowLabel);
           useWorkspaceStore.getState().closeWorkspace();
         }
       );

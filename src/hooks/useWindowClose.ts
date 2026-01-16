@@ -5,6 +5,7 @@ import { useWindowLabel } from "../contexts/WindowContext";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
+import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 
 // Dev-only logging for debugging window close issues
 // Logs to terminal via Rust command
@@ -63,6 +64,7 @@ export function useWindowClose() {
       if (dirtyTabs.length === 0) {
         closeLog(windowLabel, "no dirty tabs, closing window");
         tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
+        await persistWorkspaceSession(windowLabel);
         closeLog(windowLabel, "invoking close_window with label:", windowLabel);
         await invoke("close_window", { label: windowLabel });
         closeLog(windowLabel, "close_window returned");
@@ -93,6 +95,7 @@ export function useWindowClose() {
 
       // All dirty tabs handled - close the window
       tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
+      await persistWorkspaceSession(windowLabel);
       await invoke("close_window", { label: windowLabel });
       return true;
     } catch (error) {
