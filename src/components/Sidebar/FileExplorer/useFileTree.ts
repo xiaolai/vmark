@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, FsChangeEvent } from "./types";
 import { shouldRefreshTree } from "@/utils/fsEventFilter";
+import { isMarkdownFileName, stripMarkdownExtension } from "@/utils/dropPaths";
 
 interface LoadOptions {
   filter: (name: string, isFolder: boolean) => boolean;
@@ -49,7 +50,7 @@ async function loadDirectoryRecursive(
       } else {
         nodes.push({
           id: fullPath,
-          name: name.replace(/\.md$/, ""),
+          name: stripMarkdownExtension(name),
           isFolder: false,
         });
       }
@@ -70,7 +71,7 @@ async function loadDirectoryRecursive(
 
 const mdFilter = (name: string, isFolder: boolean): boolean => {
   if (isFolder) return true;
-  return name.endsWith(".md");
+  return isMarkdownFileName(name);
 };
 
 interface UseFileTreeOptions {

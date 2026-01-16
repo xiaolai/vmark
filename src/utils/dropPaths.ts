@@ -10,6 +10,27 @@
 export const MARKDOWN_EXTENSIONS = [".md", ".markdown", ".txt"] as const;
 
 /**
+ * Check if a filename matches markdown extensions (case-insensitive).
+ */
+export function isMarkdownFileName(name: string): boolean {
+  const lowerName = name.toLowerCase();
+  return MARKDOWN_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+}
+
+/**
+ * Strip known markdown extensions from a filename (case-insensitive).
+ */
+export function stripMarkdownExtension(name: string): string {
+  const lowerName = name.toLowerCase();
+  for (const ext of MARKDOWN_EXTENSIONS) {
+    if (lowerName.endsWith(ext)) {
+      return name.slice(0, -ext.length);
+    }
+  }
+  return name;
+}
+
+/**
  * Filter an array of file paths to only include markdown-compatible files.
  *
  * Checks file extensions against MARKDOWN_EXTENSIONS (case-insensitive).

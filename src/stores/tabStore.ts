@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getFileName } from "@/utils/paths";
+import { stripMarkdownExtension } from "@/utils/dropPaths";
 
 // Tab representation
 export interface Tab {
@@ -59,9 +60,9 @@ const getTabTitle = (filePath: string | null, untitledNum?: number): string => {
   if (!filePath) {
     return untitledNum ? `Untitled-${untitledNum}` : "Untitled";
   }
-  // Extract filename without extension for .md files
+  // Extract filename without markdown extension
   const name = getFileName(filePath) || filePath;
-  return name.endsWith(".md") ? name.slice(0, -3) : name;
+  return stripMarkdownExtension(name);
 };
 
 export const useTabStore = create<TabState & TabActions>((set, get) => ({

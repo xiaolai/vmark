@@ -4,7 +4,7 @@
  * @module utils/dropPaths.test
  */
 import { describe, it, expect } from "vitest";
-import { filterMarkdownPaths, MARKDOWN_EXTENSIONS } from "./dropPaths";
+import { filterMarkdownPaths, MARKDOWN_EXTENSIONS, isMarkdownFileName, stripMarkdownExtension } from "./dropPaths";
 
 describe("MARKDOWN_EXTENSIONS", () => {
   it("includes common markdown extensions", () => {
@@ -80,5 +80,27 @@ describe("filterMarkdownPaths", () => {
   it("handles Windows-style paths", () => {
     const paths = ["C:\\Users\\docs\\readme.md", "C:\\Users\\docs\\image.png"];
     expect(filterMarkdownPaths(paths)).toEqual(["C:\\Users\\docs\\readme.md"]);
+  });
+});
+
+describe("isMarkdownFileName", () => {
+  it("matches markdown extensions case-insensitively", () => {
+    expect(isMarkdownFileName("readme.md")).toBe(true);
+    expect(isMarkdownFileName("notes.MARKDOWN")).toBe(true);
+    expect(isMarkdownFileName("todo.TXT")).toBe(true);
+    expect(isMarkdownFileName("image.png")).toBe(false);
+  });
+});
+
+describe("stripMarkdownExtension", () => {
+  it("strips known markdown extensions", () => {
+    expect(stripMarkdownExtension("readme.md")).toBe("readme");
+    expect(stripMarkdownExtension("notes.MARKDOWN")).toBe("notes");
+    expect(stripMarkdownExtension("todo.txt")).toBe("todo");
+  });
+
+  it("leaves unrelated extensions intact", () => {
+    expect(stripMarkdownExtension("archive.md.bak")).toBe("archive.md.bak");
+    expect(stripMarkdownExtension("image.png")).toBe("image.png");
   });
 });
