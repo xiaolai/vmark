@@ -1,5 +1,6 @@
 mod menu;
 mod menu_events;
+mod quit;
 mod watcher;
 mod window_manager;
 mod workspace;
@@ -51,6 +52,7 @@ pub fn run() {
             window_manager::close_window,
             window_manager::force_quit,
             window_manager::request_quit,
+            quit::cancel_quit,
             watcher::start_watching,
             watcher::stop_watching,
             watcher::stop_all_watchers,
@@ -108,6 +110,12 @@ pub fn run() {
                     api.prevent_exit();
                     #[cfg(debug_assertions)]
                     eprintln!("[Tauri] ExitRequested: prevent_exit() called");
+                    quit::start_quit(&app);
+                }
+                tauri::RunEvent::WindowEvent { label, event, .. } => {
+                    if let tauri::WindowEvent::Destroyed = event {
+                        quit::handle_window_destroyed(&app, &label);
+                    }
                 }
                 // macOS: Clicking dock icon when no windows visible -> create new window
                 #[cfg(target_os = "macos")]

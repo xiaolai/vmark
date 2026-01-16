@@ -27,8 +27,9 @@ export function useWindowClose() {
   const windowLabel = useWindowLabel();
   // Prevent re-entry during close handling (avoids duplicate dialogs)
   const isClosingRef = useRef(false);
+  const isQuitRequestRef = useRef(false);
 
-  const handleCloseRequest = useCallback(async () => {
+  const handleCloseRequest = useCallback(async (): Promise<boolean> => {
     closeLog(windowLabel, "handleCloseRequest called");
     // Debug: capture stack trace to find what's triggering the close
     if (import.meta.env.DEV) {
@@ -37,7 +38,7 @@ export function useWindowClose() {
     // Guard against duplicate close requests
     if (isClosingRef.current) {
       closeLog(windowLabel, "already closing, ignoring");
-      return;
+      return false;
     }
     isClosingRef.current = true;
 
@@ -65,7 +66,7 @@ export function useWindowClose() {
         closeLog(windowLabel, "invoking close_window with label:", windowLabel);
         await invoke("close_window", { label: windowLabel });
         closeLog(windowLabel, "close_window returned");
-        return;
+        return true;
       }
 
       const { message } = await import("@tauri-apps/plugin-dialog");
@@ -84,7 +85,7 @@ export function useWindowClose() {
         });
 
         if (result.action === "cancelled") {
-          return;
+          return false;
         }
 
         // If shouldSave is false, user chose "Don't Save" - continue to next tab
@@ -93,8 +94,10 @@ export function useWindowClose() {
       // All dirty tabs handled - close the window
       tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
       await invoke("close_window", { label: windowLabel });
+      return true;
     } catch (error) {
       console.error("Failed to close window:", error);
+      return false;
     } finally {
       isClosingRef.current = false;
     }
@@ -113,7 +116,7 @@ export function useWindowClose() {
         const targetLabel = event.payload;
         closeLog(windowLabel, "menu:close received, target:", targetLabel);
         if (targetLabel === windowLabel) {
-          handleCloseRequest();
+          void handleCloseRequest();
         }
       });
       unlisteners.push(unlistenMenu);
@@ -127,11 +130,27 @@ export function useWindowClose() {
           closeLog(windowLabel, "window:close-requested received, target:", targetLabel);
           // Only handle if this event is for our window
           if (targetLabel === windowLabel) {
-            handleCloseRequest();
+            void handleCloseRequest();
           }
         }
       );
       unlisteners.push(unlistenClose);
+
+      const unlistenQuit = await currentWindow.listen<string>(
+        "app:quit-requested",
+        async (event) => {
+          const targetLabel = event.payload;
+          if (targetLabel !== windowLabel) return;
+
+          isQuitRequestRef.current = true;
+          const closed = await handleCloseRequest();
+          if (!closed) {
+            invoke("cancel_quit").catch(() => {});
+          }
+          isQuitRequestRef.current = false;
+        }
+      );
+      unlisteners.push(unlistenQuit);
 
       closeLog(windowLabel, "event listeners set up");
     };

@@ -64,7 +64,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { useSettingsSync } from "@/hooks/useSettingsSync";
 import { useRecentFilesSync } from "@/hooks/useRecentFilesSync";
 import { useWindowClose } from "@/hooks/useWindowClose";
-import { useAppQuit } from "@/hooks/useAppQuit";
 import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { useDisableContextMenu } from "@/hooks/useDisableContextMenu";
 import { useViewShortcuts } from "@/hooks/useViewShortcuts";
@@ -81,7 +80,6 @@ const TITLEBAR_HEIGHT = 40;
 // Separate component for window lifecycle hooks to avoid conditional hook calls
 function DocumentWindowHooks() {
   useWindowClose();
-  useAppQuit();
   useWindowTitle();
   useDragDropOpen(); // Open dropped markdown files
   useExternalFileChanges(); // Handle external file changes (auto-reload or prompt)
