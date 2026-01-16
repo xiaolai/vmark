@@ -3,12 +3,13 @@ import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
 import type { Decoration } from "@tiptap/pm/view";
 import { addNodeDecorations } from "./nodeDecorations";
+import { addMarkWidgetDecorations } from "./markDecorations";
 
 const cursorAwarePluginKey = new PluginKey<DecorationSet>("cursorAware");
 
 function computeDecorations(state: EditorState): DecorationSet {
   const { selection, doc } = state;
-  const { from, to, empty } = selection;
+  const { from, to, empty, $from } = selection;
 
   if (!empty) {
     return DecorationSet.empty;
@@ -21,6 +22,11 @@ function computeDecorations(state: EditorState): DecorationSet {
     from,
     to,
     doc as unknown as Parameters<typeof addNodeDecorations>[3]
+  );
+  addMarkWidgetDecorations(
+    decorations as unknown as Parameters<typeof addMarkWidgetDecorations>[0],
+    from,
+    $from as unknown as Parameters<typeof addMarkWidgetDecorations>[2]
   );
 
   if (decorations.length === 0) {

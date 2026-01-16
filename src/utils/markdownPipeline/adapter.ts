@@ -16,6 +16,7 @@ import { parseMarkdownToMdast } from "./parser";
 import { mdastToProseMirror } from "./mdastToProseMirror";
 import { proseMirrorToMdast } from "./proseMirrorToMdast";
 import { serializeMdastToMarkdown } from "./serializer";
+import type { MarkdownPipelineOptions } from "./types";
 
 /**
  * Parse markdown string to ProseMirror document.
@@ -29,12 +30,16 @@ import { serializeMdastToMarkdown } from "./serializer";
  * @example
  * const doc = parseMarkdown(schema, "# Hello world");
  */
-export function parseMarkdown(schema: Schema, markdown: string): PMNode {
+export function parseMarkdown(
+  schema: Schema,
+  markdown: string,
+  options: MarkdownPipelineOptions = {}
+): PMNode {
   // Guard against null/undefined from IPC, clipboard, or other sources
   const safeMarkdown = markdown ?? "";
 
   try {
-    const mdast = parseMarkdownToMdast(safeMarkdown);
+    const mdast = parseMarkdownToMdast(safeMarkdown, options);
     return mdastToProseMirror(schema, mdast);
   } catch (error) {
     const preview = safeMarkdown.slice(0, 100);
@@ -58,10 +63,14 @@ export function parseMarkdown(schema: Schema, markdown: string): PMNode {
  * @example
  * const md = serializeMarkdown(schema, doc);
  */
-export function serializeMarkdown(schema: Schema, doc: PMNode): string {
+export function serializeMarkdown(
+  schema: Schema,
+  doc: PMNode,
+  options: MarkdownPipelineOptions = {}
+): string {
   try {
     const mdast = proseMirrorToMdast(schema, doc);
-    return serializeMdastToMarkdown(mdast);
+    return serializeMdastToMarkdown(mdast, options);
   } catch (error) {
     const nodeCount = doc.content.childCount;
     const docSize = doc.content.size;

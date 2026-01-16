@@ -6,6 +6,10 @@
  * @module utils/markdownPipeline/types
  */
 
+export interface MarkdownPipelineOptions {
+  preserveLineBreaks?: boolean;
+}
+
 // Re-export standard MDAST types
 export type {
   Root,

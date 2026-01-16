@@ -23,6 +23,7 @@ import { getTiptapEditorView } from "@/utils/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/utils/tiptapFocus";
 import type { CursorInfo } from "@/stores/documentStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { smartPasteExtension } from "@/plugins/smartPaste/tiptap";
 import { linkPopupExtension } from "@/plugins/linkPopup/tiptap";
 import { cursorAwareExtension } from "@/plugins/cursorAware/tiptap";
@@ -86,6 +87,7 @@ export function TiptapEditorInner() {
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
   const { setContent, setCursorInfo } = useDocumentActions();
+  const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
 
   const isInternalChange = useRef(false);
   const lastExternalContent = useRef<string>("");
@@ -96,7 +98,9 @@ export function TiptapEditorInner() {
   const cursorTrackingEnabled = useRef(false);
   const trackingTimeoutId = useRef<number | null>(null);
   const cursorInfoRef = useRef(cursorInfo);
+  const preserveLineBreaksRef = useRef(preserveLineBreaks);
   cursorInfoRef.current = cursorInfo;
+  preserveLineBreaksRef.current = preserveLineBreaks;
 
   const extensions = useMemo(
     () => [
@@ -189,7 +193,9 @@ export function TiptapEditorInner() {
         pendingRaf.current = null;
       }
 
-      const markdown = serializeMarkdown(editor.schema, editor.state.doc);
+      const markdown = serializeMarkdown(editor.schema, editor.state.doc, {
+        preserveLineBreaks: preserveLineBreaksRef.current,
+      });
       isInternalChange.current = true;
       lastExternalContent.current = markdown;
       setContent(markdown);
@@ -232,7 +238,9 @@ export function TiptapEditorInner() {
     },
     onCreate: ({ editor }) => {
       try {
-        const doc = parseMarkdown(editor.schema, content);
+        const doc = parseMarkdown(editor.schema, content, {
+          preserveLineBreaks: preserveLineBreaksRef.current,
+        });
         lastExternalContent.current = content;
         editor.commands.setContent(doc, { emitUpdate: false });
       } catch (error) {
@@ -331,7 +339,9 @@ export function TiptapEditorInner() {
     if (content === lastExternalContent.current) return;
 
     try {
-      const doc = parseMarkdown(editor.schema, content);
+      const doc = parseMarkdown(editor.schema, content, {
+        preserveLineBreaks: preserveLineBreaksRef.current,
+      });
       editor.commands.setContent(doc, { emitUpdate: false });
       // Only update lastExternalContent after successful parse to allow retry on failure
       lastExternalContent.current = content;

@@ -5,6 +5,11 @@
  * Uses widget decorations (inserted DOM elements) for marks.
  */
 
+/* Hide syntax markers unless explicitly enabled */
+.editor-container[data-reveal-inline-syntax="false"] .syntax-marker {
+  display: none;
+}
+
 /* ==========================================================================
    Base syntax marker style (for marks)
    ========================================================================== */

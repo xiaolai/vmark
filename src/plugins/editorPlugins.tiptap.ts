@@ -5,6 +5,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { openSourcePeek } from "@/utils/sourcePeek";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
@@ -156,7 +157,8 @@ export const editorKeymapExtension = Extension.create({
         sourcePeek.close();
         return true;
       }
-      openSourcePeek(view);
+      const preserveLineBreaks = useSettingsStore.getState().markdown.preserveLineBreaks;
+      openSourcePeek(view, { preserveLineBreaks });
       return true;
     });
 

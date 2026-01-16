@@ -68,6 +68,7 @@
     "react-arborist": "^3.4.3",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.11.0",
+    "remark-breaks": "^4.0.0",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",

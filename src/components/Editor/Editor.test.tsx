@@ -66,6 +66,18 @@ vi.mock("@/stores/tabStore", () => {
   return { useTabStore: createZustandMock(mockTabStore) };
 });
 
+vi.mock("@/stores/settingsStore", () => {
+  const state = {
+    markdown: {
+      mediaBorderStyle: "none",
+      htmlRenderingMode: "hidden",
+      revealInlineSyntax: true,
+    },
+  };
+
+  return { useSettingsStore: createZustandMock(state) };
+});
+
 function renderWithProvider(ui: React.ReactElement) {
   return render(<WindowProvider>{ui}</WindowProvider>);
 }
@@ -83,5 +95,12 @@ describe("Editor", () => {
 
     const content = document.querySelector(".editor-content");
     expect(content).toBeInTheDocument();
+  });
+
+  it("reflects revealInlineSyntax setting on the container", () => {
+    renderWithProvider(<Editor />);
+
+    const container = document.querySelector(".editor-container");
+    expect(container).toHaveAttribute("data-reveal-inline-syntax", "true");
   });
 });

@@ -36,12 +36,17 @@ export function Editor() {
   const documentId = useDocumentId();
   const mediaBorderStyle = useSettingsStore((s) => s.markdown.mediaBorderStyle);
   const htmlRenderingMode = useSettingsStore((s) => s.markdown.htmlRenderingMode);
+  const revealInlineSyntax = useSettingsStore((s) => s.markdown.revealInlineSyntax);
 
   const editorKey = `doc-${documentId}`;
   const containerClass = `editor-container media-border-${mediaBorderStyle}`;
 
   return (
-    <div className={containerClass} data-html-rendering-mode={htmlRenderingMode}>
+    <div
+      className={containerClass}
+      data-html-rendering-mode={htmlRenderingMode}
+      data-reveal-inline-syntax={revealInlineSyntax ? "true" : "false"}
+    >
       <div className="editor-content">
         {sourceMode ? <SourceEditor key={editorKey} /> : <TiptapEditorInner key={editorKey} />}
       </div>

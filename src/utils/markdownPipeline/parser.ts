@@ -12,9 +12,11 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkBreaks from "remark-breaks";
 import type { Root, Parent } from "mdast";
 import type { InlineMath } from "mdast-util-math";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks } from "./plugins";
+import type { MarkdownPipelineOptions } from "./types";
 
 /**
  * Plugin to validate inline math and convert invalid ones back to text.
@@ -75,19 +77,27 @@ function visitAndFixMath(node: Root | Parent): void {
  * Custom inline syntax (==highlight==, ~sub~, ^sup^, ++underline++)
  * is handled via remarkCustomInline plugin.
  */
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm, {
-    // Disable single tilde strikethrough to avoid conflict with subscript
-    // GFM strikethrough uses ~~double tilde~~
-    singleTilde: false,
-  })
-  .use(remarkMath)
-  .use(remarkValidateMath) // Reject invalid inline math (with leading/trailing spaces)
-  .use(remarkFrontmatter, ["yaml"])
-  .use(remarkWikiLinks)
-  .use(remarkDetailsBlock)
-  .use(remarkCustomInline);
+function createProcessor(options: MarkdownPipelineOptions = {}) {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkGfm, {
+      // Disable single tilde strikethrough to avoid conflict with subscript
+      // GFM strikethrough uses ~~double tilde~~
+      singleTilde: false,
+    })
+    .use(remarkMath)
+    .use(remarkValidateMath) // Reject invalid inline math (with leading/trailing spaces)
+    .use(remarkFrontmatter, ["yaml"])
+    .use(remarkWikiLinks)
+    .use(remarkDetailsBlock)
+    .use(remarkCustomInline);
+
+  if (options.preserveLineBreaks) {
+    processor.use(remarkBreaks);
+  }
+
+  return processor;
+}
 
 /**
  * Parse markdown text into MDAST.
@@ -101,7 +111,11 @@ const processor = unified()
  * // mdast.children[0].type === "heading"
  * // mdast.children[1].type === "paragraph"
  */
-export function parseMarkdownToMdast(markdown: string): Root {
+export function parseMarkdownToMdast(
+  markdown: string,
+  options: MarkdownPipelineOptions = {}
+): Root {
+  const processor = createProcessor(options);
   const result = processor.parse(markdown);
   // Run transforms (plugins that modify the tree)
   const transformed = processor.runSync(result);

@@ -2,6 +2,7 @@ import { NodeSelection, Selection, type EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { Fragment, Slice, type Schema, type Node as PMNode, type NodeType } from "@tiptap/pm/model";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
+import type { MarkdownPipelineOptions } from "@/utils/markdownPipeline/types";
 import { useSourcePeekStore, type SourcePeekAnchorRect, type SourcePeekRange } from "@/stores/sourcePeekStore";
 
 /**
@@ -48,14 +49,22 @@ export function getSourcePeekRange(state: EditorState): SourcePeekRange {
   return { from: selection.from, to: selection.to };
 }
 
-export function serializeSourcePeekRange(state: EditorState, range: SourcePeekRange): string {
+export function serializeSourcePeekRange(
+  state: EditorState,
+  range: SourcePeekRange,
+  options: MarkdownPipelineOptions = {}
+): string {
   const slice = state.doc.slice(range.from, range.to);
   const doc = createDocFromSlice(state.schema, slice);
-  return serializeMarkdown(state.schema, doc);
+  return serializeMarkdown(state.schema, doc, options);
 }
 
-export function createSourcePeekSlice(schema: Schema, markdown: string): Slice {
-  const parsed = parseMarkdown(schema, markdown);
+export function createSourcePeekSlice(
+  schema: Schema,
+  markdown: string,
+  options: MarkdownPipelineOptions = {}
+): Slice {
+  const parsed = parseMarkdown(schema, markdown, options);
   const content = ensureBlockContent(parsed.content, schema.nodes.paragraph);
   return new Slice(content, 0, 0);
 }
@@ -63,10 +72,11 @@ export function createSourcePeekSlice(schema: Schema, markdown: string): Slice {
 export function applySourcePeekMarkdown(
   view: EditorView,
   range: SourcePeekRange,
-  markdown: string
+  markdown: string,
+  options: MarkdownPipelineOptions = {}
 ): boolean {
   try {
-    const slice = createSourcePeekSlice(view.state.schema, markdown);
+    const slice = createSourcePeekSlice(view.state.schema, markdown, options);
     const tr = view.state.tr.replaceRange(range.from, range.to, slice);
     // Use transaction mapping to find correct cursor position after replacement
     const mappedPos = tr.mapping.map(range.from);
@@ -101,12 +111,15 @@ export function getSourcePeekAnchorRect(
   }
 }
 
-export function openSourcePeek(view: EditorView): void {
+export function openSourcePeek(
+  view: EditorView,
+  options: MarkdownPipelineOptions = {}
+): void {
   const range = getSourcePeekRange(view.state);
   const anchorRect = getSourcePeekAnchorRect(view, range);
   // Skip if coordinates couldn't be resolved (stale view or empty doc)
   if (!anchorRect) return;
 
-  const markdown = serializeSourcePeekRange(view.state, range);
+  const markdown = serializeSourcePeekRange(view.state, range, options);
   useSourcePeekStore.getState().open({ markdown, range, anchorRect });
 }

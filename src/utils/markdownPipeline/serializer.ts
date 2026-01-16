@@ -14,6 +14,7 @@ import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
 import type { Root } from "mdast";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks } from "./plugins";
+import type { MarkdownPipelineOptions } from "./types";
 
 /**
  * Unified processor configured for VMark markdown serialization.
@@ -25,27 +26,29 @@ import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks } from "./plugi
  * - remark-frontmatter: YAML frontmatter output
  * - remarkCustomInline: Custom inline marks (==highlight==, ~sub~, etc.)
  */
-const processor = unified()
-  .use(remarkStringify, {
-    // Serialization options for consistent output
-    bullet: "-", // Use - for unordered lists
-    bulletOther: "*", // Fallback bullet
-    bulletOrdered: ".", // Use . for ordered lists
-    emphasis: "*", // Use * for emphasis (single: *italic*)
-    strong: "*", // Use * for strong (double: **bold**)
-    fence: "`", // Use ` for code fences
-    fences: true, // Use fenced code blocks
-    rule: "-", // Use --- for thematic breaks
-    listItemIndent: "one", // Use one space indent for list items
-  })
-  .use(remarkGfm, {
-    singleTilde: false, // Match parser config
-  })
-  .use(remarkMath)
-  .use(remarkFrontmatter, ["yaml"])
-  .use(remarkWikiLinks)
-  .use(remarkDetailsBlock)
-  .use(remarkCustomInline);
+function createSerializer(_options: MarkdownPipelineOptions = {}) {
+  return unified()
+    .use(remarkStringify, {
+      // Serialization options for consistent output
+      bullet: "-", // Use - for unordered lists
+      bulletOther: "*", // Fallback bullet
+      bulletOrdered: ".", // Use . for ordered lists
+      emphasis: "*", // Use * for emphasis (single: *italic*)
+      strong: "*", // Use * for strong (double: **bold**)
+      fence: "`", // Use ` for code fences
+      fences: true, // Use fenced code blocks
+      rule: "-", // Use --- for thematic breaks
+      listItemIndent: "one", // Use one space indent for list items
+    })
+    .use(remarkGfm, {
+      singleTilde: false, // Match parser config
+    })
+    .use(remarkMath)
+    .use(remarkFrontmatter, ["yaml"])
+    .use(remarkWikiLinks)
+    .use(remarkDetailsBlock)
+    .use(remarkCustomInline);
+}
 
 /**
  * Serialize MDAST to markdown text.
@@ -57,7 +60,11 @@ const processor = unified()
  * const md = serializeMdastToMarkdown(mdast);
  * // "# Hello\n\nWorld\n"
  */
-export function serializeMdastToMarkdown(mdast: Root): string {
+export function serializeMdastToMarkdown(
+  mdast: Root,
+  options: MarkdownPipelineOptions = {}
+): string {
+  const processor = createSerializer(options);
   const result = processor.stringify(mdast);
   return result;
 }

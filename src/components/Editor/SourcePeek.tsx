@@ -7,6 +7,7 @@ import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting } from "@codemirror/language";
 import type { EditorView as TiptapEditorView } from "@tiptap/pm/view";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { applySourcePeekMarkdown } from "@/utils/sourcePeek";
 import { codeHighlightStyle } from "@/plugins/codemirror";
 
@@ -56,7 +57,6 @@ export function SourcePeek({ getEditorView }: SourcePeekProps) {
   const markdownText = useSourcePeekStore((state) => state.markdown);
   const anchorRect = useSourcePeekStore((state) => state.anchorRect);
   const range = useSourcePeekStore((state) => state.range);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -97,7 +97,8 @@ export function SourcePeek({ getEditorView }: SourcePeekProps) {
       const currentRange = useSourcePeekStore.getState().range;
       if (!view || !currentRange) return;
       const text = viewRef.current?.state.doc.toString() ?? markdownText;
-      if (applySourcePeekMarkdown(view, currentRange, text)) {
+      const preserveLineBreaks = useSettingsStore.getState().markdown.preserveLineBreaks;
+      if (applySourcePeekMarkdown(view, currentRange, text, { preserveLineBreaks })) {
         useSourcePeekStore.getState().close();
         view.focus();
       }

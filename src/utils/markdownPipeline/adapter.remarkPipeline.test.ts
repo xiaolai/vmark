@@ -33,6 +33,13 @@ describe("adapter remark pipeline", () => {
       const output = serializeMarkdown(testSchema, doc);
       expect(output.trim()).toBe("Hello");
     });
+
+    it("preserves soft line breaks when configured", () => {
+      const input = "Hello\nWorld";
+      const doc = parseMarkdown(testSchema, input, { preserveLineBreaks: true });
+      const output = serializeMarkdown(testSchema, doc, { preserveLineBreaks: true }).trim();
+      expect(output).toMatch(/\\\n/);
+    });
   });
 
   describe("table support", () => {
