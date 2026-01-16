@@ -58,6 +58,58 @@ import {
 import { guardCodeMirrorKeyBinding, runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { computeSourceCursorContext } from "@/plugins/sourceFormatPopup/cursorContext";
 
+/**
+ * Escape special regex characters in a string.
+ */
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Count matches in the document text.
+ * Used to update the search store's match count in source mode.
+ */
+function countMatches(
+  text: string,
+  query: string,
+  caseSensitive: boolean,
+  wholeWord: boolean,
+  useRegex: boolean
+): number {
+  if (!query) return 0;
+
+  const flags = caseSensitive ? "g" : "gi";
+  let pattern: string;
+
+  if (useRegex) {
+    pattern = query;
+    // In regex mode, wholeWord is ignored (user handles it manually)
+  } else {
+    pattern = escapeRegExp(query);
+    if (wholeWord) {
+      pattern = `\\b${pattern}\\b`;
+    }
+  }
+
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern, flags);
+  } catch {
+    // Invalid regex
+    return 0;
+  }
+
+  let count = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    count++;
+    // Prevent infinite loop on zero-length matches
+    if (match[0].length === 0) regex.lastIndex++;
+  }
+
+  return count;
+}
+
 // Custom brackets config for markdown (^, standard brackets)
 const markdownCloseBrackets = markdownLanguage.data.of({
   closeBrackets: {
@@ -105,6 +157,25 @@ export function SourceEditor() {
         requestAnimationFrame(() => {
           isInternalChange.current = false;
         });
+        // Update match count when document changes and search is open
+        const searchState = useSearchStore.getState();
+        if (searchState.isOpen && searchState.query) {
+          const matchCount = countMatches(
+            newContent,
+            searchState.query,
+            searchState.caseSensitive,
+            searchState.wholeWord,
+            searchState.useRegex
+          );
+          // Keep currentIndex valid: reset to 0 if out of bounds or -1
+          let newIndex = searchState.currentIndex;
+          if (matchCount === 0) {
+            newIndex = -1;
+          } else if (newIndex < 0 || newIndex >= matchCount) {
+            newIndex = 0;
+          }
+          useSearchStore.getState().setMatches(matchCount, newIndex);
+        }
       }
       // Track cursor position for mode sync
       if (update.selectionSet || update.docChanged) {
@@ -320,6 +391,37 @@ export function SourceEditor() {
 
   // Subscribe to searchStore for programmatic search
   useEffect(() => {
+    // Initialize match count if there's an active search query (e.g., switched from rich-text mode)
+    const initSearchState = () => {
+      const view = viewRef.current;
+      if (!view) return;
+      const state = useSearchStore.getState();
+      if (state.isOpen && state.query) {
+        const text = view.state.doc.toString();
+        const matchCount = countMatches(
+          text,
+          state.query,
+          state.caseSensitive,
+          state.wholeWord,
+          state.useRegex
+        );
+        useSearchStore.getState().setMatches(matchCount, matchCount > 0 ? 0 : -1);
+        // Also set the search query in CodeMirror
+        const query = new SearchQuery({
+          search: state.query,
+          replace: state.replaceText,
+          caseSensitive: state.caseSensitive,
+          wholeWord: state.wholeWord,
+          regexp: state.useRegex,
+        });
+        runOrQueueCodeMirrorAction(view, () => {
+          view.dispatch({ effects: setSearchQuery.of(query) });
+        });
+      }
+    };
+    // Delay to ensure view is ready
+    const timeoutId = setTimeout(initSearchState, 100);
+
     const unsubscribe = useSearchStore.subscribe((state, prevState) => {
       const view = viewRef.current;
       if (!view) return;
@@ -341,11 +443,22 @@ export function SourceEditor() {
           runOrQueueCodeMirrorAction(view, () => {
             view.dispatch({ effects: setSearchQuery.of(query) });
           });
+          // Count matches and update store
+          const text = view.state.doc.toString();
+          const matchCount = countMatches(
+            text,
+            state.query,
+            state.caseSensitive,
+            state.wholeWord,
+            state.useRegex
+          );
+          useSearchStore.getState().setMatches(matchCount, matchCount > 0 ? 0 : -1);
         } else {
           // Clear search
           runOrQueueCodeMirrorAction(view, () => {
             view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "" })) });
           });
+          useSearchStore.getState().setMatches(0, -1);
         }
       }
 
@@ -374,21 +487,55 @@ export function SourceEditor() {
       }
     });
 
+    // Helper to update match count after document changes
+    const updateMatchCount = () => {
+      const view = viewRef.current;
+      if (!view) return;
+      const state = useSearchStore.getState();
+      if (!state.query) return;
+
+      const text = view.state.doc.toString();
+      const matchCount = countMatches(
+        text,
+        state.query,
+        state.caseSensitive,
+        state.wholeWord,
+        state.useRegex
+      );
+      // Keep currentIndex valid: reset to 0 if out of bounds or -1
+      let newIndex = state.currentIndex;
+      if (matchCount === 0) {
+        newIndex = -1;
+      } else if (newIndex < 0 || newIndex >= matchCount) {
+        newIndex = 0;
+      }
+      useSearchStore.getState().setMatches(matchCount, newIndex);
+    };
+
     // Handle replace actions via custom events
     const handleReplaceCurrent = () => {
       const view = viewRef.current;
-      if (view) runOrQueueCodeMirrorAction(view, () => replaceNext(view));
+      if (view) {
+        runOrQueueCodeMirrorAction(view, () => replaceNext(view));
+        // Update match count after replace - double rAF for state to settle
+        requestAnimationFrame(() => requestAnimationFrame(updateMatchCount));
+      }
     };
 
     const handleReplaceAll = () => {
       const view = viewRef.current;
-      if (view) runOrQueueCodeMirrorAction(view, () => replaceAll(view));
+      if (view) {
+        runOrQueueCodeMirrorAction(view, () => replaceAll(view));
+        // Update match count after replace all - double rAF for state to settle
+        requestAnimationFrame(() => requestAnimationFrame(updateMatchCount));
+      }
     };
 
     window.addEventListener("search:replace-current", handleReplaceCurrent);
     window.addEventListener("search:replace-all", handleReplaceAll);
 
     return () => {
+      clearTimeout(timeoutId);
       unsubscribe();
       window.removeEventListener("search:replace-current", handleReplaceCurrent);
       window.removeEventListener("search:replace-all", handleReplaceAll);
