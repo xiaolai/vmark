@@ -61,12 +61,6 @@ features:
   padding: 2rem 1.5rem;
 }
 
-.section-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
 .tech-stack {
   display: flex;
   flex-wrap: wrap;

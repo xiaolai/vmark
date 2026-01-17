@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 interface ReleaseAsset {
   name: string
@@ -10,7 +10,7 @@ interface ReleaseAsset {
 interface Release {
   tag_name: string
   name: string
-  published_at: string
+  published_at: string | null
   html_url: string
   assets: ReleaseAsset[]
 }
@@ -22,13 +22,21 @@ interface PlatformDownload {
   icon: string
 }
 
+interface CachedRelease {
+  data: Release
+  timestamp: number
+}
+
 const loading = ref(true)
 const error = ref<string | null>(null)
 const release = ref<Release | null>(null)
 const downloads = ref<PlatformDownload[]>([])
+const userPlatform = ref<'macos' | 'windows' | 'linux' | 'unknown'>('unknown')
 
 const REPO_OWNER = 'xiaolai'
 const REPO_NAME = 'vmark'
+const CACHE_KEY = 'vmark-release-cache'
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 function formatSize(bytes: number): string {
   const mb = bytes / (1024 * 1024)
@@ -107,18 +115,86 @@ function getAssetInfo(asset: ReleaseAsset): PlatformDownload | null {
   return null
 }
 
+function parseDownloads(data: Release): PlatformDownload[] {
+  const platformDownloads: PlatformDownload[] = []
+  for (const asset of data.assets) {
+    const info = getAssetInfo(asset)
+    if (info) {
+      platformDownloads.push(info)
+    }
+  }
+  // Sort: macOS first, then Windows, then Linux
+  platformDownloads.sort((a, b) => {
+    const order = { '🍎': 0, '🪟': 1, '🐧': 2 }
+    return (order[a.icon as keyof typeof order] ?? 3) - (order[b.icon as keyof typeof order] ?? 3)
+  })
+  return platformDownloads
+}
+
+function tryLoadFromCache(): boolean {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (!cached) return false
+
+    const { data, timestamp }: CachedRelease = JSON.parse(cached)
+    if (Date.now() - timestamp > CACHE_TTL_MS) {
+      localStorage.removeItem(CACHE_KEY)
+      return false
+    }
+
+    release.value = data
+    downloads.value = parseDownloads(data)
+    return true
+  } catch {
+    localStorage.removeItem(CACHE_KEY)
+    return false
+  }
+}
+
+function saveToCache(data: Release): void {
+  try {
+    const cached: CachedRelease = { data, timestamp: Date.now() }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cached))
+  } catch {
+    // localStorage may be unavailable or full; ignore
+  }
+}
+
 async function fetchRelease() {
   try {
     loading.value = true
     error.value = null
 
+    // Try cache first
+    if (tryLoadFromCache()) {
+      loading.value = false
+      return
+    }
+
     const response = await fetch(
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`
     )
 
+    // Handle rate limiting
+    const remaining = response.headers.get('X-RateLimit-Remaining')
+    if (remaining && parseInt(remaining, 10) === 0) {
+      const resetHeader = response.headers.get('X-RateLimit-Reset')
+      if (resetHeader) {
+        const resetTime = new Date(parseInt(resetHeader, 10) * 1000)
+        error.value = `GitHub API rate limit reached. Try again after ${resetTime.toLocaleTimeString()}.`
+      } else {
+        error.value = 'GitHub API rate limit reached. Please try again later.'
+      }
+      return
+    }
+
     if (!response.ok) {
       if (response.status === 404) {
         error.value = 'No releases available yet.'
+        return
+      }
+      if (response.status === 403) {
+        error.value = 'GitHub API rate limit reached. Please try again later.'
         return
       }
       throw new Error(`Failed to fetch release: ${response.statusText}`)
@@ -126,23 +202,8 @@ async function fetchRelease() {
 
     const data: Release = await response.json()
     release.value = data
-
-    // Parse assets
-    const platformDownloads: PlatformDownload[] = []
-    for (const asset of data.assets) {
-      const info = getAssetInfo(asset)
-      if (info) {
-        platformDownloads.push(info)
-      }
-    }
-
-    // Sort: macOS first, then Windows, then Linux
-    platformDownloads.sort((a, b) => {
-      const order = { '🍎': 0, '🪟': 1, '🐧': 2 }
-      return (order[a.icon as keyof typeof order] ?? 3) - (order[b.icon as keyof typeof order] ?? 3)
-    })
-
-    downloads.value = platformDownloads
+    downloads.value = parseDownloads(data)
+    saveToCache(data)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to fetch release'
   } finally {
@@ -150,13 +211,18 @@ async function fetchRelease() {
   }
 }
 
-onMounted(() => {
-  fetchRelease()
+const formattedDate = computed(() => {
+  if (!release.value?.published_at) return null
+  try {
+    return new Date(release.value.published_at).toLocaleDateString()
+  } catch {
+    return null
+  }
 })
 
-const userPlatform = ref<string>('unknown')
 onMounted(() => {
   userPlatform.value = detectPlatform()
+  fetchRelease()
 })
 </script>
 
@@ -183,8 +249,8 @@ onMounted(() => {
     <template v-else-if="release">
       <div class="version-info">
         <span class="version">{{ release.tag_name }}</span>
-        <span class="date">
-          Released {{ new Date(release.published_at).toLocaleDateString() }}
+        <span v-if="formattedDate" class="date">
+          Released {{ formattedDate }}
         </span>
       </div>
 

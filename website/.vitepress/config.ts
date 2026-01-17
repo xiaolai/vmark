@@ -45,7 +45,7 @@ export default defineConfig({
 
     footer: {
       message: 'Built with VitePress',
-      copyright: 'Copyright © 2024-present VMark'
+      copyright: 'Copyright © 2026-present VMark'
     },
 
     search: {
