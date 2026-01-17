@@ -16,9 +16,24 @@ describe("linebreakDetection", () => {
     expect(normalizeResult(detectLinebreaks(input)).lineEnding).toBe("crlf");
   });
 
+  it("treats mixed line endings as CRLF when present", () => {
+    const input = "a\nb\r\nc\r";
+    expect(normalizeResult(detectLinebreaks(input)).lineEnding).toBe("crlf");
+  });
+
+  it("treats bare CR as CRLF", () => {
+    const input = "a\rb\r";
+    expect(normalizeResult(detectLinebreaks(input)).lineEnding).toBe("crlf");
+  });
+
   it("returns unknown when no line endings exist", () => {
     const input = "single line";
     expect(normalizeResult(detectLinebreaks(input)).lineEnding).toBe("unknown");
+  });
+
+  it("returns unknown for empty text", () => {
+    expect(normalizeResult(detectLinebreaks("")).lineEnding).toBe("unknown");
+    expect(normalizeResult(detectLinebreaks("")).hardBreakStyle).toBe("unknown");
   });
 
   it("detects backslash hard breaks", () => {

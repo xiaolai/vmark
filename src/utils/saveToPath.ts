@@ -9,7 +9,12 @@ import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { createSnapshot } from "@/hooks/useHistoryOperations";
-import { resolveLineEndingOnSave, normalizeLineEndings } from "@/utils/linebreaks";
+import {
+  resolveHardBreakStyle,
+  resolveLineEndingOnSave,
+  normalizeHardBreaks,
+  normalizeLineEndings,
+} from "@/utils/linebreaks";
 
 export async function saveToPath(
   tabId: string,
@@ -19,13 +24,22 @@ export async function saveToPath(
 ): Promise<boolean> {
   try {
     const doc = useDocumentStore.getState().getDocument(tabId);
-    const lineEndingPref = useSettingsStore.getState().general.lineEndingsOnSave;
+    const settings = useSettingsStore.getState();
+    const lineEndingPref = settings.general.lineEndingsOnSave;
+    const hardBreakPref = settings.markdown.hardBreakStyleOnSave;
     const targetLineEnding = resolveLineEndingOnSave(doc?.lineEnding ?? "unknown", lineEndingPref);
-    const output = normalizeLineEndings(content, targetLineEnding);
+    const targetHardBreakStyle = resolveHardBreakStyle(
+      doc?.hardBreakStyle ?? "unknown",
+      hardBreakPref
+    );
+    const hardBreakNormalized = normalizeHardBreaks(content, targetHardBreakStyle);
+    const output = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
 
     await writeTextFile(path, output);
     useDocumentStore.getState().setFilePath(tabId, path);
-    useDocumentStore.getState().setLineMetadata(tabId, { lineEnding: targetLineEnding });
+    useDocumentStore
+      .getState()
+      .setLineMetadata(tabId, { lineEnding: targetLineEnding, hardBreakStyle: targetHardBreakStyle });
     useDocumentStore.getState().markSaved(tabId);
     // Update tab path for title sync
     useTabStore.getState().updateTabPath(tabId, path);

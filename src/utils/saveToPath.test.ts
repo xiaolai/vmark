@@ -74,6 +74,9 @@ describe("saveToPath", () => {
         historyMaxAgeDays: 30,
         lineEndingsOnSave: "preserve",
       },
+      markdown: {
+        hardBreakStyleOnSave: "preserve",
+      },
     } as unknown as ReturnType<typeof useSettingsStore.getState>);
     mockGetDocument.mockReturnValue({ lineEnding: "unknown" });
   });
@@ -103,7 +106,35 @@ describe("saveToPath", () => {
 
     expect(result).toBe(true);
     expect(writeTextFile).toHaveBeenCalledWith("/tmp/doc.md", "a\r\nb\r\n");
-    expect(mockSetLineMetadata).toHaveBeenCalledWith("tab-1", { lineEnding: "crlf" });
+    expect(mockSetLineMetadata).toHaveBeenCalledWith("tab-1", {
+      lineEnding: "crlf",
+      hardBreakStyle: "backslash",
+    });
+  });
+
+  it("normalizes hard breaks based on settings", async () => {
+    vi.mocked(writeTextFile).mockResolvedValue(undefined);
+    mockGetDocument.mockReturnValue({ lineEnding: "lf", hardBreakStyle: "backslash" });
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      general: {
+        historyEnabled: true,
+        historyMaxSnapshots: 5,
+        historyMaxAgeDays: 30,
+        lineEndingsOnSave: "preserve",
+      },
+      markdown: {
+        hardBreakStyleOnSave: "twoSpaces",
+      },
+    } as unknown as ReturnType<typeof useSettingsStore.getState>);
+
+    const result = await saveToPath("tab-1", "/tmp/doc.md", "a\\\nb\n", "manual");
+
+    expect(result).toBe(true);
+    expect(writeTextFile).toHaveBeenCalledWith("/tmp/doc.md", "a  \nb\n");
+    expect(mockSetLineMetadata).toHaveBeenCalledWith("tab-1", {
+      lineEnding: "lf",
+      hardBreakStyle: "twoSpaces",
+    });
   });
 
   it("skips history snapshot when disabled", async () => {
@@ -114,6 +145,9 @@ describe("saveToPath", () => {
         historyMaxSnapshots: 5,
         historyMaxAgeDays: 30,
         lineEndingsOnSave: "preserve",
+      },
+      markdown: {
+        hardBreakStyleOnSave: "preserve",
       },
     } as unknown as ReturnType<typeof useSettingsStore.getState>);
 
