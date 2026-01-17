@@ -247,4 +247,91 @@ export function registerWorkspaceTools(server: VMarkMcpServer): void {
       }
     }
   );
+
+  // workspace_save_document_as - Save document with a new path
+  server.registerTool(
+    {
+      name: 'workspace_save_document_as',
+      description:
+        'Save the current document with a new file path. ' +
+        'This creates a copy of the document at the specified location.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'The new file path to save the document to.',
+          },
+          windowId: {
+            type: 'string',
+            description: 'Optional window identifier. Defaults to focused window.',
+          },
+        },
+        required: ['path'],
+      },
+    },
+    async (args) => {
+      const path = args.path as string;
+      const windowId = resolveWindowId(args.windowId as string | undefined);
+
+      if (typeof path !== 'string' || path.length === 0) {
+        return VMarkMcpServer.errorResult('path must be a non-empty string');
+      }
+
+      try {
+        await server.sendBridgeRequest<null>({
+          type: 'workspace.saveDocumentAs',
+          path,
+          windowId,
+        });
+
+        return VMarkMcpServer.successResult(`Document saved to: ${path}`);
+      } catch (error) {
+        return VMarkMcpServer.errorResult(
+          `Failed to save document: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+  );
+
+  // workspace_get_document_info - Get document metadata
+  server.registerTool(
+    {
+      name: 'workspace_get_document_info',
+      description:
+        'Get information about the current document including path, dirty state, ' +
+        'word count, and character count.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          windowId: {
+            type: 'string',
+            description: 'Optional window identifier. Defaults to focused window.',
+          },
+        },
+      },
+    },
+    async (args) => {
+      const windowId = resolveWindowId(args.windowId as string | undefined);
+
+      try {
+        const info = await server.sendBridgeRequest<{
+          filePath: string | null;
+          isDirty: boolean;
+          title: string;
+          wordCount: number;
+          charCount: number;
+        }>({
+          type: 'workspace.getDocumentInfo',
+          windowId,
+        });
+
+        return VMarkMcpServer.successJsonResult(info);
+      } catch (error) {
+        return VMarkMcpServer.errorResult(
+          `Failed to get document info: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+  );
 }

@@ -201,7 +201,16 @@ export type BridgeRequest =
   | { type: 'workspace.newDocument'; title?: string }
   | { type: 'workspace.openDocument'; path: string }
   | { type: 'workspace.saveDocument'; windowId?: WindowId }
+  | { type: 'workspace.saveDocumentAs'; path: string; windowId?: WindowId }
+  | { type: 'workspace.getDocumentInfo'; windowId?: WindowId }
   | { type: 'workspace.closeWindow'; windowId?: WindowId }
+  // Tab commands
+  | { type: 'tabs.list'; windowId?: WindowId }
+  | { type: 'tabs.getActive'; windowId?: WindowId }
+  | { type: 'tabs.switch'; tabId: string; windowId?: WindowId }
+  | { type: 'tabs.close'; tabId?: string; windowId?: WindowId }
+  | { type: 'tabs.create'; windowId?: WindowId }
+  | { type: 'tabs.getInfo'; tabId?: string; windowId?: WindowId }
   // VMark-specific commands
   | { type: 'vmark.insertMathInline'; latex: string; windowId?: WindowId }
   | { type: 'vmark.insertMathBlock'; latex: string; windowId?: WindowId }

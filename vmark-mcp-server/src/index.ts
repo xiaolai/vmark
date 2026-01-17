@@ -39,6 +39,7 @@ export { registerListTools } from './tools/lists.js';
 export { registerTableTools } from './tools/tables.js';
 export { registerVMarkTools } from './tools/vmark.js';
 export { registerWorkspaceTools } from './tools/workspace.js';
+export { registerTabTools } from './tools/tabs.js';
 export { registerPromptTools } from './tools/prompts.js';
 
 // Resource registrations
@@ -84,6 +85,7 @@ import { registerListTools } from './tools/lists.js';
 import { registerTableTools } from './tools/tables.js';
 import { registerVMarkTools } from './tools/vmark.js';
 import { registerWorkspaceTools } from './tools/workspace.js';
+import { registerTabTools } from './tools/tabs.js';
 import { registerPromptTools } from './tools/prompts.js';
 import { registerDocumentResources } from './resources/document.js';
 import type { Bridge } from './bridge/types.js';
@@ -104,6 +106,7 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   registerTableTools(server);
   registerVMarkTools(server);
   registerWorkspaceTools(server);
+  registerTabTools(server);
   registerPromptTools(server);
 
   // Register resources
@@ -195,7 +198,21 @@ export const TOOL_CATEGORIES = [
       'workspace_new_document',
       'workspace_open_document',
       'workspace_save_document',
+      'workspace_save_document_as',
+      'workspace_get_document_info',
       'workspace_close_window',
+    ],
+  },
+  {
+    name: 'Tab Tools',
+    description: 'Manage editor tabs within windows',
+    tools: [
+      'tabs_list',
+      'tabs_get_active',
+      'tabs_switch',
+      'tabs_close',
+      'tabs_create',
+      'tabs_get_info',
     ],
   },
   {

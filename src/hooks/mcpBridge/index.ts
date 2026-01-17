@@ -73,9 +73,21 @@ import {
   handleWorkspaceNewDocument,
   handleWorkspaceOpenDocument,
   handleWorkspaceSaveDocument,
+  handleWorkspaceSaveDocumentAs,
+  handleWorkspaceGetDocumentInfo,
   handleWorkspaceCloseWindow,
   handleAiNotImplemented,
 } from "./workspaceHandlers";
+
+// Tab handlers
+import {
+  handleTabsList,
+  handleTabsGetActive,
+  handleTabsSwitch,
+  handleTabsClose,
+  handleTabsCreate,
+  handleTabsGetInfo,
+} from "./tabHandlers";
 
 // VMark-specific handlers
 import {
@@ -234,8 +246,34 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
       case "workspace.saveDocument":
         await handleWorkspaceSaveDocument(id);
         break;
+      case "workspace.saveDocumentAs":
+        await handleWorkspaceSaveDocumentAs(id, args);
+        break;
+      case "workspace.getDocumentInfo":
+        await handleWorkspaceGetDocumentInfo(id, args);
+        break;
       case "workspace.closeWindow":
         await handleWorkspaceCloseWindow(id, args);
+        break;
+
+      // Tab operations
+      case "tabs.list":
+        await handleTabsList(id, args);
+        break;
+      case "tabs.getActive":
+        await handleTabsGetActive(id, args);
+        break;
+      case "tabs.switch":
+        await handleTabsSwitch(id, args);
+        break;
+      case "tabs.close":
+        await handleTabsClose(id, args);
+        break;
+      case "tabs.create":
+        await handleTabsCreate(id, args);
+        break;
+      case "tabs.getInfo":
+        await handleTabsGetInfo(id, args);
         break;
 
       // VMark-specific operations

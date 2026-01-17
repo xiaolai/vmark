@@ -203,6 +203,101 @@ export async function handleWorkspaceCloseWindow(
 }
 
 /**
+ * Handle workspace.saveDocumentAs request.
+ * Saves the document to a new path.
+ */
+export async function handleWorkspaceSaveDocumentAs(
+  id: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  try {
+    const path = args.path as string;
+    if (!path) {
+      throw new Error("path is required");
+    }
+
+    const tabStore = useTabStore.getState();
+    const docStore = useDocumentStore.getState();
+    const activeTabId = tabStore.activeTabId["main"];
+
+    if (!activeTabId) {
+      throw new Error("No active document");
+    }
+
+    const editor = getEditor();
+    if (!editor) throw new Error("No active editor");
+
+    const content = serializeMarkdown(editor.state.schema, editor.state.doc);
+    await writeTextFile(path, content);
+
+    // Update tab and document with new path
+    tabStore.updateTabPath(activeTabId, path);
+    tabStore.updateTabTitle(activeTabId, path.split("/").pop() ?? "Untitled");
+    docStore.setFilePath(activeTabId, path);
+    docStore.markSaved(activeTabId);
+
+    await respond({ id, success: true, data: null });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Handle workspace.getDocumentInfo request.
+ * Gets document metadata.
+ */
+export async function handleWorkspaceGetDocumentInfo(
+  id: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  try {
+    const windowId = (args.windowId as string) ?? "main";
+    const tabStore = useTabStore.getState();
+    const docStore = useDocumentStore.getState();
+    const activeTabId = tabStore.activeTabId[windowId];
+
+    if (!activeTabId) {
+      throw new Error("No active document");
+    }
+
+    const doc = docStore.getDocument(activeTabId);
+    const tab = tabStore.tabs[windowId]?.find((t) => t.id === activeTabId);
+    const editor = getEditor();
+
+    // Calculate word and character count from editor content
+    let wordCount = 0;
+    let charCount = 0;
+    if (editor) {
+      const text = editor.state.doc.textContent;
+      charCount = text.length;
+      wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+    }
+
+    await respond({
+      id,
+      success: true,
+      data: {
+        filePath: doc?.filePath ?? null,
+        isDirty: doc?.isDirty ?? false,
+        title: tab?.title ?? "Untitled",
+        wordCount,
+        charCount,
+      },
+    });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
  * Handle AI-related requests (stub - not implemented).
  */
 export async function handleAiNotImplemented(id: string, operation: string): Promise<void> {
