@@ -103,8 +103,8 @@ VMark is available for macOS, Windows, and Linux. Download the latest version an
 
 ## Credits
 
-**Producer:** [@xiaolai](https://x.com/xiaolai) · [lixiaolai.com](https://lixiaolai.com)
+**Producer:** [@xiaolai](https://x.com/xiaolai) · [GitHub](https://github.com/xiaolai) · [lixiaolai.com](https://lixiaolai.com)
 
-**Coders:** [Claude Code](https://claude.ai/code) · [Codex CLI](https://github.com/openai/codex) · [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+**Coders:** 🟠 [Claude Code](https://claude.ai/code) · ⬡ [Codex CLI](https://github.com/openai/codex) · ✦ [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 
 </div>
