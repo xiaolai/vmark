@@ -1,0 +1,98 @@
+/**
+ * VMark Website Custom Styles
+ *
+ * Customize the default VitePress theme
+ */
+
+:root {
+  /* Brand colors */
+  --vp-c-brand-1: #3eaf7c;
+  --vp-c-brand-2: #42b883;
+  --vp-c-brand-3: #35495e;
+  --vp-c-brand-soft: rgba(62, 175, 124, 0.14);
+
+  /* Hero home page */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #3eaf7c 30%, #42b883);
+
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #3eaf7c50 50%, #42b88350 50%);
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+.dark {
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #3eaf7c30 50%, #42b88330 50%);
+}
+
+/* Custom feature card styling */
+.VPFeature {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.VPFeature:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Download buttons container */
+.download-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.download-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  background: var(--vp-c-brand-1);
+  color: white;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.download-button:hover {
+  background: var(--vp-c-brand-2);
+  text-decoration: none;
+}
+
+.download-button.secondary {
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+  border: 1px solid var(--vp-c-divider);
+}
+
+.download-button.secondary:hover {
+  border-color: var(--vp-c-brand-1);
+}
+
+/* Platform icons */
+.platform-icon {
+  width: 1.25em;
+  height: 1.25em;
+}
+
+/* Version badge */
+.version-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .download-buttons {
+    flex-direction: column;
+  }
+
+  .download-button {
+    justify-content: center;
+  }
+}
