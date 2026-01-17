@@ -10,14 +10,15 @@
   padding-right: 0;
 }
 
-/* Resize handle - 2px hit area, invisible until hovered/held */
+/* Resize handle - positioned at right edge of sidebar */
 .sidebar-resize-handle {
-  width: 2px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
   height: 100%;
   cursor: col-resize;
   background: transparent;
-  position: relative;
-  flex-shrink: 0;
   z-index: 10;
   transition: background-color 0.15s ease;
 }
@@ -25,11 +26,6 @@
 .sidebar-resize-handle:hover,
 .sidebar-resize-handle:active {
   background-color: var(--border-color);
-}
-
-/* In source mode, match editor background so gap is invisible */
-.app-layout:has(.source-editor) .sidebar-resize-handle {
-  background-color: var(--source-mode-bg, rgba(0, 0, 0, 0.02));
 }
 
 /* Header */

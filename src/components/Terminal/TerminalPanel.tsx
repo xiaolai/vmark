@@ -1,15 +1,95 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   useTerminalStore,
   type TerminalSession,
   type SplitDirection,
 } from "@/stores/terminalStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, type ThemeId } from "@/stores/settingsStore";
 import { useTerminalResize } from "@/hooks/useTerminalResize";
 import { TerminalView } from "./TerminalView";
 import { TerminalTabs } from "./TerminalTabs";
 import "./TerminalPanel.css";
+
+/**
+ * Chrome colors for terminal panel (tabs, header, buttons).
+ * These match the terminal content themes for visual consistency.
+ */
+interface TerminalChromeColors {
+  bg: string;
+  border: string;
+  text: string;
+  textActive: string;
+  hoverBg: string;
+  activeBg: string;
+}
+
+const chromeThemes: Record<ThemeId, TerminalChromeColors> = {
+  // White theme - clean, light
+  white: {
+    bg: "#f3f3f3",
+    border: "#e0e0e0",
+    text: "#666666",
+    textActive: "#1a1a1a",
+    hoverBg: "#e8e8e8",
+    activeBg: "#ffffff",
+  },
+  // Paper theme - soft gray
+  paper: {
+    bg: "#e6e5e5",
+    border: "#d5d4d4",
+    text: "#666666",
+    textActive: "#1a1a1a",
+    hoverBg: "#dcdcdc",
+    activeBg: "#EEEDED",
+  },
+  // Mint theme - green-tinted
+  mint: {
+    bg: "#b8d9bd",
+    border: "#a3c9a8",
+    text: "#4a5f52",
+    textActive: "#2d3a35",
+    hoverBg: "#a8cead",
+    activeBg: "#CCE6D0",
+  },
+  // Sepia theme - warm, book-like
+  sepia: {
+    bg: "#efe5ce",
+    border: "#e0d4b8",
+    text: "#8b7355",
+    textActive: "#5c4b37",
+    hoverBg: "#e6d9be",
+    activeBg: "#F9F0DB",
+  },
+  // Night theme - dark with vibrant accents
+  night: {
+    bg: "#252526",
+    border: "#3c3c3c",
+    text: "#808080",
+    textActive: "#d6d9de",
+    hoverBg: "#2a2d2e",
+    activeBg: "#23262b",
+  },
+};
+
+/** Get terminal chrome colors based on settings */
+function useTerminalChromeColors(): TerminalChromeColors {
+  const terminalThemeSetting = useSettingsStore((state) => state.terminal.theme);
+  const appTheme = useSettingsStore((state) => state.appearance.theme);
+
+  return useMemo(() => {
+    // "Dark" - always use Night chrome
+    if (terminalThemeSetting === "dark") return chromeThemes.night;
+
+    // "Light" - use current app theme, but if app is Night, use White instead
+    if (terminalThemeSetting === "light") {
+      return appTheme === "night" ? chromeThemes.white : chromeThemes[appTheme];
+    }
+
+    // "Follow App" (auto) - use the chrome that matches the app theme
+    return chromeThemes[appTheme] ?? chromeThemes.paper;
+  }, [terminalThemeSetting, appTheme]);
+}
 
 /** Represents a mounted terminal - either new or restoring */
 interface MountedTerminal {
@@ -29,6 +109,7 @@ export function TerminalPanel() {
   const splitSession = useTerminalStore((state) => state.splitSession);
   const position = useSettingsStore((state) => state.terminal.position);
   const handleResizeStart = useTerminalResize();
+  const chromeColors = useTerminalChromeColors();
 
   // Local state to track mounted terminals
   const [mountedTerminals, setMountedTerminals] = useState<MountedTerminal[]>([]);
@@ -111,10 +192,16 @@ export function TerminalPanel() {
   const hasNoTerminals = mountedTerminals.length === 0;
   const isRightPosition = position === "right";
 
-  // Style based on position
-  const panelStyle = isRightPosition
-    ? { width, height: "100%" }
-    : { height, width: "100%" };
+  // Style based on position, including chrome CSS custom properties
+  const panelStyle: React.CSSProperties & Record<`--${string}`, string> = {
+    ...(isRightPosition ? { width, height: "100%" } : { height, width: "100%" }),
+    "--terminal-chrome-bg": chromeColors.bg,
+    "--terminal-chrome-border": chromeColors.border,
+    "--terminal-chrome-text": chromeColors.text,
+    "--terminal-chrome-text-active": chromeColors.textActive,
+    "--terminal-chrome-hover-bg": chromeColors.hoverBg,
+    "--terminal-chrome-active-bg": chromeColors.activeBg,
+  };
 
   const panelClassName = `terminal-panel terminal-panel--${position}`;
 

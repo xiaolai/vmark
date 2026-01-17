@@ -54,6 +54,14 @@ export function useSettingsSync() {
             }
           }
 
+          // Sync terminal settings
+          if (parsed.state?.terminal) {
+            const newTerminal = parsed.state.terminal;
+            if (JSON.stringify(currentState.terminal) !== JSON.stringify(newTerminal)) {
+              updates.terminal = newTerminal;
+            }
+          }
+
           // Apply updates if any
           if (Object.keys(updates).length > 0) {
             useSettingsStore.setState(updates);

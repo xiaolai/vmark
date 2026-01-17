@@ -25,6 +25,17 @@ export function TerminalTabs({ onNewSession, onCloseSession, onSplitSession }: T
 
   return (
     <div className="terminal-tabs">
+      {/* New terminal button - leftmost */}
+      {canAddMore && (
+        <button
+          className="terminal-tab-action"
+          onClick={onNewSession}
+          title="New terminal"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      )}
+
       <div className="terminal-tabs-list">
         {sessions
           // Don't show tabs for sessions that are secondary in a split (they share the main tab)
@@ -77,17 +88,6 @@ export function TerminalTabs({ onNewSession, onCloseSession, onSplitSession }: T
             title="Split vertical"
           >
             <Rows2 className="w-4 h-4" />
-          </button>
-        )}
-
-        {/* New terminal button */}
-        {canAddMore && (
-          <button
-            className="terminal-tab-action"
-            onClick={onNewSession}
-            title="New terminal"
-          >
-            <Plus className="w-4 h-4" />
           </button>
         )}
       </div>

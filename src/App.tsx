@@ -162,23 +162,22 @@ function MainLayout() {
       <TitleBar />
 
       {sidebarVisible && (
-        <>
-          <aside
-            style={{
-              width: sidebarWidth,
-              minWidth: sidebarWidth,
-              height: "100%",
-              flexShrink: 0,
-            }}
-          >
-            <Sidebar />
-          </aside>
-          {/* Resize handle */}
+        <aside
+          style={{
+            width: sidebarWidth,
+            minWidth: sidebarWidth,
+            height: "100%",
+            flexShrink: 0,
+            position: "relative",
+          }}
+        >
+          <Sidebar />
+          {/* Resize handle - positioned at right edge of sidebar */}
           <div
             className="sidebar-resize-handle"
             onMouseDown={handleResizeStart}
           />
-        </>
+        </aside>
       )}
       <div
         style={{

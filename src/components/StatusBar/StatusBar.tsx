@@ -2,10 +2,9 @@ import { useMemo, useState, useEffect, useCallback, type MouseEvent } from "reac
 
 // Stable empty array to avoid creating new reference on each render
 const EMPTY_TABS: never[] = [];
-import { Code2, Type, PanelLeftOpen, PanelRightOpen, Save, Plus } from "lucide-react";
+import { Code2, Type, Save, Plus } from "lucide-react";
 import { countWords as alfaazCount } from "alfaaz";
 import { useEditorStore } from "@/stores/editorStore";
-import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
@@ -59,7 +58,6 @@ export function StatusBar() {
   const content = useDocumentContent();
   const lastAutoSave = useDocumentLastAutoSave();
   const sourceMode = useEditorStore((state) => state.sourceMode);
-  const sidebarVisible = useUIStore((state) => state.sidebarVisible);
   const autoHideStatusBar = useSettingsStore((state) => state.appearance.autoHideStatusBar);
 
   // Tab state - only for document windows
@@ -151,16 +149,8 @@ export function StatusBar() {
     <>
       <div className={`status-bar-container ${statusBarVisible ? "visible" : ""}`}>
         <div className="status-bar">
-          {/* Left section: sidebar toggle + tabs */}
+          {/* Left section: tabs */}
           <div className="status-bar-left">
-            <button
-              className={`status-toggle ${sidebarVisible ? "active" : ""}`}
-              title="Toggle Sidebar"
-              onClick={() => useUIStore.getState().toggleSidebar()}
-            >
-              {sidebarVisible ? <PanelRightOpen size={14} /> : <PanelLeftOpen size={14} />}
-            </button>
-
             {/* New tab button - always on the left */}
             {showNewTabButton && (
               <button

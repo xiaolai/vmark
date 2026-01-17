@@ -2,18 +2,18 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background-color: var(--terminal-bg, #1e1e1e);
+  background-color: var(--terminal-chrome-active-bg, #1e1e1e);
   flex-shrink: 0;
 }
 
 /* Bottom position (default) */
 .terminal-panel--bottom {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--terminal-chrome-border, var(--border-color));
 }
 
 /* Right position */
 .terminal-panel--right {
-  border-left: 1px solid var(--border-color);
+  border-left: 1px solid var(--terminal-chrome-border, var(--border-color));
 }
 
 /* Resize handle - bottom position */
@@ -91,7 +91,7 @@
 
 .terminal-split-divider {
   flex-shrink: 0;
-  background: var(--border-color, #3c3c3c);
+  background: var(--terminal-chrome-border, #3c3c3c);
 }
 
 .terminal-split--horizontal .terminal-split-divider {
