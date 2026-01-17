@@ -196,7 +196,6 @@ function MainLayout() {
             flex: 1,
             minHeight: 0,
             minWidth: 0,
-            marginBottom: TITLEBAR_HEIGHT,
             display: "flex",
             flexDirection: isTerminalRight ? "row" : "column",
           }}
