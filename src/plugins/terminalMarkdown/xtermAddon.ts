@@ -5,7 +5,7 @@
  */
 
 import type { Terminal, ITerminalAddon } from "@xterm/xterm";
-import type { MarkdownMode } from "@/stores/terminalStore";
+import type { TerminalMarkdownMode } from "@/stores/settingsStore";
 import type { AnsiRenderOptions } from "./types";
 import { createMarkdownDetector, MarkdownDetector } from "./markdownDetector";
 import { renderBlocks, likelyContainsMarkdown } from "./ansiRenderer";
@@ -16,7 +16,7 @@ import { renderBlocks, likelyContainsMarkdown } from "./ansiRenderer";
 export class MarkdownAddon implements ITerminalAddon {
   private terminal: Terminal | null = null;
   private detector: MarkdownDetector;
-  private mode: MarkdownMode = "ansi";
+  private mode: TerminalMarkdownMode = "ansi";
   private options: AnsiRenderOptions = {};
 
   // Store original write function for bypass
@@ -54,7 +54,7 @@ export class MarkdownAddon implements ITerminalAddon {
   /**
    * Set markdown rendering mode
    */
-  setMode(mode: MarkdownMode): void {
+  setMode(mode: TerminalMarkdownMode): void {
     this.mode = mode;
     if (mode === "off") {
       // Flush any buffered content when switching to raw mode
@@ -65,7 +65,7 @@ export class MarkdownAddon implements ITerminalAddon {
   /**
    * Get current mode
    */
-  getMode(): MarkdownMode {
+  getMode(): TerminalMarkdownMode {
     return this.mode;
   }
 

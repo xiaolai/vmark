@@ -1,0 +1,105 @@
+/**
+ * Terminal Tabs Styles
+ */
+
+.terminal-tabs {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  background: #252526;
+  border-bottom: 1px solid #3c3c3c;
+  padding: 0 4px;
+  gap: 2px;
+}
+
+.terminal-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.terminal-tabs-list::-webkit-scrollbar {
+  display: none;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #808080;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.terminal-tab:hover {
+  background: #2a2d2e;
+  color: #cccccc;
+}
+
+.terminal-tab.active {
+  background: #1e1e1e;
+  color: #ffffff;
+}
+
+.terminal-tab-title {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.1s, background-color 0.1s;
+}
+
+.terminal-tab:hover .terminal-tab-close,
+.terminal-tab.active .terminal-tab-close {
+  opacity: 0.6;
+}
+
+.terminal-tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1 !important;
+}
+
+.terminal-tab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #808080;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+
+.terminal-tab-add:hover {
+  background: #2a2d2e;
+  color: #cccccc;
+}

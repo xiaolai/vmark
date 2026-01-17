@@ -35,6 +35,13 @@
   padding: 4px 8px;
 }
 
+.terminal-session {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Dark theme - terminal is already dark by default */
 .dark-theme .terminal-panel {
   border-top-color: var(--border-color);

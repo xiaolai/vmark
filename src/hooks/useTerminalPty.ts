@@ -22,7 +22,7 @@ interface PtyExit {
 }
 
 /**
- * Hook to manage PTY connection for a terminal.
+ * Hook to manage PTY connection for a terminal session.
  *
  * Handles:
  * - Spawning PTY session on mount
@@ -32,13 +32,16 @@ interface PtyExit {
  *
  * @param terminalRef - Reference to the xterm.js Terminal instance
  * @param processData - Optional function to process data before writing to terminal
+ * @param onSessionCreated - Callback when PTY session is created
+ * @param onSessionEnded - Callback when PTY session ends
  */
 export function useTerminalPty(
   terminalRef: MutableRefObject<Terminal | null>,
-  processData?: (data: string) => string
+  processData?: (data: string) => string,
+  onSessionCreated?: (sessionId: string) => void,
+  onSessionEnded?: (sessionId: string) => void
 ) {
   const rootPath = useWorkspaceStore((state) => state.rootPath);
-  const setActiveSessionId = useTerminalStore((state) => state.setActiveSessionId);
   const sessionIdRef = useRef<string | null>(null);
   const unlistenOutputRef = useRef<UnlistenFn | null>(null);
   const unlistenExitRef = useRef<UnlistenFn | null>(null);
@@ -73,7 +76,7 @@ export function useTerminalPty(
         }
 
         sessionIdRef.current = session.id;
-        setActiveSessionId(session.id);
+        onSessionCreated?.(session.id);
 
         // Listen for PTY output
         unlistenOutputRef.current = await listen<PtyOutput>("pty:output", (event) => {
@@ -93,8 +96,11 @@ export function useTerminalPty(
             `\x1b[90m[Process exited with code ${exitCode ?? "unknown"}]\x1b[0m`
           );
 
+          const endedSessionId = sessionIdRef.current;
           sessionIdRef.current = null;
-          setActiveSessionId(null);
+          if (endedSessionId) {
+            onSessionEnded?.(endedSessionId);
+          }
         });
       } catch (err) {
         console.error("[PTY] Spawn error:", err);
@@ -126,13 +132,36 @@ export function useTerminalPty(
           console.error("[PTY] Kill error:", err);
         });
         sessionIdRef.current = null;
-        setActiveSessionId(null);
       }
     };
-  }, [rootPath, setActiveSessionId, terminalRef, processData]);
+  }, [rootPath, terminalRef, processData, onSessionCreated, onSessionEnded]);
 
   return {
     sessionId: sessionIdRef.current,
     sendInput,
   };
+}
+
+/**
+ * Hook to use the terminal store for session management.
+ * Returns functions to add/remove sessions from the store.
+ */
+export function useTerminalSessions() {
+  const addSession = useTerminalStore((state) => state.addSession);
+  const removeSession = useTerminalStore((state) => state.removeSession);
+  const rootPath = useWorkspaceStore((state) => state.rootPath);
+
+  const createSession = useCallback(
+    (sessionId: string) => {
+      addSession({
+        id: sessionId,
+        title: `Terminal ${useTerminalStore.getState().sessions.length + 1}`,
+        cwd: rootPath || undefined,
+        createdAt: Date.now(),
+      });
+    },
+    [addSession, rootPath]
+  );
+
+  return { createSession, removeSession };
 }

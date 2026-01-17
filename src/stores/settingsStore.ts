@@ -164,6 +164,21 @@ export interface McpServerSettings {
   autoStart: boolean;  // Start on app launch
 }
 
+export type TerminalShell = "system" | "bash" | "zsh" | "fish" | "powershell";
+export type TerminalFontSize = 12 | 13 | 14 | 15 | 16;
+export type TerminalCursorStyle = "block" | "bar" | "underline";
+export type TerminalMarkdownMode = "ansi" | "overlay" | "off";
+
+export interface TerminalSettings {
+  shell: TerminalShell;           // Shell to use (system = auto-detect)
+  fontSize: TerminalFontSize;     // Terminal font size
+  cursorStyle: TerminalCursorStyle; // Cursor appearance
+  cursorBlink: boolean;           // Animate cursor
+  scrollback: number;             // Lines of scrollback (1000-10000)
+  markdownMode: TerminalMarkdownMode; // Markdown rendering mode
+  copyOnSelect: boolean;          // Copy text when selected
+}
+
 export interface AdvancedSettingsState {
   enableCommandMenu: boolean;
   mcpServer: McpServerSettings;
@@ -210,6 +225,7 @@ interface SettingsState {
   cjkFormatting: CJKFormattingSettings;
   markdown: MarkdownSettings;
   ai: AiSettings;
+  terminal: TerminalSettings;
   advanced: AdvancedSettingsState;
   // UI state
   showDevSection: boolean;
@@ -235,6 +251,10 @@ interface SettingsActions {
   updateAiSetting: <K extends keyof AiSettings>(
     key: K,
     value: AiSettings[K]
+  ) => void;
+  updateTerminalSetting: <K extends keyof TerminalSettings>(
+    key: K,
+    value: TerminalSettings[K]
   ) => void;
   updateAdvancedSetting: <K extends keyof AdvancedSettingsState>(
     key: K,
@@ -310,6 +330,15 @@ const initialState: SettingsState = {
   ai: {
     commandTrigger: "// ",
   },
+  terminal: {
+    shell: "system",
+    fontSize: 13,
+    cursorStyle: "bar",
+    cursorBlink: true,
+    scrollback: 5000,
+    markdownMode: "ansi",
+    copyOnSelect: false,
+  },
   advanced: {
     enableCommandMenu: false,
     mcpServer: {
@@ -321,7 +350,7 @@ const initialState: SettingsState = {
 };
 
 // Object sections that can be updated with createSectionUpdater
-type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "ai" | "advanced";
+type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "ai" | "terminal" | "advanced";
 
 // Helper to create section updaters - reduces duplication
 const createSectionUpdater = <T extends ObjectSections>(
@@ -342,6 +371,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateCJKFormattingSetting: createSectionUpdater(set, "cjkFormatting"),
       updateMarkdownSetting: createSectionUpdater(set, "markdown"),
       updateAiSetting: createSectionUpdater(set, "ai"),
+      updateTerminalSetting: createSectionUpdater(set, "terminal"),
       updateAdvancedSetting: createSectionUpdater(set, "advanced"),
 
       toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
