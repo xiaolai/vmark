@@ -1,7 +1,9 @@
 .find-bar {
   --find-bar-height: 40px; /* 6px padding + 28px row + 6px padding */
-  position: relative;
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   min-height: var(--find-bar-height);
   z-index: 101; /* Above StatusBar (z-index: 100) */
   background: var(--bg-color);

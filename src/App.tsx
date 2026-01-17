@@ -216,10 +216,12 @@ function MainLayout() {
             <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
               <Editor />
             </div>
-            {/* Bottom bars - always above bottom terminal, within sidebars when right terminal */}
-            <UniversalToolbar />
-            <FindBar />
-            <StatusBar />
+            {/* Bottom bar container - StatusBar always present, FindBar/Toolbar overlay it */}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <StatusBar />
+              <UniversalToolbar />
+              <FindBar />
+            </div>
           </div>
           {/* Terminal panel - on right side when isTerminalRight, otherwise below in column */}
           {isTerminalRight && <TerminalPanel />}
