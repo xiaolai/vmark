@@ -77,6 +77,16 @@ import {
   handleAiNotImplemented,
 } from "./workspaceHandlers";
 
+// VMark-specific handlers
+import {
+  handleInsertMathInline,
+  handleInsertMathBlock,
+  handleInsertMermaid,
+  handleInsertWikiLink,
+  handleCjkPunctuationConvert,
+  handleCjkSpacingFix,
+} from "./vmarkHandlers";
+
 /**
  * Route MCP request to appropriate handler.
  */
@@ -226,6 +236,26 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         break;
       case "workspace.closeWindow":
         await handleWorkspaceCloseWindow(id, args);
+        break;
+
+      // VMark-specific operations
+      case "vmark.insertMathInline":
+        await handleInsertMathInline(id, args);
+        break;
+      case "vmark.insertMathBlock":
+        await handleInsertMathBlock(id, args);
+        break;
+      case "vmark.insertMermaid":
+        await handleInsertMermaid(id, args);
+        break;
+      case "vmark.insertWikiLink":
+        await handleInsertWikiLink(id, args);
+        break;
+      case "vmark.cjkPunctuationConvert":
+        await handleCjkPunctuationConvert(id, args);
+        break;
+      case "vmark.cjkSpacingFix":
+        await handleCjkSpacingFix(id, args);
         break;
 
       // AI operations (not implemented - require external AI service)
