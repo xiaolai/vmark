@@ -1,0 +1,4 @@
+# Ignore compiled sidecar binaries (built by vmark-mcp-server/scripts/build-sidecar.js)
+vmark-mcp-server-*
+!.gitkeep
+!.gitignore

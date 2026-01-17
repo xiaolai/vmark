@@ -159,8 +159,14 @@ export type MarkdownPasteMode = "auto" | "off";
 
 export type AiCommandTrigger = ";; " | ",, " | "// ";
 
+export interface McpServerSettings {
+  port: number;        // Default: 9224
+  autoStart: boolean;  // Start on app launch
+}
+
 export interface AdvancedSettingsState {
   enableCommandMenu: boolean;
+  mcpServer: McpServerSettings;
 }
 
 export interface MarkdownSettings {
@@ -306,6 +312,10 @@ const initialState: SettingsState = {
   },
   advanced: {
     enableCommandMenu: false,
+    mcpServer: {
+      port: 9224,
+      autoStart: false,
+    },
   },
   showDevSection: false,
 };

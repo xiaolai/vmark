@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::sync::{Mutex, LazyLock, atomic::{AtomicBool, Ordering}};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::mcp_server;
+
 static QUIT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 static QUIT_TARGETS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
@@ -9,6 +11,11 @@ static QUIT_TARGETS: LazyLock<Mutex<HashSet<String>>> =
 /// Determine whether a window label is a document window.
 pub fn is_document_window_label(label: &str) -> bool {
     label == "main" || label.starts_with("doc-")
+}
+
+/// Check if a coordinated quit is in progress.
+pub fn is_quit_in_progress() -> bool {
+    QUIT_IN_PROGRESS.load(Ordering::SeqCst)
 }
 
 fn set_quit_targets(targets: HashSet<String>) {
@@ -43,7 +50,8 @@ pub fn start_quit(app: &AppHandle) {
     }
 
     if targets.is_empty() {
-        QUIT_IN_PROGRESS.store(false, Ordering::SeqCst);
+        // Keep QUIT_IN_PROGRESS true so ExitRequested handler allows exit
+        mcp_server::cleanup();
         app.exit(0);
         return;
     }
@@ -60,7 +68,11 @@ pub fn cancel_quit() {
 
 /// Handle a window being destroyed while quit is in progress.
 pub fn handle_window_destroyed(app: &AppHandle, label: &str) {
-    if !QUIT_IN_PROGRESS.load(Ordering::SeqCst) {
+    let quit_in_progress = QUIT_IN_PROGRESS.load(Ordering::SeqCst);
+    #[cfg(debug_assertions)]
+    eprintln!("[Tauri] handle_window_destroyed: label={}, quit_in_progress={}", label, quit_in_progress);
+
+    if !quit_in_progress {
         return;
     }
 
@@ -69,7 +81,10 @@ pub fn handle_window_destroyed(app: &AppHandle, label: &str) {
     }
 
     if remove_quit_target(label) {
-        QUIT_IN_PROGRESS.store(false, Ordering::SeqCst);
+        #[cfg(debug_assertions)]
+        eprintln!("[Tauri] handle_window_destroyed: all targets done, calling app.exit(0)");
+        // Keep QUIT_IN_PROGRESS true so ExitRequested handler allows exit
+        mcp_server::cleanup();
         app.exit(0);
     }
 }

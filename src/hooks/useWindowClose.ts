@@ -142,6 +142,12 @@ export function useWindowClose() {
         async (event) => {
           const targetLabel = event.payload;
           if (targetLabel !== windowLabel) return;
+          // Guard against duplicate listeners (React Strict Mode creates two)
+          // If already closing, another handler is processing - don't interfere
+          if (isClosingRef.current) {
+            closeLog(windowLabel, "quit-requested: already closing, skipping duplicate handler");
+            return;
+          }
 
           isQuitRequestRef.current = true;
           const closed = await handleCloseRequest();

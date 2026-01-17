@@ -1,3 +1,4 @@
+mod mcp_server;
 mod menu;
 mod menu_events;
 mod quit;
@@ -43,6 +44,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             menu::update_recent_files,
             menu::rebuild_menu,
@@ -62,6 +64,9 @@ pub fn run() {
             workspace::write_workspace_config,
             workspace::has_workspace_config,
             get_pending_open_files,
+            mcp_server::mcp_server_start,
+            mcp_server::mcp_server_stop,
+            mcp_server::mcp_server_status,
             #[cfg(debug_assertions)]
             debug_log,
         ])
@@ -107,10 +112,31 @@ pub fn run() {
                 tauri::RunEvent::ExitRequested { api, code, .. } => {
                     #[cfg(debug_assertions)]
                     eprintln!("[Tauri] ExitRequested received, code={:?}", code);
+
+                    // If quit is in progress, we called app.exit() - allow it through
+                    if quit::is_quit_in_progress() {
+                        #[cfg(debug_assertions)]
+                        eprintln!("[Tauri] ExitRequested: quit in progress, allowing exit");
+                        return;
+                    }
+
+                    // Prevent exit for last-window-close scenario (macOS behavior)
                     api.prevent_exit();
                     #[cfg(debug_assertions)]
                     eprintln!("[Tauri] ExitRequested: prevent_exit() called");
-                    quit::start_quit(&app);
+
+                    // Only start coordinated quit if there are document windows
+                    let has_doc_windows = app
+                        .webview_windows()
+                        .keys()
+                        .any(|label| quit::is_document_window_label(label));
+
+                    if has_doc_windows {
+                        #[cfg(debug_assertions)]
+                        eprintln!("[Tauri] ExitRequested: starting quit flow");
+                        quit::start_quit(&app);
+                    }
+                    // If no document windows, just stay alive (macOS dock behavior)
                 }
                 tauri::RunEvent::WindowEvent { label, event, .. } => {
                     if let tauri::WindowEvent::Destroyed = event {

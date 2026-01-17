@@ -15,6 +15,7 @@ import {
   FlaskConical,
   Keyboard,
   Sparkles,
+  Plug,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -30,6 +31,7 @@ import { AiSettings } from "./settings/AiSettings";
 import { ShortcutsSettings } from "./settings/ShortcutsSettings";
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { FilesSettings } from "./settings/FilesSettings";
+import { IntegrationsSettings } from "./settings/IntegrationsSettings";
 import { AdvancedSettings } from "./settings/AdvancedSettings";
 import { DevelopingSettings } from "./settings/DevelopingSettings";
 
@@ -76,6 +78,7 @@ type Section =
   | "shortcuts"
   | "general"
   | "files"
+  | "integrations"
   | "advanced"
   | "developing";
 
@@ -111,6 +114,7 @@ const navConfig = [
   { id: "shortcuts" as const, icon: Keyboard, label: "Shortcuts" },
   { id: "general" as const, icon: Settings, label: "General" },
   { id: "files" as const, icon: FolderOpen, label: "Files" },
+  { id: "integrations" as const, icon: Plug, label: "Integrations" },
   { id: "advanced" as const, icon: Zap, label: "Advanced" },
 ] as const;
 
@@ -196,6 +200,7 @@ export function SettingsPage() {
           {section === "shortcuts" && <ShortcutsSettings />}
           {section === "general" && <GeneralSettings />}
           {section === "files" && <FilesSettings />}
+          {section === "integrations" && <IntegrationsSettings />}
           {section === "advanced" && <AdvancedSettings />}
           {section === "developing" && <DevelopingSettings />}
         </div>

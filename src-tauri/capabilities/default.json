@@ -19,6 +19,12 @@
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-read-image",
     "mcp-bridge:default",
+    "shell:allow-spawn",
+    "shell:allow-kill",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "vmark-mcp-server", "sidecar": true }]
+    },
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [{ "path": "**" }]

@@ -100,15 +100,16 @@ export interface WindowInfo {
 }
 
 /**
- * Format types for toggle operations.
+ * Format types for toggle operations (inline marks).
  */
-export type FormatType = 'bold' | 'italic' | 'code' | 'strike' | 'underline';
+export type FormatType = 'bold' | 'italic' | 'code' | 'strike' | 'underline' | 'highlight';
 
 /**
  * Block types for block operations.
  */
 export type BlockType =
   | 'paragraph'
+  | 'heading'
   | 'heading1'
   | 'heading2'
   | 'heading3'
@@ -121,40 +122,99 @@ export type BlockType =
 /**
  * List types.
  */
-export type ListType = 'bullet' | 'ordered' | 'taskList';
+export type ListType = 'bullet' | 'ordered' | 'task' | 'taskList';
+
+/**
+ * CJK punctuation conversion direction.
+ */
+export type CjkDirection = 'to-fullwidth' | 'to-halfwidth';
+
+/**
+ * CJK spacing action.
+ */
+export type CjkSpacingAction = 'add' | 'remove';
+
+/**
+ * Writing style for AI improvements.
+ */
+export type WritingStyle = 'formal' | 'casual' | 'concise' | 'elaborate' | 'academic';
+
+/**
+ * Summary length.
+ */
+export type SummaryLength = 'brief' | 'medium' | 'detailed';
 
 /**
  * Bridge request types - commands that can be sent to VMark.
  */
 export type BridgeRequest =
+  // Document commands
   | { type: 'document.getContent'; windowId?: WindowId }
   | { type: 'document.setContent'; content: string; windowId?: WindowId }
   | { type: 'document.insertAtCursor'; text: string; windowId?: WindowId }
   | { type: 'document.insertAtPosition'; text: string; position: number; windowId?: WindowId }
   | { type: 'document.search'; query: string; caseSensitive?: boolean; windowId?: WindowId }
   | { type: 'document.replace'; search: string; replace: string; all?: boolean; windowId?: WindowId }
+  // Selection commands
   | { type: 'selection.get'; windowId?: WindowId }
   | { type: 'selection.set'; from: number; to: number; windowId?: WindowId }
   | { type: 'selection.replace'; text: string; windowId?: WindowId }
   | { type: 'selection.delete'; windowId?: WindowId }
+  // Cursor commands
   | { type: 'cursor.getContext'; linesBefore?: number; linesAfter?: number; windowId?: WindowId }
   | { type: 'cursor.setPosition'; position: number; windowId?: WindowId }
-  | { type: 'format.toggle'; format: FormatType; windowId?: WindowId }
-  | { type: 'format.setLink'; url: string; text?: string; windowId?: WindowId }
+  // Format commands
+  | { type: 'format.toggle'; format?: FormatType; mark?: FormatType; windowId?: WindowId }
+  | { type: 'format.setLink'; url?: string; href?: string; text?: string; title?: string; windowId?: WindowId }
   | { type: 'format.removeLink'; windowId?: WindowId }
   | { type: 'format.clear'; windowId?: WindowId }
-  | { type: 'block.setType'; blockType: BlockType; windowId?: WindowId }
+  // Block commands
+  | { type: 'block.setType'; blockType: BlockType; level?: number; language?: string; windowId?: WindowId }
+  | { type: 'block.toggle'; blockType: BlockType; level?: number; windowId?: WindowId }
   | { type: 'block.insertHorizontalRule'; windowId?: WindowId }
+  // List commands
   | { type: 'list.toggle'; listType: ListType; windowId?: WindowId }
   | { type: 'list.increaseIndent'; windowId?: WindowId }
   | { type: 'list.decreaseIndent'; windowId?: WindowId }
+  // Table commands
+  | { type: 'table.insert'; rows: number; cols: number; withHeaderRow?: boolean; windowId?: WindowId }
+  | { type: 'table.delete'; windowId?: WindowId }
+  | { type: 'table.addRowBefore'; windowId?: WindowId }
+  | { type: 'table.addRowAfter'; windowId?: WindowId }
+  | { type: 'table.deleteRow'; windowId?: WindowId }
+  | { type: 'table.addColumnBefore'; windowId?: WindowId }
+  | { type: 'table.addColumnAfter'; windowId?: WindowId }
+  | { type: 'table.deleteColumn'; windowId?: WindowId }
+  | { type: 'table.toggleHeaderRow'; windowId?: WindowId }
+  // Editor commands
   | { type: 'editor.undo'; windowId?: WindowId }
   | { type: 'editor.redo'; windowId?: WindowId }
   | { type: 'editor.focus'; windowId?: WindowId }
+  // Metadata commands
   | { type: 'metadata.get'; windowId?: WindowId }
   | { type: 'outline.get'; windowId?: WindowId }
+  // Window commands
   | { type: 'windows.list' }
-  | { type: 'windows.getFocused' };
+  | { type: 'windows.getFocused' }
+  | { type: 'windows.focus'; windowId: WindowId }
+  // Workspace commands
+  | { type: 'workspace.newDocument'; title?: string }
+  | { type: 'workspace.openDocument'; path: string }
+  | { type: 'workspace.saveDocument'; windowId?: WindowId }
+  | { type: 'workspace.closeWindow'; windowId?: WindowId }
+  // VMark-specific commands
+  | { type: 'vmark.insertMathInline'; latex: string; windowId?: WindowId }
+  | { type: 'vmark.insertMathBlock'; latex: string; windowId?: WindowId }
+  | { type: 'vmark.insertMermaid'; code: string; windowId?: WindowId }
+  | { type: 'vmark.insertWikiLink'; target: string; displayText?: string; windowId?: WindowId }
+  | { type: 'vmark.cjkPunctuationConvert'; direction: CjkDirection; windowId?: WindowId }
+  | { type: 'vmark.cjkSpacingFix'; action: CjkSpacingAction; windowId?: WindowId }
+  // AI commands
+  | { type: 'ai.improveWriting'; style?: WritingStyle; instructions?: string; windowId?: WindowId }
+  | { type: 'ai.fixGrammar'; windowId?: WindowId }
+  | { type: 'ai.translate'; targetLanguage: string; windowId?: WindowId }
+  | { type: 'ai.summarize'; length?: SummaryLength; windowId?: WindowId }
+  | { type: 'ai.expand'; focus?: string; windowId?: WindowId };
 
 /**
  * Bridge response types - responses from VMark.

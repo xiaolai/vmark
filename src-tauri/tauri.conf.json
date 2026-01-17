@@ -50,6 +50,9 @@
         "description": "Markdown Document",
         "role": "Editor"
       }
+    ],
+    "externalBin": [
+      "binaries/vmark-mcp-server"
     ]
   }
 }

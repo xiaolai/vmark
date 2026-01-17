@@ -8,7 +8,7 @@ import { TitleBar } from "@/components/TitleBar";
 import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
 import { SettingsPage } from "@/pages/Settings";
 import { PrintPreviewPage } from "@/pages/PrintPreview";
-import { WindowProvider, useIsDocumentWindow } from "@/contexts/WindowContext";
+import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
 
 // Error Boundary to catch and display React errors
 interface ErrorBoundaryState {
@@ -73,6 +73,7 @@ import { useDragDropOpen } from "@/hooks/useDragDropOpen";
 import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 import { useSidebarResize } from "@/hooks/useSidebarResize";
 import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
+import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 
 /** Height of the title bar area in pixels */
 const TITLEBAR_HEIGHT = 40;
@@ -86,6 +87,12 @@ function DocumentWindowHooks() {
   return null;
 }
 
+// Main window specific hooks (only for "main" window, not doc-*)
+function MainWindowHooks() {
+  useMcpAutoStart(); // Auto-start MCP server if enabled
+  return null;
+}
+
 function MainLayout() {
   const focusModeEnabled = useEditorStore((state) => state.focusModeEnabled);
   const typewriterModeEnabled = useEditorStore(
@@ -95,6 +102,7 @@ function MainLayout() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useSearchStore((state) => state.isOpen);
   const isDocumentWindow = useIsDocumentWindow();
+  const windowLabel = useWindowLabel();
   const handleResizeStart = useSidebarResize();
   const sidebarOffset = sidebarVisible ? `${sidebarWidth}px` : "0px";
 
@@ -137,6 +145,8 @@ function MainLayout() {
     >
       {/* Window lifecycle hooks for document windows */}
       {isDocumentWindow && <DocumentWindowHooks />}
+      {/* Main window specific hooks */}
+      {windowLabel === "main" && <MainWindowHooks />}
 
       {/* Title bar with drag region and filename display */}
       <TitleBar />

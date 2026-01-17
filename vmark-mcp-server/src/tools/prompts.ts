@@ -3,12 +3,12 @@
  */
 
 import { VMarkMcpServer, resolveWindowId } from '../server.js';
+import type { WritingStyle, SummaryLength } from '../bridge/types.js';
 
 /**
  * Valid writing improvement styles.
  */
-const VALID_STYLES = ['formal', 'casual', 'concise', 'elaborate', 'academic'] as const;
-type WritingStyle = (typeof VALID_STYLES)[number];
+const VALID_STYLES: readonly WritingStyle[] = ['formal', 'casual', 'concise', 'elaborate', 'academic'];
 
 function isValidStyle(style: string): style is WritingStyle {
   return VALID_STYLES.includes(style as WritingStyle);
@@ -46,15 +46,17 @@ export function registerPromptTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const style = args.style as string | undefined;
+      const styleArg = args.style as string | undefined;
       const instructions = args.instructions as string | undefined;
       const windowId = resolveWindowId(args.windowId as string | undefined);
 
-      if (style && !isValidStyle(style)) {
+      if (styleArg && !isValidStyle(styleArg)) {
         return VMarkMcpServer.errorResult(
-          `Invalid style: ${style}. Valid styles: ${VALID_STYLES.join(', ')}`
+          `Invalid style: ${styleArg}. Valid styles: ${VALID_STYLES.join(', ')}`
         );
       }
+
+      const style: WritingStyle | undefined = styleArg && isValidStyle(styleArg) ? styleArg : undefined;
 
       try {
         const result = await server.sendBridgeRequest<{ improved: string }>({
@@ -141,7 +143,7 @@ export function registerPromptTools(server: VMarkMcpServer): void {
       }
 
       try {
-        const result = await server.sendBridgeRequest<{ translated: string }>({
+        await server.sendBridgeRequest<{ translated: string }>({
           type: 'ai.translate',
           targetLanguage,
           windowId,
@@ -179,15 +181,18 @@ export function registerPromptTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const length = (args.length as string) ?? 'medium';
+      const lengthArg = args.length as string | undefined;
+      const length: SummaryLength = (lengthArg === 'brief' || lengthArg === 'medium' || lengthArg === 'detailed')
+        ? lengthArg
+        : 'medium';
       const windowId = resolveWindowId(args.windowId as string | undefined);
 
-      if (length !== 'brief' && length !== 'medium' && length !== 'detailed') {
+      if (lengthArg && lengthArg !== 'brief' && lengthArg !== 'medium' && lengthArg !== 'detailed') {
         return VMarkMcpServer.errorResult('length must be "brief", "medium", or "detailed"');
       }
 
       try {
-        const result = await server.sendBridgeRequest<{ summary: string }>({
+        await server.sendBridgeRequest<{ summary: string }>({
           type: 'ai.summarize',
           length,
           windowId,
@@ -228,7 +233,7 @@ export function registerPromptTools(server: VMarkMcpServer): void {
       const windowId = resolveWindowId(args.windowId as string | undefined);
 
       try {
-        const result = await server.sendBridgeRequest<{ expanded: string }>({
+        await server.sendBridgeRequest<{ expanded: string }>({
           type: 'ai.expand',
           focus,
           windowId,

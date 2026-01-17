@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "vmark-mcp-server": "./dist/index.js"
+    "vmark-mcp-server": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "build:sidecar": "pnpm build && node scripts/build-sidecar.js"
   },
   "keywords": [
     "mcp",
@@ -37,6 +38,7 @@
     "@types/node": "^22.14.0",
     "@types/ws": "^8.5.13",
     "@vitest/coverage-v8": "^4.0.16",
+    "@yao-pkg/pkg": "^6.0.0",
     "typescript": "~5.8.3",
     "vitest": "^4.0.0"
   },
