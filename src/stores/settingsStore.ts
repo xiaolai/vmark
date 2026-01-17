@@ -171,8 +171,30 @@ export type TerminalMarkdownMode = "ansi" | "overlay" | "off";
 export type TerminalTheme = "auto" | "dark" | "light";
 export type TerminalPosition = "bottom" | "right";
 
+/** Common monospace fonts - includes Nerd Fonts for icon support */
+export const TERMINAL_FONTS = [
+  "System Default",
+  "SF Mono",
+  "Monaco",
+  "Menlo",
+  "Consolas",
+  "JetBrains Mono",
+  "Fira Code",
+  "Source Code Pro",
+  "IBM Plex Mono",
+  "Hack",
+  // Nerd Fonts (include icons for shell prompts like Starship)
+  "JetBrainsMono Nerd Font",
+  "FiraCode Nerd Font",
+  "Hack Nerd Font",
+  "MesloLGS NF",
+] as const;
+
+export type TerminalFontFamily = (typeof TERMINAL_FONTS)[number];
+
 export interface TerminalSettings {
   shell: TerminalShell;           // Shell to use (system = auto-detect)
+  fontFamily: TerminalFontFamily; // Font family for terminal
   fontSize: TerminalFontSize;     // Terminal font size
   cursorStyle: TerminalCursorStyle; // Cursor appearance
   cursorBlink: boolean;           // Animate cursor
@@ -336,6 +358,7 @@ const initialState: SettingsState = {
   },
   terminal: {
     shell: "system",
+    fontFamily: "System Default",
     fontSize: 15,
     cursorStyle: "bar",
     cursorBlink: true,

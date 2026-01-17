@@ -209,8 +209,14 @@ export function TerminalView({ sessionToRestore }: TerminalViewProps) {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Build fontFamily string - System Default uses fallback chain, specific fonts use that font + monospace fallback
+    const fontFamily =
+      terminalSettings.fontFamily === "System Default"
+        ? '"SF Mono", "Monaco", "Menlo", "Consolas", "Courier New", monospace'
+        : `"${terminalSettings.fontFamily}", monospace`;
+
     const terminal = new Terminal({
-      fontFamily: '"SF Mono", "Monaco", "Menlo", "Courier New", monospace',
+      fontFamily,
       fontSize: terminalSettings.fontSize,
       lineHeight: 1.2,
       cursorBlink: terminalSettings.cursorBlink,
@@ -267,14 +273,22 @@ export function TerminalView({ sessionToRestore }: TerminalViewProps) {
     const terminal = terminalRef.current;
     if (!terminal) return;
 
+    // Build fontFamily string
+    const fontFamily =
+      terminalSettings.fontFamily === "System Default"
+        ? '"SF Mono", "Monaco", "Menlo", "Consolas", "Courier New", monospace'
+        : `"${terminalSettings.fontFamily}", monospace`;
+
+    terminal.options.fontFamily = fontFamily;
     terminal.options.fontSize = terminalSettings.fontSize;
     terminal.options.cursorBlink = terminalSettings.cursorBlink;
     terminal.options.cursorStyle = terminalSettings.cursorStyle;
     terminal.options.scrollback = terminalSettings.scrollback;
 
-    // Re-fit after font size change
+    // Re-fit after font change
     fitAddonRef.current?.fit();
   }, [
+    terminalSettings.fontFamily,
     terminalSettings.fontSize,
     terminalSettings.cursorBlink,
     terminalSettings.cursorStyle,

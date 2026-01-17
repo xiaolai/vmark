@@ -11,9 +11,9 @@
   border-top: 1px solid var(--border-color);
 }
 
-/* Right position - no border needed, background difference provides separation */
+/* Right position - 1px border on left edge */
 .terminal-panel--right {
-  /* No border - scrollbar and background contrast provide visual separation */
+  border-left: 1px solid var(--border-color);
 }
 
 /* Resize handle - bottom position */
