@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- V shape in app blue -->
+  <path d="M2 8 L14 30 L26 8 L20 8 L14 21 L8 8 Z" fill="#4a6fa5"/>
+  <!-- 4-point star: white fill, blue border, top-right corner -->
+  <path d="M28 0 L29.2 2.8 L32 4 L29.2 5.2 L28 8 L26.8 5.2 L24 4 L26.8 2.8 Z" fill="#fff" stroke="#4a6fa5" stroke-width="1.2"/>
+</svg>
