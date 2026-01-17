@@ -81,12 +81,19 @@ vmark/
 
 ## Keyboard Shortcuts
 
+
 | Shortcut | Action |
 |----------|--------|
 | `F7` or `Cmd/Ctrl + /` | Toggle Rich Text / Source Mode |
 | `F8` | Toggle Focus Mode |
 | `F9` | Toggle Typewriter Mode |
 | `F10` | Toggle Word Wrap |
+
+## Smart Paste (WYSIWYG)
+
+- **Markdown auto-detect**: Pasting Markdown in rich text mode converts it into rich content when detection matches (headings, lists, code fences, tables, etc.).
+- **Plain-text override**: Use `Cmd/Ctrl+Shift+V` to paste plain text without formatting.
+- **Setting**: Toggle in Settings -> Markdown -> "Smart paste Markdown".
 
 ## Testing
 
