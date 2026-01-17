@@ -18,6 +18,8 @@ import {
   handleInsertAtPosition,
   handleDocumentSearch,
   handleDocumentReplace,
+  handleOutlineGet,
+  handleMetadataGet,
 } from "./documentHandlers";
 
 // Selection handlers
@@ -125,6 +127,14 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         break;
       case "document.replace":
         await handleDocumentReplace(id, args);
+        break;
+
+      // Outline and metadata operations
+      case "outline.get":
+        await handleOutlineGet(id);
+        break;
+      case "metadata.get":
+        await handleMetadataGet(id);
         break;
 
       // Selection operations

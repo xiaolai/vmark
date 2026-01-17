@@ -3,6 +3,8 @@
  */
 
 import { parseMarkdown } from "@/utils/markdownPipeline";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useTabStore } from "@/stores/tabStore";
 import { respond, getEditor, getDocumentContent } from "./utils";
 
 /**
@@ -214,6 +216,102 @@ export async function handleDocumentReplace(
     }
 
     await respond({ id, success: true, data: { replacements: count } });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Heading info for outline response.
+ */
+interface HeadingInfo {
+  level: number;
+  text: string;
+  position: number;
+}
+
+/**
+ * Handle outline.get request.
+ * Extracts all headings from the document.
+ */
+export async function handleOutlineGet(id: string): Promise<void> {
+  try {
+    const editor = getEditor();
+    if (!editor) throw new Error("No active editor");
+
+    const headings: HeadingInfo[] = [];
+    const doc = editor.state.doc;
+
+    doc.descendants((node, pos) => {
+      if (node.type.name === "heading") {
+        headings.push({
+          level: node.attrs.level as number,
+          text: node.textContent,
+          position: pos,
+        });
+      }
+    });
+
+    await respond({ id, success: true, data: headings });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Handle metadata.get request.
+ * Returns document metadata.
+ */
+export async function handleMetadataGet(id: string): Promise<void> {
+  try {
+    const editor = getEditor();
+    if (!editor) throw new Error("No active editor");
+
+    const tabStore = useTabStore.getState();
+    const docStore = useDocumentStore.getState();
+    const activeTabId = tabStore.activeTabId["main"];
+
+    if (!activeTabId) {
+      throw new Error("No active document");
+    }
+
+    const doc = docStore.getDocument(activeTabId);
+    const tab = tabStore.tabs["main"]?.find((t) => t.id === activeTabId);
+
+    // Calculate word and character count
+    const text = editor.state.doc.textContent;
+    const charCount = text.length;
+    const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+    // Get first heading as title if available
+    let title = tab?.title ?? "Untitled";
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "heading" && node.attrs.level === 1) {
+        title = node.textContent;
+        return false; // stop traversal
+      }
+    });
+
+    await respond({
+      id,
+      success: true,
+      data: {
+        filePath: doc?.filePath ?? null,
+        title,
+        wordCount,
+        characterCount: charCount,
+        isModified: doc?.isDirty ?? false,
+        lastModified: null, // Not tracked currently
+      },
+    });
   } catch (error) {
     await respond({
       id,
