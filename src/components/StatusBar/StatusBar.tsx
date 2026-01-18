@@ -18,6 +18,7 @@ import {
 import { formatRelativeTime, formatExactTime } from "@/utils/dateUtils";
 import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/shortcutsStore";
 import "./StatusBar.css";
 
 /**
@@ -59,6 +60,7 @@ export function StatusBar() {
   const lastAutoSave = useDocumentLastAutoSave();
   const sourceMode = useEditorStore((state) => state.sourceMode);
   const statusBarVisible = useUIStore((state) => state.statusBarVisible);
+  const sourceModeShortcut = useShortcutsStore((state) => state.getShortcut("sourceMode"));
 
   // Tab state - only for document windows
   // Use stable EMPTY_TABS to avoid infinite loop from new array reference
@@ -195,7 +197,7 @@ export function StatusBar() {
             <span className="status-item">{charCount} chars</span>
             <button
               className="status-mode"
-              title={sourceMode ? "Source Mode (F7)" : "Rich Text Mode (F7)"}
+              title={sourceMode ? `Source Mode (${formatKeyForDisplay(sourceModeShortcut)})` : `Rich Text Mode (${formatKeyForDisplay(sourceModeShortcut)})`}
               onClick={() => {
                 flushActiveWysiwygNow();
                 useEditorStore.getState().toggleSourceMode();

@@ -3,14 +3,12 @@ import { keydownHandler } from "@tiptap/pm/keymap";
 import { Plugin, PluginKey, Selection, type Command, type EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { useUIStore } from "@/stores/uiStore";
-import { useEditorStore } from "@/stores/editorStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { openSourcePeek } from "@/utils/sourcePeek";
-import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import { getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
@@ -90,11 +88,9 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
     useUIStore.getState().toggleSidebar();
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("sourceMode"), () => {
-    flushActiveWysiwygNow();
-    useEditorStore.getState().toggleSourceMode();
-    return true;
-  });
+
+  // Note: sourceMode toggle is handled by useViewShortcuts hook at window level
+  // to avoid double-toggle when both TipTap keymap and window handler fire
 
   bindIfKey(
     bindings,

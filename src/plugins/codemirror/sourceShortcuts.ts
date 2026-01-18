@@ -2,7 +2,6 @@ import type { KeyBinding } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 import { toggleBlockComment } from "@codemirror/commands";
 import { useUIStore } from "@/stores/uiStore";
-import { useEditorStore } from "@/stores/editorStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import { getSourceMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
@@ -47,8 +46,10 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
     return true;
   });
 
+  // Capture sourceMode shortcut to prevent CodeMirror's default comment toggle.
+  // The actual toggle is handled by useViewShortcuts hook at window level.
   bindIfKey(bindings, shortcuts.getShortcut("sourceMode"), () => {
-    useEditorStore.getState().toggleSourceMode();
+    // Just mark as handled - window handler does the actual toggle
     return true;
   });
 

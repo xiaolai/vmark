@@ -94,7 +94,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "formatCJKFile", label: "Format CJK File", category: "editing", defaultKey: "Alt-Mod-Shift-f", menuId: "format-cjk-file" },
   { id: "copyAsHTML", label: "Copy as HTML", category: "editing", defaultKey: "Mod-Shift-c", menuId: "copy-html" },
   { id: "pastePlainText", label: "Paste as Plain Text", category: "editing", defaultKey: "Mod-Shift-v", description: "Paste without formatting in WYSIWYG" },
-  { id: "toggleComment", label: "Toggle Comment", category: "editing", defaultKey: "Mod-Shift-\\", description: "Insert HTML comment <!-- -->" },
+  { id: "toggleComment", label: "Toggle Comment", category: "editing", defaultKey: "Mod-Shift-/", description: "Insert HTML comment <!-- -->" },
 
   // === View ===
   { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Mod-Shift-b", menuId: "sidebar", scope: "global" },

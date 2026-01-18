@@ -6,6 +6,16 @@ function makeEvent(options: KeyboardEventInit & { key: string }) {
 }
 
 describe("matchesShortcutEvent", () => {
+  it("matches Mod-/ on mac (source mode toggle)", () => {
+    const event = makeEvent({ key: "/", metaKey: true });
+    expect(matchesShortcutEvent(event, "Mod-/", "mac")).toBe(true);
+  });
+
+  it("matches Mod-/ on non-mac (source mode toggle)", () => {
+    const event = makeEvent({ key: "/", ctrlKey: true });
+    expect(matchesShortcutEvent(event, "Mod-/", "other")).toBe(true);
+  });
+
   it("matches Mod-Shift-P on mac", () => {
     const event = makeEvent({ key: "P", metaKey: true, shiftKey: true });
     expect(matchesShortcutEvent(event, "Mod-Shift-p", "mac")).toBe(true);
