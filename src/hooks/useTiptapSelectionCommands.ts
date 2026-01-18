@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
+import { isTerminalFocused } from "@/utils/focus";
 
 const MAX_LINE_SEARCH_ITERATIONS = 500;
 
@@ -70,6 +71,7 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenSelectWord = await currentWindow.listen<string>("menu:select-word", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -98,6 +100,7 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenSelectLine = await currentWindow.listen<string>("menu:select-line", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -117,6 +120,7 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenSelectBlock = await currentWindow.listen<string>("menu:select-block", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -148,6 +152,7 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenExpandSelection = await currentWindow.listen<string>("menu:expand-selection", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 

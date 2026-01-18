@@ -18,6 +18,7 @@ import {
   getSourceWordRange,
 } from "@/utils/sourceSelection";
 import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sourceFormatPopup/headingDetection";
+import { isTerminalFocused } from "@/utils/focus";
 
 const ALERT_ACTIONS = [
   { event: "menu:info-note", action: "insertAlertNote" },
@@ -142,6 +143,8 @@ export function useSourceMenuCommands(viewRef: MutableRefObject<EditorView | nul
       const windowLabel = currentWindow.label;
 
       const withView = (handler: (view: EditorView) => void) => {
+        // Skip editor-scoped shortcuts when terminal has focus
+        if (isTerminalFocused()) return;
         const view = viewRef.current;
         if (!view) return;
         runOrQueueCodeMirrorAction(view, () => handler(view));

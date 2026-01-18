@@ -22,6 +22,13 @@ export type ShortcutCategory =
   | "view"        // Sidebar, Outline, Focus mode
   | "file";       // New, Open, Save, etc.
 
+/**
+ * Shortcut scope determines when a shortcut is active.
+ * - global: Works everywhere (editor, terminal, etc.)
+ * - editor: Only works when editor is focused (default)
+ */
+export type ShortcutScope = "global" | "editor";
+
 export interface ShortcutDefinition {
   id: string;
   label: string;
@@ -32,6 +39,8 @@ export interface ShortcutDefinition {
   description?: string;
   /** Menu item ID in Rust (for menu sync) */
   menuId?: string;
+  /** Shortcut scope - defaults to "editor" if not specified */
+  scope?: ShortcutScope;
 }
 
 // ============================================================================
@@ -88,26 +97,26 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "toggleComment", label: "Toggle Comment", category: "editing", defaultKey: "Mod-Shift-\\", description: "Insert HTML comment <!-- -->" },
 
   // === View ===
-  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Mod-Shift-b", menuId: "sidebar" },
+  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Mod-Shift-b", menuId: "sidebar", scope: "global" },
   { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Mod-Alt-1", menuId: "outline" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "Mod-/", menuId: "source-mode" },
-  { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode" },
-  { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode" },
+  { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode", scope: "global" },
+  { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode", scope: "global" },
   { id: "wordWrap", label: "Toggle Word Wrap", category: "view", defaultKey: "Alt-z", menuId: "word-wrap" },
   { id: "viewHistory", label: "View History", category: "view", defaultKey: "Mod-Shift-h", menuId: "view-history" },
   { id: "toggleHiddenFiles", label: "Toggle Hidden Files", category: "view", defaultKey: "Mod-Shift-.", defaultKeyOther: "Ctrl-h", description: "Show or hide hidden files in the file explorer" },
-  { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "terminal", description: "Show or hide the integrated terminal" },
+  { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "terminal", description: "Show or hide the integrated terminal", scope: "global" },
 
   // === File ===
-  { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new" },
-  { id: "openFile", label: "Open File", category: "file", defaultKey: "Mod-o", menuId: "open" },
-  { id: "openFolder", label: "Open Folder", category: "file", defaultKey: "Mod-Shift-o", menuId: "open-folder" },
-  { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save" },
-  { id: "saveAs", label: "Save As", category: "file", defaultKey: "Mod-Shift-s", menuId: "save-as" },
-  { id: "closeFile", label: "Close", category: "file", defaultKey: "Mod-w", menuId: "close" },
-  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "Mod-Shift-e", menuId: "export-html" },
-  { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf" },
-  { id: "preferences", label: "Settings", category: "file", defaultKey: "Mod-,", menuId: "preferences" },
+  { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new", scope: "global" },
+  { id: "openFile", label: "Open File", category: "file", defaultKey: "Mod-o", menuId: "open", scope: "global" },
+  { id: "openFolder", label: "Open Folder", category: "file", defaultKey: "Mod-Shift-o", menuId: "open-folder", scope: "global" },
+  { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save", scope: "global" },
+  { id: "saveAs", label: "Save As", category: "file", defaultKey: "Mod-Shift-s", menuId: "save-as", scope: "global" },
+  { id: "closeFile", label: "Close", category: "file", defaultKey: "Mod-w", menuId: "close", scope: "global" },
+  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "Mod-Shift-e", menuId: "export-html", scope: "global" },
+  { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf", scope: "global" },
+  { id: "preferences", label: "Settings", category: "file", defaultKey: "Mod-,", menuId: "preferences", scope: "global" },
 
   // === Future: Cycling (Phase 4) ===
   { id: "cycleEmphasis", label: "Cycle Emphasis", category: "formatting", defaultKey: "Mod-Alt-e", description: "Cycle: none → italic → bold → bold+italic" },

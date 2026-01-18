@@ -7,6 +7,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
+import { isTerminalFocused } from "@/utils/focus";
 
 function getActiveTabIdForWindow(windowLabel: string): string | null {
   try {
@@ -56,6 +57,7 @@ export function useTiptapCJKFormatCommands(editor: TiptapEditor | null) {
 
       const unlistenFormatCJK = await currentWindow.listen<string>("menu:format-cjk", (event) => {
         if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
         const config = useSettingsStore.getState().cjkFormatting;
         const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks(windowLabel);
 
@@ -87,6 +89,7 @@ export function useTiptapCJKFormatCommands(editor: TiptapEditor | null) {
 
       const unlistenFormatFile = await currentWindow.listen<string>("menu:format-cjk-file", (event) => {
         if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
         const config = useSettingsStore.getState().cjkFormatting;
         const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks(windowLabel);
         const content = getActiveMarkdown(windowLabel);
@@ -103,6 +106,7 @@ export function useTiptapCJKFormatCommands(editor: TiptapEditor | null) {
 
       const unlistenTrailingSpaces = await currentWindow.listen<string>("menu:remove-trailing-spaces", (event) => {
         if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
         const content = getActiveMarkdown(windowLabel);
         const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks(windowLabel);
         const formatted = removeTrailingSpaces(content, { preserveTwoSpaceHardBreaks });
@@ -118,6 +122,7 @@ export function useTiptapCJKFormatCommands(editor: TiptapEditor | null) {
 
       const unlistenCollapseLines = await currentWindow.listen<string>("menu:collapse-blank-lines", (event) => {
         if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
         const content = getActiveMarkdown(windowLabel);
         const formatted = collapseNewlines(content);
         if (formatted !== content) {

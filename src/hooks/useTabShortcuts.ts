@@ -15,6 +15,7 @@ import { useSearchStore } from "@/stores/searchStore";
 import { useUIStore } from "@/stores/uiStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { isTerminalFocused } from "@/utils/focus";
 
 export function useTabShortcuts() {
   const windowLabel = useWindowLabel();
@@ -27,8 +28,9 @@ export function useTabShortcuts() {
       if (isImeKeyEvent(e)) return;
       const isMeta = e.metaKey || e.ctrlKey;
 
-      // Cmd+T: New tab
+      // Cmd+T: New tab (editor-scoped)
       if (isMeta && e.key === "t") {
+        if (isTerminalFocused()) return; // Let terminal handle it
         e.preventDefault();
         const tabId = useTabStore.getState().createTab(windowLabel, null);
         useDocumentStore.getState().initDocument(tabId, "", null);

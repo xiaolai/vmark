@@ -6,6 +6,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { CellSelection } from "@tiptap/pm/tables";
 import { addColLeft, addColRight, addRowAbove, addRowBelow, alignColumn } from "@/plugins/tableUI/tableActions.tiptap";
+import { isTerminalFocused } from "@/utils/focus";
 
 function clearSelectedCells(view: EditorView): boolean {
   const selection = view.state.selection;
@@ -57,6 +58,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenInsertTable = await currentWindow.listen<string>("menu:insert-table", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
@@ -69,6 +71,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenAddRowBefore = await currentWindow.listen<string>("menu:add-row-before", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         addRowAbove(editor.view as unknown as EditorView);
@@ -81,6 +84,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenAddRowAfter = await currentWindow.listen<string>("menu:add-row-after", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         addRowBelow(editor.view as unknown as EditorView);
@@ -93,6 +97,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenAddColBefore = await currentWindow.listen<string>("menu:add-col-before", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         addColLeft(editor.view as unknown as EditorView);
@@ -105,6 +110,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenAddColAfter = await currentWindow.listen<string>("menu:add-col-after", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         addColRight(editor.view as unknown as EditorView);
@@ -117,6 +123,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenDeleteCells = await currentWindow.listen<string>("menu:delete-selected-cells", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -135,6 +142,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenAlignLeft = await currentWindow.listen<string>("menu:align-left", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         alignColumn(editor.view as unknown as EditorView, "left", false);
@@ -147,6 +155,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenAlignCenter = await currentWindow.listen<string>("menu:align-center", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         alignColumn(editor.view as unknown as EditorView, "center", false);
@@ -159,6 +168,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
 
       const unlistenAlignRight = await currentWindow.listen<string>("menu:align-right", (event) => {
         if (event.payload !== windowLabel) return;
+          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         alignColumn(editor.view as unknown as EditorView, "right", false);

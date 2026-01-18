@@ -4,7 +4,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { useTerminalPty, useTerminalSessions } from "@/hooks/useTerminalPty";
 import { useSettingsStore, type ThemeId } from "@/stores/settingsStore";
 import { type TerminalSession } from "@/stores/terminalStore";
+import { useShortcutsStore, DEFAULT_SHORTCUTS } from "@/stores/shortcutsStore";
 import { createMarkdownAddon, type MarkdownAddon } from "@/plugins/terminalMarkdown";
+import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalView.css";
 
@@ -246,17 +248,21 @@ export function TerminalView({ sessionToRestore }: TerminalViewProps) {
     terminal.loadAddon(markdownAddon);
     markdownAddonRef.current = markdownAddon;
 
-    // Let certain key combinations pass through to the window handler
+    // Let global shortcuts pass through to the window handler
     // instead of being captured by xterm
     terminal.attachCustomKeyEventHandler((event) => {
-      // Let Ctrl+` pass through for terminal toggle
-      if (event.ctrlKey && event.key === "`") {
-        return false; // Don't handle in xterm, let it bubble
+      // Get all shortcuts marked as "global" scope
+      const shortcuts = useShortcutsStore.getState();
+      const globalShortcuts = DEFAULT_SHORTCUTS.filter((def) => def.scope === "global");
+
+      // Check if this event matches any global shortcut
+      for (const def of globalShortcuts) {
+        const key = shortcuts.getShortcut(def.id);
+        if (matchesShortcutEvent(event, key)) {
+          return false; // Don't handle in xterm, let it bubble to window handler
+        }
       }
-      // Let Cmd+` pass through on macOS
-      if (event.metaKey && event.key === "`") {
-        return false;
-      }
+
       return true; // Handle normally in xterm
     });
 
