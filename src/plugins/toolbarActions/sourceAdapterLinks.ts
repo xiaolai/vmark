@@ -262,16 +262,15 @@ function findInlineMathAtCursor(view: EditorView, pos: number): { from: number; 
   const lineText = line.text;
   const lineStart = line.from;
 
-  // Find all $...$ pairs in the line (not $$...$$)
-  // Simple approach: scan for $ pairs
+  // Find all $...$ pairs in the line (including empty $$)
   let i = 0;
   while (i < lineText.length) {
-    if (lineText[i] === "$" && lineText[i + 1] !== "$") {
+    if (lineText[i] === "$") {
       const start = i;
-      // Find closing $
+      // Find closing $ (not escaped)
       let j = i + 1;
       while (j < lineText.length) {
-        if (lineText[j] === "$" && lineText[j - 1] !== "\\") {
+        if (lineText[j] === "$" && (j === start + 1 || lineText[j - 1] !== "\\")) {
           // Found a pair from start to j
           const mathFrom = lineStart + start;
           const mathTo = lineStart + j + 1;
@@ -290,11 +289,8 @@ function findInlineMathAtCursor(view: EditorView, pos: number): { from: number; 
       }
       if (j >= lineText.length) {
         // No closing $ found
-        break;
+        i++;
       }
-    } else if (lineText[i] === "$" && lineText[i + 1] === "$") {
-      // Skip block math delimiter
-      i += 2;
     } else {
       i++;
     }
