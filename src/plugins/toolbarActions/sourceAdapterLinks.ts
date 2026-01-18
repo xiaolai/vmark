@@ -253,15 +253,80 @@ export function insertSourceReferenceLink(view: EditorView): boolean {
 }
 
 /**
- * Insert inline math with word expansion.
+ * Find inline math ($...$) range around cursor position.
+ * Returns the range including delimiters, or null if not inside math.
+ */
+function findInlineMathAtCursor(view: EditorView, pos: number): { from: number; to: number; content: string } | null {
+  const doc = view.state.doc;
+  const line = doc.lineAt(pos);
+  const lineText = line.text;
+  const lineStart = line.from;
+
+  // Find all $...$ pairs in the line (not $$...$$)
+  // Simple approach: scan for $ pairs
+  let i = 0;
+  while (i < lineText.length) {
+    if (lineText[i] === "$" && lineText[i + 1] !== "$") {
+      const start = i;
+      // Find closing $
+      let j = i + 1;
+      while (j < lineText.length) {
+        if (lineText[j] === "$" && lineText[j - 1] !== "\\") {
+          // Found a pair from start to j
+          const mathFrom = lineStart + start;
+          const mathTo = lineStart + j + 1;
+          // Check if cursor is inside this range
+          if (pos >= mathFrom && pos <= mathTo) {
+            return {
+              from: mathFrom,
+              to: mathTo,
+              content: lineText.slice(start + 1, j),
+            };
+          }
+          i = j + 1;
+          break;
+        }
+        j++;
+      }
+      if (j >= lineText.length) {
+        // No closing $ found
+        break;
+      }
+    } else if (lineText[i] === "$" && lineText[i + 1] === "$") {
+      // Skip block math delimiter
+      i += 2;
+    } else {
+      i++;
+    }
+  }
+  return null;
+}
+
+/**
+ * Insert or toggle inline math with word expansion.
  *
  * Behavior:
+ * - Cursor inside $...$ → unwrap (remove delimiters)
  * - Has selection → wrap in $...$, cursor after
  * - No selection, word at cursor → wrap word in $...$, cursor after
  * - No selection, no word → insert $$, cursor between
  */
 export function insertInlineMath(view: EditorView): boolean {
   const { from, to } = view.state.selection.main;
+
+  // Check if cursor is inside inline math - toggle off (unwrap)
+  if (from === to) {
+    const mathRange = findInlineMathAtCursor(view, from);
+    if (mathRange) {
+      // Unwrap: replace $content$ with content
+      view.dispatch({
+        changes: { from: mathRange.from, to: mathRange.to, insert: mathRange.content },
+        selection: { anchor: mathRange.from + mathRange.content.length },
+      });
+      view.focus();
+      return true;
+    }
+  }
 
   // Case 1: Has selection - wrap in $...$
   if (from !== to) {
