@@ -104,6 +104,17 @@ export function useTerminalPty(
 
         sessionIdRef.current = session.id;
 
+        // Resize PTY to actual terminal dimensions now that session exists
+        // (initial spawn used defaults because terminal might not have been ready)
+        if (terminalRef.current) {
+          const { cols, rows } = terminalRef.current;
+          if (cols !== session.cols || rows !== session.rows) {
+            invoke("pty_resize", { sessionId: session.id, cols, rows }).catch((err) => {
+              console.error("[PTY] Initial resize error:", err);
+            });
+          }
+        }
+
         // If restoring a session, update its ID instead of creating new
         if (sessionToRestore) {
           updateSessionId(sessionToRestore.id, session.id);
