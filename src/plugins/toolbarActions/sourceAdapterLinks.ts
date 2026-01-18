@@ -251,3 +251,48 @@ export function insertSourceReferenceLink(view: EditorView): boolean {
 
   return true;
 }
+
+/**
+ * Insert inline math with word expansion.
+ *
+ * Behavior:
+ * - Has selection → wrap in $...$, cursor after
+ * - No selection, word at cursor → wrap word in $...$, cursor after
+ * - No selection, no word → insert $$, cursor between
+ */
+export function insertInlineMath(view: EditorView): boolean {
+  const { from, to } = view.state.selection.main;
+
+  // Case 1: Has selection - wrap in $...$
+  if (from !== to) {
+    const selectedText = view.state.doc.sliceString(from, to);
+    const math = `$${selectedText}$`;
+    view.dispatch({
+      changes: { from, to, insert: math },
+      selection: { anchor: from + math.length },
+    });
+    view.focus();
+    return true;
+  }
+
+  // Case 2: No selection - try word expansion
+  const wordRange = findWordAtCursorSource(view, from);
+  if (wordRange) {
+    const wordText = view.state.doc.sliceString(wordRange.from, wordRange.to);
+    const math = `$${wordText}$`;
+    view.dispatch({
+      changes: { from: wordRange.from, to: wordRange.to, insert: math },
+      selection: { anchor: wordRange.from + math.length },
+    });
+    view.focus();
+    return true;
+  }
+
+  // Case 3: No selection, no word - insert $$ with cursor between
+  view.dispatch({
+    changes: { from, to, insert: "$$" },
+    selection: { anchor: from + 1 }, // cursor between the two $
+  });
+  view.focus();
+  return true;
+}

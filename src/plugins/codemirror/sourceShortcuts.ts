@@ -62,6 +62,7 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
   bindIfKey(bindings, shortcuts.getShortcut("highlight"), runSourceAction("highlight"));
   bindIfKey(bindings, shortcuts.getShortcut("subscript"), runSourceAction("subscript"));
   bindIfKey(bindings, shortcuts.getShortcut("superscript"), runSourceAction("superscript"));
+  bindIfKey(bindings, shortcuts.getShortcut("inlineMath"), runSourceAction("insertInlineMath"));
   bindIfKey(bindings, shortcuts.getShortcut("toggleComment"), (view) => toggleBlockComment(view));
 
   return bindings;

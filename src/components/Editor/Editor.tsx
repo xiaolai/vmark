@@ -22,6 +22,7 @@ import "@/plugins/typewriterMode/typewriter-mode.css";
 import "@/plugins/search/search.css";
 import "@/plugins/codePreview/code-preview.css";
 import "@/plugins/latex/latex.css";
+import "@/plugins/mathPreview/math-preview.css";
 import "@/plugins/mermaid/mermaid.css";
 import "@/plugins/tableUI/table-ui.css";
 import "@/plugins/subSuperscript/sub-super.css";

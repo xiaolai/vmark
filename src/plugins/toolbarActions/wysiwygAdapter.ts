@@ -1,5 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { NodeSelection, Selection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { insertFootnoteAndOpenPopup } from "@/plugins/footnotePopup/tiptapInsertFootnote";
 import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
@@ -160,6 +161,123 @@ function insertMathBlock(context: WysiwygToolbarContext): boolean {
   return true;
 }
 
+/**
+ * Insert inline math with word expansion.
+ *
+ * Behavior:
+ * - Cursor at math_inline node → unwrap (convert to text)
+ * - Has selection → wrap in math_inline, position cursor to enter edit mode
+ * - No selection, word at cursor → wrap word, position cursor to enter edit mode
+ * - No selection, no word → insert empty math_inline, enter edit mode
+ */
+function insertInlineMath(context: WysiwygToolbarContext): boolean {
+  const view = context.view;
+  if (!view) return false;
+
+  const { state, dispatch } = view;
+  const { from, to } = state.selection;
+  const mathInlineType = state.schema.nodes.math_inline;
+  if (!mathInlineType) return false;
+
+  const $from = state.selection.$from;
+
+  // Check if we're in a NodeSelection of a math node - toggle off (unwrap)
+  if (state.selection instanceof NodeSelection) {
+    const node = state.selection.node;
+    if (node.type.name === "math_inline") {
+      const content = node.attrs.content || "";
+      const pos = state.selection.from;
+      const tr = state.tr.replaceWith(
+        pos,
+        pos + node.nodeSize,
+        content ? state.schema.text(content) : []
+      );
+      tr.setSelection(Selection.near(tr.doc.resolve(pos + content.length)));
+      dispatch(tr);
+      view.focus();
+      return true;
+    }
+  }
+
+  // Check if cursor's nodeAfter is math_inline - toggle off (unwrap)
+  const nodeAfter = $from.nodeAfter;
+  if (nodeAfter?.type.name === "math_inline") {
+    const nodeEnd = from + nodeAfter.nodeSize;
+    const content = nodeAfter.attrs.content || "";
+    const tr = state.tr.replaceWith(
+      from,
+      nodeEnd,
+      content ? state.schema.text(content) : []
+    );
+    tr.setSelection(Selection.near(tr.doc.resolve(from + content.length)));
+    dispatch(tr);
+    view.focus();
+    return true;
+  }
+
+  // Check if cursor's nodeBefore is math_inline - toggle off (unwrap)
+  const nodeBefore = $from.nodeBefore;
+  if (nodeBefore?.type.name === "math_inline") {
+    const nodeStart = from - nodeBefore.nodeSize;
+    const content = nodeBefore.attrs.content || "";
+    const tr = state.tr.replaceWith(
+      nodeStart,
+      from,
+      content ? state.schema.text(content) : []
+    );
+    tr.setSelection(Selection.near(tr.doc.resolve(nodeStart + content.length)));
+    dispatch(tr);
+    view.focus();
+    return true;
+  }
+
+  // Helper to focus math input after insertion with cursor at specific offset
+  const focusMathInput = (cursorOffset?: number) => {
+    requestAnimationFrame(() => {
+      const mathInput = view.dom.querySelector(".math-inline.editing .math-inline-input") as HTMLInputElement;
+      if (mathInput) {
+        mathInput.focus();
+        if (cursorOffset !== undefined) {
+          mathInput.setSelectionRange(cursorOffset, cursorOffset);
+        }
+      }
+    });
+  };
+
+  // Case 1: Has selection - wrap in math_inline, enter edit mode
+  if (from !== to) {
+    const selectedText = state.doc.textBetween(from, to, "");
+    const mathNode = mathInlineType.create({ content: selectedText });
+    const tr = state.tr.replaceSelectionWith(mathNode);
+    tr.setSelection(Selection.near(tr.doc.resolve(from)));
+    dispatch(tr);
+    focusMathInput(selectedText.length);
+    return true;
+  }
+
+  // Case 2: No selection - try word expansion
+  const wordRange = findWordAtCursor($from);
+  if (wordRange) {
+    const wordText = state.doc.textBetween(wordRange.from, wordRange.to, "");
+    // Calculate cursor offset within the word (restore cursor position)
+    const cursorOffsetInWord = from - wordRange.from;
+    const mathNode = mathInlineType.create({ content: wordText });
+    const tr = state.tr.replaceWith(wordRange.from, wordRange.to, mathNode);
+    tr.setSelection(Selection.near(tr.doc.resolve(wordRange.from)));
+    dispatch(tr);
+    focusMathInput(cursorOffsetInWord);
+    return true;
+  }
+
+  // Case 3: No selection, no word - insert empty math node, enter edit mode
+  const mathNode = mathInlineType.create({ content: "" });
+  const tr = state.tr.replaceSelectionWith(mathNode);
+  tr.setSelection(Selection.near(tr.doc.resolve(from)));
+  dispatch(tr);
+  focusMathInput(0);
+  return true;
+}
+
 export function performWysiwygToolbarAction(action: string, context: WysiwygToolbarContext): boolean {
   const view = context.view;
   if (!canRunActionInMultiSelection(action, context.multiSelection)) return false;
@@ -258,6 +376,8 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       return true;
     case "insertMath":
       return insertMathBlock(context);
+    case "insertInlineMath":
+      return insertInlineMath(context);
     case "insertBulletList":
       void emitMenuEvent("menu:unordered-list");
       return true;

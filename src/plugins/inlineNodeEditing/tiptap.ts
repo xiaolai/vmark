@@ -12,12 +12,22 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 const EDITABLE_NODE_TYPES = ["math_inline", "image", "footnote_reference"];
 
-const pluginKey = new PluginKey("inlineNodeEditing");
+export const inlineNodeEditingKey = new PluginKey<InlineNodeEditingState>("inlineNodeEditing");
 
-function computeDecorations(state: EditorState): DecorationSet {
+export interface InlineNodeEditingState {
+  decorations: DecorationSet;
+  // Entry direction: "left" if nodeAfter triggered, "right" if nodeBefore triggered
+  entryDirection: "left" | "right" | null;
+  // Position of the node being edited
+  editingNodePos: number | null;
+}
+
+function computeState(state: EditorState, prevState: InlineNodeEditingState | null): InlineNodeEditingState {
   const { selection, doc } = state;
   const { from } = selection;
   const decorations: Decoration[] = [];
+  let entryDirection: "left" | "right" | null = null;
+  let editingNodePos: number | null = null;
 
   // Find the node at cursor position
   const $pos = doc.resolve(from);
@@ -31,20 +41,46 @@ function computeDecorations(state: EditorState): DecorationSet {
       decorations.push(
         Decoration.node(start, end, { class: "editing" })
       );
+      editingNodePos = start;
+      entryDirection = "left"; // Inside node, default to left
       break;
     }
   }
 
-  // Also check if cursor is directly before/after an inline node
-  // This handles the case where cursor is at the edge of the node
+  // Check if cursor is directly before an inline node (entered from left)
   const nodeAfter = $pos.nodeAfter;
   if (nodeAfter && EDITABLE_NODE_TYPES.includes(nodeAfter.type.name)) {
     decorations.push(
       Decoration.node(from, from + nodeAfter.nodeSize, { class: "editing" })
     );
+    editingNodePos = from;
+    entryDirection = "left";
   }
 
-  return DecorationSet.create(doc, decorations);
+  // Check if cursor is directly after an inline node (entered from right)
+  const nodeBefore = $pos.nodeBefore;
+  if (nodeBefore && EDITABLE_NODE_TYPES.includes(nodeBefore.type.name)) {
+    const nodeStart = from - nodeBefore.nodeSize;
+    // Only add if not already added by nodeAfter check
+    if (editingNodePos !== nodeStart) {
+      decorations.push(
+        Decoration.node(nodeStart, from, { class: "editing" })
+      );
+    }
+    editingNodePos = nodeStart;
+    entryDirection = "right";
+  }
+
+  // If we're editing the same node as before, preserve the entry direction
+  if (prevState && prevState.editingNodePos === editingNodePos && prevState.entryDirection) {
+    entryDirection = prevState.entryDirection;
+  }
+
+  return {
+    decorations: DecorationSet.create(doc, decorations),
+    entryDirection,
+    editingNodePos,
+  };
 }
 
 export const inlineNodeEditingExtension = Extension.create({
@@ -53,21 +89,25 @@ export const inlineNodeEditingExtension = Extension.create({
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        key: pluginKey,
+        key: inlineNodeEditingKey,
         state: {
-          init(_, state) {
-            return computeDecorations(state);
+          init(_, state): InlineNodeEditingState {
+            return computeState(state, null);
           },
-          apply(tr, oldDecorations, _oldState, newState) {
+          apply(tr, oldState, _oldState, newState): InlineNodeEditingState {
             if (tr.docChanged || tr.selectionSet) {
-              return computeDecorations(newState);
+              return computeState(newState, oldState);
             }
-            return oldDecorations.map(tr.mapping, tr.doc);
+            // Map decorations if doc changed but selection didn't
+            return {
+              ...oldState,
+              decorations: oldState.decorations.map(tr.mapping, tr.doc),
+            };
           },
         },
         props: {
           decorations(state) {
-            return this.getState(state);
+            return this.getState(state)?.decorations ?? DecorationSet.empty;
           },
         },
       }),

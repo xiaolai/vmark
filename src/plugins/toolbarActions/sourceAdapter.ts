@@ -17,7 +17,7 @@ import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import type { SourceToolbarContext } from "./types";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./sourceMultiSelection";
 import { insertText, applyInlineFormat, clearFormattingSelections } from "./sourceAdapterHelpers";
-import { insertLinkSync, insertWikiSyntax, insertSourceBookmarkLink, insertSourceReferenceLink } from "./sourceAdapterLinks";
+import { insertLinkSync, insertWikiSyntax, insertSourceBookmarkLink, insertSourceReferenceLink, insertInlineMath } from "./sourceAdapterLinks";
 
 const TABLE_TEMPLATE = "| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n";
 
@@ -149,6 +149,8 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return handleInsertAlert(view, action);
     case "insertMath":
       return handleInsertMath(view);
+    case "insertInlineMath":
+      return insertInlineMath(view);
 
     // List operations
     case "bulletList":

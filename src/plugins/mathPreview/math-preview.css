@@ -1,0 +1,75 @@
+/**
+ * Math Preview Popup Styles
+ * Compact floating preview for inline math editing
+ * Styled to match link popup design language
+ */
+
+.math-preview-popup {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: math-preview-fade-in 0.1s ease-out;
+  max-width: 300px;
+  min-width: 60px;
+}
+
+@keyframes math-preview-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.math-preview-content {
+  font-size: 14px;
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.math-preview-content.math-preview-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.math-preview-content.math-preview-empty::before {
+  content: "Empty";
+}
+
+.math-preview-content.math-preview-error-state {
+  color: var(--text-color);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+
+.math-preview-error {
+  font-size: 10px;
+  color: #e53935;
+  min-height: 12px;
+}
+
+.math-preview-error:empty {
+  display: none;
+}
+
+/* Dark theme */
+.dark-theme .math-preview-popup {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dark-theme .math-preview-error {
+  color: #ff6b6b;
+}

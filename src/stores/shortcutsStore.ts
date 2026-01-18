@@ -56,6 +56,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "underline", label: "Underline", category: "formatting", defaultKey: "Mod-u", menuId: "underline" },
   { id: "link", label: "Link", category: "formatting", defaultKey: "Mod-k", menuId: "link" },
   { id: "highlight", label: "Highlight", category: "formatting", defaultKey: "Mod-Shift-m", menuId: "highlight" },
+  { id: "inlineMath", label: "Inline Math", category: "formatting", defaultKey: "Alt-Mod-m", menuId: "inline-math", description: "Insert or edit inline math ($...$)" },
   { id: "subscript", label: "Subscript", category: "formatting", defaultKey: "Alt-Mod-=", menuId: "subscript" },
   { id: "superscript", label: "Superscript", category: "formatting", defaultKey: "Alt-Mod-Shift-=", menuId: "superscript" },
   { id: "clearFormat", label: "Clear Formatting", category: "formatting", defaultKey: "Mod-\\", menuId: "clear-format" },

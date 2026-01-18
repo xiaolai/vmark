@@ -8,19 +8,19 @@
 /* Inline math node */
 .math-inline {
   display: inline;
-  padding: 0 0.15em;
+  position: relative;
   vertical-align: baseline;
+  font-size: 0.9em;
 }
 
-.math-inline:hover {
+.math-inline:hover:not(.editing) {
   background-color: var(--color-selection, rgba(0, 122, 255, 0.1));
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
-/* Inline math - preview + source */
+/* Inline math in edit mode - no background, only underline on input */
 .math-inline.editing {
-  background-color: var(--code-bg, rgba(0, 0, 0, 0.04));
-  border-radius: 3px;
+  background: transparent;
 }
 
 .math-inline-preview {
@@ -40,12 +40,43 @@
   font-style: italic;
 }
 
-/* Selected inline math */
+/* Inline math input field - minimal underline style */
+.math-inline-input {
+  display: inline;
+  width: auto;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-color);
+  font-family: var(--font-mono, monospace);
+  font-size: inherit;
+  line-height: inherit;
+  outline: none;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  /* No underline - clean editing */
+  text-decoration: none;
+}
+
+.math-inline-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.math-inline-input::placeholder {
+  color: var(--text-secondary, #656d76);
+  font-style: italic;
+  text-decoration: none;
+}
+
+/* Selected inline math - subtle highlight only */
 .ProseMirror-selectednode .math-inline,
 .math-inline.ProseMirror-selectednode {
-  background-color: var(--color-selection, rgba(0, 122, 255, 0.2));
+  background-color: var(--color-selection, rgba(0, 122, 255, 0.15));
   border-radius: 3px;
-  outline: 2px solid var(--color-primary, #0a84ff);
 }
 
 /* Math rendering errors */
