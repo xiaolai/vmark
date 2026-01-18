@@ -11,6 +11,7 @@
 
 import { useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore, type ShortcutScope } from "@/stores/shortcutsStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
@@ -79,12 +80,15 @@ export function useViewShortcuts() {
         return;
       }
 
-      // Terminal toggle (global scope)
-      const terminalKey = shortcuts.getShortcut("toggleTerminal");
-      const terminalDef = shortcuts.getDefinition("toggleTerminal");
-      if (matchesShortcutEvent(e, terminalKey) && shouldRunShortcut(terminalDef?.scope)) {
-        e.preventDefault();
-        useTerminalStore.getState().toggle();
+      // Terminal toggle (global scope) - only when terminal feature is enabled
+      const terminalEnabled = useSettingsStore.getState().advanced.terminalEnabled;
+      if (terminalEnabled) {
+        const terminalKey = shortcuts.getShortcut("toggleTerminal");
+        const terminalDef = shortcuts.getDefinition("toggleTerminal");
+        if (matchesShortcutEvent(e, terminalKey) && shouldRunShortcut(terminalDef?.scope)) {
+          e.preventDefault();
+          useTerminalStore.getState().toggle();
+        }
       }
     };
 

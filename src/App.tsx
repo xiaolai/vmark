@@ -108,13 +108,14 @@ function MainLayout() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useSearchStore((state) => state.isOpen);
   const terminalPosition = useSettingsStore((state) => state.terminal.position);
+  const terminalEnabled = useSettingsStore((state) => state.advanced.terminalEnabled);
   const terminalVisible = useTerminalStore((state) => state.visible);
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
   const handleResizeStart = useSidebarResize();
   const sidebarOffset = sidebarVisible ? `${sidebarWidth}px` : "0px";
-  // Terminal affects layout only when visible AND positioned right
-  const terminalLayoutActive = terminalPosition === "right" && terminalVisible;
+  // Terminal affects layout only when enabled, visible AND positioned right
+  const terminalLayoutActive = terminalEnabled && terminalPosition === "right" && terminalVisible;
 
   // Initialize hooks
   useWorkspaceBootstrap(); // Load config from disk on startup (must be first)
@@ -223,8 +224,8 @@ function MainLayout() {
               <FindBar />
             </div>
           </div>
-          {/* Terminal panel - single render location, handles its own visibility */}
-          <TerminalPanel />
+          {/* Terminal panel - only rendered when feature is enabled */}
+          {terminalEnabled && <TerminalPanel />}
         </div>
       </div>
     </div>

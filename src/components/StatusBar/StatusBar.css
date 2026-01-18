@@ -51,7 +51,8 @@
 .status-mode {
   display: flex;
   align-items: center;
-  padding: 2px 6px;
+  justify-content: center;
+  padding: 2px 4px;
   border: none;
   border-radius: 3px;
   background: transparent;

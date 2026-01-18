@@ -186,6 +186,7 @@ export interface TerminalSettings {
 export interface AdvancedSettingsState {
   enableCommandMenu: boolean;
   mcpServer: McpServerSettings;
+  terminalEnabled: boolean; // Show/hide terminal feature entirely
 }
 
 export interface MarkdownSettings {
@@ -351,6 +352,7 @@ const initialState: SettingsState = {
       port: 9223,
       autoStart: false,
     },
+    terminalEnabled: true,
   },
   showDevSection: false,
 };

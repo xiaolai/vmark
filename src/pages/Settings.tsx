@@ -126,6 +126,7 @@ export function SettingsPage() {
   const [section, setSection] = useState<Section>("appearance");
   const showDevSection = useSettingsStore((state) => state.showDevSection);
   const commandMenuEnabled = useSettingsStore((state) => state.advanced.enableCommandMenu);
+  const terminalEnabled = useSettingsStore((state) => state.advanced.terminalEnabled);
 
   // Apply theme to this window
   useTheme();
@@ -147,9 +148,17 @@ export function SettingsPage() {
     }
   }, [commandMenuEnabled, section]);
 
+  // Switch away from terminal when feature is disabled
+  useEffect(() => {
+    if (!terminalEnabled && section === "terminal") {
+      setSection("advanced");
+    }
+  }, [terminalEnabled, section]);
+
   const navItems = [
     ...navConfig
       .filter((item) => item.id !== "ai" || commandMenuEnabled)
+      .filter((item) => item.id !== "terminal" || terminalEnabled)
       .map((item) => ({
         id: item.id,
         icon: <item.icon className="w-4 h-4" />,
@@ -205,7 +214,7 @@ export function SettingsPage() {
           {section === "general" && <GeneralSettings />}
           {section === "files" && <FilesSettings />}
           {section === "integrations" && <IntegrationsSettings />}
-          {section === "terminal" && <TerminalSettings />}
+          {section === "terminal" && terminalEnabled && <TerminalSettings />}
           {section === "advanced" && <AdvancedSettings />}
           {section === "developing" && <DevelopingSettings />}
         </div>

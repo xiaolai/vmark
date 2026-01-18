@@ -1,28 +1,23 @@
 /**
  * Terminal Bar Component
  *
- * Simple bar with split button. No tabs - just one terminal (or two when split).
- * Split button hidden when already split.
+ * Bottom bar with split and close buttons for single terminal view.
+ * When split (2 panes), each pane has its own close button overlay.
  */
 
-import { Columns2, Rows2 } from "lucide-react";
-import { useTerminalStore } from "@/stores/terminalStore";
+import { Columns2, Rows2, X } from "lucide-react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import "./TerminalTabs.css";
 
 interface TerminalTabsProps {
   onSplit: () => void;
+  onClose?: () => void;
+  isSplit: boolean;
+  canSplit: boolean;
 }
 
-export function TerminalTabs({ onSplit }: TerminalTabsProps) {
-  const sessions = useTerminalStore((state) => state.sessions);
+export function TerminalTabs({ onSplit, onClose, isSplit, canSplit }: TerminalTabsProps) {
   const position = useSettingsStore((state) => state.terminal.position);
-
-  // Check if already split (2 sessions means split)
-  const isSplit = sessions.length >= 2;
-
-  // Don't show anything if already split
-  if (isSplit) return null;
 
   // Split direction based on position: bottom=horizontal (side by side), right=vertical (top/bottom)
   const SplitIcon = position === "bottom" ? Columns2 : Rows2;
@@ -32,13 +27,27 @@ export function TerminalTabs({ onSplit }: TerminalTabsProps) {
     <div className="terminal-tabs">
       <div className="terminal-tabs-list" />
       <div className="terminal-tabs-actions">
-        <button
-          className="terminal-tab-action"
-          onClick={onSplit}
-          title={splitTitle}
-        >
-          <SplitIcon className="w-4 h-4" />
-        </button>
+        {/* Split button - hidden when already split */}
+        {!isSplit && (
+          <button
+            className="terminal-tab-action"
+            onClick={onSplit}
+            disabled={!canSplit}
+            title={splitTitle}
+          >
+            <SplitIcon className="w-4 h-4" />
+          </button>
+        )}
+        {/* Close button - only for single terminal (split panes have their own) */}
+        {!isSplit && onClose && (
+          <button
+            className="terminal-tab-action"
+            onClick={onClose}
+            title="Close terminal"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

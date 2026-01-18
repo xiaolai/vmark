@@ -85,7 +85,21 @@ export const useTerminalStore = create<TerminalState & TerminalActions>()(
 
       removeSession: (sessionId) => {
         const state = get();
-        const newSessions = state.sessions.filter((s) => s.id !== sessionId);
+        const removedSession = state.sessions.find((s) => s.id === sessionId);
+
+        // Clear splitWith/splitDirection on the sibling session if it exists
+        let newSessions = state.sessions.filter((s) => s.id !== sessionId);
+        if (removedSession?.splitWith) {
+          const siblingId = removedSession.splitWith;
+          newSessions = newSessions.map((s) =>
+            s.id === siblingId ? { ...s, splitWith: undefined, splitDirection: undefined } : s
+          );
+        }
+        // Also clear if another session had splitWith pointing to the removed one
+        newSessions = newSessions.map((s) =>
+          s.splitWith === sessionId ? { ...s, splitWith: undefined, splitDirection: undefined } : s
+        );
+
         let newActiveId = state.activeSessionId;
 
         // If we removed the active session, switch to another
@@ -123,9 +137,17 @@ export const useTerminalStore = create<TerminalState & TerminalActions>()(
 
       updateSessionId: (oldId, newId) => {
         set((state) => ({
-          sessions: state.sessions.map((s) =>
-            s.id === oldId ? { ...s, id: newId, needsRestore: false } : s
-          ),
+          sessions: state.sessions.map((s) => {
+            // Update the session's own ID
+            if (s.id === oldId) {
+              return { ...s, id: newId, needsRestore: false };
+            }
+            // Update splitWith references pointing to the old ID
+            if (s.splitWith === oldId) {
+              return { ...s, splitWith: newId };
+            }
+            return s;
+          }),
           activeSessionId: state.activeSessionId === oldId ? newId : state.activeSessionId,
         }));
       },
@@ -201,26 +223,23 @@ export const useTerminalStore = create<TerminalState & TerminalActions>()(
           ? localStorage
           : { getItem: () => null, setItem: () => {}, removeItem: () => {} }
       ),
-      // Persist UI state and sessions (sessions will be restored with new PTYs)
+      // Only persist UI state (size, visibility), NOT sessions
+      // Sessions start fresh each app launch since PTYs don't survive restart
       partialize: (state) => ({
         visible: state.visible,
         height: state.height,
         width: state.width,
-        sessions: state.sessions,
-        activeSessionId: state.activeSessionId,
       }),
-      // Mark all persisted sessions as needing restore (PTYs are dead after restart)
+      // Explicitly ignore old session data from localStorage
       merge: (persisted, current) => {
         const persistedState = persisted as Partial<TerminalState> | undefined;
         if (!persistedState) return current;
         return {
           ...current,
-          ...persistedState,
-          // Mark all sessions as needing restore since PTYs don't survive restart
-          sessions: (persistedState.sessions ?? []).map((s) => ({
-            ...s,
-            needsRestore: true,
-          })),
+          visible: persistedState.visible ?? current.visible,
+          height: persistedState.height ?? current.height,
+          width: persistedState.width ?? current.width,
+          // Explicitly keep sessions empty - don't restore from old localStorage
         };
       },
     }

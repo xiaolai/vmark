@@ -113,7 +113,12 @@
   flex-shrink: 0;
 }
 
-.terminal-tab-action:hover {
+.terminal-tab-action:hover:not(:disabled) {
   background-color: var(--bg-hover, rgba(0, 0, 0, 0.08));
   color: var(--text-color);
+}
+
+.terminal-tab-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

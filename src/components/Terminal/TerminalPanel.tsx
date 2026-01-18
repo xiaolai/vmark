@@ -115,7 +115,11 @@ export function TerminalPanel() {
     const direction = position === "bottom" ? "horizontal" : "vertical";
     const tempId = `split-${Date.now()}`;
     splitSession(primarySession.id, tempId, direction);
-    setMountedTerminals((prev) => [...prev, { key: `split-${tempId}` }]);
+
+    // Get the newly created session to pass as sessionToRestore
+    // This ensures useTerminalPty calls updateSessionId with the real PTY ID
+    const newSession = useTerminalStore.getState().sessions.find((s) => s.id === tempId);
+    setMountedTerminals((prev) => [...prev, { key: `split-${tempId}`, sessionToRestore: newSession }]);
   }, [sessions, position, splitSession]);
 
   // Close a session (and its PTY)
@@ -150,16 +154,32 @@ export function TerminalPanel() {
     }
   }, [visible, mountedTerminals.length, handleNewSession, getSessionsToRestore]);
 
-  // Clean up mounted terminals when sessions are removed
+  // Track if we've ever had sessions (to distinguish init from close)
+  const hadSessionsRef = useRef(false);
+  if (sessions.length > 0) {
+    hadSessionsRef.current = true;
+  }
+
+  // Clean up mounted terminals when sessions are closed
   useEffect(() => {
-    const activeSessionCount = sessions.filter((s) => !s.needsRestore).length;
-    if (mountedTerminals.length > 0 && activeSessionCount > 0 && activeSessionCount < mountedTerminals.length) {
-      setMountedTerminals((prev) => prev.slice(0, activeSessionCount || 1));
+    // If all sessions were closed (not during init), clear and hide panel
+    if (sessions.length === 0 && mountedTerminals.length > 0 && hadSessionsRef.current) {
+      setMountedTerminals([]);
+      useTerminalStore.getState().setVisible(false);
+      hasInitialized.current = false; // Allow re-init when shown again
+      hadSessionsRef.current = false;
+      return;
     }
-  }, [sessions, mountedTerminals.length]);
+    // If sessions count decreased, trim mounted terminals to match
+    if (sessions.length > 0 && sessions.length < mountedTerminals.length) {
+      setMountedTerminals((prev) => prev.slice(0, sessions.length));
+    }
+  }, [sessions.length, mountedTerminals.length]);
+
 
   const isRightPosition = position === "right";
-  const isSplit = sessions.length >= 2;
+  // Base isSplit on mounted terminals count (actual visible panes)
+  const isSplit = mountedTerminals.length >= 2;
 
   // Split direction: bottom=horizontal (side by side), right=vertical (top/bottom)
   const splitDirection = position === "bottom" ? "horizontal" : "vertical";
@@ -224,10 +244,13 @@ export function TerminalPanel() {
         )}
       </div>
 
-      {/* Bottom bar with split button (hidden when split) */}
-      {sessions.length > 0 && (
-        <TerminalTabs onSplit={handleSplit} />
-      )}
+      {/* Bottom bar with split/close buttons */}
+      <TerminalTabs
+        onSplit={handleSplit}
+        onClose={sessions[0] ? () => handleCloseSession(sessions[0].id) : undefined}
+        isSplit={isSplit}
+        canSplit={sessions.length === 1 && mountedTerminals.length === 1}
+      />
     </div>
   );
 }

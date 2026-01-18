@@ -201,7 +201,7 @@ export function StatusBar() {
                 useEditorStore.getState().toggleSourceMode();
               }}
             >
-              {sourceMode ? <Code2 size={14} /> : <Type size={14} />}
+              {sourceMode ? <Code2 size={14} /> : <Type size={12} />}
             </button>
           </div>
         </div>
