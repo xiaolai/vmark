@@ -16,6 +16,7 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDropZoneStore } from "@/stores/dropZoneStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { saveImageToAssets } from "@/hooks/useImageOperations";
 import { hasImageExtension } from "@/utils/imagePathDetection";
 import { getFilename } from "@/utils/imageUtils";
@@ -173,8 +174,11 @@ export function useImageDragDrop({
         // No images to process
         if (!hasImages) return;
 
+        const copyToAssets = useSettingsStore.getState().image.copyToAssets;
         const filePath = getFilePath();
-        if (!filePath) {
+
+        // Only require saved document when copying to assets
+        if (copyToAssets && !filePath) {
           await message(
             "Please save the document first before inserting images. " +
               "Images are stored relative to the document location.",
@@ -186,19 +190,24 @@ export function useImageDragDrop({
         // Process each image
         for (const imagePath of imagePaths) {
           try {
-            // Read the file
-            const imageData = await readFile(imagePath);
-            const originalName = getFilename(imagePath);
-            const filename = generateDroppedImageFilename(originalName);
+            let insertPath: string;
 
-            // Save to assets
-            const relativePath = await saveImageToAssets(imageData, filename, filePath);
+            if (copyToAssets && filePath) {
+              // Copy to assets folder (default behavior)
+              const imageData = await readFile(imagePath);
+              const originalName = getFilename(imagePath);
+              const filename = generateDroppedImageFilename(originalName);
+              insertPath = await saveImageToAssets(imageData, filename, filePath);
+            } else {
+              // Use original path directly
+              insertPath = imagePath;
+            }
 
             // Insert into editor based on mode
             if (isSourceMode) {
-              insertImageInCodeMirror(relativePath);
+              insertImageInCodeMirror(insertPath);
             } else {
-              insertImageInTiptap(relativePath);
+              insertImageInTiptap(insertPath);
             }
           } catch (error) {
             console.error("[ImageDragDrop] Failed to process image:", imagePath, error);

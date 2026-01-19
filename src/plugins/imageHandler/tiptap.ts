@@ -6,6 +6,7 @@ import { copyImageToAssets, saveImageToAssets, insertBlockImageNode } from "@/ho
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { detectMultipleImagePaths, hasImageExtension, type ImagePathResult } from "@/utils/imagePathDetection";
 import { parseMultiplePaths } from "@/utils/multiImageParsing";
@@ -116,10 +117,12 @@ async function insertImageFromPath(
   }
 
   const filePath = getActiveFilePathForCurrentWindow();
+  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
 
   let imagePath = detection.path;
 
-  if (detection.needsCopy) {
+  if (detection.needsCopy && copyToAssets) {
+    // Copy to assets folder (default behavior)
     if (!filePath) {
       await showUnsavedDocWarning();
       return;
@@ -143,6 +146,17 @@ async function insertImageFromPath(
       await message("Failed to copy image to assets folder.", { kind: "error" });
       return;
     }
+  } else if (detection.needsCopy && !copyToAssets) {
+    // Use original path without copying
+    if (detection.type === "homePath") {
+      const expanded = await expandHomePath(detection.path);
+      if (!expanded) {
+        await message("Failed to resolve home directory path.", { kind: "error" });
+        return;
+      }
+      imagePath = expanded;
+    }
+    // For absolute paths, use as-is
   }
 
   // Re-verify view is still connected after async operations
@@ -402,12 +416,14 @@ async function insertMultipleImages(
   }
 
   const filePath = getActiveFilePathForCurrentWindow();
+  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
 
   // Process each image
   for (const detection of results) {
     let imagePath = detection.path;
 
-    if (detection.needsCopy) {
+    if (detection.needsCopy && copyToAssets) {
+      // Copy to assets folder (default behavior)
       if (!filePath) {
         await showUnsavedDocWarning();
         return;
@@ -431,6 +447,17 @@ async function insertMultipleImages(
         await message("Failed to copy image to assets folder.", { kind: "error" });
         return;
       }
+    } else if (detection.needsCopy && !copyToAssets) {
+      // Use original path without copying
+      if (detection.type === "homePath") {
+        const expanded = await expandHomePath(detection.path);
+        if (!expanded) {
+          await message("Failed to resolve home directory path.", { kind: "error" });
+          return;
+        }
+        imagePath = expanded;
+      }
+      // For absolute paths, use as-is
     }
 
     // Re-verify view is still connected after async operations
