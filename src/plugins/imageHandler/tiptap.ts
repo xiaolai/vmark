@@ -665,11 +665,46 @@ function handleDrop(view: EditorView, event: DragEvent, _slice: unknown, moved: 
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return false;
 
+  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
+
   // Check for dropped files
   const files = Array.from(dataTransfer.files);
   const imageFiles = files.filter(isImageFile);
 
   if (imageFiles.length > 0) {
+    // When copyToAssets is disabled, try to get file paths from URI list
+    // (Finder provides file:// URLs when dragging files)
+    if (!copyToAssets) {
+      const uriList = dataTransfer.getData("text/uri-list");
+      if (uriList) {
+        const filePaths = uriList
+          .split("\n")
+          .filter((line) => line.startsWith("file://"))
+          .map((uri) => decodeURIComponent(uri.replace("file://", "")));
+
+        if (filePaths.length > 0) {
+          const detection = detectMultipleImagePaths(filePaths);
+          if (detection.allImages) {
+            event.preventDefault();
+
+            const dropPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            const insertPos = dropPos ? dropPos.pos : view.state.selection.from;
+
+            const { state, dispatch } = view;
+            const tr = state.tr.setSelection(Selection.near(state.doc.resolve(insertPos)));
+            dispatch(tr);
+
+            insertMultipleImages(view, detection.results, insertPos, insertPos).catch((error) => {
+              console.error("Failed to insert dropped images:", error);
+            });
+
+            return true;
+          }
+        }
+      }
+    }
+
+    // Default behavior: save files to assets folder
     event.preventDefault();
 
     // Get drop position in document
