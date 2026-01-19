@@ -73,7 +73,8 @@ const BLOCK_GROUP: ToolbarGroup = {
   label: "Heading",
   icon: icons.heading,
   items: [
-    { id: "paragraph", icon: icons.paragraph, label: "Paragraph", action: "heading:0", enabledIn: ["textblock"] },
+    // "Paragraph" here means "remove heading" - only available when in a heading
+    { id: "paragraph", icon: icons.paragraph, label: "Paragraph", action: "heading:0", enabledIn: ["heading"] },
     { id: "h1", icon: icons.heading1, label: "Heading 1", action: "heading:1", enabledIn: ["textblock"] },
     { id: "h2", icon: icons.heading2, label: "Heading 2", action: "heading:2", enabledIn: ["textblock"] },
     { id: "h3", icon: icons.heading3, label: "Heading 3", action: "heading:3", enabledIn: ["textblock"] },

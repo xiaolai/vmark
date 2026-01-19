@@ -52,8 +52,11 @@ function isWysiwygActionActive(action: string, context: WysiwygContext | null, v
   if (action.startsWith("heading:")) {
     const level = Number(action.split(":")[1]);
     if (Number.isNaN(level)) return false;
-    const currentLevel = context.inHeading?.level ?? 0;
-    return currentLevel === level;
+    // Level 0 means "remove heading" - it's an action, not a state, so never "active"
+    if (level === 0) return false;
+    // Only mark heading levels as active when actually inside that heading
+    if (!context.inHeading) return false;
+    return context.inHeading.level === level;
   }
 
   // Insert actions are never "active" (they insert new content)
@@ -99,8 +102,11 @@ function isSourceActionActive(action: string, context: SourceContext | null): bo
   if (action.startsWith("heading:")) {
     const level = Number(action.split(":")[1]);
     if (Number.isNaN(level)) return false;
-    const currentLevel = context.inHeading?.level ?? 0;
-    return currentLevel === level;
+    // Level 0 means "remove heading" - it's an action, not a state, so never "active"
+    if (level === 0) return false;
+    // Only mark heading levels as active when actually inside that heading
+    if (!context.inHeading) return false;
+    return context.inHeading.level === level;
   }
 
   // Insert actions are never "active" (they insert new content)
