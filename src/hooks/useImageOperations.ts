@@ -153,12 +153,20 @@ export function insertImageNode(
 /**
  * Insert a block image node into the ProseMirror editor.
  * Block images appear on their own line, not inline with text.
+ * If selection has text, it will be replaced and used as alt text.
  */
 export function insertBlockImageNode(
   view: EditorView,
-  src: string
+  src: string,
+  alt = ""
 ): void {
   const { state } = view;
+  const { from, to } = state.selection;
+
+  // If there's selected text and no alt provided, use selection as alt
+  const selectedText = from !== to ? state.doc.textBetween(from, to) : "";
+  const finalAlt = alt || selectedText;
+
   const blockImageType = state.schema.nodes.block_image;
   if (!blockImageType) {
     // No block_image schema. Prefer inserting an "image" node as a block if available.
@@ -166,7 +174,7 @@ export function insertBlockImageNode(
     if (imageType && !imageType.isInline) {
       const imageNode = imageType.create({
         src,
-        alt: "",
+        alt: finalAlt,
         title: "",
       });
 
@@ -174,7 +182,12 @@ export function insertBlockImageNode(
       const endOfBlock = $from.end($from.depth);
       const insertPos = Math.min(endOfBlock + 1, state.doc.content.size);
 
-      const tr = state.tr.insert(insertPos, imageNode);
+      // Delete selected text first, then insert image
+      let tr = state.tr;
+      if (from !== to) {
+        tr = tr.delete(from, to);
+      }
+      tr = tr.insert(Math.min(insertPos - (to - from), tr.doc.content.size), imageNode);
       view.dispatch(tr);
       return;
     }
@@ -185,15 +198,22 @@ export function insertBlockImageNode(
 
   const imageNode = blockImageType.create({
     src,
-    alt: "",
+    alt: finalAlt,
     title: "",
   });
 
   // Find block-level insertion point (after current block)
   const { $from } = state.selection;
   const endOfBlock = $from.end($from.depth);
-  const insertPos = Math.min(endOfBlock + 1, state.doc.content.size);
+  let insertPos = Math.min(endOfBlock + 1, state.doc.content.size);
 
-  const tr = state.tr.insert(insertPos, imageNode);
+  // Delete selected text first, then insert image
+  let tr = state.tr;
+  if (from !== to) {
+    tr = tr.delete(from, to);
+    // Adjust insert position after deletion
+    insertPos = Math.min(insertPos - (to - from), tr.doc.content.size);
+  }
+  tr = tr.insert(insertPos, imageNode);
   view.dispatch(tr);
 }

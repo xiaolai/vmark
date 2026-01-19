@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, Selection } from "@tiptap/pm/state";
+import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import { copyImageToAssets, saveImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
@@ -103,12 +103,14 @@ function getToastAnchorRect(view: EditorView): { top: number; left: number; bott
 /**
  * Insert image from text path (after user confirmation).
  * Takes captured selection to handle async timing.
+ * Uses captured selection text as alt text if available.
  */
 async function insertImageFromPath(
   view: EditorView,
   detection: ImagePathResult,
   capturedFrom: number,
-  capturedTo: number
+  capturedTo: number,
+  capturedAltText: string
 ): Promise<void> {
   // Verify view is still connected
   if (!isViewConnected(view)) {
@@ -165,17 +167,27 @@ async function insertImageFromPath(
     return;
   }
 
-  // Use captured positions if selection hasn't changed significantly
-  const { from: currentFrom, to: currentTo } = view.state.selection;
-  const selectionChanged = currentFrom !== capturedFrom || currentTo !== capturedTo;
-
-  if (selectionChanged) {
-    // Selection changed - insert at current position instead
-    console.warn("[imageHandler] Selection changed during async, using current position");
+  // Restore selection to captured position if we have alt text to use
+  // This ensures the selected text gets replaced
+  if (capturedAltText && capturedFrom !== capturedTo) {
+    const { state, dispatch } = view;
+    const maxPos = state.doc.content.size;
+    const safeFrom = Math.min(capturedFrom, maxPos);
+    const safeTo = Math.min(capturedTo, maxPos);
+    if (safeFrom < safeTo) {
+      const tr = state.tr.setSelection(
+        TextSelection.create(state.doc, safeFrom, safeTo)
+      );
+      dispatch(tr);
+    }
   }
 
-  // Insert the image node
-  insertBlockImageNode(view as unknown as Parameters<typeof insertBlockImageNode>[0], imagePath);
+  // Insert the image node with captured alt text
+  insertBlockImageNode(
+    view as unknown as Parameters<typeof insertBlockImageNode>[0],
+    imagePath,
+    capturedAltText
+  );
 }
 
 /**
@@ -196,6 +208,8 @@ function tryTextImagePaste(view: EditorView, text: string): boolean {
 
   // Capture selection state at paste time
   const { from, to } = view.state.selection;
+  // Capture selected text to use as alt text
+  const capturedAltText = from !== to ? view.state.doc.textBetween(from, to) : "";
 
   if (detection.imageCount === 1) {
     // Single image: use existing behavior
@@ -203,12 +217,12 @@ function tryTextImagePaste(view: EditorView, text: string): boolean {
 
     // For URLs, show toast immediately
     if (result.type === "url" || result.type === "dataUrl") {
-      showImagePasteToast(view, result, text, from, to);
+      showImagePasteToast(view, result, text, from, to, capturedAltText);
       return true;
     }
 
     // For local paths, validate first
-    validateAndShowToast(view, result, text, from, to).catch((error) => {
+    validateAndShowToast(view, result, text, from, to, capturedAltText).catch((error) => {
       console.error("[imageHandler] Failed to validate path:", error);
       if (isViewConnected(view)) {
         pasteAsText(view, text, from, to);
@@ -217,7 +231,7 @@ function tryTextImagePaste(view: EditorView, text: string): boolean {
     return true;
   }
 
-  // Multiple images: new behavior
+  // Multiple images: new behavior (alt text only applies to single image)
   validateAndShowMultiToast(view, detection.results, text, from, to).catch((error) => {
     console.error("[imageHandler] Failed to validate multi-image paths:", error);
     if (isViewConnected(view)) {
@@ -235,7 +249,8 @@ async function validateAndShowToast(
   detection: ImagePathResult,
   originalText: string,
   capturedFrom: number,
-  capturedTo: number
+  capturedTo: number,
+  capturedAltText: string
 ): Promise<void> {
   let pathToCheck = detection.path;
 
@@ -270,7 +285,7 @@ async function validateAndShowToast(
   }
 
   // For relative paths, we can't validate without doc path, show toast anyway
-  showImagePasteToast(view, detection, originalText, capturedFrom, capturedTo);
+  showImagePasteToast(view, detection, originalText, capturedFrom, capturedTo, capturedAltText);
 }
 
 /**
@@ -281,7 +296,8 @@ function showImagePasteToast(
   detection: ImagePathResult,
   originalText: string,
   capturedFrom: number,
-  capturedTo: number
+  capturedTo: number,
+  capturedAltText: string
 ): void {
   const anchorRect = getToastAnchorRect(view);
   const imageType = detection.type === "url" || detection.type === "dataUrl" ? "url" : "localPath";
@@ -296,7 +312,7 @@ function showImagePasteToast(
         console.warn("[imageHandler] View disconnected, cannot insert image");
         return;
       }
-      insertImageFromPath(view, detection, capturedFrom, capturedTo).catch((error) => {
+      insertImageFromPath(view, detection, capturedFrom, capturedTo, capturedAltText).catch((error) => {
         console.error("Failed to insert image:", error);
       });
     },
