@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { clearAllHistory } from "@/hooks/useHistoryRecovery";
 import { historyLog } from "@/utils/debug";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
@@ -40,6 +41,11 @@ export function useMenuEvents() {
       // View menu events - only respond when this window is the target
       const unlistenSourceMode = await currentWindow.listen<string>("menu:source-mode", (event) => {
         if (event.payload !== windowLabel) return;
+        // Close any open image paste toast (don't paste - user is switching modes)
+        const toastStore = useImagePasteToastStore.getState();
+        if (toastStore.isOpen) {
+          toastStore.hideToast();
+        }
         flushActiveWysiwygNow();
         useEditorStore.getState().toggleSourceMode();
       });

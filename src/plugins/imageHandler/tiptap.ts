@@ -257,6 +257,7 @@ function showImagePasteToast(
     imagePath: detection.path,
     imageType,
     anchorRect,
+    editorDom: view.dom,
     onConfirm: () => {
       if (!isViewConnected(view)) {
         console.warn("[imageHandler] View disconnected, cannot insert image");

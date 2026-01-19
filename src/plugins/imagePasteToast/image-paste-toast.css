@@ -1,6 +1,6 @@
 /**
  * Image Paste Toast Styles
- * Compact toast for image paste confirmation
+ * Compact toast with icon buttons - matches link popup style
  */
 
 .image-paste-toast {
@@ -8,19 +8,19 @@
   z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 2px;
+  padding: 4px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  animation: image-paste-toast-fade-in 0.15s ease-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: image-paste-toast-fade-in 0.1s ease-out;
 }
 
 @keyframes image-paste-toast-fade-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
   to {
     opacity: 1;
@@ -28,47 +28,28 @@
   }
 }
 
-.image-paste-toast-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--primary-color, #0066cc);
-}
-
-.image-paste-toast-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
 .image-paste-toast-message {
+  padding: 0 8px;
   font-size: 12px;
   color: var(--text-color);
   white-space: nowrap;
 }
 
-.image-paste-toast-buttons {
+/* Icon-only buttons - matches link popup */
+.image-paste-toast-btn {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-}
-
-.image-paste-toast-btn {
-  padding: 4px 10px;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   border: none;
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
   cursor: default;
   user-select: none;
-  white-space: nowrap;
 }
 
 .image-paste-toast-btn:hover {
@@ -76,27 +57,48 @@
   color: var(--text-color);
 }
 
+.image-paste-toast-btn:active {
+  opacity: 0.8;
+}
+
+/* Focus state - U-shaped underline */
 .image-paste-toast-btn:focus {
   outline: none;
 }
 
-.image-paste-toast-btn:focus-visible {
-  outline: 2px solid var(--primary-color, #0066cc);
-  outline-offset: -2px;
+.image-paste-toast-btn:focus::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 4px;
+  background: transparent;
+  border-bottom: 2px solid var(--accent-primary, #0066cc);
+  border-radius: 0 0 4px 4px;
 }
 
-/* Primary button style */
-.image-paste-toast-btn-primary {
-  background: var(--primary-color, #0066cc);
-  color: white;
+.image-paste-toast-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
 }
 
-.image-paste-toast-btn-primary:hover {
-  background: var(--primary-hover, #0052a3);
-  color: white;
+/* Insert button - primary color on hover */
+.image-paste-toast-btn-insert:hover {
+  color: var(--accent-primary, #0066cc);
+}
+
+/* Dismiss button - secondary */
+.image-paste-toast-btn-dismiss:hover {
+  color: var(--text-color);
 }
 
 /* Dark theme */
-.dark-theme .image-paste-toast-btn:not(.image-paste-toast-btn-primary):hover {
+.dark-theme .image-paste-toast-btn:hover {
   background: rgba(255, 255, 255, 0.08);
 }

@@ -14,6 +14,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore, type ShortcutScope } from "@/stores/shortcutsStore";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
@@ -48,6 +49,11 @@ export function useViewShortcuts() {
       const sourceModeDef = shortcuts.getDefinition("sourceMode");
       if (matchesShortcutEvent(e, sourceModeKey) && shouldRunShortcut(sourceModeDef?.scope)) {
         e.preventDefault();
+        // Close any open image paste toast (don't paste - user is switching modes)
+        const toastStore = useImagePasteToastStore.getState();
+        if (toastStore.isOpen) {
+          toastStore.hideToast();
+        }
         flushActiveWysiwygNow();
         useEditorStore.getState().toggleSourceMode();
         return;

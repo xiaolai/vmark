@@ -19,6 +19,7 @@ interface ImagePasteToastState {
   imagePath: string;
   imageType: "url" | "localPath";
   anchorRect: AnchorRect | null;
+  editorDom: HTMLElement | null;
   onConfirm: (() => void) | null;
   onDismiss: (() => void) | null;
 }
@@ -28,6 +29,7 @@ interface ImagePasteToastActions {
     imagePath: string;
     imageType: "url" | "localPath";
     anchorRect: AnchorRect;
+    editorDom: HTMLElement;
     onConfirm: () => void;
     onDismiss: () => void;
   }) => void;
@@ -43,6 +45,7 @@ const initialState: ImagePasteToastState = {
   imagePath: "",
   imageType: "url",
   anchorRect: null,
+  editorDom: null,
   onConfirm: null,
   onDismiss: null,
 };
@@ -56,6 +59,7 @@ export const useImagePasteToastStore = create<ImagePasteToastStore>((set, get) =
       imagePath: data.imagePath,
       imageType: data.imageType,
       anchorRect: data.anchorRect,
+      editorDom: data.editorDom,
       onConfirm: data.onConfirm,
       onDismiss: data.onDismiss,
     }),

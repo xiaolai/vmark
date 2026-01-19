@@ -9,6 +9,7 @@
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import {
   calculatePopupPosition,
+  getBoundaryRects,
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
@@ -16,9 +17,12 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 
 const AUTO_DISMISS_MS = 5000;
 
-// SVG Icons
+// SVG Icons (matching link popup style)
 const icons = {
-  image: `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+  // Check mark for "Insert as Image"
+  insert: `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
+  // X mark for "Paste as Text" (dismiss)
+  dismiss: `<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
 };
 
 /**
@@ -40,7 +44,7 @@ export class ImagePasteToastView {
     // Subscribe to store changes
     this.unsubscribe = useImagePasteToastStore.subscribe((state) => {
       if (state.isOpen && state.anchorRect) {
-        this.show(state.imagePath, state.imageType, state.anchorRect);
+        this.show(state.imagePath, state.imageType, state.anchorRect, state.editorDom);
       } else {
         this.hide();
       }
@@ -55,61 +59,65 @@ export class ImagePasteToastView {
     container.className = "image-paste-toast";
     container.style.display = "none";
 
-    // Icon
-    const iconEl = document.createElement("span");
-    iconEl.className = "image-paste-toast-icon";
-    iconEl.innerHTML = icons.image;
-
     // Message
     const messageEl = document.createElement("span");
     messageEl.className = "image-paste-toast-message";
     messageEl.textContent = "Image detected";
 
-    // Buttons container
-    const buttonsEl = document.createElement("div");
-    buttonsEl.className = "image-paste-toast-buttons";
-
-    // Insert button (primary)
+    // Icon buttons (matching link popup style)
+    // Insert button (check mark)
     const insertBtn = document.createElement("button");
     insertBtn.type = "button";
-    insertBtn.className = "image-paste-toast-btn image-paste-toast-btn-primary";
-    insertBtn.textContent = "Insert Image";
+    insertBtn.className = "image-paste-toast-btn image-paste-toast-btn-insert";
+    insertBtn.title = "Insert as Image";
+    insertBtn.innerHTML = icons.insert;
     insertBtn.addEventListener("click", this.handleInsert);
 
-    // Dismiss button
+    // Dismiss button (X mark)
     const dismissBtn = document.createElement("button");
     dismissBtn.type = "button";
-    dismissBtn.className = "image-paste-toast-btn";
-    dismissBtn.textContent = "Paste as Text";
+    dismissBtn.className = "image-paste-toast-btn image-paste-toast-btn-dismiss";
+    dismissBtn.title = "Paste as Text";
+    dismissBtn.innerHTML = icons.dismiss;
     dismissBtn.addEventListener("click", this.handleDismiss);
 
-    buttonsEl.appendChild(insertBtn);
-    buttonsEl.appendChild(dismissBtn);
-
-    container.appendChild(iconEl);
     container.appendChild(messageEl);
-    container.appendChild(buttonsEl);
+    container.appendChild(insertBtn);
+    container.appendChild(dismissBtn);
 
     return container;
   }
 
-  private show(_imagePath: string, imageType: "url" | "localPath", anchorRect: AnchorRect) {
+  private show(
+    _imagePath: string,
+    imageType: "url" | "localPath",
+    anchorRect: AnchorRect,
+    editorDom: HTMLElement | null
+  ) {
     // Update message based on type (imagePath reserved for future tooltip use)
     const messageEl = this.container.querySelector(".image-paste-toast-message");
     if (messageEl) {
-      messageEl.textContent = imageType === "url" ? "Image URL detected" : "Image path detected";
+      messageEl.textContent = imageType === "url" ? "Image URL" : "Image path";
     }
 
     this.container.style.display = "flex";
     this.container.style.position = "fixed";
 
-    // Calculate position
-    const bounds = getViewportBounds();
+    // Calculate bounds from editor container (like link popup)
+    let bounds = getViewportBounds();
+    if (editorDom) {
+      const containerEl = editorDom.closest(".editor-container") as HTMLElement;
+      if (containerEl) {
+        bounds = getBoundaryRects(editorDom, containerEl);
+      }
+    }
+
+    // Calculate position (compact size with icon buttons)
     const { top, left } = calculatePopupPosition({
       anchor: anchorRect,
-      popup: { width: 280, height: 40 },
+      popup: { width: 160, height: 36 },
       bounds,
-      gap: 8,
+      gap: 6,
       preferAbove: true,
     });
 
@@ -124,7 +132,7 @@ export class ImagePasteToastView {
 
     // Focus the insert button
     requestAnimationFrame(() => {
-      const insertBtn = this.container.querySelector(".image-paste-toast-btn-primary") as HTMLButtonElement;
+      const insertBtn = this.container.querySelector(".image-paste-toast-btn-insert") as HTMLButtonElement;
       if (insertBtn) {
         insertBtn.focus();
       }
@@ -146,10 +154,20 @@ export class ImagePasteToastView {
 
       if (e.key === "Enter") {
         e.preventDefault();
-        this.handleInsert();
+        // Activate the currently focused button
+        const activeEl = document.activeElement as HTMLElement;
+        if (activeEl?.classList.contains("image-paste-toast-btn-insert")) {
+          this.handleInsert();
+        } else if (activeEl?.classList.contains("image-paste-toast-btn-dismiss")) {
+          this.handleDismiss();
+        } else {
+          // No button focused, default to insert
+          this.handleInsert();
+        }
       } else if (e.key === "Escape") {
         e.preventDefault();
-        this.handleDismiss();
+        // Escape closes without any action (no paste)
+        useImagePasteToastStore.getState().hideToast();
       } else if (e.key === "Tab") {
         // Trap focus within toast
         e.preventDefault();
@@ -176,8 +194,8 @@ export class ImagePasteToastView {
   private startAutoDismissTimer() {
     this.clearAutoDismissTimer();
     this.autoDismissTimer = window.setTimeout(() => {
-      // Auto-dismiss = paste as text (the safe default)
-      this.handleDismiss();
+      // Auto-dismiss = close without any action (user ignored it)
+      useImagePasteToastStore.getState().hideToast();
     }, AUTO_DISMISS_MS);
   }
 
@@ -202,8 +220,8 @@ export class ImagePasteToastView {
 
     const target = e.target as Node;
     if (!this.container.contains(target)) {
-      // Click outside = dismiss (paste as text)
-      this.handleDismiss();
+      // Click outside = close without any action (no paste)
+      useImagePasteToastStore.getState().hideToast();
     }
   };
 

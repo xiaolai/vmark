@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import {
@@ -199,6 +200,11 @@ export function StatusBar() {
               className="status-mode"
               title={sourceMode ? `Source Mode (${formatKeyForDisplay(sourceModeShortcut)})` : `Rich Text Mode (${formatKeyForDisplay(sourceModeShortcut)})`}
               onClick={() => {
+                // Close any open image paste toast (don't paste - user is switching modes)
+                const toastStore = useImagePasteToastStore.getState();
+                if (toastStore.isOpen) {
+                  toastStore.hideToast();
+                }
                 flushActiveWysiwygNow();
                 useEditorStore.getState().toggleSourceMode();
               }}

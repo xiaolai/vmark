@@ -75,15 +75,69 @@ class SourceImagePreviewPlugin {
   private view: EditorView;
   private currentImageRange: ImageRange | null = null;
   private pendingUpdate = false;
+  private hoverImageRange: ImageRange | null = null;
+  private boundMouseMove: (e: MouseEvent) => void;
+  private boundMouseLeave: () => void;
 
   constructor(view: EditorView) {
     this.view = view;
     this.scheduleCheck();
+
+    // Bind hover handlers
+    this.boundMouseMove = this.handleMouseMove.bind(this);
+    this.boundMouseLeave = this.handleMouseLeave.bind(this);
+    view.dom.addEventListener("mousemove", this.boundMouseMove);
+    view.dom.addEventListener("mouseleave", this.boundMouseLeave);
   }
 
   update(update: ViewUpdate) {
     if (update.selectionSet || update.docChanged) {
       this.scheduleCheck();
+    }
+  }
+
+  private handleMouseMove(e: MouseEvent) {
+    // Get position from mouse coordinates
+    const pos = this.view.posAtCoords({ x: e.clientX, y: e.clientY });
+    if (pos === null) {
+      this.clearHoverPreview();
+      return;
+    }
+
+    // Check for image at hover position
+    const imageRange = findImageAtCursor(this.view, pos);
+
+    // If we're hovering over same image, do nothing
+    if (
+      imageRange &&
+      this.hoverImageRange &&
+      imageRange.from === this.hoverImageRange.from &&
+      imageRange.to === this.hoverImageRange.to
+    ) {
+      return;
+    }
+
+    // If cursor is in an image, let cursor-based preview take priority
+    if (this.currentImageRange) {
+      return;
+    }
+
+    if (imageRange) {
+      this.hoverImageRange = imageRange;
+      this.showPreviewForRange(imageRange);
+    } else {
+      this.clearHoverPreview();
+    }
+  }
+
+  private handleMouseLeave() {
+    this.clearHoverPreview();
+  }
+
+  private clearHoverPreview() {
+    if (this.hoverImageRange && !this.currentImageRange) {
+      this.hoverImageRange = null;
+      getImagePreviewView().hide();
     }
   }
 
@@ -110,24 +164,21 @@ class SourceImagePreviewPlugin {
     const imageRange = findImageAtCursor(this.view, from);
     if (imageRange) {
       this.currentImageRange = imageRange;
-      this.showPreview(imageRange.path);
+      this.showPreview();
       return;
     }
 
     this.hidePreview();
   }
 
-  private showPreview(path: string) {
-    if (!this.currentImageRange) return;
-
+  private showPreviewForRange(imageRange: ImageRange) {
     const preview = getImagePreviewView();
 
     // Get coordinates for the image range
-    const fromCoords = this.view.coordsAtPos(this.currentImageRange.from);
-    const toCoords = this.view.coordsAtPos(this.currentImageRange.to);
+    const fromCoords = this.view.coordsAtPos(imageRange.from);
+    const toCoords = this.view.coordsAtPos(imageRange.to);
 
     if (!fromCoords || !toCoords) {
-      this.hidePreview();
       return;
     }
 
@@ -140,19 +191,28 @@ class SourceImagePreviewPlugin {
 
     if (preview.isVisible()) {
       // Update existing preview
-      preview.updateContent(path, anchorRect);
+      preview.updateContent(imageRange.path, anchorRect);
     } else {
       // Show new preview
-      preview.show(path, anchorRect, this.view.dom);
+      preview.show(imageRange.path, anchorRect, this.view.dom);
     }
+  }
+
+  private showPreview() {
+    if (!this.currentImageRange) return;
+    this.showPreviewForRange(this.currentImageRange);
   }
 
   private hidePreview() {
     this.currentImageRange = null;
+    this.hoverImageRange = null;
     getImagePreviewView().hide();
   }
 
   destroy() {
+    // Clean up event listeners
+    this.view.dom.removeEventListener("mousemove", this.boundMouseMove);
+    this.view.dom.removeEventListener("mouseleave", this.boundMouseLeave);
     this.hidePreview();
   }
 }
