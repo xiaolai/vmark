@@ -246,6 +246,8 @@ export class BlockImageNodeView implements NodeView {
    */
   selectNode(): void {
     this.dom.classList.add("ProseMirror-selectednode");
+    // Clear native browser selection to prevent visual artifacts
+    window.getSelection()?.removeAllRanges();
   }
 
   /**

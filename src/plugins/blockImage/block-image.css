@@ -16,6 +16,9 @@
   border-radius: 4px;
   border: 1px solid transparent;
   transition: border-color 0.15s ease;
+  /* Prevent macOS Live Text from selecting text within images */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Selected state - subtle border on the image, not the container */

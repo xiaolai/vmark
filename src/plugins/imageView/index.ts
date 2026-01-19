@@ -282,18 +282,10 @@ export class ImageNodeView implements NodeView {
    */
   selectNode(): void {
     this.dom.classList.add("ProseMirror-selectednode");
-    // Fix browser selection quirk: clear native selection to prevent
-    // visual artifacts where text before image appears selected
-    requestAnimationFrame(() => {
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
-        // Only clear if selection intersects this image (NodeSelection artifact)
-        const range = sel.getRangeAt(0);
-        if (range.intersectsNode(this.dom)) {
-          sel.removeAllRanges();
-        }
-      }
-    });
+    // Clear native browser selection to prevent visual artifacts.
+    // NodeSelection in ProseMirror creates a DOM selection that visually
+    // extends from doc start to the node - we don't want that shown.
+    window.getSelection()?.removeAllRanges();
   }
 
   /**
