@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   Search,
   ChevronLeft,
@@ -14,6 +14,19 @@ import { useSearchStore } from "@/stores/searchStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./FindBar.css";
+
+/**
+ * Prevent Cmd+A from selecting all page content when focus is on non-input elements.
+ * Only prevents when active element is a button or similar non-text element.
+ */
+function preventSelectAllOnButtons(e: ReactKeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+    const target = e.target as HTMLElement;
+    if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+    }
+  }
+}
 
 export function FindBar() {
   const isOpen = useSearchStore((state) => state.isOpen);
@@ -117,7 +130,7 @@ export function FindBar() {
       : `${currentIndex + 1} of ${matchCount}`;
 
   return (
-    <div className="find-bar">
+    <div className="find-bar" onKeyDown={preventSelectAllOnButtons}>
       <div className="find-bar-row">
         {/* Toggles first */}
         <div className="find-bar-toggles">

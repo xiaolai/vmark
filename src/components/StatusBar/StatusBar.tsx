@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, type MouseEvent } from "react";
+import { useMemo, useState, useEffect, useCallback, type MouseEvent, type KeyboardEvent } from "react";
 
 // Stable empty array to avoid creating new reference on each render
 const EMPTY_TABS: never[] = [];
@@ -21,6 +21,19 @@ import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/shortcutsStore";
 import "./StatusBar.css";
+
+/**
+ * Prevent Cmd+A from selecting all page content when focus is on non-input elements.
+ * Only prevents when active element is a button or similar non-text element.
+ */
+function preventSelectAllOnButtons(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+    const target = e.target as HTMLElement;
+    if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+    }
+  }
+}
 
 /**
  * Strip markdown formatting to get plain text for word counting.
@@ -148,7 +161,7 @@ export function StatusBar() {
 
   return (
     <>
-      <div className="status-bar-container visible">
+      <div className="status-bar-container visible" onKeyDown={preventSelectAllOnButtons}>
         <div className="status-bar">
           {/* Left section: tabs */}
           <div className="status-bar-left">

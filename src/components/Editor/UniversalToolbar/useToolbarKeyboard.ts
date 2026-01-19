@@ -112,6 +112,12 @@ export function useToolbarKeyboard(
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Prevent Cmd+A from selecting all page content when focus is on toolbar buttons
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        return;
+      }
+
       const current = focusedIndex;
       const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const groupModifier = isMac ? e.altKey : e.ctrlKey;
