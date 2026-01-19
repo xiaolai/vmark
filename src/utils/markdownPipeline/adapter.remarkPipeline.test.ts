@@ -114,6 +114,27 @@ describe("adapter remark pipeline", () => {
       const output = serializeMarkdown(testSchema, doc).trim();
       expect(output).toBe(input);
     });
+
+    it("round-trips an image with URL-encoded spaces", () => {
+      // Input with %20 encoded spaces
+      const input = "![screenshot](/path/to%20my/Screenshot%202026-01-19.png)";
+      const doc = parseMarkdown(testSchema, input);
+      const output = serializeMarkdown(testSchema, doc).trim();
+      // Output should preserve the encoding
+      expect(output).toBe(input);
+    });
+
+    it("preserves encoded URLs in ProseMirror and round-trips them", () => {
+      // Parser preserves %20 encoding in ProseMirror
+      const input = "![alt](/path/with%20spaces.png)";
+      const doc = parseMarkdown(testSchema, input);
+      // ProseMirror stores the URL as-is (encoded)
+      const imageSrc = doc.firstChild?.attrs.src;
+      expect(imageSrc).toBe("/path/with%20spaces.png");
+      // Serialization preserves encoding
+      const output = serializeMarkdown(testSchema, doc).trim();
+      expect(output).toBe(input);
+    });
   });
 
   describe("alert/details support", () => {

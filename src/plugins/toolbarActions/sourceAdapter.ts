@@ -20,6 +20,7 @@ import { insertText, applyInlineFormat, clearFormattingSelections } from "./sour
 import { insertLinkSync, insertWikiSyntax, insertSourceBookmarkLink, insertSourceReferenceLink, insertInlineMath, findWordAtCursorSource } from "./sourceAdapterLinks";
 import { readClipboardImagePath } from "@/utils/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
+import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
@@ -99,8 +100,8 @@ async function insertImageAsync(view: EditorView): Promise<boolean> {
       }
     }
 
-    // Insert image with the path
-    const markdown = `![${altText}](${imagePath})`;
+    // Insert image with the path (encode URL for spaces)
+    const markdown = `![${altText}](${encodeMarkdownUrl(imagePath)})`;
     view.dispatch({
       changes: { from: insertFrom, to: insertTo, insert: markdown },
       selection: { anchor: insertFrom + markdown.length },

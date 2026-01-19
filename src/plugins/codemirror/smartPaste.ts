@@ -16,6 +16,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { useTabStore } from "@/stores/tabStore";
 import { detectMultipleImagePaths, type ImagePathResult } from "@/utils/imagePathDetection";
+import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { parseMultiplePaths } from "@/utils/multiImageParsing";
 import { findWordAtCursorSource } from "@/plugins/toolbarActions/sourceAdapterLinks";
 
@@ -172,8 +173,8 @@ async function insertImageMarkdown(
     console.warn("[smartPaste] Selection changed during async, using current position");
   }
 
-  // Insert image markdown
-  const markdown = `![${altText}](${imagePath})`;
+  // Insert image markdown (encode URL for spaces)
+  const markdown = `![${altText}](${encodeMarkdownUrl(imagePath)})`;
   view.dispatch({
     changes: { from: insertFrom, to: insertTo, insert: markdown },
     selection: { anchor: insertFrom + markdown.length },
@@ -479,8 +480,8 @@ async function insertMultipleImageMarkdown(
     console.warn("[smartPaste] Selection changed during async, using current position");
   }
 
-  // Insert all images as markdown, each on its own line
-  const markdown = imagePaths.map((p) => `![](${p})`).join("\n");
+  // Insert all images as markdown, each on its own line (encode URLs for spaces)
+  const markdown = imagePaths.map((p) => `![](${encodeMarkdownUrl(p)})`).join("\n");
   view.dispatch({
     changes: { from: insertFrom, to: insertTo, insert: markdown },
     selection: { anchor: insertFrom + markdown.length },

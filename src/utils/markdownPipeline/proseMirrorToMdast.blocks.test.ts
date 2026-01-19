@@ -134,6 +134,18 @@ describe("proseMirrorToMdast blocks", () => {
     expect(md).toContain("![alt](image.png)");
   });
 
+  it("serializes block images with spaces in path using angle brackets", () => {
+    const md = pmToMarkdown([
+      testSchema.node("block_image", {
+        src: "/Users/test/My Screenshots/Screenshot 2026-01-19.png",
+        alt: "screenshot",
+      }),
+    ]);
+
+    // URLs with spaces should use angle bracket syntax (CommonMark standard)
+    expect(md).toContain("</Users/test/My Screenshots/Screenshot 2026-01-19.png>");
+  });
+
   it("serializes footnote definitions", () => {
     const md = pmToMarkdown([
       testSchema.node("footnote_definition", { label: "1" }, [

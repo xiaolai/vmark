@@ -10,6 +10,7 @@ import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useImagePopupStore } from "@/stores/imagePopupStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { isAbsolutePath, isExternalUrl, isRelativePath, validateImagePath } from "@/plugins/imageView/security";
+import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 
 function getActiveTabIdForCurrentWindow(): string | null {
   try {
@@ -22,11 +23,16 @@ function getActiveTabIdForCurrentWindow(): string | null {
 
 async function resolveImageSrc(src: string): Promise<string> {
   if (isExternalUrl(src)) return src;
-  if (isAbsolutePath(src)) return convertFileSrc(src);
 
-  if (isRelativePath(src)) {
-    if (!validateImagePath(src)) {
-      console.warn("[BlockImageView] Rejected invalid image path:", src);
+  // Decode URL-encoded paths for file system access
+  // Markdown may contain %20 for spaces, but filesystem needs actual spaces
+  const decodedSrc = decodeMarkdownUrl(src);
+
+  if (isAbsolutePath(decodedSrc)) return convertFileSrc(decodedSrc);
+
+  if (isRelativePath(decodedSrc)) {
+    if (!validateImagePath(decodedSrc)) {
+      console.warn("[BlockImageView] Rejected invalid image path:", decodedSrc);
       return "";
     }
 
@@ -37,7 +43,7 @@ async function resolveImageSrc(src: string): Promise<string> {
 
     try {
       const docDir = await dirname(filePath);
-      const cleanPath = src.replace(/^\.\//, "");
+      const cleanPath = decodedSrc.replace(/^\.\//, "");
       const absolutePath = await join(docDir, cleanPath);
       return convertFileSrc(absolutePath);
     } catch (error) {

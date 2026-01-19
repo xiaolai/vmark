@@ -12,9 +12,64 @@ import remarkStringify from "remark-stringify";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
-import type { Root } from "mdast";
+import type { Root, Image, Link, Parents } from "mdast";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks } from "./plugins";
 import type { MarkdownPipelineOptions } from "./types";
+
+// Type for mdast-util-to-markdown state (simplified for our handlers)
+interface ToMarkdownState {
+  containerPhrasing: (
+    node: Link,
+    info: { before: string; after: string }
+  ) => string;
+}
+
+/** Pattern matching whitespace characters that need angle bracket wrapping */
+const WHITESPACE_PATTERN = /[\s\u00A0\u2002-\u200A\u202F\u205F\u3000]/;
+
+/**
+ * Custom image handler that uses angle brackets for URLs with spaces.
+ * This produces more readable markdown than percent-encoding.
+ */
+function handleImage(node: Image): string {
+  const url = node.url;
+  const alt = node.alt || "";
+  const title = node.title;
+
+  // Use angle brackets for URLs with whitespace (CommonMark standard)
+  const formattedUrl = WHITESPACE_PATTERN.test(url) ? `<${url}>` : url;
+
+  if (title) {
+    return `![${alt}](${formattedUrl} "${title}")`;
+  }
+  return `![${alt}](${formattedUrl})`;
+}
+
+/**
+ * Custom link handler that uses angle brackets for URLs with spaces.
+ */
+function handleLink(
+  node: Link,
+  _parent: Parents | undefined,
+  state: ToMarkdownState
+): string {
+  const url = node.url;
+  const title = node.title;
+
+  // Use angle brackets for URLs with whitespace
+  const formattedUrl = WHITESPACE_PATTERN.test(url) ? `<${url}>` : url;
+
+  // Serialize children (the link text)
+  const text = state.containerPhrasing(node, {
+    before: "[",
+    after: "]",
+  });
+
+  if (title) {
+    return `[${text}](${formattedUrl} "${title}")`;
+  }
+  return `[${text}](${formattedUrl})`;
+}
 
 /**
  * Unified processor configured for VMark markdown serialization.
@@ -39,6 +94,11 @@ function createSerializer(_options: MarkdownPipelineOptions = {}) {
       fences: true, // Use fenced code blocks
       rule: "-", // Use --- for thematic breaks
       listItemIndent: "one", // Use one space indent for list items
+      // Custom handlers for angle-bracket URL syntax
+      handlers: {
+        image: handleImage,
+        link: handleLink,
+      } as Record<string, unknown>,
     })
     .use(remarkGfm, {
       singleTilde: false, // Match parser config

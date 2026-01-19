@@ -75,4 +75,28 @@ describe("proseMirrorToMdast inline", () => {
 
     expect(md).toContain("[^1]");
   });
+
+  it("wraps URLs with spaces in angle brackets", () => {
+    const md = pmToMarkdown([
+      testSchema.node("paragraph", null, [
+        testSchema.node("image", {
+          src: "/path/with spaces/image file.png",
+          alt: "alt text",
+        }),
+      ]),
+    ]);
+
+    // URLs with spaces should use angle bracket syntax (CommonMark standard)
+    expect(md).toContain("</path/with spaces/image file.png>");
+  });
+
+  it("wraps link URLs with spaces in angle brackets", () => {
+    const link = testSchema.mark("link", { href: "/path/with spaces/doc.md" });
+    const md = pmToMarkdown([
+      testSchema.node("paragraph", null, [testSchema.text("link text", [link])]),
+    ]);
+
+    // URLs with spaces should use angle bracket syntax
+    expect(md).toContain("</path/with spaces/doc.md>");
+  });
 });

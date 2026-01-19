@@ -17,6 +17,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 
 /** Maximum thumbnail dimensions */
 const MAX_THUMBNAIL_WIDTH = 200;
@@ -56,6 +57,7 @@ function isAbsolutePath(src: string): boolean {
 
 /**
  * Resolve image path to asset:// URL for preview.
+ * Decodes URL-encoded paths (e.g., %20 -> space) for file system access.
  */
 async function resolveImageSrc(src: string): Promise<string> {
   // External URLs - use directly
@@ -63,13 +65,16 @@ async function resolveImageSrc(src: string): Promise<string> {
     return src;
   }
 
+  // Decode URL-encoded paths for file system access
+  const decodedSrc = decodeMarkdownUrl(src);
+
   // Absolute local paths - convert to asset:// URL
-  if (isAbsolutePath(src)) {
-    return convertFileSrc(src);
+  if (isAbsolutePath(decodedSrc)) {
+    return convertFileSrc(decodedSrc);
   }
 
   // Relative paths - resolve against document directory
-  if (isRelativePath(src)) {
+  if (isRelativePath(decodedSrc)) {
     const filePath = getActiveFilePath();
     if (!filePath) {
       return src;
@@ -77,7 +82,7 @@ async function resolveImageSrc(src: string): Promise<string> {
 
     try {
       const docDir = await dirname(filePath);
-      const cleanPath = src.replace(/^\.\//, "");
+      const cleanPath = decodedSrc.replace(/^\.\//, "");
       const absolutePath = await join(docDir, cleanPath);
       return convertFileSrc(absolutePath);
     } catch (error) {

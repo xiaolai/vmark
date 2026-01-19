@@ -20,6 +20,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { saveImageToAssets } from "@/hooks/useImageOperations";
 import { hasImageExtension } from "@/utils/imagePathDetection";
 import { getFilename } from "@/utils/imageUtils";
+import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { message } from "@tauri-apps/plugin-dialog";
 
 /**
@@ -116,7 +117,7 @@ export function useImageDragDrop({
 
       const { state } = cmView;
       const pos = state.selection.main.head;
-      const markdown = `![](${relativePath})\n`;
+      const markdown = `![](${encodeMarkdownUrl(relativePath)})\n`;
 
       cmView.dispatch({
         changes: { from: pos, insert: markdown },

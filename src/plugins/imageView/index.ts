@@ -17,6 +17,7 @@ import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useImagePopupStore } from "@/stores/imagePopupStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "./security";
+import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 
 function getActiveTabIdForCurrentWindow(): string | null {
   try {
@@ -30,6 +31,7 @@ function getActiveTabIdForCurrentWindow(): string | null {
 /**
  * Convert image path to asset URL for webview rendering.
  * Handles: relative paths, absolute paths, and external URLs.
+ * Decodes URL-encoded paths (e.g., %20 -> space) for file system access.
  */
 async function resolveImageSrc(src: string): Promise<string> {
   // External URLs (http/https/data) - use directly
@@ -37,16 +39,20 @@ async function resolveImageSrc(src: string): Promise<string> {
     return src;
   }
 
+  // Decode URL-encoded paths for file system access
+  // Markdown may contain %20 for spaces, but filesystem needs actual spaces
+  const decodedSrc = decodeMarkdownUrl(src);
+
   // Absolute local paths - convert to asset:// URL
-  if (isAbsolutePath(src)) {
-    return convertFileSrc(src);
+  if (isAbsolutePath(decodedSrc)) {
+    return convertFileSrc(decodedSrc);
   }
 
   // Relative paths - resolve against document directory
-  if (isRelativePath(src)) {
+  if (isRelativePath(decodedSrc)) {
     // Validate path to prevent traversal attacks
-    if (!validateImagePath(src)) {
-      console.warn("[ImageView] Rejected invalid image path:", src);
+    if (!validateImagePath(decodedSrc)) {
+      console.warn("[ImageView] Rejected invalid image path:", decodedSrc);
       return "";
     }
 
@@ -59,7 +65,7 @@ async function resolveImageSrc(src: string): Promise<string> {
 
     try {
       const docDir = await dirname(filePath);
-      const cleanPath = src.replace(/^\.\//, "");
+      const cleanPath = decodedSrc.replace(/^\.\//, "");
       const absolutePath = await join(docDir, cleanPath);
       return convertFileSrc(absolutePath);
     } catch (error) {
