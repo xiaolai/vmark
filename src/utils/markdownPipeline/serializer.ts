@@ -125,7 +125,13 @@ export function serializeMdastToMarkdown(
   options: MarkdownPipelineOptions = {}
 ): string {
   const processor = createSerializer(options);
-  const result = processor.stringify(mdast);
+  let result = processor.stringify(mdast);
+
+  // Convert encoded space entities back to regular spaces.
+  // mdast-util-to-markdown encodes spaces as &#x20; when they appear
+  // before/after line breaks, but this is unnecessary for our use case.
+  result = result.replace(/&#x20;/g, " ");
+
   if (options.hardBreakStyle === "twoSpaces") {
     return result.replace(/\\(\r?\n)/g, "  $1");
   }

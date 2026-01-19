@@ -331,10 +331,64 @@
 .tiptap-editor .task-list-item {
   list-style-type: none;
   margin-left: -1.3em;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
 }
 
+.tiptap-editor .task-list-checkbox {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: var(--editor-line-height, 1.6em);
+  padding-top: 0.1em;
+}
+
+.tiptap-editor .task-list-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Custom checkbox styling */
 .tiptap-editor .task-list-item input[type="checkbox"] {
-  margin-right: 0.5em;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 0.9em;
+  height: 0.9em;
+  border: 0.1em solid var(--text-secondary);
+  border-radius: 0.15em;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.tiptap-editor .task-list-item input[type="checkbox"]:hover {
+  border-color: var(--primary-color);
+}
+
+.tiptap-editor .task-list-item input[type="checkbox"]:checked {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.tiptap-editor .task-list-item input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.25em;
+  top: 0.05em;
+  width: 0.25em;
+  height: 0.5em;
+  border: solid white;
+  border-width: 0 0.12em 0.12em 0;
+  transform: rotate(45deg);
+}
+
+/* Dim completed task text */
+.tiptap-editor .task-list-item:has(input[type="checkbox"]:checked) .task-list-content {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-tertiary);
 }
 
 /* Images */
