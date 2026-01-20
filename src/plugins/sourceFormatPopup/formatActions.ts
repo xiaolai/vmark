@@ -5,7 +5,7 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import { findAllReferences, renumberFootnotesDoc } from "./footnoteActions";
+import { parseReferences, renumberFootnotes } from "./footnoteActions";
 import { FORMAT_MARKERS, type FormatType, type WrapFormatType } from "./formatTypes";
 import { getOppositeFormat, isWrapped, unwrap, wrap } from "./formatUtils";
 
@@ -81,11 +81,11 @@ function applyFootnote(
 
   // Now renumber all footnotes
   const newDoc = view.state.doc.toString();
-  const renumberedDoc = renumberFootnotesDoc(newDoc);
+  const renumberedDoc = renumberFootnotes(newDoc);
 
   if (renumberedDoc) {
     // Find where our new reference is (count refs before position 'to')
-    const refsBeforeInsert = findAllReferences(doc).filter((r) => r.start < to).length;
+    const refsBeforeInsert = parseReferences(doc).filter((r) => r.start < to).length;
     const newLabel = String(refsBeforeInsert + 1);
     const newRefEnd = to + `[^${newLabel}]`.length;
 
