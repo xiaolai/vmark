@@ -14,6 +14,7 @@ import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
 import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { findMarkRange } from "@/plugins/syntaxReveal/marks";
 import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
+import { insertBookmarkLink, insertWikiLink } from "@/plugins/toolbarActions/wysiwygAdapterLinks";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { MultiSelection } from "@/plugins/multiCursor";
 import { isTerminalFocused } from "@/utils/focus";
@@ -331,6 +332,36 @@ export function useTiptapFormatCommands(editor: TiptapEditor | null) {
       const unlistenHighlight = await createMarkListener("menu:highlight", "highlight");
       if (unlistenHighlight) unlistenRefs.current.push(unlistenHighlight);
       if (cancelled) return;
+
+      // Wiki Link
+      const unlistenWikiLink = await currentWindow.listen<string>("menu:wiki-link", (event) => {
+        if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.commands.focus();
+        insertWikiLink({ surface: "wysiwyg", view: editor.view, editor, context: null });
+      });
+      if (cancelled) {
+        unlistenWikiLink();
+        return;
+      }
+      unlistenRefs.current.push(unlistenWikiLink);
+
+      // Bookmark Link
+      const unlistenBookmark = await currentWindow.listen<string>("menu:bookmark", (event) => {
+        if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.commands.focus();
+        insertBookmarkLink({ surface: "wysiwyg", view: editor.view, editor, context: null });
+      });
+      if (cancelled) {
+        unlistenBookmark();
+        return;
+      }
+      unlistenRefs.current.push(unlistenBookmark);
     };
 
     setupListeners();

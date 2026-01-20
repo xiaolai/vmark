@@ -3,9 +3,14 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list";
+import type { EditorView } from "@tiptap/pm/view";
 import { ALERT_TYPES, type AlertType } from "@/plugins/alertBlock/tiptap";
+import { insertFootnoteAndOpenPopup } from "@/plugins/footnotePopup/tiptapInsertFootnote";
+import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveList } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { toggleTaskList } from "@/plugins/taskToggle/tiptapTaskListUtils";
 import { isTerminalFocused } from "@/utils/focus";
+
+const DEFAULT_MATH_BLOCK = "c = \\pm\\sqrt{a^2 + b^2}";
 
 function getCurrentHeadingLevel(editor: TiptapEditor): number | null {
   const { $from } = editor.state.selection;
@@ -244,6 +249,84 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
         return;
       }
       unlistenRefs.current.push(unlistenCollapsible);
+
+      // Nest Quote (inside blockquote)
+      const unlistenNestQuote = await currentWindow.listen<string>("menu:nest-quote", (event) => {
+        if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        handleBlockquoteNest(editor.view as unknown as EditorView);
+      });
+      if (cancelled) {
+        unlistenNestQuote();
+        return;
+      }
+      unlistenRefs.current.push(unlistenNestQuote);
+
+      // Unnest Quote (inside blockquote)
+      const unlistenUnnestQuote = await currentWindow.listen<string>("menu:unnest-quote", (event) => {
+        if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        handleBlockquoteUnnest(editor.view as unknown as EditorView);
+      });
+      if (cancelled) {
+        unlistenUnnestQuote();
+        return;
+      }
+      unlistenRefs.current.push(unlistenUnnestQuote);
+
+      // Remove List
+      const unlistenRemoveList = await currentWindow.listen<string>("menu:remove-list", (event) => {
+        if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        handleRemoveList(editor.view as unknown as EditorView);
+      });
+      if (cancelled) {
+        unlistenRemoveList();
+        return;
+      }
+      unlistenRefs.current.push(unlistenRemoveList);
+
+      // Math Block
+      const unlistenMathBlock = await currentWindow.listen<string>("menu:math-block", (event) => {
+        if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: "codeBlock",
+            attrs: { language: "latex" },
+            content: [{ type: "text", text: DEFAULT_MATH_BLOCK }],
+          })
+          .run();
+      });
+      if (cancelled) {
+        unlistenMathBlock();
+        return;
+      }
+      unlistenRefs.current.push(unlistenMathBlock);
+
+      // Footnote
+      const unlistenFootnote = await currentWindow.listen<string>("menu:footnote", (event) => {
+        if (event.payload !== windowLabel) return;
+        if (isTerminalFocused()) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        insertFootnoteAndOpenPopup(editor);
+      });
+      if (cancelled) {
+        unlistenFootnote();
+        return;
+      }
+      unlistenRefs.current.push(unlistenFootnote);
     };
 
     setupListeners();
