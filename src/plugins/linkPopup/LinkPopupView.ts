@@ -92,7 +92,7 @@ export class LinkPopupView {
       this.container.querySelectorAll<HTMLElement>(
         'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
       )
-    );
+    ).filter((el) => el.offsetParent !== null); // Exclude hidden elements
   }
 
   private setupKeyboardNavigation() {
