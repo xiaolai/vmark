@@ -85,6 +85,21 @@ function handleMouseDown(_view: EditorView, event: MouseEvent): boolean {
   return Boolean(refElement);
 }
 
+function handleKeyDown(_view: EditorView, event: KeyboardEvent): boolean {
+  if (event.key === "Escape") {
+    const { isOpen } = useFootnotePopupStore.getState();
+    if (isOpen) {
+      // Only close if not in editing mode (textarea focused)
+      const popup = document.querySelector(".footnote-popup");
+      if (popup && !popup.classList.contains("editing")) {
+        useFootnotePopupStore.getState().closePopup();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function handleClick(view: EditorView, _pos: number, event: MouseEvent): boolean {
   const refElement = getFootnoteRefFromTarget(event.target);
   if (refElement) {
@@ -156,8 +171,15 @@ class FootnotePopupPluginView {
       }
     }
 
-    // Selection is not on a footnote - reset tracking
-    this.lastSelectedRefPos = null;
+    // Selection moved away from footnote - close popup if it was opened via selection
+    if (this.lastSelectedRefPos !== null) {
+      this.lastSelectedRefPos = null;
+      // Only close if popup is open and not in editing mode
+      const popup = document.querySelector(".footnote-popup");
+      if (popup && !popup.classList.contains("editing")) {
+        useFootnotePopupStore.getState().closePopup();
+      }
+    }
   }
 
   destroy() {
@@ -181,6 +203,7 @@ export const footnotePopupExtension = Extension.create({
         },
         props: {
           handleClick,
+          handleKeyDown,
           handleDOMEvents: {
             mousedown: handleMouseDown,
             mouseover: handleMouseOver,
