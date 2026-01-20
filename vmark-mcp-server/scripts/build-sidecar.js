@@ -148,20 +148,41 @@ async function main() {
 
   // Step 2: Package with pkg
   if (buildMacosUniversal) {
-    // Build both macOS architectures for universal binary
+    // Build both macOS architectures and combine into universal binary
     console.log('Building for macOS universal (arm64 + x64)...\n');
     const macosTargets = ['darwin-arm64', 'darwin-x64'];
-    const results = [];
+
     // Build sequentially to avoid race conditions
     for (const target of macosTargets) {
       const success = await buildForTarget(target);
-      results.push(success);
       if (!success) {
         console.error(`Failed to build ${target}, aborting`);
         process.exit(1);
       }
     }
-    console.log(`\nBuilt ${results.filter(Boolean).length}/${macosTargets.length} macOS targets`);
+
+    // Combine into universal binary using lipo
+    const arm64Path = join(TAURI_BINARIES_DIR, 'vmark-mcp-server-aarch64-apple-darwin');
+    const x64Path = join(TAURI_BINARIES_DIR, 'vmark-mcp-server-x86_64-apple-darwin');
+    const universalPath = join(TAURI_BINARIES_DIR, 'vmark-mcp-server-universal-apple-darwin');
+
+    console.log('\nCreating universal binary with lipo...');
+    const lipoCmd = `lipo -create -output "${universalPath}" "${arm64Path}" "${x64Path}"`;
+    console.log(`Running: ${lipoCmd}`);
+
+    try {
+      await execAsync(lipoCmd);
+      await access(universalPath);
+      console.log(`Successfully created universal binary: ${universalPath}`);
+
+      // Clean up arch-specific binaries (optional, but keeps things tidy)
+      await rm(arm64Path);
+      await rm(x64Path);
+      console.log('Cleaned up arch-specific binaries');
+    } catch (error) {
+      console.error('Failed to create universal binary:', error.message);
+      process.exit(1);
+    }
   } else if (buildAll) {
     // Build for all platforms
     console.log('Building for all platforms...\n');
