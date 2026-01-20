@@ -1,4 +1,63 @@
 import type { Editor as TiptapEditor } from "@tiptap/core";
+import { liftListItem } from "@tiptap/pm/schema-list";
+
+/**
+ * Check if the current selection is inside a task list.
+ * A task list is a bulletList where listItem nodes have a `checked` attribute.
+ */
+function isInTaskList(editor: TiptapEditor): boolean {
+  const { state } = editor;
+  const { $from } = state.selection;
+  const listItemType = state.schema.nodes.listItem;
+
+  for (let d = $from.depth; d > 0; d--) {
+    const node = $from.node(d);
+    if (node.type === listItemType) {
+      const checked = node.attrs.checked as unknown;
+      if (checked === true || checked === false) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Remove list formatting from the current selection.
+ * Lifts list items until no longer in a list.
+ */
+function removeTaskList(editor: TiptapEditor): void {
+  const { state, view } = editor;
+  const listItemType = state.schema.nodes.listItem;
+  if (!listItemType) return;
+
+  const maxLifts = 10;
+  for (let i = 0; i < maxLifts; i++) {
+    const { $from } = view.state.selection;
+    let inList = false;
+    for (let d = $from.depth; d > 0; d--) {
+      const name = $from.node(d).type.name;
+      if (name === "bulletList" || name === "orderedList") {
+        inList = true;
+        break;
+      }
+    }
+    if (!inList) break;
+    liftListItem(listItemType)(view.state, view.dispatch);
+  }
+  view.focus();
+}
+
+/**
+ * Toggle task list: if already in a task list, remove it; otherwise create one.
+ */
+export function toggleTaskList(editor: TiptapEditor): void {
+  if (isInTaskList(editor)) {
+    removeTaskList(editor);
+    return;
+  }
+  convertSelectionToTaskList(editor);
+}
 
 export function convertSelectionToTaskList(editor: TiptapEditor): void {
   const { state, view } = editor;

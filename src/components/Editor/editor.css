@@ -330,7 +330,7 @@
 /* Task lists */
 .tiptap-editor .task-list-item {
   list-style-type: none;
-  margin-left: -1.3em;
+  margin-left: 0;
   display: flex;
   align-items: baseline;
   gap: 0.5em;

@@ -4,7 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list";
 import { ALERT_TYPES, type AlertType } from "@/plugins/alertBlock/tiptap";
-import { convertSelectionToTaskList } from "@/plugins/taskToggle/tiptapTaskListUtils";
+import { toggleTaskList } from "@/plugins/taskToggle/tiptapTaskListUtils";
 import { isTerminalFocused } from "@/utils/focus";
 
 function getCurrentHeadingLevel(editor: TiptapEditor): number | null {
@@ -160,7 +160,7 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
           if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
-        convertSelectionToTaskList(editor);
+        toggleTaskList(editor);
       });
       if (cancelled) {
         unlistenTaskList();
