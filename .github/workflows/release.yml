@@ -97,6 +97,31 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
+      # Build MCP server sidecar for the target platform
+      - name: Build MCP server sidecar (macOS)
+        if: matrix.platform == 'macos-latest'
+        working-directory: vmark-mcp-server
+        run: |
+          pnpm install
+          pnpm build
+          node scripts/build-sidecar.js --all
+
+      - name: Build MCP server sidecar (Windows)
+        if: matrix.platform == 'windows-latest'
+        working-directory: vmark-mcp-server
+        run: |
+          pnpm install
+          pnpm build
+          node scripts/build-sidecar.js
+
+      - name: Build MCP server sidecar (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        working-directory: vmark-mcp-server
+        run: |
+          pnpm install
+          pnpm build
+          node scripts/build-sidecar.js
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
