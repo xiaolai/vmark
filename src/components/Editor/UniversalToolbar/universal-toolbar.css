@@ -106,7 +106,7 @@
   background: transparent;
   border: 1px solid var(--accent-primary);
   border-top: none;
-  border-radius: 2px;
+  border-radius: 0 0 2px 2px;
 }
 
 /* Also show on :focus-visible for keyboard accessibility */
@@ -125,14 +125,10 @@
   background: transparent;
   border: 1px solid var(--accent-primary);
   border-top: none;
-  border-radius: 2px;
+  border-radius: 0 0 2px 2px;
 }
 
-/* Focused + Active: contrasting dot for visibility */
-.universal-toolbar-btn.active.focused::before,
-.universal-toolbar-btn.active:focus-visible::before {
-  background: var(--bg-color);
-}
+/* Focused + Active: dot stays visible (same accent color) */
 
 /* High contrast mode */
 @media (forced-colors: active) {
@@ -143,11 +139,6 @@
 
   .universal-toolbar-btn.active::before {
     background: CanvasText;
-  }
-
-  .universal-toolbar-btn.active.focused::before,
-  .universal-toolbar-btn.active:focus-visible::before {
-    background: Canvas;
   }
 }
 
