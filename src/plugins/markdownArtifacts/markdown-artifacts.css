@@ -25,9 +25,9 @@
   display: block;
 }
 
-/* Selection styling for HTML preview blocks */
+/* Selection styling for HTML preview blocks - subtle border like images */
 .tiptap-editor .html-preview-block.ProseMirror-selectednode,
 .tiptap-editor .html-preview-inline.ProseMirror-selectednode {
-  outline: 2px solid var(--primary-color, #0a84ff);
-  outline-offset: 2px;
+  outline: 1px solid var(--border-color);
+  outline-offset: 1px;
 }

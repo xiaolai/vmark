@@ -14,6 +14,12 @@ import {
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
+// SVG Icons (matching project style - lucide icons)
+const icons = {
+  cancel: `<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  save: `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
+};
+
 const DEFAULT_POPUP_WIDTH = 420;
 const DEFAULT_POPUP_HEIGHT = 220;
 
@@ -53,13 +59,13 @@ export class HtmlBlockPopupView {
     const container = document.createElement("div");
     container.className = "html-popup";
     container.style.display = "none";
+    container.addEventListener("keydown", this.handleKeydown);
 
     const textarea = document.createElement("textarea");
     textarea.className = "html-popup-input";
     textarea.placeholder = "Enter HTML...";
     textarea.rows = 5;
     textarea.addEventListener("input", this.handleInputChange);
-    textarea.addEventListener("keydown", this.handleKeydown);
 
     const warning = document.createElement("div");
     warning.className = "html-popup-warning";
@@ -68,17 +74,11 @@ export class HtmlBlockPopupView {
     const buttons = document.createElement("div");
     buttons.className = "html-popup-buttons";
 
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "html-popup-btn html-popup-btn-cancel";
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.addEventListener("click", this.handleCancel);
+    const cancelBtn = this.buildIconButton(icons.cancel, "Cancel", this.handleCancel);
+    cancelBtn.classList.add("html-popup-btn-cancel");
 
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.className = "html-popup-btn html-popup-btn-save";
-    saveBtn.textContent = "Save";
-    saveBtn.addEventListener("click", this.handleSave);
+    const saveBtn = this.buildIconButton(icons.save, "Save", this.handleSave);
+    saveBtn.classList.add("html-popup-btn-save");
 
     buttons.appendChild(cancelBtn);
     buttons.appendChild(saveBtn);
@@ -88,6 +88,20 @@ export class HtmlBlockPopupView {
     container.appendChild(buttons);
 
     return container;
+  }
+
+  private buildIconButton(
+    iconSvg: string,
+    title: string,
+    onClick: () => void
+  ): HTMLElement {
+    const btn = document.createElement("button");
+    btn.className = "html-popup-btn";
+    btn.type = "button";
+    btn.title = title;
+    btn.innerHTML = iconSvg;
+    btn.addEventListener("click", onClick);
+    return btn;
   }
 
   private show(html: string, anchorRect: AnchorRect) {

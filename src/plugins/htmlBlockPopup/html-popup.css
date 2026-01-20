@@ -49,25 +49,61 @@
 .html-popup-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 4px;
 }
 
 .html-popup-btn {
-  padding: 4px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
   background: transparent;
-  color: var(--text-color);
-  font-size: 12px;
+  color: var(--text-secondary);
   cursor: default;
+}
+
+.html-popup-btn:focus {
+  outline: none;
+}
+
+.html-popup-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 4px;
+  background: transparent;
+  border-bottom: 2px solid var(--primary-color, #0066cc);
+  border-radius: 0 0 4px 4px;
+}
+
+.html-popup-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
 }
 
 .html-popup-btn:hover {
   background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
 }
 
 .html-popup-btn-save {
-  border-color: var(--primary-color, #0a84ff);
+  color: var(--primary-color, #0a84ff);
+}
+
+.html-popup-btn-save:hover {
+  background: var(--accent-bg);
   color: var(--primary-color, #0a84ff);
 }
 
