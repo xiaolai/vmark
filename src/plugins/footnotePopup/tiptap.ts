@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type Transaction, NodeSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { FootnotePopupView } from "./FootnotePopupView";
@@ -115,13 +115,49 @@ function handleClick(view: EditorView, _pos: number, event: MouseEvent): boolean
 
 class FootnotePopupPluginView {
   private popupView: FootnotePopupView;
+  private view: EditorView;
+  private lastSelectedRefPos: number | null = null;
 
   constructor(view: EditorView) {
+    this.view = view;
     this.popupView = new FootnotePopupView(view as unknown as ConstructorParameters<typeof FootnotePopupView>[0]);
   }
 
   update() {
     this.popupView.update();
+    this.checkSelectionForFootnote();
+  }
+
+  private checkSelectionForFootnote() {
+    const { selection } = this.view.state;
+
+    // Check if selection is a NodeSelection on a footnote_reference
+    if (selection instanceof NodeSelection) {
+      const node = selection.node;
+      if (node.type.name === "footnote_reference") {
+        const pos = selection.from;
+
+        // Avoid re-opening for the same position
+        if (this.lastSelectedRefPos === pos) return;
+        this.lastSelectedRefPos = pos;
+
+        const label = String(node.attrs.label ?? "");
+        const definition = findFootnoteDefinition(this.view, label);
+        const content = definition?.content ?? "Footnote not found";
+        const defPos = definition?.pos ?? null;
+
+        // Get the DOM element for positioning
+        const dom = this.view.nodeDOM(pos) as HTMLElement | null;
+        if (dom) {
+          const rect = dom.getBoundingClientRect();
+          useFootnotePopupStore.getState().openPopup(label, content, rect, defPos, pos);
+        }
+        return;
+      }
+    }
+
+    // Selection is not on a footnote - reset tracking
+    this.lastSelectedRefPos = null;
   }
 
   destroy() {
