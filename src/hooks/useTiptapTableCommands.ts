@@ -56,219 +56,104 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
       const currentWindow = getCurrentWebviewWindow();
       const windowLabel = currentWindow.label;
 
-      const unlistenInsertTable = await currentWindow.listen<string>("menu:insert-table", (event) => {
-        if (event.payload !== windowLabel) return;
+      // Helper to reduce boilerplate for menu event listeners
+      const createListener = async (
+        eventName: string,
+        handler: (editor: TiptapEditor) => void
+      ): Promise<UnlistenFn | null> => {
+        const unlisten = await currentWindow.listen<string>(eventName, (event) => {
+          if (event.payload !== windowLabel) return;
           if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+          const editor = editorRef.current;
+          if (!editor) return;
+          handler(editor);
+        });
+        if (cancelled) {
+          unlisten();
+          return null;
+        }
+        return unlisten;
+      };
+
+      // Helper to register listener and handle cancellation
+      const registerListener = async (
+        eventName: string,
+        handler: (editor: TiptapEditor) => void
+      ): Promise<boolean> => {
+        const unlisten = await createListener(eventName, handler);
+        if (!unlisten) return false;
+        unlistenRefs.current.push(unlisten);
+        return true;
+      };
+
+      if (!(await registerListener("menu:insert-table", (editor) => {
         editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
-      });
-      if (cancelled) {
-        unlistenInsertTable();
-        return;
-      }
-      unlistenRefs.current.push(unlistenInsertTable);
+      }))) return;
 
-      const unlistenAddRowBefore = await currentWindow.listen<string>("menu:add-row-before", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:add-row-before", (editor) => {
         addRowAbove(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenAddRowBefore();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAddRowBefore);
+      }))) return;
 
-      const unlistenAddRowAfter = await currentWindow.listen<string>("menu:add-row-after", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:add-row-after", (editor) => {
         addRowBelow(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenAddRowAfter();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAddRowAfter);
+      }))) return;
 
-      const unlistenAddColBefore = await currentWindow.listen<string>("menu:add-col-before", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:add-col-before", (editor) => {
         addColLeft(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenAddColBefore();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAddColBefore);
+      }))) return;
 
-      const unlistenAddColAfter = await currentWindow.listen<string>("menu:add-col-after", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:add-col-after", (editor) => {
         addColRight(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenAddColAfter();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAddColAfter);
+      }))) return;
 
-      const unlistenDeleteCells = await currentWindow.listen<string>("menu:delete-selected-cells", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
-
+      if (!(await registerListener("menu:delete-selected-cells", (editor) => {
         const view = editor.view as unknown as EditorView;
         if (clearSelectedCells(view)) return;
         if (!view.state.selection.empty) {
           view.dispatch(view.state.tr.deleteSelection());
           view.focus();
         }
-      });
-      if (cancelled) {
-        unlistenDeleteCells();
-        return;
-      }
-      unlistenRefs.current.push(unlistenDeleteCells);
+      }))) return;
 
-      const unlistenAlignLeft = await currentWindow.listen<string>("menu:align-left", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:align-left", (editor) => {
         alignColumn(editor.view as unknown as EditorView, "left", false);
-      });
-      if (cancelled) {
-        unlistenAlignLeft();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAlignLeft);
+      }))) return;
 
-      const unlistenAlignCenter = await currentWindow.listen<string>("menu:align-center", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:align-center", (editor) => {
         alignColumn(editor.view as unknown as EditorView, "center", false);
-      });
-      if (cancelled) {
-        unlistenAlignCenter();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAlignCenter);
+      }))) return;
 
-      const unlistenAlignRight = await currentWindow.listen<string>("menu:align-right", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:align-right", (editor) => {
         alignColumn(editor.view as unknown as EditorView, "right", false);
-      });
-      if (cancelled) {
-        unlistenAlignRight();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAlignRight);
+      }))) return;
 
-      const unlistenFormatTable = await currentWindow.listen<string>("menu:format-table", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:format-table", (editor) => {
         formatTable(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenFormatTable();
-        return;
-      }
-      unlistenRefs.current.push(unlistenFormatTable);
+      }))) return;
 
-      const unlistenDeleteRow = await currentWindow.listen<string>("menu:delete-row", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:delete-row", (editor) => {
         deleteCurrentRow(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenDeleteRow();
-        return;
-      }
-      unlistenRefs.current.push(unlistenDeleteRow);
+      }))) return;
 
-      const unlistenDeleteCol = await currentWindow.listen<string>("menu:delete-col", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:delete-col", (editor) => {
         deleteCurrentColumn(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenDeleteCol();
-        return;
-      }
-      unlistenRefs.current.push(unlistenDeleteCol);
+      }))) return;
 
-      const unlistenDeleteTable = await currentWindow.listen<string>("menu:delete-table", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:delete-table", (editor) => {
         deleteCurrentTable(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenDeleteTable();
-        return;
-      }
-      unlistenRefs.current.push(unlistenDeleteTable);
+      }))) return;
 
-      const unlistenAlignAllLeft = await currentWindow.listen<string>("menu:align-all-left", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:align-all-left", (editor) => {
         alignColumn(editor.view as unknown as EditorView, "left", true);
-      });
-      if (cancelled) {
-        unlistenAlignAllLeft();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAlignAllLeft);
+      }))) return;
 
-      const unlistenAlignAllCenter = await currentWindow.listen<string>("menu:align-all-center", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:align-all-center", (editor) => {
         alignColumn(editor.view as unknown as EditorView, "center", true);
-      });
-      if (cancelled) {
-        unlistenAlignAllCenter();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAlignAllCenter);
+      }))) return;
 
-      const unlistenAlignAllRight = await currentWindow.listen<string>("menu:align-all-right", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:align-all-right", (editor) => {
         alignColumn(editor.view as unknown as EditorView, "right", true);
-      });
-      if (cancelled) {
-        unlistenAlignAllRight();
-        return;
-      }
-      unlistenRefs.current.push(unlistenAlignAllRight);
+      }))) return;
     };
 
     setupListeners();

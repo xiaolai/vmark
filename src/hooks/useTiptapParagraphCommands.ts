@@ -40,60 +40,59 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
       const currentWindow = getCurrentWebviewWindow();
       const windowLabel = currentWindow.label;
 
-      for (let level = 1; level <= 6; level++) {
-        if (cancelled) break;
-        const unlisten = await currentWindow.listen<string>(`menu:heading-${level}`, (event) => {
+      // Helper to reduce boilerplate for menu event listeners
+      const createListener = async (
+        eventName: string,
+        handler: (editor: TiptapEditor) => void
+      ): Promise<UnlistenFn | null> => {
+        const unlisten = await currentWindow.listen<string>(eventName, (event) => {
           if (event.payload !== windowLabel) return;
           if (isTerminalFocused()) return;
           const editor = editorRef.current;
           if (!editor) return;
-          editor.chain().focus().setHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run();
+          handler(editor);
         });
         if (cancelled) {
           unlisten();
-          return;
+          return null;
         }
+        return unlisten;
+      };
+
+      // Helper to register listener and handle cancellation
+      const registerListener = async (
+        eventName: string,
+        handler: (editor: TiptapEditor) => void
+      ): Promise<boolean> => {
+        const unlisten = await createListener(eventName, handler);
+        if (!unlisten) return false;
         unlistenRefs.current.push(unlisten);
+        return true;
+      };
+
+      // Headings 1-6
+      for (let level = 1; level <= 6; level++) {
+        if (cancelled) break;
+        const ok = await registerListener(`menu:heading-${level}`, (editor) => {
+          editor.chain().focus().setHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run();
+        });
+        if (!ok) return;
       }
 
-      const unlistenParagraph = await currentWindow.listen<string>("menu:paragraph", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:paragraph", (editor) => {
         editor.chain().focus().setParagraph().run();
-      });
-      if (cancelled) {
-        unlistenParagraph();
-        return;
-      }
-      unlistenRefs.current.push(unlistenParagraph);
+      }))) return;
 
-      const unlistenIncreaseHeading = await currentWindow.listen<string>("menu:increase-heading", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
-
+      if (!(await registerListener("menu:increase-heading", (editor) => {
         const currentLevel = getCurrentHeadingLevel(editor);
         if (currentLevel === null) {
           editor.chain().focus().setHeading({ level: 6 }).run();
         } else if (currentLevel > 1) {
           editor.chain().focus().setHeading({ level: (currentLevel - 1) as 1 | 2 | 3 | 4 | 5 }).run();
         }
-      });
-      if (cancelled) {
-        unlistenIncreaseHeading();
-        return;
-      }
-      unlistenRefs.current.push(unlistenIncreaseHeading);
+      }))) return;
 
-      const unlistenDecreaseHeading = await currentWindow.listen<string>("menu:decrease-heading", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
-
+      if (!(await registerListener("menu:decrease-heading", (editor) => {
         const currentLevel = getCurrentHeadingLevel(editor);
         if (currentLevel === null) return;
         if (currentLevel < 6) {
@@ -101,203 +100,72 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
         } else {
           editor.chain().focus().setParagraph().run();
         }
-      });
-      if (cancelled) {
-        unlistenDecreaseHeading();
-        return;
-      }
-      unlistenRefs.current.push(unlistenDecreaseHeading);
+      }))) return;
 
-      const unlistenQuote = await currentWindow.listen<string>("menu:quote", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:quote", (editor) => {
         editor.chain().focus().toggleBlockquote().run();
-      });
-      if (cancelled) {
-        unlistenQuote();
-        return;
-      }
-      unlistenRefs.current.push(unlistenQuote);
+      }))) return;
 
-      const unlistenCodeFences = await currentWindow.listen<string>("menu:code-fences", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:code-fences", (editor) => {
         editor.chain().focus().setCodeBlock().run();
-      });
-      if (cancelled) {
-        unlistenCodeFences();
-        return;
-      }
-      unlistenRefs.current.push(unlistenCodeFences);
+      }))) return;
 
-      const unlistenOrderedList = await currentWindow.listen<string>("menu:ordered-list", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:ordered-list", (editor) => {
         editor.chain().focus().toggleOrderedList().run();
-      });
-      if (cancelled) {
-        unlistenOrderedList();
-        return;
-      }
-      unlistenRefs.current.push(unlistenOrderedList);
+      }))) return;
 
-      const unlistenUnorderedList = await currentWindow.listen<string>("menu:unordered-list", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:unordered-list", (editor) => {
         editor.chain().focus().toggleBulletList().run();
-      });
-      if (cancelled) {
-        unlistenUnorderedList();
-        return;
-      }
-      unlistenRefs.current.push(unlistenUnorderedList);
+      }))) return;
 
-      const unlistenTaskList = await currentWindow.listen<string>("menu:task-list", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:task-list", (editor) => {
         toggleTaskList(editor);
-      });
-      if (cancelled) {
-        unlistenTaskList();
-        return;
-      }
-      unlistenRefs.current.push(unlistenTaskList);
+      }))) return;
 
-      const unlistenIndent = await currentWindow.listen<string>("menu:indent", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
-
+      if (!(await registerListener("menu:indent", (editor) => {
         const listItemType = editor.state.schema.nodes.listItem;
         if (!listItemType) return;
         editor.commands.focus();
         sinkListItem(listItemType)(editor.state, editor.view.dispatch);
-      });
-      if (cancelled) {
-        unlistenIndent();
-        return;
-      }
-      unlistenRefs.current.push(unlistenIndent);
+      }))) return;
 
-      const unlistenOutdent = await currentWindow.listen<string>("menu:outdent", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
-
+      if (!(await registerListener("menu:outdent", (editor) => {
         const listItemType = editor.state.schema.nodes.listItem;
         if (!listItemType) return;
         editor.commands.focus();
         liftListItem(listItemType)(editor.state, editor.view.dispatch);
-      });
-      if (cancelled) {
-        unlistenOutdent();
-        return;
-      }
-      unlistenRefs.current.push(unlistenOutdent);
+      }))) return;
 
-      const unlistenHorizontalLine = await currentWindow.listen<string>("menu:horizontal-line", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:horizontal-line", (editor) => {
         editor.chain().focus().setHorizontalRule().run();
-      });
-      if (cancelled) {
-        unlistenHorizontalLine();
-        return;
-      }
-      unlistenRefs.current.push(unlistenHorizontalLine);
+      }))) return;
 
       // Info Boxes (Alert Blocks)
       for (const alertType of ALERT_TYPES) {
         if (cancelled) break;
-        const unlisten = await currentWindow.listen<string>(`menu:info-${alertType.toLowerCase()}`, (event) => {
-          if (event.payload !== windowLabel) return;
-          const editor = editorRef.current;
-          if (!editor) return;
+        const ok = await registerListener(`menu:info-${alertType.toLowerCase()}`, (editor) => {
           editor.commands.insertAlertBlock(alertType as AlertType);
         });
-        if (cancelled) {
-          unlisten();
-          return;
-        }
-        unlistenRefs.current.push(unlisten);
+        if (!ok) return;
       }
 
-      // Collapsible Block (Details)
-      const unlistenCollapsible = await currentWindow.listen<string>("menu:collapsible-block", (event) => {
-        if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:collapsible-block", (editor) => {
         editor.commands.insertDetailsBlock();
-      });
-      if (cancelled) {
-        unlistenCollapsible();
-        return;
-      }
-      unlistenRefs.current.push(unlistenCollapsible);
+      }))) return;
 
-      // Nest Quote (inside blockquote)
-      const unlistenNestQuote = await currentWindow.listen<string>("menu:nest-quote", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:nest-quote", (editor) => {
         handleBlockquoteNest(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenNestQuote();
-        return;
-      }
-      unlistenRefs.current.push(unlistenNestQuote);
+      }))) return;
 
-      // Unnest Quote (inside blockquote)
-      const unlistenUnnestQuote = await currentWindow.listen<string>("menu:unnest-quote", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:unnest-quote", (editor) => {
         handleBlockquoteUnnest(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenUnnestQuote();
-        return;
-      }
-      unlistenRefs.current.push(unlistenUnnestQuote);
+      }))) return;
 
-      // Remove List
-      const unlistenRemoveList = await currentWindow.listen<string>("menu:remove-list", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:remove-list", (editor) => {
         handleRemoveList(editor.view as unknown as EditorView);
-      });
-      if (cancelled) {
-        unlistenRemoveList();
-        return;
-      }
-      unlistenRefs.current.push(unlistenRemoveList);
+      }))) return;
 
-      // Math Block
-      const unlistenMathBlock = await currentWindow.listen<string>("menu:math-block", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:math-block", (editor) => {
         editor
           .chain()
           .focus()
@@ -307,26 +175,11 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
             content: [{ type: "text", text: DEFAULT_MATH_BLOCK }],
           })
           .run();
-      });
-      if (cancelled) {
-        unlistenMathBlock();
-        return;
-      }
-      unlistenRefs.current.push(unlistenMathBlock);
+      }))) return;
 
-      // Footnote
-      const unlistenFootnote = await currentWindow.listen<string>("menu:footnote", (event) => {
-        if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
-        const editor = editorRef.current;
-        if (!editor) return;
+      if (!(await registerListener("menu:footnote", (editor) => {
         insertFootnoteAndOpenPopup(editor);
-      });
-      if (cancelled) {
-        unlistenFootnote();
-        return;
-      }
-      unlistenRefs.current.push(unlistenFootnote);
+      }))) return;
     };
 
     setupListeners();
