@@ -56,7 +56,6 @@ export function UniversalToolbar() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wasVisibleRef = useRef(false);
-  const justOpenedRef = useRef(false);
 
   // One toolbar button per group
   const buttons = useMemo(() => getGroupButtons(), []);
@@ -243,6 +242,25 @@ export function UniversalToolbar() {
     },
   });
 
+  // Handle dropdown exit (arrow keys or Tab) - moves to adjacent toolbar button
+  const handleDropdownExit = useCallback(
+    (direction: "left" | "right" | "forward" | "backward") => {
+      closeMenu(false);
+      const isNext = direction === "right" || direction === "forward";
+      const newIndex = isNext
+        ? getNextFocusableIndex(focusedIndex, buttons.length, isButtonFocusable)
+        : getPrevFocusableIndex(focusedIndex, buttons.length, isButtonFocusable);
+      setFocusedIndex(newIndex);
+      useUIStore.getState().setToolbarSessionFocusIndex(newIndex);
+      requestAnimationFrame(() => {
+        containerRef.current?.querySelector<HTMLButtonElement>(
+          `.universal-toolbar-btn[data-focus-index="${newIndex}"]`
+        )?.focus();
+      });
+    },
+    [closeMenu, focusedIndex, buttons.length, isButtonFocusable, setFocusedIndex]
+  );
+
   // Update session focus index when user navigates
   useEffect(() => {
     if (focusedIndex >= 0) {
@@ -269,14 +287,12 @@ export function UniversalToolbar() {
   useEffect(() => {
     if (!visible) {
       wasVisibleRef.current = false;
-      justOpenedRef.current = false;
       closeMenu(false);
       return;
     }
 
     // Toolbar just opened - compute smart focus
     if (!wasVisibleRef.current) {
-      justOpenedRef.current = true;
       const initialIndex = getInitialFocusIndex({
         buttons,
         states: buttonStates,
@@ -417,40 +433,8 @@ export function UniversalToolbar() {
             closeMenu();
           }}
           onClose={() => closeMenu()}
-          onNavigateOut={(direction) => {
-            // ← or → in dropdown moves to adjacent toolbar button (skip disabled)
-            closeMenu(false);
-            const current = focusedIndex;
-            const total = buttons.length;
-            const newIndex = direction === "left"
-              ? getPrevFocusableIndex(current, total, isButtonFocusable)
-              : getNextFocusableIndex(current, total, isButtonFocusable);
-            setFocusedIndex(newIndex);
-            useUIStore.getState().setToolbarSessionFocusIndex(newIndex);
-            requestAnimationFrame(() => {
-              const target = containerRef.current?.querySelector<HTMLButtonElement>(
-                `.universal-toolbar-btn[data-focus-index="${newIndex}"]`
-              );
-              target?.focus();
-            });
-          }}
-          onTabOut={(direction) => {
-            // Tab in dropdown moves to next/prev toolbar button (skip disabled)
-            closeMenu(false);
-            const current = focusedIndex;
-            const total = buttons.length;
-            const newIndex = direction === "forward"
-              ? getNextFocusableIndex(current, total, isButtonFocusable)
-              : getPrevFocusableIndex(current, total, isButtonFocusable);
-            setFocusedIndex(newIndex);
-            useUIStore.getState().setToolbarSessionFocusIndex(newIndex);
-            requestAnimationFrame(() => {
-              const target = containerRef.current?.querySelector<HTMLButtonElement>(
-                `.universal-toolbar-btn[data-focus-index="${newIndex}"]`
-              );
-              target?.focus();
-            });
-          }}
+          onNavigateOut={handleDropdownExit}
+          onTabOut={handleDropdownExit}
         />
       )}
     </div>

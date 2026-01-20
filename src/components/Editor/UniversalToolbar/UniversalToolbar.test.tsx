@@ -11,7 +11,7 @@
  * - 6.3: Roving tabindex
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useEditorStore } from "@/stores/editorStore";
 
@@ -279,7 +279,9 @@ describe("UniversalToolbar", () => {
 
       // Simulate the toggle (which would come from hotkey handler)
       // The toolbar component reacts to toolbarDropdownOpen becoming false
-      useUIStore.getState().setToolbarDropdownOpen(false);
+      await act(async () => {
+        useUIStore.getState().setToolbarDropdownOpen(false);
+      });
 
       await waitFor(() => {
         expect(useUIStore.getState().toolbarDropdownOpen).toBe(false);
@@ -336,9 +338,11 @@ describe("UniversalToolbar", () => {
       });
 
       // Simulate user toggled focus away from toolbar (to editor)
-      useUIStore.setState({
-        universalToolbarHasFocus: false,
-        toolbarSessionFocusIndex: 3, // Session memory set to button 3
+      await act(async () => {
+        useUIStore.setState({
+          universalToolbarHasFocus: false,
+          toolbarSessionFocusIndex: 3, // Session memory set to button 3
+        });
       });
       rerender(<UniversalToolbar />);
 
@@ -350,8 +354,10 @@ describe("UniversalToolbar", () => {
       });
 
       // Toggle focus back to toolbar
-      useUIStore.setState({
-        universalToolbarHasFocus: true,
+      await act(async () => {
+        useUIStore.setState({
+          universalToolbarHasFocus: true,
+        });
       });
       rerender(<UniversalToolbar />);
 
@@ -701,8 +707,10 @@ describe("UniversalToolbar", () => {
       });
 
       // Simulate what the hotkey does: set dropdown state to false and focus to false
-      useUIStore.getState().setToolbarDropdownOpen(false);
-      useUIStore.getState().setUniversalToolbarHasFocus(false);
+      await act(async () => {
+        useUIStore.getState().setToolbarDropdownOpen(false);
+        useUIStore.getState().setUniversalToolbarHasFocus(false);
+      });
 
       await waitFor(() => {
         // Dropdown should be closed
