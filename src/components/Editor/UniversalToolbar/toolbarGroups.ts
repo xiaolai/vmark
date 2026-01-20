@@ -146,6 +146,7 @@ const BLOCKQUOTE_GROUP: ToolbarGroup = {
   label: "Blockquote",
   icon: icons.blockquote,
   items: [
+    { id: "insert-blockquote", icon: icons.blockquote, label: "Insert Blockquote", shortcut: "⌥⌘Q", action: "insertBlockquote", enabledIn: ["textblock"] },
     { id: "nest-quote", icon: icons.nestQuote, label: "Nest Deeper", action: "nestQuote", enabledIn: ["blockquote"] },
     { id: "unnest-quote", icon: icons.unnestQuote, label: "Unnest", action: "unnestQuote", enabledIn: ["blockquote"] },
     { id: "remove-quote", icon: icons.removeQuote, label: "Remove Blockquote", action: "removeQuote", enabledIn: ["blockquote"] },
@@ -160,7 +161,6 @@ const INSERT_GROUP: ToolbarGroup = {
   items: [
     { id: "insert-image", icon: icons.image, label: "Image", shortcut: "⌥⌘I", action: "insertImage", enabledIn: ["textblock"] },
     { id: "insert-code-block", icon: icons.codeBlock, label: "Code Block", shortcut: "⌥⌘C", action: "insertCodeBlock", enabledIn: ["textblock"] },
-    { id: "insert-blockquote", icon: icons.blockquote, label: "Blockquote", shortcut: "⌥⌘Q", action: "insertBlockquote", enabledIn: ["textblock"] },
     { id: "insert-divider", icon: icons.divider, label: "Divider", shortcut: "⌥⌘-", action: "insertDivider", enabledIn: ["textblock"] },
     { id: "insert-math", icon: icons.math, label: "Math Block", action: "insertMath", enabledIn: ["textblock"] },
     { id: "insert-table-block", icon: icons.table, label: "Table", action: "insertTableBlock", enabledIn: ["textblock"] },
