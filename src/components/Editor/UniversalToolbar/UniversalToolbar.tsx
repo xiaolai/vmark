@@ -245,20 +245,39 @@ export function UniversalToolbar() {
   // Handle dropdown exit (arrow keys or Tab) - moves to adjacent toolbar button
   const handleDropdownExit = useCallback(
     (direction: "left" | "right" | "forward" | "backward") => {
-      closeMenu(false);
+      const isArrowNav = direction === "left" || direction === "right";
       const isNext = direction === "right" || direction === "forward";
       const newIndex = isNext
         ? getNextFocusableIndex(focusedIndex, buttons.length, isButtonFocusable)
         : getPrevFocusableIndex(focusedIndex, buttons.length, isButtonFocusable);
+
       setFocusedIndex(newIndex);
       useUIStore.getState().setToolbarSessionFocusIndex(newIndex);
+
+      // For arrow navigation, switch to adjacent dropdown (if enabled)
+      // By changing openGroupId, React unmounts old dropdown and mounts new one,
+      // triggering the new dropdown's useEffect to focus its first item
+      if (isArrowNav && isDropdownButton(newIndex) && !buttonStates[newIndex]?.disabled) {
+        const button = buttons[newIndex];
+        const rect = containerRef.current?.querySelector<HTMLButtonElement>(
+          `.universal-toolbar-btn[data-focus-index="${newIndex}"]`
+        )?.getBoundingClientRect();
+        if (rect) {
+          setOpenGroupId(button.id);
+          setMenuAnchor(rect);
+          return;
+        }
+      }
+
+      // For Tab navigation or disabled button, close dropdown and focus toolbar button
+      closeMenu(false);
       requestAnimationFrame(() => {
         containerRef.current?.querySelector<HTMLButtonElement>(
           `.universal-toolbar-btn[data-focus-index="${newIndex}"]`
         )?.focus();
       });
     },
-    [closeMenu, focusedIndex, buttons.length, isButtonFocusable, setFocusedIndex]
+    [closeMenu, focusedIndex, buttons, buttonStates, isButtonFocusable, isDropdownButton, setFocusedIndex]
   );
 
   // Update session focus index when user navigates
