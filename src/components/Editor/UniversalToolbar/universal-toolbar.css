@@ -112,6 +112,7 @@
 .universal-toolbar-btn:focus-visible {
   outline: none;
   color: var(--accent-primary);
+  position: relative;
 }
 
 .universal-toolbar-btn:focus-visible::after {
