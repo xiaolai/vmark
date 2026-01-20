@@ -74,13 +74,13 @@ const BLOCK_GROUP: ToolbarGroup = {
   icon: icons.heading,
   items: [
     // "Paragraph" here means "remove heading" - only available when in a heading
-    { id: "paragraph", icon: icons.paragraph, label: "Paragraph", action: "heading:0", enabledIn: ["heading"] },
-    { id: "h1", icon: icons.heading1, label: "Heading 1", action: "heading:1", enabledIn: ["textblock"] },
-    { id: "h2", icon: icons.heading2, label: "Heading 2", action: "heading:2", enabledIn: ["textblock"] },
-    { id: "h3", icon: icons.heading3, label: "Heading 3", action: "heading:3", enabledIn: ["textblock"] },
-    { id: "h4", icon: icons.heading4, label: "Heading 4", action: "heading:4", enabledIn: ["textblock"] },
-    { id: "h5", icon: icons.heading5, label: "Heading 5", action: "heading:5", enabledIn: ["textblock"] },
-    { id: "h6", icon: icons.heading6, label: "Heading 6", action: "heading:6", enabledIn: ["textblock"] },
+    { id: "paragraph", icon: icons.paragraph, label: "Paragraph", shortcut: "⌘⇧0", action: "heading:0", enabledIn: ["heading"] },
+    { id: "h1", icon: icons.heading1, label: "Heading 1", shortcut: "⌘1", action: "heading:1", enabledIn: ["textblock"] },
+    { id: "h2", icon: icons.heading2, label: "Heading 2", shortcut: "⌘2", action: "heading:2", enabledIn: ["textblock"] },
+    { id: "h3", icon: icons.heading3, label: "Heading 3", shortcut: "⌘3", action: "heading:3", enabledIn: ["textblock"] },
+    { id: "h4", icon: icons.heading4, label: "Heading 4", shortcut: "⌘4", action: "heading:4", enabledIn: ["textblock"] },
+    { id: "h5", icon: icons.heading5, label: "Heading 5", shortcut: "⌘5", action: "heading:5", enabledIn: ["textblock"] },
+    { id: "h6", icon: icons.heading6, label: "Heading 6", shortcut: "⌘6", action: "heading:6", enabledIn: ["textblock"] },
   ],
 };
 
@@ -108,11 +108,11 @@ const LIST_GROUP: ToolbarGroup = {
   label: "List",
   icon: icons.unorderedList,
   items: [
-    { id: "bullet-list", icon: icons.unorderedList, label: "Bullet List", action: "bulletList", enabledIn: ["textblock", "list"] },
-    { id: "ordered-list", icon: icons.orderedList, label: "Ordered List", action: "orderedList", enabledIn: ["textblock", "list"] },
-    { id: "task-list", icon: icons.taskList, label: "Task List", action: "taskList", enabledIn: ["textblock", "list"] },
-    { id: "indent", icon: icons.indent, label: "Indent", action: "indent", enabledIn: ["list"] },
-    { id: "outdent", icon: icons.outdent, label: "Outdent", action: "outdent", enabledIn: ["list"] },
+    { id: "bullet-list", icon: icons.unorderedList, label: "Bullet List", shortcut: "⌥⌘U", action: "bulletList", enabledIn: ["textblock", "list"] },
+    { id: "ordered-list", icon: icons.orderedList, label: "Ordered List", shortcut: "⌥⌘O", action: "orderedList", enabledIn: ["textblock", "list"] },
+    { id: "task-list", icon: icons.taskList, label: "Task List", shortcut: "⌥⌘X", action: "taskList", enabledIn: ["textblock", "list"] },
+    { id: "indent", icon: icons.indent, label: "Indent", shortcut: "⌘]", action: "indent", enabledIn: ["list"] },
+    { id: "outdent", icon: icons.outdent, label: "Outdent", shortcut: "⌘[", action: "outdent", enabledIn: ["list"] },
     { id: "remove-list", icon: icons.removeList, label: "Remove List", action: "removeList", enabledIn: ["list"] },
   ],
 };
@@ -123,7 +123,7 @@ const TABLE_GROUP: ToolbarGroup = {
   label: "Table",
   icon: icons.table,
   items: [
-    { id: "insert-table", icon: icons.table, label: "Insert Table", action: "insertTable", enabledIn: ["textblock"] },
+    { id: "insert-table", icon: icons.table, label: "Insert Table", shortcut: "⌘⇧T", action: "insertTable", enabledIn: ["textblock"] },
     { id: "add-row-above", icon: icons.rowAbove, label: "Row Above", action: "addRowAbove", enabledIn: ["table"] },
     { id: "add-row", icon: icons.rowBelow, label: "Row Below", action: "addRow", enabledIn: ["table"] },
     { id: "add-col-left", icon: icons.colLeft, label: "Column Left", action: "addColLeft", enabledIn: ["table"] },
@@ -158,10 +158,10 @@ const INSERT_GROUP: ToolbarGroup = {
   label: "Insert",
   icon: icons.insert,
   items: [
-    { id: "insert-image", icon: icons.image, label: "Image", action: "insertImage", enabledIn: ["textblock"] },
-    { id: "insert-code-block", icon: icons.codeBlock, label: "Code Block", action: "insertCodeBlock", enabledIn: ["textblock"] },
-    { id: "insert-blockquote", icon: icons.blockquote, label: "Blockquote", action: "insertBlockquote", enabledIn: ["textblock"] },
-    { id: "insert-divider", icon: icons.divider, label: "Divider", action: "insertDivider", enabledIn: ["textblock"] },
+    { id: "insert-image", icon: icons.image, label: "Image", shortcut: "⌥⌘I", action: "insertImage", enabledIn: ["textblock"] },
+    { id: "insert-code-block", icon: icons.codeBlock, label: "Code Block", shortcut: "⌥⌘C", action: "insertCodeBlock", enabledIn: ["textblock"] },
+    { id: "insert-blockquote", icon: icons.blockquote, label: "Blockquote", shortcut: "⌥⌘Q", action: "insertBlockquote", enabledIn: ["textblock"] },
+    { id: "insert-divider", icon: icons.divider, label: "Divider", shortcut: "⌥⌘-", action: "insertDivider", enabledIn: ["textblock"] },
     { id: "insert-math", icon: icons.math, label: "Math Block", action: "insertMath", enabledIn: ["textblock"] },
     { id: "insert-table-block", icon: icons.table, label: "Table", action: "insertTableBlock", enabledIn: ["textblock"] },
     { id: "insert-bullet-list", icon: icons.unorderedList, label: "Bullet List", action: "insertBulletList", enabledIn: ["textblock"] },
