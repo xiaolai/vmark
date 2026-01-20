@@ -357,9 +357,8 @@ export function UniversalToolbar() {
       // Click inside dropdown - ignore
       if (menu && menu.contains(target)) return;
 
-      // Click on toolbar button - let click handler deal with it
+      // Click on toolbar button - let onClick handler deal with it
       if (container && container.contains(target)) {
-        closeMenu(false);
         return;
       }
 
