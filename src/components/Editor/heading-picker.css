@@ -1,87 +1,52 @@
 /**
  * Heading Picker Styles
  *
- * Modal dialog for selecting document headings for bookmark links.
+ * Popup for selecting document headings for bookmark links.
+ * Uses shared popup styles from popup-shared.css
  */
 
-.heading-picker-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
 .heading-picker {
-  background-color: var(--background-color);
+  z-index: 9999;
+  background: var(--bg-color);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  width: 480px;
-  max-width: 90vw;
-  max-height: 70vh;
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--popup-shadow, 0 4px 12px rgba(0, 0, 0, 0.15));
+  width: 360px;
+  max-height: 280px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: heading-picker-fade-in 0.1s ease-out;
+}
+
+@keyframes heading-picker-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .heading-picker-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 2px;
+  padding: 6px;
   border-bottom: 1px solid var(--border-color);
-  font-weight: 500;
 }
 
-.heading-picker-header svg {
-  width: 18px;
-  height: 18px;
-}
-
-.heading-picker-close {
-  margin-left: auto;
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  border-radius: 4px;
-  color: var(--text-color);
-  opacity: 0.7;
-}
-
-.heading-picker-close:hover {
-  opacity: 1;
-  background-color: var(--hover-color);
-}
-
-.heading-picker-close svg {
-  width: 16px;
-  height: 16px;
-  display: block;
-}
-
+/* Filter input uses shared popup-input styles */
 .heading-picker-filter {
-  margin: 8px 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: var(--input-background);
-  color: var(--text-color);
-  font-size: 14px;
+  flex: 1;
+  font-size: 12px;
 }
 
-.heading-picker-filter:focus {
-  outline: none;
-  border-color: var(--border-color);
-  box-shadow: none;
-}
-
-.heading-picker-filter:focus-visible {
-  outline: none;
-  box-shadow: none;
+/* Close button uses shared popup-icon-btn styles */
+.heading-picker-close {
+  flex-shrink: 0;
 }
 
 .heading-picker-list {
@@ -95,31 +60,34 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border: none;
   background: none;
-  cursor: pointer;
+  cursor: default;
   text-align: left;
   color: var(--text-color);
-  font-size: 14px;
+  font-size: 13px;
 }
 
-.heading-picker-item:hover,
-.heading-picker-item.selected {
-  background-color: var(--hover-color);
+.heading-picker-item:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
 }
 
 .heading-picker-item.selected {
-  background-color: var(--selection-background);
+  background: var(--accent-bg);
+}
+
+.heading-picker-item:focus {
+  outline: none;
 }
 
 .heading-picker-level {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--accent-color);
-  opacity: 0.8;
-  width: 24px;
+  color: var(--accent-primary, var(--primary-color));
+  opacity: 0.9;
+  width: 20px;
 }
 
 .heading-picker-text {
@@ -131,15 +99,19 @@
 
 .heading-picker-id {
   flex-shrink: 0;
-  font-size: 11px;
-  color: var(--text-color);
-  opacity: 0.5;
-  font-family: monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
 }
 
 .heading-picker-empty {
-  padding: 24px;
+  padding: 16px;
   text-align: center;
-  color: var(--text-color);
-  opacity: 0.6;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Dark theme */
+.dark-theme .heading-picker-item:hover {
+  background: rgba(255, 255, 255, 0.06);
 }

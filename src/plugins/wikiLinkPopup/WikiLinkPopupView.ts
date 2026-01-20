@@ -2,6 +2,7 @@
  * Wiki Link Popup View
  *
  * DOM management for editing wiki link target and alias.
+ * Uses icon buttons and borderless inputs for consistent popup design.
  */
 
 import type { EditorView } from "@tiptap/pm/view";
@@ -13,9 +14,16 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import {
+  buildPopupIconButton,
+  buildPopupInput,
+  buildPopupPreview,
+  buildPopupButtonRow,
+  handlePopupTabNavigation,
+} from "@/utils/popupComponents";
 
 const DEFAULT_POPUP_WIDTH = 320;
-const DEFAULT_POPUP_HEIGHT = 120;
+const DEFAULT_POPUP_HEIGHT = 80;
 
 export class WikiLinkPopupView {
   private container: HTMLElement;
@@ -26,6 +34,7 @@ export class WikiLinkPopupView {
   private editorView: EditorView;
   private justOpened = false;
   private wasOpen = false;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
@@ -62,45 +71,72 @@ export class WikiLinkPopupView {
     container.className = "wiki-link-popup";
     container.style.display = "none";
 
-    const targetInput = document.createElement("input");
-    targetInput.className = "wiki-link-popup-target";
-    targetInput.placeholder = "Target page";
-    targetInput.addEventListener("input", this.handleTargetChange);
-    targetInput.addEventListener("keydown", this.handleKeydown);
+    // Row 1: Target input (full width)
+    const targetInput = buildPopupInput({
+      placeholder: "Target page",
+      fullWidth: true,
+      className: "wiki-link-popup-target",
+      onInput: this.handleTargetChange,
+      onKeydown: this.handleInputKeydown,
+    });
 
-    const aliasInput = document.createElement("input");
-    aliasInput.className = "wiki-link-popup-alias";
-    aliasInput.placeholder = "Alias (optional)";
-    aliasInput.addEventListener("input", this.handleAliasChange);
-    aliasInput.addEventListener("keydown", this.handleKeydown);
+    // Row 2: Alias input + buttons
+    const row2 = document.createElement("div");
+    row2.className = "wiki-link-popup-row";
 
-    const preview = document.createElement("div");
-    preview.className = "wiki-link-popup-preview";
+    const aliasInput = buildPopupInput({
+      placeholder: "Alias (optional)",
+      className: "wiki-link-popup-alias",
+      onInput: this.handleAliasChange,
+      onKeydown: this.handleInputKeydown,
+    });
 
-    const buttons = document.createElement("div");
-    buttons.className = "wiki-link-popup-buttons";
+    // Button row
+    const buttonRow = buildPopupButtonRow();
 
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "wiki-link-popup-btn wiki-link-popup-btn-cancel";
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.addEventListener("click", this.handleCancel);
+    const saveBtn = buildPopupIconButton({
+      icon: "save",
+      title: "Save",
+      onClick: this.handleSave,
+      variant: "primary",
+    });
 
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.className = "wiki-link-popup-btn wiki-link-popup-btn-save";
-    saveBtn.textContent = "Save";
-    saveBtn.addEventListener("click", this.handleSave);
+    const deleteBtn = buildPopupIconButton({
+      icon: "delete",
+      title: "Remove wiki link",
+      onClick: this.handleDelete,
+      variant: "danger",
+    });
 
-    buttons.appendChild(cancelBtn);
-    buttons.appendChild(saveBtn);
+    buttonRow.appendChild(saveBtn);
+    buttonRow.appendChild(deleteBtn);
+
+    row2.appendChild(aliasInput);
+    row2.appendChild(buttonRow);
+
+    // Preview
+    const preview = buildPopupPreview("wiki-link-popup-preview");
 
     container.appendChild(targetInput);
-    container.appendChild(aliasInput);
+    container.appendChild(row2);
     container.appendChild(preview);
-    container.appendChild(buttons);
 
     return container;
+  }
+
+  private setupKeyboardNavigation() {
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
+      handlePopupTabNavigation(e, this.container);
+    };
+    document.addEventListener("keydown", this.keydownHandler);
+  }
+
+  private removeKeyboardNavigation() {
+    if (this.keydownHandler) {
+      document.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
   }
 
   private show(target: string, alias: string, anchorRect: AnchorRect) {
@@ -138,6 +174,9 @@ export class WikiLinkPopupView {
 
     this.updatePreview(target, alias);
 
+    // Set up keyboard navigation
+    this.setupKeyboardNavigation();
+
     requestAnimationFrame(() => {
       this.targetInput.focus();
       this.targetInput.select();
@@ -146,6 +185,7 @@ export class WikiLinkPopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.removeKeyboardNavigation();
   }
 
   private updatePreview(target: string, alias: string) {
@@ -160,19 +200,17 @@ export class WikiLinkPopupView {
       : `[[${trimmedTarget}]]`;
   }
 
-  private handleTargetChange = () => {
-    const target = this.targetInput.value;
-    useWikiLinkPopupStore.getState().updateTarget(target);
-    this.updatePreview(target, this.aliasInput.value);
+  private handleTargetChange = (value: string) => {
+    useWikiLinkPopupStore.getState().updateTarget(value);
+    this.updatePreview(value, this.aliasInput.value);
   };
 
-  private handleAliasChange = () => {
-    const alias = this.aliasInput.value;
-    useWikiLinkPopupStore.getState().updateAlias(alias);
-    this.updatePreview(this.targetInput.value, alias);
+  private handleAliasChange = (value: string) => {
+    useWikiLinkPopupStore.getState().updateAlias(value);
+    this.updatePreview(this.targetInput.value, value);
   };
 
-  private handleKeydown = (e: KeyboardEvent) => {
+  private handleInputKeydown = (e: KeyboardEvent) => {
     if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
       e.preventDefault();
@@ -215,6 +253,30 @@ export class WikiLinkPopupView {
     this.editorView.focus();
   };
 
+  private handleDelete = () => {
+    const state = useWikiLinkPopupStore.getState();
+    const { nodePos } = state;
+
+    if (nodePos === null) {
+      state.closePopup();
+      return;
+    }
+
+    const { state: editorState, dispatch } = this.editorView;
+    const node = editorState.doc.nodeAt(nodePos);
+    if (!node || node.type.name !== "wikiLink") {
+      state.closePopup();
+      return;
+    }
+
+    // Delete the wiki link node
+    const tr = editorState.tr.delete(nodePos, nodePos + node.nodeSize);
+    dispatch(tr);
+
+    state.closePopup();
+    this.editorView.focus();
+  };
+
   private handleCancel = () => {
     useWikiLinkPopupStore.getState().closePopup();
     this.editorView.focus();
@@ -233,6 +295,7 @@ export class WikiLinkPopupView {
 
   destroy() {
     this.unsubscribe();
+    this.removeKeyboardNavigation();
     document.removeEventListener("mousedown", this.handleClickOutside);
     this.container.remove();
   }

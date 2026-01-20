@@ -201,6 +201,15 @@ export function insertSourceBookmarkLink(view: EditorView): boolean {
   const { from, to } = view.state.selection.main;
   const capturedSelectedText = from !== to ? view.state.doc.sliceString(from, to) : "";
 
+  // Get anchor rect from selection for popup positioning
+  const coords = view.coordsAtPos(from);
+  const anchorRect = coords ? {
+    top: coords.top,
+    bottom: coords.bottom,
+    left: coords.left,
+    right: coords.left + 10, // Minimal width for cursor position
+  } : undefined;
+
   useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
     // Re-read current state to get fresh positions (doc may have changed)
     const { from: currentFrom, to: currentTo } = view.state.selection.main;
@@ -212,19 +221,28 @@ export function insertSourceBookmarkLink(view: EditorView): boolean {
       selection: { anchor: currentFrom + markdown.length },
     });
     view.focus();
-  });
+  }, anchorRect);
 
   return true;
 }
 
 /**
  * Insert a reference link with definition.
- * Opens dialog and inserts [text][ref] at cursor, [ref]: url at doc end.
+ * Opens popup and inserts [text][ref] at cursor, [ref]: url at doc end.
  */
 export function insertSourceReferenceLink(view: EditorView): boolean {
   // Capture selected text for link text fallback (not position-sensitive)
   const { from, to } = view.state.selection.main;
   const capturedSelectedText = from !== to ? view.state.doc.sliceString(from, to) : "";
+
+  // Get anchor rect from selection for popup positioning
+  const coords = view.coordsAtPos(from);
+  const anchorRect = coords ? {
+    top: coords.top,
+    bottom: coords.bottom,
+    left: coords.left,
+    right: coords.left + 10, // Minimal width for cursor position
+  } : undefined;
 
   useLinkReferenceDialogStore.getState().openDialog(capturedSelectedText, (identifier, url, title) => {
     // Re-read current state to get fresh positions (doc may have changed)
@@ -247,7 +265,7 @@ export function insertSourceReferenceLink(view: EditorView): boolean {
       selection: { anchor: currentFrom + reference.length },
     });
     view.focus();
-  });
+  }, anchorRect);
 
   return true;
 }

@@ -4,17 +4,17 @@ import { useDocumentId } from "@/hooks/useDocumentState";
 import { SourceEditor } from "./SourceEditor";
 import { TiptapEditorInner } from "./TiptapEditor";
 import { HeadingPicker } from "./HeadingPicker";
-import { LinkReferenceDialog } from "./LinkReferenceDialog";
 import { DropZoneIndicator } from "./DropZoneIndicator";
 import "./editor.css";
 import "./heading-picker.css";
-import "./link-reference-dialog.css";
 import "./source-peek.css";
 import "@/plugins/linkPopup/link-popup.css";
 import "@/plugins/imagePopup/image-popup.css";
 import "@/plugins/mathPopup/math-popup.css";
 import "@/plugins/wikiLinkPopup/wiki-link-popup.css";
 import "@/plugins/wikiEmbedPopup/wiki-embed-popup.css";
+import "@/plugins/referencePopup/reference-popup.css";
+import "@/styles/popup-shared.css";
 import "@/plugins/htmlBlockPopup/html-popup.css";
 import "@/plugins/alertBlock/alert-block.css";
 import "@/plugins/detailsBlock/details-block.css";
@@ -51,7 +51,6 @@ export function Editor() {
         {sourceMode ? <SourceEditor key={editorKey} /> : <TiptapEditorInner key={editorKey} />}
       </div>
       <HeadingPicker />
-      <LinkReferenceDialog />
       <DropZoneIndicator />
     </div>
   );

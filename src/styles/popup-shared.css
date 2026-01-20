@@ -1,0 +1,176 @@
+/**
+ * Shared Popup Styles
+ *
+ * Common styles for all inline popup components (link, wiki-link, wiki-embed, etc.)
+ * Based on the LinkPopup reference implementation.
+ */
+
+/* Container base style */
+.popup-container {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 8px);
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+  animation: popup-fade-in 0.1s ease-out;
+}
+
+/* Vertical layout variant (for multi-field popups) */
+.popup-container--vertical {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+@keyframes popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Borderless input - base style */
+.popup-input {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.popup-input:focus,
+.popup-input:focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.popup-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+/* Monospace input variant (for URLs, paths) */
+.popup-input--mono {
+  font-family: var(--font-mono, monospace);
+}
+
+/* Full-width input (for vertical layouts) */
+.popup-input--full {
+  width: 100%;
+}
+
+/* Icon button - base style */
+.popup-icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.popup-icon-btn:hover:not(:disabled) {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
+}
+
+.popup-icon-btn:active:not(:disabled) {
+  opacity: 0.8;
+}
+
+.popup-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Focus state - U-shaped underline */
+.popup-icon-btn:focus {
+  outline: none;
+}
+
+.popup-icon-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 4px;
+  background: transparent;
+  border-bottom: 2px solid var(--primary-color, #0066cc);
+  border-radius: 0 0 4px 4px;
+}
+
+/* Icon sizing */
+.popup-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Primary action button (save/confirm) */
+.popup-icon-btn--primary:hover:not(:disabled) {
+  color: var(--primary-color, #0066cc);
+}
+
+/* Danger action button (delete/remove) */
+.popup-icon-btn--danger:hover:not(:disabled) {
+  color: #e53935;
+}
+
+/* Button row container */
+.popup-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Preview text */
+.popup-preview {
+  min-height: 18px;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Input row (for horizontal layout with input + buttons) */
+.popup-input-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+/* Dark theme overrides */
+.dark-theme .popup-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .popup-icon-btn--danger:hover:not(:disabled) {
+  color: #ff6b6b;
+}

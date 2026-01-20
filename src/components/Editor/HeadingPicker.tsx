@@ -1,19 +1,22 @@
 /**
  * Heading Picker Component
  *
- * Modal dialog for selecting a document heading to create bookmark links.
+ * Popup for selecting a document heading to create bookmark links.
  * Shows all headings with indentation by level and filter support.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useHeadingPickerStore } from "@/stores/headingPickerStore";
+import {
+  calculatePopupPosition,
+  getViewportBounds,
+} from "@/utils/popupPosition";
 import type { HeadingWithId } from "@/utils/headingSlug";
+import { popupIcons } from "@/utils/popupComponents";
 
-const icons = {
-  close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-  heading: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h12M6 4v16M18 4v16"/></svg>`,
-};
+const POPUP_WIDTH = 360;
+const POPUP_MAX_HEIGHT = 280;
 
 interface HeadingItemProps {
   heading: HeadingWithId;
@@ -42,11 +45,14 @@ function HeadingItem({ heading, isSelected, onSelect }: HeadingItemProps) {
 export function HeadingPicker() {
   const isOpen = useHeadingPickerStore((s) => s.isOpen);
   const headings = useHeadingPickerStore((s) => s.headings);
+  const anchorRect = useHeadingPickerStore((s) => s.anchorRect);
 
   const [filter, setFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const filteredHeadings = headings.filter((h) => {
     if (!filter) return true;
@@ -96,6 +102,52 @@ export function HeadingPicker() {
     [filteredHeadings, selectedIndex, handleClose, handleSelect]
   );
 
+  // Click outside to close
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        handleClose();
+      }
+    };
+
+    // Delay to prevent immediate close from same click
+    const timeout = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen, handleClose]);
+
+  // Calculate popup position when opening
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const bounds = getViewportBounds();
+
+    // Default anchor if none provided (center-top)
+    const anchor = anchorRect ?? {
+      top: bounds.vertical.top + 100,
+      bottom: bounds.vertical.top + 120,
+      left: (bounds.horizontal.left + bounds.horizontal.right) / 2 - POPUP_WIDTH / 2,
+      right: (bounds.horizontal.left + bounds.horizontal.right) / 2 + POPUP_WIDTH / 2,
+    };
+
+    const { top, left } = calculatePopupPosition({
+      anchor,
+      popup: { width: POPUP_WIDTH, height: POPUP_MAX_HEIGHT },
+      bounds,
+      gap: 6,
+      preferAbove: false,
+    });
+
+    setPosition({ top, left });
+  }, [isOpen, anchorRect]);
+
   // Reset and clamp selection when filter changes
   useEffect(() => {
     setSelectedIndex((prev) => {
@@ -125,51 +177,51 @@ export function HeadingPicker() {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="heading-picker-overlay" onClick={handleClose}>
-      <div
-        className="heading-picker"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
-        <div className="heading-picker-header">
-          <span dangerouslySetInnerHTML={{ __html: icons.heading }} />
-          <span>Select Heading</span>
-          <button
-            type="button"
-            className="heading-picker-close"
-            onClick={handleClose}
-            title="Close"
-            dangerouslySetInnerHTML={{ __html: icons.close }}
-          />
-        </div>
-
+    <div
+      ref={containerRef}
+      className="heading-picker"
+      style={{
+        position: "fixed",
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+      }}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="heading-picker-header">
         <input
           ref={inputRef}
           type="text"
-          className="heading-picker-filter"
+          className="heading-picker-filter popup-input"
           placeholder="Filter headings..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
+        <button
+          type="button"
+          className="heading-picker-close popup-icon-btn"
+          onClick={handleClose}
+          title="Close"
+          dangerouslySetInnerHTML={{ __html: popupIcons.close }}
+        />
+      </div>
 
-        <div className="heading-picker-list" ref={listRef}>
-          {filteredHeadings.length === 0 ? (
-            <div className="heading-picker-empty">
-              {headings.length === 0
-                ? "No headings in document"
-                : "No headings match filter"}
-            </div>
-          ) : (
-            filteredHeadings.map((heading, index) => (
-              <HeadingItem
-                key={`${heading.id}-${heading.pos}`}
-                heading={heading}
-                isSelected={index === selectedIndex}
-                onSelect={() => handleSelect(heading)}
-              />
-            ))
-          )}
-        </div>
+      <div className="heading-picker-list" ref={listRef}>
+        {filteredHeadings.length === 0 ? (
+          <div className="heading-picker-empty">
+            {headings.length === 0
+              ? "No headings in document"
+              : "No headings match filter"}
+          </div>
+        ) : (
+          filteredHeadings.map((heading, index) => (
+            <HeadingItem
+              key={`${heading.id}-${heading.pos}`}
+              heading={heading}
+              isSelected={index === selectedIndex}
+              onSelect={() => handleSelect(heading)}
+            />
+          ))
+        )}
       </div>
     </div>,
     document.body

@@ -83,6 +83,7 @@ import {
 import { wikiLinkPopupExtension } from "@/plugins/wikiLinkPopup";
 import { wikiEmbedPopupExtension } from "@/plugins/wikiEmbedPopup";
 import { htmlBlockPopupExtension } from "@/plugins/htmlBlockPopup";
+import { referencePopupExtension } from "@/plugins/referencePopup";
 
 /**
  * Delay before enabling cursor tracking after editor creation.
@@ -168,6 +169,7 @@ export function TiptapEditorInner() {
       wikiLinkPopupExtension,
       wikiEmbedPopupExtension,
       htmlBlockPopupExtension,
+      referencePopupExtension,
       footnoteReferenceExtension,
       footnoteDefinitionExtension,
       TableWithSourceLine.configure({ resizable: false }),

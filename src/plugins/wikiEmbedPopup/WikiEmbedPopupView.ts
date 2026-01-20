@@ -2,6 +2,7 @@
  * Wiki Embed Popup View
  *
  * DOM management for editing wiki embed target.
+ * Uses icon buttons and borderless inputs for consistent popup design.
  */
 
 import type { EditorView } from "@tiptap/pm/view";
@@ -13,9 +14,16 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import {
+  buildPopupIconButton,
+  buildPopupInput,
+  buildPopupPreview,
+  buildPopupButtonRow,
+  handlePopupTabNavigation,
+} from "@/utils/popupComponents";
 
-const DEFAULT_POPUP_WIDTH = 300;
-const DEFAULT_POPUP_HEIGHT = 100;
+const DEFAULT_POPUP_WIDTH = 320;
+const DEFAULT_POPUP_HEIGHT = 60;
 
 export class WikiEmbedPopupView {
   private container: HTMLElement;
@@ -25,6 +33,7 @@ export class WikiEmbedPopupView {
   private editorView: EditorView;
   private justOpened = false;
   private wasOpen = false;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
@@ -58,38 +67,62 @@ export class WikiEmbedPopupView {
     container.className = "wiki-embed-popup";
     container.style.display = "none";
 
-    const targetInput = document.createElement("input");
-    targetInput.className = "wiki-embed-popup-target";
-    targetInput.placeholder = "Embed target";
-    targetInput.addEventListener("input", this.handleTargetChange);
-    targetInput.addEventListener("keydown", this.handleKeydown);
+    // Row 1: Target input + buttons
+    const row = document.createElement("div");
+    row.className = "wiki-embed-popup-row";
 
-    const preview = document.createElement("div");
-    preview.className = "wiki-embed-popup-preview";
+    const targetInput = buildPopupInput({
+      placeholder: "Embed target",
+      className: "wiki-embed-popup-target",
+      onInput: this.handleTargetChange,
+      onKeydown: this.handleInputKeydown,
+    });
 
-    const buttons = document.createElement("div");
-    buttons.className = "wiki-embed-popup-buttons";
+    // Button row
+    const buttonRow = buildPopupButtonRow();
 
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "wiki-embed-popup-btn wiki-embed-popup-btn-cancel";
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.addEventListener("click", this.handleCancel);
+    const saveBtn = buildPopupIconButton({
+      icon: "save",
+      title: "Save",
+      onClick: this.handleSave,
+      variant: "primary",
+    });
 
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.className = "wiki-embed-popup-btn wiki-embed-popup-btn-save";
-    saveBtn.textContent = "Save";
-    saveBtn.addEventListener("click", this.handleSave);
+    const deleteBtn = buildPopupIconButton({
+      icon: "delete",
+      title: "Remove embed",
+      onClick: this.handleDelete,
+      variant: "danger",
+    });
 
-    buttons.appendChild(cancelBtn);
-    buttons.appendChild(saveBtn);
+    buttonRow.appendChild(saveBtn);
+    buttonRow.appendChild(deleteBtn);
 
-    container.appendChild(targetInput);
+    row.appendChild(targetInput);
+    row.appendChild(buttonRow);
+
+    // Preview
+    const preview = buildPopupPreview("wiki-embed-popup-preview");
+
+    container.appendChild(row);
     container.appendChild(preview);
-    container.appendChild(buttons);
 
     return container;
+  }
+
+  private setupKeyboardNavigation() {
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
+      handlePopupTabNavigation(e, this.container);
+    };
+    document.addEventListener("keydown", this.keydownHandler);
+  }
+
+  private removeKeyboardNavigation() {
+    if (this.keydownHandler) {
+      document.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
   }
 
   private show(target: string, anchorRect: AnchorRect) {
@@ -126,6 +159,9 @@ export class WikiEmbedPopupView {
 
     this.updatePreview(target);
 
+    // Set up keyboard navigation
+    this.setupKeyboardNavigation();
+
     requestAnimationFrame(() => {
       this.targetInput.focus();
       this.targetInput.select();
@@ -134,6 +170,7 @@ export class WikiEmbedPopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.removeKeyboardNavigation();
   }
 
   private updatePreview(target: string) {
@@ -141,13 +178,12 @@ export class WikiEmbedPopupView {
     this.preview.textContent = trimmed ? `![[${trimmed}]]` : "";
   }
 
-  private handleTargetChange = () => {
-    const target = this.targetInput.value;
-    useWikiEmbedPopupStore.getState().updateTarget(target);
-    this.updatePreview(target);
+  private handleTargetChange = (value: string) => {
+    useWikiEmbedPopupStore.getState().updateTarget(value);
+    this.updatePreview(value);
   };
 
-  private handleKeydown = (e: KeyboardEvent) => {
+  private handleInputKeydown = (e: KeyboardEvent) => {
     if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
       e.preventDefault();
@@ -188,6 +224,30 @@ export class WikiEmbedPopupView {
     this.editorView.focus();
   };
 
+  private handleDelete = () => {
+    const state = useWikiEmbedPopupStore.getState();
+    const { nodePos } = state;
+
+    if (nodePos === null) {
+      state.closePopup();
+      return;
+    }
+
+    const { state: editorState, dispatch } = this.editorView;
+    const node = editorState.doc.nodeAt(nodePos);
+    if (!node || node.type.name !== "wikiEmbed") {
+      state.closePopup();
+      return;
+    }
+
+    // Delete the wiki embed node
+    const tr = editorState.tr.delete(nodePos, nodePos + node.nodeSize);
+    dispatch(tr);
+
+    state.closePopup();
+    this.editorView.focus();
+  };
+
   private handleCancel = () => {
     useWikiEmbedPopupStore.getState().closePopup();
     this.editorView.focus();
@@ -206,6 +266,7 @@ export class WikiEmbedPopupView {
 
   destroy() {
     this.unsubscribe();
+    this.removeKeyboardNavigation();
     document.removeEventListener("mousedown", this.handleClickOutside);
     this.container.remove();
   }

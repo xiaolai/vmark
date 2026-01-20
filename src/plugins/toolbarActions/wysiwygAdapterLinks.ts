@@ -60,7 +60,7 @@ export function insertWikiEmbed(context: WysiwygToolbarContext): boolean {
 
 /**
  * Insert a bookmark link to a heading in the document.
- * Opens heading picker and inserts link mark with href="#heading-id".
+ * Opens heading picker popup and inserts link mark with href="#heading-id".
  */
 export function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
   const view = context.view;
@@ -76,6 +76,15 @@ export function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
   // Capture selected text for link text fallback (not position-sensitive)
   const { from, to } = state.selection;
   const capturedSelectedText = from !== to ? state.doc.textBetween(from, to) : "";
+
+  // Get anchor rect from selection for popup positioning
+  const coords = view.coordsAtPos(from);
+  const anchorRect = {
+    top: coords.top,
+    bottom: coords.bottom,
+    left: coords.left,
+    right: coords.left + 10, // Minimal width for cursor position
+  };
 
   useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
     // Re-read current state to get fresh positions (doc may have changed)
@@ -100,14 +109,14 @@ export function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
 
     view.dispatch(tr);
     view.focus();
-  });
+  }, anchorRect);
 
   return true;
 }
 
 /**
  * Insert a reference link with definition.
- * Opens dialog and inserts link_reference node at cursor, link_definition at doc end.
+ * Opens popup and inserts link_reference node at cursor, link_definition at doc end.
  */
 export function insertReferenceLink(context: WysiwygToolbarContext): boolean {
   const view = context.view;
@@ -117,6 +126,15 @@ export function insertReferenceLink(context: WysiwygToolbarContext): boolean {
   const { state } = view;
   const { from, to } = state.selection;
   const capturedSelectedText = from !== to ? state.doc.textBetween(from, to) : "";
+
+  // Get anchor rect from selection for popup positioning
+  const coords = view.coordsAtPos(from);
+  const anchorRect = {
+    top: coords.top,
+    bottom: coords.bottom,
+    left: coords.left,
+    right: coords.left + 10, // Minimal width for cursor position
+  };
 
   useLinkReferenceDialogStore.getState().openDialog(capturedSelectedText, (identifier, url, title) => {
     // Re-read current state to get fresh positions (doc may have changed)
@@ -159,7 +177,7 @@ export function insertReferenceLink(context: WysiwygToolbarContext): boolean {
 
     view.dispatch(tr);
     view.focus();
-  });
+  }, anchorRect);
 
   return true;
 }

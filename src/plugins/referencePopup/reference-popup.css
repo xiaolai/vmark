@@ -1,10 +1,10 @@
 /**
- * Wiki Link Popup Styles
+ * Reference Popup Styles
  *
  * Uses shared popup styles from popup-shared.css
  */
 
-.wiki-link-popup {
+.reference-popup {
   position: fixed;
   z-index: 9999;
   display: flex;
@@ -15,11 +15,11 @@
   border-radius: var(--radius-lg, 8px);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
-  width: 320px;
-  animation: wiki-link-popup-fade-in 0.1s ease-out;
+  width: 360px;
+  animation: reference-popup-fade-in 0.1s ease-out;
 }
 
-@keyframes wiki-link-popup-fade-in {
+@keyframes reference-popup-fade-in {
   from {
     opacity: 0;
     transform: translateY(-2px);
@@ -30,24 +30,34 @@
   }
 }
 
-/* Row layout for alias + buttons */
-.wiki-link-popup-row {
+/* Row layout for inputs + buttons */
+.reference-popup-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
-/* Inputs use shared .popup-input styles, add custom widths */
-.wiki-link-popup-target {
+/* Inputs use shared .popup-input styles */
+.reference-popup-identifier {
+  flex: 0 0 100px;
+  min-width: 0;
+}
+
+.reference-popup-url {
   flex: 1;
+  min-width: 0;
 }
 
-.wiki-link-popup-alias {
+.reference-popup-title {
   flex: 1;
   min-width: 0;
 }
 
 /* Preview uses shared .popup-preview styles */
-.wiki-link-popup-preview {
+.reference-popup-preview {
   padding-left: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
