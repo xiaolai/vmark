@@ -180,9 +180,11 @@ function ProviderRow({ provider, port, onPreview, onUninstall, loading }: Provid
 
 interface McpConfigInstallerProps {
   port: number;
+  /** Called after successful install - used to enable autoStart and start bridge */
+  onInstallSuccess?: () => void;
 }
 
-export function McpConfigInstaller({ port }: McpConfigInstallerProps) {
+export function McpConfigInstaller({ port, onInstallSuccess }: McpConfigInstallerProps) {
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [preview, setPreview] = useState<ConfigPreview | null>(null);
   const [loading, setLoading] = useState(false);
@@ -233,6 +235,8 @@ export function McpConfigInstaller({ port }: McpConfigInstallerProps) {
         setSuccessMessage(result.message);
         setPreview(null);
         await loadStatus();
+        // Enable autoStart and start bridge after successful install
+        onInstallSuccess?.();
       } else {
         setError(result.message);
       }

@@ -93,6 +93,23 @@ export function IntegrationsSettings() {
     updateAdvancedSetting("mcpServer", { ...mcpSettings, autoStart: enabled });
   };
 
+  // Called after MCP config is successfully installed to a provider
+  // Enables autoStart and starts the bridge so it works immediately
+  const handleMcpConfigInstalled = async () => {
+    // Enable autoStart so bridge runs on future launches
+    if (!mcpSettings.autoStart) {
+      updateAdvancedSetting("mcpServer", { ...mcpSettings, autoStart: true });
+    }
+    // Start the bridge now if not already running
+    if (!running && !loading) {
+      try {
+        await start(mcpSettings.port);
+      } catch {
+        // Error handled by hook, user can see status indicator
+      }
+    }
+  };
+
   return (
     <div>
       <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
@@ -177,7 +194,10 @@ export function IntegrationsSettings() {
       </SettingsGroup>
 
       <div className="mt-6">
-        <McpConfigInstaller port={mcpSettings.port} />
+        <McpConfigInstaller
+          port={mcpSettings.port}
+          onInstallSuccess={handleMcpConfigInstalled}
+        />
       </div>
     </div>
   );

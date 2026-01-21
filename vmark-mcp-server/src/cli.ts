@@ -10,10 +10,11 @@
  */
 
 import { createVMarkMcpServer } from './index.js';
-import { WebSocketBridge } from './bridge/websocket.js';
+import { WebSocketBridge, ClientIdentity } from './bridge/websocket.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z, ZodTypeAny } from 'zod';
+import { execSync } from 'child_process';
 
 /**
  * Parse command line arguments.
@@ -33,6 +34,84 @@ function parseArgs(): { port: number } {
   }
 
   return { port };
+}
+
+/**
+ * Get parent process name (cross-platform).
+ */
+function getParentProcessName(): string | undefined {
+  try {
+    const ppid = process.ppid;
+    if (!ppid) return undefined;
+
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      const result = execSync(`ps -p ${ppid} -o comm=`, { encoding: 'utf8' }).trim();
+      return result || undefined;
+    } else if (process.platform === 'win32') {
+      const result = execSync(
+        `wmic process where ProcessId=${ppid} get Name /format:value`,
+        { encoding: 'utf8' }
+      );
+      const match = result.match(/Name=(.+)/);
+      return match ? match[1].trim() : undefined;
+    }
+  } catch {
+    // Ignore errors - parent process detection is best-effort
+  }
+  return undefined;
+}
+
+/**
+ * Detect client identity based on environment and parent process.
+ */
+function detectClientIdentity(): ClientIdentity {
+  const pid = process.pid;
+  const parentProcess = getParentProcessName();
+
+  // Check for Claude Code (sets CLAUDE_CODE_VERSION or similar env vars)
+  if (process.env.CLAUDE_CODE_ENTRYPOINT || parentProcess?.includes('claude')) {
+    return {
+      name: 'claude-code',
+      version: process.env.CLAUDE_CODE_VERSION,
+      pid,
+      parentProcess,
+    };
+  }
+
+  // Check for Codex CLI
+  if (process.env.CODEX_HOME || parentProcess?.includes('codex')) {
+    return {
+      name: 'codex-cli',
+      version: process.env.CODEX_VERSION,
+      pid,
+      parentProcess,
+    };
+  }
+
+  // Check for Cursor
+  if (parentProcess?.toLowerCase().includes('cursor')) {
+    return {
+      name: 'cursor',
+      pid,
+      parentProcess,
+    };
+  }
+
+  // Check for Windsurf
+  if (parentProcess?.toLowerCase().includes('windsurf')) {
+    return {
+      name: 'windsurf',
+      pid,
+      parentProcess,
+    };
+  }
+
+  // Unknown client - use parent process name if available
+  return {
+    name: parentProcess || 'unknown',
+    pid,
+    parentProcess,
+  };
 }
 
 /**
@@ -162,6 +241,7 @@ function jsonSchemaToZod(inputSchema: JsonSchemaInput): z.ZodObject<Record<strin
  */
 async function main(): Promise<void> {
   const { port } = parseArgs();
+  const clientIdentity = detectClientIdentity();
 
   // Create WebSocket bridge to connect to VMark
   const bridge = new WebSocketBridge({
@@ -171,6 +251,7 @@ async function main(): Promise<void> {
     reconnectDelay: 2000, // Start with 2 second delay
     maxReconnectDelay: 60000, // Max 1 minute between attempts
     logger,
+    clientIdentity,
   });
 
   // Create the VMark MCP server with all tools

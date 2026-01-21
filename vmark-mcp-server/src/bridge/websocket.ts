@@ -30,6 +30,20 @@ const nullLogger: Logger = {
 };
 
 /**
+ * Client identification sent during WebSocket handshake.
+ */
+export interface ClientIdentity {
+  /** Client name (e.g., "claude-code", "codex-cli", "cursor") */
+  name: string;
+  /** Client version */
+  version?: string;
+  /** Process ID */
+  pid?: number;
+  /** Parent process name (helps identify which AI spawned this) */
+  parentProcess?: string;
+}
+
+/**
  * Configuration for WebSocketBridge.
  */
 export interface WebSocketBridgeConfig {
@@ -55,6 +69,8 @@ export interface WebSocketBridgeConfig {
   queueWhileDisconnected?: boolean;
   /** Maximum queue size when disconnected (default: 100) */
   maxQueueSize?: number;
+  /** Client identity for VMark to identify who is connecting */
+  clientIdentity?: ClientIdentity;
 }
 
 /**
@@ -99,6 +115,7 @@ export class WebSocketBridge implements Bridge {
   private readonly maxRequestsPerSecond: number;
   private readonly queueWhileDisconnected: boolean;
   private readonly maxQueueSize: number;
+  private readonly clientIdentity: ClientIdentity | null;
 
   private ws: WebSocket | null = null;
   private connected = false;
@@ -129,6 +146,7 @@ export class WebSocketBridge implements Bridge {
     this.maxRequestsPerSecond = config.maxRequestsPerSecond ?? 100;
     this.queueWhileDisconnected = config.queueWhileDisconnected ?? false;
     this.maxQueueSize = config.maxQueueSize ?? 100;
+    this.clientIdentity = config.clientIdentity ?? null;
 
     // Initialize rate limiter
     this.rateLimitTokens = this.maxRequestsPerSecond;
@@ -224,6 +242,21 @@ export class WebSocketBridge implements Bridge {
           this.connected = true;
           this.connecting = false;
           this.reconnectAttempts = 0;
+
+          // Send client identification if configured
+          if (this.clientIdentity) {
+            const identifyMsg = {
+              id: 'identify',
+              type: 'identify',
+              payload: this.clientIdentity,
+            };
+            try {
+              this.ws!.send(JSON.stringify(identifyMsg));
+            } catch (error) {
+              this.logger.warn('Failed to send identify message:', error);
+            }
+          }
+
           this.notifyConnectionChange(true);
 
           // Flush queued requests after reconnection

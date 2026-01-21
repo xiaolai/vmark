@@ -1,8 +1,10 @@
 /**
  * MCP Bridge - WebSocket server for AI assistant communication.
  *
- * Provides a WebSocket server that the MCP sidecar connects to.
- * Forwards requests to the frontend and returns responses.
+ * Provides a WebSocket server that MCP sidecars connect to.
+ * Access model:
+ * - Read operations: All clients can execute simultaneously
+ * - Write operations: Serialized via write lock, released after each write
  */
 
 use futures_util::{SinkExt, StreamExt};
@@ -10,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
@@ -25,8 +28,6 @@ pub struct WsMessage {
 }
 
 /// MCP request from the sidecar.
-/// The request has a `type` field and other fields are the arguments.
-/// We parse it as a generic JSON Value and extract the type separately.
 #[derive(Clone, Debug)]
 pub struct McpRequest {
     pub request_type: String,
@@ -34,7 +35,6 @@ pub struct McpRequest {
 }
 
 impl McpRequest {
-    /// Parse from JSON value, extracting type and collecting other fields as args.
     fn from_value(value: serde_json::Value) -> Result<Self, String> {
         let obj = value.as_object().ok_or("Request must be an object")?;
 
@@ -44,7 +44,6 @@ impl McpRequest {
             .ok_or("Request must have a 'type' field")?
             .to_string();
 
-        // Collect all other fields as args
         let mut args = serde_json::Map::new();
         for (key, val) in obj.iter() {
             if key != "type" {
@@ -87,14 +86,65 @@ pub struct McpResponsePayload {
     pub error: Option<String>,
 }
 
+/// Client identity information sent during handshake.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+struct ClientIdentity {
+    /// Client name (e.g., "claude-code", "codex-cli", "cursor")
+    name: String,
+    /// Client version
+    #[serde(default)]
+    version: Option<String>,
+    /// Process ID
+    #[serde(default)]
+    #[allow(dead_code)]
+    pid: Option<u32>,
+    /// Parent process name
+    #[serde(rename = "parentProcess")]
+    #[serde(default)]
+    #[allow(dead_code)]
+    parent_process: Option<String>,
+}
+
+impl ClientIdentity {
+    /// Get display name for logging.
+    fn display_name(&self) -> String {
+        if let Some(ref version) = self.version {
+            format!("{} v{}", self.name, version)
+        } else {
+            self.name.clone()
+        }
+    }
+}
+
+/// Connected client information.
+struct ClientConnection {
+    #[allow(dead_code)]
+    id: u64,
+    #[allow(dead_code)]
+    addr: SocketAddr,
+    tx: mpsc::UnboundedSender<String>,
+    shutdown: Option<oneshot::Sender<()>>,
+    #[allow(dead_code)]
+    connected_at: Instant,
+    /// Client identity (set after identify message)
+    identity: Option<ClientIdentity>,
+}
+
 /// Bridge state shared across connections.
 struct BridgeState {
+    /// All connected clients (equal access for reads).
+    clients: HashMap<u64, ClientConnection>,
     /// Pending requests waiting for responses from frontend.
-    pending: HashMap<String, oneshot::Sender<McpResponse>>,
-    /// Channel to send messages to the connected client.
-    client_tx: Option<mpsc::UnboundedSender<String>>,
-    /// Shutdown signal for the current connection (to close old connections when new one arrives).
-    connection_shutdown: Option<oneshot::Sender<()>>,
+    pending: HashMap<String, PendingRequest>,
+    /// Counter for generating unique client IDs.
+    next_client_id: u64,
+}
+
+/// Pending request with client ID for routing response.
+struct PendingRequest {
+    response_tx: oneshot::Sender<McpResponse>,
+    #[allow(dead_code)]
+    client_id: u64,
 }
 
 /// Global bridge state.
@@ -104,24 +154,56 @@ static BRIDGE_STATE: std::sync::OnceLock<Arc<Mutex<BridgeState>>> = std::sync::O
 static SHUTDOWN_TX: std::sync::OnceLock<Arc<RwLock<Option<oneshot::Sender<()>>>>> =
     std::sync::OnceLock::new();
 
-/// Initialize the bridge state.
+/// Write lock for serializing write operations.
+/// All clients can read simultaneously, but writes are serialized.
+static WRITE_LOCK: std::sync::OnceLock<Arc<tokio::sync::Mutex<()>>> = std::sync::OnceLock::new();
+
 fn get_bridge_state() -> Arc<Mutex<BridgeState>> {
     BRIDGE_STATE
         .get_or_init(|| {
             Arc::new(Mutex::new(BridgeState {
+                clients: HashMap::new(),
                 pending: HashMap::new(),
-                client_tx: None,
-                connection_shutdown: None,
+                next_client_id: 1,
             }))
         })
         .clone()
 }
 
-/// Get or initialize the shutdown signal holder.
 fn get_shutdown_holder() -> Arc<RwLock<Option<oneshot::Sender<()>>>> {
     SHUTDOWN_TX
         .get_or_init(|| Arc::new(RwLock::new(None)))
         .clone()
+}
+
+fn get_write_lock() -> Arc<tokio::sync::Mutex<()>> {
+    WRITE_LOCK
+        .get_or_init(|| Arc::new(tokio::sync::Mutex::new(())))
+        .clone()
+}
+
+/// Check if an operation is read-only.
+fn is_read_only_operation(request_type: &str) -> bool {
+    matches!(
+        request_type,
+        // Document read operations
+        "document.getContent"
+            | "document.search"
+            // Selection/cursor read operations
+            | "selection.get"
+            | "cursor.getContext"
+            // Metadata operations
+            | "outline.get"
+            | "metadata.get"
+            // Window/workspace read operations
+            | "windows.list"
+            | "windows.getFocused"
+            | "workspace.getDocumentInfo"
+            // Tab read operations
+            | "tabs.list"
+            | "tabs.getActive"
+            | "tabs.getInfo"
+    )
 }
 
 /// Start the MCP bridge WebSocket server.
@@ -134,7 +216,6 @@ pub async fn start_bridge(app: AppHandle, port: u16) -> Result<(), String> {
     #[cfg(debug_assertions)]
     eprintln!("[MCP Bridge] WebSocket server listening on {}", addr);
 
-    // Create shutdown channel
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
     {
         let holder = get_shutdown_holder();
@@ -144,17 +225,14 @@ pub async fn start_bridge(app: AppHandle, port: u16) -> Result<(), String> {
 
     let app_handle = app.clone();
 
-    // Spawn the server loop
     tauri::async_runtime::spawn(async move {
         loop {
             tokio::select! {
-                // Check for shutdown signal
                 _ = &mut shutdown_rx => {
                     #[cfg(debug_assertions)]
                     eprintln!("[MCP Bridge] Shutdown signal received");
                     break;
                 }
-                // Accept new connections
                 result = listener.accept() => {
                     match result {
                         Ok((stream, addr)) => {
@@ -176,28 +254,28 @@ pub async fn start_bridge(app: AppHandle, port: u16) -> Result<(), String> {
 
 /// Stop the MCP bridge WebSocket server.
 pub async fn stop_bridge() {
-    // Send shutdown signal
+    // Send shutdown signal to server loop
     let holder = get_shutdown_holder();
     let mut guard = holder.write().await;
     if let Some(tx) = guard.take() {
         let _ = tx.send(());
     }
-    drop(guard); // Release lock before acquiring bridge state lock
+    drop(guard);
 
-    // Clear client connection
+    // Close all client connections
     let state = get_bridge_state();
     let mut guard = state.lock().await;
 
-    // Signal current connection to close
-    if let Some(shutdown_tx) = guard.connection_shutdown.take() {
-        let _ = shutdown_tx.send(());
+    // Shutdown all clients
+    for (_, mut client) in guard.clients.drain() {
+        if let Some(shutdown_tx) = client.shutdown.take() {
+            let _ = shutdown_tx.send(());
+        }
     }
 
-    guard.client_tx = None;
-
     // Reject all pending requests
-    for (_, tx) in guard.pending.drain() {
-        let _ = tx.send(McpResponse {
+    for (_, pending) in guard.pending.drain() {
+        let _ = pending.response_tx.send(McpResponse {
             success: false,
             data: None,
             error: Some("Bridge stopped".to_string()),
@@ -207,20 +285,6 @@ pub async fn stop_bridge() {
 
 /// Handle a single WebSocket connection.
 async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) {
-    // Check if there's already an active connection BEFORE accepting WebSocket
-    {
-        let state = get_bridge_state();
-        let guard = state.lock().await;
-        if guard.client_tx.is_some() {
-            // Already have an active connection - reject this one silently
-            // Don't even complete the WebSocket handshake to avoid triggering reconnect
-            #[cfg(debug_assertions)]
-            eprintln!("[MCP Bridge] Rejecting connection from {} - already have active client", addr);
-            drop(stream); // Close the TCP connection
-            return;
-        }
-    }
-
     let ws_stream = match accept_async(stream).await {
         Ok(ws) => ws,
         Err(e) => {
@@ -238,25 +302,42 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
     // Create shutdown channel for this connection
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
 
-    // Store the sender in bridge state
-    // Double-check no one else connected while we were doing the handshake
-    {
+    // Register client
+    let client_id = {
         let state = get_bridge_state();
         let mut guard = state.lock().await;
 
-        if guard.client_tx.is_some() {
-            // Race condition: someone else connected while we were handshaking
-            #[cfg(debug_assertions)]
-            eprintln!("[MCP Bridge] Rejecting connection from {} - another client connected during handshake", addr);
-            return;
-        }
+        let client_id = guard.next_client_id;
+        guard.next_client_id += 1;
 
-        guard.client_tx = Some(tx);
-        guard.connection_shutdown = Some(shutdown_tx);
-    }
+        let client = ClientConnection {
+            id: client_id,
+            addr,
+            tx: tx.clone(),
+            shutdown: Some(shutdown_tx),
+            connected_at: Instant::now(),
+            identity: None,
+        };
+
+        guard.clients.insert(client_id, client);
+        client_id
+    };
 
     #[cfg(debug_assertions)]
-    eprintln!("[MCP Bridge] Client connected from {}", addr);
+    eprintln!("[MCP Bridge] Client {} connected from {}", client_id, addr);
+
+    // Send welcome notification to client
+    let welcome_msg = WsMessage {
+        id: "system".to_string(),
+        msg_type: "status".to_string(),
+        payload: serde_json::json!({
+            "connected": true,
+            "clientId": client_id,
+        }),
+    };
+    if let Ok(msg_str) = serde_json::to_string(&welcome_msg) {
+        let _ = tx.send(msg_str);
+    }
 
     // Spawn task to forward messages from channel to WebSocket
     let send_task = tauri::async_runtime::spawn(async move {
@@ -267,37 +348,35 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
         }
     });
 
-    // Process incoming messages until disconnect or shutdown signal
+    // Process incoming messages
     loop {
         tokio::select! {
-            // Check for shutdown signal (bridge stopping)
             _ = &mut shutdown_rx => {
                 #[cfg(debug_assertions)]
-                eprintln!("[MCP Bridge] Connection {} closing due to bridge shutdown", addr);
+                eprintln!("[MCP Bridge] Client {} closing due to shutdown", client_id);
                 break;
             }
-            // Process incoming messages
             result = ws_receiver.next() => {
                 match result {
                     Some(Ok(Message::Text(text))) => {
-                        if let Err(e) = handle_message(&text, &app).await {
+                        if let Err(e) = handle_message(&text, client_id, &app).await {
                             #[cfg(debug_assertions)]
-                            eprintln!("[MCP Bridge] Error handling message: {}", e);
+                            eprintln!("[MCP Bridge] Error handling message from client {}: {}", client_id, e);
                         }
                     }
                     Some(Ok(Message::Close(_))) => {
                         #[cfg(debug_assertions)]
-                        eprintln!("[MCP Bridge] Client {} disconnected", addr);
+                        eprintln!("[MCP Bridge] Client {} disconnected", client_id);
                         break;
                     }
                     Some(Err(e)) => {
                         #[cfg(debug_assertions)]
-                        eprintln!("[MCP Bridge] WebSocket error from {}: {}", addr, e);
+                        eprintln!("[MCP Bridge] WebSocket error from client {}: {}", client_id, e);
                         break;
                     }
                     None => {
                         #[cfg(debug_assertions)]
-                        eprintln!("[MCP Bridge] Connection {} stream ended", addr);
+                        eprintln!("[MCP Bridge] Client {} stream ended", client_id);
                         break;
                     }
                     _ => {}
@@ -306,30 +385,84 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
         }
     }
 
-    // Cleanup - clear state so new connections can be accepted
+    // Cleanup
     {
         let state = get_bridge_state();
         let mut guard = state.lock().await;
-        guard.client_tx = None;
-        guard.connection_shutdown = None;
 
-        #[cfg(debug_assertions)]
-        eprintln!("[MCP Bridge] Connection slot released, ready for new client");
+        if let Some(client) = guard.clients.remove(&client_id) {
+            #[cfg(debug_assertions)]
+            {
+                let name = client
+                    .identity
+                    .as_ref()
+                    .map(|i| i.display_name())
+                    .unwrap_or_else(|| format!("Client {}", client_id));
+                eprintln!(
+                    "[MCP Bridge] {} disconnected. Remaining clients: {}",
+                    name,
+                    guard.clients.len()
+                );
+            }
+        }
     }
 
     send_task.abort();
 }
 
 /// Handle an incoming WebSocket message.
-async fn handle_message(text: &str, app: &AppHandle) -> Result<(), String> {
+async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(), String> {
     let msg: WsMessage =
         serde_json::from_str(text).map_err(|e| format!("Invalid message format: {}", e))?;
+
+    // Handle identify message (client sends this after connecting)
+    if msg.msg_type == "identify" {
+        if let Ok(identity) = serde_json::from_value::<ClientIdentity>(msg.payload) {
+            let state = get_bridge_state();
+            let mut guard = state.lock().await;
+
+            if let Some(client) = guard.clients.get_mut(&client_id) {
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "[MCP Bridge] Client {} identified as {}",
+                    client_id,
+                    identity.display_name()
+                );
+                client.identity = Some(identity);
+            }
+        }
+        return Ok(());
+    }
 
     if msg.msg_type != "request" {
         return Ok(());
     }
 
     let request = McpRequest::from_value(msg.payload.clone())?;
+    let is_read = is_read_only_operation(&request.request_type);
+
+    // Get client's tx channel
+    let client_tx = {
+        let state = get_bridge_state();
+        let guard = state.lock().await;
+        guard.clients.get(&client_id).map(|c| c.tx.clone())
+    };
+
+    let client_tx = client_tx.ok_or("Client not found")?;
+
+    // For write operations, acquire the write lock
+    // This serializes writes while allowing concurrent reads
+    let write_lock = get_write_lock();
+    let _write_guard = if is_read {
+        None
+    } else {
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "[MCP Bridge] Client {} acquiring write lock for {}",
+            client_id, request.request_type
+        );
+        Some(write_lock.lock().await)
+    };
 
     // Create a oneshot channel for the response
     let (response_tx, response_rx) = oneshot::channel();
@@ -338,13 +471,19 @@ async fn handle_message(text: &str, app: &AppHandle) -> Result<(), String> {
     {
         let state = get_bridge_state();
         let mut guard = state.lock().await;
-        guard.pending.insert(msg.id.clone(), response_tx);
+        guard.pending.insert(
+            msg.id.clone(),
+            PendingRequest {
+                response_tx,
+                client_id,
+            },
+        );
     }
 
     // Emit event to frontend
     let event = McpRequestEvent {
         id: msg.id.clone(),
-        request_type: request.request_type,
+        request_type: request.request_type.clone(),
         args: request.args,
     };
 
@@ -357,7 +496,17 @@ async fn handle_message(text: &str, app: &AppHandle) -> Result<(), String> {
         .map_err(|_| "Request timeout".to_string())?
         .map_err(|_| "Response channel closed".to_string())?;
 
-    // Send response back to sidecar
+    #[cfg(debug_assertions)]
+    if !is_read {
+        eprintln!(
+            "[MCP Bridge] Client {} releasing write lock for {}",
+            client_id, request.request_type
+        );
+    }
+
+    // Write lock is automatically released here when _write_guard is dropped
+
+    // Send response back to client
     let ws_response = WsMessage {
         id: msg.id,
         msg_type: "response".to_string(),
@@ -367,12 +516,9 @@ async fn handle_message(text: &str, app: &AppHandle) -> Result<(), String> {
     let response_json =
         serde_json::to_string(&ws_response).map_err(|e| format!("Failed to serialize: {}", e))?;
 
-    let state = get_bridge_state();
-    let guard = state.lock().await;
-    if let Some(tx) = &guard.client_tx {
-        tx.send(response_json)
-            .map_err(|e| format!("Failed to send response: {}", e))?;
-    }
+    client_tx
+        .send(response_json)
+        .map_err(|e| format!("Failed to send response: {}", e))?;
 
     Ok(())
 }
@@ -383,22 +529,33 @@ pub async fn mcp_bridge_respond(payload: McpResponsePayload) -> Result<(), Strin
     let state = get_bridge_state();
     let mut guard = state.lock().await;
 
-    if let Some(tx) = guard.pending.remove(&payload.id) {
+    if let Some(pending) = guard.pending.remove(&payload.id) {
         let response = McpResponse {
             success: payload.success,
             data: payload.data,
             error: payload.error,
         };
-        tx.send(response).map_err(|_| "Response channel closed")?;
+        pending
+            .response_tx
+            .send(response)
+            .map_err(|_| "Response channel closed")?;
     }
 
     Ok(())
 }
 
-/// Check if the bridge has a connected client.
+/// Check if the bridge has any connected clients.
 #[allow(dead_code)]
 pub async fn is_client_connected() -> bool {
     let state = get_bridge_state();
     let guard = state.lock().await;
-    guard.client_tx.is_some()
+    !guard.clients.is_empty()
+}
+
+/// Get count of connected clients.
+#[allow(dead_code)]
+pub async fn client_count() -> usize {
+    let state = get_bridge_state();
+    let guard = state.lock().await;
+    guard.clients.len()
 }
