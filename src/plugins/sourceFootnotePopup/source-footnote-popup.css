@@ -108,15 +108,16 @@
   outline: none;
 }
 
-.source-footnote-popup-btn:focus-visible::after {
+.source-footnote-popup-btn:focus::after {
   content: "";
   position: absolute;
   bottom: 2px;
   left: 4px;
   right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
+  height: 4px;
+  background: transparent;
+  border-bottom: 2px solid var(--primary-color, #0066cc);
+  border-radius: 0 0 4px 4px;
 }
 
 .source-footnote-popup-btn svg {
