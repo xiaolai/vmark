@@ -6,7 +6,7 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import { applyFormat } from "@/plugins/sourceFormatPopup";
+import { applyFormat } from "@/plugins/sourceContextDetection";
 import { useHeadingPickerStore } from "@/stores/headingPickerStore";
 import { generateSlug, makeUniqueSlug, type HeadingWithId } from "@/utils/headingSlug";
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";

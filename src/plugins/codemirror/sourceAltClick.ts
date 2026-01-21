@@ -6,7 +6,7 @@
 
 import { EditorView } from "@codemirror/view";
 import { EditorSelection, SelectionRange } from "@codemirror/state";
-import { getCodeFenceInfo } from "@/plugins/sourceFormatPopup/codeFenceDetection";
+import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
 
 /**
  * Check if a position is within any existing cursor range.

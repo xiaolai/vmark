@@ -68,13 +68,12 @@ import "@/plugins/codemirror/source-table.css";
 import "@/plugins/codemirror/source-blocks.css";
 import "@/plugins/mermaidPreview/mermaid-preview.css";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
-import { toggleTaskList } from "@/plugins/sourceFormatPopup/taskListActions";
+import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { guardCodeMirrorKeyBinding, runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
-import { computeSourceCursorContext } from "@/plugins/sourceFormatPopup/cursorContext";
+import { computeSourceCursorContext } from "@/plugins/sourceContextDetection/cursorContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
 import { createSourceImagePopupPlugin } from "@/plugins/sourceImagePopup";
 import { createSourceLinkPopupPlugin } from "@/plugins/sourceLinkPopup";
-import { createSourceMathPopupPlugin } from "@/plugins/sourceMathPopup";
 import { createSourceWikiLinkPopupPlugin } from "@/plugins/sourceWikiLinkPopup";
 import { createSourceFootnotePopupPlugin } from "@/plugins/sourceFootnotePopup";
 
@@ -322,8 +321,6 @@ export function SourceEditor() {
         createSourceImagePopupPlugin(),
         // Link popup editor
         createSourceLinkPopupPlugin(),
-        // Math popup editor
-        createSourceMathPopupPlugin(),
         // Wiki link popup editor
         createSourceWikiLinkPopupPlugin(),
         // Footnote popup editor

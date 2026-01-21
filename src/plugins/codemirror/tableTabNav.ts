@@ -6,8 +6,8 @@
  */
 
 import type { EditorView, KeyBinding } from "@codemirror/view";
-import { getSourceTableInfo, isInEditableTableRow } from "@/plugins/sourceFormatPopup/tableDetection";
-import { insertRowBelow } from "@/plugins/sourceFormatPopup/tableActions";
+import { getSourceTableInfo, isInEditableTableRow } from "@/plugins/sourceContextDetection/tableDetection";
+import { insertRowBelow } from "@/plugins/sourceContextDetection/tableActions";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 
 export interface CellBoundary {

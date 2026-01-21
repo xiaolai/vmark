@@ -17,7 +17,7 @@ import {
   getSourceSelectionRange,
   getSourceWordRange,
 } from "@/utils/sourceSelection";
-import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sourceFormatPopup/headingDetection";
+import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sourceContextDetection/headingDetection";
 import { isTerminalFocused } from "@/utils/focus";
 
 const ALERT_ACTIONS = [

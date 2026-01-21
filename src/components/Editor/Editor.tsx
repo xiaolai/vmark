@@ -12,7 +12,6 @@ import "@/plugins/linkPopup/link-popup.css";
 import "@/plugins/imagePopup/image-popup.css";
 import "@/plugins/sourceImagePopup/source-image-popup.css";
 import "@/plugins/sourceLinkPopup/source-link-popup.css";
-import "@/plugins/sourceMathPopup/source-math-popup.css";
 import "@/plugins/sourceWikiLinkPopup/source-wiki-link-popup.css";
 import "@/plugins/sourceFootnotePopup/source-footnote-popup.css";
 import "@/plugins/mathPopup/math-popup.css";

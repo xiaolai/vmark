@@ -13,7 +13,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { getSourceTableInfo } from "@/plugins/sourceFormatPopup/tableDetection";
+import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
 
 /**
  * Get the character range of the current cell within the table row.

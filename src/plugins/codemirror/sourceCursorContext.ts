@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
-import { computeSourceCursorContext } from "@/plugins/sourceFormatPopup/cursorContext";
+import { computeSourceCursorContext } from "@/plugins/sourceContextDetection/cursorContext";
 
 export function createSourceCursorContextPlugin() {
   return EditorView.updateListener.of((update) => {

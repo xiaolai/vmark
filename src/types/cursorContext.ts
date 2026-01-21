@@ -6,7 +6,7 @@
  * this interface with their own detection logic.
  */
 
-import type { FormatType } from "@/plugins/sourceFormatPopup/formatTypes";
+import type { FormatType } from "@/plugins/sourceContextDetection/formatTypes";
 
 /**
  * Code block context (code fence in source, code block node in WYSIWYG)

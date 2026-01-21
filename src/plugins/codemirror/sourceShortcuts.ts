@@ -15,9 +15,9 @@ import { copyAsHtml } from "@/hooks/useExportOperations";
 import { formatMarkdown, formatSelection } from "@/lib/cjkFormatter";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
-import { getHeadingInfo, setHeadingLevel, convertToHeading } from "@/plugins/sourceFormatPopup/headingDetection";
-import { getListItemInfo, toBulletList, toOrderedList, toTaskList, removeList } from "@/plugins/sourceFormatPopup/listDetection";
-import { getBlockquoteInfo, removeBlockquote } from "@/plugins/sourceFormatPopup/blockquoteDetection";
+import { getHeadingInfo, setHeadingLevel, convertToHeading } from "@/plugins/sourceContextDetection/headingDetection";
+import { getListItemInfo, toBulletList, toOrderedList, toTaskList, removeList } from "@/plugins/sourceContextDetection/listDetection";
+import { getBlockquoteInfo, removeBlockquote } from "@/plugins/sourceContextDetection/blockquoteDetection";
 
 function buildSourceContext(view: EditorView) {
   const cursorContext = useSourceCursorContextStore.getState().context;

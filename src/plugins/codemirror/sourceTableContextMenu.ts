@@ -22,7 +22,7 @@ import {
   formatTable,
   type SourceTableInfo,
   type TableAlignment,
-} from "@/plugins/sourceFormatPopup/tableDetection";
+} from "@/plugins/sourceContextDetection/tableDetection";
 
 interface MenuAction {
   label: string;

@@ -7,10 +7,10 @@
 
 import { EditorSelection } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { applyFormat, type FormatType } from "@/plugins/sourceFormatPopup";
-import { clearAllFormatting } from "@/plugins/sourceFormatPopup/clearFormatting";
-import { applyInlineFormatToSelections } from "@/plugins/sourceFormatPopup/formatMultiSelection";
-import { FORMAT_MARKERS, type WrapFormatType } from "@/plugins/sourceFormatPopup/formatTypes";
+import { applyFormat, type FormatType } from "@/plugins/sourceContextDetection";
+import { clearAllFormatting } from "@/plugins/sourceContextDetection/clearFormatting";
+import { applyInlineFormatToSelections } from "@/plugins/sourceContextDetection/formatMultiSelection";
+import { FORMAT_MARKERS, type WrapFormatType } from "@/plugins/sourceContextDetection/formatTypes";
 import { findWordBoundaries } from "@/utils/wordSegmentation";
 
 /**
