@@ -97,8 +97,15 @@ function buildAlertDecorations(view: EditorView): DecorationSet {
 
     for (let lineNum = block.startLine; lineNum <= block.endLine; lineNum++) {
       const line = doc.line(lineNum);
+      const classes = ["cm-alert-line", typeClass];
+
+      // Add special class for the first line (shows icon)
+      if (lineNum === block.startLine) {
+        classes.push("cm-alert-first");
+      }
+
       const decoration = Decoration.line({
-        class: `cm-alert-line ${typeClass}`,
+        class: classes.join(" "),
       });
       builder.add(line.from, line.from, decoration);
     }
