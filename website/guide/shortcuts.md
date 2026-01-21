@@ -77,7 +77,7 @@ VMark is designed for keyboard-first workflows. All shortcuts can be customized 
 
 | Action | Shortcut |
 |--------|----------|
-| Toggle Source Mode | `Mod + /` or `F7` |
+| Toggle Source Mode | `Mod + /` |
 | Focus Mode | `F8` |
 | Typewriter Mode | `F9` |
 | Word Wrap | `Alt + Z` |

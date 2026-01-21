@@ -22,7 +22,7 @@ Switch to raw Markdown editing with full syntax highlighting:
 - Familiar text editor experience
 - Perfect for advanced users
 
-Toggle between modes with `F7` or `Cmd/Ctrl + /`.
+Toggle between modes with `Cmd/Ctrl + /`.
 
 ## Text Formatting
 

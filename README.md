@@ -84,7 +84,7 @@ vmark/
 
 | Shortcut | Action |
 |----------|--------|
-| `F7` or `Cmd/Ctrl + /` | Toggle Rich Text / Source Mode |
+| `Cmd/Ctrl + /` | Toggle Rich Text / Source Mode |
 | `F8` | Toggle Focus Mode |
 | `F9` | Toggle Typewriter Mode |
 | `F10` | Toggle Word Wrap |

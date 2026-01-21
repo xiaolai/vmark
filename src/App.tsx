@@ -135,7 +135,7 @@ function MainLayout() {
   useAutoSave(); // Auto-save when dirty
   useRecentFilesSync(); // Sync recent files to native menu
   useDisableContextMenu(); // Disable browser context menu
-  useViewShortcuts(); // F7, F8, F9 shortcuts
+  useViewShortcuts(); // F8, F9 view shortcuts
   useTabShortcuts(); // Cmd+T, Cmd+W tab shortcuts
   useReloadGuard(); // Prevent reload when dirty
   useUniversalToolbar(); // Universal toolbar toggle (shortcut configurable)
