@@ -7,7 +7,9 @@
 
 import type { EditorView } from "@codemirror/view";
 import { applyFormat } from "@/plugins/sourceContextDetection";
+import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { useHeadingPickerStore } from "@/stores/headingPickerStore";
+import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { generateSlug, makeUniqueSlug, type HeadingWithId } from "@/utils/headingSlug";
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
 import { readClipboardUrl } from "@/utils/clipboardUrl";
@@ -33,6 +35,89 @@ export function findWordAtCursorSource(
     from: line.from + boundaries.start,
     to: line.from + boundaries.end,
   };
+}
+
+/**
+ * Link range result from detection.
+ */
+interface LinkRange {
+  from: number;
+  to: number;
+  href: string;
+  text: string;
+}
+
+/**
+ * Find markdown link at cursor position.
+ * Detects: [text](url) or [text](url "title")
+ * Does NOT match image syntax ![...](...) or wiki-links [[...]]
+ */
+function findLinkAtCursor(view: EditorView, pos: number): LinkRange | null {
+  const doc = view.state.doc;
+  const line = doc.lineAt(pos);
+  const lineText = line.text;
+  const lineStart = line.from;
+
+  // Regex to match link syntax (not images):
+  // - [text](url) or [text](url "title")
+  // - [text](<url with spaces>) or [text](<url> "title")
+  // Captures: [1] = text, [2] = angle bracket url, [3] = url
+  const linkRegex = /\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+"[^"]*")?\)/g;
+
+  let match;
+  while ((match = linkRegex.exec(lineText)) !== null) {
+    const matchStart = lineStart + match.index;
+    const matchEnd = matchStart + match[0].length;
+
+    // Skip if this is an image (preceded by !)
+    if (match.index > 0 && lineText[match.index - 1] === "!") {
+      continue;
+    }
+
+    // Check if cursor is inside this link markdown
+    if (pos >= matchStart && pos <= matchEnd) {
+      const text = match[1];
+      const href = match[2] || match[3];
+
+      return {
+        from: matchStart,
+        to: matchEnd,
+        href,
+        text,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Show the link popup for an existing link at cursor position.
+ * Returns true if popup was shown, false if not inside a link.
+ */
+function showLinkPopupForExistingLink(view: EditorView): boolean {
+  const { from } = view.state.selection.main;
+  const link = findLinkAtCursor(view, from);
+
+  if (!link) {
+    return false;
+  }
+
+  // Get anchor rect for popup positioning
+  const anchorRect = getAnchorRectFromRange(view, link.from, link.to);
+  if (!anchorRect) {
+    return false;
+  }
+
+  // Open the link popup
+  useLinkPopupStore.getState().openPopup({
+    href: link.href,
+    linkFrom: link.from,
+    linkTo: link.to,
+    anchorRect,
+  });
+
+  return true;
 }
 
 /**
@@ -80,6 +165,7 @@ function insertLinkTemplate(
  * Insert a markdown hyperlink with smart clipboard URL detection.
  *
  * Behavior:
+ * - Cursor inside existing link → show popup for editing
  * - Has selection + clipboard URL → [selection](clipboard_url)
  * - Has selection, no URL → [selection](url) with cursor in url
  * - No selection, word at cursor + clipboard URL → [word](clipboard_url)
@@ -88,8 +174,14 @@ function insertLinkTemplate(
  * - No selection, no word, no URL → [](url) with cursor in text
  */
 export async function insertLink(view: EditorView): Promise<boolean> {
-  const clipboardUrl = await readClipboardUrl();
   const { from, to } = view.state.selection.main;
+
+  // Case 0: Cursor inside existing link - show popup for editing
+  if (from === to && showLinkPopupForExistingLink(view)) {
+    return true;
+  }
+
+  const clipboardUrl = await readClipboardUrl();
 
   // Case 1: Has selection
   if (from !== to) {
