@@ -51,6 +51,15 @@ const lightModeColors = {
   "--source-mode-bg": "rgba(0, 0, 0, 0.02)",
   "--error-color": "#cf222e",
   "--error-bg": "#ffebe9",
+  // Alert block colors
+  "--alert-note": "#0969da",
+  "--alert-tip": "#1a7f37",
+  "--alert-important": "#8250df",
+  "--alert-warning": "#9a6700",
+  "--alert-caution": "#cf222e",
+  // Highlight mark
+  "--highlight-bg": "#fff3a3",
+  "--highlight-text": "inherit",
 };
 
 /** Dark mode color defaults */
@@ -69,6 +78,15 @@ const darkModeColors = {
   "--source-mode-bg": "rgba(255, 255, 255, 0.02)",
   "--error-color": "#f85149",
   "--error-bg": "rgba(248, 81, 73, 0.15)",
+  // Alert block colors (lighter for dark mode)
+  "--alert-note": "#58a6ff",
+  "--alert-tip": "#3fb950",
+  "--alert-important": "#a371f7",
+  "--alert-warning": "#d29922",
+  "--alert-caution": "#f85149",
+  // Highlight mark (darker background for dark mode)
+  "--highlight-bg": "#5c5c00",
+  "--highlight-text": "#fff3a3",
 };
 
 /** Apply CSS variables from a config object */
@@ -113,6 +131,15 @@ function applyModeColors(root: HTMLElement, colors: ThemeColors, isDark: boolean
       "--source-mode-bg": darkModeColors["--source-mode-bg"],
       "--error-color": darkModeColors["--error-color"],
       "--error-bg": darkModeColors["--error-bg"],
+      // Alert block colors
+      "--alert-note": darkModeColors["--alert-note"],
+      "--alert-tip": darkModeColors["--alert-tip"],
+      "--alert-important": darkModeColors["--alert-important"],
+      "--alert-warning": darkModeColors["--alert-warning"],
+      "--alert-caution": darkModeColors["--alert-caution"],
+      // Highlight mark
+      "--highlight-bg": darkModeColors["--highlight-bg"],
+      "--highlight-text": darkModeColors["--highlight-text"],
       // Subtle block background for dark mode (light overlay)
       "--block-bg-subtle": "rgba(255, 255, 255, 0.03)",
       "--block-bg-subtle-hover": "rgba(255, 255, 255, 0.05)",
@@ -121,11 +148,16 @@ function applyModeColors(root: HTMLElement, colors: ThemeColors, isDark: boolean
   } else {
     applyVars(root, {
       ...lightModeColors,
-      // Use theme's border color for bg-tertiary to harmonize with colored themes
-      "--bg-tertiary": colors.border,
-      // Use theme-specific strong/emphasis colors if defined
+      // Use theme-specific optional colors if defined, fallback to defaults
+      "--text-secondary": colors.textSecondary ?? lightModeColors["--text-secondary"],
+      "--code-text-color": colors.codeText ?? lightModeColors["--code-text-color"],
+      "--selection-color": colors.selection ?? lightModeColors["--selection-color"],
+      "--md-char-color": colors.mdChar ?? lightModeColors["--md-char-color"],
+      "--meta-content-color": colors.mdChar ?? lightModeColors["--meta-content-color"],
       "--strong-color": colors.strong ?? lightModeColors["--strong-color"],
       "--emphasis-color": colors.emphasis ?? lightModeColors["--emphasis-color"],
+      // Use theme's border color for bg-tertiary to harmonize with colored themes
+      "--bg-tertiary": colors.border,
       // Subtle block background for light mode (dark overlay)
       "--block-bg-subtle": "rgba(0, 0, 0, 0.02)",
       "--block-bg-subtle-hover": "rgba(0, 0, 0, 0.04)",

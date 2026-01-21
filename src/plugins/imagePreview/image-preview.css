@@ -49,7 +49,7 @@
 
 .image-preview-error {
   font-size: 11px;
-  color: #e53935;
+  color: var(--error-color);
   padding: 8px 16px;
   text-align: center;
 }
@@ -61,8 +61,4 @@
 /* Dark theme */
 .dark-theme .image-preview-popup {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.dark-theme .image-preview-error {
-  color: #ff6b6b;
 }

@@ -428,13 +428,8 @@
   min-width: 40px;
   min-height: 20px;
   background: var(--bg-secondary);
-  border: 1px dashed #e53935;
+  border: 1px dashed var(--error-color);
   cursor: help;
-}
-
-/* Dark theme inline image error */
-.dark-theme .tiptap-editor img.inline-image.image-error {
-  border-color: #ff6b6b;
 }
 
 /* Media border styles - applied to editor container */

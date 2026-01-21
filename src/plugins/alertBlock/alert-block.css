@@ -52,12 +52,12 @@
 
 /* ===================
    NOTE - Blue
-   Use semi-transparent backgrounds for better theme compatibility
+   Use global tokens for automatic dark mode support
    =================== */
 .alert-note {
-  --alert-border: #0969da;
-  --alert-bg: rgba(9, 105, 218, 0.1);
-  --alert-title: #0969da;
+  --alert-border: var(--alert-note);
+  --alert-bg: color-mix(in srgb, var(--alert-note) 10%, transparent);
+  --alert-title: var(--alert-note);
 }
 
 .alert-note .alert-title::before {
@@ -69,9 +69,9 @@
    TIP - Green
    =================== */
 .alert-tip {
-  --alert-border: #1a7f37;
-  --alert-bg: rgba(26, 127, 55, 0.1);
-  --alert-title: #1a7f37;
+  --alert-border: var(--alert-tip);
+  --alert-bg: color-mix(in srgb, var(--alert-tip) 10%, transparent);
+  --alert-title: var(--alert-tip);
 }
 
 .alert-tip .alert-title::before {
@@ -83,9 +83,9 @@
    IMPORTANT - Purple
    =================== */
 .alert-important {
-  --alert-border: #8250df;
-  --alert-bg: rgba(130, 80, 223, 0.1);
-  --alert-title: #8250df;
+  --alert-border: var(--alert-important);
+  --alert-bg: color-mix(in srgb, var(--alert-important) 10%, transparent);
+  --alert-title: var(--alert-important);
 }
 
 .alert-important .alert-title::before {
@@ -97,9 +97,9 @@
    WARNING - Yellow/Amber
    =================== */
 .alert-warning {
-  --alert-border: #9a6700;
-  --alert-bg: rgba(154, 103, 0, 0.1);
-  --alert-title: #9a6700;
+  --alert-border: var(--alert-warning);
+  --alert-bg: color-mix(in srgb, var(--alert-warning) 10%, transparent);
+  --alert-title: var(--alert-warning);
 }
 
 .alert-warning .alert-title::before {
@@ -111,9 +111,9 @@
    CAUTION - Red
    =================== */
 .alert-caution {
-  --alert-border: #cf222e;
-  --alert-bg: rgba(207, 34, 46, 0.1);
-  --alert-title: #cf222e;
+  --alert-border: var(--alert-caution);
+  --alert-bg: color-mix(in srgb, var(--alert-caution) 10%, transparent);
+  --alert-title: var(--alert-caution);
 }
 
 .alert-caution .alert-title::before {
@@ -121,35 +121,6 @@
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/%3E%3C/svg%3E");
 }
 
-/* ===================
-   DARK MODE - Brighter colors for visibility
-   =================== */
-.dark-theme .alert-note {
-  --alert-border: #58a6ff;
-  --alert-bg: rgba(56, 139, 253, 0.15);
-  --alert-title: #58a6ff;
-}
-
-.dark-theme .alert-tip {
-  --alert-border: #3fb950;
-  --alert-bg: rgba(46, 160, 67, 0.15);
-  --alert-title: #3fb950;
-}
-
-.dark-theme .alert-important {
-  --alert-border: #a371f7;
-  --alert-bg: rgba(163, 113, 247, 0.15);
-  --alert-title: #a371f7;
-}
-
-.dark-theme .alert-warning {
-  --alert-border: #d29922;
-  --alert-bg: rgba(187, 128, 9, 0.15);
-  --alert-title: #d29922;
-}
-
-.dark-theme .alert-caution {
-  --alert-border: #f85149;
-  --alert-bg: rgba(248, 81, 73, 0.15);
-  --alert-title: #f85149;
-}
+/* Dark mode colors are handled automatically via global tokens:
+   --alert-note, --alert-tip, --alert-important, --alert-warning, --alert-caution
+   These tokens are updated by useTheme.ts when switching between light and dark mode */

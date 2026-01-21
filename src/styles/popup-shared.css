@@ -138,7 +138,7 @@
 
 /* Danger action button (delete/remove) */
 .popup-icon-btn--danger:hover:not(:disabled) {
-  color: #e53935;
+  color: var(--error-color);
 }
 
 /* Button row container */
@@ -171,6 +171,3 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.dark-theme .popup-icon-btn--danger:hover:not(:disabled) {
-  color: #ff6b6b;
-}

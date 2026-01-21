@@ -124,14 +124,10 @@
 
 /* Delete button - danger color on hover */
 .source-link-popup-btn-delete:hover {
-  color: var(--error-color, #e53935);
+  color: var(--error-color);
 }
 
 /* Dark theme */
 .dark-theme .source-link-popup-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.dark-theme .source-link-popup-btn-delete:hover {
-  color: var(--error-color, #ff6b6b);
 }

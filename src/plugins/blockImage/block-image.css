@@ -54,7 +54,7 @@
   min-width: 100px;
   min-height: 60px;
   background: var(--bg-secondary);
-  border: 1px dashed #e53935;
+  border: 1px dashed var(--error-color);
 }
 
 .block-image.image-error::before {
@@ -64,16 +64,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 24px;
-  color: #e53935;
+  color: var(--error-color);
   pointer-events: none;
   z-index: 1;
-}
-
-/* Dark theme error */
-.dark-theme .block-image.image-error img {
-  border-color: #ff6b6b;
-}
-
-.dark-theme .block-image.image-error::before {
-  color: #ff6b6b;
 }

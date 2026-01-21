@@ -61,6 +61,21 @@
 
   /* Source mode */
   --source-mode-bg: rgba(0, 0, 0, 0.02);
+
+  /* Alert block colors */
+  --alert-note: #0969da;
+  --alert-tip: #1a7f37;
+  --alert-important: #8250df;
+  --alert-warning: #9a6700;
+  --alert-caution: var(--error-color);
+
+  /* Highlight mark */
+  --highlight-bg: #fff3a3;
+  --highlight-text: inherit;
+
+  /* Error states (default for light mode) */
+  --error-color: #cf222e;
+  --error-bg: #ffebe9;
 }
 
 /* Base styles */

@@ -58,6 +58,8 @@ import { useSearchStore } from "@/stores/searchStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
+import { useViewMenuEvents } from "@/hooks/useViewMenuEvents";
+import { useRecentFilesMenuEvents } from "@/hooks/useRecentFilesMenuEvents";
 import { useExportMenuEvents } from "@/hooks/useExportMenuEvents";
 import { useWorkspaceMenuEvents } from "@/hooks/useWorkspaceMenuEvents";
 import { useWorkspaceBootstrap } from "@/hooks/useWorkspaceBootstrap";
@@ -96,7 +98,6 @@ function DocumentWindowHooks() {
 
 // Main window specific hooks (only for "main" window, not doc-*)
 function MainWindowHooks() {
-  console.log("[Frontend] MainWindowHooks rendering");
   useMcpAutoStart(); // Auto-start MCP server if enabled
   useMcpBridge(); // Handle MCP bridge requests from AI assistants
   return null;
@@ -123,6 +124,8 @@ function MainLayout() {
   // Initialize hooks
   useWorkspaceBootstrap(); // Load config from disk on startup (must be first)
   useMenuEvents();
+  useViewMenuEvents();
+  useRecentFilesMenuEvents();
   useExportMenuEvents();
   useWorkspaceMenuEvents();
   useFileOperations();

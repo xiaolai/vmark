@@ -6,7 +6,8 @@ import type { EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { CellSelection } from "@tiptap/pm/tables";
 import { addColLeft, addColRight, addRowAbove, addRowBelow, alignColumn, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable } from "@/plugins/tableUI/tableActions.tiptap";
-import { isTerminalFocused } from "@/utils/focus";
+import { getEditorView } from "@/types/tiptap";
+import { registerMenuListener } from "@/utils/menuListenerHelper";
 
 function clearSelectedCells(view: EditorView): boolean {
   const selection = view.state.selection;
@@ -55,59 +56,38 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
       // Get current window for filtering - menu events include target window label
       const currentWindow = getCurrentWebviewWindow();
       const windowLabel = currentWindow.label;
+      const cancelledRef = { current: false };
 
-      // Helper to reduce boilerplate for menu event listeners
-      const createListener = async (
-        eventName: string,
-        handler: (editor: TiptapEditor) => void
-      ): Promise<UnlistenFn | null> => {
-        const unlisten = await currentWindow.listen<string>(eventName, (event) => {
-          if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
-          const editor = editorRef.current;
-          if (!editor) return;
-          handler(editor);
-        });
-        if (cancelled) {
-          unlisten();
-          return null;
-        }
-        return unlisten;
-      };
+      // Update cancelledRef when cancelled changes
+      const checkCancelled = () => { cancelledRef.current = cancelled; };
+      checkCancelled();
 
-      // Helper to register listener and handle cancellation
-      const registerListener = async (
-        eventName: string,
-        handler: (editor: TiptapEditor) => void
-      ): Promise<boolean> => {
-        const unlisten = await createListener(eventName, handler);
-        if (!unlisten) return false;
-        unlistenRefs.current.push(unlisten);
-        return true;
-      };
+      const ctx = { currentWindow, windowLabel, editorRef, unlistenRefs, cancelledRef };
+      const register = (eventName: string, handler: (editor: TiptapEditor) => void) =>
+        registerMenuListener(ctx, eventName, handler);
 
-      if (!(await registerListener("menu:insert-table", (editor) => {
+      if (!(await register("menu:insert-table", (editor) => {
         editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
       }))) return;
 
-      if (!(await registerListener("menu:add-row-before", (editor) => {
-        addRowAbove(editor.view as unknown as EditorView);
+      if (!(await register("menu:add-row-before", (editor) => {
+        addRowAbove(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:add-row-after", (editor) => {
-        addRowBelow(editor.view as unknown as EditorView);
+      if (!(await register("menu:add-row-after", (editor) => {
+        addRowBelow(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:add-col-before", (editor) => {
-        addColLeft(editor.view as unknown as EditorView);
+      if (!(await register("menu:add-col-before", (editor) => {
+        addColLeft(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:add-col-after", (editor) => {
-        addColRight(editor.view as unknown as EditorView);
+      if (!(await register("menu:add-col-after", (editor) => {
+        addColRight(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:delete-selected-cells", (editor) => {
-        const view = editor.view as unknown as EditorView;
+      if (!(await register("menu:delete-selected-cells", (editor) => {
+        const view = getEditorView(editor);
         if (clearSelectedCells(view)) return;
         if (!view.state.selection.empty) {
           view.dispatch(view.state.tr.deleteSelection());
@@ -115,44 +95,44 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
         }
       }))) return;
 
-      if (!(await registerListener("menu:align-left", (editor) => {
-        alignColumn(editor.view as unknown as EditorView, "left", false);
+      if (!(await register("menu:align-left", (editor) => {
+        alignColumn(getEditorView(editor), "left", false);
       }))) return;
 
-      if (!(await registerListener("menu:align-center", (editor) => {
-        alignColumn(editor.view as unknown as EditorView, "center", false);
+      if (!(await register("menu:align-center", (editor) => {
+        alignColumn(getEditorView(editor), "center", false);
       }))) return;
 
-      if (!(await registerListener("menu:align-right", (editor) => {
-        alignColumn(editor.view as unknown as EditorView, "right", false);
+      if (!(await register("menu:align-right", (editor) => {
+        alignColumn(getEditorView(editor), "right", false);
       }))) return;
 
-      if (!(await registerListener("menu:format-table", (editor) => {
-        formatTable(editor.view as unknown as EditorView);
+      if (!(await register("menu:format-table", (editor) => {
+        formatTable(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:delete-row", (editor) => {
-        deleteCurrentRow(editor.view as unknown as EditorView);
+      if (!(await register("menu:delete-row", (editor) => {
+        deleteCurrentRow(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:delete-col", (editor) => {
-        deleteCurrentColumn(editor.view as unknown as EditorView);
+      if (!(await register("menu:delete-col", (editor) => {
+        deleteCurrentColumn(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:delete-table", (editor) => {
-        deleteCurrentTable(editor.view as unknown as EditorView);
+      if (!(await register("menu:delete-table", (editor) => {
+        deleteCurrentTable(getEditorView(editor));
       }))) return;
 
-      if (!(await registerListener("menu:align-all-left", (editor) => {
-        alignColumn(editor.view as unknown as EditorView, "left", true);
+      if (!(await register("menu:align-all-left", (editor) => {
+        alignColumn(getEditorView(editor), "left", true);
       }))) return;
 
-      if (!(await registerListener("menu:align-all-center", (editor) => {
-        alignColumn(editor.view as unknown as EditorView, "center", true);
+      if (!(await register("menu:align-all-center", (editor) => {
+        alignColumn(getEditorView(editor), "center", true);
       }))) return;
 
-      if (!(await registerListener("menu:align-all-right", (editor) => {
-        alignColumn(editor.view as unknown as EditorView, "right", true);
+      if (!(await register("menu:align-all-right", (editor) => {
+        alignColumn(getEditorView(editor), "right", true);
       }))) return;
     };
 

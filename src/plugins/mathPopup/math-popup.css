@@ -53,7 +53,7 @@
 
 .math-popup-error {
   min-height: 14px;
-  color: #e53935;
+  color: var(--error-color);
   font-size: 11px;
 }
 

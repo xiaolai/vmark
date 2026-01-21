@@ -99,8 +99,8 @@
 
 /* Danger buttons (delete) */
 .table-toolbar-btn-danger:hover {
-  background: rgba(229, 57, 53, 0.1);
-  color: #e53935;
+  background: var(--error-bg);
+  color: var(--error-color);
 }
 
 /* Dark theme adjustments */
@@ -110,11 +110,6 @@
 
 .dark-theme .table-toolbar-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.dark-theme .table-toolbar-btn-danger:hover {
-  background: rgba(255, 107, 107, 0.15);
-  color: #ff6b6b;
 }
 
 /* ===========================================
@@ -201,8 +196,8 @@
 }
 
 .table-context-menu-item-danger:hover {
-  background: rgba(229, 57, 53, 0.1);
-  color: #e53935;
+  background: var(--error-bg);
+  color: var(--error-color);
 }
 
 /* Divider */
@@ -220,11 +215,6 @@
 
 .dark-theme .table-context-menu-item:hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.dark-theme .table-context-menu-item-danger:hover {
-  background: rgba(255, 107, 107, 0.15);
-  color: #ff6b6b;
 }
 
 /* ===========================================

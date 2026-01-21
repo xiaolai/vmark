@@ -57,7 +57,7 @@
 
 .math-preview-error {
   font-size: 10px;
-  color: #e53935;
+  color: var(--error-color);
   min-height: 12px;
 }
 
@@ -68,8 +68,4 @@
 /* Dark theme */
 .dark-theme .math-preview-popup {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.dark-theme .math-preview-error {
-  color: #ff6b6b;
 }

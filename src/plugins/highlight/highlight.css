@@ -2,16 +2,12 @@
  * Highlight Mark Styles
  *
  * Yellow highlighter effect for ==text== syntax.
+ * Uses global tokens for automatic dark mode support.
  */
 
 .md-highlight {
-  background-color: #fff3a3;
+  background-color: var(--highlight-bg);
+  color: var(--highlight-text);
   border-radius: 2px;
   padding: 0 2px;
-}
-
-/* Dark theme support */
-.theme-night .md-highlight {
-  background-color: #5c5c00;
-  color: #fff;
 }

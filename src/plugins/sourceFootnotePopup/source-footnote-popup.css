@@ -132,16 +132,12 @@
 
 /* Delete button - danger color on hover */
 .source-footnote-popup-btn-delete:hover {
-  color: var(--error-color, #e53935);
+  color: var(--error-color);
 }
 
 /* Dark theme */
 .dark-theme .source-footnote-popup-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.dark-theme .source-footnote-popup-btn-delete:hover {
-  color: var(--error-color, #ff6b6b);
 }
 
 .dark-theme .source-footnote-popup-label {
