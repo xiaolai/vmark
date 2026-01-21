@@ -256,9 +256,14 @@ describe("SourcePopupView", () => {
     editorDom.getBoundingClientRect = () => createMockRect();
     container.appendChild(editorDom);
 
-    // Create mock view
+    // Create mock view with contentDOM for blur support
+    const contentDOM = document.createElement("div");
+    contentDOM.contentEditable = "true";
+    editorDom.appendChild(contentDOM);
+
     mockView = {
       dom: editorDom,
+      contentDOM,
       coordsAtPos: () => ({ top: 100, left: 50, bottom: 120, right: 100 }),
       focus: vi.fn(),
     } as unknown as EditorView;
@@ -290,9 +295,9 @@ describe("SourcePopupView", () => {
     // Open popup
     emitStateChange({ isOpen: true, anchorRect });
 
-    // Verify container is attached
+    // Verify container is attached to document.body (not editor container)
     expect(popup.testContainer).not.toBeNull();
-    expect(container.contains(popup.testContainer)).toBe(true);
+    expect(document.body.contains(popup.testContainer)).toBe(true);
 
     // Simulate click outside
     const outsideEl = document.createElement("div");
@@ -383,12 +388,12 @@ describe("SourcePopupView", () => {
   it("removes container on destroy", () => {
     const popup = new TestPopupView(mockView, mockStore);
 
-    // Open popup to ensure container is attached
+    // Open popup to ensure container is attached to document.body
     emitStateChange({ isOpen: true, anchorRect: { top: 100, left: 50, bottom: 120, right: 100 } });
-    expect(container.contains(popup.testContainer)).toBe(true);
+    expect(document.body.contains(popup.testContainer)).toBe(true);
 
     popup.destroy();
 
-    expect(container.contains(popup.testContainer)).toBe(false);
+    expect(document.body.contains(popup.testContainer)).toBe(false);
   });
 });

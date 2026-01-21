@@ -24,8 +24,9 @@ const icons = {
 type LinkPopupStoreState = ReturnType<typeof useLinkPopupStore.getState>;
 
 export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
-  private hrefInput!: HTMLInputElement;
-  private openBtn!: HTMLElement;
+  // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
+  private declare hrefInput: HTMLInputElement;
+  private declare openBtn: HTMLElement;
   private isBookmark = false;
 
   constructor(view: EditorView, store: StoreApi<LinkPopupStoreState>) {
@@ -96,7 +97,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
       this.openBtn.title = "Open link";
     }
 
-    // Focus appropriate input after a brief delay
+    // Focus appropriate input (base class has already blurred the editor)
     requestAnimationFrame(() => {
       if (this.isBookmark) {
         this.openBtn.focus();

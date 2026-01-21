@@ -30,9 +30,10 @@ const TEXTAREA_MAX_HEIGHT = 120;
 type FootnotePopupStoreState = ReturnType<typeof useFootnotePopupStore.getState>;
 
 export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreState> {
-  private labelSpan!: HTMLSpanElement;
-  private textarea!: HTMLTextAreaElement;
-  private gotoBtn!: HTMLButtonElement;
+  // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
+  private declare labelSpan: HTMLSpanElement;
+  private declare textarea: HTMLTextAreaElement;
+  private declare gotoBtn: HTMLButtonElement;
   private openedOnReference = true;
 
   constructor(view: EditorView, store: StoreApi<FootnotePopupStoreState>) {

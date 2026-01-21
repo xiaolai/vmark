@@ -20,9 +20,10 @@ import { findMathAtPos } from "./mathDetection";
 type MathPopupStoreState = ReturnType<typeof useMathPopupStore.getState>;
 
 export class SourceMathPopupView extends SourcePopupView<MathPopupStoreState> {
-  private textarea!: HTMLTextAreaElement;
-  private preview!: HTMLElement;
-  private error!: HTMLElement;
+  // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
+  private declare textarea: HTMLTextAreaElement;
+  private declare preview: HTMLElement;
+  private declare error: HTMLElement;
   private renderToken = 0;
   private isBlock = false;
 

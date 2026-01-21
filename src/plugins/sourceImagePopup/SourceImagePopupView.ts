@@ -24,8 +24,9 @@ const icons = {
 type ImagePopupStoreState = ReturnType<typeof useImagePopupStore.getState>;
 
 export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> {
-  private srcInput!: HTMLInputElement;
-  private altInput!: HTMLInputElement;
+  // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
+  private declare srcInput: HTMLInputElement;
+  private declare altInput: HTMLInputElement;
 
   constructor(view: EditorView, store: StoreApi<ImagePopupStoreState>) {
     super(view, store);

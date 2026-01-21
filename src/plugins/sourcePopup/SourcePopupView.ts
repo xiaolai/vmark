@@ -10,7 +10,7 @@ import type { EditorView } from "@codemirror/view";
 import type { AnchorRect } from "@/utils/popupPosition";
 import { calculatePopupPosition } from "@/utils/popupPosition";
 import { handlePopupTabNavigation } from "@/utils/popupComponents";
-import { getEditorBounds, getPopupHost, toHostCoords } from "./sourcePopupUtils";
+import { getEditorBounds } from "./sourcePopupUtils";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
 /**
@@ -57,7 +57,6 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
   protected editorView: EditorView;
   protected store: StoreApi<TState>;
   protected unsubscribe: () => void;
-  protected host: HTMLElement | null = null;
 
   // Lifecycle flags
   private wasOpen = false;
@@ -71,12 +70,12 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
     this.editorView = view;
     this.store = store;
 
-    // Build DOM
+    // Build DOM - append to document.body with fixed positioning
+    // to escape CodeMirror's focus trap (same pattern as WYSIWYG popups)
     this.container = this.buildContainer();
     this.container.style.display = "none";
-    this.container.style.position = "absolute";
-    this.host = getPopupHost(this.editorView) ?? this.editorView.dom;
-    this.host.appendChild(this.container);
+    this.container.style.position = "fixed";
+    document.body.appendChild(this.container);
 
     // Bind event handlers
     this.boundHandleClickOutside = this.handleClickOutside.bind(this);
@@ -154,7 +153,7 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
       this.justOpened = false;
     });
 
-    // Calculate position
+    // Calculate position using viewport coordinates (fixed positioning)
     const bounds = getEditorBounds(this.editorView);
     const dimensions = this.getPopupDimensions();
     const { top, left } = calculatePopupPosition({
@@ -165,10 +164,9 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
       preferAbove: dimensions.preferAbove ?? true,
     });
 
-    const host = this.host ?? this.editorView.dom;
-    const hostPos = toHostCoords(host, { top, left });
-    this.container.style.top = `${hostPos.top}px`;
-    this.container.style.left = `${hostPos.left}px`;
+    // Use viewport coordinates directly since we're using fixed positioning
+    this.container.style.top = `${top}px`;
+    this.container.style.left = `${left}px`;
 
     // Attach event listeners
     document.addEventListener("mousedown", this.boundHandleClickOutside);
@@ -177,8 +175,23 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
     // Attach Tab cycling handler to container
     this.container.addEventListener("keydown", this.handleTabNavigation);
 
-    // Call subclass hook
+    // Call subclass hook first to set up state
     this.onShow(state);
+
+    // Then focus the first focusable element in the popup
+    // Use setTimeout to escape CodeMirror's click event handling completely
+    setTimeout(() => {
+      // Blur CodeMirror's contenteditable
+      this.editorView.contentDOM.blur();
+
+      const firstFocusable = this.container.querySelector<HTMLElement>(
+        'input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (firstFocusable) {
+        firstFocusable.focus();
+      }
+    }, 10);
   }
 
   /**
@@ -266,10 +279,9 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
       preferAbove: dimensions.preferAbove ?? true,
     });
 
-    const host = this.host ?? this.editorView.dom;
-    const hostPos = toHostCoords(host, { top, left });
-    this.container.style.top = `${hostPos.top}px`;
-    this.container.style.left = `${hostPos.left}px`;
+    // Use viewport coordinates directly since we're using fixed positioning
+    this.container.style.top = `${top}px`;
+    this.container.style.left = `${left}px`;
   }
 
   /**

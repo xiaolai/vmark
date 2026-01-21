@@ -55,8 +55,9 @@ function pathToWikiTarget(filePath: string, workspaceRoot: string | null): strin
 type WikiLinkPopupStoreState = ReturnType<typeof useWikiLinkPopupStore.getState>;
 
 export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreState> {
-  private targetInput!: HTMLInputElement;
-  private openBtn!: HTMLElement;
+  // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
+  private declare targetInput: HTMLInputElement;
+  private declare openBtn: HTMLElement;
 
   constructor(view: EditorView, store: StoreApi<WikiLinkPopupStoreState>) {
     super(view, store);
