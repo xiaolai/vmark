@@ -13,6 +13,7 @@ import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sou
 import { getListItemInfo, indentListItem, outdentListItem, removeList, toBulletList, toOrderedList, toTaskList } from "@/plugins/sourceContextDetection/listDetection";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
 import { deleteColumn, deleteRow, deleteTable, formatTable, insertColumnLeft, insertColumnRight, insertRowAbove, insertRowBelow, setAllColumnsAlignment, setColumnAlignment } from "@/plugins/sourceContextDetection/tableActions";
+import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import type { SourceToolbarContext } from "./types";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./sourceMultiSelection";
@@ -22,6 +23,7 @@ import { readClipboardImagePath } from "@/utils/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useImagePopupStore } from "@/stores/imagePopupStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 
@@ -46,9 +48,88 @@ function getActiveFilePath(): string | null {
 // --- Smart image insertion ---
 
 /**
+ * Image range result from detection.
+ */
+interface ImageRange {
+  from: number;
+  to: number;
+  src: string;
+  alt: string;
+}
+
+/**
+ * Find markdown image at cursor position.
+ * Detects: ![alt](src) or ![alt](src "title")
+ */
+function findImageAtCursor(view: EditorView, pos: number): ImageRange | null {
+  const doc = view.state.doc;
+  const line = doc.lineAt(pos);
+  const lineText = line.text;
+  const lineStart = line.from;
+
+  // Regex to match image syntax:
+  // - ![alt](path) or ![alt](path "title")
+  // - ![alt](<path with spaces>) - angle bracket syntax
+  // Captures: [1] = alt, [2] = angle bracket path, [3] = regular path
+  const imageRegex = /!\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+"[^"]*")?\)/g;
+
+  let match;
+  while ((match = imageRegex.exec(lineText)) !== null) {
+    const matchStart = lineStart + match.index;
+    const matchEnd = matchStart + match[0].length;
+
+    // Check if cursor is inside this image markdown
+    if (pos >= matchStart && pos <= matchEnd) {
+      const alt = match[1];
+      const src = match[2] || match[3];
+
+      return {
+        from: matchStart,
+        to: matchEnd,
+        src,
+        alt,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Show the image popup for an existing image at cursor position.
+ * Returns true if popup was shown, false if not inside an image.
+ */
+function showImagePopupForExistingImage(view: EditorView): boolean {
+  const { from } = view.state.selection.main;
+  const image = findImageAtCursor(view, from);
+
+  if (!image) {
+    return false;
+  }
+
+  // Get anchor rect for popup positioning
+  const anchorRect = getAnchorRectFromRange(view, image.from, image.to);
+  if (!anchorRect) {
+    return false;
+  }
+
+  // Open the image popup
+  useImagePopupStore.getState().openPopup({
+    imageSrc: image.src,
+    imageAlt: image.alt,
+    imageNodePos: image.from,
+    imageNodeType: "image",
+    anchorRect,
+  });
+
+  return true;
+}
+
+/**
  * Insert image markdown with smart clipboard detection and word expansion.
  *
  * Behavior:
+ * - Cursor inside existing image → show popup for editing
  * - Clipboard has image URL → insert directly
  * - Clipboard has local path → copy to assets, insert relative path
  * - Selection exists → use as alt text
@@ -56,8 +137,14 @@ function getActiveFilePath(): string | null {
  * - No clipboard image → insert template ![](url)
  */
 async function insertImageAsync(view: EditorView): Promise<boolean> {
-  const clipboardResult = await readClipboardImagePath();
   const { from, to } = view.state.selection.main;
+
+  // Case 0: Cursor inside existing image - show popup for editing
+  if (from === to && showImagePopupForExistingImage(view)) {
+    return true;
+  }
+
+  const clipboardResult = await readClipboardImagePath();
 
   // Determine alt text from selection or word expansion
   let altText = "";
