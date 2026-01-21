@@ -33,16 +33,25 @@ function parseAlignment(cell: string): TableAlignment {
 
 /**
  * Format a separator cell with alignment.
+ * Ensures total width matches the requested width.
  */
 function formatAlignmentCell(alignment: TableAlignment, width = 5): string {
-  const dashes = "-".repeat(Math.max(3, width - 2));
+  // Calculate dash count based on alignment markers
+  // center: 2 colons, right: 1 colon, left: 0 colons
+  const minDashes = 3;
   switch (alignment) {
-    case "center":
+    case "center": {
+      const dashes = "-".repeat(Math.max(minDashes, width - 2));
       return `:${dashes}:`;
-    case "right":
+    }
+    case "right": {
+      const dashes = "-".repeat(Math.max(minDashes, width - 1));
       return `${dashes}:`;
-    default:
+    }
+    default: {
+      const dashes = "-".repeat(Math.max(minDashes, width));
       return dashes;
+    }
   }
 }
 
@@ -276,18 +285,42 @@ export function setAllColumnsAlignment(
 }
 
 /**
+ * Get minimum width for a separator cell based on alignment.
+ * center (:---:) = 5, right (---:) = 4, left (---) = 3
+ */
+function getMinWidthForAlignment(alignment: TableAlignment): number {
+  switch (alignment) {
+    case "center":
+      return 5;
+    case "right":
+      return 4;
+    default:
+      return 3;
+  }
+}
+
+/**
  * Format table with space-padded columns.
+ * Ensures all lines have the same length.
  */
 export function formatTable(view: EditorView, info: SourceTableInfo): void {
   const doc = view.state.doc;
   const parsedRows = info.lines.map((line) => parseRow(line));
 
-  // Calculate max width for each column
+  // First pass: determine alignments from separator row
+  const separatorCells = parsedRows[1] || [];
+  const alignments: TableAlignment[] = [];
+  for (let col = 0; col < info.colCount; col++) {
+    alignments.push(parseAlignment(separatorCells[col] || ""));
+  }
+
+  // Calculate max width for each column with alignment-aware minimums
   const colWidths: number[] = [];
   for (let col = 0; col < info.colCount; col++) {
-    let maxWidth = 3;
+    const minWidth = getMinWidthForAlignment(alignments[col]);
+    let maxWidth = minWidth;
     for (let row = 0; row < parsedRows.length; row++) {
-      if (row === 1) continue;
+      if (row === 1) continue; // Skip separator row
       const cell = parsedRows[row][col] || "";
       maxWidth = Math.max(maxWidth, getDisplayWidth(cell));
     }
@@ -303,8 +336,7 @@ export function formatTable(view: EditorView, info: SourceTableInfo): void {
     for (let col = 0; col < info.colCount; col++) {
       const cell = cells[col] || "";
       if (row === 1) {
-        const alignment = parseAlignment(cell);
-        formattedCells.push(formatAlignmentCell(alignment, colWidths[col]));
+        formattedCells.push(formatAlignmentCell(alignments[col], colWidths[col]));
       } else {
         formattedCells.push(padToWidth(cell, colWidths[col]));
       }
