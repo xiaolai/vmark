@@ -1,0 +1,62 @@
+/**
+ * Mermaid Preview Popup Styles
+ */
+
+.mermaid-preview-popup {
+  position: absolute;
+  z-index: 1000;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  padding: 12px;
+  max-width: 600px;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.mermaid-preview-content {
+  min-width: 200px;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mermaid-preview-content svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-preview-empty {
+  color: var(--text-tertiary);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.mermaid-preview-loading {
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 20px;
+}
+
+.mermaid-preview-error {
+  color: var(--error-color);
+  font-size: 12px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.mermaid-preview-error-state {
+  border: 1px dashed var(--error-color);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: var(--error-bg);
+}
+
+/* Dark theme */
+.dark-theme .mermaid-preview-popup {
+  box-shadow: var(--popup-shadow-dark);
+}

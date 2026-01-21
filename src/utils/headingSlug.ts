@@ -80,3 +80,36 @@ export function findHeadingById(doc: PMNode, targetId: string): number | null {
   const found = headings.find((h) => h.id === targetId);
   return found?.pos ?? null;
 }
+
+/**
+ * Find a heading by its ID in a CodeMirror document.
+ * Returns the line start position or null if not found.
+ */
+export function findHeadingByIdCM(
+  doc: { lines: number; line: (n: number) => { from: number; text: string } },
+  targetId: string
+): number | null {
+  const usedSlugs = new Set<string>();
+
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const text = line.text;
+
+    // Check if line starts with # (heading)
+    const headingMatch = text.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch) {
+      const headingText = headingMatch[2];
+      const baseSlug = generateSlug(headingText);
+      const id = makeUniqueSlug(baseSlug, usedSlugs);
+
+      if (id) {
+        usedSlugs.add(id);
+        if (id === targetId) {
+          return line.from;
+        }
+      }
+    }
+  }
+
+  return null;
+}

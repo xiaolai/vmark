@@ -190,6 +190,14 @@ export function TerminalView({ sessionToRestore }: TerminalViewProps) {
   const terminalSettings = useSettingsStore((state) => state.terminal);
   const monoFont = useSettingsStore((state) => state.appearance.monoFont);
   const terminalTheme = useTerminalTheme();
+  const initialOptionsRef = useRef({
+    fontFamily: monoFontStacks[monoFont] ?? monoFontStacks.system,
+    fontSize: terminalSettings.fontSize,
+    cursorBlink: terminalSettings.cursorBlink,
+    cursorStyle: terminalSettings.cursorStyle,
+    scrollback: terminalSettings.scrollback,
+    theme: terminalTheme,
+  });
 
   // Session management
   const { createSession, removeSession } = useTerminalSessions();
@@ -227,17 +235,16 @@ export function TerminalView({ sessionToRestore }: TerminalViewProps) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Get font family from appearance mono font setting
-    const fontFamily = monoFontStacks[monoFont] ?? monoFontStacks.system;
+    const initial = initialOptionsRef.current;
 
     const terminal = new Terminal({
-      fontFamily,
-      fontSize: terminalSettings.fontSize,
+      fontFamily: initial.fontFamily,
+      fontSize: initial.fontSize,
       lineHeight: 1.2,
-      cursorBlink: terminalSettings.cursorBlink,
-      cursorStyle: terminalSettings.cursorStyle,
-      scrollback: terminalSettings.scrollback,
-      theme: terminalTheme,
+      cursorBlink: initial.cursorBlink,
+      cursorStyle: initial.cursorStyle,
+      scrollback: initial.scrollback,
+      theme: initial.theme,
     });
 
     const fitAddon = new FitAddon();

@@ -1,0 +1,14 @@
+/**
+ * Source Mode Table Cell Highlight Styles
+ */
+
+/* Cell highlight */
+.table-cell-highlight {
+  background-color: var(--accent-bg);
+  border-radius: 2px;
+}
+
+/* Dark theme */
+.dark-theme .table-cell-highlight {
+  background-color: var(--accent-bg);
+}

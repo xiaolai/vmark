@@ -8,8 +8,6 @@ import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import {
   search,
-  selectNextOccurrence,
-  selectSelectionMatches,
   setSearchQuery,
   SearchQuery,
   findNext,
@@ -54,12 +52,31 @@ import {
   createSourceCursorContextPlugin,
   createSourceMathPreviewPlugin,
   createSourceImagePreviewPlugin,
+  sourceMultiCursorExtensions,
+  sourceSpellCheckExtensions,
+  sourceTableContextMenuExtensions,
+  sourceTableCellHighlightExtensions,
+  sourceMermaidPreviewExtensions,
+  sourceAlertDecorationExtensions,
+  sourceDetailsDecorationExtensions,
 } from "@/plugins/codemirror";
+import {
+  selectAllOccurrencesInBlock,
+  selectNextOccurrenceInBlock,
+} from "@/plugins/codemirror/sourceMultiCursorCommands";
+import "@/plugins/codemirror/source-table.css";
+import "@/plugins/codemirror/source-blocks.css";
+import "@/plugins/mermaidPreview/mermaid-preview.css";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
 import { toggleTaskList } from "@/plugins/sourceFormatPopup/taskListActions";
 import { guardCodeMirrorKeyBinding, runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { computeSourceCursorContext } from "@/plugins/sourceFormatPopup/cursorContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
+import { createSourceImagePopupPlugin } from "@/plugins/sourceImagePopup";
+import { createSourceLinkPopupPlugin } from "@/plugins/sourceLinkPopup";
+import { createSourceMathPopupPlugin } from "@/plugins/sourceMathPopup";
+import { createSourceWikiLinkPopupPlugin } from "@/plugins/sourceWikiLinkPopup";
+import { createSourceFootnotePopupPlugin } from "@/plugins/sourceFootnotePopup";
 
 /**
  * Escape special regex characters in a string.
@@ -228,6 +245,7 @@ export function SourceEditor() {
         // Multi-cursor support
         drawSelection(),
         dropCursor(),
+        ...sourceMultiCursorExtensions,
         // History (undo/redo)
         history(),
         // Shortcuts from settings (dynamic via compartment)
@@ -252,10 +270,18 @@ export function SourceEditor() {
             run: (view) => toggleTaskList(view),
             preventDefault: true,
           }),
-          // Cmd+D: select next occurrence
-          guardCodeMirrorKeyBinding({ key: "Mod-d", run: selectNextOccurrence, preventDefault: true }),
-          // Cmd+Shift+L: select all occurrences
-          guardCodeMirrorKeyBinding({ key: "Mod-Shift-l", run: selectSelectionMatches, preventDefault: true }),
+          // Cmd+D: select next occurrence (current block only)
+          guardCodeMirrorKeyBinding({
+            key: "Mod-d",
+            run: selectNextOccurrenceInBlock,
+            preventDefault: true,
+          }),
+          // Cmd+Shift+L: select all occurrences (current block only)
+          guardCodeMirrorKeyBinding({
+            key: "Mod-Shift-l",
+            run: selectAllOccurrencesInBlock,
+            preventDefault: true,
+          }),
           // Cmd+Option+W: toggle word wrap
           guardCodeMirrorKeyBinding({
             key: "Mod-Alt-w",
@@ -292,6 +318,28 @@ export function SourceEditor() {
         createSourceMathPreviewPlugin(),
         // Inline image preview
         createSourceImagePreviewPlugin(),
+        // Image popup editor
+        createSourceImagePopupPlugin(),
+        // Link popup editor
+        createSourceLinkPopupPlugin(),
+        // Math popup editor
+        createSourceMathPopupPlugin(),
+        // Wiki link popup editor
+        createSourceWikiLinkPopupPlugin(),
+        // Footnote popup editor
+        createSourceFootnotePopupPlugin(),
+        // Spell check
+        ...sourceSpellCheckExtensions,
+        // Table context menu
+        ...sourceTableContextMenuExtensions,
+        // Table cell highlight
+        ...sourceTableCellHighlightExtensions,
+        // Mermaid preview
+        ...sourceMermaidPreviewExtensions,
+        // Alert block decorations (colored left border)
+        ...sourceAlertDecorationExtensions,
+        // Details block decorations
+        ...sourceDetailsDecorationExtensions,
       ],
     });
 

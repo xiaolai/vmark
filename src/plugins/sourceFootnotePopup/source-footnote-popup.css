@@ -1,0 +1,152 @@
+/**
+ * Source Footnote Popup Styles
+ * Layout: header row (label + buttons) + textarea
+ */
+
+.source-footnote-popup {
+  position: absolute;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+  animation: source-footnote-popup-fade-in 0.1s ease-out;
+  min-width: 280px;
+}
+
+@keyframes source-footnote-popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Header row with label and buttons */
+.source-footnote-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Label display */
+.source-footnote-popup-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  background: var(--bg-tertiary, rgba(0, 0, 0, 0.03));
+  border-radius: 4px;
+}
+
+/* Textarea for content */
+.source-footnote-popup-textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-tertiary, rgba(0, 0, 0, 0.02));
+  color: var(--text-color);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+}
+
+.source-footnote-popup-textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.source-footnote-popup-textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+/* Icon-only buttons */
+.source-footnote-popup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  position: relative;
+}
+
+.source-footnote-popup-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
+}
+
+.source-footnote-popup-btn:active {
+  opacity: 0.8;
+}
+
+.source-footnote-popup-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Focus state - U-shaped underline */
+.source-footnote-popup-btn:focus {
+  outline: none;
+}
+
+.source-footnote-popup-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+.source-footnote-popup-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Delete button - danger color on hover */
+.source-footnote-popup-btn-delete:hover {
+  color: var(--error-color, #e53935);
+}
+
+/* Dark theme */
+.dark-theme .source-footnote-popup-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .source-footnote-popup-btn-delete:hover {
+  color: var(--error-color, #ff6b6b);
+}
+
+.dark-theme .source-footnote-popup-label {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark-theme .source-footnote-popup-textarea {
+  background: rgba(255, 255, 255, 0.04);
+}

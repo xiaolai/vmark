@@ -1,0 +1,134 @@
+/**
+ * Source Wiki Link Popup Styles - Single-row layout
+ * Row: target input + action buttons
+ */
+
+.source-wiki-link-popup {
+  position: absolute;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+  animation: source-wiki-link-popup-fade-in 0.1s ease-out;
+}
+
+@keyframes source-wiki-link-popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Row container */
+.source-wiki-link-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Target Input - borderless */
+.source-wiki-link-popup-target {
+  width: 200px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+}
+
+.source-wiki-link-popup-target:focus {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.source-wiki-link-popup-target:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.source-wiki-link-popup-target::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+/* Icon-only buttons */
+.source-wiki-link-popup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  position: relative;
+}
+
+.source-wiki-link-popup-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
+}
+
+.source-wiki-link-popup-btn:active {
+  opacity: 0.8;
+}
+
+.source-wiki-link-popup-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Focus state - U-shaped underline */
+.source-wiki-link-popup-btn:focus {
+  outline: none;
+}
+
+.source-wiki-link-popup-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+.source-wiki-link-popup-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Delete button - danger color on hover */
+.source-wiki-link-popup-btn-delete:hover {
+  color: var(--error-color, #e53935);
+}
+
+/* Dark theme */
+.dark-theme .source-wiki-link-popup-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .source-wiki-link-popup-btn-delete:hover {
+  color: var(--error-color, #ff6b6b);
+}

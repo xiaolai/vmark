@@ -1,0 +1,112 @@
+/**
+ * Source Mode Block Visual Markers
+ *
+ * Styles for alert blocks and details blocks in Source mode.
+ * Matches the WYSIWYG visual appearance.
+ */
+
+/* ===================
+   Alert Block Lines
+   =================== */
+
+/* Base alert line - left border */
+.cm-alert-line {
+  position: relative;
+  border-left: 3px solid var(--alert-border, var(--border-color));
+  padding-left: 8px;
+  margin-left: -11px;
+  background-color: var(--alert-bg, transparent);
+}
+
+/* Alert type: NOTE - Blue */
+.cm-alert-note {
+  --alert-border: #0969da;
+  --alert-bg: rgba(9, 105, 218, 0.05);
+}
+
+/* Alert type: TIP - Green */
+.cm-alert-tip {
+  --alert-border: #1a7f37;
+  --alert-bg: rgba(26, 127, 55, 0.05);
+}
+
+/* Alert type: IMPORTANT - Purple */
+.cm-alert-important {
+  --alert-border: #8250df;
+  --alert-bg: rgba(130, 80, 223, 0.05);
+}
+
+/* Alert type: WARNING - Yellow/Amber */
+.cm-alert-warning {
+  --alert-border: #9a6700;
+  --alert-bg: rgba(154, 103, 0, 0.05);
+}
+
+/* Alert type: CAUTION - Red */
+.cm-alert-caution {
+  --alert-border: #cf222e;
+  --alert-bg: rgba(207, 34, 46, 0.05);
+}
+
+/* ===================
+   Dark Mode - Alert Blocks
+   =================== */
+.dark-theme .cm-alert-note {
+  --alert-border: #58a6ff;
+  --alert-bg: rgba(56, 139, 253, 0.08);
+}
+
+.dark-theme .cm-alert-tip {
+  --alert-border: #3fb950;
+  --alert-bg: rgba(46, 160, 67, 0.08);
+}
+
+.dark-theme .cm-alert-important {
+  --alert-border: #a371f7;
+  --alert-bg: rgba(163, 113, 247, 0.08);
+}
+
+.dark-theme .cm-alert-warning {
+  --alert-border: #d29922;
+  --alert-bg: rgba(187, 128, 9, 0.08);
+}
+
+.dark-theme .cm-alert-caution {
+  --alert-border: #f85149;
+  --alert-bg: rgba(248, 81, 73, 0.08);
+}
+
+/* ===================
+   Details Block Lines
+   =================== */
+
+/* Details block container lines */
+.cm-details-line {
+  position: relative;
+  border-left: 2px solid var(--border-color);
+  padding-left: 8px;
+  margin-left: -10px;
+  background-color: rgba(0, 0, 0, 0.015);
+}
+
+/* Opening line (<details> or :::details) */
+.cm-details-start {
+  border-top-left-radius: 3px;
+}
+
+/* Closing line (</details> or :::) */
+.cm-details-end {
+  border-bottom-left-radius: 3px;
+}
+
+/* Summary line gets slightly different styling */
+.cm-details-summary {
+  font-weight: 500;
+}
+
+/* ===================
+   Dark Mode - Details Blocks
+   =================== */
+.dark-theme .cm-details-line {
+  background-color: rgba(255, 255, 255, 0.02);
+}

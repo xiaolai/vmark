@@ -1,0 +1,145 @@
+/**
+ * Source Image Popup Styles - Two-row layout
+ * Row 1: src input + action buttons
+ * Row 2: caption/alt input
+ */
+
+.source-image-popup {
+  position: absolute;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+  animation: source-image-popup-fade-in 0.1s ease-out;
+}
+
+@keyframes source-image-popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Row container */
+.source-image-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* URL/Path Input - borderless */
+.source-image-popup-src {
+  width: 220px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  outline: none;
+}
+
+/* Caption/Alt Input - full width */
+.source-image-popup-alt {
+  flex: 1;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+}
+
+.source-image-popup-src:focus,
+.source-image-popup-alt:focus {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.source-image-popup-src:focus-visible,
+.source-image-popup-alt:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.source-image-popup-src::placeholder,
+.source-image-popup-alt::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+/* Icon-only buttons */
+.source-image-popup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  position: relative;
+}
+
+.source-image-popup-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--text-color);
+}
+
+.source-image-popup-btn:active {
+  opacity: 0.8;
+}
+
+/* Focus state - U-shaped underline */
+.source-image-popup-btn:focus {
+  outline: none;
+}
+
+.source-image-popup-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+.source-image-popup-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Delete button - danger color on hover */
+.source-image-popup-btn-delete:hover {
+  color: var(--error-color, #e53935);
+}
+
+/* Dark theme */
+.dark-theme .source-image-popup-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .source-image-popup-btn-delete:hover {
+  color: var(--error-color, #ff6b6b);
+}
