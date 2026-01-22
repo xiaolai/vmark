@@ -378,9 +378,9 @@ const initialState: SettingsState = {
     enableCommandMenu: false,
     mcpServer: {
       port: 9223,
-      autoStart: false,
+      autoStart: true,
     },
-    terminalEnabled: true,
+    terminalEnabled: false,
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
   },
   showDevSection: false,

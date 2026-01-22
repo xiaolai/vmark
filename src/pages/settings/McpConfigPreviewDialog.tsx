@@ -103,9 +103,11 @@ export function McpConfigPreviewDialog({
             <InfoRow
               label="Binary Path"
               value={shortBinaryPath}
+              fullValue={preview.binaryPath}
               mono
-              badge={preview.isDev ? "Development" : "Production"}
-              badgeColor={preview.isDev ? "amber" : "green"}
+              copyable
+              badge={preview.isDev ? "Development" : undefined}
+              badgeColor={preview.isDev ? "amber" : undefined}
             />
             {preview.currentContent && (
               <InfoRow label="Backup" value={shortBackupPath} mono />
@@ -157,7 +159,7 @@ export function McpConfigPreviewDialog({
             onClick={onCancel}
             disabled={loading}
             className="px-3 py-1.5 text-sm font-medium rounded border
-                      border-gray-200 dark:border-gray-700 bg-transparent
+                      border-[var(--border-color)] bg-transparent
                       text-[var(--text-primary)] hover:bg-[var(--hover-bg)]
                       disabled:opacity-50"
           >
@@ -185,13 +187,21 @@ function InfoRow({
   mono,
   badge,
   badgeColor,
+  copyable,
+  fullValue,
 }: {
   label: string;
   value: string;
   mono?: boolean;
   badge?: string;
   badgeColor?: "green" | "amber";
+  copyable?: boolean;
+  fullValue?: string; // Full value to copy (if different from displayed value)
 }) {
+  const handleCopy = () => {
+    navigator.clipboard.writeText(fullValue || value);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-[var(--text-tertiary)] w-20 flex-shrink-0">
@@ -201,10 +211,23 @@ function InfoRow({
         className={`text-xs text-[var(--text-primary)] truncate ${
           mono ? "font-mono" : ""
         }`}
-        title={value}
+        title={fullValue || value}
       >
         {value}
       </span>
+      {copyable && (
+        <button
+          onClick={handleCopy}
+          className="p-0.5 rounded hover:bg-[var(--hover-bg)] text-[var(--text-tertiary)]
+                     hover:text-[var(--text-secondary)] transition-colors"
+          title="Copy to clipboard"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        </button>
+      )}
       {badge && (
         <span
           className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${

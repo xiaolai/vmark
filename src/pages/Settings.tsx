@@ -109,6 +109,9 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
   );
 }
 
+// Advanced section only visible in dev mode
+const showAdvancedSection = import.meta.env.DEV;
+
 const navConfig = [
   { id: "appearance" as const, icon: Palette, label: "Appearance" },
   { id: "formatting" as const, icon: Languages, label: "CJK Formatting" },
@@ -119,7 +122,7 @@ const navConfig = [
   { id: "files" as const, icon: FolderOpen, label: "Files" },
   { id: "integrations" as const, icon: Plug, label: "Integrations" },
   { id: "terminal" as const, icon: Terminal, label: "Terminal" },
-  { id: "advanced" as const, icon: Zap, label: "Advanced" },
+  ...(showAdvancedSection ? [{ id: "advanced" as const, icon: Zap, label: "Advanced" }] : []),
 ] as const;
 
 export function SettingsPage() {
@@ -141,6 +144,13 @@ export function SettingsPage() {
       setSection("general");
     }
   }, [showDevSection, section]);
+
+  // Switch away from advanced when in production
+  useEffect(() => {
+    if (!showAdvancedSection && section === "advanced") {
+      setSection("integrations");
+    }
+  }, [section]);
 
   useEffect(() => {
     if (!commandMenuEnabled && section === "ai") {
