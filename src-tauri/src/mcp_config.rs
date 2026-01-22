@@ -126,14 +126,15 @@ fn get_target_triple() -> &'static str {
 }
 
 fn get_mcp_binary_path() -> Result<String, String> {
-    let binary_name = format!("vmark-mcp-server-{}", get_target_triple());
+    let binary_name_with_target = format!("vmark-mcp-server-{}", get_target_triple());
+    let binary_name_simple = "vmark-mcp-server";
 
     if cfg!(debug_assertions) {
         // Dev: src-tauri/binaries/vmark-mcp-server-{target}
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let dev_path = PathBuf::from(manifest_dir)
             .join("binaries")
-            .join(&binary_name);
+            .join(&binary_name_with_target);
         if dev_path.exists() {
             return Ok(dev_path.to_string_lossy().to_string());
         }
@@ -144,11 +145,21 @@ fn get_mcp_binary_path() -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| format!("Cannot get executable path: {}", e))?;
     let exe_dir = exe.parent().ok_or("Cannot get executable directory")?;
 
-    // On macOS, the binary is in the Resources folder
+    // On macOS, check MacOS folder first (where Tauri puts sidecars)
     #[cfg(target_os = "macos")]
     {
-        // Try Resources folder first (bundled app)
-        let resources_path = exe_dir.join("../Resources").join(&binary_name);
+        // Try simple name first (Tauri bundles without target suffix)
+        let macos_path = exe_dir.join(binary_name_simple);
+        if macos_path.exists() {
+            return Ok(macos_path
+                .canonicalize()
+                .unwrap_or(macos_path)
+                .to_string_lossy()
+                .to_string());
+        }
+
+        // Try Resources folder (alternative location)
+        let resources_path = exe_dir.join("../Resources").join(&binary_name_with_target);
         if resources_path.exists() {
             return Ok(resources_path
                 .canonicalize()
@@ -158,15 +169,15 @@ fn get_mcp_binary_path() -> Result<String, String> {
         }
     }
 
-    // Try next to executable
-    let prod_path = exe_dir.join(&binary_name);
+    // Try next to executable with target suffix
+    let prod_path = exe_dir.join(&binary_name_with_target);
     if prod_path.exists() {
         return Ok(prod_path.to_string_lossy().to_string());
     }
 
     Err(format!(
         "MCP server binary not found: {}. Please reinstall VMark.",
-        binary_name
+        binary_name_simple
     ))
 }
 
