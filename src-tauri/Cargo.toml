@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.3.0"
+version = "0.2.3"
 description = "Local-first markdown editor with rich text and source modes"
 authors = ["Xiaolai"]
 edition = "2021"
