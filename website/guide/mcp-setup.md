@@ -41,9 +41,24 @@ Supported AI assistants:
 - **Codex CLI** - OpenAI's coding assistant
 - **Gemini CLI** - Google's AI assistant
 
+#### Status Icons
+
+Each provider shows a status indicator:
+
+| Icon | Status | Meaning |
+|------|--------|---------|
+| ✓ Green | Valid | Configuration is correct and working |
+| ⚠️ Amber | Path Mismatch | VMark was moved — click **Repair** |
+| ✗ Red | Binary Missing | MCP binary not found — reinstall VMark |
+| ○ Gray | Not Configured | Not installed — click **Install** |
+
+::: tip VMark Moved?
+If you move VMark.app to a different location, the status will show amber "Path Mismatch". Simply click the **Repair** button to update the configuration with the new path.
+:::
+
 ### 3. Restart Your AI Assistant
 
-After installing, **restart your AI assistant** completely (quit and reopen) to load the new configuration.
+After installing or repairing, **restart your AI assistant** completely (quit and reopen) to load the new configuration. VMark will show a reminder after each configuration change.
 
 ### 4. Try It Out
 
@@ -96,8 +111,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 {
   "mcpServers": {
     "vmark": {
-      "command": "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server-aarch64-apple-darwin",
-      "args": ["--port", "9223"]
+      "command": "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server"
     }
   }
 }
@@ -111,8 +125,7 @@ Edit `~/.claude.json` or project `.mcp.json`:
 {
   "mcpServers": {
     "vmark": {
-      "command": "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server-aarch64-apple-darwin",
-      "args": ["--port", "9223"]
+      "command": "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server"
     }
   }
 }
@@ -120,14 +133,15 @@ Edit `~/.claude.json` or project `.mcp.json`:
 
 ::: tip Finding the Binary Path
 On macOS, the MCP server binary is inside VMark.app:
-- **Apple Silicon**: `VMark.app/Contents/MacOS/vmark-mcp-server-aarch64-apple-darwin`
-- **Intel**: `VMark.app/Contents/MacOS/vmark-mcp-server-x86_64-apple-darwin`
+- `VMark.app/Contents/MacOS/vmark-mcp-server`
 
 On Windows:
-- `C:\Program Files\VMark\vmark-mcp-server-x86_64-pc-windows-msvc.exe`
+- `C:\Program Files\VMark\vmark-mcp-server.exe`
 
 On Linux:
-- `/usr/bin/vmark-mcp-server-x86_64-unknown-linux-gnu` (or where you installed it)
+- `/usr/bin/vmark-mcp-server` (or where you installed it)
+
+The port is auto-discovered — no `args` needed.
 :::
 
 ## How It Works
@@ -166,6 +180,15 @@ See the [MCP Tools Reference](/guide/mcp-tools) for complete documentation.
 - Check that the MCP Server is enabled in Settings → Integrations
 - Verify the MCP bridge shows "Running" status
 - Restart VMark if the connection was interrupted
+
+### Path mismatch after moving VMark
+
+If you moved VMark.app to a different location (e.g., from Downloads to Applications), the configuration will point to the old path:
+
+1. Open **Settings → Integrations**
+2. Look for the amber ⚠️ warning icon next to affected providers
+3. Click **Repair** to update the path
+4. Restart your AI assistant
 
 ### Tools not appearing in AI assistant
 
