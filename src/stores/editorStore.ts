@@ -13,6 +13,7 @@ interface EditorState {
   typewriterModeEnabled: boolean;
   sourceMode: boolean;
   wordWrap: boolean;
+  showLineNumbers: boolean; // Show line numbers in code blocks
   documentId: number; // Increments on new document to force editor recreation
   cursorInfo: CursorInfo | null; // Cursor position for syncing between modes
   lastAutoSave: number | null; // Timestamp of last auto-save
@@ -28,6 +29,7 @@ interface EditorActions {
   toggleTypewriterMode: () => void;
   toggleSourceMode: () => void;
   toggleWordWrap: () => void;
+  toggleLineNumbers: () => void;
   setCursorInfo: (info: CursorInfo | null) => void;
   reset: () => void;
 }
@@ -41,6 +43,7 @@ const initialState: EditorState = {
   typewriterModeEnabled: false,
   sourceMode: false,
   wordWrap: true,
+  showLineNumbers: false,
   documentId: 0,
   cursorInfo: null,
   lastAutoSave: null,
@@ -90,6 +93,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   toggleWordWrap: () =>
     set((state) => ({ wordWrap: !state.wordWrap })),
+
+  toggleLineNumbers: () =>
+    set((state) => ({ showLineNumbers: !state.showLineNumbers })),
 
   setCursorInfo: (cursorInfo) => set({ cursorInfo }),
 

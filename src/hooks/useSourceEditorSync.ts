@@ -3,7 +3,7 @@
  * Handles content sync, wordWrap, brVisibility, and autoPair settings.
  */
 import { useEffect, useRef, type MutableRefObject } from "react";
-import { EditorView } from "@codemirror/view";
+import { EditorView, lineNumbers } from "@codemirror/view";
 import { closeBrackets } from "@codemirror/autocomplete";
 import { createBrHidingPlugin } from "@/plugins/codemirror";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
@@ -11,6 +11,7 @@ import {
   lineWrapCompartment,
   brVisibilityCompartment,
   autoPairCompartment,
+  lineNumbersCompartment,
 } from "@/utils/sourceEditorExtensions";
 
 interface SyncConfig {
@@ -20,6 +21,7 @@ interface SyncConfig {
   wordWrap: boolean;
   showBrTags: boolean;
   autoPairEnabled: boolean | undefined;
+  showLineNumbers: boolean;
 }
 
 /**
@@ -163,13 +165,35 @@ export function useSourceEditorAutoPairSync(
 }
 
 /**
+ * Sync line numbers setting changes to CodeMirror.
+ */
+export function useSourceEditorLineNumbersSync(
+  viewRef: MutableRefObject<EditorView | null>,
+  showLineNumbers: boolean
+): void {
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    runOrQueueCodeMirrorAction(view, () => {
+      view.dispatch({
+        effects: lineNumbersCompartment.reconfigure(
+          showLineNumbers ? lineNumbers() : []
+        ),
+      });
+    });
+  }, [viewRef, showLineNumbers]);
+}
+
+/**
  * Combined sync hook for all settings.
  */
 export function useSourceEditorSync(config: SyncConfig): void {
-  const { viewRef, isInternalChange, content, wordWrap, showBrTags, autoPairEnabled } = config;
+  const { viewRef, isInternalChange, content, wordWrap, showBrTags, autoPairEnabled, showLineNumbers } = config;
 
   useSourceEditorContentSync(viewRef, isInternalChange, content);
   useSourceEditorWordWrapSync(viewRef, wordWrap);
   useSourceEditorBrVisibilitySync(viewRef, showBrTags);
   useSourceEditorAutoPairSync(viewRef, autoPairEnabled);
+  useSourceEditorLineNumbersSync(viewRef, showLineNumbers);
 }

@@ -86,6 +86,15 @@ export function useViewShortcuts() {
         return;
       }
 
+      // Line numbers (editor scope)
+      const lineNumbersKey = shortcuts.getShortcut("lineNumbers");
+      const lineNumbersDef = shortcuts.getDefinition("lineNumbers");
+      if (matchesShortcutEvent(e, lineNumbersKey) && shouldRunShortcut(lineNumbersDef?.scope)) {
+        e.preventDefault();
+        useEditorStore.getState().toggleLineNumbers();
+        return;
+      }
+
       // Terminal toggle (global scope) - only when terminal feature is enabled
       const terminalEnabled = useSettingsStore.getState().advanced.terminalEnabled;
       if (terminalEnabled) {

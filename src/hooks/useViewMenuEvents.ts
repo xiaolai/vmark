@@ -76,6 +76,13 @@ export function useViewMenuEvents(): void {
       if (cancelled) { unlistenWordWrap(); return; }
       unlistenRefs.current.push(unlistenWordWrap);
 
+      const unlistenLineNumbers = await currentWindow.listen<string>("menu:line-numbers", (event) => {
+        if (event.payload !== windowLabel) return;
+        useEditorStore.getState().toggleLineNumbers();
+      });
+      if (cancelled) { unlistenLineNumbers(); return; }
+      unlistenRefs.current.push(unlistenLineNumbers);
+
       const unlistenTerminal = await currentWindow.listen<string>("menu:terminal", (event) => {
         if (event.payload !== windowLabel) return;
         useTerminalStore.getState().toggle();

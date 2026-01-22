@@ -12,6 +12,7 @@ import { scheduleTiptapFocusAndRestore } from "@/utils/tiptapFocus";
 import { createTiptapExtensions } from "@/utils/tiptapExtensions";
 import type { CursorInfo } from "@/stores/documentStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -26,6 +27,7 @@ import { useTiptapTableCommands } from "@/hooks/useTiptapTableCommands";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
 import { ImageContextMenu } from "./ImageContextMenu";
 import { SourcePeek } from "./SourcePeek";
+import "@/plugins/codeBlockLineNumbers/code-block-line-numbers.css";
 
 /**
  * Delay before enabling cursor tracking after editor creation.
@@ -40,6 +42,7 @@ export function TiptapEditorInner() {
   const { setContent, setCursorInfo } = useDocumentActions();
   const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
   const hardBreakStyleOnSave = useSettingsStore((state) => state.markdown.hardBreakStyleOnSave);
+  const showLineNumbers = useEditorStore((state) => state.showLineNumbers);
   const windowLabel = useWindowLabel();
 
   const isInternalChange = useRef(false);
@@ -245,9 +248,13 @@ export function TiptapEditorInner() {
     }
   }, [content, editor]);
 
+  const editorClassName = showLineNumbers
+    ? "tiptap-editor show-line-numbers"
+    : "tiptap-editor";
+
   return (
     <>
-      <div className="tiptap-editor">
+      <div className={editorClassName}>
         <EditorContent editor={editor} />
       </div>
       <ImageContextMenu onAction={handleImageContextMenuAction} />

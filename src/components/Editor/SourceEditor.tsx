@@ -51,6 +51,7 @@ export function SourceEditor() {
 
   // Use editor store for global settings
   const wordWrap = useEditorStore((state) => state.wordWrap);
+  const showLineNumbers = useEditorStore((state) => state.showLineNumbers);
   const showBrTags = useSettingsStore((state) => state.markdown.showBrTags);
   const autoPairEnabled = useSettingsStore((state) => state.markdown.autoPairEnabled);
 
@@ -101,6 +102,7 @@ export function SourceEditor() {
     });
 
     const initialWordWrap = useEditorStore.getState().wordWrap;
+    const initialShowLineNumbers = useEditorStore.getState().showLineNumbers;
     const initialShowBrTags = useSettingsStore.getState().markdown.showBrTags;
     const initialAutoPair = useSettingsStore.getState().markdown.autoPairEnabled ?? true;
 
@@ -110,6 +112,7 @@ export function SourceEditor() {
         initialWordWrap,
         initialShowBrTags,
         initialAutoPair,
+        initialShowLineNumbers,
         updateListener,
       }),
     });
@@ -166,6 +169,7 @@ export function SourceEditor() {
     wordWrap,
     showBrTags,
     autoPairEnabled,
+    showLineNumbers,
   });
 
   useSourceEditorSearch(viewRef);

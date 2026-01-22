@@ -2,7 +2,7 @@
  * CodeMirror extensions configuration for the source editor.
  */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
-import { EditorView, keymap, drawSelection, dropCursor } from "@codemirror/view";
+import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
@@ -56,6 +56,7 @@ import { createSourceFootnotePopupPlugin } from "@/plugins/sourceFootnotePopup";
 export const lineWrapCompartment = new Compartment();
 export const brVisibilityCompartment = new Compartment();
 export const autoPairCompartment = new Compartment();
+export const lineNumbersCompartment = new Compartment();
 export const shortcutKeymapCompartment = new Compartment();
 
 // Custom brackets config for markdown (^, standard brackets)
@@ -69,6 +70,7 @@ interface ExtensionConfig {
   initialWordWrap: boolean;
   initialShowBrTags: boolean;
   initialAutoPair: boolean;
+  initialShowLineNumbers: boolean;
   updateListener: Extension;
 }
 
@@ -76,7 +78,7 @@ interface ExtensionConfig {
  * Creates the array of CodeMirror extensions for the source editor.
  */
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
-  const { initialWordWrap, initialShowBrTags, initialAutoPair, updateListener } = config;
+  const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, updateListener } = config;
 
   return [
     // Line wrapping (dynamic via compartment)
@@ -85,6 +87,8 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     brVisibilityCompartment.of(createBrHidingPlugin(!initialShowBrTags)),
     // Auto-pair brackets (dynamic via compartment)
     autoPairCompartment.of(initialAutoPair ? closeBrackets() : []),
+    // Line numbers (dynamic via compartment)
+    lineNumbersCompartment.of(initialShowLineNumbers ? lineNumbers() : []),
     // Custom markdown brackets config (^, ==, standard brackets)
     markdownCloseBrackets,
     // Markdown auto-pair with delay judgment (*, _, ~) and code fence
@@ -146,6 +150,15 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
         key: "Mod-Alt-w",
         run: () => {
           useEditorStore.getState().toggleWordWrap();
+          return true;
+        },
+        preventDefault: true,
+      }),
+      // Cmd+Shift+N: toggle line numbers
+      guardCodeMirrorKeyBinding({
+        key: "Mod-Shift-n",
+        run: () => {
+          useEditorStore.getState().toggleLineNumbers();
           return true;
         },
         preventDefault: true,

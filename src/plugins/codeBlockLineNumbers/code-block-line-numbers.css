@@ -1,0 +1,53 @@
+/**
+ * Code block line numbers styling.
+ *
+ * Line numbers are hidden by default and shown when
+ * .show-line-numbers class is on the editor container.
+ */
+
+/* Code block wrapper for gutter layout */
+.tiptap-editor .code-block-wrapper {
+  display: flex;
+  margin: 15px 0;
+  background: var(--code-bg-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tiptap-editor .code-block-wrapper pre {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Line numbers gutter - hidden by default */
+.tiptap-editor .code-line-numbers {
+  display: none;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding: 8px 8px 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--text-tertiary);
+  text-align: right;
+  user-select: none;
+  pointer-events: none;
+  border-right: 1px solid var(--border-color);
+  background: var(--code-bg-color);
+}
+
+/* Individual line number */
+.tiptap-editor .code-line-numbers .line-num {
+  line-height: var(--editor-line-height);
+}
+
+/* Show line numbers when enabled */
+.tiptap-editor.show-line-numbers .code-line-numbers {
+  display: flex;
+}
+
+/* Dark theme adjustments */
+.dark-theme .tiptap-editor .code-line-numbers {
+  color: var(--text-tertiary);
+  border-right-color: var(--border-color);
+}

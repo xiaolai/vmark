@@ -1,0 +1,1 @@
+export { CodeBlockWithLineNumbers } from "./tiptap";
