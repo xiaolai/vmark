@@ -33,7 +33,7 @@ fn get_pending_open_files() -> Vec<PendingOpen> {
     std::mem::take(&mut *pending)
 }
 
-/// Debug logging from frontend (logs to terminal)
+/// Debug logging from frontend (logs to terminal, debug builds only)
 #[cfg(debug_assertions)]
 #[tauri::command]
 fn debug_log(message: String) {

@@ -79,21 +79,24 @@ export default defineConfig(async () => ({
 
           if (pkgName.startsWith("@lezer/")) return "vendor-lezer";
           if (pkgName === "@codemirror/language-data") return "vendor-codemirror-languages";
-          if (pkgName.startsWith("@codemirror/lang-") || pkgName === "@codemirror/language") {
-            return "vendor-codemirror-lang";
-          }
+          // Keep all @codemirror packages together to avoid circular dependency issues
+          // Previously splitting @codemirror/lang-* and @codemirror/language caused
+          // "Cannot access 'kn' before initialization" in production builds
           if (pkgName.startsWith("@codemirror/")) return "vendor-codemirror";
           if (pkgName.startsWith("@tiptap/") || pkgName.startsWith("prosemirror")) return "vendor-tiptap";
-          if (pkgName === "mermaid") return "vendor-mermaid";
-          if (pkgName.startsWith("@mermaid-js/")) return "vendor-mermaid-parser";
+          // Keep all mermaid-related packages together to avoid circular dependency issues
+          // Previously splitting mermaid, @mermaid-js/*, d3-*, dagre caused
+          // "this.clear is not a function" error in production builds
           if (
+            pkgName === "mermaid" ||
+            pkgName.startsWith("@mermaid-js/") ||
             pkgName.startsWith("d3-") ||
             pkgName === "d3" ||
             pkgName === "dagre" ||
             pkgName === "dagre-d3-es" ||
             pkgName === "khroma"
           ) {
-            return "vendor-mermaid-graph";
+            return "vendor-mermaid";
           }
           if (pkgName === "katex") return "vendor-katex";
           if (

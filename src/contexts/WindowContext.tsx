@@ -153,7 +153,6 @@ export function WindowProvider({ children }: WindowProviderProps) {
             if (!filePath && !workspaceRootParam && label === "main") {
               useWorkspaceStore.getState().closeWorkspace();
             }
-
             if (filePaths && filePaths.length > 0) {
               for (const path of filePaths) {
                 const tabId = useTabStore.getState().createTab(label, path);
@@ -199,7 +198,10 @@ export function WindowProvider({ children }: WindowProviderProps) {
       }
     };
 
-    init();
+    init().catch((e) => {
+      console.error("[WindowContext] Unhandled init error:", e);
+      setIsReady(true);
+    });
   }, []);
 
   const isDocumentWindow = windowLabel === "main" || windowLabel.startsWith("doc-");
