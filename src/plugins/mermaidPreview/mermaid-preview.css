@@ -9,23 +9,166 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--popup-shadow);
-  padding: 12px;
-  max-width: 600px;
-  max-height: 400px;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mermaid-preview-popup.dragging {
+  user-select: none;
+  cursor: grabbing;
+}
+
+/* Header with drag handle and pin button */
+.mermaid-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.mermaid-preview-popup.dragging .mermaid-preview-header {
+  cursor: grabbing;
+}
+
+.mermaid-preview-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Zoom controls */
+.mermaid-preview-zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mermaid-preview-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.mermaid-preview-zoom-btn:hover {
+  background: var(--hover-bg);
+}
+
+.mermaid-preview-zoom-btn:active {
+  background: var(--bg-tertiary);
+}
+
+.mermaid-preview-zoom-value {
+  min-width: 40px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Resize handles - invisible but functional at corners and edges */
+.mermaid-preview-resize {
+  position: absolute;
+}
+
+/* Corner handles */
+.mermaid-preview-resize-nw {
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.mermaid-preview-resize-ne {
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
+.mermaid-preview-resize-sw {
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
+.mermaid-preview-resize-se {
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+/* Edge handles */
+.mermaid-preview-resize-n {
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.mermaid-preview-resize-s {
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.mermaid-preview-resize-w {
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.mermaid-preview-resize-e {
+  top: 12px;
+  bottom: 12px;
+  right: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.mermaid-preview-popup.resizing {
+  user-select: none;
 }
 
 .mermaid-preview-content {
   min-width: 200px;
   min-height: 100px;
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: auto;
+  flex: 1;
 }
 
 .mermaid-preview-content svg {
-  max-width: 100%;
-  height: auto;
+  /* Dimensions set by JS zoom control */
+  flex-shrink: 0;
 }
 
 .mermaid-preview-empty {
