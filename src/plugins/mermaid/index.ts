@@ -75,6 +75,18 @@ async function initMermaid(): Promise<void> {
 }
 
 /**
+ * Clean up Mermaid's temporary render container.
+ * Mermaid creates a container with ID `d${diagramId}` in document.body.
+ * This must be removed after rendering to prevent DOM pollution.
+ */
+function cleanupMermaidContainer(diagramId: string): void {
+  const container = document.getElementById(`d${diagramId}`);
+  if (container) {
+    container.remove();
+  }
+}
+
+/**
  * Render mermaid diagram content to SVG HTML.
  * Returns null if rendering fails.
  * Lazy-loads mermaid on first call.
@@ -90,8 +102,12 @@ export async function renderMermaid(
   try {
     // mermaidModule is guaranteed non-null after initMermaid()
     const { svg } = await mermaidModule!.default.render(diagramId, content);
+    // Clean up the temporary container Mermaid creates in document.body
+    cleanupMermaidContainer(diagramId);
     return svg;
   } catch (error) {
+    // Clean up even on error - Mermaid leaves error displays in the body
+    cleanupMermaidContainer(diagramId);
     console.warn("[Mermaid] Failed to render diagram:", error);
     return null;
   }
