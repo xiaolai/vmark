@@ -231,12 +231,13 @@
 /* Code - inline */
 .tiptap-editor code {
   font-family: var(--font-mono);
-  font-size: 0.9em;
+  font-size: 0.85em;
   background-color: var(--code-bg-color);
   color: var(--code-text-color);
   border: 1px solid var(--code-border-color);
   border-radius: 3px;
-  padding: 2px 4px 0 4px;
+  padding: 2px 4px;
+  vertical-align: baseline;
 }
 
 /* Code blocks */
