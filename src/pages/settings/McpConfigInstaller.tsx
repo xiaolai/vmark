@@ -258,6 +258,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showRestartHint, setShowRestartHint] = useState(false);
 
   const loadDiagnostics = useCallback(async () => {
     try {
@@ -277,6 +278,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+    setShowRestartHint(false);
     try {
       const previewData = await invoke<ConfigPreview>("mcp_config_preview", {
         provider: providerId,
@@ -299,6 +301,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
       });
       if (result.success) {
         setSuccessMessage(result.message);
+        setShowRestartHint(true);
         setPreview(null);
         await loadDiagnostics();
         // Enable autoStart and start bridge after successful install
@@ -317,12 +320,14 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+    setShowRestartHint(false);
     try {
       const result = await invoke<InstallResult>("mcp_config_install", {
         provider: providerId,
       });
       if (result.success) {
         setSuccessMessage("Configuration repaired successfully");
+        setShowRestartHint(true);
         await loadDiagnostics();
       } else {
         setError(result.message);
@@ -338,6 +343,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+    setShowRestartHint(false);
     try {
       const result = await invoke<UninstallResult>("mcp_config_uninstall", {
         provider: providerId,
@@ -388,6 +394,11 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
       {successMessage && (
         <div className="mt-2 text-xs text-green-600 dark:text-green-400">
           {successMessage}
+          {showRestartHint && (
+            <span className="text-[var(--text-tertiary)] ml-1">
+              — Restart the AI provider to apply changes.
+            </span>
+          )}
         </div>
       )}
 
