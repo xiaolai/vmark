@@ -97,9 +97,11 @@ pub struct McpResponsePayload {
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 struct ClientIdentity {
     /// Client name (e.g., "claude-code", "codex-cli", "cursor")
+    #[allow(dead_code)]
     name: String,
     /// Client version
     #[serde(default)]
+    #[allow(dead_code)]
     version: Option<String>,
     /// Process ID
     #[serde(default)]
@@ -113,7 +115,8 @@ struct ClientIdentity {
 }
 
 impl ClientIdentity {
-    /// Get display name for logging.
+    /// Get display name for logging (debug only).
+    #[cfg(debug_assertions)]
     fn display_name(&self) -> String {
         if let Some(ref version) = self.version {
             format!("{} v{}", self.name, version)
@@ -295,9 +298,9 @@ pub async fn start_bridge(app: AppHandle, _port: u16) -> Result<u16, String> {
                             let app = app_handle.clone();
                             tauri::async_runtime::spawn(handle_connection(stream, addr, app));
                         }
-                        Err(e) => {
+                        Err(_e) => {
                             #[cfg(debug_assertions)]
-                            eprintln!("[MCP Bridge] Accept error: {}", e);
+                            eprintln!("[MCP Bridge] Accept error: {}", _e);
                         }
                     }
                 }
@@ -346,9 +349,9 @@ pub async fn stop_bridge() {
 async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) {
     let ws_stream = match accept_async(stream).await {
         Ok(ws) => ws,
-        Err(e) => {
+        Err(_e) => {
             #[cfg(debug_assertions)]
-            eprintln!("[MCP Bridge] WebSocket handshake failed for {}: {}", addr, e);
+            eprintln!("[MCP Bridge] WebSocket handshake failed for {}: {}", addr, _e);
             return;
         }
     };
@@ -418,9 +421,9 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
             result = ws_receiver.next() => {
                 match result {
                     Some(Ok(Message::Text(text))) => {
-                        if let Err(e) = handle_message(&text, client_id, &app).await {
+                        if let Err(_e) = handle_message(&text, client_id, &app).await {
                             #[cfg(debug_assertions)]
-                            eprintln!("[MCP Bridge] Error handling message from client {}: {}", client_id, e);
+                            eprintln!("[MCP Bridge] Error handling message from client {}: {}", client_id, _e);
                         }
                     }
                     Some(Ok(Message::Close(_))) => {
@@ -428,9 +431,9 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
                         eprintln!("[MCP Bridge] Client {} disconnected", client_id);
                         break;
                     }
-                    Some(Err(e)) => {
+                    Some(Err(_e)) => {
                         #[cfg(debug_assertions)]
-                        eprintln!("[MCP Bridge] WebSocket error from client {}: {}", client_id, e);
+                        eprintln!("[MCP Bridge] WebSocket error from client {}: {}", client_id, _e);
                         break;
                     }
                     None => {
@@ -449,10 +452,10 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
         let state = get_bridge_state();
         let mut guard = state.lock().await;
 
-        if let Some(client) = guard.clients.remove(&client_id) {
+        if let Some(_client) = guard.clients.remove(&client_id) {
             #[cfg(debug_assertions)]
             {
-                let name = client
+                let name = _client
                     .identity
                     .as_ref()
                     .map(|i| i.display_name())

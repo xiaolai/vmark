@@ -169,19 +169,19 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
 
         while let Some(event) = rx.recv().await {
             match event {
-                CommandEvent::Stdout(line) => {
+                CommandEvent::Stdout(_line) => {
                     #[cfg(debug_assertions)]
-                    eprintln!("[MCP Server] {}", String::from_utf8_lossy(&line));
+                    eprintln!("[MCP Server] {}", String::from_utf8_lossy(&_line));
                 }
-                CommandEvent::Stderr(line) => {
+                CommandEvent::Stderr(_line) => {
                     #[cfg(debug_assertions)]
-                    eprintln!("[MCP Server Error] {}", String::from_utf8_lossy(&line));
+                    eprintln!("[MCP Server Error] {}", String::from_utf8_lossy(&_line));
                 }
-                CommandEvent::Terminated(payload) => {
+                CommandEvent::Terminated(_payload) => {
                     #[cfg(debug_assertions)]
                     eprintln!(
                         "[MCP Server] Process terminated with code: {:?}",
-                        payload.code
+                        _payload.code
                     );
 
                     // Clear the stored process

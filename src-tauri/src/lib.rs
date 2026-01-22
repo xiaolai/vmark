@@ -135,9 +135,9 @@ pub fn run() {
             match event {
                 // CRITICAL: Prevent quit on last window close (macOS behavior)
                 // App should only quit via Cmd+Q or menu Quit
-                tauri::RunEvent::ExitRequested { api, code, .. } => {
+                tauri::RunEvent::ExitRequested { api, code: _code, .. } => {
                     #[cfg(debug_assertions)]
-                    eprintln!("[Tauri] ExitRequested received, code={:?}", code);
+                    eprintln!("[Tauri] ExitRequested received, code={:?}", _code);
 
                     // If quit is in progress, we called app.exit() - allow it through
                     if quit::is_quit_in_progress() {
