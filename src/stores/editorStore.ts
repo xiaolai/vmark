@@ -14,6 +14,7 @@ interface EditorState {
   sourceMode: boolean;
   wordWrap: boolean;
   showLineNumbers: boolean; // Show line numbers in code blocks
+  diagramPreviewEnabled: boolean; // Show diagram preview in source mode
   documentId: number; // Increments on new document to force editor recreation
   cursorInfo: CursorInfo | null; // Cursor position for syncing between modes
   lastAutoSave: number | null; // Timestamp of last auto-save
@@ -30,6 +31,7 @@ interface EditorActions {
   toggleSourceMode: () => void;
   toggleWordWrap: () => void;
   toggleLineNumbers: () => void;
+  toggleDiagramPreview: () => void;
   setCursorInfo: (info: CursorInfo | null) => void;
   reset: () => void;
 }
@@ -44,6 +46,7 @@ const initialState: EditorState = {
   sourceMode: false,
   wordWrap: true,
   showLineNumbers: false,
+  diagramPreviewEnabled: false,
   documentId: 0,
   cursorInfo: null,
   lastAutoSave: null,
@@ -96,6 +99,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   toggleLineNumbers: () =>
     set((state) => ({ showLineNumbers: !state.showLineNumbers })),
+
+  toggleDiagramPreview: () =>
+    set((state) => ({ diagramPreviewEnabled: !state.diagramPreviewEnabled })),
 
   setCursorInfo: (cursorInfo) => set({ cursorInfo }),
 

@@ -7,6 +7,7 @@
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { getMermaidPreviewView } from "@/plugins/mermaidPreview";
+import { useEditorStore } from "@/stores/editorStore";
 
 /**
  * Find mermaid code block at cursor position.
@@ -87,9 +88,19 @@ class SourceMermaidPreviewPlugin {
   private view: EditorView;
   private currentBlockRange: { from: number; to: number; content: string } | null = null;
   private pendingUpdate = false;
+  private unsubscribe: (() => void) | null = null;
+  private lastPreviewEnabled = false;
 
   constructor(view: EditorView) {
     this.view = view;
+    this.lastPreviewEnabled = useEditorStore.getState().diagramPreviewEnabled;
+    // Subscribe to store changes to react when diagramPreviewEnabled toggles
+    this.unsubscribe = useEditorStore.subscribe((state) => {
+      if (state.diagramPreviewEnabled !== this.lastPreviewEnabled) {
+        this.lastPreviewEnabled = state.diagramPreviewEnabled;
+        this.scheduleCheck();
+      }
+    });
     this.scheduleCheck();
   }
 
@@ -109,6 +120,12 @@ class SourceMermaidPreviewPlugin {
   }
 
   private checkMermaidAtCursor() {
+    // Check if diagram preview is enabled
+    if (!useEditorStore.getState().diagramPreviewEnabled) {
+      this.hidePreview();
+      return;
+    }
+
     const { from, to } = this.view.state.selection.main;
 
     // Only show preview for collapsed selection (cursor, not range)
@@ -164,6 +181,7 @@ class SourceMermaidPreviewPlugin {
   }
 
   destroy() {
+    this.unsubscribe?.();
     this.hidePreview();
   }
 }

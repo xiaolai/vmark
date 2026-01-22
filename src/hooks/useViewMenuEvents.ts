@@ -83,6 +83,13 @@ export function useViewMenuEvents(): void {
       if (cancelled) { unlistenLineNumbers(); return; }
       unlistenRefs.current.push(unlistenLineNumbers);
 
+      const unlistenDiagramPreview = await currentWindow.listen<string>("menu:diagram-preview", (event) => {
+        if (event.payload !== windowLabel) return;
+        useEditorStore.getState().toggleDiagramPreview();
+      });
+      if (cancelled) { unlistenDiagramPreview(); return; }
+      unlistenRefs.current.push(unlistenDiagramPreview);
+
       const unlistenTerminal = await currentWindow.listen<string>("menu:terminal", (event) => {
         if (event.payload !== windowLabel) return;
         useTerminalStore.getState().toggle();
