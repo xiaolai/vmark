@@ -26,39 +26,51 @@ jobs:
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
 
-      - name: Wait for DMG to be available
+      - name: Wait for DMGs to be available
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          DMG_URL="https://github.com/xiaolai/vmark/releases/download/v${VERSION}/VMark_${VERSION}_universal.dmg"
+          ARM_URL="https://github.com/xiaolai/vmark/releases/download/v${VERSION}/VMark_${VERSION}_aarch64.dmg"
+          INTEL_URL="https://github.com/xiaolai/vmark/releases/download/v${VERSION}/VMark_${VERSION}_x64.dmg"
 
-          echo "Waiting for DMG at: $DMG_URL"
+          echo "Waiting for DMGs..."
+          echo "ARM: $ARM_URL"
+          echo "Intel: $INTEL_URL"
 
           for i in {1..30}; do
-            if curl -sI -o /dev/null -w "%{http_code}" "$DMG_URL" | grep -q "302\|200"; then
-              echo "DMG is available!"
+            ARM_OK=$(curl -sI -o /dev/null -w "%{http_code}" "$ARM_URL" | grep -q "302\|200" && echo "yes" || echo "no")
+            INTEL_OK=$(curl -sI -o /dev/null -w "%{http_code}" "$INTEL_URL" | grep -q "302\|200" && echo "yes" || echo "no")
+
+            if [ "$ARM_OK" = "yes" ] && [ "$INTEL_OK" = "yes" ]; then
+              echo "Both DMGs are available!"
               exit 0
             fi
-            echo "Attempt $i/30: DMG not ready yet, waiting 30s..."
+            echo "Attempt $i/30: Waiting... (ARM: $ARM_OK, Intel: $INTEL_OK)"
             sleep 30
           done
 
-          echo "DMG not available after 15 minutes"
+          echo "DMGs not available after 15 minutes"
           exit 1
 
-      - name: Download DMG and calculate SHA256
+      - name: Download DMGs and calculate SHA256
         id: sha256
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          DMG_URL="https://github.com/xiaolai/vmark/releases/download/v${VERSION}/VMark_${VERSION}_universal.dmg"
+          ARM_URL="https://github.com/xiaolai/vmark/releases/download/v${VERSION}/VMark_${VERSION}_aarch64.dmg"
+          INTEL_URL="https://github.com/xiaolai/vmark/releases/download/v${VERSION}/VMark_${VERSION}_x64.dmg"
 
-          echo "Downloading: $DMG_URL"
-          curl -L -o vmark.dmg "$DMG_URL"
+          echo "Downloading ARM DMG: $ARM_URL"
+          curl -L -o vmark-arm.dmg "$ARM_URL"
+          SHA256_ARM=$(shasum -a 256 vmark-arm.dmg | cut -d ' ' -f 1)
+          echo "SHA256 (ARM): $SHA256_ARM"
+          echo "sha256_arm=$SHA256_ARM" >> $GITHUB_OUTPUT
+          rm vmark-arm.dmg
 
-          SHA256=$(shasum -a 256 vmark.dmg | cut -d ' ' -f 1)
-          echo "SHA256: $SHA256"
-          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-
-          rm vmark.dmg
+          echo "Downloading Intel DMG: $INTEL_URL"
+          curl -L -o vmark-intel.dmg "$INTEL_URL"
+          SHA256_INTEL=$(shasum -a 256 vmark-intel.dmg | cut -d ' ' -f 1)
+          echo "SHA256 (Intel): $SHA256_INTEL"
+          echo "sha256_intel=$SHA256_INTEL" >> $GITHUB_OUTPUT
+          rm vmark-intel.dmg
 
       - name: Checkout homebrew-tap
         uses: actions/checkout@v4
@@ -70,20 +82,29 @@ jobs:
       - name: Update cask formula
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          SHA256="${{ steps.sha256.outputs.sha256 }}"
+          SHA256_ARM="${{ steps.sha256.outputs.sha256_arm }}"
+          SHA256_INTEL="${{ steps.sha256.outputs.sha256_intel }}"
 
           cat > homebrew-tap/Casks/vmark.rb << 'EOF'
           cask "vmark" do
             version "VERSION_PLACEHOLDER"
-            sha256 "SHA256_PLACEHOLDER"
 
-            url "https://github.com/xiaolai/vmark/releases/download/v#{version}/VMark_#{version}_universal.dmg"
+            on_arm do
+              sha256 "SHA256_ARM_PLACEHOLDER"
+              url "https://github.com/xiaolai/vmark/releases/download/v#{version}/VMark_#{version}_aarch64.dmg"
+            end
+
+            on_intel do
+              sha256 "SHA256_INTEL_PLACEHOLDER"
+              url "https://github.com/xiaolai/vmark/releases/download/v#{version}/VMark_#{version}_x64.dmg"
+            end
+
             name "VMark"
             desc "Modern Markdown editor with WYSIWYG and source mode"
             homepage "https://github.com/xiaolai/vmark"
 
             livecheck do
-              url :url
+              url :homepage
               strategy :github_latest
             end
 
@@ -102,7 +123,8 @@ jobs:
 
           # Replace placeholders
           sed -i "s/VERSION_PLACEHOLDER/$VERSION/" homebrew-tap/Casks/vmark.rb
-          sed -i "s/SHA256_PLACEHOLDER/$SHA256/" homebrew-tap/Casks/vmark.rb
+          sed -i "s/SHA256_ARM_PLACEHOLDER/$SHA256_ARM/" homebrew-tap/Casks/vmark.rb
+          sed -i "s/SHA256_INTEL_PLACEHOLDER/$SHA256_INTEL/" homebrew-tap/Casks/vmark.rb
 
           echo "Updated cask formula:"
           cat homebrew-tap/Casks/vmark.rb
