@@ -40,8 +40,8 @@
 }
 
 .tab-context-menu-item:hover:not(:disabled) {
-  background: var(--primary-color, #0066cc);
-  color: white;
+  background: var(--primary-color);
+  color: var(--contrast-text);
 }
 
 .tab-context-menu-item:disabled {

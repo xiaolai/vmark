@@ -41,16 +41,17 @@
 }
 
 .context-menu-item:hover {
-  background: var(--primary-color, #0066cc);
-  color: white;
+  background: var(--primary-color);
+  color: var(--contrast-text);
 }
 
 .context-menu-item:hover .context-menu-item-icon {
-  color: white;
+  color: var(--contrast-text);
 }
 
 .context-menu-item:hover .context-menu-item-shortcut {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--contrast-text);
+  opacity: 0.7;
 }
 
 .context-menu-item-icon {

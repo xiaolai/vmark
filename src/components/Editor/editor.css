@@ -288,9 +288,10 @@
   padding: 0;
 }
 
-/* Blockquotes - subtle accent color border */
+/* Blockquotes - subtle border with radius like alert blocks */
 .tiptap-editor blockquote {
-  border-left: 0.25em solid var(--md-char-color);
+  border-left: 4px solid var(--border-color);
+  border-radius: var(--radius-md);
   margin: 0.8em 0;
   padding: 0 1em;
   color: var(--meta-content-color);
@@ -672,7 +673,7 @@
 
 .footnote-popup-btn-save:hover {
   background: var(--primary-color);
-  color: white;
+  color: var(--contrast-text);
 }
 
 .footnote-popup-btn-goto:hover {

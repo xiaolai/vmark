@@ -51,6 +51,19 @@ const lightModeColors = {
   "--source-mode-bg": "rgba(0, 0, 0, 0.02)",
   "--error-color": "#cf222e",
   "--error-bg": "#ffebe9",
+  // Warning states
+  "--warning-color": "#9a6700",
+  "--warning-bg": "rgba(245, 158, 11, 0.1)",
+  "--warning-border": "rgba(245, 158, 11, 0.3)",
+  "--warning-bg-hover": "rgba(245, 158, 11, 0.15)",
+  "--warning-bg-active": "rgba(245, 158, 11, 0.2)",
+  // Contrast text (for colored backgrounds)
+  "--contrast-text": "white",
+  // Hover/subtle backgrounds
+  "--hover-bg": "rgba(0, 0, 0, 0.04)",
+  "--hover-bg-strong": "rgba(0, 0, 0, 0.08)",
+  "--subtle-bg": "rgba(0, 0, 0, 0.02)",
+  "--subtle-bg-hover": "rgba(0, 0, 0, 0.03)",
   // Alert block colors
   "--alert-note": "#0969da",
   "--alert-tip": "#1a7f37",
@@ -78,6 +91,19 @@ const darkModeColors = {
   "--source-mode-bg": "rgba(255, 255, 255, 0.02)",
   "--error-color": "#f85149",
   "--error-bg": "rgba(248, 81, 73, 0.15)",
+  // Warning states (adjusted for dark mode)
+  "--warning-color": "#d29922",
+  "--warning-bg": "rgba(245, 158, 11, 0.15)",
+  "--warning-border": "rgba(245, 158, 11, 0.4)",
+  "--warning-bg-hover": "rgba(245, 158, 11, 0.2)",
+  "--warning-bg-active": "rgba(245, 158, 11, 0.25)",
+  // Contrast text (for colored backgrounds)
+  "--contrast-text": "white",
+  // Hover/subtle backgrounds (inverted for dark mode)
+  "--hover-bg": "rgba(255, 255, 255, 0.06)",
+  "--hover-bg-strong": "rgba(255, 255, 255, 0.1)",
+  "--subtle-bg": "rgba(255, 255, 255, 0.03)",
+  "--subtle-bg-hover": "rgba(255, 255, 255, 0.05)",
   // Alert block colors (lighter for dark mode)
   "--alert-note": "#58a6ff",
   "--alert-tip": "#3fb950",

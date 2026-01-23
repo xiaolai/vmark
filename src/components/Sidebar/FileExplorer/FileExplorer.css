@@ -73,15 +73,15 @@
 }
 
 .file-node:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: var(--subtle-bg);
 }
 
 .file-node.selected {
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: var(--subtle-bg-hover);
 }
 
 .file-node.active {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: var(--hover-bg);
 }
 
 .file-node-indent {

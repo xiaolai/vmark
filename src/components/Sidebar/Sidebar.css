@@ -221,11 +221,11 @@
 }
 
 .outline-item:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: var(--subtle-bg);
 }
 
 .outline-item.active {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: var(--hover-bg);
 }
 
 .outline-toggle {
@@ -305,7 +305,7 @@
 }
 
 .history-item:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: var(--subtle-bg);
 }
 
 .history-item-info {

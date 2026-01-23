@@ -82,6 +82,22 @@
   /* Error states (default for light mode) */
   --error-color: #cf222e;
   --error-bg: #ffebe9;
+
+  /* Warning states */
+  --warning-color: #9a6700;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-border: rgba(245, 158, 11, 0.3);
+
+  /* Contrast text (for colored backgrounds like primary buttons) */
+  --contrast-text: white;
+
+  /* Hover states (standardized) */
+  --hover-bg: rgba(0, 0, 0, 0.04);
+  --hover-bg-strong: rgba(0, 0, 0, 0.08);
+
+  /* Subtle backgrounds */
+  --subtle-bg: rgba(0, 0, 0, 0.02);
+  --subtle-bg-hover: rgba(0, 0, 0, 0.03);
 }
 
 /* Base styles */

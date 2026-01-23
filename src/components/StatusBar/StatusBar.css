@@ -187,16 +187,16 @@
 
 /* Missing file indicator (file deleted from disk) */
 .tab-pill.tab-missing {
-  background-color: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background-color: var(--warning-bg);
+  border: 1px solid var(--warning-border);
 }
 
 .tab-pill.tab-missing:hover {
-  background-color: rgba(245, 158, 11, 0.15);
+  background-color: var(--warning-bg-hover, rgba(245, 158, 11, 0.15));
 }
 
 .tab-pill.tab-missing.active {
-  background-color: rgba(245, 158, 11, 0.2);
+  background-color: var(--warning-bg-active, rgba(245, 158, 11, 0.2));
 }
 
 /* New tab button */
