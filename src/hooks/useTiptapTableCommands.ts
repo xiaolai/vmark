@@ -51,22 +51,17 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
       return;
     }
 
-    let cancelled = false;
+    const cancelledRef = { current: false };
 
     const setupListeners = async () => {
       unlistenRefs.current.forEach((fn) => fn());
       unlistenRefs.current = [];
 
-      if (cancelled) return;
+      if (cancelledRef.current) return;
 
       // Get current window for filtering - menu events include target window label
       const currentWindow = getCurrentWebviewWindow();
       const windowLabel = currentWindow.label;
-      const cancelledRef = { current: false };
-
-      // Update cancelledRef when cancelled changes
-      const checkCancelled = () => { cancelledRef.current = cancelled; };
-      checkCancelled();
 
       const ctx = { currentWindow, windowLabel, editorRef, unlistenRefs, cancelledRef };
       const register = (eventName: string, handler: (editor: TiptapEditor) => void) =>
@@ -145,7 +140,7 @@ export function useTiptapTableCommands(editor: TiptapEditor | null) {
     setupListeners();
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       const fns = unlistenRefs.current;
       unlistenRefs.current = [];
       fns.forEach((fn) => fn());

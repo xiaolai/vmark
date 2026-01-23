@@ -80,7 +80,8 @@ function findImageAtCursor(view: EditorView, pos: number): ImageRange | null {
     const matchEnd = matchStart + match[0].length;
 
     // Check if cursor is inside this image markdown
-    if (pos >= matchStart && pos <= matchEnd) {
+    // Use pos < matchEnd since CodeMirror ranges are [from, to)
+    if (pos >= matchStart && pos < matchEnd) {
       const alt = match[1];
       const src = match[2] || match[3];
 
@@ -148,7 +149,8 @@ function isInsideLink(view: EditorView, pos: number): boolean {
       continue;
     }
 
-    if (pos >= matchStart && pos <= matchEnd) {
+    // Use pos < matchEnd since CodeMirror ranges are [from, to)
+    if (pos >= matchStart && pos < matchEnd) {
       return true;
     }
   }
@@ -271,7 +273,9 @@ function insertImageTemplate(
  * Fires the async operation and returns immediately.
  */
 function insertImage(view: EditorView): boolean {
-  void insertImageAsync(view);
+  insertImageAsync(view).catch((error) => {
+    console.error("[SourceAdapter] insertImage failed:", error);
+  });
   return true;
 }
 

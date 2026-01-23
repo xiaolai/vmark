@@ -227,10 +227,15 @@ export function TiptapEditorInner() {
   useEffect(() => {
     useTiptapEditorStore.getState().setEditor(editor ?? null);
     // Register with activeEditorStore for unified menu dispatcher
-    useActiveEditorStore.getState().setActiveWysiwygEditor(editor ?? null);
+    if (editor) {
+      useActiveEditorStore.getState().setActiveWysiwygEditor(editor);
+    }
     return () => {
       useTiptapEditorStore.getState().clear();
-      useActiveEditorStore.getState().setActiveWysiwygEditor(null);
+      // Use conditional clear to avoid clearing a newly active editor
+      if (editor) {
+        useActiveEditorStore.getState().clearWysiwygEditorIfMatch(editor);
+      }
     };
   }, [editor]);
 

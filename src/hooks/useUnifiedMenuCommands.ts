@@ -116,24 +116,25 @@ function dispatchToWysiwyg(
 
 /**
  * Dispatch action to Source editor.
+ * Note: Return value may be inaccurate when IME is composing (action is queued).
  */
 function dispatchToSource(
   actionId: ActionId,
   params?: Record<string, unknown>
-): boolean {
+): void {
   const view = useActiveEditorStore.getState().activeSourceView;
-  if (!view) return false;
+  if (!view) return;
+
+  // Capture context before queuing to avoid stale state if selection changes
+  const cursorContext = useSourceCursorContextStore.getState().context;
+  const multiSelection = getSourceMultiSelectionContext(view, cursorContext);
 
   // Use IME guard for safe dispatching
-  let handled = false;
   runOrQueueCodeMirrorAction(view, () => {
-    const cursorContext = useSourceCursorContextStore.getState().context;
-    const multiSelection = getSourceMultiSelectionContext(view, cursorContext);
-
     // Handle heading actions specially
     if (actionId === "setHeading") {
       const level = getHeadingLevelFromParams(params);
-      handled = setSourceHeadingLevel(
+      setSourceHeadingLevel(
         { surface: "source", view, context: cursorContext, multiSelection },
         level
       );
@@ -141,7 +142,7 @@ function dispatchToSource(
     }
 
     if (actionId === "paragraph") {
-      handled = setSourceHeadingLevel(
+      setSourceHeadingLevel(
         { surface: "source", view, context: cursorContext, multiSelection },
         0
       );
@@ -150,15 +151,13 @@ function dispatchToSource(
 
     // Map to adapter action and dispatch
     const adapterAction = mapActionIdToAdapterAction(actionId);
-    handled = performSourceToolbarAction(adapterAction, {
+    performSourceToolbarAction(adapterAction, {
       surface: "source",
       view,
       context: cursorContext,
       multiSelection,
     });
   });
-
-  return handled;
 }
 
 /**
@@ -242,18 +241,29 @@ export function useUnifiedMenuCommands(): void {
         listenerPromises.push(promise);
       }
 
-      // Wait for all listeners to be registered
-      try {
-        const unlisteners = await Promise.all(listenerPromises);
-        if (disposed) {
-          // Component unmounted during setup, clean up
-          unlisteners.forEach((fn) => fn());
-          return;
+      // Wait for all listeners to be registered using allSettled to handle partial failures
+      const results = await Promise.allSettled(listenerPromises);
+
+      if (disposed) {
+        // Component unmounted during setup, clean up any successful listeners
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+            result.value();
+          }
         }
-        unlistenRefs.current = unlisteners;
-      } catch (error) {
-        console.error("[UnifiedMenuDispatcher] Failed to setup listeners:", error);
+        return;
       }
+
+      // Collect successful listeners, log failures
+      const unlisteners: UnlistenFn[] = [];
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          unlisteners.push(result.value);
+        } else {
+          console.error("[UnifiedMenuDispatcher] Failed to register listener:", result.reason);
+        }
+      }
+      unlistenRefs.current = unlisteners;
     };
 
     setupListeners();

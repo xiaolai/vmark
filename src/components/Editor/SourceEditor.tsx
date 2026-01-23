@@ -159,7 +159,8 @@ export function SourceEditor() {
     return () => {
       clearTimeout(focusTimeoutId);
       unsubscribeShortcuts();
-      useActiveEditorStore.getState().setActiveSourceView(null);
+      // Use conditional clear to avoid clearing a newly active view
+      useActiveEditorStore.getState().clearSourceViewIfMatch(view);
       view.destroy();
       viewRef.current = null;
     };

@@ -35,22 +35,17 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
       return;
     }
 
-    let cancelled = false;
+    const cancelledRef = { current: false };
 
     const setupListeners = async () => {
       unlistenRefs.current.forEach((fn) => fn());
       unlistenRefs.current = [];
 
-      if (cancelled) return;
+      if (cancelledRef.current) return;
 
       // Get current window for filtering - menu events include target window label
       const currentWindow = getCurrentWebviewWindow();
       const windowLabel = currentWindow.label;
-      const cancelledRef = { current: false };
-
-      // Update cancelledRef when cancelled changes
-      const checkCancelled = () => { cancelledRef.current = cancelled; };
-      checkCancelled();
 
       const ctx = { currentWindow, windowLabel, editorRef, unlistenRefs, cancelledRef };
       const register = (eventName: string, handler: (editor: TiptapEditor) => void) =>
@@ -58,7 +53,7 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
 
       // Headings 1-6
       for (let level = 1; level <= 6; level++) {
-        if (cancelled) break;
+        if (cancelledRef.current) break;
         const ok = await register(`menu:heading-${level}`, (editor) => {
           editor.chain().focus().setHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run();
         });
@@ -167,7 +162,7 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
 
       // Info Boxes (Alert Blocks)
       for (const alertType of ALERT_TYPES) {
-        if (cancelled) break;
+        if (cancelledRef.current) break;
         const ok = await register(`menu:info-${alertType.toLowerCase()}`, (editor) => {
           editor.commands.insertAlertBlock(alertType as AlertType);
         });
@@ -222,7 +217,7 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
     setupListeners();
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       const fns = unlistenRefs.current;
       unlistenRefs.current = [];
       fns.forEach((fn) => fn());
