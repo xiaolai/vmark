@@ -200,6 +200,7 @@
   margin: 0.8em 0;
   padding-left: 1em;
   font-size: var(--editor-font-size-sm);
+  line-height: var(--editor-line-height, 1.6);
 }
 
 .tiptap-editor ul:first-child,
@@ -271,6 +272,7 @@
   padding: 0 15px;
   color: var(--meta-content-color);
   font-size: var(--editor-font-size-sm);
+  line-height: var(--editor-line-height, 1.6);
 }
 
 .tiptap-editor blockquote blockquote {
@@ -301,6 +303,7 @@
   margin: 0.8em 0;
   table-layout: auto;
   font-size: var(--editor-font-size-sm);
+  line-height: var(--editor-line-height, 1.6);
 }
 
 .tiptap-editor table tr {
