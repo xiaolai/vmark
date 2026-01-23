@@ -213,3 +213,17 @@ jobs:
             --draft=false \
             --repo "${{ github.repository }}"
           echo "✅ Published release ${{ needs.create-release.outputs.version }}"
+
+      - name: Trigger Homebrew tap update
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          # Extract version number without 'v' prefix
+          VERSION="${{ needs.create-release.outputs.version }}"
+          VERSION_NUM="${VERSION#v}"
+
+          # Trigger the Homebrew update workflow
+          gh workflow run update-homebrew.yml \
+            --repo "${{ github.repository }}" \
+            -f version="$VERSION_NUM"
+          echo "✅ Triggered Homebrew tap update for $VERSION_NUM"
