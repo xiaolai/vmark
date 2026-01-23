@@ -50,17 +50,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS Universal (both Intel and Apple Silicon)
+          # macOS Apple Silicon (M1/M2/M3)
           - platform: macos-latest
-            args: --target universal-apple-darwin
+            args: --target aarch64-apple-darwin
+            sidecar_target: darwin-arm64
+
+          # macOS Intel
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+            sidecar_target: darwin-x64
 
           # Windows
           - platform: windows-latest
             args: ''
+            sidecar_target: ''
 
           # Linux
           - platform: ubuntu-22.04
             args: ''
+            sidecar_target: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -80,12 +88,14 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      # macOS: Add both targets for universal binary
-      - name: Add macOS targets
-        if: matrix.platform == 'macos-latest'
-        run: |
-          rustup target add aarch64-apple-darwin
-          rustup target add x86_64-apple-darwin
+      # macOS: Add the specific target for this build
+      - name: Add macOS target (Apple Silicon)
+        if: matrix.platform == 'macos-latest' && matrix.sidecar_target == 'darwin-arm64'
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Add macOS target (Intel)
+        if: matrix.platform == 'macos-latest' && matrix.sidecar_target == 'darwin-x64'
+        run: rustup target add x86_64-apple-darwin
 
       # macOS: Import code signing certificate (temporarily disabled)
       # - name: Import Apple certificate
@@ -115,13 +125,16 @@ jobs:
         run: pnpm install
 
       # Build MCP server sidecar for the target platform
+      # NOTE: pkg binaries cannot be combined with lipo, so we build arch-specific binaries
       - name: Build MCP server sidecar (macOS)
         if: matrix.platform == 'macos-latest'
         working-directory: vmark-mcp-server
+        env:
+          SIDECAR_TARGET: ${{ matrix.sidecar_target }}
         run: |
           pnpm install
           pnpm build
-          node scripts/build-sidecar.js --macos-universal
+          node scripts/build-sidecar.js --target $SIDECAR_TARGET
 
       - name: Build MCP server sidecar (Windows)
         if: matrix.platform == 'windows-latest'

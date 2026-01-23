@@ -140,6 +140,10 @@ async function main() {
   const buildAll = args.includes('--all');
   const buildMacosUniversal = args.includes('--macos-universal');
 
+  // Parse --target <target> argument
+  const targetIndex = args.indexOf('--target');
+  const specificTarget = targetIndex !== -1 ? args[targetIndex + 1] : null;
+
   console.log('VMark MCP Server Sidecar Builder');
   console.log('================================\n');
 
@@ -147,9 +151,26 @@ async function main() {
   await bundleWithEsbuild();
 
   // Step 2: Package with pkg
-  if (buildMacosUniversal) {
-    // Build both macOS architectures and combine into universal binary
+  if (specificTarget) {
+    // Build for a specific target (used by CI for arch-specific builds)
+    console.log(`Building for specific target: ${specificTarget}\n`);
+
+    if (!TARGET_MAP[specificTarget]) {
+      console.error(`Unknown target: ${specificTarget}`);
+      console.error('Supported targets:', Object.keys(TARGET_MAP).join(', '));
+      process.exit(1);
+    }
+
+    const success = await buildForTarget(specificTarget);
+    if (!success) {
+      process.exit(1);
+    }
+  } else if (buildMacosUniversal) {
+    // Build both macOS architectures separately
+    // NOTE: Do NOT use lipo to combine pkg binaries - it corrupts the embedded JS!
+    // Tauri will bundle both arch-specific binaries and select the correct one at runtime.
     console.log('Building for macOS universal (arm64 + x64)...\n');
+    console.log('NOTE: pkg binaries cannot be combined with lipo. Keeping both arch-specific binaries.\n');
     const macosTargets = ['darwin-arm64', 'darwin-x64'];
 
     // Build sequentially to avoid race conditions
@@ -161,25 +182,7 @@ async function main() {
       }
     }
 
-    // Combine into universal binary using lipo
-    const arm64Path = join(TAURI_BINARIES_DIR, 'vmark-mcp-server-aarch64-apple-darwin');
-    const x64Path = join(TAURI_BINARIES_DIR, 'vmark-mcp-server-x86_64-apple-darwin');
-    const universalPath = join(TAURI_BINARIES_DIR, 'vmark-mcp-server-universal-apple-darwin');
-
-    console.log('\nCreating universal binary with lipo...');
-    const lipoCmd = `lipo -create -output "${universalPath}" "${arm64Path}" "${x64Path}"`;
-    console.log(`Running: ${lipoCmd}`);
-
-    try {
-      await execAsync(lipoCmd);
-      await access(universalPath);
-      console.log(`Successfully created universal binary: ${universalPath}`);
-      // Keep arch-specific binaries - Tauri needs them during universal build
-      // It builds each arch separately before combining, so both are needed
-    } catch (error) {
-      console.error('Failed to create universal binary:', error.message);
-      process.exit(1);
-    }
+    console.log('\nBoth arch-specific binaries created. Tauri will bundle both for universal builds.');
   } else if (buildAll) {
     // Build for all platforms
     console.log('Building for all platforms...\n');
