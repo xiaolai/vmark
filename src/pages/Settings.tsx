@@ -110,11 +110,11 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
   );
 }
 
-// Advanced and Terminal sections only visible in dev mode
-const showAdvancedSection = import.meta.env.DEV;
+// Terminal section only visible in dev mode
 const showTerminalSection = import.meta.env.DEV;
 
 // Navigation config - alphabetical order
+// Note: Advanced section is added dynamically based on showDevSection state
 const navConfig = [
   { id: "appearance" as const, icon: Palette, label: "Appearance" },
   { id: "editor" as const, icon: Type, label: "Editor" },
@@ -125,7 +125,6 @@ const navConfig = [
   { id: "shortcuts" as const, icon: Keyboard, label: "Shortcuts" },
   { id: "terminal" as const, icon: Terminal, label: "Terminal" },
   { id: "updates" as const, icon: RefreshCw, label: "Updates" },
-  ...(showAdvancedSection ? [{ id: "advanced" as const, icon: Zap, label: "Advanced" }] : []),
 ] as const;
 
 // Valid section IDs for URL param validation
@@ -160,19 +159,12 @@ export function SettingsPage() {
   // Handle Cmd+Shift+D to toggle dev section
   useDevSectionShortcut();
 
-  // Switch to appearance when dev section is hidden while viewing it
+  // Switch to appearance when dev sections are hidden while viewing them
   useEffect(() => {
-    if (!showDevSection && section === "developing") {
+    if (!showDevSection && (section === "developing" || section === "advanced")) {
       setSection("appearance");
     }
   }, [showDevSection, section]);
-
-  // Switch away from advanced when in production
-  useEffect(() => {
-    if (!showAdvancedSection && section === "advanced") {
-      setSection("integrations");
-    }
-  }, [section]);
 
   // Terminal visible only in dev mode AND when enabled in settings
   const showTerminal = showTerminalSection && terminalEnabled;
@@ -192,8 +184,14 @@ export function SettingsPage() {
         icon: <item.icon className="w-4 h-4" />,
         label: item.label,
       })),
+    // Advanced and Developing sections toggled together via Ctrl+Option+Cmd+D
     ...(showDevSection
       ? [
+          {
+            id: "advanced" as const,
+            icon: <Zap className="w-4 h-4" />,
+            label: "Advanced",
+          },
           {
             id: "developing" as const,
             icon: <FlaskConical className="w-4 h-4" />,
