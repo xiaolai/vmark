@@ -260,8 +260,9 @@ Insert a new table at the cursor.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `rows` | number | No | Number of rows. Default: 3. |
-| `cols` | number | No | Number of columns. Default: 3. |
+| `rows` | number | Yes | Number of rows (must be at least 1). |
+| `cols` | number | Yes | Number of columns (must be at least 1). |
+| `withHeaderRow` | boolean | No | Whether to include a header row. Default: true. |
 | `windowId` | string | No | Window identifier. |
 
 ### table_delete

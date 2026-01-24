@@ -44,7 +44,7 @@ Enhance your writing focus with these view modes:
 |------|-------------|----------|
 | Focus | Highlight current paragraph | `F8` |
 | Typewriter | Keep cursor centered | `F9` |
-| Word Wrap | Toggle line wrapping | `F10` |
+| Word Wrap | Toggle line wrapping | `Alt + Z` |
 
 ## Basic Formatting
 

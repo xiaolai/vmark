@@ -73,6 +73,7 @@ VMark is designed for keyboard-first workflows. All shortcuts can be customized 
 | Insert Important | `Alt + Mod + Shift + I` |
 | Insert Caution | `Mod + Shift + U` |
 | Insert Collapsible | `Alt + Mod + D` |
+| Insert Diagram | `Alt + Shift + Mod + D` |
 | Toggle Comment | `Mod + Shift + /` |
 
 ## Selection & Multi-Cursor
@@ -98,13 +99,14 @@ VMark is designed for keyboard-first workflows. All shortcuts can be customized 
 | Action | Shortcut |
 |--------|----------|
 | Toggle Source Mode | `Mod + /` |
+| Toggle Status Bar | `F7` |
 | Focus Mode | `F8` |
 | Typewriter Mode | `F9` |
 | Word Wrap | `Alt + Z` |
 | Toggle Sidebar | `Mod + Shift + B` |
 | Toggle Outline | `Alt + Mod + 1` |
-| Toggle Terminal | `` Ctrl + ` `` |
-| Toggle Status Bar | `Mod + J` |
+| Toggle Line Numbers | `Mod + Shift + N` |
+| Toggle Diagram Preview | `Alt + Mod + P` |
 | Universal Toolbar | `Mod + Shift + P` |
 | Source Peek | `Alt + Mod + /` |
 

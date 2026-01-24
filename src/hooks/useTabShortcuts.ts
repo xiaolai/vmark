@@ -4,7 +4,7 @@
  * Handles keyboard shortcuts for tab and UI operations:
  * - Cmd+T: New tab
  * - Cmd+W: Close current tab (with dirty check)
- * - Cmd+J: Toggle status bar visibility (mutually exclusive with FindBar/UniversalToolbar)
+ * - F7: Toggle status bar visibility (mutually exclusive with FindBar/UniversalToolbar)
  */
 
 import { useEffect } from "react";
@@ -12,10 +12,12 @@ import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSearchStore } from "@/stores/searchStore";
+import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isTerminalFocused } from "@/utils/focus";
+import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 
 export function useTabShortcuts() {
   const windowLabel = useWindowLabel();
@@ -51,8 +53,9 @@ export function useTabShortcuts() {
         return;
       }
 
-      // Cmd+J: Toggle status bar visibility (mutually exclusive with other bottom bars)
-      if (isMeta && e.key === "j") {
+      // Toggle status bar visibility (mutually exclusive with other bottom bars)
+      const statusBarKey = useShortcutsStore.getState().getShortcut("toggleStatusBar");
+      if (matchesShortcutEvent(e, statusBarKey)) {
         e.preventDefault();
         const ui = useUIStore.getState();
         const isCurrentlyVisible = ui.statusBarVisible;

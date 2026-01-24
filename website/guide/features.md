@@ -173,7 +173,7 @@ Dim everything except the current paragraph for distraction-free writing.
 
 Keep the active line centered on screen for a typewriter-like experience.
 
-### Word Wrap (`F10`)
+### Word Wrap (`Alt + Z`)
 
 Toggle soft line wrapping in the editor.
 

@@ -148,19 +148,6 @@ In dark mode, cursor and selection colors automatically adjust for visibility.
 - **IME input**: When using input methods (Chinese, Japanese, etc.), composition only affects the primary cursor
 - **Document-wide**: Selections are scoped to blocks, not the entire document
 
-## Planned Features
-
-The following multi-cursor features are planned for future releases:
-
-- [ ] **Add Cursor Above/Below** — Add cursor on line above/below without matching text
-- [ ] **Undo Last Cursor** — Remove the most recently added cursor (step back from Mod+D)
-- [ ] **Skip Occurrence** — Skip current match and select next one
-- [ ] **Column/Box Selection** — Select rectangular regions with Alt+Shift+Drag
-- [ ] **Split Selection into Lines** — Create cursor at end of each selected line
-- [ ] **Document-Wide Selection** — Option to select all occurrences across entire document
-- [ ] **Find & Replace Integration** — Add cursors at all find matches for interactive editing
-- [ ] **Transform Selection** — Uppercase, lowercase, title case with multi-cursor
-
 ## Keyboard Reference
 
 | Action | Shortcut |
