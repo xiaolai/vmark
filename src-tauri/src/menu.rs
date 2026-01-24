@@ -1,9 +1,6 @@
 use std::collections::HashMap;
-use tauri::menu::{AboutMetadataBuilder, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
+use tauri::menu::{Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
 use tauri::AppHandle;
-
-/// App version, pulled from Cargo package metadata at compile time.
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const RECENT_FILES_SUBMENU_ID: &str = "recent-files-submenu";
 
@@ -549,17 +546,13 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ],
     )?;
 
-    // Help menu - About dialog shows beta version
-    let about_metadata = AboutMetadataBuilder::new()
-        .name(Some("VMark"))
-        .version(Some(APP_VERSION))
-        .build();
+    // Help menu - About dialog uses native macOS bundle info
     let help_menu = Submenu::with_items(
         app,
         "Help",
         true,
         &[
-            &PredefinedMenuItem::about(app, Some("About VMark"), Some(about_metadata))?,
+            &PredefinedMenuItem::about(app, Some("About VMark"), None)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "check-updates", "Check for Updates...", true, None::<&str>)?,
         ],
@@ -1072,16 +1065,12 @@ fn create_menu_with_shortcuts(
     )?;
 
     // Help menu
-    let about_metadata = AboutMetadataBuilder::new()
-        .name(Some("VMark"))
-        .version(Some(APP_VERSION))
-        .build();
     let help_menu = Submenu::with_items(
         app,
         "Help",
         true,
         &[
-            &PredefinedMenuItem::about(app, Some("About VMark"), Some(about_metadata))?,
+            &PredefinedMenuItem::about(app, Some("About VMark"), None)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "check-updates", "Check for Updates...", true, None::<&str>)?,
         ],
