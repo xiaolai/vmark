@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'VMark',
-  description: 'A local-first Markdown editor with dual editing modes',
+  description: 'AI friendly markdown editor',
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],

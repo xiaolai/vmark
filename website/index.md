@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: VMark
-  text: A Markdown Editor
-  tagline: Write beautifully with dual editing modes, CJK formatting, and seamless rich text / source switching
+  text: AI Friendly Markdown Editor
+  tagline: Write with Claude, Codex, or Gemini via MCP integration. Dual editing modes, CJK formatting, and seamless rich text / source switching.
   image:
     src: /logo.png
     alt: VMark
