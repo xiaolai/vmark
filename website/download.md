@@ -41,6 +41,12 @@ brew install xiaolai/tap/vmark
 
 This installs VMark and automatically selects the right version for your Mac (Apple Silicon or Intel).
 
+**Upgrading**
+
+```bash
+brew update && brew upgrade vmark
+```
+
 **Manual Installation**
 
 1. Download the `.dmg` file
