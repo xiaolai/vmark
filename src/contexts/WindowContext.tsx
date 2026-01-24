@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { readTextFile } from "@tauri-apps/plugin-fs";
-import { invoke } from "@tauri-apps/api/core";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 import { useRecentFilesStore } from "../stores/recentFilesStore";
@@ -19,12 +18,6 @@ import { isWithinRoot } from "../utils/paths";
 interface WindowContextValue {
   windowLabel: string;
   isDocumentWindow: boolean;
-}
-
-/** Pending file open request from Rust (Finder/Explorer double-click) */
-interface PendingOpen {
-  filePath: string;
-  workspaceRoot: string;
 }
 
 const WindowContext = createContext<WindowContextValue | null>(null);
@@ -100,37 +93,8 @@ export function WindowProvider({ children }: WindowProviderProps) {
               }
             }
 
-            // For main window, also check pending files from Finder launch
-            if (!filePath && label === "main") {
-              try {
-                const pendingFiles = await invoke<PendingOpen[]>("get_pending_open_files");
-                if (pendingFiles.length > 0) {
-                  const first = pendingFiles[0];
-                  filePath = first.filePath;
-                  // Use first file's workspace root if URL didn't provide one
-                  // (empty string means no workspace root could be determined)
-                  if (!workspaceRootParam && first.workspaceRoot && first.workspaceRoot.length > 0) {
-                    try {
-                      await openWorkspaceWithConfig(first.workspaceRoot);
-                    } catch (e) {
-                      console.error("[WindowContext] Failed to open workspace from pending:", e);
-                    }
-                  }
-                  // Open remaining files in new windows with their own workspace roots
-                  for (let i = 1; i < pendingFiles.length; i++) {
-                    const pending = pendingFiles[i];
-                    invoke("open_workspace_in_new_window", {
-                      workspaceRoot: pending.workspaceRoot,
-                      filePath: pending.filePath,
-                    }).catch((e) =>
-                      console.error("[WindowContext] Failed to open file in new window:", e)
-                    );
-                  }
-                }
-              } catch (e) {
-                console.error("[WindowContext] Failed to get pending files:", e);
-              }
-            }
+            // Files opened via Finder/Explorer are now handled directly in Rust
+            // (RunEvent::Opened creates windows with file path in URL params)
 
             if (filePath && !workspaceRootParam) {
               const { rootPath, isWorkspaceMode } = useWorkspaceStore.getState();

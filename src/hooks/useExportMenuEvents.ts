@@ -10,7 +10,7 @@ import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { exportToHtml, exportToPdf, savePdf, copyAsHtml } from "@/hooks/useExportOperations";
-import { getFileNameWithoutExtension } from "@/utils/pathUtils";
+import { getFileNameWithoutExtension, getDirectory } from "@/utils/pathUtils";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getActiveDocument } from "@/utils/activeDocument";
@@ -42,8 +42,9 @@ export function useExportMenuEvents(): void {
           const defaultName = doc.filePath
             ? getFileNameWithoutExtension(doc.filePath) || "document"
             : "document";
+          const defaultDir = doc.filePath ? getDirectory(doc.filePath) : undefined;
           try {
-            await exportToHtml(doc.content, defaultName);
+            await exportToHtml(doc.content, defaultName, defaultDir);
           } catch (error) {
             console.error("[Menu] Failed to export HTML:", error);
           }
@@ -62,8 +63,9 @@ export function useExportMenuEvents(): void {
           const defaultName = doc.filePath
             ? getFileNameWithoutExtension(doc.filePath) || "document"
             : "document";
+          const defaultDir = doc.filePath ? getDirectory(doc.filePath) : undefined;
           try {
-            await savePdf(doc.content, defaultName);
+            await savePdf(doc.content, defaultName, defaultDir);
           } catch (error) {
             console.error("[Menu] Failed to save PDF:", error);
           }

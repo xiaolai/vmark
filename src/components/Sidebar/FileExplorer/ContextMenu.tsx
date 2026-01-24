@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import {
   FileText,
   FolderPlus,
@@ -9,6 +9,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { getRevealInFileManagerLabel } from "@/utils/pathUtils";
 import "./ContextMenu.css";
 
 export type ContextMenuType = "file" | "folder" | "empty";
@@ -26,35 +27,40 @@ interface MenuItem {
   separator?: boolean;
 }
 
-const FILE_MENU_ITEMS: MenuItem[] = [
-  { id: "open", label: "Open", icon: <FileText size={14} /> },
-  { id: "rename", label: "Rename", icon: <Pencil size={14} />, separator: true },
-  { id: "duplicate", label: "Duplicate", icon: <Copy size={14} /> },
-  { id: "delete", label: "Delete", icon: <Trash2 size={14} />, separator: true },
-  { id: "copyPath", label: "Copy Path", icon: <Copy size={14} /> },
-  { id: "revealInFinder", label: "Reveal in Finder", icon: <FolderOpen size={14} /> },
-];
+// Build menu items with platform-appropriate labels
+function buildFileMenuItems(revealLabel: string): MenuItem[] {
+  return [
+    { id: "open", label: "Open", icon: <FileText size={14} /> },
+    { id: "rename", label: "Rename", icon: <Pencil size={14} />, separator: true },
+    { id: "duplicate", label: "Duplicate", icon: <Copy size={14} /> },
+    { id: "delete", label: "Delete", icon: <Trash2 size={14} />, separator: true },
+    { id: "copyPath", label: "Copy Path", icon: <Copy size={14} /> },
+    { id: "revealInFinder", label: revealLabel, icon: <FolderOpen size={14} /> },
+  ];
+}
 
-const FOLDER_MENU_ITEMS: MenuItem[] = [
-  { id: "newFile", label: "New File", icon: <FilePlus size={14} /> },
-  { id: "newFolder", label: "New Folder", icon: <FolderPlus size={14} />, separator: true },
-  { id: "rename", label: "Rename", icon: <Pencil size={14} /> },
-  { id: "delete", label: "Delete", icon: <Trash2 size={14} />, separator: true },
-  { id: "copyPath", label: "Copy Path", icon: <Copy size={14} /> },
-  { id: "revealInFinder", label: "Reveal in Finder", icon: <FolderOpen size={14} /> },
-];
+function buildFolderMenuItems(revealLabel: string): MenuItem[] {
+  return [
+    { id: "newFile", label: "New File", icon: <FilePlus size={14} /> },
+    { id: "newFolder", label: "New Folder", icon: <FolderPlus size={14} />, separator: true },
+    { id: "rename", label: "Rename", icon: <Pencil size={14} /> },
+    { id: "delete", label: "Delete", icon: <Trash2 size={14} />, separator: true },
+    { id: "copyPath", label: "Copy Path", icon: <Copy size={14} /> },
+    { id: "revealInFinder", label: revealLabel, icon: <FolderOpen size={14} /> },
+  ];
+}
 
 const EMPTY_MENU_ITEMS: MenuItem[] = [
   { id: "newFile", label: "New File", icon: <FilePlus size={14} /> },
   { id: "newFolder", label: "New Folder", icon: <FolderPlus size={14} /> },
 ];
 
-function getMenuItems(type: ContextMenuType): MenuItem[] {
+function getMenuItems(type: ContextMenuType, revealLabel: string): MenuItem[] {
   switch (type) {
     case "file":
-      return FILE_MENU_ITEMS;
+      return buildFileMenuItems(revealLabel);
     case "folder":
-      return FOLDER_MENU_ITEMS;
+      return buildFolderMenuItems(revealLabel);
     case "empty":
       return EMPTY_MENU_ITEMS;
   }
@@ -69,7 +75,9 @@ interface ContextMenuProps {
 
 export function ContextMenu({ type, position, onAction, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const items = getMenuItems(type);
+  // Get platform-appropriate label once (stable across renders)
+  const revealLabel = useMemo(() => getRevealInFileManagerLabel(), []);
+  const items = getMenuItems(type, revealLabel);
 
   // Close on click outside
   useEffect(() => {

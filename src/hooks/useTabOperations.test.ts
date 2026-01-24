@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
-import { ask, save } from "@tauri-apps/plugin-dialog";
+import { message, save } from "@tauri-apps/plugin-dialog";
 import { saveToPath } from "@/utils/saveToPath";
 
 vi.mock("@/utils/saveToPath", () => ({
@@ -34,7 +34,7 @@ describe("closeTabWithDirtyCheck", () => {
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(ask).not.toHaveBeenCalled();
+    expect(message).not.toHaveBeenCalled();
     expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(0);
     expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
   });
@@ -44,7 +44,8 @@ describe("closeTabWithDirtyCheck", () => {
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
 
-    vi.mocked(ask).mockResolvedValueOnce(null as unknown as boolean);
+    // message() returns 'Cancel' when user clicks Cancel or dismisses
+    vi.mocked(message).mockResolvedValueOnce("Cancel");
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
@@ -58,7 +59,8 @@ describe("closeTabWithDirtyCheck", () => {
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
 
-    vi.mocked(ask).mockResolvedValueOnce(false);
+    // message() returns 'No' when user clicks "Don't Save"
+    vi.mocked(message).mockResolvedValueOnce("No");
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
@@ -72,7 +74,8 @@ describe("closeTabWithDirtyCheck", () => {
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
 
-    vi.mocked(ask).mockResolvedValueOnce(true);
+    // message() returns 'Yes' when user clicks "Save"
+    vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(saveToPath).mockResolvedValueOnce(true);
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
@@ -87,7 +90,7 @@ describe("closeTabWithDirtyCheck", () => {
     useDocumentStore.getState().initDocument(tabId, "hello", null);
     useDocumentStore.getState().setContent(tabId, "changed");
 
-    vi.mocked(ask).mockResolvedValueOnce(true);
+    vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce(null);
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);

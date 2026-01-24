@@ -10,28 +10,7 @@ mod window_manager;
 mod workspace;
 mod file_tree;
 
-use serde::Serialize;
-use std::sync::Mutex;
 use tauri::Manager;
-
-/// Pending file open request with workspace root
-#[derive(Clone, Serialize)]
-pub struct PendingOpen {
-    #[serde(rename = "filePath")]
-    pub file_path: String,
-    #[serde(rename = "workspaceRoot")]
-    pub workspace_root: String,
-}
-
-/// Stores file paths opened via Finder before the main window is ready
-static PENDING_OPEN_FILES: Mutex<Vec<PendingOpen>> = Mutex::new(Vec::new());
-
-/// Get and clear any pending files that were opened before frontend was ready
-#[tauri::command]
-fn get_pending_open_files() -> Vec<PendingOpen> {
-    let mut pending = PENDING_OPEN_FILES.lock().unwrap();
-    std::mem::take(&mut *pending)
-}
 
 /// Debug logging from frontend (logs to terminal, debug builds only)
 #[cfg(debug_assertions)]
@@ -72,7 +51,6 @@ pub fn run() {
             workspace::read_workspace_config,
             workspace::write_workspace_config,
             workspace::has_workspace_config,
-            get_pending_open_files,
             mcp_server::mcp_bridge_start,
             mcp_server::mcp_bridge_stop,
             mcp_server::mcp_server_start,
@@ -192,26 +170,18 @@ pub fn run() {
                             if let Some(path_str) = path.to_str() {
                                 // Compute workspace root from file's parent directory
                                 // Returns None if file is at root level (no valid parent)
-                                let workspace_root = window_manager::get_workspace_root_for_file(path_str);
+                                let workspace_root =
+                                    window_manager::get_workspace_root_for_file(path_str);
 
-                                let windows = app.webview_windows();
-                                if windows.is_empty() {
-                                    // App just launched - store for first window to pick up
-                                    if let Ok(mut pending) = PENDING_OPEN_FILES.lock() {
-                                        pending.push(PendingOpen {
-                                            file_path: path_str.to_string(),
-                                            // Use empty string if no workspace root (edge case)
-                                            workspace_root: workspace_root.clone().unwrap_or_default(),
-                                        });
-                                    }
-                                } else {
-                                    // App is running - open directly in new window (no broadcast)
-                                    let _ = window_manager::create_document_window(
-                                        app,
-                                        Some(path_str),
-                                        workspace_root.as_deref(),
-                                    );
-                                }
+                                // Always create a new window for the file
+                                // This handles both:
+                                // 1. App just launched (no windows yet)
+                                // 2. App running but all windows closed (dock icon still visible)
+                                let _ = window_manager::create_document_window(
+                                    app,
+                                    Some(path_str),
+                                    workspace_root.as_deref(),
+                                );
                             }
                         }
                     }

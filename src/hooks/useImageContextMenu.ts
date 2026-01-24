@@ -12,6 +12,7 @@ import { useCallback } from "react";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { dirname, join } from "@tauri-apps/api/path";
+import { toast } from "sonner";
 import type { EditorView } from "@tiptap/pm/view";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
@@ -139,6 +140,7 @@ export function useImageContextMenu(getEditorView: GetEditorView) {
           if (absolutePath) {
             try {
               await navigator.clipboard.writeText(absolutePath);
+              toast.success("Image path copied to clipboard");
             } catch (error) {
               console.error("Failed to copy path:", error);
               await message("Failed to copy image path.", { kind: "error" });

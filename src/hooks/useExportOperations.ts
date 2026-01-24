@@ -14,12 +14,15 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
   markdownToHtml,
   generateHtmlDocument,
   applyPdfStyles,
 } from "@/utils/exportUtils";
+import { joinPath } from "@/utils/pathUtils";
+import { showError, FileErrors } from "@/utils/errorDialog";
 import type { MarkdownPipelineOptions } from "@/utils/markdownPipeline/types";
 
 function getExportPipelineOptions(): MarkdownPipelineOptions {
@@ -30,14 +33,21 @@ function getExportPipelineOptions(): MarkdownPipelineOptions {
 
 /**
  * Export markdown to HTML file
+ * @param markdown - The markdown content to export
+ * @param defaultName - Default filename without extension
+ * @param defaultDirectory - Optional directory to save in (uses last-used if not provided)
  */
 export async function exportToHtml(
   markdown: string,
-  defaultName: string = "document"
+  defaultName: string = "document",
+  defaultDirectory?: string
 ): Promise<boolean> {
   try {
+    // Construct full default path with directory if provided
+    const filename = `${defaultName}.html`;
+    const defaultPath = defaultDirectory ? joinPath(defaultDirectory, filename) : filename;
     const path = await save({
-      defaultPath: `${defaultName}.html`,
+      defaultPath,
       filters: [{ name: "HTML", extensions: ["html", "htm"] }],
     });
 
@@ -50,6 +60,7 @@ export async function exportToHtml(
     return true;
   } catch (error) {
     console.error("[Export] Failed to export HTML:", error);
+    await showError(FileErrors.exportFailed("HTML"));
     return false;
   }
 }
@@ -83,6 +94,7 @@ export async function exportToPdf(
     });
   } catch (error) {
     console.error("[Export] Failed to export PDF:", error);
+    await showError(FileErrors.exportFailed("PDF"));
   }
 }
 
@@ -93,23 +105,32 @@ export async function copyAsHtml(markdown: string): Promise<boolean> {
   try {
     const html = markdownToHtml(markdown, getExportPipelineOptions());
     await writeText(html);
+    toast.success("HTML copied to clipboard");
     return true;
   } catch (error) {
     console.error("[Export] Failed to copy HTML:", error);
+    await showError(FileErrors.copyFailed);
     return false;
   }
 }
 
 /**
  * Export markdown to PDF file directly (using html2pdf.js)
+ * @param markdown - The markdown content to export
+ * @param defaultName - Default filename without extension
+ * @param defaultDirectory - Optional directory to save in (uses last-used if not provided)
  */
 export async function savePdf(
   markdown: string,
-  defaultName: string = "document"
+  defaultName: string = "document",
+  defaultDirectory?: string
 ): Promise<boolean> {
   try {
+    // Construct full default path with directory if provided
+    const filename = `${defaultName}.pdf`;
+    const defaultPath = defaultDirectory ? joinPath(defaultDirectory, filename) : filename;
     const path = await save({
-      defaultPath: `${defaultName}.pdf`,
+      defaultPath,
       filters: [{ name: "PDF", extensions: ["pdf"] }],
     });
 
@@ -150,6 +171,7 @@ export async function savePdf(
     return true;
   } catch (error) {
     console.error("[Export] Failed to save PDF:", error);
+    await showError(FileErrors.exportFailed("PDF"));
     return false;
   }
 }

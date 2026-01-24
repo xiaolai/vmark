@@ -12,9 +12,11 @@ import { join, basename } from "@tauri-apps/api/path";
 import { emit } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { toast } from "sonner";
 import { useTabStore } from "@/stores/tabStore";
 import { reconcilePathChange } from "@/utils/pathReconciliation";
 import { applyPathReconciliation } from "@/hooks/commands";
+import { showError, FileErrors } from "@/utils/errorDialog";
 
 // Re-entry guards
 const isCreatingRef = { current: false };
@@ -28,12 +30,12 @@ export function useExplorerOperations() {
       if (isCreatingRef.current) return null;
       isCreatingRef.current = true;
 
+      const fileName = name.endsWith(".md") ? name : `${name}.md`;
       try {
-        const fileName = name.endsWith(".md") ? name : `${name}.md`;
         const filePath = await join(parentPath, fileName);
 
         if (await exists(filePath)) {
-          console.warn("[Explorer] File already exists:", filePath);
+          await showError(FileErrors.fileExists(fileName));
           return null;
         }
 
@@ -41,6 +43,7 @@ export function useExplorerOperations() {
         return filePath;
       } catch (error) {
         console.error("[Explorer] Failed to create file:", error);
+        await showError(FileErrors.createFailed(fileName));
         return null;
       } finally {
         isCreatingRef.current = false;
@@ -58,7 +61,7 @@ export function useExplorerOperations() {
         const folderPath = await join(parentPath, name);
 
         if (await exists(folderPath)) {
-          console.warn("[Explorer] Folder already exists:", folderPath);
+          await showError(FileErrors.folderExists(name));
           return null;
         }
 
@@ -66,6 +69,7 @@ export function useExplorerOperations() {
         return folderPath;
       } catch (error) {
         console.error("[Explorer] Failed to create folder:", error);
+        await showError(FileErrors.createFailed(name));
         return null;
       } finally {
         isCreatingRef.current = false;
@@ -94,7 +98,12 @@ export function useExplorerOperations() {
         if (oldPath === newPath) return oldPath;
 
         if (await exists(newPath)) {
-          console.warn("[Explorer] Target already exists:", newPath);
+          const isTargetFile = finalName.includes(".");
+          await showError(
+            isTargetFile
+              ? FileErrors.fileExists(finalName)
+              : FileErrors.folderExists(finalName)
+          );
           return null;
         }
 
@@ -115,6 +124,7 @@ export function useExplorerOperations() {
         return newPath;
       } catch (error) {
         console.error("[Explorer] Failed to rename:", error);
+        await showError(FileErrors.renameFailed(newName));
         return null;
       } finally {
         isRenamingRef.current = false;
@@ -131,9 +141,13 @@ export function useExplorerOperations() {
       try {
         const name = await basename(path);
         const itemType = isFolder ? "folder" : "file";
+        // Show parent folder for context when there could be ambiguity
+        const parentPath = path.slice(0, -name.length - 1);
+        const parentName = await basename(parentPath);
+        const locationHint = parentName ? `\n\nLocation: ${parentName}/` : "";
         const message = isFolder
-          ? `Delete folder "${name}" and all its contents?`
-          : `Delete "${name}"?`;
+          ? `Delete folder "${name}" and all its contents?${locationHint}`
+          : `Delete "${name}"?${locationHint}`;
 
         const confirmed = await ask(message, {
           title: `Delete ${itemType}`,
@@ -158,6 +172,8 @@ export function useExplorerOperations() {
         return true;
       } catch (error) {
         console.error("[Explorer] Failed to delete:", error);
+        const name = await basename(path);
+        await showError(FileErrors.deleteFailed(name));
         return false;
       } finally {
         isDeletingRef.current = false;
@@ -168,14 +184,19 @@ export function useExplorerOperations() {
 
   const moveItem = useCallback(
     async (srcPath: string, destFolder: string): Promise<string | null> => {
+      const name = await basename(srcPath);
       try {
-        const name = await basename(srcPath);
         const destPath = await join(destFolder, name);
 
         if (srcPath === destPath) return srcPath;
 
         if (await exists(destPath)) {
-          console.warn("[Explorer] Target already exists:", destPath);
+          const isFile = name.includes(".");
+          await showError(
+            isFile
+              ? FileErrors.fileExists(name)
+              : FileErrors.folderExists(name)
+          );
           return null;
         }
 
@@ -198,6 +219,7 @@ export function useExplorerOperations() {
         return destPath;
       } catch (error) {
         console.error("[Explorer] Failed to move:", error);
+        await showError(FileErrors.moveFailed(name));
         return null;
       }
     },
@@ -210,18 +232,24 @@ export function useExplorerOperations() {
 
   const duplicateFile = useCallback(
     async (path: string): Promise<string | null> => {
+      const name = await basename(path);
       try {
-        const name = await basename(path);
         const parentPath = path.slice(0, -name.length - 1);
         const nameWithoutExt = name.replace(/\.md$/, "");
 
-        // Find a unique name
+        // Find a unique name (with reasonable upper bound to prevent infinite loops)
+        const MAX_COPIES = 1000;
         let counter = 1;
         let newName = `${nameWithoutExt} copy.md`;
         let newPath = await join(parentPath, newName);
 
         while (await exists(newPath)) {
           counter++;
+          if (counter > MAX_COPIES) {
+            console.error("[Explorer] Too many copies exist, cannot duplicate:", path);
+            await showError(FileErrors.tooManyCopies(name));
+            return null;
+          }
           newName = `${nameWithoutExt} copy ${counter}.md`;
           newPath = await join(parentPath, newName);
         }
@@ -233,6 +261,7 @@ export function useExplorerOperations() {
         return newPath;
       } catch (error) {
         console.error("[Explorer] Failed to duplicate:", error);
+        await showError(FileErrors.duplicateFailed(name));
         return null;
       }
     },
@@ -242,8 +271,10 @@ export function useExplorerOperations() {
   const copyPath = useCallback(async (path: string): Promise<void> => {
     try {
       await writeText(path);
+      toast.success("Path copied to clipboard");
     } catch (error) {
       console.error("[Explorer] Failed to copy path:", error);
+      await showError(FileErrors.copyFailed);
     }
   }, []);
 

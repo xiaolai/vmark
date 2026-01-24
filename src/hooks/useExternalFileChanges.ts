@@ -11,7 +11,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { readTextFile } from "@tauri-apps/plugin-fs";
-import { ask, save } from "@tauri-apps/plugin-dialog";
+import { message, save } from "@tauri-apps/plugin-dialog";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -67,28 +67,33 @@ export function useExternalFileChanges(): void {
     }
   }, []);
 
-  // Handle dirty file change - two-step prompt with Save As option
-  // Step 1: Offer to save current version first
-  // Step 2: Ask whether to reload or keep
-  // IMPORTANT: Cancel/dismiss at any step preserves user's changes (safe default)
+  // Handle dirty file change with single 3-option dialog
+  // Options: Save As (save to new location), Reload (discard changes), Keep (preserve)
+  // Cancel/dismiss preserves user's changes (safe default)
   const handleDirtyChange = useCallback(
     async (tabId: string, filePath: string) => {
       const fileName = filePath.split("/").pop() || "file";
       const doc = useDocumentStore.getState().getDocument(tabId);
 
-      // Step 1: Offer Save As first
-      const wantsSaveAs = await ask(
+      // Single dialog with 3 options:
+      // Yes = "Save As..." (save current version to new location)
+      // No = "Reload" (discard changes and load from disk)
+      // Cancel = "Keep my changes" (do nothing, preserve user's work)
+      const result = await message(
         `"${fileName}" has been modified externally.\n\n` +
-          "Do you want to save your current version to a different location first?",
+          "What would you like to do?",
         {
           title: "File Changed",
           kind: "warning",
-          okLabel: "Save As...",
-          cancelLabel: "Skip",
+          buttons: {
+            yes: "Save As...",
+            no: "Reload",
+            cancel: "Keep my changes",
+          },
         }
       );
 
-      if (wantsSaveAs && doc) {
+      if (result === "Yes" && doc) {
         // Open Save As dialog
         const savePath = await save({
           title: "Save your version as...",
@@ -100,25 +105,15 @@ export function useExternalFileChanges(): void {
           const saved = await saveToPath(tabId, savePath, doc.content, "manual");
           if (saved) {
             useDocumentStore.getState().clearMissing(tabId);
-            // Save As switches the document to the new path; no reload needed.
+            // Save As switches the document to the new path; done.
             return;
           }
         }
+        // If Save As was cancelled or failed, don't reload - keep user's changes
+        return;
       }
 
-      // Step 2: Ask whether to reload or keep
-      const reloadFromDisk = await ask(
-        `Reload "${fileName}" from disk?\n\n` +
-          "This will replace your current version with the external changes.",
-        {
-          title: "Reload File?",
-          kind: "warning",
-          okLabel: "Reload from disk",
-          cancelLabel: "Keep my changes",
-        }
-      );
-
-      if (reloadFromDisk) {
+      if (result === "No") {
         // User explicitly chose to reload - discard their changes
         try {
           const content = await readTextFile(filePath);
@@ -129,8 +124,10 @@ export function useExternalFileChanges(): void {
           console.error("[ExternalChange] Failed to reload file:", filePath, error);
           useDocumentStore.getState().markMissing(tabId);
         }
+        return;
       }
-      // Cancel/dismiss = keep user's changes (safe default, no action needed)
+
+      // Cancel = keep user's changes (safe default, no action needed)
     },
     []
   );

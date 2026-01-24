@@ -2,14 +2,15 @@
  * Image Context Menu
  *
  * Context menu shown when right-clicking on an image.
- * Provides actions: Change Image, Delete, Copy Path, Reveal in Finder.
+ * Provides actions: Change Image, Delete, Copy Path, Reveal in file manager.
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { ImagePlus, Trash2, Copy, FolderOpen } from "lucide-react";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import "@/components/Sidebar/FileExplorer/ContextMenu.css";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { getRevealInFileManagerLabel } from "@/utils/pathUtils";
 
 interface MenuItem {
   id: string;
@@ -18,21 +19,23 @@ interface MenuItem {
   separator?: boolean;
 }
 
-const MENU_ITEMS: MenuItem[] = [
-  { id: "change", label: "Change Image...", icon: <ImagePlus size={14} /> },
-  {
-    id: "delete",
-    label: "Delete Image",
-    icon: <Trash2 size={14} />,
-    separator: true,
-  },
-  { id: "copyPath", label: "Copy Image Path", icon: <Copy size={14} /> },
-  {
-    id: "revealInFinder",
-    label: "Reveal in Finder",
-    icon: <FolderOpen size={14} />,
-  },
-];
+function buildMenuItems(revealLabel: string): MenuItem[] {
+  return [
+    { id: "change", label: "Change Image...", icon: <ImagePlus size={14} /> },
+    {
+      id: "delete",
+      label: "Delete Image",
+      icon: <Trash2 size={14} />,
+      separator: true,
+    },
+    { id: "copyPath", label: "Copy Image Path", icon: <Copy size={14} /> },
+    {
+      id: "revealInFinder",
+      label: revealLabel,
+      icon: <FolderOpen size={14} />,
+    },
+  ];
+}
 
 interface ImageContextMenuProps {
   onAction: (action: string) => void;
@@ -41,6 +44,9 @@ interface ImageContextMenuProps {
 export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { isOpen, position, closeMenu } = useImageContextMenuStore();
+  // Get platform-appropriate label once (stable across renders)
+  const revealLabel = useMemo(() => getRevealInFileManagerLabel(), []);
+  const menuItems = useMemo(() => buildMenuItems(revealLabel), [revealLabel]);
 
   // Close on click outside
   useEffect(() => {
@@ -111,7 +117,7 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
       className="context-menu"
       style={{ left: position.x, top: position.y }}
     >
-      {MENU_ITEMS.map((item, index) => (
+      {menuItems.map((item, index) => (
         <div key={item.id}>
           {item.separator && index > 0 && (
             <div className="context-menu-separator" />

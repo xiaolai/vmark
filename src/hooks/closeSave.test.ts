@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ask, save } from "@tauri-apps/plugin-dialog";
+import { message, save } from "@tauri-apps/plugin-dialog";
 import { saveToPath } from "@/utils/saveToPath";
 import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 
@@ -14,8 +14,9 @@ describe("promptSaveForDirtyDocument", () => {
     vi.clearAllMocks();
   });
 
-  it("returns cancelled when user dismisses prompt", async () => {
-    vi.mocked(ask).mockResolvedValueOnce(null as unknown as boolean);
+  it("returns cancelled when user clicks Cancel", async () => {
+    // message() with yes/no/cancel buttons returns 'Cancel' when user cancels
+    vi.mocked(message).mockResolvedValueOnce("Cancel");
 
     const result = await promptSaveForDirtyDocument({
       windowLabel: WINDOW_LABEL,
@@ -28,8 +29,9 @@ describe("promptSaveForDirtyDocument", () => {
     expect(result.action).toBe("cancelled");
   });
 
-  it("returns discarded when user chooses Don't Save", async () => {
-    vi.mocked(ask).mockResolvedValueOnce(false);
+  it("returns discarded when user chooses Don't Save (No)", async () => {
+    // message() returns 'No' when user clicks "Don't Save"
+    vi.mocked(message).mockResolvedValueOnce("No");
 
     const result = await promptSaveForDirtyDocument({
       windowLabel: WINDOW_LABEL,
@@ -42,8 +44,9 @@ describe("promptSaveForDirtyDocument", () => {
     expect(result.action).toBe("discarded");
   });
 
-  it("saves to existing path when user chooses Save", async () => {
-    vi.mocked(ask).mockResolvedValueOnce(true);
+  it("saves to existing path when user chooses Save (Yes)", async () => {
+    // message() returns 'Yes' when user clicks "Save"
+    vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(saveToPath).mockResolvedValueOnce(true);
 
     const result = await promptSaveForDirtyDocument({
@@ -62,7 +65,7 @@ describe("promptSaveForDirtyDocument", () => {
   });
 
   it("returns cancelled when Save As dialog is cancelled", async () => {
-    vi.mocked(ask).mockResolvedValueOnce(true);
+    vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce(null);
 
     const result = await promptSaveForDirtyDocument({
@@ -77,7 +80,7 @@ describe("promptSaveForDirtyDocument", () => {
   });
 
   it("returns cancelled when saveToPath fails", async () => {
-    vi.mocked(ask).mockResolvedValueOnce(true);
+    vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce("/tmp/new.md");
     vi.mocked(saveToPath).mockResolvedValueOnce(false);
 

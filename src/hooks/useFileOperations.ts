@@ -21,7 +21,7 @@ import {
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { createUntitledTab } from "@/utils/newFile";
-import { getDirectory } from "@/utils/pathUtils";
+import { joinPath } from "@/utils/pathUtils";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 
 export function useFileOperations() {
@@ -195,12 +195,22 @@ export function useFileOperations() {
       const doc = useDocumentStore.getState().getDocument(tabId);
       if (!doc) return;
 
-      // Use current file's folder or resolve default folder
-      const defaultFolder = doc.filePath
-        ? getDirectory(doc.filePath)
-        : await getDefaultSaveFolderWithFallback(windowLabel);
+      // Pre-fill with current filename or use tab title for untitled files.
+      // Tauri dialog: if defaultPath is a file path, it pre-fills the filename input.
+      let defaultPath: string;
+      if (doc.filePath) {
+        // Use full path - dialog will extract filename and folder
+        defaultPath = doc.filePath;
+      } else {
+        // For untitled files, construct path from tab title
+        const tab = useTabStore.getState().tabs[windowLabel]?.find(t => t.id === tabId);
+        const filename = tab?.title ? `${tab.title}.md` : "Untitled.md";
+        const folder = await getDefaultSaveFolderWithFallback(windowLabel);
+        defaultPath = joinPath(folder, filename);
+      }
+
       const path = await save({
-        defaultPath: defaultFolder,
+        defaultPath,
         filters: [{ name: "Markdown", extensions: ["md"] }],
       });
       if (path) {
