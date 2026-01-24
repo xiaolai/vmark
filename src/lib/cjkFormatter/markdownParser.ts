@@ -13,7 +13,12 @@ export interface ProtectedRegion {
     | "link_url"
     | "image"
     | "frontmatter"
-    | "html_tag";
+    | "html_tag"
+    | "wiki_link"
+    | "footnote_ref"
+    | "footnote_def"
+    | "math_block"
+    | "math_inline";
 }
 
 /**
@@ -34,7 +39,8 @@ export function findProtectedRegions(text: string): ProtectedRegion[] {
   }
 
   // 2. Fenced code blocks (``` or ~~~)
-  const fencedCodeRegex = /(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1/g;
+  // Handle both normal case and code blocks at EOF without trailing newline
+  const fencedCodeRegex = /^(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)^\1[ \t]*$/gm;
   let match;
   while ((match = fencedCodeRegex.exec(text)) !== null) {
     regions.push({
@@ -97,7 +103,69 @@ export function findProtectedRegions(text: string): ProtectedRegion[] {
     }
   }
 
-  // 7. Indented code blocks (4+ spaces at line start, but not in lists)
+  // 7. Wiki links: [[target]] or [[target|display]]
+  const wikiLinkRegex = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+  while ((match = wikiLinkRegex.exec(text)) !== null) {
+    if (!isInsideRegion(match.index, regions)) {
+      regions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: "wiki_link",
+      });
+    }
+  }
+
+  // 8. Footnote definitions: [^1]: content (protect the marker, not content)
+  // Must be detected BEFORE references so [^1]: doesn't get split
+  const footnoteDefRegex = /^\[\^[^\]]+\]:/gm;
+  while ((match = footnoteDefRegex.exec(text)) !== null) {
+    if (!isInsideRegion(match.index, regions)) {
+      regions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: "footnote_def",
+      });
+    }
+  }
+
+  // 9. Footnote references: [^1], [^note], etc.
+  const footnoteRefRegex = /\[\^[^\]]+\]/g;
+  while ((match = footnoteRefRegex.exec(text)) !== null) {
+    if (!isInsideRegion(match.index, regions)) {
+      regions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: "footnote_ref",
+      });
+    }
+  }
+
+  // 10. Math blocks: $$...$$  (display math)
+  const mathBlockRegex = /\$\$[\s\S]*?\$\$/g;
+  while ((match = mathBlockRegex.exec(text)) !== null) {
+    if (!isInsideRegion(match.index, regions)) {
+      regions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: "math_block",
+      });
+    }
+  }
+
+  // 11. Inline math: $...$ (but not $$ or escaped \$)
+  // Be careful: $ is common in text, so we require content between them
+  const mathInlineRegex = /(?<!\$)\$(?!\$)([^$\n]+)\$(?!\$)/g;
+  while ((match = mathInlineRegex.exec(text)) !== null) {
+    if (!isInsideRegion(match.index, regions)) {
+      regions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: "math_inline",
+      });
+    }
+  }
+
+  // 12. Indented code blocks (4+ spaces at line start, but not in lists)
   // This is tricky - we look for lines starting with 4+ spaces
   // that aren't list continuations
   const lines = text.split("\n");
@@ -117,8 +185,11 @@ export function findProtectedRegions(text: string): ProtectedRegion[] {
         while (prevNonBlank >= 0 && lines[prevNonBlank].trim() === "") {
           prevNonBlank--;
         }
+        // Fixed: group alternation to avoid precedence bug
+        // Previous: /^[\s]*[-*+]|\d+\./ matched ^\s*[-*+] OR \d+. anywhere
         const isListContinuation =
-          prevNonBlank >= 0 && /^[\s]*[-*+]|\d+\./.test(lines[prevNonBlank]);
+          prevNonBlank >= 0 &&
+          /^[\s]*(?:[-*+]|\d+\.)/.test(lines[prevNonBlank]);
 
         if (!isListContinuation) {
           inIndentedBlock = true;

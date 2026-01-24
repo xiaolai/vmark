@@ -5,13 +5,22 @@
 
 import type { CJKFormattingSettings } from "@/stores/settingsStore";
 
-// Character ranges
-const HAN = "\u4e00-\u9fff"; // Chinese characters + Japanese Kanji
+// Character ranges - Extended CJK coverage
+const HAN_BASIC = "\u4e00-\u9fff"; // CJK Unified Ideographs (basic block)
+const HAN_EXT_A = "\u3400-\u4dbf"; // CJK Extension A (rare characters)
+// Note: Extensions B-G (U+20000-U+2CEAF) are beyond BMP, require surrogate pairs
+const BOPOMOFO = "\u3100-\u312f"; // Bopomofo (Zhuyin)
+const BOPOMOFO_EXT = "\u31a0-\u31bf"; // Bopomofo Extended
 const HIRAGANA = "\u3040-\u309f";
 const KATAKANA = "\u30a0-\u30ff";
-const HANGUL = "\uac00-\ud7af";
-const CJK_ALL = `${HAN}${HIRAGANA}${KATAKANA}${HANGUL}`;
-const CJK_NO_KOREAN = `${HAN}${HIRAGANA}${KATAKANA}`;
+const KATAKANA_EXT = "\u31f0-\u31ff"; // Katakana Phonetic Extensions
+const HANGUL = "\uac00-\ud7af"; // Hangul Syllables
+const HANGUL_JAMO = "\u1100-\u11ff"; // Hangul Jamo (combining)
+const HANGUL_COMPAT = "\u3130-\u318f"; // Hangul Compatibility Jamo
+// Combined ranges
+const HAN = `${HAN_BASIC}${HAN_EXT_A}`;
+const CJK_ALL = `${HAN}${BOPOMOFO}${BOPOMOFO_EXT}${HIRAGANA}${KATAKANA}${KATAKANA_EXT}${HANGUL}${HANGUL_JAMO}${HANGUL_COMPAT}`;
+const CJK_NO_KOREAN = `${HAN}${BOPOMOFO}${BOPOMOFO_EXT}${HIRAGANA}${KATAKANA}${KATAKANA_EXT}`;
 
 // CJK punctuation
 const CJK_TERMINAL_PUNCTUATION = "，。！？；：、";
@@ -43,10 +52,19 @@ const FULLWIDTH_PUNCT_REPLACEMENTS: Array<{
 });
 
 /**
- * Check if text contains CJK characters (Han or Hangul)
+ * Check if text contains CJK characters (Han, Kana, or Hangul)
+ * Uses extended ranges for better coverage
  */
 export function containsCJK(text: string): boolean {
-  return /[\u4e00-\u9fff]/.test(text) || /[\uac00-\ud7af]/.test(text);
+  // Han (basic + extension A)
+  if (/[\u4e00-\u9fff\u3400-\u4dbf]/.test(text)) return true;
+  // Hiragana/Katakana
+  if (/[\u3040-\u309f\u30a0-\u30ff\u31f0-\u31ff]/.test(text)) return true;
+  // Hangul (syllables + jamo)
+  if (/[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/.test(text)) return true;
+  // Bopomofo
+  if (/[\u3100-\u312f\u31a0-\u31bf]/.test(text)) return true;
+  return false;
 }
 
 // ============================================================
