@@ -37,14 +37,34 @@ export function useMenuEvents(): void {
           await existing.setFocus();
           return;
         }
+
+        // Calculate position to center settings window relative to current window
+        const settingsWidth = 700;
+        const settingsHeight = 500;
+        let x: number | undefined;
+        let y: number | undefined;
+
+        try {
+          const [position, size] = await Promise.all([
+            currentWindow.outerPosition(),
+            currentWindow.outerSize(),
+          ]);
+          x = Math.round(position.x + (size.width - settingsWidth) / 2);
+          y = Math.round(position.y + (size.height - settingsHeight) / 2);
+        } catch {
+          // Fall back to screen center if position can't be determined
+        }
+
         new WebviewWindow("settings", {
           url: "/settings",
           title: "Settings",
-          width: 700,
-          height: 500,
+          width: settingsWidth,
+          height: settingsHeight,
           minWidth: 500,
           minHeight: 400,
-          center: true,
+          x,
+          y,
+          center: x === undefined, // Only center on screen if position unknown
           resizable: true,
           hiddenTitle: true,
           titleBarStyle: "overlay",

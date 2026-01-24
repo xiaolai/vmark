@@ -34,6 +34,7 @@ portable-pty = "0.8"
 toml = "0.8"
 dirs = "5"
 chrono = "0.4"
+tauri-plugin-window-state = "2"
 
 [dev-dependencies]
 tempfile = "3"

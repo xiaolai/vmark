@@ -36,6 +36,7 @@
     "@tauri-apps/plugin-opener": "^2.5.2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.9.0",
+    "@tauri-apps/plugin-window-state": "^2.4.1",
     "@tiptap/core": "^3.17.0",
     "@tiptap/extension-blockquote": "^3.15.3",
     "@tiptap/extension-bullet-list": "^3.15.3",
