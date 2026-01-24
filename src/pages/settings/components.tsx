@@ -106,6 +106,44 @@ export function Select<T extends string>({
 }
 
 import { useState, useRef } from "react";
+import { ChevronRight } from "lucide-react";
+
+/**
+ * Collapsible settings group for optional/advanced sections.
+ */
+export function CollapsibleGroup({
+  title,
+  description,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  description?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-6">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-2
+                   hover:text-[var(--text-secondary)] transition-colors"
+      >
+        <ChevronRight
+          className={`w-4 h-4 transition-transform ${open ? "rotate-90" : ""}`}
+        />
+        {title}
+      </button>
+      {description && (
+        <p className="text-xs text-[var(--text-tertiary)] ml-6 mb-2">
+          {description}
+        </p>
+      )}
+      {open && <div className="ml-6">{children}</div>}
+    </div>
+  );
+}
 
 /**
  * Tag input component for managing a list of string values.

@@ -2,12 +2,13 @@
  * Settings Page
  *
  * Main settings window with navigation sidebar.
+ * Sections sorted alphabetically.
  */
 
 import { useState, useEffect } from "react";
 import {
   Palette,
-  Settings,
+  Type,
   FolderOpen,
   Zap,
   Languages,
@@ -25,12 +26,12 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 
 // Settings sections
 import { AppearanceSettings } from "./settings/AppearanceSettings";
-import { CJKFormattingSettings } from "./settings/CJKFormattingSettings";
+import { EditorSettings } from "./settings/EditorSettings";
+import { FilesImagesSettings } from "./settings/FilesImagesSettings";
+import { IntegrationsSettings } from "./settings/IntegrationsSettings";
+import { LanguageSettings } from "./settings/LanguageSettings";
 import { MarkdownSettings } from "./settings/MarkdownSettings";
 import { ShortcutsSettings } from "./settings/ShortcutsSettings";
-import { GeneralSettings } from "./settings/GeneralSettings";
-import { FilesSettings } from "./settings/FilesSettings";
-import { IntegrationsSettings } from "./settings/IntegrationsSettings";
 import { TerminalSettings } from "./settings/TerminalSettings";
 import { AdvancedSettings } from "./settings/AdvancedSettings";
 import { DevelopingSettings } from "./settings/DevelopingSettings";
@@ -72,12 +73,12 @@ function useDevSectionShortcut() {
 
 type Section =
   | "appearance"
-  | "formatting"
-  | "markdown"
-  | "shortcuts"
-  | "general"
+  | "editor"
   | "files"
   | "integrations"
+  | "language"
+  | "markdown"
+  | "shortcuts"
   | "terminal"
   | "advanced"
   | "developing";
@@ -110,14 +111,15 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
 const showAdvancedSection = import.meta.env.DEV;
 const showTerminalSection = import.meta.env.DEV;
 
+// Navigation config - alphabetical order
 const navConfig = [
   { id: "appearance" as const, icon: Palette, label: "Appearance" },
-  { id: "formatting" as const, icon: Languages, label: "CJK Formatting" },
+  { id: "editor" as const, icon: Type, label: "Editor" },
+  { id: "files" as const, icon: FolderOpen, label: "Files & Images" },
+  { id: "integrations" as const, icon: Plug, label: "Integrations" },
+  { id: "language" as const, icon: Languages, label: "Language" },
   { id: "markdown" as const, icon: FileText, label: "Markdown" },
   { id: "shortcuts" as const, icon: Keyboard, label: "Shortcuts" },
-  { id: "general" as const, icon: Settings, label: "General" },
-  { id: "files" as const, icon: FolderOpen, label: "Files" },
-  { id: "integrations" as const, icon: Plug, label: "Integrations" },
   { id: "terminal" as const, icon: Terminal, label: "Terminal" },
   ...(showAdvancedSection ? [{ id: "advanced" as const, icon: Zap, label: "Advanced" }] : []),
 ] as const;
@@ -134,10 +136,10 @@ export function SettingsPage() {
   // Handle Cmd+Shift+D to toggle dev section
   useDevSectionShortcut();
 
-  // Switch to general when dev section is hidden while viewing it
+  // Switch to appearance when dev section is hidden while viewing it
   useEffect(() => {
     if (!showDevSection && section === "developing") {
-      setSection("general");
+      setSection("appearance");
     }
   }, [showDevSection, section]);
 
@@ -209,12 +211,12 @@ export function SettingsPage() {
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
           {section === "appearance" && <AppearanceSettings />}
-          {section === "formatting" && <CJKFormattingSettings />}
+          {section === "editor" && <EditorSettings />}
+          {section === "files" && <FilesImagesSettings />}
+          {section === "integrations" && <IntegrationsSettings />}
+          {section === "language" && <LanguageSettings />}
           {section === "markdown" && <MarkdownSettings />}
           {section === "shortcuts" && <ShortcutsSettings />}
-          {section === "general" && <GeneralSettings />}
-          {section === "files" && <FilesSettings />}
-          {section === "integrations" && <IntegrationsSettings />}
           {section === "terminal" && showTerminal && <TerminalSettings />}
           {section === "advanced" && <AdvancedSettings />}
           {section === "developing" && <DevelopingSettings />}

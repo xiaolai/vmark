@@ -1,16 +1,15 @@
 /**
  * Appearance Settings Section
  *
- * Theme and typography configuration.
+ * Theme and window configuration.
  */
 
 import {
   useSettingsStore,
   themes,
   type ThemeId,
-  type AppearanceSettings as AppearanceSettingsType,
 } from "@/stores/settingsStore";
-import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
+import { SettingRow, SettingsGroup, Toggle } from "./components";
 
 const themeLabels: Record<ThemeId, string> = {
   white: "White",
@@ -19,95 +18,6 @@ const themeLabels: Record<ThemeId, string> = {
   sepia: "Sepia",
   night: "Night",
 };
-
-/** Shared option for system default */
-const SYSTEM_DEFAULT = { value: "system", label: "System Default" };
-
-/** Font option definitions (extracted to avoid recreation on each render) */
-const fontOptions = {
-  latin: [
-    SYSTEM_DEFAULT,
-    { value: "athelas", label: "Athelas" },
-    { value: "palatino", label: "Palatino" },
-    { value: "georgia", label: "Georgia" },
-    { value: "charter", label: "Charter" },
-    { value: "literata", label: "Literata" },
-  ],
-  cjk: [
-    SYSTEM_DEFAULT,
-    { value: "pingfang", label: "PingFang SC" },
-    { value: "songti", label: "Songti SC" },
-    { value: "kaiti", label: "Kaiti SC" },
-    { value: "notoserif", label: "Noto Serif CJK" },
-    { value: "sourcehans", label: "Source Han Sans" },
-  ],
-  mono: [
-    SYSTEM_DEFAULT,
-    // macOS system fonts
-    { value: "sfmono", label: "SF Mono" },
-    { value: "monaco", label: "Monaco" },
-    { value: "menlo", label: "Menlo" },
-    // Cross-platform
-    { value: "consolas", label: "Consolas" },
-    // Popular coding fonts (Nerd Font versions for terminal icon support)
-    { value: "jetbrains", label: "JetBrains Mono" },
-    { value: "firacode", label: "Fira Code" },
-    { value: "saucecodepro", label: "SauceCodePro NFM" },
-    { value: "ibmplexmono", label: "IBM Plex Mono" },
-    { value: "hack", label: "Hack" },
-    { value: "inconsolata", label: "Inconsolata" },
-  ],
-};
-
-/** Numeric option definitions */
-const numericOptions = {
-  fontSize: [
-    { value: "14", label: "14px" },
-    { value: "16", label: "16px" },
-    { value: "18", label: "18px" },
-    { value: "20", label: "20px" },
-    { value: "22", label: "22px" },
-  ],
-  lineHeight: [
-    { value: "1.4", label: "1.4 (Compact)" },
-    { value: "1.6", label: "1.6 (Normal)" },
-    { value: "1.8", label: "1.8 (Relaxed)" },
-    { value: "2.0", label: "2.0 (Spacious)" },
-    { value: "2.2", label: "2.2 (Extra)" },
-  ],
-  paragraphSpacing: [
-    { value: "0.5", label: "0.5em (Tight)" },
-    { value: "1", label: "1em (Normal)" },
-    { value: "1.5", label: "1.5em (Relaxed)" },
-    { value: "2", label: "2em (Spacious)" },
-  ],
-  editorWidth: [
-    { value: "36", label: "36em (Compact)" },
-    { value: "42", label: "42em (Narrow)" },
-    { value: "50", label: "50em (Medium)" },
-    { value: "60", label: "60em (Wide)" },
-    { value: "80", label: "80em (Extra Wide)" },
-    { value: "0", label: "Unlimited" },
-  ],
-};
-
-/** Typography settings configuration for data-driven rendering */
-type TypographyConfig = {
-  label: string;
-  key: keyof AppearanceSettingsType;
-  options: { value: string; label: string }[];
-  isNumeric: boolean;
-};
-
-const typographySettings: TypographyConfig[] = [
-  { label: "Latin Font", key: "latinFont", options: fontOptions.latin, isNumeric: false },
-  { label: "CJK Font", key: "cjkFont", options: fontOptions.cjk, isNumeric: false },
-  { label: "Mono Font", key: "monoFont", options: fontOptions.mono, isNumeric: false },
-  { label: "Font Size", key: "fontSize", options: numericOptions.fontSize, isNumeric: true },
-  { label: "Line Height", key: "lineHeight", options: numericOptions.lineHeight, isNumeric: true },
-  { label: "Paragraph Spacing", key: "paragraphSpacing", options: numericOptions.paragraphSpacing, isNumeric: true },
-  { label: "Editor Width", key: "editorWidth", options: numericOptions.editorWidth, isNumeric: true },
-];
 
 export function AppearanceSettings() {
   const appearance = useSettingsStore((state) => state.appearance);
@@ -150,27 +60,24 @@ export function AppearanceSettings() {
         </div>
       </SettingsGroup>
 
-      {/* Typography */}
-      <SettingsGroup title="Typography">
-        {typographySettings.map(({ label, key, options, isNumeric }) => (
-          <SettingRow key={key} label={label}>
-            <Select
-              value={String(appearance[key])}
-              options={options}
-              onChange={(v) =>
-                updateSetting(key, isNumeric ? Number(v) : v)
-              }
-            />
-          </SettingRow>
-        ))}
-      </SettingsGroup>
-
       {/* Window */}
       <SettingsGroup title="Window">
-        <SettingRow label="Show Filename in Titlebar">
+        <SettingRow
+          label="Show filename in titlebar"
+          description="Display the current file name in the window title"
+        >
           <Toggle
             checked={appearance.showFilenameInTitlebar ?? false}
             onChange={(v) => updateSetting("showFilenameInTitlebar", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label="Auto-hide status bar"
+          description="Hide status bar when not interacting"
+        >
+          <Toggle
+            checked={appearance.autoHideStatusBar ?? false}
+            onChange={(v) => updateSetting("autoHideStatusBar", v)}
           />
         </SettingRow>
       </SettingsGroup>
