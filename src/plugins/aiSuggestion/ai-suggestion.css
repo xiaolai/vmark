@@ -1,0 +1,144 @@
+/**
+ * AI Suggestion Styles
+ *
+ * Visual treatment for AI-generated content suggestions.
+ * - Insert/Replace: Wave underline only (theme color)
+ * - Delete: Red strikethrough
+ * - Buttons: Icon only, no background
+ */
+
+/* Base suggestion styles */
+.ai-suggestion {
+  border-radius: 2px;
+}
+
+/* Insert suggestion - wave underline, theme color */
+.ai-suggestion-insert {
+  text-decoration: underline wavy;
+  text-decoration-color: var(--primary-color);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* Replace suggestion - wave underline, theme color */
+.ai-suggestion-replace {
+  text-decoration: underline wavy;
+  text-decoration-color: var(--primary-color);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* Delete suggestion - red wavy strikethrough */
+.ai-suggestion-delete {
+  text-decoration: line-through wavy;
+  text-decoration-color: var(--error-color);
+  text-decoration-thickness: 1px;
+  opacity: 0.6;
+}
+
+/* Focused state - no visual change, buttons indicate focus */
+.ai-suggestion-focused {
+  /* Focus indicated by presence of buttons */
+}
+
+/* Accept/Reject buttons container */
+.ai-suggestion-buttons {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Button base styles - icon only, no background */
+.ai-suggestion-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.15s;
+  vertical-align: middle;
+  opacity: 0.7;
+}
+
+.ai-suggestion-btn:hover {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+.ai-suggestion-btn:active {
+  transform: scale(0.95);
+}
+
+/* Focus state - U-shaped underline */
+.ai-suggestion-btn:focus {
+  outline: none;
+}
+
+.ai-suggestion-btn:focus-visible {
+  opacity: 1;
+}
+
+.ai-suggestion-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 1px;
+  right: 1px;
+  height: 2px;
+  background: transparent;
+  border-bottom: 2px solid currentColor;
+  border-radius: 0 0 2px 2px;
+}
+
+/* Icon sizing */
+.ai-suggestion-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Accept button - green icon only */
+.ai-suggestion-btn-accept {
+  color: #16a34a;
+}
+
+.ai-suggestion-btn-accept:hover {
+  color: #15803d;
+}
+
+/* Reject button - red icon only */
+.ai-suggestion-btn-reject {
+  color: #dc2626;
+}
+
+.ai-suggestion-btn-reject:hover {
+  color: #b91c1c;
+}
+
+/* Dark theme adjustments */
+.dark-theme .ai-suggestion-btn-accept {
+  color: #4ade80;
+}
+
+.dark-theme .ai-suggestion-btn-accept:hover {
+  color: #86efac;
+}
+
+.dark-theme .ai-suggestion-btn-reject {
+  color: #f87171;
+}
+
+.dark-theme .ai-suggestion-btn-reject:hover {
+  color: #fca5a5;
+}

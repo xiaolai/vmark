@@ -13,8 +13,6 @@ import { respond } from "./utils";
 // Document handlers
 import {
   handleGetContent,
-  handleSetContent,
-  handleInsertAtCursor,
   handleInsertAtPosition,
   handleDocumentSearch,
   handleDocumentReplace,
@@ -23,12 +21,20 @@ import {
 } from "./documentHandlers";
 
 // Selection handlers
+import { handleSelectionGet, handleSelectionSet } from "./selectionHandlers";
+
+// AI Suggestion handlers (wrap content modifications for approval)
 import {
-  handleSelectionGet,
-  handleSelectionSet,
-  handleSelectionReplace,
-  handleSelectionDelete,
-} from "./selectionHandlers";
+  handleSetContentBlocked,
+  handleInsertAtCursorWithSuggestion,
+  handleSelectionReplaceWithSuggestion,
+  handleSelectionDeleteWithSuggestion,
+  handleSuggestionAccept,
+  handleSuggestionReject,
+  handleSuggestionList,
+  handleSuggestionAcceptAll,
+  handleSuggestionRejectAll,
+} from "./suggestionHandlers";
 
 // Cursor handlers
 import { handleCursorGetContext, handleCursorSetPosition } from "./cursorHandlers";
@@ -114,10 +120,12 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         await handleGetContent(id);
         break;
       case "document.setContent":
-        await handleSetContent(id, args);
+        // BLOCKED: AI cannot replace entire document for safety
+        await handleSetContentBlocked(id);
         break;
       case "document.insertAtCursor":
-        await handleInsertAtCursor(id, args);
+        // Wrapped with suggestion for approval
+        await handleInsertAtCursorWithSuggestion(id, args);
         break;
       case "document.insertAtPosition":
         await handleInsertAtPosition(id, args);
@@ -145,10 +153,29 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         await handleSelectionSet(id, args);
         break;
       case "selection.replace":
-        await handleSelectionReplace(id, args);
+        // Wrapped with suggestion for approval
+        await handleSelectionReplaceWithSuggestion(id, args);
         break;
       case "selection.delete":
-        await handleSelectionDelete(id);
+        // Wrapped with suggestion for approval (soft delete)
+        await handleSelectionDeleteWithSuggestion(id);
+        break;
+
+      // AI Suggestion operations
+      case "suggestion.accept":
+        await handleSuggestionAccept(id, args);
+        break;
+      case "suggestion.reject":
+        await handleSuggestionReject(id, args);
+        break;
+      case "suggestion.list":
+        await handleSuggestionList(id);
+        break;
+      case "suggestion.acceptAll":
+        await handleSuggestionAcceptAll(id);
+        break;
+      case "suggestion.rejectAll":
+        await handleSuggestionRejectAll(id);
         break;
 
       // Cursor operations

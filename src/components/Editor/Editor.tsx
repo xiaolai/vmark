@@ -24,6 +24,7 @@ import "@/plugins/detailsBlock/details-block.css";
 import "@/plugins/focusMode/focus-mode.css";
 import "@/plugins/typewriterMode/typewriter-mode.css";
 import "@/plugins/search/search.css";
+import "@/plugins/aiSuggestion/ai-suggestion.css";
 import "@/plugins/codePreview/code-preview.css";
 import "@/plugins/latex/latex.css";
 import "@/plugins/mathPreview/math-preview.css";

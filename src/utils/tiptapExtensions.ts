@@ -44,6 +44,7 @@ import { footnotePopupExtension } from "@/plugins/footnotePopup/tiptap";
 import { footnoteDefinitionExtension, footnoteReferenceExtension } from "@/plugins/footnotePopup/tiptapNodes";
 import { tabIndentExtension } from "@/plugins/tabIndent/tiptap";
 import { multiCursorExtension } from "@/plugins/multiCursor/tiptap";
+import { aiSuggestionExtension } from "@/plugins/aiSuggestion/tiptap";
 import { AlignedTableCell, AlignedTableHeader } from "@/components/Editor/alignedTableNodes";
 import {
   frontmatterExtension,
@@ -140,5 +141,6 @@ export function createTiptapExtensions(): Extensions {
     editorKeymapExtension,
     tabIndentExtension,
     multiCursorExtension,
+    aiSuggestionExtension,
   ];
 }
