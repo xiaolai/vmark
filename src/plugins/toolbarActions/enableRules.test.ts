@@ -248,4 +248,175 @@ describe("getToolbarButtonState (source)", () => {
 
     expect(state.disabled).toBe(false);
   });
+
+  it("disables link action when cursor is inside a link", () => {
+    const button = createGroupButton("link", [createItem("link", ["textblock"])]);
+    const state = getToolbarButtonState(button, {
+      surface: "source",
+      view,
+      context: {
+        inCodeBlock: null,
+        inBlockMath: null,
+        inTable: null,
+        inList: null,
+        inBlockquote: null,
+        inHeading: null,
+        inLink: { href: "https://example.com", from: 0, to: 10 },
+        inImage: null,
+        inInlineMath: null,
+        inFootnote: null,
+        activeFormats: [],
+        formatRanges: [],
+        innermostFormat: null,
+        atLineStart: false,
+        atBlankLine: false,
+        inWord: null,
+        contextMode: "inline-insert",
+        nearSpace: false,
+        nearPunctuation: false,
+        hasSelection: false,
+        selectionFrom: 0,
+        selectionTo: 0,
+      },
+    });
+
+    expect(state.itemStates?.[0].disabled).toBe(true);
+  });
+
+  it("disables wiki link action when cursor is inside a link", () => {
+    const button = createGroupButton("link", [createItem("link:wiki", ["textblock"])]);
+    const state = getToolbarButtonState(button, {
+      surface: "source",
+      view,
+      context: {
+        inCodeBlock: null,
+        inBlockMath: null,
+        inTable: null,
+        inList: null,
+        inBlockquote: null,
+        inHeading: null,
+        inLink: { href: "https://example.com", from: 0, to: 10 },
+        inImage: null,
+        inInlineMath: null,
+        inFootnote: null,
+        activeFormats: [],
+        formatRanges: [],
+        innermostFormat: null,
+        atLineStart: false,
+        atBlankLine: false,
+        inWord: null,
+        contextMode: "inline-insert",
+        nearSpace: false,
+        nearPunctuation: false,
+        hasSelection: false,
+        selectionFrom: 0,
+        selectionTo: 0,
+      },
+    });
+
+    expect(state.itemStates?.[0].disabled).toBe(true);
+  });
+
+  it("disables code action when cursor is inside a link", () => {
+    const button = createGroupButton("inline", [createItem("code", ["textblock"])]);
+    const state = getToolbarButtonState(button, {
+      surface: "source",
+      view,
+      context: {
+        inCodeBlock: null,
+        inBlockMath: null,
+        inTable: null,
+        inList: null,
+        inBlockquote: null,
+        inHeading: null,
+        inLink: { href: "https://example.com", from: 0, to: 10 },
+        inImage: null,
+        inInlineMath: null,
+        inFootnote: null,
+        activeFormats: [],
+        formatRanges: [],
+        innermostFormat: null,
+        atLineStart: false,
+        atBlankLine: false,
+        inWord: null,
+        contextMode: "inline-insert",
+        nearSpace: false,
+        nearPunctuation: false,
+        hasSelection: true,
+        selectionFrom: 1,
+        selectionTo: 5,
+      },
+    });
+
+    expect(state.itemStates?.[0].disabled).toBe(true);
+  });
+
+  it("enables bold action when cursor is inside a link (basic marks allowed)", () => {
+    const button = createGroupButton("inline", [createItem("bold", ["textblock"])]);
+    const state = getToolbarButtonState(button, {
+      surface: "source",
+      view,
+      context: {
+        inCodeBlock: null,
+        inBlockMath: null,
+        inTable: null,
+        inList: null,
+        inBlockquote: null,
+        inHeading: null,
+        inLink: { href: "https://example.com", from: 0, to: 10 },
+        inImage: null,
+        inInlineMath: null,
+        inFootnote: null,
+        activeFormats: [],
+        formatRanges: [],
+        innermostFormat: null,
+        atLineStart: false,
+        atBlankLine: false,
+        inWord: null,
+        contextMode: "inline-insert",
+        nearSpace: false,
+        nearPunctuation: false,
+        hasSelection: true,
+        selectionFrom: 1,
+        selectionTo: 5,
+      },
+    });
+
+    // Bold is allowed inside links (basic marks permitted)
+    expect(state.itemStates?.[0].disabled).toBe(false);
+  });
+
+  it("enables link action when cursor is NOT inside a link", () => {
+    const button = createGroupButton("link", [createItem("link", ["textblock"])]);
+    const state = getToolbarButtonState(button, {
+      surface: "source",
+      view,
+      context: {
+        inCodeBlock: null,
+        inBlockMath: null,
+        inTable: null,
+        inList: null,
+        inBlockquote: null,
+        inHeading: null,
+        inLink: null,
+        inImage: null,
+        inInlineMath: null,
+        inFootnote: null,
+        activeFormats: [],
+        formatRanges: [],
+        innermostFormat: null,
+        atLineStart: false,
+        atBlankLine: false,
+        inWord: null,
+        contextMode: "inline-insert",
+        nearSpace: false,
+        nearPunctuation: false,
+        hasSelection: false,
+        selectionFrom: 0,
+        selectionTo: 0,
+      },
+    });
+
+    expect(state.itemStates?.[0].disabled).toBe(false);
+  });
 });

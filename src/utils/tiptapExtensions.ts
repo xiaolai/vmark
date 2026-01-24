@@ -1,5 +1,6 @@
 import type { Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
 import {
   HeadingWithSourceLine,
   ParagraphWithSourceLine,
@@ -72,14 +73,18 @@ export function createTiptapExtensions(): Extensions {
       bulletList: false,
       orderedList: false,
       horizontalRule: false,
-      // Disable default link click behavior - we handle it via linkPopupExtension
-      link: {
-        openOnClick: false,
-        // Don't add target="_blank" - it bypasses our click handling
-        HTMLAttributes: {
-          target: null,
-          rel: null,
-        },
+      // Disable StarterKit's link - we use a custom configured one below
+      link: false,
+    }),
+    // Custom Link extension with excludes to prevent nested links and code inside links
+    Link.extend({
+      excludes: "link code",
+    }).configure({
+      openOnClick: false,
+      // Don't add target="_blank" - it bypasses our click handling
+      HTMLAttributes: {
+        target: null,
+        rel: null,
       },
     }),
     // Extended nodes with sourceLine attribute for cursor sync

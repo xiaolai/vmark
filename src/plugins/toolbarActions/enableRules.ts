@@ -31,6 +31,20 @@ const SOURCE_SELECTION_REQUIRED_ACTIONS = new Set<string>([
   "insertFootnote",
 ]);
 
+// Actions that should be disabled when cursor is inside a link
+const LINK_DISABLED_ACTIONS = new Set<string>([
+  "link",
+  "link:bookmark",
+  "link:wiki",
+  "code", // Prevent code mark inside links
+]);
+
+function isDisabledInLink(action: string, ctx: WysiwygContext | SourceContext | null): boolean {
+  if (!ctx) return false;
+  if (!ctx.inLink) return false;
+  return LINK_DISABLED_ACTIONS.has(action);
+}
+
 
 function isWysiwygMarkActive(view: TiptapEditorView, markName: string): boolean {
   const { state } = view;
@@ -222,7 +236,8 @@ export function getToolbarButtonState(
 
   const enabled = matchesEnabledContext(button.enabledIn, ctx) &&
     (!shouldRequireSelection(button.action, surface) || ctx.hasSelection) &&
-    canRunActionInMultiSelection(button.action, context.multiSelection);
+    canRunActionInMultiSelection(button.action, context.multiSelection) &&
+    !isDisabledInLink(button.action, ctx);
 
   const active = surface === "wysiwyg"
     ? isWysiwygActionActive(
@@ -261,7 +276,8 @@ export function getToolbarItemState(
 
   const enabled = matchesEnabledContext(actionItem.enabledIn, ctx) &&
     (!shouldRequireSelection(actionItem.action, surface) || ctx.hasSelection) &&
-    canRunActionInMultiSelection(actionItem.action, context.multiSelection);
+    canRunActionInMultiSelection(actionItem.action, context.multiSelection) &&
+    !isDisabledInLink(actionItem.action, ctx);
 
   const active = surface === "wysiwyg"
     ? isWysiwygActionActive(
