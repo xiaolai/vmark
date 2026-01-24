@@ -14,9 +14,9 @@
   gap: 2px;
   padding: 6px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg, 8px);
+  border-radius: var(--radius-lg);
   background: var(--bg-color);
-  box-shadow: var(--popup-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+  box-shadow: var(--popup-shadow);
   animation: popup-fade-in 0.1s ease-out;
 }
 
@@ -63,7 +63,7 @@
 
 /* Monospace input variant (for URLs, paths) */
 .popup-input--mono {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 /* Full-width input (for vertical layouts) */
@@ -81,7 +81,7 @@
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   cursor: default;
@@ -90,7 +90,7 @@
 }
 
 .popup-icon-btn:hover:not(:disabled) {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  background: var(--hover-bg);
   color: var(--text-color);
 }
 
@@ -116,8 +116,8 @@
   right: 4px;
   height: 4px;
   background: transparent;
-  border-bottom: 2px solid var(--primary-color, #0066cc);
-  border-radius: 0 0 4px 4px;
+  border-bottom: 2px solid var(--primary-color);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 /* Icon sizing */
@@ -133,7 +133,7 @@
 
 /* Primary action button (save/confirm) */
 .popup-icon-btn--primary:hover:not(:disabled) {
-  color: var(--primary-color, #0066cc);
+  color: var(--primary-color);
 }
 
 /* Danger action button (delete/remove) */
@@ -155,7 +155,7 @@
   padding: 0 4px;
   font-size: 12px;
   color: var(--text-secondary);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 /* Input row (for horizontal layout with input + buttons) */

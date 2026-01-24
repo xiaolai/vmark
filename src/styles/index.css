@@ -51,6 +51,8 @@
   /* Popup shared tokens (format toolbar, source popup, etc.) */
   --popup-padding: 6px;
   --popup-radius: 8px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
   --popup-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --popup-shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.4);
 

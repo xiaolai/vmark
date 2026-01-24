@@ -13,9 +13,9 @@
   gap: 2px;
   padding: 6px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   animation: math-preview-fade-in 0.1s ease-out;
   max-width: 300px;
   min-width: 60px;
@@ -51,7 +51,7 @@
 
 .math-preview-content.math-preview-error-state {
   color: var(--text-color);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
@@ -67,5 +67,5 @@
 
 /* Dark theme */
 .dark-theme .math-preview-popup {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--popup-shadow-dark);
 }

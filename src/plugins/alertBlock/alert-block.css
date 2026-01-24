@@ -10,7 +10,7 @@
   background-color: var(--alert-bg);
   padding: 0.75em 1em;
   margin: 1em 0;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 /* Alert title (non-editable) */

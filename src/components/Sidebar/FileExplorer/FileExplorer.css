@@ -39,7 +39,7 @@
   height: 24px;
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
 }
@@ -68,7 +68,7 @@
   align-items: center;
   padding: 2px 28px;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   user-select: none;
 }
 
@@ -127,7 +127,7 @@
   font-size: 13px;
   padding: 1px 4px;
   border: 1px solid var(--primary-color);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background-color: var(--bg-color);
   color: var(--text-color);
   outline: none;

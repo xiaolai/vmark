@@ -6,8 +6,8 @@
 
 /* Details container */
 .details-block {
-  border: 1px solid var(--border-color, #d0d7de);
-  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   margin: 1em 0;
   overflow: hidden;
   font-size: var(--editor-font-size-sm);
@@ -20,7 +20,7 @@
   padding: 0.625em 0.75em;
   cursor: pointer;
   font-weight: 600;
-  background-color: var(--details-header-bg, var(--bg-secondary, #f6f8fa));
+  background-color: var(--details-header-bg, var(--bg-secondary));
   border-bottom: 1px solid transparent;
   display: flex;
   align-items: center;
@@ -55,7 +55,7 @@
 /* Hover state */
 .details-block > summary:hover,
 .details-summary:hover {
-  background-color: var(--details-header-hover-bg, var(--bg-tertiary, #eaeef2));
+  background-color: var(--details-header-hover-bg, var(--bg-tertiary));
 }
 
 /* Open state - rotate triangle */
@@ -67,7 +67,7 @@
 /* Open state - show border */
 .details-block[open] > summary,
 .details-block[open] .details-summary {
-  border-bottom-color: var(--border-color, #d0d7de);
+  border-bottom-color: var(--border-color);
 }
 
 /* Content area - hidden when collapsed */

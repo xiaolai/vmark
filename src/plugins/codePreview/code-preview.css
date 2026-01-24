@@ -8,14 +8,14 @@
 .code-block-preview {
   margin: 1rem 0;
   padding: 1rem;
-  border-radius: 6px;
-  background-color: var(--block-bg-subtle, rgba(0, 0, 0, 0.02));
+  border-radius: var(--radius-md);
+  background-color: var(--subtle-bg);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .code-block-preview:hover {
-  background-color: var(--block-bg-subtle-hover, rgba(0, 0, 0, 0.04));
+  background-color: var(--subtle-bg-hover);
 }
 
 /* LaTeX preview - match .math-block-preview layout */
@@ -47,15 +47,15 @@
 
 /* Loading state */
 .code-block-preview.mermaid-loading {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
 /* Error states */
 .code-block-preview.mermaid-error,
 .code-block-preview .math-error {
-  color: var(--error-color, #cf222e);
-  background-color: var(--error-bg, #ffebe9);
+  color: var(--error-color);
+  background-color: var(--error-bg);
   font-family: ui-monospace, monospace;
   font-size: var(--editor-font-size-mono);
   white-space: pre-wrap;
@@ -71,7 +71,7 @@
 }
 
 .code-block-preview-placeholder {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -92,7 +92,7 @@
 
 /* Highlight preview when the hidden code block is selected */
 .code-block-wrapper.code-block-preview-only.ProseMirror-selectednode + .code-block-preview {
-  outline: 2px solid var(--primary-color, #0a84ff);
+  outline: 2px solid var(--primary-color);
   outline-offset: 2px;
 }
 
@@ -107,16 +107,16 @@
   justify-content: space-between;
   padding: 6px 12px;
   margin: 1rem 0 0 0;
-  background-color: var(--bg-secondary, #e5e4e4);
-  border: 1px solid var(--border-color, #d5d4d4);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-bottom: none;
-  border-radius: var(--radius-md, 6px) var(--radius-md, 6px) 0 0;
+  border-radius: var(--radius-md) var(--radius-md, 6px) 0 0;
 }
 
 .code-block-edit-title {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary, #666666);
+  color: var(--text-secondary);
 }
 
 .code-block-edit-actions {
@@ -133,15 +133,15 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary, #666666);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
 }
 
 .code-block-edit-btn:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+  background: var(--hover-bg);
 }
 
 .code-block-edit-btn:focus-visible {
@@ -156,16 +156,16 @@
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color, #0066cc);
+  background: var(--primary-color);
   border-radius: 1px;
 }
 
 .code-block-edit-cancel:hover {
-  color: var(--error-color, #cf222e);
+  color: var(--error-color);
 }
 
 .code-block-edit-save:hover {
-  color: var(--success-color, #1a7f37);
+  color: var(--success-color);
 }
 
 /* Editing state: show source code */
@@ -177,17 +177,17 @@
 .code-block-wrapper.code-block-editing pre {
   margin: 0;
   padding: 12px;
-  border: 1px solid var(--border-color, #d5d4d4);
+  border: 1px solid var(--border-color);
   border-top: none;
   border-bottom: none;
   border-radius: 0;
-  background-color: var(--block-bg-subtle, rgba(0, 0, 0, 0.02));
+  background-color: var(--subtle-bg);
   text-align: left;
 }
 
 .code-block-wrapper.code-block-editing pre code {
   display: block;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
   white-space: pre-wrap;
   word-break: break-word;
@@ -198,9 +198,9 @@
 .code-block-live-preview {
   padding: 12px;
   margin: 0 0 1rem 0;
-  background-color: var(--bg-color, #eeeded);
-  border: 1px solid var(--border-color, #d5d4d4);
-  border-top: 1px dashed var(--border-color, #d5d4d4);
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-top: 1px dashed var(--border-color);
   border-radius: 0 0 var(--radius-md, 6px) var(--radius-md, 6px);
   min-height: 60px;
   display: flex;
@@ -224,13 +224,13 @@
 
 .code-block-live-preview-loading,
 .code-block-live-preview-empty {
-  color: var(--text-tertiary, #999999);
+  color: var(--text-tertiary);
   font-style: italic;
   font-size: 13px;
 }
 
 .code-block-live-preview-error {
-  color: var(--error-color, #cf222e);
+  color: var(--error-color);
   font-style: italic;
   font-size: 13px;
 }
@@ -250,7 +250,7 @@
 }
 
 .dark-theme .code-block-edit-btn:hover {
-  background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+  background: var(--hover-bg);
 }
 
 .dark-theme .code-block-live-preview {

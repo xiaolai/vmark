@@ -23,7 +23,7 @@
 
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb:hover {

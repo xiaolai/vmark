@@ -5,11 +5,11 @@
   display: flex;
   flex-direction: column;
   min-height: 140px;
-  background: var(--bg-primary, #ffffff);
-  color: var(--text-primary, #1a1a1a);
-  border: 1px solid var(--border-color, #e1e1e1);
-  border-radius: 10px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
   overflow: hidden;
 }
 
@@ -19,24 +19,24 @@
   justify-content: space-between;
   gap: 12px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--border-color, #e1e1e1);
-  background: var(--bg-secondary, #f5f5f5);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   font-size: 11px;
 }
 
 .source-peek-title {
   font-weight: 600;
-  color: var(--text-primary, #1a1a1a);
+  color: var(--text-primary);
 }
 
 .source-peek-hint {
-  color: var(--text-secondary, #666666);
+  color: var(--text-secondary);
 }
 
 .source-peek-editor {
   flex: 1;
   padding: 8px 10px;
-  background: var(--bg-primary, #ffffff);
+  background: var(--bg-primary);
 }
 
 .source-peek-editor .cm-editor {
@@ -45,5 +45,5 @@
 }
 
 .source-peek-editor .cm-scroller {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }

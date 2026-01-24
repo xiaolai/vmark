@@ -9,8 +9,8 @@
   justify-content: center;
   align-items: center;
   overflow: auto;
-  background-color: var(--bg-secondary, #f6f8fa);
-  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
   min-height: 100px;
 }
 
@@ -24,10 +24,10 @@
 
 /* Error state */
 .mermaid-error {
-  color: var(--error-color, #cf222e);
-  background-color: var(--error-bg, #ffebe9);
+  color: var(--error-color);
+  background-color: var(--error-bg);
   padding: 1rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-family: monospace;
   font-size: var(--editor-font-size-mono);
   white-space: pre-wrap;
@@ -36,7 +36,7 @@
 
 /* Loading state */
 .mermaid-loading {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
   padding: 1rem;
   text-align: center;
@@ -47,7 +47,7 @@
   margin: 1rem 0;
   padding: 1rem;
   background-color: var(--subtle-bg);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -61,7 +61,7 @@
 }
 
 .mermaid-block.ProseMirror-selectednode {
-  outline: 2px solid var(--primary-color, #0a84ff);
+  outline: 2px solid var(--primary-color);
   outline-offset: 2px;
 }
 
@@ -81,12 +81,12 @@
 }
 
 .mermaid-block-placeholder {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
 .mermaid-block-loading {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -95,12 +95,12 @@
   width: 100%;
   min-height: 100px;
   padding: 0.75rem;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
   line-height: 1.5;
   border: none;
   background: transparent;
-  color: var(--text-color, inherit);
+  color: var(--text-color);
   resize: none;
   outline: none;
   text-align: left;

@@ -10,9 +10,9 @@
   gap: 6px;
   padding: 8px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-color);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
   width: 360px;
 }
 
@@ -22,11 +22,11 @@
   resize: vertical;
   padding: 6px 8px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-color);
   font-size: 12px;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   outline: none;
 }
 
@@ -44,8 +44,8 @@
 .math-popup-preview {
   min-height: 32px;
   padding: 6px 8px;
-  border-radius: 6px;
-  background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  border-radius: var(--radius-md);
+  background: var(--hover-bg);
   color: var(--text-color);
   font-size: 14px;
   overflow: hidden;
@@ -66,7 +66,7 @@
 .math-popup-btn {
   padding: 4px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-color);
   font-size: 12px;
@@ -74,12 +74,12 @@
 }
 
 .math-popup-btn:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  background: var(--hover-bg);
 }
 
 .math-popup-btn-save {
-  border-color: var(--primary-color, #0a84ff);
-  color: var(--primary-color, #0a84ff);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .dark-theme .math-popup-btn:hover {

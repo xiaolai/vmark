@@ -12,10 +12,8 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 0.5px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.12),
-    0 0 1px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
   padding: 5px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-size: 13px;
@@ -32,7 +30,7 @@
   display: flex;
   align-items: center;
   padding: 5px 10px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   cursor: default;
   color: var(--text-color);
   transition: none;

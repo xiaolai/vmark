@@ -14,9 +14,9 @@
   gap: 2px;
   padding: 4px 6px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg, 8px);
+  border-radius: var(--radius-lg);
   background: var(--bg-color);
-  box-shadow: var(--popup-shadow, 0 2px 8px rgba(0, 0, 0, 0.1));
+  box-shadow: var(--popup-shadow);
   animation: wiki-link-popup-fade-in 0.1s ease-out;
 }
 

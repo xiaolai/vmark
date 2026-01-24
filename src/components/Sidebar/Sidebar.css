@@ -44,7 +44,7 @@
   height: 28px;
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
 }
@@ -127,7 +127,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
@@ -173,7 +173,7 @@
   height: 20px;
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
   opacity: 0;
@@ -185,7 +185,7 @@
 }
 
 .file-remove-btn:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--hover-bg);
   color: var(--text-color);
 }
 
@@ -216,7 +216,7 @@
   font-size: 13px;
   color: var(--text-color);
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   gap: 4px;
 }
 
@@ -237,14 +237,14 @@
   padding: 0;
   background: none;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .outline-toggle:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--hover-bg);
   color: var(--text-color);
 }
 
@@ -300,7 +300,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: default;
 }
 
@@ -333,7 +333,7 @@
   height: 22px;
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
   opacity: 0;
@@ -345,6 +345,6 @@
 }
 
 .history-revert-btn:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--hover-bg);
   color: var(--text-color);
 }

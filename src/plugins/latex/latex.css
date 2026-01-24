@@ -15,7 +15,7 @@
 }
 
 .math-inline:hover:not(.editing) {
-  background-color: var(--color-selection, rgba(0, 122, 255, 0.1));
+  background-color: var(--selection-color);
   border-radius: 2px;
 }
 
@@ -37,7 +37,7 @@
 }
 
 .math-inline-placeholder {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -51,7 +51,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--text-color);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: inherit;
   line-height: inherit;
   outline: none;
@@ -68,7 +68,7 @@
 }
 
 .math-inline-input::placeholder {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
   text-decoration: none;
 }
@@ -76,17 +76,17 @@
 /* Selected inline math - subtle highlight only */
 .ProseMirror-selectednode .math-inline,
 .math-inline.ProseMirror-selectednode {
-  background-color: var(--color-selection, rgba(0, 122, 255, 0.15));
-  border-radius: 3px;
+  background-color: var(--selection-color);
+  border-radius: var(--radius-sm);
 }
 
 /* Math rendering errors */
 .math-error {
-  color: var(--error-color, #cf222e);
-  background-color: var(--error-bg, #ffebe9);
+  color: var(--error-color);
+  background-color: var(--error-bg);
   padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-family: monospace;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
 }
 
@@ -105,15 +105,15 @@
 .math-block {
   margin: 1rem 0;
   padding: 1rem;
-  background-color: var(--block-bg-subtle, rgba(0, 0, 0, 0.02));
-  border-radius: 6px;
+  background-color: var(--subtle-bg);
+  border-radius: var(--radius-md);
   text-align: center;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .math-block:hover {
-  background-color: var(--block-bg-subtle-hover, rgba(0, 0, 0, 0.04));
+  background-color: var(--subtle-bg-hover);
 }
 
 .math-block.editing {
@@ -121,7 +121,7 @@
 }
 
 .math-block.ProseMirror-selectednode {
-  outline: 2px solid var(--primary-color, #0a84ff);
+  outline: 2px solid var(--primary-color);
   outline-offset: 2px;
 }
 
@@ -138,7 +138,7 @@
 }
 
 .math-block-placeholder {
-  color: var(--text-secondary, #656d76);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -147,12 +147,12 @@
   width: 100%;
   min-height: 60px;
   padding: 0.75rem;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
   line-height: 1.5;
   border: none;
   background: transparent;
-  color: var(--text-color, inherit);
+  color: var(--text-color);
   resize: none;
   outline: none;
   text-align: left;
