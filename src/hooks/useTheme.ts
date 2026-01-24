@@ -1,5 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSettingsStore, themes, type ThemeColors } from "@/stores/settingsStore";
+import { updateMermaidFontSize } from "@/plugins/mermaid";
+import { refreshPreviews } from "@/plugins/codePreview/tiptap";
 
 const fontStacks = {
   latin: {
@@ -215,6 +217,8 @@ function applyTypography(
 
   // Calculate absolute line-height for use with reduced font sizes
   const lineHeightPx = fontSize * lineHeight;
+  // Calculate Mermaid scale factor (mono size / Mermaid's default 16px)
+  const mermaidScale = (fontSize * 0.85) / 16;
 
   applyVars(root, {
     "--font-sans": `${latinStack}, ${cjkStack}`,
@@ -226,11 +230,13 @@ function applyTypography(
     "--editor-line-height-px": `${lineHeightPx}px`,
     "--editor-paragraph-spacing": `${paragraphSpacing}em`,
     "--editor-width": editorWidth > 0 ? `${editorWidth}em` : "none",
+    "--mermaid-scale": String(mermaidScale),
   });
 }
 
 export function useTheme() {
   const appearance = useSettingsStore((state) => state.appearance);
+  const prevFontSizeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -250,5 +256,13 @@ export function useTheme() {
       appearance.paragraphSpacing,
       appearance.editorWidth ?? 50
     );
+
+    // Update Mermaid font size when editor font size changes
+    if (prevFontSizeRef.current !== null && prevFontSizeRef.current !== appearance.fontSize) {
+      updateMermaidFontSize();
+      // Font size changed, refresh all preview decorations to re-render with new size
+      refreshPreviews();
+    }
+    prevFontSizeRef.current = appearance.fontSize;
   }, [appearance]);
 }

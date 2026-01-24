@@ -10,15 +10,28 @@
 let mermaidModule: typeof import("mermaid") | null = null;
 let mermaidLoadPromise: Promise<typeof import("mermaid")> | null = null;
 
-// Track current theme for re-initialization
+// Track current theme and font size for re-initialization
 let mermaidInitialized = false;
 let currentTheme: "default" | "dark" = "default";
+let currentFontSize: number = 14; // Default fallback
 
 /**
  * Detect if dark mode is active by checking document class
  */
 function isDarkMode(): boolean {
   return document.documentElement.classList.contains("dark");
+}
+
+/**
+ * Get the current mono font size from CSS variable.
+ * Falls back to 14px if not set.
+ */
+function getMonoFontSize(): number {
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue("--editor-font-size-mono")
+    .trim();
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? 14 : parsed;
 }
 
 /**
@@ -37,6 +50,24 @@ async function loadMermaid(): Promise<typeof import("mermaid")> {
 }
 
 /**
+ * Initialize Mermaid with current settings.
+ * Used internally to apply theme and font size.
+ */
+function applyMermaidConfig(): void {
+  if (!mermaidModule) return;
+  mermaidModule.default.initialize({
+    startOnLoad: false,
+    theme: currentTheme,
+    securityLevel: "strict",
+    fontFamily: "inherit",
+    fontSize: currentFontSize,
+    themeVariables: {
+      fontSize: `${currentFontSize}px`,
+    },
+  });
+}
+
+/**
  * Update Mermaid theme when app theme changes.
  * Call this when theme switches to trigger re-render.
  */
@@ -44,32 +75,35 @@ export async function updateMermaidTheme(isDark: boolean): Promise<boolean> {
   const newTheme = isDark ? "dark" : "default";
   if (newTheme !== currentTheme) {
     currentTheme = newTheme;
-    // Only initialize if mermaid was already loaded
-    if (mermaidModule) {
-      mermaidModule.default.initialize({
-        startOnLoad: false,
-        theme: newTheme,
-        securityLevel: "strict",
-        fontFamily: "inherit",
-      });
-    }
+    applyMermaidConfig();
     return true; // Theme changed
   }
   return false; // No change
 }
 
+/**
+ * Update Mermaid font size from CSS variable.
+ * Call this when editor font size changes to trigger re-render.
+ * Returns true if font size changed.
+ */
+export function updateMermaidFontSize(): boolean {
+  const newFontSize = getMonoFontSize();
+  if (Math.abs(newFontSize - currentFontSize) > 0.1) {
+    currentFontSize = newFontSize;
+    applyMermaidConfig();
+    return true; // Font size changed
+  }
+  return false; // No change
+}
+
 async function initMermaid(): Promise<void> {
-  const mod = await loadMermaid();
+  await loadMermaid();
 
   if (mermaidInitialized) return;
 
   currentTheme = isDarkMode() ? "dark" : "default";
-  mod.default.initialize({
-    startOnLoad: false,
-    theme: currentTheme,
-    securityLevel: "strict",
-    fontFamily: "inherit",
-  });
+  currentFontSize = getMonoFontSize();
+  applyMermaidConfig();
 
   mermaidInitialized = true;
 }
@@ -90,12 +124,20 @@ function cleanupMermaidContainer(diagramId: string): void {
  * Render mermaid diagram content to SVG HTML.
  * Returns null if rendering fails.
  * Lazy-loads mermaid on first call.
+ * Always syncs font size before rendering to respect current settings.
  */
 export async function renderMermaid(
   content: string,
   id?: string
 ): Promise<string | null> {
   await initMermaid();
+
+  // Always sync font size before rendering to respect current editor settings
+  const newFontSize = getMonoFontSize();
+  if (Math.abs(newFontSize - currentFontSize) > 0.1) {
+    currentFontSize = newFontSize;
+    applyMermaidConfig();
+  }
 
   const diagramId = id ?? `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 

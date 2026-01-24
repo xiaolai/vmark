@@ -169,6 +169,8 @@
 .mermaid-preview-content svg {
   /* Dimensions set by JS zoom control */
   flex-shrink: 0;
+  /* Scale SVG based on --mermaid-scale (set by JS from editor font size) */
+  zoom: var(--mermaid-scale, 1);
 }
 
 .mermaid-preview-empty {

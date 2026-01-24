@@ -197,6 +197,8 @@ function updateLivePreview(
 
 /** Meta key to signal editing state change */
 const EDITING_STATE_CHANGED = "codePreviewEditingChanged";
+/** Meta key to signal settings changed (font size, etc.) */
+const SETTINGS_CHANGED = "codePreviewSettingsChanged";
 
 interface CodePreviewState {
   decorations: DecorationSet;
@@ -281,6 +283,7 @@ export const codePreviewExtension = Extension.create({
           apply(tr, state, _oldState, newState): CodePreviewState {
             const storeEditingPos = useBlockMathEditingStore.getState().editingPos;
             const editingChanged = tr.getMeta(EDITING_STATE_CHANGED) || state.editingPos !== storeEditingPos;
+            const settingsChanged = tr.getMeta(SETTINGS_CHANGED);
 
             // Update live preview if doc changed and we're editing
             if (tr.docChanged && storeEditingPos !== null && currentLivePreview && currentEditingLanguage) {
@@ -290,8 +293,8 @@ export const codePreviewExtension = Extension.create({
               }
             }
 
-            // Only recompute decorations if doc changed or editing state changed
-            if (!tr.docChanged && !editingChanged && state.decorations !== DecorationSet.empty) {
+            // Only recompute decorations if doc changed, editing state changed, or settings changed
+            if (!tr.docChanged && !editingChanged && !settingsChanged && state.decorations !== DecorationSet.empty) {
               return {
                 decorations: state.decorations.map(tr.mapping, tr.doc),
                 editingPos: state.editingPos,
@@ -500,8 +503,21 @@ export const codePreviewExtension = Extension.create({
 });
 
 /** Export plugin key for other extensions */
-export { codePreviewPluginKey, EDITING_STATE_CHANGED };
+export { codePreviewPluginKey, EDITING_STATE_CHANGED, SETTINGS_CHANGED };
 
 export function clearPreviewCache() {
   renderCache.clear();
+}
+
+/**
+ * Clear preview cache and trigger a re-render of all preview decorations.
+ * Call this when settings like font size change.
+ */
+export function refreshPreviews() {
+  renderCache.clear();
+  if (currentEditorView) {
+    const tr = currentEditorView.state.tr;
+    tr.setMeta(SETTINGS_CHANGED, true);
+    currentEditorView.dispatch(tr);
+  }
 }
