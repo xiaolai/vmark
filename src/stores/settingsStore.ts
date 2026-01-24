@@ -242,6 +242,16 @@ export interface GeneralSettings {
   lineEndingsOnSave: LineEndingOnSave; // Preserve or normalize line endings
 }
 
+export type UpdateCheckFrequency = "startup" | "daily" | "weekly" | "manual";
+
+export interface UpdateSettings {
+  autoCheckEnabled: boolean; // Periodically check for updates
+  checkFrequency: UpdateCheckFrequency; // When to check
+  autoDownload: boolean; // Download updates automatically
+  lastCheckTimestamp: number | null; // Unix timestamp of last check
+  skipVersion: string | null; // Version to skip (user clicked "Skip")
+}
+
 interface SettingsState {
   general: GeneralSettings;
   appearance: AppearanceSettings;
@@ -250,6 +260,7 @@ interface SettingsState {
   image: ImageSettings;
   terminal: TerminalSettings;
   advanced: AdvancedSettingsState;
+  update: UpdateSettings;
   // UI state
   showDevSection: boolean;
 }
@@ -282,6 +293,10 @@ interface SettingsActions {
   updateAdvancedSetting: <K extends keyof AdvancedSettingsState>(
     key: K,
     value: AdvancedSettingsState[K]
+  ) => void;
+  updateUpdateSetting: <K extends keyof UpdateSettings>(
+    key: K,
+    value: UpdateSettings[K]
   ) => void;
   toggleDevSection: () => void;
   resetSettings: () => void;
@@ -377,11 +392,18 @@ const initialState: SettingsState = {
     terminalEnabled: false,
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
   },
+  update: {
+    autoCheckEnabled: true,
+    checkFrequency: "startup",
+    autoDownload: false,
+    lastCheckTimestamp: null,
+    skipVersion: null,
+  },
   showDevSection: false,
 };
 
 // Object sections that can be updated with createSectionUpdater
-type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced";
+type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced" | "update";
 
 // Helper to create section updaters - reduces duplication
 const createSectionUpdater = <T extends ObjectSections>(
@@ -404,6 +426,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateImageSetting: createSectionUpdater(set, "image"),
       updateTerminalSetting: createSectionUpdater(set, "terminal"),
       updateAdvancedSetting: createSectionUpdater(set, "advanced"),
+      updateUpdateSetting: createSectionUpdater(set, "update"),
 
       toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
       resetSettings: () => set(structuredClone(initialState)),

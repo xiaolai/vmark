@@ -534,6 +534,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         &[
             &PredefinedMenuItem::about(app, Some("About VMark"), Some(about_metadata))?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "check-updates", "Check for Updates...", true, None::<&str>)?,
         ],
     )?;
 
@@ -1024,7 +1026,11 @@ fn create_menu_with_shortcuts(
         app,
         "Help",
         true,
-        &[&PredefinedMenuItem::about(app, Some("About VMark"), Some(about_metadata))?],
+        &[
+            &PredefinedMenuItem::about(app, Some("About VMark"), Some(about_metadata))?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "check-updates", "Check for Updates...", true, None::<&str>)?,
+        ],
     )?;
 
     #[cfg(target_os = "macos")]

@@ -21,6 +21,9 @@
     "mcp-bridge:default",
     "shell:allow-spawn",
     "shell:allow-kill",
+    "updater:default",
+    "process:allow-restart",
+    "process:allow-exit",
     {
       "identifier": "shell:allow-execute",
       "allow": [{ "name": "vmark-mcp-server", "sidecar": true }]

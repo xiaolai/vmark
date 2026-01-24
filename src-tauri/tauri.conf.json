@@ -36,6 +36,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -57,6 +58,14 @@
     "macOS": {
       "entitlements": "sidecar-entitlements.plist",
       "minimumSystemVersion": "10.15"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZFQ0NGRjU5RUZBM0RBMDIKUldRQzJxUHZXZi9NL2k3RU9JbGg5amYxS2FVVFNGU0hTUWdEbUppcHpxTTRQMThkOVlKL0F3MUcK",
+      "endpoints": [
+        "https://github.com/xiaolai/vmark/releases/latest/download/latest.json"
+      ]
     }
   }
 }

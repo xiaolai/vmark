@@ -17,6 +17,7 @@ import {
   Keyboard,
   Plug,
   Terminal,
+  RefreshCw,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -33,6 +34,7 @@ import { LanguageSettings } from "./settings/LanguageSettings";
 import { MarkdownSettings } from "./settings/MarkdownSettings";
 import { ShortcutsSettings } from "./settings/ShortcutsSettings";
 import { TerminalSettings } from "./settings/TerminalSettings";
+import { UpdateSettings } from "./settings/UpdateSettings";
 import { AdvancedSettings } from "./settings/AdvancedSettings";
 import { DevelopingSettings } from "./settings/DevelopingSettings";
 
@@ -80,6 +82,7 @@ type Section =
   | "markdown"
   | "shortcuts"
   | "terminal"
+  | "updates"
   | "advanced"
   | "developing";
 
@@ -121,11 +124,32 @@ const navConfig = [
   { id: "markdown" as const, icon: FileText, label: "Markdown" },
   { id: "shortcuts" as const, icon: Keyboard, label: "Shortcuts" },
   { id: "terminal" as const, icon: Terminal, label: "Terminal" },
+  { id: "updates" as const, icon: RefreshCw, label: "Updates" },
   ...(showAdvancedSection ? [{ id: "advanced" as const, icon: Zap, label: "Advanced" }] : []),
 ] as const;
 
+// Valid section IDs for URL param validation
+const validSections = new Set<string>([
+  "appearance", "editor", "files", "integrations", "language",
+  "markdown", "shortcuts", "terminal", "updates", "advanced", "developing"
+]);
+
+function isValidSection(value: string): value is Section {
+  return validSections.has(value);
+}
+
 export function SettingsPage() {
-  const [section, setSection] = useState<Section>("appearance");
+  // Read initial section from URL query params
+  const getInitialSection = (): Section => {
+    const params = new URLSearchParams(window.location.search);
+    const sectionParam = params.get("section");
+    if (sectionParam && isValidSection(sectionParam)) {
+      return sectionParam;
+    }
+    return "appearance";
+  };
+
+  const [section, setSection] = useState<Section>(getInitialSection);
   const showDevSection = useSettingsStore((state) => state.showDevSection);
   const terminalEnabled = useSettingsStore((state) => state.advanced.terminalEnabled);
 
@@ -218,6 +242,7 @@ export function SettingsPage() {
           {section === "markdown" && <MarkdownSettings />}
           {section === "shortcuts" && <ShortcutsSettings />}
           {section === "terminal" && showTerminal && <TerminalSettings />}
+          {section === "updates" && <UpdateSettings />}
           {section === "advanced" && <AdvancedSettings />}
           {section === "developing" && <DevelopingSettings />}
         </div>

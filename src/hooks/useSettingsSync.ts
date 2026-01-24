@@ -15,6 +15,7 @@ const SYNC_GROUPS = [
   "cjkFormatting",
   "terminal",
   "advanced",
+  "update",
 ] as const;
 
 type SyncGroup = (typeof SYNC_GROUPS)[number];
