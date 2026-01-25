@@ -527,7 +527,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 "line-numbers",
                 "Toggle Line Numbers",
                 true,
-                Some("CmdOrCtrl+Shift+N"),
+                Some("Alt+CmdOrCtrl+N"),
             )?,
             &MenuItem::with_id(
                 app,
@@ -1096,7 +1096,7 @@ fn create_menu_with_shortcuts(
             &MenuItem::with_id(app, "typewriter-mode", "Typewriter Mode", true, get_accel("typewriter-mode", "F9"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "word-wrap", "Toggle Word Wrap", true, get_accel("word-wrap", "Alt+Z"))?,
-            &MenuItem::with_id(app, "line-numbers", "Toggle Line Numbers", true, get_accel("line-numbers", "CmdOrCtrl+Shift+N"))?,
+            &MenuItem::with_id(app, "line-numbers", "Toggle Line Numbers", true, get_accel("line-numbers", "Alt+CmdOrCtrl+N"))?,
             &MenuItem::with_id(app, "diagram-preview", "Toggle Diagram Preview", true, get_accel("diagram-preview", "Alt+CmdOrCtrl+P"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "sidebar", "Toggle Sidebar", true, get_accel("sidebar", "CmdOrCtrl+Shift+B"))?,
