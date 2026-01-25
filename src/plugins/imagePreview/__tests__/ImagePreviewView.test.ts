@@ -195,3 +195,133 @@ describe("getImagePreviewView singleton", () => {
     expect(view1).toBe(view2);
   });
 });
+
+describe("ImagePreviewView loading states", () => {
+  let container: HTMLElement;
+  const anchorRect: AnchorRect = { top: 200, left: 150, bottom: 220, right: 250 };
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    container = createEditorContainer();
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it("shows loading state initially", () => {
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("test.png", anchorRect, editorDom);
+
+    const loading = container.querySelector(".image-preview-loading") as HTMLElement;
+    expect(loading.style.display).toBe("block");
+
+    view.destroy();
+  });
+
+  it("hides image initially", () => {
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("test.png", anchorRect, editorDom);
+
+    const img = container.querySelector(".image-preview-img") as HTMLElement;
+    expect(img.style.display).toBe("none");
+
+    view.destroy();
+  });
+
+  it("shows error for empty path", async () => {
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("   ", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const error = container.querySelector(".image-preview-error") as HTMLElement;
+    expect(error.textContent).toBe("No image path");
+    const loading = container.querySelector(".image-preview-loading") as HTMLElement;
+    expect(loading.style.display).toBe("none");
+
+    view.destroy();
+  });
+
+  it("isVisible returns true when shown", () => {
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    expect(view.isVisible()).toBe(false);
+    view.show("test.png", anchorRect, editorDom);
+    expect(view.isVisible()).toBe(true);
+    view.hide();
+    expect(view.isVisible()).toBe(false);
+
+    view.destroy();
+  });
+
+  it("hide clears the preview state", () => {
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("test.png", anchorRect, editorDom);
+    expect(container.querySelector(".image-preview-popup")).not.toBeNull();
+
+    view.hide();
+
+    const popup = container.querySelector(".image-preview-popup") as HTMLElement;
+    expect(popup.style.display).toBe("none");
+
+    view.destroy();
+  });
+});
+
+describe("ImagePreviewView updateContent", () => {
+  let container: HTMLElement;
+  const anchorRect: AnchorRect = { top: 200, left: 150, bottom: 220, right: 250 };
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    container = createEditorContainer();
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it("updateContent triggers new load", async () => {
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("test.png", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Update to empty path should show error
+    view.updateContent("   ");
+    await new Promise((r) => setTimeout(r, 50));
+
+    const error = container.querySelector(".image-preview-error") as HTMLElement;
+    expect(error.textContent).toBe("No image path");
+
+    view.destroy();
+  });
+
+  it("updateContent with new anchorRect updates position", async () => {
+    const view = new ImagePreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("test.png", anchorRect, editorDom);
+    const popup = container.querySelector(".image-preview-popup") as HTMLElement;
+    const initialTop = popup.style.top;
+
+    // Update with new anchor position
+    const newAnchorRect: AnchorRect = { top: 300, left: 200, bottom: 320, right: 300 };
+    view.updateContent("test2.png", newAnchorRect);
+
+    // Position should change
+    expect(popup.style.top).not.toBe(initialTop);
+
+    view.destroy();
+  });
+});

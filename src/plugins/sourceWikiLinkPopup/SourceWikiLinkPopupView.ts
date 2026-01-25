@@ -75,15 +75,15 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     this.targetInput.type = "text";
     this.targetInput.className = "source-wiki-link-popup-target";
     this.targetInput.placeholder = "Target page...";
-    this.targetInput.addEventListener("keydown", this.handleInputKeydown);
-    this.targetInput.addEventListener("input", this.handleTargetInput);
+    this.targetInput.addEventListener("keydown", this.handleInputKeydown.bind(this));
+    this.targetInput.addEventListener("input", this.handleTargetInput.bind(this));
 
     // Icon buttons: browse, open, copy, delete
-    const browseBtn = this.buildIconButton(icons.folder, "Browse for file", this.handleBrowse);
-    this.openBtn = this.buildIconButton(icons.open, "Open linked file", this.handleOpen);
+    const browseBtn = this.buildIconButton(icons.folder, "Browse for file", this.handleBrowse.bind(this));
+    this.openBtn = this.buildIconButton(icons.open, "Open linked file", this.handleOpen.bind(this));
     this.openBtn.classList.add("source-wiki-link-popup-btn-open");
-    const copyBtn = this.buildIconButton(icons.copy, "Copy target", this.handleCopy);
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove wiki link", this.handleRemove);
+    const copyBtn = this.buildIconButton(icons.copy, "Copy target", this.handleCopy.bind(this));
+    const deleteBtn = this.buildIconButton(icons.delete, "Remove wiki link", this.handleRemove.bind(this));
     deleteBtn.classList.add("source-wiki-link-popup-btn-delete");
 
     targetRow.appendChild(this.targetInput);
@@ -141,21 +141,21 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     this.openBtn.style.opacity = hasTarget ? "1" : "0.4";
   }
 
-  private handleInputKeydown = (e: KeyboardEvent): void => {
+  private handleInputKeydown(e: KeyboardEvent): void {
     if (e.key === "Enter") {
       e.preventDefault();
       this.handleSave();
     }
     // Escape is handled by base class
-  };
+  }
 
-  private handleTargetInput = (): void => {
+  private handleTargetInput(): void {
     const target = this.targetInput.value;
     useWikiLinkPopupStore.getState().updateTarget(target);
     this.updateOpenButtonState(target);
-  };
+  }
 
-  private handleSave = (): void => {
+  private handleSave(): void {
     const { target } = useWikiLinkPopupStore.getState();
 
     if (!target.trim()) {
@@ -167,9 +167,9 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     saveWikiLinkChanges(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 
-  private handleBrowse = async (): Promise<void> => {
+  private async handleBrowse(): Promise<void> {
     try {
       const selected = await open({
         filters: [
@@ -194,19 +194,19 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     } catch (error) {
       console.error("[SourceWikiLinkPopup] Browse failed:", error);
     }
-  };
+  }
 
-  private handleOpen = (): void => {
+  private handleOpen(): void {
     openWikiLink();
-  };
+  }
 
-  private handleCopy = (): void => {
+  private handleCopy(): void {
     copyWikiLinkTarget();
-  };
+  }
 
-  private handleRemove = (): void => {
+  private handleRemove(): void {
     removeWikiLink(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 }

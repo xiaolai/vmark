@@ -54,11 +54,11 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     const spacer = document.createElement("div");
     spacer.style.flex = "1";
 
-    this.gotoBtn = this.buildIconButton(icons.goto, "Go to definition", this.handleGoto);
+    this.gotoBtn = this.buildIconButton(icons.goto, "Go to definition", this.handleGoto.bind(this));
     this.gotoBtn.classList.add("source-footnote-popup-btn-goto");
-    const saveBtn = this.buildIconButton(icons.save, "Save (Enter)", this.handleSave);
+    const saveBtn = this.buildIconButton(icons.save, "Save (Enter)", this.handleSave.bind(this));
     saveBtn.classList.add("source-footnote-popup-btn-save");
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove footnote", this.handleDelete);
+    const deleteBtn = this.buildIconButton(icons.delete, "Remove footnote", this.handleDelete.bind(this));
     deleteBtn.classList.add("source-footnote-popup-btn-delete");
 
     headerRow.appendChild(this.labelSpan);
@@ -72,8 +72,8 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     this.textarea.className = "source-footnote-popup-textarea";
     this.textarea.placeholder = "Footnote content...";
     this.textarea.rows = 2;
-    this.textarea.addEventListener("input", this.handleTextareaInput);
-    this.textarea.addEventListener("keydown", this.handleTextareaKeydown);
+    this.textarea.addEventListener("input", this.handleTextareaInput.bind(this));
+    this.textarea.addEventListener("keydown", this.handleTextareaKeydown.bind(this));
 
     container.appendChild(headerRow);
     container.appendChild(this.textarea);
@@ -137,36 +137,36 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     this.textarea.style.height = Math.min(this.textarea.scrollHeight, TEXTAREA_MAX_HEIGHT) + "px";
   }
 
-  private handleTextareaInput = (): void => {
+  private handleTextareaInput(): void {
     useFootnotePopupStore.getState().setContent(this.textarea.value);
     this.autoResizeTextarea();
-  };
+  }
 
-  private handleTextareaKeydown = (e: KeyboardEvent): void => {
+  private handleTextareaKeydown(e: KeyboardEvent): void {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       this.handleSave();
     }
     // Escape is handled by base class
-  };
+  }
 
-  private handleSave = (): void => {
+  private handleSave(): void {
     saveFootnoteContent(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 
-  private handleGoto = (): void => {
+  private handleGoto(): void {
     gotoFootnoteTarget(this.editorView, this.openedOnReference);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 
-  private handleDelete = (): void => {
+  private handleDelete(): void {
     removeFootnote(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 
   public setOpenedOnReference(value: boolean): void {
     this.openedOnReference = value;

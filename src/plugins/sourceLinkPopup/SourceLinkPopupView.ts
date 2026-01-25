@@ -49,14 +49,14 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     this.hrefInput.autocomplete = "off";
     this.hrefInput.spellcheck = false;
     this.hrefInput.setAttribute("autocorrect", "off");
-    this.hrefInput.addEventListener("keydown", this.handleInputKeydown);
-    this.hrefInput.addEventListener("input", this.handleHrefInput);
+    this.hrefInput.addEventListener("keydown", this.handleInputKeydown.bind(this));
+    this.hrefInput.addEventListener("input", this.handleHrefInput.bind(this));
 
     // Icon buttons: open, copy, delete
-    this.openBtn = this.buildIconButton(icons.open, "Open link", this.handleOpen);
+    this.openBtn = this.buildIconButton(icons.open, "Open link", this.handleOpen.bind(this));
     this.openBtn.classList.add("source-link-popup-btn-open");
-    const copyBtn = this.buildIconButton(icons.copy, "Copy URL", this.handleCopy);
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove link", this.handleRemove);
+    const copyBtn = this.buildIconButton(icons.copy, "Copy URL", this.handleCopy.bind(this));
+    const deleteBtn = this.buildIconButton(icons.delete, "Remove link", this.handleRemove.bind(this));
     deleteBtn.classList.add("source-link-popup-btn-delete");
 
     hrefRow.appendChild(this.hrefInput);
@@ -126,19 +126,19 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     return btn;
   }
 
-  private handleInputKeydown = (e: KeyboardEvent): void => {
+  private handleInputKeydown(e: KeyboardEvent): void {
     if (e.key === "Enter") {
       e.preventDefault();
       this.handleSave();
     }
     // Escape is handled by base class
-  };
+  }
 
-  private handleHrefInput = (): void => {
+  private handleHrefInput(): void {
     useLinkPopupStore.getState().setHref(this.hrefInput.value);
-  };
+  }
 
-  private handleSave = (): void => {
+  private handleSave(): void {
     const { href } = useLinkPopupStore.getState();
 
     if (!href.trim()) {
@@ -150,19 +150,19 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     saveLinkChanges(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 
-  private handleOpen = (): void => {
+  private handleOpen(): void {
     openLink(this.editorView);
-  };
+  }
 
-  private handleCopy = (): void => {
+  private handleCopy(): void {
     copyLinkHref();
-  };
+  }
 
-  private handleRemove = (): void => {
+  private handleRemove(): void {
     removeLink(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 }

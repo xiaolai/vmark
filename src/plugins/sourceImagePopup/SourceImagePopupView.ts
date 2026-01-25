@@ -44,13 +44,13 @@ export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> 
     this.srcInput.type = "text";
     this.srcInput.className = "source-image-popup-src";
     this.srcInput.placeholder = "Image URL or path...";
-    this.srcInput.addEventListener("keydown", this.handleInputKeydown);
-    this.srcInput.addEventListener("input", this.handleSrcInput);
+    this.srcInput.addEventListener("keydown", this.handleInputKeydown.bind(this));
+    this.srcInput.addEventListener("input", this.handleSrcInput.bind(this));
 
     // Icon buttons: browse, copy, delete
-    const browseBtn = this.buildIconButton(icons.folder, "Browse local file", this.handleBrowse);
-    const copyBtn = this.buildIconButton(icons.copy, "Copy path", this.handleCopy);
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove image", this.handleRemove);
+    const browseBtn = this.buildIconButton(icons.folder, "Browse local file", this.handleBrowse.bind(this));
+    const copyBtn = this.buildIconButton(icons.copy, "Copy path", this.handleCopy.bind(this));
+    const deleteBtn = this.buildIconButton(icons.delete, "Remove image", this.handleRemove.bind(this));
     deleteBtn.classList.add("source-image-popup-btn-delete");
 
     srcRow.appendChild(this.srcInput);
@@ -66,8 +66,8 @@ export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> 
     this.altInput.type = "text";
     this.altInput.className = "source-image-popup-alt";
     this.altInput.placeholder = "Caption (alt text)...";
-    this.altInput.addEventListener("keydown", this.handleInputKeydown);
-    this.altInput.addEventListener("input", this.handleAltInput);
+    this.altInput.addEventListener("keydown", this.handleInputKeydown.bind(this));
+    this.altInput.addEventListener("input", this.handleAltInput.bind(this));
 
     altRow.appendChild(this.altInput);
 
@@ -114,39 +114,39 @@ export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> 
     return btn;
   }
 
-  private handleInputKeydown = (e: KeyboardEvent): void => {
+  private handleInputKeydown(e: KeyboardEvent): void {
     if (e.key === "Enter") {
       e.preventDefault();
       this.handleSave();
     }
     // Escape is handled by base class
-  };
+  }
 
-  private handleSrcInput = (): void => {
+  private handleSrcInput(): void {
     useImagePopupStore.getState().setSrc(this.srcInput.value);
-  };
+  }
 
-  private handleAltInput = (): void => {
+  private handleAltInput(): void {
     useImagePopupStore.getState().setAlt(this.altInput.value);
-  };
+  }
 
-  private handleSave = (): void => {
+  private handleSave(): void {
     saveImageChanges(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 
-  private handleBrowse = (): void => {
+  private handleBrowse(): void {
     browseImage(this.editorView);
-  };
+  }
 
-  private handleCopy = (): void => {
+  private handleCopy(): void {
     copyImagePath();
-  };
+  }
 
-  private handleRemove = (): void => {
+  private handleRemove(): void {
     removeImage(this.editorView);
     this.closePopup();
     this.focusEditor();
-  };
+  }
 }

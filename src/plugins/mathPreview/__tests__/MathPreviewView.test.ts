@@ -139,3 +139,117 @@ describe("getMathPreviewView singleton", () => {
     expect(view1).toBe(view2);
   });
 });
+
+describe("MathPreviewView render states", () => {
+  let container: HTMLElement;
+  const anchorRect: AnchorRect = { top: 200, left: 150, bottom: 220, right: 250 };
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    container = createEditorContainer();
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it("shows empty state for empty latex", async () => {
+    const view = new MathPreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("   ", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const preview = container.querySelector(".math-preview-content") as HTMLElement;
+    expect(preview.classList.contains("math-preview-empty")).toBe(true);
+    expect(preview.textContent).toBe("");
+
+    view.destroy();
+  });
+
+  it("renders latex content via KaTeX", async () => {
+    const view = new MathPreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("x^2", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const preview = container.querySelector(".math-preview-content") as HTMLElement;
+    expect(preview.innerHTML).toContain("katex");
+    expect(preview.innerHTML).toContain("x^2");
+
+    view.destroy();
+  });
+
+  it("isVisible returns true when shown", () => {
+    const view = new MathPreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    expect(view.isVisible()).toBe(false);
+    view.show("x^2", anchorRect, editorDom);
+    expect(view.isVisible()).toBe(true);
+    view.hide();
+    expect(view.isVisible()).toBe(false);
+
+    view.destroy();
+  });
+
+  it("hide hides the popup", () => {
+    const view = new MathPreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("x^2", anchorRect, editorDom);
+    view.hide();
+
+    const popup = container.querySelector(".math-preview-popup") as HTMLElement;
+    expect(popup.style.display).toBe("none");
+
+    view.destroy();
+  });
+});
+
+describe("MathPreviewView updateContent", () => {
+  let container: HTMLElement;
+  const anchorRect: AnchorRect = { top: 200, left: 150, bottom: 220, right: 250 };
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    container = createEditorContainer();
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it("updateContent re-renders with new latex", async () => {
+    const view = new MathPreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("x^2", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 50));
+
+    view.updateContent("y^3");
+    await new Promise((r) => setTimeout(r, 50));
+
+    const preview = container.querySelector(".math-preview-content") as HTMLElement;
+    expect(preview.innerHTML).toContain("y^3");
+
+    view.destroy();
+  });
+
+  it("updateContent to empty shows empty state", async () => {
+    const view = new MathPreviewView();
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+
+    view.show("x^2", anchorRect, editorDom);
+    await new Promise((r) => setTimeout(r, 50));
+
+    view.updateContent("   ");
+    await new Promise((r) => setTimeout(r, 50));
+
+    const preview = container.querySelector(".math-preview-content") as HTMLElement;
+    expect(preview.classList.contains("math-preview-empty")).toBe(true);
+
+    view.destroy();
+  });
+});

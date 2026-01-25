@@ -218,3 +218,247 @@ describe("ImagePasteToastView mounting", () => {
     expect(document.querySelector(".image-paste-toast")).toBeNull();
   });
 });
+
+describe("ImagePasteToastView keyboard navigation", () => {
+  let container: HTMLElement;
+  const anchorRect: AnchorRect = { top: 200, left: 150, bottom: 220, right: 250 };
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    container = createEditorContainer();
+    (useImagePasteToastStore as unknown as { _reset: () => void })._reset();
+  });
+
+  afterEach(() => {
+    destroyImagePasteToast();
+    container.remove();
+  });
+
+  it("Enter on insert button calls confirm", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { confirm: ReturnType<typeof vi.fn> } };
+    store._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "test.png",
+      imageType: "url" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Focus should be on insert button by default
+    const insertBtn = container.querySelector(".image-paste-toast-btn-insert") as HTMLElement;
+    expect(insertBtn).not.toBeNull();
+    insertBtn.focus();
+
+    // Dispatch Enter keydown
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    expect(store.getState().confirm).toHaveBeenCalled();
+  });
+
+  it("Escape closes the toast", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { hideToast: ReturnType<typeof vi.fn> } };
+    store._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "test.png",
+      imageType: "url" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+    expect(store.getState().hideToast).toHaveBeenCalled();
+  });
+
+  it("Tab cycles focus between buttons", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "test.png",
+      imageType: "url" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const insertBtn = container.querySelector(".image-paste-toast-btn-insert") as HTMLElement;
+    const dismissBtn = container.querySelector(".image-paste-toast-btn-dismiss") as HTMLElement;
+    insertBtn.focus();
+
+    // Tab should move to dismiss button
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(document.activeElement).toBe(dismissBtn);
+
+    // Tab again should cycle back to insert
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(document.activeElement).toBe(insertBtn);
+  });
+});
+
+describe("ImagePasteToastView actions", () => {
+  let container: HTMLElement;
+  const anchorRect: AnchorRect = { top: 200, left: 150, bottom: 220, right: 250 };
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    container = createEditorContainer();
+    (useImagePasteToastStore as unknown as { _reset: () => void })._reset();
+  });
+
+  afterEach(() => {
+    destroyImagePasteToast();
+    container.remove();
+  });
+
+  it("clicking insert button calls confirm", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { confirm: ReturnType<typeof vi.fn> } };
+    store._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "test.png",
+      imageType: "url" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const insertBtn = container.querySelector(".image-paste-toast-btn-insert") as HTMLElement;
+    insertBtn.click();
+
+    expect(store.getState().confirm).toHaveBeenCalled();
+  });
+
+  it("clicking dismiss button calls dismiss", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { dismiss: ReturnType<typeof vi.fn> } };
+    store._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "test.png",
+      imageType: "url" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const dismissBtn = container.querySelector(".image-paste-toast-btn-dismiss") as HTMLElement;
+    dismissBtn.click();
+
+    expect(store.getState().dismiss).toHaveBeenCalled();
+  });
+
+  it("click outside closes toast", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { hideToast: ReturnType<typeof vi.fn> } };
+    store._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "test.png",
+      imageType: "url" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Click outside
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    const event = new MouseEvent("mousedown", { bubbles: true });
+    Object.defineProperty(event, "target", { value: outside });
+    document.dispatchEvent(event);
+
+    expect(store.getState().hideToast).toHaveBeenCalled();
+  });
+});
+
+describe("ImagePasteToastView message display", () => {
+  let container: HTMLElement;
+  const anchorRect: AnchorRect = { top: 200, left: 150, bottom: 220, right: 250 };
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    container = createEditorContainer();
+    (useImagePasteToastStore as unknown as { _reset: () => void })._reset();
+  });
+
+  afterEach(() => {
+    destroyImagePasteToast();
+    container.remove();
+  });
+
+  it("shows 'Image URL' for url type", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "https://example.com/image.png",
+      imageType: "url" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const message = container.querySelector(".image-paste-toast-message");
+    expect(message?.textContent).toBe("Image URL");
+  });
+
+  it("shows 'Image path' for localPath type", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "/path/to/image.png",
+      imageType: "localPath" as const,
+      editorDom,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const message = container.querySelector(".image-paste-toast-message");
+    expect(message?.textContent).toBe("Image path");
+  });
+
+  it("shows count for multiple images", async () => {
+    const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
+    initImagePasteToast();
+
+    (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
+      isOpen: true,
+      anchorRect,
+      imagePath: "test.png",
+      imageType: "url" as const,
+      editorDom,
+      isMultiple: true,
+      imageCount: 5,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const message = container.querySelector(".image-paste-toast-message");
+    expect(message?.textContent).toBe("5 images");
+  });
+});
