@@ -240,5 +240,42 @@ Content`;
       expect(para.children[0].type).toBe("text");
       expect((para.children[0] as Text).value).toBe("[Example][missing]");
     });
+
+    it("keeps imageReference as text when definition not found", () => {
+      const md = `![Alt text][missing]`;
+      const result = parseMarkdownToMdast(md);
+
+      const para = result.children[0] as Paragraph;
+      // GFM converts undefined references to literal text
+      expect(para.children[0].type).toBe("text");
+      expect((para.children[0] as Text).value).toBe("![Alt text][missing]");
+    });
+
+    it("resolves link with definition that has no title", () => {
+      const md = `[Example][ex]
+
+[ex]: https://example.com`;
+      const result = parseMarkdownToMdast(md);
+
+      const para = result.children[0] as Paragraph;
+      const link = para.children[0] as Link;
+      expect(link.type).toBe("link");
+      expect(link.url).toBe("https://example.com");
+      expect(link.title).toBeNull();
+    });
+
+    it("resolves image with definition that has no title", () => {
+      const md = `![Alt][img]
+
+[img]: https://example.com/pic.png`;
+      const result = parseMarkdownToMdast(md);
+
+      const para = result.children[0] as Paragraph;
+      const img = para.children[0] as Image;
+      expect(img.type).toBe("image");
+      expect(img.url).toBe("https://example.com/pic.png");
+      expect(img.title).toBeNull();
+      expect(img.alt).toBe("Alt");
+    });
   });
 });
