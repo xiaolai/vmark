@@ -43,6 +43,7 @@ interface UpdateActions {
   setDownloadProgress: (progress: ProgressUpdater) => void;
   setError: (error: string | null) => void;
   dismiss: () => void;
+  clearDismissed: () => void;
   reset: () => void;
 }
 
@@ -78,5 +79,6 @@ export const useUpdateStore = create<UpdateState & UpdateActions>()((set) => ({
       status: error !== null ? "error" : state.status,
     })),
   dismiss: () => set({ dismissed: true }),
+  clearDismissed: () => set({ dismissed: false }),
   reset: () => set(initialState),
 }));
