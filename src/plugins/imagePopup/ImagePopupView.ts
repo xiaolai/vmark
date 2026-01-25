@@ -16,6 +16,7 @@ import {
 import { createImagePopupDom, installImagePopupKeyboardNavigation, updateImagePopupToggleButton } from "./imagePopupDom";
 import { browseAndReplaceImage } from "./imagePopupActions";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 /**
  * Image popup view - manages the floating popup UI.
@@ -31,6 +32,7 @@ export class ImagePopupView {
   private wasOpen = false;
   private removeKeyboardNavigation: (() => void) | null = null;
   private pendingCloseRaf: number | null = null;
+  private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
@@ -47,8 +49,7 @@ export class ImagePopupView {
     this.altInput = dom.altInput;
     this.toggleBtn = dom.toggleBtn;
 
-    // Append to document body (avoids interfering with editor DOM)
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
 
     // Subscribe to store changes - only show() on open transition
     this.unsubscribe = useImagePopupStore.subscribe((state) => {
@@ -77,8 +78,15 @@ export class ImagePopupView {
     const { imageNodeType } = useImagePopupStore.getState();
     this.srcInput.value = imageSrc;
     this.altInput.value = imageAlt;
+
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
-    this.container.style.position = "fixed";
 
     // Update toggle button icon based on current type
     updateImagePopupToggleButton(this.toggleBtn, imageNodeType);
@@ -106,8 +114,15 @@ export class ImagePopupView {
       preferAbove: true, // Image popup appears above the image
     });
 
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
 
     // Set up keyboard navigation with ESC handler
     if (this.removeKeyboardNavigation) {
@@ -127,6 +142,7 @@ export class ImagePopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.host = null;
     if (this.removeKeyboardNavigation) {
       this.removeKeyboardNavigation();
       this.removeKeyboardNavigation = null;

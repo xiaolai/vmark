@@ -23,6 +23,7 @@ import {
   buildPopupInput,
   handlePopupTabNavigation,
 } from "@/utils/popupComponents";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 const DEFAULT_POPUP_WIDTH = 320;
 const DEFAULT_POPUP_HEIGHT = 32;
@@ -75,6 +76,7 @@ export class WikiLinkPopupView {
   private justOpened = false;
   private wasOpen = false;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
@@ -86,7 +88,7 @@ export class WikiLinkPopupView {
     this.openBtn = this.container.querySelector(
       ".wiki-link-popup-btn-open"
     ) as HTMLButtonElement;
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
 
     this.unsubscribe = useWikiLinkPopupStore.subscribe((state) => {
       if (state.isOpen && state.anchorRect) {
@@ -182,8 +184,15 @@ export class WikiLinkPopupView {
 
   private show(target: string, anchorRect: AnchorRect) {
     this.targetInput.value = target;
+
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
-    this.container.style.position = "fixed";
 
     this.updateOpenButtonState(target);
 
@@ -211,8 +220,15 @@ export class WikiLinkPopupView {
       preferAbove: true,
     });
 
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
 
     this.setupKeyboardNavigation();
 
@@ -224,6 +240,7 @@ export class WikiLinkPopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.host = null;
     this.removeKeyboardNavigation();
   }
 

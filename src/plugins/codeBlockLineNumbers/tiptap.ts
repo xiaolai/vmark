@@ -9,6 +9,7 @@ import { common, createLowlight } from "lowlight";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { NodeView, ViewMutationRecord } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/core";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 const lowlight = createLowlight(common);
 
@@ -72,6 +73,7 @@ class CodeBlockNodeView implements NodeView {
   private codeElement: HTMLElement;
   private langSelector: HTMLElement;
   private dropdown: HTMLElement | null = null;
+  private dropdownHost: HTMLElement | null = null;
   private node: ProseMirrorNode;
   private editor: Editor;
   private getPos: () => number | undefined;
@@ -198,8 +200,10 @@ class CodeBlockNodeView implements NodeView {
 
     this.dropdown = dropdown;
 
-    // Append to body and position based on chip location (portal approach)
-    document.body.appendChild(dropdown);
+    // Mount to editor container if available, otherwise document.body
+    this.dropdownHost = getPopupHostForDom(this.dom) ?? document.body;
+    dropdown.style.position = this.dropdownHost === document.body ? "fixed" : "absolute";
+    this.dropdownHost.appendChild(dropdown);
     this.positionDropdown();
 
     // Focus search input
@@ -214,15 +218,25 @@ class CodeBlockNodeView implements NodeView {
   private positionDropdown = (): void => {
     if (!this.dropdown) return;
     const rect = this.langSelector.getBoundingClientRect();
-    this.dropdown.style.position = "fixed";
-    this.dropdown.style.top = `${rect.bottom + 4}px`;
-    this.dropdown.style.left = `${rect.right - 180}px`; // align right edge
+    const top = rect.bottom + 4;
+    const left = rect.right - 180; // align right edge
+
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.dropdownHost !== document.body && this.dropdownHost) {
+      const hostPos = toHostCoordsForDom(this.dropdownHost, { top, left });
+      this.dropdown.style.top = `${hostPos.top}px`;
+      this.dropdown.style.left = `${hostPos.left}px`;
+    } else {
+      this.dropdown.style.top = `${top}px`;
+      this.dropdown.style.left = `${left}px`;
+    }
   };
 
   private closeDropdown(): void {
     if (this.dropdown) {
       this.dropdown.remove();
       this.dropdown = null;
+      this.dropdownHost = null;
       document.removeEventListener("mousedown", this.handleOutsideClick);
       window.removeEventListener("scroll", this.positionDropdown, true);
     }

@@ -10,7 +10,7 @@ import type { EditorView } from "@codemirror/view";
 import type { AnchorRect } from "@/utils/popupPosition";
 import { calculatePopupPosition } from "@/utils/popupPosition";
 import { handlePopupTabNavigation } from "@/utils/popupComponents";
-import { getEditorBounds } from "./sourcePopupUtils";
+import { getEditorBounds, getPopupHostForDom, toHostCoordsForDom } from "./sourcePopupUtils";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
 /**
@@ -61,6 +61,7 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
   // Lifecycle flags
   private wasOpen = false;
   private justOpened = false;
+  private host: HTMLElement | null = null;
 
   // Event handlers (bound for cleanup)
   private boundHandleClickOutside: (e: MouseEvent) => void;
@@ -70,12 +71,9 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
     this.editorView = view;
     this.store = store;
 
-    // Build DOM - append to document.body with fixed positioning
-    // to escape CodeMirror's focus trap (same pattern as WYSIWYG popups)
+    // Build DOM - container will be appended to host in show()
     this.container = this.buildContainer();
     this.container.style.display = "none";
-    this.container.style.position = "fixed";
-    document.body.appendChild(this.container);
 
     // Bind event handlers
     this.boundHandleClickOutside = this.handleClickOutside.bind(this);
@@ -145,6 +143,13 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
    * Show the popup at the anchor position.
    */
   private show(anchorRect: AnchorRect, state: TState): void {
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
 
     // Set guard to prevent immediate close from same click
@@ -153,7 +158,7 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
       this.justOpened = false;
     });
 
-    // Calculate position using viewport coordinates (fixed positioning)
+    // Calculate position using viewport coordinates
     const bounds = getEditorBounds(this.editorView);
     const dimensions = this.getPopupDimensions();
     const { top, left } = calculatePopupPosition({
@@ -164,9 +169,15 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
       preferAbove: dimensions.preferAbove ?? true,
     });
 
-    // Use viewport coordinates directly since we're using fixed positioning
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
 
     // Attach event listeners
     document.addEventListener("mousedown", this.boundHandleClickOutside);
@@ -199,6 +210,7 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
    */
   private hide(): void {
     this.container.style.display = "none";
+    this.host = null;
 
     // Remove event listeners
     document.removeEventListener("mousedown", this.boundHandleClickOutside);
@@ -279,9 +291,15 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
       preferAbove: dimensions.preferAbove ?? true,
     });
 
-    // Use viewport coordinates directly since we're using fixed positioning
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body && this.host) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
   }
 
   /**

@@ -1,6 +1,7 @@
 import type { EditorView } from "@tiptap/pm/view";
 import { alignColumn, type TableAlignment, addColLeft, addColRight, addRowAbove, addRowBelow, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable } from "./tableActions.tiptap";
 import { icons } from "@/utils/icons";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 interface MenuAction {
   label: string;
@@ -14,11 +15,12 @@ export class TiptapTableContextMenu {
   private container: HTMLElement;
   private editorView: EditorView;
   private isVisible = false;
+  private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
     this.container = this.buildContainer();
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
     document.addEventListener("mousedown", this.handleClickOutside);
   }
 
@@ -92,10 +94,24 @@ export class TiptapTableContextMenu {
   show(x: number, y: number) {
     this.buildMenu();
 
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
-    this.container.style.position = "fixed";
-    this.container.style.left = `${x}px`;
-    this.container.style.top = `${y}px`;
+
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top: y, left: x });
+      this.container.style.left = `${hostPos.left}px`;
+      this.container.style.top = `${hostPos.top}px`;
+    } else {
+      this.container.style.left = `${x}px`;
+      this.container.style.top = `${y}px`;
+    }
 
     requestAnimationFrame(() => {
       const rect = this.container.getBoundingClientRect();
@@ -111,12 +127,25 @@ export class TiptapTableContextMenu {
         ? editorRect.bottom - bottomMargin
         : viewportHeight - 10;
 
+      // Adjust if off-screen (always use viewport coords for getBoundingClientRect)
       if (rect.right > viewportWidth - 10) {
-        this.container.style.left = `${viewportWidth - rect.width - 10}px`;
+        const newLeft = viewportWidth - rect.width - 10;
+        if (this.host !== document.body && this.host) {
+          const hostPos = toHostCoordsForDom(this.host, { top: 0, left: newLeft });
+          this.container.style.left = `${hostPos.left}px`;
+        } else {
+          this.container.style.left = `${newLeft}px`;
+        }
       }
 
       if (rect.bottom > maxBottom) {
-        this.container.style.top = `${maxBottom - rect.height}px`;
+        const newTop = maxBottom - rect.height;
+        if (this.host !== document.body && this.host) {
+          const hostPos = toHostCoordsForDom(this.host, { top: newTop, left: 0 });
+          this.container.style.top = `${hostPos.top}px`;
+        } else {
+          this.container.style.top = `${newTop}px`;
+        }
       }
     });
 
@@ -126,6 +155,7 @@ export class TiptapTableContextMenu {
   hide() {
     this.container.style.display = "none";
     this.isVisible = false;
+    this.host = null;
   }
 
   private handleClickOutside = (e: MouseEvent) => {

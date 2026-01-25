@@ -14,6 +14,7 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -33,13 +34,13 @@ export class ImagePasteToastView {
   private unsubscribe: () => void;
   private autoDismissTimer: number | null = null;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private host: HTMLElement | null = null;
 
   constructor() {
     // Build DOM structure
     this.container = this.buildContainer();
 
-    // Append to document body
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
 
     // Subscribe to store changes
     this.unsubscribe = useImagePasteToastStore.subscribe((state) => {
@@ -119,8 +120,14 @@ export class ImagePasteToastView {
       insertBtn.title = isMultiple && imageCount > 1 ? "Insert All" : "Insert as Image";
     }
 
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(editorDom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
-    this.container.style.position = "fixed";
 
     // Calculate bounds from editor container (like link popup)
     let bounds = getViewportBounds();
@@ -144,8 +151,15 @@ export class ImagePasteToastView {
       preferAbove: true,
     });
 
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
 
     // Set up keyboard handling
     this.setupKeyboardHandler();
@@ -164,6 +178,7 @@ export class ImagePasteToastView {
 
   private hide() {
     this.container.style.display = "none";
+    this.host = null;
     this.clearAutoDismissTimer();
     this.removeKeyboardHandler();
   }

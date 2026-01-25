@@ -18,6 +18,7 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 /**
  * Normalize path for convertFileSrc on Windows.
@@ -111,6 +112,7 @@ export class ImagePreviewView {
   private resolveToken = 0;
   private visible = false;
   private editorDom: HTMLElement | null = null;
+  private host: HTMLElement | null = null;
   // Store anchor rect for repositioning after image loads
   private lastAnchorRect: AnchorRect | null = null;
 
@@ -119,7 +121,7 @@ export class ImagePreviewView {
     this.imageEl = this.container.querySelector(".image-preview-img") as HTMLImageElement;
     this.errorEl = this.container.querySelector(".image-preview-error") as HTMLElement;
     this.loadingEl = this.container.querySelector(".image-preview-loading") as HTMLElement;
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
   }
 
   private buildContainer(): HTMLElement {
@@ -148,8 +150,15 @@ export class ImagePreviewView {
   show(src: string, anchorRect: AnchorRect, editorDom?: HTMLElement) {
     this.editorDom = editorDom ?? null;
     this.lastAnchorRect = anchorRect;
+
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorDom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "block";
-    this.container.style.position = "fixed";
     this.visible = true;
 
     // Reset state
@@ -180,8 +189,16 @@ export class ImagePreviewView {
       preferAbove: true,
     });
 
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    const host = this.host ?? document.body;
+    if (host !== document.body) {
+      const hostPos = toHostCoordsForDom(host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
   }
 
   updateContent(src: string, anchorRect?: AnchorRect) {
@@ -196,6 +213,7 @@ export class ImagePreviewView {
     this.container.style.display = "none";
     this.visible = false;
     this.editorDom = null;
+    this.host = null;
     this.lastAnchorRect = null;
     // Cancel any pending loads
     this.resolveToken++;

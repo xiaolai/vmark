@@ -13,6 +13,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 export class MathPreviewView {
   private container: HTMLElement;
@@ -21,12 +22,13 @@ export class MathPreviewView {
   private renderToken = 0;
   private visible = false;
   private editorDom: HTMLElement | null = null;
+  private host: HTMLElement | null = null;
 
   constructor() {
     this.container = this.buildContainer();
     this.preview = this.container.querySelector(".math-preview-content") as HTMLElement;
     this.error = this.container.querySelector(".math-preview-error") as HTMLElement;
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
   }
 
   private buildContainer(): HTMLElement {
@@ -48,8 +50,15 @@ export class MathPreviewView {
 
   show(latex: string, anchorRect: AnchorRect, editorDom?: HTMLElement) {
     this.editorDom = editorDom ?? null;
+
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorDom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "block";
-    this.container.style.position = "fixed";
     this.visible = true;
 
     // Position below the anchor by default
@@ -75,8 +84,16 @@ export class MathPreviewView {
       preferAbove: true,
     });
 
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    const host = this.host ?? document.body;
+    if (host !== document.body) {
+      const hostPos = toHostCoordsForDom(host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
   }
 
   updateContent(latex: string) {
@@ -87,6 +104,7 @@ export class MathPreviewView {
     this.container.style.display = "none";
     this.visible = false;
     this.editorDom = null;
+    this.host = null;
   }
 
   isVisible() {

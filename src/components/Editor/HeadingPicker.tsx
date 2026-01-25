@@ -50,6 +50,13 @@ export function HeadingPicker() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  // Find editor container for portal mounting
+  useEffect(() => {
+    const editorContainer = document.querySelector('.editor-container') as HTMLElement | null;
+    setPortalTarget(editorContainer);
+  }, []);
 
   const filteredHeadings = headings.filter((h) => {
     if (!filter) return true;
@@ -143,8 +150,17 @@ export function HeadingPicker() {
       preferAbove: false,
     });
 
-    setPosition({ top, left });
-  }, [isOpen, anchorRect, containerBounds]);
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (portalTarget && portalTarget !== document.body) {
+      const hostRect = portalTarget.getBoundingClientRect();
+      setPosition({
+        top: top - hostRect.top + portalTarget.scrollTop,
+        left: left - hostRect.left + portalTarget.scrollLeft,
+      });
+    } else {
+      setPosition({ top, left });
+    }
+  }, [isOpen, anchorRect, containerBounds, portalTarget]);
 
   // Reset and clamp selection when filter changes
   useEffect(() => {
@@ -174,12 +190,15 @@ export function HeadingPicker() {
 
   if (!isOpen) return null;
 
+  // Use editor container if available, otherwise fall back to document.body
+  const mountTarget = portalTarget ?? document.body;
+
   return createPortal(
     <div
       ref={containerRef}
       className="heading-picker"
       style={{
-        position: "fixed",
+        position: portalTarget ? "absolute" : "fixed",
         top: `${position.top}px`,
         left: `${position.left}px`,
       }}
@@ -215,6 +234,6 @@ export function HeadingPicker() {
         )}
       </div>
     </div>,
-    document.body
+    mountTarget
   );
 }

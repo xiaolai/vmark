@@ -15,6 +15,7 @@ import {
 } from "@/utils/popupPosition";
 import { findHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 type EditorViewLike = {
   dom: HTMLElement;
@@ -47,6 +48,7 @@ export class LinkPopupView {
   private justOpened = false;
   private wasOpen = false;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private host: HTMLElement | null = null;
 
   constructor(view: EditorViewLike) {
     this.editorView = view;
@@ -63,8 +65,7 @@ export class LinkPopupView {
       ".link-popup-btn-save"
     ) as HTMLElement;
 
-    // Append to document body (avoids interfering with editor DOM)
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
 
     // Subscribe to store changes - only show() on open transition
     this.unsubscribe = useLinkPopupStore.subscribe((state) => {
@@ -202,8 +203,15 @@ export class LinkPopupView {
     const isBookmark = href.startsWith("#");
 
     this.input.value = href;
+
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
-    this.container.style.position = "fixed";
 
     // Configure for bookmark vs regular link
     // Both allow editing - bookmarks can be manually edited too
@@ -233,8 +241,15 @@ export class LinkPopupView {
       preferAbove: true,
     });
 
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
 
     // Set up keyboard navigation
     this.setupKeyboardNavigation();
@@ -248,6 +263,7 @@ export class LinkPopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.host = null;
     this.removeKeyboardNavigation();
   }
 

@@ -14,6 +14,7 @@ import {
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { loadKatex } from "@/plugins/latex/katexLoader";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 const DEFAULT_POPUP_WIDTH = 360;
 const DEFAULT_POPUP_HEIGHT = 200;
@@ -28,6 +29,7 @@ export class MathPopupView {
   private justOpened = false;
   private wasOpen = false;
   private renderToken = 0;
+  private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
@@ -42,7 +44,8 @@ export class MathPopupView {
     this.error = this.container.querySelector(
       ".math-popup-error"
     ) as HTMLElement;
-    document.body.appendChild(this.container);
+
+    // Container will be appended to host in show()
 
     this.unsubscribe = useMathPopupStore.subscribe((state) => {
       if (state.isOpen && state.anchorRect) {
@@ -105,8 +108,15 @@ export class MathPopupView {
 
   private show(latex: string, anchorRect: AnchorRect) {
     this.textarea.value = latex;
+
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
-    this.container.style.position = "fixed";
 
     this.justOpened = true;
     requestAnimationFrame(() => {
@@ -132,8 +142,15 @@ export class MathPopupView {
       preferAbove: true,
     });
 
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
 
     this.renderPreview(latex);
 
@@ -145,6 +162,7 @@ export class MathPopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.host = null;
   }
 
   private renderPreview(latex: string) {

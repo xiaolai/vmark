@@ -8,6 +8,7 @@
 import type { EditorView } from "@tiptap/pm/view";
 import { useSpellCheckStore } from "@/stores/spellCheckStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 /**
  * Spell check popup view - manages the floating suggestions UI.
@@ -16,6 +17,7 @@ export class SpellCheckPopupView {
   private container: HTMLElement;
   private unsubscribe: () => void;
   private editorView: EditorView;
+  private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
@@ -23,8 +25,7 @@ export class SpellCheckPopupView {
     // Build DOM structure
     this.container = this.buildContainer();
 
-    // Append to document body
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
 
     // Subscribe to store changes
     this.unsubscribe = useSpellCheckStore.subscribe((state) => {
@@ -51,6 +52,13 @@ export class SpellCheckPopupView {
     word: string,
     suggestions: string[]
   ): void {
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     // Clear previous content
     this.container.innerHTML = "";
 
@@ -82,9 +90,15 @@ export class SpellCheckPopupView {
     addItem.addEventListener("click", () => this.handleAddToDictionary(word));
     this.container.appendChild(addItem);
 
-    // Position and show
-    this.container.style.top = `${position.top}px`;
-    this.container.style.left = `${position.left}px`;
+    // Position and show - convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body && this.host) {
+      const hostPos = toHostCoordsForDom(this.host, position);
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${position.top}px`;
+      this.container.style.left = `${position.left}px`;
+    }
     this.container.style.display = "block";
 
     // Adjust if off-screen
@@ -104,6 +118,7 @@ export class SpellCheckPopupView {
 
   private hide(): void {
     this.container.style.display = "none";
+    this.host = null;
   }
 
   private handleReplace = (replacement: string): void => {

@@ -16,6 +16,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { handlePopupTabNavigation } from "@/utils/popupComponents";
 import type { EditorView } from "@tiptap/pm/view";
 import { scrollToPosition } from "./tiptapDomUtils";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 import {
   AUTOFOCUS_DELAY_MS,
   BLUR_CHECK_DELAY_MS,
@@ -38,6 +39,7 @@ export class FootnotePopupView {
   private focusTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private blurTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
     this.view = view;
@@ -54,8 +56,7 @@ export class FootnotePopupView {
     this.container = dom.container;
     this.textarea = dom.textarea;
 
-    // Add to DOM
-    document.body.appendChild(this.container);
+    // Container will be appended to host in show()
 
     // Handle mouse leave from popup (only when not editing)
     this.container.addEventListener("mouseleave", this.handlePopupMouseLeave);
@@ -99,6 +100,14 @@ export class FootnotePopupView {
     const state = useFootnotePopupStore.getState();
 
     this.textarea.value = content;
+
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.view.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.host.appendChild(this.container);
+    }
+
     this.container.style.display = "flex";
 
     const gotoBtn = this.container.querySelector(".footnote-popup-btn-goto") as HTMLElement;
@@ -127,6 +136,7 @@ export class FootnotePopupView {
 
   private hide() {
     this.container.style.display = "none";
+    this.host = null;
     this.clearFocusTimeout();
     this.clearBlurTimeout();
     this.removeKeyboardNavigation();
@@ -176,8 +186,16 @@ export class FootnotePopupView {
       popup: { width: popupRect.width || DEFAULT_POPUP_WIDTH, height: popupRect.height || DEFAULT_POPUP_HEIGHT },
       bounds, gap: POPUP_GAP_PX, preferAbove: true,
     });
-    this.container.style.left = `${position.left}px`;
-    this.container.style.top = `${position.top}px`;
+
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body && this.host) {
+      const hostPos = toHostCoordsForDom(this.host, { top: position.top, left: position.left });
+      this.container.style.left = `${hostPos.left}px`;
+      this.container.style.top = `${hostPos.top}px`;
+    } else {
+      this.container.style.left = `${position.left}px`;
+      this.container.style.top = `${position.top}px`;
+    }
   }
 
   private autoResizeTextarea() {
