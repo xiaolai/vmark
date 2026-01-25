@@ -41,6 +41,17 @@ const DETAILS_OPEN_RE = /<details\b[^>]*>/i;
 const DETAILS_CLOSE_RE = /<\/details>/i;
 const SUMMARY_RE = /<summary>([\s\S]*?)<\/summary>/i;
 
+/**
+ * Type guard to check if a node has children property.
+ */
+interface NodeWithChildren {
+  children?: Content[];
+}
+
+function hasChildren(node: unknown): node is NodeWithChildren {
+  return typeof node === "object" && node !== null && "children" in node;
+}
+
 const innerProcessor = unified()
   .use(remarkParse)
   .use(remarkGfm, {
@@ -60,10 +71,8 @@ export const remarkDetailsBlock: Plugin<[], Root> = function () {
 
   return (tree) => {
     visit(tree, (node) => {
-      if (!node || typeof node !== "object") return;
-      if (!("children" in node) || !Array.isArray(node.children)) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (node as any).children = transformDetailsBlocks(node.children as Content[]);
+      if (!hasChildren(node) || !Array.isArray(node.children)) return;
+      node.children = transformDetailsBlocks(node.children);
     });
   };
 };

@@ -17,6 +17,8 @@ export async function handleFormatToggle(
 
     const format = (args.format ?? args.mark) as string;
 
+    // Direct commands for MCP (programmatic, no focus side effects needed).
+    // For marks without dedicated toggle commands, use the generic toggleMark.
     switch (format) {
       case "bold":
         editor.commands.toggleBold();
@@ -31,10 +33,10 @@ export async function handleFormatToggle(
         editor.commands.toggleStrike();
         break;
       case "underline":
-        editor.chain().focus().toggleMark("underline").run();
+        editor.commands.toggleMark("underline");
         break;
       case "highlight":
-        editor.chain().focus().toggleMark("highlight").run();
+        editor.commands.toggleMark("highlight");
         break;
       default:
         throw new Error(`Unknown format: ${format}`);
