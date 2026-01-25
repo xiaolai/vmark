@@ -10,20 +10,13 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { popupIcons } from "@/utils/popupComponents";
 import {
   copyWikiLinkTarget,
   openWikiLink,
   removeWikiLink,
   saveWikiLinkChanges,
 } from "./sourceWikiLinkActions";
-
-// SVG Icons (matching project style)
-const icons = {
-  folder: `<svg viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`,
-  open: `<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
-  copy: `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-  delete: `<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-};
 
 /**
  * Convert an absolute file path to a wiki link target (workspace-relative, without .md).
@@ -79,11 +72,11 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     this.targetInput.addEventListener("input", this.handleTargetInput.bind(this));
 
     // Icon buttons: browse, open, copy, delete
-    const browseBtn = this.buildIconButton(icons.folder, "Browse for file", this.handleBrowse.bind(this));
-    this.openBtn = this.buildIconButton(icons.open, "Open linked file", this.handleOpen.bind(this));
+    const browseBtn = this.buildIconButton(popupIcons.folder, "Browse for file", this.handleBrowse.bind(this));
+    this.openBtn = this.buildIconButton(popupIcons.open, "Open linked file", this.handleOpen.bind(this));
     this.openBtn.classList.add("source-wiki-link-popup-btn-open");
-    const copyBtn = this.buildIconButton(icons.copy, "Copy target", this.handleCopy.bind(this));
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove wiki link", this.handleRemove.bind(this));
+    const copyBtn = this.buildIconButton(popupIcons.copy, "Copy target", this.handleCopy.bind(this));
+    const deleteBtn = this.buildIconButton(popupIcons.delete, "Remove wiki link", this.handleRemove.bind(this));
     deleteBtn.classList.add("source-wiki-link-popup-btn-delete");
 
     targetRow.appendChild(this.targetInput);

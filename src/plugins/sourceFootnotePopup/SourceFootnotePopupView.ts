@@ -8,18 +8,12 @@
 import type { EditorView } from "@codemirror/view";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
+import { popupIcons } from "@/utils/popupComponents";
 import {
   saveFootnoteContent,
   gotoFootnoteTarget,
   removeFootnote,
 } from "./sourceFootnoteActions";
-
-// SVG Icons
-const icons = {
-  goto: `<svg viewBox="0 0 24 24"><path d="M12 5v14"/><polyline points="19 12 12 19 5 12"/></svg>`,
-  save: `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
-  delete: `<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-};
 
 const TEXTAREA_MAX_HEIGHT = 120;
 
@@ -54,11 +48,11 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     const spacer = document.createElement("div");
     spacer.style.flex = "1";
 
-    this.gotoBtn = this.buildIconButton(icons.goto, "Go to definition", this.handleGoto.bind(this));
+    this.gotoBtn = this.buildIconButton(popupIcons.goto, "Go to definition", this.handleGoto.bind(this));
     this.gotoBtn.classList.add("source-footnote-popup-btn-goto");
-    const saveBtn = this.buildIconButton(icons.save, "Save (Enter)", this.handleSave.bind(this));
+    const saveBtn = this.buildIconButton(popupIcons.save, "Save (Enter)", this.handleSave.bind(this));
     saveBtn.classList.add("source-footnote-popup-btn-save");
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove footnote", this.handleDelete.bind(this));
+    const deleteBtn = this.buildIconButton(popupIcons.delete, "Remove footnote", this.handleDelete.bind(this));
     deleteBtn.classList.add("source-footnote-popup-btn-delete");
 
     headerRow.appendChild(this.labelSpan);

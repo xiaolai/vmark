@@ -1,7 +1,11 @@
 /**
  * Source Link Popup Styles - Single-row layout
  * Row: href input + action buttons
+ *
+ * Uses shared source popup styles from source-popup-shared.css
  */
+
+@import "@/styles/source-popup-shared.css";
 
 .source-link-popup {
   position: absolute;
@@ -14,18 +18,7 @@
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
-  animation: source-link-popup-fade-in 0.1s ease-out;
-}
-
-@keyframes source-link-popup-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: source-popup-fade-in 0.1s ease-out;
 }
 
 /* Row container */
@@ -35,7 +28,7 @@
   gap: 2px;
 }
 
-/* URL Input - borderless, monospace */
+/* URL Input - extends shared input */
 .source-link-popup-href {
   width: 220px;
   padding: 4px 8px;
@@ -47,7 +40,6 @@
   outline: none;
 }
 
-/* Disabled state for bookmark links */
 .source-link-popup-href.disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -67,7 +59,7 @@
   opacity: 0.5;
 }
 
-/* Icon-only buttons */
+/* Buttons use shared .source-popup-btn styles */
 .source-link-popup-btn {
   display: flex;
   align-items: center;
@@ -121,7 +113,6 @@
   fill: none;
 }
 
-/* Delete button - danger color on hover */
 .source-link-popup-btn-delete:hover {
   color: var(--error-color);
 }

@@ -8,14 +8,8 @@
 import type { EditorView } from "@codemirror/view";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { popupIcons } from "@/utils/popupComponents";
 import { browseImage, copyImagePath, removeImage, saveImageChanges } from "./sourceImageActions";
-
-// SVG Icons (matching project style)
-const icons = {
-  folder: `<svg viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`,
-  copy: `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-  delete: `<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-};
 
 /**
  * Source image popup view.
@@ -48,9 +42,9 @@ export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> 
     this.srcInput.addEventListener("input", this.handleSrcInput.bind(this));
 
     // Icon buttons: browse, copy, delete
-    const browseBtn = this.buildIconButton(icons.folder, "Browse local file", this.handleBrowse.bind(this));
-    const copyBtn = this.buildIconButton(icons.copy, "Copy path", this.handleCopy.bind(this));
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove image", this.handleRemove.bind(this));
+    const browseBtn = this.buildIconButton(popupIcons.folder, "Browse local file", this.handleBrowse.bind(this));
+    const copyBtn = this.buildIconButton(popupIcons.copy, "Copy path", this.handleCopy.bind(this));
+    const deleteBtn = this.buildIconButton(popupIcons.delete, "Remove image", this.handleRemove.bind(this));
     deleteBtn.classList.add("source-image-popup-btn-delete");
 
     srcRow.appendChild(this.srcInput);

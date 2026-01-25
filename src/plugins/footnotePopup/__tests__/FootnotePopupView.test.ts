@@ -47,6 +47,7 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 vi.mock("@/utils/popupComponents", () => ({
+  popupIcons: { open: "<svg></svg>", copy: "<svg></svg>", save: "<svg></svg>", delete: "<svg></svg>", close: "<svg></svg>", folder: "<svg></svg>", goto: "<svg></svg>", toggle: "<svg></svg>", link: "<svg></svg>", image: "<svg></svg>", blockImage: "<svg></svg>", inlineImage: "<svg></svg>", type: "<svg></svg>" },
   handlePopupTabNavigation: vi.fn(),
 }));
 

@@ -16,24 +16,17 @@ import {
 } from "@/utils/popupPosition";
 import { findHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { popupIcons } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 type EditorViewLike = {
   dom: HTMLElement;
-  // We keep this structural because ProseMirror’s internal types are nominal across packages.
+  // We keep this structural because ProseMirror's internal types are nominal across packages.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   state: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dispatch: (tr: any) => void;
   focus: () => void;
-};
-
-// SVG Icons (matching project style)
-const icons = {
-  open: `<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
-  copy: `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-  save: `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
-  delete: `<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
 };
 
 /**
@@ -166,12 +159,12 @@ export class LinkPopupView {
     input.addEventListener("keydown", this.handleInputKeydown);
 
     // Icon buttons: open, copy, save, delete
-    const openBtn = this.buildIconButton(icons.open, "Open link", this.handleOpen);
+    const openBtn = this.buildIconButton(popupIcons.open, "Open link", this.handleOpen);
     openBtn.classList.add("link-popup-btn-open");
-    const copyBtn = this.buildIconButton(icons.copy, "Copy URL", this.handleCopy);
-    const saveBtn = this.buildIconButton(icons.save, "Save", this.handleSave);
+    const copyBtn = this.buildIconButton(popupIcons.copy, "Copy URL", this.handleCopy);
+    const saveBtn = this.buildIconButton(popupIcons.save, "Save", this.handleSave);
     saveBtn.classList.add("link-popup-btn-save");
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove link", this.handleRemove);
+    const deleteBtn = this.buildIconButton(popupIcons.delete, "Remove link", this.handleRemove);
     deleteBtn.classList.add("link-popup-btn-delete");
 
     container.appendChild(input);

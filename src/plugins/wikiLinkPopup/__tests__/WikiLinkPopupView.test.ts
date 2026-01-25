@@ -50,6 +50,7 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 vi.mock("@/utils/popupComponents", () => ({
+  popupIcons: { open: "<svg></svg>", copy: "<svg></svg>", save: "<svg></svg>", delete: "<svg></svg>", close: "<svg></svg>", folder: "<svg></svg>", goto: "<svg></svg>", toggle: "<svg></svg>", link: "<svg></svg>", image: "<svg></svg>", blockImage: "<svg></svg>", inlineImage: "<svg></svg>", type: "<svg></svg>" },
   buildPopupIconButton: vi.fn(({ onClick, title }) => {
     const btn = document.createElement("button");
     btn.title = title;

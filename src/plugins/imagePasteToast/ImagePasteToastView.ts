@@ -14,17 +14,10 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { popupIcons } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 const AUTO_DISMISS_MS = 5000;
-
-// SVG Icons (matching link popup style)
-const icons = {
-  // Check mark for "Insert as Image"
-  insert: `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
-  // Lucide "Type" icon for "Paste as Text" (dismiss)
-  dismiss: `<svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
-};
 
 /**
  * Image paste toast view - manages the floating toast UI.
@@ -78,7 +71,7 @@ export class ImagePasteToastView {
     insertBtn.type = "button";
     insertBtn.className = "image-paste-toast-btn image-paste-toast-btn-insert";
     insertBtn.title = "Insert as Image";
-    insertBtn.innerHTML = icons.insert;
+    insertBtn.innerHTML = popupIcons.save;
     insertBtn.addEventListener("click", this.handleInsert);
 
     // Dismiss button (X mark)
@@ -86,7 +79,7 @@ export class ImagePasteToastView {
     dismissBtn.type = "button";
     dismissBtn.className = "image-paste-toast-btn image-paste-toast-btn-dismiss";
     dismissBtn.title = "Paste as Text";
-    dismissBtn.innerHTML = icons.dismiss;
+    dismissBtn.innerHTML = popupIcons.type;
     dismissBtn.addEventListener("click", this.handleDismiss);
 
     container.appendChild(messageEl);

@@ -1,11 +1,6 @@
 // Shared DOM + constants for the footnote hover popup.
 
-// SVG Icons (matching link-popup style)
-const icons = {
-  save: `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
-  goto: `<svg viewBox="0 0 24 24"><path d="M12 5v14"/><polyline points="19 12 12 19 5 12"/></svg>`,
-  delete: `<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-};
+import { popupIcons } from "@/utils/popupComponents";
 
 export const AUTOFOCUS_DELAY_MS = 50;
 export const BLUR_CHECK_DELAY_MS = 100;
@@ -46,11 +41,11 @@ export function createFootnotePopupDom(handlers: FootnotePopupDomHandlers) {
   spacer.style.flex = "1";
   btnRow.appendChild(spacer);
 
-  const gotoBtn = buildIconButton(icons.goto, "Go to definition", handlers.onGoto);
+  const gotoBtn = buildIconButton(popupIcons.goto, "Go to definition", handlers.onGoto);
   gotoBtn.classList.add("footnote-popup-btn-goto");
-  const saveBtn = buildIconButton(icons.save, "Save (Enter)", handlers.onSave);
+  const saveBtn = buildIconButton(popupIcons.save, "Save (Enter)", handlers.onSave);
   saveBtn.classList.add("footnote-popup-btn-save");
-  const deleteBtn = buildIconButton(icons.delete, "Remove footnote", handlers.onDelete);
+  const deleteBtn = buildIconButton(popupIcons.delete, "Remove footnote", handlers.onDelete);
   deleteBtn.classList.add("footnote-popup-btn-delete");
 
   btnRow.appendChild(gotoBtn);

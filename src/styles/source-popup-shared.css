@@ -1,0 +1,223 @@
+/**
+ * Source Popup Shared Styles
+ *
+ * Common styles for all source mode (CodeMirror) popups.
+ * Individual popup CSS files should import this and add specific overrides.
+ *
+ * Usage:
+ *   @import "@/styles/source-popup-shared.css";
+ *   .source-X-popup { @extend .source-popup-base; }
+ *
+ * Since CSS doesn't support @extend, use these classes directly or
+ * compose them via multiple class names on elements.
+ */
+
+/* ============================================================================
+ * Container Base
+ * ============================================================================ */
+
+.source-popup-base {
+  position: absolute;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow);
+}
+
+/* Shared fade-in animation */
+@keyframes source-popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================================
+ * Row Layout
+ * ============================================================================ */
+
+.source-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ============================================================================
+ * Input Styles
+ * ============================================================================ */
+
+.source-popup-input {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+}
+
+.source-popup-input--mono {
+  font-family: var(--font-mono);
+}
+
+.source-popup-input--wide {
+  width: 220px;
+}
+
+.source-popup-input--flex {
+  flex: 1;
+}
+
+.source-popup-input:focus {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.source-popup-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.source-popup-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.source-popup-input.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+ * Icon Button Styles
+ * ============================================================================ */
+
+.source-popup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  position: relative;
+}
+
+.source-popup-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.source-popup-btn:active {
+  opacity: 0.8;
+}
+
+.source-popup-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Focus state - U-shaped underline */
+.source-popup-btn:focus {
+  outline: none;
+}
+
+.source-popup-btn:focus::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 4px;
+  background: transparent;
+  border-bottom: 2px solid var(--primary-color);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+/* SVG icon sizing */
+.source-popup-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Danger variant (delete buttons) */
+.source-popup-btn--danger:hover {
+  color: var(--error-color);
+}
+
+/* ============================================================================
+ * Textarea (for footnotes, etc.)
+ * ============================================================================ */
+
+.source-popup-textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--subtle-bg);
+  color: var(--text-color);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+}
+
+.source-popup-textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.source-popup-textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+/* ============================================================================
+ * Label (for footnotes)
+ * ============================================================================ */
+
+.source-popup-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================================
+ * Dark Theme Overrides
+ * ============================================================================ */
+
+.dark-theme .source-popup-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark-theme .source-popup-label {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark-theme .source-popup-textarea {
+  background: rgba(255, 255, 255, 0.04);
+}

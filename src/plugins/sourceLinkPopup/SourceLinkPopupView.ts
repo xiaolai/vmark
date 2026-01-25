@@ -8,14 +8,8 @@
 import type { EditorView } from "@codemirror/view";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import { popupIcons } from "@/utils/popupComponents";
 import { copyLinkHref, openLink, removeLink, saveLinkChanges } from "./sourceLinkActions";
-
-// SVG Icons (matching project style)
-const icons = {
-  open: `<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
-  copy: `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-  delete: `<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-};
 
 /**
  * Source link popup view.
@@ -53,10 +47,10 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     this.hrefInput.addEventListener("input", this.handleHrefInput.bind(this));
 
     // Icon buttons: open, copy, delete
-    this.openBtn = this.buildIconButton(icons.open, "Open link", this.handleOpen.bind(this));
+    this.openBtn = this.buildIconButton(popupIcons.open, "Open link", this.handleOpen.bind(this));
     this.openBtn.classList.add("source-link-popup-btn-open");
-    const copyBtn = this.buildIconButton(icons.copy, "Copy URL", this.handleCopy.bind(this));
-    const deleteBtn = this.buildIconButton(icons.delete, "Remove link", this.handleRemove.bind(this));
+    const copyBtn = this.buildIconButton(popupIcons.copy, "Copy URL", this.handleCopy.bind(this));
+    const deleteBtn = this.buildIconButton(popupIcons.delete, "Remove link", this.handleRemove.bind(this));
     deleteBtn.classList.add("source-link-popup-btn-delete");
 
     hrefRow.appendChild(this.hrefInput);
