@@ -66,32 +66,84 @@ function visitAndFixMath(node: Root | Parent): void {
 }
 
 /**
+ * Content analysis for lazy plugin loading.
+ * Returns flags indicating which optional plugins are needed.
+ */
+interface ContentAnalysis {
+  hasMath: boolean;
+  hasFrontmatter: boolean;
+  hasWikiLinks: boolean;
+  hasDetails: boolean;
+}
+
+/**
+ * Analyze markdown content to determine which plugins are needed.
+ * This enables lazy loading of plugins for better performance.
+ */
+function analyzeContent(markdown: string): ContentAnalysis {
+  return {
+    // Math: look for $ or $$ (quick heuristic)
+    hasMath: markdown.includes("$"),
+    // Frontmatter: must start with ---
+    hasFrontmatter: markdown.startsWith("---"),
+    // Wiki links: look for [[
+    hasWikiLinks: markdown.includes("[["),
+    // Details block: look for <details pattern
+    hasDetails: markdown.includes("<details"),
+  };
+}
+
+/**
  * Unified processor configured for VMark markdown parsing.
  *
- * Plugins:
- * - remark-parse: Base CommonMark parser
- * - remark-gfm: GitHub Flavored Markdown (tables, task lists, strikethrough, autolinks)
- * - remark-math: Inline ($...$) and block ($$...$$) math
- * - remark-frontmatter: YAML frontmatter (---)
+ * Plugins are loaded lazily based on content analysis:
+ * - remark-parse: Always (base CommonMark parser)
+ * - remark-gfm: Always (tables, task lists, strikethrough, autolinks)
+ * - remark-math: Only if document contains `$`
+ * - remark-frontmatter: Only if document starts with `---`
+ * - remarkWikiLinks: Only if document contains `[[`
+ * - remarkDetailsBlock: Only if document contains `<details`
  *
  * Custom inline syntax (==highlight==, ~sub~, ^sup^, ++underline++)
- * is handled via remarkCustomInline plugin.
+ * is handled via remarkCustomInline plugin (always loaded, lightweight).
  */
-function createProcessor(options: MarkdownPipelineOptions = {}) {
+function createProcessor(markdown: string, options: MarkdownPipelineOptions = {}) {
+  const analysis = analyzeContent(markdown);
+
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm, {
       // Disable single tilde strikethrough to avoid conflict with subscript
       // GFM strikethrough uses ~~double tilde~~
       singleTilde: false,
-    })
-    .use(remarkMath)
-    .use(remarkValidateMath) // Reject invalid inline math (with leading/trailing spaces)
-    .use(remarkFrontmatter, ["yaml"])
-    .use(remarkWikiLinks)
-    .use(remarkDetailsBlock)
-    .use(remarkCustomInline)
-    .use(remarkResolveReferences);
+    });
+
+  // Conditionally add math support
+  if (analysis.hasMath) {
+    processor.use(remarkMath);
+    processor.use(remarkValidateMath);
+  }
+
+  // Conditionally add frontmatter support
+  if (analysis.hasFrontmatter) {
+    processor.use(remarkFrontmatter, ["yaml"]);
+  }
+
+  // Conditionally add wiki links support
+  if (analysis.hasWikiLinks) {
+    processor.use(remarkWikiLinks);
+  }
+
+  // Conditionally add details block support
+  if (analysis.hasDetails) {
+    processor.use(remarkDetailsBlock);
+  }
+
+  // Always load custom inline (lightweight, common syntax)
+  processor.use(remarkCustomInline);
+
+  // Always load reference resolver (needed for GFM references)
+  processor.use(remarkResolveReferences);
 
   if (options.preserveLineBreaks) {
     processor.use(remarkBreaks);
@@ -116,7 +168,7 @@ export function parseMarkdownToMdast(
   markdown: string,
   options: MarkdownPipelineOptions = {}
 ): Root {
-  const processor = createProcessor(options);
+  const processor = createProcessor(markdown, options);
   const result = processor.parse(markdown);
   // Run transforms (plugins that modify the tree)
   const transformed = processor.runSync(result);

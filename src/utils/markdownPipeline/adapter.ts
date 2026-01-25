@@ -13,6 +13,7 @@
 
 import type { Schema, Node as PMNode } from "@tiptap/pm/model";
 import { parseMarkdownToMdast } from "./parser";
+import { parseMarkdownToMdastFast, canUseFastParser } from "./fastParser";
 import { mdastToProseMirror } from "./mdastToProseMirror";
 import { proseMirrorToMdast } from "./proseMirrorToMdast";
 import { serializeMdastToMarkdown } from "./serializer";
@@ -39,7 +40,15 @@ export function parseMarkdown(
   const safeMarkdown = markdown ?? "";
 
   try {
-    const mdast = parseMarkdownToMdast(safeMarkdown, options);
+    // Use fast parser (markdown-it, ~42x faster) for standard markdown
+    // Fall back to remark for:
+    // - Math, wiki links, and custom syntax (detected by canUseFastParser)
+    // - Special options that only remark supports (preserveLineBreaks, etc.)
+    const hasSpecialOptions = Object.keys(options).length > 0;
+    const mdast =
+      !hasSpecialOptions && canUseFastParser(safeMarkdown)
+        ? parseMarkdownToMdastFast(safeMarkdown)
+        : parseMarkdownToMdast(safeMarkdown, options);
     return mdastToProseMirror(schema, mdast);
   } catch (error) {
     const preview = safeMarkdown.slice(0, 100);

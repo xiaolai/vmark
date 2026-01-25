@@ -122,6 +122,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.17.0
         version: 3.17.0
+      '@types/markdown-it':
+        specifier: ^14.1.2
+        version: 14.1.2
       '@types/prismjs':
         specifier: ^1.26.5
         version: 1.26.5
@@ -164,6 +167,12 @@ importers:
       lucide-react:
         specifier: ^0.562.0
         version: 0.562.0(react@19.2.3)
+      markdown-it:
+        specifier: ^14.1.0
+        version: 14.1.0
+      markdown-it-ast:
+        specifier: ^0.0.1
+        version: 0.0.1
       marked:
         specifier: ^17.0.1
         version: 17.0.1
@@ -2986,6 +2995,9 @@ packages:
   make-dir@4.0.0:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
+
+  markdown-it-ast@0.0.1:
+    resolution: {integrity: sha512-+ON/l08iMq47OfXnqBOZtLOWjusuN1aXErJLBmNRmpJn2b0qJ1i27ngiOgqImdhtFJ20YMdXxziGMAAkTCPBSQ==}
 
   markdown-it@14.1.0:
     resolution: {integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg==}
@@ -7127,6 +7139,8 @@ snapshots:
   make-dir@4.0.0:
     dependencies:
       semver: 7.7.3
+
+  markdown-it-ast@0.0.1: {}
 
   markdown-it@14.1.0:
     dependencies:

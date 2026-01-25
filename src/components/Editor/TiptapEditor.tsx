@@ -4,7 +4,12 @@ import type { Editor as TiptapEditor } from "@tiptap/core";
 import { useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
-import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
+import {
+  parseMarkdown,
+  parseMarkdownAsync,
+  serializeMarkdown,
+  shouldUseAsyncParsing,
+} from "@/utils/markdownPipeline";
 import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/utils/tiptapView";
@@ -36,6 +41,19 @@ import "@/plugins/codeBlockLineNumbers/code-block-line-numbers.css";
  */
 const CURSOR_TRACKING_DELAY_MS = 200;
 
+/**
+ * Calculate adaptive debounce delay based on document size.
+ * Larger documents get longer delays to reduce parsing overhead during typing.
+ *
+ * @param docSize - Document size in characters
+ * @returns Delay in milliseconds
+ */
+function getAdaptiveDebounceDelay(docSize: number): number {
+  if (docSize > 50000) return 500;  // 50KB+: 500ms
+  if (docSize > 20000) return 300;  // 20KB+: 300ms
+  return 100;                        // Default: 100ms (using RAF for small docs)
+}
+
 
 export function TiptapEditorInner() {
   const content = useDocumentContent();
@@ -49,6 +67,7 @@ export function TiptapEditorInner() {
   const isInternalChange = useRef(false);
   const lastExternalContent = useRef<string>("");
   const pendingRaf = useRef<number | null>(null);
+  const pendingDebounceTimeout = useRef<number | null>(null);
   const pendingCursorRaf = useRef<number | null>(null);
   const internalChangeRaf = useRef<number | null>(null);
   const pendingCursorInfo = useRef<CursorInfo | null>(null);
@@ -155,11 +174,33 @@ export function TiptapEditorInner() {
       }
     },
     onUpdate: ({ editor }) => {
-      if (pendingRaf.current) return;
-      pendingRaf.current = requestAnimationFrame(() => {
+      // Cancel any pending flush
+      if (pendingRaf.current) {
+        cancelAnimationFrame(pendingRaf.current);
         pendingRaf.current = null;
-        flushToStore(editor);
-      });
+      }
+      if (pendingDebounceTimeout.current) {
+        clearTimeout(pendingDebounceTimeout.current);
+        pendingDebounceTimeout.current = null;
+      }
+
+      // Use adaptive delay based on document size
+      const docSize = editor.state.doc.content.size;
+      const delay = getAdaptiveDebounceDelay(docSize);
+
+      if (delay <= 100) {
+        // Small documents: use RAF for immediate updates
+        pendingRaf.current = requestAnimationFrame(() => {
+          pendingRaf.current = null;
+          flushToStore(editor);
+        });
+      } else {
+        // Large documents: use debounced timeout
+        pendingDebounceTimeout.current = window.setTimeout(() => {
+          pendingDebounceTimeout.current = null;
+          flushToStore(editor);
+        }, delay);
+      }
     },
     onSelectionUpdate: ({ editor }) => {
       if (!cursorTrackingEnabled.current) return;
@@ -193,6 +234,10 @@ export function TiptapEditorInner() {
       if (pendingRaf.current) {
         cancelAnimationFrame(pendingRaf.current);
         pendingRaf.current = null;
+      }
+      if (pendingDebounceTimeout.current) {
+        clearTimeout(pendingDebounceTimeout.current);
+        pendingDebounceTimeout.current = null;
       }
       if (pendingCursorRaf.current) {
         cancelAnimationFrame(pendingCursorRaf.current);
@@ -240,21 +285,45 @@ export function TiptapEditorInner() {
   }, [editor]);
 
   // Sync external content changes TO the editor.
+  // Uses async parsing for large documents to prevent UI blocking.
   useEffect(() => {
     if (!editor) return;
     if (isInternalChange.current) return;
     if (content === lastExternalContent.current) return;
 
-    try {
-      const doc = parseMarkdown(editor.schema, content, {
-        preserveLineBreaks: preserveLineBreaksRef.current,
-      });
-      editor.commands.setContent(doc, { emitUpdate: false });
-      // Only update lastExternalContent after successful parse to allow retry on failure
-      lastExternalContent.current = content;
-    } catch (error) {
-      console.error("[TiptapEditor] Failed to parse external markdown:", error);
-    }
+    // Track content at the time of this effect to handle race conditions
+    const contentToLoad = content;
+    let cancelled = false;
+
+    const loadContent = async () => {
+      try {
+        // Use async parsing for large documents
+        const doc = shouldUseAsyncParsing(contentToLoad.length)
+          ? await parseMarkdownAsync(editor.schema, contentToLoad, {
+              preserveLineBreaks: preserveLineBreaksRef.current,
+            })
+          : parseMarkdown(editor.schema, contentToLoad, {
+              preserveLineBreaks: preserveLineBreaksRef.current,
+            });
+
+        // Check if this load is still relevant (content may have changed)
+        if (cancelled) return;
+
+        editor.commands.setContent(doc, { emitUpdate: false });
+        // Only update lastExternalContent after successful parse to allow retry on failure
+        lastExternalContent.current = contentToLoad;
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[TiptapEditor] Failed to parse external markdown:", error);
+        }
+      }
+    };
+
+    loadContent();
+
+    return () => {
+      cancelled = true;
+    };
   }, [content, editor]);
 
   const editorClassName = showLineNumbers

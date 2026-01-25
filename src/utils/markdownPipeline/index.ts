@@ -22,9 +22,32 @@
 // Adapter - unified interface
 export { parseMarkdown, serializeMarkdown } from "./adapter";
 
+// Async parsing (Web Worker)
+export {
+  parseMarkdownAsync,
+  parseMarkdownToMdastAsync,
+  shouldUseAsyncParsing,
+  terminateWorker,
+} from "./workerAdapter";
+
+// Cached parsing
+export {
+  parseMarkdownCached,
+  parseMarkdownToMdastCached,
+  getCacheStats,
+  clearCache,
+  prewarmCache,
+} from "./parsingCache";
+
 // Core parsing/serialization
 export { parseMarkdownToMdast } from "./parser";
 export { serializeMdastToMarkdown } from "./serializer";
+
+// Fast parser (markdown-it based, ~42x faster for standard markdown)
+export {
+  parseMarkdownToMdastFast,
+  canUseFastParser,
+} from "./fastParser";
 
 // MDAST ↔ ProseMirror conversion
 export { mdastToProseMirror } from "./mdastToProseMirror";
