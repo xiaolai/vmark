@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useTabStore, type Tab } from "@/stores/tabStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
+import { saveToPath } from "@/utils/saveToPath";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./TabContextMenu.css";
 
@@ -31,6 +33,7 @@ export function TabContextMenu({
 }: TabContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const tabs = useTabStore((state) => state.tabs[windowLabel] ?? []);
+  const doc = useDocumentStore((state) => state.documents[tab.id]);
 
   // Close on click outside
   useEffect(() => {
@@ -118,15 +121,35 @@ export function TabContextMenu({
     onClose();
   }, [windowLabel, tab.id, onClose]);
 
+  // Restore missing file to original location
+  const handleRestoreToDisk = useCallback(async () => {
+    if (!doc?.filePath) return;
+    const saved = await saveToPath(tab.id, doc.filePath, doc.content, "manual");
+    if (saved) {
+      useDocumentStore.getState().clearMissing(tab.id);
+    }
+    onClose();
+  }, [tab.id, doc?.filePath, doc?.content, onClose]);
+
   const tabIndex = tabs.findIndex((t) => t.id === tab.id);
   const hasTabsToRight = tabs.slice(tabIndex + 1).some((t) => !t.isPinned);
   const hasOtherTabs = tabs.filter((t) => t.id !== tab.id && !t.isPinned).length > 0;
 
+  // Build menu items dynamically based on state
   const menuItems: MenuItem[] = [
     {
       label: tab.isPinned ? "Unpin" : "Pin",
       action: handlePin,
     },
+    // Show "Restore to Disk" when file is missing
+    ...(doc?.isMissing && doc.filePath
+      ? [
+          {
+            label: "Restore to Disk",
+            action: handleRestoreToDisk,
+          },
+        ]
+      : []),
     { label: "", action: () => {}, separator: true },
     {
       label: "Close",

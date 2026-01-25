@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, type MouseEvent, type Keyboa
 
 // Stable empty array to avoid creating new reference on each render
 const EMPTY_TABS: never[] = [];
-import { Code2, Type, Save, Plus } from "lucide-react";
+import { Code2, Type, Save, Plus, AlertTriangle } from "lucide-react";
 import { countWords as alfaazCount } from "alfaaz";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -15,7 +15,9 @@ import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import {
   useDocumentContent,
   useDocumentLastAutoSave,
+  useDocumentIsMissing,
 } from "@/hooks/useDocumentState";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { formatRelativeTime, formatExactTime } from "@/utils/dateUtils";
 import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
@@ -72,9 +74,14 @@ export function StatusBar() {
   const windowLabel = useWindowLabel();
   const content = useDocumentContent();
   const lastAutoSave = useDocumentLastAutoSave();
+  const isMissing = useDocumentIsMissing();
+  const autoSaveEnabled = useSettingsStore((s) => s.general.autoSaveEnabled);
   const sourceMode = useEditorStore((state) => state.sourceMode);
   const statusBarVisible = useUIStore((state) => state.statusBarVisible);
   const sourceModeShortcut = useShortcutsStore((state) => state.getShortcut("sourceMode"));
+
+  // Show warning when file is missing and auto-save is enabled
+  const showAutoSavePaused = isMissing && autoSaveEnabled;
 
   // Tab state - only for document windows
   // Use stable EMPTY_TABS to avoid infinite loop from new array reference
@@ -198,7 +205,16 @@ export function StatusBar() {
 
           {/* Right section: stats + mode */}
           <div className="status-bar-right">
-            {showAutoSave && lastAutoSave && (
+            {showAutoSavePaused && (
+              <span
+                className="status-autosave-paused"
+                title="Auto-save paused: file was deleted from disk. Save manually with Cmd+S."
+              >
+                <AlertTriangle size={12} />
+                Auto-save paused
+              </span>
+            )}
+            {showAutoSave && lastAutoSave && !showAutoSavePaused && (
               <span
                 className="status-autosave"
                 title={`Auto-saved at ${formatExactTime(lastAutoSave)}`}

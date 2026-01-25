@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 import { getFileName } from "@/utils/paths";
 import { stripMarkdownExtension } from "@/utils/dropPaths";
 
@@ -123,7 +124,10 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     const tab = windowTabs[tabIndex];
 
     // Don't close pinned tabs without explicit unpin
-    if (tab.isPinned) return;
+    if (tab.isPinned) {
+      toast.info("Unpin tab before closing");
+      return;
+    }
 
     // Add to closed tabs for reopen
     const closed = state.closedTabs[windowLabel] || [];

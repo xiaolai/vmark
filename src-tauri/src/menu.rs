@@ -1,8 +1,23 @@
 use std::collections::HashMap;
+use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
 use tauri::AppHandle;
 
 pub const RECENT_FILES_SUBMENU_ID: &str = "recent-files-submenu";
+
+/// Stores the recent files list snapshot at menu build time.
+/// This ensures that when a menu item is clicked, we can look up
+/// the correct path even if the store changed since menu creation.
+static RECENT_FILES_SNAPSHOT: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Get the path for a recent file by its menu index.
+/// Returns None if index is out of bounds.
+pub fn get_recent_file_path(index: usize) -> Option<String> {
+    RECENT_FILES_SNAPSHOT
+        .lock()
+        .ok()
+        .and_then(|files| files.get(index).cloned())
+}
 
 pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     // App menu (macOS only - shows as app name in menu bar)
@@ -636,6 +651,12 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
 /// Update the Open Recent submenu with the given list of file paths
 pub fn update_recent_files_menu(app: &AppHandle, files: Vec<String>) -> tauri::Result<()> {
+    // Store snapshot of files for lookup when menu items are clicked
+    // This prevents race conditions if the store changes between menu build and click
+    if let Ok(mut snapshot) = RECENT_FILES_SNAPSHOT.lock() {
+        *snapshot = files.clone();
+    }
+
     // Get the menu
     let Some(menu) = app.menu() else {
         return Ok(());

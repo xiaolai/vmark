@@ -3,8 +3,8 @@
  *
  * Tests the pure resolveDefaultSaveFolder function with three-tier precedence:
  * 1. Workspace root (if in workspace mode)
- * 2. First saved tab's folder in the window
- * 3. Home directory
+ * 2. Documents directory (when not in workspace mode)
+ * 3. First saved tab's folder (edge case: workspace mode but no root)
  *
  * @module utils/defaultSaveFolder.test
  */
@@ -16,7 +16,7 @@ describe("resolveDefaultSaveFolder", () => {
     isWorkspaceMode: false,
     workspaceRoot: null,
     savedFilePaths: [],
-    homeDirectory: "/Users/test",
+    fallbackDirectory: "/Users/test",
   };
 
   it("returns workspace root when in workspace mode", () => {
@@ -29,8 +29,8 @@ describe("resolveDefaultSaveFolder", () => {
     expect(result).toBe("/workspace/project");
   });
 
-  it("returns home directory when no workspace (ignores saved tabs)", () => {
-    // When not in workspace mode, always use home directory
+  it("returns fallback directory when no workspace (ignores saved tabs)", () => {
+    // When not in workspace mode, always use Documents directory
     // This prevents save dialogs opening in unexpected folders
     const result = resolveDefaultSaveFolder({
       ...defaultInput,
@@ -46,7 +46,7 @@ describe("resolveDefaultSaveFolder", () => {
       isWorkspaceMode: true,
       workspaceRoot: null,
       savedFilePaths: ["/docs/notes/file.md"],
-      homeDirectory: "/Users/test",
+      fallbackDirectory: "/Users/test",
     });
 
     expect(result).toBe("/docs/notes");
@@ -66,7 +66,7 @@ describe("resolveDefaultSaveFolder", () => {
       isWorkspaceMode: false,
       workspaceRoot: null,
       savedFilePaths: [],
-      homeDirectory: "/Users/test",
+      fallbackDirectory: "/Users/test",
     });
 
     expect(result).toBe("/Users/test");
@@ -77,7 +77,7 @@ describe("resolveDefaultSaveFolder", () => {
       isWorkspaceMode: true,
       workspaceRoot: "/workspace/project",
       savedFilePaths: ["/other/path/file.md"],
-      homeDirectory: "/Users/test",
+      fallbackDirectory: "/Users/test",
     });
 
     // Workspace root takes precedence
@@ -89,7 +89,7 @@ describe("resolveDefaultSaveFolder", () => {
       isWorkspaceMode: true,
       workspaceRoot: null, // Edge case: in workspace mode but missing root
       savedFilePaths: ["C:\\Users\\Test\\Documents\\file.md"],
-      homeDirectory: "C:\\Users\\Test",
+      fallbackDirectory: "C:\\Users\\Test",
     });
 
     expect(result).toBe("C:\\Users\\Test\\Documents");
@@ -100,7 +100,7 @@ describe("resolveDefaultSaveFolder", () => {
       isWorkspaceMode: false,
       workspaceRoot: "/workspace/project", // Set but not in workspace mode
       savedFilePaths: ["/other/path/file.md"],
-      homeDirectory: "/Users/test",
+      fallbackDirectory: "/Users/test",
     });
 
     // Should use home directory directly when not in workspace mode
@@ -112,7 +112,7 @@ describe("resolveDefaultSaveFolder", () => {
       isWorkspaceMode: true,
       workspaceRoot: null, // Missing root
       savedFilePaths: ["/docs/file.md"],
-      homeDirectory: "/Users/test",
+      fallbackDirectory: "/Users/test",
     });
 
     // Should fall through to saved tab folder

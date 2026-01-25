@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { readTextFile } from "@tauri-apps/plugin-fs";
+import { toast } from "sonner";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 import { useRecentFilesStore } from "../stores/recentFilesStore";
@@ -69,7 +70,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
             initStartedRef.current = true;
             // Check if we have a file path and/or workspace root in the URL query params
             const urlParams = new URLSearchParams(globalThis.location?.search || "");
-            let filePath = urlParams.get("file");
+            const filePath = urlParams.get("file");
             const workspaceRootParam = urlParams.get("workspaceRoot");
             const filesParam = urlParams.get("files");
             let filePaths: string[] | null = null;
@@ -128,6 +129,8 @@ export function WindowProvider({ children }: WindowProviderProps) {
                 } catch (error) {
                   console.error("[WindowContext] Failed to load file:", path, error);
                   useDocumentStore.getState().initDocument(tabId, "", null);
+                  const filename = path.split("/").pop() ?? path;
+                  toast.error(`Failed to open ${filename}`);
                 }
               }
             } else {
@@ -145,6 +148,8 @@ export function WindowProvider({ children }: WindowProviderProps) {
                   console.error("[WindowContext] Failed to load file:", filePath, error);
                   // Initialize with empty content if file can't be read
                   useDocumentStore.getState().initDocument(tabId, "", null);
+                  const filename = filePath.split("/").pop() ?? filePath;
+                  toast.error(`Failed to open ${filename}`);
                 }
               } else {
                 // No file path - initialize empty document
@@ -155,16 +160,21 @@ export function WindowProvider({ children }: WindowProviderProps) {
         }
 
         setIsReady(true);
+        // Notify Rust that the window is ready to receive events
+        window.emit("ready", null);
       } catch (error) {
         console.error("[WindowContext] Init failed:", error);
         // Still set ready to allow error boundary to catch render errors
         setIsReady(true);
+        // Notify Rust even on error so waiting handlers don't hang
+        getCurrentWebviewWindow().emit("ready", null);
       }
     };
 
     init().catch((e) => {
       console.error("[WindowContext] Unhandled init error:", e);
       setIsReady(true);
+      getCurrentWebviewWindow().emit("ready", null);
     });
   }, []);
 

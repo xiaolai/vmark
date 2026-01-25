@@ -2,7 +2,7 @@
  * Hook for handling external file changes
  *
  * Listens to file system change events and applies the policy:
- * - Clean documents: auto-reload silently
+ * - Clean documents: auto-reload with brief notification
  * - Dirty documents: prompt user to choose
  * - Deleted files: mark as missing
  *
@@ -12,6 +12,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { message, save } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -227,9 +228,10 @@ export function useExternalFileChanges(): void {
 
             switch (action) {
               case "auto_reload":
-                // Clean document - reload silently using already-read content
+                // Clean document - reload with brief notification
                 useDocumentStore.getState().loadContent(tabId, diskContent, changedPath, detectLinebreaks(diskContent));
                 useDocumentStore.getState().clearMissing(tabId);
+                toast.info(`Reloaded: ${getFileName(changedPath)}`);
                 break;
               case "prompt_user":
                 await handleDirtyChange(tabId, changedPath);

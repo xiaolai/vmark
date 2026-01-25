@@ -10,7 +10,25 @@ mod window_manager;
 mod workspace;
 mod file_tree;
 
+use std::sync::Mutex;
 use tauri::Manager;
+
+/// Pending files queued during cold start before frontend is ready
+/// This solves the race condition where Finder opens a file but React hasn't mounted yet
+#[derive(Clone, serde::Serialize)]
+pub struct PendingFileOpen {
+    pub path: String,
+    pub workspace_root: Option<String>,
+}
+
+static PENDING_FILE_OPENS: Mutex<Vec<PendingFileOpen>> = Mutex::new(Vec::new());
+
+/// Get and clear pending file opens - called by frontend when ready
+#[tauri::command]
+fn get_pending_file_opens() -> Vec<PendingFileOpen> {
+    let mut pending = PENDING_FILE_OPENS.lock().unwrap();
+    pending.drain(..).collect()
+}
 
 /// Debug logging from frontend (logs to terminal, debug builds only)
 #[cfg(debug_assertions)]
@@ -36,6 +54,7 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            get_pending_file_opens,
             menu::update_recent_files,
             menu::rebuild_menu,
             window_manager::new_window,
@@ -165,39 +184,46 @@ pub fn run() {
                     }
                 }
                 // Handle files opened from Finder (double-click, "Open With", etc.)
-                // Prefers loading into existing empty main window; otherwise creates new window
+                // Queue files for frontend to process when ready (solves cold start race)
                 #[cfg(target_os = "macos")]
                 tauri::RunEvent::Opened { urls } => {
-                    use tauri::Emitter;
-
                     for url in urls {
                         // Convert file:// URL to path
                         if let Ok(path) = url.to_file_path() {
                             if let Some(path_str) = path.to_str() {
+                                // Handle directories: open as workspace
+                                if path.is_dir() {
+                                    let _ = window_manager::create_document_window(
+                                        app,
+                                        None,
+                                        Some(path_str),
+                                    );
+                                    continue;
+                                }
+
                                 // Compute workspace root from file's parent directory
-                                // Returns None if file is at root level (no valid parent)
                                 let workspace_root =
                                     window_manager::get_workspace_root_for_file(path_str);
 
-                                // Check if main window exists - if so, try to load file there
-                                // instead of creating a new window (avoids duplicate windows on launch)
-                                if let Some(main_window) = app.get_webview_window("main") {
-                                    // Emit event to main window to load the file
-                                    // Frontend will handle: if empty, load; if dirty, create new window
-                                    #[derive(Clone, serde::Serialize)]
-                                    struct OpenFilePayload {
-                                        path: String,
-                                        workspace_root: Option<String>,
-                                    }
-                                    let _ = main_window.emit(
-                                        "app:open-file",
-                                        OpenFilePayload {
+                                // Check if any document window exists
+                                // (main or doc-* windows, not settings)
+                                let has_doc_window = app
+                                    .webview_windows()
+                                    .keys()
+                                    .any(|label| label == "main" || label.starts_with("doc-"));
+
+                                if has_doc_window {
+                                    // Queue file for frontend to process when ready
+                                    // This solves the cold start race condition where
+                                    // React hasn't mounted yet when RunEvent::Opened fires
+                                    if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
+                                        pending.push(PendingFileOpen {
                                             path: path_str.to_string(),
                                             workspace_root,
-                                        },
-                                    );
+                                        });
+                                    }
                                 } else {
-                                    // No main window - create a new document window
+                                    // No document windows - create a new one
                                     let _ = window_manager::create_document_window(
                                         app,
                                         Some(path_str),

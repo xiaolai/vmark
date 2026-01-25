@@ -4,6 +4,7 @@
  * Shared helper for manual/auto saves across file flows.
  */
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { toast } from "sonner";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
@@ -71,6 +72,8 @@ export async function saveToPath(
     return true;
   } catch (error) {
     console.error("Failed to save file:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    toast.error(`Failed to save: ${message}`);
     return false;
   }
 }

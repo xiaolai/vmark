@@ -6,7 +6,7 @@
  *
  * @module hooks/useDefaultSaveFolder
  */
-import { homeDir } from "@tauri-apps/api/path";
+import { documentDir, homeDir } from "@tauri-apps/api/path";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -15,12 +15,13 @@ import { resolveDefaultSaveFolder } from "@/utils/defaultSaveFolder";
 /**
  * Get the default save folder with fallback logic.
  *
- * Gathers workspace state, tab paths, and home directory,
+ * Gathers workspace state, tab paths, and Documents directory,
  * then delegates to pure resolver.
  *
  * Precedence:
  * 1. Workspace root - if the window is in workspace mode
- * 2. Home directory - when not in workspace mode
+ * 2. Documents directory - when not in workspace mode
+ * 3. Home directory - final fallback if Documents unavailable
  *
  * @param windowLabel - The window label to check for saved tabs
  * @returns The resolved default folder path
@@ -44,14 +45,19 @@ export async function getDefaultSaveFolderWithFallback(
     }
   }
 
-  // Get home directory from Tauri
-  const homeDirectory = await homeDir();
+  // Get Documents directory (preferred) with fallback to home directory
+  let fallbackDirectory: string;
+  try {
+    fallbackDirectory = await documentDir();
+  } catch {
+    fallbackDirectory = await homeDir();
+  }
 
   // Delegate to pure resolver
   return resolveDefaultSaveFolder({
     isWorkspaceMode,
     workspaceRoot: rootPath,
     savedFilePaths,
-    homeDirectory,
+    fallbackDirectory,
   });
 }

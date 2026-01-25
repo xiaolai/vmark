@@ -10,6 +10,7 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readTextFile } from "@tauri-apps/plugin-fs";
+import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
@@ -44,6 +45,8 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
     useRecentFilesStore.getState().addFile(path);
   } catch (error) {
     console.error("[DragDrop] Failed to open file:", path, error);
+    const filename = path.split("/").pop() ?? path;
+    toast.error(`Failed to open ${filename}`);
   }
 }
 
@@ -77,7 +80,12 @@ export function useDragDropOpen(): void {
 
         const paths = event.payload.paths;
         const markdownPaths = filterMarkdownPaths(paths);
-        if (markdownPaths.length === 0) return;
+        if (markdownPaths.length === 0) {
+          if (paths.length > 0) {
+            toast.info("Only markdown files can be opened via drag-drop");
+          }
+          return;
+        }
 
         // Get current workspace state for policy decisions
         const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
@@ -113,6 +121,7 @@ export function useDragDropOpen(): void {
               });
             } catch (error) {
               console.error("[DragDrop] Failed to open workspace in new window:", error);
+              toast.error("Failed to open files in new window");
             }
           }
 
@@ -121,6 +130,8 @@ export function useDragDropOpen(): void {
               await invoke("open_file_in_new_window", { path });
             } catch (error) {
               console.error("[DragDrop] Failed to open file in new window:", error);
+              const filename = path.split("/").pop() ?? path;
+              toast.error(`Failed to open ${filename}`);
             }
           }
 
@@ -155,6 +166,8 @@ export function useDragDropOpen(): void {
                   continue;
                 } catch (error) {
                   console.error("[DragDrop] Failed to replace tab with file:", path, error);
+                  const filename = path.split("/").pop() ?? path;
+                  toast.error(`Failed to open ${filename}`);
                 }
               }
 
@@ -199,6 +212,8 @@ export function useDragDropOpen(): void {
                 replaceableTabUsed = true;
               } catch (error) {
                 console.error("[DragDrop] Failed to replace tab with file:", path, error);
+                const filename = path.split("/").pop() ?? path;
+                toast.error(`Failed to open ${filename}`);
               }
               break;
             case "open_workspace_in_new_window":
@@ -209,6 +224,8 @@ export function useDragDropOpen(): void {
                 });
               } catch (error) {
                 console.error("[DragDrop] Failed to open workspace in new window:", path, error);
+                const filename = path.split("/").pop() ?? path;
+                toast.error(`Failed to open ${filename}`);
               }
               break;
             case "no_op":

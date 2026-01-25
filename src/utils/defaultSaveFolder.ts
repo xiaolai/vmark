@@ -6,7 +6,7 @@
  *
  * Precedence:
  * 1. Workspace root (if in workspace mode)
- * 2. Home directory (when not in workspace mode)
+ * 2. Documents directory (when not in workspace mode)
  * 3. Saved tab's folder (edge case: workspace mode but no root)
  *
  * @module utils/defaultSaveFolder
@@ -24,8 +24,8 @@ export interface DefaultSaveFolderInput {
   workspaceRoot: string | null;
   /** File paths of saved tabs in this window (in order) */
   savedFilePaths: string[];
-  /** User's home directory */
-  homeDirectory: string;
+  /** Fallback directory (Documents or Home) */
+  fallbackDirectory: string;
 }
 
 /**
@@ -35,7 +35,7 @@ export interface DefaultSaveFolderInput {
  *
  * Precedence:
  * 1. Workspace root - if in workspace mode with valid root
- * 2. Home directory - when not in workspace mode (prevents unexpected folders)
+ * 2. Fallback directory (Documents) - when not in workspace mode
  * 3. Saved tab folder - edge case fallback when in workspace mode but no root
  *
  * @param input - Pre-gathered workspace and tab data
@@ -47,30 +47,30 @@ export interface DefaultSaveFolderInput {
  *   isWorkspaceMode: true,
  *   workspaceRoot: "/workspace/project",
  *   savedFilePaths: [],
- *   homeDirectory: "/Users/test"
+ *   fallbackDirectory: "/Users/test/Documents"
  * }); // Returns "/workspace/project"
  *
  * @example
- * // Not in workspace mode - returns home (ignores saved tabs)
+ * // Not in workspace mode - returns Documents folder
  * resolveDefaultSaveFolder({
  *   isWorkspaceMode: false,
  *   workspaceRoot: null,
  *   savedFilePaths: ["/other/path/file.md"],
- *   homeDirectory: "/Users/test"
- * }); // Returns "/Users/test"
+ *   fallbackDirectory: "/Users/test/Documents"
+ * }); // Returns "/Users/test/Documents"
  */
 export function resolveDefaultSaveFolder(input: DefaultSaveFolderInput): string {
-  const { isWorkspaceMode, workspaceRoot, savedFilePaths, homeDirectory } = input;
+  const { isWorkspaceMode, workspaceRoot, savedFilePaths, fallbackDirectory } = input;
 
   // 1. Workspace root first (if in workspace mode)
   if (isWorkspaceMode && workspaceRoot) {
     return workspaceRoot;
   }
 
-  // 2. Not in workspace mode → use home directly
+  // 2. Not in workspace mode → use Documents folder
   //    This prevents save dialogs opening in unexpected folders
   if (!isWorkspaceMode) {
-    return homeDirectory;
+    return fallbackDirectory;
   }
 
   // 3. In workspace mode but no root (edge case) → try saved tabs
@@ -79,8 +79,8 @@ export function resolveDefaultSaveFolder(input: DefaultSaveFolderInput): string 
     if (dir) return dir;
   }
 
-  // 4. Final fallback: Home directory
-  return homeDirectory;
+  // 4. Final fallback: Documents/Home directory
+  return fallbackDirectory;
 }
 
 // Note: The async wrapper getDefaultSaveFolderWithFallback is now in

@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -56,14 +57,14 @@ export function useRecentFilesMenuEvents(): void {
       unlistenRefs.current.push(unlistenClearRecent);
 
       // Open Recent File - uses workspace boundary policy
-      const unlistenOpenRecent = await currentWindow.listen<[number, string]>("menu:open-recent-file", async (event) => {
-        const [index, targetLabel] = event.payload;
+      // Payload is now (path, windowLabel) - path from Rust snapshot prevents race conditions
+      const unlistenOpenRecent = await currentWindow.listen<[string, string]>("menu:open-recent-file", async (event) => {
+        const [filePath, targetLabel] = event.payload;
         if (targetLabel !== windowLabel) return;
 
+        // Find file in store by path (or create minimal file object)
         const { files } = useRecentFilesStore.getState();
-        if (index < 0 || index >= files.length) return;
-
-        const file = files[index];
+        const file = files.find(f => f.path === filePath) ?? { path: filePath };
         const { isWorkspaceMode, rootPath } = useWorkspaceStore.getState();
         const existingTab = useTabStore.getState().findTabByPath(windowLabel, file.path);
         const replaceableTab = getReplaceableTab(windowLabel);
@@ -133,6 +134,8 @@ export function useRecentFilesMenuEvents(): void {
                 });
               } catch (error) {
                 console.error("[Menu] Failed to open workspace in new window:", error);
+                const filename = file.path.split("/").pop() ?? file.path;
+                toast.error(`Failed to open ${filename}`);
               }
               break;
 
