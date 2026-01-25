@@ -6,6 +6,9 @@ import { respond, getEditor } from "./utils";
 
 /**
  * Handle cursor.getContext request.
+ *
+ * Uses ProseMirror's $pos API for block-aware traversal instead of flattening
+ * the document with textContent (which loses block boundaries).
  */
 export async function handleCursorGetContext(
   id: string,
@@ -17,44 +20,46 @@ export async function handleCursorGetContext(
 
     const { from } = editor.state.selection;
     const doc = editor.state.doc;
-    const text = doc.textContent;
 
-    // Find current line
-    let lineStart = from;
-    while (lineStart > 0 && text[lineStart - 1] !== "\n") lineStart--;
-    let lineEnd = from;
-    while (lineEnd < text.length && text[lineEnd] !== "\n") lineEnd++;
+    // Use $pos API for proper block-aware navigation
+    const $pos = doc.resolve(from);
+    const blockNode = $pos.parent;
+    const currentLine = blockNode.textContent;
 
-    const currentLine = text.slice(lineStart, lineEnd);
-
-    // Get context lines
+    // Get context blocks
     const linesBefore = (args.linesBefore as number) ?? 5;
     const linesAfter = (args.linesAfter as number) ?? 5;
 
-    const lines = text.split("\n");
-    let currentLineIndex = 0;
-    let pos = 0;
-    for (let i = 0; i < lines.length; i++) {
-      if (pos + lines[i].length >= from) {
-        currentLineIndex = i;
-        break;
-      }
-      pos += lines[i].length + 1;
+    // Collect blocks before and after the current block
+    const beforeBlocks: string[] = [];
+    const afterBlocks: string[] = [];
+
+    // Find the current block's position in the document.
+    // Use depth 1 to get top-level block context (paragraph, heading, list, etc.)
+    // rather than inline nodes. This provides consistent "line" semantics for MCP
+    // clients regardless of cursor position within nested inline content.
+    const blockDepth = $pos.depth > 0 ? 1 : 0;
+    const blockIndex = $pos.index(blockDepth);
+    const parentNode = blockDepth > 0 ? $pos.node(blockDepth - 1) : doc;
+
+    // Collect blocks before
+    for (let i = Math.max(0, blockIndex - linesBefore); i < blockIndex; i++) {
+      const node = parentNode.child(i);
+      beforeBlocks.push(node.textContent);
     }
 
-    const beforeLines = lines
-      .slice(Math.max(0, currentLineIndex - linesBefore), currentLineIndex)
-      .join("\n");
-    const afterLines = lines
-      .slice(currentLineIndex + 1, currentLineIndex + 1 + linesAfter)
-      .join("\n");
+    // Collect blocks after
+    for (let i = blockIndex + 1; i < Math.min(parentNode.childCount, blockIndex + 1 + linesAfter); i++) {
+      const node = parentNode.child(i);
+      afterBlocks.push(node.textContent);
+    }
 
     await respond({
       id,
       success: true,
       data: {
-        before: beforeLines,
-        after: afterLines,
+        before: beforeBlocks.join("\n"),
+        after: afterBlocks.join("\n"),
         currentLine,
         currentParagraph: currentLine,
       },

@@ -9,13 +9,40 @@
  */
 
 // Intl.Segmenter type declaration (ES2022)
-interface SegmentData {
-  segment: string;
-  index: number;
-  isWordLike?: boolean;
+// Global augmentation for Intl.Segmenter which is not in older TS lib
+declare global {
+  namespace Intl {
+    interface SegmentData {
+      segment: string;
+      index: number;
+      isWordLike?: boolean;
+    }
+
+    interface Segments extends Iterable<SegmentData> {
+      containing(index: number): SegmentData | undefined;
+    }
+
+    interface Segmenter {
+      segment(input: string): Segments;
+    }
+
+    interface SegmenterOptions {
+      localeMatcher?: "lookup" | "best fit";
+      granularity?: "grapheme" | "word" | "sentence";
+    }
+
+    const Segmenter: {
+      new (locale?: string | string[], options?: SegmenterOptions): Segmenter;
+      prototype: Segmenter;
+      supportedLocalesOf(
+        locales: string | string[],
+        options?: { localeMatcher?: "lookup" | "best fit" }
+      ): string[];
+    };
+  }
 }
 
-type SegmenterType = { segment: (text: string) => Iterable<SegmentData> };
+type SegmenterType = { segment: (text: string) => Iterable<Intl.SegmentData> };
 
 // Cached segmenter instance (created once, reused)
 let cachedSegmenter: SegmenterType | null = null;
@@ -33,13 +60,7 @@ function getWordSegmenter(): SegmenterType | null {
   // Feature detection for Intl.Segmenter
   if (!("Segmenter" in Intl)) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Segmenter = (Intl as any).Segmenter as new (
-    locale?: string,
-    options?: { granularity: string }
-  ) => SegmenterType;
-
-  cachedSegmenter = new Segmenter(undefined, { granularity: "word" });
+  cachedSegmenter = new Intl.Segmenter(undefined, { granularity: "word" });
   return cachedSegmenter;
 }
 
