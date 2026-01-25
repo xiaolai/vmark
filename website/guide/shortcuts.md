@@ -105,7 +105,7 @@ VMark is designed for keyboard-first workflows. All shortcuts can be customized 
 | Word Wrap | `Alt + Z` |
 | Toggle Sidebar | `Mod + Shift + B` |
 | Toggle Outline | `Alt + Mod + 1` |
-| Toggle Line Numbers | `Alt + Mod + N` |
+| Toggle Line Numbers | `Alt + Mod + L` |
 | Toggle Diagram Preview | `Alt + Mod + P` |
 | Universal Toolbar | `Mod + Shift + P` |
 | Source Peek | `Alt + Mod + /` |
