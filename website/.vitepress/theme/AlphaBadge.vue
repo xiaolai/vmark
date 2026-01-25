@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // Alpha badge for VMark site title
+// Minimal outlined design with subtle pulse indicator
 </script>
 
 <template>
   <span class="alpha-badge" title="Alpha Release - Features may change">
-    alpha
+    <span class="alpha-dot"></span>
+    <span class="alpha-text">alpha</span>
   </span>
 </template>
 
@@ -12,28 +14,89 @@
 .alpha-badge {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  margin-left: 8px;
-  padding: 1px 7px 2px;
+  gap: 5px;
+  margin-left: 10px;
+  padding: 2px 8px 2px 6px;
   font-size: 10px;
-  font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  border-radius: 4px;
-  background: linear-gradient(135deg, var(--vp-c-brand-1), var(--vp-c-brand-2));
-  color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.5px;
+  text-transform: lowercase;
+  border-radius: 100px;
+  border: 1px solid var(--vp-c-brand-1);
+  background: transparent;
+  color: var(--vp-c-brand-1);
   cursor: help;
   user-select: none;
   vertical-align: middle;
   position: relative;
   top: -1px;
+  transition: all 0.2s ease;
 }
 
-/* Night theme adjustment - dark text on bright background */
+.alpha-badge:hover {
+  background: var(--vp-c-brand-soft);
+  border-color: var(--vp-c-brand-2);
+}
+
+/* Pulsing dot indicator */
+.alpha-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vp-c-brand-1);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.alpha-dot::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: var(--vp-c-brand-1);
+  opacity: 0.4;
+  animation: alpha-pulse 2s ease-in-out infinite;
+}
+
+.alpha-text {
+  line-height: 1;
+}
+
+@keyframes alpha-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* Theme adjustments */
 [data-vmark-theme="night"] .alpha-badge,
 .dark .alpha-badge {
-  color: #1a1a1a;
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+[data-vmark-theme="night"] .alpha-dot,
+.dark .alpha-dot {
+  background: var(--vp-c-brand-1);
+}
+
+[data-vmark-theme="night"] .alpha-dot::before,
+.dark .alpha-dot::before {
+  background: var(--vp-c-brand-1);
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .alpha-dot::before {
+    animation: none;
+    opacity: 0.3;
+    transform: scale(1.5);
+  }
 }
 </style>
