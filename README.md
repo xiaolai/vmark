@@ -1,6 +1,6 @@
 # VMark
 
-A local-first Markdown editor built with Tauri v2 and React, featuring dual editing modes and seamless rich text / source switching.
+An AI friendly markdown editor.
 
 ## Features
 
