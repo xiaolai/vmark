@@ -165,9 +165,11 @@ pub fn run() {
                     }
                 }
                 // Handle files opened from Finder (double-click, "Open With", etc.)
-                // Each file opens in a new window with its folder as workspace root
+                // Prefers loading into existing empty main window; otherwise creates new window
                 #[cfg(target_os = "macos")]
                 tauri::RunEvent::Opened { urls } => {
+                    use tauri::Emitter;
+
                     for url in urls {
                         // Convert file:// URL to path
                         if let Ok(path) = url.to_file_path() {
@@ -177,15 +179,31 @@ pub fn run() {
                                 let workspace_root =
                                     window_manager::get_workspace_root_for_file(path_str);
 
-                                // Always create a new window for the file
-                                // This handles both:
-                                // 1. App just launched (no windows yet)
-                                // 2. App running but all windows closed (dock icon still visible)
-                                let _ = window_manager::create_document_window(
-                                    app,
-                                    Some(path_str),
-                                    workspace_root.as_deref(),
-                                );
+                                // Check if main window exists - if so, try to load file there
+                                // instead of creating a new window (avoids duplicate windows on launch)
+                                if let Some(main_window) = app.get_webview_window("main") {
+                                    // Emit event to main window to load the file
+                                    // Frontend will handle: if empty, load; if dirty, create new window
+                                    #[derive(Clone, serde::Serialize)]
+                                    struct OpenFilePayload {
+                                        path: String,
+                                        workspace_root: Option<String>,
+                                    }
+                                    let _ = main_window.emit(
+                                        "app:open-file",
+                                        OpenFilePayload {
+                                            path: path_str.to_string(),
+                                            workspace_root,
+                                        },
+                                    );
+                                } else {
+                                    // No main window - create a new document window
+                                    let _ = window_manager::create_document_window(
+                                        app,
+                                        Some(path_str),
+                                        workspace_root.as_deref(),
+                                    );
+                                }
                             }
                         }
                     }
