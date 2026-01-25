@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, type MouseEvent, type Keyboa
 
 // Stable empty array to avoid creating new reference on each render
 const EMPTY_TABS: never[] = [];
-import { Code2, Type, Save, Plus, AlertTriangle } from "lucide-react";
+import { Code2, Type, Save, Plus, AlertTriangle, GitFork } from "lucide-react";
 import { countWords as alfaazCount } from "alfaaz";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -16,6 +16,7 @@ import {
   useDocumentContent,
   useDocumentLastAutoSave,
   useDocumentIsMissing,
+  useDocumentIsDivergent,
 } from "@/hooks/useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { formatRelativeTime, formatExactTime } from "@/utils/dateUtils";
@@ -75,6 +76,7 @@ export function StatusBar() {
   const content = useDocumentContent();
   const lastAutoSave = useDocumentLastAutoSave();
   const isMissing = useDocumentIsMissing();
+  const isDivergent = useDocumentIsDivergent();
   const autoSaveEnabled = useSettingsStore((s) => s.general.autoSaveEnabled);
   const sourceMode = useEditorStore((state) => state.sourceMode);
   const statusBarVisible = useUIStore((state) => state.statusBarVisible);
@@ -214,7 +216,16 @@ export function StatusBar() {
                 Auto-save paused
               </span>
             )}
-            {showAutoSave && lastAutoSave && !showAutoSavePaused && (
+            {isDivergent && !showAutoSavePaused && (
+              <span
+                className="status-divergent"
+                title="Local differs from disk. Save (Cmd+S) to sync, or use File > Revert to discard local changes."
+              >
+                <GitFork size={12} />
+                Divergent
+              </span>
+            )}
+            {showAutoSave && lastAutoSave && !showAutoSavePaused && !isDivergent && (
               <span
                 className="status-autosave"
                 title={`Auto-saved at ${formatExactTime(lastAutoSave)}`}

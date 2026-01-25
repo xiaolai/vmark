@@ -30,6 +30,11 @@ export function useDocumentIsMissing(): boolean {
   return useDocumentStore((state) => (tabId ? state.documents[tabId]?.isMissing : false) ?? false);
 }
 
+export function useDocumentIsDivergent(): boolean {
+  const tabId = useActiveTabId();
+  return useDocumentStore((state) => (tabId ? state.documents[tabId]?.isDivergent : false) ?? false);
+}
+
 export function useDocumentId(): number {
   const tabId = useActiveTabId();
   return useDocumentStore((state) => (tabId ? state.documents[tabId]?.documentId : 0) ?? 0);

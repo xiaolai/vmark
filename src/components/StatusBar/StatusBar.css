@@ -112,6 +112,22 @@
   border: 1px solid var(--warning-border);
 }
 
+.status-divergent {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: var(--accent-bg);
+  color: var(--accent-primary);
+  font-size: 11px;
+  border: 1px solid rgba(0, 102, 204, 0.2);
+}
+
+.dark-theme .status-divergent {
+  border-color: rgba(0, 136, 255, 0.25);
+}
+
 /* ========================================
    Pill-style Tabs in Status Bar
    ======================================== */

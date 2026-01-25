@@ -130,7 +130,8 @@ export function useExternalFileChanges(): void {
         return;
       }
 
-      // Cancel = keep user's changes (safe default, no action needed)
+      // Cancel = keep user's changes - mark as divergent so user knows local differs from disk
+      useDocumentStore.getState().markDivergent(tabId);
     },
     []
   );

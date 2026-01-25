@@ -16,6 +16,8 @@ export interface DocumentState {
   lastAutoSave: number | null;
   /** True when the file was deleted externally - show warning UI */
   isMissing: boolean;
+  /** True when user chose "Keep my changes" after external modification - local differs from disk */
+  isDivergent: boolean;
   lineEnding: LineEnding;
   hardBreakStyle: HardBreakStyle;
 }
@@ -36,6 +38,8 @@ interface DocumentStore {
   setFilePath: (tabId: string, path: string | null) => void;
   markMissing: (tabId: string) => void;
   clearMissing: (tabId: string) => void;
+  markDivergent: (tabId: string) => void;
+  clearDivergent: (tabId: string) => void;
   markSaved: (tabId: string) => void;
   markAutoSaved: (tabId: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
@@ -59,6 +63,7 @@ const createInitialDocument = (content = "", filePath: string | null = null): Do
   cursorInfo: null,
   lastAutoSave: null,
   isMissing: false,
+  isDivergent: false,
   lineEnding: "unknown",
   hardBreakStyle: "unknown",
 });
@@ -108,6 +113,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
         savedContent: content,
         filePath: filePath ?? null,
         isDirty: false,
+        isDivergent: false, // Reload from disk clears divergent state
         documentId: doc.documentId + 1,
         lineEnding: meta?.lineEnding ?? doc.lineEnding,
         hardBreakStyle: meta?.hardBreakStyle ?? doc.hardBreakStyle,
@@ -123,11 +129,18 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   clearMissing: (tabId) =>
     set((state) => updateDoc(state, tabId, () => ({ isMissing: false }))),
 
+  markDivergent: (tabId) =>
+    set((state) => updateDoc(state, tabId, () => ({ isDivergent: true }))),
+
+  clearDivergent: (tabId) =>
+    set((state) => updateDoc(state, tabId, () => ({ isDivergent: false }))),
+
   markSaved: (tabId) =>
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
         savedContent: doc.content,
         isDirty: false,
+        isDivergent: false, // Manual save syncs local with disk
       }))
     ),
 
@@ -136,6 +149,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
       updateDoc(state, tabId, (doc) => ({
         savedContent: doc.content,
         isDirty: false,
+        isDivergent: false, // Auto-save syncs local with disk
         lastAutoSave: Date.now(),
       }))
     ),
