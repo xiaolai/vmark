@@ -54,7 +54,7 @@ function detectPlatform(): 'macos' | 'windows' | 'linux' | 'unknown' {
 function getAssetInfo(asset: ReleaseAsset): PlatformDownload | null {
   const name = asset.name.toLowerCase()
 
-  // macOS
+  // macOS only - Windows and Linux binaries are available on GitHub Releases
   if (name.endsWith('.dmg')) {
     const isArm = name.includes('aarch64') || name.includes('arm64')
     const isIntel = name.includes('x64') || name.includes('x86_64')
@@ -70,45 +70,6 @@ function getAssetInfo(asset: ReleaseAsset): PlatformDownload | null {
       url: asset.browser_download_url,
       size: formatSize(asset.size),
       icon: 'macos'
-    }
-  }
-
-  // Windows
-  if (name.endsWith('.msi') || name.endsWith('.exe')) {
-    const isSetup = name.includes('setup') || name.endsWith('.msi')
-    return {
-      name: isSetup ? 'Windows (Installer)' : 'Windows (Portable)',
-      url: asset.browser_download_url,
-      size: formatSize(asset.size),
-      icon: 'windows'
-    }
-  }
-
-  // Linux
-  if (name.endsWith('.appimage')) {
-    return {
-      name: 'Linux (AppImage)',
-      url: asset.browser_download_url,
-      size: formatSize(asset.size),
-      icon: 'linux'
-    }
-  }
-
-  if (name.endsWith('.deb')) {
-    return {
-      name: 'Linux (Debian/Ubuntu)',
-      url: asset.browser_download_url,
-      size: formatSize(asset.size),
-      icon: 'linux'
-    }
-  }
-
-  if (name.endsWith('.rpm')) {
-    return {
-      name: 'Linux (Fedora/RHEL)',
-      url: asset.browser_download_url,
-      size: formatSize(asset.size),
-      icon: 'linux'
     }
   }
 
@@ -260,10 +221,6 @@ onMounted(() => {
           <span class="icon">
             <!-- macOS -->
             <svg v-if="download.icon === 'macos'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-            <!-- Windows -->
-            <svg v-else-if="download.icon === 'windows'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.55v5.1l7.5.001V4.5L3 5.55zm0 12.9 7.5 1.05v-6.15H3v5.1zm8.5 1.2L22 21V13.35h-10.5v6.3zm0-14.4v6.4H22V3l-10.5 2.25z"/></svg>
-            <!-- Linux -->
-            <svg v-else-if="download.icon === 'linux'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.311.002-.465.007-3.61.12-6.414 3.05-6.439 6.66a6.5 6.5 0 0 0 .827 4.103c.375.63.834 1.203 1.358 1.699 1.168 1.107 2.615 1.878 4.225 2.253v3.278h-2.5a.5.5 0 0 0-.5.5v1.5a.5.5 0 0 0 .5.5h2.5v2.5a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V20.5h2.5a.5.5 0 0 0 .5-.5V18.5a.5.5 0 0 0-.5-.5h-2.5v-3.278c1.61-.375 3.057-1.146 4.225-2.253a6.7 6.7 0 0 0 1.358-1.699 6.5 6.5 0 0 0 .827-4.103c-.025-3.61-2.829-6.54-6.439-6.66A7.7 7.7 0 0 0 12.504 0m-1 4a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5m2 0a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5m-1 2.5c.5 0 1 .5 1 1s-.5.5-1 .5-1 0-1-.5.5-1 1-1"/></svg>
           </span>
           <span class="info">
             <span class="name">{{ download.name }}</span>

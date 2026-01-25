@@ -1,7 +1,5 @@
 # Download VMark
 
-Get VMark for your platform. All versions include the same features - choose the installer that matches your operating system.
-
 <script setup>
 import DownloadButton from './.vitepress/components/DownloadButton.vue'
 </script>
@@ -10,28 +8,11 @@ import DownloadButton from './.vitepress/components/DownloadButton.vue'
 
 ## System Requirements
 
-### macOS
-
 - macOS 10.15 (Catalina) or later
 - Apple Silicon (M1/M2/M3) or Intel processor
 - 200 MB disk space
 
-### Windows
-
-- Windows 10 (version 1803) or later
-- 64-bit processor
-- 200 MB disk space
-
-### Linux
-
-- Ubuntu 20.04 or later / Fedora 36 or later / other modern distributions
-- 64-bit processor
-- 200 MB disk space
-- WebKit2GTK 4.1 (usually pre-installed on GTK-based desktops)
-
 ## Installation
-
-### macOS
 
 **Homebrew (Recommended)**
 
@@ -54,28 +35,14 @@ brew update && brew upgrade vmark
 3. Drag VMark to your Applications folder
 4. On first launch, right-click the app and select "Open" to bypass Gatekeeper
 
-### Windows
+## Windows & Linux
 
-1. Download the `.msi` installer
-2. Run the installer and follow the prompts
-3. VMark will be available in your Start menu
+VMark is built with Tauri, which supports cross-platform compilation. However, **active development and testing is currently focused on macOS**. Windows and Linux support is limited for the foreseeable future due to resource constraints.
 
-### Linux
+If you'd like to run VMark on Windows or Linux:
 
-**AppImage (Universal):**
-1. Download the `.AppImage` file
-2. Make it executable: `chmod +x VMark*.AppImage`
-3. Run it: `./VMark*.AppImage`
-
-**Debian/Ubuntu (.deb):**
-```bash
-sudo dpkg -i vmark_*.deb
-```
-
-**Fedora/RHEL (.rpm):**
-```bash
-sudo rpm -i vmark-*.rpm
-```
+- **Pre-built binaries** are available on [GitHub Releases](https://github.com/xiaolai/vmark/releases) (provided as-is, without guaranteed support)
+- **Build from source** following the instructions below
 
 ## Verifying Downloads
 

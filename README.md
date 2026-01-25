@@ -24,19 +24,23 @@ A local-first Markdown editor built with Tauri v2 and React, featuring dual edit
 
 ## Installation
 
-### macOS (Homebrew)
+### macOS
+
+**Homebrew (Recommended)**
 
 ```bash
 brew install xiaolai/tap/vmark
 ```
 
-### Other Platforms
+**Manual Download**
 
-Download the latest release from the [Releases page](https://github.com/xiaolai/vmark/releases):
+Download the `.dmg` from the [Releases page](https://github.com/xiaolai/vmark/releases) (Apple Silicon & Intel builds available).
 
-- **macOS**: `.dmg` (Apple Silicon & Intel)
-- **Windows**: `.msi` installer
-- **Linux**: `.AppImage`, `.deb`, or `.rpm`
+### Windows & Linux
+
+Active development and testing is currently focused on macOS. Windows and Linux support is limited for the foreseeable future due to resource constraints.
+
+Pre-built binaries are available on the [Releases page](https://github.com/xiaolai/vmark/releases) (provided as-is, without guaranteed support), or you can build from source.
 
 ## Development
 

@@ -151,9 +151,9 @@ Let Claude write directly to your documents via MCP integration:
   <a href="https://www.rust-lang.org" target="_blank" class="tech-badge">Rust</a>
 </div>
 
-## Cross-Platform
+## Available for macOS
 
-VMark is available for macOS, Windows, and Linux. Download the latest version and start writing today.
+VMark is optimized for macOS with native Apple Silicon and Intel support. Download the latest version and start writing today.
 
 [Get VMark →](/download)
 
