@@ -96,6 +96,7 @@ export function useUpdateOperationHandler() {
   const setUpdateInfo = useUpdateStore((state) => state.setUpdateInfo);
   const setDownloadProgress = useUpdateStore((state) => state.setDownloadProgress);
   const setError = useUpdateStore((state) => state.setError);
+  const clearDismissed = useUpdateStore((state) => state.clearDismissed);
   const updateUpdateSetting = useSettingsStore((state) => state.updateUpdateSetting);
 
   /**
@@ -117,20 +118,23 @@ export function useUpdateOperationHandler() {
           currentVersion,
         });
         setStatus("available");
+        // Reset dismissed flag so new update shows notification banner
+        clearDismissed();
+        updateUpdateSetting("lastCheckTimestamp", Date.now());
         return true;
       } else {
         setStatus("up-to-date");
         pendingUpdate = null;
+        updateUpdateSetting("lastCheckTimestamp", Date.now());
         return false;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to check for updates";
       setError(message);
+      // Don't update lastCheckTimestamp on error - the check didn't complete successfully
       return false;
-    } finally {
-      updateUpdateSetting("lastCheckTimestamp", Date.now());
     }
-  }, [setStatus, setUpdateInfo, setError, updateUpdateSetting]);
+  }, [setStatus, setUpdateInfo, setError, clearDismissed, updateUpdateSetting]);
 
   /**
    * Perform the actual download operation (main window only)
@@ -144,20 +148,21 @@ export function useUpdateOperationHandler() {
     setStatus("downloading");
     setDownloadProgress({ downloaded: 0, total: null });
 
+    // Track progress in local variables to avoid stale state issues with rapid updates
+    let downloadedBytes = 0;
+    let totalBytes: number | null = null;
+
     try {
       await pendingUpdate.downloadAndInstall((event) => {
         switch (event.event) {
           case "Started":
-            setDownloadProgress({
-              downloaded: 0,
-              total: event.data.contentLength ?? null,
-            });
+            downloadedBytes = 0;
+            totalBytes = event.data.contentLength ?? null;
+            setDownloadProgress({ downloaded: 0, total: totalBytes });
             break;
           case "Progress":
-            setDownloadProgress((prev) => ({
-              downloaded: (prev?.downloaded ?? 0) + event.data.chunkLength,
-              total: prev?.total ?? null,
-            }));
+            downloadedBytes += event.data.chunkLength;
+            setDownloadProgress({ downloaded: downloadedBytes, total: totalBytes });
             break;
           case "Finished":
             setDownloadProgress(null);

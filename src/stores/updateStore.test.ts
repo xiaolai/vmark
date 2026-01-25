@@ -70,13 +70,34 @@ describe("updateStore", () => {
     });
   });
 
+  describe("dismiss and clearDismissed", () => {
+    it("dismiss sets dismissed to true", () => {
+      const { dismiss } = useUpdateStore.getState();
+
+      dismiss();
+
+      expect(useUpdateStore.getState().dismissed).toBe(true);
+    });
+
+    it("clearDismissed resets dismissed to false", () => {
+      const { dismiss, clearDismissed } = useUpdateStore.getState();
+
+      dismiss();
+      expect(useUpdateStore.getState().dismissed).toBe(true);
+
+      clearDismissed();
+      expect(useUpdateStore.getState().dismissed).toBe(false);
+    });
+  });
+
   describe("reset", () => {
     it("resets all state to initial values", () => {
-      const { setError, setStatus, setUpdateInfo, reset } = useUpdateStore.getState();
+      const { setError, setStatus, setUpdateInfo, dismiss, reset } = useUpdateStore.getState();
 
       setError("Error");
       setStatus("error");
       setUpdateInfo({ version: "1.0.0", notes: "", pubDate: "", currentVersion: "0.9.0" });
+      dismiss();
 
       reset();
 
@@ -84,6 +105,7 @@ describe("updateStore", () => {
       expect(state.status).toBe("idle");
       expect(state.error).toBeNull();
       expect(state.updateInfo).toBeNull();
+      expect(state.dismissed).toBe(false);
     });
   });
 });
