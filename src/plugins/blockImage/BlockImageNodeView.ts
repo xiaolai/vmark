@@ -12,6 +12,15 @@ import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { isAbsolutePath, isExternalUrl, isRelativePath, validateImagePath } from "@/plugins/imageView/security";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 
+/**
+ * Normalize path for convertFileSrc on Windows.
+ * Windows paths use backslashes which convertFileSrc doesn't handle correctly.
+ * See: https://github.com/tauri-apps/tauri/issues/7970
+ */
+function normalizePathForAsset(path: string): string {
+  return path.replace(/\\/g, "/");
+}
+
 function getActiveTabIdForCurrentWindow(): string | null {
   try {
     const windowLabel = getWindowLabel();
@@ -28,7 +37,7 @@ async function resolveImageSrc(src: string): Promise<string> {
   // Markdown may contain %20 for spaces, but filesystem needs actual spaces
   const decodedSrc = decodeMarkdownUrl(src);
 
-  if (isAbsolutePath(decodedSrc)) return convertFileSrc(decodedSrc);
+  if (isAbsolutePath(decodedSrc)) return convertFileSrc(normalizePathForAsset(decodedSrc));
 
   if (isRelativePath(decodedSrc)) {
     if (!validateImagePath(decodedSrc)) {
@@ -45,7 +54,7 @@ async function resolveImageSrc(src: string): Promise<string> {
       const docDir = await dirname(filePath);
       const cleanPath = decodedSrc.replace(/^\.\//, "");
       const absolutePath = await join(docDir, cleanPath);
-      return convertFileSrc(absolutePath);
+      return convertFileSrc(normalizePathForAsset(absolutePath));
     } catch (error) {
       console.error("Failed to resolve image path:", error);
       return src;

@@ -19,6 +19,15 @@ import {
 } from "@/utils/popupPosition";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 
+/**
+ * Normalize path for convertFileSrc on Windows.
+ * Windows paths use backslashes which convertFileSrc doesn't handle correctly.
+ * See: https://github.com/tauri-apps/tauri/issues/7970
+ */
+function normalizePathForAsset(path: string): string {
+  return path.replace(/\\/g, "/");
+}
+
 /** Maximum thumbnail dimensions */
 const MAX_THUMBNAIL_WIDTH = 200;
 const MAX_THUMBNAIL_HEIGHT = 150;
@@ -70,7 +79,7 @@ async function resolveImageSrc(src: string): Promise<string> {
 
   // Absolute local paths - convert to asset:// URL
   if (isAbsolutePath(decodedSrc)) {
-    return convertFileSrc(decodedSrc);
+    return convertFileSrc(normalizePathForAsset(decodedSrc));
   }
 
   // Relative paths - resolve against document directory
@@ -84,7 +93,7 @@ async function resolveImageSrc(src: string): Promise<string> {
       const docDir = await dirname(filePath);
       const cleanPath = decodedSrc.replace(/^\.\//, "");
       const absolutePath = await join(docDir, cleanPath);
-      return convertFileSrc(absolutePath);
+      return convertFileSrc(normalizePathForAsset(absolutePath));
     } catch (error) {
       console.error("[ImagePreview] Failed to resolve path:", error);
       return src;
