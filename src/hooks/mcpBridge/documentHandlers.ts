@@ -1,8 +1,10 @@
 /**
- * MCP Bridge - Document Operation Handlers
+ * MCP Bridge - Document Operation Handlers (Read-Only)
+ *
+ * Write operations (setContent, insertAtCursor, insertAtPosition, replace)
+ * are handled by suggestionHandlers.ts to wrap AI edits for user approval.
  */
 
-import { parseMarkdown } from "@/utils/markdownPipeline";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { respond, getEditor, getDocumentContent } from "./utils";
@@ -14,99 +16,6 @@ export async function handleGetContent(id: string): Promise<void> {
   try {
     const content = getDocumentContent();
     await respond({ id, success: true, data: content });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-/**
- * Handle document.setContent request.
- */
-export async function handleSetContent(
-  id: string,
-  args: Record<string, unknown>
-): Promise<void> {
-  try {
-    const editor = getEditor();
-    if (!editor) throw new Error("No active editor");
-
-    const content = args.content as string;
-    if (typeof content !== "string") {
-      throw new Error("content must be a string");
-    }
-
-    const parsedDoc = parseMarkdown(editor.state.schema, content);
-    // emitUpdate: false prevents onUpdate callback, but change is still undoable
-    editor.commands.setContent(parsedDoc.toJSON(), { emitUpdate: false });
-
-    await respond({ id, success: true, data: null });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-/**
- * Handle document.insertAtCursor request.
- */
-export async function handleInsertAtCursor(
-  id: string,
-  args: Record<string, unknown>
-): Promise<void> {
-  try {
-    const editor = getEditor();
-    if (!editor) throw new Error("No active editor");
-
-    const text = args.text as string;
-    if (typeof text !== "string") {
-      throw new Error("text must be a string");
-    }
-
-    const parsedDoc = parseMarkdown(editor.state.schema, text);
-    editor.commands.insertContent(parsedDoc.content.toJSON());
-
-    await respond({ id, success: true, data: null });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-/**
- * Handle document.insertAtPosition request.
- */
-export async function handleInsertAtPosition(
-  id: string,
-  args: Record<string, unknown>
-): Promise<void> {
-  try {
-    const editor = getEditor();
-    if (!editor) throw new Error("No active editor");
-
-    const text = args.text as string;
-    const position = args.position as number;
-
-    if (typeof text !== "string") {
-      throw new Error("text must be a string");
-    }
-    if (typeof position !== "number") {
-      throw new Error("position must be a number");
-    }
-
-    const parsedDoc = parseMarkdown(editor.state.schema, text);
-    editor.commands.insertContentAt(position, parsedDoc.content.toJSON());
-
-    await respond({ id, success: true, data: null });
   } catch (error) {
     await respond({
       id,
@@ -162,62 +71,6 @@ export async function handleDocumentSearch(
     }
 
     await respond({ id, success: true, data: matches });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-/**
- * Handle document.replace request.
- */
-export async function handleDocumentReplace(
-  id: string,
-  args: Record<string, unknown>
-): Promise<void> {
-  try {
-    const editor = getEditor();
-    if (!editor) throw new Error("No active editor");
-
-    const search = args.search as string;
-    const replace = args.replace as string;
-    const replaceAll = (args.replaceAll as boolean) ?? false;
-
-    if (typeof search !== "string") {
-      throw new Error("search must be a string");
-    }
-    if (typeof replace !== "string") {
-      throw new Error("replace must be a string");
-    }
-
-    const content = getDocumentContent();
-    let newContent: string;
-    let count = 0;
-
-    if (replaceAll) {
-      const parts = content.split(search);
-      count = parts.length - 1;
-      newContent = parts.join(replace);
-    } else {
-      const idx = content.indexOf(search);
-      if (idx !== -1) {
-        newContent = content.slice(0, idx) + replace + content.slice(idx + search.length);
-        count = 1;
-      } else {
-        newContent = content;
-      }
-    }
-
-    if (count > 0) {
-      const parsedDoc = parseMarkdown(editor.state.schema, newContent);
-      // emitUpdate: false prevents onUpdate callback, but change is still undoable
-      editor.commands.setContent(parsedDoc.toJSON(), { emitUpdate: false });
-    }
-
-    await respond({ id, success: true, data: { replacements: count } });
   } catch (error) {
     await respond({
       id,

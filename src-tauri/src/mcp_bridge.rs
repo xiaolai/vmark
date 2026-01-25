@@ -247,6 +247,10 @@ fn is_read_only_operation(request_type: &str) -> bool {
             | "tabs.list"
             | "tabs.getActive"
             | "tabs.getInfo"
+            // Editor state operations
+            | "editor.getUndoState"
+            // Suggestion read operations
+            | "suggestion.list"
     )
 }
 

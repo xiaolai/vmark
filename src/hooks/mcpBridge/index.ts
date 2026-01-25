@@ -10,12 +10,10 @@ import { listen } from "@tauri-apps/api/event";
 import type { McpRequestEvent } from "./types";
 import { respond } from "./utils";
 
-// Document handlers
+// Document handlers (read-only operations)
 import {
   handleGetContent,
-  handleInsertAtPosition,
   handleDocumentSearch,
-  handleDocumentReplace,
   handleOutlineGet,
   handleMetadataGet,
 } from "./documentHandlers";
@@ -27,6 +25,8 @@ import { handleSelectionGet, handleSelectionSet } from "./selectionHandlers";
 import {
   handleSetContentBlocked,
   handleInsertAtCursorWithSuggestion,
+  handleInsertAtPositionWithSuggestion,
+  handleDocumentReplaceWithSuggestion,
   handleSelectionReplaceWithSuggestion,
   handleSelectionDeleteWithSuggestion,
   handleSuggestionAccept,
@@ -48,7 +48,7 @@ import {
 } from "./formatHandlers";
 
 // Editor handlers
-import { handleUndo, handleRedo, handleFocus } from "./editorHandlers";
+import { handleUndo, handleRedo, handleFocus, handleGetUndoState } from "./editorHandlers";
 
 // Block and list handlers
 import {
@@ -128,13 +128,15 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         await handleInsertAtCursorWithSuggestion(id, args);
         break;
       case "document.insertAtPosition":
-        await handleInsertAtPosition(id, args);
+        // Wrapped with suggestion for approval
+        await handleInsertAtPositionWithSuggestion(id, args);
         break;
       case "document.search":
         await handleDocumentSearch(id, args);
         break;
       case "document.replace":
-        await handleDocumentReplace(id, args);
+        // Wrapped with suggestion for approval
+        await handleDocumentReplaceWithSuggestion(id, args);
         break;
 
       // Outline and metadata operations
@@ -209,6 +211,9 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         break;
       case "editor.focus":
         await handleFocus(id);
+        break;
+      case "editor.getUndoState":
+        await handleGetUndoState(id);
         break;
 
       // Block operations

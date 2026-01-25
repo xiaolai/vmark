@@ -70,6 +70,149 @@ export async function handleInsertAtCursorWithSuggestion(
 }
 
 /**
+ * Handle document.insertAtPosition with suggestion wrapping.
+ * Does NOT modify document - stores suggestion for preview decoration.
+ * Document is only modified when user accepts.
+ */
+export async function handleInsertAtPositionWithSuggestion(
+  id: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  try {
+    const editor = getEditor();
+    if (!editor) throw new Error("No active editor");
+
+    const text = args.text as string;
+    const position = args.position as number;
+
+    if (typeof text !== "string") {
+      throw new Error("text must be a string");
+    }
+    if (typeof position !== "number") {
+      throw new Error("position must be a number");
+    }
+
+    // Validate position is within document bounds
+    const docSize = editor.state.doc.content.size;
+    if (position < 0 || position > docSize) {
+      throw new Error(`Invalid position: ${position} (document size: ${docSize})`);
+    }
+
+    // Create suggestion WITHOUT modifying the document
+    const suggestionId = useAiSuggestionStore.getState().addSuggestion({
+      type: "insert",
+      from: position,
+      to: position,
+      newContent: text,
+    });
+
+    await respond({
+      id,
+      success: true,
+      data: {
+        suggestionId,
+        message: "Content staged as suggestion. Awaiting user approval.",
+        position,
+      },
+    });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Handle document.replace with suggestion wrapping.
+ * Creates suggestions for each match found in the document.
+ * Does NOT modify document until user accepts suggestions.
+ */
+export async function handleDocumentReplaceWithSuggestion(
+  id: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  try {
+    const editor = getEditor();
+    if (!editor) throw new Error("No active editor");
+
+    const search = args.search as string;
+    const replace = args.replace as string;
+    const replaceAll = (args.all as boolean) ?? false;
+
+    if (typeof search !== "string") {
+      throw new Error("search must be a string");
+    }
+    if (typeof replace !== "string") {
+      throw new Error("replace must be a string");
+    }
+
+    // Find all matches in the document
+    const doc = editor.state.doc;
+    const matches: Array<{ from: number; to: number }> = [];
+
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text) {
+        let searchPos = 0;
+        while (searchPos < node.text.length) {
+          const idx = node.text.indexOf(search, searchPos);
+          if (idx === -1) break;
+
+          // Convert node-relative position to document position
+          const from = pos + idx;
+          const to = from + search.length;
+          matches.push({ from, to });
+
+          if (!replaceAll) return false; // Stop traversal after first match
+          searchPos = idx + 1;
+        }
+      }
+    });
+
+    if (matches.length === 0) {
+      await respond({
+        id,
+        success: true,
+        data: { suggestionIds: [], count: 0, message: "No matches found" },
+      });
+      return;
+    }
+
+    // Create suggestions in reverse order to maintain correct positions
+    const suggestionIds: string[] = [];
+    const reversedMatches = [...matches].reverse();
+
+    for (const match of reversedMatches) {
+      const suggestionId = useAiSuggestionStore.getState().addSuggestion({
+        type: "replace",
+        from: match.from,
+        to: match.to,
+        newContent: replace,
+        originalContent: search,
+      });
+      suggestionIds.unshift(suggestionId); // Maintain original order in response
+    }
+
+    await respond({
+      id,
+      success: true,
+      data: {
+        suggestionIds,
+        count: matches.length,
+        message: `${matches.length} replacement(s) staged as suggestions. Awaiting user approval.`,
+      },
+    });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
  * Handle selection.replace with suggestion wrapping.
  * Does NOT modify document - stores both original and new content.
  * Original shown with strikethrough, new shown as ghost text.

@@ -163,19 +163,35 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
     },
 
     acceptAll: () => {
-      // Process in reverse position order to maintain correct positions
+      // Get suggestions in reverse position order (for correct position handling)
       const sorted = get().getSortedSuggestions().reverse();
-      for (const suggestion of sorted) {
-        get().acceptSuggestion(suggestion.id);
-      }
+      if (sorted.length === 0) return;
+
+      // Emit single event with all suggestions for batched transaction
+      window.dispatchEvent(
+        new CustomEvent(AI_SUGGESTION_EVENTS.ACCEPT_ALL, {
+          detail: { suggestions: sorted },
+        })
+      );
+
+      // Clear all from store
+      set({ suggestions: new Map(), focusedSuggestionId: null });
     },
 
     rejectAll: () => {
-      // Process in reverse position order to maintain correct positions
+      // Get suggestions in reverse position order
       const sorted = get().getSortedSuggestions().reverse();
-      for (const suggestion of sorted) {
-        get().rejectSuggestion(suggestion.id);
-      }
+      if (sorted.length === 0) return;
+
+      // Emit single event for batched rejection (just clears decorations)
+      window.dispatchEvent(
+        new CustomEvent(AI_SUGGESTION_EVENTS.REJECT_ALL, {
+          detail: { suggestions: sorted },
+        })
+      );
+
+      // Clear all from store
+      set({ suggestions: new Map(), focusedSuggestionId: null });
     },
 
     focusSuggestion: (id) => {

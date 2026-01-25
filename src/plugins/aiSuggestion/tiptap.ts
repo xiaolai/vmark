@@ -338,6 +338,55 @@ export const aiSuggestionExtension = Extension.create({
             });
           };
 
+          // Handle accept all event - apply all changes in a SINGLE transaction
+          const handleAcceptAll = (event: Event) => {
+            const { suggestions } = (event as CustomEvent).detail as {
+              suggestions: AiSuggestion[];
+            };
+
+            if (suggestions.length === 0) return;
+
+            runOrQueueProseMirrorAction(editorView, () => {
+              let { tr } = editorView.state;
+
+              // Apply all suggestions in reverse order (they're already sorted reverse)
+              // This maintains correct positions as we modify the document
+              for (const suggestion of suggestions) {
+                switch (suggestion.type) {
+                  case "insert": {
+                    if (suggestion.newContent) {
+                      tr = tr.insertText(suggestion.newContent, suggestion.from);
+                    }
+                    break;
+                  }
+                  case "replace": {
+                    if (suggestion.newContent) {
+                      tr = tr
+                        .delete(suggestion.from, suggestion.to)
+                        .insertText(suggestion.newContent, suggestion.from);
+                    }
+                    break;
+                  }
+                  case "delete": {
+                    tr = tr.delete(suggestion.from, suggestion.to);
+                    break;
+                  }
+                }
+              }
+
+              // Dispatch single transaction for all changes - one undo reverts all
+              editorView.dispatch(tr);
+            });
+          };
+
+          // Handle reject all event - just refresh decorations
+          const handleRejectAll = () => {
+            runOrQueueProseMirrorAction(editorView, () => {
+              // Trigger decoration refresh
+              editorView.dispatch(editorView.state.tr);
+            });
+          };
+
           // Handle store changes to trigger decoration updates
           const unsubscribe = useAiSuggestionStore.subscribe(() => {
             runOrQueueProseMirrorAction(editorView, () => {
@@ -369,6 +418,8 @@ export const aiSuggestionExtension = Extension.create({
 
           window.addEventListener(AI_SUGGESTION_EVENTS.ACCEPT, handleAccept);
           window.addEventListener(AI_SUGGESTION_EVENTS.REJECT, handleReject);
+          window.addEventListener(AI_SUGGESTION_EVENTS.ACCEPT_ALL, handleAcceptAll);
+          window.addEventListener(AI_SUGGESTION_EVENTS.REJECT_ALL, handleRejectAll);
           window.addEventListener(AI_SUGGESTION_EVENTS.FOCUS_CHANGED, handleFocusChanged);
 
           return {
@@ -376,6 +427,8 @@ export const aiSuggestionExtension = Extension.create({
               unsubscribe();
               window.removeEventListener(AI_SUGGESTION_EVENTS.ACCEPT, handleAccept);
               window.removeEventListener(AI_SUGGESTION_EVENTS.REJECT, handleReject);
+              window.removeEventListener(AI_SUGGESTION_EVENTS.ACCEPT_ALL, handleAcceptAll);
+              window.removeEventListener(AI_SUGGESTION_EVENTS.REJECT_ALL, handleRejectAll);
               window.removeEventListener(AI_SUGGESTION_EVENTS.FOCUS_CHANGED, handleFocusChanged);
             },
           };
