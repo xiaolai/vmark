@@ -172,7 +172,12 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
   private handleBrowse = async (): Promise<void> => {
     try {
       const selected = await open({
-        filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+        filters: [
+          { name: "Markdown", extensions: ["md", "markdown"] },
+          { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "svg", "webp"] },
+          { name: "Documents", extensions: ["pdf", "txt", "html"] },
+          { name: "All Files", extensions: ["*"] },
+        ],
         multiple: false,
       });
 

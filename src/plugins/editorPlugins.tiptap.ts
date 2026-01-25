@@ -335,51 +335,7 @@ function handleSmartLinkShortcut(view: EditorView): boolean {
       if (markRange) {
         const href = linkMark.attrs.href || "";
 
-        // Check if it's a bookmark link (href starts with #)
-        if (href.startsWith("#")) {
-          // Extract headings from document
-          const headings = extractHeadingsWithIds(view.state.doc);
-          if (headings.length === 0) {
-            // No headings in document - fall back to regular popup
-            return openLinkPopup(view, markRange, href);
-          }
-
-          // Open heading picker for bookmark link
-          try {
-            const start = view.coordsAtPos(markRange.from);
-            const end = view.coordsAtPos(markRange.to);
-            const anchorRect = {
-              top: Math.min(start.top, end.top),
-              left: Math.min(start.left, end.left),
-              bottom: Math.max(start.bottom, end.bottom),
-              right: Math.max(start.right, end.right),
-            };
-
-            // Get container bounds for proper popup positioning
-            const containerEl = view.dom.closest(".editor-container") as HTMLElement;
-            const containerBounds = containerEl
-              ? getBoundaryRects(view.dom as HTMLElement, containerEl)
-              : getViewportBounds();
-
-            useHeadingPickerStore.getState().openPicker(headings, (id) => {
-              // Update the link's href to point to the new heading
-              const { state, dispatch } = view;
-              if (!state) return;
-
-              const tr = state.tr;
-              tr.removeMark(markRange.from, markRange.to, linkMarkType);
-              tr.addMark(markRange.from, markRange.to, linkMarkType.create({ href: `#${id}` }));
-              dispatch(tr);
-              view.focus();
-            }, { anchorRect, containerBounds });
-            return true;
-          } catch {
-            // Fall back to toggle if coords fail
-            return expandedToggleMark(view, "link");
-          }
-        }
-
-        // Regular link - open link popup for editing
+        // All links (including bookmark links) use the same popup for editing
         return openLinkPopup(view, markRange, href);
       }
     }
@@ -410,6 +366,148 @@ function handleSmartLinkShortcut(view: EditorView): boolean {
     // No selection, no word: insert URL as linked text
     insertLinkAtCursor(view, clipboardUrl);
   })();
+
+  return true;
+}
+
+/**
+ * Remove link from selection, keeping the text.
+ */
+function handleUnlinkShortcut(view: EditorView): boolean {
+  const { state, dispatch } = view;
+  const linkMarkType = state.schema.marks.link;
+  if (!linkMarkType) return false;
+
+  const $from = state.selection.$from;
+
+  // Check if cursor is in a link
+  const linkMark = $from.marks().find((m) => m.type === linkMarkType);
+  if (!linkMark) return false;
+
+  // Find the link's full range
+  const markRange = findMarkRange($from.pos, linkMark, $from.start(), $from.parent);
+  if (!markRange) return false;
+
+  // Remove the link mark
+  const tr = state.tr.removeMark(markRange.from, markRange.to, linkMarkType);
+  dispatch(tr);
+  view.focus();
+  return true;
+}
+
+/**
+ * Insert a new wiki link at cursor.
+ */
+function handleWikiLinkShortcut(view: EditorView): boolean {
+  const { state, dispatch } = view;
+  const wikiLinkType = state.schema.nodes.wikiLink;
+  if (!wikiLinkType) return false;
+
+  const { from, to } = state.selection;
+  const selectedText = from !== to ? state.doc.textBetween(from, to) : "";
+
+  // Create wiki link with selected text as both target and display
+  const target = selectedText || "page";
+  const wikiLinkNode = wikiLinkType.create(
+    { value: target },
+    selectedText ? state.schema.text(selectedText) : state.schema.text(target)
+  );
+
+  const tr = state.tr.replaceSelectionWith(wikiLinkNode);
+  dispatch(tr);
+
+  // Open the popup for editing
+  setTimeout(() => {
+    const $pos = view.state.doc.resolve(from);
+    for (let d = $pos.depth; d >= 0; d--) {
+      const node = $pos.node(d);
+      if (node.type.name === "wikiLink") {
+        try {
+          const nodePos = $pos.before(d);
+          const coords = view.coordsAtPos(nodePos);
+          const endCoords = view.coordsAtPos(nodePos + node.nodeSize);
+          useWikiLinkPopupStore.getState().openPopup(
+            {
+              top: coords.top,
+              left: coords.left,
+              bottom: coords.bottom,
+              right: endCoords.right,
+            },
+            String(node.attrs.value ?? ""),
+            nodePos
+          );
+        } catch (err) {
+          // coords fail when view is not attached or node position is invalid
+          if (import.meta.env.DEV) {
+            console.debug("[WikiLink shortcut] Failed to open popup:", err);
+          }
+        }
+        break;
+      }
+    }
+  }, 0);
+
+  view.focus();
+  return true;
+}
+
+/**
+ * Insert bookmark link by opening heading picker.
+ */
+function handleBookmarkLinkShortcut(view: EditorView): boolean {
+  // Block if heading picker is already open
+  if (useHeadingPickerStore.getState().isOpen) {
+    return true;
+  }
+
+  const { state } = view;
+  const headings = extractHeadingsWithIds(state.doc);
+  if (headings.length === 0) {
+    // No headings - could show a toast here
+    return false;
+  }
+
+  const { from, to } = state.selection;
+  const selectedText = from !== to ? state.doc.textBetween(from, to) : "";
+
+  // Get anchor rect for popup positioning
+  // When there's no selection width, we need a minimum width for the anchor rect
+  // so the popup positioning algorithm has something to align with.
+  const MINIMUM_ANCHOR_WIDTH = 10;
+  const coords = view.coordsAtPos(from);
+  const anchorRect = {
+    top: coords.top,
+    bottom: coords.bottom,
+    left: coords.left,
+    right: coords.left + MINIMUM_ANCHOR_WIDTH,
+  };
+
+  const containerEl = view.dom.closest(".editor-container") as HTMLElement;
+  const containerBounds = containerEl
+    ? getBoundaryRects(view.dom as HTMLElement, containerEl)
+    : getViewportBounds();
+
+  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
+    const currentState = view.state;
+    const linkMark = currentState.schema.marks.link;
+    if (!linkMark) return;
+
+    const tr = currentState.tr;
+    const linkText = selectedText || text;
+    const linkMarkInstance = linkMark.create({ href: `#${id}` });
+
+    if (from === to) {
+      // No selection - insert link with heading text
+      const textNode = currentState.schema.text(linkText, [linkMarkInstance]);
+      tr.insert(from, textNode);
+    } else {
+      // Has selection - apply link mark to selection
+      tr.addMark(from, to, linkMarkInstance);
+    }
+
+    view.dispatch(tr);
+    view.focus();
+  }, { anchorRect, containerBounds });
 
   return true;
 }
@@ -656,6 +754,30 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
     wrapWithMultiSelectionGuard("link", (_state, _dispatch, view) => {
       if (!view) return false;
       return handleSmartLinkShortcut(view);
+    })
+  );
+  bindIfKey(
+    bindings,
+    shortcuts.getShortcut("unlink"),
+    wrapWithMultiSelectionGuard("unlink", (_state, _dispatch, view) => {
+      if (!view) return false;
+      return handleUnlinkShortcut(view);
+    })
+  );
+  bindIfKey(
+    bindings,
+    shortcuts.getShortcut("wikiLink"),
+    wrapWithMultiSelectionGuard("wikiLink", (_state, _dispatch, view) => {
+      if (!view) return false;
+      return handleWikiLinkShortcut(view);
+    })
+  );
+  bindIfKey(
+    bindings,
+    shortcuts.getShortcut("bookmarkLink"),
+    wrapWithMultiSelectionGuard("bookmarkLink", (_state, _dispatch, view) => {
+      if (!view) return false;
+      return handleBookmarkLinkShortcut(view);
     })
   );
   bindIfKey(

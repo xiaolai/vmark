@@ -101,6 +101,12 @@ export class WikiLinkPopupView {
     });
 
     document.addEventListener("mousedown", this.handleClickOutside);
+
+    // Handle mouse leaving the popup
+    this.container.addEventListener("mouseleave", this.handleMouseLeave);
+
+    // Close popup on scroll (popup position becomes stale)
+    this.editorView.dom.closest(".editor-container")?.addEventListener("scroll", this.handleScroll, true);
   }
 
   private buildContainer(): HTMLElement {
@@ -248,7 +254,12 @@ export class WikiLinkPopupView {
   private handleBrowse = async () => {
     try {
       const selected = await open({
-        filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+        filters: [
+          { name: "Markdown", extensions: ["md", "markdown"] },
+          { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "svg", "webp"] },
+          { name: "Documents", extensions: ["pdf", "txt", "html"] },
+          { name: "All Files", extensions: ["*"] },
+        ],
         multiple: false,
       });
 
@@ -293,12 +304,11 @@ export class WikiLinkPopupView {
     if (target) {
       try {
         await navigator.clipboard.writeText(target);
+        // Keep popup open for further actions - don't close
       } catch (err) {
         console.error("[WikiLinkPopup] Failed to copy:", err);
       }
     }
-    useWikiLinkPopupStore.getState().closePopup();
-    this.editorView.focus();
   };
 
   private handleSave = () => {
@@ -345,7 +355,19 @@ export class WikiLinkPopupView {
       return;
     }
 
-    const tr = editorState.tr.delete(nodePos, nodePos + node.nodeSize);
+    // Preserve display text: use node's text content (alias) or fall back to target
+    const displayText = node.textContent || String(node.attrs.value ?? "");
+    const schema = editorState.schema;
+    const tr = editorState.tr;
+
+    // Replace wikiLink node with plain text
+    if (displayText) {
+      const textNode = schema.text(displayText);
+      tr.replaceWith(nodePos, nodePos + node.nodeSize, textNode);
+    } else {
+      // Empty display - just delete
+      tr.delete(nodePos, nodePos + node.nodeSize);
+    }
     dispatch(tr);
 
     state.closePopup();
@@ -368,10 +390,37 @@ export class WikiLinkPopupView {
     }
   };
 
+  private handleMouseLeave = (e: MouseEvent) => {
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+
+    // If moving back to a wiki link in the editor, don't close
+    if (relatedTarget?.closest("span.wiki-link")) {
+      return;
+    }
+
+    // If input is focused (user is editing), don't close on mouse leave
+    if (document.activeElement === this.targetInput) {
+      return;
+    }
+
+    // Close the popup
+    useWikiLinkPopupStore.getState().closePopup();
+  };
+
+  private handleScroll = () => {
+    // Close popup on scroll - position becomes stale
+    const { isOpen } = useWikiLinkPopupStore.getState();
+    if (isOpen) {
+      useWikiLinkPopupStore.getState().closePopup();
+    }
+  };
+
   destroy() {
     this.unsubscribe();
     this.removeKeyboardNavigation();
     document.removeEventListener("mousedown", this.handleClickOutside);
+    this.container.removeEventListener("mouseleave", this.handleMouseLeave);
+    this.editorView.dom.closest(".editor-container")?.removeEventListener("scroll", this.handleScroll, true);
     this.container.remove();
   }
 }

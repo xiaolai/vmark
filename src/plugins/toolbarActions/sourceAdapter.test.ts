@@ -112,4 +112,99 @@ describe("performSourceToolbarAction", () => {
     expect(view.state.doc.toString()).toBe("1. Item");
     view.destroy();
   });
+
+  describe("unlink action", () => {
+    it("removes markdown link syntax preserving text", () => {
+      // Cursor inside link text
+      const view = createView("[hello](https://example.com)", [{ from: 3, to: 3 }]);
+
+      const applied = performSourceToolbarAction("unlink", {
+        surface: "source",
+        view,
+        context: null,
+        multiSelection: singleSelection,
+      });
+
+      expect(applied).toBe(true);
+      expect(view.state.doc.toString()).toBe("hello");
+      view.destroy();
+    });
+
+    it("removes wiki link syntax preserving target", () => {
+      // Cursor inside wiki link
+      const view = createView("[[my-page]]", [{ from: 5, to: 5 }]);
+
+      const applied = performSourceToolbarAction("unlink", {
+        surface: "source",
+        view,
+        context: null,
+        multiSelection: singleSelection,
+      });
+
+      expect(applied).toBe(true);
+      expect(view.state.doc.toString()).toBe("my-page");
+      view.destroy();
+    });
+
+    it("removes wiki link preserving alias over target", () => {
+      // Wiki link with alias: [[target|display text]]
+      const view = createView("[[page|display text]]", [{ from: 10, to: 10 }]);
+
+      const applied = performSourceToolbarAction("unlink", {
+        surface: "source",
+        view,
+        context: null,
+        multiSelection: singleSelection,
+      });
+
+      expect(applied).toBe(true);
+      expect(view.state.doc.toString()).toBe("display text");
+      view.destroy();
+    });
+
+    it("returns false when cursor not in a link", () => {
+      const view = createView("plain text", [{ from: 5, to: 5 }]);
+
+      const applied = performSourceToolbarAction("unlink", {
+        surface: "source",
+        view,
+        context: null,
+        multiSelection: singleSelection,
+      });
+
+      expect(applied).toBe(false);
+      expect(view.state.doc.toString()).toBe("plain text");
+      view.destroy();
+    });
+
+    it("handles link with empty text", () => {
+      const view = createView("[](https://example.com)", [{ from: 1, to: 1 }]);
+
+      const applied = performSourceToolbarAction("unlink", {
+        surface: "source",
+        view,
+        context: null,
+        multiSelection: singleSelection,
+      });
+
+      expect(applied).toBe(true);
+      expect(view.state.doc.toString()).toBe("");
+      view.destroy();
+    });
+
+    it("handles link with title attribute", () => {
+      const view = createView('[text](url "title")', [{ from: 3, to: 3 }]);
+
+      const applied = performSourceToolbarAction("unlink", {
+        surface: "source",
+        view,
+        context: null,
+        multiSelection: singleSelection,
+      });
+
+      expect(applied).toBe(true);
+      expect(view.state.doc.toString()).toBe("text");
+      view.destroy();
+    });
+  });
 });

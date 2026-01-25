@@ -85,6 +85,9 @@ export class LinkPopupView {
 
     // Handle mouse leaving the popup
     this.container.addEventListener("mouseleave", this.handleMouseLeave);
+
+    // Close popup on scroll (popup position becomes stale)
+    this.editorView.dom.closest(".editor-container")?.addEventListener("scroll", this.handleScroll, true);
   }
 
   private getFocusableElements(): HTMLElement[] {
@@ -203,19 +206,11 @@ export class LinkPopupView {
     this.container.style.position = "fixed";
 
     // Configure for bookmark vs regular link
-    if (isBookmark) {
-      // Bookmark link: disable input, hide save button, update open button
-      this.input.disabled = true;
-      this.input.classList.add("disabled");
-      this.saveBtn.style.display = "none";
-      this.openBtn.title = "Go to heading";
-    } else {
-      // Regular link: enable input, show save button
-      this.input.disabled = false;
-      this.input.classList.remove("disabled");
-      this.saveBtn.style.display = "";
-      this.openBtn.title = "Open link";
-    }
+    // Both allow editing - bookmarks can be manually edited too
+    this.input.disabled = false;
+    this.input.classList.remove("disabled");
+    this.saveBtn.style.display = "";
+    this.openBtn.title = isBookmark ? "Go to heading" : "Open link";
 
     // Set guard to prevent immediate close from same click event
     this.justOpened = true;
@@ -244,14 +239,10 @@ export class LinkPopupView {
     // Set up keyboard navigation
     this.setupKeyboardNavigation();
 
-    // Focus input (or first button for bookmarks)
+    // Focus input and select all
     requestAnimationFrame(() => {
-      if (isBookmark) {
-        this.openBtn.focus();
-      } else {
-        this.input.focus();
-        this.input.select();
-      }
+      this.input.focus();
+      this.input.select();
     });
   }
 
@@ -346,12 +337,11 @@ export class LinkPopupView {
     if (href) {
       try {
         await navigator.clipboard.writeText(href);
+        // Keep popup open for further actions - don't close
       } catch (err) {
         console.error("Failed to copy URL:", err);
       }
     }
-    useLinkPopupStore.getState().closePopup();
-    this.editorView.focus();
   };
 
   private handleRemove = () => {
@@ -409,11 +399,20 @@ export class LinkPopupView {
     useLinkPopupStore.getState().closePopup();
   };
 
+  private handleScroll = () => {
+    // Close popup on scroll - position becomes stale
+    const { isOpen } = useLinkPopupStore.getState();
+    if (isOpen) {
+      useLinkPopupStore.getState().closePopup();
+    }
+  };
+
   destroy() {
     this.unsubscribe();
     this.removeKeyboardNavigation();
     document.removeEventListener("mousedown", this.handleClickOutside);
     this.container.removeEventListener("mouseleave", this.handleMouseLeave);
+    this.editorView.dom.closest(".editor-container")?.removeEventListener("scroll", this.handleScroll, true);
     this.container.remove();
   }
 }

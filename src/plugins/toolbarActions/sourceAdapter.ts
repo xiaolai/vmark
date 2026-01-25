@@ -45,6 +45,12 @@ import {
   sortLinesAscending,
   sortLinesDescending,
 } from "@/utils/textTransformations";
+import {
+  findMarkdownLinkAtPosition,
+  findWikiLinkAtPosition,
+  type MarkdownLinkMatch,
+  type WikiLinkMatch,
+} from "@/utils/markdownLinkPatterns";
 
 const TABLE_TEMPLATE = "| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n";
 
@@ -146,31 +152,62 @@ function showImagePopupForExistingImage(view: EditorView): boolean {
 }
 
 /**
+ * Find markdown link at cursor position using shared utility.
+ */
+function findLinkAtCursor(view: EditorView, pos: number): MarkdownLinkMatch | null {
+  const doc = view.state.doc;
+  const line = doc.lineAt(pos);
+  return findMarkdownLinkAtPosition(line.text, line.from, pos);
+}
+
+/**
  * Check if cursor is inside a link markdown: [text](url)
  * Does NOT match images (preceded by !)
  */
 function isInsideLink(view: EditorView, pos: number): boolean {
+  return findLinkAtCursor(view, pos) !== null;
+}
+
+/**
+ * Find wiki link at cursor position using shared utility.
+ */
+function findWikiLinkAtCursor(view: EditorView, pos: number): WikiLinkMatch | null {
   const doc = view.state.doc;
   const line = doc.lineAt(pos);
-  const lineText = line.text;
-  const lineStart = line.from;
+  return findWikiLinkAtPosition(line.text, line.from, pos);
+}
 
-  const linkRegex = /\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+"[^"]*")?\)/g;
+/**
+ * Remove link markdown at cursor, preserving the link text.
+ * [text](url) → text
+ * [[target]] → target
+ * [[target|alias]] → alias
+ */
+function unlinkAtCursor(view: EditorView): boolean {
+  const { from } = view.state.selection.main;
 
-  let match;
-  while ((match = linkRegex.exec(lineText)) !== null) {
-    const matchStart = lineStart + match.index;
-    const matchEnd = matchStart + match[0].length;
+  // Try regular link first
+  const link = findLinkAtCursor(view, from);
+  if (link) {
+    view.dispatch({
+      changes: { from: link.from, to: link.to, insert: link.text },
+      selection: { anchor: link.from + link.text.length },
+    });
+    view.focus();
+    return true;
+  }
 
-    // Skip if this is an image (preceded by !)
-    if (match.index > 0 && lineText[match.index - 1] === "!") {
-      continue;
-    }
-
-    // Use pos < matchEnd since CodeMirror ranges are [from, to)
-    if (pos >= matchStart && pos < matchEnd) {
-      return true;
-    }
+  // Try wiki link
+  const wikiLink = findWikiLinkAtCursor(view, from);
+  if (wikiLink) {
+    // Use alias if present, otherwise use target
+    const displayText = wikiLink.alias ?? wikiLink.target;
+    view.dispatch({
+      changes: { from: wikiLink.from, to: wikiLink.to, insert: displayText },
+      selection: { anchor: wikiLink.from + displayText.length },
+    });
+    view.focus();
+    return true;
   }
 
   return false;
@@ -404,6 +441,8 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return insertWikiSyntax(view, "[[", "]]", "page");
     case "link:bookmark":
       return insertSourceBookmarkLink(view);
+    case "unlink":
+      return unlinkAtCursor(view);
 
     // Clear formatting
     case "clearFormatting":

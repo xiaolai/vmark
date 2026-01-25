@@ -9,6 +9,7 @@ import type { EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { SourceLinkPopupView } from "./SourceLinkPopupView";
+import { findMarkdownLinkAtPosition } from "@/utils/markdownLinkPatterns";
 
 /**
  * Link range result from detection.
@@ -21,49 +22,26 @@ interface LinkRange {
 }
 
 /**
- * Find link markdown at cursor position.
- * Detects: [text](url) or [text](url "title")
+ * Find link markdown at cursor position using shared utility.
  * Does NOT match image syntax ![...](...) or wiki-links [[...]]
  */
 function findLinkAtPos(view: EditorView, pos: number): LinkRange | null {
   const doc = view.state.doc;
   const line = doc.lineAt(pos);
-  const lineText = line.text;
-  const lineStart = line.from;
+  const match = findMarkdownLinkAtPosition(line.text, line.from, pos);
 
-  // Regex to match link syntax (not images):
-  // - [text](url) or [text](url "title")
-  // - [text](<url with spaces>) or [text](<url> "title")
-  // - Negative lookbehind for ! to exclude images
-  // Note: JS doesn't have lookbehind in all environments, so we check the match index
-  // Captures: [1] = text, [2] = angle bracket url, [3] = url
-  const linkRegex = /\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+"[^"]*")?\)/g;
+  if (!match) return null;
 
-  let match;
-  while ((match = linkRegex.exec(lineText)) !== null) {
-    const matchStart = lineStart + match.index;
-    const matchEnd = matchStart + match[0].length;
+  // Note: The shared utility uses `pos < to`, but this plugin historically used `pos <= to`.
+  // For consistency with hover behavior, we check the boundary again with inclusive end.
+  if (pos > match.to) return null;
 
-    // Skip if this is an image (preceded by !)
-    if (match.index > 0 && lineText[match.index - 1] === "!") {
-      continue;
-    }
-
-    // Check if cursor is inside this link markdown
-    if (pos >= matchStart && pos <= matchEnd) {
-      const text = match[1];
-      const href = match[2] || match[3];
-
-      return {
-        from: matchStart,
-        to: matchEnd,
-        href,
-        text,
-      };
-    }
-  }
-
-  return null;
+  return {
+    from: match.from,
+    to: match.to,
+    href: match.url,
+    text: match.text,
+  };
 }
 
 /**

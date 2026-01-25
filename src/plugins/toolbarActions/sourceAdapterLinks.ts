@@ -14,7 +14,6 @@ import { generateSlug, makeUniqueSlug, type HeadingWithId } from "@/utils/headin
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
 import { readClipboardUrl } from "@/utils/clipboardUrl";
 import { findWordBoundaries } from "@/utils/wordSegmentation";
-import { insertText } from "./sourceAdapterHelpers";
 
 /**
  * Find word boundaries at cursor position in CodeMirror.
@@ -238,14 +237,19 @@ export async function insertLink(view: EditorView): Promise<boolean> {
   if (clipboardUrl) {
     // Insert [](clipboardUrl) with cursor in text position
     const text = `[](${clipboardUrl})`;
-    const cursorOffset = 1; // After "["
-    insertText(view, text, cursorOffset);
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + 1 }, // After "["
+    });
   } else {
-    // Insert [](url) with cursor in text position
+    // Insert [](url) with "url" selected so user can replace it
     const text = "[](url)";
-    const cursorOffset = 1; // After "["
-    insertText(view, text, cursorOffset);
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + 3, head: from + 6 }, // Select "url"
+    });
   }
+  view.focus();
   return true;
 }
 
