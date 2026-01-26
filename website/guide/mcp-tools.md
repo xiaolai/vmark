@@ -34,7 +34,9 @@ Insert text at the current cursor position.
 | `windowId` | string | No | Window identifier. |
 
 ::: tip Suggestion System
-This tool creates a **suggestion** that requires user approval. The text appears as ghost text preview. Users can accept (Enter) or reject (Escape) the suggestion. This preserves undo/redo integrity.
+By default, this tool creates a **suggestion** that requires user approval. The text appears as ghost text preview. Users can accept (Enter) or reject (Escape) the suggestion. This preserves undo/redo integrity.
+
+If **Auto-approve edits** is enabled in Settings → Integrations, changes are applied immediately without preview.
 :::
 
 ### document_insert_at_position
@@ -112,7 +114,9 @@ Replace selected text with new text.
 | `windowId` | string | No | Window identifier. |
 
 ::: tip Suggestion System
-This tool creates a **suggestion** that requires user approval. The original text appears with strikethrough, and the new text appears as ghost text. Users can accept (Enter) or reject (Escape) the suggestion.
+By default, this tool creates a **suggestion** that requires user approval. The original text appears with strikethrough, and the new text appears as ghost text. Users can accept (Enter) or reject (Escape) the suggestion.
+
+If **Auto-approve edits** is enabled in Settings → Integrations, changes are applied immediately without preview.
 :::
 
 ### selection_delete
@@ -124,7 +128,9 @@ Delete the selected text.
 | `windowId` | string | No | Window identifier. |
 
 ::: tip Suggestion System
-This tool creates a **suggestion** that requires user approval. The text to be deleted appears with strikethrough. Users can accept (Enter) or reject (Escape) the deletion.
+By default, this tool creates a **suggestion** that requires user approval. The text to be deleted appears with strikethrough. Users can accept (Enter) or reject (Escape) the deletion.
+
+If **Auto-approve edits** is enabled in Settings → Integrations, the deletion is applied immediately without preview.
 :::
 
 ### cursor_get_context
@@ -568,10 +574,14 @@ Get detailed tab information.
 
 ## AI Suggestion Tools
 
-Tools for managing AI-generated content suggestions. When AI uses `document_insert_at_cursor`, `selection_replace`, or `selection_delete`, the changes are staged as suggestions that require user approval.
+Tools for managing AI-generated content suggestions. When AI uses `document_insert_at_cursor`, `document_insert_at_position`, `document_replace`, `selection_replace`, or `selection_delete`, the changes are staged as suggestions that require user approval.
 
 ::: info Undo/Redo Safety
 Suggestions don't modify the document until accepted. This preserves full undo/redo functionality - users can undo after accepting, and rejecting leaves no trace in history.
+:::
+
+::: tip Auto-Approve Mode
+If **Auto-approve edits** is enabled in Settings → Integrations, these tools apply changes directly without creating suggestions. The suggestion management tools below are only needed when auto-approve is disabled (the default).
 :::
 
 ### suggestion_list

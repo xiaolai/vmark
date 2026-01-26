@@ -24,8 +24,8 @@ Open **Settings → Integrations** and enable the MCP Server:
 </div>
 
 - **Enable MCP Server** - Turn on to allow AI connections
-- **WebSocket Port** - Default is 9223
 - **Start on launch** - Auto-start when VMark opens
+- **Auto-approve edits** - Apply AI changes without preview (see below)
 
 ### 2. Install Configuration
 
@@ -186,12 +186,39 @@ If you moved VMark.app to a different location (e.g., from Downloads to Applicat
 - Click in the editor area to focus it
 - Some commands require text to be selected first
 
+## Suggestion System & Auto-Approve
+
+By default, when AI assistants modify your document (insert, replace, or delete content), VMark creates **suggestions** that require your approval:
+
+- **Insert** - New text appears as ghost text preview
+- **Replace** - Original text has strikethrough, new text as ghost text
+- **Delete** - Text to remove appears with strikethrough
+
+Press **Enter** to accept or **Escape** to reject. This preserves your undo/redo history and gives you full control.
+
+### Auto-Approve Mode
+
+::: warning Use With Caution
+Enabling **Auto-approve edits** bypasses the suggestion preview and applies AI changes immediately. Only enable this if you trust your AI assistant and want faster editing.
+:::
+
+When auto-approve is enabled:
+- Changes are applied directly without preview
+- Undo (Mod+Z) still works to reverse changes
+- Response messages include "(auto-approved)" for transparency
+
+This setting is useful for:
+- Rapid AI-assisted writing workflows
+- Trusted AI assistants with well-defined tasks
+- Batch operations where previewing each change is impractical
+
 ## Security Notes
 
 - The MCP server only accepts local connections (localhost)
 - No data is sent to external servers
 - All processing happens on your machine
 - The WebSocket bridge is only accessible locally
+- Auto-approve is disabled by default to prevent unintended changes
 
 ## Next Steps
 
