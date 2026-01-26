@@ -6,13 +6,10 @@
  * non-editor UI elements.
  */
 
-import { isTerminalFocused } from "@/utils/focus";
-
 /**
  * Check if menu actions should be blocked based on current focus.
  *
  * Blocks when:
- * - Terminal has focus
  * - Search/find bar has focus
  * - Settings dialog is open
  * - Rename input is focused (file explorer)
@@ -21,9 +18,6 @@ import { isTerminalFocused } from "@/utils/focus";
  * @returns true if menu actions should be blocked
  */
 export function shouldBlockMenuAction(): boolean {
-  // Terminal focus - always block editor actions
-  if (isTerminalFocused()) return true;
-
   const activeElement = document.activeElement;
   if (!activeElement) return false;
 

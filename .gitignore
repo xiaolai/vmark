@@ -39,6 +39,9 @@ src-tauri/WixTools/
 src-tauri/icons/*.ico.bak
 src-tauri/icons-dev/
 
+# Sidecar binaries (build artifacts)
+src-tauri/binaries/
+
 # macOS bundle
 *.app
 *.dmg

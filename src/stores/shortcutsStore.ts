@@ -24,7 +24,7 @@ export type ShortcutCategory =
 
 /**
  * Shortcut scope determines when a shortcut is active.
- * - global: Works everywhere (editor, terminal, etc.)
+ * - global: Works everywhere in the application
  * - editor: Only works when editor is focused (default)
  */
 export type ShortcutScope = "global" | "editor";
@@ -128,7 +128,6 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide line numbers in code blocks" },
   { id: "viewHistory", label: "View History", category: "view", defaultKey: "Mod-Shift-h", menuId: "view-history" },
   { id: "toggleHiddenFiles", label: "Toggle Hidden Files", category: "view", defaultKey: "Mod-Shift-.", defaultKeyOther: "Ctrl-h", description: "Show or hide hidden files in the file explorer" },
-  { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "terminal", description: "Show or hide the integrated terminal", scope: "global" },
   { id: "toggleAISidebar", label: "Toggle AI Sidebar", category: "view", defaultKey: "Mod-Shift-a", description: "Show or hide the AI assistant sidebar", scope: "global" },
 
   // === File ===
@@ -138,8 +137,9 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "openFolder", label: "Open Folder", category: "file", defaultKey: "Mod-Shift-o", menuId: "open-folder", scope: "global" },
   { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save", scope: "global" },
   { id: "saveAs", label: "Save As", category: "file", defaultKey: "Mod-Shift-s", menuId: "save-as", scope: "global" },
+  { id: "moveTo", label: "Move to", category: "file", defaultKey: "", menuId: "move-to", scope: "global" },
   { id: "closeFile", label: "Close", category: "file", defaultKey: "Mod-w", menuId: "close", scope: "global" },
-  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "Mod-Shift-e", menuId: "export-html", scope: "global" },
+  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "Alt-Mod-e", menuId: "export-html", scope: "global" },
   { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf", scope: "global" },
   { id: "preferences", label: "Settings", category: "file", defaultKey: "Mod-,", menuId: "preferences", scope: "global" },
 

@@ -11,22 +11,12 @@ import { useSettingsStore } from "@/stores/settingsStore";
 export function AdvancedSettings() {
   const [devTools, setDevTools] = useState(false);
   const [hardwareAccel, setHardwareAccel] = useState(true);
-  const terminalEnabled = useSettingsStore((state) => state.advanced.terminalEnabled);
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const updateAdvancedSetting = useSettingsStore((state) => state.updateAdvancedSetting);
 
   return (
     <div>
       <SettingsGroup title="System">
-        <SettingRow
-          label="Enable terminal"
-          description="Show integrated terminal panel (Ctrl+`)"
-        >
-          <Toggle
-            checked={terminalEnabled}
-            onChange={(v) => updateAdvancedSetting("terminalEnabled", v)}
-          />
-        </SettingRow>
         <SettingRow label="Developer tools" description="Enable developer mode">
           <Toggle checked={devTools} onChange={setDevTools} />
         </SettingRow>

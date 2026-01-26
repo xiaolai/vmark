@@ -16,7 +16,6 @@ import {
   FlaskConical,
   Keyboard,
   Plug,
-  Terminal,
   RefreshCw,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
@@ -34,7 +33,6 @@ import { IntegrationsSettings } from "./settings/IntegrationsSettings";
 import { LanguageSettings } from "./settings/LanguageSettings";
 import { MarkdownSettings } from "./settings/MarkdownSettings";
 import { ShortcutsSettings } from "./settings/ShortcutsSettings";
-import { TerminalSettings } from "./settings/TerminalSettings";
 import { UpdateSettings } from "./settings/UpdateSettings";
 import { AdvancedSettings } from "./settings/AdvancedSettings";
 import { DevelopingSettings } from "./settings/DevelopingSettings";
@@ -82,7 +80,6 @@ type Section =
   | "language"
   | "markdown"
   | "shortcuts"
-  | "terminal"
   | "updates"
   | "advanced"
   | "developing";
@@ -111,9 +108,6 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
   );
 }
 
-// Terminal section only visible in dev mode
-const showTerminalSection = import.meta.env.DEV;
-
 // Navigation config - alphabetical order
 // Note: Advanced section is added dynamically based on showDevSection state
 const navConfig = [
@@ -124,14 +118,13 @@ const navConfig = [
   { id: "language" as const, icon: Languages, label: "Language" },
   { id: "markdown" as const, icon: FileText, label: "Markdown" },
   { id: "shortcuts" as const, icon: Keyboard, label: "Shortcuts" },
-  { id: "terminal" as const, icon: Terminal, label: "Terminal" },
   { id: "updates" as const, icon: RefreshCw, label: "Updates" },
 ] as const;
 
 // Valid section IDs for URL param validation
 const validSections = new Set<string>([
   "appearance", "editor", "files", "integrations", "language",
-  "markdown", "shortcuts", "terminal", "updates", "advanced", "developing"
+  "markdown", "shortcuts", "updates", "advanced", "developing"
 ]);
 
 function isValidSection(value: string): value is Section {
@@ -151,7 +144,6 @@ export function SettingsPage() {
 
   const [section, setSection] = useState<Section>(getInitialSection);
   const showDevSection = useSettingsStore((state) => state.showDevSection);
-  const terminalEnabled = useSettingsStore((state) => state.advanced.terminalEnabled);
 
   // Apply theme to this window
   useTheme();
@@ -183,19 +175,8 @@ export function SettingsPage() {
     }
   }, [showDevSection, section]);
 
-  // Terminal visible only in dev mode AND when enabled in settings
-  const showTerminal = showTerminalSection && terminalEnabled;
-
-  // Switch away from terminal when feature is disabled or in production
-  useEffect(() => {
-    if (!showTerminal && section === "terminal") {
-      setSection("integrations");
-    }
-  }, [showTerminal, section]);
-
   const navItems = [
     ...navConfig
-      .filter((item) => item.id !== "terminal" || showTerminal)
       .map((item) => ({
         id: item.id,
         icon: <item.icon className="w-4 h-4" />,
@@ -256,7 +237,6 @@ export function SettingsPage() {
           {section === "language" && <LanguageSettings />}
           {section === "markdown" && <MarkdownSettings />}
           {section === "shortcuts" && <ShortcutsSettings />}
-          {section === "terminal" && showTerminal && <TerminalSettings />}
           {section === "updates" && <UpdateSettings />}
           {section === "advanced" && <AdvancedSettings />}
           {section === "developing" && <DevelopingSettings />}

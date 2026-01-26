@@ -17,7 +17,6 @@ import {
 import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sourceContextDetection/headingDetection";
-import { isTerminalFocused } from "@/utils/focus";
 import { FEATURE_FLAGS } from "@/stores/featureFlagsStore";
 
 const ALERT_ACTIONS = [
@@ -145,8 +144,6 @@ export function useSourceMenuCommands(viewRef: MutableRefObject<EditorView | nul
       const windowLabel = currentWindow.label;
 
       const withView = (handler: (view: EditorView) => void) => {
-        // Skip editor-scoped shortcuts when terminal has focus
-        if (isTerminalFocused()) return;
         const view = viewRef.current;
         if (!view) return;
         runOrQueueCodeMirrorAction(view, () => handler(view));

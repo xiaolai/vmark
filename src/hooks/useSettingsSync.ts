@@ -13,7 +13,6 @@ const SYNC_GROUPS = [
   "markdown",
   "image",
   "cjkFormatting",
-  "terminal",
   "advanced",
   "update",
 ] as const;

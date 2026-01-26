@@ -179,28 +179,8 @@ export interface McpServerSettings {
   autoApproveEdits: boolean; // Auto-approve AI document edits without preview
 }
 
-export type TerminalShell = "system" | "bash" | "zsh" | "fish" | "powershell";
-export type TerminalFontSize = 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
-export type TerminalCursorStyle = "block" | "bar" | "underline";
-export type TerminalMarkdownMode = "ansi" | "overlay" | "off";
-export type TerminalTheme = "auto" | "dark" | "light";
-export type TerminalPosition = "bottom" | "right";
-
-export interface TerminalSettings {
-  shell: TerminalShell;           // Shell to use (system = auto-detect)
-  fontSize: TerminalFontSize;     // Terminal font size
-  cursorStyle: TerminalCursorStyle; // Cursor appearance
-  cursorBlink: boolean;           // Animate cursor
-  scrollback: number;             // Lines of scrollback (1000-10000)
-  markdownMode: TerminalMarkdownMode; // Markdown rendering mode
-  copyOnSelect: boolean;          // Copy text when selected
-  theme: TerminalTheme;           // Terminal color theme (auto = follow app)
-  position: TerminalPosition;     // Panel position (bottom or right)
-}
-
 export interface AdvancedSettingsState {
   mcpServer: McpServerSettings;
-  terminalEnabled: boolean; // Show/hide terminal feature entirely
   customLinkProtocols: string[]; // Custom URL protocols to recognize (e.g., "obsidian", "vscode")
 }
 
@@ -268,7 +248,6 @@ interface SettingsState {
   cjkFormatting: CJKFormattingSettings;
   markdown: MarkdownSettings;
   image: ImageSettings;
-  terminal: TerminalSettings;
   advanced: AdvancedSettingsState;
   update: UpdateSettings;
   // UI state
@@ -295,10 +274,6 @@ interface SettingsActions {
   updateImageSetting: <K extends keyof ImageSettings>(
     key: K,
     value: ImageSettings[K]
-  ) => void;
-  updateTerminalSetting: <K extends keyof TerminalSettings>(
-    key: K,
-    value: TerminalSettings[K]
   ) => void;
   updateAdvancedSetting: <K extends keyof AdvancedSettingsState>(
     key: K,
@@ -384,24 +359,12 @@ const initialState: SettingsState = {
     copyToAssets: true,
     cleanupOrphansOnClose: false, // Off by default - user must opt in
   },
-  terminal: {
-    shell: "system",
-    fontSize: 15,
-    cursorStyle: "bar",
-    cursorBlink: true,
-    scrollback: 5000,
-    markdownMode: "ansi",
-    copyOnSelect: false,
-    theme: "auto",
-    position: "bottom",
-  },
   advanced: {
     mcpServer: {
       port: 9223,
       autoStart: true,
       autoApproveEdits: false, // Require approval by default (safer)
     },
-    terminalEnabled: false,
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
   },
   update: {
@@ -415,7 +378,7 @@ const initialState: SettingsState = {
 };
 
 // Object sections that can be updated with createSectionUpdater
-type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced" | "update";
+type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "advanced" | "update";
 
 // Helper to create section updaters - reduces duplication
 const createSectionUpdater = <T extends ObjectSections>(
@@ -436,7 +399,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateCJKFormattingSetting: createSectionUpdater(set, "cjkFormatting"),
       updateMarkdownSetting: createSectionUpdater(set, "markdown"),
       updateImageSetting: createSectionUpdater(set, "image"),
-      updateTerminalSetting: createSectionUpdater(set, "terminal"),
       updateAdvancedSetting: createSectionUpdater(set, "advanced"),
       updateUpdateSetting: createSectionUpdater(set, "update"),
 

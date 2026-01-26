@@ -16,7 +16,6 @@ import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { isTerminalFocused } from "@/utils/focus";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 
 export function useTabShortcuts() {
@@ -34,7 +33,6 @@ export function useTabShortcuts() {
       // New tab (uses newTab shortcut from store)
       const newTabKey = shortcuts.getShortcut("newTab");
       if (matchesShortcutEvent(e, newTabKey)) {
-        if (isTerminalFocused()) return; // Let terminal handle it
         e.preventDefault();
         const tabId = useTabStore.getState().createTab(windowLabel, null);
         useDocumentStore.getState().initDocument(tabId, "", null);

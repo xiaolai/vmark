@@ -6,7 +6,6 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { type WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { type MutableRefObject } from "react";
-import { isTerminalFocused } from "@/utils/focus";
 import { useEditorStore } from "@/stores/editorStore";
 
 interface MenuListenerContext {
@@ -18,7 +17,7 @@ interface MenuListenerContext {
 }
 
 /**
- * Create a menu event listener that filters by window and checks terminal focus.
+ * Create a menu event listener that filters by window.
  * Returns null if the setup was cancelled.
  */
 export async function createMenuListener(
@@ -32,7 +31,6 @@ export async function createMenuListener(
     if (event.payload !== windowLabel) return;
     // Skip if in source mode - source mode has its own handlers
     if (useEditorStore.getState().sourceMode) return;
-    if (isTerminalFocused()) return;
     const editor = editorRef.current;
     if (!editor) return;
     handler(editor);

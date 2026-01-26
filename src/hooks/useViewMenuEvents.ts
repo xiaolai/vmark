@@ -3,7 +3,6 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useTerminalStore } from "@/stores/terminalStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
@@ -13,7 +12,7 @@ import { normalizeLineEndings } from "@/utils/linebreaks";
 
 /**
  * Handles View menu events: source mode, focus mode, typewriter mode,
- * sidebar, outline, word wrap, terminal, and line endings.
+ * sidebar, outline, word wrap, and line endings.
  */
 export function useViewMenuEvents(): void {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -90,13 +89,6 @@ export function useViewMenuEvents(): void {
       });
       if (cancelled) { unlistenDiagramPreview(); return; }
       unlistenRefs.current.push(unlistenDiagramPreview);
-
-      const unlistenTerminal = await currentWindow.listen<string>("menu:terminal", (event) => {
-        if (event.payload !== windowLabel) return;
-        useTerminalStore.getState().toggle();
-      });
-      if (cancelled) { unlistenTerminal(); return; }
-      unlistenRefs.current.push(unlistenTerminal);
 
       const convertLineEndings = (target: "lf" | "crlf"): void => {
         const tabId = useTabStore.getState().activeTabId[windowLabel];

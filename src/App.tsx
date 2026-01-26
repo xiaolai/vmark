@@ -8,7 +8,6 @@ import { StatusBar } from "@/components/StatusBar";
 import { FindBar } from "@/components/FindBar";
 import { TitleBar } from "@/components/TitleBar";
 import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
-import { TerminalPanel } from "@/components/Terminal";
 import { SettingsPage } from "@/pages/Settings";
 import { PrintPreviewPage } from "@/pages/PrintPreview";
 import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
@@ -56,8 +55,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSearchStore } from "@/stores/searchStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { useTerminalStore } from "@/stores/terminalStore";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
 import { useViewMenuEvents } from "@/hooks/useViewMenuEvents";
 import { useRecentFilesMenuEvents } from "@/hooks/useRecentFilesMenuEvents";
@@ -158,15 +155,10 @@ function MainLayout() {
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useSearchStore((state) => state.isOpen);
-  const terminalPosition = useSettingsStore((state) => state.terminal.position);
-  const terminalEnabled = useSettingsStore((state) => state.advanced.terminalEnabled);
-  const terminalVisible = useTerminalStore((state) => state.visible);
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
   const handleResizeStart = useSidebarResize();
   const sidebarOffset = sidebarVisible ? `${sidebarWidth}px` : "0px";
-  // Terminal affects layout only in dev mode when enabled, visible AND positioned right
-  const terminalLayoutActive = import.meta.env.DEV && terminalEnabled && terminalPosition === "right" && terminalVisible;
 
   // Initialize hooks
   useWorkspaceBootstrap(); // Load config from disk on startup (must be first)
@@ -249,40 +241,15 @@ function MainLayout() {
       >
         {/* Spacer for title bar area */}
         <div style={{ height: TITLEBAR_HEIGHT, flexShrink: 0 }} />
-        {/* Main content area - flex row when terminal is on right AND visible */}
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            minWidth: 0,
-            display: "flex",
-            flexDirection: terminalLayoutActive ? "row" : "column",
-          }}
-        >
-          {/* Editor + bottom bars container */}
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            {/* Editor area */}
-            <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-              <Editor />
-            </div>
-            {/* Bottom bar container - fixed 40px height, all bars overlay within */}
-            <div style={{ position: "relative", height: 40, flexShrink: 0 }}>
-              <StatusBar />
-              <UniversalToolbar />
-              <FindBar />
-            </div>
-          </div>
-          {/* Terminal panel - only rendered in dev mode when feature is enabled */}
-          {import.meta.env.DEV && terminalEnabled && <TerminalPanel />}
+        {/* Editor area */}
+        <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+          <Editor />
+        </div>
+        {/* Bottom bar container - fixed 40px height, all bars overlay within */}
+        <div style={{ position: "relative", height: 40, flexShrink: 0 }}>
+          <StatusBar />
+          <UniversalToolbar />
+          <FindBar />
         </div>
       </div>
 

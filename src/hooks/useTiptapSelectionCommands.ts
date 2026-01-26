@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import { isTerminalFocused } from "@/utils/focus";
 import { FEATURE_FLAGS } from "@/stores/featureFlagsStore";
 import {
   expandSelectionInView,
@@ -37,7 +36,6 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenSelectWord = await currentWindow.listen<string>("menu:select-word", (event) => {
         if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -51,7 +49,6 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenSelectLine = await currentWindow.listen<string>("menu:select-line", (event) => {
         if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -65,7 +62,6 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenSelectBlock = await currentWindow.listen<string>("menu:select-block", (event) => {
         if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -79,7 +75,6 @@ export function useTiptapSelectionCommands(editor: TiptapEditor | null) {
 
       const unlistenExpandSelection = await currentWindow.listen<string>("menu:expand-selection", (event) => {
         if (event.payload !== windowLabel) return;
-          if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 

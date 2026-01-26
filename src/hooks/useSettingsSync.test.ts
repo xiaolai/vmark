@@ -91,28 +91,15 @@ describe("useSettingsSync cross-window sync", () => {
       expect(useSettingsStore.getState().cjkFormatting.fullwidthPunctuation).toBe(false);
     });
 
-    it("syncs terminal settings", () => {
-      const newTerminal = {
-        ...useSettingsStore.getState().terminal,
-        fontSize: 18 as const,
-        shell: "zsh" as const,
-      };
-
-      handleSettingsStorageEvent(createStorageEvent({ terminal: newTerminal }));
-
-      expect(useSettingsStore.getState().terminal.fontSize).toBe(18);
-      expect(useSettingsStore.getState().terminal.shell).toBe("zsh");
-    });
-
     it("syncs advanced settings", () => {
       const newAdvanced = {
         ...useSettingsStore.getState().advanced,
-        terminalEnabled: true,
+        customLinkProtocols: ["x-callback", "obsidian"],
       };
 
       handleSettingsStorageEvent(createStorageEvent({ advanced: newAdvanced }));
 
-      expect(useSettingsStore.getState().advanced.terminalEnabled).toBe(true);
+      expect(useSettingsStore.getState().advanced.customLinkProtocols).toEqual(["x-callback", "obsidian"]);
     });
   });
 

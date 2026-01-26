@@ -17,7 +17,6 @@ import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperati
 import { insertBookmarkLink, insertWikiLink } from "@/plugins/toolbarActions/wysiwygAdapterLinks";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { MultiSelection } from "@/plugins/multiCursor";
-import { isTerminalFocused } from "@/utils/focus";
 import { readClipboardImagePath } from "@/utils/clipboardImagePath";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { FEATURE_FLAGS } from "@/stores/featureFlagsStore";
@@ -109,8 +108,6 @@ export function useTiptapFormatCommands(editor: TiptapEditor | null) {
       const createMarkListener = async (eventName: string, markType: string) => {
         const unlisten = await currentWindow.listen<string>(eventName, (event) => {
           if (event.payload !== windowLabel) return;
-          // Skip editor-scoped shortcuts when terminal has focus
-          if (isTerminalFocused()) return;
           const editor = editorRef.current;
           if (!editor) return;
           editor.commands.focus();
@@ -125,8 +122,6 @@ export function useTiptapFormatCommands(editor: TiptapEditor | null) {
 
       const unlistenImage = await currentWindow.listen<string>("menu:image", async (event) => {
         if (event.payload !== windowLabel) return;
-        // Skip editor-scoped shortcuts when terminal has focus
-        if (isTerminalFocused()) return;
 
         await withReentryGuard(windowLabel, INSERT_IMAGE_GUARD, async () => {
           const editor = editorRef.current;
@@ -171,8 +166,6 @@ export function useTiptapFormatCommands(editor: TiptapEditor | null) {
 
       const unlistenClearFormat = await currentWindow.listen<string>("menu:clear-format", (event) => {
         if (event.payload !== windowLabel) return;
-        // Skip editor-scoped shortcuts when terminal has focus
-        if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
 
@@ -236,7 +229,6 @@ export function useTiptapFormatCommands(editor: TiptapEditor | null) {
       // For bookmark links (href starts with #), opens heading picker instead
       const unlistenLink = await currentWindow.listen<string>("menu:link", (event) => {
         if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
 
         // Block if link popup or heading picker is already open
         if (useLinkPopupStore.getState().isOpen || useHeadingPickerStore.getState().isOpen) return;
@@ -342,7 +334,6 @@ export function useTiptapFormatCommands(editor: TiptapEditor | null) {
       // Wiki Link
       const unlistenWikiLink = await currentWindow.listen<string>("menu:wiki-link", (event) => {
         if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         editor.commands.focus();
@@ -357,7 +348,6 @@ export function useTiptapFormatCommands(editor: TiptapEditor | null) {
       // Bookmark Link
       const unlistenBookmark = await currentWindow.listen<string>("menu:bookmark", (event) => {
         if (event.payload !== windowLabel) return;
-        if (isTerminalFocused()) return;
         const editor = editorRef.current;
         if (!editor) return;
         editor.commands.focus();

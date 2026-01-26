@@ -226,7 +226,11 @@ export function createKeyHandler(config: AutoPairConfig) {
 
     // Handle backspace for pair deletion
     if (event.key === "Backspace") {
-      return handleBackspacePair(view, config);
+      if (handleBackspacePair(view, config)) {
+        event.preventDefault();
+        return true;
+      }
+      return false;
     }
 
     // Handle closing bracket skip

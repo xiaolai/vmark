@@ -1,7 +1,7 @@
 {
   "name": "vmark",
   "private": true,
-  "version": "0.3.5",
+  "version": "0.3.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -57,8 +57,6 @@
     "@tiptap/starter-kit": "^3.17.0",
     "@types/markdown-it": "^14.1.2",
     "@types/prismjs": "^1.26.5",
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/xterm": "^5.5.0",
     "alfaaz": "^1.1.0",
     "dictionary-de": "^3.0.0",
     "dictionary-en": "^4.0.0",

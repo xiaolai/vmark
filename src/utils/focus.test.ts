@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { isTerminalFocused, isEditorFocused, getFocusContext } from "./focus";
+import { isEditorFocused, getFocusContext } from "./focus";
 
 describe("focus", () => {
   // Helper to create a mock element with closest() behavior
@@ -21,38 +21,6 @@ describe("focus", () => {
       document.body.focus();
     }
     vi.restoreAllMocks();
-  });
-
-  describe("isTerminalFocused", () => {
-    it("returns true when activeElement is in terminal", () => {
-      const mockElement = createMockElement({ ".terminal-view": true });
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
-
-      expect(isTerminalFocused()).toBe(true);
-    });
-
-    it("returns false when activeElement is not in terminal", () => {
-      const mockElement = createMockElement({ ".terminal-view": false });
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
-
-      expect(isTerminalFocused()).toBe(false);
-    });
-
-    it("returns false when no activeElement", () => {
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(null);
-
-      expect(isTerminalFocused()).toBe(false);
-    });
-
-    it("returns false when activeElement is in editor", () => {
-      const mockElement = createMockElement({
-        ".terminal-view": false,
-        ".ProseMirror": true,
-      });
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
-
-      expect(isTerminalFocused()).toBe(false);
-    });
   });
 
   describe("isEditorFocused", () => {
@@ -93,34 +61,11 @@ describe("focus", () => {
 
       expect(isEditorFocused()).toBe(false);
     });
-
-    it("returns false for terminal", () => {
-      const mockElement = createMockElement({
-        ".ProseMirror": false,
-        ".cm-editor": false,
-        ".terminal-view": true,
-      });
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
-
-      expect(isEditorFocused()).toBe(false);
-    });
   });
 
   describe("getFocusContext", () => {
-    it("returns 'terminal' when terminal focused", () => {
-      const mockElement = createMockElement({
-        ".terminal-view": true,
-        ".ProseMirror": false,
-        ".cm-editor": false,
-      });
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
-
-      expect(getFocusContext()).toBe("terminal");
-    });
-
     it("returns 'editor' when WYSIWYG editor focused", () => {
       const mockElement = createMockElement({
-        ".terminal-view": false,
         ".ProseMirror": true,
         ".cm-editor": false,
       });
@@ -131,7 +76,6 @@ describe("focus", () => {
 
     it("returns 'editor' when Source editor focused", () => {
       const mockElement = createMockElement({
-        ".terminal-view": false,
         ".ProseMirror": false,
         ".cm-editor": true,
       });
@@ -140,9 +84,8 @@ describe("focus", () => {
       expect(getFocusContext()).toBe("editor");
     });
 
-    it("returns 'other' when neither terminal nor editor focused", () => {
+    it("returns 'other' when neither editor focused", () => {
       const mockElement = createMockElement({
-        ".terminal-view": false,
         ".ProseMirror": false,
         ".cm-editor": false,
       });
@@ -155,19 +98,6 @@ describe("focus", () => {
       vi.spyOn(document, "activeElement", "get").mockReturnValue(null);
 
       expect(getFocusContext()).toBe("other");
-    });
-
-    it("prioritizes terminal over editor (if somehow both match)", () => {
-      // This is an edge case that shouldn't happen in practice
-      const mockElement = createMockElement({
-        ".terminal-view": true,
-        ".ProseMirror": true,
-        ".cm-editor": false,
-      });
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
-
-      // Terminal is checked first, so it should return 'terminal'
-      expect(getFocusContext()).toBe("terminal");
     });
   });
 });

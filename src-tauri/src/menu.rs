@@ -64,7 +64,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "Export",
         true,
         &[
-            &MenuItem::with_id(app, "export-html", "HTML...", true, Some("CmdOrCtrl+Shift+E"))?,
+            &MenuItem::with_id(app, "export-html", "HTML...", true, Some("Alt+CmdOrCtrl+E"))?,
             &MenuItem::with_id(app, "save-pdf", "PDF...", true, None::<&str>)?,
             &MenuItem::with_id(app, "export-pdf", "Print...", true, Some("CmdOrCtrl+P"))?,
             &PredefinedMenuItem::separator(app)?,
@@ -101,6 +101,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "save", "Save", true, Some("CmdOrCtrl+S"))?,
             &MenuItem::with_id(app, "save-as", "Save As...", true, Some("CmdOrCtrl+Shift+S"))?,
+            &MenuItem::with_id(app, "move-to", "Move to...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &export_submenu,
             &PredefinedMenuItem::separator(app)?,
@@ -136,6 +137,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "save", "Save", true, Some("CmdOrCtrl+S"))?,
             &MenuItem::with_id(app, "save-as", "Save As...", true, Some("CmdOrCtrl+Shift+S"))?,
+            &MenuItem::with_id(app, "move-to", "Move to...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &export_submenu,
             &PredefinedMenuItem::separator(app)?,
@@ -514,7 +516,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ],
     )?;
 
-    // View menu (Terminal moved to Tools)
+    // View menu
     let view_menu = Submenu::with_items(
         app,
         "View",
@@ -571,29 +573,6 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     )?;
 
     // Tools menu (utilities and cleanup operations)
-    // Terminal menu item only in debug builds (matches frontend DEV mode check)
-    #[cfg(debug_assertions)]
-    let tools_menu = Submenu::with_items(
-        app,
-        "Tools",
-        true,
-        &[
-            &MenuItem::with_id(
-                app,
-                "terminal",
-                "Toggle Terminal",
-                true,
-                Some("Ctrl+`"),
-            )?,
-            &PredefinedMenuItem::separator(app)?,
-            &cleanup_submenu,
-            &cjk_submenu,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "cleanup-images", "Clean Up Unused Images...", true, None::<&str>)?,
-        ],
-    )?;
-
-    #[cfg(not(debug_assertions))]
     let tools_menu = Submenu::with_items(
         app,
         "Tools",
@@ -812,6 +791,7 @@ fn create_menu_with_shortcuts(
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "save", "Save", true, get_accel("save", "CmdOrCtrl+S"))?,
             &MenuItem::with_id(app, "save-as", "Save As...", true, get_accel("save-as", "CmdOrCtrl+Shift+S"))?,
+            &MenuItem::with_id(app, "move-to", "Move to...", true, get_accel("move-to", ""))?,
             &PredefinedMenuItem::separator(app)?,
             &export_submenu,
             &PredefinedMenuItem::separator(app)?,
@@ -835,6 +815,7 @@ fn create_menu_with_shortcuts(
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "save", "Save", true, get_accel("save", "CmdOrCtrl+S"))?,
             &MenuItem::with_id(app, "save-as", "Save As...", true, get_accel("save-as", "CmdOrCtrl+Shift+S"))?,
+            &MenuItem::with_id(app, "move-to", "Move to...", true, get_accel("move-to", ""))?,
             &PredefinedMenuItem::separator(app)?,
             &export_submenu,
             &PredefinedMenuItem::separator(app)?,
@@ -1105,7 +1086,7 @@ fn create_menu_with_shortcuts(
         ],
     )?;
 
-    // View menu (Terminal moved to Tools)
+    // View menu
     let view_menu = Submenu::with_items(
         app,
         "View",
@@ -1126,23 +1107,6 @@ fn create_menu_with_shortcuts(
     )?;
 
     // Tools menu (utilities and cleanup operations)
-    // Terminal menu item only in debug builds (matches frontend DEV mode check)
-    #[cfg(debug_assertions)]
-    let tools_menu = Submenu::with_items(
-        app,
-        "Tools",
-        true,
-        &[
-            &MenuItem::with_id(app, "terminal", "Toggle Terminal", true, get_accel("terminal", "Ctrl+`"))?,
-            &PredefinedMenuItem::separator(app)?,
-            &cleanup_submenu,
-            &cjk_submenu,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "cleanup-images", "Clean Up Unused Images...", true, None::<&str>)?,
-        ],
-    )?;
-
-    #[cfg(not(debug_assertions))]
     let tools_menu = Submenu::with_items(
         app,
         "Tools",

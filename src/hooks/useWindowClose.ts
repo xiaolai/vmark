@@ -8,7 +8,7 @@ import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 
 // Dev-only logging for debugging window close issues
-// Logs to terminal via Rust command
+// Logs to console and Rust debug_log
 const closeLog = import.meta.env.DEV
   ? (label: string, ...args: unknown[]) => {
       const msg = `[WindowClose:${label}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`;

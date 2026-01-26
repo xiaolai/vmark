@@ -1,13 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { shouldBlockMenuAction, isEditorContext } from "./focusGuard";
 
-// Mock the focus module
-vi.mock("@/utils/focus", () => ({
-  isTerminalFocused: vi.fn(() => false),
-}));
-
-import { isTerminalFocused } from "@/utils/focus";
-
 describe("focusGuard", () => {
   // Helper to create a mock element with closest() behavior
   function createMockElement(closestResults: Record<string, boolean>): Element {
@@ -20,8 +13,6 @@ describe("focusGuard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset terminal focus mock
-    vi.mocked(isTerminalFocused).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -29,14 +20,6 @@ describe("focusGuard", () => {
   });
 
   describe("shouldBlockMenuAction", () => {
-    it("blocks when terminal is focused", () => {
-      vi.mocked(isTerminalFocused).mockReturnValue(true);
-      const mockElement = createMockElement({});
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
-
-      expect(shouldBlockMenuAction()).toBe(true);
-    });
-
     it("blocks when find bar input is focused", () => {
       const mockElement = createMockElement({ ".find-bar": true });
       vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
@@ -214,18 +197,6 @@ describe("focusGuard", () => {
 
     it("returns false when no activeElement", () => {
       vi.spyOn(document, "activeElement", "get").mockReturnValue(null);
-
-      expect(isEditorContext()).toBe(false);
-    });
-
-    it("returns false for terminal", () => {
-      const mockElement = createMockElement({
-        ".ProseMirror": false,
-        ".cm-editor": false,
-        ".editor-container": false,
-        ".terminal-view": true,
-      });
-      vi.spyOn(document, "activeElement", "get").mockReturnValue(mockElement);
 
       expect(isEditorContext()).toBe(false);
     });
