@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { Editor } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
+import { AISidebar } from "@/components/AISidebar";
 import { StatusBar } from "@/components/StatusBar";
 import { FindBar } from "@/components/FindBar";
 import { TitleBar } from "@/components/TitleBar";
@@ -284,6 +285,9 @@ function MainLayout() {
           {import.meta.env.DEV && terminalEnabled && <TerminalPanel />}
         </div>
       </div>
+
+      {/* AI Sidebar - fixed position on right */}
+      <AISidebar />
     </div>
   );
 }

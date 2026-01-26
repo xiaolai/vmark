@@ -129,6 +129,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "viewHistory", label: "View History", category: "view", defaultKey: "Mod-Shift-h", menuId: "view-history" },
   { id: "toggleHiddenFiles", label: "Toggle Hidden Files", category: "view", defaultKey: "Mod-Shift-.", defaultKeyOther: "Ctrl-h", description: "Show or hide hidden files in the file explorer" },
   { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "terminal", description: "Show or hide the integrated terminal", scope: "global" },
+  { id: "toggleAISidebar", label: "Toggle AI Sidebar", category: "view", defaultKey: "Mod-Shift-a", description: "Show or hide the AI assistant sidebar", scope: "global" },
 
   // === File ===
   { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab", scope: "global" },

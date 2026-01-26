@@ -14,6 +14,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore, type ShortcutScope } from "@/stores/shortcutsStore";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useAISidebarStore } from "@/stores/aiSidebarStore";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { isImeKeyEvent } from "@/utils/imeGuard";
@@ -103,7 +104,16 @@ export function useViewShortcuts() {
         if (matchesShortcutEvent(e, terminalKey) && shouldRunShortcut(terminalDef?.scope)) {
           e.preventDefault();
           useTerminalStore.getState().toggle();
+          return;
         }
+      }
+
+      // AI Sidebar toggle (global scope)
+      const aiSidebarKey = shortcuts.getShortcut("toggleAISidebar");
+      const aiSidebarDef = shortcuts.getDefinition("toggleAISidebar");
+      if (matchesShortcutEvent(e, aiSidebarKey) && shouldRunShortcut(aiSidebarDef?.scope)) {
+        e.preventDefault();
+        useAISidebarStore.getState().toggleSidebar();
       }
     };
 
