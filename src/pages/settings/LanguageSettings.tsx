@@ -5,7 +5,7 @@
  */
 
 import { useSettingsStore, type SpellCheckLanguage, type QuoteStyle } from "@/stores/settingsStore";
-import { SettingRow, Toggle, SettingsGroup, Select, CollapsibleGroup } from "./components";
+import { SettingRow, Toggle, SettingsGroup, Select } from "./components";
 
 const spellCheckLanguageOptions: { value: SpellCheckLanguage; label: string }[] = [
   { value: "en", label: "English" },
@@ -51,12 +51,11 @@ export function LanguageSettings() {
         </SettingRow>
       </SettingsGroup>
 
-      {/* CJK Formatting - Collapsible */}
-      <CollapsibleGroup
-        title="CJK Formatting"
-        description="Formatting rules for CJK (Chinese, Japanese, Korean) text. Use Format > Format CJK Text (Cmd+Shift+F) to apply."
-        defaultOpen={false}
-      >
+      {/* CJK Formatting */}
+      <SettingsGroup title="CJK Formatting">
+        <p className="text-xs text-[var(--text-tertiary)] -mt-2 mb-3">
+          Formatting rules for CJK (Chinese, Japanese, Korean) text. Use Format &gt; Format CJK Text (Cmd+Shift+F) to apply.
+        </p>
         {/* Fullwidth Normalization */}
         <SettingsGroup title="Fullwidth Normalization">
           <SettingRow
@@ -271,7 +270,7 @@ export function LanguageSettings() {
             />
           </SettingRow>
         </SettingsGroup>
-      </CollapsibleGroup>
+      </SettingsGroup>
     </div>
   );
 }
