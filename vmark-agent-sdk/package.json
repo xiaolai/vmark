@@ -1,0 +1,35 @@
+{
+  "name": "@vmark/agent-sdk",
+  "version": "0.0.1",
+  "description": "VMark Agent SDK sidecar - AI assistant integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "vmark-agent-sdk": "dist/index.js"
+  },
+  "scripts": {
+    "build": "node scripts/build-sidecar.js",
+    "build:dev": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:@anthropic-ai/claude-agent-sdk",
+    "test:spike": "node --experimental-vm-modules dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.19",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@yao-pkg/pkg": "^6.0.0",
+    "esbuild": "^0.27.2",
+    "typescript": "~5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pkg": {
+    "targets": [
+      "node20-macos-arm64"
+    ],
+    "outputPath": "../src-tauri/binaries"
+  }
+}

@@ -1,3 +1,5 @@
+mod api_key;
+mod claude_detection;
 mod mcp_bridge;
 mod mcp_config;
 mod mcp_server;
@@ -97,6 +99,13 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             pty::pty_list,
+            api_key::set_api_key,
+            api_key::get_api_key,
+            api_key::clear_api_key,
+            api_key::has_api_key,
+            api_key::test_api_key,
+            claude_detection::detect_claude_code,
+            claude_detection::get_claude_path,
             #[cfg(debug_assertions)]
             debug_log,
         ])
