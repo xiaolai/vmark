@@ -5,7 +5,7 @@
 //! Architecture:
 //! - Sidecar is a Node.js binary (built with pkg) that runs Agent SDK queries
 //! - Communication via JSON lines over stdin/stdout
-//! - API key from keychain is passed as ANTHROPIC_API_KEY env var
+//! - Authentication priority: keychain API key > env ANTHROPIC_API_KEY > env CLAUDE_CODE_OAUTH_TOKEN
 //! - Sidecar requires Claude Code CLI to be installed globally
 
 use crate::api_key;
@@ -95,8 +95,13 @@ pub async fn agent_start(app: AppHandle) -> Result<AgentStatus, String> {
         );
     }
 
-    // Get API key from keychain (optional - SDK can use OAuth)
-    let api_key_value = api_key::get_api_key().await.ok().flatten();
+    // Get API key with fallback chain:
+    // 1. Keychain (explicit user-configured key)
+    // 2. Environment ANTHROPIC_API_KEY (inherited from parent process)
+    // 3. Environment CLAUDE_CODE_OAUTH_TOKEN (Claude Pro/Max subscription)
+    let keychain_key = api_key::get_api_key().await.ok().flatten();
+    let env_api_key = std::env::var("ANTHROPIC_API_KEY").ok();
+    let env_oauth_token = std::env::var("CLAUDE_CODE_OAUTH_TOKEN").ok();
 
     // Spawn the sidecar process
     let shell = app.shell();
@@ -104,9 +109,16 @@ pub async fn agent_start(app: AppHandle) -> Result<AgentStatus, String> {
         .sidecar("vmark-agent-sdk")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?;
 
-    // Inject API key as environment variable if available
-    if let Some(key) = api_key_value {
+    // Inject authentication credentials in priority order
+    if let Some(key) = keychain_key {
+        // Priority 1: User-configured key from keychain
         sidecar_cmd = sidecar_cmd.env("ANTHROPIC_API_KEY", key);
+    } else if let Some(key) = env_api_key {
+        // Priority 2: API key from parent environment
+        sidecar_cmd = sidecar_cmd.env("ANTHROPIC_API_KEY", key);
+    } else if let Some(token) = env_oauth_token {
+        // Priority 3: OAuth token from Claude Pro/Max subscription
+        sidecar_cmd = sidecar_cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
     }
 
     let (mut rx, child) = sidecar_cmd
@@ -219,7 +231,12 @@ pub async fn agent_query(app: AppHandle, request: AgentRequest) -> Result<(), St
 pub async fn agent_status() -> Result<AgentStatus, String> {
     let running = SIDECAR_RUNNING.load(Ordering::SeqCst);
     let claude_status = claude_detection::detect_claude_code().await?;
-    let has_key = api_key::has_api_key().await.unwrap_or(false);
+
+    // Check all authentication sources
+    let has_keychain_key = api_key::has_api_key().await.unwrap_or(false);
+    let has_env_api_key = std::env::var("ANTHROPIC_API_KEY").is_ok();
+    let has_oauth_token = std::env::var("CLAUDE_CODE_OAUTH_TOKEN").is_ok();
+    let has_key = has_keychain_key || has_env_api_key || has_oauth_token;
 
     Ok(AgentStatus {
         running,

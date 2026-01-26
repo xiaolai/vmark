@@ -273,7 +273,7 @@ function AIAssistantSettings() {
           description={
             hasApiKey
               ? "API key is stored in system keychain"
-              : "Optional - uses Claude Code OAuth by default"
+              : "Optional if ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is in env"
           }
         >
           <div className="flex items-center gap-2">
