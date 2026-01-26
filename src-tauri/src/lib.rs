@@ -205,42 +205,35 @@ pub fn run() {
                                 let workspace_root =
                                     window_manager::get_workspace_root_for_file(path_str);
 
-                                // Check if any document window exists
-                                // (main or doc-* windows, not settings)
-                                let has_doc_window = app
-                                    .webview_windows()
-                                    .keys()
-                                    .any(|label| label == "main" || label.starts_with("doc-"));
-
-                                if has_doc_window {
-                                    // Check if frontend is ready (has called get_pending_file_opens)
-                                    if FRONTEND_READY.load(Ordering::SeqCst) {
-                                        // Frontend is ready - emit event directly
+                                // Check if frontend is ready (has called get_pending_file_opens)
+                                if FRONTEND_READY.load(Ordering::SeqCst) {
+                                    // Frontend is ready - check if we have a window to emit to
+                                    if let Some(main_window) = app.get_webview_window("main") {
+                                        // Emit event to main window
                                         use tauri::Emitter;
-                                        if let Some(main_window) = app.get_webview_window("main") {
-                                            let payload = PendingFileOpen {
-                                                path: path_str.to_string(),
-                                                workspace_root,
-                                            };
-                                            let _ = main_window.emit("app:open-file", payload);
-                                        }
+                                        let payload = PendingFileOpen {
+                                            path: path_str.to_string(),
+                                            workspace_root,
+                                        };
+                                        let _ = main_window.emit("app:open-file", payload);
                                     } else {
-                                        // Cold start - queue for later
-                                        // React hasn't mounted yet when RunEvent::Opened fires
-                                        if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
-                                            pending.push(PendingFileOpen {
-                                                path: path_str.to_string(),
-                                                workspace_root,
-                                            });
-                                        }
+                                        // No main window but frontend was ready (reopen scenario)
+                                        // Create a new window with the file
+                                        let _ = window_manager::create_document_window(
+                                            app,
+                                            Some(path_str),
+                                            workspace_root.as_deref(),
+                                        );
                                     }
                                 } else {
-                                    // No document windows - create a new one
-                                    let _ = window_manager::create_document_window(
-                                        app,
-                                        Some(path_str),
-                                        workspace_root.as_deref(),
-                                    );
+                                    // Cold start - queue for the main window
+                                    // The main window from tauri.conf.json will handle pending files
+                                    if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
+                                        pending.push(PendingFileOpen {
+                                            path: path_str.to_string(),
+                                            workspace_root,
+                                        });
+                                    }
                                 }
                             }
                         }
