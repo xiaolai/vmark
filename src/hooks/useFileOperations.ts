@@ -9,6 +9,9 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { matchesShortcutEvent } from "@/utils/shortcutMatch";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
@@ -302,11 +305,41 @@ export function useFileOperations() {
 
     setupListeners();
 
+    // Keyboard shortcut handler for file operations
+    // Menu accelerators don't always work reliably (TipTap captures events),
+    // so we listen directly for Save and Save As shortcuts.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isImeKeyEvent(e)) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+      const shortcuts = useShortcutsStore.getState();
+
+      // Save As (Cmd+Shift+S)
+      const saveAsKey = shortcuts.getShortcut("saveAs");
+      if (matchesShortcutEvent(e, saveAsKey)) {
+        e.preventDefault();
+        handleSaveAs();
+        return;
+      }
+
+      // Save (Cmd+S)
+      const saveKey = shortcuts.getShortcut("save");
+      if (matchesShortcutEvent(e, saveKey)) {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       cancelled = true;
       const fns = unlistenRefs.current;
       unlistenRefs.current = [];
       fns.forEach((fn) => fn());
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleNew, handleOpen, handleSave, handleSaveAs, handleOpenFile, windowLabel]);
 }
