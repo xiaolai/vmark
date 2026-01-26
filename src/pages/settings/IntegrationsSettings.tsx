@@ -63,6 +63,10 @@ export function IntegrationsSettings() {
     updateAdvancedSetting("mcpServer", { ...mcpSettings, autoStart: enabled });
   };
 
+  const handleAutoApproveChange = (enabled: boolean) => {
+    updateAdvancedSetting("mcpServer", { ...mcpSettings, autoApproveEdits: enabled });
+  };
+
   // Called after MCP config is successfully installed to a provider
   // Enables autoStart and starts the bridge so it works immediately
   const handleMcpConfigInstalled = async () => {
@@ -104,6 +108,16 @@ export function IntegrationsSettings() {
           <Toggle
             checked={mcpSettings.autoStart}
             onChange={handleAutoStartChange}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Auto-approve edits"
+          description="Apply AI changes without preview (use with caution)"
+        >
+          <Toggle
+            checked={mcpSettings.autoApproveEdits}
+            onChange={handleAutoApproveChange}
           />
         </SettingRow>
 

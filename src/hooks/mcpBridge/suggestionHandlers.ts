@@ -3,10 +3,20 @@
  *
  * Wraps AI-generated content modifications in suggestions requiring user approval.
  * IMPORTANT: No document modifications until user accepts - preserves undo/redo integrity.
+ *
+ * When autoApproveEdits is enabled, changes are applied directly without preview.
  */
 
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { respond, getEditor } from "./utils";
+
+/**
+ * Check if auto-approve is enabled for MCP edits.
+ */
+function isAutoApproveEnabled(): boolean {
+  return useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
+}
 
 /**
  * Handle document.setContent request - BLOCKED for AI safety.
@@ -23,8 +33,7 @@ export async function handleSetContentBlocked(id: string): Promise<void> {
 
 /**
  * Handle document.insertAtCursor with suggestion wrapping.
- * Does NOT modify document - stores suggestion for preview decoration.
- * Document is only modified when user accepts.
+ * If autoApproveEdits is enabled, applies directly. Otherwise stores suggestion for preview.
  */
 export async function handleInsertAtCursorWithSuggestion(
   id: string,
@@ -39,8 +48,21 @@ export async function handleInsertAtCursorWithSuggestion(
       throw new Error("text must be a string");
     }
 
-    // Get cursor position - this is where content will be inserted on accept
     const insertPos = editor.state.selection.from;
+
+    // Auto-approve: apply directly without suggestion preview
+    if (isAutoApproveEnabled()) {
+      editor.commands.insertContent(text);
+      await respond({
+        id,
+        success: true,
+        data: {
+          message: "Content inserted (auto-approved).",
+          position: insertPos,
+        },
+      });
+      return;
+    }
 
     // Create suggestion WITHOUT modifying the document
     // Content will be shown as ghost text decoration
@@ -71,8 +93,7 @@ export async function handleInsertAtCursorWithSuggestion(
 
 /**
  * Handle document.insertAtPosition with suggestion wrapping.
- * Does NOT modify document - stores suggestion for preview decoration.
- * Document is only modified when user accepts.
+ * If autoApproveEdits is enabled, applies directly. Otherwise stores suggestion for preview.
  */
 export async function handleInsertAtPositionWithSuggestion(
   id: string,
@@ -96,6 +117,21 @@ export async function handleInsertAtPositionWithSuggestion(
     const docSize = editor.state.doc.content.size;
     if (position < 0 || position > docSize) {
       throw new Error(`Invalid position: ${position} (document size: ${docSize})`);
+    }
+
+    // Auto-approve: apply directly without suggestion preview
+    if (isAutoApproveEnabled()) {
+      // Set selection to position and insert
+      editor.chain().setTextSelection(position).insertContent(text).run();
+      await respond({
+        id,
+        success: true,
+        data: {
+          message: "Content inserted (auto-approved).",
+          position,
+        },
+      });
+      return;
     }
 
     // Create suggestion WITHOUT modifying the document
@@ -126,8 +162,7 @@ export async function handleInsertAtPositionWithSuggestion(
 
 /**
  * Handle document.replace with suggestion wrapping.
- * Creates suggestions for each match found in the document.
- * Does NOT modify document until user accepts suggestions.
+ * If autoApproveEdits is enabled, applies directly. Otherwise creates suggestions.
  */
 export async function handleDocumentReplaceWithSuggestion(
   id: string,
@@ -174,7 +209,27 @@ export async function handleDocumentReplaceWithSuggestion(
       await respond({
         id,
         success: true,
-        data: { suggestionIds: [], count: 0, message: "No matches found" },
+        data: { count: 0, message: "No matches found" },
+      });
+      return;
+    }
+
+    // Auto-approve: apply replacements directly
+    if (isAutoApproveEnabled()) {
+      // Apply in reverse order to maintain correct positions
+      const chain = editor.chain();
+      for (const match of [...matches].reverse()) {
+        chain.setTextSelection({ from: match.from, to: match.to }).insertContent(replace);
+      }
+      chain.run();
+
+      await respond({
+        id,
+        success: true,
+        data: {
+          count: matches.length,
+          message: `${matches.length} replacement(s) applied (auto-approved).`,
+        },
       });
       return;
     }
@@ -214,8 +269,7 @@ export async function handleDocumentReplaceWithSuggestion(
 
 /**
  * Handle selection.replace with suggestion wrapping.
- * Does NOT modify document - stores both original and new content.
- * Original shown with strikethrough, new shown as ghost text.
+ * If autoApproveEdits is enabled, applies directly. Otherwise stores suggestion for preview.
  */
 export async function handleSelectionReplaceWithSuggestion(
   id: string,
@@ -238,6 +292,21 @@ export async function handleSelectionReplaceWithSuggestion(
 
     // Get original content that would be replaced
     const originalContent = editor.state.doc.textBetween(from, to, "\n");
+
+    // Auto-approve: apply directly without suggestion preview
+    if (isAutoApproveEnabled()) {
+      editor.chain().setTextSelection({ from, to }).insertContent(text).run();
+      await respond({
+        id,
+        success: true,
+        data: {
+          message: "Selection replaced (auto-approved).",
+          range: { from, to },
+          originalContent,
+        },
+      });
+      return;
+    }
 
     // Create suggestion WITHOUT modifying the document
     // Original content shown with strikethrough, new content as ghost text
@@ -270,7 +339,7 @@ export async function handleSelectionReplaceWithSuggestion(
 
 /**
  * Handle selection.delete with suggestion wrapping.
- * Marks content for deletion but doesn't actually delete until approved.
+ * If autoApproveEdits is enabled, deletes directly. Otherwise marks for deletion.
  */
 export async function handleSelectionDeleteWithSuggestion(id: string): Promise<void> {
   try {
@@ -284,6 +353,21 @@ export async function handleSelectionDeleteWithSuggestion(id: string): Promise<v
 
     // Get content that would be deleted
     const originalContent = editor.state.doc.textBetween(from, to, "\n");
+
+    // Auto-approve: delete directly without suggestion preview
+    if (isAutoApproveEnabled()) {
+      editor.chain().setTextSelection({ from, to }).deleteSelection().run();
+      await respond({
+        id,
+        success: true,
+        data: {
+          message: "Selection deleted (auto-approved).",
+          range: { from, to },
+          content: originalContent,
+        },
+      });
+      return;
+    }
 
     // Create suggestion - content shown with strikethrough decoration
     const suggestionId = useAiSuggestionStore.getState().addSuggestion({

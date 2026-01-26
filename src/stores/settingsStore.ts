@@ -176,6 +176,7 @@ export type PasteMode = "smart" | "plain" | "rich";
 export interface McpServerSettings {
   port: number;        // Default: 9223 (must match MCP bridge plugin port)
   autoStart: boolean;  // Start on app launch
+  autoApproveEdits: boolean; // Auto-approve AI document edits without preview
 }
 
 export type TerminalShell = "system" | "bash" | "zsh" | "fish" | "powershell";
@@ -398,6 +399,7 @@ const initialState: SettingsState = {
     mcpServer: {
       port: 9223,
       autoStart: true,
+      autoApproveEdits: false, // Require approval by default (safer)
     },
     terminalEnabled: false,
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
