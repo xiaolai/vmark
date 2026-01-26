@@ -311,7 +311,7 @@ ${text}`
           }
           break;
 
-        case "result":
+        case "result": {
           // Final result
           setIsProcessing(false);
           setCurrentRequestId(null);
@@ -323,8 +323,9 @@ ${text}`
             rejectRef.current = null;
           }
           break;
+        }
 
-        case "error":
+        case "error": {
           // Error occurred
           setIsProcessing(false);
           setCurrentRequestId(null);
@@ -336,6 +337,7 @@ ${text}`
             resolveRef.current = null;
           }
           break;
+        }
 
         case "cancelled":
           setIsProcessing(false);
