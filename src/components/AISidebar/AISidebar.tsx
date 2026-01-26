@@ -48,7 +48,7 @@ function SessionItem({ session, isActive, onSelect, onDelete }: SessionItemProps
         }}
         title="Delete session"
       >
-        <Trash2 size={12} />
+        <Trash2 size={14} />
       </button>
     </div>
   );

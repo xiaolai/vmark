@@ -9,7 +9,7 @@
   top: 0;
   right: 0;
   height: 100vh;
-  background: var(--bg-color);
+  background: var(--sidebar-bg);
   border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -54,11 +54,12 @@
 }
 
 .ai-sidebar-close {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -70,6 +71,22 @@
 .ai-sidebar-close:hover {
   background: var(--hover-bg);
   color: var(--text-color);
+}
+
+.ai-sidebar-close:focus-visible {
+  outline: none;
+  color: var(--primary-color);
+}
+
+.ai-sidebar-close:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
 }
 
 /* Content area */
@@ -106,11 +123,12 @@
 }
 
 .ai-session-new-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -122,6 +140,22 @@
 .ai-session-new-btn:hover {
   background: var(--hover-bg);
   color: var(--primary-color);
+}
+
+.ai-session-new-btn:focus-visible {
+  outline: none;
+  color: var(--primary-color);
+}
+
+.ai-session-new-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
 }
 
 .ai-session-list-content {
@@ -159,6 +193,10 @@
   background: var(--accent-bg);
 }
 
+.ai-session-item.active .ai-session-item-title {
+  color: var(--accent-primary);
+}
+
 .ai-session-item-content {
   flex: 1;
   min-width: 0;
@@ -178,11 +216,12 @@
 }
 
 .ai-session-item-delete {
+  position: relative;
   display: none;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border: none;
   background: transparent;
   color: var(--text-tertiary);
@@ -198,6 +237,23 @@
 .ai-session-item-delete:hover {
   background: var(--error-bg);
   color: var(--error-color);
+}
+
+.ai-session-item-delete:focus-visible {
+  display: flex;
+  outline: none;
+  color: var(--error-color);
+}
+
+.ai-session-item-delete:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--error-color);
+  border-radius: 1px;
 }
 
 .ai-session-empty {
@@ -259,7 +315,7 @@
 
 .ai-message.user .ai-message-icon {
   background: var(--primary-color);
-  color: white;
+  color: var(--contrast-text);
 }
 
 .ai-message.assistant .ai-message-icon {
@@ -279,7 +335,7 @@
 
 .ai-message.user .ai-message-content {
   background: var(--primary-color);
-  color: white;
+  color: var(--contrast-text);
   border-bottom-right-radius: 4px;
 }
 
@@ -305,7 +361,7 @@
   gap: 8px;
   padding: 12px;
   border-top: 1px solid var(--border-color);
-  background: var(--bg-color);
+  background: var(--sidebar-bg);
 }
 
 .ai-chat-input {
@@ -321,11 +377,12 @@
   outline: none;
   min-height: 36px;
   max-height: 120px;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .ai-chat-input:focus {
   border-color: var(--primary-color);
+  background: var(--subtle-bg);
 }
 
 .ai-chat-input::placeholder {
@@ -337,6 +394,7 @@
 }
 
 .ai-chat-send-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -344,7 +402,7 @@
   height: 36px;
   border: none;
   background: var(--primary-color);
-  color: white;
+  color: var(--contrast-text);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: opacity 0.15s;
@@ -357,6 +415,11 @@
 .ai-chat-send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.ai-chat-send-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-color), 0 0 0 4px var(--primary-color);
 }
 
 /* Scrollbar styling */
@@ -389,4 +452,15 @@
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Dark theme overrides */
+.dark-theme .ai-sidebar-close:hover,
+.dark-theme .ai-session-new-btn:hover,
+.dark-theme .ai-session-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark-theme .ai-chat-send-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--sidebar-bg), 0 0 0 4px var(--primary-color);
 }
