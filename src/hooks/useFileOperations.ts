@@ -1,9 +1,10 @@
 import { useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile, remove } from "@tauri-apps/plugin-fs";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -26,6 +27,39 @@ import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceabl
 import { createUntitledTab } from "@/utils/newFile";
 import { joinPath } from "@/utils/pathUtils";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { isWithinRoot, getParentDir } from "@/utils/paths";
+
+/**
+ * Move a tab to a new workspace window if the file is outside current workspace.
+ * Closes the current tab (or window if it's the last tab).
+ * @internal Exported for testing
+ */
+export async function moveTabToNewWorkspaceWindow(
+  windowLabel: string,
+  tabId: string,
+  filePath: string
+): Promise<void> {
+  const workspaceRoot = useWorkspaceStore.getState().rootPath;
+
+  // If no workspace or file is within workspace, nothing to do
+  if (!workspaceRoot || isWithinRoot(workspaceRoot, filePath)) return;
+
+  const windowTabs = useTabStore.getState().tabs[windowLabel] || [];
+  const isLastTab = windowTabs.length === 1;
+
+  // Open in new window - derive workspace from file's parent folder
+  await invoke("open_workspace_in_new_window", {
+    workspaceRoot: getParentDir(filePath),
+    filePath: filePath,
+  });
+
+  if (isLastTab) {
+    const currentWindow = getCurrentWebviewWindow();
+    await currentWindow.close();
+  } else {
+    useTabStore.getState().closeTab(windowLabel, tabId);
+  }
+}
 
 export function useFileOperations() {
   const windowLabel = useWindowLabel();
@@ -221,32 +255,63 @@ export function useFileOperations() {
         filters: [{ name: "Markdown", extensions: ["md"] }],
       });
       if (path) {
-        await saveToPath(tabId, path, doc.content, "manual");
+        const success = await saveToPath(tabId, path, doc.content, "manual");
+        if (!success) return;
 
-        // Check if saved outside workspace - if so, move to new window
-        const workspaceRoot = useWorkspaceStore.getState().rootPath;
-        const isOutsideWorkspace = workspaceRoot && !path.startsWith(workspaceRoot);
+        // If saved outside workspace, move to new window
+        await moveTabToNewWorkspaceWindow(windowLabel, tabId, path);
+      }
+    });
+  }, [windowLabel]);
 
-        if (isOutsideWorkspace) {
-          const windowTabs = useTabStore.getState().tabs[windowLabel] || [];
-          const isLastTab = windowTabs.length === 1;
+  const handleMoveTo = useCallback(async () => {
+    flushActiveWysiwygNow();
 
-          // Open in new window first - derive workspace from new path's parent folder
-          await invoke("open_workspace_in_new_window", {
-            workspaceRoot: path.substring(0, path.lastIndexOf("/")),
-            filePath: path,
-          });
+    await withReentryGuard(windowLabel, "move", async () => {
+      const tabId = useTabStore.getState().activeTabId[windowLabel];
+      if (!tabId) return;
 
-          if (isLastTab) {
-            // Close current window since file was "moved" to new workspace
-            const currentWindow = getCurrentWebviewWindow();
-            await currentWindow.close();
-          } else {
-            // Close just the tab, leaving other tabs intact
-            useTabStore.getState().closeTab(windowLabel, tabId);
-          }
+      const doc = useDocumentStore.getState().getDocument(tabId);
+      if (!doc) return;
+
+      const oldPath = doc.filePath; // null for untitled files
+
+      // Build default path for save dialog
+      let defaultPath: string;
+      if (oldPath) {
+        defaultPath = oldPath;
+      } else {
+        // Untitled file - use tab title as suggested filename
+        const tab = useTabStore.getState().tabs[windowLabel]?.find(t => t.id === tabId);
+        const filename = tab?.title ? `${tab.title}.md` : "Untitled.md";
+        const folder = await getDefaultSaveFolderWithFallback(windowLabel);
+        defaultPath = joinPath(folder, filename);
+      }
+
+      const newPath = await save({
+        defaultPath,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+
+      if (!newPath || newPath === oldPath) return;
+
+      // Save to new location
+      const success = await saveToPath(tabId, newPath, doc.content, "manual");
+      if (!success) return;
+
+      // Delete old file (only if there was one)
+      if (oldPath) {
+        try {
+          await remove(oldPath);
+        } catch (error) {
+          console.error("[FileOps] Failed to delete old file during move:", error);
+          // File was saved to new location, but old file couldn't be deleted
+          toast.warning("File saved to new location, but couldn't delete original file");
         }
       }
+
+      // If moved outside workspace, open in new window
+      await moveTabToNewWorkspaceWindow(windowLabel, tabId, newPath);
     });
   }, [windowLabel]);
 
@@ -316,6 +381,13 @@ export function useFileOperations() {
       if (cancelled) { unlistenSaveAs(); return; }
       unlistenRefs.current.push(unlistenSaveAs);
 
+      const unlistenMoveTo = await currentWindow.listen<string>("menu:move-to", async (event) => {
+        if (event.payload !== windowLabel) return;
+        await handleMoveTo();
+      });
+      if (cancelled) { unlistenMoveTo(); return; }
+      unlistenRefs.current.push(unlistenMoveTo);
+
       // Listen for open-file from FileExplorer (window-local event, payload contains path)
       const unlistenOpenFile = await currentWindow.listen<{ path: string }>(
         "open-file",
@@ -365,5 +437,5 @@ export function useFileOperations() {
       fns.forEach((fn) => fn());
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleNew, handleOpen, handleSave, handleSaveAs, handleOpenFile, windowLabel]);
+  }, [handleNew, handleOpen, handleSave, handleSaveAs, handleMoveTo, handleOpenFile, windowLabel]);
 }
