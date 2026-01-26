@@ -1,3 +1,4 @@
+mod agent_commands;
 mod agent_sidecar;
 mod api_key;
 mod claude_detection;
@@ -111,6 +112,9 @@ pub fn run() {
             agent_sidecar::agent_stop,
             agent_sidecar::agent_query,
             agent_sidecar::agent_status,
+            agent_commands::list_agent_commands,
+            agent_commands::read_agent_command,
+            agent_commands::get_agents_dir_path,
             #[cfg(debug_assertions)]
             debug_log,
         ])
