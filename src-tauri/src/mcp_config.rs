@@ -358,7 +358,7 @@ fn remove_vmark_from_config(provider_id: &str, content: &str) -> Result<String, 
     }
 }
 
-fn generate_backup_path(config_path: &PathBuf) -> PathBuf {
+fn generate_backup_path(config_path: &std::path::Path) -> PathBuf {
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
     let file_name = config_path
         .file_name()

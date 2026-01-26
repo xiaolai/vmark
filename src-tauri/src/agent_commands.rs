@@ -57,8 +57,7 @@ fn get_agents_dir(app: &AppHandle) -> Result<PathBuf, String> {
 
 /// Convert a folder name to a display name (title case)
 fn folder_to_display_name(name: &str) -> String {
-    name.replace('-', " ")
-        .replace('_', " ")
+    name.replace(['-', '_'], " ")
         .split_whitespace()
         .map(|word| {
             let mut chars = word.chars();
@@ -78,7 +77,7 @@ fn filename_to_label(name: &str) -> String {
 }
 
 /// Parse a markdown file with YAML frontmatter
-fn parse_command_file(path: &PathBuf) -> Result<AgentCommand, String> {
+fn parse_command_file(path: &std::path::Path) -> Result<AgentCommand, String> {
     let content = fs::read_to_string(path)
         .map_err(|e| format!("Failed to read file: {}", e))?;
 
@@ -89,11 +88,11 @@ fn parse_command_file(path: &PathBuf) -> Result<AgentCommand, String> {
         .to_string();
 
     // Parse frontmatter if present
-    let (frontmatter, body) = if content.starts_with("---") {
+    let (frontmatter, body) = if let Some(stripped) = content.strip_prefix("---") {
         // Find the closing ---
-        if let Some(end) = content[3..].find("---") {
-            let yaml_content = &content[3..3 + end];
-            let body = content[3 + end + 3..].trim_start();
+        if let Some(end) = stripped.find("---") {
+            let yaml_content = &stripped[..end];
+            let body = stripped[end + 3..].trim_start();
 
             let fm: Frontmatter = serde_yaml::from_str(yaml_content)
                 .unwrap_or_default();
@@ -163,7 +162,7 @@ pub async fn list_agent_commands(app: AppHandle) -> Result<Vec<CommandCategory>,
         if let Ok(files) = fs::read_dir(&path) {
             for file_entry in files.flatten() {
                 let file_path = file_entry.path();
-                if file_path.extension().map_or(false, |ext| ext == "md") {
+                if file_path.extension().is_some_and(|ext| ext == "md") {
                     if let Ok(cmd) = parse_command_file(&file_path) {
                         commands.push(cmd);
                     }
@@ -204,7 +203,7 @@ pub async fn get_agents_dir_path(app: AppHandle) -> Result<String, String> {
 }
 
 /// Copy default command files to the agents directory
-fn copy_default_commands(app: &AppHandle, agents_dir: &PathBuf) -> Result<(), String> {
+fn copy_default_commands(app: &AppHandle, agents_dir: &std::path::Path) -> Result<(), String> {
     // Get the resources directory
     let resource_path = app
         .path()
@@ -224,7 +223,7 @@ fn copy_default_commands(app: &AppHandle, agents_dir: &PathBuf) -> Result<(), St
 }
 
 /// Copy a directory recursively
-fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
     if !dst.exists() {
         fs::create_dir_all(dst)
             .map_err(|e| format!("Failed to create dir: {}", e))?;
@@ -252,7 +251,7 @@ fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
 }
 
 /// Create default command files when no bundled resources exist
-fn create_default_commands(agents_dir: &PathBuf) -> Result<(), String> {
+fn create_default_commands(agents_dir: &std::path::Path) -> Result<(), String> {
     // Writing category
     let writing_dir = agents_dir.join("writing");
     fs::create_dir_all(&writing_dir)

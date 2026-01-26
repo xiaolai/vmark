@@ -669,11 +669,9 @@ pub fn update_recent_files_menu(app: &AppHandle, files: Vec<String>) -> tauri::R
     for item in menu.items()? {
         if let MenuItemKind::Submenu(sub) = item {
             // Check if this submenu contains our target
-            if let Some(found) = sub.get(RECENT_FILES_SUBMENU_ID) {
-                if let MenuItemKind::Submenu(recent) = found {
-                    submenu_opt = Some(recent);
-                    break;
-                }
+            if let Some(MenuItemKind::Submenu(recent)) = sub.get(RECENT_FILES_SUBMENU_ID) {
+                submenu_opt = Some(recent);
+                break;
             }
         }
     }

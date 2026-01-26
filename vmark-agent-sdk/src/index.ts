@@ -7,7 +7,7 @@
 
 import * as readline from "readline";
 import type { IpcRequest, IpcResponse, AgentMessage } from "./types.js";
-import { runAgentQuery, checkClaudeInstalled } from "./agent.js";
+import { runAgentQuery, checkClaudeInstalled, cancelQuery } from "./agent.js";
 import { buildMcpServersConfig, getAllowedTools } from "./mcp.js";
 
 /**
@@ -108,10 +108,15 @@ async function processRequest(request: IpcRequest): Promise<void> {
       await handleQuery(request);
       break;
 
-    case "cancel":
-      // TODO: Implement cancellation
-      sendResponse({ type: "cancelled", id: request.id });
+    case "cancel": {
+      const wasCancelled = cancelQuery(request.id);
+      sendResponse({
+        type: "cancelled",
+        id: request.id,
+        content: wasCancelled ? "Query cancelled" : "No active query found",
+      });
       break;
+    }
 
     default:
       sendResponse({

@@ -1,16 +1,14 @@
-/**
- * MCP Server Process Management
- *
- * Manages the MCP bridge WebSocket server and optional sidecar process.
- *
- * Architecture:
- * - The BRIDGE is a WebSocket server that AI sidecars connect to
- * - The SIDECAR is spawned by AI clients (Claude Code, Codex, etc.), NOT by VMark
- * - VMark only starts the bridge; AI clients spawn their own sidecars
- *
- * For development/testing, mcp_server_start can spawn a local sidecar,
- * but this should NOT be used when AI clients are configured to use VMark.
- */
+//! MCP Server Process Management
+//!
+//! Manages the MCP bridge WebSocket server and optional sidecar process.
+//!
+//! Architecture:
+//! - The BRIDGE is a WebSocket server that AI sidecars connect to
+//! - The SIDECAR is spawned by AI clients (Claude Code, Codex, etc.), NOT by VMark
+//! - VMark only starts the bridge; AI clients spawn their own sidecars
+//!
+//! For development/testing, mcp_server_start can spawn a local sidecar,
+//! but this should NOT be used when AI clients are configured to use VMark.
 
 use crate::mcp_bridge;
 use serde::{Deserialize, Serialize};
@@ -127,7 +125,7 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
                 local_sidecar: true,
             });
         }
-        BRIDGE_PORT.lock().map_err(|e| e.to_string())?.clone()
+        *BRIDGE_PORT.lock().map_err(|e| e.to_string())?
     };
 
     // Start the bridge first (if not already running)
@@ -217,7 +215,7 @@ pub async fn mcp_server_stop(app: AppHandle) -> Result<McpServerStatus, String> 
 #[command]
 pub fn mcp_server_status() -> Result<McpServerStatus, String> {
     let bridge_running = BRIDGE_RUNNING.load(Ordering::SeqCst);
-    let port = BRIDGE_PORT.lock().map_err(|e| e.to_string())?.clone();
+    let port = *BRIDGE_PORT.lock().map_err(|e| e.to_string())?;
     let local_sidecar = MCP_SERVER.lock().map_err(|e| e.to_string())?.is_some();
 
     Ok(McpServerStatus {

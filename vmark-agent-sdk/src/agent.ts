@@ -2,7 +2,7 @@
  * Agent SDK wrapper for VMark
  *
  * Provides a clean interface for running queries through the Claude Agent SDK
- * with support for streaming, MCP tools, and error handling.
+ * with support for streaming, MCP tools, cancellation, and error handling.
  */
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
@@ -13,6 +13,34 @@ import type {
   ClaudeStatus,
   McpServerConfig,
 } from "./types.js";
+
+/**
+ * Active query tracking for cancellation support
+ */
+const activeQueries = new Map<string, AbortController>();
+
+/**
+ * Cancel an active query by ID
+ *
+ * @param id - The query ID to cancel
+ * @returns true if a query was cancelled, false if not found
+ */
+export function cancelQuery(id: string): boolean {
+  const controller = activeQueries.get(id);
+  if (controller) {
+    controller.abort();
+    activeQueries.delete(id);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Check if a query is currently active
+ */
+export function isQueryActive(id: string): boolean {
+  return activeQueries.has(id);
+}
 
 /**
  * Run a query through the Agent SDK
@@ -30,90 +58,129 @@ export async function runAgentQuery(
 ): Promise<void> {
   const { id, prompt, options } = request;
 
-  // Build SDK options
-  const sdkOptions: Parameters<typeof query>[0]["options"] = {
-    maxTurns: options?.maxTurns ?? 3,
-    pathToClaudeCodeExecutable: claudePath,
-  };
-
-  // Add allowed tools if specified
-  if (options?.allowedTools && options.allowedTools.length > 0) {
-    sdkOptions.allowedTools = options.allowedTools;
-  }
-
-  // Add MCP servers if provided
-  if (mcpServers && Object.keys(mcpServers).length > 0) {
-    sdkOptions.mcpServers = mcpServers;
-  }
-
-  // Add system prompt if provided
-  let fullPrompt = prompt;
-  if (options?.systemPrompt) {
-    fullPrompt = `${options.systemPrompt}\n\n${prompt}`;
-  }
-
-  // Create the query session
-  const session = query({
-    prompt: fullPrompt,
-    options: sdkOptions,
-  });
-
-  let finalResult = "";
-  let isError = false;
+  // Create abort controller for this query
+  const abortController = new AbortController();
+  activeQueries.set(id, abortController);
 
   try {
-    // Iterate over the async generator to get messages
-    for await (const message of session) {
-      // Handle streaming text (partial messages)
-      if (message.type === "stream_event") {
-        const event = message.event;
-        if (
-          event.type === "content_block_delta" &&
-          event.delta.type === "text_delta"
-        ) {
+    // Build SDK options
+    const sdkOptions: Parameters<typeof query>[0]["options"] = {
+      maxTurns: options?.maxTurns ?? 3,
+      pathToClaudeCodeExecutable: claudePath,
+    };
+
+    // Add allowed tools if specified
+    if (options?.allowedTools && options.allowedTools.length > 0) {
+      sdkOptions.allowedTools = options.allowedTools;
+    }
+
+    // Add MCP servers if provided
+    if (mcpServers && Object.keys(mcpServers).length > 0) {
+      sdkOptions.mcpServers = mcpServers;
+    }
+
+    // Add system prompt if provided
+    let fullPrompt = prompt;
+    if (options?.systemPrompt) {
+      fullPrompt = `${options.systemPrompt}\n\n${prompt}`;
+    }
+
+    // Create the query session
+    const session = query({
+      prompt: fullPrompt,
+      options: sdkOptions,
+    });
+
+    let finalResult = "";
+    let isError = false;
+
+    try {
+      // Iterate over the async generator to get messages
+      for await (const message of session) {
+        // Check for cancellation
+        if (abortController.signal.aborted) {
           onMessage({
-            type: "stream",
+            type: "error",
             id,
-            content: event.delta.text,
-            done: false,
+            content: "Query cancelled",
           });
+          return;
+        }
+
+        // Handle streaming text (partial messages)
+        if (message.type === "stream_event") {
+          const event = message.event;
+          if (
+            event.type === "content_block_delta" &&
+            event.delta.type === "text_delta"
+          ) {
+            onMessage({
+              type: "stream",
+              id,
+              content: event.delta.text,
+              done: false,
+            });
+          }
+        }
+
+        // Handle final result
+        if (message.type === "result") {
+          if (message.subtype === "success") {
+            finalResult = message.result;
+            isError = message.is_error ?? false;
+          } else if (message.subtype === "error") {
+            finalResult = message.error ?? "Unknown error";
+            isError = true;
+          }
         }
       }
-
-      // Handle final result
-      if (message.type === "result") {
-        if (message.subtype === "success") {
-          finalResult = message.result;
-          isError = message.is_error ?? false;
-        } else if (message.subtype === "error") {
-          finalResult = message.error ?? "Unknown error";
-          isError = true;
-        }
+    } catch (iterError) {
+      // Check if we were cancelled
+      if (abortController.signal.aborted) {
+        onMessage({
+          type: "error",
+          id,
+          content: "Query cancelled",
+        });
+        return;
       }
-    }
-  } catch (iterError) {
-    // The SDK throws when Claude exits with non-zero code
-    // but we may already have the result, so check if we have content
-    if (!finalResult) {
-      throw iterError;
-    }
-    // Otherwise continue - we have the result from the messages
-  }
 
-  // Send final message
-  if (isError) {
-    onMessage({
-      type: "error",
-      id,
-      content: finalResult || "Unknown error",
-    });
-  } else {
-    onMessage({
-      type: "result",
-      id,
-      content: finalResult || "No response",
-      done: true,
-    });
+      // The SDK throws when Claude exits with non-zero code
+      // but we may already have the result, so check if we have content
+      if (!finalResult) {
+        throw iterError;
+      }
+      // Otherwise continue - we have the result from the messages
+    }
+
+    // Final cancellation check before sending result
+    if (abortController.signal.aborted) {
+      onMessage({
+        type: "error",
+        id,
+        content: "Query cancelled",
+      });
+      return;
+    }
+
+    // Send final message
+    if (isError) {
+      onMessage({
+        type: "error",
+        id,
+        content: finalResult || "Unknown error",
+      });
+    } else {
+      onMessage({
+        type: "result",
+        id,
+        content: finalResult || "No response",
+        done: true,
+      });
+    }
+  } finally {
+    // Clean up tracking
+    activeQueries.delete(id);
   }
 }
 
