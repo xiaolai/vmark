@@ -80,9 +80,22 @@ function escapeMarkBoundary(view: EditorView): boolean {
   return true;
 }
 
+/**
+ * Convert shortcut key format to ProseMirror keymap format.
+ * Shortcuts store uses normalized format (Up, Down, Left, Right)
+ * but ProseMirror keydownHandler expects browser key names (ArrowUp, ArrowDown, etc.)
+ */
+function toProseMirrorKey(key: string): string {
+  return key
+    .replace(/\bUp\b/g, "ArrowUp")
+    .replace(/\bDown\b/g, "ArrowDown")
+    .replace(/\bLeft\b/g, "ArrowLeft")
+    .replace(/\bRight\b/g, "ArrowRight");
+}
+
 function bindIfKey(binds: Record<string, Command>, key: string, command: Command) {
   if (!key) return;
-  binds[key] = guardProseMirrorCommand(command);
+  binds[toProseMirrorKey(key)] = guardProseMirrorCommand(command);
 }
 
 function wrapWithMultiSelectionGuard(action: string, command: Command): Command {

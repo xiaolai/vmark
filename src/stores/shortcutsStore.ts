@@ -137,7 +137,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save", scope: "global" },
   { id: "saveAs", label: "Save As", category: "file", defaultKey: "Mod-Shift-s", menuId: "save-as", scope: "global" },
   { id: "closeFile", label: "Close", category: "file", defaultKey: "Mod-w", menuId: "close", scope: "global" },
-  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "Mod-Shift-e", menuId: "export-html", scope: "global" },
+  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "Alt-Mod-e", menuId: "export-html", scope: "global" },
   { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf", scope: "global" },
   { id: "preferences", label: "Settings", category: "file", defaultKey: "Mod-,", menuId: "preferences", scope: "global" },
 

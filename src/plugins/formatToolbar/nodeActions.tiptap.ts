@@ -1,4 +1,5 @@
 import type { EditorView } from "@tiptap/pm/view";
+import { Selection } from "@tiptap/pm/state";
 import type { NodeContext } from "./types";
 import { liftListItem, sinkListItem, wrapInList } from "@tiptap/pm/schema-list";
 
@@ -217,6 +218,15 @@ export function handleRemoveBlockquote(view: EditorView) {
   const blockquotePos = $from.before(outermostDepth);
   const blockquoteNode = $from.node(outermostDepth);
 
-  dispatch(state.tr.replaceWith(blockquotePos, blockquotePos + blockquoteNode.nodeSize, blockquoteNode.content));
+  // Calculate cursor offset within blockquote to preserve position after unwrap
+  const cursorOffsetInBlockquote = $from.pos - blockquotePos - 1; // -1 for blockquote opening tag
+
+  const tr = state.tr.replaceWith(blockquotePos, blockquotePos + blockquoteNode.nodeSize, blockquoteNode.content);
+
+  // Restore cursor position: blockquotePos + offset within content
+  const newCursorPos = Math.min(blockquotePos + cursorOffsetInBlockquote, tr.doc.content.size);
+  tr.setSelection(Selection.near(tr.doc.resolve(newCursorPos)));
+
+  dispatch(tr);
   view.focus();
 }
