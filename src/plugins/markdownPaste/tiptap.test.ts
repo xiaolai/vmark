@@ -84,7 +84,7 @@ describe("markdownPasteExtension", () => {
 
     const result = shouldHandleMarkdownPaste(state, "- item", {
       pasteMode: "auto",
-      hasHtml: false,
+      html: "",
     });
     expect(result).toBe(false);
   });
@@ -103,7 +103,7 @@ describe("markdownPasteExtension", () => {
 
     const result = shouldHandleMarkdownPaste(state, "- item", {
       pasteMode: "auto",
-      hasHtml: false,
+      html: "",
     });
     expect(result).toBe(false);
   });
@@ -117,7 +117,7 @@ describe("markdownPasteExtension", () => {
 
     const result = shouldHandleMarkdownPaste(state, "# Title\nText", {
       pasteMode: "auto",
-      hasHtml: false,
+      html: "",
     });
     expect(result).toBe(false);
   });
@@ -126,7 +126,7 @@ describe("markdownPasteExtension", () => {
     const state = createState(createParagraphDoc(""));
     const result = shouldHandleMarkdownPaste(state, "Just a sentence.", {
       pasteMode: "auto",
-      hasHtml: false,
+      html: "",
     });
     expect(result).toBe(false);
   });
@@ -135,7 +135,27 @@ describe("markdownPasteExtension", () => {
     const state = createState(createParagraphDoc(""));
     const result = shouldHandleMarkdownPaste(state, "# Title\nText", {
       pasteMode: "off" as MarkdownPasteMode,
-      hasHtml: false,
+      html: "",
+    });
+    expect(result).toBe(false);
+  });
+
+  it("handles markdown with non-substantial HTML wrapper", () => {
+    const state = createState(createParagraphDoc(""));
+    // Two divs (not substantial - needs > 2 to be substantial)
+    const result = shouldHandleMarkdownPaste(state, "# Title\nText", {
+      pasteMode: "auto",
+      html: "<div># Title</div><div>Text</div>",
+    });
+    expect(result).toBe(true);
+  });
+
+  it("skips markdown parsing when HTML is substantial", () => {
+    const state = createState(createParagraphDoc(""));
+    // Substantial HTML (with formatting tags) should be handled by htmlPaste
+    const result = shouldHandleMarkdownPaste(state, "Bold text", {
+      pasteMode: "auto",
+      html: "<p><strong>Bold text</strong></p>",
     });
     expect(result).toBe(false);
   });

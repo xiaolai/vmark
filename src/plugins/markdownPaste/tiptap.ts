@@ -6,6 +6,7 @@ import { Fragment, Slice, type NodeType } from "@tiptap/pm/model";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import type { MarkdownPipelineOptions } from "@/utils/markdownPipeline/types";
 import { isMarkdownPasteCandidate } from "@/utils/markdownPasteDetection";
+import { isSubstantialHtml } from "@/utils/htmlToMarkdown";
 import { useSettingsStore, type MarkdownPasteMode } from "@/stores/settingsStore";
 import { isMultiSelection, isSelectionInCode } from "@/utils/pasteUtils";
 
@@ -15,7 +16,8 @@ const MAX_MARKDOWN_PASTE_CHARS = 200_000;
 
 export interface MarkdownPasteDecision {
   pasteMode: MarkdownPasteMode;
-  hasHtml: boolean;
+  /** Raw HTML from clipboard, if any */
+  html: string;
 }
 
 function ensureBlockContent(content: Fragment, paragraphType: NodeType | undefined): Fragment {
@@ -66,7 +68,9 @@ export function shouldHandleMarkdownPaste(
   if (!trimmed) return false;
   if (trimmed.length > MAX_MARKDOWN_PASTE_CHARS) return false;
   if (decision.pasteMode === "off") return false;
-  if (decision.hasHtml) return false;
+  // If HTML is present AND substantial, let htmlPaste handle it.
+  // If HTML is minimal (just wrapper tags), we should still try markdown parsing.
+  if (decision.html && isSubstantialHtml(decision.html)) return false;
   if (isMultiSelection(state)) return false;
   if (isSelectionInCode(state)) return false;
   if (!state.selection.empty && hasValidUrl(trimmed)) return false;
@@ -93,20 +97,15 @@ async function readClipboardPlainText(): Promise<string> {
   return "";
 }
 
-function hasHtmlClipboardData(event: ClipboardEvent): boolean {
-  const html = event.clipboardData?.getData("text/html");
-  return Boolean(html && html.trim());
-}
-
 function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
   const text = event.clipboardData?.getData("text/plain");
   if (!text) return false;
 
   const settings = useSettingsStore.getState();
   const pasteMode = settings.markdown.pasteMarkdownInWysiwyg ?? "auto";
-  const hasHtml = hasHtmlClipboardData(event);
+  const html = event.clipboardData?.getData("text/html") ?? "";
 
-  if (!shouldHandleMarkdownPaste(view.state, text, { pasteMode, hasHtml })) {
+  if (!shouldHandleMarkdownPaste(view.state, text, { pasteMode, html })) {
     return false;
   }
 
