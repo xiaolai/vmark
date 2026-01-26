@@ -53,7 +53,8 @@
       }
     ],
     "externalBin": [
-      "binaries/vmark-mcp-server"
+      "binaries/vmark-mcp-server",
+      "binaries/vmark-agent-sdk"
     ],
     "macOS": {
       "entitlements": "sidecar-entitlements.plist",

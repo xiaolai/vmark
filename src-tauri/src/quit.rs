@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::sync::{Mutex, LazyLock, atomic::{AtomicBool, Ordering}};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::agent_sidecar;
 use crate::mcp_server;
 
 static QUIT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
@@ -52,6 +53,7 @@ pub fn start_quit(app: &AppHandle) {
     if targets.is_empty() {
         // Keep QUIT_IN_PROGRESS true so ExitRequested handler allows exit
         mcp_server::cleanup();
+        agent_sidecar::cleanup();
         app.exit(0);
         return;
     }
@@ -85,6 +87,7 @@ pub fn handle_window_destroyed(app: &AppHandle, label: &str) {
         eprintln!("[Tauri] handle_window_destroyed: all targets done, calling app.exit(0)");
         // Keep QUIT_IN_PROGRESS true so ExitRequested handler allows exit
         mcp_server::cleanup();
+        agent_sidecar::cleanup();
         app.exit(0);
     }
 }

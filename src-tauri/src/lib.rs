@@ -1,3 +1,4 @@
+mod agent_sidecar;
 mod api_key;
 mod claude_detection;
 mod mcp_bridge;
@@ -106,6 +107,10 @@ pub fn run() {
             api_key::test_api_key,
             claude_detection::detect_claude_code,
             claude_detection::get_claude_path,
+            agent_sidecar::agent_start,
+            agent_sidecar::agent_stop,
+            agent_sidecar::agent_query,
+            agent_sidecar::agent_status,
             #[cfg(debug_assertions)]
             debug_log,
         ])
