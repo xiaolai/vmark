@@ -135,7 +135,7 @@ If **Auto-approve edits** is enabled in Settings → Integrations, the deletion 
 
 ### cursor_get_context
 
-Get text surrounding the cursor for context understanding.
+Get text surrounding the cursor for context understanding, including block type information.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -143,7 +143,19 @@ Get text surrounding the cursor for context understanding.
 | `linesAfter` | number | No | Lines after cursor. Default: 3. |
 | `windowId` | string | No | Window identifier. |
 
-**Returns:** `{ linesBefore, currentLine, linesAfter, currentParagraph }`
+**Returns:** `{ before, after, currentLine, currentParagraph, block }`
+
+The `block` object contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Block type: `paragraph`, `heading`, `codeBlock`, `blockquote`, etc. |
+| `level` | number | Heading level 1-6 (only for headings) |
+| `language` | string | Code language (only for code blocks with language set) |
+| `inList` | string | List type if inside a list: `bullet`, `ordered`, or `task` |
+| `inBlockquote` | boolean | `true` if inside a blockquote |
+| `inTable` | boolean | `true` if inside a table |
+| `position` | number | Document position where the block starts |
 
 ### cursor_set_position
 

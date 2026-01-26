@@ -2,7 +2,68 @@
  * MCP Bridge - Cursor Operation Handlers
  */
 
+import type { ResolvedPos } from "@tiptap/pm/model";
 import { respond, getEditor } from "./utils";
+
+/**
+ * Block context information for cursor position.
+ */
+interface BlockInfo {
+  /** Block type name (paragraph, heading, codeBlock, etc.) */
+  type: string;
+  /** Heading level (1-6), only for headings */
+  level?: number;
+  /** Code language, only for code blocks */
+  language?: string;
+  /** List type if inside a list (bullet, ordered, task) */
+  inList?: "bullet" | "ordered" | "task";
+  /** True if inside a blockquote */
+  inBlockquote?: boolean;
+  /** True if inside a table */
+  inTable?: boolean;
+  /** Document position where the block starts */
+  position: number;
+}
+
+/**
+ * Extract block context from a resolved position.
+ * Walks up the node tree to find block type and ancestor containers.
+ */
+function getBlockInfo($pos: ResolvedPos): BlockInfo {
+  const parent = $pos.parent;
+  const blockInfo: BlockInfo = {
+    type: parent.type.name,
+    position: $pos.before($pos.depth),
+  };
+
+  // Add type-specific attributes
+  if (parent.type.name === "heading") {
+    blockInfo.level = parent.attrs.level as number;
+  } else if (parent.type.name === "codeBlock") {
+    const lang = parent.attrs.language as string | undefined;
+    if (lang) blockInfo.language = lang;
+  }
+
+  // Walk up ancestors to find containers (list, blockquote, table)
+  for (let d = $pos.depth - 1; d >= 0; d--) {
+    const ancestor = $pos.node(d);
+    const name = ancestor.type.name;
+
+    if (name === "bulletList" && !blockInfo.inList) {
+      blockInfo.inList = "bullet";
+    } else if (name === "orderedList" && !blockInfo.inList) {
+      blockInfo.inList = "ordered";
+    } else if (name === "taskList" && !blockInfo.inList) {
+      blockInfo.inList = "task";
+    } else if (name === "blockquote") {
+      blockInfo.inBlockquote = true;
+    } else if (name === "table") {
+      blockInfo.inTable = true;
+    }
+  }
+
+  return blockInfo;
+}
 
 /**
  * Handle cursor.getContext request.
@@ -54,6 +115,9 @@ export async function handleCursorGetContext(
       afterBlocks.push(node.textContent);
     }
 
+    // Extract block context info
+    const block = getBlockInfo($pos);
+
     await respond({
       id,
       success: true,
@@ -62,6 +126,7 @@ export async function handleCursorGetContext(
         after: afterBlocks.join("\n"),
         currentLine,
         currentParagraph: currentLine,
+        block,
       },
     });
   } catch (error) {
