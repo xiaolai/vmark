@@ -137,13 +137,8 @@ body {
   background-color: var(--selection-color);
 }
 
-/* Focus states */
+/* Remove default focus outlines globally - components define their own focus indicators */
 *:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-*:focus:not(:focus-visible) {
   outline: none;
 }
 

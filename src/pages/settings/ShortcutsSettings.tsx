@@ -174,9 +174,10 @@ export function ShortcutsSettings() {
             placeholder="Search shortcuts..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded border border-[var(--border-color)]
-                       bg-[var(--bg-primary)] text-[var(--text-primary)]
-                       placeholder:text-[var(--text-tertiary)]"
+            className="w-full px-0 py-1 text-sm bg-transparent text-[var(--text-primary)]
+                       border-0 border-b border-[var(--border-color)]
+                       placeholder:text-[var(--text-tertiary)]
+                       focus:border-[var(--primary-color)]"
           />
         </div>
 
