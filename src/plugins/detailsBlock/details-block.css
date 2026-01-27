@@ -106,10 +106,10 @@
 }
 
 /* Lists inside details
-   Extra padding for visual balance with container border */
+   Padding for visual balance with container border */
 .details-block > ul:not(.details-summary),
 .details-block > ol:not(.details-summary) {
-  --list-padding: calc(var(--list-indent, 1em) * 2.5);
+  --list-padding: calc(var(--list-indent, 1em) * 2);
   padding-left: var(--list-padding);
 }
 

@@ -301,7 +301,7 @@
 .tiptap-editor blockquote {
   border-left: 4px solid var(--border-color);
   border-radius: var(--radius-md);
-  margin: 0.8em 0;
+  margin: 1em 0;
   padding: 0 1em;
   color: var(--meta-content-color);
   line-height: var(--editor-line-height-px);
