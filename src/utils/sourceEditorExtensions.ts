@@ -8,7 +8,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { search } from "@codemirror/search";
+import { search, selectNextOccurrence, selectSelectionMatches } from "@codemirror/search";
 import { useEditorStore } from "@/stores/editorStore";
 import {
   sourceEditorTheme,
@@ -48,10 +48,6 @@ import {
   structuralBackspaceKeymap,
   structuralDeleteKeymap,
 } from "@/plugins/codemirror";
-import {
-  selectAllOccurrencesInBlock,
-  selectNextOccurrenceInBlock,
-} from "@/plugins/codemirror/sourceMultiCursorCommands";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
@@ -154,16 +150,16 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
         run: (view) => toggleTaskList(view),
         preventDefault: true,
       }),
-      // Cmd+D: select next occurrence (current block only)
+      // Cmd+D: select next occurrence (official CodeMirror implementation)
       guardCodeMirrorKeyBinding({
         key: "Mod-d",
-        run: selectNextOccurrenceInBlock,
+        run: (view) => selectNextOccurrence({ state: view.state, dispatch: view.dispatch }),
         preventDefault: true,
       }),
-      // Cmd+Shift+L: select all occurrences (current block only)
+      // Cmd+Shift+L: select all occurrences (official CodeMirror implementation)
       guardCodeMirrorKeyBinding({
         key: "Mod-Shift-l",
-        run: selectAllOccurrencesInBlock,
+        run: (view) => selectSelectionMatches({ state: view.state, dispatch: view.dispatch }),
         preventDefault: true,
       }),
       // Cmd+Option+W: toggle word wrap
