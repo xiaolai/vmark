@@ -240,9 +240,13 @@
   /* No margin - line-height provides consistent vertical rhythm */
 }
 
-/* Remove paragraph margin inside list items for consistent spacing */
-.tiptap-editor li > p {
+/* Paragraphs inside list items:
+   - No margin (line-height provides rhythm)
+   - Use absolute line-height to match li (ratio would compute smaller due to sm font-size) */
+.tiptap-editor li > p,
+.tiptap-editor .task-list-content > p {
   margin-bottom: 0;
+  line-height: var(--editor-line-height-px);
 }
 
 .tiptap-editor ul {
@@ -313,9 +317,20 @@
   color: inherit;
 }
 
-/* Lists inside blockquotes - padding must exceed task item offset for safe buffer */
+/* Paragraphs inside blockquotes - reduce margin for tighter spacing */
+.tiptap-editor blockquote > p {
+  margin-bottom: calc(var(--list-indent) * 0.5);
+}
+
+.tiptap-editor blockquote > p:last-child {
+  margin-bottom: 0;
+}
+
+/* Lists inside blockquotes - inherit font-size to prevent compounding (0.9 × 0.9)
+   Padding must exceed task item offset for safe buffer */
 .tiptap-editor blockquote > ul,
 .tiptap-editor blockquote > ol {
+  font-size: inherit;
   --list-padding: calc(var(--list-indent) * 2);
   padding-left: var(--list-padding);
 }
@@ -397,9 +412,12 @@
   transform: translateY(0.1em);
 }
 
+/* Task content needs explicit line-height because flex container doesn't
+   create vertical space from line-height the way block layout does */
 .tiptap-editor .task-list-content {
   flex: 1;
   min-width: 0;
+  line-height: var(--editor-line-height-px);
 }
 
 /* Custom checkbox styling - uses --checkbox-size from parent .task-list-item

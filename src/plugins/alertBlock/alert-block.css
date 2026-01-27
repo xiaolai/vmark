@@ -53,10 +53,16 @@
   margin-bottom: 0;
 }
 
-/* Lists inside alerts - padding must exceed task item offset for safe buffer
-   Uses --list-indent from editor.css (inherited), multiplied by 2 */
+/* Paragraphs inside alerts - reduce margin for tighter spacing */
+.alert-block .alert-content > p {
+  margin-bottom: calc(var(--list-indent, 1em) * 0.5);
+}
+
+/* Lists inside alerts - inherit font-size to prevent compounding (0.9 × 0.9)
+   Padding must exceed task item offset for safe buffer */
 .alert-block .alert-content > ul,
 .alert-block .alert-content > ol {
+  font-size: inherit;
   --list-padding: calc(var(--list-indent, 1em) * 2);
   padding-left: var(--list-padding);
 }

@@ -70,9 +70,10 @@
   border-bottom-color: var(--border-color);
 }
 
-/* Content area - hidden when collapsed */
+/* Content area - hidden when collapsed
+   Horizontal padding for all, vertical padding only on first/last to avoid double spacing */
 .details-block > *:not(summary):not(.details-summary) {
-  padding: 0.75em 1em; /* Match alert block's horizontal padding */
+  padding: 0 1em;
   display: none;
 }
 
@@ -81,20 +82,28 @@
   display: block;
 }
 
-/* First content element */
+/* First content element - top padding */
 .details-block > *:not(summary):not(.details-summary):first-of-type {
   margin-top: 0;
+  padding-top: 0.75em;
 }
 
-/* Last content element */
+/* Last content element - bottom padding */
 .details-block > *:not(summary):not(.details-summary):last-child {
   margin-bottom: 0;
+  padding-bottom: 0.75em;
 }
 
-/* Lists inside details - extra padding for visual balance with container border
-   Uses --list-indent from editor.css (inherited), multiplied by 2.5 */
+/* Paragraphs inside details - reduce margin for tighter spacing */
+.details-block > p:not(.details-summary) {
+  margin-bottom: calc(var(--list-indent, 1em) * 0.5);
+}
+
+/* Lists inside details - inherit font-size to prevent compounding (0.9 × 0.9)
+   Extra padding for visual balance with container border */
 .details-block > ul:not(.details-summary),
 .details-block > ol:not(.details-summary) {
+  font-size: inherit;
   --list-padding: calc(var(--list-indent, 1em) * 2.5);
   padding-left: var(--list-padding);
 }
