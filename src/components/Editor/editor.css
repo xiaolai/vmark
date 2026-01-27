@@ -210,8 +210,8 @@
 .tiptap-editor ul,
 .tiptap-editor ol {
   --list-indent: 1em;
-  --list-padding: calc(var(--list-indent) * 2);
-  --list-margin: calc(var(--list-indent) * 0.8);
+  --list-padding: calc(var(--list-indent, 1em) * 2);
+  --list-margin: calc(var(--list-indent, 1em) * 0.8);
   margin: 0 0 var(--list-margin) 0;
   padding-left: var(--list-padding);
   line-height: var(--editor-line-height-px);
@@ -230,7 +230,7 @@
 /* Nested lists: 75% of top-level padding */
 .tiptap-editor li > ul,
 .tiptap-editor li > ol {
-  --list-padding: calc(var(--list-indent) * 1.5);
+  --list-padding: calc(var(--list-indent, 1em) * 1.5);
   margin: 0;
   padding-left: var(--list-padding);
 }
