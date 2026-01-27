@@ -77,9 +77,14 @@
 }
 
 /* Content area - hidden when collapsed
-   Horizontal padding for all, vertical padding only on first/last to avoid double spacing */
+   Horizontal padding for simple content (p, headings), not for blocks with their own padding
+   Use explicit left/right to not interfere with first/last child vertical padding */
+.details-block > *:not(summary):not(.details-summary):not(ul):not(ol):not(blockquote):not(pre):not(.alert-block) {
+  padding-left: 1em;
+  padding-right: 1em;
+}
+
 .details-block > *:not(summary):not(.details-summary) {
-  padding: 0 1em;
   display: none;
 }
 
@@ -88,14 +93,14 @@
   display: block;
 }
 
-/* First content element - top padding */
-.details-block > *:not(summary):not(.details-summary):first-of-type {
+/* First content element - top padding (blocks with own rules handle themselves) */
+.details-block > *:not(summary):not(.details-summary):not(ul):not(ol):not(blockquote):first-of-type {
   margin-top: 0;
   padding-top: 0.75em;
 }
 
-/* Last content element - bottom padding */
-.details-block > *:not(summary):not(.details-summary):last-child {
+/* Last content element - bottom padding (blocks with own rules handle themselves) */
+.details-block > *:not(summary):not(.details-summary):not(ul):not(ol):not(blockquote):last-child {
   margin-bottom: 0;
   padding-bottom: 0.75em;
 }
@@ -105,18 +110,59 @@
   margin-bottom: calc(var(--list-indent, 1em) * 0.5);
 }
 
-/* Lists inside details
-   Padding for visual balance with container border */
+/* Lists inside details - handle all padding explicitly */
 .details-block > ul:not(.details-summary),
 .details-block > ol:not(.details-summary) {
   --list-padding: calc(var(--list-indent, 1em) * 2);
+  margin: 0.5em 0;
   padding-left: var(--list-padding);
+  padding-right: 1em;
 }
 
-/* Blockquote needs left margin so its border isn't flush against the edge */
+/* First list - add top padding */
+.details-block > ul:not(.details-summary):first-of-type,
+.details-block > ol:not(.details-summary):first-of-type {
+  margin-top: 0;
+  padding-top: 0.75em;
+}
+
+/* Last list - add bottom padding */
+.details-block > ul:not(.details-summary):last-child,
+.details-block > ol:not(.details-summary):last-child {
+  margin-bottom: 0;
+  padding-bottom: 0.75em;
+}
+
+/* Blockquote inside details - reset margins, add consistent spacing */
 .details-block > blockquote:not(.details-summary) {
-  margin-left: calc(var(--list-indent, 1em) * 0.75);
-  padding-left: var(--list-indent, 1em);
+  margin: 0.5em 1em;
+  padding: 0 1em;
+}
+
+/* First blockquote - add top padding */
+.details-block > blockquote:not(.details-summary):first-of-type {
+  margin-top: 0.75em;
+}
+
+/* Last blockquote - add bottom padding */
+.details-block > blockquote:not(.details-summary):last-child {
+  margin-bottom: 0.75em;
+}
+
+/* Code blocks inside details - consistent margins */
+.details-block > pre:not(.details-summary),
+.details-block > .code-block-wrapper:not(.details-summary) {
+  margin: 0.5em 1em;
+}
+
+.details-block > pre:not(.details-summary):first-of-type,
+.details-block > .code-block-wrapper:not(.details-summary):first-of-type {
+  margin-top: 0.75em;
+}
+
+.details-block > pre:not(.details-summary):last-child,
+.details-block > .code-block-wrapper:not(.details-summary):last-child {
+  margin-bottom: 0.75em;
 }
 
 /* Dark mode uses the same CSS variables - no override needed */
