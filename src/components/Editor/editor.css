@@ -142,14 +142,10 @@
 
 .tiptap-editor h1 {
   font-size: 1.75em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .tiptap-editor h2 {
   font-size: 1.5em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .tiptap-editor h3 {
@@ -488,7 +484,7 @@
 .tiptap-editor img {
   max-width: 100%;
   height: auto;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   transition: border-color 0.15s ease;
   /* Prevent macOS Live Text from selecting text within images */
