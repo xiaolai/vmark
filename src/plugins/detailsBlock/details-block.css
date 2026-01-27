@@ -91,20 +91,18 @@
   margin-bottom: 0;
 }
 
-/* Lists inside details - override content padding to 2.5em total
-   (Unlike blockquote/alert where container padding + list padding = 2.5em,
-   here the list padding replaces the content rule's padding-left directly)
-   Task items use negative margin to align, so no special rule needed */
+/* Lists inside details - extra padding for visual balance with container border
+   Uses --list-indent from editor.css (inherited), multiplied by 2.5 */
 .details-block > ul:not(.details-summary),
 .details-block > ol:not(.details-summary) {
-  --list-padding: 2.5em;
+  --list-padding: calc(var(--list-indent, 1em) * 2.5);
   padding-left: var(--list-padding);
 }
 
 /* Blockquote needs left margin so its border isn't flush against the edge */
 .details-block > blockquote:not(.details-summary) {
-  margin-left: 0.75em;
-  padding-left: 1em;
+  margin-left: calc(var(--list-indent, 1em) * 0.75);
+  padding-left: var(--list-indent, 1em);
 }
 
 /* Dark mode uses the same CSS variables - no override needed */

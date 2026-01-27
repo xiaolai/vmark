@@ -53,12 +53,11 @@
   margin-bottom: 0;
 }
 
-/* Lists inside alerts - account for alert's 1em padding
-   Final position: 1em (alert) + 1.5em (list) = 2.5em from edge
-   Task items use negative margin to align, so no special rule needed */
+/* Lists inside alerts - padding must exceed task item offset for safe buffer
+   Uses --list-indent from editor.css (inherited), multiplied by 2 */
 .alert-block .alert-content > ul,
 .alert-block .alert-content > ol {
-  --list-padding: 1.5em;
+  --list-padding: calc(var(--list-indent, 1em) * 2);
   padding-left: var(--list-padding);
 }
 

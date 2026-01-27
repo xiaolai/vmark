@@ -205,12 +205,14 @@
   border-radius: 2px;
 }
 
-/* Lists - GitHub standard indentation for better readability
-   --list-padding is used as the base, task lists subtract checkbox width via calc() */
+/* Lists - systematic spacing based on --list-indent unit
+   All list values derive from this base for consistency */
 .tiptap-editor ul,
 .tiptap-editor ol {
-  --list-padding: 2em;
-  margin: 0 0 0.8em 0;
+  --list-indent: 1em;
+  --list-padding: calc(var(--list-indent) * 2);
+  --list-margin: calc(var(--list-indent) * 0.8);
+  margin: 0 0 var(--list-margin) 0;
   padding-left: var(--list-padding);
   font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
@@ -226,9 +228,10 @@
   margin-bottom: 0;
 }
 
+/* Nested lists: 75% of top-level padding */
 .tiptap-editor li > ul,
 .tiptap-editor li > ol {
-  --list-padding: 1.5em;
+  --list-padding: calc(var(--list-indent) * 1.5);
   margin: 0;
   padding-left: var(--list-padding);
 }
@@ -310,11 +313,10 @@
   color: inherit;
 }
 
-/* Lists inside blockquotes - account for blockquote's 1em padding
-   Final position: 1em (blockquote) + 1.5em (list) = 2.5em from edge */
+/* Lists inside blockquotes - padding must exceed task item offset for safe buffer */
 .tiptap-editor blockquote > ul,
 .tiptap-editor blockquote > ol {
-  --list-padding: 1.5em;
+  --list-padding: calc(var(--list-indent) * 2);
   padding-left: var(--list-padding);
 }
 
@@ -375,15 +377,16 @@
 }
 
 /* Task list items - use negative margin to align text with regular list items.
-   The checkbox (~0.9em) + gap (~0.5em) = 1.4em is pulled into the padding area
-   where bullets would normally render. This works for mixed lists (regular + task
-   items in same ul) and pure task lists alike. */
+   Checkbox size matches mono ratio (0.85×). Gap is ~40% of checkbox size.
+   The offset is pulled into the padding area where bullets normally render. */
 .tiptap-editor .task-list-item {
+  --checkbox-size: 0.85em;
+  --checkbox-gap: calc(var(--checkbox-size) * 0.4);
   list-style-type: none;
-  margin-left: -1.4em;
+  margin-left: calc(-1 * (var(--checkbox-size) + var(--checkbox-gap)));
   display: flex;
   align-items: baseline;
-  gap: 0.5em;
+  gap: var(--checkbox-gap);
 }
 
 .tiptap-editor .task-list-checkbox {
@@ -399,15 +402,16 @@
   min-width: 0;
 }
 
-/* Custom checkbox styling */
+/* Custom checkbox styling - uses --checkbox-size from parent .task-list-item
+   Border and radius are proportional to checkbox size */
 .tiptap-editor .task-list-item input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  box-sizing: border-box; /* Include border in width for consistent sizing */
-  width: 0.9em;
-  height: 0.9em;
-  border: 0.1em solid var(--text-secondary);
-  border-radius: 0.15em;
+  box-sizing: border-box;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  border: calc(var(--checkbox-size) * 0.12) solid var(--text-secondary);
+  border-radius: calc(var(--checkbox-size) * 0.15);
   background: transparent;
   cursor: pointer;
   position: relative;
@@ -423,15 +427,16 @@
   border-color: var(--primary-color);
 }
 
+/* Checkmark proportions relative to checkbox size */
 .tiptap-editor .task-list-item input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
-  left: 0.15em;
-  top: 0.01em;
-  width: 0.2em;
-  height: 0.4em;
+  left: calc(var(--checkbox-size) * 0.18);
+  top: calc(var(--checkbox-size) * 0.02);
+  width: calc(var(--checkbox-size) * 0.22);
+  height: calc(var(--checkbox-size) * 0.44);
   border: solid white;
-  border-width: 0 0.1em 0.1em 0;
+  border-width: 0 calc(var(--checkbox-size) * 0.11) calc(var(--checkbox-size) * 0.11) 0;
   transform: rotate(45deg);
 }
 
