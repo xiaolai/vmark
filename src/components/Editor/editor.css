@@ -32,16 +32,16 @@
 }
 
 .editor-content::-webkit-scrollbar-track {
-  background: var(--scrollbar-track, rgba(128, 128, 128, 0.2));
+  background: transparent;
 }
 
 .editor-content::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb, rgba(128, 128, 128, 0.4));
+  background-color: var(--border-color);
   border-radius: 1px;
 }
 
 .editor-content::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scrollbar-thumb-hover, rgba(128, 128, 128, 0.6));
+  background-color: var(--md-char-color);
 }
 
 /* Width constraint - works with parent flexbox centering */
@@ -689,16 +689,16 @@
 }
 
 .source-editor .cm-scroller::-webkit-scrollbar-track {
-  background: var(--scrollbar-track, rgba(128, 128, 128, 0.2));
+  background: transparent;
 }
 
 .source-editor .cm-scroller::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb, rgba(128, 128, 128, 0.4));
+  background-color: var(--border-color);
   border-radius: 1px;
 }
 
 .source-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scrollbar-thumb-hover, rgba(128, 128, 128, 0.6));
+  background-color: var(--md-char-color);
 }
 
 .source-editor .cm-content {
@@ -806,21 +806,7 @@
   color: #cb2431;
 }
 
-/* Dark theme scrollbar */
-.dark-theme .editor-content::-webkit-scrollbar-track,
-.dark-theme .source-editor .cm-scroller::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.dark-theme .editor-content::-webkit-scrollbar-thumb,
-.dark-theme .source-editor .cm-scroller::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.dark-theme .editor-content::-webkit-scrollbar-thumb:hover,
-.dark-theme .source-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.5);
-}
+/* Dark theme scrollbar - tokens handle color adaptation automatically */
 
 /* Dark theme syntax highlighting */
 .dark-theme .source-editor .cm-hl-keyword {

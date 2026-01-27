@@ -51,7 +51,8 @@
   margin-bottom: 0;
 }
 
-/* Paragraphs inside alerts - reduce margin for tighter spacing */
+/* Paragraphs inside alerts - reduce margin for tighter spacing
+   Uses --list-indent with 1em fallback (variable scoped to .tiptap-editor lists) */
 .alert-block .alert-content > p {
   margin-bottom: calc(var(--list-indent, 1em) * 0.5);
 }

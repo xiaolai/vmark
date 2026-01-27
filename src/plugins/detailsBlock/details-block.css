@@ -105,7 +105,8 @@
   padding-bottom: 0.75em;
 }
 
-/* Paragraphs inside details - reduce margin for tighter spacing */
+/* Paragraphs inside details - reduce margin for tighter spacing
+   Uses --list-indent with 1em fallback (variable scoped to .tiptap-editor lists) */
 .details-block > p:not(.details-summary) {
   margin-bottom: calc(var(--list-indent, 1em) * 0.5);
 }

@@ -63,13 +63,13 @@
 
 .status-toggle:hover,
 .status-mode:hover {
-  background-color: var(--bg-hover, rgba(0, 0, 0, 0.05));
+  background-color: var(--hover-bg);
   color: var(--text-color);
 }
 
 .status-toggle:active,
 .status-mode:active {
-  background-color: var(--bg-active, rgba(0, 0, 0, 0.1));
+  background-color: var(--hover-bg-strong);
 }
 
 .status-toggle.active {
@@ -82,7 +82,7 @@
   gap: 4px;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background-color: var(--bg-hover, rgba(0, 0, 0, 0.05));
+  background-color: var(--hover-bg);
   color: var(--text-secondary);
   font-size: 11px;
   animation: autosave-fade 5s ease-out forwards;
@@ -121,7 +121,7 @@
   background-color: var(--accent-bg);
   color: var(--accent-primary);
   font-size: 11px;
-  border: 1px solid rgba(0, 102, 204, 0.2);
+  border: 1px solid var(--selection-color);
 }
 
 .dark-theme .status-divergent {
@@ -164,7 +164,7 @@
 }
 
 .tab-pill:hover {
-  background-color: var(--bg-hover, rgba(0, 0, 0, 0.05));
+  background-color: var(--hover-bg);
   color: var(--text-color);
 }
 
@@ -209,7 +209,7 @@
 }
 
 .tab-close:hover {
-  background-color: var(--bg-hover, rgba(0, 0, 0, 0.1));
+  background-color: var(--hover-bg-strong);
   color: var(--text-color);
 }
 
@@ -245,6 +245,6 @@
 }
 
 .status-new-tab:hover {
-  background-color: var(--bg-hover, rgba(0, 0, 0, 0.08));
+  background-color: var(--hover-bg-strong);
   color: var(--text-color);
 }

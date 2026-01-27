@@ -46,35 +46,36 @@
 
 /* ===================
    Dark Mode - Alert Blocks
+   Uses centralized tokens from index.css
    =================== */
 .dark-theme .cm-alert-note {
-  --alert-border: var(--alert-note-border-dark, #58a6ff);
-  --alert-bg: var(--alert-note-bg-dark, rgba(56, 139, 253, 0.08));
-  --alert-icon: var(--alert-note-border-dark, #58a6ff);
+  --alert-border: var(--alert-note-dark);
+  --alert-bg: color-mix(in srgb, var(--alert-note-dark) 8%, transparent);
+  --alert-icon: var(--alert-note-dark);
 }
 
 .dark-theme .cm-alert-tip {
-  --alert-border: var(--alert-tip-border-dark, #3fb950);
-  --alert-bg: var(--alert-tip-bg-dark, rgba(46, 160, 67, 0.08));
-  --alert-icon: var(--alert-tip-border-dark, #3fb950);
+  --alert-border: var(--alert-tip-dark);
+  --alert-bg: color-mix(in srgb, var(--alert-tip-dark) 8%, transparent);
+  --alert-icon: var(--alert-tip-dark);
 }
 
 .dark-theme .cm-alert-important {
-  --alert-border: var(--alert-important-border-dark, #a371f7);
-  --alert-bg: var(--alert-important-bg-dark, rgba(163, 113, 247, 0.08));
-  --alert-icon: var(--alert-important-border-dark, #a371f7);
+  --alert-border: var(--alert-important-dark);
+  --alert-bg: color-mix(in srgb, var(--alert-important-dark) 8%, transparent);
+  --alert-icon: var(--alert-important-dark);
 }
 
 .dark-theme .cm-alert-warning {
-  --alert-border: var(--alert-warning-border-dark, #d29922);
-  --alert-bg: var(--alert-warning-bg-dark, rgba(187, 128, 9, 0.08));
-  --alert-icon: var(--alert-warning-border-dark, #d29922);
+  --alert-border: var(--alert-warning-dark);
+  --alert-bg: color-mix(in srgb, var(--alert-warning-dark) 8%, transparent);
+  --alert-icon: var(--alert-warning-dark);
 }
 
 .dark-theme .cm-alert-caution {
-  --alert-border: var(--alert-caution-border-dark, #f85149);
-  --alert-bg: var(--alert-caution-bg-dark, rgba(248, 81, 73, 0.08));
-  --alert-icon: var(--alert-caution-border-dark, #f85149);
+  --alert-border: var(--alert-caution-dark);
+  --alert-bg: color-mix(in srgb, var(--alert-caution-dark) 8%, transparent);
+  --alert-icon: var(--alert-caution-dark);
 }
 
 /* ===================
