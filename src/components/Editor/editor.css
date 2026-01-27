@@ -297,6 +297,14 @@
   padding: 0;
 }
 
+/* When wrapper exists (line numbers enabled), wrapper owns the frame */
+.tiptap-editor .code-block-wrapper pre {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+}
+
 /* Blockquotes - subtle border with radius like alert blocks */
 .tiptap-editor blockquote {
   border-left: 4px solid var(--border-color);

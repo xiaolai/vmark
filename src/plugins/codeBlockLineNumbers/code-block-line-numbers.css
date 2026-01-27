@@ -5,13 +5,13 @@
  * .show-line-numbers class is on the editor container.
  */
 
-/* Code block wrapper for gutter layout */
+/* Code block wrapper for gutter layout - wrapper owns the frame */
 .tiptap-editor .code-block-wrapper {
   display: flex;
   position: relative;
-  margin: 15px 0;
+  margin: 16px 0;
   background: var(--code-bg-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .tiptap-editor .code-block-wrapper pre {
