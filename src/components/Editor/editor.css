@@ -319,7 +319,7 @@
 
 /* Paragraphs inside blockquotes - reduce margin for tighter spacing */
 .tiptap-editor blockquote > p {
-  margin-bottom: calc(var(--list-indent) * 0.5);
+  margin-bottom: calc(var(--list-indent, 1em) * 0.5);
 }
 
 .tiptap-editor blockquote > p:last-child {
@@ -331,7 +331,7 @@
 .tiptap-editor blockquote > ul,
 .tiptap-editor blockquote > ol {
   font-size: inherit;
-  --list-padding: calc(var(--list-indent) * 2);
+  --list-padding: calc(var(--list-indent, 1em) * 2);
   padding-left: var(--list-padding);
 }
 
@@ -456,6 +456,12 @@
   border: solid var(--contrast-text);
   border-width: 0 calc(var(--checkbox-size) * 0.12) calc(var(--checkbox-size) * 0.12) 0;
   transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* Keyboard focus indicator for accessibility */
+.tiptap-editor .task-list-item input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
 }
 
 /* Completed task: dim color on content container */
@@ -618,119 +624,8 @@
   display: inline;
 }
 
-/* Footnote Popup - Editable */
-.footnote-popup {
-  position: fixed;
-  display: none;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 1000;
-  width: 280px;
-  padding: 8px 10px;
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  font-size: 0.78em;
-  line-height: 1.5;
-  color: var(--text-color);
-  pointer-events: auto;
-}
-
-.footnote-popup-label {
-  font-size: 1em;
-  font-weight: 500;
-  color: var(--text-secondary);
-  opacity: 0.6;
-}
-
-.footnote-popup-textarea {
-  width: 100%;
-  min-height: 36px;
-  max-height: 120px;
-  padding: 6px 8px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-color);
-  font-family: inherit;
-  font-size: 0.93em;
-  line-height: 1.4;
-  resize: none;
-  outline: none !important;
-  -webkit-appearance: none;
-  cursor: default;
-  caret-color: transparent;
-  overflow: hidden;
-}
-
-/* Input focus: caret is the indicator (per design rules) */
-.footnote-popup-textarea:focus,
-.footnote-popup-textarea:focus-visible {
-  outline: none !important;
-  box-shadow: none;
-  /* Caret visibility indicates focus */
-}
-
-/* Edit mode */
-.footnote-popup.editing .footnote-popup-textarea {
-  background: var(--bg-secondary);
-  border: 1px solid color-mix(in srgb, var(--text-color) 15%, transparent);
-  cursor: text;
-  caret-color: var(--text-color);
-  overflow: auto;
-}
-
-.footnote-popup-textarea::placeholder {
-  color: var(--text-secondary);
-}
-
-.footnote-popup-buttons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.footnote-popup-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.footnote-popup-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-color);
-}
-
-.footnote-popup-btn svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.footnote-popup-btn-save:hover {
-  background: var(--primary-color);
-  color: var(--contrast-text);
-}
-
-.footnote-popup-btn-goto:hover {
-  color: var(--primary-color);
-}
-
 /* Focus mode styles moved to src/plugins/focusMode/focus-mode.css */
+/* Footnote popup styles are in src/plugins/footnotePopup/footnote-popup.css */
 
 /* Source editor (CodeMirror) - matches WYSIWYG styling */
 .source-editor {

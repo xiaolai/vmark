@@ -58,6 +58,13 @@
   background-color: var(--details-header-hover-bg, var(--bg-tertiary));
 }
 
+/* Keyboard focus indicator for accessibility */
+.details-block > summary:focus-visible,
+.details-summary:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
 /* Open state - rotate triangle */
 .details-block[open] > summary::before,
 .details-block[open] .details-summary::before {
