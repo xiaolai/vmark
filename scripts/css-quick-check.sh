@@ -18,14 +18,14 @@ else
 fi
 echo ""
 
-# 2. Hardcoded Dark Mode Hover
+# 2. Hardcoded Dark Mode Hover (exclude index.css where token is defined)
 echo "2. Hardcoded Dark Hover (rgba 255,255,255,0.08):"
-COUNT=$(grep -rn 'rgba(255, 255, 255, 0.08)' src/ --include="*.css" 2>/dev/null | wc -l | tr -d ' ')
+COUNT=$(grep -rn 'rgba(255, 255, 255, 0.08)' src/ --include="*.css" 2>/dev/null | grep -v 'index.css' | wc -l | tr -d ' ')
 if [ "$COUNT" = "0" ]; then
   echo "   ✓ None found"
 else
   echo "   ✗ $COUNT occurrences (should use --hover-bg-dark token)"
-  grep -rn 'rgba(255, 255, 255, 0.08)' src/ --include="*.css" 2>/dev/null | head -5 | sed 's/^/     /'
+  grep -rn 'rgba(255, 255, 255, 0.08)' src/ --include="*.css" 2>/dev/null | grep -v 'index.css' | head -5 | sed 's/^/     /'
 fi
 echo ""
 

@@ -211,7 +211,7 @@
  * ============================================================================ */
 
 .dark-theme .source-popup-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover-bg-dark);
 }
 
 .dark-theme .source-popup-label {

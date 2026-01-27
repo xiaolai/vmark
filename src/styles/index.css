@@ -102,6 +102,10 @@
   --hover-bg: rgba(0, 0, 0, 0.04);
   --hover-bg-strong: rgba(0, 0, 0, 0.08);
 
+  /* Dark mode hover (use in .dark-theme selectors) */
+  --hover-bg-dark: rgba(255, 255, 255, 0.08);
+  --hover-bg-dark-strong: rgba(255, 255, 255, 0.12);
+
   /* Subtle backgrounds */
   --subtle-bg: rgba(0, 0, 0, 0.02);
   --subtle-bg-hover: rgba(0, 0, 0, 0.03);

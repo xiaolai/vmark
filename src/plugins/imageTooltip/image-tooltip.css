@@ -114,5 +114,5 @@
 
 /* Dark theme */
 .dark-theme .image-tooltip-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover-bg-dark);
 }
