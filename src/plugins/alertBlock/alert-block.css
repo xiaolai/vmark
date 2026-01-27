@@ -16,7 +16,6 @@
 /* Alert title (non-editable) */
 .alert-block .alert-title {
   font-weight: 600;
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
   color: var(--alert-title);
   margin-bottom: 0.5em;
@@ -41,7 +40,6 @@
 /* Alert content area */
 .alert-block .alert-content {
   color: inherit;
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
 }
 
@@ -58,11 +56,10 @@
   margin-bottom: calc(var(--list-indent, 1em) * 0.5);
 }
 
-/* Lists inside alerts - inherit font-size to prevent compounding (0.9 × 0.9)
+/* Lists inside alerts
    Padding must exceed task item offset for safe buffer */
 .alert-block .alert-content > ul,
 .alert-block .alert-content > ol {
-  font-size: inherit;
   --list-padding: calc(var(--list-indent, 1em) * 2);
   padding-left: var(--list-padding);
 }

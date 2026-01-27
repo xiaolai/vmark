@@ -10,7 +10,6 @@
   display: inline;
   position: relative;
   vertical-align: baseline;
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
 }
 

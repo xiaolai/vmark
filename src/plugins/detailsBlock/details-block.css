@@ -10,7 +10,6 @@
   border-radius: var(--radius-md);
   margin: 1em 0;
   overflow: hidden;
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
 }
 
@@ -106,11 +105,10 @@
   margin-bottom: calc(var(--list-indent, 1em) * 0.5);
 }
 
-/* Lists inside details - inherit font-size to prevent compounding (0.9 × 0.9)
+/* Lists inside details
    Extra padding for visual balance with container border */
 .details-block > ul:not(.details-summary),
 .details-block > ol:not(.details-summary) {
-  font-size: inherit;
   --list-padding: calc(var(--list-indent, 1em) * 2.5);
   padding-left: var(--list-padding);
 }

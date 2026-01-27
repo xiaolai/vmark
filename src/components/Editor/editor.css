@@ -214,7 +214,6 @@
   --list-margin: calc(var(--list-indent) * 0.8);
   margin: 0 0 var(--list-margin) 0;
   padding-left: var(--list-padding);
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
 }
 
@@ -305,7 +304,6 @@
   margin: 0.8em 0;
   padding: 0 1em;
   color: var(--meta-content-color);
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
 }
 
@@ -330,7 +328,6 @@
    Padding must exceed task item offset for safe buffer */
 .tiptap-editor blockquote > ul,
 .tiptap-editor blockquote > ol {
-  font-size: inherit;
   --list-padding: calc(var(--list-indent, 1em) * 2);
   padding-left: var(--list-padding);
 }
@@ -354,7 +351,6 @@
   width: 100%;
   margin: 0.8em 0;
   table-layout: auto;
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
 }
 
@@ -578,7 +574,6 @@
 .tiptap-editor dl[data-type="footnote_definition"] {
   margin: 0.5em 0;
   padding: 0;
-  font-size: var(--editor-font-size-sm);
   line-height: var(--editor-line-height-px);
   color: var(--text-secondary);
 }
@@ -611,7 +606,6 @@
 .tiptap-editor dl[data-type="footnote_definition"] dd::after {
   content: " ↩";
   color: var(--primary-color);
-  font-size: var(--editor-font-size-sm);
   cursor: pointer;
   opacity: 0.7;
 }
