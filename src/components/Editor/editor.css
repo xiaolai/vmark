@@ -391,6 +391,20 @@
   margin-bottom: 0;
 }
 
+/* Table scroll container - enables horizontal scrolling for wide tables */
+.tiptap-editor .table-scroll-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0.8em 0;
+  position: relative;
+}
+
+.tiptap-editor .table-scroll-wrapper table {
+  width: max-content;
+  min-width: 100%;
+  margin: 0; /* Wrapper handles margin */
+}
+
 /* Task list items - use negative margin to align text with regular list items.
    Checkbox size matches mono ratio (0.85×). Gap is ~40% of checkbox size.
    The offset is pulled into the padding area where bullets normally render. */
