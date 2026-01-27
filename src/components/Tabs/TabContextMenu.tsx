@@ -131,6 +131,13 @@ export function TabContextMenu({
     onClose();
   }, [tab.id, doc?.filePath, doc?.content, onClose]);
 
+  // Copy file path to clipboard
+  const handleCopyPath = useCallback(async () => {
+    if (!doc?.filePath) return;
+    await navigator.clipboard.writeText(doc.filePath);
+    onClose();
+  }, [doc?.filePath, onClose]);
+
   const tabIndex = tabs.findIndex((t) => t.id === tab.id);
   const hasTabsToRight = tabs.slice(tabIndex + 1).some((t) => !t.isPinned);
   const hasOtherTabs = tabs.filter((t) => t.id !== tab.id && !t.isPinned).length > 0;
@@ -140,6 +147,11 @@ export function TabContextMenu({
     {
       label: tab.isPinned ? "Unpin" : "Pin",
       action: handlePin,
+    },
+    {
+      label: "Copy Path",
+      action: handleCopyPath,
+      disabled: !doc?.filePath,
     },
     // Show "Restore to Disk" when file is missing
     ...(doc?.isMissing && doc.filePath
