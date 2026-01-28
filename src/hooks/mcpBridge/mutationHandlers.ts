@@ -4,9 +4,16 @@
  * Part of AI-Oriented MCP Design implementation.
  */
 
-import { respond, getEditor } from "./utils";
+import {
+  respond,
+  getEditor,
+  isAutoApproveEnabled,
+  findTextMatches,
+  resolveNodeId,
+  getTextRange,
+  type TextMatch,
+} from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { idempotencyCache } from "./idempotencyCache";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 
@@ -36,19 +43,6 @@ interface TextAnchor {
   beforeContext: string;
   afterContext: string;
   maxDistance: number;
-}
-
-interface MatchInfo {
-  nodeId: string;
-  position: number;
-  context: { before: string; after: string };
-}
-
-/**
- * Check if auto-approve edits is enabled.
- */
-function isAutoApproveEnabled(): boolean {
-  return useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
 }
 
 /**
@@ -128,42 +122,118 @@ export async function handleBatchEdit(
       return;
     }
 
+    // Validate required fields for each operation
+    const validationErrors: string[] = [];
+    for (let i = 0; i < operations.length; i++) {
+      const op = operations[i];
+      if ((op.type === "update" || op.type === "delete" || op.type === "format" || op.type === "move") && !op.nodeId) {
+        validationErrors.push(`Operation ${i}: ${op.type} requires nodeId`);
+      }
+      if (op.type === "insert" && !op.after && !op.nodeId) {
+        // Insert can use 'after' to specify position, or nodeId as target
+        // If neither is provided, it's an error (no cursor-based fallback)
+        validationErrors.push(`Operation ${i}: insert requires 'after' or 'nodeId' to specify position`);
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      const response = {
+        id,
+        success: false,
+        error: "invalid_operation",
+        data: {
+          code: "invalid_operation",
+          errors: validationErrors,
+        },
+      };
+      if (requestId) {
+        idempotencyCache.set(requestId, response);
+      }
+      await respond(response);
+      return;
+    }
+
+    // Resolve all node IDs to positions first
+    const resolvedOps: Array<{
+      op: BatchOperation;
+      resolved: { from: number; to: number } | null;
+    }> = [];
+
+    for (const op of operations) {
+      if (op.nodeId) {
+        const resolved = resolveNodeId(editor, op.nodeId);
+        if (!resolved) {
+          const response = {
+            id,
+            success: false,
+            error: `Node not found: ${op.nodeId}`,
+            data: {
+              code: "node_not_found",
+              nodeId: op.nodeId,
+            },
+          };
+          if (requestId) {
+            idempotencyCache.set(requestId, response);
+          }
+          await respond(response);
+          return;
+        }
+        resolvedOps.push({ op, resolved: { from: resolved.from, to: resolved.to } });
+      } else if (op.type === "insert" && op.after) {
+        const resolved = resolveNodeId(editor, op.after);
+        if (!resolved) {
+          const response = {
+            id,
+            success: false,
+            error: `Node not found for 'after': ${op.after}`,
+            data: {
+              code: "node_not_found",
+              nodeId: op.after,
+            },
+          };
+          if (requestId) {
+            idempotencyCache.set(requestId, response);
+          }
+          await respond(response);
+          return;
+        }
+        // Insert after this node
+        resolvedOps.push({ op, resolved: { from: resolved.to, to: resolved.to } });
+      } else {
+        resolvedOps.push({ op, resolved: null });
+      }
+    }
+
     // For suggest mode, create suggestions
     if (mode === "suggest" || !isAutoApproveEnabled()) {
       const suggestionIds: string[] = [];
 
-      for (const op of operations) {
-        if (op.type === "insert" && typeof op.content === "string") {
-          // For insert, create suggestion at cursor position
-          const pos = editor.state.selection.from;
+      for (const { op, resolved } of resolvedOps) {
+        if (op.type === "insert" && typeof op.content === "string" && resolved) {
           const suggestionId = useAiSuggestionStore.getState().addSuggestion({
             type: "insert",
-            from: pos,
-            to: pos,
+            from: resolved.from,
+            to: resolved.to,
             newContent: op.content,
           });
           suggestionIds.push(suggestionId);
-        } else if (op.type === "update" && op.text) {
-          // For update, we'd need to find the node position
-          // This is a simplified implementation
-          const pos = editor.state.selection.from;
-          const to = editor.state.selection.to;
+        } else if (op.type === "update" && op.text && resolved) {
+          // Get the text content range (inside the block, excluding structural tokens)
+          const textRange = getTextRange(editor, resolved.from, resolved.to);
           const suggestionId = useAiSuggestionStore.getState().addSuggestion({
             type: "replace",
-            from: pos,
-            to: to,
+            from: textRange.from,
+            to: textRange.to,
             newContent: op.text,
-            originalContent: editor.state.doc.textBetween(pos, to),
+            originalContent: editor.state.doc.textBetween(textRange.from, textRange.to),
           });
           suggestionIds.push(suggestionId);
-        } else if (op.type === "delete") {
-          const pos = editor.state.selection.from;
-          const to = editor.state.selection.to;
+        } else if (op.type === "delete" && resolved) {
           const suggestionId = useAiSuggestionStore.getState().addSuggestion({
             type: "delete",
-            from: pos,
-            to: to,
-            originalContent: editor.state.doc.textBetween(pos, to),
+            from: resolved.from,
+            to: resolved.to,
+            originalContent: editor.state.doc.textBetween(resolved.from, resolved.to),
           });
           suggestionIds.push(suggestionId);
         }
@@ -196,34 +266,57 @@ export async function handleBatchEdit(
     const deletedNodeIds: string[] = [];
     const warnings: string[] = [];
 
-    // Execute as single transaction
-    editor.chain().focus();
+    // Sort operations by position (descending) to preserve positions during edits
+    const sortedOps = [...resolvedOps].sort((a, b) => {
+      const posA = a.resolved?.from ?? 0;
+      const posB = b.resolved?.from ?? 0;
+      return posB - posA;
+    });
 
-    for (const op of operations) {
+    for (const { op, resolved } of sortedOps) {
       switch (op.type) {
         case "insert":
-          if (typeof op.content === "string") {
-            editor.commands.insertContent(op.content);
+          if (typeof op.content === "string" && resolved) {
+            editor.chain()
+              .focus()
+              .setTextSelection(resolved.from)
+              .insertContent(op.content)
+              .run();
             addedNodeIds.push(`inserted-${addedNodeIds.length}`);
           }
           break;
 
         case "update":
-          // For update, we need to find and update the node
-          // This is simplified - full implementation would use node IDs
-          if (op.text) {
-            editor.commands.insertContent(op.text);
+          if (op.text && resolved) {
+            // Get the text content range
+            const textRange = getTextRange(editor, resolved.from, resolved.to);
+            editor.chain()
+              .focus()
+              .setTextSelection({ from: textRange.from, to: textRange.to })
+              .insertContent(op.text)
+              .run();
             changedNodeIds.push(op.nodeId || `updated-${changedNodeIds.length}`);
           }
           break;
 
         case "delete":
-          editor.commands.deleteSelection();
-          deletedNodeIds.push(op.nodeId || `deleted-${deletedNodeIds.length}`);
+          if (resolved) {
+            editor.chain()
+              .focus()
+              .setTextSelection({ from: resolved.from, to: resolved.to })
+              .deleteSelection()
+              .run();
+            deletedNodeIds.push(op.nodeId || `deleted-${deletedNodeIds.length}`);
+          }
           break;
 
         case "format":
-          if (op.marks) {
+          if (op.marks && resolved) {
+            const textRange = getTextRange(editor, resolved.from, resolved.to);
+            editor.chain()
+              .focus()
+              .setTextSelection({ from: textRange.from, to: textRange.to })
+              .run();
             for (const mark of op.marks) {
               editor.commands.toggleMark(mark.type, mark.attrs);
             }
@@ -310,30 +403,37 @@ export async function handleApplyDiff(
       throw new Error("replacement is required");
     }
 
-    // Find all matches
-    const doc = editor.state.doc;
-    const text = doc.textContent;
-    const matches: MatchInfo[] = [];
-    let searchIndex = 0;
-
-    while (true) {
-      const index = text.indexOf(original, searchIndex);
-      if (index === -1) break;
-
-      const beforeStart = Math.max(0, index - 30);
-      const afterEnd = Math.min(text.length, index + original.length + 30);
-
-      matches.push({
-        nodeId: `match-${matches.length}`,
-        position: index,
-        context: {
-          before: text.substring(beforeStart, index),
-          after: text.substring(index + original.length, afterEnd),
-        },
-      });
-
-      searchIndex = index + 1;
+    // Validate nth parameter for matchPolicy="nth"
+    if (matchPolicy === "nth") {
+      if (nth === undefined || nth === null) {
+        await respond({
+          id,
+          success: false,
+          error: "invalid_operation",
+          data: {
+            code: "invalid_operation",
+            message: "nth is required when matchPolicy is 'nth'",
+          },
+        });
+        return;
+      }
+      if (!Number.isInteger(nth) || nth < 0) {
+        await respond({
+          id,
+          success: false,
+          error: "invalid_operation",
+          data: {
+            code: "invalid_operation",
+            message: "nth must be a non-negative integer",
+          },
+        });
+        return;
+      }
     }
+
+    // Find all matches using proper ProseMirror position mapping
+    const doc = editor.state.doc;
+    const matches: TextMatch[] = findTextMatches(doc, original, 30);
 
     // Handle based on match policy
     if (matches.length === 0) {
@@ -357,8 +457,26 @@ export async function handleApplyDiff(
           success: false,
           matchCount: matches.length,
           appliedCount: 0,
-          matches,
+          matches: matches.map((m) => ({
+            nodeId: m.nodeId,
+            pos: { from: m.from, to: m.to },
+            context: m.context,
+          })),
           error: "ambiguous_target",
+        },
+      });
+      return;
+    }
+
+    // Validate nth is within bounds
+    if (matchPolicy === "nth" && nth !== undefined && nth >= matches.length) {
+      await respond({
+        id,
+        success: false,
+        error: "invalid_operation",
+        data: {
+          code: "invalid_operation",
+          message: `nth (${nth}) is out of range. Only ${matches.length} match(es) found.`,
         },
       });
       return;
@@ -369,7 +487,7 @@ export async function handleApplyDiff(
       let appliedCount = 0;
       if (matchPolicy === "first") appliedCount = 1;
       else if (matchPolicy === "all") appliedCount = matches.length;
-      else if (matchPolicy === "nth" && nth !== undefined && nth < matches.length) appliedCount = 1;
+      else if (matchPolicy === "nth" && nth !== undefined) appliedCount = 1;
 
       await respond({
         id,
@@ -378,7 +496,11 @@ export async function handleApplyDiff(
           success: true,
           matchCount: matches.length,
           appliedCount,
-          matches,
+          matches: matches.map((m) => ({
+            nodeId: m.nodeId,
+            pos: { from: m.from, to: m.to },
+            context: m.context,
+          })),
           isDryRun: true,
         },
       });
@@ -388,21 +510,21 @@ export async function handleApplyDiff(
     // For suggest mode, create suggestions
     if (mode === "suggest" || !isAutoApproveEnabled()) {
       const suggestionIds: string[] = [];
-      let matchesToProcess: MatchInfo[] = [];
+      let matchesToProcess: TextMatch[] = [];
 
       if (matchPolicy === "first") {
         matchesToProcess = [matches[0]];
       } else if (matchPolicy === "all") {
         matchesToProcess = matches;
-      } else if (matchPolicy === "nth" && nth !== undefined && nth < matches.length) {
+      } else if (matchPolicy === "nth" && nth !== undefined) {
         matchesToProcess = [matches[nth]];
       }
 
       for (const match of matchesToProcess) {
         const suggestionId = useAiSuggestionStore.getState().addSuggestion({
           type: "replace",
-          from: match.position,
-          to: match.position + original.length,
+          from: match.from,
+          to: match.to,
           newContent: replacement,
           originalContent: original,
         });
@@ -429,26 +551,26 @@ export async function handleApplyDiff(
       const match = matches[0];
       editor.chain()
         .focus()
-        .setTextSelection({ from: match.position + 1, to: match.position + original.length + 1 })
+        .setTextSelection({ from: match.from, to: match.to })
         .insertContent(replacement)
         .run();
       appliedCount = 1;
     } else if (matchPolicy === "all") {
       // Apply in reverse order to preserve positions
-      const sortedMatches = [...matches].sort((a, b) => b.position - a.position);
+      const sortedMatches = [...matches].sort((a, b) => b.from - a.from);
       for (const match of sortedMatches) {
         editor.chain()
           .focus()
-          .setTextSelection({ from: match.position + 1, to: match.position + original.length + 1 })
+          .setTextSelection({ from: match.from, to: match.to })
           .insertContent(replacement)
           .run();
         appliedCount++;
       }
-    } else if (matchPolicy === "nth" && nth !== undefined && nth < matches.length) {
+    } else if (matchPolicy === "nth" && nth !== undefined) {
       const match = matches[nth];
       editor.chain()
         .focus()
-        .setTextSelection({ from: match.position + 1, to: match.position + original.length + 1 })
+        .setTextSelection({ from: match.from, to: match.to })
         .insertContent(replacement)
         .run();
       appliedCount = 1;
@@ -533,33 +655,22 @@ export async function handleReplaceAnchored(
       throw new Error("anchor.text is required");
     }
 
-    // Find all occurrences of the target text
+    // Find all occurrences of the target text with proper PM positions
     const doc = editor.state.doc;
-    const text = doc.textContent;
-    const candidates: { position: number; similarity: number }[] = [];
-    let searchIndex = 0;
+    const allMatches = findTextMatches(doc, anchor.text, Math.max(anchor.beforeContext.length, anchor.afterContext.length));
 
-    while (true) {
-      const index = text.indexOf(anchor.text, searchIndex);
-      if (index === -1) break;
+    // Filter matches by context similarity
+    const candidates: { match: TextMatch; similarity: number }[] = [];
 
-      // Get context around this occurrence
-      const beforeStart = Math.max(0, index - anchor.beforeContext.length);
-      const afterEnd = Math.min(text.length, index + anchor.text.length + anchor.afterContext.length);
-
-      const actualBefore = text.substring(beforeStart, index);
-      const actualAfter = text.substring(index + anchor.text.length, afterEnd);
-
+    for (const match of allMatches) {
       // Calculate context similarity
-      const beforeSim = calculateSimilarity(anchor.beforeContext, actualBefore);
-      const afterSim = calculateSimilarity(anchor.afterContext, actualAfter);
+      const beforeSim = calculateSimilarity(anchor.beforeContext, match.context.before);
+      const afterSim = calculateSimilarity(anchor.afterContext, match.context.after);
       const avgSimilarity = (beforeSim + afterSim) / 2;
 
       if (avgSimilarity >= 0.8) {
-        candidates.push({ position: index, similarity: avgSimilarity });
+        candidates.push({ match, similarity: avgSimilarity });
       }
-
-      searchIndex = index + 1;
     }
 
     if (candidates.length === 0) {
@@ -592,7 +703,7 @@ export async function handleReplaceAnchored(
       return;
     }
 
-    const match = candidates[0];
+    const { match, similarity } = candidates[0];
 
     // For dryRun, return preview
     if (mode === "dryRun") {
@@ -603,8 +714,8 @@ export async function handleReplaceAnchored(
           success: true,
           matchCount: 1,
           appliedCount: 1,
-          position: match.position,
-          similarity: match.similarity,
+          pos: { from: match.from, to: match.to },
+          similarity,
           isDryRun: true,
         },
       });
@@ -615,8 +726,8 @@ export async function handleReplaceAnchored(
     if (mode === "suggest" || !isAutoApproveEnabled()) {
       const suggestionId = useAiSuggestionStore.getState().addSuggestion({
         type: "replace",
-        from: match.position,
-        to: match.position + anchor.text.length,
+        from: match.from,
+        to: match.to,
         newContent: replacement,
         originalContent: anchor.text,
       });
@@ -637,7 +748,7 @@ export async function handleReplaceAnchored(
     // Apply replacement
     editor.chain()
       .focus()
-      .setTextSelection({ from: match.position + 1, to: match.position + anchor.text.length + 1 })
+      .setTextSelection({ from: match.from, to: match.to })
       .insertContent(replacement)
       .run();
 
