@@ -123,6 +123,11 @@
   /* Global list indent (inherited by nested contexts) */
   --list-indent: 1em;
 
+  /* Editor content horizontal padding - constrains selection to content area.
+     Computed dynamically in useTheme.ts as fontSize * 2 for consistency across modes.
+     Fallback value for SSR/initial render: */
+  --editor-content-padding: 36px;
+
   /* Alert tokens for dark mode (centralized) */
   --alert-note-dark: #58a6ff;
   --alert-tip-dark: #3fb950;

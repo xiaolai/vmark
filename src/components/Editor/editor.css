@@ -78,31 +78,14 @@
 
 .tiptap-editor .ProseMirror {
   margin: 0;
-  padding: 0;
+  padding: 0 var(--editor-content-padding); /* Constrains selection to content area */
   min-height: 100%;
   outline: none;
 }
 
-/* Element-level horizontal margin - allows tables to span full width.
-   All block elements except tables get 2em horizontal margin. */
-.tiptap-editor .ProseMirror > p,
-.tiptap-editor .ProseMirror > ul,
-.tiptap-editor .ProseMirror > ol,
-.tiptap-editor .ProseMirror > blockquote,
-.tiptap-editor .ProseMirror > hr,
-.tiptap-editor .ProseMirror > .code-block-wrapper,
-.tiptap-editor .ProseMirror > pre,
-.tiptap-editor .ProseMirror > .alert-block,
-.tiptap-editor .ProseMirror > .details-block,
-.tiptap-editor .ProseMirror > .frontmatter-block,
-.tiptap-editor .ProseMirror > .html-block,
-.tiptap-editor .ProseMirror > .link-definition,
-.tiptap-editor .ProseMirror > .footnote-definition,
-.tiptap-editor .ProseMirror > .math-display,
-.tiptap-editor .ProseMirror > .block-image {
-  margin-left: 2em;
-  margin-right: 2em;
-}
+/* Element-level horizontal margin removed - ProseMirror padding handles alignment.
+   This keeps selection highlight constrained to content area.
+   Tables use negative margin to break out and span full width. */
 
 /* Center alignment for block images (when setting enabled) */
 .media-align-center .tiptap-editor .ProseMirror > .block-image {
@@ -110,14 +93,7 @@
   justify-content: center;
 }
 
-/* Headings: compensate for larger font-size so left edge aligns with paragraphs.
-   Formula: 2em / font-size-ratio = same absolute margin as paragraph */
-.tiptap-editor .ProseMirror > h1 { margin-left: calc(2em / 1.75); margin-right: calc(2em / 1.75); }
-.tiptap-editor .ProseMirror > h2 { margin-left: calc(2em / 1.5); margin-right: calc(2em / 1.5); }
-.tiptap-editor .ProseMirror > h3 { margin-left: calc(2em / 1.25); margin-right: calc(2em / 1.25); }
-.tiptap-editor .ProseMirror > h4 { margin-left: 2em; margin-right: 2em; }
-.tiptap-editor .ProseMirror > h5 { margin-left: calc(2em / 0.875); margin-right: calc(2em / 0.875); }
-.tiptap-editor .ProseMirror > h6 { margin-left: calc(2em / 0.85); margin-right: calc(2em / 0.85); }
+/* Headings: no horizontal margins needed - ProseMirror padding aligns all content */
 
 /* Block elements: configurable font-size (lists, blockquotes, tables, alerts, details)
    Uses --block-font-size CSS variable set by Editor component */
@@ -462,11 +438,12 @@
 }
 
 /* Table scroll container - enables horizontal scrolling for wide tables.
-   Table aligns with other content (2em margins on both sides).
+   Negative margins break out of ProseMirror padding so tables span full width.
    Horizontal scrollbar appears when table is wider than container. */
 .tiptap-editor .table-scroll-wrapper {
   overflow-x: auto;
-  margin: 0 2em var(--editor-block-spacing, 1em) 2em;
+  margin: 0 calc(-1 * var(--editor-content-padding)) var(--editor-block-spacing, 1em) calc(-1 * var(--editor-content-padding));
+  padding: 0 var(--editor-content-padding); /* Restore visual alignment for table content */
   position: relative;
 }
 
@@ -780,8 +757,14 @@
 .source-editor .cm-content {
   color: var(--text-color);
   line-height: var(--editor-line-height, 1.6) !important;
-  /* Padding inside scroller - keeps scrollbar at edge while text is padded */
-  padding: 0 2em;
+  /* No padding here - applied to cm-line so selection stays within content */
+  padding: 0;
+}
+
+/* Line-level padding constrains selection highlight to content area */
+.source-editor .cm-line {
+  padding-left: var(--editor-content-padding);
+  padding-right: var(--editor-content-padding);
 }
 
 .source-editor .cm-focused {

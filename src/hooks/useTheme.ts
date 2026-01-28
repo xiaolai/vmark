@@ -247,6 +247,7 @@ function applyTypography(
     "--editor-line-height": String(lineHeight),
     "--editor-line-height-px": `${lineHeightPx}px`,
     "--editor-block-spacing": `${blockSpacingMargin}em`,
+    "--editor-content-padding": `${fontSize * 2}px`, // 2em relative to base font-size, consistent across modes
     "--cjk-letter-spacing": cjkLetterSpacing === "0" ? "0" : `${cjkLetterSpacing}em`,
     "--editor-width": editorWidth > 0 ? `${editorWidth}em` : "none",
     "--mermaid-scale": String(mermaidScale),
