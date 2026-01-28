@@ -86,12 +86,6 @@
 /* Element-level horizontal margin - allows tables to span full width.
    All block elements except tables get 2em horizontal margin. */
 .tiptap-editor .ProseMirror > p,
-.tiptap-editor .ProseMirror > h1,
-.tiptap-editor .ProseMirror > h2,
-.tiptap-editor .ProseMirror > h3,
-.tiptap-editor .ProseMirror > h4,
-.tiptap-editor .ProseMirror > h5,
-.tiptap-editor .ProseMirror > h6,
 .tiptap-editor .ProseMirror > ul,
 .tiptap-editor .ProseMirror > ol,
 .tiptap-editor .ProseMirror > blockquote,
@@ -104,10 +98,36 @@
 .tiptap-editor .ProseMirror > .html-block,
 .tiptap-editor .ProseMirror > .link-definition,
 .tiptap-editor .ProseMirror > .footnote-definition,
-.tiptap-editor .ProseMirror > .block-image,
-.tiptap-editor .ProseMirror > .math-display {
+.tiptap-editor .ProseMirror > .math-display,
+.tiptap-editor .ProseMirror > .block-image {
   margin-left: 2em;
   margin-right: 2em;
+}
+
+/* Center alignment for block images (when setting enabled) */
+.media-align-center .tiptap-editor .ProseMirror > .block-image {
+  display: flex;
+  justify-content: center;
+}
+
+/* Headings: compensate for larger font-size so left edge aligns with paragraphs.
+   Formula: 2em / font-size-ratio = same absolute margin as paragraph */
+.tiptap-editor .ProseMirror > h1 { margin-left: calc(2em / 1.75); margin-right: calc(2em / 1.75); }
+.tiptap-editor .ProseMirror > h2 { margin-left: calc(2em / 1.5); margin-right: calc(2em / 1.5); }
+.tiptap-editor .ProseMirror > h3 { margin-left: calc(2em / 1.25); margin-right: calc(2em / 1.25); }
+.tiptap-editor .ProseMirror > h4 { margin-left: 2em; margin-right: 2em; }
+.tiptap-editor .ProseMirror > h5 { margin-left: calc(2em / 0.875); margin-right: calc(2em / 0.875); }
+.tiptap-editor .ProseMirror > h6 { margin-left: calc(2em / 0.85); margin-right: calc(2em / 0.85); }
+
+/* Block elements: configurable font-size (lists, blockquotes, tables, alerts, details)
+   Uses --block-font-size CSS variable set by Editor component */
+.tiptap-editor ul,
+.tiptap-editor ol,
+.tiptap-editor blockquote,
+.tiptap-editor table,
+.tiptap-editor .alert-block,
+.tiptap-editor .details-block {
+  font-size: var(--block-font-size, 1em);
 }
 
 /* Performance optimization for large documents - DISABLED for testing
@@ -181,6 +201,8 @@
 
 .tiptap-editor h1 {
   font-size: 1.75em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tiptap-editor h2 {
@@ -214,9 +236,19 @@
   font-size: inherit;
 }
 
+/* Center alignment for headings (when setting enabled) */
+.heading-align-center .tiptap-editor h1,
+.heading-align-center .tiptap-editor h2,
+.heading-align-center .tiptap-editor h3,
+.heading-align-center .tiptap-editor h4,
+.heading-align-center .tiptap-editor h5,
+.heading-align-center .tiptap-editor h6 {
+  text-align: center;
+}
+
 /* Paragraphs */
 .tiptap-editor p {
-  margin: 0 0 var(--editor-paragraph-spacing, 1em) 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
 }
 
 .tiptap-editor p:last-child {
@@ -246,8 +278,7 @@
 .tiptap-editor ol {
   --list-indent: 1em;
   --list-padding: calc(var(--list-indent, 1em) * 2);
-  --list-margin: calc(var(--list-indent, 1em) * 0.8);
-  margin: 0 0 var(--list-margin) 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   padding-left: var(--list-padding);
   line-height: var(--editor-line-height-px);
 }
@@ -319,7 +350,7 @@
   padding: 16px;
   border-radius: var(--radius-md);
   overflow-x: auto;
-  margin: 16px 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   max-width: 100%;
   white-space: pre;
   line-height: 1.45;
@@ -344,7 +375,7 @@
 .tiptap-editor blockquote {
   border-left: 4px solid var(--border-color);
   border-radius: var(--radius-md);
-  margin: 1em 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   padding: 0 1em;
   color: var(--meta-content-color);
   line-height: var(--editor-line-height-px);
@@ -379,7 +410,7 @@
 .tiptap-editor hr {
   height: 2px;
   padding: 0;
-  margin: 16px 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   background-color: var(--border-color);
   border: 0 none;
   overflow: hidden;
@@ -392,7 +423,7 @@
   word-break: initial;
   border-collapse: collapse;
   width: 100%;
-  margin: 0.8em 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   table-layout: auto;
   line-height: var(--editor-line-height-px);
 }
@@ -435,14 +466,19 @@
    Horizontal scrollbar appears when table is wider than container. */
 .tiptap-editor .table-scroll-wrapper {
   overflow-x: auto;
-  margin: 0.8em 2em; /* Same margins as other content */
+  margin: 0 2em var(--editor-block-spacing, 1em) 2em;
   position: relative;
 }
 
 .tiptap-editor .table-scroll-wrapper table {
   width: max-content;
-  min-width: 100%;
   margin: 0;
+}
+
+/* Center alignment for tables (when setting enabled) */
+.media-align-center .tiptap-editor .table-scroll-wrapper {
+  display: flex;
+  justify-content: center;
 }
 
 /* Task list items - use negative margin to align text with regular list items.
@@ -630,7 +666,7 @@
 }
 
 .tiptap-editor dl[data-type="footnote_definition"] {
-  margin: 0.5em 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   padding: 0;
   line-height: var(--editor-line-height-px);
   color: var(--text-secondary);

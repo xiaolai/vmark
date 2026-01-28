@@ -63,17 +63,30 @@ function mapActionIdToAdapterAction(actionId: ActionId): string {
 }
 
 /**
- * Dispatch action to WYSIWYG editor.
+ * Maximum retries when editor is not yet available.
+ * Each retry waits 50ms, so max wait is 150ms.
  */
-function dispatchToWysiwyg(
+const MAX_EDITOR_RETRIES = 3;
+const RETRY_DELAY_MS = 50;
+
+/**
+ * Dispatch action to WYSIWYG editor.
+ * Returns true if action was dispatched, false otherwise.
+ */
+function dispatchToWysiwygImpl(
   actionId: ActionId,
   params?: Record<string, unknown>
 ): boolean {
   const editor = useActiveEditorStore.getState().activeWysiwygEditor;
-  if (!editor) return false;
+  if (!editor) {
+    return false;
+  }
 
   const view = editor.view;
-  if (!view) return false;
+  if (!view) {
+    console.debug(`[UnifiedMenuDispatcher] WYSIWYG editor view not available for ${actionId}`);
+    return false;
+  }
 
   // Build context for multi-selection support (cursor context is null for menu actions)
   const multiSelection = getWysiwygMultiSelectionContext(view, null);
@@ -119,15 +132,54 @@ function dispatchToWysiwyg(
 }
 
 /**
- * Dispatch action to Source editor.
- * Note: Return value may be inaccurate when IME is composing (action is queued).
+ * Dispatch action to WYSIWYG editor with retry logic.
+ * If the editor is not yet available (e.g., during tab switch or initial mount),
+ * retries a few times with a short delay to handle race conditions.
  */
-function dispatchToSource(
+function dispatchToWysiwyg(
   actionId: ActionId,
   params?: Record<string, unknown>
 ): void {
+  // Try immediately first
+  if (dispatchToWysiwygImpl(actionId, params)) {
+    return;
+  }
+
+  // Editor not available - retry with delay
+  // This handles race conditions during tab switch or initial mount
+  let retryCount = 0;
+
+  const retry = () => {
+    retryCount++;
+    if (dispatchToWysiwygImpl(actionId, params)) {
+      console.debug(`[UnifiedMenuDispatcher] ${actionId} succeeded after ${retryCount} retry(ies)`);
+      return;
+    }
+
+    if (retryCount < MAX_EDITOR_RETRIES) {
+      setTimeout(retry, RETRY_DELAY_MS);
+    } else {
+      console.debug(
+        `[UnifiedMenuDispatcher] WYSIWYG editor not available for ${actionId} after ${retryCount} retries`
+      );
+    }
+  };
+
+  setTimeout(retry, RETRY_DELAY_MS);
+}
+
+/**
+ * Dispatch action to Source editor implementation.
+ * Returns true if the view was available and action was queued.
+ */
+function dispatchToSourceImpl(
+  actionId: ActionId,
+  params?: Record<string, unknown>
+): boolean {
   const view = useActiveEditorStore.getState().activeSourceView;
-  if (!view) return;
+  if (!view) {
+    return false;
+  }
 
   // Capture context before queuing to avoid stale state if selection changes
   const cursorContext = useSourceCursorContextStore.getState().context;
@@ -162,6 +214,43 @@ function dispatchToSource(
       multiSelection,
     });
   });
+
+  return true;
+}
+
+/**
+ * Dispatch action to Source editor with retry logic.
+ * If the view is not yet available, retries a few times with a short delay.
+ */
+function dispatchToSource(
+  actionId: ActionId,
+  params?: Record<string, unknown>
+): void {
+  // Try immediately first
+  if (dispatchToSourceImpl(actionId, params)) {
+    return;
+  }
+
+  // View not available - retry with delay
+  let retryCount = 0;
+
+  const retry = () => {
+    retryCount++;
+    if (dispatchToSourceImpl(actionId, params)) {
+      console.debug(`[UnifiedMenuDispatcher] ${actionId} (source) succeeded after ${retryCount} retry(ies)`);
+      return;
+    }
+
+    if (retryCount < MAX_EDITOR_RETRIES) {
+      setTimeout(retry, RETRY_DELAY_MS);
+    } else {
+      console.debug(
+        `[UnifiedMenuDispatcher] Source view not available for ${actionId} after ${retryCount} retries`
+      );
+    }
+  };
+
+  setTimeout(retry, RETRY_DELAY_MS);
 }
 
 /**

@@ -870,14 +870,14 @@ function shouldPreserveTwoSpaceBreaks(): boolean {
 
 /**
  * Apply a full-document transformation via proper editor transaction.
- * This preserves undo/redo history and avoids state sync timing issues.
+ * Uses ProseMirror transaction with explicit addToHistory to ensure undo works.
  */
 function applyFullDocumentTransform(
   context: WysiwygToolbarContext,
   transform: (markdown: string) => string
 ): boolean {
-  const { editor } = context;
-  if (!editor) return false;
+  const { editor, view } = context;
+  if (!editor || !view) return false;
 
   const serializeOpts = getSerializeOptions();
 
@@ -892,14 +892,20 @@ function applyFullDocumentTransform(
     return true;
   }
 
-  // Parse back to ProseMirror doc and apply via editor command
-  // This creates a proper undo point
+  // Parse back to ProseMirror doc and apply via transaction
+  // Using replaceWith + setMeta ensures proper undo history
   try {
     const newDoc = parseMarkdown(editor.schema, transformed, {
       preserveLineBreaks: serializeOpts.preserveLineBreaks,
     });
-    editor.commands.setContent(newDoc);
-    editor.commands.focus();
+
+    const { state, dispatch } = view;
+    const tr = state.tr
+      .replaceWith(0, state.doc.content.size, newDoc.content)
+      .setMeta("addToHistory", true);
+
+    dispatch(tr);
+    view.focus();
     return true;
   } catch (error) {
     console.error("[wysiwygAdapter] Failed to apply document transform:", error);
@@ -921,7 +927,10 @@ function handleFormatCJK(context: WysiwygToolbarContext): boolean {
     const selectedText = state.doc.textBetween(from, to, "\n");
     const formatted = formatSelection(selectedText, config, { preserveTwoSpaceHardBreaks });
     if (formatted !== selectedText) {
-      dispatch(state.tr.replaceWith(from, to, state.schema.text(formatted)));
+      const tr = state.tr
+        .replaceWith(from, to, state.schema.text(formatted))
+        .setMeta("addToHistory", true);
+      dispatch(tr);
       view.focus();
     }
     return true;

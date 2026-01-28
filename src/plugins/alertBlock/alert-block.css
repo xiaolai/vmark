@@ -9,7 +9,7 @@
   border-left: 4px solid var(--alert-border);
   background-color: var(--alert-bg);
   padding: 0.75em 1em;
-  margin: 1em 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   border-radius: var(--radius-md);
 }
 

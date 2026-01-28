@@ -18,10 +18,17 @@ Get the full document content as markdown text.
 
 ### document_set_content
 
-::: danger Blocked
-This tool is **disabled** for AI safety. AI assistants cannot replace the entire document content.
+Replace the entire document content.
 
-Use `document_insert_at_cursor` or `selection_replace` for content modifications instead. These tools create suggestions that require user approval.
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `content` | string | Yes | New document content (markdown supported). |
+| `windowId` | string | No | Window identifier. |
+
+::: warning Empty Documents Only
+For safety, this tool is only allowed when the target document is **empty**. If the document has existing content, an error is returned.
+
+For non-empty documents, use `document_insert_at_cursor` or `selection_replace` instead. These tools create suggestions that require user approval.
 :::
 
 ### document_insert_at_cursor

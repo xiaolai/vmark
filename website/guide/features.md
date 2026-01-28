@@ -243,7 +243,12 @@ Adjust:
 
 - Font size
 - Line height
-- Paragraph spacing
+- Block spacing (gap between paragraphs and blocks)
+- CJK letter spacing (subtle spacing for CJK readability)
+- Editor width
+- Block element font size (lists, blockquotes, tables, alerts)
+- Heading alignment (left or center)
+- Image & table alignment (left or center)
 
 ### Keyboard Shortcuts
 

@@ -133,11 +133,27 @@ describe('MockBridge', () => {
       expect(state?.metadata.isModified).toBe(true);
     });
 
-    it('should set content via send', async () => {
-      await bridge.send({ type: 'document.setContent', content: 'New content' });
+    it('should set content via send on empty document', async () => {
+      // Ensure document is empty (default state)
+      expect(bridge.getWindowState()?.content).toBe('');
+
+      const result = await bridge.send({ type: 'document.setContent', content: 'New content' });
+      expect(result.success).toBe(true);
 
       const response = await bridge.send({ type: 'document.getContent' });
       expect(response.data).toBe('New content');
+    });
+
+    it('should reject setContent on non-empty document', async () => {
+      bridge.setContent('existing content');
+
+      const result = await bridge.send({ type: 'document.setContent', content: 'New content' });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('only allowed on empty documents');
+      expect(result.error).toContain('document_insert_at_cursor');
+      // Content unchanged
+      expect(bridge.getWindowState()?.content).toBe('existing content');
     });
 
     it('should insert at cursor', async () => {

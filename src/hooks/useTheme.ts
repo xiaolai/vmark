@@ -213,7 +213,8 @@ function applyTypography(
   monoFont: string,
   fontSize: number,
   lineHeight: number,
-  paragraphSpacing: number,
+  blockSpacing: number,
+  cjkLetterSpacing: string,
   editorWidth: number
 ) {
   const latinStack =
@@ -231,6 +232,12 @@ function applyTypography(
   // Calculate Mermaid scale factor (mono size / Mermaid's default 16px)
   const mermaidScale = (fontSize * 0.85) / 16;
 
+  // Calculate block spacing margin that produces correct visual gap.
+  // Visual gap = margin + (lineHeight - 1) × fontSize (due to half-leading above and below)
+  // For N lines of visual gap: margin = lineHeight × (N - 1) + 1 (in em units)
+  // This ensures "1 line" setting produces exactly 1 line-height of visual space.
+  const blockSpacingMargin = lineHeight * (blockSpacing - 1) + 1;
+
   applyVars(root, {
     "--font-sans": `${latinStack}, ${cjkStack}`,
     "--font-mono": monoStack,
@@ -239,7 +246,8 @@ function applyTypography(
     "--editor-font-size-mono": `${fontSize * 0.85}px`,
     "--editor-line-height": String(lineHeight),
     "--editor-line-height-px": `${lineHeightPx}px`,
-    "--editor-paragraph-spacing": `${paragraphSpacing}em`,
+    "--editor-block-spacing": `${blockSpacingMargin}em`,
+    "--cjk-letter-spacing": cjkLetterSpacing === "0" ? "0" : `${cjkLetterSpacing}em`,
     "--editor-width": editorWidth > 0 ? `${editorWidth}em` : "none",
     "--mermaid-scale": String(mermaidScale),
   });
@@ -264,7 +272,8 @@ export function useTheme() {
       appearance.monoFont,
       appearance.fontSize,
       appearance.lineHeight,
-      appearance.paragraphSpacing,
+      appearance.blockSpacing ?? 1,
+      appearance.cjkLetterSpacing ?? "0",
       appearance.editorWidth ?? 50
     );
 

@@ -9,7 +9,7 @@
 .tiptap-editor .code-block-wrapper {
   display: flex;
   position: relative;
-  margin: 16px 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   background: var(--code-bg-color);
   border-radius: var(--radius-md);
 }

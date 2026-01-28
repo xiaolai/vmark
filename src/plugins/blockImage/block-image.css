@@ -6,7 +6,7 @@
 
 .block-image {
   display: block;
-  margin: 1em 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   text-align: center;
 }
 

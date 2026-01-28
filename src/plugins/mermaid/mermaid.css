@@ -44,7 +44,7 @@
 
 /* Mermaid block node - block style */
 .mermaid-block {
-  margin: 1rem 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   padding: 1rem;
   background-color: var(--subtle-bg);
   border-radius: var(--radius-md);

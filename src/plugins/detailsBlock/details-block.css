@@ -8,7 +8,7 @@
 .details-block {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  margin: 1em 0;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
   overflow: hidden;
   line-height: var(--editor-line-height-px);
 }

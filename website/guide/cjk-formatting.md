@@ -126,6 +126,41 @@ CJK formatting options can be configured in Settings → Language:
 
 ---
 
+## CJK Letter Spacing
+
+VMark includes a dedicated letter spacing feature for CJK text that improves readability by adding subtle spacing between characters.
+
+### Settings
+
+Configure in **Settings → Editor → Typography → CJK Letter Spacing**:
+
+| Option | Value | Description |
+|--------|-------|-------------|
+| Off | 0 | No letter spacing (default) |
+| Subtle | 0.02em | Barely noticeable spacing |
+| Light | 0.03em | Light spacing |
+| Normal | 0.05em | Recommended for most use cases |
+| Wide | 0.08em | More pronounced spacing |
+
+### How It Works
+
+- Applies letter-spacing CSS to CJK character runs
+- Excludes code blocks and inline code
+- Works in both WYSIWYG and exported HTML
+- No effect on Latin text or numbers
+
+### Example
+
+Without letter spacing:
+> 这是一段中文文字，没有任何字间距。
+
+With 0.05em letter spacing:
+> 这 是 一 段 中 文 文 字 ， 有 轻 微 的 字 间 距 。
+
+The difference is subtle but improves readability, especially for longer passages.
+
+---
+
 ## Smart Quote Conversion
 
 VMark can automatically convert straight quotes to typographically correct smart quotes. This feature works during CJK formatting and supports multiple quote styles.

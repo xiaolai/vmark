@@ -1,0 +1,17 @@
+/**
+ * CJK Letter Spacing Styles
+ *
+ * Applied to CJK text runs via ProseMirror decorations.
+ * The spacing value uses a CSS variable for user customization.
+ */
+
+/* CJK text runs get subtle letter-spacing for improved readability */
+.tiptap-editor .cjk-spacing {
+  letter-spacing: var(--cjk-letter-spacing, 0.05em);
+}
+
+/* Disable in code blocks where spacing would break alignment */
+.tiptap-editor pre .cjk-spacing,
+.tiptap-editor code .cjk-spacing {
+  letter-spacing: 0;
+}

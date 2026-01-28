@@ -63,11 +63,18 @@ const numericOptions = {
     { value: "2.0", label: "2.0 (Spacious)" },
     { value: "2.2", label: "2.2 (Extra)" },
   ],
-  paragraphSpacing: [
-    { value: "0.5", label: "0.5em (Tight)" },
-    { value: "1", label: "1em (Normal)" },
-    { value: "1.5", label: "1.5em (Relaxed)" },
-    { value: "2", label: "2em (Spacious)" },
+  blockSpacing: [
+    { value: "0.5", label: "0.5× (Tight)" },
+    { value: "1", label: "1× (Normal)" },
+    { value: "1.5", label: "1.5× (Relaxed)" },
+    { value: "2", label: "2× (Spacious)" },
+  ],
+  cjkLetterSpacing: [
+    { value: "0", label: "Off" },
+    { value: "0.02", label: "0.02em (Subtle)" },
+    { value: "0.03", label: "0.03em (Light)" },
+    { value: "0.05", label: "0.05em (Normal)" },
+    { value: "0.08", label: "0.08em (Wide)" },
   ],
   editorWidth: [
     { value: "36", label: "36em (Compact)" },
@@ -93,7 +100,8 @@ const typographySettings: TypographyConfig[] = [
   { label: "Mono Font", key: "monoFont", options: fontOptions.mono, isNumeric: false },
   { label: "Font Size", key: "fontSize", options: numericOptions.fontSize, isNumeric: true },
   { label: "Line Height", key: "lineHeight", options: numericOptions.lineHeight, isNumeric: true },
-  { label: "Paragraph Spacing", key: "paragraphSpacing", options: numericOptions.paragraphSpacing, isNumeric: true },
+  { label: "Block Spacing", key: "blockSpacing", options: numericOptions.blockSpacing, isNumeric: true },
+  { label: "CJK Letter Spacing", key: "cjkLetterSpacing", options: numericOptions.cjkLetterSpacing, isNumeric: false },
 ];
 
 export function EditorSettings() {

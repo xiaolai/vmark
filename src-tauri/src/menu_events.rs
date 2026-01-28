@@ -262,6 +262,26 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
         return;
     }
 
+    // "preferences" - always handle in Rust to ensure it works in all scenarios:
+    // - Settings already open and focused
+    // - Settings open but in background
+    // - No Settings window exists
+    // - No document windows exist
+    if id == "preferences" {
+        #[cfg(debug_assertions)]
+        eprintln!("[menu_events] Handling 'preferences' menu event");
+        match crate::window_manager::show_settings_window(app) {
+            Ok(label) => {
+                #[cfg(debug_assertions)]
+                eprintln!("[menu_events] Settings window ready: {}", label);
+            }
+            Err(e) => {
+                eprintln!("[menu_events] ERROR: Failed to show settings: {}", e);
+            }
+        }
+        return;
+    }
+
     // "new" creates a tab in current window, but if no windows exist, create a new window
     // (Cmd+N when last window closed should open a new window)
     if id == "new" {

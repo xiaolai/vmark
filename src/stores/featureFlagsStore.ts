@@ -15,7 +15,7 @@ export const FEATURE_FLAGS = {
    * Phase 5: Enable in production after testing
    * Phase 6: Remove flag entirely after stable period
    */
-  UNIFIED_MENU_DISPATCHER: import.meta.env.DEV,
+  UNIFIED_MENU_DISPATCHER: true,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

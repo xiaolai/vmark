@@ -107,6 +107,9 @@ export const themes: Record<ThemeId, ThemeColors> = {
   },
 };
 
+// CJK letter spacing options (0 = off)
+export type CJKLetterSpacingValue = "0" | "0.02" | "0.03" | "0.05" | "0.08";
+
 export interface AppearanceSettings {
   theme: ThemeId;
   latinFont: string;
@@ -114,7 +117,8 @@ export interface AppearanceSettings {
   monoFont: string;
   fontSize: number;
   lineHeight: number;
-  paragraphSpacing: number;
+  blockSpacing: number; // Visual gap between blocks in "lines" (1 = one line-height)
+  cjkLetterSpacing: CJKLetterSpacingValue; // Letter spacing for CJK characters (em)
   editorWidth: number; // Max content width in em (0 = unlimited)
   showFilenameInTitlebar: boolean; // Show filename in window titlebar
   autoHideStatusBar: boolean; // Auto-hide status bar when not interacting
@@ -150,6 +154,9 @@ export interface CJKFormattingSettings {
 }
 
 export type MediaBorderStyle = "none" | "always" | "hover";
+export type MediaAlignment = "left" | "center";
+export type HeadingAlignment = "left" | "center";
+export type BlockFontSize = "0.85" | "0.9" | "0.95" | "1";
 
 // Quote style options for smart quote conversion
 // - curly: "" '' (Simplified Chinese, Western)
@@ -189,6 +196,9 @@ export interface MarkdownSettings {
   pasteMarkdownInWysiwyg: MarkdownPasteMode; // Convert pasted markdown into rich text
   pasteMode: PasteMode; // How to handle clipboard content (smart/plain/rich)
   mediaBorderStyle: MediaBorderStyle; // Border style for images and diagrams
+  mediaAlignment: MediaAlignment; // Alignment for block images and tables
+  headingAlignment: HeadingAlignment; // Alignment for headings
+  blockFontSize: BlockFontSize; // Font size for lists, blockquotes, tables, etc.
   htmlRenderingMode: HtmlRenderingMode; // Rich text display for raw HTML
   hardBreakStyleOnSave: HardBreakStyleOnSave; // Preserve or normalize hard break output
   // Auto-pair
@@ -299,7 +309,8 @@ const initialState: SettingsState = {
     monoFont: "system",
     fontSize: 18,
     lineHeight: 1.8,
-    paragraphSpacing: 1,
+    blockSpacing: 1, // 1 = one line-height of visual gap between blocks
+    cjkLetterSpacing: "0", // Off by default
     editorWidth: 50, // em units, 0 = unlimited (50em ≈ 900px at 18px font)
     showFilenameInTitlebar: false,
     autoHideStatusBar: false,
@@ -339,6 +350,9 @@ const initialState: SettingsState = {
     pasteMarkdownInWysiwyg: "auto",
     pasteMode: "smart", // Default: convert HTML to Markdown
     mediaBorderStyle: "none",
+    mediaAlignment: "center",
+    headingAlignment: "left",
+    blockFontSize: "1",
     htmlRenderingMode: "hidden",
     hardBreakStyleOnSave: "preserve",
     autoPairEnabled: true,
@@ -409,11 +423,19 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         }
       ),
       // Deep merge to preserve new default properties when loading old localStorage
-      merge: (persistedState, currentState) =>
-        deepMerge(
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Record<string, unknown>;
+        // Migration: paragraphSpacing -> blockSpacing
+        const appearance = persisted.appearance as Record<string, unknown> | undefined;
+        if (appearance && "paragraphSpacing" in appearance && !("blockSpacing" in appearance)) {
+          appearance.blockSpacing = appearance.paragraphSpacing;
+          delete appearance.paragraphSpacing;
+        }
+        return deepMerge(
           currentState as unknown as Record<string, unknown>,
-          (persistedState ?? {}) as Record<string, unknown>
-        ) as unknown as typeof currentState,
+          persisted
+        ) as unknown as typeof currentState;
+      },
     }
   )
 );

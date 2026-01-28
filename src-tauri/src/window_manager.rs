@@ -218,6 +218,70 @@ pub fn close_window(app: AppHandle, label: String) -> Result<(), String> {
     }
 }
 
+/// Create or focus the settings window.
+/// If settings window exists, focuses it. Otherwise creates a new one.
+/// Returns the window label on success.
+pub fn show_settings_window(app: &AppHandle) -> Result<String, tauri::Error> {
+    const SETTINGS_LABEL: &str = "settings";
+    const SETTINGS_WIDTH: f64 = 760.0;
+    const SETTINGS_HEIGHT: f64 = 540.0;
+    const SETTINGS_MIN_WIDTH: f64 = 600.0;
+    const SETTINGS_MIN_HEIGHT: f64 = 400.0;
+
+    // If settings window exists, bring it to front and focus it
+    if let Some(window) = app.get_webview_window(SETTINGS_LABEL) {
+        #[cfg(debug_assertions)]
+        eprintln!("[window_manager] Settings window exists, focusing it");
+        // Unminimize if minimized
+        if window.is_minimized().unwrap_or(false) {
+            #[cfg(debug_assertions)]
+            eprintln!("[window_manager] Settings was minimized, unminimizing");
+            let _ = window.unminimize();
+        }
+        // Show and focus
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(SETTINGS_LABEL.to_string());
+    }
+
+    #[cfg(debug_assertions)]
+    eprintln!("[window_manager] Creating new settings window");
+
+    // Create new settings window
+    // Note: Don't use .center() here as the window-state plugin may override it.
+    // Instead, we build the window visible:false, then set size/position, then show.
+    let mut builder = WebviewWindowBuilder::new(
+        app,
+        SETTINGS_LABEL,
+        WebviewUrl::App("/settings".into()),
+    )
+    .title("Settings")
+    .inner_size(SETTINGS_WIDTH, SETTINGS_HEIGHT)
+    .min_inner_size(SETTINGS_MIN_WIDTH, SETTINGS_MIN_HEIGHT)
+    .resizable(true)
+    .visible(false) // Start hidden to avoid flash
+    .focused(true);
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true);
+    }
+
+    let window = builder.build()?;
+
+    // Override any restored state by explicitly setting size and centering
+    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+        width: SETTINGS_WIDTH,
+        height: SETTINGS_HEIGHT,
+    }));
+    let _ = window.center();
+    let _ = window.show();
+
+    Ok(SETTINGS_LABEL.to_string())
+}
+
 /// Force quit the entire application
 #[tauri::command]
 pub fn force_quit(app: AppHandle) {
