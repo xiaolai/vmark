@@ -47,16 +47,15 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
     }
   );
 
-  // document_set_content - BLOCKED for AI safety
-  // This tool is intentionally disabled to prevent AI from replacing entire documents.
-  // AI assistants should use incremental edit tools instead.
+  // document_set_content - Only allowed on empty documents
+  // This prevents AI from accidentally overwriting user content.
   server.registerTool(
     {
       name: 'document_set_content',
       description:
-        '[BLOCKED] This tool is disabled for AI safety. ' +
-        'Use document_insert_at_cursor, document_insert_at_position, ' +
-        'document_replace, or selection_replace for partial edits instead.',
+        'Set the full document content. Only works when the document is empty ' +
+        '(no existing content to overwrite). For non-empty documents, use ' +
+        'document_insert_at_cursor, document_replace, or selection_replace instead.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -72,14 +71,27 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
         required: ['content'],
       },
     },
-    async () => {
-      // Return local error without calling bridge - this tool is intentionally blocked
-      return VMarkMcpServer.errorResult(
-        'document_set_content is disabled for AI safety. ' +
-          'AI assistants should not replace entire documents. ' +
-          'Use document_insert_at_cursor, document_insert_at_position, ' +
-          'document_replace, or selection_replace for incremental edits.'
-      );
+    async (args) => {
+      const content = args.content as string;
+      const windowId = resolveWindowId(args.windowId as string | undefined);
+
+      if (typeof content !== 'string') {
+        return VMarkMcpServer.errorResult('content must be a string');
+      }
+
+      try {
+        const result = await server.sendBridgeRequest<{ message: string }>({
+          type: 'document.setContent',
+          content,
+          windowId,
+        });
+
+        return VMarkMcpServer.successResult(result.message);
+      } catch (error) {
+        return VMarkMcpServer.errorResult(
+          `Failed to set document content: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     }
   );
 

@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
-  handleSetContentBlocked,
+  handleSetContent,
   handleInsertAtCursorWithSuggestion,
   handleInsertAtPositionWithSuggestion,
   handleDocumentReplaceWithSuggestion,
@@ -61,8 +61,11 @@ function createMockEditor(options: {
   selectionTo?: number;
   docSize?: number;
   docText?: string;
+  textContent?: string;
 } = {}) {
-  const { selectionFrom = 0, selectionTo = 0, docSize = 100, docText = "hello world" } = options;
+  const { selectionFrom = 0, selectionTo = 0, docSize = 100, docText = "hello world", textContent } = options;
+  // textContent defaults to docText if not specified
+  const docTextContent = textContent ?? docText;
 
   const mockChain = {
     setTextSelection: vi.fn().mockReturnThis(),
@@ -73,6 +76,7 @@ function createMockEditor(options: {
 
   const mockTr = {
     replaceSelection: vi.fn().mockReturnThis(),
+    replaceWith: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     replaceRange: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
@@ -83,6 +87,7 @@ function createMockEditor(options: {
       selection: { from: selectionFrom, to: selectionTo },
       doc: {
         content: { size: docSize },
+        textContent: docTextContent,
         textBetween: vi.fn(() => docText),
         descendants: vi.fn((callback: (node: { isText: boolean; text?: string }, pos: number) => boolean | void) => {
           // Simulate a single text node with the doc text
@@ -122,14 +127,47 @@ describe("suggestionHandlers", () => {
     setAutoApprove(false);
   });
 
-  describe("handleSetContentBlocked", () => {
-    it("always returns error - document.setContent is blocked for safety", async () => {
-      await handleSetContentBlocked("req-1");
+  describe("handleSetContent", () => {
+    it("returns error when document is not empty", async () => {
+      const editor = createMockEditor({ textContent: "existing content" });
+      vi.mocked(getEditor).mockReturnValue(editor as never);
+
+      await handleSetContent("req-1", { content: "new content" });
 
       expect(respond).toHaveBeenCalledWith({
         id: "req-1",
         success: false,
-        error: "document.setContent is disabled for AI safety. Use document.insertAtCursor or selection.replace instead.",
+        error:
+          "document.setContent is only allowed on empty documents. " +
+          "Use document.insertAtCursor, document.replace, or selection.replace for non-empty documents.",
+      });
+    });
+
+    it("allows setContent when document is empty", async () => {
+      const editor = createMockEditor({ textContent: "", docSize: 1 });
+      vi.mocked(getEditor).mockReturnValue(editor as never);
+
+      await handleSetContent("req-1", { content: "# Hello World" });
+
+      expect(editor.view.dispatch).toHaveBeenCalled();
+      expect(respond).toHaveBeenCalledWith({
+        id: "req-1",
+        success: true,
+        data: { message: "Document content set successfully." },
+      });
+    });
+
+    it("allows setContent when document has only whitespace", async () => {
+      const editor = createMockEditor({ textContent: "   \n  \t  ", docSize: 10 });
+      vi.mocked(getEditor).mockReturnValue(editor as never);
+
+      await handleSetContent("req-1", { content: "# New Content" });
+
+      expect(editor.view.dispatch).toHaveBeenCalled();
+      expect(respond).toHaveBeenCalledWith({
+        id: "req-1",
+        success: true,
+        data: { message: "Document content set successfully." },
       });
     });
   });

@@ -138,23 +138,39 @@ const x = 1;
     it('should be registered as a tool', () => {
       const tool = client.getTool('document_set_content');
       expect(tool).toBeDefined();
-      expect(tool?.description).toContain('BLOCKED');
+      expect(tool?.description).toContain('empty');
     });
 
-    it('should always return error for AI safety', async () => {
+    it('should succeed on empty document', async () => {
+      // Start with empty document
+      bridge.setContent('');
+
+      const result = await client.callTool('document_set_content', {
+        content: '# Hello World',
+      });
+
+      expect(result.success).toBe(true);
+      expect(bridge.getWindowState()?.content).toBe('# Hello World');
+    });
+
+    it('should fail on non-empty document', async () => {
+      bridge.setContent('existing content');
+
       const result = await client.callTool('document_set_content', {
         content: 'New content',
       });
 
       expect(result.success).toBe(false);
-      expect(McpTestClient.getTextContent(result)).toContain('disabled for AI safety');
+      expect(McpTestClient.getTextContent(result)).toContain('only allowed on empty documents');
 
       // Verify content was NOT changed
       const state = bridge.getWindowState();
-      expect(state?.content).toBe('');
+      expect(state?.content).toBe('existing content');
     });
 
-    it('should suggest alternative tools in error message', async () => {
+    it('should suggest alternative tools in error message for non-empty docs', async () => {
+      bridge.setContent('some content');
+
       const result = await client.callTool('document_set_content', {
         content: 'test',
       });

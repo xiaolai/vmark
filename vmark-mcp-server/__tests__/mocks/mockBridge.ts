@@ -478,8 +478,17 @@ export class MockBridge implements Bridge {
         if (!window) {
           return { success: false, error: `Window ${windowId} not found` };
         }
+        // Only allow setContent on empty documents (matching real behavior)
+        if (window.content.trim().length > 0) {
+          return {
+            success: false,
+            error:
+              'document_set_content is only allowed on empty documents. ' +
+              'Use document_insert_at_cursor, document_replace, or selection_replace for non-empty documents.',
+          };
+        }
         this.setContent(request.content, windowId);
-        return { success: true, data: null };
+        return { success: true, data: { message: 'Document content set successfully.' } };
 
       case 'document.insertAtCursor': {
         if (!window) {

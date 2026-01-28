@@ -23,7 +23,7 @@ import { handleSelectionGet, handleSelectionSet } from "./selectionHandlers";
 
 // AI Suggestion handlers (wrap content modifications for approval)
 import {
-  handleSetContentBlocked,
+  handleSetContent,
   handleInsertAtCursorWithSuggestion,
   handleInsertAtPositionWithSuggestion,
   handleDocumentReplaceWithSuggestion,
@@ -123,8 +123,8 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         await handleGetContent(id);
         break;
       case "document.setContent":
-        // BLOCKED: AI cannot replace entire document for safety
-        await handleSetContentBlocked(id);
+        // Only allowed on empty documents for safety
+        await handleSetContent(id, args);
         break;
       case "document.insertAtCursor":
         // Wrapped with suggestion for approval

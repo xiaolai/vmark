@@ -20,16 +20,62 @@ function isAutoApproveEnabled(): boolean {
 }
 
 /**
- * Handle document.setContent request - BLOCKED for AI safety.
- * AI should not be able to replace the entire document.
+ * Check if the editor document is empty.
+ * Empty means: no text content (ignoring whitespace).
  */
-export async function handleSetContentBlocked(id: string): Promise<void> {
-  await respond({
-    id,
-    success: false,
-    error:
-      "document.setContent is disabled for AI safety. Use document.insertAtCursor or selection.replace instead.",
-  });
+function isDocumentEmpty(editor: ReturnType<typeof getEditor>): boolean {
+  if (!editor) return false;
+  const text = editor.state.doc.textContent.trim();
+  return text.length === 0;
+}
+
+/**
+ * Handle document.setContent request.
+ * Only allowed when document is empty (nothing to accidentally overwrite).
+ * Otherwise blocked for AI safety.
+ */
+export async function handleSetContent(
+  id: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  try {
+    const editor = getEditor();
+    if (!editor) throw new Error("No active editor");
+
+    // Only allow setContent on empty documents
+    if (!isDocumentEmpty(editor)) {
+      await respond({
+        id,
+        success: false,
+        error:
+          "document.setContent is only allowed on empty documents. " +
+          "Use document.insertAtCursor, document.replace, or selection.replace for non-empty documents.",
+      });
+      return;
+    }
+
+    const content = args.content as string;
+    if (typeof content !== "string") {
+      throw new Error("content must be a string");
+    }
+
+    // Parse markdown and set as document content
+    const slice = createMarkdownPasteSlice(editor.state, content);
+    const tr = editor.state.tr.replaceWith(0, editor.state.doc.content.size, slice.content);
+    editor.view.dispatch(tr);
+
+    await respond({
+      id,
+      success: true,
+      data: { message: "Document content set successfully." },
+    });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 /**
