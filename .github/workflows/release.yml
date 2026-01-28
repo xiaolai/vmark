@@ -280,16 +280,21 @@ jobs:
       - name: Trigger Homebrew tap update
         continue-on-error: true
         env:
-          # Use GITHUB_TOKEN for workflow dispatch in same repo
-          # (HOMEBREW_TAP_TOKEN only has permissions for homebrew-tap repo)
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract version number without 'v' prefix
           VERSION="${{ needs.create-release.outputs.version }}"
           VERSION_NUM="${VERSION#v}"
 
-          # Trigger the Homebrew update workflow
           gh workflow run update-homebrew.yml \
             --repo "${{ github.repository }}" \
             -f version="$VERSION_NUM"
           echo "✅ Triggered Homebrew tap update for $VERSION_NUM"
+
+      - name: Trigger Claude marketplace sync
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run sync-marketplace.yml \
+            --repo "${{ github.repository }}"
+          echo "✅ Triggered Claude marketplace sync"
