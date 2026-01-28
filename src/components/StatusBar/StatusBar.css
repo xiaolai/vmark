@@ -264,20 +264,10 @@
   color: var(--text-tertiary);
   font-size: 11px;
   cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.status-mcp:hover {
-  background-color: var(--hover-bg);
-  color: var(--text-secondary);
 }
 
 .status-mcp.connected {
   color: var(--success-color, #22c55e);
-}
-
-.status-mcp.connected:hover {
-  background-color: var(--hover-bg);
 }
 
 .status-mcp.loading {
