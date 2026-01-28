@@ -187,6 +187,37 @@ Apostrophes in contractions (like "it's" or "don't") are preserved correctly.
 
 Enable Smart Quote Conversion in Settings → Language → CJK Formatting. You can also select your preferred quote style from the dropdown menu.
 
+### Known Limitations
+
+Smart quote conversion uses context-based detection, which has some edge cases:
+
+| Scenario | Behavior | Workaround |
+|----------|----------|------------|
+| Quote after CJK: `测试"内容"` | Both quotes may become closing quotes | Add space before quote: `测试 "内容"` |
+| Consecutive pairs: `"a""b"` | Pairing may be incorrect | Add space between: `"a" "b"` |
+| Decade abbreviation: `'90s` | May not convert to opening quote | Use curly quote directly: `'90s` |
+
+---
+
+## CJK Corner Bracket Conversion
+
+When **CJK Corner Quotes** is enabled, curly quotes around CJK content are automatically converted to corner brackets.
+
+### Supported Characters
+
+Corner bracket conversion triggers when the quoted content contains **Chinese characters** (CJK Unified Ideographs U+4E00–U+9FFF):
+
+| Content Type | Example | Converts? |
+|--------------|---------|-----------|
+| Chinese | `"中文"` | ✓ `「中文」` |
+| Japanese with Kanji | `"日本語"` | ✓ `「日本語」` |
+| Hiragana only | `"ひらがな"` | ✗ stays as `"ひらがな"` |
+| Katakana only | `"カタカナ"` | ✗ stays as `"カタカナ"` |
+| Korean | `"한글"` | ✗ stays as `"한글"` |
+| English | `"hello"` | ✗ stays as `"hello"` |
+
+**Tip:** For Japanese text with only Kana, manually use corner brackets `「」` or include at least one Kanji character.
+
 ---
 
 ## Test Paragraph
