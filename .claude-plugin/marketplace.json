@@ -1,0 +1,17 @@
+{
+  "name": "vmark-marketplace",
+  "description": "VMark editor plugins for Claude Code",
+  "owner": {
+    "name": "xiaolai",
+    "url": "https://github.com/xiaolai"
+  },
+  "plugins": [
+    {
+      "name": "vmark-mcp",
+      "version": "0.3.10",
+      "description": "AI writing assistant for VMark editor with 76 MCP tools",
+      "source": "./plugins/vmark-mcp",
+      "tags": ["markdown", "editor", "mcp", "writing"]
+    }
+  ]
+}

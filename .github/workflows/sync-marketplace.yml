@@ -1,0 +1,80 @@
+name: Sync to Claude Code Marketplace
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      marketplace:
+        description: 'Target marketplace repo'
+        required: true
+        default: 'EveryInc/every-marketplace'
+
+jobs:
+  sync-to-marketplace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout vmark
+        uses: actions/checkout@v4
+        with:
+          path: vmark
+
+      - name: Checkout marketplace
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.marketplace || 'EveryInc/every-marketplace' }}
+          token: ${{ secrets.MARKETPLACE_PAT }}
+          path: marketplace
+
+      - name: Get version from plugin.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' vmark/.claude-plugin/plugin.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Copy plugin to marketplace
+        run: |
+          # Create plugin directory in marketplace
+          mkdir -p marketplace/plugins/vmark-mcp
+
+          # Copy plugin files
+          cp -r vmark/plugins/vmark-mcp/* marketplace/plugins/vmark-mcp/
+          cp vmark/.claude-plugin/plugin.json marketplace/plugins/vmark-mcp/.claude-plugin/plugin.json
+
+      - name: Update marketplace.json
+        run: |
+          cd marketplace
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Use jq to update or add the plugin entry
+          jq --arg ver "$VERSION" '
+            .plugins |= (
+              map(if .name == "vmark-mcp" then .version = $ver else . end) |
+              if any(.name == "vmark-mcp") then . else . + [{
+                "name": "vmark-mcp",
+                "version": $ver,
+                "description": "AI writing assistant for VMark editor with 76 MCP tools",
+                "source": "./plugins/vmark-mcp",
+                "tags": ["markdown", "editor", "mcp", "writing"]
+              }] end
+            )
+          ' .claude-plugin/marketplace.json > tmp.json && mv tmp.json .claude-plugin/marketplace.json
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: marketplace
+          token: ${{ secrets.MARKETPLACE_PAT }}
+          commit-message: "feat: update vmark-mcp to v${{ steps.version.outputs.version }}"
+          title: "Update vmark-mcp to v${{ steps.version.outputs.version }}"
+          body: |
+            Automated update from [xiaolai/vmark](https://github.com/xiaolai/vmark).
+
+            ## Changes
+            - Version: ${{ steps.version.outputs.version }}
+            - Release: ${{ github.event.release.html_url }}
+
+            ## Plugin
+            AI writing assistant for VMark editor with comprehensive MCP tool workflows.
+          branch: "vmark-mcp-v${{ steps.version.outputs.version }}"
+          base: main
