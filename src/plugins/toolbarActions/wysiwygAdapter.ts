@@ -927,7 +927,10 @@ function handleFormatCJK(context: WysiwygToolbarContext): boolean {
     const selectedText = state.doc.textBetween(from, to, "\n");
     const formatted = formatSelection(selectedText, config, { preserveTwoSpaceHardBreaks });
     if (formatted !== selectedText) {
-      dispatch(state.tr.replaceWith(from, to, state.schema.text(formatted)));
+      const tr = state.tr
+        .replaceWith(from, to, state.schema.text(formatted))
+        .setMeta("addToHistory", true);
+      dispatch(tr);
       view.focus();
     }
     return true;
