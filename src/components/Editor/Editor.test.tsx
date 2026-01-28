@@ -68,8 +68,14 @@ vi.mock("@/stores/tabStore", () => {
 
 vi.mock("@/stores/settingsStore", () => {
   const state = {
+    appearance: {
+      cjkLetterSpacing: "0",
+    },
     markdown: {
       mediaBorderStyle: "none",
+      mediaAlignment: "center",
+      headingAlignment: "left",
+      blockFontSize: "1",
       htmlRenderingMode: "hidden",
     },
   };
