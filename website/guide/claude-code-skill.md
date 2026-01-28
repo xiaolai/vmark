@@ -154,6 +154,26 @@ claude marketplace add github:xiaolai/vmark
 2. Check that the document has focus in VMark
 3. Look for the suggestion highlight in the editor
 
+## Related Plugins
+
+### init-workspace
+
+If you use multiple AI tools (Claude Code, Codex CLI, Gemini CLI), the [init-workspace](https://github.com/xiaolai/init-workspace) plugin helps set up a unified workspace:
+
+```bash
+claude plugins install init-workspace@init-workspace-marketplace
+```
+
+**What it does:**
+- Creates `AGENTS.md` as single source of truth for AI instructions
+- Sets up shared configuration across all AI tools
+- Includes `/doc` command for creating documentation (which you can edit in VMark)
+
+**Useful for:**
+- Writers managing documentation projects
+- Developers using multiple AI assistants
+- Teams wanting consistent AI behavior
+
 ## Source Code
 
 The skill source is available in the VMark repository:
