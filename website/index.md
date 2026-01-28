@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: VMark
-  text: AI Friendly Markdown Editor
-  tagline: Write with Claude, Codex, or Gemini via MCP integration. Dual editing modes, CJK formatting, and seamless rich text / source switching.
+  text: The Markdown Editor That Gets It Right
+  tagline: Free. Smart. Beautiful. Yours.
   image:
     src: /logo.png
     alt: VMark
@@ -18,54 +18,24 @@ hero:
 
 features:
   - icon:
-      src: /icons/edit.svg
-    title: Dual Editing Modes
-    details: Switch seamlessly between rich text (WYSIWYG) and source mode. Edit naturally with formatting preview or dive into raw Markdown.
-
-  - icon:
-      src: /icons/hard-drive.svg
-    title: Local-First
-    details: All your data stays on your machine. No cloud dependencies, no accounts required. Your files, your privacy.
+      src: /icons/bot.svg
+    title: AI Friendly
+    details: Built for the AI era. VMark speaks MCP natively — Claude, Codex, or Gemini can read, suggest, and edit your documents. No plugins. Just connect and collaborate.
 
   - icon:
       src: /icons/languages.svg
-    title: CJK Formatting
-    details: Built-in Chinese/Japanese/Korean text formatting with 19 configurable rules for perfect typography.
-
-  - icon:
-      src: /icons/git-branch.svg
-    title: Mermaid Diagrams
-    details: Render flowcharts, sequence diagrams, Gantt charts, and more directly in your documents.
-
-  - icon:
-      src: /icons/sigma.svg
-    title: LaTeX Math
-    details: KaTeX-powered mathematical equations with full syntax support and live preview.
-
-  - icon:
-      src: /icons/focus.svg
-    title: Focus & Typewriter Modes
-    details: Distraction-free writing with focus mode and typewriter scrolling for deep work sessions.
-
-  - icon:
-      src: /icons/folder-open.svg
-    title: Workspace Support
-    details: Open folders as workspaces with file tree navigation and easy file switching.
-
-  - icon:
-      src: /icons/keyboard.svg
-    title: Keyboard-First
-    details: Comprehensive keyboard shortcuts for everything. Customizable to match your workflow.
+    title: Mixing CJK Considered
+    details: Finally, an editor that understands 中文、日本語、한국어. Smart CJK-Latin spacing, fullwidth punctuation, corner quotes「like these」. Twenty formatting rules, one shortcut.
 
   - icon:
       src: /icons/palette.svg
-    title: Beautiful Themes
-    details: Five built-in themes including White, Paper, Mint, Sepia, and Night mode for comfortable writing.
+    title: Beautifully Designed
+    details: Clean when you need focus. Powerful when you need control. Five hand-crafted themes, typography that respects your fonts, a toolbar that appears only when you want it.
 
   - icon:
-      src: /icons/bot.svg
-    title: AI Integration (MCP)
-    details: Built-in MCP server lets AI assistants like Claude interact directly with your editor - read, write, and format documents.
+      src: /icons/keyboard.svg
+    title: Power Without Complexity
+    details: 165 keyboard shortcuts. WYSIWYG and source mode. Focus mode, typewriter mode, document history. All there when you need them. Invisible when you don't.
 ---
 
 <style>
