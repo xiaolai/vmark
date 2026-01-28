@@ -45,6 +45,7 @@ import ThemePicker from './.vitepress/components/demos/ThemePicker.vue'
 import TypographyDemo from './.vitepress/components/demos/TypographyDemo.vue'
 import AlertBlockDemo from './.vitepress/components/demos/AlertBlockDemo.vue'
 import FocusModeDemo from './.vitepress/components/demos/FocusModeDemo.vue'
+import DetailsBlockDemo from './.vitepress/components/demos/DetailsBlockDemo.vue'
 </script>
 
 <style>
@@ -140,6 +141,10 @@ Let Claude write directly to your documents via MCP integration:
 ### Alert Blocks
 
 <AlertBlockDemo />
+
+### Collapsible Sections
+
+<DetailsBlockDemo />
 
 ## Built With Modern Technology
 
