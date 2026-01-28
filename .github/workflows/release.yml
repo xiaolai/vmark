@@ -261,11 +261,90 @@ jobs:
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
+          # Disable per-job latest.json upload to avoid race condition
+          # We generate and upload it once in publish-release job
+          includeUpdaterJson: false
 
   publish-release:
     needs: [create-release, build-tauri]
     runs-on: ubuntu-latest
     steps:
+      - name: Generate and upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          REPO="${{ github.repository }}"
+
+          echo "Generating latest.json for $VERSION..."
+
+          # Download all .sig files to get signatures
+          mkdir -p sigs
+          gh release download "$VERSION" --repo "$REPO" --pattern "*.sig" --dir sigs || true
+
+          # Read signatures
+          MACOS_AARCH64_SIG=""
+          MACOS_X64_SIG=""
+          LINUX_SIG=""
+          WINDOWS_MSI_SIG=""
+          WINDOWS_EXE_SIG=""
+
+          if [ -f "sigs/VMark_aarch64.app.tar.gz.sig" ]; then
+            MACOS_AARCH64_SIG=$(cat "sigs/VMark_aarch64.app.tar.gz.sig")
+          fi
+          if [ -f "sigs/VMark_x64.app.tar.gz.sig" ]; then
+            MACOS_X64_SIG=$(cat "sigs/VMark_x64.app.tar.gz.sig")
+          fi
+          if [ -f "sigs/VMark_${VERSION#v}_amd64.AppImage.sig" ]; then
+            LINUX_SIG=$(cat "sigs/VMark_${VERSION#v}_amd64.AppImage.sig")
+          fi
+          if [ -f "sigs/VMark_${VERSION#v}_x64_en-US.msi.sig" ]; then
+            WINDOWS_MSI_SIG=$(cat "sigs/VMark_${VERSION#v}_x64_en-US.msi.sig")
+          fi
+          if [ -f "sigs/VMark_${VERSION#v}_x64-setup.exe.sig" ]; then
+            WINDOWS_EXE_SIG=$(cat "sigs/VMark_${VERSION#v}_x64-setup.exe.sig")
+          fi
+
+          # Get current timestamp
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Base URL for downloads
+          BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
+
+          # Generate latest.json
+          cat > latest.json << EOF
+          {
+            "version": "$VERSION",
+            "notes": "See release notes at https://github.com/$REPO/releases/tag/$VERSION",
+            "pub_date": "$PUB_DATE",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "$MACOS_AARCH64_SIG",
+                "url": "$BASE_URL/VMark_aarch64.app.tar.gz"
+              },
+              "darwin-x86_64": {
+                "signature": "$MACOS_X64_SIG",
+                "url": "$BASE_URL/VMark_x64.app.tar.gz"
+              },
+              "linux-x86_64": {
+                "signature": "$LINUX_SIG",
+                "url": "$BASE_URL/VMark_${VERSION#v}_amd64.AppImage"
+              },
+              "windows-x86_64": {
+                "signature": "$WINDOWS_MSI_SIG",
+                "url": "$BASE_URL/VMark_${VERSION#v}_x64_en-US.msi"
+              }
+            }
+          }
+          EOF
+
+          echo "Generated latest.json:"
+          cat latest.json
+
+          # Upload latest.json to release
+          gh release upload "$VERSION" latest.json --repo "$REPO" --clobber
+          echo "✅ Uploaded latest.json"
+
       - name: Publish Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
