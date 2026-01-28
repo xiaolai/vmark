@@ -5,9 +5,8 @@
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { respond, getEditor } from "./utils";
+import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 
 // Types
@@ -22,13 +21,6 @@ interface SectionTarget {
 interface NewHeading {
   level: number;
   text: string;
-}
-
-/**
- * Check if auto-approve edits is enabled.
- */
-function isAutoApproveEnabled(): boolean {
-  return useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
 }
 
 /**

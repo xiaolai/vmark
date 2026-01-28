@@ -11,19 +11,10 @@ import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg } from 
 import type {
   BatchEditResult,
   OperationMode,
+  SectionTarget,
+  NewHeading,
+  BridgeRequest,
 } from '../bridge/types.js';
-
-/**
- * Section target specification.
- */
-interface SectionTarget {
-  /** Match by heading text (case-insensitive) */
-  heading?: string;
-  /** Match by level and index */
-  byIndex?: { level: number; index: number };
-  /** Match by section ID */
-  sectionId?: string;
-}
 
 /**
  * Register all section tools on the server.
@@ -94,14 +85,15 @@ export function registerSectionTools(server: VMarkMcpServer): void {
       }
 
       try {
-        const result = await server.sendBridgeRequest<BatchEditResult>({
+        const request: BridgeRequest = {
           type: 'section.update',
           baseRevision,
           target,
           newContent,
           mode,
           windowId,
-        } as any);
+        };
+        const result = await server.sendBridgeRequest<BatchEditResult>(request);
 
         return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
       } catch (error) {
@@ -186,7 +178,7 @@ export function registerSectionTools(server: VMarkMcpServer): void {
       const windowId = resolveWindowId(args.windowId as string | undefined);
       const baseRevision = requireStringArg(args, 'baseRevision');
       const after = args.after as SectionTarget | undefined;
-      const heading = args.heading as { level: number; text: string };
+      const heading = args.heading as NewHeading;
       const content = getStringArg(args, 'content') ?? '';
       const mode = (args.mode as OperationMode) ?? 'apply';
 
@@ -199,7 +191,7 @@ export function registerSectionTools(server: VMarkMcpServer): void {
       }
 
       try {
-        const result = await server.sendBridgeRequest<BatchEditResult>({
+        const request: BridgeRequest = {
           type: 'section.insert',
           baseRevision,
           after,
@@ -207,7 +199,8 @@ export function registerSectionTools(server: VMarkMcpServer): void {
           content,
           mode,
           windowId,
-        } as any);
+        };
+        const result = await server.sendBridgeRequest<BatchEditResult>(request);
 
         return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
       } catch (error) {
@@ -298,14 +291,15 @@ export function registerSectionTools(server: VMarkMcpServer): void {
       }
 
       try {
-        const result = await server.sendBridgeRequest<BatchEditResult>({
+        const request: BridgeRequest = {
           type: 'section.move',
           baseRevision,
           section,
           after,
           mode,
           windowId,
-        } as any);
+        };
+        const result = await server.sendBridgeRequest<BatchEditResult>(request);
 
         return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
       } catch (error) {

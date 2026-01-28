@@ -5,8 +5,7 @@
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { respond, getEditor } from "./utils";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 
 // Types
@@ -39,13 +38,6 @@ type ListOperation =
   | { action: "toggle_check"; at: number }
   | { action: "reorder"; order: number[] }
   | { action: "set_indent"; at: number; indent: number };
-
-/**
- * Check if auto-approve edits is enabled.
- */
-function isAutoApproveEnabled(): boolean {
-  return useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
-}
 
 /**
  * Extract text from a ProseMirror node.
@@ -278,7 +270,7 @@ export async function handleTableBatchModify(
             break;
 
           default:
-            warnings.push(`Unknown table operation: ${(op as any).action}`);
+            warnings.push(`Unknown table operation: ${(op as { action: string }).action}`);
         }
       } catch (opError) {
         warnings.push(`Failed: ${op.action} - ${opError instanceof Error ? opError.message : String(opError)}`);
@@ -443,7 +435,7 @@ export async function handleListBatchModify(
             break;
 
           default:
-            warnings.push(`Unknown list operation: ${(op as any).action}`);
+            warnings.push(`Unknown list operation: ${(op as { action: string }).action}`);
         }
       } catch (opError) {
         warnings.push(`Failed: ${op.action} - ${opError instanceof Error ? opError.message : String(opError)}`);

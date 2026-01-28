@@ -10,61 +10,12 @@ import { VMarkMcpServer, resolveWindowId, requireStringArg } from '../server.js'
 import type {
   BatchEditResult,
   OperationMode,
+  TableTarget,
+  TableOperation,
+  ListTarget,
+  ListOperation,
+  BridgeRequest,
 } from '../bridge/types.js';
-
-// =============================================================================
-// Table Operations
-// =============================================================================
-
-/**
- * Table target specification.
- */
-interface TableTarget {
-  /** Match by table ID */
-  tableId?: string;
-  /** Match by heading the table appears under */
-  afterHeading?: string;
-  /** Match by table index in document (0-based) */
-  tableIndex?: number;
-}
-
-/**
- * Table operation types.
- */
-type TableOperation =
-  | { action: 'add_row'; at: number; cells: string[] }
-  | { action: 'delete_row'; at: number }
-  | { action: 'add_column'; at: number; header: string; cells: string[] }
-  | { action: 'delete_column'; at: number }
-  | { action: 'update_cell'; row: number; col: number; content: string }
-  | { action: 'set_header'; row: number; isHeader: boolean };
-
-// =============================================================================
-// List Operations
-// =============================================================================
-
-/**
- * List target specification.
- */
-interface ListTarget {
-  /** Match by list ID */
-  listId?: string;
-  /** CSS-like selector (e.g., "ul:first", "ol.after-heading-intro") */
-  selector?: string;
-  /** Match by list index in document (0-based) */
-  listIndex?: number;
-}
-
-/**
- * List operation types.
- */
-type ListOperation =
-  | { action: 'add_item'; at: number; text: string; indent?: number }
-  | { action: 'delete_item'; at: number }
-  | { action: 'update_item'; at: number; text: string }
-  | { action: 'toggle_check'; at: number }
-  | { action: 'reorder'; order: number[] }
-  | { action: 'set_indent'; at: number; indent: number };
 
 /**
  * Register all batch operation tools on the server.
@@ -196,14 +147,15 @@ export function registerBatchOpTools(server: VMarkMcpServer): void {
       }
 
       try {
-        const result = await server.sendBridgeRequest<BatchEditResult>({
+        const request: BridgeRequest = {
           type: 'table.batchModify',
           baseRevision,
           target,
           operations,
           mode,
           windowId,
-        } as any);
+        };
+        const result = await server.sendBridgeRequest<BatchEditResult>(request);
 
         return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
       } catch (error) {
@@ -334,14 +286,15 @@ export function registerBatchOpTools(server: VMarkMcpServer): void {
       }
 
       try {
-        const result = await server.sendBridgeRequest<BatchEditResult>({
+        const request: BridgeRequest = {
           type: 'list.batchModify',
           baseRevision,
           target,
           operations,
           mode,
           windowId,
-        } as any);
+        };
+        const result = await server.sendBridgeRequest<BatchEditResult>(request);
 
         return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
       } catch (error) {
