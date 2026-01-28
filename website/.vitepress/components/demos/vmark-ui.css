@@ -233,18 +233,18 @@
   font-size: 13px;
   font-weight: 500;
   gap: 6px;
-  color: var(--vp-c-text-2, var(--text-secondary));
-  background: transparent;
+  color: var(--vp-c-text-2, var(--text-secondary)) !important;
+  background: transparent !important;
 }
 
 .vmark-btn--pill:hover:not(:disabled):not(.active) {
-  background: var(--vp-c-bg-soft, rgba(0, 0, 0, 0.06));
-  color: var(--vp-c-text-1, var(--text-color));
+  background: var(--vp-c-bg-soft, rgba(0, 0, 0, 0.06)) !important;
+  color: var(--vp-c-text-1, var(--text-color)) !important;
 }
 
 .vmark-btn--pill.active {
-  background: var(--vp-c-brand-1, var(--accent-primary));
-  color: var(--vp-c-white, var(--contrast-text));
+  background: var(--vp-c-brand-1, var(--accent-primary)) !important;
+  color: var(--vp-c-white, var(--contrast-text)) !important;
 }
 
 .vmark-btn--pill.active::before {
