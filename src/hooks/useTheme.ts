@@ -214,6 +214,7 @@ function applyTypography(
   fontSize: number,
   lineHeight: number,
   blockSpacing: number,
+  cjkLetterSpacing: string,
   editorWidth: number
 ) {
   const latinStack =
@@ -246,6 +247,7 @@ function applyTypography(
     "--editor-line-height": String(lineHeight),
     "--editor-line-height-px": `${lineHeightPx}px`,
     "--editor-block-spacing": `${blockSpacingMargin}em`,
+    "--cjk-letter-spacing": cjkLetterSpacing === "0" ? "0" : `${cjkLetterSpacing}em`,
     "--editor-width": editorWidth > 0 ? `${editorWidth}em` : "none",
     "--mermaid-scale": String(mermaidScale),
   });
@@ -271,6 +273,7 @@ export function useTheme() {
       appearance.fontSize,
       appearance.lineHeight,
       appearance.blockSpacing ?? 1,
+      appearance.cjkLetterSpacing ?? "0",
       appearance.editorWidth ?? 50
     );
 

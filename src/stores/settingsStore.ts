@@ -107,6 +107,9 @@ export const themes: Record<ThemeId, ThemeColors> = {
   },
 };
 
+// CJK letter spacing options (0 = off)
+export type CJKLetterSpacingValue = "0" | "0.02" | "0.03" | "0.05" | "0.08";
+
 export interface AppearanceSettings {
   theme: ThemeId;
   latinFont: string;
@@ -115,6 +118,7 @@ export interface AppearanceSettings {
   fontSize: number;
   lineHeight: number;
   blockSpacing: number; // Visual gap between blocks in "lines" (1 = one line-height)
+  cjkLetterSpacing: CJKLetterSpacingValue; // Letter spacing for CJK characters (em)
   editorWidth: number; // Max content width in em (0 = unlimited)
   showFilenameInTitlebar: boolean; // Show filename in window titlebar
   autoHideStatusBar: boolean; // Auto-hide status bar when not interacting
@@ -306,6 +310,7 @@ const initialState: SettingsState = {
     fontSize: 18,
     lineHeight: 1.8,
     blockSpacing: 1, // 1 = one line-height of visual gap between blocks
+    cjkLetterSpacing: "0", // Off by default
     editorWidth: 50, // em units, 0 = unlimited (50em ≈ 900px at 18px font)
     showFilenameInTitlebar: false,
     autoHideStatusBar: false,

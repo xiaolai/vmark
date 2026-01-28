@@ -69,6 +69,13 @@ const numericOptions = {
     { value: "1.5", label: "1.5× (Relaxed)" },
     { value: "2", label: "2× (Spacious)" },
   ],
+  cjkLetterSpacing: [
+    { value: "0", label: "Off" },
+    { value: "0.02", label: "0.02em (Subtle)" },
+    { value: "0.03", label: "0.03em (Light)" },
+    { value: "0.05", label: "0.05em (Normal)" },
+    { value: "0.08", label: "0.08em (Wide)" },
+  ],
   editorWidth: [
     { value: "36", label: "36em (Compact)" },
     { value: "42", label: "42em (Narrow)" },
@@ -94,6 +101,7 @@ const typographySettings: TypographyConfig[] = [
   { label: "Font Size", key: "fontSize", options: numericOptions.fontSize, isNumeric: true },
   { label: "Line Height", key: "lineHeight", options: numericOptions.lineHeight, isNumeric: true },
   { label: "Block Spacing", key: "blockSpacing", options: numericOptions.blockSpacing, isNumeric: true },
+  { label: "CJK Letter Spacing", key: "cjkLetterSpacing", options: numericOptions.cjkLetterSpacing, isNumeric: false },
 ];
 
 export function EditorSettings() {

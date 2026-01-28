@@ -35,6 +35,7 @@ import "@/plugins/highlight/highlight.css";
 import "@/plugins/underline/underline.css";
 import "@/plugins/markdownArtifacts/markdown-artifacts.css";
 import "@/plugins/imagePasteToast/image-paste-toast.css";
+import "@/plugins/cjkLetterSpacing/cjk-letter-spacing.css";
 import "katex/dist/katex.min.css";
 
 export function Editor() {
