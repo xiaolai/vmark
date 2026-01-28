@@ -8,16 +8,8 @@
  */
 
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-import { respond, getEditor } from "./utils";
-
-/**
- * Check if auto-approve is enabled for MCP edits.
- */
-function isAutoApproveEnabled(): boolean {
-  return useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
-}
+import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 
 /**
  * Check if the editor document is empty.

@@ -18,19 +18,7 @@ import {
 vi.mock("./utils", () => ({
   respond: vi.fn(),
   getEditor: vi.fn(),
-}));
-
-// Mock settingsStore
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: vi.fn(() => ({
-      advanced: {
-        mcpServer: {
-          autoApproveEdits: false,
-        },
-      },
-    })),
-  },
+  isAutoApproveEnabled: vi.fn(() => false),
 }));
 
 // Mock aiSuggestionStore
@@ -49,8 +37,7 @@ vi.mock("@/plugins/markdownPaste/tiptap", () => ({
   })),
 }));
 
-import { respond, getEditor } from "./utils";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 
 /**
@@ -111,13 +98,7 @@ function createMockEditor(options: {
  * Helper to set autoApproveEdits setting.
  */
 function setAutoApprove(enabled: boolean) {
-  vi.mocked(useSettingsStore.getState).mockReturnValue({
-    advanced: {
-      mcpServer: {
-        autoApproveEdits: enabled,
-      },
-    },
-  } as ReturnType<typeof useSettingsStore.getState>);
+  vi.mocked(isAutoApproveEnabled).mockReturnValue(enabled);
 }
 
 describe("suggestionHandlers", () => {

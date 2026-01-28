@@ -7,7 +7,10 @@
 import { SettingRow, Toggle, SettingsGroup, CopyButton } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
+import { useMcpHealthCheck } from "@/hooks/useMcpHealthCheck";
+import { useMcpHealthStore } from "@/stores/mcpHealthStore";
 import { McpConfigInstaller } from "./McpConfigInstaller";
+import { RefreshCw } from "lucide-react";
 
 function StatusBadge({ running, loading }: { running: boolean; loading: boolean }) {
   if (loading) {
@@ -41,6 +44,9 @@ export function IntegrationsSettings() {
   const updateAdvancedSetting = useSettingsStore((state) => state.updateAdvancedSetting);
 
   const { running, port, loading, error, start, stop } = useMcpServer();
+  const { runHealthCheck, isChecking, version, toolCount, resourceCount } = useMcpHealthCheck();
+  const health = useMcpHealthStore((state) => state.health);
+  const openDialog = useMcpHealthStore((state) => state.openDialog);
 
 
   const handleToggleServer = async (enabled: boolean) => {
@@ -138,6 +144,55 @@ export function IntegrationsSettings() {
             </div>
             <div className="text-xs text-[var(--text-tertiary)] mt-1">
               Port auto-assigned. AI clients discover it automatically.
+            </div>
+
+            {/* Server info */}
+            <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[var(--text-tertiary)]">Version</span>
+                <code className="text-[var(--text-secondary)] font-mono">{version}</code>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1.5">
+                <span className="text-[var(--text-tertiary)]">Tools Available</span>
+                <span className="text-[var(--text-secondary)]">{toolCount}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1.5">
+                <span className="text-[var(--text-tertiary)]">Resources Available</span>
+                <span className="text-[var(--text-secondary)]">{resourceCount}</span>
+              </div>
+              {health.lastChecked && (
+                <div className="flex items-center justify-between text-xs mt-1.5">
+                  <span className="text-[var(--text-tertiary)]">Last Checked</span>
+                  <span className="text-[var(--text-secondary)]">
+                    {health.lastChecked.toLocaleTimeString()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="mt-3 pt-3 border-t border-[var(--border-color)] flex gap-2">
+              <button
+                onClick={() => runHealthCheck()}
+                disabled={isChecking}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
+                  bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
+                  hover:bg-[var(--hover-bg-strong)] hover:text-[var(--text-color)]
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-colors"
+              >
+                <RefreshCw size={12} className={isChecking ? "animate-spin" : ""} />
+                Test Connection
+              </button>
+              <button
+                onClick={openDialog}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
+                  bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
+                  hover:bg-[var(--hover-bg-strong)] hover:text-[var(--text-color)]
+                  transition-colors"
+              >
+                View Details
+              </button>
             </div>
           </div>
         )}

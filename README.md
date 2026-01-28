@@ -1,74 +1,170 @@
 # VMark
 
-An AI friendly markdown editor.
+**The Markdown Editor That Gets It Right**
+
+Free. Smart. Beautiful. Yours.
+
+<p align="center">
+  <img src="website/public/screenshots/editor-main.png" alt="VMark Editor" width="800">
+</p>
+
+VMark is a modern, local-first Markdown editor designed for the AI era. It combines the simplicity of rich text editing with the power of source mode—clean when you need focus, powerful when you need control.
+
+**[Download](https://github.com/xiaolai/vmark/releases)** · **[Documentation](https://vmark.app/guide/)** · **[Features](https://vmark.app/guide/features)**
+
+---
+
+## Why VMark?
+
+### 🤖 AI-Native
+
+Built to work seamlessly with AI assistants. Claude, Codex, and Gemini can read your documents, suggest edits, and write content directly—no plugins required.
+
+- One-click setup for Claude Desktop, Claude Code, Codex CLI, Gemini CLI
+- AI suggestions appear inline for your review
+- Accept or reject changes with a keystroke
+
+### 🌏 CJK Done Right
+
+Finally, a Markdown editor that understands Chinese, Japanese, and Korean text. Smart spacing between CJK and Latin characters, proper punctuation handling, and 19+ formatting rules—all built in.
+
+- Automatic CJK-Latin spacing
+- Fullwidth punctuation conversion
+- Corner bracket quotes for CJK
+- One shortcut to fix everything: `Alt + Cmd + Shift + F`
+
+### ✍️ Two Modes, Zero Friction
+
+Switch instantly between rich text (WYSIWYG) and source mode. See your formatting rendered beautifully, or dive into the Markdown source when you need precision.
+
+- Rich text mode powered by Tiptap/ProseMirror
+- Source mode powered by CodeMirror 6
+- Toggle with `Cmd + /`
+
+### 🎨 Beautifully Designed
+
+Five hand-crafted themes designed for extended writing sessions. Typography that respects your fonts. An interface that stays out of your way.
+
+- **White** — Clean and minimal
+- **Paper** — Warm and gentle
+- **Mint** — Fresh and focused
+- **Sepia** — Classic reading feel
+- **Night** — Easy on the eyes
+
+### 🔒 Local-First, Always
+
+Your documents stay on your machine. No cloud services, no accounts, no tracking. VMark works entirely offline.
+
+---
 
 ## Features
 
-- **Dual Editing Modes**: Switch between rich text (Tiptap/ProseMirror) and source mode (CodeMirror 6)
-- **Local-First**: All data stays on your machine - no cloud dependencies
-- **Workspace Support**: Open folders as workspaces with file tree navigation
-- **CJK Formatting**: Built-in Chinese/Japanese/Korean text formatting tools
-- **Mermaid Diagrams**: Render flowcharts, sequence diagrams, and more
-- **LaTeX Math**: KaTeX-powered mathematical equations
-- **Focus & Typewriter Modes**: Distraction-free writing experience
+| Category | What You Get |
+|----------|--------------|
+| **Editing** | Rich text, source mode, focus mode, typewriter mode |
+| **Formatting** | Headings, lists, tables, code blocks, blockquotes |
+| **Advanced** | Math equations (LaTeX), Mermaid diagrams, wiki links |
+| **AI Integration** | MCP support for Claude, Codex, Gemini |
+| **CJK** | 19+ formatting rules for Chinese, Japanese, Korean |
+| **Customization** | 165 keyboard shortcuts, 5 themes, font controls |
+| **Export** | HTML, PDF, copy as HTML |
 
-## Tech Stack
-
-- **Desktop Framework**: Tauri v2
-- **Frontend**: React 19, TypeScript
-- **State Management**: Zustand v5
-- **Rich Text Editor**: Tiptap (ProseMirror)
-- **Source Editor**: CodeMirror 6
-- **Styling**: Tailwind CSS v4
-- **Build Tool**: Vite v7
+---
 
 ## Installation
 
-### macOS
+### macOS (Recommended)
 
-**Homebrew (Recommended)**
+**Homebrew:**
 
 ```bash
 brew install xiaolai/tap/vmark
 ```
 
-**Manual Download**
+**Manual Download:**
 
-Download the `.dmg` from the [Releases page](https://github.com/xiaolai/vmark/releases) (Apple Silicon & Intel builds available).
+Download the `.dmg` from the [Releases page](https://github.com/xiaolai/vmark/releases).
+- Apple Silicon (M1/M2/M3): `VMark_x.x.x_aarch64.dmg`
+- Intel: `VMark_x.x.x_x64.dmg`
 
 ### Windows & Linux
 
-Active development and testing is currently focused on macOS. Windows and Linux support is limited for the foreseeable future due to resource constraints.
+Pre-built binaries are available on the [Releases page](https://github.com/xiaolai/vmark/releases). Active development is focused on macOS; Windows and Linux builds are provided as-is.
 
-Pre-built binaries are available on the [Releases page](https://github.com/xiaolai/vmark/releases) (provided as-is, without guaranteed support), or you can build from source.
+---
 
-## Development
+## AI Integration
+
+VMark speaks [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) natively. Connect your favorite AI assistant in one click:
+
+1. Open **Settings → Integrations**
+2. Enable MCP Server
+3. Click **Install** for your AI assistant
+4. Restart the AI assistant
+
+That's it. Your AI can now read, edit, and write to your VMark documents.
+
+**Supported assistants:**
+- Claude Desktop
+- Claude Code
+- Codex CLI
+- Gemini CLI
+
+For Claude Code users, install the [vmark-mcp skill](https://vmark.app/guide/claude-code-skill) for enhanced writing workflows.
+
+---
+
+## Keyboard Shortcuts
+
+VMark has 165 customizable shortcuts. Here are the essentials:
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd + /` | Toggle Rich Text / Source Mode |
+| `F8` | Toggle Focus Mode |
+| `F9` | Toggle Typewriter Mode |
+| `Cmd + S` | Save |
+| `Cmd + Shift + V` | Paste as Plain Text |
+| `Alt + Cmd + Shift + F` | Format CJK Text |
+
+See the full list in **Settings → Keyboard Shortcuts** or the [documentation](https://vmark.app/guide/shortcuts).
+
+---
+
+## Documentation
+
+- **[Getting Started](https://vmark.app/guide/)** — First steps with VMark
+- **[Features](https://vmark.app/guide/features)** — Complete feature overview
+- **[Keyboard Shortcuts](https://vmark.app/guide/shortcuts)** — All 165 shortcuts
+- **[CJK Formatting](https://vmark.app/guide/cjk-formatting)** — CJK text handling
+- **[MCP Setup](https://vmark.app/guide/mcp-setup)** — AI integration guide
+- **[MCP Tools](https://vmark.app/guide/mcp-tools)** — Complete MCP reference
+
+---
+
+## Building from Source
+
+For developers who want to contribute or build VMark locally.
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 18+
 - [pnpm](https://pnpm.io/) 8+
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable)
-- Platform-specific Tauri dependencies: [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
+- [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
 
-### Getting Started
+### Quick Start
 
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/xiaolai/vmark.git
 cd vmark
 
 # Install dependencies
 pnpm install
 
-# Run in development mode (with dev icons)
-pnpm tauri:dev
-
-# Or without dev icons
+# Run in development mode
 pnpm tauri dev
-
-# Run tests
-pnpm test
 
 # Build for production
 pnpm tauri build
@@ -78,58 +174,38 @@ pnpm tauri build
 
 | Command | Description |
 |---------|-------------|
-| `pnpm dev` | Start Vite dev server (web only) |
-| `pnpm tauri dev` | Start Tauri development mode |
-| `pnpm tauri:dev` | Start Tauri dev mode with dev icons |
-| `pnpm test` | Run unit tests |
-| `pnpm test:watch` | Run tests in watch mode |
-| `pnpm lint` | Run ESLint |
-| `pnpm check:all` | Run lint + test + build |
-| `pnpm build` | Build frontend for production |
-| `pnpm tauri build` | Build desktop application |
+| `pnpm tauri dev` | Start development mode |
+| `pnpm test` | Run tests |
+| `pnpm lint` | Run linter |
+| `pnpm check:all` | Lint + test + build |
 
-## Project Structure
+### Project Structure
 
 ```
 vmark/
-├── src/                    # Frontend source
-│   ├── components/         # React components
-│   ├── hooks/              # Custom React hooks
-│   ├── stores/             # Zustand state stores
-│   ├── plugins/            # Editor plugins (Tiptap, CodeMirror)
-│   ├── utils/              # Pure utility functions
-│   └── pages/              # Route pages
-├── src-tauri/              # Rust backend
-│   └── src/                # Tauri commands and plugins
-├── website/                # VitePress documentation site
-└── public/                 # Static assets
+├── src/                    # React frontend
+├── src-tauri/              # Rust backend (Tauri)
+├── vmark-mcp-server/       # MCP server
+├── website/                # Documentation (VitePress)
+└── plugins/                # Claude Code skills
 ```
 
-## Keyboard Shortcuts
+### Tech Stack
 
+- **Framework:** Tauri v2 (Rust backend)
+- **Frontend:** React 19, TypeScript, Zustand
+- **Rich Editor:** Tiptap (ProseMirror)
+- **Source Editor:** CodeMirror 6
+- **Styling:** Tailwind CSS v4
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + /` | Toggle Rich Text / Source Mode |
-| `F8` | Toggle Focus Mode |
-| `F9` | Toggle Typewriter Mode |
-| `F10` | Toggle Word Wrap |
-
-## Smart Paste (WYSIWYG)
-
-- **Markdown auto-detect**: Pasting Markdown in rich text mode converts it into rich content when detection matches (headings, lists, code fences, tables, etc.).
-- **Plain-text override**: Use `Cmd/Ctrl+Shift+V` to paste plain text without formatting.
-- **Setting**: Toggle in Settings -> Markdown -> "Smart paste Markdown".
-
-## Testing
-
-Unit tests use Vitest. Run the test suite:
-
-```bash
-pnpm test           # Run once
-pnpm test:watch     # Watch mode
-```
+---
 
 ## License
 
 Private - All rights reserved.
+
+---
+
+<p align="center">
+  <b>Questions?</b> Open an <a href="https://github.com/xiaolai/vmark/issues">issue</a> · <b>Updates?</b> Watch this repo
+</p>

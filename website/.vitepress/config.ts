@@ -41,6 +41,7 @@ export default defineConfig({
           items: [
             { text: 'MCP Setup', link: '/guide/mcp-setup' },
             { text: 'MCP Tools Reference', link: '/guide/mcp-tools' },
+            { text: 'Claude Code Skill', link: '/guide/claude-code-skill' },
           ]
         }
       ]

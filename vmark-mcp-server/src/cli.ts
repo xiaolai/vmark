@@ -13,7 +13,83 @@
  * Usage:
  *   vmark-mcp-server              # Auto-discovers port from ~/.vmark/mcp-port
  *   vmark-mcp-server --port 9223  # Manual port override (legacy)
+ *   vmark-mcp-server --version    # Print version and exit
+ *   vmark-mcp-server --health-check # Run self-test and exit
  */
+
+// Package version (injected at build time or read from package.json)
+const VERSION = '0.3.10';
+
+/**
+ * Handle --version flag.
+ */
+if (process.argv.includes('--version') || process.argv.includes('-v')) {
+  console.log(VERSION);
+  process.exit(0);
+}
+
+/**
+ * Handle --health-check flag.
+ * Validates that the binary is functional without requiring VMark connection.
+ */
+if (process.argv.includes('--health-check')) {
+  runHealthCheck();
+}
+
+async function runHealthCheck(): Promise<void> {
+  try {
+    // 1. Can we import the server module?
+    const { createVMarkMcpServer } = await import('./index.js');
+
+    // 2. Create a mock bridge that doesn't connect
+    const mockBridge = {
+      request: async () => {
+        throw new Error('Health check mode - no VMark connection');
+      },
+      isConnected: () => false,
+      on: () => {},
+      off: () => {},
+    };
+
+    // 3. Can we instantiate the server and list tools?
+    const server = createVMarkMcpServer(mockBridge as any);
+    const tools = server.listTools();
+    const resources = server.listResources();
+
+    // 4. Validate we have expected tools
+    if (tools.length === 0) {
+      throw new Error('No tools registered');
+    }
+
+    // 5. Validate tool schemas are valid
+    for (const tool of tools) {
+      if (!tool.name || !tool.inputSchema) {
+        throw new Error(`Invalid tool definition: ${tool.name}`);
+      }
+    }
+
+    // Success - output structured result
+    const result = {
+      status: 'ok',
+      version: VERSION,
+      toolCount: tools.length,
+      resourceCount: resources.length,
+      tools: tools.map((t) => t.name),
+    };
+
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(0);
+  } catch (error) {
+    const result = {
+      status: 'error',
+      version: VERSION,
+      error: error instanceof Error ? error.message : String(error),
+    };
+
+    console.error(JSON.stringify(result, null, 2));
+    process.exit(1);
+  }
+}
 
 import { createVMarkMcpServer } from './index.js';
 import { WebSocketBridge, ClientIdentity } from './bridge/websocket.js';

@@ -156,6 +156,42 @@ When connected, your AI assistant can:
 
 See the [MCP Tools Reference](/guide/mcp-tools) for complete documentation.
 
+## Checking MCP Status
+
+VMark provides multiple ways to check the MCP server status:
+
+### Status Bar Indicator
+
+The status bar shows an **MCP** indicator on the right side:
+
+| Color | Status |
+|-------|--------|
+| Green | Connected and running |
+| Gray | Disconnected or stopped |
+| Pulsing | Starting up |
+
+Click the indicator to open the detailed status dialog.
+
+### Status Dialog
+
+Access via **Help → MCP Server Status** or click the status bar indicator.
+
+The dialog shows:
+- Connection health (Healthy / Error / Stopped)
+- Bridge running state and port
+- Server version
+- Available tools (76) and resources (4)
+- Last health check time
+- Full list of available tools with copy button
+
+### Settings Panel
+
+In **Settings → Integrations**, when the server is running you'll see:
+- Version number
+- Tool and resource counts
+- **Test Connection** button — runs a health check
+- **View Details** button — opens the status dialog
+
 ## Troubleshooting
 
 ### "Connection refused" or "No active editor"
@@ -222,6 +258,7 @@ This setting is useful for:
 
 ## Next Steps
 
+- Install the [Claude Code Skill](/guide/claude-code-skill) for enhanced AI writing assistance
 - Explore all [MCP Tools](/guide/mcp-tools) available
 - Learn about [keyboard shortcuts](/guide/shortcuts)
 - Check out other [features](/guide/features)

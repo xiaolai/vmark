@@ -248,3 +248,49 @@
   background-color: var(--hover-bg-strong);
   color: var(--text-color);
 }
+
+/* ========================================
+   MCP Status Indicator
+   ======================================== */
+
+.status-mcp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: default;
+}
+
+.status-mcp.connected {
+  color: var(--success-color, #22c55e);
+}
+
+.status-mcp.loading {
+  color: var(--warning-color);
+}
+
+.status-mcp.loading svg {
+  animation: mcp-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes mcp-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.status-mcp-label {
+  font-weight: 500;
+}
+
+.dark-theme .status-mcp.connected {
+  color: var(--success-color-dark);
+}

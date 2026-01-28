@@ -358,13 +358,3 @@ export async function handleWorkspaceGetInfo(id: string): Promise<void> {
   }
 }
 
-/**
- * Handle AI-related requests (stub - not implemented).
- */
-export async function handleAiNotImplemented(id: string, operation: string): Promise<void> {
-  await respond({
-    id,
-    success: false,
-    error: `AI operation "${operation}" is not implemented. These tools require external AI service integration.`,
-  });
-}

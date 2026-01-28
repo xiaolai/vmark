@@ -1,0 +1,25 @@
+{
+  "name": "vmark-mcp",
+  "version": "0.3.10",
+  "description": "AI writing assistant for VMark editor. Provides skills and workflows for interacting with VMark through MCP tools - write, edit, reorganize, and format markdown documents with AI assistance.",
+  "author": {
+    "name": "xiaolai",
+    "url": "https://github.com/xiaolai"
+  },
+  "repository": "https://github.com/xiaolai/vmark",
+  "keywords": [
+    "vmark",
+    "markdown",
+    "editor",
+    "mcp",
+    "writing",
+    "ai-assistant"
+  ],
+  "mcpServers": {
+    "vmark": {
+      "command": "node",
+      "args": ["vmark-mcp-server/dist/cli.js"],
+      "description": "VMark MCP server for AI-assisted markdown editing"
+    }
+  }
+}

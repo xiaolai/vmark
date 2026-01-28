@@ -709,6 +709,215 @@ Reject all pending suggestions.
 
 ---
 
+## Protocol Tools
+
+Tools for querying server capabilities and document state.
+
+### get_capabilities
+
+Get the MCP server's capabilities and available tools.
+
+**Returns:** `{ version, tools[], resources[], features }`
+
+### get_document_revision
+
+Get the current document revision for optimistic locking.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `windowId` | string | No | Window identifier. |
+
+**Returns:** `{ revision, hash, timestamp }`
+
+Use the revision in mutation tools to detect concurrent edits.
+
+---
+
+## Structure Tools
+
+Tools for analyzing and navigating document structure.
+
+### get_document_ast
+
+Get the document's abstract syntax tree.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `windowId` | string | No | Window identifier. |
+
+**Returns:** Full AST with node types, positions, and content.
+
+### get_document_digest
+
+Get a compact digest of the document structure.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `windowId` | string | No | Window identifier. |
+
+**Returns:** `{ sections[], headingCount, paragraphCount, wordCount }`
+
+### list_blocks
+
+List all blocks in the document with their node IDs.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `type` | string | No | Filter by block type. |
+| `windowId` | string | No | Window identifier. |
+
+**Returns:** Array of `{ nodeId, type, level?, content, position }`
+
+Node IDs use prefixes: `h-0` (heading), `p-0` (paragraph), `code-0` (code block), etc.
+
+### resolve_targets
+
+Resolve node IDs or queries to document positions.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `targets` | string[] | Yes | Node IDs or queries to resolve. |
+| `windowId` | string | No | Window identifier. |
+
+**Returns:** Array of `{ target, found, from?, to?, type? }`
+
+### get_section
+
+Get content of a document section (heading and its content until next same-or-higher level heading).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nodeId` | string | Yes | Node ID of the heading (e.g., `h-0`). |
+| `windowId` | string | No | Window identifier. |
+
+**Returns:** `{ nodeId, level, title, content, from, to }`
+
+---
+
+## Advanced Mutation Tools
+
+Precision tools for AI agents that need deterministic, position-aware edits.
+
+### batch_edit
+
+Apply multiple operations atomically.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `operations` | array | Yes | Array of operations to apply. |
+| `baseRevision` | string | No | Expected revision for conflict detection. |
+| `mode` | string | No | `apply`, `suggest`, or `dryRun`. Default: `suggest`. |
+| `windowId` | string | No | Window identifier. |
+
+Each operation requires:
+- `type`: `update`, `insert`, `delete`, `format`, or `move`
+- `nodeId`: Target node ID (required for update/delete/format/move)
+- `after`: Node ID to insert after (for insert operations)
+- `text`/`content`: New content
+
+**Returns:** `{ success, changedNodeIds[], suggestionIds[] }`
+
+### apply_diff
+
+Find and replace text with match policy control.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `original` | string | Yes | Text to find. |
+| `replacement` | string | Yes | Text to replace with. |
+| `matchPolicy` | string | No | `first`, `all`, `nth`, or `error_if_multiple`. Default: `first`. |
+| `nth` | number | No | Which match to replace (0-indexed, for `nth` policy). |
+| `mode` | string | No | `apply`, `suggest`, or `dryRun`. Default: `suggest`. |
+| `windowId` | string | No | Window identifier. |
+
+**Returns:** `{ matchCount, appliedCount, matches[], suggestionIds[] }`
+
+### replace_text_anchored
+
+Replace text using context anchoring for precise targeting.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `anchor` | object | Yes | `{ text, beforeContext, afterContext }` |
+| `replacement` | string | Yes | Replacement text. |
+| `mode` | string | No | `apply`, `suggest`, or `dryRun`. Default: `suggest`. |
+| `windowId` | string | No | Window identifier. |
+
+The anchor's context fields help disambiguate when the same text appears multiple times.
+
+---
+
+## Section Tools
+
+Tools for manipulating document sections (heading + content).
+
+### update_section
+
+Update a section's content.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nodeId` | string | Yes | Heading node ID. |
+| `content` | string | Yes | New section content (markdown). |
+| `mode` | string | No | `apply`, `suggest`, or `dryRun`. |
+| `windowId` | string | No | Window identifier. |
+
+### insert_section
+
+Insert a new section.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `after` | string | Yes | Node ID to insert after. |
+| `level` | number | Yes | Heading level (1-6). |
+| `title` | string | Yes | Section heading text. |
+| `content` | string | No | Section body content. |
+| `mode` | string | No | `apply`, `suggest`, or `dryRun`. |
+| `windowId` | string | No | Window identifier. |
+
+### move_section
+
+Move a section to a new location.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nodeId` | string | Yes | Section to move. |
+| `after` | string | Yes | Node ID to move after. |
+| `mode` | string | No | `apply`, `suggest`, or `dryRun`. |
+| `windowId` | string | No | Window identifier. |
+
+---
+
+## Batch Operation Tools
+
+Tools for complex table and list modifications.
+
+### table_modify
+
+Batch modify a table's structure and content.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nodeId` | string | Yes | Table node ID. |
+| `operations` | array | Yes | Array of table operations. |
+| `windowId` | string | No | Window identifier. |
+
+Operations: `setCellContent`, `addRow`, `deleteRow`, `addColumn`, `deleteColumn`, `setHeaderRow`
+
+### list_modify
+
+Batch modify a list's structure and content.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `nodeId` | string | Yes | List node ID. |
+| `operations` | array | Yes | Array of list operations. |
+| `windowId` | string | No | Window identifier. |
+
+Operations: `setItemContent`, `addItem`, `deleteItem`, `indent`, `outdent`, `setChecked`
+
+---
+
 ## MCP Resources
 
 In addition to tools, VMark exposes these read-only resources:

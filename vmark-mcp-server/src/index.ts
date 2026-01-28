@@ -41,6 +41,12 @@ export { registerVMarkTools } from './tools/vmark.js';
 export { registerWorkspaceTools } from './tools/workspace.js';
 export { registerTabTools } from './tools/tabs.js';
 export { registerSuggestionTools } from './tools/suggestions.js';
+// AI-Oriented MCP Design tools
+export { registerProtocolTools } from './tools/protocol.js';
+export { registerStructureTools } from './tools/structure.js';
+export { registerMutationTools } from './tools/mutations.js';
+export { registerSectionTools } from './tools/sections.js';
+export { registerBatchOpTools } from './tools/batch-ops.js';
 
 // Resource registrations
 export { registerDocumentResources } from './resources/document.js';
@@ -70,6 +76,41 @@ export type {
   RecentFile,
   WorkspaceInfo,
   ReopenedTabResult,
+  // AI-Oriented MCP Design types
+  ErrorCode,
+  RecoveryHint,
+  StructuredError,
+  Capabilities,
+  RevisionInfo,
+  AstNode,
+  AstProjection,
+  NodeType,
+  BlockQuery,
+  BlockInfo,
+  OutlineEntry,
+  SectionSummary,
+  DocumentDigest,
+  AstResponse,
+  TargetCandidate,
+  TargetResolution,
+  SectionInfo,
+  OperationMode,
+  MarkSpec,
+  BatchOperation,
+  BatchEditResult,
+  MatchPolicy,
+  MatchInfo,
+  ApplyDiffResult,
+  TextAnchor,
+  // Section types
+  SectionTarget,
+  NewHeading,
+  // Table batch types
+  TableTarget,
+  TableOperation,
+  // List batch types
+  ListTarget,
+  ListOperation,
 } from './bridge/types.js';
 
 export type {
@@ -94,6 +135,11 @@ import { registerVMarkTools } from './tools/vmark.js';
 import { registerWorkspaceTools } from './tools/workspace.js';
 import { registerTabTools } from './tools/tabs.js';
 import { registerSuggestionTools } from './tools/suggestions.js';
+import { registerProtocolTools } from './tools/protocol.js';
+import { registerStructureTools } from './tools/structure.js';
+import { registerMutationTools } from './tools/mutations.js';
+import { registerSectionTools } from './tools/sections.js';
+import { registerBatchOpTools } from './tools/batch-ops.js';
 import { registerDocumentResources } from './resources/document.js';
 import type { Bridge } from './bridge/types.js';
 
@@ -116,6 +162,13 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   registerTabTools(server);
   registerSuggestionTools(server);
 
+  // Register AI-Oriented MCP Design tools
+  registerProtocolTools(server);
+  registerStructureTools(server);
+  registerMutationTools(server);
+  registerSectionTools(server);
+  registerBatchOpTools(server);
+
   // Register resources
   registerDocumentResources(server);
 
@@ -126,6 +179,51 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
  * List of all tool categories for documentation.
  */
 export const TOOL_CATEGORIES = [
+  {
+    name: 'Protocol Tools',
+    description: 'Capabilities discovery and revision tracking (AI-Oriented MCP Design)',
+    tools: [
+      'get_capabilities',
+      'get_document_revision',
+    ],
+  },
+  {
+    name: 'Structure Tools',
+    description: 'AST access and document structure queries (AI-Oriented MCP Design)',
+    tools: [
+      'get_document_ast',
+      'get_document_digest',
+      'list_blocks',
+      'resolve_targets',
+      'get_section',
+    ],
+  },
+  {
+    name: 'Mutation Tools',
+    description: 'Declarative document modifications (AI-Oriented MCP Design)',
+    tools: [
+      'batch_edit',
+      'apply_diff',
+      'replace_text_anchored',
+    ],
+  },
+  {
+    name: 'Section Tools',
+    description: 'Section-level operations (AI-Oriented MCP Design)',
+    tools: [
+      'update_section',
+      'insert_section',
+      'move_section',
+    ],
+  },
+  {
+    name: 'Batch Operation Tools',
+    description: 'Table and list batch operations (AI-Oriented MCP Design)',
+    tools: [
+      'table_modify',
+      'list_modify',
+    ],
+  },
   {
     name: 'Document Tools',
     description: 'Read and write document content',

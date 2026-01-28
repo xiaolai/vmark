@@ -137,6 +137,33 @@ jobs:
           pnpm build
           node scripts/build-sidecar.js --target $SIDECAR_TARGET
 
+      - name: Health check MCP sidecar (macOS)
+        if: matrix.platform == 'macos-latest'
+        env:
+          SIDECAR_TARGET: ${{ matrix.sidecar_target }}
+        run: |
+          if [ "$SIDECAR_TARGET" = "darwin-arm64" ]; then
+            SIDECAR_NAME="vmark-mcp-server-aarch64-apple-darwin"
+          else
+            SIDECAR_NAME="vmark-mcp-server-x86_64-apple-darwin"
+          fi
+          SIDECAR_PATH="src-tauri/binaries/$SIDECAR_NAME"
+
+          echo "Running health check on: $SIDECAR_PATH"
+
+          # Version check
+          VERSION=$("$SIDECAR_PATH" --version)
+          echo "Version: $VERSION"
+
+          # Full health check (only works on matching architecture)
+          if [ "$SIDECAR_TARGET" = "darwin-arm64" ] && [ "$(uname -m)" = "arm64" ]; then
+            "$SIDECAR_PATH" --health-check
+          elif [ "$SIDECAR_TARGET" = "darwin-x64" ] && [ "$(uname -m)" = "x86_64" ]; then
+            "$SIDECAR_PATH" --health-check
+          else
+            echo "Skipping full health check (cross-architecture build)"
+          fi
+
       # Pre-sign sidecar with JIT entitlements (required for pkg/Node.js binaries)
       # This must happen BEFORE Tauri signs the app
       - name: Sign sidecar with JIT entitlements (macOS)
@@ -177,6 +204,24 @@ jobs:
           pnpm build
           node scripts/build-sidecar.js
 
+      - name: Health check MCP sidecar (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $SIDECAR_PATH = "src-tauri/binaries/vmark-mcp-server-x86_64-pc-windows-msvc.exe"
+
+          Write-Host "Running health check on: $SIDECAR_PATH"
+
+          # Version check
+          $VERSION = & $SIDECAR_PATH --version
+          Write-Host "Version: $VERSION"
+
+          # Full health check
+          & $SIDECAR_PATH --health-check
+          if ($LASTEXITCODE -ne 0) {
+            throw "Health check failed"
+          }
+
       - name: Build MCP server sidecar (Linux)
         if: matrix.platform == 'ubuntu-22.04'
         working-directory: vmark-mcp-server
@@ -184,6 +229,20 @@ jobs:
           pnpm install
           pnpm build
           node scripts/build-sidecar.js
+
+      - name: Health check MCP sidecar (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          SIDECAR_PATH="src-tauri/binaries/vmark-mcp-server-x86_64-unknown-linux-gnu"
+
+          echo "Running health check on: $SIDECAR_PATH"
+
+          # Version check
+          VERSION=$("$SIDECAR_PATH" --version)
+          echo "Version: $VERSION"
+
+          # Full health check
+          "$SIDECAR_PATH" --health-check
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -221,16 +280,21 @@ jobs:
       - name: Trigger Homebrew tap update
         continue-on-error: true
         env:
-          # Use GITHUB_TOKEN for workflow dispatch in same repo
-          # (HOMEBREW_TAP_TOKEN only has permissions for homebrew-tap repo)
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract version number without 'v' prefix
           VERSION="${{ needs.create-release.outputs.version }}"
           VERSION_NUM="${VERSION#v}"
 
-          # Trigger the Homebrew update workflow
           gh workflow run update-homebrew.yml \
             --repo "${{ github.repository }}" \
             -f version="$VERSION_NUM"
           echo "✅ Triggered Homebrew tap update for $VERSION_NUM"
+
+      - name: Trigger Claude marketplace sync
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run sync-marketplace.yml \
+            --repo "${{ github.repository }}"
+          echo "✅ Triggered Claude marketplace sync"

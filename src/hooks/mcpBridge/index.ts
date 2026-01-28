@@ -86,7 +86,6 @@ import {
   handleWorkspaceCloseWindow,
   handleWorkspaceListRecentFiles,
   handleWorkspaceGetInfo,
-  handleAiNotImplemented,
 } from "./workspaceHandlers";
 
 // Tab handlers
@@ -109,6 +108,41 @@ import {
   handleCjkPunctuationConvert,
   handleCjkSpacingFix,
 } from "./vmarkHandlers";
+
+// Protocol handlers (AI-Oriented MCP Design)
+import {
+  handleGetCapabilities,
+  handleGetRevision,
+} from "./protocolHandlers";
+
+// Structure handlers (AI-Oriented MCP Design)
+import {
+  handleGetAst,
+  handleGetDigest,
+  handleListBlocks,
+  handleResolveTargets,
+  handleGetSection,
+} from "./structureHandlers";
+
+// Mutation handlers (AI-Oriented MCP Design)
+import {
+  handleBatchEdit,
+  handleApplyDiff,
+  handleReplaceAnchored,
+} from "./mutationHandlers";
+
+// Section handlers (AI-Oriented MCP Design)
+import {
+  handleSectionUpdate,
+  handleSectionInsert,
+  handleSectionMove,
+} from "./sectionHandlers";
+
+// Batch operation handlers (AI-Oriented MCP Design)
+import {
+  handleTableBatchModify,
+  handleListBatchModify,
+} from "./batchOpHandlers";
 
 /**
  * Route MCP request to appropriate handler.
@@ -350,13 +384,59 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         await handleCjkSpacingFix(id, args);
         break;
 
-      // AI operations (not implemented - require external AI service)
-      case "ai.improveWriting":
-      case "ai.fixGrammar":
-      case "ai.translate":
-      case "ai.summarize":
-      case "ai.expand":
-        await handleAiNotImplemented(id, type);
+      // Protocol operations (AI-Oriented MCP Design)
+      case "protocol.getCapabilities":
+        await handleGetCapabilities(id);
+        break;
+      case "protocol.getRevision":
+        await handleGetRevision(id);
+        break;
+
+      // Structure operations (AI-Oriented MCP Design)
+      case "structure.getAst":
+        await handleGetAst(id, args);
+        break;
+      case "structure.getDigest":
+        await handleGetDigest(id);
+        break;
+      case "structure.listBlocks":
+        await handleListBlocks(id, args);
+        break;
+      case "structure.resolveTargets":
+        await handleResolveTargets(id, args);
+        break;
+      case "structure.getSection":
+        await handleGetSection(id, args);
+        break;
+
+      // Mutation operations (AI-Oriented MCP Design)
+      case "mutation.batchEdit":
+        await handleBatchEdit(id, args);
+        break;
+      case "mutation.applyDiff":
+        await handleApplyDiff(id, args);
+        break;
+      case "mutation.replaceAnchored":
+        await handleReplaceAnchored(id, args);
+        break;
+
+      // Section operations (AI-Oriented MCP Design)
+      case "section.update":
+        await handleSectionUpdate(id, args);
+        break;
+      case "section.insert":
+        await handleSectionInsert(id, args);
+        break;
+      case "section.move":
+        await handleSectionMove(id, args);
+        break;
+
+      // Batch operations (AI-Oriented MCP Design)
+      case "table.batchModify":
+        await handleTableBatchModify(id, args);
+        break;
+      case "list.batchModify":
+        await handleListBatchModify(id, args);
         break;
 
       default:

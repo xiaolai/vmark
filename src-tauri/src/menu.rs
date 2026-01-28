@@ -622,6 +622,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         &[
             &PredefinedMenuItem::about(app, Some("About VMark"), None)?,
             &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "mcp-status", "MCP Server Status...", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "check-updates", "Check for Updates...", true, None::<&str>)?,
         ],
     )?;
@@ -1240,6 +1242,8 @@ fn create_menu_with_shortcuts(
         true,
         &[
             &PredefinedMenuItem::about(app, Some("About VMark"), None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "mcp-status", "MCP Server Status...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "check-updates", "Check for Updates...", true, None::<&str>)?,
         ],

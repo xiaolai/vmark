@@ -1,0 +1,107 @@
+name: Sync to Claude Code Marketplace
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      marketplace:
+        description: 'Target marketplace repo (upstream)'
+        required: true
+        default: 'EveryInc/compound-engineering-plugin'
+
+env:
+  UPSTREAM_REPO: ${{ github.event.inputs.marketplace || 'EveryInc/compound-engineering-plugin' }}
+  FORK_REPO: xiaolai/compound-engineering-plugin
+
+jobs:
+  sync-to-marketplace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout vmark
+        uses: actions/checkout@v4
+        with:
+          path: vmark
+
+      - name: Checkout fork of marketplace
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FORK_REPO }}
+          token: ${{ secrets.MARKETPLACE_PAT }}
+          path: marketplace
+
+      - name: Sync fork with upstream
+        run: |
+          cd marketplace
+          git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git || true
+          git fetch upstream
+          git checkout main
+          git merge upstream/main --no-edit || true
+
+      - name: Get version from plugin.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' vmark/.claude-plugin/plugin.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Copy plugin to marketplace
+        run: |
+          # Create plugin directory structure
+          mkdir -p marketplace/plugins/vmark-mcp/.claude-plugin
+          mkdir -p marketplace/plugins/vmark-mcp/skills/vmark-mcp/references
+
+          # Copy plugin files
+          cp -r vmark/plugins/vmark-mcp/* marketplace/plugins/vmark-mcp/
+
+          # Copy plugin.json to correct location
+          cp vmark/.claude-plugin/plugin.json marketplace/plugins/vmark-mcp/.claude-plugin/plugin.json
+
+      - name: Update marketplace.json
+        run: |
+          cd marketplace
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Use jq to update or add the plugin entry
+          jq --arg ver "$VERSION" '
+            .plugins |= (
+              map(if .name == "vmark-mcp" then .version = $ver else . end) |
+              if any(.name == "vmark-mcp") then . else . + [{
+                "name": "vmark-mcp",
+                "version": $ver,
+                "description": "AI writing assistant for VMark editor with 76 MCP tools",
+                "author": {
+                  "name": "xiaolai",
+                  "url": "https://github.com/xiaolai"
+                },
+                "homepage": "https://github.com/xiaolai/vmark",
+                "source": "./plugins/vmark-mcp",
+                "tags": ["markdown", "editor", "mcp", "writing", "ai-assistant", "vmark"]
+              }] end
+            )
+          ' .claude-plugin/marketplace.json > tmp.json && mv tmp.json .claude-plugin/marketplace.json
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: marketplace
+          token: ${{ secrets.MARKETPLACE_PAT }}
+          push-to-fork: ${{ env.FORK_REPO }}
+          commit-message: "feat: update vmark-mcp to v${{ steps.version.outputs.version }}"
+          title: "feat: update vmark-mcp to v${{ steps.version.outputs.version }}"
+          body: |
+            Automated update from [xiaolai/vmark](https://github.com/xiaolai/vmark).
+
+            ## Changes
+            - Version: ${{ steps.version.outputs.version }}
+            - Release: ${{ github.event.release.html_url || 'Manual trigger' }}
+
+            ## Plugin
+            AI writing assistant for VMark editor with comprehensive MCP tool workflows.
+
+            ## What's Included
+            - `SKILL.md` - Core principles and quick reference
+            - `references/tools-by-intent.md` - Maps writer intents to tools
+            - `references/workflows.md` - 9 detailed step-by-step patterns
+            - `references/examples.md` - Real tool calls with parameters
+          branch: "vmark-mcp-v${{ steps.version.outputs.version }}"
+          base: main

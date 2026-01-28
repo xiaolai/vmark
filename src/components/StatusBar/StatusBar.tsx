@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, type MouseEvent, type Keyboa
 
 // Stable empty array to avoid creating new reference on each render
 const EMPTY_TABS: never[] = [];
-import { Code2, Type, Save, Plus, AlertTriangle, GitFork } from "lucide-react";
+import { Code2, Type, Save, Plus, AlertTriangle, GitFork, Radio } from "lucide-react";
 import { countWords as alfaazCount } from "alfaaz";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -23,6 +23,8 @@ import { formatRelativeTime, formatExactTime } from "@/utils/dateUtils";
 import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/shortcutsStore";
+import { useMcpServer } from "@/hooks/useMcpServer";
+import { useMcpHealthStore } from "@/stores/mcpHealthStore";
 import "./StatusBar.css";
 
 /**
@@ -87,6 +89,10 @@ export function StatusBar() {
   const sourceMode = useEditorStore((state) => state.sourceMode);
   const statusBarVisible = useUIStore((state) => state.statusBarVisible);
   const sourceModeShortcut = useShortcutsStore((state) => state.getShortcut("sourceMode"));
+
+  // MCP server status
+  const { running: mcpRunning, loading: mcpLoading } = useMcpServer();
+  const openMcpDialog = useMcpHealthStore((state) => state.openDialog);
 
   // Show warning when file is missing and auto-save is enabled
   const showAutoSavePaused = isMissing && autoSaveEnabled;
@@ -216,6 +222,16 @@ export function StatusBar() {
 
           {/* Right section: stats + mode */}
           <div className="status-bar-right">
+            {/* MCP status indicator */}
+            <button
+              className={`status-mcp ${mcpRunning ? "connected" : ""} ${mcpLoading ? "loading" : ""}`}
+              onClick={openMcpDialog}
+              title={mcpLoading ? "MCP: Starting..." : mcpRunning ? "MCP: Connected" : "MCP: Disconnected"}
+            >
+              <Radio size={12} />
+              <span className="status-mcp-label">MCP</span>
+            </button>
+
             {showAutoSavePaused && (
               <span
                 className="status-autosave-paused"

@@ -81,6 +81,8 @@ import { useSidebarResize } from "@/hooks/useSidebarResize";
 import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
 import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
+import { useMcpStatusMenuEvent } from "@/hooks/useMcpStatusMenuEvent";
+import { McpStatusDialog } from "@/components/Dialogs/McpStatusDialog";
 import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
 import { useImagePasteToast } from "@/hooks/useImagePasteToast";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
@@ -183,6 +185,7 @@ function MainLayout() {
   useUniversalToolbar(); // Universal toolbar toggle (shortcut configurable)
   useFileExplorerShortcuts(); // Toggle hidden files
   useImagePasteToast(); // Image paste confirmation toast
+  useMcpStatusMenuEvent(); // Handle Help → MCP Server Status menu
 
   const classNames = [
     "app-layout",
@@ -269,6 +272,7 @@ function App() {
           <Route path="/print-preview" element={<PrintPreviewPage />} />
         </Routes>
         <Toaster position="top-center" />
+        <McpStatusDialog />
       </WindowProvider>
     </ErrorBoundary>
   );

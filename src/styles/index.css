@@ -94,6 +94,7 @@
   /* Success states */
   --success-color: #16a34a;
   --success-color-hover: #15803d;
+  --success-color-dark: #4ade80;
 
   /* Contrast text (for colored backgrounds like primary buttons) */
   --contrast-text: white;

@@ -129,13 +129,6 @@ const bridge = new WebSocketBridge({
 - `workspace_save_document` - Save current document
 - `workspace_close_window` - Close window
 
-### AI Prompt Tools
-- `improve_writing` - AI writing improvement
-- `fix_grammar` - Fix grammar issues
-- `translate` - Translate text
-- `summarize` - Summarize text
-- `expand` - Expand text with AI
-
 ## Available Resources
 
 - `vmark://document/outline` - Document heading hierarchy
