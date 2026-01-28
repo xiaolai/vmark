@@ -58,6 +58,7 @@ export function TiptapEditorInner() {
   const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
   const hardBreakStyleOnSave = useSettingsStore((state) => state.markdown.hardBreakStyleOnSave);
   const showLineNumbers = useEditorStore((state) => state.showLineNumbers);
+  const cjkLetterSpacing = useSettingsStore((state) => state.appearance.cjkLetterSpacing);
   const windowLabel = useWindowLabel();
 
   const isInternalChange = useRef(false);
@@ -286,6 +287,18 @@ export function TiptapEditorInner() {
       }
     };
   }, [editor]);
+
+  // Force CJK letter spacing decorations to recalculate when setting changes.
+  // The plugin tracks wasEnabled state, but needs a transaction to trigger apply().
+  useEffect(() => {
+    if (!editor) return;
+    // Dispatch empty transaction to trigger plugin state recalculation
+    const view = getTiptapEditorView(editor);
+    if (view) {
+      const tr = view.state.tr.setMeta("cjkLetterSpacingChanged", true);
+      view.dispatch(tr);
+    }
+  }, [editor, cjkLetterSpacing]);
 
   // Sync external content changes TO the editor.
   // Only runs for SUBSEQUENT content changes after onCreate has initialized the editor.

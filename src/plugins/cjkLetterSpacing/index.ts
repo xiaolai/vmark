@@ -69,6 +69,12 @@ function createCJKDecorations(doc: PMNode, className: string): DecorationSet {
   return DecorationSet.create(doc, decorations);
 }
 
+/** Plugin state includes decorations and the enabled state at creation time */
+interface PluginState {
+  decorations: DecorationSet;
+  wasEnabled: boolean;
+}
+
 export const CJKLetterSpacing = Extension.create<CJKLetterSpacingOptions>({
   name: "cjkLetterSpacing",
 
@@ -85,24 +91,43 @@ export const CJKLetterSpacing = Extension.create<CJKLetterSpacingOptions>({
       new Plugin({
         key: pluginKey,
         state: {
-          init(_, { doc }) {
-            return createCJKDecorations(doc, className);
+          init(_, { doc }): PluginState {
+            const enabled = isEnabled();
+            return {
+              decorations: enabled ? createCJKDecorations(doc, className) : DecorationSet.empty,
+              wasEnabled: enabled,
+            };
           },
-          apply(tr, oldDecorations) {
-            // Check if setting changed - if now disabled, clear decorations
-            if (!isEnabled()) {
-              return DecorationSet.empty;
+          apply(tr, oldState: PluginState): PluginState {
+            const nowEnabled = isEnabled();
+            const { wasEnabled, decorations: oldDecorations } = oldState;
+
+            // Setting toggled off → clear decorations
+            if (!nowEnabled) {
+              return { decorations: DecorationSet.empty, wasEnabled: false };
             }
-            // Only recalculate if document changed
+
+            // Setting toggled on → recalculate decorations
+            if (nowEnabled && !wasEnabled) {
+              return {
+                decorations: createCJKDecorations(tr.doc, className),
+                wasEnabled: true,
+              };
+            }
+
+            // Normal case: recalculate only on doc change
             if (!tr.docChanged) {
-              return oldDecorations.map(tr.mapping, tr.doc);
+              return { decorations: oldDecorations.map(tr.mapping, tr.doc), wasEnabled: true };
             }
-            return createCJKDecorations(tr.doc, className);
+            return {
+              decorations: createCJKDecorations(tr.doc, className),
+              wasEnabled: true,
+            };
           },
         },
         props: {
           decorations(state) {
-            return this.getState(state);
+            return this.getState(state)?.decorations;
           },
         },
       }),
