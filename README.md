@@ -8,7 +8,7 @@ Free. Smart. Beautiful. Yours.
   <img src="website/public/screenshots/ai-workflow.png" alt="VMark AI Integration - Claude Code, Claude Desktop, and VMark" width="800">
 </p>
 
-VMark is a modern, local-first Markdown editor designed for the AI era. It combines the simplicity of rich text editing with the power of source mode—clean when you need focus, powerful when you need control.
+VMark is a modern, local-first Markdown editor designed for the AI era. It combines the simplicity of rich text editing with the power of source mode — clean when you need focus, powerful when you need control.
 
 **[Download](https://github.com/xiaolai/vmark/releases)** · **[Documentation](https://vmark.app/guide/)** · **[Features](https://vmark.app/guide/features)**
 
@@ -18,7 +18,7 @@ VMark is a modern, local-first Markdown editor designed for the AI era. It combi
 
 ### 🤖 AI-Native
 
-Built to work seamlessly with AI assistants. Claude, Codex, and Gemini can read your documents, suggest edits, and write content directly—no plugins required.
+Built to work seamlessly with AI assistants. Claude, Codex, and Gemini can read your documents, suggest edits, and write content directly — no plugins required.
 
 - One-click setup for Claude Desktop, Claude Code, Codex CLI, Gemini CLI
 - AI suggestions appear inline for your review
@@ -26,7 +26,7 @@ Built to work seamlessly with AI assistants. Claude, Codex, and Gemini can read 
 
 ### 🌏 CJK Done Right
 
-Finally, a Markdown editor that understands Chinese, Japanese, and Korean text. Smart spacing between CJK and Latin characters, proper punctuation handling, and 19+ formatting rules—all built in.
+Finally, a Markdown editor that understands Chinese, Japanese, and Korean text. Smart spacing between CJK and Latin characters, proper punctuation handling, and 19+ formatting rules — all built in.
 
 - Automatic CJK-Latin spacing
 - Fullwidth punctuation conversion

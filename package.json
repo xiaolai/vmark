@@ -15,8 +15,9 @@
     "lint": "eslint src",
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",
     "lint:design-tokens": "node scripts/check-design-tokens.mjs",
+    "lint:emdash": "node scripts/check-emdash-spacing.mjs",
     "extract-menu-ids": "npx tsx scripts/extract-menu-ids.ts",
-    "check:all": "pnpm lint && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm test && pnpm build"
+    "check:all": "pnpm lint && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm test && pnpm build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
