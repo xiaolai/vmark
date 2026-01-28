@@ -241,7 +241,7 @@ const isDark = computed(() => selectedTheme.value === 'night')
 .color__swatch {
   width: 20px;
   height: 20px;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   border: 1px solid var(--border-color);
   flex-shrink: 0;
 }
