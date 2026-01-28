@@ -90,7 +90,6 @@ const hasChanges = computed(() => inputText.value !== outputText.value)
           v-model="customInput"
           :placeholder="sampleTexts[selectedSample].input"
           class="vmark-textarea"
-          rows="3"
         />
       </div>
       <div class="vmark-comparison__arrow">→</div>
@@ -135,14 +134,25 @@ const hasChanges = computed(() => inputText.value !== outputText.value)
   gap: 8px;
 }
 
+/* Match textarea and output heights */
+.vmark-textarea {
+  min-height: 80px;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  border-radius: var(--radius-lg);
+  resize: none;
+}
+
 .output {
   padding: 12px;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--accent-bg);
-  min-height: 72px;
+  min-height: 80px;
+  box-sizing: border-box;
 }
 
 .diff {
