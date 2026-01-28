@@ -178,9 +178,9 @@ const hasChanges = computed(() => inputText.value !== outputText.value)
 }
 
 .diff__old {
-  text-decoration: line-through;
-  color: var(--error-color);
-  opacity: 0.7;
+  text-decoration: underline wavy;
+  text-decoration-color: var(--error-color);
+  color: var(--text-secondary);
 }
 
 .diff__new {
