@@ -5,7 +5,7 @@
 Free. Smart. Beautiful. Yours.
 
 <p align="center">
-  <img src="website/public/screenshots/editor-main.png" alt="VMark Editor" width="800">
+  <img src="website/public/screenshots/ai-workflow.png" alt="VMark AI Integration - Claude Code, Claude Desktop, and VMark" width="800">
 </p>
 
 VMark is a modern, local-first Markdown editor designed for the AI era. It combines the simplicity of rich text editing with the power of source mode—clean when you need focus, powerful when you need control.
