@@ -5,28 +5,28 @@ import { applyRules, defaultCJKSettings, type CJKFormattingSettings, type QuoteS
 const sampleTexts = [
   {
     label: 'CJK-Latin Spacing',
-    input: '今天是2024年1月1日,我在北京.',
-    description: 'Adds spaces between CJK and Latin characters, converts punctuation'
+    input: '共100个,价格$50元,温度25℃正常.',
+    description: 'Adds spaces between CJK and numbers/letters, converts punctuation'
   },
   {
     label: 'Quote Conversion',
-    input: '他说"这是一个\'测试\'文本".',
+    input: '他说"这是\'测试\'文本".',
     description: 'Converts straight quotes to smart quotes or corner brackets'
   },
   {
     label: 'Dash Conversion',
-    input: '中文--English--中文',
-    description: 'Converts double hyphens to em-dashes with proper spacing'
+    input: '中文--English--中文,测试---内容.',
+    description: 'Converts double/triple hyphens to em-dashes with spacing'
   },
   {
-    label: 'Fullwidth Normalization',
-    input: '价格是$100,数量是１００个.',
-    description: 'Normalizes fullwidth numbers and punctuation'
+    label: 'Fullwidth',
+    input: '数量１００个,(中文)内容,[注释]结束.',
+    description: 'Normalizes fullwidth numbers, parentheses, and brackets'
   },
   {
-    label: 'Mixed Example',
-    input: '我买了3个iPhone15,花了$999!!!',
-    description: 'Combines multiple formatting rules'
+    label: 'Mixed',
+    input: '我买了3个iPhone15,花了$ 999!!!',
+    description: 'CJK spacing + currency + punctuation limit'
   }
 ]
 
