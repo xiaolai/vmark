@@ -19,11 +19,43 @@ const cjkFonts = [
   { value: '"Source Han Sans SC", sans-serif', label: 'Source Han Sans' },
 ]
 
+// Match VMark's Settings dialog options exactly
+const fontSizeOptions = [
+  { value: '14', label: '14px' },
+  { value: '16', label: '16px' },
+  { value: '18', label: '18px' },
+  { value: '20', label: '20px' },
+  { value: '22', label: '22px' },
+]
+
+const lineHeightOptions = [
+  { value: '1.4', label: '1.4 (Compact)' },
+  { value: '1.6', label: '1.6 (Normal)' },
+  { value: '1.8', label: '1.8 (Relaxed)' },
+  { value: '2.0', label: '2.0 (Spacious)' },
+  { value: '2.2', label: '2.2 (Extra)' },
+]
+
+const blockSpacingOptions = [
+  { value: '0.5', label: '0.5× (Tight)' },
+  { value: '1', label: '1× (Normal)' },
+  { value: '1.5', label: '1.5× (Relaxed)' },
+  { value: '2', label: '2× (Spacious)' },
+]
+
+const cjkLetterSpacingOptions = [
+  { value: '0', label: 'Off' },
+  { value: '0.02', label: '0.02em (Subtle)' },
+  { value: '0.03', label: '0.03em (Light)' },
+  { value: '0.05', label: '0.05em (Normal)' },
+  { value: '0.08', label: '0.08em (Wide)' },
+]
+
 const latinFont = ref(latinFonts[1].value)
 const cjkFont = ref(cjkFonts[0].value)
-const fontSize = ref(18)
-const lineHeight = ref(1.8)
-const blockSpacing = ref(1)
+const fontSize = ref('18')
+const lineHeight = ref('1.8')
+const blockSpacing = ref('1')
 const cjkLetterSpacing = ref('0')
 
 const fontFamily = computed(() => {
@@ -37,7 +69,9 @@ const fontFamily = computed(() => {
 })
 
 const blockMargin = computed(() => {
-  return `${lineHeight.value * (blockSpacing.value - 1) + 1}em`
+  const lh = parseFloat(lineHeight.value)
+  const bs = parseFloat(blockSpacing.value)
+  return `${lh * (bs - 1) + 1}em`
 })
 
 const sampleText = {
@@ -75,61 +109,38 @@ const sampleText = {
       </div>
 
       <div class="vmark-control">
-        <label class="vmark-label">
-          Font Size
-          <span class="vmark-value">{{ fontSize }}px</span>
-        </label>
-        <input
-          type="range"
-          v-model.number="fontSize"
-          min="14"
-          max="24"
-          step="1"
-          class="vmark-slider"
-        />
+        <label class="vmark-label">Font Size</label>
+        <select v-model="fontSize" class="vmark-select">
+          <option v-for="opt in fontSizeOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
       </div>
 
       <div class="vmark-control">
-        <label class="vmark-label">
-          Line Height
-          <span class="vmark-value">{{ lineHeight.toFixed(1) }}</span>
-        </label>
-        <input
-          type="range"
-          v-model.number="lineHeight"
-          min="1.4"
-          max="2.2"
-          step="0.1"
-          class="vmark-slider"
-        />
+        <label class="vmark-label">Line Height</label>
+        <select v-model="lineHeight" class="vmark-select">
+          <option v-for="opt in lineHeightOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
       </div>
 
       <div class="vmark-control">
-        <label class="vmark-label">
-          Block Spacing
-          <span class="vmark-value">{{ blockSpacing }} line{{ blockSpacing > 1 ? 's' : '' }}</span>
-        </label>
-        <input
-          type="range"
-          v-model.number="blockSpacing"
-          min="1"
-          max="3"
-          step="0.5"
-          class="vmark-slider"
-        />
+        <label class="vmark-label">Block Spacing</label>
+        <select v-model="blockSpacing" class="vmark-select">
+          <option v-for="opt in blockSpacingOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
       </div>
 
       <div class="vmark-control">
-        <label class="vmark-label">
-          CJK Letter Spacing
-          <span class="vmark-value">{{ cjkLetterSpacing === '0' ? 'Off' : cjkLetterSpacing + 'em' }}</span>
-        </label>
+        <label class="vmark-label">CJK Letter Spacing</label>
         <select v-model="cjkLetterSpacing" class="vmark-select">
-          <option value="0">Off</option>
-          <option value="0.02">0.02em (Tight)</option>
-          <option value="0.03">0.03em (Normal)</option>
-          <option value="0.05">0.05em (Loose)</option>
-          <option value="0.08">0.08em (Very Loose)</option>
+          <option v-for="opt in cjkLetterSpacingOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
         </select>
       </div>
     </div>
@@ -139,7 +150,7 @@ const sampleText = {
       :style="{
         fontFamily: fontFamily,
         fontSize: fontSize + 'px',
-        lineHeight: lineHeight,
+        lineHeight: parseFloat(lineHeight),
       }"
     >
       <h2 class="preview__heading" :style="{ marginBottom: blockMargin }">

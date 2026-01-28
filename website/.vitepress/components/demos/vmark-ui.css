@@ -327,21 +327,22 @@
 
 /* ============================================
    SELECT / DROPDOWN
+   Matches VMark Settings dialog exactly
    ============================================ */
 
 .vmark-select {
-  padding: 6px 28px 6px 10px;
+  padding: 4px 24px 4px 8px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-color);
-  font-size: 13px;
+  font-size: 14px;
   font-family: var(--font-sans);
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%23666' d='M2.5 3.5L5 6.5L7.5 3.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right 6px center;
 }
 
 .vmark-select:focus {
@@ -349,12 +350,17 @@
   border-color: var(--accent-primary);
 }
 
-.vmark-select:hover {
+.vmark-select:hover:not(:focus) {
   border-color: var(--text-secondary);
 }
 
+.vmark-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .dark .vmark-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239aa0a6' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%239aa0a6' d='M2.5 3.5L5 6.5L7.5 3.5'/%3E%3C/svg%3E");
 }
 
 /* ============================================
