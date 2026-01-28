@@ -10,7 +10,7 @@ import { useMcpHealthStore } from "@/stores/mcpHealthStore";
 import { useMcpServer } from "./useMcpServer";
 
 // MCP Server version (matches vmark-mcp-server/package.json)
-const MCP_VERSION = "0.2.0";
+const MCP_VERSION = "0.3.10";
 
 // Tool count from the MCP server (matches sidecar --health-check output)
 // This is the number of tools exposed via the MCP bridge

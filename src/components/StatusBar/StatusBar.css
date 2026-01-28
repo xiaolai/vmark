@@ -263,7 +263,7 @@
   background: transparent;
   color: var(--text-tertiary);
   font-size: 11px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .status-mcp.connected {
