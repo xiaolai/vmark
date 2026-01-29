@@ -13,9 +13,20 @@
  * - mailto: Email links
  * - tel: Phone number links
  * - data: Data URIs (for inline images)
+ * - asset/tauri: Tauri asset protocol (for local files)
+ * - file: Local file URLs
  * - Relative URLs are allowed (no scheme)
  */
-const ALLOWED_SCHEMES = new Set(["http:", "https:", "mailto:", "tel:", "data:"]);
+const ALLOWED_SCHEMES = new Set([
+  "http:",
+  "https:",
+  "mailto:",
+  "tel:",
+  "data:",
+  "asset:",
+  "tauri:",
+  "file:",
+]);
 
 /**
  * Check if a URL has a safe scheme.
