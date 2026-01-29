@@ -26,7 +26,7 @@ describe("Security: Mermaid", () => {
     vi.resetModules();
   });
 
-  it("should initialize mermaid with strict securityLevel", async () => {
+  it("should initialize mermaid with antiscript securityLevel", async () => {
     const mermaid = await import("mermaid");
     // Reset the module to force re-initialization
     vi.resetModules();
@@ -35,9 +35,11 @@ describe("Security: Mermaid", () => {
     const { renderMermaid } = await import("./mermaid");
     await renderMermaid("graph TD; A-->B;");
 
+    // Use "antiscript" (mermaid's default) to allow inline styles from `style` directives
+    // while still sanitizing scripts. "strict" would strip all custom styling.
     expect(mermaid.default.initialize).toHaveBeenCalledWith(
       expect.objectContaining({
-        securityLevel: "strict",
+        securityLevel: "antiscript",
       })
     );
   });

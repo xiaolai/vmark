@@ -58,7 +58,9 @@ function applyMermaidConfig(): void {
   mermaidModule.default.initialize({
     startOnLoad: false,
     theme: currentTheme,
-    securityLevel: "strict",
+    // Use "antiscript" (mermaid's default) to allow inline styles from `style` directives
+    // while still sanitizing scripts. "strict" would strip all custom styling.
+    securityLevel: "antiscript",
     fontFamily: "inherit",
     fontSize: currentFontSize,
     themeVariables: {
