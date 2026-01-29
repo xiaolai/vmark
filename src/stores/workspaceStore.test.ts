@@ -1,27 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useWorkspaceStore, DEFAULT_EXCLUDED_FOLDERS } from "./workspaceStore";
 
-// Mock workspaceIdentity
-vi.mock("@/utils/workspaceIdentity", () => ({
-  createWorkspaceIdentity: vi.fn(() => ({
-    id: "mock-uuid-1234",
-    createdAt: 1700000000000,
-    trustLevel: "untrusted",
-    trustedAt: null,
-  })),
-  grantTrust: vi.fn((identity) => ({
-    ...identity,
-    trustLevel: "trusted",
-    trustedAt: 1700000001000,
-  })),
-  revokeTrust: vi.fn((identity) => ({
-    ...identity,
-    trustLevel: "untrusted",
-    trustedAt: null,
-  })),
-  isTrusted: vi.fn((identity) => identity?.trustLevel === "trusted"),
-}));
-
 // Mock paths
 vi.mock("@/utils/paths", () => ({
   isPathExcluded: vi.fn((path, _rootPath, excludeFolders) => {
@@ -80,15 +59,6 @@ describe("workspaceStore", () => {
       expect(state.isWorkspaceMode).toBe(true);
     });
 
-    it("creates identity if not provided", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path/to/project");
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config?.identity).toBeDefined();
-      expect(state.config?.identity?.id).toBe("mock-uuid-1234");
-    });
-
     it("merges with default config when no config provided", () => {
       const store = useWorkspaceStore.getState();
       store.openWorkspace("/path/to/project");
@@ -113,27 +83,6 @@ describe("workspaceStore", () => {
       expect(state.config?.excludeFolders).toEqual(["custom"]);
       expect(state.config?.lastOpenTabs).toEqual(["/file.md"]);
       expect(state.config?.showHiddenFiles).toBe(true);
-    });
-
-    it("preserves existing identity when provided", () => {
-      const existingIdentity = {
-        id: "existing-id",
-        createdAt: 1600000000000,
-        trustLevel: "trusted" as const,
-        trustedAt: 1600000001000,
-      };
-
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path/to/project", {
-        version: 1,
-        excludeFolders: [],
-        lastOpenTabs: [],
-        showHiddenFiles: false,
-        identity: existingIdentity,
-      });
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config?.identity?.id).toBe("existing-id");
     });
   });
 
@@ -323,83 +272,6 @@ describe("workspaceStore", () => {
     });
   });
 
-  describe("trustWorkspace", () => {
-    it("does nothing if no config exists", () => {
-      const store = useWorkspaceStore.getState();
-      store.trustWorkspace();
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config).toBeNull();
-    });
-
-    it("grants trust to workspace", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-      store.trustWorkspace();
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config?.identity?.trustLevel).toBe("trusted");
-    });
-
-    it("creates identity if needed before trusting", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path", {
-        version: 1,
-        excludeFolders: [],
-        lastOpenTabs: [],
-        showHiddenFiles: false,
-        // No identity
-      });
-
-      // Remove identity to simulate old config
-      useWorkspaceStore.setState((s) => ({
-        ...s,
-        config: { ...s.config!, identity: undefined },
-      }));
-
-      store.trustWorkspace();
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config?.identity).toBeDefined();
-    });
-  });
-
-  describe("untrustWorkspace", () => {
-    it("does nothing if no config exists", () => {
-      const store = useWorkspaceStore.getState();
-      store.untrustWorkspace();
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config).toBeNull();
-    });
-
-    it("does nothing if no identity exists", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-
-      // Remove identity
-      useWorkspaceStore.setState((s) => ({
-        ...s,
-        config: { ...s.config!, identity: undefined },
-      }));
-
-      store.untrustWorkspace();
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config?.identity).toBeUndefined();
-    });
-
-    it("revokes trust from workspace", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-      store.trustWorkspace();
-      store.untrustWorkspace();
-
-      const state = useWorkspaceStore.getState();
-      expect(state.config?.identity?.trustLevel).toBe("untrusted");
-    });
-  });
-
   describe("isPathExcluded", () => {
     it("returns false if no config or rootPath", () => {
       const store = useWorkspaceStore.getState();
@@ -420,64 +292,6 @@ describe("workspaceStore", () => {
       store.openWorkspace("/project");
 
       expect(store.isPathExcluded("/project/src/file.ts")).toBe(false);
-    });
-  });
-
-  describe("isWorkspaceTrusted", () => {
-    it("returns false for new workspace", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-
-      expect(store.isWorkspaceTrusted()).toBe(false);
-    });
-
-    it("returns true after trusting workspace", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-      store.trustWorkspace();
-
-      expect(store.isWorkspaceTrusted()).toBe(true);
-    });
-
-    it("returns false after revoking trust", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-      store.trustWorkspace();
-      store.untrustWorkspace();
-
-      expect(store.isWorkspaceTrusted()).toBe(false);
-    });
-
-    it("returns false when no config", () => {
-      const store = useWorkspaceStore.getState();
-      expect(store.isWorkspaceTrusted()).toBe(false);
-    });
-  });
-
-  describe("getWorkspaceId", () => {
-    it("returns null when no config", () => {
-      const store = useWorkspaceStore.getState();
-      expect(store.getWorkspaceId()).toBeNull();
-    });
-
-    it("returns id when workspace is open", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-
-      expect(store.getWorkspaceId()).toBe("mock-uuid-1234");
-    });
-
-    it("returns null when identity is missing", () => {
-      const store = useWorkspaceStore.getState();
-      store.openWorkspace("/path");
-
-      // Remove identity
-      useWorkspaceStore.setState((s) => ({
-        ...s,
-        config: { ...s.config!, identity: undefined },
-      }));
-
-      expect(store.getWorkspaceId()).toBeNull();
     });
   });
 

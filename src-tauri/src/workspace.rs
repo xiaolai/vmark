@@ -20,22 +20,6 @@ pub struct WorkspaceFolder {
     pub path: String,
 }
 
-/// Workspace identity and trust information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkspaceIdentity {
-    /// Unique identifier for this workspace (UUID v4)
-    pub id: String,
-    /// When this workspace was first created (unix timestamp ms)
-    #[serde(rename = "createdAt")]
-    pub created_at: i64,
-    /// Current trust level: "untrusted" or "trusted"
-    #[serde(rename = "trustLevel")]
-    pub trust_level: String,
-    /// When trust was granted (null if untrusted)
-    #[serde(rename = "trustedAt", skip_serializing_if = "Option::is_none")]
-    pub trusted_at: Option<i64>,
-}
-
 /// Settings block with VMark-namespaced fields
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkspaceSettings {
@@ -51,9 +35,6 @@ pub struct WorkspaceSettings {
     /// AI configuration (VMark extension)
     #[serde(rename = "vmark.ai", default, skip_serializing_if = "Option::is_none")]
     pub ai: Option<serde_json::Value>,
-    /// Workspace identity and trust info (VMark extension)
-    #[serde(rename = "vmark.identity", default, skip_serializing_if = "Option::is_none")]
-    pub identity: Option<WorkspaceIdentity>,
 }
 
 impl Default for WorkspaceFile {
@@ -71,7 +52,6 @@ impl Default for WorkspaceFile {
                 show_hidden_files: false,
                 last_open_tabs: vec![],
                 ai: None,
-                identity: None,
             },
         }
     }
@@ -104,8 +84,6 @@ pub struct WorkspaceConfig {
     pub last_open_tabs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ai: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub identity: Option<WorkspaceIdentity>,
 }
 
 impl Default for WorkspaceConfig {
@@ -120,7 +98,6 @@ impl Default for WorkspaceConfig {
             show_hidden_files: false,
             last_open_tabs: vec![],
             ai: None,
-            identity: None,
         }
     }
 }
@@ -133,7 +110,6 @@ impl From<WorkspaceFile> for WorkspaceConfig {
             show_hidden_files: file.settings.show_hidden_files,
             last_open_tabs: file.settings.last_open_tabs,
             ai: file.settings.ai,
-            identity: file.settings.identity,
         }
     }
 }
@@ -149,7 +125,6 @@ impl From<WorkspaceConfig> for WorkspaceFile {
                 show_hidden_files: config.show_hidden_files,
                 last_open_tabs: config.last_open_tabs,
                 ai: config.ai,
-                identity: config.identity,
             },
         }
     }
@@ -163,7 +138,6 @@ impl From<LegacyWorkspaceConfig> for WorkspaceConfig {
             show_hidden_files: false,
             last_open_tabs: legacy.last_open_tabs,
             ai: legacy.ai,
-            identity: None, // Legacy configs don't have identity
         }
     }
 }
