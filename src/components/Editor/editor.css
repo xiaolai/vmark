@@ -176,29 +176,29 @@
 }
 
 .tiptap-editor h1 {
-  font-size: 1.75em;
+  font-size: 1.8em;
   padding-bottom: 0.3em;
   border-bottom: 1px solid var(--border-color);
 }
 
 .tiptap-editor h2 {
-  font-size: 1.5em;
+  font-size: 1.65em;
 }
 
 .tiptap-editor h3 {
-  font-size: 1.25em;
+  font-size: 1.5em;
 }
 
 .tiptap-editor h4 {
-  font-size: 1em;
+  font-size: 1.35em;
 }
 
 .tiptap-editor h5 {
-  font-size: 0.875em;
+  font-size: 1.25em;
 }
 
 .tiptap-editor h6 {
-  font-size: 0.85em;
+  font-size: 1.1em;
   color: var(--meta-content-color);
 }
 
