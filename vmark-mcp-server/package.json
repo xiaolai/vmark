@@ -1,6 +1,6 @@
 {
   "name": "@vmark/mcp-server",
-  "version": "0.3.10",
+  "version": "0.3.14",
   "description": "MCP server for VMark - expose Tiptap editor APIs to AI assistants",
   "type": "module",
   "main": "dist/index.js",
