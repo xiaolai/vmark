@@ -60,14 +60,21 @@ Converts double hyphens to proper CJK dashes.
 | 原因--结果 | 原因 —— 结果 |
 | 说明--这是 | 说明 —— 这是 |
 
-### 6. Quote Handling
+### 6. Smart Quote Conversion
 
-Adds spacing around quotes. Optionally converts to corner brackets.
+VMark uses a **stack-based quote pairing algorithm** that correctly handles:
+
+- **Apostrophes**: Contractions like `don't`, `it's`, `l'amour` are preserved
+- **Possessives**: `Xiaolai's` stays as-is
+- **Primes**: Measurements like `5'10"` (feet/inches) are preserved
+- **Decades**: Abbreviations like `'90s` are recognized
+- **CJK context detection**: Quotes around CJK content get curly/corner quotes
 
 | Before | After |
 |--------|-------|
-| 他说"你好"然后 | 他说 "你好" 然后 |
-| 书名"论语"推荐 | 书名 "论语" 推荐 |
+| 他说"hello" | 他说 "hello" |
+| "don't worry" | "don't worry" |
+| 5'10" tall | 5'10" tall |
 
 With corner bracket option enabled:
 
@@ -113,6 +120,38 @@ The following content is **not** affected by formatting:
 - Image paths
 - HTML tags
 - YAML frontmatter
+- Backslash-escaped punctuation (e.g., `\,` stays as `,`)
+
+### Technical Constructs
+
+VMark's **Latin Span Scanner** automatically detects and protects technical constructs from punctuation conversion:
+
+| Type | Examples | Protection |
+|------|----------|------------|
+| URLs | `https://example.com` | All punctuation preserved |
+| Emails | `user@example.com` | @ and . preserved |
+| Versions | `v1.2.3`, `1.2.3.4` | Periods preserved |
+| Decimals | `3.14`, `0.5` | Period preserved |
+| Times | `12:30`, `1:30:00` | Colons preserved |
+| Thousands | `1,000`, `1,000,000` | Commas preserved |
+| Domains | `example.com` | Period preserved |
+
+Example:
+
+| Before | After |
+|--------|-------|
+| 版本v1.2.3发布 | 版本 v1.2.3 发布 |
+| 访问https://example.com获取 | 访问 https://example.com 获取 |
+| 温度是3.14度 | 温度是 3.14 度 |
+
+### Backslash Escapes
+
+Prefix any punctuation with `\` to prevent conversion:
+
+| Input | Output |
+|-------|--------|
+| `价格\,很贵` | 价格,很贵 (comma stays halfwidth) |
+| `测试\.内容` | 测试.内容 (period stays halfwidth) |
 
 ---
 
@@ -123,6 +162,15 @@ CJK formatting options can be configured in Settings → Language:
 - Enable/disable specific rules
 - Set punctuation repetition limit
 - Choose quote style (standard or corner brackets)
+
+### Contextual Quotes
+
+When **Contextual Quotes** is enabled (default):
+
+- Quotes around CJK content → curly quotes `""`
+- Quotes around pure Latin content → straight quotes `""`
+
+This preserves the natural appearance of English text while properly formatting CJK content.
 
 ---
 
@@ -161,7 +209,7 @@ The difference is subtle but improves readability, especially for longer passage
 
 ---
 
-## Smart Quote Conversion
+## Smart Quote Styles
 
 VMark can automatically convert straight quotes to typographically correct smart quotes. This feature works during CJK formatting and supports multiple quote styles.
 
@@ -173,6 +221,17 @@ VMark can automatically convert straight quotes to typographically correct smart
 | Corner Brackets | 「text」 | 『text』 |
 | Guillemets | «text» | ‹text› |
 
+### Stack-Based Pairing Algorithm
+
+VMark uses a sophisticated stack-based algorithm for quote pairing:
+
+1. **Tokenization**: Identifies all quote characters in text
+2. **Classification**: Determines if each quote is opening or closing based on context
+3. **Apostrophe Detection**: Recognizes contractions (don't, it's) and preserves them
+4. **Prime Detection**: Recognizes measurements (5'10") and preserves them
+5. **CJK Context Detection**: Checks if quoted content involves CJK characters
+6. **Orphan Cleanup**: Handles unmatched quotes gracefully
+
 ### Examples
 
 | Before | After (Curly) |
@@ -180,22 +239,15 @@ VMark can automatically convert straight quotes to typographically correct smart
 | "hello" | "hello" |
 | 'world' | 'world' |
 | it's | it's |
+| don't | don't |
+| 5'10" | 5'10" |
+| '90s | '90s |
 
 Apostrophes in contractions (like "it's" or "don't") are preserved correctly.
 
 ### Configuration
 
 Enable Smart Quote Conversion in Settings → Language → CJK Formatting. You can also select your preferred quote style from the dropdown menu.
-
-### Known Limitations
-
-Smart quote conversion uses context-based detection, which has some edge cases:
-
-| Scenario | Behavior | Workaround |
-|----------|----------|------------|
-| Quote after CJK: `测试"内容"` | Both quotes may become closing quotes | Add space before quote: `测试 "内容"` |
-| Consecutive pairs: `"a""b"` | Pairing may be incorrect | Add space between: `"a" "b"` |
-| Decade abbreviation: `'90s` | May not convert to opening quote | Use curly quote directly: `'90s` |
 
 ---
 
@@ -222,17 +274,18 @@ Corner bracket conversion triggers when the quoted content contains **Chinese ch
 
 ## Test Paragraph
 
-Use this paragraph to test the formatting features:
+Copy this unformatted text into VMark and press `Alt + Mod + Shift + F` to format:
 
----
-
+```text
 最近我在学习TypeScript和React,感觉收获很大.作为一个developer,掌握这些modern前端技术是必须的.
 
 目前已经完成了３个projects,代码量超过１０００行.其中最复杂的是一个dashboard应用,包含了数据可视化,用户认证,还有API集成等功能.
 
-学习过程中遇到的最大挑战是--状态管理.Redux的概念. . .说实话有点难理解.后来换成了Zustand,简单多了!!!
+学习过程中遇到的最大挑战是--状态管理.Redux的概念. . .说实话有点难理解.后来换成了Zustand,简单多了!
 
-老师说"写代码要注重可读性",我觉得很有道理.现在我写code的时候会特别注意命名规范,让variable names更加descriptive.
+老师说"don't give up"然后继续讲"写代码要注重可读性",我觉得很有道理.
+
+访问https://example.com/docs获取v2.0.0版本文档,价格$99.99,时间12:30开始.
 
 项目使用的技术栈如下:
 
@@ -241,7 +294,39 @@ Use this paragraph to test the formatting features:
 - **Database**--PostgreSQL
 
 总共花费大约$２００美元购买了学习资源,包括书籍和online courses.虽然价格不便宜,但非常值得.
+```
+
+### Expected Result
+
+After formatting, the text will look like this:
 
 ---
 
-After formatting, this paragraph will have proper CJK-Latin spacing, correct punctuation, and normalized characters.
+最近我在学习 TypeScript 和 React，感觉收获很大。作为一个 developer，掌握这些 modern 前端技术是必须的。
+
+目前已经完成了 3 个 projects，代码量超过 1000 行。其中最复杂的是一个 dashboard 应用，包含了数据可视化，用户认证，还有 API 集成等功能。
+
+学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念... 说实话有点难理解。后来换成了 Zustand，简单多了！
+
+老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
+
+访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
+
+项目使用的技术栈如下：
+
+- **Frontend** —— React + TypeScript
+- **Backend** —— Node.js + Express
+- **Database** —— PostgreSQL
+
+总共花费大约 $200 美元购买了学习资源，包括书籍和 online courses。虽然价格不便宜，但非常值得。
+
+---
+
+**Changes applied:**
+- CJK-Latin spacing added (学习 TypeScript)
+- Fullwidth punctuation converted (，。！)
+- Fullwidth numbers normalized (３→3, １０００→1000, ２００→200)
+- Double hyphens converted to em-dashes (-- → ——)
+- Ellipsis normalized (. . . → ...)
+- Smart quotes applied, apostrophe preserved (don't)
+- Technical constructs protected (https://example.com/docs, v2.0.0, $99.99, 12:30)

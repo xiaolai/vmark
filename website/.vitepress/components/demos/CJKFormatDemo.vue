@@ -9,9 +9,14 @@ const sampleTexts = [
     description: 'Adds spaces between CJK and numbers/letters, converts punctuation'
   },
   {
-    label: 'Quote Conversion',
-    input: '他说"这是\'测试\'文本".',
-    description: 'Converts straight quotes to smart quotes or corner brackets'
+    label: 'Smart Quotes',
+    input: '他说"don\'t worry"然后走了.',
+    description: 'Stack-based quote pairing preserves apostrophes in contractions'
+  },
+  {
+    label: 'Technical Protection',
+    input: '访问https://example.com获取v1.2.3版本.',
+    description: 'URLs, versions, decimals, and times are protected from conversion'
   },
   {
     label: 'Dash Conversion',
@@ -20,13 +25,13 @@ const sampleTexts = [
   },
   {
     label: 'Fullwidth',
-    input: '数量１００个,(中文)内容,[注释]结束.',
-    description: 'Normalizes fullwidth numbers, parentheses, and brackets'
+    input: '数量１００个,(中文)内容.',
+    description: 'Normalizes fullwidth numbers and parentheses'
   },
   {
     label: 'Mixed',
-    input: '我买了3个iPhone15,花了$ 999!!!',
-    description: 'CJK spacing + currency + punctuation limit'
+    input: '我买了3个iPhone15,花了$999.',
+    description: 'CJK spacing + currency binding + punctuation conversion'
   }
 ]
 

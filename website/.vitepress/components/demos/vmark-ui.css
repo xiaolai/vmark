@@ -43,9 +43,8 @@
   --warning-color: #9a6700;
   --contrast-text: white;
 
-  /* Typography */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif, "PingFang SC", "Microsoft YaHei";
+  /* Typography - Serif for clear curly quotes (66/99 style) */
+  --font-sans: Charter, Palatino, "Book Antiqua", Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   /* Text emphasis */

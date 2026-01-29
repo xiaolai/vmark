@@ -144,6 +144,7 @@ export interface CJKFormattingSettings {
   emdashSpacing: boolean;
   smartQuoteConversion: boolean; // Convert straight quotes to smart quotes
   quoteStyle: QuoteStyle; // Target quote style for conversion
+  contextualQuotes: boolean; // When true: curly for CJK context, straight for pure Latin
   quoteSpacing: boolean;
   singleQuoteSpacing: boolean;
   cjkCornerQuotes: boolean;
@@ -335,6 +336,7 @@ const initialState: SettingsState = {
     emdashSpacing: true,
     smartQuoteConversion: true, // ON by default - convert " to ""
     quoteStyle: "curly", // curly quotes for Simplified Chinese
+    contextualQuotes: true, // ON by default - curly for CJK, straight for pure Latin
     quoteSpacing: true,
     singleQuoteSpacing: true,
     cjkCornerQuotes: false, // OFF by default (Traditional Chinese/Japanese only)

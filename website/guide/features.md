@@ -157,10 +157,13 @@ Copy formatted content for pasting into other apps.
 
 Built-in Chinese/Japanese/Korean text formatting:
 
-- 19 configurable formatting rules
+- 20+ configurable formatting rules
 - CJK-English spacing
 - Fullwidth character conversion
 - Punctuation normalization
+- Smart quote pairing with apostrophe/prime detection
+- Technical construct protection (URLs, versions, times, decimals)
+- Contextual quote conversion (curly for CJK, straight for Latin)
 - [Learn more →](/guide/cjk-formatting)
 
 ## Document History

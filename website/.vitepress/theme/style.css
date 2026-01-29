@@ -56,8 +56,8 @@
   --vp-button-alt-hover-text: #1a1a1a;
   --vp-button-alt-hover-bg: #e5e4e4;
 
-  /* Typography - matching VMark editor */
-  --vmark-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  /* Typography - Serif fonts with clear curly quotes (66/99 style) */
+  --vmark-font-family: Charter, Palatino, "Book Antiqua", Georgia, serif;
   --vmark-font-size: 18px;
   --vmark-line-height: 1.6;
   --vmark-paragraph-spacing: 1em;
