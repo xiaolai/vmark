@@ -204,6 +204,12 @@ export function normalizeFullwidthPunctuation(text: string): string {
       continue;
     }
 
+    // Special case: backslash escape - never convert escaped punctuation
+    if (i > 0 && text[i - 1] === "\\") {
+      result.push(char);
+      continue;
+    }
+
     // Special case: ellipsis - never convert periods that are part of ...
     if (char === "." && isPartOfEllipsis(text, i)) {
       result.push(char);
