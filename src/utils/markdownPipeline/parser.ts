@@ -13,11 +13,63 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkBreaks from "remark-breaks";
-import type { Root, Parent } from "mdast";
+import type { Root, Parent, Text } from "mdast";
 import type { InlineMath } from "mdast-util-math";
 import { remarkCustomInline, remarkDetailsBlock, remarkResolveReferences, remarkWikiLinks } from "./plugins";
 import type { MarkdownPipelineOptions } from "./types";
 import { perfStart, perfEnd } from "@/utils/perfLog";
+
+/**
+ * Escape placeholders for custom inline markers.
+ * Uses Unicode Private Use Area to avoid conflicts with normal text.
+ *
+ * When users write \== or \++ etc., they want literal markers, not formatting.
+ * Since remark processes backslash escapes before our plugin runs, we need to
+ * pre-process these patterns into placeholders, then restore them after parsing.
+ */
+const ESCAPE_PATTERNS: Array<{ pattern: RegExp; placeholder: string; restore: string }> = [
+  { pattern: /\\==/g, placeholder: "\uE001\uE001", restore: "==" },
+  { pattern: /\\\+\+/g, placeholder: "\uE002\uE002", restore: "++" },
+  { pattern: /\\\^/g, placeholder: "\uE003", restore: "^" },
+  { pattern: /\\~/g, placeholder: "\uE004", restore: "~" },
+];
+
+/**
+ * Pre-process markdown to handle escaped custom markers.
+ * Replaces \== \++ \^ \~ with Unicode placeholders before remark parsing.
+ */
+function preprocessEscapedMarkers(markdown: string): string {
+  let result = markdown;
+  for (const { pattern, placeholder } of ESCAPE_PATTERNS) {
+    result = result.replace(pattern, placeholder);
+  }
+  return result;
+}
+
+/**
+ * Restore placeholders back to literal marker characters in the parsed tree.
+ */
+function restoreEscapedMarkers(tree: Root): void {
+  visitAndRestoreText(tree);
+}
+
+function visitAndRestoreText(node: Root | Parent): void {
+  if (!("children" in node) || !Array.isArray(node.children)) return;
+
+  for (const child of node.children) {
+    if (child.type === "text") {
+      const textNode = child as Text;
+      for (const { placeholder, restore } of ESCAPE_PATTERNS) {
+        if (textNode.value.includes(placeholder)) {
+          textNode.value = textNode.value.split(placeholder).join(restore);
+        }
+      }
+    }
+    if ("children" in child && Array.isArray((child as Parent).children)) {
+      visitAndRestoreText(child as Parent);
+    }
+  }
+}
 
 /**
  * Plugin to validate inline math and convert invalid ones back to text.
@@ -169,18 +221,24 @@ export function parseMarkdownToMdast(
   markdown: string,
   options: MarkdownPipelineOptions = {}
 ): Root {
+  // Pre-process escaped custom markers before remark parsing
+  const preprocessed = preprocessEscapedMarkers(markdown);
+
   perfStart("createProcessor");
-  const processor = createProcessor(markdown, options);
+  const processor = createProcessor(preprocessed, options);
   perfEnd("createProcessor");
 
   perfStart("remarkParse");
-  const result = processor.parse(markdown);
+  const result = processor.parse(preprocessed);
   perfEnd("remarkParse");
 
   // Run transforms (plugins that modify the tree)
   perfStart("remarkRunSync");
   const transformed = processor.runSync(result);
   perfEnd("remarkRunSync");
+
+  // Restore escaped markers back to literal characters
+  restoreEscapedMarkers(transformed as Root);
 
   return transformed as Root;
 }
