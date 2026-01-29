@@ -79,7 +79,7 @@ export function useExportMenuEvents(): void {
             ? getFileNameWithoutExtension(doc.filePath) || "Document"
             : "Document";
           try {
-            await exportToPdf(doc.content, title);
+            await exportToPdf(doc.content, title, doc.filePath);
           } catch (error) {
             console.error("[Menu] Failed to export PDF:", error);
           }

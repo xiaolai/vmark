@@ -9,6 +9,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { emit } from "@tauri-apps/api/event";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { createRoot } from "react-dom/client";
 import React from "react";
@@ -211,7 +212,8 @@ export async function exportToHtml(
  */
 export async function exportToPdf(
   markdown: string,
-  title: string = "Document"
+  title: string = "Document",
+  sourceFilePath?: string | null
 ): Promise<void> {
   try {
     // Check if preview window already exists
@@ -220,8 +222,14 @@ export async function exportToPdf(
       await existing.close();
     }
 
+    // Preprocess markdown to resolve relative image paths
+    let processedMarkdown = markdown;
+    if (sourceFilePath) {
+      processedMarkdown = resolveImagePaths(markdown, sourceFilePath);
+    }
+
     // Also store in localStorage for fallback
-    localStorage.setItem("vmark-print-content", markdown);
+    localStorage.setItem("vmark-print-content", processedMarkdown);
 
     // Create new print preview window
     const previewWindow = new WebviewWindow("print-preview", {
@@ -239,7 +247,7 @@ export async function exportToPdf(
       await new Promise((r) => setTimeout(r, 100));
 
       await emit(PRINT_REQUEST_EVENT, {
-        markdown,
+        markdown: processedMarkdown,
         title,
         lightTheme: true,
       });
@@ -248,6 +256,61 @@ export async function exportToPdf(
     console.error("[Export] Failed to export PDF:", error);
     await showError(FileErrors.exportFailed("PDF"));
   }
+}
+
+/**
+ * Resolve relative image paths in markdown to absolute file:// URLs.
+ */
+function resolveImagePaths(markdown: string, sourceFilePath: string): string {
+  // Get directory of source file
+  const sourceDir = sourceFilePath.replace(/[/\\][^/\\]*$/, "");
+
+  // Match markdown images: ![alt](path)
+  // Also match HTML images: <img src="path"
+  return markdown
+    .replace(
+      /!\[([^\]]*)\]\(([^)]+)\)/g,
+      (_match, alt, path) => {
+        const resolvedPath = resolvePath(path, sourceDir);
+        return `![${alt}](${resolvedPath})`;
+      }
+    )
+    .replace(
+      /<img([^>]*?)src=["']([^"']+)["']/gi,
+      (_match, attrs, path) => {
+        const resolvedPath = resolvePath(path, sourceDir);
+        return `<img${attrs}src="${resolvedPath}"`;
+      }
+    );
+}
+
+/**
+ * Normalize path for convertFileSrc on Windows.
+ * Windows paths use backslashes which convertFileSrc doesn't handle correctly.
+ */
+function normalizePathForAsset(path: string): string {
+  return path.replace(/\\/g, "/");
+}
+
+/**
+ * Resolve a path relative to a directory and convert to asset:// URL.
+ */
+function resolvePath(path: string, sourceDir: string): string {
+  // Skip absolute URLs, data URLs, and already-converted asset URLs
+  if (path.startsWith("http://") || path.startsWith("https://") ||
+      path.startsWith("data:") || path.startsWith("file://") ||
+      path.startsWith("asset://") || path.startsWith("tauri://")) {
+    return path;
+  }
+
+  // Handle relative paths
+  if (path.startsWith("./")) {
+    path = path.slice(2);
+  }
+
+  // Build absolute path and convert to asset:// URL
+  const absolutePath = `${sourceDir}/${path}`;
+  return convertFileSrc(normalizePathForAsset(absolutePath));
 }
 
 /**

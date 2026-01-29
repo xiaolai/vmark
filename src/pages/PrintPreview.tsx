@@ -252,14 +252,37 @@ export function PrintPreviewPage() {
 const printPreviewStyles = `
 .print-preview-container {
   min-height: 100vh;
-  background: var(--bg-color, #ffffff);
+  background: var(--bg-color, #f5f5f5);
+}
+
+/* Page layout container - shows paper boundaries */
+.print-preview-container .export-surface {
+  background: var(--bg-color, #f5f5f5);
+  padding: 24px;
+}
+
+.print-preview-container .export-surface-editor {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 1.5cm;
+  max-width: 21cm; /* A4 width */
+  min-height: 29.7cm; /* A4 height */
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Horizontal rule fix */
+.print-preview-container hr {
+  border: none;
+  border-top: 1px solid var(--border-color, #d5d4d4);
+  margin: 1.5em 0;
 }
 
 .print-close-btn {
   position: fixed;
   top: 12px;
   right: 12px;
-  z-index: 1001;
+  z-index: 1002;
   width: 32px;
   height: 32px;
   border: none;
@@ -273,6 +296,7 @@ const printPreviewStyles = `
   align-items: center;
   justify-content: center;
   transition: background 0.15s, color 0.15s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .print-close-btn:hover {
@@ -285,14 +309,32 @@ const printPreviewStyles = `
   outline-offset: 2px;
 }
 
+/* Full-screen blocking modal overlay */
+.print-status-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .print-status {
-  padding: 24px;
+  background: white;
+  padding: 32px 48px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   text-align: center;
   color: var(--text-secondary, #666666);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  max-width: 400px;
 }
 
 .print-status-error {
@@ -310,16 +352,17 @@ const printPreviewStyles = `
 
 .print-status-actions {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   margin-top: 8px;
 }
 
 .print-cancel-btn,
 .print-confirm-btn {
-  padding: 8px 16px;
+  padding: 10px 24px;
   border: none;
   border-radius: 6px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -330,7 +373,7 @@ const printPreviewStyles = `
 }
 
 .print-cancel-btn:hover {
-  background: var(--hover-bg-strong, rgba(0,0,0,0.08));
+  background: var(--hover-bg-strong, rgba(0,0,0,0.12));
 }
 
 .print-confirm-btn {
@@ -348,15 +391,6 @@ const printPreviewStyles = `
   outline-offset: 2px;
 }
 
-.print-status-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: var(--bg-color, #ffffff);
-  z-index: 1000;
-}
-
 @media print {
   .print-status-overlay,
   .print-close-btn {
@@ -365,6 +399,18 @@ const printPreviewStyles = `
 
   .print-preview-container {
     background: white !important;
+  }
+
+  .print-preview-container .export-surface {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .print-preview-container .export-surface-editor {
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: none !important;
+    min-height: auto !important;
   }
 
   * {

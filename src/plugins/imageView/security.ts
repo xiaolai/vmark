@@ -19,10 +19,16 @@ export function isAbsolutePath(src: string): boolean {
 }
 
 /**
- * Check if a path is an external URL (http/https/data).
+ * Check if a path is an external URL (http/https/data) or Tauri asset URL.
  */
 export function isExternalUrl(src: string): boolean {
-  return src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:");
+  return (
+    src.startsWith("http://") ||
+    src.startsWith("https://") ||
+    src.startsWith("data:") ||
+    src.startsWith("asset://") ||
+    src.startsWith("tauri://")
+  );
 }
 
 /**
