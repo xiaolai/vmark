@@ -9,14 +9,11 @@
  */
 
 import { useCallback } from "react";
-import { check, type Update } from "@tauri-apps/plugin-updater";
+import { check } from "@tauri-apps/plugin-updater";
 import { emit } from "@tauri-apps/api/event";
 import { useUpdateStore } from "@/stores/updateStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getVersion } from "@tauri-apps/api/app";
-
-// Store the update object for download/install - only valid in main window
-let pendingUpdate: Update | null = null;
 
 // Event names for cross-window communication
 const EVENTS = {
@@ -96,6 +93,7 @@ export function useUpdateOperationHandler() {
   const setUpdateInfo = useUpdateStore((state) => state.setUpdateInfo);
   const setDownloadProgress = useUpdateStore((state) => state.setDownloadProgress);
   const setError = useUpdateStore((state) => state.setError);
+  const setPendingUpdate = useUpdateStore((state) => state.setPendingUpdate);
   const clearDismissed = useUpdateStore((state) => state.clearDismissed);
   const updateUpdateSetting = useSettingsStore((state) => state.updateUpdateSetting);
 
@@ -109,7 +107,7 @@ export function useUpdateOperationHandler() {
       const update = await check();
 
       if (update) {
-        pendingUpdate = update;
+        setPendingUpdate(update);
         const currentVersion = await getVersion();
         setUpdateInfo({
           version: update.version,
@@ -124,7 +122,7 @@ export function useUpdateOperationHandler() {
         return true;
       } else {
         setStatus("up-to-date");
-        pendingUpdate = null;
+        setPendingUpdate(null);
         updateUpdateSetting("lastCheckTimestamp", Date.now());
         return false;
       }
@@ -134,12 +132,13 @@ export function useUpdateOperationHandler() {
       // Don't update lastCheckTimestamp on error - the check didn't complete successfully
       return false;
     }
-  }, [setStatus, setUpdateInfo, setError, clearDismissed, updateUpdateSetting]);
+  }, [setStatus, setUpdateInfo, setError, setPendingUpdate, clearDismissed, updateUpdateSetting]);
 
   /**
    * Perform the actual download operation (main window only)
    */
   const doDownloadAndInstall = useCallback(async () => {
+    const pendingUpdate = useUpdateStore.getState().pendingUpdate;
     if (!pendingUpdate) {
       setError("No update available to download");
       return;
@@ -188,5 +187,5 @@ export function useUpdateOperationHandler() {
  * Clear the pending update (e.g., when skipping)
  */
 export function clearPendingUpdate() {
-  pendingUpdate = null;
+  useUpdateStore.getState().setPendingUpdate(null);
 }

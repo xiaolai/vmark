@@ -5,6 +5,7 @@
  */
 
 import { create } from "zustand";
+import type { Update } from "@tauri-apps/plugin-updater";
 
 export type UpdateStatus =
   | "idle"
@@ -33,6 +34,7 @@ interface UpdateState {
   downloadProgress: DownloadProgress | null;
   error: string | null;
   dismissed: boolean; // User dismissed the notification banner
+  pendingUpdate: Update | null; // The actual Update object for download/install
 }
 
 type ProgressUpdater = DownloadProgress | null | ((prev: DownloadProgress | null) => DownloadProgress | null);
@@ -42,6 +44,7 @@ interface UpdateActions {
   setUpdateInfo: (info: UpdateInfo | null) => void;
   setDownloadProgress: (progress: ProgressUpdater) => void;
   setError: (error: string | null) => void;
+  setPendingUpdate: (update: Update | null) => void;
   dismiss: () => void;
   clearDismissed: () => void;
   reset: () => void;
@@ -53,6 +56,7 @@ const initialState: UpdateState = {
   downloadProgress: null,
   error: null,
   dismissed: false,
+  pendingUpdate: null,
 };
 
 export const useUpdateStore = create<UpdateState & UpdateActions>()((set) => ({
@@ -78,6 +82,7 @@ export const useUpdateStore = create<UpdateState & UpdateActions>()((set) => ({
       error,
       status: error !== null ? "error" : state.status,
     })),
+  setPendingUpdate: (pendingUpdate) => set({ pendingUpdate }),
   dismiss: () => set({ dismissed: true }),
   clearDismissed: () => set({ dismissed: false }),
   reset: () => set(initialState),

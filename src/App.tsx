@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
+import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
 import { Editor } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
 import { StatusBar } from "@/components/StatusBar";
@@ -269,7 +270,16 @@ function App() {
           <Route path="/" element={<MainLayout />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-center"
+          icons={{
+            success: <CheckCircle size={16} />,
+            error: <XCircle size={16} />,
+            info: <Info size={16} />,
+            warning: <AlertTriangle size={16} />,
+            loading: <Loader2 size={16} className="animate-spin" />,
+          }}
+        />
         <McpStatusDialog />
       </WindowProvider>
     </ErrorBoundary>

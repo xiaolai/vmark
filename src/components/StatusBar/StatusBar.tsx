@@ -25,6 +25,7 @@ import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabC
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/shortcutsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpHealthStore } from "@/stores/mcpHealthStore";
+import { UpdateIndicator } from "./UpdateIndicator";
 import "./StatusBar.css";
 
 /**
@@ -222,6 +223,9 @@ export function StatusBar() {
 
           {/* Right section: stats + mode */}
           <div className="status-bar-right">
+            {/* Update status indicator */}
+            <UpdateIndicator />
+
             {/* MCP status indicator */}
             <button
               className={`status-mcp ${mcpRunning ? "connected" : ""} ${mcpLoading ? "loading" : ""}`}

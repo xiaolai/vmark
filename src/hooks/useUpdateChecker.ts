@@ -14,8 +14,9 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useUpdateStore } from "@/stores/updateStore";
+import { useUpdateStore, type UpdateStatus } from "@/stores/updateStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUpdateOperationHandler, clearPendingUpdate } from "./useUpdateOperations";
 
@@ -68,7 +69,11 @@ export function useUpdateChecker() {
 
   const status = useUpdateStore((state) => state.status);
   const updateInfo = useUpdateStore((state) => state.updateInfo);
+  const error = useUpdateStore((state) => state.error);
   const dismiss = useUpdateStore((state) => state.dismiss);
+
+  // Track previous status for toast notifications
+  const prevStatusRef = useRef<UpdateStatus | null>(null);
 
   // Check for updates on startup if needed
   useEffect(() => {
@@ -84,6 +89,52 @@ export function useUpdateChecker() {
       return () => clearTimeout(timer);
     }
   }, [autoCheckEnabled, checkFrequency, lastCheckTimestamp, doCheckForUpdates]);
+
+  // Show toast notifications on status changes
+  useEffect(() => {
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    // Skip initial mount and same-status updates
+    if (prevStatus === null || prevStatus === status) return;
+
+    switch (status) {
+      case "available":
+        if (updateInfo) {
+          toast.info(`Update available: v${updateInfo.version}`, {
+            duration: 5000,
+          });
+        }
+        break;
+      case "downloading":
+        toast("Downloading update...", {
+          duration: 3000,
+        });
+        break;
+      case "ready":
+        if (updateInfo) {
+          toast.success(`v${updateInfo.version} ready to install`, {
+            duration: 5000,
+          });
+        }
+        break;
+      case "error":
+        if (error) {
+          toast.error(`Update check failed: ${error}`, {
+            duration: 5000,
+          });
+        }
+        break;
+      case "up-to-date":
+        // Only show if user manually triggered the check (prevStatus was "checking")
+        if (prevStatus === "checking") {
+          toast.success("You're up to date!", {
+            duration: 3000,
+          });
+        }
+        break;
+    }
+  }, [status, updateInfo, error]);
 
   // Auto-dismiss if the available version matches skipVersion
   useEffect(() => {

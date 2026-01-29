@@ -294,3 +294,111 @@
 .dark-theme .status-mcp.connected {
   color: var(--success-color-dark);
 }
+
+/* ========================================
+   Update Status Indicator
+   ======================================== */
+
+.status-update {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: default;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.status-update:disabled {
+  cursor: default;
+}
+
+.status-update:not(:disabled):hover {
+  background-color: var(--hover-bg);
+}
+
+/* Checking state - spinning icon */
+.status-update.checking {
+  color: var(--text-secondary);
+}
+
+.status-update.checking svg {
+  animation: update-spin 1s linear infinite;
+}
+
+@keyframes update-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Downloading state - pulsing icon */
+.status-update.downloading {
+  color: var(--primary-color);
+}
+
+.status-update.downloading svg {
+  animation: update-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes update-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Available state - accent color with dot */
+.status-update.available {
+  color: var(--primary-color);
+  cursor: pointer;
+}
+
+/* Ready state - success color with dot */
+.status-update.ready {
+  color: var(--success-color, #22c55e);
+  cursor: pointer;
+}
+
+.dark-theme .status-update.ready {
+  color: var(--success-color-dark);
+}
+
+/* Error state */
+.status-update.error {
+  color: var(--error-color);
+  cursor: pointer;
+}
+
+.status-update-label {
+  font-weight: 500;
+}
+
+/* Notification dot */
+.status-update-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: update-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes update-dot-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
