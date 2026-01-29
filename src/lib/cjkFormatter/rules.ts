@@ -4,6 +4,12 @@
  */
 
 import type { CJKFormattingSettings, QuoteStyle } from "@/stores/settingsStore";
+import {
+  scanLatinSpans,
+  isInTechnicalSubspan,
+  isCJKLetter,
+} from "./latinSpanScanner";
+import { applyContextualQuotes } from "./quotePairing";
 
 // Character ranges - Extended CJK coverage
 const HAN_BASIC = "\u4e00-\u9fff"; // CJK Unified Ideographs (basic block)
@@ -30,41 +36,70 @@ const CJK_OPENING_BRACKETS = "《「『【（〈";
 // Character class patterns
 const CJK_CHARS_PATTERN = `[${HAN}${HIRAGANA}${KATAKANA}《》「」『』【】（）〈〉，。！？；：、]`;
 
-// Pre-compiled regexes for fullwidth punctuation normalization
-const FULLWIDTH_PUNCT_REPLACEMENTS: Array<{
-  between: RegExp;
-  trailing: RegExp;
-  full: string;
-}> = [
-  { half: ",", full: "，" },
-  { half: ".", full: "。" },
-  { half: "!", full: "！" },
-  { half: "?", full: "？" },
-  { half: ";", full: "；" },
-  { half: ":", full: "：" },
-].map(({ half, full }) => {
-  const escaped = half.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return {
-    between: new RegExp(`([${CJK_NO_KOREAN}])${escaped}([${CJK_NO_KOREAN}])`, "g"),
-    trailing: new RegExp(`([${CJK_NO_KOREAN}])${escaped}(?=\\s|$)`, "g"),
-    full,
-  };
-});
+// Punctuation conversion map (half-width → full-width)
+const PUNCTUATION_MAP: Record<string, string> = {
+  ",": "，",
+  ".": "。",
+  "!": "！",
+  "?": "？",
+  ";": "；",
+  ":": "：",
+};
+
+/**
+ * Get the nearest non-space character to the left
+ */
+function getLeftNeighbor(text: string, pos: number): string {
+  for (let i = pos - 1; i >= 0; i--) {
+    if (text[i] !== " " && text[i] !== "\t") {
+      const ch = text[i];
+      const code = ch.charCodeAt(0);
+      // Combine surrogate pair if we landed on a low surrogate.
+      if (code >= 0xdc00 && code <= 0xdfff && i - 1 >= 0) {
+        const prev = text[i - 1];
+        const prevCode = prev.charCodeAt(0);
+        if (prevCode >= 0xd800 && prevCode <= 0xdbff) {
+          return prev + ch;
+        }
+      }
+      return ch;
+    }
+  }
+  return "";
+}
+
+/**
+ * Get the nearest non-space character to the right
+ */
+function getRightNeighbor(text: string, pos: number): string {
+  for (let i = pos + 1; i < text.length; i++) {
+    if (text[i] !== " " && text[i] !== "\t") {
+      const ch = text[i];
+      const code = ch.charCodeAt(0);
+      // Combine surrogate pair if we landed on a high surrogate.
+      if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+        const next = text[i + 1];
+        const nextCode = next.charCodeAt(0);
+        if (nextCode >= 0xdc00 && nextCode <= 0xdfff) {
+          return ch + next;
+        }
+      }
+      return ch;
+    }
+  }
+  return "";
+}
 
 /**
  * Check if text contains CJK characters (Han, Kana, or Hangul)
- * Uses extended ranges for better coverage
+ * Uses Unicode script property escapes for full coverage including supplementary planes
  */
 export function containsCJK(text: string): boolean {
-  // Han (basic + extension A)
-  if (/[\u4e00-\u9fff\u3400-\u4dbf]/.test(text)) return true;
-  // Hiragana/Katakana
-  if (/[\u3040-\u309f\u30a0-\u30ff\u31f0-\u31ff]/.test(text)) return true;
-  // Hangul (syllables + jamo)
-  if (/[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/.test(text)) return true;
-  // Bopomofo
-  if (/[\u3100-\u312f\u31a0-\u31bf]/.test(text)) return true;
-  return false;
+  // Use Unicode script properties for comprehensive coverage
+  // This handles Han (including Extensions B-G), Hiragana, Katakana, Hangul, Bopomofo
+  return /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}|\p{Script=Bopomofo}/u.test(
+    text
+  );
 }
 
 // ============================================================
@@ -132,17 +167,79 @@ export function normalizeFullwidthAlphanumeric(text: string): string {
 }
 
 /**
+ * Check if a character is part of an ellipsis pattern
+ */
+function isPartOfEllipsis(text: string, pos: number): boolean {
+  // Check if this period is part of "..." or surrounded by other periods
+  if (text[pos] !== ".") return false;
+
+  const before = pos > 0 ? text[pos - 1] : "";
+  const after = pos < text.length - 1 ? text[pos + 1] : "";
+
+  return before === "." || after === ".";
+}
+
+/**
  * Normalize punctuation width based on CJK context
- * Half-width → Full-width when between CJK characters
+ *
+ * Converts ASCII punctuation to fullwidth when in CJK context.
+ * Protects punctuation inside technical subspans (URLs, versions, etc.)
+ *
+ * Spec Reference: Rule 3 of cjk-typography-rules-draft.md
  */
 export function normalizeFullwidthPunctuation(text: string): string {
-  for (const { between, trailing, full } of FULLWIDTH_PUNCT_REPLACEMENTS) {
-    // CJK + half + CJK → CJK + full + CJK
-    text = text.replace(between, `$1${full}$2`);
-    // CJK + half + end/space → CJK + full
-    text = text.replace(trailing, `$1${full}`);
+  // Scan for Latin spans and their technical subspans
+  const latinSpans = scanLatinSpans(text);
+
+  // Process character by character
+  const result: string[] = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const fullwidth = PUNCTUATION_MAP[char];
+
+    // If not a convertible punctuation, keep as-is
+    if (!fullwidth) {
+      result.push(char);
+      continue;
+    }
+
+    // Special case: ellipsis - never convert periods that are part of ...
+    if (char === "." && isPartOfEllipsis(text, i)) {
+      result.push(char);
+      continue;
+    }
+
+    // Check if inside a technical subspan (URL, version, time, etc.)
+    if (isInTechnicalSubspan(i, latinSpans)) {
+      result.push(char);
+      continue;
+    }
+
+    // Get context: nearest non-space neighbors
+    const leftNeighbor = getLeftNeighbor(text, i);
+    const rightNeighbor = getRightNeighbor(text, i);
+
+    // Check if either neighbor is a CJK character or CJK bracket
+    const leftIsCJK = leftNeighbor && (
+      isCJKLetter(leftNeighbor) ||
+      CJK_CLOSING_BRACKETS.includes(leftNeighbor) ||
+      CJK_TERMINAL_PUNCTUATION.includes(leftNeighbor)
+    );
+    const rightIsCJK = rightNeighbor && (
+      isCJKLetter(rightNeighbor) ||
+      CJK_OPENING_BRACKETS.includes(rightNeighbor)
+    );
+
+    // Convert if either neighbor is CJK
+    if (leftIsCJK || rightIsCJK) {
+      result.push(fullwidth);
+    } else {
+      result.push(char);
+    }
   }
-  return text;
+
+  return result.join("");
 }
 
 /**
@@ -203,10 +300,36 @@ export function addCJKParenthesisSpacing(text: string): string {
 }
 
 /**
- * Remove spaces between currency symbols and amounts
+ * Currency and unit binding
+ *
+ * - Prefix currency symbols ($, ¥, €, £, ₹) bind tight to following number: `$ 100` → `$100`
+ * - Unit symbols (%, ‰, ℃, ℉, °) bind tight to preceding number: `50 %` → `50%`
+ * - Postfix currency codes (USD, CNY, EUR, GBP, RMB) are spaced from preceding number: `100USD` → `100 USD`
  */
-export function fixCurrencySpacing(text: string): string {
-  return text.replace(/([$¥€£₹]|USD|CNY|EUR|GBP)\s+(\d)/g, "$1$2");
+export function fixCurrencySpacing(
+  text: string,
+  postfixCurrency: "tight" | "spaced" = "spaced"
+): string {
+  // Prefix currency symbols bind tight to following number
+  text = text.replace(/([$¥€£₹])\s+(\d)/g, "$1$2");
+
+  // Prefix currency codes bind tight to following number (style choice: keep tight)
+  text = text.replace(/(USD|CNY|EUR|GBP|RMB|JPY)\s+(\d)/g, "$1$2");
+
+  // Unit symbols bind tight to preceding number
+  // Note: No word boundary assertion since these are Unicode symbols
+  text = text.replace(/(\d)\s+(%|‰|℃|℉|°[CcFf]?)(?=[\s,;.。，；、！？!?)\]」』】〉》)]|$)/g, "$1$2");
+
+  // Postfix currency codes: space or tight based on setting
+  if (postfixCurrency === "spaced") {
+    // Add space between number and postfix currency code if missing
+    text = text.replace(/(\d)(USD|CNY|EUR|GBP|RMB|JPY)\b/g, "$1 $2");
+  } else {
+    // Remove space between number and postfix currency code
+    text = text.replace(/(\d)\s+(USD|CNY|EUR|GBP|RMB|JPY)\b/g, "$1$2");
+  }
+
+  return text;
 }
 
 /**
@@ -529,17 +652,31 @@ export function applyRules(
       text = fixEmdashSpacing(text);
     }
 
-    // Smart quote conversion (straight → curly/corner/guillemets)
-    // Must run BEFORE corner quote conversion (which works on curly quotes)
+    // Smart quote conversion using stack-based pairing algorithm
+    // Handles apostrophes, primes, and CJK context detection
     if (config.smartQuoteConversion) {
-      text = convertStraightToSmartQuotes(text, config.quoteStyle);
+      if (config.quoteStyle === "curly" || config.quoteStyle === "corner") {
+        // Use new stack-based algorithm for curly/corner styles
+        // Mode selection:
+        // - "contextual": curly for CJK context, straight for pure Latin (recommended)
+        // - "corner-for-cjk": corner quotes for CJK context, straight for Latin
+        // - "curly-everywhere": curly quotes everywhere
+        let mode: "off" | "curly-everywhere" | "contextual" | "corner-for-cjk";
+        if (config.cjkCornerQuotes) {
+          mode = "corner-for-cjk";
+        } else if (config.contextualQuotes) {
+          mode = "contextual";
+        } else {
+          mode = "curly-everywhere";
+        }
+        text = applyContextualQuotes(text, mode);
+      } else {
+        // Fall back to regex-based conversion for guillemets and other styles
+        text = convertStraightToSmartQuotes(text, config.quoteStyle);
+      }
     }
 
-    // Corner quotes: convert curly → corner when CJK content
-    // Only applies if quoteStyle is "curly" (otherwise already corner)
-    if (config.cjkCornerQuotes && config.quoteStyle === "curly") {
-      text = convertToCJKCornerQuotes(text);
-    }
+    // Nested corner quotes: 「outer『inner』outer」
     if (config.cjkNestedQuotes) {
       text = convertNestedCornerQuotes(text);
     }

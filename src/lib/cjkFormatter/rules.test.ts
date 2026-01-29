@@ -40,6 +40,13 @@ describe("containsCJK", () => {
     expect(containsCJK("ㄅㄆㄇ")).toBe(true);
   });
 
+  it("detects supplementary-plane Han (Extensions B-G)", () => {
+    // CJK Extension B character (U+20000) - requires surrogate pair
+    expect(containsCJK("𠀀")).toBe(true);
+    // Extension B only, no BMP CJK present
+    expect(containsCJK("Text with 𠀀 rare char")).toBe(true);
+  });
+
   it("returns false for non-CJK text", () => {
     expect(containsCJK("Hello World")).toBe(false);
     expect(containsCJK("12345")).toBe(false);
@@ -154,6 +161,99 @@ describe("normalizeFullwidthPunctuation", () => {
     expect(normalizeFullwidthPunctuation("Hello, world")).toBe("Hello, world");
     expect(normalizeFullwidthPunctuation("test.com")).toBe("test.com");
   });
+
+  // NEW: Critical gap fixes - CJK + punct + Latin and Latin + punct + CJK
+  it("converts punctuation between CJK and Latin (CJK left)", () => {
+    expect(normalizeFullwidthPunctuation("中文,English")).toBe("中文，English");
+    expect(normalizeFullwidthPunctuation("中文;English")).toBe("中文；English");
+    expect(normalizeFullwidthPunctuation("中文!English")).toBe("中文！English");
+    expect(normalizeFullwidthPunctuation("中文?English")).toBe("中文？English");
+  });
+
+  it("converts punctuation between Latin and CJK (CJK right)", () => {
+    expect(normalizeFullwidthPunctuation("English,中文")).toBe("English，中文");
+    expect(normalizeFullwidthPunctuation("English;中文")).toBe("English；中文");
+    expect(normalizeFullwidthPunctuation("English!中文")).toBe("English！中文");
+    expect(normalizeFullwidthPunctuation("English?中文")).toBe("English？中文");
+  });
+
+  it("converts all punctuation types in mixed context", () => {
+    expect(normalizeFullwidthPunctuation("中文,中文.中文!中文?中文;中文:中文"))
+      .toBe("中文，中文。中文！中文？中文；中文：中文");
+  });
+
+  // Protected contexts - technical subspans
+  it("preserves punctuation inside URLs", () => {
+    expect(normalizeFullwidthPunctuation("中文 https://example.com/path,query 中文"))
+      .toBe("中文 https://example.com/path,query 中文");
+  });
+
+  it("preserves punctuation inside email addresses", () => {
+    expect(normalizeFullwidthPunctuation("中文 user@example.com 中文"))
+      .toBe("中文 user@example.com 中文");
+  });
+
+  it("preserves punctuation inside versions", () => {
+    expect(normalizeFullwidthPunctuation("中文 v0.3.11 中文"))
+      .toBe("中文 v0.3.11 中文");
+  });
+
+  it("preserves punctuation inside decimals", () => {
+    expect(normalizeFullwidthPunctuation("中文 3.14 中文"))
+      .toBe("中文 3.14 中文");
+  });
+
+  it("preserves punctuation inside times", () => {
+    expect(normalizeFullwidthPunctuation("中文 12:30 中文"))
+      .toBe("中文 12:30 中文");
+  });
+
+  it("preserves punctuation inside thousands separators", () => {
+    expect(normalizeFullwidthPunctuation("中文 1,000,000 中文"))
+      .toBe("中文 1,000,000 中文");
+  });
+
+  it("preserves punctuation inside domain names", () => {
+    expect(normalizeFullwidthPunctuation("中文 example.com 中文"))
+      .toBe("中文 example.com 中文");
+  });
+
+  // Ellipsis protection
+  it("preserves ellipsis (never converts periods in ...)", () => {
+    expect(normalizeFullwidthPunctuation("中文...")).toBe("中文...");
+    expect(normalizeFullwidthPunctuation("中文...中文")).toBe("中文...中文");
+    expect(normalizeFullwidthPunctuation("等等...继续")).toBe("等等...继续");
+  });
+
+  // Complex mixed cases
+  it("handles complex mixed text correctly", () => {
+    // Technical terms protected, mixed punctuation converted
+    const input = "中文,English; 版本v0.3.11,时间12:30,网址test.com/a,b?x=1.";
+    const output = normalizeFullwidthPunctuation(input);
+    // Commas and semicolons in CJK context should be converted
+    expect(output).toContain("中文，English");
+    expect(output).toContain("English；");
+    // Technical subspans should be protected
+    expect(output).toContain("v0.3.11");
+    expect(output).toContain("12:30");
+    expect(output).toContain("test.com/a,b?x=1");
+  });
+
+  it("converts punctuation after CJK closing brackets", () => {
+    expect(normalizeFullwidthPunctuation("（内容）,继续")).toBe("（内容），继续");
+    expect(normalizeFullwidthPunctuation("」,继续")).toBe("」，继续");
+  });
+
+  it("converts punctuation before CJK opening brackets", () => {
+    expect(normalizeFullwidthPunctuation("内容,（更多）")).toBe("内容，（更多）");
+    expect(normalizeFullwidthPunctuation("内容,「引用」")).toBe("内容，「引用」");
+  });
+
+  it("converts punctuation next to CJK Extension B characters", () => {
+    // 𠀀 is U+20000 (CJK Extension B; surrogate pair in UTF-16)
+    expect(normalizeFullwidthPunctuation("𠀀,English")).toBe("𠀀，English");
+    expect(normalizeFullwidthPunctuation("English,𠀀")).toBe("English，𠀀");
+  });
 });
 
 describe("normalizeFullwidthParentheses", () => {
@@ -200,6 +300,33 @@ describe("addCJKEnglishSpacing", () => {
   it("preserves existing spaces", () => {
     expect(addCJKEnglishSpacing("你好 World")).toBe("你好 World");
   });
+
+  it("adds spacing around Korean text", () => {
+    // Korean (Hangul) should get CJK↔Latin spacing
+    expect(addCJKEnglishSpacing("안녕Hello")).toBe("안녕 Hello");
+    expect(addCJKEnglishSpacing("Hello안녕")).toBe("Hello 안녕");
+  });
+});
+
+describe("Korean handling - punctuation excluded", () => {
+  it("does NOT convert punctuation next to Korean", () => {
+    // Korean typography uses Western punctuation, so we preserve it
+    expect(normalizeFullwidthPunctuation("안녕,Hello")).toBe("안녕,Hello");
+    expect(normalizeFullwidthPunctuation("Hello,안녕")).toBe("Hello,안녕");
+  });
+
+  it("does NOT convert parentheses around Korean", () => {
+    expect(normalizeFullwidthParentheses("(안녕하세요)")).toBe("(안녕하세요)");
+  });
+
+  it("does NOT convert brackets around Korean", () => {
+    expect(normalizeFullwidthBrackets("[안녕하세요]")).toBe("[안녕하세요]");
+  });
+
+  it("converts punctuation next to Chinese but not Korean", () => {
+    // Mixed: Chinese triggers conversion, Korean doesn't
+    expect(normalizeFullwidthPunctuation("你好,안녕")).toBe("你好，안녕");
+  });
 });
 
 describe("addCJKParenthesisSpacing", () => {
@@ -213,10 +340,92 @@ describe("addCJKParenthesisSpacing", () => {
 });
 
 describe("fixCurrencySpacing", () => {
-  it("removes space between currency symbol and number", () => {
-    expect(fixCurrencySpacing("$ 100")).toBe("$100");
-    expect(fixCurrencySpacing("¥ 500")).toBe("¥500");
-    expect(fixCurrencySpacing("USD 200")).toBe("USD200");
+  describe("prefix currency symbols bind tight to number", () => {
+    it("removes space between $ and number", () => {
+      expect(fixCurrencySpacing("$ 100")).toBe("$100");
+    });
+
+    it("removes space between ¥ and number", () => {
+      expect(fixCurrencySpacing("¥ 500")).toBe("¥500");
+    });
+
+    it("removes space between € and number", () => {
+      expect(fixCurrencySpacing("€ 99.99")).toBe("€99.99");
+    });
+
+    it("removes space between £ and number", () => {
+      expect(fixCurrencySpacing("£ 50")).toBe("£50");
+    });
+  });
+
+  describe("prefix currency codes bind tight to number", () => {
+    it("removes space between USD and number", () => {
+      expect(fixCurrencySpacing("USD 200")).toBe("USD200");
+    });
+
+    it("removes space between CNY and number", () => {
+      expect(fixCurrencySpacing("CNY 1000")).toBe("CNY1000");
+    });
+  });
+
+  describe("unit symbols bind tight to preceding number", () => {
+    it("removes space between number and %", () => {
+      expect(fixCurrencySpacing("50 %")).toBe("50%");
+    });
+
+    it("removes space between number and ℃", () => {
+      expect(fixCurrencySpacing("25 ℃")).toBe("25℃");
+    });
+
+    it("removes space between number and ℉", () => {
+      expect(fixCurrencySpacing("77 ℉")).toBe("77℉");
+    });
+
+    it("removes space between number and °C", () => {
+      expect(fixCurrencySpacing("25 °C")).toBe("25°C");
+    });
+
+    it("removes space between number and ‰", () => {
+      expect(fixCurrencySpacing("5 ‰")).toBe("5‰");
+    });
+  });
+
+  describe("postfix currency codes - spaced mode (default)", () => {
+    it("adds space between number and USD", () => {
+      expect(fixCurrencySpacing("100USD")).toBe("100 USD");
+    });
+
+    it("adds space between number and CNY", () => {
+      expect(fixCurrencySpacing("500CNY")).toBe("500 CNY");
+    });
+
+    it("adds space between number and EUR", () => {
+      expect(fixCurrencySpacing("99EUR")).toBe("99 EUR");
+    });
+  });
+
+  describe("postfix currency codes - tight mode", () => {
+    it("keeps number and USD together", () => {
+      expect(fixCurrencySpacing("100USD", "tight")).toBe("100USD");
+    });
+
+    it("removes space between number and USD", () => {
+      expect(fixCurrencySpacing("100 USD", "tight")).toBe("100USD");
+    });
+  });
+
+  describe("complex cases", () => {
+    it("handles price with tax", () => {
+      expect(fixCurrencySpacing("价格是 $ 99.99 (含税)")).toBe("价格是 $99.99 (含税)");
+    });
+
+    it("handles temperature and discount", () => {
+      expect(fixCurrencySpacing("温度 25 ℃, 折扣 50 %")).toBe("温度 25℃, 折扣 50%");
+    });
+
+    it("handles postfix currency code", () => {
+      expect(fixCurrencySpacing("共100USD。")).toBe("共100 USD。");
+    });
   });
 });
 

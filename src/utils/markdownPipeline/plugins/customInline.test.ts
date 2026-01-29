@@ -242,5 +242,30 @@ describe("customInline remark plugin", () => {
       const highlightNode = children.find((c) => (c as { type?: string }).type === "highlight");
       expect(highlightNode).toBeDefined();
     });
+
+    it("does not corrupt escaped markers inside inline code", () => {
+      const mdast = parseMarkdownToMdast("`\\==not highlight==`");
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+
+      const inlineCode = children.find((c) => (c as { type?: string }).type === "inlineCode");
+      expect(inlineCode).toBeDefined();
+      expect((inlineCode as { value?: string })?.value).toBe("\\==not highlight==");
+
+      const md = serializeMdastToMarkdown(mdast);
+      expect(md.trim()).toBe("`\\==not highlight==`");
+    });
+
+    it("does not corrupt escaped markers inside fenced code blocks", () => {
+      const mdast = parseMarkdownToMdast(["```", "\\==not highlight==", "```", ""].join("\n"));
+
+      const code = mdast.children.find((c) => (c as { type?: string }).type === "code");
+      expect(code).toBeDefined();
+      expect((code as { value?: string })?.value).toBe("\\==not highlight==");
+
+      const md = serializeMdastToMarkdown(mdast);
+      expect(md).toContain("\\==not highlight==");
+      expect(md).toContain("```");
+    });
   });
 });
