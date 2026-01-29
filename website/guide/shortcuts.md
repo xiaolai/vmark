@@ -130,6 +130,7 @@ VMark is designed for keyboard-first workflows. All shortcuts can be customized 
 | Open Folder | `Mod + Shift + O` |
 | Save | `Mod + S` |
 | Save As | `Mod + Shift + S` |
+| Save All and Quit | `Alt + Mod + Shift + Q` |
 | Move to | Menu only |
 | Close | `Mod + W` |
 | Export HTML | `Alt + Mod + E` |

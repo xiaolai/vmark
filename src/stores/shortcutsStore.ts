@@ -141,6 +141,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "Alt-Mod-e", menuId: "export-html", scope: "global" },
   { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf", scope: "global" },
   { id: "preferences", label: "Settings", category: "file", defaultKey: "Mod-,", menuId: "preferences", scope: "global" },
+  { id: "saveAllQuit", label: "Save All and Quit", category: "file", defaultKey: "Alt-Mod-Shift-q", menuId: "save-all-quit", scope: "global" },
 
   // === Future: Cycling (Phase 4) ===
   { id: "cycleEmphasis", label: "Cycle Emphasis", category: "formatting", defaultKey: "Mod-Alt-e", description: "Cycle: none → italic → bold → bold+italic" },

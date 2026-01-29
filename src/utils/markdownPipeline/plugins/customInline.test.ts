@@ -170,4 +170,77 @@ describe("customInline remark plugin", () => {
       expect(subNode).toBeUndefined();
     });
   });
+
+  describe("escaped markers", () => {
+    it("does not parse escaped highlight \\==text==", () => {
+      const mdast = parseMarkdownToMdast("\\==text==");
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+
+      // Should be plain text, not highlight
+      const highlightNode = children.find((c) => (c as { type?: string }).type === "highlight");
+      expect(highlightNode).toBeUndefined();
+
+      // Should contain literal ==
+      const textNode = children.find((c) => (c as { type?: string }).type === "text");
+      expect((textNode as { value?: string })?.value).toContain("==");
+    });
+
+    it("does not parse escaped underline \\++text++", () => {
+      const mdast = parseMarkdownToMdast("\\++text++");
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+
+      const underlineNode = children.find((c) => (c as { type?: string }).type === "underline");
+      expect(underlineNode).toBeUndefined();
+
+      const textNode = children.find((c) => (c as { type?: string }).type === "text");
+      expect((textNode as { value?: string })?.value).toContain("++");
+    });
+
+    it("does not parse escaped superscript \\^text^", () => {
+      const mdast = parseMarkdownToMdast("\\^text^");
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+
+      const supNode = children.find((c) => (c as { type?: string }).type === "superscript");
+      expect(supNode).toBeUndefined();
+
+      const textNode = children.find((c) => (c as { type?: string }).type === "text");
+      expect((textNode as { value?: string })?.value).toContain("^");
+    });
+
+    it("does not parse escaped subscript \\~text~", () => {
+      const mdast = parseMarkdownToMdast("\\~text~");
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+
+      const subNode = children.find((c) => (c as { type?: string }).type === "subscript");
+      expect(subNode).toBeUndefined();
+
+      const textNode = children.find((c) => (c as { type?: string }).type === "text");
+      expect((textNode as { value?: string })?.value).toContain("~");
+    });
+
+    it("handles escaped opening but normal closing", () => {
+      // \==text== should show ==text== as literal text
+      const mdast = parseMarkdownToMdast("\\==highlighted text==");
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+
+      // Should not be highlighted
+      const highlightNode = children.find((c) => (c as { type?: string }).type === "highlight");
+      expect(highlightNode).toBeUndefined();
+    });
+
+    it("parses non-escaped markers normally", () => {
+      // Regular ==text== should still highlight
+      const mdast = parseMarkdownToMdast("==highlighted==");
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+
+      const highlightNode = children.find((c) => (c as { type?: string }).type === "highlight");
+      expect(highlightNode).toBeDefined();
+    });
+  });
 });

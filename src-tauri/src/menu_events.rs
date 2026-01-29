@@ -123,6 +123,17 @@ fn get_focused_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
         .cloned()
 }
 
+/// Get the focused document window (excludes settings window)
+fn get_focused_document_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
+    app.webview_windows()
+        .values()
+        .find(|w| {
+            let label = w.label();
+            w.is_focused().unwrap_or(false) && (label == "main" || label.starts_with("doc-"))
+        })
+        .cloned()
+}
+
 /// Get any document window (main or doc-*), regardless of focus state.
 /// Used when windows exist but none is focused (e.g., window just created by Reopen).
 fn get_any_document_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
@@ -210,6 +221,21 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     // Custom Quit (Cmd+Q) is handled in Rust so we can coordinate unsaved-changes prompts.
     if id == "quit" {
         quit::start_quit(app);
+        return;
+    }
+
+    // Save All and Quit (Alt+Shift+Cmd+Q) - emit to document window to handle save-all logic
+    // Uses get_focused_document_window to skip Settings window
+    if id == "save-all-quit" {
+        let event = make_menu_event("menu:save-all-quit");
+        if let Some(focused) = get_focused_document_window(app) {
+            emit_or_queue_atomic(&focused, event);
+        } else if let Some(window) = get_any_document_window(app) {
+            emit_or_queue_atomic(&window, event);
+        } else {
+            // No document windows - nothing to save, just quit
+            crate::window_manager::force_quit(app.clone());
+        }
         return;
     }
 
