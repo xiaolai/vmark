@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { message, save } from "@tauri-apps/plugin-dialog";
 import { saveToPath } from "@/utils/saveToPath";
-import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
+import {
+  promptSaveForDirtyDocument,
+  promptSaveForMultipleDocuments,
+} from "@/hooks/closeSave";
 
 vi.mock("@/utils/saveToPath", () => ({
   saveToPath: vi.fn(),
@@ -126,6 +129,103 @@ describe("promptSaveForDirtyDocument", () => {
     });
 
     expect(saveToPath).toHaveBeenCalledWith("tab-1", "/tmp/new.md", "content", "manual");
+    expect(result.action).toBe("cancelled");
+  });
+});
+
+describe("promptSaveForMultipleDocuments", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const createContext = (id: string, filePath: string | null = "/tmp/test.md") => ({
+    windowLabel: WINDOW_LABEL,
+    tabId: id,
+    title: filePath ? `Doc ${id}` : `Untitled ${id}`,
+    filePath,
+    content: `content ${id}`,
+  });
+
+  it("returns saved-all for empty array", async () => {
+    const result = await promptSaveForMultipleDocuments([]);
+    expect(result.action).toBe("saved-all");
+    expect(message).not.toHaveBeenCalled();
+  });
+
+  it("returns cancelled when user clicks Cancel", async () => {
+    vi.mocked(message).mockResolvedValueOnce("Cancel");
+
+    const result = await promptSaveForMultipleDocuments([
+      createContext("1"),
+      createContext("2"),
+    ]);
+
+    expect(result.action).toBe("cancelled");
+  });
+
+  it("returns discarded-all when user clicks Don't Save", async () => {
+    vi.mocked(message).mockResolvedValueOnce("Don't Save");
+
+    const result = await promptSaveForMultipleDocuments([
+      createContext("1"),
+      createContext("2"),
+    ]);
+
+    expect(result.action).toBe("discarded-all");
+  });
+
+  it("saves all documents with existing paths when user clicks Save All", async () => {
+    vi.mocked(message).mockResolvedValueOnce("Save All");
+    vi.mocked(saveToPath).mockResolvedValue(true);
+
+    const result = await promptSaveForMultipleDocuments([
+      createContext("1", "/tmp/doc1.md"),
+      createContext("2", "/tmp/doc2.md"),
+    ]);
+
+    expect(saveToPath).toHaveBeenCalledTimes(2);
+    expect(saveToPath).toHaveBeenCalledWith("1", "/tmp/doc1.md", "content 1", "manual");
+    expect(saveToPath).toHaveBeenCalledWith("2", "/tmp/doc2.md", "content 2", "manual");
+    expect(result.action).toBe("saved-all");
+  });
+
+  it("prompts Save As for untitled documents", async () => {
+    vi.mocked(message).mockResolvedValueOnce("Save All");
+    vi.mocked(save).mockResolvedValueOnce("/tmp/saved.md");
+    vi.mocked(saveToPath).mockResolvedValue(true);
+
+    const result = await promptSaveForMultipleDocuments([
+      createContext("1", null), // Untitled
+    ]);
+
+    expect(save).toHaveBeenCalled();
+    expect(saveToPath).toHaveBeenCalledWith("1", "/tmp/saved.md", "content 1", "manual");
+    expect(result.action).toBe("saved-all");
+  });
+
+  it("returns cancelled if Save As is cancelled for untitled document", async () => {
+    vi.mocked(message).mockResolvedValueOnce("Save All");
+    vi.mocked(save).mockResolvedValueOnce(null); // User cancelled Save As
+
+    const result = await promptSaveForMultipleDocuments([
+      createContext("1", null), // Untitled
+    ]);
+
+    expect(result.action).toBe("cancelled");
+    expect(saveToPath).not.toHaveBeenCalled();
+  });
+
+  it("returns cancelled if any save fails", async () => {
+    vi.mocked(message).mockResolvedValueOnce("Save All");
+    vi.mocked(saveToPath)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false); // Second save fails
+
+    const result = await promptSaveForMultipleDocuments([
+      createContext("1", "/tmp/doc1.md"),
+      createContext("2", "/tmp/doc2.md"),
+    ]);
+
     expect(result.action).toBe("cancelled");
   });
 });

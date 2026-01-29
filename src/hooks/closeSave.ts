@@ -22,8 +22,19 @@ export type CloseSaveResult =
   | { action: "discarded" }
   | { action: "cancelled" };
 
+export type MultiSaveResult =
+  | { action: "saved-all" }
+  | { action: "discarded-all" }
+  | { action: "cancelled" };
+
 const CLOSE_SAVE_BUTTONS = {
   save: "Save",
+  dontSave: "Don't Save",
+  cancel: "Cancel",
+} as const;
+
+const MULTI_SAVE_BUTTONS = {
+  saveAll: "Save All",
   dontSave: "Don't Save",
   cancel: "Cancel",
 } as const;
@@ -85,4 +96,76 @@ export async function promptSaveForDirtyDocument(
   }
 
   return { action: "saved", path };
+}
+
+/**
+ * Prompt user to save multiple dirty documents before closing/quitting.
+ * Shows a summary dialog with Save All / Don't Save / Cancel.
+ *
+ * For "Save All":
+ * - Files with paths are saved directly
+ * - Untitled files prompt Save As individually
+ *
+ * Returns a tri-state result for callers to decide close behavior.
+ */
+export async function promptSaveForMultipleDocuments(
+  contexts: CloseSaveContext[]
+): Promise<MultiSaveResult> {
+  if (contexts.length === 0) {
+    return { action: "saved-all" };
+  }
+
+  // Build document list for display
+  const docNames = contexts.map((c) => c.title).join("\n• ");
+  const docCount = contexts.length;
+
+  const result = await message(
+    `You have ${docCount} unsaved document${docCount > 1 ? "s" : ""}:\n\n• ${docNames}`,
+    {
+      title: "Unsaved Changes",
+      kind: "warning",
+      buttons: {
+        yes: MULTI_SAVE_BUTTONS.saveAll,
+        no: MULTI_SAVE_BUTTONS.dontSave,
+        cancel: MULTI_SAVE_BUTTONS.cancel,
+      },
+    }
+  );
+
+  if (result === "Cancel" || result === MULTI_SAVE_BUTTONS.cancel) {
+    return { action: "cancelled" };
+  }
+
+  if (result === "No" || result === MULTI_SAVE_BUTTONS.dontSave) {
+    return { action: "discarded-all" };
+  }
+
+  // Save All: save each document
+  for (const context of contexts) {
+    const { windowLabel, tabId, title, filePath, content } = context;
+
+    let path = filePath;
+    if (!path) {
+      // Untitled file: prompt Save As
+      const defaultFolder = await getDefaultSaveFolderWithFallback(windowLabel);
+      const filename = title.endsWith(".md") ? title : `${title}.md`;
+      const defaultPath = joinPath(defaultFolder, filename);
+      const newPath = await save({
+        defaultPath,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (!newPath) {
+        // User cancelled Save As - abort entire operation
+        return { action: "cancelled" };
+      }
+      path = newPath;
+    }
+
+    const saved = await saveToPath(tabId, path, content, "manual");
+    if (!saved) {
+      return { action: "cancelled" };
+    }
+  }
+
+  return { action: "saved-all" };
 }

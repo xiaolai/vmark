@@ -4,7 +4,11 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useWindowLabel } from "../contexts/WindowContext";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
-import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
+import {
+  promptSaveForDirtyDocument,
+  promptSaveForMultipleDocuments,
+  type CloseSaveContext,
+} from "@/hooks/closeSave";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 
 // Dev-only logging for debugging window close issues
@@ -74,24 +78,33 @@ export function useWindowClose() {
         return true;
       }
 
-      // Process each dirty tab - prompt user for each one
-      for (const dirtyTab of dirtyTabs) {
-        const doc = useDocumentStore.getState().getDocument(dirtyTab.id);
-        if (!doc?.isDirty) continue; // May have been saved in a previous iteration
+      // Build contexts for dirty documents
+      const dirtyContexts: CloseSaveContext[] = dirtyTabs
+        .map((tab) => {
+          const doc = useDocumentStore.getState().getDocument(tab.id);
+          if (!doc?.isDirty) return null;
+          return {
+            windowLabel,
+            tabId: tab.id,
+            title: doc.filePath || tab.title,
+            filePath: doc.filePath,
+            content: doc.content,
+          };
+        })
+        .filter((ctx): ctx is CloseSaveContext => ctx !== null);
 
-        const result = await promptSaveForDirtyDocument({
-          windowLabel,
-          tabId: dirtyTab.id,
-          title: doc.filePath || dirtyTab.title,
-          filePath: doc.filePath,
-          content: doc.content,
-        });
-
+      // Single dirty document: use individual prompt
+      if (dirtyContexts.length === 1) {
+        const result = await promptSaveForDirtyDocument(dirtyContexts[0]);
         if (result.action === "cancelled") {
           return false;
         }
-
-        // If shouldSave is false, user chose "Don't Save" - continue to next tab
+      } else {
+        // Multiple dirty documents: use summary dialog
+        const result = await promptSaveForMultipleDocuments(dirtyContexts);
+        if (result.action === "cancelled") {
+          return false;
+        }
       }
 
       // All dirty tabs handled - close the window
