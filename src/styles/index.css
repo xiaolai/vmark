@@ -124,10 +124,18 @@
   /* Global list indent (inherited by nested contexts) */
   --list-indent: 1em;
 
-  /* Editor content horizontal padding - constrains selection to content area.
-     Computed dynamically in useTheme.ts as fontSize * 2 for consistency across modes.
-     Fallback value for SSR/initial render: */
-  --editor-content-padding: 36px;
+  /* Editor typography - computed dynamically in useTheme.ts.
+     Static fallbacks ensure print and SSR work correctly.
+     Defaults match settingsStore defaults: fontSize=18, lineHeight=1.6, blockSpacing=1 */
+  --editor-font-size: 18px;
+  --editor-font-size-sm: 16.2px;       /* 18 * 0.9 */
+  --editor-font-size-mono: 15.3px;     /* 18 * 0.85 */
+  --editor-line-height: 1.6;
+  --editor-line-height-px: 28.8px;     /* 18 * 1.6 */
+  --editor-block-spacing: 1em;         /* blockSpacing=1 → margin = lineHeight*(1-1)+1 = 1em */
+  --editor-content-padding: 36px;      /* fontSize * 2 */
+  --cjk-letter-spacing: 0.05em;        /* Default CJK spacing */
+  --editor-width: 50em;                /* Default editor width */
 
   /* Alert tokens for dark mode (centralized) */
   --alert-note-dark: #58a6ff;
@@ -304,6 +312,34 @@ body {
   .tiptap-editor {
     padding: 0 !important;
     min-height: auto !important;
+  }
+
+  /* Ensure typography variables are respected in print.
+     These inherit from :root where useTheme.ts sets the values. */
+  .tiptap-editor .ProseMirror {
+    font-size: var(--editor-font-size) !important;
+    line-height: var(--editor-line-height) !important;
+  }
+
+  /* Block spacing for print */
+  .tiptap-editor .ProseMirror > p,
+  .tiptap-editor .ProseMirror > ul,
+  .tiptap-editor .ProseMirror > ol,
+  .tiptap-editor .ProseMirror > blockquote,
+  .tiptap-editor .ProseMirror > pre,
+  .tiptap-editor .ProseMirror > .code-block-wrapper,
+  .tiptap-editor .ProseMirror > table,
+  .tiptap-editor .ProseMirror > .alert-block,
+  .tiptap-editor .ProseMirror > .block-image,
+  .tiptap-editor .ProseMirror > .math-block,
+  .tiptap-editor .ProseMirror > .mermaid-block,
+  .tiptap-editor .ProseMirror > hr {
+    margin-bottom: var(--editor-block-spacing) !important;
+  }
+
+  /* CJK letter spacing for print */
+  .tiptap-editor .cjk-spacing {
+    letter-spacing: var(--cjk-letter-spacing) !important;
   }
 
   /* Source editor (CodeMirror) */
