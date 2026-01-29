@@ -8,7 +8,7 @@
  */
 
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 
 // Threshold for scrolling (pixels from target position)
 const SCROLL_THRESHOLD = 30;
@@ -28,7 +28,7 @@ export function createSourceTypewriterPlugin() {
 
       update(update: ViewUpdate) {
         // Check if typewriter mode is enabled
-        if (!useEditorStore.getState().typewriterModeEnabled) return;
+        if (!useViewSettingsStore.getState().typewriterModeEnabled) return;
 
         // Only scroll if selection changed
         if (!update.selectionSet) return;

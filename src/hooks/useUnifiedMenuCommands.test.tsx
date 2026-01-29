@@ -23,13 +23,13 @@ vi.mock("@/stores/featureFlagsStore", () => ({
 }));
 
 let sourceMode = false;
-vi.mock("@/stores/editorStore", () => {
-  const useEditorStore = (selector?: (state: { sourceMode: boolean }) => unknown) => {
+vi.mock("@/stores/viewSettingsStore", () => {
+  const useViewSettingsStore = (selector?: (state: { sourceMode: boolean }) => unknown) => {
     const state = { sourceMode };
     return selector ? selector(state) : state;
   };
-  useEditorStore.getState = () => ({ sourceMode });
-  return { useEditorStore };
+  useViewSettingsStore.getState = () => ({ sourceMode });
+  return { useViewSettingsStore };
 });
 
 let activeWysiwygEditor: { view: object } | null = null;

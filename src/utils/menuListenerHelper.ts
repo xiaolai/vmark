@@ -6,7 +6,7 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { type WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { type MutableRefObject } from "react";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 
 interface MenuListenerContext {
   currentWindow: WebviewWindow;
@@ -30,7 +30,7 @@ export async function createMenuListener(
   const unlisten = await currentWindow.listen<string>(eventName, (event) => {
     if (event.payload !== windowLabel) return;
     // Skip if in source mode - source mode has its own handlers
-    if (useEditorStore.getState().sourceMode) return;
+    if (useViewSettingsStore.getState().sourceMode) return;
     const editor = editorRef.current;
     if (!editor) return;
     handler(editor);

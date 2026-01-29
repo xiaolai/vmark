@@ -1,13 +1,13 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 
 const focusPluginKey = new PluginKey("focusMode");
 
 function createFocusDecoration(state: EditorState): DecorationSet | null {
-  const focusEnabled = useEditorStore.getState().focusModeEnabled;
+  const focusEnabled = useViewSettingsStore.getState().focusModeEnabled;
   if (!focusEnabled) return null;
 
   const { selection } = state;
@@ -32,13 +32,13 @@ function createFocusDecoration(state: EditorState): DecorationSet | null {
 export const focusModeExtension = Extension.create({
   name: "focusMode",
   addProseMirrorPlugins() {
-    let lastFocusMode = useEditorStore.getState().focusModeEnabled;
+    let lastFocusMode = useViewSettingsStore.getState().focusModeEnabled;
 
     return [
       new Plugin({
         key: focusPluginKey,
         view: (view) => {
-          const unsubscribe = useEditorStore.subscribe((state) => {
+          const unsubscribe = useViewSettingsStore.subscribe((state) => {
             if (state.focusModeEnabled !== lastFocusMode) {
               lastFocusMode = state.focusModeEnabled;
               runOrQueueProseMirrorAction(view, () => view.dispatch(view.state.tr));

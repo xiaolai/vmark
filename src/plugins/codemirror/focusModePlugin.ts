@@ -15,7 +15,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 
 // Decoration to mark blurred (non-focused) lines
@@ -48,7 +48,7 @@ function findParagraphBounds(
 
 /**
  * Creates a ViewPlugin that dims non-focused paragraphs.
- * Subscribes to editorStore.focusModeEnabled for toggle.
+ * Subscribes to viewSettingsStore.focusModeEnabled for toggle.
  */
 export function createSourceFocusModePlugin() {
   return ViewPlugin.fromClass(
@@ -60,7 +60,7 @@ export function createSourceFocusModePlugin() {
         this.decorations = this.buildDecorations(view);
 
         // Subscribe to store changes to rebuild decorations
-        this.unsubscribe = useEditorStore.subscribe((state, prevState) => {
+        this.unsubscribe = useViewSettingsStore.subscribe((state, prevState) => {
           if (state.focusModeEnabled !== prevState.focusModeEnabled) {
             this.decorations = this.buildDecorations(view);
             // Force view update by dispatching empty transaction (guard IME)
@@ -86,7 +86,7 @@ export function createSourceFocusModePlugin() {
         const builder = new RangeSetBuilder<Decoration>();
 
         // Check if focus mode is enabled
-        if (!useEditorStore.getState().focusModeEnabled) {
+        if (!useViewSettingsStore.getState().focusModeEnabled) {
           return builder.finish();
         }
 

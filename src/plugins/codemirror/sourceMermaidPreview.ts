@@ -7,7 +7,7 @@
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { getMermaidPreviewView } from "@/plugins/mermaidPreview";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 
 /**
  * Find mermaid code block at cursor position.
@@ -93,9 +93,9 @@ class SourceMermaidPreviewPlugin {
 
   constructor(view: EditorView) {
     this.view = view;
-    this.lastPreviewEnabled = useEditorStore.getState().diagramPreviewEnabled;
+    this.lastPreviewEnabled = useViewSettingsStore.getState().diagramPreviewEnabled;
     // Subscribe to store changes to react when diagramPreviewEnabled toggles
-    this.unsubscribe = useEditorStore.subscribe((state) => {
+    this.unsubscribe = useViewSettingsStore.subscribe((state) => {
       if (state.diagramPreviewEnabled !== this.lastPreviewEnabled) {
         this.lastPreviewEnabled = state.diagramPreviewEnabled;
         this.scheduleCheck();
@@ -121,7 +121,7 @@ class SourceMermaidPreviewPlugin {
 
   private checkMermaidAtCursor() {
     // Check if diagram preview is enabled
-    if (!useEditorStore.getState().diagramPreviewEnabled) {
+    if (!useViewSettingsStore.getState().diagramPreviewEnabled) {
       this.hidePreview();
       return;
     }

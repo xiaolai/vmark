@@ -32,17 +32,18 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
   }),
 }));
 
-// Mock useEditorStore
-vi.mock("@/stores/editorStore", () => {
+// Mock useViewSettingsStore
+vi.mock("@/stores/viewSettingsStore", () => {
   const state = {
-    content: "",
-    setContent: vi.fn(),
     sourceMode: false,
     focusModeEnabled: false,
     typewriterModeEnabled: false,
+    wordWrap: true,
+    showLineNumbers: false,
+    diagramPreviewEnabled: false,
   };
 
-  return { useEditorStore: createZustandMock(state) };
+  return { useViewSettingsStore: createZustandMock(state) };
 });
 
 vi.mock("@/stores/documentStore", () => {

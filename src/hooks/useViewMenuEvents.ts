@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -36,21 +36,21 @@ export function useViewMenuEvents(): void {
           toastStore.hideToast();
         }
         flushActiveWysiwygNow();
-        useEditorStore.getState().toggleSourceMode();
+        useViewSettingsStore.getState().toggleSourceMode();
       });
       if (cancelled) { unlistenSourceMode(); return; }
       unlistenRefs.current.push(unlistenSourceMode);
 
       const unlistenFocusMode = await currentWindow.listen<string>("menu:focus-mode", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleFocusMode();
+        useViewSettingsStore.getState().toggleFocusMode();
       });
       if (cancelled) { unlistenFocusMode(); return; }
       unlistenRefs.current.push(unlistenFocusMode);
 
       const unlistenTypewriterMode = await currentWindow.listen<string>("menu:typewriter-mode", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleTypewriterMode();
+        useViewSettingsStore.getState().toggleTypewriterMode();
       });
       if (cancelled) { unlistenTypewriterMode(); return; }
       unlistenRefs.current.push(unlistenTypewriterMode);
@@ -71,21 +71,21 @@ export function useViewMenuEvents(): void {
 
       const unlistenWordWrap = await currentWindow.listen<string>("menu:word-wrap", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleWordWrap();
+        useViewSettingsStore.getState().toggleWordWrap();
       });
       if (cancelled) { unlistenWordWrap(); return; }
       unlistenRefs.current.push(unlistenWordWrap);
 
       const unlistenLineNumbers = await currentWindow.listen<string>("menu:line-numbers", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleLineNumbers();
+        useViewSettingsStore.getState().toggleLineNumbers();
       });
       if (cancelled) { unlistenLineNumbers(); return; }
       unlistenRefs.current.push(unlistenLineNumbers);
 
       const unlistenDiagramPreview = await currentWindow.listen<string>("menu:diagram-preview", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleDiagramPreview();
+        useViewSettingsStore.getState().toggleDiagramPreview();
       });
       if (cancelled) { unlistenDiagramPreview(); return; }
       unlistenRefs.current.push(unlistenDiagramPreview);

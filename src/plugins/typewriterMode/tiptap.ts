@@ -1,6 +1,6 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 
 const typewriterPluginKey = new PluginKey("typewriterMode");
 
@@ -18,7 +18,7 @@ export const typewriterModeExtension = Extension.create({
         key: typewriterPluginKey,
         view: () => ({
           update: (view, prevState) => {
-            const typewriterEnabled = useEditorStore.getState().typewriterModeEnabled;
+            const typewriterEnabled = useViewSettingsStore.getState().typewriterModeEnabled;
             if (!typewriterEnabled) return;
 
             if (view.state.selection.eq(prevState.selection)) return;

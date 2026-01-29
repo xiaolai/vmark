@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 
 const mockedStores = vi.hoisted(() => ({
   sourceState: {
@@ -71,7 +71,7 @@ function resetStores() {
     toolbarSessionFocusIndex: -1,
     toolbarDropdownOpen: false,
   });
-  useEditorStore.setState({
+  useViewSettingsStore.setState({
     sourceMode: false,
   });
   mockedStores.sourceState.context = null;

@@ -9,7 +9,7 @@ import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { search, selectNextOccurrence, selectSelectionMatches } from "@codemirror/search";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import {
   sourceEditorTheme,
   codeHighlightStyle,
@@ -165,7 +165,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
       guardCodeMirrorKeyBinding({
         key: "Mod-Alt-w",
         run: () => {
-          useEditorStore.getState().toggleWordWrap();
+          useViewSettingsStore.getState().toggleWordWrap();
           return true;
         },
         preventDefault: true,

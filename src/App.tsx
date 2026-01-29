@@ -50,7 +50,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
     return this.props.children;
   }
 }
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSearchStore } from "@/stores/searchStore";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
@@ -150,8 +150,8 @@ function MainWindowHooks() {
 }
 
 function MainLayout() {
-  const focusModeEnabled = useEditorStore((state) => state.focusModeEnabled);
-  const typewriterModeEnabled = useEditorStore(
+  const focusModeEnabled = useViewSettingsStore((state) => state.focusModeEnabled);
+  const typewriterModeEnabled = useViewSettingsStore(
     (state) => state.typewriterModeEnabled
   );
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);

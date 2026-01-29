@@ -11,7 +11,7 @@ import { useEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { FEATURE_FLAGS } from "@/stores/featureFlagsStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import {
@@ -307,7 +307,7 @@ export function useUnifiedMenuCommands(): void {
           }
 
           // Route to appropriate adapter based on mode
-          const isSourceMode = useEditorStore.getState().sourceMode;
+          const isSourceMode = useViewSettingsStore.getState().sourceMode;
 
           // Capability check
           if (isSourceMode && !actionDef.supports.source) {

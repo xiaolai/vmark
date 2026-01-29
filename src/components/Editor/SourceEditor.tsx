@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useSearchStore } from "@/stores/searchStore";
@@ -52,9 +52,9 @@ export function SourceEditor() {
   setCursorInfoRef.current = setCursorInfo;
   cursorInfoRef.current = cursorInfo;
 
-  // Use editor store for global settings
-  const wordWrap = useEditorStore((state) => state.wordWrap);
-  const showLineNumbers = useEditorStore((state) => state.showLineNumbers);
+  // Use view settings store for global settings
+  const wordWrap = useViewSettingsStore((state) => state.wordWrap);
+  const showLineNumbers = useViewSettingsStore((state) => state.showLineNumbers);
   const showBrTags = useSettingsStore((state) => state.markdown.showBrTags);
   const autoPairEnabled = useSettingsStore((state) => state.markdown.autoPairEnabled);
 
@@ -104,8 +104,8 @@ export function SourceEditor() {
       }
     });
 
-    const initialWordWrap = useEditorStore.getState().wordWrap;
-    const initialShowLineNumbers = useEditorStore.getState().showLineNumbers;
+    const initialWordWrap = useViewSettingsStore.getState().wordWrap;
+    const initialShowLineNumbers = useViewSettingsStore.getState().showLineNumbers;
     const initialShowBrTags = useSettingsStore.getState().markdown.showBrTags;
     const initialAutoPair = useSettingsStore.getState().markdown.autoPairEnabled ?? true;
 

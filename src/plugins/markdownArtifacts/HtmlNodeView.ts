@@ -1,9 +1,8 @@
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { useSettingsStore, type HtmlRenderingMode } from "@/stores/settingsStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
-import type { CursorInfo } from "@/types/cursorSync";
 
 interface HtmlNodeViewOptions {
   inline: boolean;
@@ -14,14 +13,12 @@ interface HtmlNodeViewOptions {
 class BaseHtmlNodeView implements NodeView {
   dom: HTMLElement;
 
-  private node: PMNode;
   private value: string;
   private renderMode: HtmlRenderingMode;
   private unsubscribe: (() => void) | null = null;
   private options: HtmlNodeViewOptions;
 
   constructor(node: PMNode, options: HtmlNodeViewOptions) {
-    this.node = node;
     this.options = options;
     this.value = String(node.attrs.value ?? "");
     this.renderMode = useSettingsStore.getState().markdown.htmlRenderingMode;
@@ -49,32 +46,16 @@ class BaseHtmlNodeView implements NodeView {
     e.preventDefault();
     e.stopPropagation();
 
-    const sourceLine = this.node.attrs.sourceLine as number | null;
-    if (sourceLine !== null) {
-      // Create cursor info to sync position
-      const cursorInfo: CursorInfo = {
-        sourceLine,
-        wordAtCursor: "",
-        offsetInWord: 0,
-        nodeType: "paragraph", // HTML blocks treated as paragraph-like
-        percentInLine: 0,
-        contextBefore: "",
-        contextAfter: "",
-      };
-      useEditorStore.getState().setCursorInfo(cursorInfo);
-    }
-
     // Switch to source mode
-    const editorStore = useEditorStore.getState();
-    if (!editorStore.sourceMode) {
-      editorStore.toggleSourceMode();
+    const viewSettings = useViewSettingsStore.getState();
+    if (!viewSettings.sourceMode) {
+      viewSettings.toggleSourceMode();
     }
   };
 
   update(node: PMNode): boolean {
     if (node.type.name !== this.options.typeName) return false;
 
-    this.node = node;
     const nextValue = String(node.attrs.value ?? "");
     if (nextValue !== this.value) {
       this.value = nextValue;

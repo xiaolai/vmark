@@ -6,7 +6,7 @@
  */
 
 import { useEffect } from "react";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
@@ -35,7 +35,7 @@ export function useViewShortcuts() {
           toastStore.hideToast();
         }
         flushActiveWysiwygNow();
-        useEditorStore.getState().toggleSourceMode();
+        useViewSettingsStore.getState().toggleSourceMode();
         return;
       }
 
@@ -43,7 +43,7 @@ export function useViewShortcuts() {
       const focusModeKey = shortcuts.getShortcut("focusMode");
       if (matchesShortcutEvent(e, focusModeKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleFocusMode();
+        useViewSettingsStore.getState().toggleFocusMode();
         return;
       }
 
@@ -51,7 +51,7 @@ export function useViewShortcuts() {
       const typewriterModeKey = shortcuts.getShortcut("typewriterMode");
       if (matchesShortcutEvent(e, typewriterModeKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleTypewriterMode();
+        useViewSettingsStore.getState().toggleTypewriterMode();
         return;
       }
 
@@ -59,7 +59,7 @@ export function useViewShortcuts() {
       const wordWrapKey = shortcuts.getShortcut("wordWrap");
       if (matchesShortcutEvent(e, wordWrapKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleWordWrap();
+        useViewSettingsStore.getState().toggleWordWrap();
         return;
       }
 
@@ -67,7 +67,7 @@ export function useViewShortcuts() {
       const lineNumbersKey = shortcuts.getShortcut("lineNumbers");
       if (matchesShortcutEvent(e, lineNumbersKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleLineNumbers();
+        useViewSettingsStore.getState().toggleLineNumbers();
         return;
       }
     };

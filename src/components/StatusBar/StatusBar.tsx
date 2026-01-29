@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback, type MouseEvent, type Keyboa
 const EMPTY_TABS: never[] = [];
 import { Code2, Type, Save, Plus, AlertTriangle, GitFork, Radio } from "lucide-react";
 import { countWords as alfaazCount } from "alfaaz";
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
@@ -86,7 +86,7 @@ export function StatusBar() {
   const isMissing = useDocumentIsMissing();
   const isDivergent = useDocumentIsDivergent();
   const autoSaveEnabled = useSettingsStore((s) => s.general.autoSaveEnabled);
-  const sourceMode = useEditorStore((state) => state.sourceMode);
+  const sourceMode = useViewSettingsStore((state) => state.sourceMode);
   const statusBarVisible = useUIStore((state) => state.statusBarVisible);
   const sourceModeShortcut = useShortcutsStore((state) => state.getShortcut("sourceMode"));
 
@@ -271,7 +271,7 @@ export function StatusBar() {
                   toastStore.hideToast();
                 }
                 flushActiveWysiwygNow();
-                useEditorStore.getState().toggleSourceMode();
+                useViewSettingsStore.getState().toggleSourceMode();
               }}
             >
               {sourceMode ? <Code2 size={14} /> : <Type size={12} />}

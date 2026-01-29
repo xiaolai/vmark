@@ -1,4 +1,4 @@
-import { useEditorStore } from "@/stores/editorStore";
+import { useViewSettingsStore } from "@/stores/viewSettingsStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveTabId, useDocumentId } from "@/hooks/useDocumentState";
 import { useUnifiedMenuCommands } from "@/hooks/useUnifiedMenuCommands";
@@ -39,7 +39,7 @@ import "@/plugins/cjkLetterSpacing/cjk-letter-spacing.css";
 import "katex/dist/katex.min.css";
 
 export function Editor() {
-  const sourceMode = useEditorStore((state) => state.sourceMode);
+  const sourceMode = useViewSettingsStore((state) => state.sourceMode);
   const tabId = useActiveTabId();
   const documentId = useDocumentId();
   const mediaBorderStyle = useSettingsStore((s) => s.markdown.mediaBorderStyle);
