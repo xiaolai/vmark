@@ -435,65 +435,67 @@ export function useFileOperations() {
       // Save All and Quit - saves all dirty documents then quits
       const unlistenSaveAllQuit = await currentWindow.listen<string>(
         "menu:save-all-quit",
-        withReentryGuard(`${windowLabel}:save-all-quit`, async (event) => {
+        async (event) => {
           if (event.payload !== windowLabel) return;
 
-          try {
-            // Flush any pending editor changes before reading dirty state
-            flushActiveWysiwygNow();
+          await withReentryGuard(windowLabel, "save-all-quit", async () => {
+            try {
+              // Flush any pending editor changes before reading dirty state
+              flushActiveWysiwygNow();
 
-            // Get all dirty tab IDs
-            const dirtyTabIds = useDocumentStore.getState().getAllDirtyDocuments();
-            if (dirtyTabIds.length === 0) {
-              // No dirty docs, quit immediately
-              await invoke("force_quit");
-              return;
-            }
-
-            // Build save contexts by looking up document and tab info
-            const tabStore = useTabStore.getState();
-            const docStore = useDocumentStore.getState();
-            const contexts: CloseSaveContext[] = [];
-
-            // Build tabId -> {windowLabel, title} map for O(1) lookup
-            const tabOwnership = new Map<string, { windowLabel: string; title: string }>();
-            for (const [wLabel, tabs] of Object.entries(tabStore.tabs)) {
-              for (const tab of tabs) {
-                tabOwnership.set(tab.id, { windowLabel: wLabel, title: tab.title });
+              // Get all dirty tab IDs
+              const dirtyTabIds = useDocumentStore.getState().getAllDirtyDocuments();
+              if (dirtyTabIds.length === 0) {
+                // No dirty docs, quit immediately
+                await invoke("force_quit");
+                return;
               }
-            }
 
-            // Find window label and title for each dirty tab
-            for (const tabId of dirtyTabIds) {
-              const doc = docStore.getDocument(tabId);
-              if (!doc?.isDirty) continue;
+              // Build save contexts by looking up document and tab info
+              const tabStore = useTabStore.getState();
+              const docStore = useDocumentStore.getState();
+              const contexts: CloseSaveContext[] = [];
 
-              const ownership = tabOwnership.get(tabId);
-              contexts.push({
-                windowLabel: ownership?.windowLabel ?? windowLabel,
-                tabId,
-                title: ownership?.title ?? doc.filePath ?? "Untitled",
-                filePath: doc.filePath,
-                content: doc.content,
-              });
-            }
+              // Build tabId -> {windowLabel, title} map for O(1) lookup
+              const tabOwnership = new Map<string, { windowLabel: string; title: string }>();
+              for (const [wLabel, tabs] of Object.entries(tabStore.tabs)) {
+                for (const tab of tabs) {
+                  tabOwnership.set(tab.id, { windowLabel: wLabel, title: tab.title });
+                }
+              }
 
-            if (contexts.length === 0) {
-              await invoke("force_quit");
-              return;
-            }
+              // Find window label and title for each dirty tab
+              for (const tabId of dirtyTabIds) {
+                const doc = docStore.getDocument(tabId);
+                if (!doc?.isDirty) continue;
 
-            // Save all documents (will prompt for folder if multiple untitled)
-            const result = await saveAllDocuments(contexts);
-            if (result.action === "saved-all") {
-              await invoke("force_quit");
+                const ownership = tabOwnership.get(tabId);
+                contexts.push({
+                  windowLabel: ownership?.windowLabel ?? windowLabel,
+                  tabId,
+                  title: ownership?.title ?? doc.filePath ?? "Untitled",
+                  filePath: doc.filePath,
+                  content: doc.content,
+                });
+              }
+
+              if (contexts.length === 0) {
+                await invoke("force_quit");
+                return;
+              }
+
+              // Save all documents (will prompt for folder if multiple untitled)
+              const result = await saveAllDocuments(contexts);
+              if (result.action === "saved-all") {
+                await invoke("force_quit");
+              }
+              // If cancelled, do nothing (stay in app)
+            } catch (error) {
+              console.error("[SaveAllQuit] Failed:", error);
+              toast.error("Failed to save documents");
             }
-            // If cancelled, do nothing (stay in app)
-          } catch (error) {
-            console.error("[SaveAllQuit] Failed:", error);
-            toast.error("Failed to save documents");
-          }
-        })
+          });
+        }
       );
       if (cancelled) { unlistenSaveAllQuit(); return; }
       unlistenRefs.current.push(unlistenSaveAllQuit);

@@ -23,6 +23,7 @@ function makeConfig(partial: Partial<CJKFormattingSettings> = {}): CJKFormatting
     emdashSpacing: false,
     smartQuoteConversion: false,
     quoteStyle: "curly",
+    contextualQuotes: false,
     quoteSpacing: false,
     singleQuoteSpacing: false,
     cjkCornerQuotes: false,

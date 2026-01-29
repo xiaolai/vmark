@@ -208,12 +208,40 @@ body {
 
 /* ===========================================
    Print Styles - Typora-style direct printing
+   Always uses light theme colors for print unless user explicitly changes.
    =========================================== */
 @media print {
   /* Force exact colors for syntax highlighting, etc. */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Force light theme colors for print - override dark mode variables */
+  :root {
+    --bg-color: white !important;
+    --text-color: #1a1a1a !important;
+    --text-secondary: #666666 !important;
+    --text-tertiary: #999999 !important;
+    --border-color: #d5d4d4 !important;
+    --code-bg-color: #f6f8fa !important;
+    --code-text-color: #1a1a1a !important;
+    --code-border-color: #d5d4d4 !important;
+    --md-char-color: #777777 !important;
+    --meta-content-color: #777777 !important;
+    --strong-color: rgb(63, 86, 99) !important;
+    --emphasis-color: rgb(91, 4, 17) !important;
+    --selection-color: rgba(0, 102, 204, 0.2) !important;
+    --table-border-color: #d5d4d4 !important;
+    /* Alert colors - use light mode values */
+    --alert-note: #0969da !important;
+    --alert-tip: #1a7f37 !important;
+    --alert-important: #8250df !important;
+    --alert-warning: #9a6700 !important;
+    --alert-caution: #cf222e !important;
+    /* Highlight colors */
+    --highlight-bg: #fff3a3 !important;
+    --highlight-text: inherit !important;
   }
 
   /* Force white background for print */
@@ -319,6 +347,13 @@ body {
   .tiptap-editor .ProseMirror {
     font-size: var(--editor-font-size) !important;
     line-height: var(--editor-line-height) !important;
+    color: #1a1a1a !important; /* Force dark text for print */
+  }
+
+  /* Override dark-theme class for print */
+  .dark-theme .tiptap-editor .ProseMirror,
+  .dark .tiptap-editor .ProseMirror {
+    color: #1a1a1a !important;
   }
 
   /* Block spacing for print */
