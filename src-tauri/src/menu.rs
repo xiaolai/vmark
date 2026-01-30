@@ -507,8 +507,6 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "vmark-help", "VMark Help", true, None::<&str>)?,
             &MenuItem::with_id(app, "keyboard-shortcuts", "Keyboard Shortcuts", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "mcp-status", "MCP Server Status...", true, None::<&str>)?,
-            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "report-issue", "Report an Issue...", true, None::<&str>)?,
         ],
     )?;
@@ -521,8 +519,6 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         &[
             &MenuItem::with_id(app, "vmark-help", "VMark Help", true, None::<&str>)?,
             &MenuItem::with_id(app, "keyboard-shortcuts", "Keyboard Shortcuts", true, None::<&str>)?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "mcp-status", "MCP Server Status...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "report-issue", "Report an Issue...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
@@ -1180,8 +1176,6 @@ fn create_menu_with_shortcuts(
             &MenuItem::with_id(app, "vmark-help", "VMark Help", true, None::<&str>)?,
             &MenuItem::with_id(app, "keyboard-shortcuts", "Keyboard Shortcuts", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "mcp-status", "MCP Server Status...", true, None::<&str>)?,
-            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "report-issue", "Report an Issue...", true, None::<&str>)?,
         ],
     )?;
@@ -1194,8 +1188,6 @@ fn create_menu_with_shortcuts(
         &[
             &MenuItem::with_id(app, "vmark-help", "VMark Help", true, None::<&str>)?,
             &MenuItem::with_id(app, "keyboard-shortcuts", "Keyboard Shortcuts", true, None::<&str>)?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "mcp-status", "MCP Server Status...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "report-issue", "Report an Issue...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
