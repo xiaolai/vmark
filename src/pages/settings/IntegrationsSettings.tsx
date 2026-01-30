@@ -4,14 +4,15 @@
  * MCP server and AI assistant integration settings.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { SettingRow, Toggle, SettingsGroup, CopyButton } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpHealthCheck } from "@/hooks/useMcpHealthCheck";
 import { useMcpHealthStore } from "@/stores/mcpHealthStore";
 import { McpConfigInstaller } from "./McpConfigInstaller";
-import { RefreshCw, ChevronDown, ChevronRight, Copy, Check } from "lucide-react";
+import { RefreshCw, Users, ExternalLink } from "lucide-react";
 
 function StatusBadge({ running, loading }: { running: boolean; loading: boolean }) {
   if (loading) {
@@ -48,16 +49,29 @@ export function IntegrationsSettings() {
   const { runHealthCheck, isChecking, version, toolCount, resourceCount } = useMcpHealthCheck();
   const health = useMcpHealthStore((state) => state.health);
 
-  const [toolsExpanded, setToolsExpanded] = useState(false);
-  const [copiedTools, setCopiedTools] = useState(false);
+  const [clientCount, setClientCount] = useState(0);
 
-  const handleCopyTools = useCallback(() => {
-    const toolsList = health.tools.join("\n");
-    navigator.clipboard.writeText(toolsList);
-    setCopiedTools(true);
-    setTimeout(() => setCopiedTools(false), 2000);
-  }, [health.tools]);
+  // Fetch client count when bridge is running
+  useEffect(() => {
+    if (!running) {
+      setClientCount(0);
+      return;
+    }
 
+    const fetchClientCount = async () => {
+      try {
+        const count = await invoke<number>("mcp_bridge_client_count");
+        setClientCount(count);
+      } catch {
+        // Ignore errors
+      }
+    };
+
+    fetchClientCount();
+    // Poll every 5 seconds while running
+    const interval = setInterval(fetchClientCount, 5000);
+    return () => clearInterval(interval);
+  }, [running]);
 
   const handleToggleServer = async (enabled: boolean) => {
     if (enabled) {
@@ -143,6 +157,13 @@ export function IntegrationsSettings() {
           </div>
         )}
 
+        {health.checkError && !error && (
+          <div className="mt-2 text-xs text-[var(--error-color)]">
+            Health check: {health.checkError}
+          </div>
+        )}
+
+        {/* Server info - show when running */}
         {running && port && (
           <div className="mt-4 pt-3 border-t border-[var(--border-color)]">
             <div className="text-xs text-[var(--text-tertiary)] flex items-center gap-1.5">
@@ -160,61 +181,34 @@ export function IntegrationsSettings() {
             <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[var(--text-tertiary)]">Version</span>
-                <code className="text-[var(--text-secondary)] font-mono">{version}</code>
+                <code className="text-[var(--text-secondary)] font-mono">{version ?? "—"}</code>
               </div>
 
-              {/* Expandable Tools section */}
-              <div className="mt-1.5">
-                <button
-                  onClick={() => setToolsExpanded(!toolsExpanded)}
-                  className="flex items-center justify-between w-full text-xs py-0.5
-                    text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]
-                    transition-colors"
+              <div className="flex items-center justify-between text-xs mt-1.5">
+                <span className="text-[var(--text-tertiary)]">Tools Available</span>
+                <a
+                  href="https://vmark.app/guide/mcp-tools"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[var(--primary-color)] hover:underline"
                 >
-                  <span className="flex items-center gap-1">
-                    {toolsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    Tools Available
-                  </span>
-                  <span className="text-[var(--text-secondary)]">{toolCount}</span>
-                </button>
-
-                {toolsExpanded && health.tools.length > 0 && (
-                  <div className="mt-2 ml-4">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide">
-                        Available Tools
-                      </span>
-                      <button
-                        onClick={handleCopyTools}
-                        className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]
-                          hover:text-[var(--text-secondary)] transition-colors"
-                        title="Copy tool list"
-                      >
-                        {copiedTools ? <Check size={10} /> : <Copy size={10} />}
-                        {copiedTools ? "Copied" : "Copy"}
-                      </button>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto rounded bg-[var(--bg-tertiary)] p-2">
-                      <div className="flex flex-wrap gap-1">
-                        {health.tools.map((tool) => (
-                          <code
-                            key={tool}
-                            className="text-[10px] px-1.5 py-0.5 rounded
-                              bg-[var(--bg-secondary)] text-[var(--text-secondary)]
-                              font-mono whitespace-nowrap"
-                          >
-                            {tool}
-                          </code>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  {toolCount ?? "—"} tools
+                  <ExternalLink size={10} />
+                </a>
               </div>
 
               <div className="flex items-center justify-between text-xs mt-1.5">
                 <span className="text-[var(--text-tertiary)]">Resources Available</span>
-                <span className="text-[var(--text-secondary)]">{resourceCount}</span>
+                <span className="text-[var(--text-secondary)]">{resourceCount ?? "—"}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1.5">
+                <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
+                  <Users size={12} />
+                  Connected Clients
+                </span>
+                <span className={clientCount > 0 ? "text-[var(--success-color)]" : "text-[var(--text-secondary)]"}>
+                  {clientCount}
+                </span>
               </div>
               {health.lastChecked && (
                 <div className="flex items-center justify-between text-xs mt-1.5">
@@ -225,24 +219,31 @@ export function IntegrationsSettings() {
                 </div>
               )}
             </div>
-
-            {/* Actions */}
-            <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
-              <button
-                onClick={() => runHealthCheck()}
-                disabled={isChecking}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
-                  bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
-                  hover:bg-[var(--hover-bg-strong)] hover:text-[var(--text-color)]
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  transition-colors"
-              >
-                <RefreshCw size={12} className={isChecking ? "animate-spin" : ""} />
-                Test Connection
-              </button>
-            </div>
           </div>
         )}
+
+        {/* Diagnostics section - always visible */}
+        <div className="mt-4 pt-3 border-t border-[var(--border-color)]">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => runHealthCheck()}
+              disabled={isChecking}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
+                bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
+                hover:bg-[var(--hover-bg-strong)] hover:text-[var(--text-color)]
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-colors"
+            >
+              <RefreshCw size={12} className={isChecking ? "animate-spin" : ""} />
+              {running ? "Test Connection" : "Check Sidecar"}
+            </button>
+            {!running && health.version && (
+              <span className="text-xs text-[var(--text-tertiary)]">
+                Sidecar v{health.version} • {health.toolCount} tools
+              </span>
+            )}
+          </div>
+        </div>
       </SettingsGroup>
 
       <div className="mt-6">

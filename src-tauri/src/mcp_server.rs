@@ -20,6 +20,19 @@ use tauri::{command, AppHandle, Emitter};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
+/// Health check result from sidecar --health-check
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct McpHealthInfo {
+    pub status: String,
+    pub version: String,
+    pub tool_count: usize,
+    pub resource_count: usize,
+    pub tools: Vec<String>,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
 /// MCP server process state (for optional local sidecar)
 static MCP_SERVER: Mutex<Option<CommandChild>> = Mutex::new(None);
 
@@ -225,6 +238,38 @@ pub fn mcp_server_status() -> Result<McpServerStatus, String> {
         port,
         local_sidecar,
     })
+}
+
+/// Run MCP sidecar health check.
+/// This runs the sidecar binary with --health-check flag to get real tool/version info.
+#[command]
+pub async fn mcp_sidecar_health(app: AppHandle) -> Result<McpHealthInfo, String> {
+    let shell = app.shell();
+
+    // Run sidecar with --health-check flag
+    let output = shell
+        .sidecar("vmark-mcp-server")
+        .map_err(|e| format!("Failed to create sidecar command: {}", e))?
+        .args(["--health-check"])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run health check: {}", e))?;
+
+    if output.status.success() {
+        // Parse JSON output from sidecar
+        let result: McpHealthInfo = serde_json::from_slice(&output.stdout)
+            .map_err(|e| format!("Failed to parse health check output: {}", e))?;
+        Ok(result)
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Health check failed: {}", stderr))
+    }
+}
+
+/// Get the number of connected MCP clients.
+#[command]
+pub async fn mcp_bridge_client_count() -> Result<usize, String> {
+    Ok(mcp_bridge::client_count().await)
 }
 
 /// Cleanup function to kill the MCP server on app exit.

@@ -27,7 +27,10 @@
     "window-state:default",
     {
       "identifier": "shell:allow-execute",
-      "allow": [{ "name": "vmark-mcp-server", "sidecar": true }]
+      "allow": [
+        { "name": "vmark-mcp-server", "sidecar": true },
+        { "name": "vmark-mcp-server", "sidecar": true, "args": ["--health-check"] }
+      ]
     },
     {
       "identifier": "fs:allow-read-text-file",

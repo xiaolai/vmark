@@ -34,6 +34,7 @@ if (process.argv.includes('--version') || process.argv.includes('-v')) {
  */
 if (process.argv.includes('--health-check')) {
   runHealthCheck();
+  // runHealthCheck() calls process.exit() so main() below won't run
 }
 
 async function runHealthCheck(): Promise<void> {
@@ -459,7 +460,10 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((error) => {
-  console.error('[VMark MCP Server] Fatal error:', error);
-  process.exit(1);
-});
+// Only run main() if not doing health check (health check exits via process.exit)
+if (!process.argv.includes('--health-check')) {
+  main().catch((error) => {
+    console.error('[VMark MCP Server] Fatal error:', error);
+    process.exit(1);
+  });
+}
