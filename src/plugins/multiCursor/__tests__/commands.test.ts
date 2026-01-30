@@ -339,4 +339,77 @@ describe("commands", () => {
       expect(result).toBeNull();
     });
   });
+
+  describe("getCodeBlockBounds", () => {
+    it("returns bounds when cursor is inside code block", () => {
+      const doc = schema.node("doc", null, [
+        schema.node("codeBlock", null, [schema.text("code content")]),
+      ]);
+      const state = EditorState.create({ doc, schema });
+      // Position 1 is inside the code block content
+      const bounds = getCodeBlockBounds(state, 5);
+
+      expect(bounds).not.toBeNull();
+      expect(bounds?.from).toBe(1); // Start of code block content
+      expect(bounds?.to).toBe(13); // End of code block content
+    });
+
+    it("returns null when cursor is not in code block", () => {
+      const doc = schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("regular text")]),
+      ]);
+      const state = EditorState.create({ doc, schema });
+      const bounds = getCodeBlockBounds(state, 5);
+
+      expect(bounds).toBeNull();
+    });
+
+    it("returns correct bounds for code block with code_block type name", () => {
+      // Some schemas use "code_block" instead of "codeBlock"
+      const altSchema = new Schema({
+        nodes: {
+          doc: { content: "block+" },
+          paragraph: { content: "text*", group: "block" },
+          code_block: { content: "text*", group: "block" },
+          text: { inline: true },
+        },
+      });
+      const doc = altSchema.node("doc", null, [
+        altSchema.node("code_block", null, [altSchema.text("code here")]),
+      ]);
+      const state = EditorState.create({ doc, schema: altSchema });
+      const bounds = getCodeBlockBounds(state, 5);
+
+      expect(bounds).not.toBeNull();
+    });
+
+    it("returns bounds for code block in mixed document", () => {
+      const doc = schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("before")]),
+        schema.node("codeBlock", null, [schema.text("in code")]),
+        schema.node("paragraph", null, [schema.text("after")]),
+      ]);
+      const state = EditorState.create({ doc, schema });
+      // Find position inside the code block
+      // paragraph "before" = positions 0-7, codeBlock starts at 8
+      const bounds = getCodeBlockBounds(state, 10);
+
+      expect(bounds).not.toBeNull();
+      expect(bounds?.from).toBe(9); // Start of code block content
+      expect(bounds?.to).toBe(16); // End of code block content
+    });
+
+    it("returns null for position in paragraph between code blocks", () => {
+      const doc = schema.node("doc", null, [
+        schema.node("codeBlock", null, [schema.text("first")]),
+        schema.node("paragraph", null, [schema.text("between")]),
+        schema.node("codeBlock", null, [schema.text("second")]),
+      ]);
+      const state = EditorState.create({ doc, schema });
+      // Position in "between" paragraph (after first code block)
+      const bounds = getCodeBlockBounds(state, 10);
+
+      expect(bounds).toBeNull();
+    });
+  });
 });
