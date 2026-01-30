@@ -798,6 +798,11 @@ pub fn update_recent_workspaces(app: AppHandle, workspaces: Vec<String>) -> Resu
 pub fn rebuild_menu(app: AppHandle, shortcuts: HashMap<String, String>) -> Result<(), String> {
     let menu = create_menu_with_shortcuts(&app, &shortcuts).map_err(|e| e.to_string())?;
     app.set_menu(menu).map_err(|e| e.to_string())?;
+
+    // Fix macOS Help/Window menus (workaround for muda bug)
+    #[cfg(target_os = "macos")]
+    crate::macos_menu::apply_menu_fixes();
+
     Ok(())
 }
 

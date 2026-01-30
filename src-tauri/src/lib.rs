@@ -9,6 +9,9 @@ mod window_manager;
 mod workspace;
 mod file_tree;
 
+#[cfg(target_os = "macos")]
+mod macos_menu;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{Listener, Manager};
@@ -112,6 +115,10 @@ pub fn run() {
         .setup(|app| {
             let menu = menu::create_menu(app.handle())?;
             app.set_menu(menu)?;
+
+            // Fix macOS Help/Window menus (workaround for muda bug)
+            #[cfg(target_os = "macos")]
+            macos_menu::apply_menu_fixes();
 
             // Listen for "ready" events from frontend windows
             // This is used by menu_events to know when it's safe to emit events
