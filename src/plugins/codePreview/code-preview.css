@@ -222,34 +222,7 @@
   height: auto;
 }
 
-/* Mermaid live preview fallback styles */
-.code-block-live-preview.mermaid-live-preview .node rect,
-.code-block-live-preview.mermaid-live-preview .node circle,
-.code-block-live-preview.mermaid-live-preview .node ellipse,
-.code-block-live-preview.mermaid-live-preview .node polygon,
-.code-block-live-preview.mermaid-live-preview .node path {
-  fill: var(--bg-color, #f0f4f8);
-  stroke: var(--border-color, #9ca3af);
-}
-
-.code-block-live-preview.mermaid-live-preview .cluster rect {
-  fill: var(--bg-secondary, #f5f5f5);
-  stroke: var(--border-color, #d5d5d5);
-}
-
-.dark-theme .code-block-live-preview.mermaid-live-preview .node rect,
-.dark-theme .code-block-live-preview.mermaid-live-preview .node circle,
-.dark-theme .code-block-live-preview.mermaid-live-preview .node ellipse,
-.dark-theme .code-block-live-preview.mermaid-live-preview .node polygon,
-.dark-theme .code-block-live-preview.mermaid-live-preview .node path {
-  fill: var(--bg-secondary, #374151);
-  stroke: var(--border-color, #6b7280);
-}
-
-.dark-theme .code-block-live-preview.mermaid-live-preview .cluster rect {
-  fill: var(--bg-tertiary, #1f2937);
-  stroke: var(--border-color, #4b5563);
-}
+/* Mermaid live preview fallback styles are in mermaid-fallback.css */
 
 .code-block-live-preview.latex-live-preview .katex-display {
   margin: 0;

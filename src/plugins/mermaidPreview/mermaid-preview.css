@@ -2,6 +2,8 @@
  * Mermaid Preview Popup Styles
  */
 
+/* Fallback styles are imported via mermaid.css which imports mermaid-fallback.css */
+
 .mermaid-preview-popup {
   position: absolute;
   z-index: 1000;
@@ -171,35 +173,6 @@
   flex-shrink: 0;
   /* Scale SVG based on --mermaid-scale (set by JS from editor font size) */
   zoom: var(--mermaid-scale, 1);
-}
-
-/* Mermaid preview popup fallback styles */
-.mermaid-preview-content .node rect,
-.mermaid-preview-content .node circle,
-.mermaid-preview-content .node ellipse,
-.mermaid-preview-content .node polygon,
-.mermaid-preview-content .node path {
-  fill: var(--bg-color, #f0f4f8);
-  stroke: var(--border-color, #9ca3af);
-}
-
-.mermaid-preview-content .cluster rect {
-  fill: var(--bg-secondary, #f5f5f5);
-  stroke: var(--border-color, #d5d5d5);
-}
-
-.dark-theme .mermaid-preview-content .node rect,
-.dark-theme .mermaid-preview-content .node circle,
-.dark-theme .mermaid-preview-content .node ellipse,
-.dark-theme .mermaid-preview-content .node polygon,
-.dark-theme .mermaid-preview-content .node path {
-  fill: var(--bg-secondary, #374151);
-  stroke: var(--border-color, #6b7280);
-}
-
-.dark-theme .mermaid-preview-content .cluster rect {
-  fill: var(--bg-tertiary, #1f2937);
-  stroke: var(--border-color, #4b5563);
 }
 
 .mermaid-preview-empty {

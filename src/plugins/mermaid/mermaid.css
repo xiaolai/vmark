@@ -2,6 +2,9 @@
  * Mermaid Plugin Styles
  */
 
+/* Import shared fallback styles for all mermaid preview contexts */
+@import "./mermaid-fallback.css";
+
 /* Mermaid diagram container */
 .code-block-preview.mermaid-preview {
   padding: 1rem;
@@ -20,67 +23,6 @@
   /* Scale SVG based on --mermaid-scale (set by JS from editor font size) */
   /* Using zoom instead of transform so container size adjusts */
   zoom: var(--mermaid-scale, 1);
-}
-
-/* ========================================
-   Mermaid SVG Fallback Styles
-   Ensures nodes and subgraphs have visible fills
-   even if inline styles are missing
-   ======================================== */
-
-/* Flowchart nodes - fallback fills */
-.mermaid-preview .node rect,
-.mermaid-preview .node circle,
-.mermaid-preview .node ellipse,
-.mermaid-preview .node polygon,
-.mermaid-preview .node path {
-  fill: var(--bg-color, #f0f4f8);
-  stroke: var(--border-color, #9ca3af);
-}
-
-/* Subgraph/cluster background */
-.mermaid-preview .cluster rect {
-  fill: var(--bg-secondary, #f5f5f5);
-  stroke: var(--border-color, #d5d5d5);
-}
-
-/* Label text visibility */
-.mermaid-preview .nodeLabel,
-.mermaid-preview .label,
-.mermaid-preview text {
-  fill: var(--text-color, #1a1a1a);
-}
-
-/* Edge/line styles */
-.mermaid-preview .edgePath path,
-.mermaid-preview .flowchart-link {
-  stroke: var(--text-secondary, #6b7280);
-}
-
-/* Dark theme overrides */
-.dark-theme .mermaid-preview .node rect,
-.dark-theme .mermaid-preview .node circle,
-.dark-theme .mermaid-preview .node ellipse,
-.dark-theme .mermaid-preview .node polygon,
-.dark-theme .mermaid-preview .node path {
-  fill: var(--bg-secondary, #374151);
-  stroke: var(--border-color, #6b7280);
-}
-
-.dark-theme .mermaid-preview .cluster rect {
-  fill: var(--bg-tertiary, #1f2937);
-  stroke: var(--border-color, #4b5563);
-}
-
-.dark-theme .mermaid-preview .nodeLabel,
-.dark-theme .mermaid-preview .label,
-.dark-theme .mermaid-preview text {
-  fill: var(--text-color, #f3f4f6);
-}
-
-.dark-theme .mermaid-preview .edgePath path,
-.dark-theme .mermaid-preview .flowchart-link {
-  stroke: var(--text-secondary, #9ca3af);
 }
 
 /* Error state */
@@ -139,35 +81,6 @@
   height: auto;
   /* Scale SVG based on --mermaid-scale (set by JS from editor font size) */
   zoom: var(--mermaid-scale, 1);
-}
-
-/* Apply same fallback styles to mermaid-block-preview */
-.mermaid-block-preview .node rect,
-.mermaid-block-preview .node circle,
-.mermaid-block-preview .node ellipse,
-.mermaid-block-preview .node polygon,
-.mermaid-block-preview .node path {
-  fill: var(--bg-color, #f0f4f8);
-  stroke: var(--border-color, #9ca3af);
-}
-
-.mermaid-block-preview .cluster rect {
-  fill: var(--bg-secondary, #f5f5f5);
-  stroke: var(--border-color, #d5d5d5);
-}
-
-.dark-theme .mermaid-block-preview .node rect,
-.dark-theme .mermaid-block-preview .node circle,
-.dark-theme .mermaid-block-preview .node ellipse,
-.dark-theme .mermaid-block-preview .node polygon,
-.dark-theme .mermaid-block-preview .node path {
-  fill: var(--bg-secondary, #374151);
-  stroke: var(--border-color, #6b7280);
-}
-
-.dark-theme .mermaid-block-preview .cluster rect {
-  fill: var(--bg-tertiary, #1f2937);
-  stroke: var(--border-color, #4b5563);
 }
 
 .mermaid-block-placeholder {

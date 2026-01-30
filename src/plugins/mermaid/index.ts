@@ -52,9 +52,9 @@ async function loadMermaid(): Promise<typeof import("mermaid")> {
 /**
  * Theme-specific fill and styling variables.
  * These ensure nodes and subgraphs have proper fills in both light and dark modes.
+ * Note: fontSize is added dynamically in applyMermaidConfig() from currentFontSize.
  */
 const lightThemeVariables = {
-  fontSize: `${currentFontSize}px`,
   // Node fills
   primaryColor: "#f0f4f8",
   secondaryColor: "#e8f0fe",
@@ -71,7 +71,6 @@ const lightThemeVariables = {
 };
 
 const darkThemeVariables = {
-  fontSize: `${currentFontSize}px`,
   // Node fills for dark mode
   primaryColor: "#374151",
   secondaryColor: "#1f2937",
