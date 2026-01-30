@@ -113,6 +113,9 @@ VMark is designed for keyboard-first workflows. All shortcuts can be customized 
 | Toggle Status Bar | `F7` |
 | Focus Mode | `F8` |
 | Typewriter Mode | `F9` |
+| Actual Size | `Mod + 0` |
+| Zoom In | `Mod + =` |
+| Zoom Out | `Mod + -` |
 | Word Wrap | `Alt + Z` |
 | Toggle Sidebar | `Mod + Shift + B` |
 | Toggle Outline | `Alt + Mod + 1` |

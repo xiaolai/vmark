@@ -22,7 +22,7 @@ Switch to raw Markdown editing with full syntax highlighting:
 - Familiar text editor experience
 - Perfect for advanced users
 
-Toggle between modes with `Cmd/Ctrl + /`.
+Toggle between modes with `F6`.
 
 ## Text Formatting
 
@@ -62,7 +62,7 @@ Configure in **Settings > Editor > Whitespace**.
 
 ### Line Operations
 
-Powerful line manipulation via Block → Lines:
+Powerful line manipulation via Edit → Lines:
 
 | Action | Shortcut |
 |--------|----------|
@@ -187,22 +187,22 @@ Keep the active line centered on screen for a typewriter-like experience.
 
 Toggle soft line wrapping in the editor.
 
-## Tools Menu
+## Text Utilities
 
-The Tools menu provides utilities for text cleanup and formatting:
+VMark includes utilities for text cleanup and formatting, available in the Format menu:
 
-### Text Cleanup
+### Text Cleanup (Format → Text Cleanup)
 
 - **Remove Trailing Spaces**: Strip whitespace from line endings
 - **Collapse Blank Lines**: Reduce multiple blank lines to single
 
-### CJK Formatting
+### CJK Formatting (Format → CJK)
 
 Built-in Chinese/Japanese/Korean text formatting tools. [Learn more →](/guide/cjk-formatting)
 
-### Image Cleanup
+### Image Cleanup (File → Clean Up Unused Images)
 
-- **Clean Up Unused Images**: Find and remove orphaned images from your assets folder
+Find and remove orphaned images from your assets folder.
 
 ## Auto-Update
 
