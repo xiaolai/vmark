@@ -31,6 +31,7 @@ import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { getHeadingInfo, setHeadingLevel, convertToHeading } from "@/plugins/sourceContextDetection/headingDetection";
 import { getListItemInfo, toBulletList, toOrderedList, toTaskList, removeList } from "@/plugins/sourceContextDetection/listDetection";
 import { toggleBlockquote as toggleBlockquoteAction } from "@/plugins/sourceContextDetection/blockquoteActions";
+import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
 
 function buildSourceContext(view: EditorView) {
   const cursorContext = useSourceCursorContextStore.getState().context;
@@ -440,6 +441,46 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
   bindIfKey(bindings, shortcuts.getShortcut("transformLowercase"), doTransformLowercase);
   bindIfKey(bindings, shortcuts.getShortcut("transformTitleCase"), doTransformTitleCase);
   bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), doTransformToggleCase);
+
+  // --- Code fence select all ---
+  // Mod-a in a code fence selects fence content first, then whole document on second press
+  bindings.push(
+    guardCodeMirrorKeyBinding({
+      key: "Mod-a",
+      run: (view) => {
+        const fenceInfo = getCodeFenceInfo(view);
+        if (!fenceInfo) {
+          return false; // Not in code fence, use default selectAll
+        }
+
+        const doc = view.state.doc;
+        // Content is between opening fence line and closing fence line (exclusive)
+        const contentStartLine = doc.line(fenceInfo.startLine + 1);
+        const contentEndLine = doc.line(fenceInfo.endLine - 1);
+
+        // If fence has no content lines (empty fence), select nothing special
+        if (fenceInfo.endLine - fenceInfo.startLine <= 1) {
+          return false;
+        }
+
+        const contentFrom = contentStartLine.from;
+        const contentTo = contentEndLine.to;
+
+        // Check if already selecting entire fence content
+        const { from, to } = view.state.selection.main;
+        if (from === contentFrom && to === contentTo) {
+          return false; // Let default selectAll take over for whole document
+        }
+
+        // Select fence content only
+        view.dispatch({
+          selection: { anchor: contentFrom, head: contentTo },
+        });
+        return true;
+      },
+      preventDefault: true,
+    })
+  );
 
   return bindings;
 }
