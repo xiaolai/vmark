@@ -1061,7 +1061,7 @@ describe("Expected Features (SHOULD Have) - P1 Priority", () => {
         state.doc.resolve(2)
       );
 
-      expect(cursor1.$head.pos).toBe(cursor2.$head.pos);
+      expect(cursor1.$to.pos).toBe(cursor2.$to.pos);
       // Should merge to single cursor
     });
 
