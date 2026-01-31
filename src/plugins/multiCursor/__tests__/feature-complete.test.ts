@@ -828,7 +828,7 @@ describe("Core Features (MUST Have) - P0 Priority", () => {
       expect(multiSel.primaryIndex).toBe(2);
 
       // Escape collapses to primary
-      const primaryPos = multiSel.ranges[multiSel.primaryIndex].$head.pos;
+      const primaryPos = multiSel.ranges[multiSel.primaryIndex].$to.pos;
       const collapsed = TextSelection.create(state.doc, primaryPos);
 
       expect(collapsed.$head.pos).toBe(13);
@@ -1238,7 +1238,7 @@ describe("Expected Features (SHOULD Have) - P1 Priority", () => {
       expect(multiSel.primaryIndex).toBe(2);
 
       // After undo - collapses to primary (VS Code pattern)
-      const primaryPos = multiSel.ranges[multiSel.primaryIndex].$head.pos;
+      const primaryPos = multiSel.ranges[multiSel.primaryIndex].$to.pos;
       const collapsed = TextSelection.create(state.doc, primaryPos);
 
       expect(collapsed.$head.pos).toBe(3);
