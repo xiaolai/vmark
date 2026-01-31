@@ -376,10 +376,10 @@ describe("Core Features (MUST Have) - P0 Priority", () => {
         1
       );
 
-      expect(multiSel.ranges[0].empty).toBe(true); // Cursor
-      expect(multiSel.ranges[1].empty).toBe(false); // Selection
-      expect(multiSel.ranges[1].from).toBe(7);
-      expect(multiSel.ranges[1].to).toBe(12);
+      expect(multiSel.ranges[0].$from.pos === multiSel.ranges[0].$to.pos).toBe(true); // Cursor
+      expect(multiSel.ranges[1].$from.pos === multiSel.ranges[1].$to.pos).toBe(false); // Selection
+      expect(multiSel.ranges[1].$from.pos).toBe(7);
+      expect(multiSel.ranges[1].$to.pos).toBe(12);
     });
 
     it("should maintain valid primary index", () => {
@@ -622,7 +622,7 @@ describe("Core Features (MUST Have) - P0 Priority", () => {
         // Move right - should collapse to end
         const movedSel = moveCursors(state, multiSel, "right");
 
-        expect(movedSel.ranges[0].empty).toBe(true);
+        expect(movedSel.ranges[0].$from.pos === movedSel.ranges[0].$to.pos).toBe(true);
         // Position after movement (implementation-dependent)
       });
 
@@ -653,8 +653,8 @@ describe("Core Features (MUST Have) - P0 Priority", () => {
 
         const extended = moveCursors(state, multiSel, "right", true);
 
-        expect(extended.ranges[0].empty).toBe(false);
-        expect(extended.ranges[1].empty).toBe(false);
+        expect(extended.ranges[0].$from.pos === extended.ranges[0].$to.pos).toBe(false);
+        expect(extended.ranges[1].$from.pos === extended.ranges[1].$to.pos).toBe(false);
         // Selections extended from anchor
       });
 
@@ -850,9 +850,9 @@ describe("Core Features (MUST Have) - P0 Priority", () => {
       );
 
       const primary = multiSel.ranges[multiSel.primaryIndex];
-      expect(primary.from).toBe(7);
-      expect(primary.to).toBe(12);
-      expect(primary.empty).toBe(false);
+      expect(primary.$from.pos).toBe(7);
+      expect(primary.$to.pos).toBe(12);
+      expect(primary.$from.pos === primary.$to.pos).toBe(false);
     });
 
     // TC-MC-052
