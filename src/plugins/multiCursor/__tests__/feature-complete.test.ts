@@ -921,7 +921,7 @@ describe("Expected Features (SHOULD Have) - P1 Priority", () => {
       ]);
 
       // Next Cmd+D wraps to first "foo" - already have it - stop
-      const existingPositions = multiSel.ranges.map((r) => r.from);
+      const existingPositions = multiSel.ranges.map((r) => r.$from.pos);
       expect(existingPositions).toContain(1);
       expect(existingPositions).toContain(9);
     });
@@ -1039,10 +1039,11 @@ describe("Expected Features (SHOULD Have) - P1 Priority", () => {
       const state = createState(testDoc);
       const multiSel = createMultiSelection(state, [2, 4]);
 
-      // Type "XXXX" at both - may cause overlap
+      // Type "XXXX" at both - cursors at pos 2 (after 'a') and 4 (after 'c')
+      // Reverse order: insert at 4 first, then at 2
       const newState = insertTextAtCursors(state, multiSel, "XXXX");
 
-      expect(getDocText(newState)).toBe("aXXXXbXXXXcd");
+      expect(getDocText(newState)).toBe("aXXXXbcXXXXd");
       // Merge detection would happen after insertion
     });
 
@@ -1095,8 +1096,8 @@ describe("Expected Features (SHOULD Have) - P1 Priority", () => {
         state.doc.resolve(7)
       );
 
-      expect(expectedMerged.from).toBe(1);
-      expect(expectedMerged.to).toBe(7);
+      expect(expectedMerged.$from.pos).toBe(1);
+      expect(expectedMerged.$to.pos).toBe(7);
     });
 
     it("should keep earlier position as primary after merge", () => {
@@ -1634,7 +1635,7 @@ describe("Edge Cases & Corner Cases", () => {
         [9, 12],
       ]);
 
-      const existingPositions = multiSel.ranges.map((r) => r.from);
+      const existingPositions = multiSel.ranges.map((r) => r.$from.pos);
       expect(existingPositions).toContain(1);
       expect(existingPositions).toContain(9);
     });
@@ -1654,9 +1655,9 @@ describe("Edge Cases & Corner Cases", () => {
     it("should maintain scroll position at primary", () => {
       const testDoc = doc(p(txt("test")));
       const state = createState(testDoc);
-      const multiSel = createMultiSelection(state, [1, 5, 10]);
+      const multiSel = createMultiSelection(state, [1, 3, 5]);
 
-      expect(multiSel.primaryIndex).toBe(2); // Pos 10
+      expect(multiSel.primaryIndex).toBe(2); // Last cursor (pos 5)
       // Scroll stays at primary
     });
   });
