@@ -234,7 +234,8 @@ function deleteAtCursors(
   const sortedRanges = [...multiSel.ranges].sort((a, b) => b.$from.pos - a.$from.pos);
 
   for (const range of sortedRanges) {
-    if (range.empty) {
+    const isEmpty = range.$from.pos === range.$to.pos;
+    if (isEmpty) {
       // Empty cursor - delete one char
       if (direction === "before" && range.$from.pos > 1) {
         tr = tr.delete(range.$from.pos - 1, range.$from.pos);
@@ -488,7 +489,10 @@ describe("Core Features (MUST Have) - P0 Priority", () => {
       it("TC-MC-020: should delete one char before each empty cursor", () => {
         const testDoc = doc(p(txt("abcdef")));
         const state = createState(testDoc);
-        const multiSel = createMultiSelection(state, [2, 4, 6]);
+
+        // Positions [3, 5, 7] are after 'b', 'd', 'f' respectively
+        // Backspace will delete those characters
+        const multiSel = createMultiSelection(state, [3, 5, 7]);
 
         const newState = deleteAtCursors(state, multiSel, "before");
 
@@ -545,7 +549,9 @@ describe("Core Features (MUST Have) - P0 Priority", () => {
       it("TC-MC-022: should delete one char after each empty cursor", () => {
         const testDoc = doc(p(txt("abcdef")));
         const state = createState(testDoc);
-        const multiSel = createMultiSelection(state, [1, 3, 5]);
+        // Positions [2, 4, 6] are before 'b', 'd', 'f' respectively
+        // Delete will remove those characters
+        const multiSel = createMultiSelection(state, [2, 4, 6]);
 
         const newState = deleteAtCursors(state, multiSel, "after");
 
