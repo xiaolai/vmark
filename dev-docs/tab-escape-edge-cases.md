@@ -186,10 +186,15 @@ hello **bo|ld wo|rld**
 [text \[with\] brackets](url)
 ```
 
-**Behavior:** ⚠️ Does NOT handle - regex limitation
-**Why:** Would need full markdown parser
-**Impact:** Low - rare use case
-**Test:** `handles escaped brackets in link text (known limitation)`
+**Behavior:** ✅ Handles correctly with balanced bracket parsing
+**Implementation:** Uses `isEscaped()` to detect backslash-escaped chars
+**Test:** `handles escaped brackets in link text`
+
+**Also Supports:**
+- Nested real brackets: `[text [nested]](url)`
+- Mixed escaped and real: `[text \[esc\] [real]](url)`
+- Multiple nesting levels: `[outer [middle [inner]]](url)`
+- Nested parens in URL: `[link](url(params))`
 
 ---
 
@@ -609,12 +614,15 @@ Paragraph
 ## Summary Statistics
 
 - **Total Edge Cases Documented:** 48
-- **Working Correctly:** 43 (90%)
-- **Known Limitations:** 5 (10%)
-  - Cursor at exact mark start
-  - Escaped brackets in links
-  - Reference-style links
-  - Link definitions
-  - Autolinks
+- **Working Correctly:** 44 (92%)
+- **Known Limitations:** 4 (8%)
+  - Cursor at exact mark start (ProseMirror edge case)
+  - Reference-style links (different syntax)
+  - Link definitions (different syntax)
+  - Autolinks (different syntax)
 
-All known limitations have minimal impact and documented workarounds.
+**Recently Resolved:**
+- ✅ Escaped brackets in links (now supported via balanced parsing)
+- ✅ Nested brackets in link text (now supported)
+
+All remaining limitations are alternative markdown syntaxes with minimal impact.
