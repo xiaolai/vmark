@@ -8,6 +8,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { parseMarkdown } from "@/utils/markdownPipeline";
 
 // Types
 type OperationMode = "apply" | "suggest" | "dryRun";
@@ -209,10 +210,14 @@ export async function handleSectionUpdate(
     }
 
     // Apply the update
+    // Parse markdown content to ProseMirror nodes to handle escape sequences correctly
+    const parsedDoc = parseMarkdown(editor.schema, newContent, { preserveLineBreaks: false });
+    const contentNodes = parsedDoc.content.toJSON();
+
     editor.chain()
       .focus()
       .setTextSelection({ from: contentStart, to: section.to })
-      .insertContent(newContent)
+      .insertContent(contentNodes)
       .run();
 
     const newRevision = getCurrentRevision();
@@ -335,10 +340,14 @@ export async function handleSectionInsert(
     }
 
     // Apply the insert
+    // Parse markdown content to ProseMirror nodes to handle escape sequences correctly
+    const parsedDoc = parseMarkdown(editor.schema, fullContent, { preserveLineBreaks: false });
+    const contentNodes = parsedDoc.content.toJSON();
+
     editor.chain()
       .focus()
       .setTextSelection(insertPos)
-      .insertContent(fullContent)
+      .insertContent(contentNodes)
       .run();
 
     const newRevision = getCurrentRevision();
@@ -482,6 +491,10 @@ export async function handleSectionMove(
     }
 
     // Apply the move (delete then insert)
+    // Parse markdown content to ProseMirror nodes to handle escape sequences correctly
+    const parsedDoc = parseMarkdown(editor.schema, sectionContent, { preserveLineBreaks: false });
+    const contentNodes = parsedDoc.content.toJSON();
+
     // We need to be careful about position adjustments
     if (targetPos > sectionRange.to) {
       // Moving forward - insert first (positions will shift)
@@ -489,7 +502,7 @@ export async function handleSectionMove(
       editor.chain()
         .focus()
         .setTextSelection(adjustedTarget)
-        .insertContent(sectionContent)
+        .insertContent(contentNodes)
         .setTextSelection({ from: sectionRange.from, to: sectionRange.to })
         .deleteSelection()
         .run();
@@ -500,7 +513,7 @@ export async function handleSectionMove(
         .setTextSelection({ from: sectionRange.from, to: sectionRange.to })
         .deleteSelection()
         .setTextSelection(targetPos)
-        .insertContent(sectionContent)
+        .insertContent(contentNodes)
         .run();
     }
 

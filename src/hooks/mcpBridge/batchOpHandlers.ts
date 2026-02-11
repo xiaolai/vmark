@@ -7,6 +7,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { parseMarkdown } from "@/utils/markdownPipeline";
 
 // Types
 type OperationMode = "apply" | "suggest" | "dryRun";
@@ -395,7 +396,10 @@ export async function handleListBatchModify(
             // Split list item and add new content
             editor.commands.splitListItem("listItem");
             if (op.text) {
-              editor.commands.insertContent(op.text);
+              // Parse markdown content to ProseMirror nodes to handle escape sequences correctly
+              const parsedDoc = parseMarkdown(editor.schema, op.text, { preserveLineBreaks: false });
+              const contentNodes = parsedDoc.content.toJSON();
+              editor.commands.insertContent(contentNodes);
             }
             appliedCount++;
             break;

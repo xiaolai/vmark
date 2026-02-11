@@ -8,6 +8,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { parseMarkdown } from "@/utils/markdownPipeline";
 
 // Types
 type OperationMode = "apply" | "suggest";
@@ -309,10 +310,14 @@ export async function handleParagraphWrite(
         .deleteSelection()
         .run();
     } else {
+      // Parse markdown content to ProseMirror nodes to handle escape sequences correctly
+      const parsedDoc = parseMarkdown(editor.schema, newContent, { preserveLineBreaks: false });
+      const contentNodes = parsedDoc.content.toJSON();
+
       editor.chain()
         .focus()
         .setTextSelection({ from, to })
-        .insertContent(newContent)
+        .insertContent(contentNodes)
         .run();
     }
 
