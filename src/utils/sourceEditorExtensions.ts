@@ -72,7 +72,7 @@ export const shortcutKeymapCompartment = new Compartment();
 // Custom brackets config for markdown (^, standard brackets)
 const markdownCloseBrackets = markdownLanguage.data.of({
   closeBrackets: {
-    brackets: ["(", "[", "{", '"', "'", "`", "^"],
+    brackets: ["(", "[", "{", '"', "'", "^"],
   },
 });
 
