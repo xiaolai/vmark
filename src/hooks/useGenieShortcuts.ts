@@ -86,7 +86,11 @@ export function useGenieShortcuts() {
             filePath: geniePath,
             source: "global",
           };
-          invokeGenie(genie);
+          try {
+            invokeGenie(genie);
+          } catch (invokeErr) {
+            console.error("[useGenieShortcuts] Failed to invoke genie:", invokeErr);
+          }
         } catch (e) {
           console.error("[useGenieShortcuts] Failed to read genie:", e);
         }

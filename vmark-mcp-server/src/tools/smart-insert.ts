@@ -31,6 +31,7 @@ function parseDestination(dest: unknown): SmartInsertDestination | null {
     const obj = dest as Record<string, unknown>;
 
     if ('after_paragraph' in obj && typeof obj.after_paragraph === 'number') {
+      if (obj.after_paragraph < 0) return null;
       return { after_paragraph: obj.after_paragraph };
     }
 

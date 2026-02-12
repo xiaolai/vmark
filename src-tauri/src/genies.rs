@@ -81,7 +81,7 @@ pub fn read_genie(app: AppHandle, path: String) -> Result<GenieContent, String> 
 
     // Validate path is within the global genies directory
     let global_dir = fs::canonicalize(global_genies_dir(&app)?)
-        .unwrap_or_else(|_| global_genies_dir(&app).unwrap_or_default());
+        .map_err(|e| format!("Genies directory does not exist or is inaccessible: {}", e))?;
 
     if !requested.starts_with(&global_dir) {
         return Err("Genie path is outside allowed directories".to_string());

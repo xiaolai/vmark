@@ -234,14 +234,19 @@ export class WebSocketBridge implements Bridge {
     }
 
     if (this.connecting) {
-      // Wait for existing connection attempt
+      // Wait for existing connection attempt with a timeout
       return new Promise((resolve, reject) => {
+        let elapsed = 0;
+        const maxWait = 30_000; // 30s timeout for waiting on existing connection
         const checkConnection = () => {
           if (this.connected) {
             resolve();
           } else if (!this.connecting) {
             reject(new Error('Connection failed'));
+          } else if (elapsed >= maxWait) {
+            reject(new Error('Timed out waiting for existing connection attempt'));
           } else {
+            elapsed += 100;
             setTimeout(checkConnection, 100);
           }
         };
@@ -270,6 +275,16 @@ export class WebSocketBridge implements Bridge {
 
     return new Promise((resolve, reject) => {
       try {
+        // Clean up any previous WebSocket instance to prevent memory leaks
+        // and duplicate message handling on reconnection
+        if (this.ws) {
+          this.ws.removeAllListeners();
+          if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+            this.ws.close();
+          }
+          this.ws = null;
+        }
+
         this.ws = new WebSocket(url);
 
         const connectionTimeout = setTimeout(() => {
@@ -412,12 +427,21 @@ export class WebSocketBridge implements Bridge {
   private queueRequest<T = unknown>(
     request: BridgeRequest
   ): Promise<BridgeResponse & { data: T }> {
-    return new Promise((resolve, reject) => {
-      if (this.requestQueue.length >= this.maxQueueSize) {
-        reject(new Error('Request queue full'));
-        return;
+    // Check queue capacity before creating the promise.
+    // Since JS is single-threaded, the check + push below is atomic
+    // (no other code runs between them), preventing queue overflow.
+    if (this.requestQueue.length >= this.maxQueueSize) {
+      // Drop oldest requests to make room, preventing unbounded growth
+      while (this.requestQueue.length >= this.maxQueueSize) {
+        const dropped = this.requestQueue.shift();
+        if (dropped) {
+          dropped.reject(new Error('Request dropped — queue overflow'));
+          this.logger.warn('Dropped oldest queued request due to queue overflow');
+        }
       }
+    }
 
+    return new Promise((resolve, reject) => {
       this.requestQueue.push({
         request,
         resolve: resolve as (response: BridgeResponse) => void,
@@ -526,6 +550,12 @@ export class WebSocketBridge implements Bridge {
   private handleDisconnect(): void {
     const wasConnected = this.connected;
     this.connected = false;
+
+    // Remove all listeners before dereferencing to prevent stale handlers
+    // from firing and interfering with a new connection
+    if (this.ws) {
+      this.ws.removeAllListeners();
+    }
     this.ws = null;
 
     // Reject all pending requests
@@ -554,6 +584,21 @@ export class WebSocketBridge implements Bridge {
    */
   private scheduleReconnect(): void {
     if (this.reconnectTimer) {
+      return;
+    }
+
+    // Guard against exceeding max reconnect attempts.
+    // Without this check, callers like connect() (port not found, timeout)
+    // would schedule reconnects indefinitely since they bypass handleDisconnect.
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.logger.warn(
+        `Max reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`
+      );
+      // Reject all queued requests since we won't reconnect
+      for (const queued of this.requestQueue) {
+        queued.reject(new Error('Max reconnect attempts exceeded'));
+      }
+      this.requestQueue = [];
       return;
     }
 

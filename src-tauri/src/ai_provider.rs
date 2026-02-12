@@ -96,10 +96,20 @@ pub(crate) fn login_shell_path() -> String {
 
             let output = Command::new(&shell)
                 .args(["-lic", &cmd])
-                .output()
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .spawn()
                 .ok()
-                .filter(|o| o.status.success())
-                .map(|o| String::from_utf8_lossy(&o.stdout).to_string());
+                .and_then(|child| {
+                    // Wait with a 5-second timeout to avoid hanging on interactive shells
+                    let output = child.wait_with_output().ok()?;
+                    if output.status.success() {
+                        Some(String::from_utf8_lossy(&output.stdout).to_string())
+                    } else {
+                        None
+                    }
+                });
 
             if let Some(raw) = output {
                 if let Some(start) = raw.find(START) {
@@ -516,12 +526,29 @@ pub async fn run_ai_prompt(
     endpoint: Option<String>,
     cli_path: Option<String>,
 ) -> Result<(), String> {
-    let path_ref = cli_path.as_deref();
     match provider.as_str() {
-        // CLI providers
-        "claude" => run_cli_provider(&window, &request_id, "claude", &["--print", "--output-format", "text"], Some(&prompt), path_ref),
-        "codex" => run_cli_provider(&window, &request_id, "codex", &["exec", &prompt], None, path_ref),
-        "gemini" => run_cli_provider(&window, &request_id, "gemini", &["-p", &prompt], None, path_ref),
+        // CLI providers — run on blocking thread pool to avoid starving tokio
+        "claude" => {
+            let w = window.clone(); let rid = request_id.clone(); let p = prompt.clone(); let cp = cli_path.clone();
+            tokio::task::spawn_blocking(move || {
+                run_cli_provider(&w, &rid, "claude", &["--print", "--output-format", "text"], Some(&p), cp.as_deref())
+            }).await.map_err(|e| format!("Task join error: {e}"))??;
+            Ok(())
+        }
+        "codex" => {
+            let w = window.clone(); let rid = request_id.clone(); let p = prompt.clone(); let cp = cli_path.clone();
+            tokio::task::spawn_blocking(move || {
+                run_cli_provider(&w, &rid, "codex", &["exec", &p], None, cp.as_deref())
+            }).await.map_err(|e| format!("Task join error: {e}"))??;
+            Ok(())
+        }
+        "gemini" => {
+            let w = window.clone(); let rid = request_id.clone(); let p = prompt.clone(); let cp = cli_path.clone();
+            tokio::task::spawn_blocking(move || {
+                run_cli_provider(&w, &rid, "gemini", &["-p", &p], None, cp.as_deref())
+            }).await.map_err(|e| format!("Task join error: {e}"))??;
+            Ok(())
+        }
 
         // REST providers
         "anthropic" => {

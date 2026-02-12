@@ -28,8 +28,8 @@ interface UseMcpServerResult {
   start: () => Promise<void>;
   /** Stop the MCP bridge */
   stop: () => Promise<void>;
-  /** Refresh the bridge status */
-  refresh: () => Promise<void>;
+  /** Refresh the bridge status. Returns the fetched status or null on error. */
+  refresh: () => Promise<McpServerStatus | null>;
 }
 
 /**
@@ -58,15 +58,17 @@ export function useMcpServer(): UseMcpServerResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch initial status
-  const refresh = useCallback(async () => {
+  // Fetch initial status. Returns the fetched status for callers that need fresh values.
+  const refresh = useCallback(async (): Promise<McpServerStatus | null> => {
     try {
       const status = await invoke<McpServerStatus>("mcp_server_status");
       setRunning(status.running);
       setPort(status.port);
       setError(null);
+      return status;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      return null;
     }
   }, []);
 

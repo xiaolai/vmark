@@ -65,6 +65,10 @@ export function registerParagraphTools(server: VMarkMcpServer): void {
         return VMarkMcpServer.errorResult('target must specify index or containing');
       }
 
+      if (target.index !== undefined && target.index < 0) {
+        return VMarkMcpServer.errorResult('target.index must be a non-negative number');
+      }
+
       try {
         const request: BridgeRequest = {
           type: 'paragraph.read',
@@ -143,6 +147,10 @@ export function registerParagraphTools(server: VMarkMcpServer): void {
 
       if (!target || (target.index === undefined && !target.containing)) {
         return VMarkMcpServer.errorResult('target must specify index or containing');
+      }
+
+      if (target.index !== undefined && target.index < 0) {
+        return VMarkMcpServer.errorResult('target.index must be a non-negative number');
       }
 
       if (operation !== 'delete' && !content) {

@@ -84,6 +84,15 @@ export function registerSectionTools(server: VMarkMcpServer): void {
         return VMarkMcpServer.errorResult('target must specify heading, byIndex, or sectionId');
       }
 
+      if (target.byIndex) {
+        if (typeof target.byIndex.level !== 'number' || target.byIndex.level < 1 || target.byIndex.level > 6) {
+          return VMarkMcpServer.errorResult('byIndex.level must be a number between 1 and 6');
+        }
+        if (typeof target.byIndex.index !== 'number' || target.byIndex.index < 0) {
+          return VMarkMcpServer.errorResult('byIndex.index must be a non-negative number');
+        }
+      }
+
       try {
         const request: BridgeRequest = {
           type: 'section.update',
@@ -288,6 +297,24 @@ export function registerSectionTools(server: VMarkMcpServer): void {
 
       if (!section || (!section.heading && !section.byIndex && !section.sectionId)) {
         return VMarkMcpServer.errorResult('section must specify heading, byIndex, or sectionId');
+      }
+
+      if (section.byIndex) {
+        if (typeof section.byIndex.level !== 'number' || section.byIndex.level < 1 || section.byIndex.level > 6) {
+          return VMarkMcpServer.errorResult('section byIndex.level must be a number between 1 and 6');
+        }
+        if (typeof section.byIndex.index !== 'number' || section.byIndex.index < 0) {
+          return VMarkMcpServer.errorResult('section byIndex.index must be a non-negative number');
+        }
+      }
+
+      if (after?.byIndex) {
+        if (typeof after.byIndex.level !== 'number' || after.byIndex.level < 1 || after.byIndex.level > 6) {
+          return VMarkMcpServer.errorResult('after byIndex.level must be a number between 1 and 6');
+        }
+        if (typeof after.byIndex.index !== 'number' || after.byIndex.index < 0) {
+          return VMarkMcpServer.errorResult('after byIndex.index must be a non-negative number');
+        }
       }
 
       try {

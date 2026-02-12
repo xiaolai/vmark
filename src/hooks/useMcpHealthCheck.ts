@@ -46,14 +46,15 @@ export function useMcpHealthCheck() {
     setIsChecking(true);
 
     try {
-      // Refresh bridge status first
-      await refresh();
+      // Refresh bridge status first and use the returned fresh values
+      const freshStatus = await refresh();
 
       // Run sidecar health check to get real data
       const sidecarHealth = await invoke<SidecarHealthInfo>("mcp_sidecar_health");
 
-      const bridgeRunning = running;
-      const bridgePort = port;
+      // Use fresh values from refresh, falling back to closure values
+      const bridgeRunning = freshStatus?.running ?? running;
+      const bridgePort = freshStatus?.port ?? port;
 
       if (sidecarHealth.status === "ok") {
         const result: HealthCheckResult = {

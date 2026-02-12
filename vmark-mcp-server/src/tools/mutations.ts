@@ -7,7 +7,7 @@
  * - replace_text_anchored: Drift-tolerant replacement using context anchors
  */
 
-import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg, getNumberArg } from '../server.js';
+import { VMarkMcpServer, resolveWindowId, requireStringArg, requireStringArgAllowEmpty, getStringArg, getNumberArg } from '../server.js';
 import type {
   BatchEditResult,
   ApplyDiffResult,
@@ -229,7 +229,7 @@ export function registerMutationTools(server: VMarkMcpServer): void {
       const baseRevision = requireStringArg(args, 'baseRevision');
       const scopeQuery = args.scopeQuery as BlockQuery | undefined;
       const original = requireStringArg(args, 'original');
-      const replacement = requireStringArg(args, 'replacement');
+      const replacement = requireStringArgAllowEmpty(args, 'replacement');
       const matchPolicy = args.matchPolicy as MatchPolicy;
       const nth = getNumberArg(args, 'nth');
       const mode = (args.mode as OperationMode) ?? 'apply';
@@ -319,7 +319,7 @@ export function registerMutationTools(server: VMarkMcpServer): void {
       const windowId = resolveWindowId(args.windowId as string | undefined);
       const baseRevision = requireStringArg(args, 'baseRevision');
       const anchor = args.anchor as TextAnchor;
-      const replacement = requireStringArg(args, 'replacement');
+      const replacement = requireStringArgAllowEmpty(args, 'replacement');
       const mode = (args.mode as OperationMode) ?? 'apply';
 
       if (!anchor || !anchor.text || !anchor.beforeContext || !anchor.afterContext) {

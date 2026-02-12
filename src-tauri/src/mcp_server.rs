@@ -34,6 +34,9 @@ pub struct McpHealthInfo {
 /// MCP server process state (for optional local sidecar)
 static MCP_SERVER: Mutex<Option<CommandChild>> = Mutex::new(None);
 
+/// Guard to prevent concurrent sidecar spawn attempts
+static SIDECAR_SPAWNING: AtomicBool = AtomicBool::new(false);
+
 /// Bridge running state
 static BRIDGE_RUNNING: AtomicBool = AtomicBool::new(false);
 
@@ -128,7 +131,7 @@ pub async fn mcp_bridge_stop(app: AppHandle) -> Result<McpServerStatus, String> 
 #[command]
 pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStatus, String> {
     // Check if local sidecar is already running
-    let current_port = {
+    {
         let guard = MCP_SERVER.lock().map_err(|e| e.to_string())?;
         if guard.is_some() {
             let port = BRIDGE_PORT.lock().map_err(|e| e.to_string())?.unwrap_or(port);
@@ -138,83 +141,104 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
                 local_sidecar: true,
             });
         }
-        *BRIDGE_PORT.lock().map_err(|e| e.to_string())?
-    };
-
-    // Start the bridge first (if not already running)
-    let actual_port = if !BRIDGE_RUNNING.load(Ordering::SeqCst) {
-        let actual = mcp_bridge::start_bridge(app.clone(), port).await?;
-        BRIDGE_RUNNING.store(true, Ordering::SeqCst);
-        {
-            let mut port_guard = BRIDGE_PORT.lock().map_err(|e| e.to_string())?;
-            *port_guard = Some(actual);
-        }
-        actual
-    } else {
-        current_port.unwrap_or(port)
-    };
-
-    // Small delay to ensure bridge is ready
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-    // Spawn the sidecar process (no --port arg needed, it reads from file)
-    let shell = app.shell();
-    let sidecar = shell
-        .sidecar("vmark-mcp-server")
-        .map_err(|e| format!("Failed to create sidecar command: {}", e))?;
-
-    let (mut rx, child) = sidecar.spawn().map_err(|e| {
-        format!("Failed to spawn MCP server: {}", e)
-    })?;
-
-    // Store the child process
-    {
-        let mut guard = MCP_SERVER.lock().map_err(|e| e.to_string())?;
-        *guard = Some(child);
     }
 
-    // Spawn a task to monitor the process output
-    let _app_handle = app.clone();
-    tauri::async_runtime::spawn(async move {
-        use tauri_plugin_shell::process::CommandEvent;
+    // Prevent concurrent spawn attempts (TOCTOU guard)
+    if SIDECAR_SPAWNING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err("MCP sidecar spawn already in progress".to_string());
+    }
 
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stdout(_line) => {
-                    #[cfg(debug_assertions)]
-                    eprintln!("[MCP Server] {}", String::from_utf8_lossy(&_line));
-                }
-                CommandEvent::Stderr(_line) => {
-                    #[cfg(debug_assertions)]
-                    eprintln!("[MCP Server Error] {}", String::from_utf8_lossy(&_line));
-                }
-                CommandEvent::Terminated(_payload) => {
-                    #[cfg(debug_assertions)]
-                    eprintln!(
-                        "[MCP Server] Process terminated with code: {:?}",
-                        _payload.code
-                    );
-
-                    // Clear the stored process
-                    if let Ok(mut guard) = MCP_SERVER.lock() {
-                        *guard = None;
-                    }
-
-                    break;
-                }
-                _ => {}
+    // Wrap spawn in a closure to ensure SIDECAR_SPAWNING is cleared on all paths
+    let result = async {
+        // Start the bridge first (if not already running)
+        let actual_port = if !BRIDGE_RUNNING.load(Ordering::SeqCst) {
+            let actual = mcp_bridge::start_bridge(app.clone(), port).await?;
+            BRIDGE_RUNNING.store(true, Ordering::SeqCst);
+            {
+                let mut port_guard = BRIDGE_PORT.lock().map_err(|e| e.to_string())?;
+                *port_guard = Some(actual);
             }
+            actual
+        } else {
+            // Re-read the port from the lock to get the actual bridge port
+            BRIDGE_PORT.lock().map_err(|e| e.to_string())?.unwrap_or(port)
+        };
+
+        // Small delay to ensure bridge is ready
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // Spawn the sidecar process (no --port arg needed, it reads from file)
+        let shell = app.shell();
+        let sidecar = shell
+            .sidecar("vmark-mcp-server")
+            .map_err(|e| format!("Failed to create sidecar command: {}", e))?;
+
+        let (mut rx, child) = sidecar.spawn().map_err(|e| {
+            format!("Failed to spawn MCP server: {}", e)
+        })?;
+
+        // Store the child process — kill it if the mutex lock fails to prevent leaking
+        {
+            let mut guard = match MCP_SERVER.lock() {
+                Ok(g) => g,
+                Err(e) => {
+                    let _ = child.kill();
+                    return Err(format!("Failed to lock MCP_SERVER mutex (child killed): {}", e));
+                }
+            };
+            *guard = Some(child);
         }
-    });
 
-    // Emit started event with actual port
-    let _ = app.emit("mcp-server:started", actual_port);
+        // Spawn a task to monitor the process output
+        let _app_handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            use tauri_plugin_shell::process::CommandEvent;
 
-    Ok(McpServerStatus {
-        running: true,
-        port: Some(actual_port),
-        local_sidecar: true,
-    })
+            while let Some(event) = rx.recv().await {
+                match event {
+                    CommandEvent::Stdout(_line) => {
+                        #[cfg(debug_assertions)]
+                        eprintln!("[MCP Server] {}", String::from_utf8_lossy(&_line));
+                    }
+                    CommandEvent::Stderr(_line) => {
+                        #[cfg(debug_assertions)]
+                        eprintln!("[MCP Server Error] {}", String::from_utf8_lossy(&_line));
+                    }
+                    CommandEvent::Terminated(_payload) => {
+                        #[cfg(debug_assertions)]
+                        eprintln!(
+                            "[MCP Server] Process terminated with code: {:?}",
+                            _payload.code
+                        );
+
+                        // Clear the stored process
+                        if let Ok(mut guard) = MCP_SERVER.lock() {
+                            *guard = None;
+                        }
+
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        });
+
+        // Emit started event with actual port
+        let _ = app.emit("mcp-server:started", actual_port);
+
+        Ok(McpServerStatus {
+            running: true,
+            port: Some(actual_port),
+            local_sidecar: true,
+        })
+    }
+    .await;
+
+    SIDECAR_SPAWNING.store(false, Ordering::SeqCst);
+    result
 }
 
 /// Stop the MCP server (bridge + local sidecar).

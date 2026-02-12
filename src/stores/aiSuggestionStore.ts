@@ -254,7 +254,7 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
 // Clear suggestions on tab switch to prevent stale suggestions mutating wrong document.
 // Initialized lazily by initSuggestionTabWatcher() to avoid circular imports.
 let _tabWatcherInitialized = false;
-let _prevActiveTabId: string | null = null;
+let _prevActiveTabIds: Record<string, string | null> = {};
 
 /** Start watching for tab changes. Call once at app startup. */
 export function initSuggestionTabWatcher(
@@ -264,10 +264,14 @@ export function initSuggestionTabWatcher(
   _tabWatcherInitialized = true;
 
   tabStoreSubscribe((state) => {
-    const currentTabId = state.activeTabId["main"] ?? null;
-    if (_prevActiveTabId !== null && currentTabId !== _prevActiveTabId) {
-      useAiSuggestionStore.getState().clearAll();
+    // Clear suggestions if active tab changes in any window
+    for (const [label, tabId] of Object.entries(state.activeTabId)) {
+      const prevTabId = _prevActiveTabIds[label] ?? null;
+      if (prevTabId !== null && tabId !== prevTabId) {
+        useAiSuggestionStore.getState().clearAll();
+        break;
+      }
     }
-    _prevActiveTabId = currentTabId;
+    _prevActiveTabIds = { ...state.activeTabId };
   });
 }

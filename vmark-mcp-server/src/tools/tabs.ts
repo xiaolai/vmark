@@ -167,7 +167,12 @@ export function registerTabTools(server: VMarkMcpServer): void {
           windowId,
         });
 
-        return VMarkMcpServer.successResult(`Created new tab: ${result.tabId}`);
+        const tabId = result?.tabId;
+        if (!tabId) {
+          return VMarkMcpServer.errorResult('Tab created but no tab ID returned');
+        }
+
+        return VMarkMcpServer.successResult(`Created new tab: ${tabId}`);
       } catch (error) {
         return VMarkMcpServer.errorResult(
           `Failed to create tab: ${error instanceof Error ? error.message : String(error)}`

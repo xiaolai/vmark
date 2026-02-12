@@ -142,8 +142,8 @@ export function registerBatchOpTools(server: VMarkMcpServer): void {
         return VMarkMcpServer.errorResult('target must specify tableId, afterHeading, or tableIndex');
       }
 
-      if (!operations || operations.length === 0) {
-        return VMarkMcpServer.errorResult('At least one operation is required');
+      if (!Array.isArray(operations) || operations.length === 0) {
+        return VMarkMcpServer.errorResult('operations must be a non-empty array');
       }
 
       try {
@@ -281,8 +281,8 @@ export function registerBatchOpTools(server: VMarkMcpServer): void {
         return VMarkMcpServer.errorResult('target must specify listId, selector, or listIndex');
       }
 
-      if (!operations || operations.length === 0) {
-        return VMarkMcpServer.errorResult('At least one operation is required');
+      if (!Array.isArray(operations) || operations.length === 0) {
+        return VMarkMcpServer.errorResult('operations must be a non-empty array');
       }
 
       try {

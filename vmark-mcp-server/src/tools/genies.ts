@@ -104,6 +104,10 @@ export function registerGenieTools(server: VMarkMcpServer): void {
           path,
         });
 
+        if (!result.metadata) {
+          return VMarkMcpServer.errorResult('Invalid response: missing genie metadata');
+        }
+
         return VMarkMcpServer.successResult(
           `Genie: ${result.metadata.name}\n` +
             `Description: ${result.metadata.description}\n` +

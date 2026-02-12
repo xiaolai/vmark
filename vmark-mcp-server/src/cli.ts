@@ -547,16 +547,20 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await mcpServer.connect(transport);
 
-  // Handle graceful shutdown
-  process.on('SIGINT', async () => {
-    await bridge.disconnect();
+  // Handle graceful shutdown (guard against double-signal)
+  let shuttingDown = false;
+  const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    try {
+      await bridge.disconnect();
+    } catch {
+      // Ignore errors during shutdown
+    }
     process.exit(0);
-  });
-
-  process.on('SIGTERM', async () => {
-    await bridge.disconnect();
-    process.exit(0);
-  });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 // Only run main() if not doing health check (health check exits via process.exit)

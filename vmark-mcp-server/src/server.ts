@@ -255,11 +255,24 @@ export function requireStringArg(args: ToolArgs, key: string): string {
 }
 
 /**
+ * Extract a required string argument that may be empty.
+ * Throws if not present (undefined), but allows empty strings.
+ * Use for fields like replacement text where "" is a valid value (deletion).
+ */
+export function requireStringArgAllowEmpty(args: ToolArgs, key: string): string {
+  const value = getStringArg(args, key);
+  if (value === undefined) {
+    throw new Error(`${key} must be a string`);
+  }
+  return value;
+}
+
+/**
  * Extract a number argument, returning undefined if not present or not a number.
  */
 export function getNumberArg(args: ToolArgs, key: string): number | undefined {
   const value = args[key];
-  return typeof value === 'number' ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 /**
