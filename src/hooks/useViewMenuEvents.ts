@@ -6,10 +6,9 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { FEATURE_FLAGS } from "@/stores/featureFlagsStore";
-import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { normalizeLineEndings } from "@/utils/linebreaks";
+import { cleanupBeforeModeSwitch } from "@/utils/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 
@@ -38,12 +37,7 @@ export function useViewMenuEvents(): void {
 
       const unlistenSourceMode = await currentWindow.listen<string>("menu:source-mode", (event) => {
         if (event.payload !== windowLabel) return;
-        const toastStore = useImagePasteToastStore.getState();
-        if (toastStore.isOpen) {
-          toastStore.hideToast();
-        }
-        flushActiveWysiwygNow();
-        // Use checkpoint-aware mode switch to preserve undo history
+        cleanupBeforeModeSwitch();
         toggleSourceModeWithCheckpoint(windowLabel);
       });
       if (cancelled) { unlistenSourceMode(); return; }

@@ -9,7 +9,8 @@
  */
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { getImagePreviewView } from "@/plugins/imagePreview";
+import { getImagePreviewView, hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
+import { useImagePopupStore } from "@/stores/imagePopupStore";
 import { hasImageExtension } from "@/utils/imagePathDetection";
 
 /**
@@ -81,9 +82,20 @@ class SourceImagePreviewPlugin {
   private hoverImageRange: ImageRange | null = null;
   private boundMouseMove: (e: MouseEvent) => void;
   private boundMouseLeave: () => void;
+  /** Cached popup-open state — updated via store subscription. */
+  private popupOpen = false;
+  private unsubPopup: (() => void) | null = null;
 
   constructor(view: EditorView) {
     this.view = view;
+
+    // Subscribe to popup store so we avoid per-event getState() calls
+    this.popupOpen = useImagePopupStore.getState().isOpen;
+    this.unsubPopup = useImagePopupStore.subscribe((state) => {
+      this.popupOpen = state.isOpen;
+      if (this.popupOpen) this.hidePreview();
+    });
+
     this.scheduleCheck();
 
     // Bind hover handlers
@@ -99,7 +111,16 @@ class SourceImagePreviewPlugin {
     }
   }
 
+  /** True when the image edit popup is open — suppresses all preview. */
+  private isPopupSuppressing(): boolean {
+    if (!this.popupOpen) return false;
+    this.hidePreview();
+    return true;
+  }
+
   private handleMouseMove(e: MouseEvent) {
+    if (this.isPopupSuppressing()) return;
+
     // Get position from mouse coordinates
     const pos = this.view.posAtCoords({ x: e.clientX, y: e.clientY });
     if (pos === null) {
@@ -140,7 +161,7 @@ class SourceImagePreviewPlugin {
   private clearHoverPreview() {
     if (this.hoverImageRange && !this.currentImageRange) {
       this.hoverImageRange = null;
-      getImagePreviewView().hide();
+      hideImagePreview();
     }
   }
 
@@ -163,6 +184,8 @@ class SourceImagePreviewPlugin {
       return;
     }
 
+    if (this.isPopupSuppressing()) return;
+
     // Check for image markdown at cursor
     const imageRange = findImageAtCursor(this.view, from);
     if (imageRange) {
@@ -175,6 +198,8 @@ class SourceImagePreviewPlugin {
   }
 
   private showPreviewForRange(imageRange: ImageRange) {
+    if (this.isPopupSuppressing()) return;
+
     const preview = getImagePreviewView();
 
     // Get coordinates for the image range
@@ -209,11 +234,11 @@ class SourceImagePreviewPlugin {
   private hidePreview() {
     this.currentImageRange = null;
     this.hoverImageRange = null;
-    getImagePreviewView().hide();
+    hideImagePreview();
   }
 
   destroy() {
-    // Clean up event listeners
+    this.unsubPopup?.();
     this.view.dom.removeEventListener("mousemove", this.boundMouseMove);
     this.view.dom.removeEventListener("mouseleave", this.boundMouseLeave);
     this.hidePreview();

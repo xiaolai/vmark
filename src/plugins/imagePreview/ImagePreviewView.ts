@@ -291,3 +291,13 @@ export function getImagePreviewView(): ImagePreviewView {
   }
   return previewInstance;
 }
+
+/**
+ * Hide the image preview if the singleton has been created.
+ * Non-allocating: does nothing if no preview was ever shown.
+ * Preferred over getImagePreviewView().hide() in cleanup paths
+ * to avoid creating DOM elements unnecessarily.
+ */
+export function hideImagePreview(): void {
+  previewInstance?.hide();
+}

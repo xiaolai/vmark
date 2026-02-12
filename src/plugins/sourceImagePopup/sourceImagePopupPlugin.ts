@@ -8,6 +8,7 @@
 import type { EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
 import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
 import { SourceImagePopupView } from "./SourceImagePopupView";
 
 /**
@@ -115,6 +116,9 @@ export function createSourceImagePopupPlugin() {
       return { from: image.from, to: image.to };
     },
     extractData: extractImageData,
+    onOpen: () => {
+      hideImagePreview();
+    },
     triggerOnClick: true,
     triggerOnHover: false,
   });

@@ -9,10 +9,9 @@ import { useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
-import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
+import { cleanupBeforeModeSwitch } from "@/utils/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 
@@ -41,13 +40,7 @@ export function useViewShortcuts() {
       const sourceModeKey = shortcuts.getShortcut("sourceMode");
       if (matchesShortcutEvent(e, sourceModeKey)) {
         e.preventDefault();
-        // Close any open image paste toast (don't paste - user is switching modes)
-        const toastStore = useImagePasteToastStore.getState();
-        if (toastStore.isOpen) {
-          toastStore.hideToast();
-        }
-        flushActiveWysiwygNow();
-        // Use checkpoint-aware mode switch to preserve undo history
+        cleanupBeforeModeSwitch();
         toggleSourceModeWithCheckpoint(getCurrentWindowLabel());
         return;
       }
