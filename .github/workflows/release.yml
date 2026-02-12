@@ -368,12 +368,3 @@ jobs:
             --repo "${{ github.repository }}" \
             -f version="$VERSION_NUM"
           echo "✅ Triggered Homebrew tap update for $VERSION_NUM"
-
-      - name: Trigger Claude marketplace sync
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh workflow run sync-marketplace.yml \
-            --repo "${{ github.repository }}"
-          echo "✅ Triggered Claude marketplace sync"
