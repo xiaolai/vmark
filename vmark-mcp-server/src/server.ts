@@ -288,6 +288,34 @@ export function requireNumberArg(args: ToolArgs, key: string): number {
 }
 
 /**
+ * Validate a non-negative integer. Returns error message or null if valid.
+ */
+export function validateNonNegativeInt(value: unknown, label: string): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < 0) {
+    return `${label} must be a non-negative integer`;
+  }
+  return null;
+}
+
+/**
+ * Validate a heading level (integer 1-6). Returns error message or null if valid.
+ */
+export function validateHeadingLevel(value: unknown, label: string): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < 1 || value > 6) {
+    return `${label} must be an integer between 1 and 6`;
+  }
+  return null;
+}
+
+/**
+ * Validate a byIndex target (level 1-6, index >= 0). Returns error message or null.
+ */
+export function validateByIndex(byIndex: { level: unknown; index: unknown }, prefix: string): string | null {
+  return validateHeadingLevel(byIndex.level, `${prefix}.level`)
+    ?? validateNonNegativeInt(byIndex.index, `${prefix}.index`);
+}
+
+/**
  * Extract a boolean argument, returning undefined if not present or not a boolean.
  */
 export function getBooleanArg(args: ToolArgs, key: string): boolean | undefined {

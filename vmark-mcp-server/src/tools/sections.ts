@@ -7,7 +7,7 @@
  * - move_section: Reorder sections
  */
 
-import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg } from '../server.js';
+import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg, validateByIndex } from '../server.js';
 import type {
   BatchEditResult,
   OperationMode,
@@ -85,12 +85,8 @@ export function registerSectionTools(server: VMarkMcpServer): void {
       }
 
       if (target.byIndex) {
-        if (typeof target.byIndex.level !== 'number' || target.byIndex.level < 1 || target.byIndex.level > 6) {
-          return VMarkMcpServer.errorResult('byIndex.level must be a number between 1 and 6');
-        }
-        if (typeof target.byIndex.index !== 'number' || target.byIndex.index < 0) {
-          return VMarkMcpServer.errorResult('byIndex.index must be a non-negative number');
-        }
+        const err = validateByIndex(target.byIndex, 'byIndex');
+        if (err) return VMarkMcpServer.errorResult(err);
       }
 
       try {
@@ -199,6 +195,11 @@ export function registerSectionTools(server: VMarkMcpServer): void {
         return VMarkMcpServer.errorResult('heading.level must be between 1 and 6');
       }
 
+      if (after?.byIndex) {
+        const err = validateByIndex(after.byIndex, 'after.byIndex');
+        if (err) return VMarkMcpServer.errorResult(err);
+      }
+
       try {
         const request: BridgeRequest = {
           type: 'section.insert',
@@ -300,21 +301,13 @@ export function registerSectionTools(server: VMarkMcpServer): void {
       }
 
       if (section.byIndex) {
-        if (typeof section.byIndex.level !== 'number' || section.byIndex.level < 1 || section.byIndex.level > 6) {
-          return VMarkMcpServer.errorResult('section byIndex.level must be a number between 1 and 6');
-        }
-        if (typeof section.byIndex.index !== 'number' || section.byIndex.index < 0) {
-          return VMarkMcpServer.errorResult('section byIndex.index must be a non-negative number');
-        }
+        const err = validateByIndex(section.byIndex, 'section.byIndex');
+        if (err) return VMarkMcpServer.errorResult(err);
       }
 
       if (after?.byIndex) {
-        if (typeof after.byIndex.level !== 'number' || after.byIndex.level < 1 || after.byIndex.level > 6) {
-          return VMarkMcpServer.errorResult('after byIndex.level must be a number between 1 and 6');
-        }
-        if (typeof after.byIndex.index !== 'number' || after.byIndex.index < 0) {
-          return VMarkMcpServer.errorResult('after byIndex.index must be a non-negative number');
-        }
+        const err = validateByIndex(after.byIndex, 'after.byIndex');
+        if (err) return VMarkMcpServer.errorResult(err);
       }
 
       try {

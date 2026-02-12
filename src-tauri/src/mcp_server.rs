@@ -161,6 +161,20 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
     // RAII guard — cleared on normal return, early `?`, or panic
     let _spawning = SpawningGuard;
 
+    // Re-check MCP_SERVER after acquiring the spawn guard to close the TOCTOU window
+    // (another task may have completed a spawn between our first check and acquiring the guard)
+    {
+        let guard = MCP_SERVER.lock().map_err(|e| e.to_string())?;
+        if guard.is_some() {
+            let port = BRIDGE_PORT.lock().map_err(|e| e.to_string())?.unwrap_or(port);
+            return Ok(McpServerStatus {
+                running: true,
+                port: Some(port),
+                local_sidecar: true,
+            });
+        }
+    }
+
     // Start the bridge first (if not already running)
     let actual_port = if !BRIDGE_RUNNING.load(Ordering::SeqCst) {
         let actual = mcp_bridge::start_bridge(app.clone(), port).await?;
