@@ -58,9 +58,15 @@ async function runHealthCheck(): Promise<void> {
     const allTools = server.listTools();
     const resources = server.listResources();
 
-    // 4. Validate we have expected tools
+    // 4. Validate we have the expected number of tools
     if (allTools.length === 0) {
       throw new Error('No tools registered');
+    }
+    if (allTools.length !== EXPECTED_TOOL_COUNT) {
+      throw new Error(
+        `Tool count mismatch: got ${allTools.length}, expected ${EXPECTED_TOOL_COUNT}. ` +
+        `Update EXPECTED_TOOL_COUNT in index.ts when adding/removing tools.`
+      );
     }
 
     // 5. Validate tool schemas are valid
@@ -93,7 +99,7 @@ async function runHealthCheck(): Promise<void> {
   }
 }
 
-import { createVMarkMcpServer } from './index.js';
+import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from './index.js';
 import { WebSocketBridge, ClientIdentity } from './bridge/websocket.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
