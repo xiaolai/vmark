@@ -57,6 +57,9 @@ interface AiSuggestionActions {
   /** Get suggestion by ID */
   getSuggestion: (id: string) => AiSuggestion | undefined;
 
+  /** Clear suggestions for a specific tab (used on tab switch) */
+  clearForTab: (tabId: string) => void;
+
   /** Clear all suggestions (used on document/tab change) */
   clearAll: () => void;
 }
@@ -245,6 +248,25 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
       return get().suggestions.get(id);
     },
 
+    clearForTab: (tabId) => {
+      const { suggestions, focusedSuggestionId } = get();
+      const filtered = new Map<string, AiSuggestion>();
+      let focusCleared = false;
+      for (const [id, s] of suggestions) {
+        if (s.tabId === tabId) {
+          if (id === focusedSuggestionId) focusCleared = true;
+        } else {
+          filtered.set(id, s);
+        }
+      }
+      if (filtered.size !== suggestions.size) {
+        set({
+          suggestions: filtered,
+          focusedSuggestionId: focusCleared ? null : focusedSuggestionId,
+        });
+      }
+    },
+
     clearAll: () => {
       set({ suggestions: new Map(), focusedSuggestionId: null });
     },
@@ -264,12 +286,12 @@ export function initSuggestionTabWatcher(
   _tabWatcherInitialized = true;
 
   tabStoreSubscribe((state) => {
-    // Clear suggestions if active tab changes in any window
+    // Clear suggestions scoped to the previous tab when any window switches tabs.
+    // This avoids wiping suggestions that belong to a different window's active tab.
     for (const [label, tabId] of Object.entries(state.activeTabId)) {
       const prevTabId = _prevActiveTabIds[label] ?? null;
       if (prevTabId !== null && tabId !== prevTabId) {
-        useAiSuggestionStore.getState().clearAll();
-        break;
+        useAiSuggestionStore.getState().clearForTab(prevTabId);
       }
     }
     _prevActiveTabIds = { ...state.activeTabId };

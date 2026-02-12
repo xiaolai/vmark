@@ -202,16 +202,27 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
         format!("Failed to spawn MCP server: {}", e)
     })?;
 
-    // Store the child process — kill it if the mutex lock fails to prevent leaking
-    {
-        let mut guard = match MCP_SERVER.lock() {
-            Ok(g) => g,
+    // Store the child process — on mutex failure, kill child and stop bridge to avoid orphaned state
+    let store_result = {
+        match MCP_SERVER.lock() {
+            Ok(mut guard) => {
+                *guard = Some(child);
+                Ok(())
+            }
             Err(e) => {
                 let _ = child.kill();
-                return Err(format!("Failed to lock MCP_SERVER mutex (child killed): {}", e));
+                Err(format!("Failed to lock MCP_SERVER mutex (child killed): {}", e))
             }
-        };
-        *guard = Some(child);
+        }
+    };
+    if let Err(e) = store_result {
+        // Roll back bridge state started earlier in this call
+        mcp_bridge::stop_bridge(&app).await;
+        BRIDGE_RUNNING.store(false, Ordering::SeqCst);
+        if let Ok(mut p) = BRIDGE_PORT.lock() {
+            *p = None;
+        }
+        return Err(format!("{}, bridge stopped", e));
     }
 
     // Spawn a task to monitor the process output

@@ -511,6 +511,9 @@ pub async fn validate_model(
 // ============================================================================
 
 /// Offload a CLI provider to the blocking thread pool so it doesn't starve tokio.
+///
+/// On any error (join failure, spawn failure, etc.) emits a terminal `ai:response`
+/// event so the frontend never hangs waiting for a `done` signal.
 async fn run_cli_blocking(
     window: &WebviewWindow,
     request_id: &str,
@@ -522,13 +525,26 @@ async fn run_cli_blocking(
     let w = window.clone();
     let rid = request_id.to_string();
     let prov = provider.to_string();
-    tokio::task::spawn_blocking(move || {
+    let result = tokio::task::spawn_blocking(move || {
         let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         run_cli_provider(&w, &rid, &prov, &arg_refs, stdin_prompt.as_deref(), cli_path.as_deref())
     })
-    .await
-    .map_err(|e| format!("Task join error: {e}"))??;
-    Ok(())
+    .await;
+
+    match result {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => {
+            // run_cli_provider already emits error/done events on most paths,
+            // but spawn and stdin-write failures return Err without emitting.
+            emit_error(window, request_id, &e);
+            Err(e)
+        }
+        Err(join_err) => {
+            let msg = format!("Task join error: {join_err}");
+            emit_error(window, request_id, &msg);
+            Err(msg)
+        }
+    }
 }
 
 /// Run an AI prompt and stream results back via `ai:response` events.
