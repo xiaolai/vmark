@@ -435,8 +435,8 @@ export class WebSocketBridge implements Bridge {
       while (this.requestQueue.length >= this.maxQueueSize) {
         const dropped = this.requestQueue.shift();
         if (dropped) {
-          dropped.reject(new Error('Request dropped — queue overflow'));
-          this.logger.warn('Dropped oldest queued request due to queue overflow');
+          dropped.reject(new Error(`Request dropped — queue overflow (type: ${dropped.request.type})`));
+          this.logger.warn(`Dropped oldest queued request due to queue overflow: ${dropped.request.type}`);
         }
       }
     }

@@ -102,7 +102,8 @@ pub(crate) fn login_shell_path() -> String {
                 .spawn()
                 .ok()
                 .and_then(|child| {
-                    // Wait with a 5-second timeout to avoid hanging on interactive shells
+                    // stdin(null) + stderr(null) prevent the shell from blocking
+                    // on interactive prompts; wait_with_output itself has no timeout.
                     let output = child.wait_with_output().ok()?;
                     if output.status.success() {
                         Some(String::from_utf8_lossy(&output.stdout).to_string())
@@ -509,6 +510,27 @@ pub async fn validate_model(
 // Prompt Execution
 // ============================================================================
 
+/// Offload a CLI provider to the blocking thread pool so it doesn't starve tokio.
+async fn run_cli_blocking(
+    window: &WebviewWindow,
+    request_id: &str,
+    provider: &str,
+    args: Vec<String>,
+    stdin_prompt: Option<String>,
+    cli_path: Option<String>,
+) -> Result<(), String> {
+    let w = window.clone();
+    let rid = request_id.to_string();
+    let prov = provider.to_string();
+    tokio::task::spawn_blocking(move || {
+        let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        run_cli_provider(&w, &rid, &prov, &arg_refs, stdin_prompt.as_deref(), cli_path.as_deref())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"))??;
+    Ok(())
+}
+
 /// Run an AI prompt and stream results back via `ai:response` events.
 ///
 /// For CLI providers: pipes prompt to stdin of the CLI tool.
@@ -528,27 +550,21 @@ pub async fn run_ai_prompt(
 ) -> Result<(), String> {
     match provider.as_str() {
         // CLI providers — run on blocking thread pool to avoid starving tokio
-        "claude" => {
-            let w = window.clone(); let rid = request_id.clone(); let p = prompt.clone(); let cp = cli_path.clone();
-            tokio::task::spawn_blocking(move || {
-                run_cli_provider(&w, &rid, "claude", &["--print", "--output-format", "text"], Some(&p), cp.as_deref())
-            }).await.map_err(|e| format!("Task join error: {e}"))??;
-            Ok(())
-        }
-        "codex" => {
-            let w = window.clone(); let rid = request_id.clone(); let p = prompt.clone(); let cp = cli_path.clone();
-            tokio::task::spawn_blocking(move || {
-                run_cli_provider(&w, &rid, "codex", &["exec", &p], None, cp.as_deref())
-            }).await.map_err(|e| format!("Task join error: {e}"))??;
-            Ok(())
-        }
-        "gemini" => {
-            let w = window.clone(); let rid = request_id.clone(); let p = prompt.clone(); let cp = cli_path.clone();
-            tokio::task::spawn_blocking(move || {
-                run_cli_provider(&w, &rid, "gemini", &["-p", &p], None, cp.as_deref())
-            }).await.map_err(|e| format!("Task join error: {e}"))??;
-            Ok(())
-        }
+        "claude" => run_cli_blocking(
+            &window, &request_id, "claude",
+            vec!["--print".into(), "--output-format".into(), "text".into()],
+            Some(prompt), cli_path,
+        ).await,
+        "codex" => run_cli_blocking(
+            &window, &request_id, "codex",
+            vec!["exec".into(), prompt],
+            None, cli_path,
+        ).await,
+        "gemini" => run_cli_blocking(
+            &window, &request_id, "gemini",
+            vec!["-p".into(), prompt],
+            None, cli_path,
+        ).await,
 
         // REST providers
         "anthropic" => {

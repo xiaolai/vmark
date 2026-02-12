@@ -19,16 +19,15 @@ export function useMcpAutoStart() {
   const hasTriedRef = useRef(false);
 
   useEffect(() => {
-    // Only run once per app session
+    // Only run once per app session — guard unconditionally to prevent
+    // repeated invoke calls on component remounts.
     if (hasTriedRef.current) return;
+    hasTriedRef.current = true;
 
     const { mcpServer } = useSettingsStore.getState().advanced;
 
-    // Only auto-start if enabled (don't set hasTriedRef if disabled,
-    // so re-enabling the setting and remounting can still trigger auto-start)
+    // Only auto-start if enabled
     if (!mcpServer.autoStart) return;
-
-    hasTriedRef.current = true;
 
     // Start only the MCP bridge (WebSocket server).
     // AI clients (Claude Code, Codex, etc.) spawn their own sidecars that connect to this bridge.
