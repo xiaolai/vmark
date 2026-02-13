@@ -13,9 +13,11 @@ import { EditorView } from "@codemirror/view";
 import {
   TABLE_ROW_PATTERN,
   LIST_ITEM_PATTERN,
+  TASK_ITEM_PATTERN,
   BLOCKQUOTE_PATTERN,
   getCellStartPipePos,
   getListMarkerRange,
+  getTaskMarkerRange,
   getBlockquoteMarkerInfo,
   smartBackspace,
   smartDelete,
@@ -98,6 +100,37 @@ describe("Structural Character Protection", () => {
       expect(match).not.toBeNull();
       expect(match![1]).toBe("  "); // indentation
       expect(match![2]).toBe("-"); // marker
+    });
+  });
+
+  describe("TASK_ITEM_PATTERN", () => {
+    it("matches unchecked task markers", () => {
+      expect(TASK_ITEM_PATTERN.test("- [ ] task")).toBe(true);
+      expect(TASK_ITEM_PATTERN.test("* [ ] task")).toBe(true);
+      expect(TASK_ITEM_PATTERN.test("+ [ ] task")).toBe(true);
+    });
+
+    it("matches checked task markers", () => {
+      expect(TASK_ITEM_PATTERN.test("- [x] done")).toBe(true);
+      expect(TASK_ITEM_PATTERN.test("- [X] done")).toBe(true);
+    });
+
+    it("matches indented task markers", () => {
+      expect(TASK_ITEM_PATTERN.test("  - [ ] task")).toBe(true);
+      expect(TASK_ITEM_PATTERN.test("    - [x] task")).toBe(true);
+    });
+
+    it("does not match regular list markers", () => {
+      expect(TASK_ITEM_PATTERN.test("- item")).toBe(false);
+      expect(TASK_ITEM_PATTERN.test("* item")).toBe(false);
+    });
+
+    it("captures indentation, marker, and check state", () => {
+      const match = "  - [ ] task".match(TASK_ITEM_PATTERN);
+      expect(match).not.toBeNull();
+      expect(match![1]).toBe("  "); // indentation
+      expect(match![2]).toBe("-"); // marker
+      expect(match![3]).toBe(" "); // check state (space = unchecked)
     });
   });
 
@@ -204,6 +237,47 @@ describe("Structural Character Protection", () => {
     });
   });
 
+  describe("getTaskMarkerRange", () => {
+    it("returns range for unchecked task at cursor", () => {
+      const view = createView("- [ ] ^task");
+      const range = getTaskMarkerRange(view);
+      expect(range).not.toBeNull();
+      expect(range?.from).toBe(0);
+      expect(range?.to).toBe(6); // "- [ ] " length
+      expect(range?.indent).toBe(0);
+    });
+
+    it("returns range for checked task at cursor", () => {
+      const view = createView("- [x] ^done");
+      const range = getTaskMarkerRange(view);
+      expect(range).not.toBeNull();
+      expect(range?.from).toBe(0);
+      expect(range?.to).toBe(6); // "- [x] " length
+      expect(range?.indent).toBe(0);
+    });
+
+    it("returns range with indent for indented task", () => {
+      const view = createView("  - [ ] ^task");
+      const range = getTaskMarkerRange(view);
+      expect(range).not.toBeNull();
+      expect(range?.from).toBe(2); // after indent
+      expect(range?.to).toBe(8); // "- [ ] " after indent
+      expect(range?.indent).toBe(2);
+    });
+
+    it("returns null when cursor is past the marker", () => {
+      const view = createView("- [ ] task ^content");
+      const range = getTaskMarkerRange(view);
+      expect(range).toBeNull();
+    });
+
+    it("returns null for non-task line", () => {
+      const view = createView("- ^item");
+      const range = getTaskMarkerRange(view);
+      expect(range).toBeNull();
+    });
+  });
+
   describe("getBlockquoteMarkerInfo", () => {
     it("returns info when cursor is after marker", () => {
       const view = createView("> ^quote");
@@ -293,6 +367,52 @@ describe("Structural Character Protection", () => {
       const view = createView("^text");
       const handled = smartBackspace(view);
       expect(handled).toBe(false);
+    });
+
+    // Indented list: outdent instead of removing marker
+    it("outdents indented list item (2-space indent, tabSize=2)", () => {
+      const view = createView("  - ^item");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe("- item");
+    });
+
+    it("outdents 4-space indented list item by one level", () => {
+      const view = createView("    - ^item");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // Default tabSize is 4 in CodeMirror, removes min(4, 4)=4 spaces
+      expect(view.state.doc.toString()).toBe("- item");
+    });
+
+    it("outdents partial indent (1 space, tabSize=2)", () => {
+      const view = createView(" - ^item");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // min(1, tabSize) = 1 space removed
+      expect(view.state.doc.toString()).toBe("- item");
+    });
+
+    // Task marker handling
+    it("removes full task marker at level 0", () => {
+      const view = createView("- [ ] ^task");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe("task");
+    });
+
+    it("removes checked task marker at level 0", () => {
+      const view = createView("- [x] ^done");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe("done");
+    });
+
+    it("outdents indented task marker instead of removing", () => {
+      const view = createView("  - [ ] ^task");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe("- [ ] task");
     });
   });
 

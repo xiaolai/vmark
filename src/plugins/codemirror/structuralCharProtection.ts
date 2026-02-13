@@ -13,6 +13,7 @@
  */
 
 import { type KeyBinding, type EditorView } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 
 /**
@@ -25,6 +26,9 @@ export const TABLE_ROW_PATTERN = /^\s*\|/;
 
 // List item: starts with optional whitespace, then marker
 export const LIST_ITEM_PATTERN = /^(\s*)(-|\*|\+|\d+\.)\s/;
+
+// Task list item: starts with optional whitespace, then marker + checkbox
+export const TASK_ITEM_PATTERN = /^(\s*)([-*+])\s\[([ xX])\]\s/;
 
 // Blockquote: starts with optional whitespace, then >
 export const BLOCKQUOTE_PATTERN = /^(\s*)(>+)\s?/;
@@ -61,7 +65,9 @@ export function getCellStartPipePos(view: EditorView): number {
  * Returns the marker range if true, or null if not.
  * Exported for testing.
  */
-export function getListMarkerRange(view: EditorView): { from: number; to: number } | null {
+export function getListMarkerRange(
+  view: EditorView
+): { from: number; to: number; indent: number } | null {
   const { state } = view;
   const { head } = state.selection.main;
   const line = state.doc.lineAt(head);
@@ -71,12 +77,45 @@ export function getListMarkerRange(view: EditorView): { from: number; to: number
   if (!match) return null;
 
   const markerEnd = match[0].length;
+  const indent = match[1].length;
 
   // Cursor must be right after the marker (including space)
-  if (offsetInLine <= markerEnd && offsetInLine > match[1].length) {
+  if (offsetInLine <= markerEnd && offsetInLine > indent) {
     return {
-      from: line.from + match[1].length,
+      from: line.from + indent,
       to: line.from + markerEnd,
+      indent,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Check if cursor is right after a task list marker.
+ * Returns the marker range and indent if true, or null if not.
+ * Exported for testing.
+ */
+export function getTaskMarkerRange(
+  view: EditorView
+): { from: number; to: number; indent: number } | null {
+  const { state } = view;
+  const { head } = state.selection.main;
+  const line = state.doc.lineAt(head);
+  const offsetInLine = head - line.from;
+
+  const match = line.text.match(TASK_ITEM_PATTERN);
+  if (!match) return null;
+
+  const markerEnd = match[0].length;
+  const indent = match[1].length;
+
+  // Cursor must be right after the marker (including space after checkbox)
+  if (offsetInLine <= markerEnd && offsetInLine > indent) {
+    return {
+      from: line.from + indent,
+      to: line.from + markerEnd,
+      indent,
     };
   }
 
@@ -136,15 +175,47 @@ export function smartBackspace(view: EditorView): boolean {
     return true;
   }
 
+  // Check task marker first (more specific pattern, before regular list)
+  const taskMarker = getTaskMarkerRange(view);
+  if (taskMarker) {
+    const line = state.doc.lineAt(head);
+    if (taskMarker.indent > 0) {
+      // Indented task: outdent by removing leading whitespace
+      const tabSize = state.facet(EditorState.tabSize);
+      const removeCount = Math.min(taskMarker.indent, tabSize);
+      view.dispatch({
+        changes: { from: line.from, to: line.from + removeCount },
+        scrollIntoView: true,
+      });
+    } else {
+      // Level 0 task: remove the full marker (e.g., "- [ ] ")
+      view.dispatch({
+        changes: { from: taskMarker.from, to: taskMarker.to },
+        scrollIntoView: true,
+      });
+    }
+    return true;
+  }
+
   // Check if we're at a list marker
   const listMarker = getListMarkerRange(view);
   if (listMarker) {
-    // At list marker - backspace should remove the entire marker,
-    // converting to plain paragraph
-    view.dispatch({
-      changes: { from: listMarker.from, to: listMarker.to },
-      scrollIntoView: true,
-    });
+    const line = state.doc.lineAt(head);
+    if (listMarker.indent > 0) {
+      // Indented list: outdent by removing leading whitespace
+      const tabSize = state.facet(EditorState.tabSize);
+      const removeCount = Math.min(listMarker.indent, tabSize);
+      view.dispatch({
+        changes: { from: line.from, to: line.from + removeCount },
+        scrollIntoView: true,
+      });
+    } else {
+      // Level 0 list: remove the entire marker
+      view.dispatch({
+        changes: { from: listMarker.from, to: listMarker.to },
+        scrollIntoView: true,
+      });
+    }
     return true;
   }
 
