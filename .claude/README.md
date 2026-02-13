@@ -89,17 +89,16 @@ Auto-loaded into every Claude Code session. These enforce project conventions:
 
 | Command | Purpose |
 |---------|---------|
-| `/fix` | Root-cause bug fixing with TDD |
-| `/fix-issue` | End-to-end GitHub issue resolver (fetch, branch, fix, audit, PR) |
+| `/audit-fix` | Audit, fix all findings, verify — repeat until clean |
+| `/bump` | Version bump across all 5 files, commit, tag, push |
 | `/codex-audit` | Full 9-dimension code audit via Codex |
 | `/codex-audit-mini` | Fast 5-dimension audit for small changes |
-| `/codex-verify` | Verify fixes from a previous audit report |
 | `/codex-commit` | Smart commit messages from change analysis |
-| `/audit-fix` | Audit, fix all findings, verify — repeat until clean |
+| `/codex-verify` | Verify fixes from a previous audit report |
 | `/feature-workflow` | Gated agent-driven workflow with specialized subagents |
-| `/release-gate` | Run `pnpm check:all` and produce a gate report |
+| `/fix` | Root-cause bug fixing with TDD |
+| `/fix-issue` | End-to-end GitHub issue resolver (fetch, branch, fix, audit, PR) |
 | `/merge-prs` | Review and merge open PRs sequentially |
-| `/bump` | Version bump across all 5 files, commit, tag, push |
 | `/test-guide` | Generate manual testing guide |
 
 ### Skills (`skills/`)
@@ -108,17 +107,18 @@ Extended capabilities that Claude Code loads on demand:
 
 | Skill | When used |
 |-------|-----------|
+| `ai-coding-agents` | Multi-tool orchestration guidance |
+| `css-design-tdd` | CSS token auditing |
+| `mcp-dev` / `mcp-server-manager` | MCP server configuration |
+| `planning` / `plan-audit` / `plan-verify` | Implementation planning |
 | `react-app-dev` | React UI changes (components, hooks, stores) |
+| `release-gate` | Quality gate checks |
 | `rust-tauri-backend` | Rust/Tauri backend changes |
+| `shortcut-audit` | Keyboard shortcut consistency |
+| `tauri-app-dev` | Tauri desktop app development guidance |
+| `tauri-mcp-test-runner` / `tauri-mcp-testing` | E2E testing via Tauri MCP |
 | `tauri-v2-integration` | Frontend-backend IPC bridges |
 | `tiptap-dev` / `tiptap-editor` | Rich text editor work |
-| `tauri-mcp-testing` | E2E testing via Tauri MCP |
-| `css-design-tdd` | CSS token auditing |
-| `planning` / `plan-audit` / `plan-verify` | Implementation planning |
-| `shortcut-audit` | Keyboard shortcut consistency |
-| `mcp-dev` / `mcp-server-manager` | MCP server configuration |
-| `release-gate` | Quality gate checks |
-| `ai-coding-agents` | Multi-tool orchestration guidance |
 
 ### Agents (`agents/`)
 

@@ -11,7 +11,7 @@ Large language models internally process all languages through a representation 
 - **Internal language of thought**: LLMs use English-aligned intermediate representations regardless of input language ([arXiv:2502.15603](https://arxiv.org/abs/2502.15603)).
 - **20%+ performance gain**: Pre-translating non-English prompts to English before sending them to the model improves output quality by 20% or more ([arXiv:2502.09331](https://arxiv.org/abs/2502.09331)).
 
-In practice, a Chinese prompt like â把这个函数改成异步的â works â but the English equivalent âConvert this function to asyncâ produces more precise code with fewer iterations.
+In practice, a Chinese prompt like “把这个函数改成异步的” works — but the English equivalent “Convert this function to async” produces more precise code with fewer iterations.
 
 ### Tool Use Inherits Prompt Language
 
@@ -21,7 +21,7 @@ When an AI coding tool searches the web, reads documentation, or looks up API re
 - Technical search terms are more precise in English
 - Code examples and error messages are almost always in English
 
-A Chinese prompt asking about â状态管理â may search for Chinese resources, missing the canonical English documentation.
+A Chinese prompt asking about “状态管理” may search for Chinese resources, missing the canonical English documentation.
 
 ## The `::` Prompt Refinement Hook
 
@@ -47,7 +47,7 @@ You then paste (`Cmd+V`) the refined prompt and press Enter to send it.
 
 **Input:**
 ```
-:: 这个组件渲染太慢了ï¼每次父组件更新都会重新渲染ï¼帮我优化一下
+:: 这个组件渲染太慢了，每次父组件更新都会重新渲染，帮我优化一下
 ```
 
 **Refined output (copied to clipboard):**
