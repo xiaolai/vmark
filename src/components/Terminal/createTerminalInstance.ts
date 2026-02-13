@@ -12,6 +12,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { createFileLinkProvider } from "./fileLinkProvider";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
+import { terminalLog } from "@/utils/debug";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -41,12 +42,15 @@ export interface TerminalInstance {
   searchAddon: SearchAddon;
   serializeAddon: SerializeAddon;
   container: HTMLDivElement;
+  /** Whether an IME composition is active (diagnostic). */
+  composing: boolean;
   dispose: () => void;
 }
 
 export interface TerminalInstanceSettings {
   fontSize: number;
   lineHeight: number;
+  useWebGL: boolean;
 }
 
 interface CreateOptions {
@@ -95,18 +99,36 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   // Open terminal
   term.open(container);
 
+  // IME composition tracking (diagnostic + safety net)
+  let composing = false;
+  const textarea = container.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
+  const onCompositionStart = () => {
+    composing = true;
+    terminalLog("compositionstart");
+  };
+  const onCompositionEnd = () => {
+    composing = false;
+    terminalLog("compositionend");
+  };
+  if (textarea) {
+    textarea.addEventListener("compositionstart", onCompositionStart);
+    textarea.addEventListener("compositionend", onCompositionEnd);
+  }
+
   // Unicode 11
   const unicode11 = new Unicode11Addon();
   term.loadAddon(unicode11);
   term.unicode.activeVersion = "11";
 
-  // WebGL renderer
-  try {
-    const webglAddon = new WebglAddon();
-    webglAddon.onContextLoss(() => webglAddon.dispose());
-    term.loadAddon(webglAddon);
-  } catch {
-    // Fallback to canvas
+  // WebGL renderer (conditional — can be disabled to troubleshoot IME issues)
+  if (settings.useWebGL) {
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => webglAddon.dispose());
+      term.loadAddon(webglAddon);
+    } catch {
+      // Fallback to canvas
+    }
   }
 
   // Web links
@@ -142,11 +164,20 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   });
 
   const dispose = () => {
+    if (textarea) {
+      textarea.removeEventListener("compositionstart", onCompositionStart);
+      textarea.removeEventListener("compositionend", onCompositionEnd);
+    }
     term.dispose();
     if (container.parentElement) {
       container.parentElement.removeChild(container);
     }
   };
 
-  return { term, fitAddon, searchAddon, serializeAddon, container, dispose };
+  const instance: TerminalInstance = {
+    term, fitAddon, searchAddon, serializeAddon, container, dispose,
+    get composing() { return composing; },
+  };
+
+  return instance;
 }

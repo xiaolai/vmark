@@ -167,13 +167,14 @@ export function useTerminalSessions(
       const termSettings = useSettingsStore.getState().terminal;
       const fontSize = termSettings?.fontSize ?? 13;
       const lineHeight = termSettings?.lineHeight ?? 1.2;
+      const useWebGL = termSettings?.useWebGL ?? true;
 
       // Create a shared ptyRef that we'll update as the pty changes
       const ptyRefForKeys: React.RefObject<IPty | null> = { current: null };
 
       const instance = createTerminalInstance({
         parentEl: parent,
-        settings: { fontSize, lineHeight },
+        settings: { fontSize, lineHeight, useWebGL },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
       });

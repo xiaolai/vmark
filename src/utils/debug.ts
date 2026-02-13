@@ -22,3 +22,11 @@ export const historyLog = isDev
 export const autoSaveLog = isDev
   ? (...args: unknown[]) => console.log("[AutoSave]", ...args)
   : () => {};
+
+/**
+ * Debug logger for Terminal operations (IME composition, PTY events).
+ * Only logs in development mode.
+ */
+export const terminalLog = isDev
+  ? (...args: unknown[]) => console.log("[Terminal]", ...args)
+  : () => {};

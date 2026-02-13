@@ -16,8 +16,20 @@ function makeTerm(overrides: Partial<Terminal> = {}): Terminal {
   } as unknown as Terminal;
 }
 
-function makeEvent(key: string, meta = true): KeyboardEvent {
-  return { type: "keydown", key, metaKey: meta, ctrlKey: false } as unknown as KeyboardEvent;
+function makeEvent(
+  key: string,
+  meta = true,
+  overrides: Partial<KeyboardEvent> = {},
+): KeyboardEvent {
+  return {
+    type: "keydown",
+    key,
+    metaKey: meta,
+    ctrlKey: false,
+    isComposing: false,
+    keyCode: 0,
+    ...overrides,
+  } as unknown as KeyboardEvent;
 }
 
 describe("createTerminalKeyHandler", () => {
@@ -90,5 +102,23 @@ describe("createTerminalKeyHandler", () => {
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
     expect(handler(makeEvent("a"))).toBe(true);
     expect(handler(makeEvent("z"))).toBe(true);
+  });
+
+  it("passes through IME composition events (isComposing)", () => {
+    const term = makeTerm();
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    // Cmd+V during IME composition should NOT trigger paste
+    const result = handler(makeEvent("v", true, { isComposing: true }));
+    expect(result).toBe(true);
+    expect(readText).not.toHaveBeenCalled();
+  });
+
+  it("passes through IME keyCode 229 events", () => {
+    const term = makeTerm();
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const result = handler(makeEvent("v", true, { keyCode: 229 }));
+    expect(result).toBe(true);
+    // Should not trigger paste
+    expect(readText).not.toHaveBeenCalled();
   });
 });
