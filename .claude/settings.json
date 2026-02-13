@@ -5,5 +5,30 @@
   "enabledPlugins": {
     "frontend-design@claude-code-plugins": true,
     "rust-analyzer-lsp@claude-plugins-official": true
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/refine_prompt.mjs",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/decode-curly-quotes.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }

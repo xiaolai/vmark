@@ -66,4 +66,20 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
   - **Capabilities**: Tauri permissions go in `src-tauri/capabilities/default.json`.
   - **Adding a Tauri plugin**: (1) add to `Cargo.toml`, (2) register `.plugin()` in `lib.rs`, (3) add permission to capabilities.
   - **Backtick shortcut escaping**: ProseMirror format `"Ctrl-\`"`, Tauri format `"Ctrl+\`"`.
+- Curly quotes and CJK punctuation handling:
+  - The Claude API silently converts curly/smart quotes and CJK punctuation to ASCII
+    equivalents in output. You CANNOT write these characters directly.
+  - When writing or editing files that contain any of these characters, always use
+    their `\uXXXX` escape sequences instead. A PostToolUse hook automatically converts
+    them back to real Unicode after every Write/Edit.
+  - Escape table:
+    - `\u201C` `\u201D` — left/right double quotation marks
+    - `\u2018` `\u2019` — left/right single quotation marks
+    - `\u300C` `\u300D` — corner brackets (「」)
+    - `\u300E` `\u300F` — white corner brackets (『』)
+    - `\u3010` `\u3011` — black lenticular brackets (【】)
+    - `\u2014` — em dash, `\u2013` — en dash, `\u2026` — ellipsis
+    - `\uFF0C` — fullwidth comma, `\uFF1A` — fullwidth colon,
+      `\uFF1B` — fullwidth semicolon, `\uFF01` — fullwidth exclamation,
+      `\uFF1F` — fullwidth question mark
 </INSTRUCTIONS>
