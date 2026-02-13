@@ -8,10 +8,11 @@ This directory contains configuration for AI coding tools — primarily [Claude 
 
 Several slash commands (`/codex-audit`, `/codex-verify`, `/codex-audit-mini`, `/fix-issue`, `/audit-fix`) use OpenAI's Codex as an independent second opinion. Codex runs as an MCP server that Claude Code consults during audits.
 
-Install globally:
+Install globally and log in with your subscription:
 
 ```bash
 npm install -g @openai/codex
+codex login                   # Log in with your ChatGPT subscription (recommended)
 ```
 
 Verify it's on your PATH:
@@ -20,11 +21,7 @@ Verify it's on your PATH:
 codex --version
 ```
 
-Set your OpenAI API key:
-
-```bash
-export OPENAI_API_KEY="sk-..."
-```
+> **Prefer subscription auth over API keys.** `codex login` uses your ChatGPT Plus ($20/mo) or Pro ($200/mo) subscription, which is dramatically cheaper than `OPENAI_API_KEY` pay-per-token billing for heavy coding sessions. API keys work as a fallback — see `codex login --with-api-key`.
 
 ### Why Codex?
 

@@ -27,6 +27,10 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
   - Run `pnpm check:all` for gates.
   - No dev server; ask the user to run interactive app flows.
   - For E2E, use Tauri MCP tools. **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
+- AI coding tool auth:
+  - **Prefer subscription auth over API keys** for all AI coding tools (Claude Code, Codex CLI, Gemini CLI). Subscription plans are dramatically cheaper for sustained coding sessions — API billing can cost 10–30x more.
+  - Claude Code: log in with Claude Max subscription. Codex CLI: `codex login` with ChatGPT Plus/Pro. Gemini CLI: Google account login.
+  - API keys work as a fallback for light or automated usage.
 - Tech stack reference:
   - Tauri v2, React 19, Zustand v5, shadcn/ui v4, Tailwind v4,
     Vite v7, Vitest v4, pnpm.

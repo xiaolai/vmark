@@ -188,15 +188,30 @@ To add personal instructions that don't affect the team, create `CLAUDE.local.md
 - **tauri** — E2E testing via `@hypothesi/tauri-mcp-server` (webview interaction, screenshots)
 - **codex** — OpenAI Codex integration for audit commands
 
+### Subscription Auth for AI Coding Tools
+
+When vibe-coding this project, **always prefer subscription-based auth** over API keys for AI coding tools. Subscription plans are dramatically cheaper for sustained coding sessions — API billing can cost 10–30x more for the same work.
+
+| Tool | Recommended Auth | Plan |
+|------|-----------------|------|
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `claude` login (subscription) | Claude Max ($100–200/mo) |
+| [Codex CLI](https://github.com/openai/codex) | `codex login` (subscription) | ChatGPT Plus/Pro ($20–200/mo) |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `gemini` login (Google account) | Free tier / Google One AI Premium |
+
+API keys still work as a fallback, but for regular development, subscription auth is the way to go.
+
 ### Using Codex as a Second Opinion
 
 VMark's `.mcp.json` registers an [OpenAI Codex](https://github.com/openai/codex) MCP server. This lets you ask Codex for help directly from Claude Code — useful as a second pair of eyes or for independent audits.
 
-**Prerequisite:** Install the Codex CLI globally:
+**Prerequisite:** Install the Codex CLI globally and log in with your subscription:
 
 ```bash
 npm install -g @openai/codex
+codex login                   # Log in with your ChatGPT subscription (recommended)
 ```
+
+> **Avoid API keys for Codex.** `codex login` uses your ChatGPT Plus/Pro subscription, which is dramatically cheaper than `OPENAI_API_KEY` pay-per-token billing for heavy coding sessions.
 
 Codex must be on your `PATH` for the MCP server to start. Verify with `codex --version`.
 

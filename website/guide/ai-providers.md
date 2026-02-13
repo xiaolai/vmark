@@ -31,8 +31,13 @@ Click **Detect** in Settings > Integrations. VMark searches your `$PATH` for eac
 ### Advantages
 
 - **No API key needed** — the CLI handles authentication using your existing login
+- **Dramatically cheaper** — CLI tools use your subscription plan (e.g., Claude Max, ChatGPT Plus/Pro, Google One AI Premium), which costs a fixed monthly fee. REST API providers charge per token and can cost 10–30x more for heavy usage
 - **Uses your CLI config** — model preferences, system prompts, and billing are managed by the CLI itself
 - **Works offline** — Ollama runs entirely on your machine
+
+::: tip Subscription vs API for Developers
+If you're also using these tools for vibe-coding (Claude Code, Codex CLI, Gemini CLI), the same subscription covers both VMark's AI Genies and your coding sessions — no extra cost.
+:::
 
 ### Setup: Claude CLI
 
@@ -120,12 +125,13 @@ Use this when you want REST-style access to a local Ollama instance, or when Oll
 
 | Situation | Recommendation |
 |-----------|---------------|
-| Already have Claude Code installed | **Claude (CLI)** — zero config |
-| Want the simplest cloud setup | Set `ANTHROPIC_API_KEY` env var → **Anthropic (REST)** |
+| Already have Claude Code installed | **Claude (CLI)** — zero config, uses your subscription |
+| Already have Codex or Gemini installed | **Codex / Gemini (CLI)** — uses your subscription |
 | Need privacy / offline | Install Ollama → **Ollama (CLI)** |
 | Custom or self-hosted model | **Ollama (API)** with your endpoint |
-| Want the cheapest option | **Ollama (CLI)** with a small model (free, local) |
-| Need the highest quality output | **Anthropic (REST)** with `claude-sonnet-4-5-20250929` |
+| Want the cheapest cloud option | **Any CLI provider** — subscription is dramatically cheaper than API |
+| No subscription, light usage only | Set API key env var → **REST provider** (pay-per-token) |
+| Need the highest quality output | **Claude (CLI)** or **Anthropic (REST)** with `claude-sonnet-4-5-20250929` |
 
 ## Per-Genie Model Override
 

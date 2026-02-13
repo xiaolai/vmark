@@ -103,10 +103,11 @@ This registers Codex as an MCP tool inside Claude Code. Slash commands like `/co
 
 ### Setup
 
-Install Codex CLI globally:
+Install Codex CLI globally and log in with your ChatGPT subscription:
 
 ```bash
 npm install -g @openai/codex
+codex login                   # Log in with your ChatGPT subscription (recommended)
 ```
 
 Verify it's on your PATH:
@@ -115,11 +116,17 @@ Verify it's on your PATH:
 codex --version
 ```
 
-Set your OpenAI API key:
+::: tip Subscription vs API Keys
+**Always prefer subscription auth** (`codex login`) over API keys (`OPENAI_API_KEY`) for vibe-coding. Subscription plans are dramatically cheaper for sustained coding sessions — API billing can cost 10–30x more for the same work. This applies to all AI coding tools:
 
-```bash
-export OPENAI_API_KEY="sk-..."
-```
+| Tool | Auth Command | Subscription |
+|------|-------------|-------------|
+| Claude Code | `claude` (auto-login) | Claude Max ($100–200/mo) |
+| Codex CLI | `codex login` | ChatGPT Plus/Pro ($20–200/mo) |
+| Gemini CLI | `gemini` (Google account) | Free tier / Google One AI Premium |
+
+API keys still work as a fallback — see `codex login --with-api-key`.
+:::
 
 ::: tip PATH for macOS GUI Apps
 macOS GUI apps (like terminals launched from Spotlight) have a minimal PATH. If `codex --version` works in your terminal but Claude Code can't find it, ensure the Codex binary location is in your shell profile (`~/.zshrc` or `~/.bashrc`).
