@@ -1,5 +1,22 @@
 export type ShortcutPlatform = "mac" | "other";
 
+// Physical key codes for symbol keys commonly remapped by CJK input methods.
+// When a Chinese/Japanese/Korean IME is active, event.key may report the
+// remapped character (e.g., ` → ·, [ → 【) but event.code always reflects
+// the physical key position.
+const SYMBOL_KEY_TO_CODE: Record<string, string> = {
+  "`": "Backquote",
+  "[": "BracketLeft",
+  "]": "BracketRight",
+  "\\": "Backslash",
+  ";": "Semicolon",
+  "'": "Quote",
+  ",": "Comma",
+  ".": "Period",
+  "/": "Slash",
+  "=": "Equal",
+};
+
 const KEY_ALIASES: Record<string, string> = {
   up: "arrowup",
   down: "arrowdown",
@@ -73,5 +90,11 @@ export function matchesShortcutEvent(
   if (matchesShiftedSymbol(event, keyToken)) return true;
 
   const eventKey = normalizeEventKey(event.key);
-  return eventKey === targetKey;
+  if (eventKey === targetKey) return true;
+
+  // Fallback: match physical key via event.code when CJK IMEs remap the character
+  const expectedCode = SYMBOL_KEY_TO_CODE[targetKey];
+  if (expectedCode && event.code === expectedCode) return true;
+
+  return false;
 }

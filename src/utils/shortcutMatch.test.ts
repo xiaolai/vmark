@@ -50,6 +50,33 @@ describe("matchesShortcutEvent", () => {
     const event = makeEvent({ key: ">", shiftKey: true, metaKey: true });
     expect(matchesShortcutEvent(event, "Mod-Shift-.", "mac")).toBe(true);
   });
+
+  describe("CJK IME remapping", () => {
+    it.each([
+      { name: "Ctrl-` with backtick remapped to middle dot", key: "\u00B7", code: "Backquote", init: { ctrlKey: true }, shortcut: "Ctrl-`", platform: "mac" as const },
+      { name: "Mod-Shift-` with backtick remapped (inline code)", key: "\u00B7", code: "Backquote", init: { metaKey: true, shiftKey: true }, shortcut: "Mod-Shift-`", platform: "mac" as const },
+      { name: "Mod-[ with bracket remapped to lenticular bracket", key: "\u3010", code: "BracketLeft", init: { metaKey: true }, shortcut: "Mod-[", platform: "mac" as const },
+      { name: "Ctrl-` with correct event.key (no remapping)", key: "`", code: "Backquote", init: { ctrlKey: true }, shortcut: "Ctrl-`", platform: "mac" as const },
+    ])("matches $name", ({ key, code, init, shortcut, platform }) => {
+      const event = makeEvent({ key, code, ...init });
+      expect(matchesShortcutEvent(event, shortcut, platform)).toBe(true);
+    });
+
+    it("rejects when modifier is missing (code fallback does not bypass modifier check)", () => {
+      const event = makeEvent({ key: "\u00B7", code: "Backquote" });
+      expect(matchesShortcutEvent(event, "Ctrl-`", "mac")).toBe(false);
+    });
+
+    it("rejects when event.code is wrong", () => {
+      const event = makeEvent({ key: "\u00B7", code: "KeyA", ctrlKey: true });
+      expect(matchesShortcutEvent(event, "Ctrl-`", "mac")).toBe(false);
+    });
+
+    it("rejects when event.code is empty", () => {
+      const event = makeEvent({ key: "\u00B7", code: "", ctrlKey: true });
+      expect(matchesShortcutEvent(event, "Ctrl-`", "mac")).toBe(false);
+    });
+  });
 });
 
 describe("isMacPlatform", () => {
