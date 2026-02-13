@@ -14,6 +14,16 @@ function sortByPosition(ranges: SelectionRange[]): SelectionRange[] {
 }
 
 /**
+ * Sort ranges by position (descending) for safe editing.
+ * Editing from end to start preserves earlier positions.
+ */
+export function sortRangesDescending(
+  ranges: readonly SelectionRange[]
+): SelectionRange[] {
+  return [...ranges].sort((a, b) => b.$from.pos - a.$from.pos);
+}
+
+/**
  * Check if two ranges overlap (boundary-touching does not count).
  */
 function rangesOverlap(a: SelectionRange, b: SelectionRange): boolean {

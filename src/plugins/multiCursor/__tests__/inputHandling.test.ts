@@ -1,7 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { Schema } from "@tiptap/pm/model";
-import { EditorState, SelectionRange } from "@tiptap/pm/state";
-import { multiCursorPlugin } from "../multiCursorPlugin";
 import { MultiSelection } from "../MultiSelection";
 import {
   handleMultiCursorInput,
@@ -9,44 +6,7 @@ import {
   handleMultiCursorDelete,
   handleMultiCursorKeyDown,
 } from "../inputHandling";
-
-// Simple schema for testing
-const schema = new Schema({
-  nodes: {
-    doc: { content: "paragraph+" },
-    paragraph: { content: "text*" },
-    text: { inline: true },
-  },
-});
-
-function createDoc(text: string) {
-  return schema.node("doc", null, [
-    schema.node("paragraph", null, text ? [schema.text(text)] : []),
-  ]);
-}
-
-function createState(text: string) {
-  return EditorState.create({
-    doc: createDoc(text),
-    schema,
-    plugins: [multiCursorPlugin()],
-  });
-}
-
-function createMultiCursorState(
-  text: string,
-  positions: Array<{ from: number; to: number }>
-) {
-  const state = createState(text);
-  const doc = state.doc;
-  const ranges = positions.map((p) => {
-    const $from = doc.resolve(p.from);
-    const $to = doc.resolve(p.to);
-    return new SelectionRange($from, $to);
-  });
-  const multiSel = new MultiSelection(ranges, 0);
-  return state.apply(state.tr.setSelection(multiSel));
-}
+import { createState, createMultiCursorState } from "./testHelpers";
 
 describe("inputHandling", () => {
   describe("handleMultiCursorInput", () => {

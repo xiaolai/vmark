@@ -8,21 +8,17 @@ import { Selection, SelectionRange } from "@tiptap/pm/state";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { MultiSelection } from "./MultiSelection";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { normalizeRangesWithPrimary } from "./rangeUtils";
+import {
+  normalizeRangesWithPrimary,
+  sortRangesDescending,
+} from "./rangeUtils";
 import {
   handleMultiCursorHorizontal,
   type HorizontalUnit,
 } from "./horizontalMovement";
+import { handleMultiCursorEnter } from "./enterHandling";
 
-/**
- * Sort ranges by position (descending) for safe editing.
- * Editing from end to start preserves earlier positions.
- */
-function sortRangesDescending(
-  ranges: readonly SelectionRange[]
-): SelectionRange[] {
-  return [...ranges].sort((a, b) => b.$from.pos - a.$from.pos);
-}
+export { handleMultiCursorEnter };
 
 /**
  * Handle text input at all cursor positions.
@@ -247,6 +243,12 @@ export function handleMultiCursorKeyDown(
   }
 
   switch (event.key) {
+    case "Enter":
+      // Only handle bare Enter; let Shift+Enter (hard break) etc. fall through
+      if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+        return null;
+      }
+      return handleMultiCursorEnter(state);
     case "Backspace":
       return handleMultiCursorBackspace(state);
     case "Delete":
