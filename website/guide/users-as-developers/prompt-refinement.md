@@ -1,6 +1,6 @@
 # Why Refine Prompts to English
 
-AI coding tools work better when you give them English prompts \u2014 even if English isn\u2019t your first language. VMark ships a hook that translates and refines your prompts automatically.
+AI coding tools work better when you give them English prompts — even if English isn’t your first language. VMark ships a hook that translates and refines your prompts automatically.
 
 ## Why English Matters for AI Coding
 
@@ -11,28 +11,28 @@ Large language models internally process all languages through a representation 
 - **Internal language of thought**: LLMs use English-aligned intermediate representations regardless of input language ([arXiv:2502.15603](https://arxiv.org/abs/2502.15603)).
 - **20%+ performance gain**: Pre-translating non-English prompts to English before sending them to the model improves output quality by 20% or more ([arXiv:2502.09331](https://arxiv.org/abs/2502.09331)).
 
-In practice, a Chinese prompt like \u201C\u628A\u8FD9\u4E2A\u51FD\u6570\u6539\u6210\u5F02\u6B65\u7684\u201D works \u2014 but the English equivalent \u201CConvert this function to async\u201D produces more precise code with fewer iterations.
+In practice, a Chinese prompt like â把这个函数改成异步的â works â but the English equivalent âConvert this function to asyncâ produces more precise code with fewer iterations.
 
 ### Tool Use Inherits Prompt Language
 
-When an AI coding tool searches the web, reads documentation, or looks up API references, it uses your prompt\u2019s language for those queries. English queries find better results because:
+When an AI coding tool searches the web, reads documentation, or looks up API references, it uses your prompt’s language for those queries. English queries find better results because:
 
 - Official docs, Stack Overflow, and GitHub issues are predominantly in English
 - Technical search terms are more precise in English
 - Code examples and error messages are almost always in English
 
-A Chinese prompt asking about \u201C\u72B6\u6001\u7BA1\u7406\u201D may search for Chinese resources, missing the canonical English documentation.
+A Chinese prompt asking about â状态管理â may search for Chinese resources, missing the canonical English documentation.
 
 ## The `::` Prompt Refinement Hook
 
-VMark\u2019s `.claude/hooks/refine_prompt.mjs` is a [UserPromptSubmit hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that intercepts your prompt before it reaches Claude, translates it to English, and refines it into an optimized coding prompt.
+VMark’s `.claude/hooks/refine_prompt.mjs` is a [UserPromptSubmit hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that intercepts your prompt before it reaches Claude, translates it to English, and refines it into an optimized coding prompt.
 
 ### How to Use It
 
 Prefix your prompt with `::` or `>>`:
 
 ```
-:: \u628A\u8FD9\u4E2A\u51FD\u6570\u6539\u6210\u5F02\u6B65\u7684
+:: 把这个函数改成异步的
 ```
 
 The hook:
@@ -47,7 +47,7 @@ You then paste (`Cmd+V`) the refined prompt and press Enter to send it.
 
 **Input:**
 ```
-:: \u8FD9\u4E2A\u7EC4\u4EF6\u6E32\u67D3\u592A\u6162\u4E86\uFF0C\u6BCF\u6B21\u7236\u7EC4\u4EF6\u66F4\u65B0\u90FD\u4F1A\u91CD\u65B0\u6E32\u67D3\uFF0C\u5E2E\u6211\u4F18\u5316\u4E00\u4E0B
+:: 这个组件渲染太慢了ï¼每次父组件更新都会重新渲染ï¼帮我优化一下
 ```
 
 **Refined output (copied to clipboard):**
@@ -59,20 +59,20 @@ Optimize this component to prevent unnecessary re-renders when the parent compon
 
 The hook uses a carefully structured system prompt that gives Haiku:
 
-- **Claude Code awareness** \u2014 knows the target tool\u2019s capabilities (file editing, Bash, Glob/Grep, MCP tools, plan mode, subagents)
-- **Project context** \u2014 loads from `.claude/hooks/project-context.txt` so Haiku knows the tech stack, conventions, and key file paths
-- **Priority-ordered rules** \u2014 preserve intent first, then translate, then clarify scope, then strip filler
-- **Mixed-language handling** \u2014 translates prose but keeps technical terms untranslated (`useEffect`, file paths, CLI commands)
-- **Few-shot examples** \u2014 seven input/output pairs covering Chinese, vague English, mixed-language, and multi-step requests
-- **Output length guidance** \u2014 1\u20132 sentences for simple requests, 3\u20135 for complex ones
+- **Claude Code awareness** — knows the target tool’s capabilities (file editing, Bash, Glob/Grep, MCP tools, plan mode, subagents)
+- **Project context** — loads from `.claude/hooks/project-context.txt` so Haiku knows the tech stack, conventions, and key file paths
+- **Priority-ordered rules** — preserve intent first, then translate, then clarify scope, then strip filler
+- **Mixed-language handling** — translates prose but keeps technical terms untranslated (`useEffect`, file paths, CLI commands)
+- **Few-shot examples** — seven input/output pairs covering Chinese, vague English, mixed-language, and multi-step requests
+- **Output length guidance** — 1–2 sentences for simple requests, 3–5 for complex ones
 
-If your input is already a clear English prompt, it\u2019s returned with minimal changes.
+If your input is already a clear English prompt, it’s returned with minimal changes.
 
 ### Setup
 
-The hook is pre-configured in VMark\u2019s `.claude/settings.json`. It requires the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) which is automatically available with Claude Code.
+The hook is pre-configured in VMark’s `.claude/settings.json`. It requires the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) which is automatically available with Claude Code.
 
-No additional setup is needed \u2014 just use the `::` or `>>` prefix.
+No additional setup is needed — just use the `::` or `>>` prefix.
 
 ::: tip When to Skip It
 For short commands (`go ahead`, `yes`, `continue`, `option 2`), send them without the prefix. The hook ignores these to avoid unnecessary round-trips.
