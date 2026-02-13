@@ -28,6 +28,7 @@ const SYMMETRIC_PAIRS: Record<string, string> = {
   "_": "_",
   "=": "=",
   "^": "^",
+  "`": "`",
 };
 
 interface PendingPair {
@@ -174,22 +175,60 @@ export function createMarkdownAutoPairPlugin() {
 
       handleBacktick(pos: number) {
         const doc = this.view.state.doc;
-        const before = doc.sliceString(Math.max(0, pos - 2), pos);
+        const twoBefore = doc.sliceString(Math.max(0, pos - 2), pos);
 
-        // Check if we just completed ``` (three backticks)
-        if (before !== "``") return;
+        // Triple backtick (```): code fence
+        if (twoBefore === "``") {
+          // Cancel any pending
+          if (this.pending) {
+            clearTimeout(this.pending.timeout);
+            this.pending = null;
+          }
 
-        // Bounds check for lineAt
-        if (pos < 0 || pos > doc.length) return;
+          // Bounds check for lineAt
+          if (pos < 0 || pos > doc.length) return;
 
-        const lineStart = doc.lineAt(pos).from;
-        const textBeforeOnLine = doc.sliceString(lineStart, pos - 2).trim();
+          const lineStart = doc.lineAt(pos).from;
+          const textBeforeOnLine = doc.sliceString(lineStart, pos - 2).trim();
 
-        if (textBeforeOnLine === "") {
-          // Insert: cursor stays after ```, then \n\n```
-          // Result: ```|cursor\n\n```
-          this.insertClosingPair("\n\n```");
+          if (textBeforeOnLine === "") {
+            // Insert: cursor stays after ```, then \n\n```
+            // Result: ```|cursor\n\n```
+            this.insertClosingPair("\n\n```");
+          }
+          return;
         }
+
+        // Double backtick (``): cancel pending single pair, no double pair
+        if (
+          this.pending &&
+          this.pending.char === "`" &&
+          this.pending.pos === pos - 1
+        ) {
+          clearTimeout(this.pending.timeout);
+          this.pending = null;
+          return;
+        }
+
+        // Single backtick: delay-based pair
+        if (this.pending) {
+          clearTimeout(this.pending.timeout);
+          this.pending = null;
+        }
+
+        const timeout = setTimeout(() => {
+          const currentPos = this.view.state.selection.main.head;
+          if (currentPos === pos + 1) {
+            safeDispatch(
+              this.view,
+              { from: currentPos, to: currentPos, insert: "`" },
+              currentPos
+            );
+          }
+          this.pending = null;
+        }, PAIR_DELAY);
+
+        this.pending = { char: "`", pos, timeout };
       }
 
       handleAlwaysDoubleChar(char: string, pos: number) {

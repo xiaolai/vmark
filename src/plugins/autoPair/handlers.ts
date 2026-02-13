@@ -6,6 +6,7 @@
 
 import type { EditorView } from "@tiptap/pm/view";
 import { TextSelection } from "@tiptap/pm/state";
+import type { EditorState } from "@tiptap/pm/state";
 import {
   getClosingChar,
   isClosingChar,
@@ -15,7 +16,7 @@ import {
   straightToCurlyClosing,
   type PairConfig,
 } from "./pairs";
-import { shouldAutoPair, getCharAt, getCharBefore } from "./utils";
+import { shouldAutoPair, isInCodeBlock, getCharAt, getCharBefore } from "./utils";
 
 export interface AutoPairConfig {
   enabled: boolean;
@@ -44,6 +45,94 @@ function isAllowedClosingChar(char: string, config: AutoPairConfig): boolean {
 }
 
 /**
+ * Handle backtick as code mark toggle in WYSIWYG mode.
+ * - Outside code: activate code mark (or wrap selection)
+ * - Inside code: escape to end of code mark
+ * Returns true if handled.
+ */
+function handleBacktickCodeToggle(
+  view: EditorView,
+  from: number,
+  to: number
+): boolean {
+  const { state, dispatch } = view;
+
+  // Don't handle if preceded by backslash (escaped)
+  if (from > 0) {
+    const $pos = state.doc.resolve(from);
+    const textBefore = $pos.parent.textBetween(
+      Math.max(0, $pos.parentOffset - 1),
+      $pos.parentOffset,
+      ""
+    );
+    if (textBefore === "\\") return false;
+  }
+
+  // Don't handle in code blocks
+  if (isInCodeBlock(state)) return false;
+
+  const codeMarkType = state.schema.marks.code;
+  if (!codeMarkType) return false;
+
+  // Check if cursor is in inline code
+  const $from = state.doc.resolve(from);
+  const inCode = $from.marks().some((m) => m.type === codeMarkType);
+
+  if (inCode) {
+    // Escape: move cursor to end of code mark
+    const endPos = findCodeMarkEnd(state, from, codeMarkType);
+    if (endPos !== null) {
+      const tr = state.tr.setSelection(TextSelection.create(state.doc, endPos));
+      tr.removeStoredMark(codeMarkType);
+      dispatch(tr);
+      return true;
+    }
+    return false;
+  }
+
+  // Outside code: toggle code mark
+  if (from !== to) {
+    // Selection: wrap with code mark
+    const tr = state.tr.addMark(from, to, codeMarkType.create());
+    dispatch(tr);
+    return true;
+  }
+
+  // No selection: activate code mark for subsequent typing
+  const tr = state.tr.addStoredMark(codeMarkType.create());
+  dispatch(tr);
+  return true;
+}
+
+/**
+ * Find the end position of the code mark containing the given position.
+ */
+function findCodeMarkEnd(
+  state: EditorState,
+  pos: number,
+  codeMarkType: ReturnType<EditorState["schema"]["marks"]["code"]["create"]>["type"]
+): number | null {
+  const $pos = state.doc.resolve(pos);
+  const parent = $pos.parent;
+  const parentStart = $pos.start();
+
+  let offset = 0;
+  for (let i = 0; i < parent.childCount; i++) {
+    const child = parent.child(i);
+    const childStart = parentStart + offset;
+    const childEnd = childStart + child.nodeSize;
+
+    if (pos >= childStart && pos <= childEnd) {
+      if (child.marks.some((m) => m.type === codeMarkType)) {
+        return childEnd;
+      }
+    }
+    offset += child.nodeSize;
+  }
+  return null;
+}
+
+/**
  * Handle text input - auto-pair opening characters.
  * Returns true if the input was handled.
  */
@@ -58,6 +147,11 @@ export function handleTextInput(
 
   // Only handle single character input
   if (text.length !== 1) return false;
+
+  // Handle backtick as code mark toggle (before normal auto-pair)
+  if (text === "`") {
+    return handleBacktickCodeToggle(view, from, to);
+  }
 
   // Normalize right double curly quote → left double curly (IME compat)
   let inputChar = config.normalizeRightDoubleQuote
