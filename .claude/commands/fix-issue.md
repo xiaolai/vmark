@@ -89,7 +89,15 @@ git diff main
 
 #### 4b. Initial audit via Codex MCP
 
-Use `ToolSearch` with query `+codex` to discover Codex tools. If available:
+Use `ToolSearch` with query `+codex` to discover Codex tools.
+
+**Availability test** — before the real audit, send a short ping:
+```
+Respond with "ok" if you can read this.
+```
+If Codex does not respond or errors out, skip to **4f. Fallback** immediately. Do not retry.
+
+If Codex responds:
 
 **Audit prompt:**
 ```

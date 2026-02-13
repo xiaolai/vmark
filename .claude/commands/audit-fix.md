@@ -31,6 +31,14 @@ If no changed files found: report "Nothing to audit" and STOP.
 
 Use `ToolSearch` with query `+codex` to discover Codex MCP tools.
 
+**Availability test** — before the real audit, send a short ping:
+```
+Respond with "ok" if you can read this.
+```
+If Codex does not respond or errors out, skip to **Fallback — manual audit** immediately. Do not retry.
+
+If Codex responds, proceed with the audit.
+
 **Audit prompt to `mcp__codex__codex`:**
 ```
 Audit these changed files in the VMark project:

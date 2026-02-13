@@ -26,8 +26,10 @@ Use TodoWrite to track progress through these phases:
 
 **Prefer Codex MCP** for per-file analysis when available:
 1. Use `ToolSearch` with query `+codex` to discover the Codex MCP tool
-2. If found, delegate per-file audits to Codex (run SEQUENTIALLY — one at a time)
-3. If Codex is unavailable or returns empty, perform the audit manually using Read/Grep
+2. **Availability test** — send a short ping: `Respond with "ok" if you can read this.`
+   If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
+3. If available, delegate per-file audits to Codex (run SEQUENTIALLY — one at a time)
+4. If Codex returns empty, perform the audit manually using Read/Grep
 
 ### Phase 1: Identify Scope
 
