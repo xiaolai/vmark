@@ -127,6 +127,20 @@ describe("cleanMarkdownForClipboard", () => {
       expect(cleanMarkdownForClipboard(input)).toBe(input);
     });
   });
+
+  describe("does not strip unknown escapes", () => {
+    it("preserves backslash before letters", () => {
+      expect(cleanMarkdownForClipboard("\\n \\t")).toBe("\\n \\t");
+    });
+
+    it("preserves backslash before digits", () => {
+      expect(cleanMarkdownForClipboard("item \\1")).toBe("item \\1");
+    });
+
+    it("preserves backslash before space", () => {
+      expect(cleanMarkdownForClipboard("foo\\ bar")).toBe("foo\\ bar");
+    });
+  });
 });
 
 describe("cleanTextForClipboard", () => {

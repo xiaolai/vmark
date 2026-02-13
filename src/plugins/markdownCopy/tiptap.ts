@@ -61,11 +61,12 @@ function createDocFromSlice(schema: Schema, slice: Slice): PMNode {
 export function cleanMarkdownForClipboard(md: string): string {
   let result = md;
 
-  // 1. Strip backslash escapes first (e.g. \$ → $, \~ → ~, \\ → \)
+  // 1. Strip backslash escapes added by remark-stringify for round-trip safety.
+  //    Only strip known serializer-added escapes (punctuation), not arbitrary chars.
   //    Must run before autolink collapsing because link text has escapes
   //    (e.g. user\@host) but the URL does not — back-reference won't match
   //    unless we clean escapes first.
-  result = result.replace(/\\([^\n])/g, "$1");
+  result = result.replace(/\\([#\-*_`|[\]()>+.!~$@&:\\])/g, "$1");
 
   // 2. Collapse redundant autolinks where text equals URL
   result = result.replace(/\[([^\]]+)\]\((?:mailto:)?\1\)/g, "$1");

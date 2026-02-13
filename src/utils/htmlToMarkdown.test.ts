@@ -276,6 +276,15 @@ describe("htmlToMarkdown - edge cases", () => {
     expect(result).not.toContain("\\#");
   });
 
+  it("preserves escaped pipes inside GFM table rows", () => {
+    // \| inside table rows must be kept — it means "literal pipe, not cell separator"
+    const html = "<table><thead><tr><th>A</th><th>B</th></tr></thead>" +
+      "<tbody><tr><td>x | y</td><td>z</td></tr></tbody></table>";
+    const result = htmlToMarkdown(html);
+    // The Joplin tables plugin escapes | in cell content as \|
+    expect(result).toMatch(/x\s*\\\|\s*y/);
+  });
+
   it("handles nested formatting", () => {
     const html = "<p><strong><em>bold and italic</em></strong></p>";
     const result = htmlToMarkdown(html);

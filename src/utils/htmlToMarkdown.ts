@@ -208,9 +208,16 @@ function postprocessMarkdown(markdown: string): string {
   result = result.replace(/<div class="joplin-table-wrapper">([\s\S]*?)<\/div>/g, "$1");
 
   // Fix common turndown artifacts
-  // Remove backslashes before characters that don't need escaping in most contexts
-  result = result.replace(/\\([#\-*_`[\]()>+.!])/g, (_match, char) => {
-    // Keep escaping for characters at start of line that would create block elements
+  // Remove backslashes before characters that don't need escaping in most contexts.
+  // Pipe (|) is stripped only outside GFM table rows, where \| is needed to
+  // represent literal pipes inside cells.
+  result = result.replace(/\\([#\-*_`|[\]()>+.!])/g, (match, char, offset) => {
+    // Keep \| inside GFM table rows (lines starting with |)
+    if (char === "|") {
+      const lineStart = result.lastIndexOf("\n", offset - 1) + 1;
+      const linePrefix = result.slice(lineStart, offset).trimStart();
+      if (linePrefix.startsWith("|")) return match;
+    }
     return char;
   });
 

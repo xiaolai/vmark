@@ -19,6 +19,7 @@ import { detectMultipleImagePaths, type ImagePathResult } from "@/utils/imagePat
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { parseMultiplePaths } from "@/utils/multiImageParsing";
 import { findWordAtCursorSource } from "@/plugins/toolbarActions/sourceAdapterLinks";
+import { cleanPastedMarkdown } from "@/utils/cleanPastedMarkdown";
 
 /**
  * Check if a CodeMirror view is still connected and valid.
@@ -554,6 +555,17 @@ export function createSmartPastePlugin() {
       // Pass the original text for fallback paste (preserves whitespace)
       if (tryImagePaste(view, pastedText)) {
         event.preventDefault();
+        return true;
+      }
+
+      // Clean AI-clipboard artifacts (escaped pipes, <br> in tables) from pasted markdown
+      const cleaned = cleanPastedMarkdown(pastedText);
+      if (cleaned !== pastedText) {
+        event.preventDefault();
+        view.dispatch({
+          changes: { from, to, insert: cleaned },
+          selection: { anchor: from + cleaned.length },
+        });
         return true;
       }
 
