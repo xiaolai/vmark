@@ -194,6 +194,8 @@ export function useTerminalSessions(
       instance.term.onData((data) => {
         const e = sessionsRef.current.get(sessionId);
         if (!e) return;
+        // Ignore preedit data leaked by xterm during IME composition (issue #59)
+        if (instance.composing) return;
         if (e.shellExited && !e.pty) {
           e.shellExited = false;
           e.instance.term.clear();

@@ -42,7 +42,7 @@ export interface TerminalInstance {
   searchAddon: SearchAddon;
   serializeAddon: SerializeAddon;
   container: HTMLDivElement;
-  /** Whether an IME composition is active (diagnostic). */
+  /** Whether an IME composition is active (guards onData in useTerminalSessions + copy-on-select here). */
   composing: boolean;
   dispose: () => void;
 }
@@ -113,6 +113,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   if (textarea) {
     textarea.addEventListener("compositionstart", onCompositionStart);
     textarea.addEventListener("compositionend", onCompositionEnd);
+  } else {
+    terminalLog("xterm-helper-textarea not found — IME composition tracking disabled");
   }
 
   // Unicode 11
@@ -120,7 +122,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   term.loadAddon(unicode11);
   term.unicode.activeVersion = "11";
 
-  // WebGL renderer (conditional — can be disabled to troubleshoot IME issues)
+  // WebGL renderer (conditional — primarily for GPU compatibility; IME is usually unrelated)
   if (settings.useWebGL) {
     try {
       const webglAddon = new WebglAddon();
@@ -158,7 +160,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
   // Copy on select
   term.onSelectionChange(() => {
-    if (term.hasSelection() && useSettingsStore.getState().terminal.copyOnSelect) {
+    if (!composing && term.hasSelection() && useSettingsStore.getState().terminal.copyOnSelect) {
       writeText(term.getSelection().trimEnd());
     }
   });
