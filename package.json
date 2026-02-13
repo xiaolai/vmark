@@ -28,6 +28,7 @@
     "@codemirror/search": "^6.6.0",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.11",
+    "@joplin/turndown-plugin-gfm": "^1.0.64",
     "@lezer/highlight": "^1.2.3",
     "@panzoom/panzoom": "^4.6.1",
     "@tanstack/react-query": "^5.90.20",

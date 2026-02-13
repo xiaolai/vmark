@@ -294,3 +294,115 @@ describe("htmlToMarkdown - edge cases", () => {
     expect(result).toContain("Content");
   });
 });
+
+describe("htmlToMarkdown - table conversion", () => {
+  /** Build standard <table> HTML with thead headers and tbody rows. */
+  function tableHtml(headers: string[], rows: string[][]): string {
+    const ths = headers.map((h) => `<th>${h}</th>`).join("");
+    const trs = rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("");
+    return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  }
+
+  /** Match a GFM table row with the given cell values (whitespace-flexible). */
+  function expectRow(result: string, cells: string[]) {
+    const pattern = "^\\|" + cells.map((c) => `\\s*${escapeRegex(c)}\\s*\\|`).join("") + "\\s*$";
+    expect(result).toMatch(new RegExp(pattern, "m"));
+  }
+
+  /** Match a GFM separator row with N columns. */
+  function expectSeparator(result: string, cols: number) {
+    const pattern = "^\\|" + Array(cols).fill("\\s*:?-+:?\\s*\\|").join("") + "\\s*$";
+    expect(result).toMatch(new RegExp(pattern, "m"));
+  }
+
+  function escapeRegex(s: string) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  it("converts simple table with thead/tbody", () => {
+    const result = htmlToMarkdown(tableHtml(["Name", "Age"], [["Alice", "30"], ["Bob", "25"]]));
+    expectRow(result, ["Name", "Age"]);
+    expectSeparator(result, 2);
+    expectRow(result, ["Alice", "30"]);
+    expectRow(result, ["Bob", "25"]);
+  });
+
+  it("converts table without thead (first row becomes empty header)", () => {
+    // Plugin treats first <td> row as data, not header — inserts empty header row
+    const html = `<table>
+      <tr><td>Header 1</td><td>Header 2</td></tr>
+      <tr><td>Data 1</td><td>Data 2</td></tr>
+    </table>`;
+    const result = htmlToMarkdown(html);
+    expectSeparator(result, 2);
+    expectRow(result, ["Header 1", "Header 2"]);
+    expectRow(result, ["Data 1", "Data 2"]);
+  });
+
+  it("escapes pipe characters in cell content", () => {
+    const result = htmlToMarkdown(tableHtml(["Expression", "Result"], [["a | b", "true"]]));
+    // The data row must contain an escaped pipe within the cell
+    expect(result).toMatch(/^\|.*a\s*\\\|\s*b.*\|\s*true\s*\|/m);
+  });
+
+  it("preserves formatting in cells", () => {
+    const result = htmlToMarkdown(
+      tableHtml(["Feature", "Status"], [["<strong>Bold</strong>", "<code>done</code>"]])
+    );
+    expectRow(result, ["Feature", "Status"]);
+    expect(result).toMatch(/^\|.*\*\*Bold\*\*.*\|.*`done`.*\|/m);
+  });
+
+  it("handles empty cells", () => {
+    const result = htmlToMarkdown(tableHtml(["A", "B"], [["", "Value"]]));
+    expectRow(result, ["A", "B"]);
+    expectSeparator(result, 2);
+    // Data row: empty first cell (whitespace only) + "Value" second cell
+    expect(result).toMatch(/^\|\s*\|\s*Value\s*\|/m);
+  });
+
+  it("converts multi-row multi-column table", () => {
+    const result = htmlToMarkdown(
+      tableHtml(["Col A", "Col B", "Col C"], [["A1", "B1", "C1"], ["A2", "B2", "C2"], ["A3", "B3", "C3"]])
+    );
+    expectRow(result, ["Col A", "Col B", "Col C"]);
+    expectSeparator(result, 3);
+    expectRow(result, ["A1", "B1", "C1"]);
+    expectRow(result, ["A2", "B2", "C2"]);
+    expectRow(result, ["A3", "B3", "C3"]);
+  });
+
+  it("converts Gemini-style table HTML wrapped in div", () => {
+    const html = `<div>${tableHtml(
+      ["Feature", "Description"],
+      [["Tables", "GFM table support"], ["Lists", "Ordered and unordered"]]
+    )}</div>`;
+    const result = htmlToMarkdown(html);
+    expectRow(result, ["Feature", "Description"]);
+    expectSeparator(result, 2);
+    expectRow(result, ["Tables", "GFM table support"]);
+    expectRow(result, ["Lists", "Ordered and unordered"]);
+  });
+
+  it("handles br tags in cells", () => {
+    const result = htmlToMarkdown(tableHtml(["Item", "Notes"], [["Foo", "Line 1<br>Line 2"]]));
+    expectRow(result, ["Item", "Notes"]);
+    // Plugin converts <br> to inline <br> within the cell row
+    expect(result).toMatch(/^\|.*Foo.*\|.*Line 1.*<br>.*Line 2.*\|/m);
+  });
+
+  it("converts table with only header row (no data rows)", () => {
+    const result = htmlToMarkdown(tableHtml(["Only", "Headers"], []));
+    expectRow(result, ["Only", "Headers"]);
+    expectSeparator(result, 2);
+  });
+
+  it("strips Joplin wrapper from complex table fallback", () => {
+    // Tables with block content in cells fall back to raw HTML
+    const result = htmlToMarkdown(
+      tableHtml(["A"], [["<ul><li>item</li></ul>"]])
+    );
+    expect(result).not.toContain("joplin-table-wrapper");
+    expect(result).toContain("<table>");
+  });
+});

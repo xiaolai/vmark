@@ -6,6 +6,81 @@
  */
 
 import TurndownService from "turndown";
+import { tables } from "@joplin/turndown-plugin-gfm";
+
+/** Register inline formatting rules (strikethrough, underline, super/subscript, highlight). */
+function registerInlineRules(turndown: TurndownService): void {
+  turndown.addRule("strikethrough", {
+    filter: ["del", "s"],
+    replacement: (content) => `~~${content}~~`,
+  });
+
+  turndown.addRule("underline", {
+    filter: ["u"],
+    replacement: (content) => `*${content}*`,
+  });
+
+  turndown.addRule("superscript", {
+    filter: ["sup"],
+    replacement: (content) => `^${content}^`,
+  });
+
+  turndown.addRule("subscript", {
+    filter: ["sub"],
+    replacement: (content) => `~${content}~`,
+  });
+
+  turndown.addRule("highlight", {
+    filter: ["mark"],
+    replacement: (content) => `==${content}==`,
+  });
+}
+
+/** Register block-level rules (task lists, paragraphs, divs, spans, br). */
+function registerBlockRules(turndown: TurndownService): void {
+  turndown.addRule("taskListItem", {
+    filter: (node) => {
+      if (node.nodeName !== "LI") return false;
+      const checkbox = node.querySelector('input[type="checkbox"]');
+      return checkbox !== null;
+    },
+    replacement: (content, node) => {
+      const checkbox = (node as Element).querySelector('input[type="checkbox"]');
+      const checked = checkbox?.hasAttribute("checked") ?? false;
+      const prefix = checked ? "- [x] " : "- [ ] ";
+      const cleanContent = content.replace(/^\s*\[[ x]\]\s*/, "").trim();
+      return prefix + cleanContent + "\n";
+    },
+  });
+
+  turndown.addRule("paragraph", {
+    filter: "p",
+    replacement: (content) => {
+      const trimmed = content.trim();
+      if (!trimmed) return "";
+      return "\n\n" + trimmed + "\n\n";
+    },
+  });
+
+  turndown.addRule("div", {
+    filter: "div",
+    replacement: (content) => {
+      const trimmed = content.trim();
+      if (!trimmed) return "";
+      return "\n\n" + trimmed + "\n\n";
+    },
+  });
+
+  turndown.addRule("span", {
+    filter: "span",
+    replacement: (content) => content,
+  });
+
+  turndown.addRule("br", {
+    filter: "br",
+    replacement: () => "  \n",
+  });
+}
 
 /**
  * Configure Turndown service with sensible defaults for clipboard content.
@@ -23,95 +98,22 @@ function createTurndownService(): TurndownService {
     linkReferenceStyle: "full",
   });
 
-  // Remove script and style tags entirely
   turndown.remove(["script", "style", "noscript", "iframe", "object", "embed"]);
-
-  // Keep certain elements as-is (they'll be stripped to text)
   turndown.keep(["del", "ins"]);
 
-  // Custom rule for strikethrough
-  turndown.addRule("strikethrough", {
-    filter: ["del", "s"],
-    replacement: (content) => `~~${content}~~`,
-  });
+  registerInlineRules(turndown);
+  registerBlockRules(turndown);
 
-  // Custom rule for underline (convert to emphasis since markdown doesn't have underline)
-  turndown.addRule("underline", {
-    filter: ["u"],
-    replacement: (content) => `*${content}*`,
-  });
-
-  // Custom rule for superscript
-  turndown.addRule("superscript", {
-    filter: ["sup"],
-    replacement: (content) => `^${content}^`,
-  });
-
-  // Custom rule for subscript
-  turndown.addRule("subscript", {
-    filter: ["sub"],
-    replacement: (content) => `~${content}~`,
-  });
-
-  // Custom rule for highlighted/marked text
-  turndown.addRule("highlight", {
-    filter: ["mark"],
-    replacement: (content) => `==${content}==`,
-  });
-
-  // Custom rule for task lists (checkboxes)
-  turndown.addRule("taskListItem", {
-    filter: (node) => {
-      if (node.nodeName !== "LI") return false;
-      const checkbox = node.querySelector('input[type="checkbox"]');
-      return checkbox !== null;
-    },
-    replacement: (content, node) => {
-      const checkbox = (node as Element).querySelector('input[type="checkbox"]');
-      const checked = checkbox?.hasAttribute("checked") ?? false;
-      const prefix = checked ? "- [x] " : "- [ ] ";
-      // Remove the checkbox from content if it appears at the start
-      const cleanContent = content.replace(/^\s*\[[ x]\]\s*/, "").trim();
-      return prefix + cleanContent + "\n";
-    },
-  });
-
-  // Better handling of line breaks in block elements
-  turndown.addRule("paragraph", {
-    filter: "p",
-    replacement: (content) => {
-      const trimmed = content.trim();
-      if (!trimmed) return "";
-      return "\n\n" + trimmed + "\n\n";
-    },
-  });
-
-  // Handle divs as paragraphs (common in Word paste)
-  turndown.addRule("div", {
-    filter: "div",
-    replacement: (content) => {
-      const trimmed = content.trim();
-      if (!trimmed) return "";
-      return "\n\n" + trimmed + "\n\n";
-    },
-  });
-
-  // Handle span (just pass through content)
-  turndown.addRule("span", {
-    filter: "span",
-    replacement: (content) => content,
-  });
-
-  // Handle br tags
-  turndown.addRule("br", {
-    filter: "br",
-    replacement: () => "  \n",
-  });
+  // GFM tables: convert <table> HTML to GFM pipe-delimited tables.
+  // Falls back to raw HTML (wrapped in <div class="joplin-table-wrapper">)
+  // for complex tables with block content in cells.
+  turndown.use(tables);
 
   return turndown;
 }
 
-// Singleton instance
+// Singleton — the tables plugin uses module-level cached state, so only one
+// TurndownService instance should use it per process.
 let turndownInstance: TurndownService | null = null;
 
 function getTurndown(): TurndownService {
@@ -200,6 +202,10 @@ function postprocessMarkdown(markdown: string): string {
 
   // Ensure single trailing newline
   result = result.trimEnd() + "\n";
+
+  // Strip Joplin table wrapper divs (emitted for complex tables the plugin can't
+  // convert to GFM — block content in cells, nested tables, etc.)
+  result = result.replace(/<div class="joplin-table-wrapper">([\s\S]*?)<\/div>/g, "$1");
 
   // Fix common turndown artifacts
   // Remove backslashes before characters that don't need escaping in most contexts
