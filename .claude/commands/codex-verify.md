@@ -26,6 +26,26 @@ Use TodoWrite to track progress through these phases:
 ☐ Generate verification report
 ```
 
+## Model & Settings Selection
+
+Before starting, present the user with choices using `AskUserQuestion`. Ask both questions at once:
+
+**Question 1 — Model:**
+
+| Model | Best for |
+|-------|----------|
+| `gpt-5.2-codex` | Fast verification — good enough for checking fixes (Recommended) |
+| `gpt-5.3-codex` | Flagship — most thorough verification |
+| `gpt-5-codex-mini` | Quick spot-check for obvious fixes |
+
+**Question 2 — Reasoning effort:**
+
+| Level | Best for |
+|-------|----------|
+| `medium` | Standard verification — balanced speed and accuracy (Recommended) |
+| `high` | Thorough — catches subtle regressions |
+| `low` | Quick pass/fail check |
+
 ## Execution
 
 **CRITICAL**: This command verifies fixes from a PREVIOUS audit. It does NOT discover new issues.
@@ -52,8 +72,16 @@ And STOP.
 
 **Prefer Codex MCP** for verification when available:
 1. Use `ToolSearch` with query `+codex` to discover the Codex MCP tool
-2. If found, delegate verification to Codex with the audit report and instructions below
-3. If Codex is unavailable, verify manually using Read/Grep
+2. **Availability test** — send a short ping:
+   ```
+   mcp__codex__codex with:
+     prompt: "Respond with 'ok' if you can read this."
+     model: {chosen_model}
+     model_reasoning_effort: {chosen_effort}
+   ```
+   If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
+3. If found, delegate verification to Codex with `model: {chosen_model}`, `model_reasoning_effort: {chosen_effort}`, `sandbox: read-only`, `approval-policy: never`
+4. If Codex is unavailable, verify manually using Read/Grep
 
 **Verification instructions** (for Codex delegation or manual execution):
 
@@ -82,6 +110,7 @@ And STOP.
 
 **Date**: {today}
 **Original Audit**: {audit date/file}
+**Model**: {chosen_model} | **Effort**: {chosen_effort}
 **Status**: ✅ PASSED / ⚠️ PARTIAL / ❌ FAILED
 
 ## Summary by Dimension

@@ -26,6 +26,26 @@ Use TodoWrite to track progress through these phases:
 ☐ Generate comprehensive audit report
 ```
 
+## Model & Settings Selection
+
+Before starting the audit, present the user with choices using `AskUserQuestion`. Ask both questions at once:
+
+**Question 1 — Model:**
+
+| Model | Best for |
+|-------|----------|
+| `gpt-5.3-codex` | Flagship — deepest analysis, best reasoning (Recommended) |
+| `gpt-5.2-codex` | Previous gen — good enough for most audits, lower cost |
+| `gpt-5.1-codex-max` | Long-horizon — large codebases with many files |
+
+**Question 2 — Reasoning effort:**
+
+| Level | Best for |
+|-------|----------|
+| `high` | Full audit — thorough, catches subtle issues (Recommended) |
+| `medium` | Faster audit with slightly less depth |
+| `low` | Quick scan, surface-level only |
+
 ## Delegation Strategy
 
 **Prefer Codex MCP** for per-file analysis when available:
@@ -34,13 +54,14 @@ Use TodoWrite to track progress through these phases:
    ```
    mcp__codex__codex with:
      prompt: "Respond with 'ok' if you can read this."
-     config: { "model_reasoning_effort": "high" }
+     model: {chosen_model}
+     model_reasoning_effort: {chosen_effort}
    ```
    If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
 3. If available, delegate per-file audits to Codex (run SEQUENTIALLY — one at a time)
 4. If Codex returns empty, perform the audit manually using Read/Grep
 
-**Model & reasoning**: Do NOT specify a `model` parameter — inherit from global `config.toml` so upgrades propagate automatically. Always pass `config: { "model_reasoning_effort": "high" }` on every Codex call.
+All Codex calls must use `model: {chosen_model}`, `model_reasoning_effort: {chosen_effort}`, `sandbox: read-only`, and `approval-policy: never`.
 
 **VMark-specific checks** (apply on top of generic dimensions):
 - **Zustand**: No store destructuring in components; use selectors or `getState()` in callbacks
@@ -125,6 +146,7 @@ After all audits complete, compile findings into:
 **Date**: {today}
 **Scope**: {what was audited}
 **Files**: {count}
+**Model**: {chosen_model} | **Effort**: {chosen_effort}
 
 ## Executive Summary
 
