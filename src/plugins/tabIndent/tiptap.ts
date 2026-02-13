@@ -110,6 +110,14 @@ export const tabIndentExtension = Extension.create({
                       tr.removeStoredMark(linkMarkType);
                     }
                   }
+                  // When escaping an inline mark, clear it from stored marks
+                  // so subsequent typing produces unmarked text.
+                  if (escapeResult.type === "mark") {
+                    const { $from } = state.selection;
+                    for (const mark of $from.marks()) {
+                      tr.removeStoredMark(mark.type);
+                    }
+                  }
                   dispatch(tr);
                   return true;
                 }

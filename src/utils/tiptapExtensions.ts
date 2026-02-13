@@ -62,6 +62,7 @@ import { wikiLinkPopupExtension } from "@/plugins/wikiLinkPopup";
 import { CJKLetterSpacing } from "@/plugins/cjkLetterSpacing";
 import { sourcePeekInlineExtension } from "@/plugins/sourcePeekInline";
 import { smartSelectAllExtension } from "@/plugins/smartSelectAll/tiptap";
+import { inlineCodeBoundaryExtension } from "@/plugins/inlineCodeBoundary/tiptap";
 
 /**
  * Creates the array of Tiptap extensions for the WYSIWYG editor.
@@ -166,5 +167,6 @@ export function createTiptapExtensions(): Extensions {
     CJKLetterSpacing,
     sourcePeekInlineExtension,
     smartSelectAllExtension,
+    inlineCodeBoundaryExtension,
   ];
 }

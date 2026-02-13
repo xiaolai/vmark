@@ -130,8 +130,8 @@ export function getMarkEndPos(state: EditorState): number | null {
     const childStart = parentStart + offset;
     const childEnd = childStart + child.nodeSize;
 
-    // Check if cursor is in this child node
-    if (from >= childStart && from < childEnd) {
+    // Check if cursor is in this child node (inclusive of end boundary)
+    if (from >= childStart && from <= childEnd) {
       // Check if this node has our mark
       if (child.marks.some((m) => m.type === markType)) {
         // Return position right after this text node
@@ -245,19 +245,20 @@ function calculateEscapeForPosition(
     const parent = $pos.parent;
     const parentStart = $pos.start();
 
-    // Find the text node we're currently in
+    // Find the text node we're currently in (inclusive of end boundary)
     let offset = 0;
     for (let i = 0; i < parent.childCount; i++) {
       const child = parent.child(i);
       const childStart = parentStart + offset;
       const childEnd = childStart + child.nodeSize;
 
-      // Check if cursor is in this child node
-      if (pos >= childStart && pos < childEnd) {
+      // Check if cursor is in this child node (inclusive of end boundary)
+      if (pos >= childStart && pos <= childEnd) {
         // Check if this node has our mark
         if (child.marks.some((m) => m.type === markType)) {
           // Return position right after this text node if it's different
-          return childEnd > pos ? childEnd : null;
+          // When pos === childEnd, return childEnd to clear storedMarks
+          return childEnd >= pos ? childEnd : null;
         }
       }
 
@@ -356,7 +357,7 @@ export function canTabEscape(state: EditorState): TabEscapeResult | MultiSelecti
   // Check for escapable mark
   if (isInEscapableMark(state)) {
     const endPos = getMarkEndPos(state);
-    if (endPos !== null && endPos > from) {
+    if (endPos !== null && endPos >= from) {
       return { type: "mark", targetPos: endPos };
     }
   }
