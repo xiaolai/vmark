@@ -44,6 +44,7 @@ Focus:
 5. Dead code — unused imports, unreachable branches, orphaned functions
 6. Shortcuts & patches — workarounds, TODO markers, band-aids, bypass flags
 7. VMark compliance — Zustand selectors (no destructuring), CSS tokens (no hardcoded colors), file size <300 lines
+8. Cross-platform paths — if changes touch path parsing, file operations, or Command::new(), flag any hardcoded `/` separators, missing Windows `\` handling, or platform-specific assumptions. Paths must work on macOS, Windows, and Linux. See AGENTS.md cross-platform policy.
 Report EVERY issue as: file:line | severity (Critical/High/Medium/Low) | issue | fix
 Be thorough. Do not omit minor issues.
 ```
