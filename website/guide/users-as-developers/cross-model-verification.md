@@ -11,7 +11,9 @@ Cross-model verification breaks this:
 1. **Claude** (Anthropic) writes the implementation — it understands the full context, follows project conventions, and applies TDD.
 2. **Codex** (OpenAI) audits the result independently — it reads the code with fresh eyes, trained on different data, with different failure modes.
 
-The models are genuinely different. They were built by separate teams, trained on different datasets, with different architectures and optimization targets. When both agree the code is correct, your confidence is much higher than a single model’s “looks good to me.”
+The models are genuinely different. They were built by separate teams, trained on different datasets, with different architectures and optimization targets. When both agree the code is correct, your confidence is much higher than a single model's "looks good to me."
+
+Research supports this approach from multiple angles. Multi-agent debate — where multiple LLM instances challenge each other's responses — significantly improves factuality and reasoning accuracy[^1]. Role-play prompting, where models are assigned specific expert roles, consistently outperforms standard zero-shot prompting on reasoning benchmarks[^2]. And recent work shows that frontier LLMs can detect when they are being evaluated and adjust their behavior accordingly[^3] — meaning a model that knows its output will be scrutinized by another AI is likely to produce more careful, less sycophantic work[^4].
 
 ### What Cross-Model Catches
 
@@ -132,20 +134,17 @@ The most powerful command. It chains audit → fix → verify in a loop:
 /audit-fix commit -1          # Loop on last commit
 ```
 
-Here’s what happens:
+Here's what happens:
 
-```
-┌───────────────────────────────────────┐
-│  Codex audits changed files           │
-│       │                                │
-│  Claude fixes ALL findings             │
-│       │                                │
-│  Codex verifies the fixes              │
-│       │                                │
-│  Zero findings? ──YES──▶ Done ✅        │
-│       │                                │
-│      NO ──▶ Loop (max 3 iterations)   │
-└───────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Codex audits changed files"] --> B["Claude fixes ALL findings"]
+    B --> C["Codex verifies the fixes"]
+    C --> D{"Zero findings?"}
+    D -- Yes --> E["Done"]
+    D -- No --> F{"Iteration < 3?"}
+    F -- Yes --> A
+    F -- No --> G["Report remaining issues"]
 ```
 
 The loop exits when Codex reports zero findings across all severities, or after 3 iterations (at which point remaining issues are reported to you).
@@ -256,4 +255,12 @@ Human teams do this naturally. A developer writes code, a colleague reviews it, 
 - **Different architectures** → Different reasoning patterns
 - **Different failure modes** → Bugs caught by one that the other misses
 
-The cost is minimal (a few seconds of API time per audit), but the quality improvement is substantial. In VMark’s experience, the second model typically finds 2–5 additional issues per audit that the first model missed.
+The cost is minimal (a few seconds of API time per audit), but the quality improvement is substantial. In VMark's experience, the second model typically finds 2–5 additional issues per audit that the first model missed.
+
+[^1]: Du, Y., Li, S., Torralba, A., Tenenbaum, J.B., & Mordatch, I. (2024). [Improving Factuality and Reasoning in Language Models through Multiagent Debate](https://arxiv.org/abs/2305.14325). *ICML 2024*. Multiple LLM instances proposing and debating responses over several rounds significantly improve factuality and reasoning, even when all models initially produce incorrect answers.
+
+[^2]: Kong, A., Zhao, S., Chen, H., Li, Q., Qin, Y., Sun, R., & Zhou, X. (2024). [Better Zero-Shot Reasoning with Role-Play Prompting](https://arxiv.org/abs/2308.07702). *NAACL 2024*. Assigning task-specific expert roles to LLMs consistently outperforms standard zero-shot and zero-shot chain-of-thought prompting across 12 reasoning benchmarks.
+
+[^3]: Needham, J., Edkins, G., Pimpale, G., Bartsch, H., & Hobbhahn, M. (2025). [Large Language Models Often Know When They Are Being Evaluated](https://arxiv.org/abs/2505.23836). Frontier models can distinguish evaluation contexts from real-world deployment (Gemini-2.5-Pro reaches AUC 0.83), raising implications for how models behave when they know another AI will review their output.
+
+[^4]: Sharma, M., Tong, M., Korbak, T., et al. (2024). [Towards Understanding Sycophancy in Language Models](https://arxiv.org/abs/2310.13548). *ICLR 2024*. LLMs trained with human feedback tend to agree with users' existing beliefs rather than provide truthful responses. When the evaluator is another AI rather than a human, this sycophantic pressure is removed, leading to more honest and rigorous output.

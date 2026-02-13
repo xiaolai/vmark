@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: 'VMark',
   description: 'AI friendly markdown editor',
   lastUpdated: true,
@@ -77,5 +78,7 @@ export default defineConfig({
         timeStyle: 'short'
       }
     }
-  }
-})
+  },
+
+  mermaid: {},
+}))
