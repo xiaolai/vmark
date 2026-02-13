@@ -54,6 +54,24 @@ export function expandedToggleMark(view: EditorView, markTypeName: string): bool
   if (state.selection instanceof MultiSelection) {
     clearLastRemoved();
     const ranges = state.selection.ranges;
+    const primaryRange = ranges[state.selection.primaryIndex];
+
+    // Determine toggle direction from primary cursor (VS Code convention):
+    // if primary already has the mark → remove from all; otherwise → add to all.
+    const primaryFrom = primaryRange.$from.pos;
+    const primaryTo = primaryRange.$to.pos;
+    let shouldAdd: boolean;
+    if (primaryFrom === primaryTo) {
+      const wordRange = findWordAtCursor(
+        primaryRange.$from as unknown as Parameters<typeof findWordAtCursor>[0]
+      );
+      shouldAdd = wordRange
+        ? !state.doc.rangeHasMark(wordRange.from, wordRange.to, markType)
+        : true;
+    } else {
+      shouldAdd = !state.doc.rangeHasMark(primaryFrom, primaryTo, markType);
+    }
+
     let tr = state.tr;
     let applied = false;
     for (const range of ranges) {
@@ -68,20 +86,20 @@ export function expandedToggleMark(view: EditorView, markTypeName: string): bool
         if (opposingMarkType) {
           tr = tr.removeMark(wordRange.from, wordRange.to, opposingMarkType);
         }
-        if (tr.doc.rangeHasMark(wordRange.from, wordRange.to, markType)) {
-          tr = tr.removeMark(wordRange.from, wordRange.to, markType);
-        } else {
+        if (shouldAdd) {
           tr = tr.addMark(wordRange.from, wordRange.to, markType.create());
+        } else {
+          tr = tr.removeMark(wordRange.from, wordRange.to, markType);
         }
       } else {
         applied = true;
         if (opposingMarkType) {
           tr = tr.removeMark(rangeFrom, rangeTo, opposingMarkType);
         }
-        if (tr.doc.rangeHasMark(rangeFrom, rangeTo, markType)) {
-          tr = tr.removeMark(rangeFrom, rangeTo, markType);
-        } else {
+        if (shouldAdd) {
           tr = tr.addMark(rangeFrom, rangeTo, markType.create());
+        } else {
+          tr = tr.removeMark(rangeFrom, rangeTo, markType);
         }
       }
     }

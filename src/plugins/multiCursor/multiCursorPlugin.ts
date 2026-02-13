@@ -13,7 +13,7 @@ import { MultiSelection } from "./MultiSelection";
 import { createMultiCursorDecorations } from "./decorations";
 import { handleMultiCursorInput, handleMultiCursorKeyDown } from "./inputHandling";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { handleMultiCursorPaste, getMultiCursorClipboardText } from "./clipboard";
+import { handleMultiCursorPaste, handleMultiCursorCut, getMultiCursorClipboardText } from "./clipboard";
 import { addCursorAtPosition } from "./altClick";
 
 /** Plugin state interface */
@@ -165,6 +165,23 @@ export function multiCursorPlugin(): Plugin<MultiCursorPluginState> {
           event.preventDefault();
           event.clipboardData?.setData("text/plain", text);
           return true;
+        },
+        cut(view, event) {
+          const { state } = view;
+          if (!(state.selection instanceof MultiSelection)) {
+            return false;
+          }
+          const text = getMultiCursorClipboardText(state);
+          if (text) {
+            event.clipboardData?.setData("text/plain", text);
+          }
+          const tr = handleMultiCursorCut(state);
+          if (tr) {
+            event.preventDefault();
+            view.dispatch(tr);
+            return true;
+          }
+          return false;
         },
       },
     },

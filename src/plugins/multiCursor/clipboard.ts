@@ -4,7 +4,7 @@
 import { SelectionRange } from "@tiptap/pm/state";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { MultiSelection } from "./MultiSelection";
-import { normalizeRangesWithPrimary } from "./rangeUtils";
+import { normalizeRangesWithPrimary, sortRangesDescending } from "./rangeUtils";
 
 /**
  * Serialize multi-selection content for clipboard.
@@ -13,6 +13,57 @@ export function getMultiCursorClipboardText(state: EditorState): string {
   const { selection } = state;
   if (!(selection instanceof MultiSelection)) return "";
   return selection.getTextContent(state.doc);
+}
+
+/**
+ * Handle cut for multi-cursor selections.
+ * Deletes text at all selections (cursors with no selection are no-ops).
+ *
+ * @returns Transaction or null if not a MultiSelection or nothing to cut
+ */
+export function handleMultiCursorCut(
+  state: EditorState
+): Transaction | null {
+  const { selection } = state;
+
+  if (!(selection instanceof MultiSelection)) {
+    return null;
+  }
+
+  const hasNonEmptyRange = selection.ranges.some(
+    (r) => r.$from.pos !== r.$to.pos
+  );
+  if (!hasNonEmptyRange) return null;
+
+  const sortedRanges = sortRangesDescending(selection.ranges);
+  let tr = state.tr;
+
+  for (const range of sortedRanges) {
+    const from = range.$from.pos;
+    const to = range.$to.pos;
+    if (from !== to) {
+      tr = tr.delete(from, to);
+    }
+  }
+
+  // Remap all cursors to collapsed positions
+  const newRanges: SelectionRange[] = selection.ranges.map((range) => {
+    const newPos = tr.mapping.map(range.$from.pos);
+    const $pos = tr.doc.resolve(newPos);
+    return new SelectionRange($pos, $pos);
+  });
+
+  const normalized = normalizeRangesWithPrimary(
+    newRanges,
+    tr.doc,
+    selection.primaryIndex
+  );
+
+  const newSel = new MultiSelection(normalized.ranges, normalized.primaryIndex);
+  tr = tr.setSelection(newSel);
+  tr = tr.setMeta("addToHistory", true);
+
+  return tr;
 }
 
 /**

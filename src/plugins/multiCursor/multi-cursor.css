@@ -51,7 +51,7 @@
 }
 
 /* Dark theme */
-.dark {
+.dark-theme {
   --multi-cursor-color: hsl(217 91% 70%);
   --multi-cursor-selection-bg: hsla(217, 91%, 70%, 0.25);
 }
