@@ -13,6 +13,8 @@ import {
   isClosingChar,
   getOpeningChar,
   normalizeForPairing,
+  straightToCurlyOpening,
+  straightToCurlyClosing,
 } from "./pairs";
 
 describe("ASCII_PAIRS", () => {
@@ -250,5 +252,59 @@ describe("normalizeForPairing", () => {
     expect(normalizeForPairing("a")).toBe("a");
     expect(normalizeForPairing("(")).toBe("(");
     expect(normalizeForPairing('"')).toBe('"');
+  });
+});
+
+describe("straightToCurlyOpening", () => {
+  const ON = { includeCJK: true, includeCurlyQuotes: true };
+  const OFF_CJK = { includeCJK: false, includeCurlyQuotes: true };
+  const OFF_CURLY = { includeCJK: true, includeCurlyQuotes: false };
+
+  it("converts straight double quote to curly opening when enabled", () => {
+    expect(straightToCurlyOpening('"', ON)).toBe("\u201C");
+  });
+
+  it("converts straight single quote to curly opening when enabled", () => {
+    expect(straightToCurlyOpening("'", ON)).toBe("\u2018");
+  });
+
+  it("passes through when CJK disabled", () => {
+    expect(straightToCurlyOpening('"', OFF_CJK)).toBe('"');
+  });
+
+  it("passes through when curly quotes disabled", () => {
+    expect(straightToCurlyOpening('"', OFF_CURLY)).toBe('"');
+  });
+
+  it("passes through non-quote characters", () => {
+    expect(straightToCurlyOpening("(", ON)).toBe("(");
+    expect(straightToCurlyOpening("a", ON)).toBe("a");
+  });
+
+  it("passes through already-curly quotes unchanged", () => {
+    expect(straightToCurlyOpening("\u201C", ON)).toBe("\u201C");
+    expect(straightToCurlyOpening("\u2018", ON)).toBe("\u2018");
+  });
+});
+
+describe("straightToCurlyClosing", () => {
+  const ON = { includeCJK: true, includeCurlyQuotes: true };
+  const OFF_CJK = { includeCJK: false, includeCurlyQuotes: true };
+
+  it("converts straight double quote to curly closing when enabled", () => {
+    expect(straightToCurlyClosing('"', ON)).toBe("\u201D");
+  });
+
+  it("converts straight single quote to curly closing when enabled", () => {
+    expect(straightToCurlyClosing("'", ON)).toBe("\u2019");
+  });
+
+  it("passes through when CJK disabled", () => {
+    expect(straightToCurlyClosing('"', OFF_CJK)).toBe('"');
+  });
+
+  it("passes through non-quote characters", () => {
+    expect(straightToCurlyClosing(")", ON)).toBe(")");
+    expect(straightToCurlyClosing("a", ON)).toBe("a");
   });
 });
