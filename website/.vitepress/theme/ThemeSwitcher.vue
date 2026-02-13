@@ -26,6 +26,7 @@ const otherThemeData = computed(() => {
 function setTheme(themeId: string) {
   currentTheme.value = themeId
   document.documentElement.setAttribute('data-vmark-theme', themeId)
+  document.documentElement.classList.toggle('dark', themeId === 'night')
   localStorage.setItem('vmark-preview-theme', themeId)
   isOpen.value = false
   pickRandomOther()
@@ -47,6 +48,7 @@ onMounted(() => {
   if (saved && themes.some(t => t.id === saved)) {
     currentTheme.value = saved
     document.documentElement.setAttribute('data-vmark-theme', saved)
+    document.documentElement.classList.toggle('dark', saved === 'night')
   } else {
     currentTheme.value = 'paper'
     document.documentElement.setAttribute('data-vmark-theme', 'paper')
