@@ -91,9 +91,13 @@ git diff main
 
 Use `ToolSearch` with query `+codex` to discover Codex tools.
 
+**Model & reasoning**: Do NOT specify a `model` parameter — inherit from global `config.toml` so upgrades propagate automatically. Always set reasoning effort explicitly.
+
 **Availability test** — before the real audit, send a short ping:
 ```
-Respond with "ok" if you can read this.
+mcp__codex__codex with:
+  prompt: "Respond with 'ok' if you can read this."
+  config: { "model_reasoning_effort": "high" }
 ```
 If Codex does not respond or errors out, skip to **4f. Fallback** immediately. Do not retry.
 
@@ -101,7 +105,11 @@ If Codex responds:
 
 **Audit prompt:**
 ```
-Audit these files changed for GitHub issue #{N}: {title}
+mcp__codex__codex with:
+  config: { "model_reasoning_effort": "high" }
+  sandbox: read-only
+  prompt: |
+    Audit these files changed for GitHub issue #{N}: {title}
 Files: {changed file list}
 Diff summary: {git diff main --stat}
 Focus:
@@ -113,7 +121,7 @@ Focus:
 6. Shortcuts & patches — workarounds, TODO markers, band-aids, flags to bypass broken logic
 7. VMark compliance — Zustand selectors (no destructuring), CSS tokens (no hardcoded colors), file size <300 lines
 8. Cross-platform paths — if changes touch path parsing, file operations, or Command::new(), flag any hardcoded `/` separators, missing Windows `\` handling, or platform-specific assumptions. Paths must work on macOS, Windows, and Linux. See AGENTS.md cross-platform policy.
-Report as: file:line | severity (Critical/High/Medium/Low) | issue | fix
+    Report as: file:line | severity (Critical/High/Medium/Low) | issue | fix
 ```
 
 #### 4c. Parse & fix
@@ -122,7 +130,7 @@ Fix **every** finding — Critical, High, Medium, and Low. No exceptions, no "no
 
 #### 4d. Verify via Codex reply
 
-Use `mcp__codex__codex-reply` on the same thread:
+Use `mcp__codex__codex-reply` on the same thread (reasoning effort carries from initial call):
 
 ```
 I fixed these issues: {list of fixes with file:line}

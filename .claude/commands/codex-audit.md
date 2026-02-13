@@ -30,10 +30,17 @@ Use TodoWrite to track progress through these phases:
 
 **Prefer Codex MCP** for per-file analysis when available:
 1. Use `ToolSearch` with query `+codex` to discover the Codex MCP tool
-2. **Availability test** — send a short ping: `Respond with "ok" if you can read this.`
+2. **Availability test** — send a short ping:
+   ```
+   mcp__codex__codex with:
+     prompt: "Respond with 'ok' if you can read this."
+     config: { "model_reasoning_effort": "high" }
+   ```
    If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
 3. If available, delegate per-file audits to Codex (run SEQUENTIALLY — one at a time)
 4. If Codex returns empty, perform the audit manually using Read/Grep
+
+**Model & reasoning**: Do NOT specify a `model` parameter — inherit from global `config.toml` so upgrades propagate automatically. Always pass `config: { "model_reasoning_effort": "high" }` on every Codex call.
 
 **VMark-specific checks** (apply on top of generic dimensions):
 - **Zustand**: No store destructuring in components; use selectors or `getState()` in callbacks

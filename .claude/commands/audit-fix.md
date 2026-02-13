@@ -31,9 +31,13 @@ If no changed files found: report "Nothing to audit" and STOP.
 
 Use `ToolSearch` with query `+codex` to discover Codex MCP tools.
 
+**Model & reasoning**: Do NOT specify a `model` parameter — inherit from global `config.toml` so upgrades propagate automatically. Always set reasoning effort explicitly.
+
 **Availability test** — before the real audit, send a short ping:
 ```
-Respond with "ok" if you can read this.
+mcp__codex__codex with:
+  prompt: "Respond with 'ok' if you can read this."
+  config: { "model_reasoning_effort": "high" }
 ```
 If Codex does not respond or errors out, skip to **Fallback — manual audit** immediately. Do not retry.
 
@@ -41,7 +45,11 @@ If Codex responds, proceed with the audit.
 
 **Audit prompt to `mcp__codex__codex`:**
 ```
-Audit these changed files in the VMark project:
+mcp__codex__codex with:
+  config: { "model_reasoning_effort": "high" }
+  sandbox: read-only
+  prompt: |
+    Audit these changed files in the VMark project:
 Files: {changed file list}
 Diff: {git diff or git diff HEAD~N, as appropriate}
 Focus:
@@ -53,8 +61,8 @@ Focus:
 6. Shortcuts & patches — workarounds, TODO markers, band-aids, bypass flags
 7. VMark compliance — Zustand selectors (no destructuring), CSS tokens (no hardcoded colors), file size <300 lines
 8. Cross-platform paths — if changes touch path parsing, file operations, or Command::new(), flag any hardcoded `/` separators, missing Windows `\` handling, or platform-specific assumptions. Paths must work on macOS, Windows, and Linux. See AGENTS.md cross-platform policy.
-Report EVERY issue as: file:line | severity (Critical/High/Medium/Low) | issue | fix
-Be thorough. Do not omit minor issues.
+    Report EVERY issue as: file:line | severity (Critical/High/Medium/Low) | issue | fix
+    Be thorough. Do not omit minor issues.
 ```
 
 ### Fallback — manual audit
