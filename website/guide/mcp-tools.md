@@ -426,7 +426,7 @@ Insert an SVG graphic. The SVG renders inline with pan, zoom, and PNG export.
 | `windowId` | string | No | Window identifier. |
 
 **Example:**
-```svg
+```xml
 <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
   <rect width="200" height="100" rx="10" fill="#4a6fa5"/>
   <text x="100" y="55" text-anchor="middle" fill="white"

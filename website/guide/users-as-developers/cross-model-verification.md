@@ -138,13 +138,14 @@ Here's what happens:
 
 ```mermaid
 flowchart TD
-    A["Codex audits changed files"] --> B["Claude fixes ALL findings"]
-    B --> C["Codex verifies the fixes"]
-    C --> D{"Zero findings?"}
-    D -- Yes --> E["Done"]
-    D -- No --> F{"Iterations left?"}
-    F -- Yes --> A
-    F -- No --> G["Report remaining issues"]
+    A["Claude asks Codex to audit"] --> B["Codex returns audit report"]
+    B --> C["Claude fixes ALL findings"]
+    C --> D["Claude asks Codex to verify"]
+    D --> E{"All fixes accepted?"}
+    E -- Yes --> F["Done"]
+    E -- No --> G{"Iterations left?"}
+    G -- Yes --> C
+    G -- No --> H["Report remaining issues"]
 ```
 
 The loop exits when Codex reports zero findings across all severities, or after 3 iterations (at which point remaining issues are reported to you).

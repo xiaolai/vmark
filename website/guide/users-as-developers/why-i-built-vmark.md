@@ -206,7 +206,7 @@ This is similar to how I invest in secondary markets. I have an accounting backg
 
 That's why the VMark website includes this credit:
 
-![VMark credits — Producer and Coders](./images/vmark-credits.png)
+<img src="./images/vmark-credits.png" alt="VMark credits — Producer and Coders" style="max-width: 480px;" />
 
 Another consequence of being highly opinionated: even if VMark is open-sourced, community contributions are unlikely. It's built purely for my own workflow; many features have little value for others. More importantly, a Markdown editor is not cutting-edge technology. It's one of countless implementations of a familiar tool. AI can solve virtually any problem related to it.
 
