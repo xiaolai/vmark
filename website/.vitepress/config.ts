@@ -65,6 +65,7 @@ export default withMermaid(defineConfig({
                 { text: 'Prompt Refinement', link: '/guide/users-as-developers/prompt-refinement' },
                 { text: 'Subscription vs API', link: '/guide/users-as-developers/subscription-vs-api' },
                 { text: 'What Are Indispensable', link: '/guide/users-as-developers/what-are-indispensable' },
+                { text: 'Why Expensive Models Are Cheaper', link: '/guide/users-as-developers/why-expensive-models-are-cheaper' },
               ]
             },
           ]
