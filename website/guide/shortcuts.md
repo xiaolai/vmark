@@ -136,6 +136,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Find & Replace | `Mod + F` |
 | Find Next | `Mod + G` |
 | Find Previous | `Mod + Shift + G` |
+| Use Selection for Find | `Mod + E` |
 
 ## View & Mode
 

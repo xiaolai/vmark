@@ -387,8 +387,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         &[
             &MenuItem::with_id(app, "link", "Link", true, Some("CmdOrCtrl+K"))?,
-            &MenuItem::with_id(app, "wiki-link", "Wiki Link", true, None::<&str>)?,
-            &MenuItem::with_id(app, "bookmark", "Bookmark", true, None::<&str>)?,
+            &MenuItem::with_id(app, "wiki-link", "Wiki Link", true, Some("Alt+CmdOrCtrl+K"))?,
+            &MenuItem::with_id(app, "bookmark", "Bookmark", true, Some("Alt+CmdOrCtrl+B"))?,
         ],
     )?;
 
@@ -1243,8 +1243,8 @@ fn create_menu_with_shortcuts(
         true,
         &[
             &MenuItem::with_id(app, "link", "Link", true, get_accel("link", "CmdOrCtrl+K"))?,
-            &MenuItem::with_id(app, "wiki-link", "Wiki Link", true, None::<&str>)?,
-            &MenuItem::with_id(app, "bookmark", "Bookmark", true, None::<&str>)?,
+            &MenuItem::with_id(app, "wiki-link", "Wiki Link", true, get_accel("wiki-link", "Alt+CmdOrCtrl+K"))?,
+            &MenuItem::with_id(app, "bookmark", "Bookmark", true, get_accel("bookmark", "Alt+CmdOrCtrl+B"))?,
         ],
     )?;
 

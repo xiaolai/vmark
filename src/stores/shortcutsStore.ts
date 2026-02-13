@@ -57,7 +57,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "link", label: "Link", category: "formatting", defaultKey: "Mod-k", menuId: "link" },
   { id: "unlink", label: "Remove Link", category: "formatting", defaultKey: "Alt-Shift-k", menuId: "unlink", description: "Remove link from selection, keeping text" },
   { id: "wikiLink", label: "Wiki Link", category: "formatting", defaultKey: "Alt-Mod-k", menuId: "wiki-link", description: "Insert wiki-style link [[...]]" },
-  { id: "bookmarkLink", label: "Bookmark Link", category: "formatting", defaultKey: "Alt-Mod-b", menuId: "bookmark-link", description: "Insert link to heading in document" },
+  { id: "bookmarkLink", label: "Bookmark Link", category: "formatting", defaultKey: "Alt-Mod-b", menuId: "bookmark", description: "Insert link to heading in document" },
   { id: "highlight", label: "Highlight", category: "formatting", defaultKey: "Mod-Shift-m", menuId: "highlight" },
   { id: "inlineMath", label: "Inline Math", category: "formatting", defaultKey: "Alt-Mod-m", menuId: "inline-math", description: "Insert or edit inline math ($...$)" },
   { id: "subscript", label: "Subscript", category: "formatting", defaultKey: "Alt-Mod-=", menuId: "subscript" },
@@ -100,6 +100,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "findReplace", label: "Find & Replace", category: "navigation", defaultKey: "Mod-f", menuId: "find-replace" },
   { id: "findNext", label: "Find Next", category: "navigation", defaultKey: "Mod-g", menuId: "find-next" },
   { id: "findPrevious", label: "Find Previous", category: "navigation", defaultKey: "Mod-Shift-g", menuId: "find-prev" },
+  { id: "useSelectionFind", label: "Use Selection for Find", category: "navigation", defaultKey: "Mod-e", menuId: "use-selection-find" },
 
   // === Editing ===
   { id: "formatCJKSelection", label: "Format CJK Selection", category: "editing", defaultKey: "Mod-Shift-f", menuId: "format-cjk" },
@@ -135,6 +136,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "wordWrap", label: "Toggle Word Wrap", category: "view", defaultKey: "Alt-z", menuId: "word-wrap" },
   { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide line numbers in code blocks" },
   { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "toggle-terminal", scope: "global" },
+  { id: "diagramPreview", label: "Toggle Diagram Preview", category: "view", defaultKey: "Alt-Mod-p", menuId: "diagram-preview", description: "Show/hide diagram preview" },
   { id: "viewHistory", label: "View History", category: "view", defaultKey: "Mod-Shift-h", menuId: "view-history" },
   { id: "toggleHiddenFiles", label: "Toggle Hidden Files", category: "view", defaultKey: "Mod-Shift-.", defaultKeyOther: "Ctrl-h", description: "Show or hide hidden files in the file explorer" },
   { id: "zoomActual", label: "Actual Size", category: "view", defaultKey: "Mod-0", menuId: "zoom-actual", scope: "global", description: "Reset font size to default" },
@@ -144,6 +146,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   // === File ===
   { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab", scope: "global" },
   { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new", scope: "global" },
+  { id: "newWindow", label: "New Window", category: "file", defaultKey: "Mod-Shift-n", menuId: "new-window", scope: "global" },
   { id: "openFile", label: "Open File", category: "file", defaultKey: "Mod-o", menuId: "open", scope: "global" },
   { id: "openFolder", label: "Open Folder", category: "file", defaultKey: "Mod-Shift-o", menuId: "open-folder", scope: "global" },
   { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save", scope: "global" },

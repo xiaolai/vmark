@@ -11,7 +11,6 @@ import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   formatKeyForDisplay,
-  getShortcutsByCategory,
   type ShortcutDefinition,
   type ShortcutCategory,
 } from "@/stores/shortcutsStore";
@@ -34,14 +33,25 @@ export function ShortcutsSettings() {
     isCustomized,
   } = useShortcutsStore();
 
-  // Filter shortcuts by search
+  // Only show shortcuts that have an effective key binding
+  const visibleShortcuts = DEFAULT_SHORTCUTS.filter(
+    (s) => getShortcut(s.id) !== ""
+  );
+
+  // Filter shortcuts by search (label, category, description, key format, display format)
   const filteredShortcuts = search.trim()
-    ? DEFAULT_SHORTCUTS.filter(
-        (s) =>
-          s.label.toLowerCase().includes(search.toLowerCase()) ||
-          s.category.toLowerCase().includes(search.toLowerCase()) ||
-          (s.description?.toLowerCase().includes(search.toLowerCase()) ?? false)
-      )
+    ? visibleShortcuts.filter((s) => {
+        const q = search.trim().toLowerCase();
+        const effectiveKey = getShortcut(s.id);
+        const displayKey = formatKeyForDisplay(effectiveKey).toLowerCase();
+        return (
+          s.label.toLowerCase().includes(q) ||
+          s.category.toLowerCase().includes(q) ||
+          (s.description?.toLowerCase().includes(q) ?? false) ||
+          effectiveKey.toLowerCase().includes(q) ||
+          displayKey.includes(q)
+        );
+      })
     : null;
 
   const handleCapture = (key: string) => {
@@ -141,7 +151,7 @@ export function ShortcutsSettings() {
   };
 
   const renderCategorySection = (category: ShortcutCategory) => {
-    const shortcuts = getShortcutsByCategory(category);
+    const shortcuts = visibleShortcuts.filter((s) => s.category === category);
     if (shortcuts.length === 0) return null;
 
     return (

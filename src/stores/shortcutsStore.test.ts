@@ -35,7 +35,7 @@ describe("shortcutsStore", () => {
 
   describe("DEFAULT_SHORTCUTS", () => {
     it("contains expected shortcuts", () => {
-      expect(DEFAULT_SHORTCUTS.length).toBeGreaterThan(50);
+      expect(DEFAULT_SHORTCUTS.length).toBeGreaterThan(53);
     });
 
     it("has unique IDs", () => {
@@ -67,6 +67,34 @@ describe("shortcutsStore", () => {
       expect(ids).toContain("openFile");
       expect(ids).toContain("save");
       expect(ids).toContain("saveAs");
+    });
+
+    it("includes newWindow, diagramPreview, and useSelectionFind", () => {
+      const map = new Map(DEFAULT_SHORTCUTS.map((s) => [s.id, s]));
+
+      const newWindow = map.get("newWindow");
+      expect(newWindow).toBeDefined();
+      expect(newWindow?.defaultKey).toBe("Mod-Shift-n");
+      expect(newWindow?.menuId).toBe("new-window");
+      expect(newWindow?.category).toBe("file");
+
+      const diagramPreview = map.get("diagramPreview");
+      expect(diagramPreview).toBeDefined();
+      expect(diagramPreview?.defaultKey).toBe("Alt-Mod-p");
+      expect(diagramPreview?.menuId).toBe("diagram-preview");
+      expect(diagramPreview?.category).toBe("view");
+
+      const useSelectionFind = map.get("useSelectionFind");
+      expect(useSelectionFind).toBeDefined();
+      expect(useSelectionFind?.defaultKey).toBe("Mod-e");
+      expect(useSelectionFind?.menuId).toBe("use-selection-find");
+      expect(useSelectionFind?.category).toBe("navigation");
+    });
+
+    it("bookmarkLink menuId matches menu.rs", () => {
+      const bookmark = DEFAULT_SHORTCUTS.find((s) => s.id === "bookmarkLink");
+      expect(bookmark).toBeDefined();
+      expect(bookmark?.menuId).toBe("bookmark");
     });
   });
 
