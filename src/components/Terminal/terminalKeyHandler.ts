@@ -2,6 +2,7 @@ import type { IPty } from "tauri-pty";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 export interface KeyHandlerCallbacks {
   onSearch: () => void;
@@ -20,6 +21,8 @@ export function createTerminalKeyHandler(
 ): (event: KeyboardEvent) => boolean {
   return (event: KeyboardEvent): boolean => {
     if (event.type !== "keydown") return true;
+    // Never interfere during IME composition (CJK input, etc.)
+    if (isImeKeyEvent(event)) return true;
     const isMod = event.metaKey || event.ctrlKey;
     if (!isMod) return true;
 

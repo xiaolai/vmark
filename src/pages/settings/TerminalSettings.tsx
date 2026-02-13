@@ -57,6 +57,13 @@ export function TerminalSettings() {
             onChange={(v) => updateTerminalSetting("copyOnSelect", v)}
           />
         </SettingRow>
+
+        <SettingRow label="WebGL Renderer" description="Use GPU-accelerated rendering. Disable if you experience IME input issues. Requires terminal restart.">
+          <Toggle
+            checked={terminal.useWebGL}
+            onChange={(v) => updateTerminalSetting("useWebGL", v)}
+          />
+        </SettingRow>
       </SettingsGroup>
     </div>
   );

@@ -191,6 +191,7 @@ export interface TerminalSettings {
   fontSize: number;    // Default: 13 (range: 10–24)
   lineHeight: number;  // Default: 1.4 (range: 1.0–2.0)
   copyOnSelect: boolean; // Default: false — auto-copy selected text to clipboard
+  useWebGL: boolean;   // Default: true — use WebGL renderer (disable to troubleshoot IME issues)
 }
 
 export interface AdvancedSettingsState {
@@ -395,6 +396,7 @@ const initialState: SettingsState = {
     fontSize: 13,
     lineHeight: 1.2,
     copyOnSelect: false,
+    useWebGL: true,
   },
   advanced: {
     mcpServer: {
