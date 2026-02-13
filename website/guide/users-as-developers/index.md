@@ -172,5 +172,6 @@ No extra setup needed. Just start asking your AI to help.
 - [Cross-Model Verification](/guide/users-as-developers/cross-model-verification) — How Claude + Codex audit each other for better code
 - [Prompt Refinement](/guide/users-as-developers/prompt-refinement) — Why translating prompts to English improves AI coding
 - [Subscription vs API Pricing](/guide/users-as-developers/subscription-vs-api) — Cost comparison for AI coding tools
-- [MCP Setup](/guide/mcp-setup) — Connect AI assistants to VMark’s editor
+- [What Are Indispensable](/guide/users-as-developers/what-are-indispensable) — The five skills no AI can replace: Git, TDD, terminal, English, and taste
+- [MCP Setup](/guide/mcp-setup) — Connect AI assistants to VMark's editor
 - [MCP Tools Reference](/guide/mcp-tools) — All 77 editor tools
