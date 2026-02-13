@@ -142,10 +142,7 @@ Hooks run automatically at specific points in the Claude Code lifecycle:
 
 | File | Trigger | Purpose |
 |------|---------|---------|
-| `decode-curly-quotes.sh` | PostToolUse (Write, Edit) | Converts `\uXXXX` escape sequences back to real Unicode. Workaround for the Claude API silently normalizing curly quotes and CJK punctuation to ASCII. |
 | `refine_prompt.mjs` | UserPromptSubmit | When a prompt starts with `::` or `>>`, sends it to Claude Haiku for translation/refinement, copies the result to clipboard, and blocks the original. Uses the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk). |
-
-**`decode-curly-quotes.sh`** — Runs after every file write/edit. Checks for `\uXXXX` patterns and converts them to proper Unicode characters (curly quotes, em dashes, CJK brackets, fullwidth punctuation). No configuration needed.
 
 **`refine_prompt.mjs`** — Opt-in via `::` or `>>` prefix. Translates non-English prompts to English and optimizes prompt structure for better AI coding results. See the [Prompt Refinement guide](https://vmark.app/guide/users-as-developers/prompt-refinement) for details.
 
