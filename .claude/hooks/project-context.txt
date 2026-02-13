@@ -1,0 +1,4 @@
+VMark — a Tauri v2 desktop markdown editor.
+Stack: Tauri v2 (Rust backend), React 19, Zustand v5, TypeScript, Tailwind v4, Vite v7.
+Conventions: TDD mandatory, Zustand selectors (no store destructuring in components), CSS design tokens (no hardcoded colors), files under 300 lines.
+Key paths: src/ (React frontend), src-tauri/src/ (Rust backend), src/stores/ (Zustand stores), src/plugins/ (ProseMirror/Tiptap editor plugins), src/hooks/ (React hooks), src/components/ (UI components).

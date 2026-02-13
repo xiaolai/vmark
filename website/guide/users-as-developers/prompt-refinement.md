@@ -57,14 +57,14 @@ Optimize this component to prevent unnecessary re-renders when the parent compon
 
 ### What It Does
 
-The hook uses a system prompt that instructs Haiku to:
+The hook uses a carefully structured system prompt that gives Haiku:
 
-1. **Translate** non-English text into clear, natural English
-2. **Preserve** the original intent exactly \u2014 never add or remove requirements
-3. **Clarify** ambiguity: make implicit references explicit (file names, function names)
-4. **Use imperative voice**: \u201CAdd\u2026\u201D, \u201CFix\u2026\u201D, \u201CRefactor\u2026\u201D
-5. **Remove filler**: pleasantries, hedging, unnecessary words
-6. **Keep it concise**: the shortest prompt that fully conveys the intent
+- **Claude Code awareness** \u2014 knows the target tool\u2019s capabilities (file editing, Bash, Glob/Grep, MCP tools, plan mode, subagents)
+- **Project context** \u2014 loads from `.claude/hooks/project-context.txt` so Haiku knows the tech stack, conventions, and key file paths
+- **Priority-ordered rules** \u2014 preserve intent first, then translate, then clarify scope, then strip filler
+- **Mixed-language handling** \u2014 translates prose but keeps technical terms untranslated (`useEffect`, file paths, CLI commands)
+- **Few-shot examples** \u2014 seven input/output pairs covering Chinese, vague English, mixed-language, and multi-step requests
+- **Output length guidance** \u2014 1\u20132 sentences for simple requests, 3\u20135 for complex ones
 
 If your input is already a clear English prompt, it\u2019s returned with minimal changes.
 
