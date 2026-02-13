@@ -16,10 +16,18 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { handleMultiCursorPaste, handleMultiCursorCut, getMultiCursorClipboardText } from "./clipboard";
 import { addCursorAtPosition } from "./altClick";
 
+/** A snapshot of selection state for soft-undo history */
+export interface SelectionSnapshot {
+  ranges: Array<{ from: number; to: number }>;
+  primaryIndex: number;
+}
+
 /** Plugin state interface */
 export interface MultiCursorPluginState {
   /** Whether a MultiSelection is currently active */
   isActive: boolean;
+  /** Selection history stack for soft-undo (Cmd+Alt+Z) */
+  selectionHistory: SelectionSnapshot[];
 }
 
 /** Plugin key for accessing multi-cursor state */
@@ -27,13 +35,17 @@ export const multiCursorPluginKey = new PluginKey<MultiCursorPluginState>(
   "multiCursor"
 );
 
+/** Maximum number of selection history entries kept for soft-undo */
+const MAX_SELECTION_HISTORY = 50;
+
 /**
  * Creates the multi-cursor ProseMirror plugin.
  *
  * This plugin:
  * - Tracks when MultiSelection is active in the editor
  * - Maintains MultiSelection through transactions
- * - Will provide decorations for secondary cursors (Phase 1.3)
+ * - Provides decorations for secondary cursors
+ * - Manages selection history for soft-undo
  */
 export function multiCursorPlugin(): Plugin<MultiCursorPluginState> {
   return new Plugin({
@@ -41,18 +53,56 @@ export function multiCursorPlugin(): Plugin<MultiCursorPluginState> {
 
     state: {
       init(): MultiCursorPluginState {
-        return { isActive: false };
+        return { isActive: false, selectionHistory: [] };
       },
 
       apply(
-        _tr: Transaction,
-        _value: MultiCursorPluginState,
-        _oldState: EditorState,
+        tr: Transaction,
+        value: MultiCursorPluginState,
+        oldState: EditorState,
         newState: EditorState
       ): MultiCursorPluginState {
-        // Check if current selection is MultiSelection
         const isActive = newState.selection instanceof MultiSelection;
-        return { isActive };
+        let { selectionHistory } = value;
+
+        const meta = tr.getMeta(multiCursorPluginKey);
+
+        if (meta?.pushHistory) {
+          // Push old selection onto history stack
+          let snapshot: SelectionSnapshot;
+          if (oldState.selection instanceof MultiSelection) {
+            snapshot = {
+              ranges: oldState.selection.ranges.map((r) => ({
+                from: r.$from.pos,
+                to: r.$to.pos,
+              })),
+              primaryIndex: oldState.selection.primaryIndex,
+            };
+          } else {
+            snapshot = {
+              ranges: [{
+                from: oldState.selection.from,
+                to: oldState.selection.to,
+              }],
+              primaryIndex: 0,
+            };
+          }
+          const appended = [...selectionHistory, snapshot];
+          selectionHistory = appended.length > MAX_SELECTION_HISTORY
+            ? appended.slice(-MAX_SELECTION_HISTORY)
+            : appended;
+        } else if (Array.isArray(meta?.popHistory)) {
+          // Pop handled by command — accept the validated stack
+          selectionHistory = meta.popHistory as SelectionSnapshot[];
+        } else if (tr.docChanged) {
+          // Clear history on text edits
+          selectionHistory = [];
+        } else if (!isActive) {
+          // Clear history when leaving multi-cursor mode
+          selectionHistory = [];
+        }
+
+        return { isActive, selectionHistory };
       },
     },
     view(editorView) {

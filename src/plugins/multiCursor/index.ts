@@ -15,6 +15,10 @@ export {
   selectNextOccurrence,
   selectAllOccurrences,
   collapseMultiSelection,
+  skipOccurrence,
+  softUndoCursor,
+  addCursorAbove,
+  addCursorBelow,
 } from "./commands";
 export { multiCursorKeymap } from "./keymap";
 export { multiCursorExtension, type MultiCursorOptions } from "./tiptap";

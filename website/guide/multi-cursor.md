@@ -7,7 +7,11 @@ VMark supports powerful multi-cursor editing in both WYSIWYG and Source modes, a
 | Action | Shortcut |
 |--------|----------|
 | Add cursor at next match | `Mod + D` |
+| Skip match, jump to next | `Mod + Shift + D` |
 | Add cursors at all matches | `Mod + Shift + L` |
+| Undo last cursor addition | `Alt + Mod + Z` |
+| Add cursor above | `Mod + Alt + Up` |
+| Add cursor below | `Mod + Alt + Down` |
 | Add/remove cursor at click | `Alt + Click` |
 | Collapse to single cursor | `Escape` |
 
@@ -50,6 +54,37 @@ Hold `Alt` (Option on macOS) and click to:
 - **Remove** a cursor if one already exists there
 
 This is useful for placing cursors at arbitrary positions that aren't matching text.
+
+### Skip Occurrence (`Mod + Shift + D`)
+
+When `Mod + D` selects a match you don't want, skip it:
+
+1. Press `Mod + D` to start adding matches
+2. If the latest match is unwanted, press `Mod + Shift + D` to skip it
+3. The skipped match is removed and the next match is selected instead
+
+This is the multi-cursor equivalent of "Find Next" — it lets you cherry-pick which occurrences to edit.
+
+### Soft Undo (`Alt + Mod + Z`)
+
+Undo the last cursor addition without losing all your cursors:
+
+1. Press `Mod + D` several times to build up cursors
+2. If you added one too many, press `Alt + Mod + Z`
+3. The last-added cursor is removed, restoring the previous state
+
+Unlike `Escape` (which collapses everything), soft undo steps back one cursor at a time.
+
+### Add Cursor Above / Below (`Mod + Alt + Up/Down`)
+
+Add cursors vertically, one line at a time:
+
+1. Place your cursor on a line
+2. Press `Mod + Alt + Down` to add a cursor on the next line
+3. Press again to keep adding cursors downward
+4. Use `Mod + Alt + Up` to add cursors upward instead
+
+This is ideal for editing column-aligned text or making the same edit across consecutive lines.
 
 ## Editing with Multiple Cursors
 
@@ -122,7 +157,10 @@ In dark mode, cursor and selection colors automatically adjust for visibility.
 | Feature | WYSIWYG | Source |
 |---------|---------|--------|
 | `Mod + D` | ✓ | ✓ |
+| `Mod + Shift + D` (Skip) | ✓ | ✓ |
 | `Mod + Shift + L` | ✓ | ✓ |
+| `Alt + Mod + Z` (Soft Undo) | ✓ | ✓ |
+| `Mod + Alt + Up/Down` | ✓ | ✓ |
 | `Alt + Click` | ✓ | ✓ |
 | Block scoping | Code fences | Blank lines |
 | Wrap-around search | ✓ | ✓ |
@@ -149,7 +187,10 @@ In dark mode, cursor and selection colors automatically adjust for visibility.
 | Scenario | Best Shortcut |
 |----------|---------------|
 | Careful, incremental selection | `Mod + D` |
+| Skip unwanted match | `Mod + Shift + D` |
 | Replace all in block | `Mod + Shift + L` |
+| Undo last cursor step | `Alt + Mod + Z` |
+| Edit consecutive lines | `Mod + Alt + Up/Down` |
 | Arbitrary positions | `Alt + Click` |
 | Quick exit | `Escape` |
 
@@ -164,7 +205,11 @@ In dark mode, cursor and selection colors automatically adjust for visibility.
 | Action | Shortcut |
 |--------|----------|
 | Select next occurrence | `Mod + D` |
+| Skip occurrence | `Mod + Shift + D` |
 | Select all occurrences | `Mod + Shift + L` |
+| Soft undo cursor | `Alt + Mod + Z` |
+| Add cursor above | `Mod + Alt + Up` |
+| Add cursor below | `Mod + Alt + Down` |
 | Add/remove cursor | `Alt + Click` |
 | Collapse to single cursor | `Escape` |
 | Move all cursors | Arrow keys |

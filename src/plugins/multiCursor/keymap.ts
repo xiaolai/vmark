@@ -3,7 +3,11 @@
  *
  * Keyboard shortcuts:
  * - Mod-d: Select next occurrence
+ * - Mod-Shift-d: Skip occurrence
  * - Mod-Shift-l: Select all occurrences
+ * - Mod-Alt-z: Soft undo cursor
+ * - Mod-Alt-ArrowUp: Add cursor above
+ * - Mod-Alt-ArrowDown: Add cursor below
  * - Escape: Collapse to single cursor
  */
 import { keymap } from "@tiptap/pm/keymap";
@@ -12,6 +16,10 @@ import {
   selectNextOccurrence,
   selectAllOccurrences,
   collapseMultiSelection,
+  skipOccurrence,
+  softUndoCursor,
+  addCursorAbove,
+  addCursorBelow,
 } from "./commands";
 import type { EditorView } from "@tiptap/pm/view";
 
@@ -22,7 +30,7 @@ type Command = (
 ) => boolean;
 
 /**
- * Wrap a transaction-returning command into a ProseMirror command.
+ * Wrap a state-only transaction command into a ProseMirror command.
  */
 function wrapCommand(
   fn: (state: EditorState) => Transaction | null
@@ -38,17 +46,33 @@ function wrapCommand(
 }
 
 /**
+ * Wrap a command that requires the EditorView into a ProseMirror command.
+ */
+function wrapViewCommand(
+  fn: (state: EditorState, view: EditorView) => Transaction | null
+): Command {
+  return (state, dispatch, view) => {
+    if (!view) return false;
+    const tr = fn(state, view);
+    if (tr) {
+      if (dispatch) dispatch(tr);
+      return true;
+    }
+    return false;
+  };
+}
+
+/**
  * Create the multi-cursor keymap plugin.
- *
- * Shortcuts:
- * - Mod-d: Select next occurrence (same as VSCode/Sublime)
- * - Mod-Shift-l: Select all occurrences (same as VSCode)
- * - Escape: Collapse multi-selection to single cursor
  */
 export function multiCursorKeymap(): Plugin {
   return keymap({
     "Mod-d": wrapCommand(selectNextOccurrence),
     "Mod-Shift-l": wrapCommand(selectAllOccurrences),
+    "Mod-Shift-d": wrapCommand(skipOccurrence),
+    "Mod-Alt-z": wrapCommand(softUndoCursor),
+    "Mod-Alt-ArrowUp": wrapViewCommand(addCursorAbove),
+    "Mod-Alt-ArrowDown": wrapViewCommand(addCursorBelow),
     Escape: wrapCommand(collapseMultiSelection),
   });
 }

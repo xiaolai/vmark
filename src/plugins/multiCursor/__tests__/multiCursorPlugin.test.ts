@@ -45,7 +45,7 @@ describe("multiCursorPlugin", () => {
     it("has empty initial state", () => {
       const state = createState("hello world");
       const pluginState = multiCursorPluginKey.getState(state);
-      expect(pluginState).toEqual({ isActive: false });
+      expect(pluginState).toEqual({ isActive: false, selectionHistory: [] });
     });
 
     it("tracks when MultiSelection is active", () => {

@@ -7,6 +7,8 @@ import {
   selectNextOccurrence,
   selectAllOccurrences,
   collapseMultiSelection,
+  skipOccurrence,
+  softUndoCursor,
 } from "../commands";
 import { getCodeBlockBounds } from "../codeBlockBounds";
 
@@ -337,6 +339,177 @@ describe("commands", () => {
       const state = createState("hello world", { anchor: 1, head: 1 });
       const result = collapseMultiSelection(state);
       expect(result).toBeNull();
+    });
+  });
+
+  describe("skipOccurrence", () => {
+    it("skips last-added range and finds next match", () => {
+      // "hello hello hello" — select first "hello", then Cmd+D twice to get 3 ranges
+      const state0 = createState("hello hello hello", { anchor: 1, head: 6 });
+      const tr1 = selectNextOccurrence(state0);
+      expect(tr1).not.toBeNull();
+      const state1 = state0.apply(tr1!);
+      const tr2 = selectNextOccurrence(state1);
+      expect(tr2).not.toBeNull();
+      const state2 = state1.apply(tr2!);
+      // state2 has 3 ranges: [1-6, 7-12, 13-18], primary=2 (last added)
+      const multi2 = state2.selection as MultiSelection;
+      expect(multi2.ranges).toHaveLength(3);
+
+      // Skip should remove primary (13-18) and find next — but all are taken,
+      // so it wraps; since 1-6 and 7-12 exist, no more matches → just remove
+      const tr3 = skipOccurrence(state2);
+      expect(tr3).not.toBeNull();
+      if (tr3) {
+        const state3 = state2.apply(tr3);
+        const multi3 = state3.selection as MultiSelection;
+        // Should have 2 ranges remaining: [1-6] and [7-12]
+        expect(multi3.ranges).toHaveLength(2);
+        expect(multi3.ranges[0].$from.pos).toBe(1);
+        expect(multi3.ranges[0].$to.pos).toBe(6);
+        expect(multi3.ranges[1].$from.pos).toBe(7);
+        expect(multi3.ranges[1].$to.pos).toBe(12);
+      }
+    });
+
+    it("skips and finds next occurrence when more matches exist", () => {
+      // "aa bb aa bb aa" — select "aa" at pos 1-3, add next (7-9)
+      const state0 = createState("aa bb aa bb aa", { anchor: 1, head: 3 });
+      const tr1 = selectNextOccurrence(state0);
+      expect(tr1).not.toBeNull();
+      const state1 = state0.apply(tr1!);
+      // state1 has 2 ranges: [1-3, 7-9], primary at last-added (7-9)
+      const multi1 = state1.selection as MultiSelection;
+      expect(multi1.ranges).toHaveLength(2);
+
+      // Skip: remove 7-9, find next "aa" after pos 9 → should find 13-15
+      const trSkip = skipOccurrence(state1);
+      expect(trSkip).not.toBeNull();
+      if (trSkip) {
+        const stateSkip = state1.apply(trSkip);
+        const multiSkip = stateSkip.selection as MultiSelection;
+        expect(multiSkip.ranges).toHaveLength(2);
+        // Should have [1-3] and [13-15]
+        expect(multiSkip.ranges[0].$from.pos).toBe(1);
+        expect(multiSkip.ranges[0].$to.pos).toBe(3);
+        expect(multiSkip.ranges[1].$from.pos).toBe(13);
+        expect(multiSkip.ranges[1].$to.pos).toBe(15);
+      }
+    });
+
+    it("returns null on non-MultiSelection", () => {
+      const state = createState("hello world", { anchor: 1, head: 6 });
+      expect(skipOccurrence(state)).toBeNull();
+    });
+
+    it("returns null when only one range in MultiSelection", () => {
+      // Create a MultiSelection with single range
+      const state = createState("hello world");
+      const doc = state.doc;
+      const ranges = [new SelectionRange(doc.resolve(1), doc.resolve(6))];
+      const multiSel = new MultiSelection(ranges, 0);
+      const stateWithMulti = state.apply(state.tr.setSelection(multiSel));
+      expect(skipOccurrence(stateWithMulti)).toBeNull();
+    });
+
+    it("wraps around when skipping past end of document", () => {
+      // "aa bb aa" — select first "aa" (1-3), add second (7-9)
+      // skip → remove 7-9, look after pos 9 → no match, wrap → find 1-3
+      // but 1-3 already exists, so just removes
+      const state0 = createState("aa bb aa", { anchor: 1, head: 3 });
+      const tr1 = selectNextOccurrence(state0);
+      expect(tr1).not.toBeNull();
+      const state1 = state0.apply(tr1!);
+
+      const trSkip = skipOccurrence(state1);
+      expect(trSkip).not.toBeNull();
+      if (trSkip) {
+        const stateSkip = state1.apply(trSkip);
+        // Only the original range should remain
+        const sel = stateSkip.selection;
+        expect(sel.from).toBe(1);
+        expect(sel.to).toBe(3);
+      }
+    });
+  });
+
+  describe("softUndoCursor", () => {
+    it("returns to previous selection after one Cmd+D", () => {
+      // "hello hello" — select first "hello" (1-6), Cmd+D adds second (7-12)
+      const state0 = createState("hello hello", { anchor: 1, head: 6 });
+      const tr1 = selectNextOccurrence(state0);
+      expect(tr1).not.toBeNull();
+      const state1 = state0.apply(tr1!);
+      const multi1 = state1.selection as MultiSelection;
+      expect(multi1.ranges).toHaveLength(2);
+
+      // Soft undo should return to just the first "hello" selected
+      const trUndo = softUndoCursor(state1);
+      expect(trUndo).not.toBeNull();
+      if (trUndo) {
+        const stateUndo = state1.apply(trUndo);
+        // Should have 1 range back to the original selection
+        const sel = stateUndo.selection;
+        expect(sel.from).toBe(1);
+        expect(sel.to).toBe(6);
+      }
+    });
+
+    it("undoes two Cmd+D steps sequentially", () => {
+      // "hello hello hello" — build up 3 ranges via 2 Cmd+D
+      const state0 = createState("hello hello hello", { anchor: 1, head: 6 });
+      const tr1 = selectNextOccurrence(state0);
+      const state1 = state0.apply(tr1!);
+      const tr2 = selectNextOccurrence(state1);
+      const state2 = state1.apply(tr2!);
+      expect((state2.selection as MultiSelection).ranges).toHaveLength(3);
+
+      // First soft undo: back to 2 ranges
+      const trUndo1 = softUndoCursor(state2);
+      expect(trUndo1).not.toBeNull();
+      const state3 = state2.apply(trUndo1!);
+      expect((state3.selection as MultiSelection).ranges).toHaveLength(2);
+
+      // Second soft undo: back to 1 range
+      const trUndo2 = softUndoCursor(state3);
+      expect(trUndo2).not.toBeNull();
+      const state4 = state3.apply(trUndo2!);
+      expect(state4.selection.from).toBe(1);
+      expect(state4.selection.to).toBe(6);
+    });
+
+    it("returns null on empty history", () => {
+      // Fresh state with multi-selection (not built via selectNextOccurrence)
+      const state = createState("hello world");
+      const doc = state.doc;
+      const ranges = [
+        new SelectionRange(doc.resolve(1), doc.resolve(6)),
+        new SelectionRange(doc.resolve(7), doc.resolve(12)),
+      ];
+      const multiSel = new MultiSelection(ranges, 0);
+      const stateWithMulti = state.apply(state.tr.setSelection(multiSel));
+
+      // No history → null
+      expect(softUndoCursor(stateWithMulti)).toBeNull();
+    });
+
+    it("clears history after a text edit", () => {
+      // Build up history via Cmd+D
+      const state0 = createState("hello hello", { anchor: 1, head: 6 });
+      const tr1 = selectNextOccurrence(state0);
+      const state1 = state0.apply(tr1!);
+
+      // Now do a text edit (insert a character)
+      const trEdit = state1.tr.insertText("x", 1);
+      const state2 = state1.apply(trEdit);
+
+      // History should be cleared — soft undo returns null
+      expect(softUndoCursor(state2)).toBeNull();
+    });
+
+    it("returns null on non-MultiSelection", () => {
+      const state = createState("hello world", { anchor: 1, head: 1 });
+      expect(softUndoCursor(state)).toBeNull();
     });
   });
 

@@ -122,7 +122,11 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Select Line | `Mod + L` |
 | Expand Selection | `Ctrl + Shift + Up` |
 | Select Next Occurrence | `Mod + D` |
+| Skip Occurrence | `Mod + Shift + D` |
 | Select All Occurrences | `Mod + Shift + L` |
+| Soft Undo Cursor | `Alt + Mod + Z` |
+| Add Cursor Above | `Mod + Alt + Up` |
+| Add Cursor Below | `Mod + Alt + Down` |
 | Collapse Multi-Cursor | `Escape` |
 
 ## Find & Replace
