@@ -48,7 +48,15 @@ export default defineConfig({
             { text: 'AI Providers', link: '/guide/ai-providers' },
             { text: 'MCP Setup', link: '/guide/mcp-setup' },
             { text: 'MCP Tools Reference', link: '/guide/mcp-tools' },
-            { text: 'Users as Developers', link: '/guide/users-as-developers' },
+            {
+              text: 'Users as Developers',
+              link: '/guide/users-as-developers/',
+              items: [
+                { text: 'Cross-Model Verification', link: '/guide/users-as-developers/cross-model-verification' },
+                { text: 'Prompt Refinement', link: '/guide/users-as-developers/prompt-refinement' },
+                { text: 'Subscription vs API', link: '/guide/users-as-developers/subscription-vs-api' },
+              ]
+            },
           ]
         }
       ]

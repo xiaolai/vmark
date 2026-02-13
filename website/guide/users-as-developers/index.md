@@ -117,15 +117,7 @@ codex --version
 ```
 
 ::: tip Subscription vs API Keys
-**Always prefer subscription auth** (`codex login`) over API keys (`OPENAI_API_KEY`) for vibe-coding. Subscription plans are dramatically cheaper for sustained coding sessions — API billing can cost 10–30x more for the same work. This applies to all AI coding tools:
-
-| Tool | Auth Command | Subscription |
-|------|-------------|-------------|
-| Claude Code | `claude` (auto-login) | Claude Max ($100–200/mo) |
-| Codex CLI | `codex login` | ChatGPT Plus/Pro ($20–200/mo) |
-| Gemini CLI | `gemini` (Google account) | Free tier / Google One AI Premium |
-
-API keys still work as a fallback — see `codex login --with-api-key`.
+**Always prefer subscription auth** over API keys for vibe-coding. Subscriptions are 10\u201330x cheaper for sustained coding sessions. See the full breakdown in [Subscription vs API Pricing](/guide/users-as-developers/subscription-vs-api).
 :::
 
 ::: tip PATH for macOS GUI Apps
@@ -177,5 +169,8 @@ No extra setup needed. Just start asking your AI to help.
 
 ## Next Steps
 
-- [MCP Setup](/guide/mcp-setup) — Connect AI assistants to VMark's editor
-- [MCP Tools Reference](/guide/mcp-tools) — All 77 editor tools
+- [Cross-Model Verification](/guide/users-as-developers/cross-model-verification) \u2014 How Claude + Codex audit each other for better code
+- [Prompt Refinement](/guide/users-as-developers/prompt-refinement) \u2014 Why translating prompts to English improves AI coding
+- [Subscription vs API Pricing](/guide/users-as-developers/subscription-vs-api) \u2014 Cost comparison for AI coding tools
+- [MCP Setup](/guide/mcp-setup) \u2014 Connect AI assistants to VMark\u2019s editor
+- [MCP Tools Reference](/guide/mcp-tools) \u2014 All 77 editor tools
