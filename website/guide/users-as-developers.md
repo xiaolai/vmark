@@ -57,12 +57,16 @@ Slash commands give the AI specialized capabilities:
 | Command | What it does |
 |---------|-------------|
 | `/fix` | Fix issues properly — root cause analysis, TDD, no patches |
+| `/fix-issue` | End-to-end GitHub issue resolver (fetch, branch, fix, audit, PR) |
 | `/codex-audit` | Full 9-dimension code audit (security, correctness, compliance, ...) |
 | `/codex-audit-mini` | Fast 5-dimension check for small changes |
 | `/codex-verify` | Verify fixes from a previous audit |
 | `/codex-commit` | Smart commit messages from change analysis |
+| `/audit-fix` | Audit, fix all findings, verify — repeat until clean |
 | `/feature-workflow` | End-to-end gated workflow with specialized agents |
 | `/release-gate` | Run full quality gates and produce a report |
+| `/merge-prs` | Review and merge open PRs sequentially |
+| `/bump` | Version bump across all 5 files, commit, tag, push |
 
 ### Specialized Agents
 
@@ -78,23 +82,62 @@ For complex tasks, Claude Code can delegate to focused subagents:
 
 ## Using Codex as a Second Opinion
 
-VMark's `.mcp.json` registers a Codex MCP server. This lets Claude Code consult Codex — a different AI model — for independent analysis.
+VMark uses cross-model verification — Claude writes the code, then Codex (a different AI model from OpenAI) audits it independently. This catches blind spots that a single model might miss.
 
-**Setup:**
+### How It Works
+
+The project root contains `.mcp.json`, which Claude Code auto-loads at session start:
+
+```json
+{
+  "mcpServers": {
+    "codex": {
+      "command": "codex",
+      "args": ["mcp-server"]
+    }
+  }
+}
+```
+
+This registers Codex as an MCP tool inside Claude Code. Slash commands like `/codex-audit` call it automatically. Codex runs in a sandboxed read-only context — it can read the codebase but cannot modify files.
+
+### Setup
+
+Install Codex CLI globally:
 
 ```bash
 npm install -g @openai/codex
 ```
 
-**Structured commands:**
+Verify it's on your PATH:
+
+```bash
+codex --version
+```
+
+Set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+::: tip PATH for macOS GUI Apps
+macOS GUI apps (like terminals launched from Spotlight) have a minimal PATH. If `codex --version` works in your terminal but Claude Code can't find it, ensure the Codex binary location is in your shell profile (`~/.zshrc` or `~/.bashrc`).
+:::
+
+### Structured Commands
 
 ```
-/codex-audit              # Full audit of uncommitted changes
+/codex-audit              # Full 9-dimension audit of uncommitted changes
 /codex-audit commit -3    # Audit last 3 commits
+/codex-audit-mini         # Fast 5-dimension check for small changes
 /codex-verify             # Verify fixes from a previous audit
+/audit-fix                # Audit → fix → verify → repeat until clean
 ```
 
-**Ad-hoc help** — if Claude is stuck, just say:
+### Ad-hoc Help
+
+If Claude is stuck on a problem, just say:
 
 ```
 Summarize your trouble, and ask Codex for help.

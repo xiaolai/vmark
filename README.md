@@ -211,6 +211,16 @@ vmark/
 - **Source Editor:** CodeMirror 6
 - **Styling:** Tailwind CSS v4
 
+### AI-Assisted Development
+
+The repo ships with full configuration for AI coding tools (Claude Code, Codex CLI, Gemini CLI). Project rules, conventions, and architecture docs are pre-loaded — the AI already knows how VMark works.
+
+- **`AGENTS.md`** — Single source of truth for all AI tool instructions
+- **`.claude/`** — Rules, slash commands, skills, and subagent definitions ([developer guide](.claude/README.md))
+- **`.mcp.json`** — MCP server config (Codex for cross-model auditing, Tauri for E2E testing)
+
+See the [Users as Developers](https://vmark.app/guide/users-as-developers) guide for details.
+
 ---
 
 ## License

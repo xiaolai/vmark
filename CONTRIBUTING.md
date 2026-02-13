@@ -84,6 +84,18 @@ pnpm check:all
 7. Avoid unrelated refactors or formatting-only churn in functional PRs.
 8. For bug-fix PRs, ensure the linked issue has full reproduction context.
 
+## AI Tooling
+
+VMark's repo is pre-configured for AI coding tools. If you use Claude Code, Codex CLI, or Gemini CLI, the AI already knows the project conventions, testing requirements, and architecture patterns.
+
+- **`AGENTS.md`** — Shared instructions for all AI tools (single source of truth)
+- **`.claude/`** — Rules, slash commands, skills, and subagent definitions
+- **`.mcp.json`** — Registers Codex MCP for cross-model code auditing
+
+For setup details (Codex CLI installation, API keys, available slash commands), see:
+- [`.claude/README.md`](.claude/README.md) — Developer guide for the AI config
+- [Users as Developers](https://vmark.app/guide/users-as-developers) — Website guide
+
 ## Review Expectations
 
 1. Draft PRs are welcome for early feedback.
