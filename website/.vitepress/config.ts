@@ -64,6 +64,7 @@ export default withMermaid(defineConfig({
                 { text: 'Cross-Model Verification', link: '/guide/users-as-developers/cross-model-verification' },
                 { text: 'Prompt Refinement', link: '/guide/users-as-developers/prompt-refinement' },
                 { text: 'Subscription vs API', link: '/guide/users-as-developers/subscription-vs-api' },
+                { text: 'What Are Indispensable', link: '/guide/users-as-developers/what-are-indispensable' },
               ]
             },
           ]
