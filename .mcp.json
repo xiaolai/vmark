@@ -10,6 +10,10 @@
     "codex": {
       "command": "codex",
       "args": ["mcp-server"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"]
     }
   }
 }

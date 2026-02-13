@@ -499,10 +499,30 @@ a[class*="tag"]:hover {
 }
 
 /* ============================================
-   TABLE STYLING
+   CENTERING - Images, Tables, Mermaid
    ============================================ */
 
-/* Full-width tables in docs */
+/* Center images */
+.vp-doc img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Center tables */
 .vp-doc table {
-  width: 100%;
+  width: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Center Mermaid diagrams */
+.vp-doc .mermaid {
+  display: flex;
+  justify-content: center;
+}
+
+/* Mermaid diagram text smaller than paragraph text */
+.vp-doc .mermaid svg text {
+  font-size: calc(var(--vmark-font-size) * 0.8) !important;
 }

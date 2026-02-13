@@ -142,7 +142,7 @@ flowchart TD
     B --> C["Codex verifies the fixes"]
     C --> D{"Zero findings?"}
     D -- Yes --> E["Done"]
-    D -- No --> F{"Iteration < 3?"}
+    D -- No --> F{"Iterations left?"}
     F -- Yes --> A
     F -- No --> G["Report remaining issues"]
 ```

@@ -80,5 +80,8 @@ export default withMermaid(defineConfig({
     }
   },
 
-  mermaid: {},
+  mermaid: {
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+  },
 }))
