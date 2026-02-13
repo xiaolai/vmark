@@ -60,6 +60,7 @@ export default withMermaid(defineConfig({
               text: 'Users as Developers',
               link: '/guide/users-as-developers/',
               items: [
+                { text: 'Why I Built VMark', link: '/guide/users-as-developers/why-i-built-vmark' },
                 { text: 'Cross-Model Verification', link: '/guide/users-as-developers/cross-model-verification' },
                 { text: 'Prompt Refinement', link: '/guide/users-as-developers/prompt-refinement' },
                 { text: 'Subscription vs API', link: '/guide/users-as-developers/subscription-vs-api' },
