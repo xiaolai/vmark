@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'website/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/deploy-website.yml'
 
   # Allow manual trigger
