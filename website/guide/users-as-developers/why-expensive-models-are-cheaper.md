@@ -144,6 +144,64 @@ If you're a developer growing your skills (and every developer should be), the c
 
 Every iteration you don't need is a feature that ships sooner. In competitive markets, development speed — measured in features delivered, not tokens generated — is what matters.
 
+## For Vibe Coders, This Isn't About Cost — It's About Survival
+
+Everything above applies to professional developers who can read diffs, spot bugs, and fix broken code. But there's a rapidly growing group for whom the model-quality argument isn't about efficiency — it's about whether the software works at all. These are the **100% vibe coders**: non-programmers building real applications entirely through natural-language prompts, without the ability to read, audit, or understand a single line of the generated code.
+
+### The Invisible Risk
+
+For a professional developer, a cheap model that generates buggy code is **annoying** — they catch the bug in review, fix it, and move on. For a non-programmer, the same bug is **invisible**. It ships to production undetected.
+
+The scale of this problem is staggering:
+
+- **Veracode** tested over 100 LLMs and found that AI-generated code introduced security flaws in **45% of tasks**. Java was worst at over 70%. Critically, newer and larger models showed no significant improvement in security — the problem is structural, not generational.[^14]
+- **CodeRabbit** analyzed 470 open-source PRs and found AI-authored code had **1.7x more major issues** and **1.4x more critical issues** than human code. Logic errors were 75% higher. Performance problems (excessive I/O) were **8x more common**. Security vulnerabilities were **1.5–2x higher**.[^15]
+- **BaxBench** and NYU research confirm that **40–62% of AI-generated code** contains security flaws — cross-site scripting, SQL injection, missing input validation — the kinds of vulnerabilities that don't crash the app but silently expose every user's data.[^16]
+
+A professional developer recognizes these patterns. A vibe coder doesn't know they exist.
+
+### Real-World Catastrophes
+
+This isn't theoretical. In 2025, security researcher Matt Palmer discovered that **170 out of 1,645 applications** built with Lovable — a popular vibe-coding platform — had fatally misconfigured database security. Anyone on the internet could read and write to their databases. Exposed data included full names, email addresses, phone numbers, home addresses, personal debt amounts, and API keys.[^17]
+
+Escape.tech went further, scanning **5,600+ publicly deployed vibe-coded apps** across platforms including Lovable, Base44, Create.xyz, and Bolt.new. They found over **2,000 vulnerabilities**, **400+ exposed secrets**, and **175 instances of exposed PII** including medical records, IBANs, and phone numbers.[^18]
+
+These weren't developer errors. The developers — if we can call them that — had no idea the vulnerabilities existed. They asked the AI to build an app, the app appeared to work, and they deployed it. The security flaws were invisible to anyone who couldn't read the code.
+
+### The Supply Chain Trap
+
+Non-coders face a threat that even experienced developers find difficult to catch: **slopsquatting**. AI models hallucinate package names — roughly 20% of code samples reference non-existent packages. Attackers register these phantom package names and inject malware. When the vibe coder's AI suggests installing the package, the malware enters their application automatically.[^19]
+
+A developer might notice an unfamiliar package name and check it. A vibe coder installs whatever the AI tells them to install. They have no frame of reference for what's legitimate and what's hallucinated.
+
+### Why Model Quality Is the Only Safety Net
+
+Palo Alto Networks' Unit 42 research team put it plainly: citizen developers — people without a development background — "lack training in how to write secure code and may not have a full understanding of the security requirements required in the application life cycle." Their investigation found real-world **data breaches, authentication bypasses, and arbitrary code execution** traced directly to vibe-coded applications.[^20]
+
+For professional developers, code review, testing, and security audits serve as safety nets. They catch what the model misses. Vibe coders have **none of these safety nets**. They can't review code they can't read. They can't write tests for behavior they don't understand. They can't audit security properties they've never heard of.
+
+This means the AI model itself is the **only** quality control in the entire pipeline. Every flaw the model introduces ships directly to users. There is no second chance, no human checkpoint, no safety net.
+
+And this is precisely where model quality matters most:
+
+- **Opus produces 50–75% fewer errors** than cheaper models.[^1] For a vibe coder with zero ability to catch errors, this is the difference between a working app and an app that silently leaks user data.
+- **Opus reaches peak performance in 4 iterations**, not 10.[^1] Each extra iteration means the vibe coder has to describe the problem in natural language (they can't point to the line that's wrong), hope the AI understands, and hope the fix doesn't introduce new bugs they also can't see.
+- **Opus has the highest resistance to prompt injection** among frontier models — critical when the vibe coder is building apps that handle user input they can't sanitize themselves.
+- **Opus uses fewer tokens per task**, meaning it generates less code to accomplish the same goal — less code means less attack surface, fewer places for bugs to hide in code nobody will ever read.
+
+For a developer, a cheap model is a productivity tax. For a vibe coder, a cheap model is a **liability**. The model isn't their assistant — it's their **entire engineering team**. Hiring the cheapest possible "engineer" when you have no ability to check their work isn't frugal. It's reckless.
+
+### The Real Decision for Non-Coders
+
+If you can't read code, you are not choosing between a cheap tool and an expensive tool. You are choosing between:
+
+1. **A model that gets security right 55% of the time** (and you'll never know about the other 45%)
+2. **A model that gets security right 80%+ of the time** (and produces dramatically fewer of the silent, invisible bugs that destroy businesses)
+
+The 67% price premium per token is meaningless next to the cost of a data breach you didn't know was possible, built into code you couldn't read, in an application you deployed to real users.
+
+**For vibe coders, the expensive model isn't the cheaper choice. It's the only responsible one.**
+
 ## The Decision Framework
 
 | If you... | Use... | Why |
@@ -151,6 +209,7 @@ Every iteration you don't need is a feature that ships sooner. In competitive ma
 | Code for hours daily | Opus + subscription | Zero marginal cost, highest quality |
 | Work on complex tasks | Extra-high / Opus | Fewer iterations, fewer bugs |
 | Maintain long-lived code | The best model available | Technical debt is the real cost |
+| Vibe-code without reading code | **Opus — non-negotiable** | The model is your only safety net |
 | Have a limited budget | Still Opus via subscription | $200/mo < cost of debugging cheap output |
 | Run quick one-off queries | Sonnet / medium effort | Quality threshold matters less for simple tasks |
 
@@ -192,3 +251,17 @@ The most expensive model isn't a luxury. It's the minimum viable choice for anyo
 [^12]: The CAIO (2025). [Claude Code Pricing Guide](https://www.thecaio.ai/blog/claude-code-pricing-guide). Average Claude Code cost: $6 per developer per day, with 90% of users below $12/day on subscription plans.
 
 [^13]: Peng, S. et al. (2023). [The Impact of AI on Developer Productivity: Evidence from GitHub Copilot](https://arxiv.org/abs/2302.06590). Lab study: developers completed tasks 55.8% faster with Copilot. See also: ZoomInfo case study showing 40–50% productivity boost with AI, with the gap growing as task difficulty increases ([arXiv:2501.13282](https://arxiv.org/html/2501.13282v1)).
+
+[^14]: Veracode (2025). [2025 GenAI Code Security Report](https://www.veracode.com/resources/analyst-reports/2025-genai-code-security-report/). Analysis of 80 coding tasks across 100+ LLMs: AI-generated code introduced security flaws in 45% of cases. Java worst at 70%+, Python/C#/JavaScript at 38–45%. Newer and larger models showed no significant improvement in security. See also: [BusinessWire announcement](https://www.businesswire.com/news/home/20250730694951/en/).
+
+[^15]: CodeRabbit (2025). [State of AI vs Human Code Generation Report](https://www.coderabbit.ai/blog/state-of-ai-vs-human-code-generation-report). Analysis of 470 open-source GitHub PRs (320 AI-coauthored, 150 human-only): AI code had 1.7x more major issues, 1.4x more critical issues, 75% more logic errors, 1.5–2x more security vulnerabilities, 3x more readability problems, and nearly 8x more performance issues (excessive I/O). See also: [The Register coverage](https://www.theregister.com/2025/12/17/ai_code_bugs/).
+
+[^16]: BaxBench and NYU research on AI code security. See: Tihanyi, N. et al. (2025). [Is Vibe Coding Safe? Benchmarking Vulnerability of Agent-Generated Code in Real-World Tasks](https://arxiv.org/abs/2512.03262). BaxBench combines backend coding scenarios with expert-designed security exploits, finding 40–62% of AI-generated code contains security flaws including XSS, SQL injection, and missing input validation.
+
+[^17]: Palmer, M. (2025). [Statement on CVE-2025-48757](https://mattpalmer.io/posts/statement-on-CVE-2025-48757/). Analysis of 1,645 Lovable-built applications: 170 had fatally misconfigured Row Level Security, allowing unauthenticated access to read and write user databases. Exposed PII included names, emails, phone numbers, home addresses, personal debt amounts, and API keys. See also: [Superblocks: Lovable Vulnerability Explained](https://www.superblocks.com/blog/lovable-vulnerabilities).
+
+[^18]: Escape.tech (2025). [The State of Security of Vibe Coded Apps](https://escape.tech/state-of-security-of-vibe-coded-apps). Scan of 5,600+ publicly deployed vibe-coded applications across Lovable, Base44, Create.xyz, Bolt.new, and others. Found 2,000+ vulnerabilities, 400+ exposed secrets, and 175 instances of exposed PII including medical records, IBANs, and phone numbers. See also: [Methodology detail](https://escape.tech/blog/methodology-how-we-discovered-vulnerabilities-apps-built-with-vibe-coding/).
+
+[^19]: Lanyado, B. et al. (2025). [AI-hallucinated code dependencies become new supply chain risk](https://www.bleepingcomputer.com/news/security/ai-hallucinated-code-dependencies-become-new-supply-chain-risk/). Study of 16 code-generation AI models: ~20% of 756,000 code samples recommended non-existent packages. 43% of hallucinated packages were repeated consistently across queries, making them exploitable. Open-source models hallucinated at 21.7%; commercial models at 5.2%. See also: [HackerOne: Slopsquatting](https://www.hackerone.com/blog/ai-slopsquatting-supply-chain-security).
+
+[^20]: Palo Alto Networks Unit 42 (2025). [Securing Vibe Coding Tools: Scaling Productivity Without Scaling Risk](https://unit42.paloaltonetworks.com/securing-vibe-coding-tools/). Investigation of real-world vibe-coding security incidents: data breaches, authentication bypasses, and arbitrary code execution. Notes that citizen developers "lack training in how to write secure code and may not have a full understanding of the security requirements required in the application life cycle." Introduced the SHIELD governance framework. See also: [Infosecurity Magazine coverage](https://www.infosecurity-magazine.com/news/palo-alto-networks-vibe-coding).
