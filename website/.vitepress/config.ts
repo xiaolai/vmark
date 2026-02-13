@@ -1,10 +1,17 @@
 import { defineConfig } from 'vitepress'
+import footnote from 'markdown-it-footnote'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 
 export default withMermaid(defineConfig({
   title: 'VMark',
   description: 'AI friendly markdown editor',
   lastUpdated: true,
+
+  markdown: {
+    config: (md) => {
+      md.use(footnote)
+    }
+  },
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
