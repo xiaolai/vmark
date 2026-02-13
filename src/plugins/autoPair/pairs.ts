@@ -59,6 +59,36 @@ export const CLOSING_CHARS = new Set([
   ...Object.values(CJK_PAIRS),
 ]);
 
+/**
+ * Convert a straight quote to its curly opening equivalent.
+ * When curly quotes are enabled, typing " should produce \u201C (not ").
+ * This eliminates conflicts with macOS Smart Quotes which converts " at the OS level.
+ */
+export function straightToCurlyOpening(
+  char: string,
+  config: PairConfig
+): string {
+  if (!config.includeCJK || !config.includeCurlyQuotes) return char;
+  if (char === '"') return "\u201C";
+  if (char === "'") return "\u2018";
+  return char;
+}
+
+/**
+ * Convert a straight quote to its curly closing equivalent.
+ * Used by closing-bracket skip: event.key is " (straight) but the
+ * document character to skip over is \u201D (curly).
+ */
+export function straightToCurlyClosing(
+  char: string,
+  config: PairConfig
+): string {
+  if (!config.includeCJK || !config.includeCurlyQuotes) return char;
+  if (char === '"') return "\u201D";
+  if (char === "'") return "\u2019";
+  return char;
+}
+
 /** Characters that should use smart quote detection (skip after word char) */
 export const SMART_QUOTE_CHARS = new Set(["'", "\u2018"]);
 

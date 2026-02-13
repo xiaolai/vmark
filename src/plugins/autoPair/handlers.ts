@@ -11,6 +11,8 @@ import {
   isClosingChar,
   getOpeningChar,
   normalizeForPairing,
+  straightToCurlyOpening,
+  straightToCurlyClosing,
   type PairConfig,
 } from "./pairs";
 import { shouldAutoPair, getCharAt, getCharBefore } from "./utils";
@@ -58,11 +60,18 @@ export function handleTextInput(
   if (text.length !== 1) return false;
 
   // Normalize right double curly quote → left double curly (IME compat)
-  const inputChar = config.normalizeRightDoubleQuote
+  let inputChar = config.normalizeRightDoubleQuote
     ? normalizeForPairing(text)
     : text;
 
-  const closing = getClosingChar(inputChar, toPairConfig(config));
+  // Convert straight quotes to curly opening equivalents when curly quotes
+  // are enabled. This ensures the auto-pair always produces curly quotes,
+  // eliminating conflicts with macOS Smart Quotes which converts " at the
+  // OS level and can cause garbled output (issue #57).
+  const pairConfig = toPairConfig(config);
+  inputChar = straightToCurlyOpening(inputChar, pairConfig);
+
+  const closing = getClosingChar(inputChar, pairConfig);
   if (!closing) return false;
 
   const { state } = view;
@@ -222,6 +231,15 @@ export function createKeyHandler(getConfig: () => AutoPairConfig) {
     // Handle closing bracket skip
     if (event.key.length === 1 && isClosingChar(event.key)) {
       if (handleClosingBracket(view, event.key, config)) {
+        event.preventDefault();
+        return true;
+      }
+      // When curly quotes are enabled, also try the curly closing equivalent.
+      // event.key is always the physical key (" straight) even when the document
+      // contains curly quotes from auto-pair or macOS Smart Quotes.
+      const pairConfig = toPairConfig(config);
+      const curlyClosing = straightToCurlyClosing(event.key, pairConfig);
+      if (curlyClosing !== event.key && handleClosingBracket(view, curlyClosing, config)) {
         event.preventDefault();
         return true;
       }
