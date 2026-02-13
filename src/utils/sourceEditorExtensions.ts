@@ -51,6 +51,8 @@ import {
   smartHomeSelectKeymap,
   structuralBackspaceKeymap,
   structuralDeleteKeymap,
+  listSmartIndentKeymap,
+  listSmartOutdentKeymap,
 } from "@/plugins/codemirror";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
@@ -143,6 +145,9 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
       // Table Tab navigation (must be before tabEscape)
       tableTabKeymap,
       tableShiftTabKeymap,
+      // List smart indent/outdent (must be before tabEscape to take priority on list lines)
+      listSmartIndentKeymap,
+      listSmartOutdentKeymap,
       // Table arrow escape (first/last block handling)
       tableArrowUpKeymap,
       tableArrowDownKeymap,

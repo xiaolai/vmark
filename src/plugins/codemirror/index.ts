@@ -34,4 +34,5 @@ export {
   smartHomeSelectKeymap,
 } from "./visualLineNav";
 export { structuralBackspaceKeymap, structuralDeleteKeymap } from "./structuralCharProtection";
+export { listSmartIndentKeymap, listSmartOutdentKeymap } from "./listSmartIndent";
 export { createSourceCopyOnSelectPlugin } from "./sourceCopyOnSelect";
