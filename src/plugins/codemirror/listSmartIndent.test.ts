@@ -219,6 +219,20 @@ describe("listSmartOutdent (Shift+Tab)", () => {
     expect(view.state.doc.toString()).toBe("1. item");
   });
 
+  it("outdents indented task list item", () => {
+    const view = createView("  - [ ] ^task");
+    const handled = listSmartOutdent(view);
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe("- [ ] task");
+  });
+
+  it("outdents indented checked task list item", () => {
+    const view = createView("  - [x] ^done");
+    const handled = listSmartOutdent(view);
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe("- [x] done");
+  });
+
   it("returns false for multi-line selection with no list lines", () => {
     const content = "plain one\nplain two";
     const view = createViewWithSelection(content, 1, 2);

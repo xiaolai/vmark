@@ -370,27 +370,46 @@ describe("Structural Character Protection", () => {
     });
 
     // Indented list: outdent instead of removing marker
-    it("outdents indented list item (2-space indent, tabSize=2)", () => {
+    it("outdents 2-space indented list item (default tabSize=4)", () => {
       const view = createView("  - ^item");
       const handled = smartBackspace(view);
       expect(handled).toBe(true);
+      // min(2, 4) = 2 spaces removed
       expect(view.state.doc.toString()).toBe("- item");
     });
 
-    it("outdents 4-space indented list item by one level", () => {
+    it("outdents 4-space indented list item (default tabSize=4)", () => {
       const view = createView("    - ^item");
       const handled = smartBackspace(view);
       expect(handled).toBe(true);
-      // Default tabSize is 4 in CodeMirror, removes min(4, 4)=4 spaces
+      // min(4, 4) = 4 spaces removed
       expect(view.state.doc.toString()).toBe("- item");
     });
 
-    it("outdents partial indent (1 space, tabSize=2)", () => {
+    it("outdents partial indent (1 space, default tabSize=4)", () => {
       const view = createView(" - ^item");
       const handled = smartBackspace(view);
       expect(handled).toBe(true);
-      // min(1, tabSize) = 1 space removed
+      // min(1, 4) = 1 space removed
       expect(view.state.doc.toString()).toBe("- item");
+    });
+
+    it("outdents one tabSize level with tabSize=2 configured", () => {
+      // 4-space indent with tabSize=2 should only remove 2 spaces
+      const state = EditorState.create({
+        doc: "    - item",
+        selection: { anchor: 6 }, // right after "- "
+        extensions: [EditorState.tabSize.of(2)],
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // min(4, 2) = 2 spaces removed
+      expect(view.state.doc.toString()).toBe("  - item");
     });
 
     // Task marker handling

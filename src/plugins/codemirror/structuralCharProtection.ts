@@ -150,6 +150,31 @@ export function getBlockquoteMarkerInfo(view: EditorView): { markerEnd: number; 
 }
 
 /**
+ * Handle backspace on a list/task marker: outdent if indented, remove marker at level 0.
+ */
+function backspaceMarker(
+  view: EditorView,
+  marker: { from: number; to: number; indent: number }
+): void {
+  const { state } = view;
+  const { head } = state.selection.main;
+  if (marker.indent > 0) {
+    const line = state.doc.lineAt(head);
+    const tabSize = state.facet(EditorState.tabSize);
+    const removeCount = Math.min(marker.indent, tabSize);
+    view.dispatch({
+      changes: { from: line.from, to: line.from + removeCount },
+      scrollIntoView: true,
+    });
+  } else {
+    view.dispatch({
+      changes: { from: marker.from, to: marker.to },
+      scrollIntoView: true,
+    });
+  }
+}
+
+/**
  * Smart backspace handler that protects structural characters.
  * Exported for testing.
  */
@@ -178,44 +203,14 @@ export function smartBackspace(view: EditorView): boolean {
   // Check task marker first (more specific pattern, before regular list)
   const taskMarker = getTaskMarkerRange(view);
   if (taskMarker) {
-    const line = state.doc.lineAt(head);
-    if (taskMarker.indent > 0) {
-      // Indented task: outdent by removing leading whitespace
-      const tabSize = state.facet(EditorState.tabSize);
-      const removeCount = Math.min(taskMarker.indent, tabSize);
-      view.dispatch({
-        changes: { from: line.from, to: line.from + removeCount },
-        scrollIntoView: true,
-      });
-    } else {
-      // Level 0 task: remove the full marker (e.g., "- [ ] ")
-      view.dispatch({
-        changes: { from: taskMarker.from, to: taskMarker.to },
-        scrollIntoView: true,
-      });
-    }
+    backspaceMarker(view, taskMarker);
     return true;
   }
 
   // Check if we're at a list marker
   const listMarker = getListMarkerRange(view);
   if (listMarker) {
-    const line = state.doc.lineAt(head);
-    if (listMarker.indent > 0) {
-      // Indented list: outdent by removing leading whitespace
-      const tabSize = state.facet(EditorState.tabSize);
-      const removeCount = Math.min(listMarker.indent, tabSize);
-      view.dispatch({
-        changes: { from: line.from, to: line.from + removeCount },
-        scrollIntoView: true,
-      });
-    } else {
-      // Level 0 list: remove the entire marker
-      view.dispatch({
-        changes: { from: listMarker.from, to: listMarker.to },
-        scrollIntoView: true,
-      });
-    }
+    backspaceMarker(view, listMarker);
     return true;
   }
 

@@ -10,17 +10,17 @@ import { type KeyBinding, type EditorView } from "@codemirror/view";
 import { type ChangeSpec } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { LIST_ITEM_PATTERN } from "./structuralCharProtection";
+import { LIST_ITEM_PATTERN, TASK_ITEM_PATTERN } from "./structuralCharProtection";
 
 function getTabSize(): number {
   return useSettingsStore.getState().general.tabSize;
 }
 
 /**
- * Check if a line of text is a list item (-, *, +, 1., etc.).
+ * Check if a line of text is a list item (-, *, +, 1., - [ ], - [x], etc.).
  */
 function isListLine(text: string): boolean {
-  return LIST_ITEM_PATTERN.test(text);
+  return LIST_ITEM_PATTERN.test(text) || TASK_ITEM_PATTERN.test(text);
 }
 
 /**
