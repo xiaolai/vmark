@@ -1,3 +1,22 @@
+//! # Application Menu
+//!
+//! Purpose: Builds the native application menu bar with keyboard accelerators.
+//!
+//! Pipeline: `lib.rs` setup → `create_menu()` → Tauri `app.set_menu()`.
+//! When user customizes shortcuts: frontend `rebuild_menu` invoke → `create_menu_with_shortcuts()`.
+//!
+//! Key decisions:
+//!   - TWO menu creation functions exist: `create_menu` (defaults) and
+//!     `create_menu_with_shortcuts` (custom). Both MUST be updated in sync.
+//!   - Recent files/workspaces and genies use snapshot Mutexes so menu-click
+//!     handlers always resolve the correct path even if the store changed.
+//!   - Genies submenu is created dynamically inside Edit (not at build time)
+//!     so it can be toggled on/off without rebuilding the entire menu.
+//!
+//! Known limitations:
+//!   - Menu structure is duplicated across macOS and non-macOS variants
+//!     due to platform-specific items (App menu, Services, etc.).
+
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
