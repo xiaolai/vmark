@@ -1,3 +1,24 @@
+/**
+ * MDAST Block Node Converters
+ *
+ * Purpose: Converts block-level MDAST nodes (paragraphs, headings, lists, tables, etc.)
+ * to ProseMirror nodes. Split from mdastToProseMirror.ts for the 300-line limit.
+ *
+ * Key decisions:
+ *   - Each converter is a pure function taking a context object — no class state
+ *   - Alert blocks are detected by parsing blockquote children for `[!TYPE]` markers
+ *     (GitHub-flavored markdown alerts), falling back to normal blockquote conversion
+ *   - Paragraphs with a single image child are promoted to block_image nodes
+ *   - sourceLine attributes are extracted from MDAST positions for cursor sync
+ *   - MATH_BLOCK_LANGUAGE sentinel stores math blocks as codeBlock with a special
+ *     language value, since PM schema doesn't have a dedicated math block node
+ *
+ * @coordinates-with mdastInlineConverters.ts — handles inline content within blocks
+ * @coordinates-with mdastToProseMirror.ts — orchestrates block + inline conversion
+ * @coordinates-with pmBlockConverters.ts — reverse direction (PM → MDAST)
+ * @module utils/markdownPipeline/mdastBlockConverters
+ */
+
 import type { Schema, Node as PMNode, Mark } from "@tiptap/pm/model";
 import type {
   Blockquote,

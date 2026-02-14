@@ -1,8 +1,19 @@
 /**
- * Wiki link remark plugin
+ * Wiki Links — Remark Plugin
  *
- * Parses Obsidian-style wiki links and serializes them back.
- * Supports [[Page]] and [[Page|Alias]].
+ * Purpose: Parses Obsidian-style wiki links ([[Page]] and [[Page|Alias]])
+ * into WikiLink MDAST nodes and serializes them back to `[[...]]` syntax.
+ *
+ * Key decisions:
+ *   - Uses mdast-util-find-and-replace for pattern matching (handles node boundaries)
+ *   - Negative lookbehind `(?<!!)` prevents matching embeds `![[...]]`
+ *   - Ignores links, code, math, HTML, and YAML nodes to avoid false matches
+ *   - Pipe character `|` separates target from alias: [[target|display text]]
+ *   - Empty targets after trimming return null (invalid wiki link)
+ *
+ * @coordinates-with markdownLinkPatterns.ts — WIKI_LINK_REGEX for source mode detection
+ * @coordinates-with markdownArtifacts/wikiLink.ts — PM node definition for wiki links
+ * @module utils/markdownPipeline/plugins/wikiLinks
  */
 
 import type { Root } from "mdast";

@@ -1,7 +1,23 @@
 /**
- * Save document content to a path and update stores/history.
+ * Save Document to Path
  *
- * Shared helper for manual/auto saves across file flows.
+ * Purpose: Central save logic — normalizes content (line endings, hard breaks),
+ * writes to disk, updates stores, records history snapshots, and manages
+ * pending save tracking for file watcher coordination.
+ *
+ * Key decisions:
+ *   - Pending save is registered BEFORE write and cleared AFTER with 500ms delay
+ *     to handle late-arriving macOS FSEvents watcher events
+ *   - Line ending and hard break normalization applied on save (not in-memory)
+ *     to preserve the original editing experience while writing clean files
+ *   - History snapshots are fire-and-forget — failures don't block save success
+ *   - Auto-save skips recent files list to avoid noise
+ *
+ * @coordinates-with pendingSaves.ts — content-based save tracking for watcher coordination
+ * @coordinates-with linebreaks.ts — line ending and hard break normalization
+ * @coordinates-with documentStore.ts — markSaved/markAutoSaved state updates
+ * @coordinates-with useHistoryOperations.ts — creates version history snapshots
+ * @module utils/saveToPath
  */
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";

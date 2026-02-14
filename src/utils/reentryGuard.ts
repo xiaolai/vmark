@@ -1,9 +1,19 @@
 /**
- * Per-window re-entry guards for async operations.
+ * Per-Window Re-Entry Guards
  *
- * In multi-window apps, module-level guards prevent concurrent operations
- * across ALL windows (one dialog blocks all windows). Per-window guards
- * allow each window to have its own independent lock.
+ * Purpose: Prevents concurrent execution of async operations within the same window,
+ * while allowing independent operations across different windows.
+ *
+ * Key decisions:
+ *   - Per-window keying (windowLabel:operation) because module-level guards would
+ *     block all windows when one shows a dialog (e.g., save confirmation)
+ *   - withReentryGuard returns undefined (not throws) when locked — callers
+ *     can silently skip rather than catching errors
+ *   - try/finally ensures locks are always released even on error
+ *
+ * @coordinates-with closeDecision.ts — uses withReentryGuard for close confirmations
+ * @coordinates-with saveToPath.ts — uses withReentryGuard for concurrent save prevention
+ * @module utils/reentryGuard
  */
 
 type GuardKey = string;

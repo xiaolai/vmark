@@ -1,8 +1,17 @@
 /**
  * URL Detection and Normalization Utility
  *
- * Detects valid URLs in text and normalizes them for link insertion.
+ * Purpose: Detects valid URLs in text and normalizes them for link insertion.
  * Supports standard protocols (http, https, mailto, etc.) and custom app protocols.
+ *
+ * Key decisions:
+ *   - Domain-like text (e.g., "example.com") auto-prepends https://
+ *   - Custom protocols (obsidian://, vscode://) are recognized for app deep links
+ *   - Validates TLD existence for bare domains to avoid false positives
+ *
+ * @coordinates-with smartPaste/tiptap.ts — auto-links pasted URLs
+ * @coordinates-with linkCreatePopup/ — validates user-entered URLs
+ * @module utils/urlDetection
  */
 
 export interface UrlDetectionResult {

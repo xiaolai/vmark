@@ -1,14 +1,23 @@
 /**
- * Markdown pipeline adapter
+ * Markdown Pipeline Adapter
  *
- * Provides a unified interface for parsing and serializing markdown
- * using the remark-based pipeline.
+ * Purpose: Provides the unified public interface for markdown ↔ ProseMirror conversion.
+ * This is the entry point most callers should use rather than importing pipeline internals.
  *
+ * Pipeline: markdown string → MDAST (remark) → ProseMirror doc (and reverse)
+ *
+ * Key decisions:
+ *   - Wraps errors with input context for debuggability — the original
+ *     remark/PM errors don't include what markdown caused the failure
+ *   - Guards null/undefined input from IPC/clipboard edge cases
+ *   - Performance instrumented via perfLog for parse bottleneck diagnosis
+ *
+ * @coordinates-with parsingCache.ts — cached version wraps these functions
+ * @coordinates-with parser.ts — markdown → MDAST step
+ * @coordinates-with mdastToProseMirror.ts — MDAST → ProseMirror step
+ * @coordinates-with proseMirrorToMdast.ts — ProseMirror → MDAST step
+ * @coordinates-with serializer.ts — MDAST → markdown step
  * @module utils/markdownPipeline/adapter
- *
- * @example
- * const doc = parseMarkdown(schema, "# Hello");
- * const md = serializeMarkdown(schema, doc);
  */
 
 import type { Schema, Node as PMNode } from "@tiptap/pm/model";

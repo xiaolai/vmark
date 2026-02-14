@@ -1,8 +1,12 @@
 /**
  * String Width Utilities
  *
- * Functions for calculating display width of strings,
- * handling CJK characters that occupy 2 columns.
+ * Purpose: Calculates display width of strings accounting for CJK characters
+ * that occupy 2 columns in monospaced contexts (table alignment, code blocks).
+ *
+ * @coordinates-with tableParser.ts — table formatting relies on accurate column widths
+ * @coordinates-with sourceContextDetection/tableDetection.ts — table formatting in source mode
+ * @module utils/stringWidth
  */
 
 /**

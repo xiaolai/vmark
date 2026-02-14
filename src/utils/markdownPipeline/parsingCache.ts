@@ -1,12 +1,24 @@
 /**
- * Content-addressed parsing cache.
+ * Content-Addressed Parsing Cache
  *
- * Caches parse results by content hash to avoid re-parsing
- * identical content. Useful for:
- * - Tab switching (same content)
- * - Undo/redo (previous states)
- * - File reload (unchanged)
+ * Purpose: Caches MDAST parse results by content hash (FNV-1a) to avoid
+ * re-parsing identical markdown. Provides significant speedup for:
+ * - Tab switching (same content already parsed)
+ * - Undo/redo (previous states revisited)
+ * - File reload (unchanged on disk)
  *
+ * Key decisions:
+ *   - LRU eviction with MAX_CACHE_SIZE=20 — each entry is ~1-5MB for large docs
+ *   - Small documents (<5000 chars) are not cached since parsing is fast enough
+ *   - FNV-1a hash chosen for speed (runs on every keystroke path indirectly)
+ *   - Options included in hash key so preserveLineBreaks=true/false don't collide
+ *
+ * Known limitations:
+ *   - MDAST objects are stored by reference, so mutations would corrupt the cache.
+ *     In practice this is safe because the pipeline treats MDAST as immutable.
+ *
+ * @coordinates-with adapter.ts — non-cached versions used as fallback
+ * @coordinates-with parser.ts — actual parsing happens here on cache miss
  * @module utils/markdownPipeline/parsingCache
  */
 

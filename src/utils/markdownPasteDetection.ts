@@ -1,8 +1,19 @@
 /**
- * Markdown paste detection
+ * Markdown Paste Detection
  *
- * Heuristics to decide whether plain text clipboard content
- * should be parsed as Markdown when pasting into WYSIWYG.
+ * Purpose: Heuristics to decide whether plain text clipboard content
+ * should be parsed as Markdown when pasting into WYSIWYG mode.
+ *
+ * Key decisions:
+ *   - Code fences and tables are "instant yes" — always treated as markdown
+ *   - Strong signals (headings, lists, HRs) need just 1 occurrence
+ *   - Weak signals (emphasis, links) need 2+ to avoid false positives
+ *   - Single-line pastes have a higher threshold to avoid treating
+ *     normal text like "use *caution*" as markdown
+ *
+ * @coordinates-with smartPaste/tiptap.ts — calls isMarkdownPasteCandidate to decide paste behavior
+ * @coordinates-with markdownPaste/tiptap.ts — fallback paste handler
+ * @module utils/markdownPasteDetection
  */
 
 const CODE_FENCE_RE = /^\s*(```|~~~)/;

@@ -1,7 +1,16 @@
 /**
  * Cross-platform Path Utilities
  *
- * Handles both Windows (backslash) and POSIX (forward slash) paths.
+ * Purpose: Simple path manipulation utilities that work with both Windows
+ * (backslash) and POSIX (forward slash) paths without filesystem access.
+ *
+ * Note: For workspace boundary checks, prefer paths/paths.ts which normalizes
+ * to forward slashes. This file is for display-oriented utilities (filenames,
+ * file manager labels).
+ *
+ * @coordinates-with paths/paths.ts — more comprehensive path utilities with normalization
+ * @coordinates-with exportNaming.ts — uses getFileNameWithoutExtension for export filenames
+ * @module utils/pathUtils
  */
 
 /**

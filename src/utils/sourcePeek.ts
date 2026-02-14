@@ -1,3 +1,22 @@
+/**
+ * Source Peek — Markdown ↔ PM Content Bridge
+ *
+ * Purpose: Provides the content conversion layer for "source peek" — the inline
+ * markdown editing overlay that appears in WYSIWYG mode for code blocks, math, etc.
+ *
+ * Key decisions:
+ *   - Converts PM selection to markdown for source peek display, and parses
+ *     edited markdown back to PM content for replacement
+ *   - ensureBlockContent wraps inline fragments in paragraphs to satisfy
+ *     PM schema constraints (doc requires block children)
+ *   - Uses ReplaceStep for surgical content replacement to preserve undo history
+ *
+ * @coordinates-with sourcePeekStore.ts — stores peek state (range, content)
+ * @coordinates-with sourcePeekInline/tiptap.ts — renders the inline peek editor
+ * @coordinates-with markdownPipeline/ — markdown ↔ PM conversion
+ * @module utils/sourcePeek
+ */
+
 import { NodeSelection, Selection, type EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { Fragment, Slice, type Schema, type Node as PMNode, type NodeType } from "@tiptap/pm/model";

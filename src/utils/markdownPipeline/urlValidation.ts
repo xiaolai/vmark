@@ -1,9 +1,18 @@
 /**
- * URL validation utilities for markdown pipeline
+ * URL Validation Utilities
  *
- * Validates URLs to prevent XSS and other security issues.
- * Only allows safe URL schemes (http, https, mailto, tel, relative paths).
+ * Purpose: Validates URLs to prevent XSS via dangerous schemes (javascript:, vbscript:, etc.).
+ * Used at the MDAST → PM boundary to sanitize all link/image hrefs.
  *
+ * Key decisions:
+ *   - Allowlist approach: only known-safe schemes are permitted
+ *   - file: intentionally blocked — Tauri uses asset:/tauri: protocols instead
+ *   - Relative URLs (no scheme) are always allowed
+ *   - Empty/null URLs are treated as safe (schema handles them)
+ *   - Slash-before-colon detection prevents false blocking of paths like "path/to:file"
+ *
+ * @coordinates-with mdastInlineConverters.ts — calls isSafeUrl for link/image conversion
+ * @coordinates-with imageView/security.ts — additional image-specific URL validation
  * @module utils/markdownPipeline/urlValidation
  */
 

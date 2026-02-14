@@ -1,3 +1,13 @@
+/**
+ * Tiptap View Accessors
+ *
+ * Purpose: Safe accessors for Tiptap editor view and DOM references.
+ * Wraps access in try/catch because Tiptap throws if editor is destroyed.
+ *
+ * @coordinates-with tiptapFocus.ts — uses getTiptapEditorView for focus operations
+ * @module utils/tiptapView
+ */
+
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { EditorView } from "@tiptap/pm/view";
 

@@ -1,9 +1,19 @@
 /**
- * MDAST inline node converters
+ * MDAST Inline Node Converters
  *
- * Converts inline MDAST nodes (text, emphasis, strong, etc.) to ProseMirror nodes.
- * Split from mdastToProseMirror.ts for maintainability (300-line limit compliance).
+ * Purpose: Converts inline MDAST nodes (text, emphasis, strong, links, images, etc.)
+ * to ProseMirror nodes/marks. Split from mdastToProseMirror.ts for 300-line limit.
  *
+ * Key decisions:
+ *   - Mark-based nodes (bold, italic, etc.) accumulate marks via `newMarks` array
+ *     passed down to children, producing flat PM text with stacked marks
+ *   - URLs are validated via isSafeUrl() to prevent XSS — unsafe URLs become about:blank
+ *   - Missing mark types in schema are gracefully handled by falling through
+ *     to convertChildren without adding the mark (schema flexibility)
+ *
+ * @coordinates-with mdastBlockConverters.ts — handles block-level nodes
+ * @coordinates-with pmInlineConverters.ts — reverse direction (PM → MDAST)
+ * @coordinates-with urlValidation.ts — URL safety checks for links and images
  * @module utils/markdownPipeline/mdastInlineConverters
  */
 

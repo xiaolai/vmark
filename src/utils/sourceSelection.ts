@@ -1,3 +1,14 @@
+/**
+ * Source Mode Selection Utilities
+ *
+ * Purpose: Word and line range detection for the CodeMirror source editor,
+ * used by toolbar actions and formatting operations in source mode.
+ *
+ * @coordinates-with toolbarActions/sourceAdapter.ts — uses getSourceWordRange for auto-selection
+ * @coordinates-with sourceContextDetection/ — uses range utilities for formatting detection
+ * @module utils/sourceSelection
+ */
+
 import type { EditorState, Text } from "@codemirror/state";
 
 export interface SourceSelectionRange {

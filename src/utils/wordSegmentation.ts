@@ -1,11 +1,19 @@
 /**
  * Word Segmentation Utility
  *
- * Provides consistent word boundary detection across both WYSIWYG (Tiptap)
+ * Purpose: Provides consistent word boundary detection across both WYSIWYG (Tiptap)
  * and Source (CodeMirror) editors using Intl.Segmenter API.
  *
- * This is a pure utility - no framework dependencies (React, Zustand, Tauri).
- * Falls back to regex-based detection when Intl.Segmenter is unavailable.
+ * Key decisions:
+ *   - Intl.Segmenter preferred because it handles CJK word boundaries correctly
+ *     (Chinese/Japanese text has no spaces between words)
+ *   - Falls back to regex-based detection when Intl.Segmenter is unavailable
+ *   - Pure utility — no framework dependencies (React, Zustand, Tauri)
+ *   - Segmenter instance is reused (not created per call) for performance
+ *
+ * @coordinates-with toolbarActions/ — uses word segmentation for auto-select-word on format
+ * @coordinates-with sourceSelection.ts — source mode word range detection
+ * @module utils/wordSegmentation
  */
 
 // Intl.Segmenter type declaration (ES2022)

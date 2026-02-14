@@ -1,3 +1,22 @@
+/**
+ * Tiptap Extensions Configuration
+ *
+ * Purpose: Assembles the full Tiptap extension stack for VMark's WYSIWYG editor,
+ * including StarterKit overrides, custom marks/nodes, and plugin registrations.
+ *
+ * Key decisions:
+ *   - StarterKit is used as base but with several nodes overridden
+ *     (heading, paragraph, codeBlock, etc.) to add sourceLine attributes
+ *   - Extensions are loaded eagerly (not lazy) since WYSIWYG is the default mode
+ *   - Link extension configured with openOnClick:false (we have custom popups)
+ *   - Custom marks (highlight, underline, sub/superscript) registered here
+ *
+ * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
+ * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
+ * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
+ * @module utils/tiptapExtensions
+ */
+
 import type { Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";

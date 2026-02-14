@@ -1,8 +1,20 @@
 /**
  * Inline Markdown Parser
  *
- * Parses inline markdown text to MDAST inline content.
- * Used for parsing summary text in details blocks.
+ * Purpose: Parses inline markdown text to MDAST inline content nodes,
+ * used for contexts where only inline (phrasing) content is expected.
+ *
+ * Pipeline: inline markdown string → unified/remark → extract paragraph children
+ *
+ * Key decisions:
+ *   - Fast-path check for text without markdown chars avoids remark overhead
+ *   - Falls back to plain text node on parse failure for resilience
+ *   - Creates a fresh unified processor each call (stateless, no caching needed
+ *     since this is only used for short summary text)
+ *
+ * @coordinates-with plugins/detailsBlock.ts — parses <summary> text with inline formatting
+ * @coordinates-with mdastToProseMirror.ts — consumers convert resulting MDAST to PM nodes
+ * @module utils/markdownPipeline/inlineParser
  */
 
 import type { Content, Paragraph } from "mdast";

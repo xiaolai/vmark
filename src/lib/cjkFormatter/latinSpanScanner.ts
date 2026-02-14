@@ -1,11 +1,25 @@
 /**
  * Latin Span Scanner
  *
- * Identifies "Latin spans" (runs of ASCII-ish characters) within text that
- * contains CJK characters. Used to protect punctuation inside technical
- * constructs like URLs, versions, decimals, and times.
+ * Purpose: Identifies "Latin spans" (runs of ASCII-ish characters) within text
+ * that contains CJK characters. These spans protect punctuation inside technical
+ * constructs (URLs, versions, decimals, times) from being converted to fullwidth.
+ *
+ * Key decisions:
+ *   - Pattern order matters: more specific patterns (URLs, emails) match before
+ *     general ones (decimals) to prevent partial matches stealing substrings
+ *   - Overlap detection: once a range is claimed by a technical subspan, later
+ *     patterns cannot re-claim overlapping characters
+ *   - Surrogate pair awareness: supplementary-plane CJK (Extensions B-G) are
+ *     handled by advancing 2 code units at a time
+ *   - Whitespace-only spans are discarded to avoid false positives
+ *   - Korean (Hangul) excluded from CJK_LETTER_REGEX since spacing rules differ
  *
  * Spec Reference: Rule 2, Section 2.1 of cjk-typography-rules-draft.md
+ *
+ * @coordinates-with rules.ts — normalizeFullwidthPunctuation uses isInTechnicalSubspan
+ * @coordinates-with quotePairing.ts — isCJKLetter reused for CJK boundary detection
+ * @module lib/cjkFormatter/latinSpanScanner
  */
 
 // CJK letter detection (Han, Hiragana, Katakana, Bopomofo) — excluding Korean (Hangul).

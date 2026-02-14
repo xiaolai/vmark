@@ -1,8 +1,18 @@
 /**
  * Text Transformations
  *
- * Pure functions for text case transformations and line operations.
- * Used by both TipTap (WYSIWYG) and CodeMirror (Source) editors.
+ * Purpose: Pure functions for text case transformations and line operations,
+ * shared between WYSIWYG (Tiptap) and Source (CodeMirror) editors.
+ *
+ * Key decisions:
+ *   - Title Case uses Unicode-aware word boundary detection
+ *   - All functions are pure — no editor state dependency
+ *   - Designed for both single-line and multi-line text (line operations
+ *     handle newline splitting internally)
+ *
+ * @coordinates-with toolbarActions/tiptapSelectionActions.ts — WYSIWYG case transforms
+ * @coordinates-with sourceContextDetection/formatActions.ts — source mode case transforms
+ * @module utils/textTransformations
  */
 
 // ============================================================================

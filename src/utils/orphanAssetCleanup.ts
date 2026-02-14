@@ -1,9 +1,19 @@
 /**
  * Orphan Asset Cleanup
  *
- * Finds and removes images in the assets folder that are no longer
- * referenced in the document.
+ * Purpose: Finds and removes images in the assets folder that are no longer
+ * referenced in the document. Prevents asset folder bloat from deleted images.
  *
+ * Key decisions:
+ *   - Scans both markdown image syntax and HTML img tags for references
+ *   - Shows confirmation dialog before deletion (with preview of up to 10 files)
+ *   - Can be triggered manually or auto-run on document close (setting-controlled)
+ *   - Requires saved document — refuses to run on unsaved/dirty docs to avoid
+ *     incorrectly identifying referenced images as orphans
+ *
+ * @coordinates-with imageUtils.ts — ASSETS_FOLDER and IMAGE_EXTENSIONS constants
+ * @coordinates-with imageHandler/tiptap.ts — creates images in assets folder
+ * @coordinates-with settingsStore.ts — autoCleanupEnabled user preference
  * @module utils/orphanAssetCleanup
  */
 

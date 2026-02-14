@@ -1,13 +1,28 @@
 /**
  * Stack-based Quote Pairing Algorithm
  *
- * Implements robust quote pairing with:
- * - Stack-based OPEN/CLOSE classification
- * - Apostrophe/prime detection (don't, 5'10")
- * - CJK context detection for glyph selection
- * - Orphan cleanup when outer quotes close
+ * Purpose: Pairs opening and closing quotes using a stack-based approach,
+ * distinguishing actual quotes from apostrophes (don't), primes (5'10"),
+ * and decade abbreviations ('90s). Supports contextual conversion where
+ * CJK-adjacent quotes become corner brackets while Latin quotes stay straight.
+ *
+ * Key decisions:
+ *   - Stack-based (not regex): correctly handles nested quotes, which regex
+ *     approaches cannot reliably pair
+ *   - Apostrophe detection: letter+'+ letter pattern, possessive 's, decade '90s
+ *   - Prime detection: digit+' (feet) and digit+" (inches) patterns
+ *   - CJK involvement check: inspects content AND boundary characters to decide
+ *     whether a pair should use CJK-style glyphs
+ *   - Orphan cleanup: when an outer quote closes, any unclosed inner quotes of
+ *     the opposite type are moved to the orphan list
+ *   - Four conversion modes: off, curly-everywhere, contextual (CJK=curly,
+ *     Latin=straight), corner-for-cjk (CJK=corner brackets, Latin=straight)
  *
  * Spec Reference: Rule 6, Section 6.1 of cjk-typography-rules-draft.md
+ *
+ * @coordinates-with rules.ts — applyContextualQuotes called from applyRules when smartQuoteConversion enabled
+ * @coordinates-with latinSpanScanner.ts — isCJKLetter used for boundary detection
+ * @module lib/cjkFormatter/quotePairing
  */
 
 import { isCJKLetter } from "./latinSpanScanner";

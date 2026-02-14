@@ -1,8 +1,17 @@
 /**
  * Table Parser Utilities
  *
- * Shared utilities for parsing markdown table rows, handling escaped pipes
- * and pipes inside code spans correctly.
+ * Purpose: Shared utilities for parsing markdown table rows in source mode,
+ * correctly handling escaped pipes and pipes inside code spans.
+ *
+ * Key decisions:
+ *   - Character-by-character parsing to handle inline code spans (`|` inside code)
+ *   - Backslash-escaped pipes (\|) are preserved as literal pipe characters
+ *   - Does NOT trim cells — caller handles trimming for flexibility
+ *
+ * @coordinates-with sourceContextDetection/tableDetection.ts — detects table context in source
+ * @coordinates-with sourceContextDetection/tableActions.ts — table manipulation in source mode
+ * @module utils/tableParser
  */
 
 /**

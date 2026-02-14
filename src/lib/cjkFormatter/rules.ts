@@ -1,6 +1,32 @@
 /**
  * CJK Text Formatting Rules
- * Ported from Python cjk-text-formatter project
+ *
+ * Purpose: Individual formatting rules for CJK typography, organized in groups:
+ *   1. Universal (ellipsis, newlines) — apply to all text
+ *   2. Fullwidth normalization (alphanumeric, punctuation, brackets)
+ *   3. Spacing (CJK-Latin gaps, parentheses, currency/units, slashes)
+ *   4. Dash & quote conversion (em-dashes, smart quotes, corner brackets)
+ *   5. Cleanup (consecutive punctuation limits, trailing spaces)
+ *
+ * Key decisions:
+ *   - Rule ordering in applyRules() is deliberate: normalization before spacing,
+ *     dashes/quotes before spacing rules, cleanup last
+ *   - containsCJK() gates most rules — pure Latin text skips CJK-specific transforms
+ *   - Punctuation conversion uses neighbor context: a comma becomes fullwidth only
+ *     when adjacent to a CJK character, not in pure Latin sentences
+ *   - Technical subspans (URLs, versions, times) are protected from punctuation
+ *     conversion via the Latin span scanner
+ *   - Surrogate pair handling in getLeftNeighbor/getRightNeighbor for Extension B-G Han
+ *   - Final trimEnd() is NOT done here — it happens in formatMarkdown() after
+ *     segment reconstruction to avoid breaking segment boundaries
+ *
+ * Ported from Python cjk-text-formatter project.
+ *
+ * @coordinates-with formatter.ts — applyRules is the main entry point called per segment
+ * @coordinates-with latinSpanScanner.ts — technical subspan protection for punctuation
+ * @coordinates-with quotePairing.ts — stack-based quote conversion for curly/corner styles
+ * @coordinates-with settingsStore.ts — CJKFormattingSettings controls which rules are active
+ * @module lib/cjkFormatter/rules
  */
 
 import type { CJKFormattingSettings, QuoteStyle } from "@/stores/settingsStore";

@@ -1,15 +1,25 @@
 /**
- * Resolve link and image references plugin
+ * Resolve Link and Image References — Remark Plugin
  *
- * Converts linkReference and imageReference nodes to their resolved forms
- * (link and image) using the definition table. Definition nodes are preserved
- * for serialization back to markdown.
+ * Purpose: Converts reference-style links ([text][id]) and images (![alt][id])
+ * to their inline forms using the definition table, while preserving definition
+ * nodes for round-trip serialization.
  *
  * Example:
  *   Input:  [text][id] ... [id]: https://example.com "Title"
  *   Output: [text](https://example.com "Title") (as link node)
  *           Definition node preserved separately
  *
+ * Key decisions:
+ *   - Two-pass approach: collect definitions first, then resolve references.
+ *     This handles forward references (definition after usage).
+ *   - Unresolved references are left as-is (remark's default fallback renders
+ *     them as literal bracket text, which is the correct CommonMark behavior)
+ *   - Definition nodes are intentionally NOT removed — they serialize back to
+ *     markdown as `[id]: url` lines for round-trip fidelity
+ *
+ * @coordinates-with mdastBlockConverters.ts — convertDefinition handles definition nodes
+ * @coordinates-with pmBlockConverters.ts — convertDefinition serializes back to MDAST
  * @module utils/markdownPipeline/plugins/resolveReferences
  */
 

@@ -1,9 +1,19 @@
 /**
  * Paste Utilities
  *
- * Shared helper functions for paste-related plugins.
- * These utilities detect selection context to determine
- * whether paste handlers should process the content.
+ * Purpose: Shared helper functions for paste-related plugins to detect selection
+ * context and determine whether paste handlers should process content.
+ *
+ * Key decisions:
+ *   - Code block/mark detection causes paste handlers to pass through
+ *     (code blocks receive raw text, not parsed markdown)
+ *   - Multi-selection detection delegates to multi-cursor plugin
+ *   - EditorView wrappers provided for convenience (many paste handlers receive view)
+ *
+ * @coordinates-with smartPaste/tiptap.ts — uses isSelectionInCode to skip smart paste
+ * @coordinates-with htmlPaste/tiptap.ts — uses isSelectionInCodeBlock to skip HTML paste
+ * @coordinates-with multiCursor/clipboard.ts — handles multi-cursor paste separately
+ * @module utils/pasteUtils
  */
 
 import type { EditorState } from "@tiptap/pm/state";

@@ -1,6 +1,27 @@
 /**
- * Markdown parser to identify protected regions that should not be formatted.
- * Protected regions include: code blocks, inline code, URLs, frontmatter, HTML.
+ * Markdown Protected Region Scanner
+ *
+ * Purpose: Identifies regions in markdown text that must be excluded from CJK
+ * formatting. Without this, the formatter would corrupt code blocks, URLs,
+ * math expressions, wiki links, and other structural markdown.
+ *
+ * Key decisions:
+ *   - Detection order matters: fenced code blocks first, then inline code,
+ *     then images (before links to avoid URL-only protection on images),
+ *     then link URLs, HTML tags, wiki links, footnotes, math, indented code
+ *   - Each regex checks isInsideRegion before adding, so nested constructs
+ *     (e.g., inline code inside a fenced block) are not double-protected
+ *   - Link URLs protect only the URL part [text](URL), not the display text,
+ *     so CJK in link text is still formatted
+ *   - Footnote definitions are detected before references so [^1]: is not
+ *     split into a reference + stray colon
+ *   - Indented code detection skips list continuations by checking previous
+ *     non-blank line for list markers
+ *   - Thematic breaks (---) are protected to avoid dash-to-emdash conversion
+ *
+ * @coordinates-with formatter.ts — calls findProtectedRegions before formatting
+ * @coordinates-with rules.ts — formatting rules operate only on non-protected segments
+ * @module lib/cjkFormatter/markdownParser
  */
 
 export interface ProtectedRegion {

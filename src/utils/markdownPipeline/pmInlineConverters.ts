@@ -1,9 +1,20 @@
 /**
- * ProseMirror inline content converters
+ * ProseMirror Inline Content Converters (PM → MDAST)
  *
- * Converts ProseMirror inline nodes and marks to MDAST nodes.
- * Split from proseMirrorToMdast.ts for maintainability (300-line limit compliance).
+ * Purpose: Converts ProseMirror text nodes with marks and inline atom nodes
+ * to MDAST phrasing content for markdown serialization.
  *
+ * Key decisions:
+ *   - Marks are converted by wrapping: innermost mark wraps text first,
+ *     then outer marks wrap that result — producing nested MDAST nodes
+ *   - encodeUrlForMarkdown is now a no-op pass-through; the serializer's
+ *     custom handlers add angle brackets for URLs with spaces
+ *   - Inline code mark collapses children to a single string value
+ *     (MDAST inlineCode has no children, just a value)
+ *
+ * @coordinates-with mdastInlineConverters.ts — reverse direction (MDAST → PM)
+ * @coordinates-with pmBlockConverters.ts — handles block-level nodes
+ * @coordinates-with serializer.ts — custom handlers for URL formatting
  * @module utils/markdownPipeline/pmInlineConverters
  */
 

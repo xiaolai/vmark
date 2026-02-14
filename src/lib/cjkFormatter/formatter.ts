@@ -1,6 +1,21 @@
 /**
  * Main CJK Text Formatter
- * Formats markdown text while preserving code blocks, URLs, and other protected regions.
+ *
+ * Purpose: Formats markdown text while preserving code blocks, URLs, tables,
+ * and other protected regions. Orchestrates the formatting pipeline:
+ * parse → segment → apply rules → reconstruct.
+ *
+ * Key decisions:
+ *   - Tables are handled cell-by-cell (not line-by-line) to preserve alignment
+ *   - Protected regions (code, URLs, inline math) are identified first and
+ *     excluded from formatting to prevent corruption
+ *   - File-level formatting includes trailing whitespace and newline cleanup
+ *   - Selection-level formatting applies rules only within the selected range
+ *
+ * @coordinates-with markdownParser.ts — identifies protected regions and segments
+ * @coordinates-with rules.ts — contains the actual CJK formatting rules
+ * @coordinates-with markdownCodeMask.ts — code region detection for protection
+ * @module lib/cjkFormatter/formatter
  */
 
 import type { CJKFormattingSettings } from "@/stores/settingsStore";

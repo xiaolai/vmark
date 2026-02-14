@@ -1,5 +1,8 @@
 /**
- * Build a bitmask identifying code positions in markdown text.
+ * Markdown Code Mask
+ *
+ * Purpose: Build a bitmask identifying code positions in markdown text,
+ * allowing callers to skip code regions during formatting or link detection.
  *
  * Returns a Uint8Array the same length as the input string.
  * Positions inside fenced code blocks or inline code spans are marked `1`;
@@ -7,6 +10,10 @@
  *
  * Algorithm extracted from the battle-tested `preprocessEscapedMarkers()`
  * in `parser.ts` — O(n) single-pass construction, O(1) per-match lookup.
+ *
+ * @coordinates-with markdownLinkPatterns.ts — consumers use mask to skip code before link detection
+ * @coordinates-with cjkFormatter/formatter.ts — mask prevents CJK rules from mangling code
+ * @module utils/markdownCodeMask
  */
 export function buildCodeMask(markdown: string): Uint8Array {
   const len = markdown.length;

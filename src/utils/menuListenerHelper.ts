@@ -1,6 +1,19 @@
 /**
- * Shared helper for creating menu event listeners with window filtering.
- * Used by Tiptap menu command hooks to reduce boilerplate.
+ * Menu Listener Helper
+ *
+ * Purpose: Shared helper for creating menu event listeners with window filtering
+ * and source mode gating. Reduces boilerplate in Tiptap menu command hooks.
+ *
+ * Key decisions:
+ *   - Filters events by windowLabel so only the focused window responds
+ *   - Skips events in source mode (source mode has its own menu handlers)
+ *   - cancelledRef pattern prevents listener registration after hook cleanup
+ *   - Uses safeUnlisten for cleanup safety
+ *
+ * @coordinates-with menu_events.rs — Rust side emits `menu:{id}` events with window label payload
+ * @coordinates-with useUnifiedMenuCommands.ts — primary consumer of registerMenuListener
+ * @coordinates-with safeUnlisten.ts — safe cleanup of event listeners
+ * @module utils/menuListenerHelper
  */
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { type WebviewWindow } from "@tauri-apps/api/webviewWindow";

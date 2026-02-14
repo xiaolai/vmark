@@ -1,8 +1,24 @@
 /**
- * Details block remark plugin
+ * Details Block — Remark Plugin
  *
- * Converts HTML <details>/<summary> blocks into a structured mdast node and
- * serializes them back to HTML.
+ * Purpose: Converts HTML `<details>/<summary>` blocks into structured MDAST nodes
+ * and serializes them back to HTML. Enables WYSIWYG editing of collapsible sections.
+ *
+ * Pipeline: HTML `<details>` in markdown → Details MDAST node → PM detailsBlock node
+ *
+ * Key decisions:
+ *   - Handles both single-block HTML (all in one html node) and multi-block
+ *     (opening/closing tags as separate html nodes with content in between)
+ *   - Supports nested `<details>` blocks via depth tracking
+ *   - Inner content is re-parsed with a full remark pipeline (innerProcessor)
+ *     to support markdown inside `<details>` bodies
+ *   - Summary text defaults to "Details" when no `<summary>` tag is present
+ *   - Serialization escapes HTML in summary text to prevent injection
+ *
+ * @coordinates-with mdastBlockConverters.ts — convertDetails creates PM nodes from Details MDAST
+ * @coordinates-with pmBlockConverters.ts — convertDetailsBlock creates Details MDAST from PM
+ * @coordinates-with inlineParser.ts — parses inline markdown within summary text
+ * @module utils/markdownPipeline/plugins/detailsBlock
  */
 
 import type { Content, Root } from "mdast";

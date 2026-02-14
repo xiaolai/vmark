@@ -1,8 +1,12 @@
 /**
  * Reload Guard Logic
  *
- * Pure helper for determining if page reload should be blocked
- * due to unsaved changes.
+ * Purpose: Pure helper for determining if browser/webview page reload
+ * should be blocked due to unsaved changes (beforeunload equivalent).
+ *
+ * @coordinates-with closeDecision.ts — similar dirty-check logic for window close
+ * @coordinates-with documentStore.ts — provides dirty tab IDs
+ * @module utils/reloadGuard
  */
 
 /**

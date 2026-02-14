@@ -1,9 +1,16 @@
 /**
- * Workspace storage utilities for window-scoped persistence
+ * Workspace Storage Utilities
  *
- * Handles storage key derivation and migration from legacy single-key storage
- * to per-window storage keys.
+ * Purpose: Handles storage key derivation and migration for window-scoped persistence.
+ * Each window gets its own localStorage key so multi-window state doesn't collide.
  *
+ * Key decisions:
+ *   - Storage keys are derived from window label: `vmark-workspace-{label}`
+ *   - Legacy migration handles the old single-key `vmark-workspace` format
+ *   - getCurrentWindowLabel() is cached per session for consistent key derivation
+ *
+ * @coordinates-with workspaceStore.ts — uses createWindowStorage for persist middleware
+ * @coordinates-with window_manager.rs — assigns window labels on creation
  * @module utils/workspaceStorage
  */
 import type { StateStorage } from "zustand/middleware";

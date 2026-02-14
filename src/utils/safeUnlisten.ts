@@ -1,9 +1,18 @@
 /**
  * Safe Unlisten Helper
  *
- * Wraps Tauri event unlisten calls to prevent unhandled promise rejections
+ * Purpose: Wraps Tauri event unlisten calls to prevent unhandled promise rejections
  * that occur when components unmount before listen() resolves, or when
  * Tauri's internal listener state becomes inconsistent.
+ *
+ * Key decisions:
+ *   - All errors are silently caught — unlisten failures are never actionable
+ *   - safeUnlistenAll returns empty array for easy ref replacement pattern
+ *   - safeUnlistenAsync handles the common case of cleanup running before
+ *     the listen() promise resolves
+ *
+ * @coordinates-with menuListenerHelper.ts — uses safeUnlisten for cleanup
+ * @module utils/safeUnlisten
  */
 
 /**
