@@ -1,3 +1,24 @@
+/**
+ * spawnPty
+ *
+ * Purpose: Spawns a PTY (pseudo-terminal) process connected to an xterm instance.
+ * Resolves the working directory, gets the default shell from Rust, and wires
+ * up bidirectional data streams.
+ *
+ * Key decisions:
+ *   - CWD priority: workspace root > active file's parent directory > shell default ($HOME).
+ *   - Shell is determined by the Rust backend (get_default_shell), not hardcoded,
+ *     to respect the user's configured shell on any platform.
+ *   - Sets TERM_PROGRAM=vmark and EDITOR=vmark so CLI tools can detect the host.
+ *   - Sets VMARK_WORKSPACE when a workspace is open, enabling shell scripts
+ *     to access the workspace root.
+ *   - The disposed() callback lets the caller abort if the session was removed
+ *     while the async spawn was in flight.
+ *
+ * @coordinates-with useTerminalSessions.ts — calls spawnPty when starting a shell
+ * @coordinates-with createTerminalInstance.ts — provides the xterm Terminal instance
+ * @module components/Terminal/spawnPty
+ */
 import { spawn, type IPty } from "tauri-pty";
 import { invoke } from "@tauri-apps/api/core";
 import type { Terminal } from "@xterm/xterm";

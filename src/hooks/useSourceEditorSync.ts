@@ -1,6 +1,18 @@
 /**
- * Hook for syncing external state changes to the CodeMirror editor.
- * Handles content sync, wordWrap, brVisibility, and autoPair settings.
+ * Source Editor Sync Hook
+ *
+ * Purpose: Syncs external state changes into the CodeMirror editor —
+ *   content updates, word wrap, BR visibility, auto-pair, and line numbers.
+ *
+ * Key decisions:
+ *   - Uses CodeMirror compartments for dynamic reconfiguration without rebuild
+ *   - isInternalChange ref prevents echo loops (editor change → store → editor)
+ *   - runOrQueueCodeMirrorAction defers updates during IME composition
+ *   - Content sync preserves cursor position when possible
+ *
+ * @coordinates-with sourceEditorExtensions.ts — compartment definitions
+ * @coordinates-with editorStore.ts — reads wordWrap, showLineNumbers, etc.
+ * @module hooks/useSourceEditorSync
  */
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { EditorView, lineNumbers } from "@codemirror/view";
@@ -89,7 +101,7 @@ export function useSourceEditorContentSync(
         });
       }
     });
-  }, [viewRef, isInternalChange, content, getCursorInfo]);
+  }, [viewRef, isInternalChange, content, getCursorInfo, hiddenRef]);
 
   // Poll for pending content when internal change completes
   useEffect(() => {
@@ -119,7 +131,7 @@ export function useSourceEditorContentSync(
     // Check periodically while component is mounted
     const intervalId = setInterval(checkPendingContent, 100);
     return () => clearInterval(intervalId);
-  }, [viewRef, isInternalChange]);
+  }, [viewRef, isInternalChange, hiddenRef]);
 }
 
 /**

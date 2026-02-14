@@ -1,3 +1,28 @@
+/**
+ * TitleBar
+ *
+ * Purpose: macOS-style title bar that displays the current document's filename
+ * and supports inline rename via double-click.
+ *
+ * User interactions:
+ *   - Double-click the filename to enter rename mode (or open save dialog
+ *     for unsaved documents)
+ *   - Type a new name and press Enter to confirm, Escape to cancel
+ *   - Click away (blur) to cancel
+ *
+ * Key decisions:
+ *   - The entire title bar is a Tauri drag region (data-tauri-drag-region)
+ *     for window dragging, except when in rename mode.
+ *   - Filename is shown without the .md extension for cleaner display;
+ *     the extension is auto-appended during rename.
+ *   - Visibility is controlled by a user setting (showFilenameInTitlebar);
+ *     when off, renders an empty draggable bar.
+ *   - Dirty, missing, and unsaved states have distinct visual indicators.
+ *   - IME composition is respected — Enter/Escape during composition are ignored.
+ *
+ * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
+ * @module components/TitleBar/TitleBar
+ */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { emit } from "@tauri-apps/api/event";
 import { useDocumentFilePath, useDocumentIsDirty, useDocumentIsMissing, useActiveTabId } from "@/hooks/useDocumentState";

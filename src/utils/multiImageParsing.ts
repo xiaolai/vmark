@@ -1,8 +1,17 @@
 /**
  * Multi-Image Path Parsing Utility
  *
- * Parses clipboard text that may contain multiple image paths.
- * Supports newline-separated and shell-style (space with quotes) formats.
+ * Purpose: Parses clipboard text that may contain multiple image paths,
+ * supporting both newline-separated and shell-style (space with quotes) formats.
+ *
+ * Key decisions:
+ *   - Shell-style parsing handles both single and double quotes
+ *   - Newline format takes priority over shell-style when both are present
+ *   - mightContainMultiplePaths() is a fast heuristic for filtering before full parse
+ *
+ * @coordinates-with imageHandler/tiptap.ts — uses parseMultiplePaths for multi-image paste
+ * @coordinates-with clipboardImagePath.ts — detects image paths in clipboard
+ * @module utils/multiImageParsing
  */
 
 /**

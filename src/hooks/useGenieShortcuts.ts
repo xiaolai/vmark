@@ -1,9 +1,13 @@
 /**
  * Genie Shortcuts Hook
  *
- * - Cmd+Y keyboard shortcut opens the genie picker
- * - Loads genies on mount and syncs to native menu
- * - Handles direct genie invocation from the Genies menu
+ * Purpose: Keyboard shortcut (Cmd+Y) to open the genie picker, loads
+ *   genie definitions on mount, syncs to native menu, and handles
+ *   direct genie invocation from the Genies menu.
+ *
+ * @coordinates-with geniePickerStore.ts — opens/closes the genie picker
+ * @coordinates-with geniesStore.ts — loads genie definitions
+ * @module hooks/useGenieShortcuts
  */
 
 import { useEffect } from "react";

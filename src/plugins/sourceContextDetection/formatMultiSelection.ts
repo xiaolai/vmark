@@ -1,3 +1,19 @@
+/**
+ * Multi-Selection Format Actions for Source Mode
+ *
+ * Purpose: Applies inline formatting (bold, italic, etc.) across multiple CodeMirror
+ * selections simultaneously. Each selection range is independently wrapped/unwrapped,
+ * with position offsets tracked to keep ranges valid after earlier edits shift positions.
+ *
+ * Key decisions:
+ *   - Empty selections auto-expand to word boundaries via wordSegmentation
+ *   - Opposite formats (bold/italic) are unwrapped before applying the new format
+ *   - Changes are batched into a single CodeMirror transaction for undo atomicity
+ *
+ * @coordinates-with formatActions.ts — single-selection equivalent
+ * @coordinates-with formatUtils.ts — shared wrap/unwrap/isWrapped helpers
+ * @module plugins/sourceContextDetection/formatMultiSelection
+ */
 import { EditorSelection, type SelectionRange, type Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { FORMAT_MARKERS, type FormatType, type WrapFormatType } from "./formatTypes";

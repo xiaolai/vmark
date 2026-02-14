@@ -1,0 +1,28 @@
+[
+  {
+    "type": "cycle",
+    "from": "src/plugins/sourceContextDetection/tableActions.ts",
+    "to": "src/plugins/sourceContextDetection/tableDetection.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/plugins/sourceContextDetection/tableDetection.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/plugins/sourceContextDetection/tableActions.ts",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      }
+    ]
+  }
+]

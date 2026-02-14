@@ -1,13 +1,23 @@
 /**
  * Image Operations (Hooks Layer)
  *
- * Async functions for image file operations:
- * - Creating assets folders
- * - Saving/copying images to assets (with deduplication)
- * - Inserting image nodes into ProseMirror
+ * Purpose: Async image file operations — creating assets folders, saving/copying
+ *   images to the document's assets directory (with hash-based deduplication),
+ *   and inserting image nodes into the ProseMirror editor.
  *
- * Uses Tauri APIs for file system access.
- * Pure helpers (filename generation, etc.) are in utils/imageUtils.
+ * Pipeline: User pastes/drops/picks image → this module → hash-check for dupe
+ *   → resize if needed → write to assets/ → insert ProseMirror node with
+ *   relative path
+ *
+ * Key decisions:
+ *   - Hash-based dedup prevents storing identical images twice
+ *   - Images auto-resized based on user settings (imageResize)
+ *   - Uses relative paths in markdown (portable between machines)
+ *   - Tauri filesystem APIs for all I/O (no Node.js fs)
+ *
+ * @coordinates-with imageUtils.ts — pure helpers (filename gen, path building)
+ * @coordinates-with imageHashRegistry.ts — dedup cache lookup
+ * @module hooks/useImageOperations
  */
 
 import { mkdir, exists, copyFile, writeFile, readFile } from "@tauri-apps/plugin-fs";

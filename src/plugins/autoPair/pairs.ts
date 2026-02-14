@@ -1,7 +1,15 @@
 /**
  * Auto-Pair Character Definitions
  *
- * Defines opening/closing pairs for auto-completion.
+ * Purpose: Defines all bracket/quote pair mappings (ASCII, CJK, curly quotes)
+ * and provides lookup functions that respect the user's configuration.
+ *
+ * Key decisions:
+ *   - CJK curly quotes are opt-in because they conflict with Chinese IME smart-quote features
+ *   - Pair lookup functions accept a PairConfig to centralize the include/exclude logic
+ *
+ * @coordinates-with handlers.ts — uses getClosingChar/getOpeningChar for auto-pair decisions
+ * @module plugins/autoPair/pairs
  */
 
 /** ASCII bracket and quote pairs */

@@ -1,4 +1,12 @@
-// Shared DOM + constants for the footnote hover popup.
+/**
+ * Footnote Popup DOM Helpers
+ *
+ * Purpose: Shared DOM construction and layout constants for the footnote hover popup.
+ * Extracted from FootnotePopupView to keep the view class focused on behavior.
+ *
+ * @coordinates-with FootnotePopupView.ts — consumes these helpers for popup construction
+ * @module plugins/footnotePopup/footnotePopupDom
+ */
 
 import { popupIcons } from "@/utils/popupComponents";
 

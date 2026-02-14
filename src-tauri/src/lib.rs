@@ -1,3 +1,21 @@
+//! # VMark Tauri Application
+//!
+//! Purpose: Entry point for the Tauri backend — wires together all modules,
+//! registers commands, configures plugins, and handles app-level events.
+//!
+//! Pipeline: `main.rs` → `run()` here → Tauri builder → window creation → frontend
+//!
+//! Key decisions:
+//!   - Window close is intercepted for document windows (main, doc-*) to allow
+//!     dirty-document prompts; non-document windows close immediately.
+//!   - File opens from Finder are queued in `PENDING_FILE_OPENS` until the frontend
+//!     signals readiness, solving a cold-start race condition.
+//!   - macOS Reopen event (dock click) creates a new main window when none visible.
+//!
+//! Known limitations:
+//!   - ExitRequested handling must carefully distinguish OS quit from user quit
+//!     to avoid premature exit during coordinated quit flow.
+
 mod ai_provider;
 mod app_paths;
 mod mcp_bridge;

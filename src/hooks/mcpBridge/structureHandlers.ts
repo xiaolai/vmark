@@ -1,7 +1,11 @@
 /**
- * Structure Handlers - AST access and document structure queries.
+ * MCP Bridge — Structure Handlers
  *
- * Part of AI-Oriented MCP Design implementation.
+ * Purpose: Read-only AST access and document structure queries — list blocks,
+ *   resolve targets (heading/paragraph/list), get document digest, and
+ *   retrieve section content by heading.
+ *
+ * @module hooks/mcpBridge/structureHandlers
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";

@@ -1,3 +1,33 @@
+/**
+ * Settings Store
+ *
+ * Purpose: Central persistent store for all user-configurable settings —
+ *   appearance, markdown behavior, CJK formatting, image handling, terminal,
+ *   MCP server, and update preferences.
+ *
+ * Pipeline: Settings panel UI → updateXxxSetting() → Zustand persist → localStorage
+ *   → useTheme.ts / editor plugins read values reactively via selectors
+ *
+ * Key decisions:
+ *   - Uses zustand/persist with deep-merge migration so new default fields are
+ *     automatically available when users upgrade without losing existing prefs.
+ *   - Settings are grouped into typed sub-objects (general, appearance, markdown,
+ *     etc.) with a generic createSectionUpdater helper to reduce boilerplate.
+ *   - CJK formatting settings are fine-grained (20+ toggles) to support the
+ *     diverse conventions across Simplified Chinese, Traditional Chinese, and
+ *     Japanese typography.
+ *   - paragraphSpacing → blockSpacing migration handled in merge function.
+ *
+ * Known limitations:
+ *   - No per-document or per-workspace setting overrides — all settings are global.
+ *   - resetSettings() replaces all sections at once; no per-section reset.
+ *   - localStorage size (~5KB) is well within browser limits but could grow.
+ *
+ * @coordinates-with useTheme.ts — reads appearance settings to compute CSS vars
+ * @coordinates-with useAutoSave.ts — reads general.autoSaveEnabled/autoSaveInterval
+ * @module stores/settingsStore
+ */
+
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { HardBreakStyleOnSave, LineEndingOnSave } from "@/utils/linebreakDetection";

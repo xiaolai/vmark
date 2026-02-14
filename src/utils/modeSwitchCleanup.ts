@@ -1,8 +1,17 @@
 /**
- * Pre-mode-switch cleanup.
+ * Pre-Mode-Switch Cleanup
  *
- * Closes stale popups and previews before toggling source/WYSIWYG mode.
- * Called from both the keyboard shortcut path and the menu event path.
+ * Purpose: Closes stale popups, previews, and flushes pending state before
+ * toggling between source and WYSIWYG mode.
+ *
+ * Key decisions:
+ *   - Wrapped in try/catch so mode switch always proceeds even if DOM is unexpected
+ *   - Flushes WYSIWYG state before switch to ensure source mode gets fresh content
+ *   - Called from both keyboard shortcut and menu event paths (single source of truth)
+ *
+ * @coordinates-with wysiwygFlush.ts — flushActiveWysiwygNow ensures content is serialized
+ * @coordinates-with editorStore.ts — sourceMode flag controls which editor is active
+ * @module utils/modeSwitchCleanup
  */
 
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";

@@ -1,3 +1,23 @@
+/**
+ * Search Plugin (WYSIWYG Mode)
+ *
+ * Purpose: Highlights find/replace matches in the WYSIWYG editor using ProseMirror
+ * decorations. Subscribes to searchStore for query/options and rebuilds decorations
+ * on every state change where the query or document differs.
+ *
+ * Pipeline: searchStore query change → rebuild decorations → highlight matches →
+ *           navigate via next/prev/replace dispatched from FindBar
+ *
+ * Key decisions:
+ *   - Decorations are rebuilt on doc/query change, not on every transaction
+ *   - Replace operations use imeGuard to avoid conflicts with IME composition
+ *   - Regex mode catches invalid patterns gracefully (shows 0 matches, no error)
+ *
+ * @coordinates-with searchStore.ts — query, options, match navigation state
+ * @coordinates-with FindBar.tsx — UI for find/replace controls
+ * @coordinates-with sourceEditorSearch.ts — equivalent search for Source mode (CodeMirror)
+ * @module plugins/search/tiptap
+ */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";

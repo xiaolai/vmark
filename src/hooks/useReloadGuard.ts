@@ -1,8 +1,12 @@
 /**
  * Reload Guard Hook
  *
- * Prevents accidental page reload when there are unsaved changes.
- * Uses the native browser beforeunload event to show a warning dialog.
+ * Purpose: Prevents accidental page reload (Cmd+R in dev) when there are
+ *   unsaved documents — uses the native beforeunload event to trigger the
+ *   browser's "Leave site?" dialog.
+ *
+ * @coordinates-with reloadGuard.ts — pure logic for shouldBlockReload
+ * @module hooks/useReloadGuard
  */
 
 import { useEffect } from "react";

@@ -1,9 +1,18 @@
 /**
  * List Smart Indent/Outdent for Source Mode
  *
- * Tab on a list line inserts tabSize spaces at line start (semantic indent).
- * Shift+Tab on a list line removes up to tabSize spaces from line start.
- * Non-list lines return false to fall through to other handlers.
+ * Purpose: Provides semantic Tab/Shift+Tab indentation for list items — adds or
+ * removes leading spaces at the line start rather than inserting a tab character.
+ *
+ * Key decisions:
+ *   - Only activates on lines matching list item patterns; non-list lines fall through
+ *     to other Tab handlers (e.g., tabIndent, tabEscape)
+ *   - Uses tabSize from settings to determine indent width
+ *   - Multi-line selection indents/outdents all selected list lines
+ *
+ * @coordinates-with structuralCharProtection.ts — shares LIST_ITEM_PATTERN, TASK_ITEM_PATTERN
+ * @coordinates-with tabIndent.ts — fallback for non-list Tab handling
+ * @module plugins/codemirror/listSmartIndent
  */
 
 import { type KeyBinding, type EditorView } from "@codemirror/view";

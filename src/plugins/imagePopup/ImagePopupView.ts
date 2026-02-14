@@ -1,8 +1,18 @@
 /**
  * Image Popup View
  *
- * DOM management for the image editing popup.
- * Shows when clicking on an image, allows editing src/browsing/copying/removing.
+ * Purpose: Manages the DOM for the image editing popup — shows on image click with
+ * controls for editing src path, browsing for replacement, copying path, and removing.
+ *
+ * Key decisions:
+ *   - Store-driven: subscribes to imagePopupStore for visibility and position updates
+ *   - Inline block toggle: can switch between inline and block image representations
+ *   - Positioned using the shared popup positioning system relative to the image element
+ *
+ * @coordinates-with imagePopupDom.ts — DOM element construction
+ * @coordinates-with imagePopupActions.ts — browse and replace image logic
+ * @coordinates-with stores/imagePopupStore.ts — popup state
+ * @module plugins/imagePopup/ImagePopupView
  */
 
 import type { EditorView } from "@tiptap/pm/view";

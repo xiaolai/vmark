@@ -1,13 +1,18 @@
 /**
  * History Recovery (Hooks Layer)
  *
- * Async functions for recovering deleted documents:
- * - List deleted documents with history
- * - Restore deleted documents
- * - Permanently delete history
+ * Purpose: Recovery operations for deleted documents — lists documents that
+ *   have history snapshots but no longer exist on disk, restores them from
+ *   their most recent snapshot, or permanently deletes their history.
  *
- * Uses Tauri APIs for file system access.
- * Types are in utils/historyTypes.
+ * Key decisions:
+ *   - Scans the history directory for entries whose original file is missing
+ *   - Restore writes the latest snapshot content back to the original path
+ *   - Permanent delete removes both index and all snapshot files
+ *
+ * @coordinates-with useHistoryOperations.ts — creates/manages active history
+ * @coordinates-with historyTypes.ts — shared types and folder constants
+ * @module hooks/useHistoryRecovery
  */
 
 import {

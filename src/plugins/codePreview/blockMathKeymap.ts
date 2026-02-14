@@ -1,10 +1,18 @@
 /**
  * Block Math Keymap Extension
  *
- * Handles keyboard shortcuts and click-outside for block math editing:
- * - ESC: Revert changes and exit editing
- * - Cmd+Enter: Commit changes and exit editing
- * - Click outside: Revert changes and exit editing (user must click ✓ to save)
+ * Purpose: Handles keyboard shortcuts and click-outside behavior for the inline
+ * block math editor (the code block that appears when editing $$...$$ blocks).
+ *
+ * Key decisions:
+ *   - ESC reverts changes (not commits) — explicit save-with-checkmark is the pattern
+ *   - Click outside also reverts, matching ESC behavior for consistency
+ *   - Cmd+Enter commits changes, providing a keyboard path to save
+ *   - Uses a ProseMirror plugin (not Tiptap keymap) to intercept click-outside events
+ *
+ * @coordinates-with codePreview/tiptap.ts — the code preview node that hosts the math editor
+ * @coordinates-with stores/blockMathEditingStore.ts — editing state (original content, position)
+ * @module plugins/codePreview/blockMathKeymap
  */
 
 import { Extension } from "@tiptap/core";

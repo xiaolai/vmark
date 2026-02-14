@@ -1,3 +1,20 @@
+//! # Tab Transfer
+//!
+//! Purpose: Enables dragging tabs between windows by transferring document state
+//! through a Rust-side registry, avoiding serialization through the URL or filesystem.
+//!
+//! Pipeline: Source window detaches tab → `detach_tab_to_new_window` stores data in
+//! registry + creates new window → new window calls `claim_tab_transfer` on mount →
+//! receives full document state (content, dirty flag, workspace root).
+//!
+//! Key decisions:
+//!   - Transfer data is stored in a global Mutex<HashMap> keyed by window label,
+//!     not passed via URL params, to handle large document content safely.
+//!   - `clear_unclaimed_transfer` is called on WindowEvent::Destroyed to prevent
+//!     leaks when a window is destroyed before claiming its transfer.
+//!   - `find_drop_target_window` uses screen coordinates and prefers focused windows
+//!     to support spring-loaded drag targeting.
+
 use std::collections::HashMap;
 use std::sync::Mutex;
 

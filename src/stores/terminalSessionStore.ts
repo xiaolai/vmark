@@ -1,3 +1,23 @@
+/**
+ * Terminal Session Store
+ *
+ * Purpose: Manages terminal tab sessions — creation (up to 5), removal,
+ *   activation, dead-marking, and renaming.
+ *
+ * Key decisions:
+ *   - Max 5 concurrent sessions to limit resource usage (each session
+ *     spawns a real PTY via Tauri shell plugin).
+ *   - Labels auto-assign "Terminal N" using lowest-unused-number strategy
+ *     so closing Terminal 2 then creating a new one reuses the name.
+ *   - isAlive flag allows UI to show dead sessions (for scroll-back review)
+ *     without allowing new input.
+ *   - IDs use a simple incrementing counter — fine for session-scoped use.
+ *
+ * @coordinates-with Terminal component — renders xterm.js for each session
+ * @coordinates-with uiStore.ts — terminalVisible toggle
+ * @module stores/terminalSessionStore
+ */
+
 import { create } from "zustand";
 
 export interface TerminalSession {

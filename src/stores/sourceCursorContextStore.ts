@@ -1,8 +1,18 @@
 /**
  * Source Cursor Context Store
  *
- * Centralized store for cursor position context in source mode (CodeMirror).
- * Updated on every selection change, consumed by format popup, shortcuts, etc.
+ * Purpose: Cursor context for Source mode (CodeMirror) — updated on every
+ *   selection change, consumed by the universal toolbar and format shortcuts
+ *   to show active formatting state in source mode.
+ *
+ * Key decisions:
+ *   - Mirrors tiptapEditorStore pattern but for CodeMirror's EditorView.
+ *   - CursorContext tracks: bold, italic, heading level, list type, inside code
+ *     block, etc. — parsed from markdown syntax around the cursor.
+ *
+ * @coordinates-with tiptapEditorStore.ts — same role for WYSIWYG mode
+ * @coordinates-with UniversalToolbar — reads context to highlight active buttons
+ * @module stores/sourceCursorContextStore
  */
 
 import { create } from "zustand";

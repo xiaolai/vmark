@@ -1,8 +1,18 @@
 /**
  * Image Tooltip Plugin (Tiptap)
  *
- * Shows a read-only tooltip on hover over images.
- * For editing, click the image to open the edit popup.
+ * Purpose: Detects mouse hover over images in WYSIWYG mode and triggers the read-only
+ * tooltip (filename, dimensions). Separate from the image popup which handles editing.
+ *
+ * Key decisions:
+ *   - 300ms hover delay to avoid tooltip flicker on casual mouse movement
+ *   - Suppressed when the image popup is already open (avoid visual conflict)
+ *   - Uses DOM event delegation on the editor view for efficiency
+ *
+ * @coordinates-with ImageTooltipView.ts — renders the tooltip DOM
+ * @coordinates-with stores/imageTooltipStore.ts — tooltip visibility state
+ * @coordinates-with stores/imagePopupStore.ts — checks popup state to suppress tooltip
+ * @module plugins/imageTooltip/tiptap
  */
 
 import { Extension } from "@tiptap/core";

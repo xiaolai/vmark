@@ -1,13 +1,20 @@
 /**
  * Workspace Bootstrap Logic
  *
- * Pure helper for determining when workspace config needs to be loaded from disk.
- * The Zustand persist middleware restores rootPath but not config,
- * so we need to reload config on app startup.
+ * Purpose: Pure helper for determining when workspace config needs to be
+ * loaded from disk on app startup.
+ *
+ * The Zustand persist middleware restores rootPath but not config (config is
+ * too large and changes too often for localStorage). This helper detects
+ * the "rootPath present but config missing" state that triggers a disk reload.
  *
  * Decision logic:
- * - If rootPath exists and isWorkspaceMode true, but config is null → need bootstrap
- * - Otherwise → no bootstrap needed
+ * - If rootPath exists and isWorkspaceMode true, but config is null -> need bootstrap
+ * - Otherwise -> no bootstrap needed
+ *
+ * @coordinates-with workspaceStore.ts — stores rootPath (persisted) and config (runtime)
+ * @coordinates-with useWorkspaceStartup.ts — calls bootstrap check on mount
+ * @module utils/workspaceBootstrap
  */
 
 import type { WorkspaceConfig } from "@/stores/workspaceStore";

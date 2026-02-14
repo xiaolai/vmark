@@ -1,7 +1,11 @@
 /**
- * Protocol Handlers - Capabilities and revision tracking.
+ * MCP Bridge — Protocol Handlers
  *
- * Part of AI-Oriented MCP Design implementation.
+ * Purpose: MCP protocol metadata — capabilities reporting (supported node types,
+ *   format types, operations) and document revision tracking for change detection.
+ *
+ * @coordinates-with revisionStore.ts — reads current document revision
+ * @module hooks/mcpBridge/protocolHandlers
  */
 
 import { respond } from "./utils";

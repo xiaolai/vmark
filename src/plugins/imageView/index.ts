@@ -1,8 +1,21 @@
 /**
  * Image View Plugin
  *
- * Transforms relative image paths to asset:// URLs for rendering,
- * while keeping relative paths in the document (for portability).
+ * Purpose: Custom NodeView for inline images that resolves relative/absolute file paths
+ * to Tauri asset:// URLs for rendering, while preserving the original relative paths in
+ * the document for portability.
+ *
+ * Key decisions:
+ *   - Async path resolution because relative paths need the document's directory from Tauri API
+ *   - Security: relative paths are validated against directory traversal attacks
+ *   - Click selects the image node, double-click opens the image editing popup
+ *   - Context menu triggers the image context menu store
+ *   - Image tooltips shown on hover via the imageTooltipStore
+ *
+ * @coordinates-with security.ts — path validation and URL classification
+ * @coordinates-with tiptap.ts — registers this NodeView for the image node type
+ * @coordinates-with blockImage/BlockImageNodeView.ts — similar logic for block-level images
+ * @module plugins/imageView
  */
 
 import { convertFileSrc } from "@tauri-apps/api/core";

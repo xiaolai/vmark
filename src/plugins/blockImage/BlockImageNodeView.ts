@@ -1,3 +1,29 @@
+/**
+ * Block Image NodeView
+ *
+ * Purpose: Custom ProseMirror NodeView for block_image nodes — handles async image
+ * resolution (relative/absolute/external paths), click-to-select, double-click-to-popup,
+ * context menu, and tooltip interactions.
+ *
+ * Pipeline: Markdown image → parser creates block_image node → this NodeView renders
+ *         → resolveImageSrc resolves path → img element displays
+ *
+ * Key decisions:
+ *   - Image src resolution is async because relative paths need the document's directory
+ *     from the Tauri path API
+ *   - Uses convertFileSrc to turn local file paths into Tauri asset:// protocol URLs
+ *   - Windows path normalization handles backslash-to-forward-slash conversion
+ *   - Security: relative paths are validated against directory traversal attacks
+ *
+ * Known limitations:
+ *   - No lazy loading — all visible block images resolve immediately
+ *
+ * @coordinates-with tiptap.ts — registers this NodeView for the block_image node type
+ * @coordinates-with imageView/security.ts — path validation and URL classification
+ * @coordinates-with stores/imagePopupStore.ts — image popup state for double-click editing
+ * @module plugins/blockImage/BlockImageNodeView
+ */
+
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
 import type { Editor } from "@tiptap/core";

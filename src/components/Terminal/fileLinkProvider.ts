@@ -1,3 +1,21 @@
+/**
+ * fileLinkProvider
+ *
+ * Purpose: Detects file paths in terminal output and makes them clickable.
+ * Absolute and relative paths with optional :line:col suffixes are matched
+ * and resolved against the workspace root.
+ *
+ * Key decisions:
+ *   - Only paths that look like real files (contain a slash and have an
+ *     extension) are linked, reducing false positives on random output.
+ *   - Relative paths are resolved against useWorkspaceStore.rootPath so
+ *     clicking "src/main.ts" opens the correct absolute path.
+ *   - Implements xterm's ILinkProvider interface for native hover + click
+ *     behavior without custom DOM manipulation.
+ *
+ * @coordinates-with createTerminalInstance.ts — registers this as a link provider
+ * @module components/Terminal/fileLinkProvider
+ */
 import type { Terminal, ILinkProvider, ILink, IBufferRange } from "@xterm/xterm";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 

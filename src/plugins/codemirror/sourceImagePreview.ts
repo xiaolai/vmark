@@ -1,11 +1,18 @@
 /**
  * Source Mode Image Preview Plugin
  *
- * Shows a floating preview of images when cursor is inside:
- * - Inline image: ![alt](path)
- * - Inline image with title: ![alt](path "title")
+ * Purpose: Shows a floating image preview when the cursor is inside a markdown image
+ * syntax (`![alt](path)`) in Source mode, giving visual feedback without mode-switching.
  *
- * Reuses the ImagePreviewView singleton from the imagePreview plugin.
+ * Key decisions:
+ *   - Reuses the ImagePreviewView singleton from the WYSIWYG imagePreview plugin
+ *     to avoid duplicating image loading and rendering logic
+ *   - Hides preview when image popup is open (avoid visual conflict)
+ *   - Debounces cursor position checks to avoid excessive preview updates
+ *
+ * @coordinates-with imagePreview/ImagePreviewView.ts — shared preview rendering singleton
+ * @coordinates-with stores/imagePopupStore.ts — checks popup visibility to avoid overlap
+ * @module plugins/codemirror/sourceImagePreview
  */
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";

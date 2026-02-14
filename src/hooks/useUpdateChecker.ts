@@ -1,12 +1,24 @@
 /**
  * Update Checker Hook
  *
- * Handles automatic update checking on startup based on user settings.
- * Respects check frequency (startup, daily, weekly, manual).
+ * Purpose: Automatic update checking on app startup — respects user
+ *   frequency preference (startup/daily/weekly/manual) and delegates
+ *   actual download/install to the main window context.
  *
- * Also handles update operation requests from other windows,
- * ensuring all operations run in the main window context.
- * Updates are fully automatic — no menu interaction needed.
+ * Pipeline: App startup → delay (2s) → check frequency vs lastCheckTime
+ *   → invoke Tauri updater plugin → updateStore tracks status → prompt
+ *   user to install → restartWithHotExit for seamless update
+ *
+ * Key decisions:
+ *   - All update operations funneled to main window (pendingUpdate object lives there)
+ *   - Other windows emit request events; main window listens and executes
+ *   - Exponential backoff retry (3 attempts, 5s base delay) for network failures
+ *   - Startup check delayed 2s to let app initialize first
+ *
+ * @coordinates-with useUpdateOperations.ts — provides check/download/restart functions
+ * @coordinates-with useUpdateSync.ts — syncs update state across windows
+ * @coordinates-with updateStore.ts — tracks status, info, progress, errors
+ * @module hooks/useUpdateChecker
  */
 
 import { useEffect, useRef } from "react";

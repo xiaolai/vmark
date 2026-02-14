@@ -1,3 +1,18 @@
+/**
+ * Tiptap Table Context Menu
+ *
+ * Purpose: Imperative DOM-based right-click context menu for tables in WYSIWYG mode.
+ * Provides row/column add/delete, alignment, format table, and delete table actions.
+ *
+ * Key decisions:
+ *   - Imperative DOM rather than React to avoid re-render overhead on every table click
+ *   - Uses popup host scoping so the menu positions correctly inside editor container
+ *   - Click-outside and Escape dismiss the menu; actions dispatch ProseMirror transactions
+ *
+ * @coordinates-with tableActions.tiptap.ts — each menu action delegates to a table command
+ * @coordinates-with tiptap.ts — mounts/destroys this menu from the table UI plugin view
+ * @module plugins/tableUI/TiptapTableContextMenu
+ */
 import type { EditorView } from "@tiptap/pm/view";
 import { alignColumn, type TableAlignment, addColLeft, addColRight, addRowAbove, addRowBelow, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable } from "./tableActions.tiptap";
 import { icons } from "@/utils/icons";

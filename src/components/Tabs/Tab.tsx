@@ -1,3 +1,29 @@
+/**
+ * Tab
+ *
+ * Purpose: Individual tab pill in the status bar tab strip. Shows the document
+ * title with visual indicators for dirty, pinned, missing (deleted from disk),
+ * and divergent (local differs from disk) states.
+ *
+ * User interactions:
+ *   - Click to activate (switch to this document)
+ *   - Middle-click or click X to close
+ *   - Right-click for context menu (handled by parent)
+ *   - Pointer-down starts drag (handled by parent via onPointerDown)
+ *
+ * Key decisions:
+ *   - Wrapped in React.memo to avoid re-rendering all tabs when only one
+ *     tab's active state changes; dirty/missing/divergent are per-tab selectors.
+ *   - Uses role="tab" with aria-selected for accessibility; roving tabindex
+ *     (0 for active, -1 for others) enables keyboard navigation.
+ *   - Close button is hidden for pinned tabs to prevent accidental closure.
+ *   - CSS class composition uses cn() for conditional classes including
+ *     drag state classes (dragging, reordering, invalid-drop, snapback).
+ *
+ * @coordinates-with StatusBar.tsx — renders Tab instances inside the tab strip
+ * @coordinates-with TabContextMenu.tsx — right-click menu triggered via onContextMenu
+ * @module components/Tabs/Tab
+ */
 import { memo, useCallback, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { X, Pin, AlertTriangle, GitFork } from "lucide-react";
 import { cn } from "@/lib/utils";

@@ -1,3 +1,19 @@
+/**
+ * Alert Block Tiptap Node
+ *
+ * Purpose: Defines the alertBlock node type for GitHub-style alert/admonition blocks
+ * (NOTE, TIP, IMPORTANT, WARNING, CAUTION) in WYSIWYG mode.
+ *
+ * Key decisions:
+ *   - alertType attribute is validated/normalized on both parse and render to prevent
+ *     invalid values from persisting (e.g., from manual HTML edits or corrupted paste)
+ *   - Insertion always creates a new block after the current position with an empty paragraph
+ *
+ * @coordinates-with codemirror/sourceAlertDecoration.ts — Source mode alert rendering
+ * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
+ * @module plugins/alertBlock/tiptap
+ */
+
 import { Node } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";

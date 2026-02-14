@@ -1,3 +1,22 @@
+//! # File System Watcher
+//!
+//! Purpose: Watches workspace directories for external changes and notifies
+//! the frontend via `fs:changed` events so the file explorer stays in sync.
+//!
+//! Pipeline: `start_watching` invoke → `notify` crate recursive watcher →
+//! debounce + filter → `app.emit("fs:changed", ...)` → frontend `useFileTree`.
+//!
+//! Key decisions:
+//!   - Per-path debouncing (200ms) suppresses duplicate events from macOS FSEvents
+//!     which fires multiple events for a single write.
+//!   - Specific noise directories (.git, node_modules, .obsidian) are filtered,
+//!     but user-visible dot-dirs (.github, .vscode) are allowed through.
+//!   - Each watcher is keyed by `watch_id` (typically window label) so multi-window
+//!     setups can watch different directories independently.
+//!
+//! Known limitations:
+//!   - No recursive ignore patterns — filtering is component-based, not glob-based.
+
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::collections::HashMap;

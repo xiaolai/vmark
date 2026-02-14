@@ -1,8 +1,25 @@
 /**
  * Genie Invocation Hook
  *
- * Orchestrates the full AI genie pipeline:
- * extract content → fill template → invoke provider → stream → create suggestion
+ * Purpose: Orchestrates the full AI genie pipeline — extracts content from
+ *   the editor, fills the genie template, invokes the AI provider via Rust,
+ *   streams the response, and creates a suggestion for user approval.
+ *
+ * Pipeline: User triggers genie → extractContent(scope) → fillTemplate()
+ *   → invoke("stream_ai_response") → listen("ai:chunk") → accumulate
+ *   → aiSuggestionStore.createSuggestion() → user accepts/rejects
+ *
+ * Key decisions:
+ *   - Content extraction supports document/selection/block/paragraph scopes
+ *   - Source peek range used for block-level extraction in source mode
+ *   - Streaming via Tauri events (not WebSocket) for reliability
+ *   - Abort handled via aiInvocationStore cancel flag
+ *   - REST vs non-REST providers handled by aiProviderStore type check
+ *
+ * @coordinates-with aiSuggestionStore.ts — stores the suggestion for accept/reject
+ * @coordinates-with aiProviderStore.ts — provides API key and provider config
+ * @coordinates-with geniesStore.ts — provides genie definitions and templates
+ * @module hooks/useGenieInvocation
  */
 
 import { useCallback, useEffect, useRef } from "react";

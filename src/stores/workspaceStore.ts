@@ -1,3 +1,28 @@
+/**
+ * Workspace Store
+ *
+ * Purpose: Manages workspace (folder) state — open/close, config, excluded
+ *   folders, trust management, and session restore via lastOpenTabs.
+ *
+ * Key decisions:
+ *   - Uses window-scoped storage so each Tauri window persists its own
+ *     workspace independently. skipHydration is set to true — WindowContext
+ *     calls setCurrentWindowLabel() then rehydrate() at mount time.
+ *   - Workspace identity (UUID + trust) enables future features like
+ *     workspace-scoped AI settings and security gating.
+ *   - Default excluded folders (.git, node_modules) are merged on open
+ *     to ensure new defaults propagate to existing workspaces.
+ *
+ * Known limitations:
+ *   - Config is stored in localStorage (via windowScopedStorage), not on
+ *     disk — workspace settings don't transfer between machines.
+ *   - No workspace indexing or search — only folder exclusion.
+ *
+ * @coordinates-with tabStore.ts — lastOpenTabs drives session restore
+ * @coordinates-with useWorkspaceBootstrap.ts — loads config from Tauri on startup
+ * @module stores/workspaceStore
+ */
+
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { isPathExcluded as checkPathExcluded } from "@/utils/paths";

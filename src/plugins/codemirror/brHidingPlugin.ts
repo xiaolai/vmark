@@ -1,7 +1,15 @@
 /**
  * BR Tag Hiding Plugin for CodeMirror
  *
- * Hides <br /> lines in the Source mode editor when the setting is disabled.
+ * Purpose: Hides `<br />` lines in Source mode when the user's linebreak setting
+ * makes them redundant, keeping the editor visually clean.
+ *
+ * Key decisions:
+ *   - Uses line decorations (CSS class) rather than replacing content — preserves document integrity
+ *   - Rebuilds decorations on every doc change for simplicity (br lines are rare)
+ *
+ * @coordinates-with stores/settingsStore.ts — reads linebreak visibility setting
+ * @module plugins/codemirror/brHidingPlugin
  */
 
 import { RangeSetBuilder } from "@codemirror/state";

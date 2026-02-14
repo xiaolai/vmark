@@ -1,3 +1,17 @@
+/**
+ * Multi-cursor Horizontal Movement
+ *
+ * Purpose: Handles left/right arrow key movement for all cursors in a MultiSelection,
+ * supporting character, word, and line-level granularity with optional Shift+extend.
+ *
+ * Key decisions:
+ *   - Uses wordSegmentation utility for word boundaries (CJK-aware via Intl.Segmenter)
+ *   - Line-start/end uses doc.resolve to find textblock boundaries
+ *
+ * @coordinates-with keymap.ts — binds arrow key combos to these handlers
+ * @coordinates-with rangeUtils.ts — normalizes resulting ranges
+ * @module plugins/multiCursor/horizontalMovement
+ */
 import { Selection, SelectionRange } from "@tiptap/pm/state";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { findWordEdge } from "@/utils/wordSegmentation";

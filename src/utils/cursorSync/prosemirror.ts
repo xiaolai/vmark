@@ -1,3 +1,20 @@
+/**
+ * ProseMirror Cursor Sync
+ *
+ * Purpose: Extract and restore cursor position in ProseMirror editor views.
+ * This is the lower-level ProseMirror variant — Tiptap uses tiptap.ts instead,
+ * which adds block anchor support for tables and code blocks.
+ *
+ * Key decisions:
+ *   - sourceLine attribute on PM nodes is the primary anchor
+ *   - Falls back to findClosestSourceLine when exact match fails
+ *   - Uses addToHistory:false meta so restoration doesn't pollute undo stack
+ *
+ * @coordinates-with cursorSync/tiptap.ts — extended version with block anchors
+ * @coordinates-with cursorSync/pmHelpers.ts — shared sourceLine lookup utilities
+ * @module utils/cursorSync/prosemirror
+ */
+
 import type { EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection, TextSelection } from "@tiptap/pm/state";

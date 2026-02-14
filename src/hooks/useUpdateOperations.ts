@@ -1,11 +1,24 @@
 /**
  * Update Operations Hook
  *
- * Provides operations for checking, downloading, installing, and restarting.
+ * Purpose: Provides check/download/install/restart operations for app updates —
+ *   all operations funneled through the main window to keep pendingUpdate
+ *   in a single JS context.
  *
- * IMPORTANT: The actual operations run in the main window only.
- * Other windows emit events requesting operations, and main window handles them.
- * This ensures the `pendingUpdate` object is always in the same JS context.
+ * Pipeline: Any window calls checkForUpdate() → emits request event →
+ *   main window's useUpdateOperationHandler listens → calls Tauri updater
+ *   plugin → updates updateStore → broadcasts state to all windows
+ *
+ * Key decisions:
+ *   - Only main window holds the pendingUpdate reference (Tauri limitation)
+ *   - Other windows emit cross-window events instead of calling updater directly
+ *   - clearPendingUpdate exported for cleanup after restart
+ *   - Version comparison uses getVersion() from Tauri app API
+ *
+ * @coordinates-with useUpdateChecker.ts — triggers check on startup
+ * @coordinates-with useUpdateSync.ts — broadcasts state across windows
+ * @coordinates-with updateStore.ts — stores status, info, progress
+ * @module hooks/useUpdateOperations
  */
 
 import { useCallback } from "react";

@@ -1,17 +1,24 @@
+/**
+ * Window Title Hook
+ *
+ * Purpose: Updates the native window title based on document state — shows
+ *   filename with dirty indicator (•) when enabled in settings.
+ *
+ * Key decisions:
+ *   - Also sets document.title (without extension) for print dialog PDF filename
+ *   - Empty title when showFilenameInTitlebar is disabled (macOS traffic lights only)
+ *   - Reacts to filePath, isDirty, and setting changes
+ *
+ * @coordinates-with settingsStore.ts — reads appearance.showFilenameInTitlebar
+ * @coordinates-with useDocumentState.ts — reads filePath and isDirty
+ * @module hooks/useWindowTitle
+ */
+
 import { useEffect } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useDocumentFilePath, useDocumentIsDirty } from "./useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getFileName } from "@/utils/pathUtils";
-
-/**
- * Update window title based on document state and settings.
- * Format: [• ]filename (when showFilenameInTitlebar is enabled)
- * Format: (empty) (when showFilenameInTitlebar is disabled)
- *
- * Also sets document.title (without extension) for the print dialog's
- * default PDF filename — otherwise it would always show "VMark".
- */
 export function useWindowTitle() {
   const filePath = useDocumentFilePath();
   const isDirty = useDocumentIsDirty();

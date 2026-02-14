@@ -1,3 +1,22 @@
+/**
+ * CodeMirror Cursor Sync
+ *
+ * Purpose: Extract and restore cursor position in source mode (CodeMirror)
+ * during WYSIWYG <-> Source mode switches.
+ *
+ * Pipeline: Mode switch triggers getCursorInfoFromCodeMirror() to snapshot
+ * position, then restoreCursorInCodeMirror() replays it in the other direction.
+ *
+ * Key decisions:
+ *   - Uses sourceLine (1-indexed) as primary anchor, matching remark parser output
+ *   - Block anchors (code blocks, tables) carry sub-block coordinates for precision
+ *   - Falls back to context matching -> word matching -> percentage for column
+ *
+ * @coordinates-with cursorSync/tiptap.ts — the WYSIWYG counterpart of these functions
+ * @coordinates-with cursorSync/markdown.ts — provides markdown syntax stripping
+ * @module utils/cursorSync/codemirror
+ */
+
 import type { EditorView } from "@codemirror/view";
 import type { CursorInfo, BlockAnchor } from "@/types/cursorSync";
 import {

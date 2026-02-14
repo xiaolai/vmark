@@ -1,7 +1,18 @@
 /**
  * Settings Window Utility
  *
- * Shared logic for opening the Settings window, centered on the current window.
+ * Purpose: Shared logic for opening the Settings window, centered on the current window.
+ * Handles both creating a new Settings window and refocusing an existing one.
+ *
+ * Key decisions:
+ *   - Centers over parent window using physical-to-logical pixel conversion
+ *   - Reuses existing Settings window if already open (singleton pattern)
+ *   - Section navigation via Tauri event so deep linking works even when refocusing
+ *   - Hidden title bar with overlay style for macOS-native feel
+ *
+ * @coordinates-with menu_events.rs — "settings" menu item triggers openSettingsWindow
+ * @coordinates-with SettingsPage.tsx — renders the settings UI in the new window
+ * @module utils/settingsWindow
  */
 
 import { emit } from "@tauri-apps/api/event";

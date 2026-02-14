@@ -1,3 +1,19 @@
+/**
+ * File Explorer Shortcuts Hook
+ *
+ * Purpose: Keyboard shortcut handler for file explorer actions —
+ *   currently handles toggling hidden file visibility in workspace mode.
+ *
+ * Key decisions:
+ *   - Only active in workspace mode (no file explorer without a workspace)
+ *   - Skips when focus is in INPUT or TEXTAREA to avoid conflicts
+ *   - IME events filtered out
+ *
+ * @coordinates-with workspaceConfig.ts — toggleShowHiddenFiles persists to config
+ * @coordinates-with shortcutsStore.ts — reads configurable shortcut bindings
+ * @module hooks/useFileExplorerShortcuts
+ */
+
 import { useEffect } from "react";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";

@@ -1,12 +1,22 @@
 /**
  * Path Reconciliation Logic
  *
- * Pure helpers for determining how to update open tabs/documents
+ * Purpose: Pure helpers for determining how to update open tabs/documents
  * when files are renamed, moved, or deleted in the file explorer.
  *
  * Follow-file semantics:
  * - Rename/move: update tab/document to point to new path
  * - Delete: mark tab/document as missing (show warning UI)
+ *
+ * Key decisions:
+ *   - Handles both direct file matches and files inside renamed/moved folders
+ *   - Folder prefix detection uses trailing "/" to prevent "/Users/root" matching "/Users/rootother"
+ *   - Pure function — no store access, no side effects (caller applies results)
+ *
+ * @coordinates-with useExplorerOperations.ts — calls reconcilePathChange after file ops
+ * @coordinates-with tabStore.ts — caller updates tab paths with reconcile results
+ * @coordinates-with documentStore.ts — caller marks documents as missing
+ * @module utils/pathReconciliation
  */
 
 import { normalizePath } from "./paths";

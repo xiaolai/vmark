@@ -1,8 +1,20 @@
 /**
  * Active Editor Store
  *
- * Tracks the currently active editor instances for menu action routing.
- * Used by the unified menu dispatcher to route actions to the correct editor.
+ * Purpose: Tracks the currently focused editor instance (Tiptap or CodeMirror)
+ *   so the unified menu dispatcher can route actions to the correct editor.
+ *
+ * Key decisions:
+ *   - Separate refs for WYSIWYG (Tiptap) and Source (CodeMirror) — only one
+ *     should be non-null at a time, but both are tracked to avoid timing issues.
+ *   - Conditional clear methods (clearWysiwygEditorIfMatch/clearSourceViewIfMatch)
+ *     prevent a stale blur event from clearing a newly focused editor.
+ *     @edge-case: Without this guard, rapid click from Source → WYSIWYG would
+ *     clear the WYSIWYG ref when Source's blur fires after WYSIWYG's focus.
+ *
+ * @coordinates-with useUnifiedMenuCommands.ts — reads active editor to dispatch actions
+ * @coordinates-with tiptapEditorStore.ts — similar but for toolbar context, not menu routing
+ * @module stores/activeEditorStore
  */
 
 import { create } from "zustand";

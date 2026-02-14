@@ -1,7 +1,17 @@
 /**
  * Update Store
  *
- * Manages update status, progress, and error state for the auto-update feature.
+ * Purpose: State machine for the auto-update lifecycle — idle → checking →
+ *   available → downloading (with progress) → ready → install. Also tracks
+ *   error state and user dismissal of the update banner.
+ *
+ * Pipeline: Startup / settings trigger → useUpdateChecker calls Tauri updater
+ *   plugin → setStatus/setUpdateInfo/setDownloadProgress update state →
+ *   UpdateBanner component shows notification → user installs or dismisses.
+ *
+ * @coordinates-with useUpdateChecker.ts — drives the update check lifecycle
+ * @coordinates-with settingsStore.ts — update.autoCheckEnabled / checkFrequency
+ * @module stores/updateStore
  */
 
 import { create } from "zustand";

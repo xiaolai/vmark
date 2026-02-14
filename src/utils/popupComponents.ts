@@ -1,8 +1,20 @@
 /**
- * Popup Components - DOM Builder Utilities
+ * Popup Components — DOM Builder Utilities
  *
- * Helper functions for building consistent popup UI components.
- * Used by vanilla DOM-based popup views (LinkPopup, WikiLinkPopup, etc.)
+ * Purpose: Helper functions for building consistent popup UI components
+ * using vanilla DOM (not React). Used by ProseMirror popup views that
+ * need lightweight, framework-free DOM construction.
+ *
+ * Key decisions:
+ *   - Vanilla DOM (not React) because ProseMirror node views manage their own lifecycle
+ *   - CSS classes match popup-shared.css conventions (popup-icon-btn, popup-input, etc.)
+ *   - Tab navigation cycling keeps focus trapped inside the popup for accessibility
+ *   - SVG icons are inline strings to avoid import overhead
+ *
+ * @coordinates-with styles/popup-shared.css — CSS classes for popup-icon-btn, popup-input
+ * @coordinates-with LinkPopupView.ts — primary consumer for link editing popup
+ * @coordinates-with ImagePopupView.ts — primary consumer for image editing popup
+ * @module utils/popupComponents
  */
 
 // SVG Icons (feather-style, 24x24 viewBox)

@@ -1,0 +1,7 @@
+# Binaries stay local
+*.png
+*.pdf
+*.jpg
+
+# Local-only directories
+archive/

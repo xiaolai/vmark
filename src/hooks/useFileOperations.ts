@@ -1,3 +1,24 @@
+/**
+ * File Operations Hook
+ *
+ * Purpose: Central dispatcher for file menu events — Open, Save, Save As,
+ *   New Tab, New Window, Close Tab, and file-related keyboard shortcuts.
+ *
+ * Pipeline: Rust menu event → Tauri `listen()` → this hook routes to the
+ *   appropriate action → store updates + file I/O via saveToPath/readTextFile
+ *
+ * Key decisions:
+ *   - Uses reentryGuard to prevent double-save from rapid Cmd+S
+ *   - flushActiveWysiwygNow() ensures WYSIWYG content is serialized before save
+ *   - Open policy (resolveOpenAction) decides new-tab vs new-window
+ *   - Save As updates both filePath and recent files list
+ *
+ * @coordinates-with closeSave.ts — shared save prompt for dirty documents
+ * @coordinates-with useReplaceableTab.ts — reuses empty untitled tabs on file open
+ * @coordinates-with documentStore.ts — reads/writes document content and dirty state
+ * @module hooks/useFileOperations
+ */
+
 import { useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { type UnlistenFn } from "@tauri-apps/api/event";

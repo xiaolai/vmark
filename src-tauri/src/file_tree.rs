@@ -1,3 +1,15 @@
+//! # File Tree
+//!
+//! Purpose: Lists directory contents for the sidebar file explorer.
+//!
+//! Pipeline: Frontend invoke("list_directory_entries") → this module → filesystem readdir
+//!
+//! Key decisions:
+//!   - Hidden file detection is cross-platform: dot-prefix on all OSes,
+//!     plus FILE_ATTRIBUTE_HIDDEN/SYSTEM on Windows.
+//!   - Errors on individual entries are silently skipped so one bad symlink
+//!     doesn't break the entire listing.
+
 use serde::Serialize;
 use std::fs;
 
@@ -29,6 +41,13 @@ fn is_hidden_by_metadata(_: &fs::Metadata) -> bool {
     false
 }
 
+/// List immediate children of a directory for the file explorer sidebar.
+///
+/// Returns name, path, directory flag, and hidden flag for each entry.
+/// Individual entry errors (e.g., broken symlinks) are silently skipped.
+///
+/// # Errors
+/// Returns `Err` if the directory itself cannot be read.
 #[tauri::command]
 pub fn list_directory_entries(path: &str) -> Result<Vec<DirectoryEntry>, String> {
     let entries = fs::read_dir(path).map_err(|e| format!("Failed to read dir: {e}"))?;

@@ -1,3 +1,24 @@
+/**
+ * Composition Guard Tiptap Extension
+ *
+ * Purpose: Protects IME (Input Method Editor) composition from interference by other
+ * plugins, and fixes Safari-specific composition bugs in table header cells.
+ *
+ * Key decisions:
+ *   - High priority (1200) to intercept events before other plugins process them
+ *   - Tracks composition state (start position, data) to correctly handle composition end
+ *   - Safari fix: ProseMirror's fixUpBadSafariComposition displaces cursor in table headers;
+ *     this plugin uses appendTransaction to restore correct cursor position
+ *   - Grace period after compositionend prevents race conditions with queued actions
+ *   - Flushes queued ProseMirror actions after composition ends
+ *
+ * Known limitations:
+ *   - Safari table header fix uses heuristic position detection, may not cover all edge cases
+ *
+ * @coordinates-with utils/imeGuard.ts — IME state tracking and action queuing utilities
+ * @module plugins/compositionGuard/tiptap
+ */
+
 import { Extension } from "@tiptap/core";
 import { Plugin, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

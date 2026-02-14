@@ -61,13 +61,13 @@ tauri_webview_screenshot({ uid: 'element-abc123' })
 
 ```typescript
 tauri_webview_screenshot({
-  filePath: '/tmp/screenshot.png',
+  filePath: 'dev-docs/archive/test-screenshots/screenshot.png',
   format: 'png'
 })
 
 // JPEG with quality
 tauri_webview_screenshot({
-  filePath: '/tmp/screenshot.jpg',
+  filePath: 'dev-docs/archive/test-screenshots/screenshot.jpg',
   format: 'jpeg',
   quality: 80
 })
@@ -355,7 +355,7 @@ tauri_webview_wait_for({ type: 'selector', value: '.dashboard', timeout: 5000 })
 
 ```typescript
 // 1. Take baseline screenshot
-tauri_webview_screenshot({ filePath: '/tmp/before.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/before.png' })
 
 // 2. Perform action
 tauri_webview_interact({ action: 'click', selector: '.toggle-dark-mode' })
@@ -364,7 +364,7 @@ tauri_webview_interact({ action: 'click', selector: '.toggle-dark-mode' })
 tauri_webview_wait_for({ type: 'selector', value: '[data-theme="dark"]' })
 
 // 4. Take comparison screenshot
-tauri_webview_screenshot({ filePath: '/tmp/after.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/after.png' })
 
 // 5. Check CSS changes
 tauri_webview_get_styles({

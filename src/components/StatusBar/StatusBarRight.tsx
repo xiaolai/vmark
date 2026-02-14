@@ -1,3 +1,23 @@
+/**
+ * StatusBarRight
+ *
+ * Purpose: Right-hand section of the status bar — word/char count, AI spinner,
+ * MCP connection status, update indicator, auto-save/divergent/missing warnings,
+ * terminal toggle, and editor mode toggle.
+ *
+ * Key decisions:
+ *   - Split from StatusBar.tsx to isolate re-renders: props like wordCount
+ *     change frequently, but the left-side tab strip should not re-render.
+ *   - Mode toggle flushes any pending WYSIWYG content before switching
+ *     to Source mode, preventing content loss from debounced serialization.
+ *   - MCP tooltip is built from live client list (connected AI tools)
+ *     and clicking opens the integrations settings panel.
+ *   - formatClientName handles acronym capitalization (CLI, AI, MCP, etc.).
+ *
+ * @coordinates-with StatusBar.tsx — parent passes all props
+ * @coordinates-with UpdateIndicator.tsx — inline update badge
+ * @module components/StatusBar/StatusBarRight
+ */
 import { AlertTriangle, Code2, GitFork, Satellite, Save, Sparkles, Terminal, Type } from "lucide-react";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";

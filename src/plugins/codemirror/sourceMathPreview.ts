@@ -1,11 +1,18 @@
 /**
  * Source Mode Math Preview Plugin
  *
- * Shows a floating preview of math when cursor is inside:
- * - Inline math: $...$
- * - Block math: $$...$$ or ```latex...```
+ * Purpose: Shows a floating KaTeX-rendered preview when the cursor is inside
+ * math syntax ($...$, $$...$$, or ```latex```) in Source mode.
  *
- * Reuses the MathPreviewView singleton from the latex plugin.
+ * Key decisions:
+ *   - Reuses MathPreviewView singleton from the WYSIWYG latex plugin
+ *   - Supports Escape to dismiss the preview and return focus to the editor
+ *   - Debounces updates to avoid re-rendering KaTeX on every keystroke
+ *   - Distinguishes inline vs block math for appropriate preview positioning
+ *
+ * @coordinates-with mathPreview/MathPreviewView.ts — shared math preview rendering singleton
+ * @coordinates-with toolbarActions/sourceAdapterLinks.ts — findInlineMathAtCursor, findBlockMathAtCursor
+ * @module plugins/codemirror/sourceMathPreview
  */
 
 import { EditorView, ViewPlugin, ViewUpdate, keymap } from "@codemirror/view";

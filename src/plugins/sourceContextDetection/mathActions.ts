@@ -1,3 +1,13 @@
+/**
+ * Math Actions for Source Mode
+ *
+ * Purpose: Provides text manipulation helpers for block math regions ($$...$$).
+ * Extracts content ranges and computes text replacements for the toolbar adapter.
+ *
+ * @coordinates-with blockMathDetection.ts — provides BlockMathInfo used by these functions
+ * @coordinates-with sourceAdapter.ts — calls these to implement math toggle/edit in toolbar
+ * @module plugins/sourceContextDetection/mathActions
+ */
 import type { Text } from "@codemirror/state";
 import type { BlockMathInfo } from "./blockMathDetection";
 

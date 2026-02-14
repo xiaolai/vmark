@@ -1,7 +1,19 @@
 /**
  * Auto-Pair Input Handlers
  *
- * Handlers for text input, closing bracket skip, and backspace pair deletion.
+ * Purpose: Core logic for auto-pairing — handles text input (insert closing char),
+ * closing bracket skip-over (type `)` when already there), and backspace pair deletion.
+ *
+ * Key decisions:
+ *   - Backtick is special-cased as a code mark toggle in WYSIWYG (not a simple pair)
+ *   - Right double quote normalization converts `\u201D` to `\u201C` at line start for
+ *     Chinese typographic convention where both open/close quotes look the same
+ *   - Config is passed in rather than read from store to keep handlers pure/testable
+ *
+ * @coordinates-with pairs.ts — pair definitions and lookup functions
+ * @coordinates-with utils.ts — context checks (code block, word boundary)
+ * @coordinates-with tiptap.ts — wires these handlers into the ProseMirror plugin
+ * @module plugins/autoPair/handlers
  */
 
 import type { EditorView } from "@tiptap/pm/view";

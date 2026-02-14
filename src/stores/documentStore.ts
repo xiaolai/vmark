@@ -1,3 +1,34 @@
+/**
+ * Document Store
+ *
+ * Purpose: Per-tab document state — content, dirty tracking, file path,
+ *   cursor position, line endings, and external-change detection.
+ *
+ * Pipeline: Editor keystroke → setContent(tabId, text) → isDirty computed
+ *   from savedContent comparison → useAutoSave reads isDirty → saveToPath()
+ *   → markSaved()/markAutoSaved() → isDirty = false
+ *
+ * Key decisions:
+ *   - State keyed by tab ID (not window label) so documents survive tab moves.
+ *   - Three content snapshots per doc: `content` (current), `savedContent`
+ *     (last save), `lastDiskContent` (what's on disk after normalization).
+ *     This three-way tracking enables external-change detection.
+ *   - isDivergent flag tracks "keep my changes" state after external file
+ *     modification — local content intentionally differs from disk.
+ *   - isMissing flag tracks externally-deleted files for UI warning.
+ *   - Uses guarded updateDoc() helper — no-ops if tab ID doesn't exist.
+ *
+ * Known limitations:
+ *   - No persistence — document content is only saved via explicit save
+ *     actions, not via store middleware.
+ *   - documentId counter is per-session — not globally unique.
+ *
+ * @coordinates-with tabStore.ts — tab ID is the key into documents map
+ * @coordinates-with useAutoSave.ts — reads isDirty to trigger auto-save
+ * @coordinates-with useFileWatcher.ts — calls markMissing/markDivergent on external changes
+ * @module stores/documentStore
+ */
+
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";

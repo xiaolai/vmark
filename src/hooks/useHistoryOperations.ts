@@ -1,12 +1,21 @@
 /**
  * History Operations (Hooks Layer)
  *
- * Async functions for document history management:
- * - Index CRUD operations
- * - Snapshot create/load/prune
+ * Purpose: Async CRUD for document version history — creating snapshots,
+ *   loading past versions, pruning old entries, and managing the index file.
  *
- * Uses Tauri APIs for file system access.
- * Types and pure helpers are in utils/historyTypes.
+ * Pipeline: Save triggers → createSnapshot(filePath, content) → write to
+ *   appDataDir/history/{hash}/ → update index.json → prune if over limit
+ *
+ * Key decisions:
+ *   - Lives in hooks/ (not utils/) because it uses Tauri filesystem APIs
+ *   - History stored in appDataDir, not alongside documents (portable)
+ *   - Index file tracks metadata; actual content in numbered snapshot files
+ *   - Pruning respects HistorySettings (max count, max age)
+ *
+ * @coordinates-with historyTypes.ts — shared types and constants
+ * @coordinates-with useHistoryRecovery.ts — recovery of deleted document history
+ * @module hooks/useHistoryOperations
  */
 
 import {

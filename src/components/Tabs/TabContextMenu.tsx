@@ -1,3 +1,27 @@
+/**
+ * TabContextMenu
+ *
+ * Purpose: Right-click context menu for tabs — provides actions like close,
+ * close others, pin/unpin, move to new window, copy path, reveal in file
+ * manager, revert to saved, and restore deleted files.
+ *
+ * User interactions:
+ *   - Arrow keys navigate menu items; Enter/Space activates
+ *   - Escape or click-outside closes the menu
+ *   - Tab key closes the menu (returns focus to tab strip)
+ *
+ * Key decisions:
+ *   - Menu items are built by useTabContextMenuActions hook, which handles
+ *     enable/disable logic and action callbacks based on tab/document state.
+ *   - Uses roving tabindex with focusableIndices to skip separators and
+ *     disabled items during keyboard navigation.
+ *   - Position auto-adjusts to stay within viewport (right/bottom overflow).
+ *   - Listens for viewport resize/scroll to reposition dynamically.
+ *
+ * @coordinates-with useTabContextMenuActions.ts — provides menu item definitions
+ * @coordinates-with StatusBar.tsx — triggers this menu on tab right-click
+ * @module components/Tabs/TabContextMenu
+ */
 import {
   useCallback,
   useEffect,

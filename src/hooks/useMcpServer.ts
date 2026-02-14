@@ -1,8 +1,18 @@
 /**
  * MCP Bridge Control Hook
  *
- * Provides React state and controls for the VMark MCP bridge (WebSocket server).
- * AI clients (Claude Code, Codex, etc.) spawn their own sidecars that connect to this bridge.
+ * Purpose: React state and controls for the VMark MCP bridge (WebSocket server) —
+ *   start/stop/restart the bridge, track running state and port, listen for
+ *   status change events from Rust.
+ *
+ * Key decisions:
+ *   - AI clients spawn their own sidecars that connect to this bridge
+ *   - Bridge runs in Rust process, frontend only controls and monitors
+ *   - Port reported back to frontend for display and sidecar config
+ *
+ * @coordinates-with useMcpAutoStart.ts — auto-starts on app launch
+ * @coordinates-with useMcpHealthCheck.ts — health check runs through this hook
+ * @module hooks/useMcpServer
  */
 
 import { useState, useEffect, useCallback } from "react";

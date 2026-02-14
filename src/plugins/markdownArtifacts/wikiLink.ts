@@ -1,16 +1,17 @@
+/**
+ * Wiki Link Node Extension
+ *
+ * Purpose: Inline node for wiki-style links ([[target]] or [[target|alias]]).
+ * Unlike atom nodes, the display text is a content hole that users can edit
+ * directly in the editor. The target path is stored in the `value` attribute
+ * and edited via the wiki link popup.
+ *
+ * @coordinates-with wikiLinkPopup/tiptap.ts — popup for editing the target path
+ * @coordinates-with sourceWikiLinkPopup — equivalent popup for Source mode
+ * @module plugins/markdownArtifacts/wikiLink
+ */
 import { Node, mergeAttributes } from "@tiptap/core";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
-
-/**
- * Wiki Link Node
- *
- * Inline node for wiki-style links [[target]] or [[target|alias]].
- * - `value` attribute: the target page/file path
- * - Text content: the display text (alias), editable inline
- *
- * Unlike atom nodes, users can edit the display text directly in the editor.
- * The target is edited via the popup.
- */
 export const wikiLinkExtension = Node.create({
   name: "wikiLink",
   inline: true,

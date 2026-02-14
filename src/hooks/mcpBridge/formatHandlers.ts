@@ -1,5 +1,10 @@
 /**
- * MCP Bridge - Format Operation Handlers
+ * MCP Bridge — Format Operation Handlers
+ *
+ * Purpose: Inline format toggle operations via MCP — bold, italic, code,
+ *   strikethrough, highlight, and link toggling in the active editor.
+ *
+ * @module hooks/mcpBridge/formatHandlers
  */
 
 import { respond, getEditor } from "./utils";

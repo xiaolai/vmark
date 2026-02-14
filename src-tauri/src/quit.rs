@@ -1,3 +1,23 @@
+//! # Coordinated Quit
+//!
+//! Purpose: Manages graceful application shutdown with unsaved-changes prompts
+//! and an optional double-press confirmation gate (Cmd+Q twice to quit).
+//!
+//! Pipeline: Cmd+Q → `request_quit` → confirm gate → `start_quit` → emit
+//! `app:quit-requested` to each document window → windows close one by one →
+//! `handle_window_destroyed` → when all targets gone → `finalize_quit` → `app.exit(0)`.
+//!
+//! Key decisions:
+//!   - EXIT_ALLOWED is only set to true immediately before `app.exit(0)` to prevent
+//!     premature exit during the coordinated quit flow.
+//!   - The confirm-quit gate uses wall-clock timing (Instant) so it works even when
+//!     the event loop is busy.
+//!   - `cancel_quit` clears all state including the first-press timestamp to prevent
+//!     stale timestamps from acting as a second press after cancellation.
+//!
+//! Known limitations:
+//!   - Tests mutate shared statics and must run serially (guarded by TEST_LOCK).
+
 use std::collections::HashSet;
 use std::sync::{Mutex, LazyLock, atomic::{AtomicBool, Ordering}};
 use std::time::{Duration, Instant};

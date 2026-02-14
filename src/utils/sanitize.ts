@@ -1,7 +1,22 @@
 /**
  * HTML Sanitization Utilities
  *
- * Provides secure HTML sanitization using DOMPurify to prevent XSS attacks.
+ * Purpose: Provides secure HTML sanitization using DOMPurify to prevent XSS attacks.
+ * Each function is tailored for a specific content type with appropriate allowlists.
+ *
+ * Key decisions:
+ *   - Separate functions for each content type (general HTML, SVG, KaTeX) because
+ *     each has different security requirements and allowed elements
+ *   - SVG sanitization allows foreignObject + HTML profiles for Mermaid diagrams
+ *     (Mermaid uses HTML inside SVG for text layout)
+ *   - Style attribute sanitization uses a property allowlist to block
+ *     expression() and javascript: attacks in inline styles
+ *   - escapeHtml is a simple entity escape for non-HTML text display
+ *
+ * @coordinates-with mermaid/index.ts — uses sanitizeSvg for Mermaid diagram output
+ * @coordinates-with latex/katexLoader.ts — uses sanitizeKatex for math rendering
+ * @coordinates-with htmlPaste/tiptap.ts — uses sanitizeHtml for pasted HTML
+ * @module utils/sanitize
  */
 
 import DOMPurify from "dompurify";

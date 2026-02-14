@@ -1,9 +1,23 @@
 /**
  * Popup Positioning Utility
  *
- * Reusable positioning logic for floating popups.
+ * Purpose: Reusable positioning logic for floating popups, calculating
+ * viewport-safe coordinates from anchor elements.
+ *
  * Supports separate horizontal/vertical boundary constraints,
  * space detection, and configurable placement preference.
+ *
+ * Key decisions:
+ *   - Separate horizontal and vertical bounds because editor popups are
+ *     constrained by the editor width (horizontal) but the full viewport (vertical)
+ *   - Three placement modes: above (preferred), below (fallback), overlap (for
+ *     very large anchors like tables that exceed viewport)
+ *   - Gap parameter defaults to 6px matching --popup-padding token
+ *
+ * @coordinates-with popupComponents.ts — builds the DOM elements being positioned
+ * @coordinates-with WysiwygPopupView.ts — base class that uses calculatePopupPosition
+ * @coordinates-with SourcePopupView.ts — source mode popup positioning
+ * @module utils/popupPosition
  */
 
 export interface AnchorRect {

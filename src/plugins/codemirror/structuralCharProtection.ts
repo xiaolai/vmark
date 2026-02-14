@@ -1,15 +1,18 @@
 /**
  * Structural Character Protection
  *
- * Prevents backspace/delete from accidentally removing structural
- * markdown characters:
- * - Table pipes (|)
- * - List markers (-, *, +, 1.)
- * - Blockquote markers (>)
+ * Purpose: Prevents accidental deletion of structural markdown characters (table pipes,
+ * list markers, blockquote markers) by intercepting Backspace/Delete at those positions.
  *
- * When backspace would delete a structural character, we either:
- * - Skip over it (move cursor without deleting)
- * - Or perform a smarter operation (e.g., move to previous cell)
+ * Key decisions:
+ *   - Backspace at a table pipe skips over it (moves cursor) instead of deleting
+ *   - Backspace at a list marker removes the entire marker (semantic operation)
+ *   - Blockquote markers (>) are protected at the start of lines
+ *   - Pattern constants are exported for reuse by other plugins (e.g., listSmartIndent)
+ *
+ * @coordinates-with listSmartIndent.ts — reuses LIST_ITEM_PATTERN, TASK_ITEM_PATTERN
+ * @coordinates-with tableTabNav.ts — both operate on table structure
+ * @module plugins/codemirror/structuralCharProtection
  */
 
 import { type KeyBinding, type EditorView } from "@codemirror/view";

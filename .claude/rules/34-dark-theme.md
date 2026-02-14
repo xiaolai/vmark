@@ -161,7 +161,7 @@ Alert blocks use centralized dark tokens (defined in `index.css`):
 3. **Contrast ratio** - text must be readable (WCAG AA: 4.5:1)
 4. **Focus indicators** - must be visible in dark theme
 5. **Shadows** - verify depth perception works in dark
-6. **Compare screenshots** - check against `dev-docs/screenshots/` baselines (local)
+6. **Compare screenshots** - check against `dev-docs/archive/screenshots/` baselines (local)
 
 ## Avoiding Common Mistakes
 

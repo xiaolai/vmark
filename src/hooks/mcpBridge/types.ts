@@ -1,5 +1,10 @@
 /**
  * MCP Bridge Types
+ *
+ * Purpose: TypeScript interfaces for the MCP bridge request/response protocol —
+ *   defines the shape of events flowing between Rust and frontend handlers.
+ *
+ * @module hooks/mcpBridge/types
  */
 
 /** Raw event from Tauri IPC - args is JSON string to avoid double-encoding */

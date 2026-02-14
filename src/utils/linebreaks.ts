@@ -1,3 +1,19 @@
+/**
+ * Linebreak Normalization
+ *
+ * Purpose: Normalize line endings and hard break styles before saving.
+ * Resolves user preference vs detected document convention, then transforms
+ * the markdown content accordingly.
+ *
+ * Key decisions:
+ *   - "preserve" preference defers to the document's detected style
+ *   - New/unknown documents default to LF and two-spaces (widest compatibility)
+ *   - Conversion skips fenced code blocks to avoid corrupting code content
+ *
+ * @coordinates-with utils/linebreakDetection.ts — provides the detection inputs
+ * @module utils/linebreaks
+ */
+
 import type {
   HardBreakStyle,
   HardBreakStyleOnSave,

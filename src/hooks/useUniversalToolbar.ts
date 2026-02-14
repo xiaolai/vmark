@@ -1,9 +1,11 @@
 /**
- * useUniversalToolbar - configurable toggle hook
+ * Universal Toolbar Toggle Hook
  *
- * Listens for the configured shortcut to toggle the universal toolbar.
- * Works with both WYSIWYG and Source modes.
+ * Purpose: Listens for the configurable keyboard shortcut to toggle the
+ *   universal toolbar visibility — works in both WYSIWYG and Source modes.
  *
+ * @coordinates-with uiStore.ts — toggles toolbar visibility
+ * @coordinates-with shortcutsStore.ts — reads configurable shortcut binding
  * @module hooks/useUniversalToolbar
  */
 import { useEffect, useCallback } from "react";

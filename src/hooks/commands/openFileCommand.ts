@@ -1,13 +1,16 @@
 /**
  * Open File Command
  *
- * Pure decision logic for opening files in tabs.
- * Separates "what should happen" from side effects (file I/O, store updates).
+ * Purpose: Pure decision logic for opening files in tabs — determines whether
+ *   to create a new tab, reuse an existing one, or activate a tab that already
+ *   has the file open. Returns action objects, never executes side effects.
  *
- * Design:
- * - By default, files open in a new tab (workspace-first design)
- * - Option to reuse an existing tab if one exists for the file
- * - Pure functions return actions to execute, not side effects
+ * Key decisions:
+ *   - Default: always open in a new tab (workspace-first design)
+ *   - Optional reuseExistingTab mode for dedup (e.g., clicking same file twice)
+ *   - Pure functions enable testability without mocking stores
+ *
+ * @module hooks/commands/openFileCommand
  */
 
 /**

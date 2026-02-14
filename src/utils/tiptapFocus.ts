@@ -1,3 +1,20 @@
+/**
+ * Tiptap Focus Utilities
+ *
+ * Purpose: Manages focus acquisition and cursor restoration for the Tiptap WYSIWYG editor,
+ * including scroll-to-cursor and retry logic for race conditions during mode switches.
+ *
+ * Key decisions:
+ *   - Retries focus up to MAX_FOCUS_ATTEMPTS times with requestAnimationFrame to handle
+ *     cases where editor DOM isn't ready yet after mode switch
+ *   - Scroll restoration uses the editor's scroll container, not window scroll
+ *   - Cursor position restoration preserves both anchor and head for selection ranges
+ *
+ * @coordinates-with cursorSync/tiptap.ts — saves cursor position before mode switch
+ * @coordinates-with Editor.tsx — calls focus functions after mode toggle
+ * @module utils/tiptapFocus
+ */
+
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { EditorView } from "@tiptap/pm/view";
 import { Selection } from "@tiptap/pm/state";

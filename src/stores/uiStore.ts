@@ -1,3 +1,23 @@
+/**
+ * UI Store
+ *
+ * Purpose: Transient UI state — sidebar visibility/width/mode, status bar,
+ *   universal toolbar focus management, terminal panel, and file drag state.
+ *
+ * Key decisions:
+ *   - Not persisted — UI state resets on reload. Persistent prefs go in
+ *     settingsStore, persistent workspace state in workspaceStore.
+ *   - Universal toolbar has a 3-state focus toggle: closed → open+focused →
+ *     open+editor-focused → back to open+focused (Section 1.2 spec).
+ *   - toolbarSessionFocusIndex is ephemeral — cleared when toolbar closes
+ *     to avoid stale focus positions on reopen.
+ *   - Sidebar width is clamped to [180, 480]px; terminal height to [100, 600]px.
+ *
+ * @coordinates-with UniversalToolbar component — reads toolbar visibility/focus
+ * @coordinates-with useViewShortcuts.ts — calls toggle methods from keyboard shortcuts
+ * @module stores/uiStore
+ */
+
 import { create } from "zustand";
 
 export type SidebarViewMode = "files" | "outline" | "history";

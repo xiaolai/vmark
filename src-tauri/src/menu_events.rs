@@ -1,3 +1,21 @@
+//! # Menu Event Dispatcher
+//!
+//! Purpose: Routes native menu clicks to the correct frontend window via Tauri events.
+//!
+//! Pipeline: User clicks menu item → `handle_menu_event` → emits `menu:{id}` to focused window.
+//!
+//! Key decisions:
+//!   - Window readiness tracking prevents events from being lost during cold start.
+//!     Events are queued until the frontend signals "ready", then flushed atomically.
+//!   - Quit and Settings are handled entirely in Rust (no frontend round-trip needed).
+//!   - Recent files/workspaces/genies resolve paths from snapshot Mutexes in `menu.rs`
+//!     to avoid TOCTOU races if the store changes between menu build and click.
+//!   - "close" events include the target window label so the frontend can filter correctly.
+//!
+//! Known limitations:
+//!   - On Windows, clicking a menu item can momentarily defocus the webview, so
+//!     we fall back to "any document window" when no focused window is found.
+
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};

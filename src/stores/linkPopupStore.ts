@@ -1,7 +1,11 @@
 /**
  * Link Popup Store
  *
- * Manages state for the link editing popup that appears when clicking links.
+ * Purpose: State for the link editing popup (click-to-edit existing links) —
+ *   tracks href, link range in the document, and anchor rect for positioning.
+ *
+ * @coordinates-with linkCreatePopupStore.ts — handles creating new links (separate flow)
+ * @module stores/linkPopupStore
  */
 
 import { create } from "zustand";

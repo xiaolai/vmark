@@ -1,3 +1,21 @@
+/**
+ * Auto-Pair Tiptap Extension
+ *
+ * Purpose: Automatically inserts matching closing brackets/quotes when the user types
+ * an opening character in WYSIWYG mode. Also handles skip-over and backspace-delete.
+ *
+ * Key decisions:
+ *   - Uses handleDOMEvents.keydown (not handleKeyDown) to intercept Tab/Backspace before
+ *     Tiptap's built-in keyboard shortcuts (e.g., list indent)
+ *   - Config is read lazily from settingsStore so changes take effect immediately
+ *   - IME composition is fully guarded to avoid corrupting CJK input
+ *
+ * @coordinates-with handlers.ts — core auto-pair logic (text input, key handling)
+ * @coordinates-with pairs.ts — character pair definitions (ASCII, CJK, curly quotes)
+ * @coordinates-with utils.ts — context detection (code block, inline code, word boundary)
+ * @module plugins/autoPair/tiptap
+ */
+
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { useSettingsStore } from "@/stores/settingsStore";

@@ -1,8 +1,16 @@
 /**
  * Workspace Identity Logic
  *
- * Pure helpers for generating and validating workspace identities.
- * Each workspace gets a unique UUID that persists in its config file.
+ * Purpose: Pure helpers for generating and validating workspace identities.
+ * Each workspace gets a unique UUID persisted in its .vmark/config.json file.
+ *
+ * Key decisions:
+ *   - UUID v4 (crypto.randomUUID) for globally unique workspace identification
+ *   - Trust levels control capabilities (untrusted: limited, trusted: can run tasks)
+ *   - Pure functions — no filesystem access (caller handles persistence)
+ *
+ * @coordinates-with workspaceStore.ts — stores workspace ID and trust level
+ * @module utils/workspaceIdentity
  */
 
 /**

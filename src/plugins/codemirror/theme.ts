@@ -1,8 +1,16 @@
 /**
  * CodeMirror Theme Configuration
  *
- * Styling for the Source mode editor.
- * Includes syntax highlighting for code blocks.
+ * Purpose: Defines the base editor theme and syntax highlight style for Source mode,
+ * using CSS classes (not inline styles) for theme-aware colors via design tokens.
+ *
+ * Key decisions:
+ *   - Uses CSS class-based highlighting (not color values) so dark/light themes work via CSS
+ *   - Base theme handles caret, selection, gutters, and panel styling
+ *   - Highlight style maps Lezer grammar tags to `.cm-hl-*` CSS classes
+ *
+ * @coordinates-with styles/source-mode.css — CSS class definitions for the highlight tokens
+ * @module plugins/codemirror/theme
  */
 
 import { EditorView } from "@codemirror/view";

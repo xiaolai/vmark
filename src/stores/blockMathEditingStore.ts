@@ -1,8 +1,16 @@
 /**
  * Block Math Editing Store
  *
- * Manages state for block math (latex/mermaid code block) editing in WYSIWYG mode.
- * Tracks which code block is being edited and stores original content for revert.
+ * Purpose: Tracks which math/mermaid code block is being edited in WYSIWYG mode,
+ *   storing original content for ESC-revert.
+ *
+ * Key decisions:
+ *   - Only one block can be edited at a time (single editingPos).
+ *   - originalContent enables ESC to revert without undo stack pollution.
+ *
+ * @coordinates-with inlineMathEditingStore.ts — same pattern for inline math ($...$)
+ * @coordinates-with codePreview plugin — renders preview while not editing
+ * @module stores/blockMathEditingStore
  */
 
 import { create } from "zustand";

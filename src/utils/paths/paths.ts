@@ -1,11 +1,21 @@
 /**
  * Path Normalization Helpers
  *
- * Centralized, cross-platform path utilities for workspace boundary checks.
+ * Purpose: Centralized, cross-platform path utilities for workspace boundary checks.
  * All functions normalize paths to use forward slashes for consistency.
  *
- * IMPORTANT: These helpers work with path strings only - no filesystem access.
+ * IMPORTANT: These helpers work with path strings only — no filesystem access.
  * They must remain pure and framework-free (no Tauri, React, etc.).
+ *
+ * Key decisions:
+ *   - Forward slashes everywhere (even on Windows) to avoid escape issues
+ *   - isWithinRoot uses boundary checking (root + "/") to prevent substring false positives
+ *   - isPathExcluded matches against path segments, not substrings, for accuracy
+ *
+ * @coordinates-with openPolicy.ts — uses isWithinRoot for workspace boundary decisions
+ * @coordinates-with pathReconciliation.ts — uses normalizePath for path comparison
+ * @coordinates-with fileTreeFilters.ts — uses isPathExcluded for file explorer filtering
+ * @module utils/paths/paths
  */
 
 /**

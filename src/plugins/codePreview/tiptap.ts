@@ -1,3 +1,32 @@
+/**
+ * Code Preview Tiptap Extension
+ *
+ * Purpose: Renders live previews below code blocks for special languages (LaTeX/math,
+ * Mermaid diagrams, Markmap mindmaps, SVG) in WYSIWYG mode. Also handles click-to-edit
+ * for block math ($$...$$ code blocks).
+ *
+ * Pipeline: code_block node → detect language → render preview widget decoration
+ *         → debounced re-render on content change → click to edit → Cmd+Enter to commit
+ *
+ * Key decisions:
+ *   - Previews are ProseMirror widget decorations (not node views) to avoid complicating
+ *     the document schema
+ *   - Preview rendering is debounced (200ms) to avoid re-rendering on every keystroke
+ *   - Each preview type has its own renderer (renderLatex, renderMermaid, etc.)
+ *   - Block math uses a special "$$math$$" sentinel language to distinguish from regular latex
+ *   - Export buttons (copy SVG, download PNG) are injected into diagram previews
+ *
+ * Known limitations:
+ *   - Module-level `currentEditorView` is used for button callbacks (not ideal for multi-editor)
+ *
+ * @coordinates-with blockMathKeymap.ts — keyboard shortcuts for math editing
+ * @coordinates-with latex/ — KaTeX rendering
+ * @coordinates-with mermaid/ — Mermaid diagram rendering
+ * @coordinates-with markmap/ — Markmap mindmap rendering
+ * @coordinates-with svg/ — SVG block rendering
+ * @module plugins/codePreview/tiptap
+ */
+
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

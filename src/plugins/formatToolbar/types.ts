@@ -1,3 +1,14 @@
+/**
+ * Format Toolbar Types
+ *
+ * Purpose: Type definitions for the selection-aware format toolbar context system
+ * that adapts toolbar items based on cursor position and selection state.
+ *
+ * @coordinates-with tiptapContext.ts — builds these contexts from editor state
+ * @coordinates-with nodeDetection.tiptap.ts — detects node types for context building
+ * @module plugins/formatToolbar/types
+ */
+
 export type ContextMode = "format" | "inline-insert" | "block-insert";
 
 export interface HeadingInfo {

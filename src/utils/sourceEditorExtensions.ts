@@ -1,5 +1,20 @@
 /**
- * CodeMirror extensions configuration for the source editor.
+ * CodeMirror Extensions Configuration
+ *
+ * Purpose: Assembles the full CodeMirror extension stack for VMark's source editor,
+ * including markdown language support, custom keymaps, themes, and plugins.
+ *
+ * Key decisions:
+ *   - Uses Compartments for settings that can change at runtime (line numbers,
+ *     word wrap, font size, typewriter mode, focus mode, etc.)
+ *   - Custom undo/redo routes through unified history (shared with WYSIWYG)
+ *   - IME guard prevents premature commits during CJK composition
+ *   - Plugins are loaded via imports from codemirror/ directory (co-located)
+ *
+ * @coordinates-with SourceEditor.tsx — creates EditorView with these extensions
+ * @coordinates-with codemirror/theme.ts — visual theme for the source editor
+ * @coordinates-with codemirror/ — individual plugin modules for source features
+ * @module utils/sourceEditorExtensions
  */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@codemirror/view";

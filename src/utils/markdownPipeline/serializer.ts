@@ -1,9 +1,21 @@
 /**
- * Markdown serializer using remark-stringify
+ * Markdown Serializer (remark-stringify based)
  *
- * Serializes MDAST (Markdown Abstract Syntax Tree) back to markdown text.
- * Uses unified with remark-stringify, remark-gfm, remark-math, and remark-frontmatter.
+ * Purpose: Serializes MDAST back to markdown text with consistent formatting.
+ * The serializer configuration determines VMark's canonical markdown style.
  *
+ * Key decisions:
+ *   - Bullet: `-` (not `*`), emphasis: `*`, strong: `**`, fence: backtick
+ *   - listItemIndent: "one" — minimizes diff noise compared to "tab"
+ *   - Custom handlers for image/link to use angle brackets for URLs with spaces
+ *     instead of percent-encoding (more readable, CommonMark compliant)
+ *   - Post-processes &#x20; entities back to spaces (remark-stringify adds these
+ *     near line breaks but they are unnecessary for our use case)
+ *   - hardBreakStyle option converts `\` breaks to two-space breaks
+ *
+ * @coordinates-with parser.ts — plugins must match between parser and serializer
+ * @coordinates-with adapter.ts — wraps this with error handling
+ * @coordinates-with markdownUrl.ts — shares URL whitespace detection pattern
  * @module utils/markdownPipeline/serializer
  */
 

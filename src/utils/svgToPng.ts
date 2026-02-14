@@ -1,8 +1,17 @@
 /**
  * SVG to PNG Conversion
  *
- * Converts an SVG string to a PNG Uint8Array at a given scale.
+ * Purpose: Converts an SVG string to a PNG Uint8Array at a given scale factor.
  * Adds a solid background rect since SVG defaults to transparent.
+ *
+ * Key decisions:
+ *   - Uses canvas-based rasterization (DOM Image + Canvas drawImage)
+ *   - Background color injected as first child rect to avoid transparent PNGs
+ *   - Scale parameter allows retina-quality exports (2x, 3x)
+ *
+ * @coordinates-with mermaid/mermaidExport.ts — exports Mermaid diagrams as PNG
+ * @coordinates-with svg/svgExport.ts — exports SVG blocks as PNG
+ * @module utils/svgToPng
  */
 
 export async function svgToPngBytes(

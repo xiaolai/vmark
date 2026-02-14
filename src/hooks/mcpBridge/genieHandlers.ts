@@ -1,7 +1,11 @@
 /**
- * MCP Bridge - Genie Operation Handlers
+ * MCP Bridge — Genie Operation Handlers
  *
- * Handles listing, reading, and invoking AI genies via the MCP bridge.
+ * Purpose: Lists available AI genies, reads their definitions, and invokes
+ *   them via the MCP bridge — bridges external AI clients to the genie system.
+ *
+ * @coordinates-with geniesStore.ts — reads genie definitions
+ * @module hooks/mcpBridge/genieHandlers
  */
 
 import { invoke } from "@tauri-apps/api/core";

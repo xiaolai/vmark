@@ -1,8 +1,15 @@
 /**
  * Action System Types
  *
- * Type-safe definitions for the unified action system.
- * All menu events map to action IDs defined here.
+ * Purpose: Type-safe definitions for the unified action system that bridges
+ * Tauri menu events to editor operations across both WYSIWYG and Source modes.
+ *
+ * Key decisions:
+ *   - ACTION_IDS uses `as const` array to derive the ActionId union type at compile time
+ *   - Each action declares mode capability so the dispatcher can skip unsupported ops
+ *
+ * @coordinates-with actionRegistry.ts — consumes these types for the runtime mapping tables
+ * @module plugins/actions/types
  */
 
 /**

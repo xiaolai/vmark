@@ -1,8 +1,16 @@
 /**
  * Markdown Link Patterns
  *
- * Centralized regex patterns for detecting markdown links.
- * Used by source mode popups, adapters, and inline detection.
+ * Purpose: Centralized regex patterns for detecting markdown links and wiki links,
+ * ensuring consistent parsing across all source mode features.
+ *
+ * Used by source mode popups, toolbar adapters, and inline detection.
+ * Regex patterns are recreated per call to avoid stateful lastIndex issues.
+ *
+ * @coordinates-with sourceLinkPopup/ — uses findMarkdownLinkAtPosition for popup display
+ * @coordinates-with sourceWikiLinkPopup/ — uses findWikiLinkAtPosition for popup display
+ * @coordinates-with toolbarActions/sourceAdapterLinks.ts — uses patterns for link detection
+ * @module utils/markdownLinkPatterns
  */
 
 /**

@@ -1,8 +1,12 @@
 /**
  * Revision Tracker
  *
- * Integrates revision tracking with the Tiptap editor.
- * Updates revision on document transactions.
+ * Purpose: Integrates revision tracking with the Tiptap editor — generates
+ *   a new revision ID on each document transaction so MCP clients can detect
+ *   when the document has changed.
+ *
+ * @coordinates-with revisionStore.ts — stores current revision ID
+ * @module hooks/mcpBridge/revisionTracker
  */
 
 import type { Editor } from "@tiptap/core";

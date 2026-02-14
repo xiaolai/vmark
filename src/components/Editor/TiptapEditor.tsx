@@ -1,3 +1,25 @@
+/**
+ * TiptapEditorInner
+ *
+ * Purpose: WYSIWYG rich-text editing surface built on Tiptap/ProseMirror. Parses markdown
+ * to ProseMirror document on load, serializes back on every edit with adaptive debouncing.
+ *
+ * Key decisions:
+ *   - Initial content loaded via setContentWithoutHistory to avoid polluting the undo stack
+ *     with the initial parse.
+ *   - Adaptive debounce (100ms for small docs, 500ms for 50KB+) balances responsiveness
+ *     with serialization cost on large documents.
+ *   - Cursor tracking is delayed 200ms after creation to prevent spurious sync during
+ *     initial render/focus.
+ *   - Flusher registration moved to useEffect (not onCreate) to handle React Strict Mode
+ *     double-mount without duplicate registrations.
+ *   - Hidden mode skips all store updates and content syncs, deferring to visibility transition.
+ *
+ * @coordinates-with SourceEditor.tsx — shares document content via documentStore
+ * @coordinates-with utils/markdownPipeline/ — parseMarkdown/serializeMarkdown for round-tripping
+ * @coordinates-with utils/wysiwygFlush.ts — registers flusher for on-demand serialization before save
+ * @module components/Editor/TiptapEditor
+ */
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";

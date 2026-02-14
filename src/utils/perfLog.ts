@@ -1,6 +1,19 @@
 /**
- * Performance logging utility for debugging load times.
+ * Performance Logging Utility
+ *
+ * Purpose: Opt-in performance timing for diagnosing load times and bottlenecks.
  * Enable via: localStorage.setItem('PERF_LOG', 'true')
+ *
+ * Key decisions:
+ *   - Gated behind localStorage flag — zero overhead in normal usage
+ *   - Color-coded output: green (<50ms), yellow (50-100ms), red (>100ms)
+ *   - Session-relative timestamps (T+Nms) for correlating events
+ *   - Auto-resets on module load to start fresh each page load
+ *
+ * @coordinates-with markdownPipeline/adapter.ts — parse/serialize timing
+ * @coordinates-with markdownPipeline/parser.ts — remark step timing
+ * @coordinates-with mdastToProseMirror.ts — MDAST→PM conversion timing
+ * @module utils/perfLog
  */
 
 const PERF_ENABLED = () => {

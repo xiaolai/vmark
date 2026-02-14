@@ -1,14 +1,23 @@
 /**
  * Auto-Save Hook
  *
- * Automatically saves the document at configurable intervals when dirty.
- * Skips untitled documents (no filePath).
+ * Purpose: Automatically saves dirty documents at configurable intervals —
+ *   skips untitled (no filePath) documents and coordinates with manual save.
  *
- * Uses saveToPath() to ensure:
- * - Consistent line ending normalization
- * - Correct pending save registration
- * - Proper history snapshots
- * - Reentry guard coordination with manual save
+ * Pipeline: Interval timer fires → check isDirty + hasFilePath → if dirty,
+ *   call saveToPath() → markAutoSaved() clears dirty flag without touching
+ *   savedContent (so external change detection still works)
+ *
+ * Key decisions:
+ *   - Uses saveToPath() for consistent line ending normalization + history snapshots
+ *   - Checks isOperationInProgress() to avoid conflicting with manual save
+ *   - Interval restarts when autoSaveInterval setting changes
+ *   - Skips save if document is currently in the middle of an operation
+ *
+ * @coordinates-with saveToPath.ts — shared save logic with line ending handling
+ * @coordinates-with reentryGuard.ts — prevents concurrent save operations
+ * @coordinates-with settingsStore.ts — reads autoSaveEnabled and autoSaveInterval
+ * @module hooks/useAutoSave
  */
 
 import { useEffect, useRef } from "react";

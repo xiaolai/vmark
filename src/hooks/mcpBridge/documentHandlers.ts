@@ -1,8 +1,12 @@
 /**
- * MCP Bridge - Document Operation Handlers (Read-Only)
+ * MCP Bridge — Document Handlers (Read-Only)
  *
- * Write operations (setContent, insertAtCursor, insertAtPosition, replace)
- * are handled by suggestionHandlers.ts to wrap AI edits for user approval.
+ * Purpose: Read-only document operations — get content, search text,
+ *   get outline (headings), and get document metadata. Write operations
+ *   are in suggestionHandlers.ts for user approval.
+ *
+ * @coordinates-with suggestionHandlers.ts — handles write operations
+ * @module hooks/mcpBridge/documentHandlers
  */
 
 import { useDocumentStore } from "@/stores/documentStore";

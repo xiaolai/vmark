@@ -1,3 +1,21 @@
+/**
+ * TerminalContextMenu
+ *
+ * Purpose: Right-click context menu for the terminal — copy, paste,
+ * select all, and clear operations.
+ *
+ * Key decisions:
+ *   - Copy is disabled when no text is selected (greyed out).
+ *   - Paste writes directly to the PTY (not the terminal buffer) so the
+ *     shell receives the input as if typed.
+ *   - Reuses the FileExplorer ContextMenu.css for consistent macOS-style
+ *     appearance across all context menus.
+ *   - Viewport adjustment keeps the menu from overflowing screen edges.
+ *   - After any action, focus returns to the terminal.
+ *
+ * @coordinates-with TerminalPanel.tsx — rendered when right-click occurs in terminal area
+ * @module components/Terminal/TerminalContextMenu
+ */
 import { useEffect, useRef, useCallback } from "react";
 import { Copy, ClipboardPaste, Square, Trash2 } from "lucide-react";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";

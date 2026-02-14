@@ -1,10 +1,10 @@
 /**
  * Pending Saves Tracker (Content-Based)
  *
- * Tracks the exact content being written to files to enable reliable
- * detection of our own saves vs external modifications.
+ * Purpose: Tracks the exact content being written to files to reliably
+ * distinguish our own saves from external modifications in file watcher events.
  *
- * This is a content-based approach that eliminates race conditions:
+ * This is a content-based approach that eliminates timing race conditions:
  * - Stores the exact content we're about to write
  * - On file watcher event, compare disk content to pending content
  * - If they match, it's our save (regardless of timing)
@@ -13,6 +13,16 @@
  * 1. Call registerPendingSave(path, content) BEFORE writeTextFile()
  * 2. Call clearPendingSave(path) AFTER markSaved()
  * 3. Use matchesPendingSave(path, diskContent) to check if disk matches what we wrote
+ *
+ * Key decisions:
+ *   - Content comparison (not timestamp-based) because filesystem timestamps
+ *     have platform-dependent resolution and can race with watcher events
+ *   - Map keyed by normalized path for cross-platform consistency
+ *
+ * @coordinates-with saveToPath.ts — registers pending save before write
+ * @coordinates-with reloadFromDisk.ts — checks matchesPendingSave to skip self-triggered reloads
+ * @coordinates-with fsEventFilter.ts — uses hasPendingSave for quick watcher event filtering
+ * @module utils/pendingSaves
  */
 
 import { normalizePath } from "@/utils/paths";

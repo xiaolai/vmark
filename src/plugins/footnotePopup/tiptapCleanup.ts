@@ -1,8 +1,17 @@
 /**
- * Footnote cleanup + renumbering (Tiptap)
+ * Footnote Cleanup and Renumbering
  *
- * Keeps `footnote_reference`/`footnote_definition` labels sequential and
- * deletes orphaned definitions when references are removed.
+ * Purpose: Maintains sequential footnote numbering and removes orphaned definitions
+ * when references are deleted, keeping footnotes in a valid state.
+ *
+ * Key decisions:
+ *   - Renumbering scans all references in document order and assigns sequential labels
+ *   - Orphan cleanup runs after deletion to remove definitions with no matching reference
+ *   - Both operations are combined into a single transaction for atomicity
+ *
+ * @coordinates-with tiptap.ts — calls these functions from appendTransaction
+ * @coordinates-with tiptapNodes.ts — footnote node type definitions
+ * @module plugins/footnotePopup/tiptapCleanup
  */
 
 import type { EditorState, Transaction } from "@tiptap/pm/state";

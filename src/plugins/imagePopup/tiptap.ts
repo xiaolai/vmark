@@ -1,3 +1,14 @@
+/**
+ * Image Popup Tiptap Extension
+ *
+ * Purpose: Registers the ImagePopupView as a ProseMirror plugin view, connecting
+ * the store-driven image popup to the editor lifecycle (create on mount, destroy on unmount).
+ *
+ * @coordinates-with ImagePopupView.ts — DOM construction and behavior for the image popup
+ * @coordinates-with stores/imagePopupStore.ts — popup state (visibility, position, image data)
+ * @module plugins/imagePopup/tiptap
+ */
+
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

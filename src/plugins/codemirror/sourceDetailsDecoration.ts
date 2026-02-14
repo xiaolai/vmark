@@ -1,8 +1,16 @@
 /**
  * Source Mode Details Block Decoration Plugin
  *
- * Adds visual markers (left border) to collapsible details blocks.
- * Detects both HTML syntax (<details>) and directive syntax (:::details).
+ * Purpose: Adds visual markers (left border) to collapsible details blocks in Source mode,
+ * supporting both HTML `<details>` syntax and directive `:::details` syntax.
+ *
+ * Key decisions:
+ *   - Two syntax formats supported because markdown-it plugins use either convention
+ *   - Uses line decorations for the visual border, similar to alert block decoration
+ *   - Rebuilds on doc change (details blocks are infrequent, no incremental update needed)
+ *
+ * @coordinates-with detailsBlock/tiptap.ts — WYSIWYG counterpart
+ * @module plugins/codemirror/sourceDetailsDecoration
  */
 
 import { RangeSetBuilder } from "@codemirror/state";

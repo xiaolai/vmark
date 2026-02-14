@@ -1,12 +1,22 @@
 /**
  * AI Suggestion Tiptap Extension
  *
- * Provides decorations for AI suggestions and handles accept/reject transactions.
+ * Purpose: Renders AI-generated suggestions as non-destructive decorations (ghost text,
+ * strikethrough) and commits document changes only when the user explicitly accepts.
  *
- * UNDO/REDO SAFE: Document is NOT modified until user accepts.
- * - Insert: Shows ghost text widget at position
- * - Replace: Shows original with strikethrough + ghost text for new
- * - Delete: Shows original with strikethrough
+ * Pipeline: AI provider → aiSuggestionStore → this plugin reads store → decorations rendered
+ *         → user accept/reject → store event → this plugin applies or discards transaction
+ *
+ * Key decisions:
+ *   - UNDO/REDO SAFE: Document is NOT modified until user accepts — all previews are decorations
+ *   - Insert: ghost text widget at position
+ *   - Replace: original with strikethrough + ghost text for new content
+ *   - Delete: original with strikethrough
+ *   - Accept/reject buttons rendered as ProseMirror widgets to stay in editor coordinate space
+ *
+ * @coordinates-with types.ts — AiSuggestion interface and event name constants
+ * @coordinates-with stores/aiSuggestionStore.ts — source of suggestion data
+ * @module plugins/aiSuggestion/tiptap
  */
 
 import { Extension } from "@tiptap/core";

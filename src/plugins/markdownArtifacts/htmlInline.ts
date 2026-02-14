@@ -1,3 +1,12 @@
+/**
+ * HTML Inline Node Extension
+ *
+ * Purpose: Represents inline raw HTML (e.g., `<abbr>`, `<kbd>`) as atom nodes in WYSIWYG mode.
+ * Same rendering modes as htmlBlock but displayed inline. Shares the BaseHtmlNodeView renderer.
+ *
+ * @coordinates-with HtmlNodeView.ts — shared rendering logic for both block and inline HTML
+ * @module plugins/markdownArtifacts/htmlInline
+ */
 import { Node, mergeAttributes } from "@tiptap/core";
 import type { NodeView } from "@tiptap/pm/view";
 import { createHtmlInlineNodeView } from "./HtmlNodeView";

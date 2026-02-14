@@ -1,3 +1,25 @@
+/**
+ * Theme Hook
+ *
+ * Purpose: Reads appearance settings and computes all CSS custom properties
+ *   (design tokens) dynamically — font stacks, sizes, colors, spacing, and
+ *   dark/light mode class toggling.
+ *
+ * Pipeline: settingsStore.appearance changes → this hook recomputes →
+ *   sets CSS vars on document.documentElement → all components react via CSS
+ *
+ * Key decisions:
+ *   - Font stacks defined here (latin, CJK, mono families) with system fallbacks
+ *   - Editor font size drives dependent tokens (line-height, padding, mono size)
+ *   - Mermaid and code preview plugins notified of font size changes
+ *   - Dark theme toggled via `.dark-theme` class on documentElement
+ *   - Static defaults in :root for print/SSR; this hook overrides at runtime
+ *
+ * @coordinates-with settingsStore.ts — reads appearance settings
+ * @coordinates-with index.css — static token defaults (overridden here)
+ * @module hooks/useTheme
+ */
+
 import { useEffect, useRef } from "react";
 import { useSettingsStore, themes, type ThemeColors } from "@/stores/settingsStore";
 import { updateMermaidFontSize } from "@/plugins/mermaid";

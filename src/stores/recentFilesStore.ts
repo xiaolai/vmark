@@ -1,8 +1,17 @@
 /**
  * Recent Files Store
  *
- * Tracks recently opened files with persistence across sessions.
- * Syncs with native menu via Tauri command.
+ * Purpose: Tracks recently opened files (max 10) with persistence via
+ *   zustand/persist. Syncs the list to the native File > Recent menu
+ *   and macOS Dock recent documents.
+ *
+ * Pipeline: File opened → addFile(path) → MRU list updated → Rust
+ *   update_recent_files rebuilds native menu → register_dock_recent
+ *   adds to macOS Dock (silently ignored on other platforms).
+ *
+ * @coordinates-with recentWorkspacesStore.ts — same pattern for workspace folders
+ * @coordinates-with menu.rs — native Recent Files submenu
+ * @module stores/recentFilesStore
  */
 
 import { create } from "zustand";

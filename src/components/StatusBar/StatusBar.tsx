@@ -1,3 +1,32 @@
+/**
+ * StatusBar
+ *
+ * Purpose: Bottom bar combining tab strip, word/character counts, auto-save indicator,
+ * MCP status, terminal toggle, and editor mode toggle into a single horizontal bar.
+ *
+ * User interactions:
+ *   - Click a tab pill to switch documents; middle-click or X to close
+ *   - Right-click a tab for context menu (pin, close others, move to window, etc.)
+ *   - Drag tabs to reorder or detach to new windows
+ *   - Click the "+" button to create a new empty tab
+ *   - Click mode button to toggle Source/WYSIWYG
+ *   - Click terminal button to toggle terminal panel
+ *
+ * Key decisions:
+ *   - Tab drag/drop is implemented in useStatusBarTabDrag via pointer events,
+ *     not HTML5 drag API, for finer control over reorder vs. detach threshold.
+ *   - Word/char counts are memoized through stripMarkdown → countWords pipeline
+ *     to avoid re-computing on every keystroke when content hasn't changed.
+ *   - Auto-save timestamp fades out after 5 seconds but continues updating
+ *     in the background (10s interval) so re-showing is accurate.
+ *   - An ARIA live region announces drag-and-drop outcomes for screen readers.
+ *
+ * @coordinates-with StatusBarRight.tsx — right section split out to reduce render scope
+ * @coordinates-with useStatusBarTabDrag.ts — all drag/drop logic including cross-window transfer
+ * @coordinates-with Tabs/Tab.tsx — individual tab pill component
+ * @coordinates-with Tabs/TabContextMenu.tsx — right-click menu for tabs
+ * @module components/StatusBar/StatusBar
+ */
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Plus } from "lucide-react";
 import { useEditorStore } from "@/stores/editorStore";

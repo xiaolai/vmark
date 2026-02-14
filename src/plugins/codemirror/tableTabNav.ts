@@ -1,8 +1,19 @@
 /**
  * Table Tab Navigation for CodeMirror Source Mode
  *
- * Provides Tab/Shift-Tab navigation between table cells, matching WYSIWYG behavior.
- * Per spec in docs/cursor-context-system.md (Table Keyboard Navigation).
+ * Purpose: Provides Tab/Shift-Tab navigation between markdown table cells, plus
+ * arrow key and Mod+Enter shortcuts for row insertion — matching WYSIWYG table UX.
+ *
+ * Key decisions:
+ *   - Cell boundaries are parsed from the pipe-separated text, handling escaped pipes and code spans
+ *   - Tab at the last cell of the last row inserts a new row below
+ *   - Arrow Up/Down at table boundaries escape to adjacent content
+ *   - Mod+Enter and Mod+Shift+Enter insert rows below/above respectively
+ *
+ * @coordinates-with sourceContextDetection/tableDetection.ts — table structure detection
+ * @coordinates-with sourceContextDetection/tableActions.ts — row/column insertion
+ * @coordinates-with utils/tableParser.ts — splitTableCells for accurate cell boundary parsing
+ * @module plugins/codemirror/tableTabNav
  */
 
 import type { EditorView, KeyBinding } from "@codemirror/view";

@@ -1,12 +1,16 @@
 /**
  * Selection Pulse Animation Utility
  *
- * Provides visual feedback when auto-selecting text (e.g., toolbar shortcut word selection).
- * Adds a temporary CSS class that triggers a pulse animation, then removes it.
+ * Purpose: Provides visual feedback when auto-selecting text (e.g., toolbar shortcut
+ * word selection). Adds a temporary CSS class that triggers a pulse animation.
  *
- * Uses WeakMap for timer tracking - allows GC when elements are removed.
- * Re-triggering on the same element clears the previous timer to prevent
- * class removal mid-animation.
+ * Key decisions:
+ *   - WeakMap for timer tracking allows GC when elements are removed from DOM
+ *   - Re-triggering on the same element resets the timer to prevent class removal mid-animation
+ *   - 180ms default matches the CSS transition duration for smooth feel
+ *
+ * @coordinates-with toolbarActions/ — triggers pulse when auto-selecting word for formatting
+ * @module utils/selectionPulse
  */
 
 const pulseTimers = new WeakMap<HTMLElement, number>();

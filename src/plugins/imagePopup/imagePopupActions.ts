@@ -1,3 +1,14 @@
+/**
+ * Image Popup Actions
+ *
+ * Purpose: File-system operations for the image popup — browse for replacement image,
+ * copy to assets folder, and update the image node's src attribute.
+ *
+ * @coordinates-with ImagePopupView.ts — triggers these actions from popup button clicks
+ * @coordinates-with hooks/useImageOperations.ts — shared image asset copying logic
+ * @module plugins/imagePopup/imagePopupActions
+ */
+
 import type { EditorView } from "@tiptap/pm/view";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { useDocumentStore } from "@/stores/documentStore";

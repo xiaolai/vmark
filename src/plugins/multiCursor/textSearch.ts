@@ -1,3 +1,14 @@
+/**
+ * Multi-cursor Text Search
+ *
+ * Purpose: Provides text search and word-boundary helpers used by multi-cursor commands
+ * (selectNextOccurrence, selectAllOccurrences). Case-sensitive matching ensures
+ * deterministic cursor placement across the document.
+ *
+ * @coordinates-with commands.ts — uses findAllOccurrences/getWordAtCursor for Cmd+D/Cmd+Shift+L
+ * @coordinates-with wordSegmentation.ts — CJK-aware word boundary detection
+ * @module plugins/multiCursor/textSearch
+ */
 import type { EditorState } from "@tiptap/pm/state";
 import { findWordBoundaries } from "@/utils/wordSegmentation";
 

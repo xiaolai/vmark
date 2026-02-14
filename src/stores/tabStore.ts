@@ -1,3 +1,30 @@
+/**
+ * Tab Store
+ *
+ * Purpose: Manages per-window tab lifecycle — creation, closing, pinning,
+ *   reordering, drag-detach, and recently-closed history for reopen.
+ *
+ * Key decisions:
+ *   - State is keyed by window label to support multi-window (each window
+ *     has its own independent tab list).
+ *   - Pinned tabs cannot be closed without explicit unpin (user safety).
+ *   - Closing a tab records it in closedTabs (max 10) for Cmd+Shift+T reopen.
+ *   - Tab activation after close prefers the tab to the right, then left.
+ *   - Tab IDs use timestamp + random suffix — unique but not globally sortable.
+ *   - No persistence middleware: tab state is restored from workspace config
+ *     on startup via workspaceStore.lastOpenTabs, not via localStorage.
+ *
+ * Known limitations:
+ *   - closedTabs only stores tab metadata, not document content — reopening
+ *     an unsaved tab will lose edits.
+ *   - No cross-window tab deduplication — the same file can be open in
+ *     multiple windows.
+ *
+ * @coordinates-with documentStore.ts — each tab ID maps to a document entry
+ * @coordinates-with workspaceStore.ts — lastOpenTabs for session restore
+ * @module stores/tabStore
+ */
+
 import { create } from "zustand";
 import { toast } from "sonner";
 import { getFileName } from "@/utils/paths";

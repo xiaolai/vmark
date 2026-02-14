@@ -1,9 +1,18 @@
 /**
  * Tab Escape Plugin for CodeMirror
  *
- * Allows pressing Tab to:
- * 1. Navigate within markdown links: [text] -> (url) -> outside
- * 2. Jump over closing brackets, quotes, and markdown format chars.
+ * Purpose: Allows Tab key to jump over closing brackets, quotes, and markdown
+ * formatting characters — and to navigate through markdown link fields.
+ *
+ * Key decisions:
+ *   - Link navigation is prioritized: Tab in [text] jumps to (url), Tab in (url) jumps out
+ *   - Double format chars (**, ~~, ==) are jumped as a unit
+ *   - CJK closing brackets are included in the jump-over set
+ *   - Falls through to other Tab handlers if no escapable char is found
+ *
+ * @coordinates-with tabEscapeLink.ts — markdown link field navigation logic
+ * @coordinates-with tabIndent.ts — fallback Tab handler (insert spaces)
+ * @module plugins/codemirror/tabEscape
  */
 
 import { KeyBinding, EditorView } from "@codemirror/view";

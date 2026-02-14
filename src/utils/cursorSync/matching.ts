@@ -1,3 +1,13 @@
+/**
+ * Cursor Context Extraction
+ *
+ * Purpose: Capture the word and surrounding text around the cursor so we can
+ * find the equivalent position in a different editor representation.
+ *
+ * @coordinates-with cursorSync/pmHelpers.ts — uses context for column matching
+ * @module utils/cursorSync/matching
+ */
+
 import type { CursorContext } from "./types";
 
 const CONTEXT_LENGTH = 20; // Characters of context to store

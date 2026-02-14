@@ -1,7 +1,12 @@
 /**
- * Mutation Handlers - Declarative document modifications.
+ * MCP Bridge — Mutation Handlers
  *
- * Part of AI-Oriented MCP Design implementation.
+ * Purpose: Declarative document modification operations — replace text in source,
+ *   insert at cursor/position, set content, and anchored replace. All mutations
+ *   go through the AI suggestion layer for user approval.
+ *
+ * @coordinates-with suggestionHandlers.ts — wraps mutations in suggestions
+ * @module hooks/mcpBridge/mutationHandlers
  */
 
 import {

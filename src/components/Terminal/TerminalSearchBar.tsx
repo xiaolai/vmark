@@ -1,3 +1,26 @@
+/**
+ * TerminalSearchBar
+ *
+ * Purpose: Inline search bar for finding text in terminal output.
+ * Uses xterm's SearchAddon for incremental highlight-as-you-type search.
+ *
+ * User interactions:
+ *   - Type to search (highlights matches incrementally)
+ *   - Enter for next match, Shift+Enter for previous
+ *   - Escape to close and clear highlights
+ *   - Up/Down chevron buttons for next/previous
+ *
+ * Key decisions:
+ *   - Auto-focuses the input on mount so the user can start typing immediately.
+ *   - Clears SearchAddon decorations on close to avoid stale highlights
+ *     persisting in the terminal after the search bar is dismissed.
+ *   - Incremental search: each character typed triggers findNext immediately,
+ *     providing real-time feedback without needing to press Enter.
+ *
+ * @coordinates-with TerminalPanel.tsx — toggles visibility via searchVisible state
+ * @coordinates-with useTerminalSessions.ts — provides getActiveSearchAddon callback
+ * @module components/Terminal/TerminalSearchBar
+ */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronUp, ChevronDown, X } from "lucide-react";
 import type { SearchAddon } from "@xterm/addon-search";

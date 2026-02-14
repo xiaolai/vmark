@@ -1,8 +1,18 @@
 /**
  * Image Tooltip View
  *
- * Read-only tooltip showing filename, dimensions, and reveal button on hover.
- * Does NOT allow editing - click the image for that.
+ * Purpose: Read-only tooltip that appears on image hover showing filename, dimensions,
+ * and a "Reveal in Finder" button. Distinct from the image popup (which allows editing).
+ *
+ * Key decisions:
+ *   - Read-only by design — click the image to open the editing popup instead
+ *   - Shows image metadata (filename, pixel dimensions) for quick reference
+ *   - "Reveal in Finder" opens the file's location in the system file manager
+ *   - Store-driven positioning via imageTooltipStore
+ *
+ * @coordinates-with tiptap.ts — hover detection and tooltip triggering
+ * @coordinates-with stores/imageTooltipStore.ts — tooltip visibility and position state
+ * @module plugins/imageTooltip/ImageTooltipView
  */
 
 import { useImageTooltipStore } from "@/stores/imageTooltipStore";

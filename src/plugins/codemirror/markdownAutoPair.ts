@@ -1,12 +1,19 @@
 /**
  * Markdown Auto-Pair Plugin for CodeMirror
  *
- * Handles special markdown pairing:
- * - ~, *, _: Delay-based judgment for single vs double (e.g., ~ vs ~~)
- * - =: Immediate double pairing (== only, no single = format)
- * - ```: Insert code fence with newlines
+ * Purpose: Handles markdown-specific auto-pairing in Source mode where characters like
+ * *, ~, _ can be either single or double formatting markers.
  *
- * Also handles backspace to delete both halves of a pair.
+ * Key decisions:
+ *   - Delay-based judgment (150ms) for *, ~, _: waits to see if user types a second char
+ *     before deciding between single pair (e.g., *italic*) and double pair (e.g., **bold**)
+ *   - `=` always pairs as double (==highlight==) since single = has no markdown meaning
+ *   - Triple backtick inserts a full code fence with newlines
+ *   - Backspace deletes both halves of a pair when cursor is between them
+ *   - IME composition is fully guarded to avoid corrupting CJK input
+ *
+ * @coordinates-with autoPair/tiptap.ts — WYSIWYG counterpart (handles ASCII/CJK bracket pairs)
+ * @module plugins/codemirror/markdownAutoPair
  */
 
 import { EditorView, ViewPlugin, ViewUpdate, KeyBinding } from "@codemirror/view";

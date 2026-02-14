@@ -1,3 +1,26 @@
+/**
+ * Footnote Popup Tiptap Extension
+ *
+ * Purpose: Manages the footnote hover popup in WYSIWYG mode — shows footnote content
+ * on hover/click of footnote references, with editing, deletion, and renumbering support.
+ *
+ * Pipeline: hover/click on [^n] → show popup with definition content → edit inline
+ *         → delete → renumber remaining footnotes → cleanup orphaned definitions
+ *
+ * Key decisions:
+ *   - Hover has a delay (150ms open, 100ms close) to avoid flickering on mouse movement
+ *   - Popup uses FootnotePopupView (DOM-based, not React) for performance
+ *   - appendTransaction handles footnote deletion + renumbering in a single atomic step
+ *   - Footnote references and definitions are bidirectionally linked for navigation
+ *
+ * @coordinates-with FootnotePopupView.ts — DOM construction and event handling for the popup
+ * @coordinates-with tiptapCleanup.ts — renumbering and orphan cleanup transactions
+ * @coordinates-with tiptapDomUtils.ts — DOM traversal for finding footnote elements
+ * @coordinates-with tiptapNodes.ts — footnoteReference and footnoteDefinition node types
+ * @coordinates-with stores/footnotePopupStore.ts — popup visibility and position state
+ * @module plugins/footnotePopup/tiptap
+ */
+
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type Transaction, NodeSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

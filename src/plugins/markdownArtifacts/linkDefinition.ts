@@ -1,3 +1,13 @@
+/**
+ * Link Definition Node Extension
+ *
+ * Purpose: Represents markdown reference-style link definitions (`[id]: url "title"`)
+ * as invisible atom nodes. These are preserved in the ProseMirror document so they
+ * round-trip correctly through the markdown pipeline, but are not rendered visually.
+ *
+ * @coordinates-with markdownPipeline/plugins/resolveReferences.ts — resolves link references against these nodes
+ * @module plugins/markdownArtifacts/linkDefinition
+ */
 import { Node, mergeAttributes } from "@tiptap/core";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 

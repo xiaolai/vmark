@@ -1,3 +1,20 @@
+/**
+ * Document State Selectors
+ *
+ * Purpose: Convenience hooks that combine window context + tab store + document
+ *   store into simple per-component selectors — avoids repeating the
+ *   windowLabel → activeTabId → document lookup chain everywhere.
+ *
+ * Key decisions:
+ *   - Each hook returns a single value (content, filePath, isDirty, etc.)
+ *   - All hooks derive from useActiveTabId() for consistent window scoping
+ *   - Safe defaults (empty string, null, false) when tab or document is missing
+ *
+ * @coordinates-with documentStore.ts — reads document state per tab
+ * @coordinates-with tabStore.ts — reads activeTabId per window
+ * @module hooks/useDocumentState
+ */
+
 import { useCallback } from "react";
 import { useWindowLabel } from "../contexts/WindowContext";
 import { useDocumentStore, type CursorInfo } from "../stores/documentStore";

@@ -1,3 +1,16 @@
+/**
+ * ContextMenu
+ *
+ * Purpose: macOS-style right-click context menu for the file explorer. Shows different
+ * actions depending on whether the user clicked a file, folder, or empty area.
+ *
+ * User interactions: Click to execute action, Escape or click-outside to close.
+ * Automatically adjusts position to stay within viewport bounds.
+ *
+ * @coordinates-with FileExplorer.tsx — rendered as a child when contextMenu.visible is true
+ * @coordinates-with useExplorerOperations.ts — file operations triggered by menu actions
+ * @module components/Sidebar/FileExplorer/ContextMenu
+ */
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import {
   FileText,

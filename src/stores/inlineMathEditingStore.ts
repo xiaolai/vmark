@@ -1,8 +1,20 @@
 /**
  * Inline Math Editing Store
  *
- * Coordinates editing state between multiple inline math NodeViews.
- * Prevents race conditions when clicking from one math to another.
+ * Purpose: Coordinates editing state between multiple inline math NodeViews.
+ *   Prevents race conditions when clicking from one math node to another by
+ *   force-exiting the previous editor before starting the new one.
+ *
+ * Key decisions:
+ *   - Only one inline math node can be in edit mode at a time. startEditing()
+ *     calls forceExit() on the previous node before registering the new one.
+ *   - stopEditing() only clears state if the caller's position matches the
+ *     current editingNodePos — prevents a stale blur from clearing an active editor.
+ *   - clear() is the unconditional cleanup for when a NodeView is destroyed.
+ *
+ * @coordinates-with inlineMath NodeView — each instance registers/unregisters via callbacks
+ * @coordinates-with blockMathEditingStore.ts — same pattern for block math ($$...$$)
+ * @module stores/inlineMathEditingStore
  */
 
 import { create } from "zustand";

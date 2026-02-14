@@ -1,3 +1,15 @@
+/**
+ * Tiptap CJK Format Commands Hook
+ *
+ * Purpose: Handles menu events for CJK-specific formatting operations —
+ *   collapse newlines, remove trailing spaces, format markdown (full file
+ *   or selection), applied to the current document's serialized content.
+ *
+ * @coordinates-with cjkFormatter — formatting rules (spacing, newlines, etc.)
+ * @coordinates-with settingsStore.ts — reads CJK formatting preferences
+ * @module hooks/useTiptapCJKFormatCommands
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

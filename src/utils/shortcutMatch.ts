@@ -1,3 +1,21 @@
+/**
+ * Keyboard Shortcut Matching
+ *
+ * Purpose: Matches keyboard events against shortcut definitions in the
+ * "Mod-Shift-n" format used by shortcutsStore.ts.
+ *
+ * Key decisions:
+ *   - "Mod" maps to Cmd on macOS, Ctrl elsewhere (platform-aware)
+ *   - Physical key code fallback (SYMBOL_KEY_TO_CODE) handles CJK IME remapping
+ *     where event.key reports the remapped character instead of the physical key
+ *   - Shifted symbol matching (e.g., Shift+= produces +) for correct detection
+ *   - Ctrl+letter on macOS produces control characters — falls back to event.code
+ *
+ * @coordinates-with shortcutsStore.ts — provides shortcut definitions in "Mod-Shift-n" format
+ * @coordinates-with menu.rs — Rust accelerators use different format but same logical bindings
+ * @module utils/shortcutMatch
+ */
+
 export type ShortcutPlatform = "mac" | "other";
 
 // Physical key codes for symbol keys commonly remapped by CJK input methods.

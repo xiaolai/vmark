@@ -1,3 +1,13 @@
+/**
+ * Tiptap Selection Commands Hook
+ *
+ * Purpose: Handles menu events for selection operations in WYSIWYG mode —
+ *   select word, select line, select block, and expand selection.
+ *
+ * @coordinates-with tiptapSelectionActions.ts — selection expansion functions
+ * @module hooks/useTiptapSelectionCommands
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

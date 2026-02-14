@@ -1,7 +1,12 @@
 /**
  * Image Paste Toast Hook
  *
- * Initializes the image paste toast view once at app startup.
+ * Purpose: Initializes the image paste toast UI at app startup — the toast
+ *   shows a preview when pasting an image from clipboard into the editor.
+ *
+ * @coordinates-with imagePasteToast plugin — provides init/destroy lifecycle
+ * @coordinates-with imagePasteToastStore.ts — state for the toast UI
+ * @module hooks/useImagePasteToast
  */
 
 import { useEffect } from "react";

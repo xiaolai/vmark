@@ -1,3 +1,22 @@
+//! # Window Manager
+//!
+//! Purpose: Creates and manages Tauri webview windows (document, settings, transfer).
+//!
+//! Pipeline: Menu/dock/CLI/Finder actions → functions here → `WebviewWindowBuilder` →
+//! new OS window with the React frontend.
+//!
+//! Key decisions:
+//!   - Windows start hidden and are shown only after the frontend emits "ready",
+//!     preventing flash-of-unstyled-content on slow machines.
+//!   - "main" label is preferred for the first document window so Finder file-open
+//!     events (which target "main") work correctly.
+//!   - File opens from Finder are grouped by workspace root so multiple files in the
+//!     same directory open as tabs in a single window.
+//!   - Settings window is a singleton — re-shown and focused if already open.
+//!
+//! Known limitations:
+//!   - Window counter is process-global (AtomicU32); labels are not recycled.
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};

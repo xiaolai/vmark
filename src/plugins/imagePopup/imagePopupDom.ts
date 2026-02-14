@@ -1,4 +1,12 @@
-// Shared DOM helpers for the image popup UI.
+/**
+ * Image Popup DOM Helpers
+ *
+ * Purpose: Shared DOM construction and keyboard navigation for the image popup UI.
+ * Extracted from ImagePopupView to keep the view class focused on behavior.
+ *
+ * @coordinates-with ImagePopupView.ts — consumes these helpers for popup DOM construction
+ * @module plugins/imagePopup/imagePopupDom
+ */
 
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";

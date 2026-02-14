@@ -1,8 +1,11 @@
 /**
  * Link Create Popup Store
  *
- * State management for the link creation popup.
- * Used when creating a new link without a clipboard URL.
+ * Purpose: State for the link creation popup — used when creating a new link
+ *   without a clipboard URL. Pre-fills text from selection or word expansion.
+ *
+ * @coordinates-with linkPopupStore.ts — handles editing existing links (separate flow)
+ * @module stores/linkCreatePopupStore
  */
 
 import { create } from "zustand";

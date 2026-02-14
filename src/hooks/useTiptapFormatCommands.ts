@@ -1,3 +1,24 @@
+/**
+ * Tiptap Format Commands Hook
+ *
+ * Purpose: Handles menu events for formatting actions in WYSIWYG mode —
+ *   bold, italic, code, links, images, headings, and special inserts.
+ *
+ * Pipeline: Rust menu event → Tauri listen() → this hook dispatches to
+ *   Tiptap editor commands (chain().toggleBold(), etc.) or opens popups
+ *   for link/image insertion
+ *
+ * Key decisions:
+ *   - Image insert checks clipboard first (readClipboardImagePath), falls back to picker
+ *   - Link insert uses reentryGuard to prevent double-open of file picker
+ *   - Heading picker popup opened via headingPickerStore for level selection
+ *   - Multi-cursor aware: some operations use MultiSelection
+ *
+ * @coordinates-with useSourceMenuCommands.ts — parallel hook for Source mode
+ * @coordinates-with useUnifiedMenuCommands.ts — newer unified dispatcher (coexists)
+ * @module hooks/useTiptapFormatCommands
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

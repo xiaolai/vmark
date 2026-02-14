@@ -1,3 +1,24 @@
+/**
+ * Editor
+ *
+ * Purpose: Top-level editor container that switches between WYSIWYG (TiptapEditor) and Source
+ * (CodeMirror) editing modes. Acts as the CSS import hub for all editor-related plugin styles.
+ *
+ * User interactions: Mode switching is driven by editorStore.sourceMode; the user toggles
+ * via the status bar button or keyboard shortcut.
+ *
+ * Key decisions:
+ *   - `keepAlive` setting keeps both editors mounted (hidden) to preserve undo history
+ *     across mode switches — at the cost of double memory usage.
+ *   - `editorKey` includes both tabId and documentId to force remount on tab switch AND
+ *     content reload within the same tab.
+ *   - CSS imports are centralized here rather than in individual plugin files to control
+ *     cascade order and avoid duplicate imports.
+ *
+ * @coordinates-with SourceEditor.tsx, TiptapEditor.tsx — mounts one or both based on mode
+ * @coordinates-with stores/editorStore.ts — reads sourceMode for mode switching
+ * @module components/Editor/Editor
+ */
 import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveTabId, useDocumentId } from "@/hooks/useDocumentState";

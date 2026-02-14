@@ -1,3 +1,19 @@
+/**
+ * Smart Paste Extension
+ *
+ * Purpose: When pasting a URL while text is selected, automatically wraps the selected
+ * text in a markdown link instead of replacing it. This matches the behavior users
+ * expect from editors like Notion and Obsidian.
+ *
+ * Key decisions:
+ *   - Only triggers when selection is non-empty AND clipboard is a valid URL
+ *   - Skips code blocks to avoid unwanted link wrapping in code
+ *   - Skips if selection already has a link mark (prevents double-wrapping)
+ *
+ * @coordinates-with markdownPaste/tiptap.ts — runs before markdown paste (lower priority)
+ * @coordinates-with pasteUtils.ts — shared isSelectionInCode check
+ * @module plugins/smartPaste/tiptap
+ */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

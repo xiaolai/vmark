@@ -1,5 +1,11 @@
 /**
- * MCP Bridge - Editor Operation Handlers
+ * MCP Bridge — Editor Operation Handlers
+ *
+ * Purpose: Editor-level operations — undo, redo, and focus management
+ *   via the unified history system (supports cross-mode undo).
+ *
+ * @coordinates-with useUnifiedHistory.ts — performUnifiedUndo/Redo
+ * @module hooks/mcpBridge/editorHandlers
  */
 
 import { undoDepth as pmUndoDepth, redoDepth as pmRedoDepth } from "@tiptap/pm/history";

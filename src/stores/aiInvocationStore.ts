@@ -1,9 +1,18 @@
 /**
  * AI Invocation Store
  *
- * Singleton concurrency guard for AI genie invocations.
- * Both useGenieShortcuts and GeniePicker share this store
- * to prevent concurrent invocations.
+ * Purpose: Singleton concurrency guard for AI genie invocations. Prevents
+ *   multiple genies from running simultaneously — tryStart() returns false
+ *   if an invocation is already in progress.
+ *
+ * Key decisions:
+ *   - requestId tracks which invocation is active for cancel/cleanup matching.
+ *   - Shared by both GeniePicker UI and useGenieShortcuts keyboard trigger
+ *     to ensure a single source of truth for "is AI busy" state.
+ *
+ * @coordinates-with GeniePicker component — checks isRunning before invoking
+ * @coordinates-with useGenieShortcuts.ts — checks isRunning before invoking
+ * @module stores/aiInvocationStore
  */
 
 import { create } from "zustand";

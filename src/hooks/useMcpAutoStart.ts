@@ -1,8 +1,11 @@
 /**
  * MCP Server Auto-Start Hook
  *
- * Starts the MCP server on app launch if autoStart is enabled.
- * Should be called only once from the main window.
+ * Purpose: Starts the MCP bridge server on app launch if autoStart is
+ *   enabled in settings — called once from the main document window.
+ *
+ * @coordinates-with settingsStore.ts — reads mcp.autoStart setting
+ * @module hooks/useMcpAutoStart
  */
 
 import { useEffect, useRef } from "react";

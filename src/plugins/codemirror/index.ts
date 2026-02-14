@@ -1,7 +1,13 @@
 /**
- * CodeMirror Plugins
+ * CodeMirror Plugins — Barrel Export
  *
- * Custom plugins and configuration for the Source mode editor.
+ * Purpose: Central export point for all custom CodeMirror 6 plugins and keymaps
+ * used by the Source mode editor. Each plugin is a separate file for isolation.
+ *
+ * Pipeline: sourceEditorExtensions.ts imports from here → assembles into EditorState config
+ *
+ * @coordinates-with utils/sourceEditorExtensions.ts — consumes these exports to build the CM6 editor
+ * @module plugins/codemirror
  */
 
 export { sourceEditorTheme, codeHighlightStyle } from "./theme";

@@ -1,10 +1,16 @@
 /**
  * Workspace Bootstrap Hook
  *
- * Loads workspace config from disk on app startup when rootPath was restored
- * from localStorage but config is not yet loaded.
+ * Purpose: Loads workspace config from disk on app startup when rootPath was
+ *   restored from localStorage but config is null — fixes the "rootPath
+ *   restored but config missing" race condition.
  *
- * This solves the "rootPath restored but config null" bug.
+ * Pipeline: App mount → needsBootstrap() check → invoke("read_workspace_config")
+ *   → openWorkspace(rootPath, config) → restore lastOpenTabs from config
+ *
+ * @coordinates-with workspaceStore.ts — checks/updates workspace state
+ * @coordinates-with workspaceBootstrap.ts — pure needsBootstrap() helper
+ * @module hooks/useWorkspaceBootstrap
  */
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";

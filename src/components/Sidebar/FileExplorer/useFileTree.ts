@@ -1,3 +1,24 @@
+/**
+ * useFileTree
+ *
+ * Purpose: Loads and maintains a recursive file tree for a workspace directory.
+ * Listens for file system change events to auto-refresh the tree when files are
+ * created, renamed, or deleted.
+ *
+ * Key decisions:
+ *   - Only includes markdown files (via mdFilter) — other file types are hidden
+ *     to keep the explorer focused on editable content.
+ *   - Request ID pattern (requestIdRef) prevents stale async responses from
+ *     overwriting fresher tree data.
+ *   - Watch events are scoped by watchId (window label) to prevent cross-window
+ *     interference when multiple windows watch the same directory.
+ *   - Folders are always included (even if empty) so users can right-click to
+ *     add files into them.
+ *
+ * @coordinates-with FileExplorer.tsx — consumes the tree data and refresh callback
+ * @coordinates-with utils/fsEventFilter.ts — determines if an fs event should trigger refresh
+ * @module components/Sidebar/FileExplorer/useFileTree
+ */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { basename } from "@tauri-apps/api/path";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";

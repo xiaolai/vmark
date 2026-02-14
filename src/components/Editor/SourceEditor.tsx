@@ -1,3 +1,24 @@
+/**
+ * SourceEditor
+ *
+ * Purpose: CodeMirror-based markdown source editing surface. Provides raw markdown editing
+ * with syntax highlighting, line numbers, and bidirectional cursor sync with WYSIWYG mode.
+ *
+ * Key decisions:
+ *   - CodeMirror instance is created once on mount (not per content change) — external
+ *     content changes are patched in via dispatch to preserve undo history.
+ *   - `isInternalChange` ref prevents echo loops: edits from CodeMirror → store → back
+ *     to CodeMirror are suppressed.
+ *   - Hidden mode (`hidden` prop) skips store updates to prevent stale writes when
+ *     keepAlive mode keeps both editors mounted.
+ *   - Parent scroll reset on mount fixes a displacement bug where .editor-content retains
+ *     scrollTop from WYSIWYG mode.
+ *
+ * @coordinates-with TiptapEditor.tsx — shares document content via documentStore
+ * @coordinates-with utils/cursorSync/codemirror.ts — cursor position extraction/restoration
+ * @coordinates-with stores/activeEditorStore.ts — registers as the active source view
+ * @module components/Editor/SourceEditor
+ */
 import { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";

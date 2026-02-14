@@ -1,10 +1,18 @@
 /**
  * Revision Store
  *
- * Manages document revision tracking for optimistic concurrency control.
- * Each document change generates a new revision ID.
+ * Purpose: Document revision tracking for optimistic concurrency control.
+ *   Each document change generates a new revision ID so that MCP tools and
+ *   concurrent operations can detect stale reads.
  *
- * Revision format: "rev-" + random(8)
+ * Key decisions:
+ *   - Revision format is "rev-" + 8 random alphanumeric chars — short enough
+ *     for debug logs but collision-resistant enough for single-session use.
+ *   - isCurrentRevision() enables MCP mutation handlers to reject edits
+ *     based on an outdated revision, preventing lost-update conflicts.
+ *
+ * @coordinates-with mcpBridge handlers — pass revision for conflict detection
+ * @module stores/revisionStore
  */
 
 import { create } from "zustand";

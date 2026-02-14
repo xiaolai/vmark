@@ -1,11 +1,17 @@
 /**
  * Image Context Menu Hook
  *
- * Handles actions from the image context menu:
- * - Change Image: Opens file picker to replace the image
- * - Delete Image: Removes the image node
- * - Copy Image Path: Copies absolute path to clipboard
- * - Reveal in Finder: Opens Finder at the image location
+ * Purpose: Handles actions from the image context menu — Change Image,
+ *   Delete Image, Copy Image Path, and Reveal in Finder.
+ *
+ * Key decisions:
+ *   - Change Image replaces the src attribute without removing/reinserting node
+ *   - Copy path resolves to absolute path (relative → absolute via document dir)
+ *   - Reveal uses Tauri's revealItemInDir for native Finder integration
+ *
+ * @coordinates-with imageContextMenuStore.ts — reads menu state (position, nodePos)
+ * @coordinates-with useImageOperations.ts — copyImageToAssets for new images
+ * @module hooks/useImageContextMenu
  */
 
 import { useCallback } from "react";

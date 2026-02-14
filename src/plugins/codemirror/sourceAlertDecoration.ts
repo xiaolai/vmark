@@ -1,8 +1,16 @@
 /**
  * Source Mode Alert Block Decoration Plugin
  *
- * Adds visual markers (colored left border) to GFM-style alert blocks.
- * Detects syntax like: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION]
+ * Purpose: Adds visual markers (colored left border) to GFM-style alert blocks
+ * in Source mode so users can see alert types at a glance without switching to WYSIWYG.
+ *
+ * Key decisions:
+ *   - Detects the `> [!TYPE]` syntax pattern and decorates all lines of the blockquote
+ *   - Each alert type gets a distinct CSS class for colored borders matching WYSIWYG rendering
+ *   - Rebuilds decorations on doc change (simple approach; alert blocks are infrequent)
+ *
+ * @coordinates-with alertBlock/tiptap.ts — WYSIWYG counterpart
+ * @module plugins/codemirror/sourceAlertDecoration
  */
 
 import { RangeSetBuilder } from "@codemirror/state";

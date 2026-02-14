@@ -1,3 +1,23 @@
+/**
+ * Source Menu Commands Hook
+ *
+ * Purpose: Handles menu events for formatting and editing actions in
+ *   Source (CodeMirror) mode — headings, lists, alerts, selections, etc.
+ *
+ * Pipeline: Rust menu event → Tauri listen() → this hook dispatches to
+ *   sourceAdapter actions or direct CodeMirror commands
+ *
+ * Key decisions:
+ *   - Parallel to useTiptapFormatCommands (which handles WYSIWYG mode)
+ *   - Uses runOrQueueCodeMirrorAction for IME-safe command execution
+ *   - Selection expansion (word/line/block) uses dedicated source selection utils
+ *   - Alert types mapped from menu event names to action IDs
+ *
+ * @coordinates-with useTiptapFormatCommands.ts — parallel hook for WYSIWYG mode
+ * @coordinates-with sourceAdapter.ts — executes formatting in CodeMirror
+ * @module hooks/useSourceMenuCommands
+ */
+
 import { useEffect, useRef, type MutableRefObject } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

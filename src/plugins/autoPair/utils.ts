@@ -1,7 +1,16 @@
 /**
  * Auto-Pair Utility Functions
  *
- * Helper functions for smart auto-pairing detection.
+ * Purpose: Context-detection helpers that determine whether auto-pairing should
+ * fire — checks for code blocks, inline code, word boundaries, and escape chars.
+ *
+ * Key decisions:
+ *   - Smart quote suppression: auto-pair skips after word characters to avoid
+ *     turning apostrophes (it's) into opening quotes
+ *   - CJK word detection uses Unicode ranges to match Chinese, Japanese, Korean chars
+ *
+ * @coordinates-with handlers.ts — calls shouldAutoPair, isInCodeBlock, getCharAt, getCharBefore
+ * @module plugins/autoPair/utils
  */
 
 import type { EditorState } from "@tiptap/pm/state";

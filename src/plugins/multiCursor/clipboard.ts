@@ -1,5 +1,18 @@
 /**
- * Multi-cursor clipboard handling
+ * Multi-cursor Clipboard Handling
+ *
+ * Purpose: Manages cut/copy/paste operations across multiple cursor positions.
+ * Serializes multi-selection content with newline separators for copy, and
+ * distributes pasted text across cursors (one line per cursor when line count matches).
+ *
+ * Key decisions:
+ *   - Copy joins ranges with newlines (each range on its own line)
+ *   - Paste splits by newline; if line count matches range count, distributes 1:1
+ *   - Cut/delete operations run in reverse doc order to preserve positions
+ *
+ * @coordinates-with multiCursorPlugin.ts — integrates clipboard handlers into the plugin
+ * @coordinates-with rangeUtils.ts — sorting ranges for safe reverse-order editing
+ * @module plugins/multiCursor/clipboard
  */
 import { SelectionRange } from "@tiptap/pm/state";
 import type { EditorState, Transaction } from "@tiptap/pm/state";

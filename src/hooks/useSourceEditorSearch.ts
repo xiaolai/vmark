@@ -1,6 +1,13 @@
 /**
- * Hook for managing search functionality in the source editor.
- * Handles search store subscription, find/replace operations, and match counting.
+ * Source Editor Search Hook
+ *
+ * Purpose: Bridges the search store to CodeMirror's search extension —
+ *   subscribes to search state changes and dispatches find/replace/count
+ *   operations to the CodeMirror editor view.
+ *
+ * @coordinates-with searchStore.ts — reads query, caseSensitive, regex flags
+ * @coordinates-with sourceEditorSearch.ts — countMatches utility
+ * @module hooks/useSourceEditorSearch
  */
 import { useEffect, type MutableRefObject } from "react";
 import type { EditorView } from "@codemirror/view";

@@ -1,3 +1,14 @@
+/**
+ * Task List Utilities
+ *
+ * Purpose: Provides toggle and un-toggle commands for converting between regular
+ * bullet lists and task lists. Handles the tricky edge cases of lifting task items
+ * back to regular lists and toggling checked attributes.
+ *
+ * @coordinates-with tiptap.ts — the task toggle extension uses these for toolbar commands
+ * @coordinates-with toolbarActions — toolbar adapter calls toggleTaskList/untoggleTaskList
+ * @module plugins/taskToggle/tiptapTaskListUtils
+ */
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { liftListItem } from "@tiptap/pm/schema-list";
 

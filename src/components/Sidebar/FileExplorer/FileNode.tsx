@@ -1,3 +1,18 @@
+/**
+ * FileNode
+ *
+ * Purpose: Renders a single node (file or folder) in the file explorer tree.
+ * Handles expand/collapse, active file highlighting, and inline rename editing.
+ *
+ * Key decisions:
+ *   - Inline rename auto-selects the filename without extension on focus,
+ *     so users can type a new name without manually deselecting ".md".
+ *   - IME guard prevents Escape/Enter during CJK composition from
+ *     triggering rename actions.
+ *
+ * @coordinates-with FileExplorer.tsx — used as the react-arborist node renderer
+ * @module components/Sidebar/FileExplorer/FileNode
+ */
 import { ChevronRight, ChevronDown, Folder, FileText } from "lucide-react";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import type { NodeRendererProps } from "react-arborist";

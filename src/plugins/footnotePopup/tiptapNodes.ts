@@ -1,3 +1,19 @@
+/**
+ * Footnote Node Definitions
+ *
+ * Purpose: Defines the footnote_reference (inline [^n]) and footnote_definition (block)
+ * ProseMirror node types for WYSIWYG mode.
+ *
+ * Key decisions:
+ *   - footnote_reference is inline + atom (no editable content, just a label)
+ *   - footnote_definition is a block node containing a paragraph of content
+ *   - Both nodes carry a `label` attribute for bidirectional linking
+ *
+ * @coordinates-with tiptap.ts — uses these nodes for popup interactions
+ * @coordinates-with tiptapCleanup.ts — renumbers labels on these nodes
+ * @module plugins/footnotePopup/tiptapNodes
+ */
+
 import { mergeAttributes, Node } from "@tiptap/core";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 

@@ -1,5 +1,12 @@
 /**
- * MCP Bridge - Workspace and Window Operation Handlers
+ * MCP Bridge — Workspace and Window Handlers
+ *
+ * Purpose: Workspace-level operations — list/open/save documents, open workspace,
+ *   get workspace info, and new-window creation via AI assistant requests.
+ *
+ * @coordinates-with workspaceStore.ts — reads workspace root and config
+ * @coordinates-with tabStore.ts — manages tabs for open/save
+ * @module hooks/mcpBridge/workspaceHandlers
  */
 
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";

@@ -1,9 +1,22 @@
 /**
- * MDAST to ProseMirror conversion
+ * MDAST to ProseMirror Conversion — Orchestrator
  *
- * Converts MDAST (Markdown Abstract Syntax Tree) nodes to ProseMirror nodes.
- * The ProseMirror schema is passed in to ensure framework-free utils layer.
+ * Purpose: Converts a complete MDAST tree to a ProseMirror document by dispatching
+ * each node type to the appropriate converter (block or inline).
  *
+ * Pipeline: MDAST root → MdastToPMConverter.convertRoot() → PM doc node
+ *
+ * Key decisions:
+ *   - Uses a class (MdastToPMConverter) to hold per-document state like usedSlugs
+ *     for heading ID uniqueness, but converter functions are pure/stateless
+ *   - Inline HTML tags are merged (mergeInlineHtmlTags) so that paired open/close
+ *     tags like `<kbd>...</kbd>` become a single html_inline node — but only when
+ *     inner content has no formatting marks (otherwise marks would be lost)
+ *   - Schema is passed in (not imported) to keep this layer framework-free
+ *
+ * @coordinates-with mdastBlockConverters.ts — block node conversion functions
+ * @coordinates-with mdastInlineConverters.ts — inline node conversion functions
+ * @coordinates-with proseMirrorToMdast.ts — reverse direction
  * @module utils/markdownPipeline/mdastToProseMirror
  */
 

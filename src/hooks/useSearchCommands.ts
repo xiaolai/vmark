@@ -1,3 +1,14 @@
+/**
+ * Search Commands Hook
+ *
+ * Purpose: Handles menu events for Find and Replace — opens the search bar,
+ *   focuses the search input, and routes find-next/find-prev/replace actions.
+ *
+ * @coordinates-with searchStore.ts — search state (query, flags, results)
+ * @coordinates-with uiStore.ts — toggles search bar visibility
+ * @module hooks/useSearchCommands
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

@@ -1,3 +1,13 @@
+/**
+ * Tiptap Table Commands Hook
+ *
+ * Purpose: Handles menu events for table operations in WYSIWYG mode —
+ *   add/delete rows and columns, alignment, cell clearing, and table formatting.
+ *
+ * @coordinates-with tableActions.tiptap.ts — table mutation functions
+ * @module hooks/useTiptapTableCommands
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

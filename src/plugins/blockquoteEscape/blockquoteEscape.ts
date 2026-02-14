@@ -1,9 +1,16 @@
 /**
  * Blockquote Escape Handlers
  *
- * Handles ArrowUp/ArrowDown at blockquote boundaries:
- * - ArrowUp at start of first-block blockquote → insert paragraph before
- * - ArrowDown at end of last-block blockquote → insert paragraph after
+ * Purpose: Prevents cursor trapping when a blockquote is the first or last block
+ * in the document — inserts an escape paragraph on ArrowUp/ArrowDown at boundaries.
+ *
+ * Key decisions:
+ *   - Only fires when the blockquote is at the document edge AND cursor is at the
+ *     boundary position — avoids interfering with normal blockquote navigation
+ *   - Uses direct ProseMirror transactions (not Tiptap commands) for minimal overhead
+ *
+ * @coordinates-with blockEscape/tiptap.ts — wires these handlers into the keymap
+ * @module plugins/blockquoteEscape/blockquoteEscape
  */
 
 import type { EditorView } from "@tiptap/pm/view";

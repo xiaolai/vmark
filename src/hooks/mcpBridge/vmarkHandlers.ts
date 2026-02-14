@@ -1,6 +1,10 @@
 /**
- * MCP Bridge - VMark-Specific Operation Handlers
- * Math, Mermaid, SVG, Wiki Links, CJK Formatting
+ * MCP Bridge — VMark-Specific Operation Handlers
+ *
+ * Purpose: VMark-specific operations — insert inline/block math, mermaid diagrams,
+ *   SVG blocks, wiki links, and CJK spacing formatting.
+ *
+ * @module hooks/mcpBridge/vmarkHandlers
  */
 
 import { respond, getEditor } from "./utils";

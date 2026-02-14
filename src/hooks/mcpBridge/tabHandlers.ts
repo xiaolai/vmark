@@ -1,5 +1,11 @@
 /**
- * MCP Bridge - Tab Management Handlers
+ * MCP Bridge — Tab Management Handlers
+ *
+ * Purpose: Tab operations via MCP — list tabs, switch active tab, create
+ *   new tab, and close tab with dirty check.
+ *
+ * @coordinates-with tabStore.ts — tab CRUD operations
+ * @module hooks/mcpBridge/tabHandlers
  */
 
 import { readTextFile } from "@tauri-apps/plugin-fs";

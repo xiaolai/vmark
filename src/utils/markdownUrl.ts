@@ -1,9 +1,16 @@
 /**
  * Markdown URL Encoding Utility
  *
- * Handles URLs with spaces for markdown image/link syntax.
+ * Purpose: Handles URLs with spaces for markdown image/link syntax.
  * Uses angle brackets `<url>` for URLs with spaces (CommonMark standard).
  *
+ * Key decisions:
+ *   - Angle brackets chosen over percent-encoding for readability
+ *   - decodeMarkdownUrl handles both <> and %20 for backward compatibility
+ *     with documents created before the angle-bracket convention
+ *
+ * @coordinates-with markdownPipeline/serializer.ts — uses encodeMarkdownUrl for link/image output
+ * @coordinates-with imageHandler/tiptap.ts — uses encodeMarkdownUrl for dropped/pasted images
  * @module utils/markdownUrl
  */
 

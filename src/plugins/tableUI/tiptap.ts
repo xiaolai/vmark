@@ -1,3 +1,24 @@
+/**
+ * Table UI Extension
+ *
+ * Purpose: Orchestrates all table-related UI features for WYSIWYG mode: context menu,
+ * column resize handles, keyboard navigation (Tab between cells, arrow escape),
+ * and row insertion shortcuts.
+ *
+ * Pipeline: ProseMirror plugin view → detects active table → mounts context menu
+ *           and resize handles → cleans up when table loses focus
+ *
+ * Key decisions:
+ *   - Context menu is imperative DOM (not React) for performance in large documents
+ *   - Column resize uses CSS widths only (not persisted to markdown)
+ *   - Enter in table adds row below instead of splitting paragraph
+ *
+ * @coordinates-with tableActions.tiptap.ts — row/column CRUD commands
+ * @coordinates-with TiptapTableContextMenu.ts — right-click context menu
+ * @coordinates-with columnResize.ts — drag-to-resize column handles
+ * @coordinates-with tableEscape.ts — arrow key escape from table boundaries
+ * @module plugins/tableUI/tiptap
+ */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type Command } from "@tiptap/pm/state";
 import { keymap } from "@tiptap/pm/keymap";

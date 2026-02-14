@@ -1,3 +1,21 @@
+//! # Workspace Configuration
+//!
+//! Purpose: Reads and writes per-workspace settings (exclude folders, hidden files,
+//! last-open tabs, AI config, identity/trust) stored in `<appData>/workspaces/<hash>.json`.
+//!
+//! Pipeline: Frontend invoke("read_workspace_config") → this module → filesystem.
+//! On first read, migrates from legacy `.vmark/` directory format if present.
+//!
+//! Key decisions:
+//!   - Workspace root paths are hashed (SHA-256, first 8 bytes) to produce deterministic
+//!     filenames, avoiding special-character issues in path-based filenames.
+//!   - Legacy migration is one-shot: after writing to the new location, the old `.vmark/`
+//!     directory is cleaned up (best-effort).
+//!   - Writes use atomic_write_file to prevent partial reads by concurrent processes.
+//!
+//! Known limitations:
+//!   - Hash collisions are theoretically possible but extremely unlikely (2^64 space).
+
 use crate::app_paths;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

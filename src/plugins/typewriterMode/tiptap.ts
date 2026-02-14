@@ -1,3 +1,20 @@
+/**
+ * Typewriter Mode Extension
+ *
+ * Purpose: Keeps the current editing line vertically centered in the viewport,
+ * mimicking a typewriter where the paper moves instead of the cursor. Scrolls
+ * the editor container after each transaction that changes the cursor position.
+ *
+ * Key decisions:
+ *   - Skips first N updates after mount to avoid scroll jumps on document load
+ *   - Uses requestAnimationFrame for smooth scroll timing
+ *   - Only activates when typewriterMode is enabled in editorStore
+ *   - Threshold check avoids tiny scroll adjustments (< 30px)
+ *
+ * @coordinates-with editorStore.ts — reads typewriterMode toggle state
+ * @coordinates-with focusMode/tiptap.ts — can be used together with focus mode
+ * @module plugins/typewriterMode/tiptap
+ */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { useEditorStore } from "@/stores/editorStore";

@@ -1,9 +1,23 @@
 /**
- * Markdown parser using remark
+ * Markdown Parser (remark-based)
  *
- * Parses markdown text into MDAST (Markdown Abstract Syntax Tree).
- * Uses unified with remark-parse, remark-gfm, remark-math, and remark-frontmatter.
+ * Purpose: Parses markdown text into MDAST (Markdown Abstract Syntax Tree)
+ * with support for GFM, math, frontmatter, wiki links, and custom inline syntax.
  *
+ * Pipeline: markdown string → preprocessEscapedMarkers → unified/remark → MDAST
+ *
+ * Key decisions:
+ *   - Lazy plugin loading based on content analysis (analyzeContent) — avoids
+ *     loading remark-math/frontmatter/etc. when content doesn't use them
+ *   - Custom escape preprocessing using Unicode Private Use Area placeholders
+ *     because remark processes backslash escapes before our plugins run
+ *   - remarkValidateMath rejects `$100 and $200` (leading/trailing whitespace)
+ *     to prevent false positives from dollar signs in prose
+ *   - singleTilde disabled in remark-gfm to avoid conflict with subscript syntax
+ *
+ * @coordinates-with serializer.ts — reverse direction (MDAST → markdown string)
+ * @coordinates-with adapter.ts — wraps this with error handling and perf logging
+ * @coordinates-with parsingCache.ts — caches results of parseMarkdownToMdast
  * @module utils/markdownPipeline/parser
  */
 

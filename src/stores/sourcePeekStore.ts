@@ -1,3 +1,24 @@
+/**
+ * Source Peek Store
+ *
+ * Purpose: State for the Source Peek popup — a mini source editor that lets
+ *   users edit a single block's markdown without leaving WYSIWYG mode.
+ *
+ * Pipeline: User triggers Source Peek (F5) → open() with current block's
+ *   markdown and position → user edits in popup → setMarkdown() tracks
+ *   unsaved changes → apply/close writes back to WYSIWYG editor.
+ *
+ * Key decisions:
+ *   - Stores originalMarkdown for ESC revert — user can always discard edits.
+ *   - livePreview syncs edits to the WYSIWYG view on each keystroke when enabled.
+ *   - parseError tracks markdown-to-node conversion failures for inline feedback.
+ *   - close() resets to initialState — no stale state leaks between sessions.
+ *
+ * @coordinates-with SourcePeek component — renders the popup CodeMirror editor
+ * @coordinates-with useSourcePeek hook — handles apply/revert logic
+ * @module stores/sourcePeekStore
+ */
+
 import { create } from "zustand";
 
 export interface SourcePeekRange {

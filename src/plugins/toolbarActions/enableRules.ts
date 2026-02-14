@@ -1,3 +1,23 @@
+/**
+ * Toolbar Enable Rules
+ *
+ * Purpose: Determines the enabled/disabled/active state of each toolbar button based on
+ * the current editor context (cursor position, selection, block type). This is the
+ * single source of truth for "should this button be clickable right now?"
+ *
+ * Pipeline: cursor context (from toolbarContext) → computeButtonState per button →
+ *           disabled/active flags → toolbar renders accordingly
+ *
+ * Key decisions:
+ *   - Block-level actions (heading, list, table) are disabled inside code blocks
+ *   - Multi-selection has per-action policies (allow/deny/conditional)
+ *   - Source mode tracks its own unimplemented set (currently empty)
+ *
+ * @coordinates-with toolbarContext/types.ts — provides CursorContext used for decisions
+ * @coordinates-with multiSelectionPolicy.ts — per-action multi-selection rules
+ * @coordinates-with UniversalToolbar.tsx — consumes computed button states
+ * @module plugins/toolbarActions/enableRules
+ */
 import type { EditorView as TiptapEditorView } from "@tiptap/pm/view";
 import { isSeparator, type ToolbarGroupButton, type ToolbarMenuItem, type ToolbarActionItem } from "@/components/Editor/UniversalToolbar/toolbarGroups";
 import type { CursorContext as WysiwygContext } from "@/plugins/toolbarContext/types";

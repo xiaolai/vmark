@@ -1,10 +1,18 @@
 /**
  * Typewriter Mode Plugin for CodeMirror (Source Mode)
  *
- * Keeps the cursor vertically centered on screen as you type.
- * The page scrolls to keep your writing position at a comfortable eye level.
+ * Purpose: Keeps the cursor vertically centered at ~40% from the top of the viewport
+ * as the user types, creating a typewriter-like scrolling experience.
  *
- * Mirrors the behavior of the WYSIWYG typewriter mode plugin.
+ * Key decisions:
+ *   - Mirrors the WYSIWYG typewriter mode plugin for consistent cross-mode UX
+ *   - Uses a scroll threshold (30px) to avoid jittery scrolling on small cursor movements
+ *   - Skips initial updates to prevent jarring scroll on editor load
+ *   - Smooth scrolling for a polished feel
+ *
+ * @coordinates-with typewriterMode/tiptap.ts — WYSIWYG counterpart
+ * @coordinates-with stores/editorStore.ts — reads typewriterMode state
+ * @module plugins/codemirror/typewriterModePlugin
  */
 
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";

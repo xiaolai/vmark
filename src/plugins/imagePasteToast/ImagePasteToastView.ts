@@ -1,9 +1,18 @@
 /**
  * Image Paste Toast View
  *
- * DOM management for the image paste confirmation toast.
- * Shows when pasting text that looks like an image URL/path,
- * allowing user to choose between inserting as image or text.
+ * Purpose: Shows a transient confirmation toast when pasting text that looks like an
+ * image URL/path, letting the user choose between inserting as image or as plain text.
+ *
+ * Key decisions:
+ *   - Auto-dismisses after 5 seconds if the user doesn't interact
+ *   - Positioned relative to the cursor using the popup positioning system
+ *   - DOM-based (not React) for consistency with other editor popups
+ *   - Escape key dismisses the toast
+ *
+ * @coordinates-with stores/imagePasteToastStore.ts — toast visibility and action state
+ * @coordinates-with imageHandler/tiptap.ts — triggers the toast on ambiguous image pastes
+ * @module plugins/imagePasteToast/ImagePasteToastView
  */
 
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";

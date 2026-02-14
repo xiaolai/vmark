@@ -1,8 +1,13 @@
 /**
  * MCP Health Check Hook
  *
- * Provides health check functionality for the MCP server.
- * Runs the sidecar with --health-check to get real tool/version data.
+ * Purpose: Provides health check for the MCP server — runs the sidecar
+ *   with --health-check flag to get real tool count and version data
+ *   for the settings panel MCP status display.
+ *
+ * @coordinates-with mcpHealthStore.ts — stores health check results
+ * @coordinates-with useMcpServer.ts — reads server running state
+ * @module hooks/useMcpHealthCheck
  */
 
 import { useCallback } from "react";
