@@ -1,10 +1,18 @@
 /**
  * Tab Shortcuts Hook
  *
- * Handles keyboard shortcuts for tab and UI operations:
- * - New tab (configurable, default: Mod+T)
- * - Mod+W: Close current tab (with dirty check) - intentionally hardcoded for layered handling
- * - Toggle status bar (configurable, default: F7)
+ * Purpose: Keyboard shortcut handler for tab and UI operations — new tab,
+ *   close tab (with dirty check), and status bar toggle.
+ *
+ * Key decisions:
+ *   - Mod+W intentionally hardcoded (not configurable) for layered close handling
+ *   - Close finds the search bar first, then closes the tab
+ *   - New tab and status bar toggle use configurable shortcuts from store
+ *   - Only active in document windows (not settings or other window types)
+ *
+ * @coordinates-with useTabOperations.ts — closeTabWithDirtyCheck for save prompts
+ * @coordinates-with shortcutsStore.ts — reads configurable shortcut bindings
+ * @module hooks/useTabShortcuts
  */
 
 import { useEffect } from "react";

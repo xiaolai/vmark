@@ -1,3 +1,14 @@
+/**
+ * View Menu Events Hook
+ *
+ * Purpose: Handles View menu events — toggle source/focus/typewriter mode,
+ *   word wrap, line numbers, sidebar, outline, toolbar, status bar, and terminal.
+ *
+ * @coordinates-with editorStore.ts — view mode toggles
+ * @coordinates-with uiStore.ts — UI panel toggles
+ * @module hooks/useViewMenuEvents
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

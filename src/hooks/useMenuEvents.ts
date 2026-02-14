@@ -1,3 +1,16 @@
+/**
+ * Menu Events Hook
+ *
+ * Purpose: Handles miscellaneous menu events not covered by specialized hooks —
+ *   settings, orphan cleanup, history clear, reveal in Finder, open links,
+ *   and other utility menu actions.
+ *
+ * @coordinates-with useFileOperations.ts — file-related menu events
+ * @coordinates-with useViewMenuEvents.ts — view-related menu events
+ * @coordinates-with useWorkspaceMenuEvents.ts — workspace-related menu events
+ * @module hooks/useMenuEvents
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

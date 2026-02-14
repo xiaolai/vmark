@@ -1,3 +1,15 @@
+/**
+ * Tiptap Paragraph Commands Hook
+ *
+ * Purpose: Handles menu events for block-level operations in WYSIWYG mode —
+ *   lists, blockquotes, alerts, task lists, code blocks, math blocks,
+ *   mermaid diagrams, and horizontal rules.
+ *
+ * @coordinates-with nodeActions.tiptap.ts — blockquote nest/unnest/remove
+ * @coordinates-with tiptapTaskListUtils.ts — task list toggling
+ * @module hooks/useTiptapParagraphCommands
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

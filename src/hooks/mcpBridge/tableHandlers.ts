@@ -1,5 +1,10 @@
 /**
- * MCP Bridge - Table Operation Handlers
+ * MCP Bridge — Table Operation Handlers
+ *
+ * Purpose: Table CRUD operations via MCP — insert table, delete table,
+ *   modify table structure (add/delete rows and columns, cell content).
+ *
+ * @module hooks/mcpBridge/tableHandlers
  */
 
 import { respond, getEditor } from "./utils";

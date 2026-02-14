@@ -1,13 +1,19 @@
 /**
  * Tab Operations (Hooks Layer)
  *
- * Async functions for tab operations with side effects:
- * - Dialogs for confirmation prompts
- * - File system writes for saving
- * - Store mutations for closing tabs
+ * Purpose: Async tab lifecycle functions with side effects — close with
+ *   dirty check, orphan image cleanup, and history clearing.
  *
- * These functions belong in hooks layer because they have Tauri/store
- * side effects. Pure decision logic should go in utils.
+ * Key decisions:
+ *   - Lives in hooks/ (not utils/) because it has Tauri dialog + store side effects
+ *   - Orphan image cleanup runs only on explicitly closed tabs (not discarded)
+ *   - Creates a fresh untitled tab when closing the last tab in a window
+ *   - Pure close decision logic delegated to utils/closeDecision.ts
+ *
+ * @coordinates-with closeSave.ts — promptSaveForDirtyDocument dialog
+ * @coordinates-with tabStore.ts — removeTab, addTab mutations
+ * @coordinates-with useUnifiedHistory.ts — clearDocumentHistory on close
+ * @module hooks/useTabOperations
  */
 
 import { promptSaveForDirtyDocument } from "@/hooks/closeSave";

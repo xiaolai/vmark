@@ -1,3 +1,13 @@
+/**
+ * Workspace Config Helpers
+ *
+ * Purpose: Read/write workspace configuration to disk — merges partial
+ *   updates into the current config and persists via Rust command.
+ *
+ * @coordinates-with workspaceStore.ts — in-memory config state
+ * @module hooks/workspaceConfig
+ */
+
 import { invoke } from "@tauri-apps/api/core";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 

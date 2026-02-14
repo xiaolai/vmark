@@ -1,8 +1,19 @@
 /**
  * View Shortcuts Hook
  *
- * Handles keyboard shortcuts for view modes (configurable).
- * Menu accelerators don't always work reliably, so we listen directly.
+ * Purpose: Keyboard shortcut handler for view-mode toggles — source mode,
+ *   focus mode, typewriter mode, word wrap, line numbers, and terminal.
+ *
+ * Key decisions:
+ *   - Listens directly on keydown because menu accelerators aren't always
+ *     reliable (e.g., when editor has focus and intercepts keys)
+ *   - IME events filtered out via isImeKeyEvent to avoid false triggers
+ *   - Uses matchesShortcutEvent for configurable shortcut matching
+ *   - Source mode toggle creates a history checkpoint for undo across modes
+ *
+ * @coordinates-with shortcutsStore.ts — reads configurable shortcut bindings
+ * @coordinates-with editorStore.ts — toggles sourceMode, focusMode, etc.
+ * @module hooks/useViewShortcuts
  */
 
 import { useEffect } from "react";

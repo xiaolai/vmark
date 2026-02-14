@@ -1,11 +1,9 @@
 /**
- * Smart Insert Handlers - Intuitive insertion at common locations.
+ * MCP Bridge — Smart Insert Handlers
  *
- * Handles smartInsert requests to insert content at:
- * - End of document
- * - Start of document
- * - After a specific paragraph (by index or content match)
- * - After a specific section heading
+ * Purpose: Intuitive content insertion at common document locations —
+ *   end of document, start of document, after a specific paragraph
+ *   (by index or content match), or after a specific section heading.
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";

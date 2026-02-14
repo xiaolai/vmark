@@ -1,9 +1,20 @@
 /**
- * Hook for handling image drag-and-drop in the editor
+ * Image Drag-Drop Hook
  *
- * Listens to Tauri's drag-drop events and inserts dropped images
- * into the active editor (WYSIWYG or Source mode).
+ * Purpose: Handles image files dragged from Finder into the editor — saves
+ *   to assets and inserts into the active editor (WYSIWYG or Source mode).
  *
+ * Pipeline: Finder drag → Tauri drag-drop event → filter for image files →
+ *   saveImageToAssets() → insert node (WYSIWYG) or markdown text (Source)
+ *
+ * Key decisions:
+ *   - Manages dropZoneStore for visual feedback during drag-over
+ *   - Distinguishes image drops from file-open drops (useDragDropOpen handles non-images)
+ *   - Supports both WYSIWYG (ProseMirror node) and Source (markdown text) insertion
+ *
+ * @coordinates-with useImageOperations.ts — saveImageToAssets for file I/O
+ * @coordinates-with useDragDropOpen.ts — handles non-image file drops
+ * @coordinates-with dropZoneStore.ts — visual drop zone state
  * @module hooks/useImageDragDrop
  */
 

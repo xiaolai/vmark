@@ -1,11 +1,20 @@
 /**
- * Hook for export menu event handling.
+ * Export Menu Events Hook
  *
- * Handles menu:export-html, menu:export-pdf, and menu:copy-html events.
- * Extracted from useMenuEvents to keep file sizes under 300 lines.
+ * Purpose: Handles export menu events — HTML export, PDF export, and
+ *   copy-as-HTML to clipboard.
  *
- * Uses ExportSurface for visual parity.
+ * Pipeline: Rust menu event → Tauri listen() → flush WYSIWYG content →
+ *   render ExportSurface (for visual parity) → save to disk or clipboard
  *
+ * Key decisions:
+ *   - Export module dynamically imported to avoid loading exportStyles.css at startup
+ *   - Uses ExportSurface for rendered output identical to what user sees
+ *   - Reentry guard prevents double-export from rapid clicks
+ *   - Export folder name derived from document filename
+ *
+ * @coordinates-with exportNaming.ts — folder/file naming conventions
+ * @coordinates-with wysiwygFlush.ts — flushActiveWysiwygNow before export
  * @module hooks/useExportMenuEvents
  */
 import { useEffect, useRef } from "react";

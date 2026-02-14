@@ -1,8 +1,10 @@
 /**
  * Window Focus (Hooks Layer)
  *
- * Thin wrappers around Tauri window APIs.
- * No pure logic - these are inherently about Tauri access.
+ * Purpose: Thin wrappers around Tauri window focus APIs — used to ensure
+ *   menu events only trigger in the currently focused window.
+ *
+ * @module hooks/useWindowFocus
  */
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

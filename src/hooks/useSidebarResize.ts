@@ -1,3 +1,13 @@
+/**
+ * Sidebar Resize Hook
+ *
+ * Purpose: Drag-to-resize handler for the sidebar panel — clamps width
+ *   to min/max bounds and cleans up listeners on blur/unmount.
+ *
+ * @coordinates-with uiStore.ts — reads/writes sidebarWidth
+ * @module hooks/useSidebarResize
+ */
+
 import { useCallback, useRef, useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
 

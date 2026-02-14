@@ -1,5 +1,10 @@
 /**
- * MCP Bridge - Cursor Operation Handlers
+ * MCP Bridge — Cursor Operation Handlers
+ *
+ * Purpose: Cursor position operations — get cursor context (surrounding text,
+ *   block info, marks), set cursor position, and get line/column info.
+ *
+ * @module hooks/mcpBridge/cursorHandlers
  */
 
 import type { ResolvedPos } from "@tiptap/pm/model";

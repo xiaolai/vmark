@@ -1,7 +1,12 @@
 /**
- * Workspace session persistence
+ * Workspace Session Persistence
  *
- * Saves last open tabs to workspace config for restore.
+ * Purpose: Persists the current window's open tab paths into the workspace
+ *   config file — called before window close so tabs can be restored on reopen.
+ *
+ * @coordinates-with workspaceStore.ts — reads rootPath and config
+ * @coordinates-with useWindowClose.ts — calls persistWorkspaceSession before close
+ * @module hooks/workspaceSession
  */
 import { invoke } from "@tauri-apps/api/core";
 import { useWorkspaceStore } from "@/stores/workspaceStore";

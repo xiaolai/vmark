@@ -1,13 +1,16 @@
 /**
  * Idempotency Cache
  *
- * Provides request deduplication with TTL-based expiration.
- * Caches responses by requestId to ensure identical requests
- * return the same result without re-executing.
+ * Purpose: Request deduplication for MCP bridge — caches responses by requestId
+ *   with TTL-based expiration so identical requests return the same result
+ *   without re-executing.
  *
- * TTL: 5 minutes
- * Max entries: 1000
- * Cleanup interval: 1 minute
+ * Key decisions:
+ *   - TTL: 5 minutes (long enough for retry, short enough for state changes)
+ *   - Max entries: 1000 (prevents unbounded growth)
+ *   - Cleanup interval: 1 minute (lazy eviction)
+ *
+ * @module hooks/mcpBridge/idempotencyCache
  */
 
 import type { McpResponse } from "./types";

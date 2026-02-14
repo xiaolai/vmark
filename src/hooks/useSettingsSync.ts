@@ -1,12 +1,24 @@
+/**
+ * Settings Sync Hook
+ *
+ * Purpose: Synchronizes user settings across multiple windows using
+ *   localStorage storage events — when one window changes settings,
+ *   others pick up the change via the browser's storage event.
+ *
+ * Key decisions:
+ *   - Uses localStorage (not Tauri events) because settingsStore already
+ *     persists to localStorage via Zustand persist middleware
+ *   - Syncs setting groups independently (appearance, general, markdown, etc.)
+ *   - processStorageEvent exported for testing
+ *
+ * @coordinates-with settingsStore.ts — reads/writes persisted settings
+ * @module hooks/useSettingsSync
+ */
+
 import { useEffect } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 const STORAGE_KEY = "vmark-settings";
-
-/**
- * All setting groups that should be synced across windows.
- * Each key corresponds to a top-level property in the settings store state.
- */
 const SYNC_GROUPS = [
   "appearance",
   "general",

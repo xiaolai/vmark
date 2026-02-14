@@ -1,13 +1,11 @@
 /**
  * Command Layer
  *
- * Pure decision logic for file operations.
- * Commands return actions to execute, not side effects.
+ * Purpose: Pure decision logic for file operations — commands return action
+ *   objects describing what to do, not side effects. Hooks call commands
+ *   to determine intent, then execute the resulting actions.
  *
- * Usage pattern:
- * 1. Hooks call command functions to determine what to do
- * 2. Commands return action objects
- * 3. Hooks execute side effects based on action type
+ * @module hooks/commands
  */
 export {
   shouldOpenInNewTab,

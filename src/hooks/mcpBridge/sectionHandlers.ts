@@ -1,7 +1,10 @@
 /**
- * Section Handlers - Higher-level section operations.
+ * MCP Bridge — Section Handlers
  *
- * Part of AI-Oriented MCP Design implementation.
+ * Purpose: Higher-level section operations — get, update, insert, and move
+ *   content by heading-delimited sections in the document.
+ *
+ * @module hooks/mcpBridge/sectionHandlers
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";

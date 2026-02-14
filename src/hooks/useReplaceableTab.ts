@@ -1,9 +1,15 @@
 /**
- * Helpers for tab finding and replacement decisions.
+ * Replaceable Tab Helpers
  *
- * Extracted to avoid duplication across file-opening hooks.
- * These helpers access stores, so they live in hooks/ (not utils/).
+ * Purpose: Helpers for finding an empty untitled tab to reuse when opening
+ *   a file — avoids creating unnecessary new tabs.
  *
+ * Key decisions:
+ *   - Lives in hooks/ (not utils/) because it accesses Zustand stores
+ *   - A tab is replaceable if it's the only tab, untitled, and clean
+ *   - findExistingTabForPath checks if a file is already open (prevents duplicates)
+ *
+ * @coordinates-with useFileOperations.ts — uses getReplaceableTab on file open
  * @module hooks/useReplaceableTab
  */
 import { useTabStore } from "@/stores/tabStore";

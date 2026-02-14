@@ -1,11 +1,18 @@
 /**
  * Prompt History Hook
  *
- * Encapsulates all freeform prompt history interaction:
- * - Up/Down arrow cycling through past prompts (Layer 1)
- * - Prefix-filtered cycling (Layer 2)
- * - Ghost text suggestion (Layer 3)
- * - Searchable history dropdown state (Layer 4)
+ * Purpose: Encapsulates freeform prompt history interaction for the Genie
+ *   input — arrow-key cycling, prefix filtering, ghost text suggestions,
+ *   and searchable history dropdown.
+ *
+ * Key decisions:
+ *   - Four interaction layers: basic cycling → prefix filter → ghost text → dropdown
+ *   - Ghost text shows the most recent matching history entry as grayed hint
+ *   - Tab accepts ghost text; Escape clears it
+ *   - recordAndReset() commits a prompt to history and resets input state
+ *
+ * @coordinates-with promptHistoryStore.ts — persistent history storage
+ * @module hooks/usePromptHistory
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";

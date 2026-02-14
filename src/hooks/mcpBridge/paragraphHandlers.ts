@@ -1,7 +1,10 @@
 /**
- * Paragraph Handlers - Operations for flat documents without headings.
+ * MCP Bridge — Paragraph Handlers
  *
- * These handlers support reading and writing paragraphs by index or content match.
+ * Purpose: Paragraph-level operations for flat documents (without headings) —
+ *   read/write paragraphs by index or content match.
+ *
+ * @module hooks/mcpBridge/paragraphHandlers
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";

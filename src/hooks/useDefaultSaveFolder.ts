@@ -1,9 +1,11 @@
 /**
- * Default save folder hook
+ * Default Save Folder Hook
  *
- * Gathers data from stores and Tauri APIs, then calls
- * the pure resolver in utils/defaultSaveFolder.
+ * Purpose: Gathers workspace state and Tauri path APIs, then calls the
+ *   pure resolver to determine the default save folder — workspace root,
+ *   Documents directory, or home directory fallback.
  *
+ * @coordinates-with defaultSaveFolder.ts — pure resolution logic
  * @module hooks/useDefaultSaveFolder
  */
 import { documentDir, homeDir } from "@tauri-apps/api/path";

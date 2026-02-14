@@ -1,3 +1,24 @@
+/**
+ * Window Close Hook
+ *
+ * Purpose: Intercepts the native window close event to save dirty documents
+ *   and persist workspace session before the window actually closes.
+ *
+ * Pipeline: User clicks close / Cmd+Q → Tauri close-requested event →
+ *   this hook → check dirty tabs → promptSaveForMultipleDocuments() →
+ *   persist workspace session → allow close or cancel
+ *
+ * Key decisions:
+ *   - Prevents default close to run async save prompts first
+ *   - Batches all dirty docs into one multi-save prompt
+ *   - Persists workspace session (open tabs) before closing
+ *   - Dev-only closeLog for debugging window close race conditions
+ *
+ * @coordinates-with closeSave.ts — promptSaveForMultipleDocuments dialog
+ * @coordinates-with workspaceSession.ts — persists last open tabs
+ * @module hooks/useWindowClose
+ */
+
 import { useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

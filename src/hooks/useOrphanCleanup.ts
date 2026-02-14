@@ -1,9 +1,10 @@
 /**
- * Hook for Orphan Asset Cleanup
+ * Orphan Asset Cleanup Hook
  *
- * Provides a function to clean up unused images from the active document's
- * assets folder. Can be triggered via menu event or keyboard shortcut.
+ * Purpose: Provides a cleanup function for unused images in the active
+ *   document's assets folder — triggered via menu event or keyboard shortcut.
  *
+ * @coordinates-with orphanAssetCleanup.ts — pure detection + deletion logic
  * @module hooks/useOrphanCleanup
  */
 

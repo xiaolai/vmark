@@ -1,3 +1,22 @@
+/**
+ * Outline Sync Hook
+ *
+ * Purpose: Scrolls the editor to a heading when the user clicks an item
+ *   in the sidebar outline panel — bridges outline UI events to editor
+ *   scroll position.
+ *
+ * Pipeline: Sidebar outline click → Tauri event "outline:navigate" →
+ *   this hook → find nth heading in ProseMirror doc → scroll into view
+ *
+ * Key decisions:
+ *   - Polls for editor readiness (100ms intervals, 5s max) for lazy-loaded editors
+ *   - Scrolls heading to ~1/3 of viewport for visual context
+ *   - Also handles sync from outline panel toggle via uiStore
+ *
+ * @coordinates-with uiStore.ts — reads outline panel visibility
+ * @module hooks/useOutlineSync
+ */
+
 import { useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Selection } from "@tiptap/pm/state";

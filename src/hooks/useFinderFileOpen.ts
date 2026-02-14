@@ -1,18 +1,21 @@
 /**
- * Hook for handling files opened from Finder (double-click, "Open With", etc.)
+ * Finder File Open Hook
  *
- * When a file is opened from Finder while the app is already running,
- * Rust emits an `app:open-file` event. This hook handles that event:
- * - If the current tab is empty (untitled, no content), load the file there
- * - If the file belongs to the current workspace, open it in a new tab
- * - Otherwise, open the file in a new window
+ * Purpose: Handles files opened from macOS Finder (double-click, "Open With",
+ *   drag to dock icon) — routes to existing tab, new tab, or new window.
  *
- * Also handles cold start files queued during app launch before React mounted.
+ * Pipeline: Finder → macOS open event → Rust queues → emits `app:open-file` →
+ *   this hook → resolveOpenAction() → load in current tab / new tab / new window
  *
- * IMPORTANT: This hook waits for hot exit restore to complete before processing
- * pending files. This prevents race conditions where Finder-opened files could
- * be lost if hot exit restore clears tabs after this hook loads a file.
+ * Key decisions:
+ *   - Waits for hot exit restore before processing (prevents race condition)
+ *   - Cold-start files queued in Rust, drained after React mounts
+ *   - Empty untitled tab gets reused (replaced, not creating a new one)
+ *   - Files within workspace open as tabs; outside opens new window
  *
+ * @edge-case Cold start: files opened before React mounts are queued in Rust
+ * @edge-case Hot exit: waits for restore to complete to avoid tab overwrite
+ * @coordinates-with openPolicy.ts — resolveOpenAction for routing decision
  * @module hooks/useFinderFileOpen
  */
 import { useEffect, useRef } from "react";

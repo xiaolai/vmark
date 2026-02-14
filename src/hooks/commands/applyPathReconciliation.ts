@@ -1,8 +1,12 @@
 /**
- * Apply Path Reconciliation Results
+ * Apply Path Reconciliation
  *
- * Takes reconciliation results from the pure helper and applies
- * them to the tab and document stores.
+ * Purpose: Applies path reconciliation results to open tabs — updates file
+ *   paths when files are moved/renamed, or marks documents as missing when
+ *   files are deleted.
+ *
+ * @coordinates-with pathReconciliation.ts — pure reconciliation logic
+ * @module hooks/commands/applyPathReconciliation
  */
 
 import { useTabStore } from "@/stores/tabStore";

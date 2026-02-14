@@ -1,3 +1,19 @@
+/**
+ * Recent Files Menu Events Hook
+ *
+ * Purpose: Handles native menu events for the "Open Recent" submenu —
+ *   opens a recently used file in a new tab or new window.
+ *
+ * Key decisions:
+ *   - Uses resolveOpenAction to decide tab vs window
+ *   - Prompts user if file no longer exists on disk
+ *   - Clears recent files list on "clear-recent" event
+ *
+ * @coordinates-with recentFilesStore.ts — reads/clears recent files list
+ * @coordinates-with openPolicy.ts — resolveOpenAction for routing decision
+ * @module hooks/useRecentFilesMenuEvents
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -16,9 +32,6 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 
-/**
- * Handles recent files menu events: open-recent-file, clear-recent.
- */
 export function useRecentFilesMenuEvents(): void {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 

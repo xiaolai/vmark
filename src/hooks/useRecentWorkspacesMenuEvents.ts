@@ -1,3 +1,19 @@
+/**
+ * Recent Workspaces Menu Events Hook
+ *
+ * Purpose: Handles native menu events for the "Open Recent Workspace" submenu —
+ *   opens a recently used workspace and restores its tabs.
+ *
+ * Key decisions:
+ *   - Verifies workspace directory exists before opening
+ *   - Prompts user if workspace folder is missing
+ *   - Restores lastOpenTabs from workspace config
+ *
+ * @coordinates-with recentWorkspacesStore.ts — reads/clears recent workspaces
+ * @coordinates-with openWorkspaceWithConfig.ts — loads workspace + config
+ * @module hooks/useRecentWorkspacesMenuEvents
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -13,9 +29,6 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 
-/**
- * Handles recent workspaces menu events: open-recent-workspace, clear-recent-workspaces.
- */
 export function useRecentWorkspacesMenuEvents(): void {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 

@@ -1,3 +1,15 @@
+/**
+ * Workspace Menu Events Hook
+ *
+ * Purpose: Handles workspace-related menu events — Open Workspace, Close Workspace,
+ *   and workspace switching (persists session before switching).
+ *
+ * @coordinates-with workspaceStore.ts — workspace state management
+ * @coordinates-with workspaceSession.ts — session persistence before close
+ * @coordinates-with openWorkspaceWithConfig.ts — opens workspace with config
+ * @module hooks/useWorkspaceMenuEvents
+ */
+
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";

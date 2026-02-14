@@ -1,8 +1,12 @@
 /**
  * MCP Connected Clients Hook
  *
- * Tracks which AI clients (Claude Code, Codex, etc.) are connected
- * to the MCP bridge. Listens to real-time connect/disconnect events.
+ * Purpose: Tracks which AI clients (Claude Code, Codex, etc.) are connected
+ *   to the MCP bridge — listens to real-time connect/disconnect events
+ *   for status bar display.
+ *
+ * @coordinates-with mcpHealthStore.ts — stores client list for UI
+ * @module hooks/useMcpClients
  */
 
 import { useState, useEffect } from "react";

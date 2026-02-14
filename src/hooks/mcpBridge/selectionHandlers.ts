@@ -1,5 +1,10 @@
 /**
- * MCP Bridge - Selection Operation Handlers
+ * MCP Bridge — Selection Operation Handlers
+ *
+ * Purpose: Selection operations — get current selection text and range,
+ *   set selection to a specific from/to range, and replace selection content.
+ *
+ * @module hooks/mcpBridge/selectionHandlers
  */
 
 import { respond, getEditor } from "./utils";

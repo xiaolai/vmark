@@ -1,10 +1,23 @@
 /**
  * Unified History Hook
  *
- * Provides cross-mode undo/redo functionality by:
- * 1. Creating checkpoints when switching modes
- * 2. Intercepting undo/redo when native history is exhausted
- * 3. Restoring content from checkpoints (mode is never changed — that's a view preference)
+ * Purpose: Cross-mode undo/redo — creates checkpoints when switching between
+ *   WYSIWYG and Source modes so that undoing past the mode boundary restores
+ *   the previous content without changing the current view mode.
+ *
+ * Pipeline: Mode switch → createCheckpoint(content, mode) → push to
+ *   unifiedHistoryStore → user presses Cmd+Z past native history →
+ *   this hook intercepts → restores content from checkpoint
+ *
+ * Key decisions:
+ *   - Checkpoints store content only, never switch mode (view preference stays)
+ *   - Both Tiptap (ProseMirror) and CodeMirror native undo are tried first
+ *   - Unified history only kicks in when native undoDepth reaches 0
+ *   - clearDocumentHistory exported for tab-close cleanup
+ *
+ * @coordinates-with unifiedHistoryStore.ts — stores checkpoint stack per tab
+ * @coordinates-with useViewShortcuts.ts — calls toggleSourceModeWithCheckpoint
+ * @module hooks/useUnifiedHistory
  */
 
 import { useCallback } from "react";

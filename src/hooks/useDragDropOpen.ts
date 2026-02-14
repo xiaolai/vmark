@@ -1,10 +1,19 @@
 /**
- * Hook for handling drag-and-drop file opening
+ * Drag-Drop File Open Hook
  *
- * Listens to Tauri's drag-drop events and opens dropped markdown files.
- * Files within the current workspace open in new tabs; files outside
- * the workspace open in a new window with the file's folder as workspace.
+ * Purpose: Handles markdown files dragged from Finder into the app —
+ *   opens in a new tab (if within workspace) or new window (if outside).
  *
+ * Pipeline: Finder drag → Tauri drag-drop event → filter for .md files →
+ *   resolveOpenAction() decides tab vs window → open accordingly
+ *
+ * Key decisions:
+ *   - Files within workspace open as new tabs
+ *   - Files outside workspace open in new window with file's parent as workspace
+ *   - Image files handled by useImageDragDrop instead (not here)
+ *
+ * @coordinates-with useImageDragDrop.ts — handles image file drops
+ * @coordinates-with openPolicy.ts — resolveOpenAction for tab vs window decision
  * @module hooks/useDragDropOpen
  */
 import { useEffect, useRef } from "react";

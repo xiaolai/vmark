@@ -1,8 +1,18 @@
 /**
  * Update Sync Hook
  *
- * Synchronizes update state across windows using Tauri events.
- * Main window broadcasts state changes, other windows listen and update.
+ * Purpose: Synchronizes update state across windows — main window broadcasts
+ *   status/progress changes via Tauri events, other windows listen and
+ *   update their local updateStore to stay consistent.
+ *
+ * Key decisions:
+ *   - Two hooks: useUpdateStateBroadcaster (main window) and useUpdateStateListener (others)
+ *   - Listener also handles request-state event for late-joining windows
+ *   - Payload includes full state snapshot (status, info, progress, error)
+ *
+ * @coordinates-with useUpdateOperations.ts — triggers state changes
+ * @coordinates-with updateStore.ts — reads/writes update state
+ * @module hooks/useUpdateSync
  */
 
 import { useEffect, useRef } from "react";

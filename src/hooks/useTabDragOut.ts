@@ -1,3 +1,20 @@
+/**
+ * Tab Drag-Out Hook
+ *
+ * Purpose: Manages tab drag interactions — reorder within the tab bar
+ *   or drag out to detach a tab into a new window.
+ *
+ * Key decisions:
+ *   - Uses pointer events (not mouse) for touch support
+ *   - DRAG_OUT_THRESHOLD (40px vertical) distinguishes reorder from detach
+ *   - REORDER_LOCK_THRESHOLD (6px horizontal) prevents accidental reorder on click
+ *   - Auto-scroll at tab bar edges during reorder
+ *   - Touch hold delay (180ms) before entering drag mode on mobile
+ *
+ * @coordinates-with tabStore.ts — reorder and detach mutations
+ * @module hooks/useTabDragOut
+ */
+
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 
 /** Vertical distance (px) outside the tab bar to trigger drag-out. */

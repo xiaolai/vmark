@@ -1,7 +1,10 @@
 /**
- * Batch Operation Handlers - Table and list batch operations.
+ * MCP Bridge — Batch Operation Handlers
  *
- * Part of AI-Oriented MCP Design implementation.
+ * Purpose: Table and list batch operations — insert/delete/modify tables,
+ *   modify lists, and bulk operations on structured content.
+ *
+ * @module hooks/mcpBridge/batchOpHandlers
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";

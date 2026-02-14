@@ -1,11 +1,21 @@
 /**
- * Hook for handling external file changes
+ * External File Changes Hook
  *
- * Listens to file system change events and applies the policy:
- * - Clean documents: auto-reload with brief notification
- * - Dirty documents: prompt user to choose (batched if multiple)
- * - Deleted files: mark as missing
+ * Purpose: Detects and responds to filesystem changes on open documents —
+ *   auto-reloads clean docs, prompts for dirty docs, marks deleted files.
  *
+ * Pipeline: Rust file watcher → `file:changed` / `file:deleted` event →
+ *   this hook → resolveExternalChangeAction() decides policy → auto-reload
+ *   or show batched prompt dialog
+ *
+ * Key decisions:
+ *   - Clean documents auto-reload silently (brief toast notification)
+ *   - Dirty documents batch into a single dialog to avoid prompt storms
+ *   - matchesPendingSave() filters out our own saves echoing back
+ *   - Deleted files get isMissing flag (no auto-close — user may want to save)
+ *
+ * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
+ * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
  * @module hooks/useExternalFileChanges
  */
 import { useEffect, useRef, useCallback } from "react";

@@ -1,5 +1,17 @@
 /**
  * MCP Bridge Utilities
+ *
+ * Purpose: Shared helpers for all MCP bridge handlers — respond to requests,
+ *   get the active editor instance, resolve window IDs, and serialize
+ *   document content.
+ *
+ * Key decisions:
+ *   - respond() sends result back to Rust via invoke (not emit) for reliability
+ *   - getEditor() returns the active Tiptap editor or null (safe for handlers)
+ *   - getDocumentContent() serializes ProseMirror doc to markdown
+ *   - resolveWindowId() maps "main"/"focused" to actual window labels
+ *
+ * @module hooks/mcpBridge/utils
  */
 
 import { invoke } from "@tauri-apps/api/core";

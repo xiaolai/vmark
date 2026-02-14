@@ -1,5 +1,10 @@
 /**
- * MCP Bridge - Block and List Operation Handlers
+ * MCP Bridge — Block and List Operation Handlers
+ *
+ * Purpose: Block-level and list operations — set block type (heading, code block,
+ *   blockquote), toggle lists (ordered, unordered, task), and indent/outdent.
+ *
+ * @module hooks/mcpBridge/blockListHandlers
  */
 
 import { convertSelectionToTaskList } from "@/plugins/taskToggle/tiptapTaskListUtils";

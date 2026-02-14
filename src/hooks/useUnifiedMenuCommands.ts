@@ -1,10 +1,23 @@
 /**
  * Unified Menu Commands
  *
- * Single dispatcher for all menu events that routes to the appropriate
- * editor adapter based on current mode (WYSIWYG vs Source).
+ * Purpose: Single dispatcher for all format/insert menu events — routes each
+ *   action to the appropriate editor adapter based on current mode
+ *   (WYSIWYG via Tiptap or Source via CodeMirror).
  *
- * IMPORTANT: Mount this hook ONCE at the EditorHost level, not per-editor.
+ * Pipeline: Rust menu event → Tauri `listen("menu:{id}")` → MENU_TO_ACTION
+ *   lookup → performWysiwygToolbarAction() or performSourceToolbarAction()
+ *
+ * Key decisions:
+ *   - Must be mounted ONCE at EditorHost level, not per-editor
+ *   - Uses actionRegistry to map menu IDs to canonical action IDs
+ *   - Heading levels extracted from menu params (e.g., "heading-1" → level 1)
+ *   - Feature-flagged: some actions gated behind FEATURE_FLAGS
+ *
+ * @coordinates-with actionRegistry.ts — maps menu event IDs to action IDs
+ * @coordinates-with wysiwygAdapter.ts — executes actions in WYSIWYG mode
+ * @coordinates-with sourceAdapter.ts — executes actions in Source mode
+ * @module hooks/useUnifiedMenuCommands
  */
 
 import { useEffect, useRef } from "react";
