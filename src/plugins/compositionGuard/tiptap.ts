@@ -66,6 +66,14 @@ export const compositionGuardExtension = Extension.create({
         return;
       }
 
+      // Skip cleanup if composition started at the beginning of the parent block.
+      // This prevents incorrect deletion when typing fresh content (e.g., after
+      // pressing Enter following bold text). Cleanup is only needed when editing
+      // mid-content where pinyin residue might remain.
+      if (compositionStartPos === $start.start()) {
+        return;
+      }
+
       let cleanupEnd = $start.end();
       let allowNewlines = false;
 
