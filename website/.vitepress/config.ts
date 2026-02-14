@@ -61,11 +61,11 @@ export default withMermaid(defineConfig({
               link: '/guide/users-as-developers/',
               items: [
                 { text: 'Why I Built VMark', link: '/guide/users-as-developers/why-i-built-vmark' },
-                { text: 'Cross-Model Verification', link: '/guide/users-as-developers/cross-model-verification' },
-                { text: 'Prompt Refinement', link: '/guide/users-as-developers/prompt-refinement' },
-                { text: 'Subscription vs API', link: '/guide/users-as-developers/subscription-vs-api' },
-                { text: 'What Are Indispensable', link: '/guide/users-as-developers/what-are-indispensable' },
+                { text: 'Five Skills AI Can\'t Replace', link: '/guide/users-as-developers/what-are-indispensable' },
                 { text: 'Why Expensive Models Are Cheaper', link: '/guide/users-as-developers/why-expensive-models-are-cheaper' },
+                { text: 'Subscription vs API Pricing', link: '/guide/users-as-developers/subscription-vs-api' },
+                { text: 'English Prompts Work Better', link: '/guide/users-as-developers/prompt-refinement' },
+                { text: 'Cross-Model Verification', link: '/guide/users-as-developers/cross-model-verification' },
               ]
             },
           ]

@@ -4,9 +4,27 @@ In the age of AI coding tools, the line between "user" and "developer" is disapp
 
 VMark embraces this philosophy. The repo ships with project rules, architecture docs, and conventions pre-loaded for AI coding tools. Clone the repo, open your AI assistant, and start contributing — the AI already knows how VMark works.
 
-## Ready Out of the Box
+## Getting Started
 
-If you use AI coding tools like [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex), or [Gemini CLI](https://github.com/google-gemini/gemini-cli), VMark's repo is ready for them out of the box.
+1. **Clone the repo** — AI config is already in place.
+2. **Install your AI tool** — [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex), or [Gemini CLI](https://github.com/google-gemini/gemini-cli).
+3. **Open a session** — The tool reads `AGENTS.md` and the rules automatically.
+4. **Start coding** — The AI knows the project conventions, testing requirements, and architecture patterns.
+
+No extra setup needed. Just start asking your AI to help.
+
+## Reading Guide
+
+New to AI-assisted development? These pages build on each other:
+
+1. **[Why I Built VMark](/guide/users-as-developers/why-i-built-vmark)** — A non-programmer's journey from scripts to desktop app
+2. **[Five Skills AI Can't Replace](/guide/users-as-developers/what-are-indispensable)** — Git, TDD, terminal literacy, English, and taste — the foundations everything else builds on
+3. **[Why Expensive Models Are Cheaper](/guide/users-as-developers/why-expensive-models-are-cheaper)** — Per-token price is a vanity metric; per-task cost is what matters
+4. **[Subscription vs API Pricing](/guide/users-as-developers/subscription-vs-api)** — Why flat-rate subscriptions beat pay-per-token for coding sessions
+5. **[English Prompts Work Better](/guide/users-as-developers/prompt-refinement)** — Translation, refinement, and the `::` hook
+6. **[Cross-Model Verification](/guide/users-as-developers/cross-model-verification)** — Using Claude + Codex to audit each other for better code
+
+Already familiar with the basics? Jump to [Cross-Model Verification](/guide/users-as-developers/cross-model-verification) for the advanced workflow, or read on for how VMark's AI setup works under the hood.
 
 ## One File, Every Tool
 
@@ -23,13 +41,17 @@ Maintaining the same instructions in three places is error-prone. VMark solves t
 - **`AGENTS.md`** — Contains all project rules, conventions, and architecture notes.
 - **`CLAUDE.md`** — Just one line: `@AGENTS.md` (a Claude Code directive that inlines the file).
 - **Codex CLI** — Reads `AGENTS.md` directly.
-- **Gemini CLI** — Would use `@AGENTS.md` in `GEMINI.md` the same way.
+- **Gemini CLI** — Uses `@AGENTS.md` in `GEMINI.md` to inline the same file.
 
 Update `AGENTS.md` once, every tool picks up the change.
 
 ::: tip What is `@AGENTS.md`?
 The `@` prefix is a Claude Code directive that inlines another file's content. It's similar to `#include` in C — the contents of `AGENTS.md` are inserted into `CLAUDE.md` at that position. Learn more at [agents.md](https://agents.md/).
 :::
+
+## Using Codex as a Second Opinion
+
+VMark uses cross-model verification — Claude writes the code, then Codex (a different AI model from OpenAI) audits it independently. This catches blind spots that a single model might miss. For full details and setup instructions, see [Cross-Model Verification](/guide/users-as-developers/cross-model-verification).
 
 ## What the AI Knows
 
@@ -80,70 +102,6 @@ For complex tasks, Claude Code can delegate to focused subagents:
 | Test Runner | Runs gates, coordinates E2E testing via Tauri MCP |
 | Verifier | Final checklist before release |
 
-## Using Codex as a Second Opinion
-
-VMark uses cross-model verification — Claude writes the code, then Codex (a different AI model from OpenAI) audits it independently. This catches blind spots that a single model might miss.
-
-### How It Works
-
-The project root contains `.mcp.json`, which Claude Code auto-loads at session start:
-
-```json
-{
-  "mcpServers": {
-    "codex": {
-      "command": "codex",
-      "args": ["mcp-server"]
-    }
-  }
-}
-```
-
-This registers Codex as an MCP tool inside Claude Code. Slash commands like `/codex-audit` call it automatically. Codex runs in a sandboxed read-only context — it can read the codebase but cannot modify files.
-
-### Setup
-
-Install Codex CLI globally and log in with your ChatGPT subscription:
-
-```bash
-npm install -g @openai/codex
-codex login                   # Log in with your ChatGPT subscription (recommended)
-```
-
-Verify it's on your PATH:
-
-```bash
-codex --version
-```
-
-::: tip Subscription vs API Keys
-**Always prefer subscription auth** over API keys for vibe-coding. Subscriptions are 10–30x cheaper for sustained coding sessions. See the full breakdown in [Subscription vs API Pricing](/guide/users-as-developers/subscription-vs-api).
-:::
-
-::: tip PATH for macOS GUI Apps
-macOS GUI apps (like terminals launched from Spotlight) have a minimal PATH. If `codex --version` works in your terminal but Claude Code can't find it, ensure the Codex binary location is in your shell profile (`~/.zshrc` or `~/.bashrc`).
-:::
-
-### Structured Commands
-
-```
-/codex-audit              # Full 9-dimension audit of uncommitted changes
-/codex-audit commit -3    # Audit last 3 commits
-/codex-audit-mini         # Fast 5-dimension check for small changes
-/codex-verify             # Verify fixes from a previous audit
-/audit-fix                # Audit → fix → verify → repeat until clean
-```
-
-### Ad-hoc Help
-
-If Claude is stuck on a problem, just say:
-
-```
-Summarize your trouble, and ask Codex for help.
-```
-
-Claude will formulate a question, send it to Codex via the MCP bridge, and incorporate the response.
-
 ## Private Overrides
 
 Not everything belongs in the shared config. For personal preferences:
@@ -157,21 +115,3 @@ Not everything belongs in the shared config. For personal preferences:
 | `.claude/settings.local.json` | **No** | Your personal settings (gitignored) |
 
 Create `CLAUDE.local.md` in the project root for instructions that only apply to you — preferred language, workflow habits, tool preferences.
-
-## Getting Started
-
-1. **Clone the repo** — AI config is already in place.
-2. **Install your AI tool** — Claude Code, Codex CLI, or Gemini CLI.
-3. **Open a session** — The tool reads `AGENTS.md` and the rules automatically.
-4. **Start coding** — The AI knows the project conventions, testing requirements, and architecture patterns.
-
-No extra setup needed. Just start asking your AI to help.
-
-## Next Steps
-
-- [Cross-Model Verification](/guide/users-as-developers/cross-model-verification) — How Claude + Codex audit each other for better code
-- [Prompt Refinement](/guide/users-as-developers/prompt-refinement) — Why translating prompts to English improves AI coding
-- [Subscription vs API Pricing](/guide/users-as-developers/subscription-vs-api) — Cost comparison for AI coding tools
-- [What Are Indispensable](/guide/users-as-developers/what-are-indispensable) — The five skills no AI can replace: Git, TDD, terminal, English, and taste
-- [MCP Setup](/guide/mcp-setup) — Connect AI assistants to VMark's editor
-- [MCP Tools Reference](/guide/mcp-tools) — All 77 editor tools

@@ -1,4 +1,4 @@
-# Why Refine Prompts to English
+# Why English Prompts Produce Better Code
 
 AI coding tools work better when you give them English prompts — even if English isn’t your first language. VMark ships a hook that translates and refines your prompts automatically.
 

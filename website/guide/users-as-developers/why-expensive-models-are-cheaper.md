@@ -1,5 +1,13 @@
 # Why Expensive Models Are Cheaper
 
+::: info TL;DR
+The most capable AI model is **60% cheaper per task** despite costing 67% more per token — because it uses fewer tokens, needs fewer iterations, and produces 50–75% fewer errors. For vibe coders who can't read code, model quality isn't about efficiency — it's the only safety net in the entire pipeline.
+:::
+
+::: details Last verified: February 2026
+Benchmark scores, model names, and pricing in this article reflect the state of the field as of February 2026. The core argument — that per-task cost matters more than per-token price — is durable even as specific numbers change.
+:::
+
 The most expensive AI coding model is almost always the cheapest option — when you measure what actually matters. The per-token price is a distraction. What determines your real cost is **how many tokens it takes to get the job done**, how many iterations you burn through, and how much of your time goes to reviewing and fixing the output.
 
 ## The Pricing Illusion

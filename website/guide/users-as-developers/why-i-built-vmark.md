@@ -1,5 +1,11 @@
 # Why I Built a Markdown Editor: VMark
 
+::: info TL;DR
+A non-programmer started vibe coding in August 2025 and built VMark — a Markdown editor — in six weeks. Key lessons: **git is mandatory** (it's your undo button), **TDD keeps AI honest** (tests are boundaries against bugs), **you are vibe thinking, not vibe coding** (AI does the labor, you do the judgment), and **cross-model debate beats single-model trust**. The journey proved that users can become developers — but only if they invest in a few foundational skills.
+:::
+
+## How It Started
+
 In truth, building VMark has primarily been a learning and experiential journey for myself.
 
 I began experimenting with the emerging programming trend known as *vibe coding* on August 17, 2025. The term *vibe coding* itself was first coined and circulated on February 2, 2025, originating from a post by Andrej Karpathy on [X](https://x.com/karpathy/status/1886192184808149383) (formerly Twitter).
@@ -17,6 +23,8 @@ If I already knew how to do something, AI helped me do it better. If I didn't kn
 I am not completely ignorant of programming, but I am certainly not a real computer engineer. At best, I am a power user among ordinary users. I know some code, and I have even published a book about Python programming. But that does not make me an engineer. It's like someone who can build a thatched hut: they know more than someone who can't, but they are not even remotely in the same category as those who design skyscrapers or bridges.
 
 And then, AI changed everything.
+
+## From Scripts to Software
 
 From the beginning until now, I have tried almost every AI coding CLI available: Claude Code, Codex CLI, Gemini CLI, even unofficial tools like Grok CLI, as well as open-source alternatives such as Aider. Yet the one I have used the most is always Claude Code. After Codex CLI introduced an MCP Server, I used Claude Code even more, because it could call Codex CLI directly in Interactive Mode. Ironically, although Claude Code was the first to propose the MCP protocol, it still does not provide an MCP Server itself (as of 2026-02-10).
 
@@ -45,6 +53,8 @@ Three months later, I had built more than a dozen projects — some failed, some
 In November 2025, I built an EPUB reader based on foliate.js, designed exactly the way I liked it. I implemented features I couldn't get on Kindle or Apple Books (macOS/iOS): layered highlights, highlight and note management (not just export), custom dictionaries, exporting Obsidian cards, and more. There were occasional bugs, but they didn't affect my personal use.
 
 That said, I was too embarrassed to release it publicly. The biggest lesson I learned was this: something built only for yourself is a *toy*; something built for many people is a *product* or a *service*.
+
+## Why a Markdown Editor
 
 Naturally, I was still only thinking about my own needs. Once "reading" was solved, the next thing I could solve for myself was "writing." So on December 27, 2025 — after returning to Beijing from Harbin after Christmas — I started building **VMark**. The name simply means *Vibe-coded Markdown Editor*. Even its icon was vibe-coded: Claude Code instructed Sketch via MCP to draw it.
 
@@ -84,6 +94,8 @@ As a side note, during this process I discovered that Typora — an editor I had
 
 Two weeks later, VMark had a basic shape. One full month later, on January 27, 2026, I changed its label from *alpha* to *beta*.
 
+## An Opinionated Editor
+
 VMark is **highly opinionated**. In fact, I suspect all vibe-coded software and services will be. This is unavoidable, because vibe coding is inherently a production process without meetings — just me and an executor who never argues back.
 
 Here are a few of my personal preferences:
@@ -120,6 +132,8 @@ Others are optional, but nice to have:
 
 And so on.
 
+## Mistakes and Breakthroughs
+
 During development, I made countless mistakes, including but not limited to:
 
 > - Implementing complex features too early, unnecessarily inflating scope
@@ -148,6 +162,8 @@ By February 2, 2026 — exactly one year after the birth of the vibe coding conc
 
 I even added a command-line panel and AI Genies (honestly, not very usable yet, due to quirks of different AI providers). Still, it was clearly on a path where it kept getting better for me — and where I could no longer use other Markdown editors.
 
+## Git Is Mandatory
+
 Six weeks in, I felt there were some details worth sharing with other "non-engineers" like myself.
 
 First, although I'm not a real engineer, thankfully I understand basic **git** operations. I've used git for many years, even though it seems like a tool only engineers use. Looking back, I think I registered my GitHub account about 15 years ago.
@@ -162,7 +178,9 @@ Without git, you simply can't do any non-trivial project. This is especially imp
 
 Second, you must understand the **TDD** workflow. Do everything possible to improve test coverage. Understand the concept of *tests as boundaries*. Bugs are inevitable — like rice weevils in a granary. Without sufficient test coverage, you have no chance of finding them.
 
-More importantly, here is a core philosophical principle: **you are not vibe coding; you are vibe thinking**. Products and services are always the result of *thinking*, not the inevitable outcome of *labor*.
+## Vibe Thinking, Not Vibe Coding
+
+Here is the core philosophical principle: **you are not vibe coding; you are vibe thinking**. Products and services are always the result of *thinking*, not the inevitable outcome of *labor*.
 
 AI has taken over much of the "*doing*," but it can only assist in the fundamental thinking of *what*, *why*, and *how*. The danger is that it will always follow your lead. If you rely on it for thinking, it will quietly trap you inside your own cognitive biases[^2] — while making you feel freer than ever. As the lyric goes:
 
@@ -188,6 +206,8 @@ When I discovered Claude Code's `/audit` command (around early October), I immed
 
 This approach is essentially a variant of *recursion* — the same principle behind asking Google "how to use Google effectively." That's why I don't spend much time on complex prompt engineering. If you understand recursion, better results are inevitable.
 
+## Terminal Only
+
 There's also a personality factor. Engineers must genuinely enjoy **dealing with details**. Otherwise, the work becomes miserable. Every detail contains countless sub-details.
 
 For example: curly quotes vs straight quotes; how noticeable curly quotes are depends on the Latin fonts rather than CJK fonts (something I never knew before VMark); if quotes auto-pair, right double quotes must auto-pair too (a detail I noticed while writing this very article); meanwhile, right curly single quotes should *not* auto-pair. If handling these details doesn't make you happy, product development will inevitably become boring, frustrating, and even infuriating.
@@ -202,7 +222,7 @@ Why abandon IDEs like VSCode? Initially, because I couldn't understand complex c
 
 Eventually, I stopped writing documentation myself (guidance is still necessary). The entire [vmark.app](https://vmark.app) website was written by AI; I didn't touch a single character — except for reflections on vibe coding itself.
 
-This is similar to how I invest in secondary markets. I have an accounting background, so I *can* read financial statements — but I *never* do. My philosophy sounds absurd: good companies are obvious without financials. The key isn't financial statements; it's whether you can hold for the long term (at least ten years). That has nothing to do with financial statements.
+It's similar to how I invest: I *can* read financial statements, but I never do — good companies are obvious without them. What matters is the direction, not the details.
 
 That's why the VMark website includes this credit:
 
@@ -212,21 +232,9 @@ Another consequence of being highly opinionated: even if VMark is open-sourced, 
 
 Claude Code can even read GitHub issues, fix bugs, and automatically reply in the reporter's language. The first time I saw it handle an issue end-to-end, I was completely stunned.
 
-Throughout the process of building VMark, I often found myself thinking about my children's future education. AI's greatest impact on ordinary people will be in education.
+## The Litmus Test
 
-First, age 15 is likely a real watershed. Any effective education must be completed before then. Everything afterward is self-education and self-cultivation. Before that, building reading endurance is crucial.
-
-Second, school education has long been proven ineffective. If you don't treat school primarily as a place for socialization and psychological development — and instead treat it as the main source of education — children are almost guaranteed to become obsolete in the future world.
-
-Most importantly, all education should be production-oriented[^4] (a view I repeatedly emphasize in *Good Family Education* and *The Truth About Wealth*). The future belongs to producers — especially creators, thinkers, and decision-makers. Execution belongs to machines.
-
-As for children using AI, I have one solid piece of advice worth sharing with parents and kids alike:
-
-> **Don't be easily dazzled by AI.**
-
-Making yourself — or others — say "wow" doesn't matter. What matters is whether you've used AI to create something you could *never* have created before. The more complex, real, and useful it is, the better.
-
-A simple litmus test:
+Building VMark also made me think about the broader implications of AI for learning. All education should be production-oriented[^4] — the future belongs to creators, thinkers, and decision-makers, while execution belongs to machines. The most important litmus test for anyone using AI:
 
 > After you start using AI, are you thinking **more**, or **less**?
 

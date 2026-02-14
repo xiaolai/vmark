@@ -1,4 +1,4 @@
-# What Are Indispensable
+# Five Skills AI Can't Replace
 
 You don't need a computer science degree to build software with AI coding tools. But you do need a small set of skills that no AI can replace. These are the indispensable foundations — the things that make everything else possible.
 
@@ -197,7 +197,7 @@ This isn't about writing perfect prose. It's about **reading comprehension** —
 - **Error messages** are in English
 - **Documentation** is written in English first (and often only)
 - **Stack Overflow**, GitHub issues, and tutorials are overwhelmingly English
-- **AI models perform measurably better** with English prompts (see [Prompt Refinement](/guide/users-as-developers/prompt-refinement))
+- **AI models perform measurably better** with English prompts (see [Why English Prompts Produce Better Code](/guide/users-as-developers/prompt-refinement))
 
 You don't need to write fluently. You need to:
 
