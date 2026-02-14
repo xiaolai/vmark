@@ -5,7 +5,7 @@
  */
 
 import { useRef } from "react";
-import { ListTree, TableOfContents, History, FilePlus, FolderPlus } from "lucide-react";
+import { FolderTree, TableOfContents, History, FilePlus, FolderPlus } from "lucide-react";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
@@ -18,11 +18,11 @@ const TRAFFIC_LIGHTS_SPACER_PX = 28;
 
 // View mode configuration - single source of truth
 const VIEW_CONFIG: Record<SidebarViewMode, {
-  icon: typeof ListTree;
+  icon: typeof FolderTree;
   title: string;
   next: SidebarViewMode;
 }> = {
-  files: { icon: ListTree, title: "FILES", next: "outline" },
+  files: { icon: FolderTree, title: "FILES", next: "outline" },
   outline: { icon: TableOfContents, title: "OUTLINE", next: "history" },
   history: { icon: History, title: "HISTORY", next: "files" },
 };
