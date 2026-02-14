@@ -323,6 +323,13 @@ pub async fn mcp_bridge_client_count() -> Result<usize, String> {
     Ok(mcp_bridge::client_count().await)
 }
 
+/// Get list of connected MCP clients with their identities.
+#[command]
+pub async fn mcp_bridge_connected_clients() -> Result<Vec<mcp_bridge::ConnectedClientInfo>, String>
+{
+    Ok(mcp_bridge::connected_clients().await)
+}
+
 /// Cleanup function to kill the MCP server on app exit.
 /// Uses block_on to ensure cleanup completes before app exits.
 pub fn cleanup(app: &AppHandle) {

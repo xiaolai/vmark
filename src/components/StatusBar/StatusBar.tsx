@@ -19,6 +19,7 @@ import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
+import { useMcpClients } from "@/hooks/useMcpClients";
 import { openSettingsWindow } from "@/utils/settingsWindow";
 import { countCharsFromPlain, countWordsFromPlain, stripMarkdown } from "./statusTextMetrics";
 import { StatusBarRight } from "./StatusBarRight";
@@ -68,7 +69,8 @@ export function StatusBar() {
   const sourceModeShortcut = useShortcutsStore((state) => state.getShortcut("sourceMode"));
   const terminalShortcut = useShortcutsStore((state) => state.getShortcut("toggleTerminal"));
   const aiRunning = useAiInvocationStore((state) => state.isRunning);
-  const { running: mcpRunning, loading: mcpLoading, port: mcpPort, error: mcpError } = useMcpServer();
+  const { running: mcpRunning, loading: mcpLoading, error: mcpError } = useMcpServer();
+  const mcpClients = useMcpClients(mcpRunning);
 
   const openMcpSettings = useCallback(() => openSettingsWindow("integrations"), []);
   const showAutoSavePaused = isMissing && autoSaveEnabled;
@@ -232,8 +234,8 @@ export function StatusBar() {
             aiRunning={aiRunning}
             mcpRunning={mcpRunning}
             mcpLoading={mcpLoading}
-            mcpPort={mcpPort}
             mcpError={mcpError}
+            mcpClients={mcpClients}
             openMcpSettings={openMcpSettings}
             showAutoSavePaused={showAutoSavePaused}
             isDivergent={isDivergent}

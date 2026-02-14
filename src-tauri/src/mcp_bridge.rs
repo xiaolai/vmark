@@ -95,15 +95,20 @@ pub struct McpResponsePayload {
     pub error: Option<String>,
 }
 
+/// Connected client info exposed to the frontend.
+#[derive(Clone, Debug, Serialize)]
+pub struct ConnectedClientInfo {
+    pub name: String,
+    pub version: Option<String>,
+}
+
 /// Client identity information sent during handshake.
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 struct ClientIdentity {
     /// Client name (e.g., "claude-code", "codex-cli", "cursor")
-    #[allow(dead_code)]
     name: String,
     /// Client version
     #[serde(default)]
-    #[allow(dead_code)]
     version: Option<String>,
     /// Process ID
     #[serde(default)]
@@ -484,11 +489,11 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
     }
 
     // Cleanup
-    {
+    let had_identity = {
         let state = get_bridge_state();
         let mut guard = state.lock().await;
 
-        if let Some(_client) = guard.clients.remove(&client_id) {
+        let had_id = if let Some(_client) = guard.clients.remove(&client_id) {
             #[cfg(debug_assertions)]
             {
                 let name = _client
@@ -502,7 +507,16 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
                     guard.clients.len()
                 );
             }
-        }
+            _client.identity.is_some()
+        } else {
+            false
+        };
+        had_id
+    };
+
+    // Notify frontend when an identified client disconnects
+    if had_identity {
+        let _ = app.emit("mcp-bridge:clients-changed", ());
     }
 
     send_task.abort();
@@ -534,6 +548,10 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 );
                 client.identity = Some(identity);
             }
+            drop(guard);
+
+            // Notify frontend that connected clients changed
+            let _ = app.emit("mcp-bridge:clients-changed", ());
         }
         return Ok(());
     }
@@ -747,4 +765,20 @@ pub async fn client_count() -> usize {
     let state = get_bridge_state();
     let guard = state.lock().await;
     guard.clients.len()
+}
+
+/// Get list of connected clients with their identities.
+pub async fn connected_clients() -> Vec<ConnectedClientInfo> {
+    let state = get_bridge_state();
+    let guard = state.lock().await;
+    guard
+        .clients
+        .values()
+        .filter_map(|c| {
+            c.identity.as_ref().map(|i| ConnectedClientInfo {
+                name: i.name.clone(),
+                version: i.version.clone(),
+            })
+        })
+        .collect()
 }

@@ -5,13 +5,47 @@ import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { formatExactTime } from "@/utils/dateUtils";
 import { formatKeyForDisplay } from "@/stores/shortcutsStore";
 import { UpdateIndicator } from "./UpdateIndicator";
+import type { McpClient } from "@/hooks/useMcpClients";
+
+const UPPERCASE_WORDS = new Set(["cli", "ai", "mcp", "api", "ide"]);
+
+/** "claude-code" → "Claude Code", "codex-cli" → "Codex CLI" */
+export function formatClientName(name: string): string {
+  return name
+    .split("-")
+    .map((word) =>
+      UPPERCASE_WORDS.has(word)
+        ? word.toUpperCase()
+        : word.charAt(0).toUpperCase() + word.slice(1)
+    )
+    .join(" ");
+}
+
+function formatClientLabel(client: McpClient): string {
+  const display = formatClientName(client.name);
+  return client.version ? `${display} v${client.version}` : display;
+}
+
+export function formatMcpTooltip(
+  running: boolean,
+  loading: boolean,
+  error: string | null,
+  clients: McpClient[]
+): string {
+  if (error) return `MCP error: ${error}`;
+  if (loading) return "MCP starting...";
+  if (!running) return "MCP stopped · Click to start";
+
+  if (clients.length === 0) return "MCP ready · No AI connected";
+  return `Connected: ${clients.map(formatClientLabel).join(", ")}`;
+}
 
 interface StatusBarRightProps {
   aiRunning: boolean;
   mcpRunning: boolean;
   mcpLoading: boolean;
-  mcpPort: number | null;
   mcpError: string | null;
+  mcpClients: McpClient[];
   openMcpSettings: () => void;
   showAutoSavePaused: boolean;
   isDivergent: boolean;
@@ -31,8 +65,8 @@ export function StatusBarRight({
   aiRunning,
   mcpRunning,
   mcpLoading,
-  mcpPort,
   mcpError,
+  mcpClients,
   openMcpSettings,
   showAutoSavePaused,
   isDivergent,
@@ -61,15 +95,7 @@ export function StatusBarRight({
       <button
         className={`status-mcp ${mcpRunning ? "connected" : ""} ${mcpLoading ? "loading" : ""} ${mcpError ? "error" : ""}`}
         onClick={openMcpSettings}
-        title={
-          mcpError
-            ? `MCP error: ${mcpError}`
-            : mcpLoading
-              ? "MCP starting..."
-              : mcpRunning
-                ? `MCP running on port ${mcpPort}`
-                : "MCP stopped · Click to configure"
-        }
+        title={formatMcpTooltip(mcpRunning, mcpLoading, mcpError, mcpClients)}
       >
         <Satellite size={12} />
       </button>
