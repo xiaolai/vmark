@@ -1329,7 +1329,7 @@ fn create_menu_with_shortcuts(
             &MenuItem::with_id(app, "line-numbers", "Toggle Line Numbers", true, get_accel("line-numbers", "Alt+CmdOrCtrl+L"))?,
             &MenuItem::with_id(app, "diagram-preview", "Toggle Diagram Preview", true, get_accel("diagram-preview", "Alt+CmdOrCtrl+P"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "sidebar", "Toggle Sidebar", true, get_accel("sidebar", "CmdOrCtrl+Shift+B"))?,
+            &MenuItem::with_id(app, "sidebar", "Toggle Sidebar", true, get_accel("sidebar", "Ctrl+Shift+B"))?,
             &MenuItem::with_id(app, "outline", "Toggle Outline", true, get_accel("outline", "Ctrl+Shift+1"))?,
             &MenuItem::with_id(app, "file-explorer", "Toggle File Explorer", true, get_accel("file-explorer", "Ctrl+Shift+2"))?,
             &MenuItem::with_id(app, "view-history", "Toggle History", true, get_accel("view-history", "Ctrl+Shift+3"))?,

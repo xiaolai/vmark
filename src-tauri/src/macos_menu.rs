@@ -228,6 +228,8 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("Toggle Diagram Preview", "eye.square"),
     ("Toggle Sidebar", "sidebar.left"),
     ("Toggle Outline", "list.bullet.indent"),
+    ("Toggle File Explorer", "folder"),
+    ("Toggle History", "clock.arrow.circlepath"),
     ("Toggle Terminal", "terminal"),
     ("Enter Full Screen", "arrow.up.left.and.arrow.down.right"),
     // ── Window menu ──
