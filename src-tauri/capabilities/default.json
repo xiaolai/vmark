@@ -37,90 +37,130 @@
       "identifier": "fs:allow-read-text-file",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-write-text-file",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-write-file",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-exists",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-mkdir",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-read-dir",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-copy-file",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-read-file",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-rename",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     },
     {
       "identifier": "fs:allow-remove",
       "allow": [
         { "path": "$HOME/**/*" },
+        { "path": "$HOME/**/.*" },
         { "path": "/Volumes/**/*" },
+        { "path": "/Volumes/**/.*" },
         { "path": "/mnt/**/*" },
-        { "path": "/media/**/*" }
+        { "path": "/mnt/**/.*" },
+        { "path": "/media/**/*" },
+        { "path": "/media/**/.*" }
       ]
     }
   ]
