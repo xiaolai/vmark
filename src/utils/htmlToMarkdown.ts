@@ -7,6 +7,7 @@
 
 import TurndownService from "turndown";
 import { tables } from "@joplin/turndown-plugin-gfm";
+import { buildCodeMask } from "./markdownCodeMask";
 
 /** Register inline formatting rules (strikethrough, underline, super/subscript, highlight). */
 function registerInlineRules(turndown: TurndownService): void {
@@ -53,22 +54,20 @@ function registerBlockRules(turndown: TurndownService): void {
     },
   });
 
+  const blockReplacement = (content: string) => {
+    const trimmed = content.trim();
+    if (!trimmed) return "";
+    return "\n\n" + trimmed + "\n\n";
+  };
+
   turndown.addRule("paragraph", {
     filter: "p",
-    replacement: (content) => {
-      const trimmed = content.trim();
-      if (!trimmed) return "";
-      return "\n\n" + trimmed + "\n\n";
-    },
+    replacement: blockReplacement,
   });
 
   turndown.addRule("div", {
     filter: "div",
-    replacement: (content) => {
-      const trimmed = content.trim();
-      if (!trimmed) return "";
-      return "\n\n" + trimmed + "\n\n";
-    },
+    replacement: blockReplacement,
   });
 
   turndown.addRule("span", {
@@ -158,18 +157,6 @@ function preprocessHtml(html: string): string {
     }
   });
 
-  // Convert Word bullet characters to proper list items
-  // Word often uses special characters for bullets: •, ·, o, etc.
-  const paragraphs = container.querySelectorAll("p");
-  paragraphs.forEach((p) => {
-    const text = p.textContent?.trim() ?? "";
-    // Check for bullet-like characters at the start
-    if (/^[•·○●◦▪▫\-*]\s+/.test(text)) {
-      // This looks like a bullet item but isn't in a list
-      // We'll let turndown handle the conversion
-    }
-  });
-
   // Convert <b> to <strong>, <i> to <em> for consistency
   const boldElements = container.querySelectorAll("b");
   boldElements.forEach((b) => {
@@ -211,7 +198,12 @@ function postprocessMarkdown(markdown: string): string {
   // Remove backslashes before characters that don't need escaping in most contexts.
   // Pipe (|) is stripped only outside GFM table rows, where \| is needed to
   // represent literal pipes inside cells.
+  // Escapes inside code blocks/spans are preserved (code mask).
+  const mask = buildCodeMask(result);
   result = result.replace(/\\([#\-*_`|[\]()>+.!])/g, (match, char, offset) => {
+    // Never strip escapes inside code
+    if (mask[offset]) return match;
+
     // Keep \| inside GFM table rows (lines starting with |)
     if (char === "|") {
       const lineStart = result.lastIndexOf("\n", offset - 1) + 1;

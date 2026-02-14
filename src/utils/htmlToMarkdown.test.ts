@@ -267,6 +267,21 @@ describe("isSubstantialHtml - extended checks", () => {
   });
 });
 
+describe("htmlToMarkdown - code-aware escape stripping", () => {
+  it("preserves backslash escapes inside fenced code blocks", () => {
+    const html = "<pre><code>\\* not a list\n\\# not a heading</code></pre>";
+    const result = htmlToMarkdown(html);
+    expect(result).toContain("\\*");
+    expect(result).toContain("\\#");
+  });
+
+  it("preserves backslash escapes inside inline code", () => {
+    const html = "<p>Use <code>\\*bold\\*</code> for emphasis</p>";
+    const result = htmlToMarkdown(html);
+    expect(result).toContain("\\*");
+  });
+});
+
 describe("htmlToMarkdown - edge cases", () => {
   it("removes unnecessary escape characters from output", () => {
     // Turndown sometimes escapes characters unnecessarily

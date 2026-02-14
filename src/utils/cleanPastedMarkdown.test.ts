@@ -138,4 +138,76 @@ describe("cleanPastedMarkdown — <br> tag cleanup", () => {
     const expected = "| A | L1\nL2\nL3 |\n|---|---|";
     expect(cleanPastedMarkdown(input)).toBe(expected);
   });
+
+  it("preserves <br> inside inline code in table row", () => {
+    const input = "| A | `x<br>y` |\n|---|---|";
+    expect(cleanPastedMarkdown(input)).toBe("| A | `x<br>y` |\n|---|---|");
+  });
+
+  it("replaces <br> outside code but preserves inside on same table row", () => {
+    const input = "| `a<br>b` | L1<br>L2 |\n|---|---|";
+    const expected = "| `a<br>b` | L1\nL2 |\n|---|---|";
+    expect(cleanPastedMarkdown(input)).toBe(expected);
+  });
+});
+
+describe("cleanPastedMarkdown — code-aware escape stripping", () => {
+  it("preserves \\* inside fenced code block", () => {
+    const input = "text\n```\n\\* not a list\n```\nmore";
+    expect(cleanPastedMarkdown(input)).toBe("text\n```\n\\* not a list\n```\nmore");
+  });
+
+  it("preserves \\# inside fenced code block", () => {
+    const input = "```\n\\# not a heading\n```";
+    expect(cleanPastedMarkdown(input)).toBe("```\n\\# not a heading\n```");
+  });
+
+  it("preserves \\| inside fenced code block", () => {
+    const input = "```\na \\| b\n```";
+    expect(cleanPastedMarkdown(input)).toBe("```\na \\| b\n```");
+  });
+
+  it("preserves escapes inside inline code", () => {
+    const input = "use `\\*bold\\*` for emphasis";
+    expect(cleanPastedMarkdown(input)).toBe("use `\\*bold\\*` for emphasis");
+  });
+
+  it("strips escapes outside code but preserves inside on same line", () => {
+    const input = "text \\* bold `\\* code` end";
+    expect(cleanPastedMarkdown(input)).toBe("text * bold `\\* code` end");
+  });
+
+  it("preserves escapes inside tilde-fenced code block", () => {
+    const input = "~~~\n\\# heading\n~~~";
+    expect(cleanPastedMarkdown(input)).toBe("~~~\n\\# heading\n~~~");
+  });
+
+  it("preserves escapes inside multi-backtick inline code", () => {
+    const input = "text ``\\| pipe`` end";
+    expect(cleanPastedMarkdown(input)).toBe("text ``\\| pipe`` end");
+  });
+});
+
+describe("cleanPastedMarkdown — ordered list trigger preservation", () => {
+  it("preserves 1\\. at start of line", () => {
+    expect(cleanPastedMarkdown("1\\. First item")).toBe("1\\. First item");
+  });
+
+  it("strips 1\\. mid-line", () => {
+    expect(cleanPastedMarkdown("version 1\\. something")).toBe(
+      "version 1. something"
+    );
+  });
+
+  it("preserves multi-digit ordered list trigger", () => {
+    expect(cleanPastedMarkdown("10\\. Tenth item")).toBe("10\\. Tenth item");
+  });
+
+  it("preserves 1\\) at start of line (parenthesized marker)", () => {
+    expect(cleanPastedMarkdown("1\\) First item")).toBe("1\\) First item");
+  });
+
+  it("strips 1\\) mid-line", () => {
+    expect(cleanPastedMarkdown("item 1\\) done")).toBe("item 1) done");
+  });
 });
