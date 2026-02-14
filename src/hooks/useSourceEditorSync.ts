@@ -101,7 +101,7 @@ export function useSourceEditorContentSync(
         });
       }
     });
-  }, [viewRef, isInternalChange, content, getCursorInfo]);
+  }, [viewRef, isInternalChange, content, getCursorInfo, hiddenRef]);
 
   // Poll for pending content when internal change completes
   useEffect(() => {
@@ -131,7 +131,7 @@ export function useSourceEditorContentSync(
     // Check periodically while component is mounted
     const intervalId = setInterval(checkPendingContent, 100);
     return () => clearInterval(intervalId);
-  }, [viewRef, isInternalChange]);
+  }, [viewRef, isInternalChange, hiddenRef]);
 }
 
 /**

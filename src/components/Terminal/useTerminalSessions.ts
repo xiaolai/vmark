@@ -339,17 +339,18 @@ export function useTerminalSessions(
       prevActiveId = storeState.activeSessionId;
     });
 
+    const sessions = sessionsRef.current;
     return () => {
       unsubscribe();
       // Dispose all sessions
-      for (const [, entry] of sessionsRef.current) {
+      for (const [, entry] of sessions) {
         entry.disposed = true;
         if (entry.pty) {
           try { entry.pty.kill(); } catch { /* ignore */ }
         }
         entry.instance.dispose();
       }
-      sessionsRef.current.clear();
+      sessions.clear();
       initializedRef.current = false;
     };
   }, [containerRef, createSession, removeSessionEntry, switchVisibility]);
