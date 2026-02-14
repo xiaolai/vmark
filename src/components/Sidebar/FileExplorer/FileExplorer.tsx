@@ -16,6 +16,8 @@
  *     to the Sidebar header buttons.
  *   - File tree is workspace-only — no inferred root from file path (single-file mode
  *     has no explorer).
+ *   - Tree height is measured dynamically via ResizeObserver because react-arborist
+ *     (react-window) requires an explicit numeric pixel height.
  *   - After create operations, a small timeout allows the tree to refresh before
  *     auto-entering edit mode on the new node.
  *
@@ -32,6 +34,7 @@ import { useFileTree } from "./useFileTree";
 import { useExplorerOperations } from "./useExplorerOperations";
 import { FileNode } from "./FileNode";
 import { ContextMenu, type ContextMenuType, type ContextMenuPosition } from "./ContextMenu";
+import { useObservedHeight } from "./useObservedHeight";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
@@ -80,6 +83,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   });
   const treeRef = useRef<TreeApi<FileNodeType> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [treeContainerRef, treeHeight] = useObservedHeight<HTMLDivElement>();
 
   // Workspace-only: no inferred root from file path
   const rootPath = isWorkspaceMode ? workspaceRootPath : null;
@@ -351,13 +355,13 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
           <span className="file-explorer-workspace-name">{workspaceName}</span>
         </div>
       )}
-      <div className="file-explorer-tree" onContextMenu={handleContextMenu}>
+      <div className="file-explorer-tree" ref={treeContainerRef} onContextMenu={handleContextMenu}>
         <Tree<FileNodeType>
           ref={treeRef}
           data={tree}
           openByDefault={true}
           width="100%"
-          height={400}
+          height={treeHeight}
           indent={16}
           rowHeight={26}
           onActivate={handleActivate}
