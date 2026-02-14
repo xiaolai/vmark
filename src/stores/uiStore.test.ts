@@ -6,7 +6,6 @@ function resetUIStore() {
     settingsOpen: false,
     sidebarVisible: false,
     sidebarWidth: 260,
-    outlineVisible: false,
     sidebarViewMode: "outline",
     activeHeadingLine: null,
     statusBarVisible: true,
@@ -132,6 +131,44 @@ describe("uiStore", () => {
       useUIStore.getState().clearToolbarSession();
 
       expect(useUIStore.getState().toolbarDropdownOpen).toBe(false);
+    });
+  });
+
+  describe("toggleSidebarView", () => {
+    it("shows sidebar with requested view when hidden", () => {
+      useUIStore.getState().toggleSidebarView("files");
+
+      const state = useUIStore.getState();
+      expect(state.sidebarVisible).toBe(true);
+      expect(state.sidebarViewMode).toBe("files");
+    });
+
+    it("switches view when sidebar is showing a different view", () => {
+      useUIStore.setState({ sidebarVisible: true, sidebarViewMode: "files" });
+
+      useUIStore.getState().toggleSidebarView("outline");
+
+      const state = useUIStore.getState();
+      expect(state.sidebarVisible).toBe(true);
+      expect(state.sidebarViewMode).toBe("outline");
+    });
+
+    it("hides sidebar when already showing the same view", () => {
+      useUIStore.setState({ sidebarVisible: true, sidebarViewMode: "history" });
+
+      useUIStore.getState().toggleSidebarView("history");
+
+      expect(useUIStore.getState().sidebarVisible).toBe(false);
+    });
+
+    it("preserves view mode when hiding", () => {
+      useUIStore.setState({ sidebarVisible: true, sidebarViewMode: "outline" });
+
+      useUIStore.getState().toggleSidebarView("outline");
+
+      // Sidebar hidden but mode preserved (so re-opening shows same view)
+      expect(useUIStore.getState().sidebarVisible).toBe(false);
+      expect(useUIStore.getState().sidebarViewMode).toBe("outline");
     });
   });
 

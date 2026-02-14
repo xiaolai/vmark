@@ -128,7 +128,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
 
   // === View ===
   { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Mod-Shift-b", menuId: "sidebar", scope: "global" },
-  { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Mod-Alt-1", menuId: "outline" },
+  { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Mod-Alt-1", menuId: "outline", scope: "global" },
+  { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Mod-Alt-2", menuId: "file-explorer", scope: "global" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode" },
   { id: "toggleStatusBar", label: "Toggle Status Bar", category: "view", defaultKey: "F7", description: "Show/hide the status bar", scope: "global" },
   { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode", scope: "global" },
@@ -137,7 +138,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide line numbers in code blocks" },
   { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "toggle-terminal", scope: "global" },
   { id: "diagramPreview", label: "Toggle Diagram Preview", category: "view", defaultKey: "Alt-Mod-p", menuId: "diagram-preview", description: "Show/hide diagram preview" },
-  { id: "viewHistory", label: "View History", category: "view", defaultKey: "Mod-Shift-h", menuId: "view-history" },
+  { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Mod-Alt-3", menuId: "view-history", scope: "global" },
   { id: "toggleHiddenFiles", label: "Toggle Hidden Files", category: "view", defaultKey: "Mod-Shift-.", defaultKeyOther: "Ctrl-h", description: "Show or hide hidden files in the file explorer" },
   { id: "zoomActual", label: "Actual Size", category: "view", defaultKey: "Mod-0", menuId: "zoom-actual", scope: "global", description: "Reset font size to default" },
   { id: "zoomIn", label: "Zoom In", category: "view", defaultKey: "Mod-=", menuId: "zoom-in", scope: "global", description: "Increase font size" },

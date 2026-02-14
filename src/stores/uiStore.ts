@@ -16,7 +16,6 @@ interface UIState {
   settingsOpen: boolean;
   sidebarVisible: boolean;
   sidebarWidth: number;
-  outlineVisible: boolean;
   sidebarViewMode: SidebarViewMode;
   activeHeadingLine: number | null; // Current heading line for outline highlight
   statusBarVisible: boolean; // Simple toggle for status bar visibility (Cmd+J)
@@ -33,7 +32,8 @@ interface UIActions {
   openSettings: () => void;
   closeSettings: () => void;
   toggleSidebar: () => void;
-  toggleOutline: () => void;
+  /** Toggle a specific sidebar view: show if hidden/different, hide if already showing */
+  toggleSidebarView: (mode: SidebarViewMode) => void;
   setSidebarViewMode: (mode: SidebarViewMode) => void;
   showSidebarWithView: (mode: SidebarViewMode) => void;
   setActiveHeadingLine: (line: number | null) => void;
@@ -56,7 +56,6 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   settingsOpen: false,
   sidebarVisible: false,
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
-  outlineVisible: false,
   sidebarViewMode: "outline",
   activeHeadingLine: null,
   statusBarVisible: true, // Default to visible
@@ -71,7 +70,12 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
-  toggleOutline: () => set((state) => ({ outlineVisible: !state.outlineVisible })),
+  toggleSidebarView: (mode) => set((state) => {
+    if (state.sidebarVisible && state.sidebarViewMode === mode) {
+      return { sidebarVisible: false };
+    }
+    return { sidebarVisible: true, sidebarViewMode: mode };
+  }),
   setSidebarViewMode: (mode) => set({ sidebarViewMode: mode }),
   showSidebarWithView: (mode) => set({ sidebarVisible: true, sidebarViewMode: mode }),
   setActiveHeadingLine: (line) => set({ activeHeadingLine: line }),

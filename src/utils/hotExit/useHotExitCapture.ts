@@ -76,7 +76,7 @@ function getUiStateSafe() {
     return {
       sidebar_visible: uiStore.sidebarVisible,
       sidebar_width: uiStore.sidebarWidth,
-      outline_visible: uiStore.outlineVisible,
+      outline_visible: false, // deprecated — kept for backward compat with saved data
       sidebar_view_mode: uiStore.sidebarViewMode,
       status_bar_visible: uiStore.statusBarVisible,
       source_mode_enabled: editorStore.sourceMode,

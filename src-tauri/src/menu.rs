@@ -128,7 +128,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "Document History",
         true,
         &[
-            &MenuItem::with_id(app, "view-history", "View History...", true, Some("CmdOrCtrl+Shift+H"))?,
+            &MenuItem::with_id(app, "view-history", "Toggle History", true, Some("Alt+CmdOrCtrl+3"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "clear-history", "Clear History...", true, None::<&str>)?,
         ],
@@ -477,6 +477,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "sidebar", "Toggle Sidebar", true, Some("CmdOrCtrl+Shift+B"))?,
             &MenuItem::with_id(app, "outline", "Toggle Outline", true, Some("Alt+CmdOrCtrl+1"))?,
+            &MenuItem::with_id(app, "file-explorer", "Toggle File Explorer", true, Some("Alt+CmdOrCtrl+2"))?,
             &MenuItem::with_id(app, "toggle-terminal", "Toggle Terminal", true, Some("Ctrl+`"))?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::fullscreen(app, Some("Enter Full Screen"))?,
@@ -982,7 +983,7 @@ fn create_menu_with_shortcuts(
         "Document History",
         true,
         &[
-            &MenuItem::with_id(app, "view-history", "View History...", true, get_accel("view-history", "CmdOrCtrl+Shift+H"))?,
+            &MenuItem::with_id(app, "view-history", "Toggle History", true, get_accel("view-history", "Alt+CmdOrCtrl+3"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "clear-history", "Clear History...", true, None::<&str>)?,
         ],
@@ -1333,6 +1334,7 @@ fn create_menu_with_shortcuts(
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "sidebar", "Toggle Sidebar", true, get_accel("sidebar", "CmdOrCtrl+Shift+B"))?,
             &MenuItem::with_id(app, "outline", "Toggle Outline", true, get_accel("outline", "Alt+CmdOrCtrl+1"))?,
+            &MenuItem::with_id(app, "file-explorer", "Toggle File Explorer", true, get_accel("file-explorer", "Alt+CmdOrCtrl+2"))?,
             &MenuItem::with_id(app, "toggle-terminal", "Toggle Terminal", true, get_accel("toggle-terminal", "Ctrl+`"))?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::fullscreen(app, Some("Enter Full Screen"))?,

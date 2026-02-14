@@ -330,10 +330,6 @@ function restoreUiState(windowState: WindowState): void {
   }
   uiStore.setSidebarWidth(sidebarWidth);
 
-  if (ui_state.outline_visible !== uiStore.outlineVisible) {
-    uiStore.toggleOutline();
-  }
-
   uiStore.setSidebarViewMode(viewMode);
   uiStore.setStatusBarVisible(ui_state.status_bar_visible);
 

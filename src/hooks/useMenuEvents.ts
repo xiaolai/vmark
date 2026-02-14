@@ -6,7 +6,6 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { mkdir } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { clearAllHistory } from "@/hooks/useHistoryRecovery";
@@ -45,14 +44,6 @@ export function useMenuEvents(): void {
       });
       if (cancelled) { unlistenPreferences(); return; }
       unlistenRefs.current.push(unlistenPreferences);
-
-      // View History
-      const unlistenViewHistory = await currentWindow.listen<string>("menu:view-history", (event) => {
-        if (event.payload !== windowLabel) return;
-        useUIStore.getState().showSidebarWithView("history");
-      });
-      if (cancelled) { unlistenViewHistory(); return; }
-      unlistenRefs.current.push(unlistenViewHistory);
 
       // Clear History
       const unlistenClearHistory = await currentWindow.listen<string>("menu:clear-history", async (event) => {

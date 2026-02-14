@@ -67,10 +67,24 @@ export function useViewMenuEvents(): void {
 
       const unlistenOutline = await currentWindow.listen<string>("menu:outline", (event) => {
         if (event.payload !== windowLabel) return;
-        useUIStore.getState().toggleOutline();
+        useUIStore.getState().toggleSidebarView("outline");
       });
       if (cancelled) { unlistenOutline(); return; }
       unlistenRefs.current.push(unlistenOutline);
+
+      const unlistenFileExplorer = await currentWindow.listen<string>("menu:file-explorer", (event) => {
+        if (event.payload !== windowLabel) return;
+        useUIStore.getState().toggleSidebarView("files");
+      });
+      if (cancelled) { unlistenFileExplorer(); return; }
+      unlistenRefs.current.push(unlistenFileExplorer);
+
+      const unlistenViewHistory = await currentWindow.listen<string>("menu:view-history", (event) => {
+        if (event.payload !== windowLabel) return;
+        useUIStore.getState().toggleSidebarView("history");
+      });
+      if (cancelled) { unlistenViewHistory(); return; }
+      unlistenRefs.current.push(unlistenViewHistory);
 
       const unlistenWordWrap = await currentWindow.listen<string>("menu:word-wrap", (event) => {
         if (event.payload !== windowLabel) return;
