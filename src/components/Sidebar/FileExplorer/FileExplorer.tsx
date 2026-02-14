@@ -34,6 +34,7 @@ import { useFileTree } from "./useFileTree";
 import { useExplorerOperations } from "./useExplorerOperations";
 import { FileNode } from "./FileNode";
 import { ContextMenu, type ContextMenuType, type ContextMenuPosition } from "./ContextMenu";
+import { useObservedHeight } from "./useObservedHeight";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
@@ -82,25 +83,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   });
   const treeRef = useRef<TreeApi<FileNodeType> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const [treeHeight, setTreeHeight] = useState(400);
-
-  // Callback ref: attaches ResizeObserver when the tree container mounts.
-  // Unlike useEffect+useRef, this fires even when the element appears after
-  // an early return (loading state) re-render.
-  const treeContainerRef = useCallback((el: HTMLDivElement | null) => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      const height = entries[0]?.contentRect.height;
-      if (height && height > 0) setTreeHeight(Math.floor(height));
-    });
-    observer.observe(el);
-    observerRef.current = observer;
-  }, []);
+  const [treeContainerRef, treeHeight] = useObservedHeight<HTMLDivElement>();
 
   // Workspace-only: no inferred root from file path
   const rootPath = isWorkspaceMode ? workspaceRootPath : null;
