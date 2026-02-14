@@ -151,9 +151,9 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Zoom Out | `Mod + -` |
 | Word Wrap | `Alt + Z` |
 | Toggle Sidebar | `Mod + Shift + B` |
-| Toggle Outline | `Ctrl + 1` |
-| Toggle File Explorer | `Ctrl + 2` |
-| Toggle History | `Ctrl + 3` |
+| Toggle Outline | `Ctrl + Shift + 1` |
+| Toggle File Explorer | `Ctrl + Shift + 2` |
+| Toggle History | `Ctrl + Shift + 3` |
 | Toggle Line Numbers | `Alt + Mod + L` |
 | Toggle Terminal | `Ctrl + `` ` |
 | Toggle Diagram Preview | `Alt + Mod + P` |
@@ -209,7 +209,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | New Window | `Mod + Shift + N` |
 | New Tab | `Mod + T` |
 | Close Tab | `Mod + W` |
-| Toggle History | `Ctrl + 3` |
+| Toggle History | `Ctrl + Shift + 3` |
 | Toggle Hidden Files | `Mod + Shift + .` |
 
 ::: tip Windows/Linux Note
