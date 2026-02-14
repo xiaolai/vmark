@@ -1,7 +1,17 @@
 /**
  * Alt+Click Cursor Management for Source Mode
  *
- * Handles adding and removing cursors via Alt+Click in CodeMirror 6.
+ * Purpose: Enables multi-cursor editing in Source mode by adding/removing cursors
+ * via Alt+Click, with awareness of code fence boundaries.
+ *
+ * Key decisions:
+ *   - Clicking on an existing cursor position removes that cursor (toggle behavior)
+ *   - Code fence boundaries are respected — cursors don't span into/out of fences
+ *   - Uses CodeMirror's EditorSelection.create for atomic selection updates
+ *
+ * @coordinates-with sourceMultiCursorPlugin.ts — multi-cursor selection state management
+ * @coordinates-with sourceContextDetection/codeFenceDetection.ts — code fence boundary detection
+ * @module plugins/codemirror/sourceAltClick
  */
 
 import { EditorView } from "@codemirror/view";

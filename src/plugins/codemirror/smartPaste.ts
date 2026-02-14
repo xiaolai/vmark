@@ -1,9 +1,23 @@
 /**
  * Smart Paste Plugin for CodeMirror
  *
- * Features:
- * - When text is selected and user pastes a URL, creates a markdown link
- * - When pasting an image URL/path, prompts user to insert as image
+ * Purpose: Enhances paste behavior in Source mode — auto-creates markdown links when
+ * pasting URLs over selected text, and handles image path/URL pasting with asset copying.
+ *
+ * Pipeline: paste event → detect content type → URL over selection → [text](url)
+ *         → image path → copy to assets → insert ![](relative-path)
+ *         → markdown content → clean and insert
+ *
+ * Key decisions:
+ *   - Supports multi-image paste (multiple paths from Finder)
+ *   - Uses the image paste toast for user confirmation on ambiguous pastes
+ *   - Markdown content from other apps is cleaned before insertion
+ *   - URL detection uses clipboard metadata, not just text heuristics
+ *
+ * @coordinates-with smartPaste/tiptap.ts — WYSIWYG counterpart
+ * @coordinates-with utils/imagePathDetection.ts — image URL/path detection
+ * @coordinates-with stores/imagePasteToastStore.ts — toast UI for image paste confirmation
+ * @module plugins/codemirror/smartPaste
  */
 
 import { EditorView } from "@codemirror/view";

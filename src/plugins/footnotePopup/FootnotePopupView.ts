@@ -1,8 +1,18 @@
 /**
  * Footnote Popup View
  *
- * Manages the DOM for the footnote hover popup with inline editing.
- * Similar to LinkPopupView - allows editing footnote content directly.
+ * Purpose: Manages the DOM for the footnote hover popup — renders footnote content
+ * with inline editing, navigation to definition, and delete/renumber actions.
+ *
+ * Key decisions:
+ *   - DOM-based (not React) for performance and to stay within the ProseMirror lifecycle
+ *   - Popup is positioned relative to the popup host (editor container) using fixed coords
+ *   - Input is borderless with caret-only focus indicator (matching popup design system)
+ *   - Tab navigation cycles through focusable elements within the popup
+ *
+ * @coordinates-with tiptap.ts — creates and destroys this view based on hover/click events
+ * @coordinates-with stores/footnotePopupStore.ts — popup visibility and position state
+ * @module plugins/footnotePopup/FootnotePopupView
  */
 
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";

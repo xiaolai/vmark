@@ -1,13 +1,19 @@
 /**
- * Block Escape TipTap Extension
+ * Block Escape Tiptap Extension
  *
- * Handles ArrowUp/ArrowDown at list and blockquote boundaries in WYSIWYG mode:
- * - ArrowUp at first item of first-block list → insert paragraph before
- * - ArrowDown at last item of last-block list → insert paragraph after
- * - ArrowUp at start of first-block blockquote → insert paragraph before
- * - ArrowDown at end of last-block blockquote → insert paragraph after
+ * Purpose: Prevents the cursor from getting trapped at list and blockquote boundaries
+ * by inserting escape paragraphs when the user arrows up/down at document edges.
  *
- * This is similar to tableEscape but for lists and blockquotes.
+ * Pipeline: ArrowUp/Down keymap → try listEscape → try blockquoteEscape → default behavior
+ *
+ * Key decisions:
+ *   - Priority 1040 (below tableUI at 1050) so table escape runs first
+ *   - Delegates to separate listEscape and blockquoteEscape modules for testability
+ *   - All commands are IME-guarded via guardProseMirrorCommand
+ *
+ * @coordinates-with listEscape/listEscape.ts — handles list boundary escape
+ * @coordinates-with blockquoteEscape/blockquoteEscape.ts — handles blockquote boundary escape
+ * @module plugins/blockEscape/tiptap
  */
 
 import { Extension } from "@tiptap/core";

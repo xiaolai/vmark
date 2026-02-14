@@ -1,3 +1,21 @@
+/**
+ * Expanded Toggle Mark
+ *
+ * Purpose: Enhanced mark toggling for WYSIWYG mode that expands selection to the word
+ * or existing mark range before toggling, providing a more intuitive formatting experience.
+ *
+ * Key decisions:
+ *   - When cursor is collapsed (no selection), expand to word boundary before toggling
+ *   - When cursor is inside an existing mark range, toggle the entire range
+ *   - Handles opposing marks (bold vs regular) to prevent conflicting formatting
+ *   - Supports multi-cursor: applies the toggle to all cursors independently
+ *   - Tracks last removed mark to enable re-toggling at the same position
+ *
+ * @coordinates-with syntaxReveal/marks.ts — mark range detection utilities
+ * @coordinates-with multiCursor/MultiSelection.ts — multi-cursor support
+ * @module plugins/editorPlugins/expandedToggleMark
+ */
+
 import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { findAnyMarkRangeAtCursor, findMarkRange, findWordAtCursor } from "@/plugins/syntaxReveal/marks";

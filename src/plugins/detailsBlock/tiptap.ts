@@ -1,3 +1,20 @@
+/**
+ * Details Block Tiptap Node
+ *
+ * Purpose: Defines the detailsBlock and detailsSummary node types for collapsible
+ * `<details>/<summary>` blocks in WYSIWYG mode, with input rules and click-to-toggle.
+ *
+ * Key decisions:
+ *   - Two node types: detailsBlock (wrapper) and detailsSummary (clickable header)
+ *   - Input rule triggers on `<details>` or `:::details` at line start
+ *   - Click on summary toggles the open/closed state via node attribute
+ *   - Default summary text is "Click to expand" for new blocks
+ *
+ * @coordinates-with codemirror/sourceDetailsDecoration.ts — Source mode visual markers
+ * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
+ * @module plugins/detailsBlock/tiptap
+ */
+
 import { InputRule, Node } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 import { Plugin, PluginKey } from "@tiptap/pm/state";

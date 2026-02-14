@@ -1,9 +1,16 @@
 /**
  * Tab Escape Link Navigation for CodeMirror
  *
- * Handles Tab key navigation within markdown links:
- * - From [text] to (url) - Tab jumps to URL portion
- * - From (url) to outside - Tab jumps after closing paren
+ * Purpose: Handles Tab key navigation within markdown links — jumping from
+ * [text] to (url) and from (url) to after the link, similar to form field tabbing.
+ *
+ * Key decisions:
+ *   - Parses link boundaries by scanning backwards/forwards from cursor position
+ *   - Handles nested brackets and parentheses in link text/URLs
+ *   - Exports boundary detection functions for reuse by tabEscape.ts
+ *
+ * @coordinates-with tabEscape.ts — main Tab handler that delegates link navigation here
+ * @module plugins/codemirror/tabEscapeLink
  */
 
 import { EditorView } from "@codemirror/view";

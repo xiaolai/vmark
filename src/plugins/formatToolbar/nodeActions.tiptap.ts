@@ -1,3 +1,19 @@
+/**
+ * Format Toolbar Node Actions
+ *
+ * Purpose: Provides context detection and manipulation actions for block-level nodes
+ * (tables, lists, blockquotes) used by the format toolbar in WYSIWYG mode.
+ *
+ * Key decisions:
+ *   - Node context is built by walking up from cursor position through the node tree
+ *   - List operations use ProseMirror schema-list commands for correct nesting behavior
+ *   - All list types (bullet, ordered, task) share the same indent/outdent logic
+ *
+ * @coordinates-with types.ts — NodeContext and related type definitions
+ * @coordinates-with tiptapContext.ts — format toolbar context building
+ * @module plugins/formatToolbar/nodeActions.tiptap
+ */
+
 import type { EditorView } from "@tiptap/pm/view";
 import { Selection } from "@tiptap/pm/state";
 import type { NodeContext } from "./types";

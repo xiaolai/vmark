@@ -1,9 +1,19 @@
 /**
  * Image Preview View
  *
- * Floating preview for image hover/editing.
- * Shows image thumbnail while user hovers over image path.
- * Styled like link popup (compact, inline).
+ * Purpose: Singleton floating preview that shows an image thumbnail when the cursor
+ * hovers over or is inside an image path — used by both WYSIWYG and Source modes.
+ *
+ * Key decisions:
+ *   - Singleton pattern (getImagePreviewView) to avoid duplicate preview elements
+ *   - Resolves relative paths against the document's directory using Tauri path API
+ *   - Supports external URLs, absolute paths, and relative paths
+ *   - Positioned using the shared popup positioning system
+ *   - Windows path normalization for convertFileSrc compatibility
+ *
+ * @coordinates-with codemirror/sourceImagePreview.ts — Source mode cursor tracking
+ * @coordinates-with imageTooltip/tiptap.ts — WYSIWYG hover trigger
+ * @module plugins/imagePreview/ImagePreviewView
  */
 
 import { convertFileSrc } from "@tauri-apps/api/core";

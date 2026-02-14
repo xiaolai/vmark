@@ -1,3 +1,19 @@
+/**
+ * Block Image Tiptap Node
+ *
+ * Purpose: Defines the block_image node type — standalone images rendered as `<figure>`
+ * elements with a custom NodeView for interactive features (resize, context menu, tooltip).
+ *
+ * Key decisions:
+ *   - `atom: true` makes the image a single selectable unit (no cursor inside)
+ *   - Arrow key handlers allow navigation into/out of block images from adjacent blocks
+ *   - Enter on a selected block image creates a paragraph below for continued typing
+ *
+ * @coordinates-with BlockImageNodeView.ts — custom NodeView with image loading, resize, and menus
+ * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
+ * @module plugins/blockImage/tiptap
+ */
+
 import "./block-image.css";
 import { Node } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";

@@ -1,8 +1,17 @@
 /**
  * Source Mode Diagram Preview Plugin
  *
- * Shows a floating preview of mermaid diagrams and SVG blocks when cursor
- * is inside a ```mermaid or ```svg code block in Source mode.
+ * Purpose: Shows a floating preview of Mermaid diagrams, Markmap mindmaps, and SVG
+ * blocks when the cursor is inside their respective code fences in Source mode.
+ *
+ * Key decisions:
+ *   - Supports three diagram languages: mermaid, markmap, svg
+ *   - Reuses MermaidPreviewView singleton from the WYSIWYG mermaidPreview plugin
+ *   - Debounced rendering to avoid re-rendering complex diagrams on every keystroke
+ *
+ * @coordinates-with mermaidPreview/MermaidPreviewView.ts — shared diagram preview rendering
+ * @coordinates-with stores/editorStore.ts — reads editor mode state
+ * @module plugins/codemirror/sourceMermaidPreview
  */
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";

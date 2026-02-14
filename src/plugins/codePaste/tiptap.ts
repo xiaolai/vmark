@@ -1,11 +1,22 @@
 /**
  * Code Paste Extension
  *
- * Detects when pasted plain text looks like source code and
- * automatically wraps it in a code block with language detection.
+ * Purpose: Detects when pasted plain text looks like source code and automatically
+ * wraps it in a code block with language detection, improving the paste experience
+ * for developers.
  *
- * This extension should come AFTER imageHandler, smartPaste, markdownPaste,
- * and htmlPaste in the extension order.
+ * Pipeline: paste event → imageHandler → smartPaste → markdownPaste → htmlPaste → THIS
+ *         → code detection scoring → wrap in code block if score exceeds threshold
+ *
+ * Key decisions:
+ *   - Lowest priority in the paste chain — only fires if no other handler claims the paste
+ *   - Gated by the pasteMode setting (only active in "smart" mode)
+ *   - Skips detection if already inside a code block or if content looks like markdown
+ *   - Uses scoring heuristics from codeDetection utils (indentation, braces, keywords, etc.)
+ *
+ * @coordinates-with utils/codeDetection/ — scoring heuristics for code detection
+ * @coordinates-with utils/markdownPasteDetection.ts — markdown detection to avoid false positives
+ * @module plugins/codePaste/tiptap
  */
 
 import { Extension } from "@tiptap/core";

@@ -1,10 +1,18 @@
 /**
  * Tab Indent Plugin for CodeMirror
  *
- * Fallback Tab handler that inserts spaces when Tab is not handled
- * by other keymaps (tab escape, indent in code, etc.).
+ * Purpose: Fallback Tab handler that inserts spaces when no higher-priority
+ * keymap handles Tab (tab escape, list indent, etc.), preventing Tab from
+ * moving focus outside the editor.
  *
- * This prevents Tab from moving focus outside the editor.
+ * Key decisions:
+ *   - Uses tabSize from settings for consistent indentation
+ *   - Shift+Tab removes up to tabSize spaces from the line start
+ *   - Lower priority than tabEscape and listSmartIndent in the keymap chain
+ *
+ * @coordinates-with tabEscape.ts — higher-priority Tab handler for bracket/link escape
+ * @coordinates-with listSmartIndent.ts — higher-priority Tab handler for list items
+ * @module plugins/codemirror/tabIndent
  */
 
 import { KeyBinding } from "@codemirror/view";

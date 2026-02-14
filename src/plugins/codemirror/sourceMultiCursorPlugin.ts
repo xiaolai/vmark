@@ -1,9 +1,13 @@
 /**
  * Source Multi-Cursor Plugin
  *
- * CodeMirror 6 plugin that provides enhanced multi-cursor support:
- * - Alt+Click to add/remove cursors
- * - Escape to collapse to single cursor
+ * Purpose: Provides enhanced multi-cursor support in Source mode —
+ * Alt+Click to add/remove cursors, Escape to collapse, and visual
+ * indicators for each active cursor.
+ *
+ * @coordinates-with sourceAltClick.ts — Alt+Click handler logic
+ * @coordinates-with multiCursor/ — WYSIWYG multi-cursor counterpart
+ * @module plugins/codemirror/sourceMultiCursorPlugin
  */
 
 import { EditorView, keymap, ViewPlugin, type ViewUpdate } from "@codemirror/view";

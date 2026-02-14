@@ -1,11 +1,21 @@
 /**
  * HTML Paste Extension
  *
- * Intercepts paste events with HTML content and converts to clean Markdown.
- * This handles content from Word, web pages, and other rich text sources.
+ * Purpose: Intercepts paste events with HTML content and converts to clean Markdown
+ * before inserting — handles content from Word, web pages, and rich text sources.
  *
- * This extension should come AFTER imageHandler, smartPaste, and markdownPaste
- * in the extension order, as those handle more specific paste scenarios.
+ * Pipeline: paste event → imageHandler → smartPaste → markdownPaste → THIS
+ *         → check for substantial HTML → htmlToMarkdown → insert as markdown
+ *
+ * Key decisions:
+ *   - Only fires if no earlier handler claimed the paste (lower priority in chain)
+ *   - Uses isSubstantialHtml to filter out trivial HTML (plain text wrapped in `<p>`)
+ *   - Gated by the pasteMode setting (only active in "smart" mode)
+ *   - Skips when cursor is inside a code block or with multi-cursor
+ *
+ * @coordinates-with utils/htmlToMarkdown.ts — HTML-to-Markdown conversion
+ * @coordinates-with markdownPaste/tiptap.ts — creates the markdown insertion transaction
+ * @module plugins/htmlPaste/tiptap
  */
 
 import { Extension } from "@tiptap/core";

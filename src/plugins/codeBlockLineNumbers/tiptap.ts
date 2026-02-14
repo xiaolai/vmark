@@ -1,8 +1,23 @@
 /**
- * CodeBlock extension with line numbers and language selector.
+ * Code Block Extension with Line Numbers
  *
- * Uses a custom NodeView to render line numbers in a gutter
- * and a language selector chip in the top-right corner.
+ * Purpose: Extends CodeBlockLowlight with a custom NodeView that renders a line-number
+ * gutter and a language selector chip, providing a code-editor-like experience in WYSIWYG.
+ *
+ * Key decisions:
+ *   - Built on CodeBlockLowlight (not raw CodeBlock) for syntax highlighting via lowlight
+ *   - Line numbers are rendered in a separate gutter div that updates on every mutation
+ *   - Language selector is a floating chip positioned inside the code block wrapper
+ *   - Language dropdown uses fixed positioning (popup-host aware) to avoid clipping
+ *   - Respects settings.lineNumbers toggle for showing/hiding the gutter
+ *
+ * Known limitations:
+ *   - Line numbers are recounted on every DOM mutation (no incremental update)
+ *   - Language list is hardcoded, not dynamically loaded from lowlight's registry
+ *
+ * @coordinates-with stores/settingsStore.ts — reads view.lineNumbers setting
+ * @coordinates-with sourcePopup — uses getPopupHostForDom/toHostCoordsForDom for dropdown positioning
+ * @module plugins/codeBlockLineNumbers/tiptap
  */
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";

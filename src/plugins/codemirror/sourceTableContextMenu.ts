@@ -1,8 +1,18 @@
 /**
  * Source Mode Table Context Menu
  *
- * CodeMirror 6 plugin that shows a context menu when right-clicking
- * inside a markdown table in Source mode.
+ * Purpose: Shows a native-style context menu on right-click inside markdown tables
+ * in Source mode, with actions for row/column insertion, deletion, and alignment.
+ *
+ * Key decisions:
+ *   - Menu is rendered as a DOM element inside the popup host (not document.body)
+ *   - Actions delegate to sourceContextDetection table action functions
+ *   - Follows macOS context menu styling conventions
+ *
+ * @coordinates-with sourceContextDetection/tableDetection.ts — table structure detection
+ * @coordinates-with sourceContextDetection/tableActions.ts — table manipulation functions
+ * @coordinates-with sourcePopup/ — popup host and coordinate system
+ * @module plugins/codemirror/sourceTableContextMenu
  */
 
 import { EditorView } from "@codemirror/view";

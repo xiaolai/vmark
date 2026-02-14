@@ -1,11 +1,18 @@
 /**
  * Action Registry
  *
- * Single source of truth for:
- * - Menu event → Action ID mapping
- * - Action metadata (label, category, capability)
+ * Purpose: Single source of truth for mapping Tauri menu events to editor actions,
+ * with metadata (label, category, mode capability) for each action.
  *
- * Validated against shared/menu-ids.json in dev mode.
+ * Pipeline: Tauri menu event → MENU_TO_ACTION lookup → action dispatch → mode-specific adapter
+ *
+ * Key decisions:
+ *   - Menu IDs are validated against shared/menu-ids.json at dev time to catch Rust/TS drift
+ *   - Actions declare per-mode capability (wysiwyg/source) so dispatchers can skip unsupported ops
+ *
+ * @coordinates-with types.ts — defines ActionId, ActionDefinition, and related types
+ * @coordinates-with shared/menu-ids.json — Rust-extracted menu IDs used for dev-time validation
+ * @module plugins/actions/actionRegistry
  */
 
 import type {

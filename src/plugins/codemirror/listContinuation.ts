@@ -1,10 +1,17 @@
 /**
  * Smart List Continuation Plugin for CodeMirror
  *
- * Handles Enter key in list items:
- * - At end of list item: insert new bullet with same indent
- * - On empty list item: remove bullet and exit list
- * - Supports unordered, ordered, and task lists
+ * Purpose: Handles Enter key in list items to continue or exit lists intelligently
+ * in Source mode, matching the UX of dedicated markdown editors.
+ *
+ * Key decisions:
+ *   - Three list types detected via regex: unordered (-, *, +), ordered (1.), task (- [ ])
+ *   - Empty list item + Enter = remove marker and exit list (not insert another empty item)
+ *   - Ordered lists auto-increment the number for the new item
+ *   - Task list continuation resets checkbox to unchecked ([ ])
+ *
+ * @coordinates-with listContinuation/tiptap.ts — WYSIWYG counterpart
+ * @module plugins/codemirror/listContinuation
  */
 
 import type { KeyBinding } from "@codemirror/view";

@@ -1,8 +1,12 @@
 /**
  * Source Mode Table Cell Highlight
  *
- * CodeMirror 6 plugin that highlights the current table cell
- * when cursor is inside a markdown table.
+ * Purpose: Highlights the current table cell with a background decoration when the
+ * cursor is inside a markdown table, providing visual feedback for cell navigation.
+ *
+ * @coordinates-with sourceContextDetection/tableDetection.ts — detects table structure and cursor position
+ * @coordinates-with tableTabNav.ts — Tab/Shift-Tab navigation between cells
+ * @module plugins/codemirror/sourceTableCellHighlight
  */
 
 import { RangeSetBuilder } from "@codemirror/state";

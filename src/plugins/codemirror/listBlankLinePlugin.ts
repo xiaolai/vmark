@@ -1,7 +1,15 @@
 /**
  * List Blank Line Hiding Plugin for CodeMirror
  *
- * Hides empty lines between list items in Source mode for a cleaner view.
+ * Purpose: Hides empty lines between list items in Source mode so that loose lists
+ * (which require blank lines for correct markdown parsing) appear visually tight.
+ *
+ * Key decisions:
+ *   - Only hides blank lines that are between two list item lines — won't affect
+ *     blank lines at the end of a list or between unrelated blocks
+ *   - Uses line decorations (CSS class) to hide, not content replacement
+ *
+ * @module plugins/codemirror/listBlankLinePlugin
  */
 
 import { RangeSetBuilder } from "@codemirror/state";

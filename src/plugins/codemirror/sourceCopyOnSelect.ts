@@ -1,11 +1,17 @@
 /**
  * Source Copy-on-Select Plugin
  *
- * CodeMirror ViewPlugin that auto-copies selected text to clipboard
- * on mouseup, matching the WYSIWYG copy-on-select behavior.
+ * Purpose: Auto-copies selected text to clipboard on mouseup in Source mode,
+ * matching the WYSIWYG copy-on-select behavior for consistent cross-mode UX.
  *
- * The copyFormat setting is not applicable here — source mode buffer
- * text IS already markdown, so no conversion is needed.
+ * Key decisions:
+ *   - copyFormat setting is not applicable — source mode text IS already markdown
+ *   - Only fires on mouseup (not keyboard selection) to avoid clipboard spam
+ *   - Cleans text before copying (trailing whitespace, etc.)
+ *   - Gated by the copyOnSelect setting from settingsStore
+ *
+ * @coordinates-with stores/settingsStore.ts — reads general.copyOnSelect setting
+ * @module plugins/codemirror/sourceCopyOnSelect
  */
 
 import type { Extension } from "@codemirror/state";

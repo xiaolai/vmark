@@ -1,3 +1,14 @@
+/**
+ * Footnote Insertion
+ *
+ * Purpose: Creates and inserts a new footnote reference + definition pair at the
+ * cursor position, automatically assigning the next sequential label.
+ *
+ * @coordinates-with tiptapCleanup.ts — renumbering after insertion
+ * @coordinates-with stores/footnotePopupStore.ts — opens popup for new footnote editing
+ * @module plugins/footnotePopup/tiptapInsertFootnote
+ */
+
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";

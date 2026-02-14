@@ -1,8 +1,12 @@
 /**
  * Tiptap Context Helpers
  *
- * Helper functions for context extraction from Tiptap/ProseMirror state.
+ * Purpose: Helper functions for building CursorContext from ProseMirror state —
+ * mark detection, position analysis, and context mode determination.
  * Extracted from tiptapContext.ts to keep files under ~300 lines.
+ *
+ * @coordinates-with tiptapContext.ts — calls these helpers during context extraction
+ * @module plugins/formatToolbar/tiptapContextHelpers
  */
 
 import type { ResolvedPos } from "@tiptap/pm/model";

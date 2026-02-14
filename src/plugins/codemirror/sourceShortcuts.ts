@@ -1,3 +1,25 @@
+/**
+ * Source Mode Keyboard Shortcuts
+ *
+ * Purpose: Defines all keyboard shortcuts for Source mode (CodeMirror 6), mapping
+ * user-configurable shortcuts from shortcutsStore to Source-specific actions.
+ *
+ * Pipeline: shortcutsStore → getSourceKeybindings() → CodeMirror keymap extension
+ *
+ * Key decisions:
+ *   - Shortcuts are resolved lazily from the store so user customizations take effect immediately
+ *   - Some actions delegate to the sourceAdapter for cross-mode consistency
+ *   - Text transformation shortcuts (uppercase, titlecase, etc.) operate directly on CM6 state
+ *   - CJK formatting is done in-place on the markdown buffer
+ *
+ * Known limitations:
+ *   - Some shortcuts overlap with system keybindings on different platforms
+ *
+ * @coordinates-with stores/shortcutsStore.ts — source of shortcut key definitions
+ * @coordinates-with toolbarActions/sourceAdapter.ts — action execution for format operations
+ * @module plugins/codemirror/sourceShortcuts
+ */
+
 import type { KeyBinding } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 import { toggleBlockComment, selectLine } from "@codemirror/commands";

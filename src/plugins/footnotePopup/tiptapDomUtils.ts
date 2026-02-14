@@ -1,3 +1,14 @@
+/**
+ * Footnote DOM Utilities
+ *
+ * Purpose: DOM traversal and scrolling helpers for finding footnote elements
+ * (references and definitions) in the rendered editor and navigating between them.
+ *
+ * @coordinates-with tiptap.ts — uses these for hover detection and click navigation
+ * @coordinates-with FootnotePopupView.ts — uses scrollToPosition for "go to definition" action
+ * @module plugins/footnotePopup/tiptapDomUtils
+ */
+
 import type { EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
 

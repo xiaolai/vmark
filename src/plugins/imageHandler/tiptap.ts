@@ -1,3 +1,26 @@
+/**
+ * Image Handler Tiptap Extension
+ *
+ * Purpose: Handles all image-related paste, drop, and file events in WYSIWYG mode —
+ * clipboard images, file drops, file:// URLs, and multi-image paste from Finder.
+ *
+ * Pipeline: paste/drop event → detect image content → copy to assets folder
+ *         → generate relative path → insert block_image or inline image markdown
+ *
+ * Key decisions:
+ *   - Highest priority in the paste chain (runs before smartPaste, markdownPaste, etc.)
+ *   - Images are always copied to the `.assets/` folder next to the document for portability
+ *   - Multiple images (e.g., multi-select from Finder) are handled via parseMultiplePaths
+ *   - Uses reentryGuard to prevent double-processing of clipboard events
+ *   - Supports both inline images (in paragraph context) and block images (at block boundary)
+ *   - file:// URLs are converted to filesystem paths with cross-platform support
+ *
+ * @coordinates-with hooks/useImageOperations.ts — copyImageToAssets, saveImageToAssets
+ * @coordinates-with utils/imagePathDetection.ts — image format and path detection
+ * @coordinates-with stores/imagePasteToastStore.ts — toast UI for paste confirmation
+ * @module plugins/imageHandler/tiptap
+ */
+
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

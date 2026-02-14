@@ -1,11 +1,19 @@
 /**
  * CJK Letter Spacing Plugin
  *
- * Applies letter-spacing to CJK character runs using ProseMirror decorations.
- * This is display-only and doesn't modify the document structure.
+ * Purpose: Applies letter-spacing to CJK character runs using ProseMirror decorations,
+ * improving readability of Chinese/Japanese/Korean text without modifying the document.
  *
- * Performance: When disabled (cjkLetterSpacing === "0"), no decorations are
- * created and no regex scanning occurs.
+ * Key decisions:
+ *   - Display-only: uses inline decorations (CSS class) rather than document mutations
+ *   - Performance: when disabled (cjkLetterSpacing === "0"), no regex scanning or
+ *     decoration creation occurs — completely zero-cost
+ *   - Tracks enabled state in plugin state to detect setting toggles and rebuild decorations
+ *   - Covers CJK Unified Ideographs, Extension A, Compatibility, Hiragana, Katakana,
+ *     Hangul Syllables, and Bopomofo ranges
+ *
+ * @coordinates-with stores/settingsStore.ts — reads appearance.cjkLetterSpacing setting
+ * @module plugins/cjkLetterSpacing
  */
 
 import { Extension } from "@tiptap/core";

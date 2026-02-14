@@ -1,12 +1,17 @@
 /**
  * Visual Line Navigation
  *
- * When word wrap is enabled, Up/Down arrow keys should move by
- * visual (wrapped) lines, not logical lines.
+ * Purpose: Makes Up/Down arrow keys move by visual (wrapped) lines when word wrap
+ * is enabled, and implements smart Home key that toggles between first non-whitespace
+ * character and absolute line start.
  *
- * Also implements smart Home key that toggles between:
- * - First non-whitespace character of line
- * - Absolute line start (column 0)
+ * Key decisions:
+ *   - Uses CodeMirror's built-in cursorLineUp/Down which already respect visual lines
+ *   - Smart Home is a common editor convention (VS Code, Sublime) — first press goes to
+ *     first non-whitespace, second press goes to column 0
+ *   - All keybindings are IME-guarded
+ *
+ * @module plugins/codemirror/visualLineNav
  */
 
 import { type KeyBinding } from "@codemirror/view";

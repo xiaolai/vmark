@@ -1,10 +1,17 @@
 /**
  * Focus Mode Plugin for CodeMirror (Source Mode)
  *
- * Dims all lines except the current paragraph.
- * A paragraph is defined as lines between blank lines.
+ * Purpose: Dims all lines except the current paragraph (defined as lines between
+ * blank lines) to help the user concentrate on the text they're editing.
  *
- * Mirrors the behavior of the WYSIWYG focus mode plugin.
+ * Key decisions:
+ *   - Mirrors the WYSIWYG focus mode plugin behavior for consistent cross-mode experience
+ *   - Uses line decorations with a CSS dim class, not opacity changes on the content
+ *   - IME-guarded to avoid interfering with CJK composition
+ *
+ * @coordinates-with focusMode/tiptap.ts — WYSIWYG counterpart
+ * @coordinates-with stores/editorStore.ts — reads focusMode state
+ * @module plugins/codemirror/focusModePlugin
  */
 
 import { RangeSetBuilder } from "@codemirror/state";

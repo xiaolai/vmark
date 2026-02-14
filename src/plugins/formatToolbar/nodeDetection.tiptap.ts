@@ -1,3 +1,14 @@
+/**
+ * Format Toolbar Node Detection
+ *
+ * Purpose: Detects the type of block the cursor is in (heading, code block, paragraph)
+ * and determines the appropriate toolbar context mode (format, inline-insert, block-insert).
+ *
+ * @coordinates-with types.ts — HeadingInfo, CodeBlockInfo, ContextMode type definitions
+ * @coordinates-with tiptapContext.ts — consumes these detection functions
+ * @module plugins/formatToolbar/nodeDetection.tiptap
+ */
+
 import type { EditorView } from "@tiptap/pm/view";
 import type { HeadingInfo, ContextMode, CodeBlockInfo } from "./types";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
