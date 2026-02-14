@@ -1,7 +1,7 @@
 import { AlertTriangle, Code2, GitFork, Satellite, Save, Sparkles, Terminal, Type } from "lucide-react";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
-import { useUIStore } from "@/stores/uiStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
+import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { formatExactTime } from "@/utils/dateUtils";
 import { formatKeyForDisplay } from "@/stores/shortcutsStore";
 import { UpdateIndicator } from "./UpdateIndicator";
@@ -106,7 +106,7 @@ export function StatusBarRight({
       <button
         className={`status-terminal ${terminalVisible ? "active" : ""}`}
         title={`Toggle Terminal (${formatKeyForDisplay(terminalShortcut)})`}
-        onClick={() => useUIStore.getState().toggleTerminal()}
+        onClick={() => requestToggleTerminal()}
       >
         <Terminal size={12} />
       </button>

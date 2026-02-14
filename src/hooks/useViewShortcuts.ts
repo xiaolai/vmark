@@ -8,12 +8,12 @@
 import { useEffect } from "react";
 import { useEditorStore } from "@/stores/editorStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
-import { useUIStore } from "@/stores/uiStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { cleanupBeforeModeSwitch } from "@/utils/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 
 export function useViewShortcuts() {
   useEffect(() => {
@@ -26,7 +26,7 @@ export function useViewShortcuts() {
       const toggleTerminalKey = shortcuts.getShortcut("toggleTerminal");
       if (matchesShortcutEvent(e, toggleTerminalKey)) {
         e.preventDefault();
-        useUIStore.getState().toggleTerminal();
+        requestToggleTerminal();
         return;
       }
 

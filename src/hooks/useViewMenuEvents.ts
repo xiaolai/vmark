@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
+import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FEATURE_FLAGS } from "@/stores/featureFlagsStore";
@@ -94,7 +95,7 @@ export function useViewMenuEvents(): void {
 
       const unlistenToggleTerminal = await currentWindow.listen<string>("menu:toggle-terminal", (event) => {
         if (event.payload !== windowLabel) return;
-        useUIStore.getState().toggleTerminal();
+        requestToggleTerminal();
       });
       if (cancelled) { unlistenToggleTerminal(); return; }
       unlistenRefs.current.push(unlistenToggleTerminal);
