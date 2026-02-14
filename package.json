@@ -16,8 +16,9 @@
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",
     "lint:design-tokens": "node scripts/check-design-tokens.mjs",
     "lint:emdash": "node scripts/check-emdash-spacing.mjs",
+    "lint:deps": "depcruise src --config .dependency-cruiser.cjs --ignore-known",
     "extract-menu-ids": "npx tsx scripts/extract-menu-ids.ts",
-    "check:all": "pnpm lint && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm test:coverage && pnpm build"
+    "check:all": "pnpm lint && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm test:coverage && pnpm build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
@@ -128,6 +129,7 @@
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.0.18",
+    "dependency-cruiser": "^17.3.8",
     "eslint": "^9.39.2",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^16.5.0",

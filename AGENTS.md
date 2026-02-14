@@ -66,4 +66,5 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
   - **Capabilities**: Tauri permissions go in `src-tauri/capabilities/default.json`.
   - **Adding a Tauri plugin**: (1) add to `Cargo.toml`, (2) register `.plugin()` in `lib.rs`, (3) add permission to capabilities.
   - **Backtick shortcut escaping**: ProseMirror format `"Ctrl-\`"`, Tauri format `"Ctrl+\`"`.
+  - **Architecture overview**: See `dev-docs/architecture.md` for C4 diagram, entry points, data flows, and module map.
 </INSTRUCTIONS>
