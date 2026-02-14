@@ -10,6 +10,7 @@ import {
   setCurrentWindowLabel,
   getCurrentWindowLabel,
   windowScopedStorage,
+  findActiveWorkspaceLabel,
   LEGACY_STORAGE_KEY,
 } from "./workspaceStorage";
 
@@ -125,5 +126,80 @@ describe("windowScopedStorage", () => {
 
   it("returns null for non-existent key", () => {
     expect(windowScopedStorage.getItem("ignored")).toBeNull();
+  });
+});
+
+describe("findActiveWorkspaceLabel", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("returns null when no workspace keys exist", () => {
+    expect(findActiveWorkspaceLabel()).toBeNull();
+  });
+
+  it("returns null when workspace keys exist but none are active", () => {
+    localStorage.setItem(
+      "vmark-workspace:main",
+      JSON.stringify({ state: { isWorkspaceMode: false, rootPath: null, config: null } })
+    );
+    expect(findActiveWorkspaceLabel()).toBeNull();
+  });
+
+  it("returns label of active workspace window", () => {
+    localStorage.setItem(
+      "vmark-workspace:main",
+      JSON.stringify({ state: { isWorkspaceMode: true, rootPath: "/workspace", config: {} } })
+    );
+    expect(findActiveWorkspaceLabel()).toBe("main");
+  });
+
+  it("returns label of active doc window when main is not active", () => {
+    localStorage.setItem(
+      "vmark-workspace:main",
+      JSON.stringify({ state: { isWorkspaceMode: false, rootPath: null, config: null } })
+    );
+    localStorage.setItem(
+      "vmark-workspace:doc-1",
+      JSON.stringify({ state: { isWorkspaceMode: true, rootPath: "/other", config: {} } })
+    );
+    expect(findActiveWorkspaceLabel()).toBe("doc-1");
+  });
+
+  it("prefers main over other windows when both are active", () => {
+    localStorage.setItem(
+      "vmark-workspace:doc-1",
+      JSON.stringify({ state: { isWorkspaceMode: true, rootPath: "/a", config: {} } })
+    );
+    localStorage.setItem(
+      "vmark-workspace:main",
+      JSON.stringify({ state: { isWorkspaceMode: true, rootPath: "/b", config: {} } })
+    );
+    expect(findActiveWorkspaceLabel()).toBe("main");
+  });
+
+  it("skips non-document window keys (settings, unknown labels)", () => {
+    localStorage.setItem(
+      "vmark-workspace:settings",
+      JSON.stringify({ state: { isWorkspaceMode: true, rootPath: "/x", config: {} } })
+    );
+    localStorage.setItem(
+      "vmark-workspace:transfer-1",
+      JSON.stringify({ state: { isWorkspaceMode: true, rootPath: "/y", config: {} } })
+    );
+    expect(findActiveWorkspaceLabel()).toBeNull();
+  });
+
+  it("skips keys with invalid JSON", () => {
+    localStorage.setItem("vmark-workspace:main", "not-json");
+    expect(findActiveWorkspaceLabel()).toBeNull();
+  });
+
+  it("skips keys without rootPath", () => {
+    localStorage.setItem(
+      "vmark-workspace:main",
+      JSON.stringify({ state: { isWorkspaceMode: true, rootPath: null, config: {} } })
+    );
+    expect(findActiveWorkspaceLabel()).toBeNull();
   });
 });

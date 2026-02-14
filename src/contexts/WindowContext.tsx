@@ -25,17 +25,21 @@
  *     loads config from disk.
  *   - Settings and non-document windows (label !== main/doc-*) skip document
  *     initialization entirely.
+ *   - Settings window reads workspace state from the source document window's
+ *     localStorage key so workspace config toggles work cross-window.
  *   - Doc-window localStorage is cleared on mount to prevent inheriting
  *     main window's persisted workspace state.
  *
  * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
  * @coordinates-with tabTransferActions.ts — prepares transfer payloads for new windows
- * @coordinates-with workspaceStorage.ts — per-window localStorage key scoping
+ * @coordinates-with workspaceStorage.ts — per-window localStorage key scoping + findActiveWorkspaceLabel
+ * @coordinates-with useWorkspaceSync.ts — cross-window workspace config rehydration
  * @coordinates-with openPolicy.ts — resolves workspace root for external files
  * @coordinates-with lib.rs (Rust) — listens for "ready" event per window
  * @module contexts/WindowContext
  */
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
+import { useWorkspaceSync } from "@/hooks/useWorkspaceSync";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { readTextFile } from "@tauri-apps/plugin-fs";
@@ -50,6 +54,7 @@ import {
   setCurrentWindowLabel,
   migrateWorkspaceStorage,
   getWorkspaceStorageKey,
+  findActiveWorkspaceLabel,
 } from "../utils/workspaceStorage";
 import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
@@ -153,6 +158,15 @@ export function WindowProvider({ children }: WindowProviderProps) {
         // Set the current window label for workspace storage
         // This must happen before store rehydration
         setCurrentWindowLabel(label);
+
+        // Settings window: read workspace state from the source document window
+        // so workspace config toggles work correctly across windows
+        if (label === "settings") {
+          const sourceLabel = findActiveWorkspaceLabel();
+          if (sourceLabel) {
+            setCurrentWindowLabel(sourceLabel);
+          }
+        }
 
         // Clear any stale persisted workspace state for doc windows
         if (label.startsWith("doc-")) {
@@ -355,6 +369,9 @@ export function WindowProvider({ children }: WindowProviderProps) {
       }
     };
   }, [isReady, windowLabel]);
+
+  // Sync workspace config changes across windows (settings ↔ document windows)
+  useWorkspaceSync();
 
   const isDocumentWindow = windowLabel === "main" || windowLabel.startsWith("doc-");
 
