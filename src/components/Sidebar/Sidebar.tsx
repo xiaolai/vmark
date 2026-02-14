@@ -5,7 +5,7 @@
  */
 
 import { useRef } from "react";
-import { FolderTree, TableOfContents, History, FilePlus, FolderPlus } from "lucide-react";
+import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose } from "lucide-react";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
@@ -78,6 +78,16 @@ export function Sidebar() {
         {viewMode === "files" && <FileExplorer ref={fileExplorerRef} currentFilePath={filePath} />}
         {viewMode === "outline" && <OutlineView />}
         {viewMode === "history" && <HistoryView />}
+      </div>
+
+      <div className="sidebar-footer">
+        <button
+          className="sidebar-btn"
+          onClick={() => useUIStore.getState().toggleSidebar()}
+          title="Close Sidebar"
+        >
+          <PanelLeftClose size={16} />
+        </button>
       </div>
     </div>
   );

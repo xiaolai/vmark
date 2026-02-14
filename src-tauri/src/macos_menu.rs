@@ -226,7 +226,6 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("Toggle Word Wrap", "arrow.right.to.line"),
     ("Toggle Line Numbers", "number"),
     ("Toggle Diagram Preview", "eye.square"),
-    ("Toggle Sidebar", "sidebar.left"),
     ("Toggle Outline", "list.bullet.indent"),
     ("Toggle File Explorer", "folder"),
     ("Toggle History", "clock.arrow.circlepath"),

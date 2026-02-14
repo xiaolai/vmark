@@ -58,13 +58,6 @@ export function useViewMenuEvents(): void {
       if (cancelled) { unlistenTypewriterMode(); return; }
       unlistenRefs.current.push(unlistenTypewriterMode);
 
-      const unlistenSidebar = await currentWindow.listen<string>("menu:sidebar", (event) => {
-        if (event.payload !== windowLabel) return;
-        useUIStore.getState().toggleSidebar();
-      });
-      if (cancelled) { unlistenSidebar(); return; }
-      unlistenRefs.current.push(unlistenSidebar);
-
       const unlistenOutline = await currentWindow.listen<string>("menu:outline", (event) => {
         if (event.payload !== windowLabel) return;
         useUIStore.getState().toggleSidebarView("outline");

@@ -127,7 +127,6 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "removeBlankLines", label: "Remove Blank Lines", category: "editing", defaultKey: "", menuId: "remove-blank-lines", description: "Remove blank lines from selection" },
 
   // === View ===
-  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Ctrl-Shift-b", menuId: "sidebar", scope: "global" },
   { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Shift-1", menuId: "outline", scope: "global" },
   { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer", scope: "global" },
   { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history", scope: "global" },

@@ -96,5 +96,13 @@ export function matchesShortcutEvent(
   const expectedCode = SYMBOL_KEY_TO_CODE[targetKey];
   if (expectedCode && event.code === expectedCode) return true;
 
+  // Fallback: Ctrl+letter on macOS produces control characters (e.g., Ctrl+B → \x02)
+  // instead of the letter — match via event.code in that case
+  if (event.ctrlKey && /^[a-z0-9]$/.test(targetKey)) {
+    const letter = targetKey.toUpperCase();
+    const expected = targetKey >= "0" && targetKey <= "9" ? `Digit${letter}` : `Key${letter}`;
+    if (event.code === expected) return true;
+  }
+
   return false;
 }

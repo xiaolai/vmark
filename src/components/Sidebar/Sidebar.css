@@ -76,6 +76,14 @@
   padding-right: 0;
 }
 
+/* Footer with close button */
+.sidebar-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 12px 6px 0;
+  flex-shrink: 0;
+}
+
 /* Thin scrollbar - 2px, theme-aware color */
 .sidebar-content::-webkit-scrollbar,
 .sidebar [role="tree"]::-webkit-scrollbar {

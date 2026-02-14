@@ -51,6 +51,29 @@ describe("matchesShortcutEvent", () => {
     expect(matchesShortcutEvent(event, "Mod-Shift-.", "mac")).toBe(true);
   });
 
+  describe("Ctrl+letter control character fallback", () => {
+    it("matches Ctrl-Shift-b when event.key is control character (macOS)", () => {
+      // On macOS, Ctrl+B produces \x02 instead of "b"
+      const event = makeEvent({ key: "\x02", code: "KeyB", ctrlKey: true, shiftKey: true });
+      expect(matchesShortcutEvent(event, "Ctrl-Shift-b", "mac")).toBe(true);
+    });
+
+    it("matches Ctrl-Shift-1 via code fallback (macOS)", () => {
+      const event = makeEvent({ key: "1", code: "Digit1", ctrlKey: true, shiftKey: true });
+      expect(matchesShortcutEvent(event, "Ctrl-Shift-1", "mac")).toBe(true);
+    });
+
+    it("matches Ctrl-Shift-b with normal key value", () => {
+      const event = makeEvent({ key: "b", code: "KeyB", ctrlKey: true, shiftKey: true });
+      expect(matchesShortcutEvent(event, "Ctrl-Shift-b", "mac")).toBe(true);
+    });
+
+    it("rejects when Ctrl is not pressed", () => {
+      const event = makeEvent({ key: "\x02", code: "KeyB", shiftKey: true });
+      expect(matchesShortcutEvent(event, "Ctrl-Shift-b", "mac")).toBe(false);
+    });
+  });
+
   describe("CJK IME remapping", () => {
     it.each([
       { name: "Ctrl-` with backtick remapped to middle dot", key: "\u00B7", code: "Backquote", init: { ctrlKey: true }, shortcut: "Ctrl-`", platform: "mac" as const },

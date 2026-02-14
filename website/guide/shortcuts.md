@@ -150,7 +150,6 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Zoom In | `Mod + =` |
 | Zoom Out | `Mod + -` |
 | Word Wrap | `Alt + Z` |
-| Toggle Sidebar | `Ctrl + Shift + B` |
 | Toggle Outline | `Ctrl + Shift + 1` |
 | Toggle File Explorer | `Ctrl + Shift + 2` |
 | Toggle History | `Ctrl + Shift + 3` |
