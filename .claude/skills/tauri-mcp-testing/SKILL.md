@@ -87,7 +87,7 @@ tauri_webview_screenshot()
 tauri_webview_screenshot({ uid: 'editor-content' })
 
 // 3. Save to file for comparison
-tauri_webview_screenshot({ filePath: '/tmp/test-screenshot.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/test-screenshot.png' })
 ```
 
 ### Pattern 2: Element Interaction
@@ -346,16 +346,16 @@ tauri_webview_wait_for({ type: 'selector', value: '[data-dirty="false"]' })
 ```typescript
 // Test mobile viewport
 tauri_manage_window({ action: 'resize', width: 375, height: 667 })
-tauri_webview_screenshot({ filePath: '/tmp/mobile.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/mobile.png' })
 tauri_webview_find_element({ selector: '.mobile-menu-button' })
 
 // Test tablet viewport
 tauri_manage_window({ action: 'resize', width: 768, height: 1024 })
-tauri_webview_screenshot({ filePath: '/tmp/tablet.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/tablet.png' })
 
 // Test desktop viewport
 tauri_manage_window({ action: 'resize', width: 1920, height: 1080 })
-tauri_webview_screenshot({ filePath: '/tmp/desktop.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/desktop.png' })
 ```
 
 ## Troubleshooting

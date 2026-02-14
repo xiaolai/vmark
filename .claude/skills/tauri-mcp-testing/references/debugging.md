@@ -99,11 +99,11 @@ tauri_webview_screenshot()
 
 ```typescript
 // Save with descriptive names
-tauri_webview_screenshot({ filePath: '/tmp/debug-before-click.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/debug-before-click.png' })
 
 // ... action fails ...
 
-tauri_webview_screenshot({ filePath: '/tmp/debug-after-failure.png' })
+tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/debug-after-failure.png' })
 ```
 
 ### Element Screenshots
