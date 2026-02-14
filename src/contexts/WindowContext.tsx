@@ -1,3 +1,27 @@
+/**
+ * Window Context
+ *
+ * Purpose: Bootstraps each Tauri window by determining its label, hydrating
+ * per-window stores, handling tab transfers (drag-between-windows), loading
+ * initial file content, and emitting the "ready" event to Rust.
+ *
+ * Pipeline: Tauri creates window → WindowProvider mounts → detect label →
+ * rehydrate workspace store → handle transfer / URL params / empty init →
+ * emit "ready" to Rust → render children.
+ *
+ * Key decisions:
+ *   - `initStartedRef` guards against double-init from React.StrictMode.
+ *   - The "ready" event is delayed by READY_EVENT_DELAY_MS so child hooks
+ *     have time to register their menu listeners before Rust sends menu events.
+ *   - Doc-window localStorage is cleared on mount to prevent inheriting
+ *     main window's persisted workspace state.
+ *
+ * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
+ * @coordinates-with workspaceStorage.ts — per-window localStorage key scoping
+ * @coordinates-with openPolicy.ts — derives workspace root for external files
+ * @module contexts/WindowContext
+ */
+
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
