@@ -1,13 +1,16 @@
 /**
  * Workspace Storage Utilities
  *
- * Purpose: Handles storage key derivation and migration for window-scoped persistence.
- * Each window gets its own localStorage key so multi-window state doesn't collide.
+ * Purpose: Handles storage key derivation, migration, and cross-window discovery
+ * for window-scoped persistence. Each window gets its own localStorage key so
+ * multi-window state doesn't collide.
  *
  * Key decisions:
- *   - Storage keys are derived from window label: `vmark-workspace-{label}`
+ *   - Storage keys are derived from window label: `vmark-workspace:{label}`
  *   - Legacy migration handles the old single-key `vmark-workspace` format
  *   - getCurrentWindowLabel() is cached per session for consistent key derivation
+ *   - findActiveWorkspaceLabel() scans localStorage for the settings window to
+ *     discover which document window has an active workspace
  *
  * @coordinates-with workspaceStore.ts — uses createWindowStorage for persist middleware
  * @coordinates-with window_manager.rs — assigns window labels on creation
@@ -102,6 +105,39 @@ export function setCurrentWindowLabel(label: string): void {
  */
 export function getCurrentWindowLabel(): string {
   return currentWindowLabel;
+}
+
+/**
+ * Find the label of a document window that has an active workspace.
+ * Used by the settings window to read workspace state from the correct key.
+ * Prefers "main" over other window labels.
+ *
+ * @returns The window label, or null if no active workspace found
+ */
+export function findActiveWorkspaceLabel(): string | null {
+  let fallback: string | null = null;
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith(`${STORAGE_KEY_PREFIX}:`)) continue;
+
+    const label = key.slice(STORAGE_KEY_PREFIX.length + 1);
+    if (!label || (label !== "main" && !label.startsWith("doc-"))) continue;
+
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const data = JSON.parse(raw);
+      if (data?.state?.isWorkspaceMode && data?.state?.rootPath) {
+        if (label === "main") return "main";
+        fallback ??= label;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return fallback;
 }
 
 /**
