@@ -254,6 +254,15 @@
   background-color: var(--warning-bg-active, rgba(245, 158, 11, 0.2));
 }
 
+/* Divergent file indicator (local differs from disk) */
+.tab-pill.tab-divergent {
+  border: 1px solid var(--selection-color);
+}
+
+.dark-theme .tab-pill.tab-divergent {
+  border-color: rgba(0, 136, 255, 0.25);
+}
+
 /* Tab being dragged out of the bar */
 .tab-pill.tab--dragging {
   opacity: 0.5;

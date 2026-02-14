@@ -2,12 +2,14 @@ import { useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
 import { saveToPath } from "@/utils/saveToPath";
+import { reloadTabFromDisk } from "@/utils/reloadFromDisk";
 import { getRelativePath, isWithinRoot } from "@/utils/paths";
 import { restoreTransferredTab } from "@/components/StatusBar/tabTransferActions";
 import type { TabTransferPayload } from "@/types/tabTransfer";
@@ -151,6 +153,28 @@ export function useTabContextMenuActions({
     onClose();
   }, [doc, filePath, onClose, tab.id]);
 
+  const handleRevertToSaved = useCallback(async () => {
+    if (!filePath || !doc) { onClose(); return; }
+    const confirmed = await ask(
+      `Discard all changes and reload "${tab.title}" from disk?`,
+      { title: "Revert to Saved", kind: "warning" }
+    );
+    if (!confirmed) { onClose(); return; }
+    try {
+      await reloadTabFromDisk(tab.id, filePath);
+      toast.success("Reverted to saved version.");
+    } catch {
+      toast.error("Failed to revert to saved version.");
+    }
+    onClose();
+  }, [doc, filePath, onClose, tab.id, tab.title]);
+
+  const handleCloseAll = useCallback(async () => {
+    const allTabIds = tabs.map((entry) => entry.id);
+    await closeTabsWithDirtyCheck(windowLabel, allTabIds);
+    onClose();
+  }, [onClose, tabs, windowLabel]);
+
   const handleCopyPath = useCallback(async () => {
     if (!filePath) return;
     try {
@@ -226,6 +250,13 @@ export function useTabContextMenuActions({
           action: handleRestoreToDisk,
         } satisfies TabMenuItem]
       : []),
+    ...(doc?.isDirty && filePath && !doc?.isMissing
+      ? [{
+          id: "revertToSaved",
+          label: "Revert to Saved",
+          action: handleRevertToSaved,
+        } satisfies TabMenuItem]
+      : []),
     { id: "separator-1", label: "", action: () => {}, separator: true },
     {
       id: "close",
@@ -252,13 +283,20 @@ export function useTabContextMenuActions({
       action: handleCloseAllUnpinned,
       disabled: !hasUnpinnedTabs,
     },
+    {
+      id: "closeAll",
+      label: "Close All",
+      action: handleCloseAll,
+    },
   ], [
     canCopyRelativePath,
     canMoveToNewWindow,
     closeShortcutLabel,
+    doc?.isDirty,
     doc?.isMissing,
     filePath,
     handleClose,
+    handleCloseAll,
     handleCloseAllUnpinned,
     handleCloseOthers,
     handleCloseToRight,
@@ -267,6 +305,7 @@ export function useTabContextMenuActions({
     handleMoveToNewWindow,
     handlePin,
     handleRestoreToDisk,
+    handleRevertToSaved,
     handleRevealInFileManager,
     hasOtherTabs,
     hasTabsToRight,

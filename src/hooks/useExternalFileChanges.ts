@@ -307,7 +307,16 @@ export function useExternalFileChanges(): void {
               continue;
             }
 
-            // Check 2: Does disk match what we last wrote?
+            // Check 2: File reappeared after deletion — always reload and clear missing
+            // (e.g. Finder undo, git checkout, Trash restore)
+            if (doc.isMissing) {
+              useDocumentStore.getState().loadContent(tabId, diskContent, changedPath, detectLinebreaks(diskContent));
+              useDocumentStore.getState().clearMissing(tabId);
+              toast.info(`Restored: ${getFileName(changedPath)}`);
+              continue;
+            }
+
+            // Check 3: Does disk match what we last wrote?
             // If so, no actual external change occurred (file was touched but not modified)
             if (diskContent === doc.lastDiskContent) {
               continue;

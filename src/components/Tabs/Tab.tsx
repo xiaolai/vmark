@@ -1,5 +1,5 @@
 import { memo, useCallback, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
-import { X, Pin, AlertTriangle } from "lucide-react";
+import { X, Pin, AlertTriangle, GitFork } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tab as TabType } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -33,13 +33,23 @@ export const Tab = memo(function Tab({
   onPointerDown,
   onKeyDown,
 }: TabProps) {
-  // Get dirty and missing state from document store
+  // Get dirty, missing, and divergent state from document store
   const isDirty = useDocumentStore(
     (state) => state.documents[tab.id]?.isDirty ?? false
   );
   const isMissing = useDocumentStore(
     (state) => state.documents[tab.id]?.isMissing ?? false
   );
+  const isDivergent = useDocumentStore(
+    (state) => state.documents[tab.id]?.isDivergent ?? false
+  );
+  const showDivergent = isDivergent && !isMissing;
+
+  const tooltip = isMissing
+    ? "File deleted from disk"
+    : showDivergent
+      ? "Local differs from disk"
+      : undefined;
 
   const handleClose = useCallback(
     (e: MouseEvent) => {
@@ -71,6 +81,7 @@ export const Tab = memo(function Tab({
           "tab-pill group",
           isActive && "active",
           isMissing && "tab-missing",
+          showDivergent && "tab-divergent",
           isDragTarget && "tab--dragging",
           isReordering && "tab--reordering",
           isInvalidDrop && "tab--invalid-drop",
@@ -82,7 +93,7 @@ export const Tab = memo(function Tab({
         onMouseDown={handleMiddleClick}
         onPointerDown={onPointerDown}
         onContextMenu={onContextMenu}
-        title={isMissing ? "File deleted from disk" : undefined}
+        title={tooltip}
       >
         {/* Pin indicator */}
         {tab.isPinned && (
@@ -92,6 +103,11 @@ export const Tab = memo(function Tab({
         {/* Missing file indicator (warning icon) */}
         {isMissing && (
           <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+        )}
+
+        {/* Divergent indicator (local differs from disk) */}
+        {showDivergent && (
+          <GitFork className="w-3 h-3 text-[var(--accent-primary)] flex-shrink-0" />
         )}
 
         {/* Dirty indicator (dot before title) */}

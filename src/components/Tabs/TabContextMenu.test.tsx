@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   closeTabWithDirtyCheck: vi.fn(() => Promise.resolve(true)),
   closeTabsWithDirtyCheck: vi.fn(() => Promise.resolve(true)),
   saveToPath: vi.fn(() => Promise.resolve(true)),
+  reloadTabFromDisk: vi.fn(() => Promise.resolve()),
+  ask: vi.fn(() => Promise.resolve(true)),
   writeText: vi.fn(() => Promise.resolve()),
   revealItemInDir: vi.fn(() => Promise.resolve()),
   invoke: vi.fn(() => Promise.resolve("doc-2")),
@@ -26,6 +28,14 @@ vi.mock("@/hooks/useTabOperations", () => ({
 
 vi.mock("@/utils/saveToPath", () => ({
   saveToPath: mocks.saveToPath,
+}));
+
+vi.mock("@/utils/reloadFromDisk", () => ({
+  reloadTabFromDisk: mocks.reloadTabFromDisk,
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  ask: mocks.ask,
 }));
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
@@ -248,6 +258,203 @@ describe("TabContextMenu", () => {
 
     await waitFor(() => {
       expect(mocks.revealItemInDir).toHaveBeenCalledWith("/workspace/project/one.md");
+    });
+  });
+
+  describe("Revert to Saved", () => {
+    it("is hidden when document is clean", () => {
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByRole("menuitem", { name: "Revert to Saved" })).not.toBeInTheDocument();
+    });
+
+    it("is hidden when file is missing", () => {
+      useDocumentStore.setState({
+        documents: {
+          ...useDocumentStore.getState().documents,
+          "tab-1": {
+            ...buildDocument("/workspace/project/one.md"),
+            isDirty: true,
+            isMissing: true,
+          },
+        },
+      });
+
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByRole("menuitem", { name: "Revert to Saved" })).not.toBeInTheDocument();
+    });
+
+    it("is visible when dirty with file path and not missing", () => {
+      useDocumentStore.setState({
+        documents: {
+          ...useDocumentStore.getState().documents,
+          "tab-1": {
+            ...buildDocument("/workspace/project/one.md"),
+            isDirty: true,
+          },
+        },
+      });
+
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole("menuitem", { name: "Revert to Saved" })).toBeInTheDocument();
+    });
+
+    it("reloads from disk on confirm", async () => {
+      const onClose = vi.fn();
+      mocks.ask.mockResolvedValue(true);
+
+      useDocumentStore.setState({
+        documents: {
+          ...useDocumentStore.getState().documents,
+          "tab-1": {
+            ...buildDocument("/workspace/project/one.md"),
+            isDirty: true,
+          },
+        },
+      });
+
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={onClose}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("menuitem", { name: "Revert to Saved" }));
+
+      await waitFor(() => {
+        expect(mocks.reloadTabFromDisk).toHaveBeenCalledWith("tab-1", "/workspace/project/one.md");
+      });
+      expect(mocks.toast.success).toHaveBeenCalledWith("Reverted to saved version.");
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it("does nothing on cancel", async () => {
+      const onClose = vi.fn();
+      mocks.ask.mockResolvedValue(false);
+
+      useDocumentStore.setState({
+        documents: {
+          ...useDocumentStore.getState().documents,
+          "tab-1": {
+            ...buildDocument("/workspace/project/one.md"),
+            isDirty: true,
+          },
+        },
+      });
+
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={onClose}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("menuitem", { name: "Revert to Saved" }));
+
+      await waitFor(() => {
+        expect(onClose).toHaveBeenCalled();
+      });
+      expect(mocks.reloadTabFromDisk).not.toHaveBeenCalled();
+    });
+
+    it("shows error toast on reload failure", async () => {
+      const onClose = vi.fn();
+      mocks.ask.mockResolvedValue(true);
+      mocks.reloadTabFromDisk.mockRejectedValueOnce(new Error("read failed"));
+
+      useDocumentStore.setState({
+        documents: {
+          ...useDocumentStore.getState().documents,
+          "tab-1": {
+            ...buildDocument("/workspace/project/one.md"),
+            isDirty: true,
+          },
+        },
+      });
+
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={onClose}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("menuitem", { name: "Revert to Saved" }));
+
+      await waitFor(() => {
+        expect(mocks.toast.error).toHaveBeenCalledWith("Failed to revert to saved version.");
+      });
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  describe("Close All", () => {
+    it("always appears in the menu", () => {
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={vi.fn()}
+        />
+      );
+
+      const item = screen.getByRole("menuitem", { name: "Close All" });
+      expect(item).toBeInTheDocument();
+      expect(item).not.toBeDisabled();
+    });
+
+    it("closes all tabs including pinned", async () => {
+      // Pin tab-1
+      useTabStore.getState().togglePin("main", "tab-1");
+      expect(useTabStore.getState().tabs.main[0]?.isPinned).toBe(true);
+
+      const onClose = vi.fn();
+      render(
+        <TabContextMenu
+          tab={useTabStore.getState().tabs.main[0]}
+          position={{ x: 100, y: 100 }}
+          windowLabel="main"
+          onClose={onClose}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("menuitem", { name: "Close All" }));
+
+      await waitFor(() => {
+        expect(mocks.closeTabsWithDirtyCheck).toHaveBeenCalledWith("main", ["tab-1", "tab-2"]);
+      });
+      expect(onClose).toHaveBeenCalled();
     });
   });
 });
