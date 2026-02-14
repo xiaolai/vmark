@@ -1,5 +1,6 @@
 ---
-description: Autonomous verification auditor - confirms fixes from a previous audit report
+description: Autonomous verification auditor running in isolated context - confirms fixes from previous audit
+argument-hint: "<audit-report-file>"
 ---
 
 ## User Input
@@ -14,37 +15,19 @@ Use TodoWrite to track progress through these phases:
 
 ```
 ☐ Parse audit report and extract issues
-☐ Dimension 1: Verify Redundant & Low-Value Code fixes
-☐ Dimension 2: Verify Security & Risk Management fixes
-☐ Dimension 3: Verify Code Correctness & Reliability fixes
-☐ Dimension 4: Verify Compliance & Standards fixes
-☐ Dimension 5: Verify Maintainability & Readability fixes
-☐ Dimension 6: Verify Performance & Efficiency fixes
-☐ Dimension 7: Verify Testing & Validation fixes
-☐ Dimension 8: Verify Dependency & Environment Safety fixes
-☐ Dimension 9: Verify Documentation & Knowledge Transfer fixes
+☐ Verify fixes for each dimension found in the audit report
 ☐ Generate verification report
 ```
 
+**Note**: The audit report may contain 5 dimensions (mini audit) or 9 dimensions (full audit). Verify only the dimensions that appear in the report — do not assume all 9 are present.
+
 ## Model & Settings Selection
 
-Before starting, present the user with choices using `AskUserQuestion`. Ask both questions at once:
+Follow the instructions in `commands/_model-selection.md` to discover available models and present choices.
 
-**Question 1 — Model:**
-
-| Model | Best for |
-|-------|----------|
-| `gpt-5.2-codex` | Fast verification — good enough for checking fixes (Recommended) |
-| `gpt-5.3-codex` | Flagship — most thorough verification |
-| `gpt-5-codex-mini` | Quick spot-check for obvious fixes |
-
-**Question 2 — Reasoning effort:**
-
-| Level | Best for |
-|-------|----------|
-| `medium` | Standard verification — balanced speed and accuracy (Recommended) |
-| `high` | Thorough — catches subtle regressions |
-| `low` | Quick pass/fail check |
+- **Recommended model**: `gpt-5.2-codex`
+- **Recommended reasoning effort**: `medium`
+- **Include sandbox question**: No (verification always uses `read-only`)
 
 ## Execution
 
@@ -53,55 +36,80 @@ Before starting, present the user with choices using `AskUserQuestion`. Ask both
 ### Phase 1: Input Parsing
 
 `$ARGUMENTS` should contain or reference the previous audit report:
-- If empty: Look for recent conversation output containing "Audit Report"
+- If empty: Look for recent `audit-*.md` file in current directory
 - If file path: Read that audit report
 - If contains "Critical Issues": Use as inline report
 
-**Pre-check** — If no audit report found, respond:
+### Pre-check
+
+If no audit report found, respond:
 ```
 No previous audit report found.
 
 Options:
-1. Run /project:codex-audit first to generate baseline
-2. Provide report: /project:codex-verify path/to/audit-report.md
-3. Paste inline: /project:codex-verify [audit report text]
+1. Run /codex-audit first to generate baseline
+2. Provide report: /codex-verify audit-2025-11-18.md
+3. Paste inline: /codex-verify [audit report text]
 ```
-And STOP.
+And STOP - do not launch Codex.
 
-### Phase 2: Verify Fixes
+### Phase 2: Launch Codex via MCP Tool
 
-**Prefer Codex MCP** for verification when available:
-1. Use `ToolSearch` with query `+codex` to discover the Codex MCP tool
-2. **Availability test** — send a short ping:
-   ```
-   mcp__codex__codex with:
-     prompt: "Respond with 'ok' if you can read this."
-     model: {chosen_model}
-     model_reasoning_effort: {chosen_effort}
-   ```
-   If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
-3. If found, delegate verification to Codex with `model: {chosen_model}`, `model_reasoning_effort: {chosen_effort}`, `sandbox: read-only`, `approval-policy: never`
-4. If Codex is unavailable, verify manually using Read/Grep
+**Availability test** — before the real verification, send a short ping to Codex:
+```
+mcp__codex__codex with:
+  prompt: "Respond with 'ok' if you can read this."
+  model: {chosen_model}
+  config: {"model_reasoning_effort": "{chosen_effort}"}
+```
+If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
 
-**Verification instructions** (for Codex delegation or manual execution):
+If audit report found, use ToolSearch to find and load `mcp__codex__codex`, then call it:
+
+```
+mcp__codex__codex with:
+  model: {chosen_model}
+  config: {"model_reasoning_effort": "{chosen_effort}"}
+  sandbox: read-only
+  approval-policy: never
+  developer-instructions: "You are a verification auditor. Only check issues from a previous audit report."
+  prompt: "Your ONLY job is to confirm fixes from a previous audit.
+
+## Previous Audit Report
+{AUDIT_REPORT_CONTENT}
+
+## Your Mission
 
 1. **Extract Issue Checklist by Dimension**:
-   Parse all issues organized by the 9 audit dimensions.
+   Parse all issues organized by whatever dimensions appear in the audit report.
+   Full audits have 9 dimensions; mini audits have 5. Only verify what's present.
 
 2. **Verify Each Issue**:
    For each issue from the report:
    - Read the file at the exact location
    - Check if the issue still exists
    - Mark status:
-     - ✅ FIXED — Issue resolved properly
-     - ❌ NOT FIXED — Issue still present
-     - ⚠️ PARTIAL — Partially addressed
-     - 🔄 MOVED — Code relocated, verify new location
+     - FIXED - Issue resolved properly
+     - NOT FIXED - Issue still present
+     - PARTIAL - Partially addressed
+     - MOVED - Code relocated, verify new location
 
 3. **Quick Spot Check** (5 min max):
    - Only check files that were modified
    - Look for obvious new problems introduced by fixes
    - DO NOT run comprehensive scan
+
+## Requirements
+- ONLY verify issues from the audit report
+- Do NOT discover new issues systematically
+- Be fast (2-10 minutes)
+- Clear pass/fail per issue"
+```
+
+**IMPORTANT**: Do NOT use the Task tool with subagent_type "codex" — that agent does not exist. Instead:
+1. Use `ToolSearch` with query `select:mcp__codex__codex` to load the Codex MCP tool
+2. Call `mcp__codex__codex` directly with the prompt above
+3. If Codex needs follow-up, use `mcp__codex__codex-reply`
 
 ### Phase 3: Generate Report
 
@@ -111,37 +119,31 @@ And STOP.
 **Date**: {today}
 **Original Audit**: {audit date/file}
 **Model**: {chosen_model} | **Effort**: {chosen_effort}
-**Status**: ✅ PASSED / ⚠️ PARTIAL / ❌ FAILED
+**Thread ID**: `{threadId}` _(use `/codex-continue {threadId}` to iterate on findings)_
+**Status**: PASSED / PARTIAL / FAILED
 
 ## Summary by Dimension
 
 | Dimension | Fixed | Not Fixed | Partial | Total |
 |-----------|-------|-----------|---------|-------|
-| 1. Redundant Code | X | X | X | X |
-| 2. Security | X | X | X | X |
-| 3. Correctness | X | X | X | X |
-| 4. Compliance | X | X | X | X |
-| 5. Maintainability | X | X | X | X |
-| 6. Performance | X | X | X | X |
-| 7. Testing | X | X | X | X |
-| 8. Dependencies | X | X | X | X |
-| 9. Documentation | X | X | X | X |
+| {for each dimension in the audit report} | X | X | X | X |
 | **TOTAL** | **X** | **X** | **X** | **X** |
 
 ## Verification Details
 
-### Dimension 1: Redundant & Low-Value Code
+{For each dimension present in the audit report:}
+
+### {Dimension Name}
 | Issue | File:Line | Status | Notes |
 |-------|-----------|--------|-------|
-| {description} | {file:line} | ✅/❌/⚠️ | {notes} |
-
-[Continue for all 9 dimensions]
+| {description} | {file:line} | FIXED/NOT FIXED/PARTIAL | {notes} |
 
 ## Remaining Issues (Not Fixed)
 
 | Priority | Dimension | Issue | File:Line |
 |----------|-----------|-------|-----------|
 | Critical | X | {issue} | {file:line} |
+| High | X | {issue} | {file:line} |
 
 ## New Issues Introduced (if any)
 
@@ -151,25 +153,41 @@ And STOP.
 
 ## Verdict
 
-{APPROVED FOR RELEASE / NEEDS MORE WORK / BLOCKED}
+{PASSED / PARTIAL / FAILED}
 
 ## Next Steps
 {What needs to be done if not passed}
 ```
 
-### Phase 4: Fallback — Manual Verification
+### Phase 4: Fallback - Manual Verification
 
-**CRITICAL**: If Codex returns empty/no response, you MUST verify manually.
+**CRITICAL**: If Codex returns empty/no response, you MUST verify manually using Claude's tools.
 
 When Codex returns nothing:
 
-1. **Parse the audit report** to extract all issues organized by 9 dimensions
-2. **Create todo list** with verification tasks for each dimension
+1. **Parse the audit report** to extract all issues organized by dimension (5 for mini, 9 for full)
+2. **Create todo list** with verification tasks for each dimension present in the report
 3. **Read each file** at the specified lines
 4. **Check if the issue still exists**:
    - Compare current code against the reported issue
-   - Mark status: ✅ FIXED, ❌ NOT FIXED, ⚠️ PARTIAL, 🔄 MOVED
+   - Mark status: FIXED, NOT FIXED, PARTIAL, MOVED
 5. **Mark each dimension complete** as you verify it
 6. **Generate the verification report** in the same format as Phase 3
 
 **Do NOT say "Codex didn't return findings" and stop. Always complete verification manually if Codex fails.**
+
+### Example Execution
+
+```
+1. User picks model + effort level
+2. Parse audit report → extract issues by dimension
+3. Create todo list with all 11 verification phases
+4. Mark "Parse audit report" complete
+5. For each dimension:
+   a. Mark dimension in_progress
+   b. Read files at reported locations
+   c. Check if issues are fixed
+   d. Mark dimension complete
+6. Compile verification report
+7. Mark "Generate report" complete
+```

@@ -1,5 +1,6 @@
 ---
 description: Fast audit for small changes - logic, duplication, dead code, refactoring needs, shortcuts
+argument-hint: "[file-or-dir] [commit -N]"
 ---
 
 ## User Input
@@ -24,40 +25,15 @@ Use TodoWrite to track progress through these phases:
 
 ## Model & Settings Selection
 
-Before starting, present the user with choices using `AskUserQuestion`. Ask both questions at once:
+Follow the instructions in `commands/_model-selection.md` to discover available models and present choices.
 
-**Question 1 — Model:**
+- **Recommended model**: `gpt-5.2-codex`
+- **Recommended reasoning effort**: `medium`
+- **Include sandbox question**: No (mini-audits always use `read-only`)
 
-| Model | Best for |
-|-------|----------|
-| `gpt-5.2-codex` | Good balance of speed and quality (Recommended) |
-| `gpt-5.3-codex` | Flagship — deepest analysis if you want thoroughness |
-| `gpt-5-codex-mini` | Fastest and cheapest for trivial changes |
+## Audit Strategy
 
-**Question 2 — Reasoning effort:**
-
-| Level | Best for |
-|-------|----------|
-| `medium` | Standard mini-audit — fast with good coverage (Recommended) |
-| `high` | Thorough scan — slower but catches more |
-| `low` | Quick surface-level check |
-
-## Delegation Strategy
-
-**Prefer Codex MCP** for per-file analysis when available:
-1. Use `ToolSearch` with query `+codex` to discover the Codex MCP tool
-2. **Availability test** — send a short ping:
-   ```
-   mcp__codex__codex with:
-     prompt: "Respond with 'ok' if you can read this."
-     model: {chosen_model}
-     model_reasoning_effort: {chosen_effort}
-   ```
-   If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
-3. If available, delegate per-file audits to Codex (run SEQUENTIALLY — one at a time)
-4. If Codex returns empty, perform the audit manually using Read/Grep
-
-All Codex calls must use `model: {chosen_model}`, `model_reasoning_effort: {chosen_effort}`, `sandbox: read-only`, and `approval-policy: never`.
+**IMPORTANT**: Run Codex calls SEQUENTIALLY (one at a time) to avoid timeouts.
 
 ### Phase 1: Identify Scope
 
@@ -79,42 +55,65 @@ And STOP.
 
 ### Phase 2: Audit All 5 Dimensions
 
-For each changed file, analyze:
+**Availability test** — before the real audit, send a short ping to Codex:
+```
+mcp__codex__codex with:
+  prompt: "Respond with 'ok' if you can read this."
+  model: {chosen_model}
+  config: {"model_reasoning_effort": "{chosen_effort}"}
+```
+If Codex does not respond or errors out, skip to **Phase 4: Fallback** immediately. Do not retry.
 
-**Dimension 1: Logic & Correctness**
-- Race conditions: shared state, async operations, concurrent access
-- Edge cases: null/undefined, empty arrays, boundary values
-- Off-by-one errors: loop bounds, array indices
-- Async issues: missing await, unhandled promises, stale closures
-- VMark-specific: Zustand `getState()` stale reads, missing hook cleanup
+For each changed file, run Codex with focused prompt:
 
-**Dimension 2: Duplication**
-- Copy-paste code: similar blocks that should be unified
-- Repeated patterns: logic that appears multiple times
-- Near-duplicates: functions that differ by 1-2 lines
+```
+mcp__codex__codex with:
+  model: {chosen_model}
+  config: {"model_reasoning_effort": "{chosen_effort}"}
+  sandbox: read-only
+  approval-policy: never
+  developer-instructions: "You are a fast code quality reviewer focused on logic, duplication, and dead code."
+  prompt: "Mini audit {filename} - focus on code quality for small changes:
 
-**Dimension 3: Dead Code**
-- Unused imports: modules imported but never used
-- Unreachable branches: conditions that can never be true
-- Commented-out code: old code left as comments
-- Unused variables: declared but never read
-- Orphaned functions: defined but never called
+    **Dimension 1: Logic & Correctness**
+    - Race conditions: shared state, async operations, concurrent access
+    - Edge cases: null/undefined, empty arrays, boundary values
+    - Off-by-one errors: loop bounds, array indices
+    - Async issues: missing await, unhandled promises, callback hell
+    - State mutations: unexpected side effects, stale closures
 
-**Dimension 4: Refactoring Debt**
-- Long functions: >30 lines that should be split
-- Deep nesting: >3 levels of if/loop/try
-- Unclear names: vague variable/function names
-- Files >300 lines (VMark convention)
-- Missing abstractions: inline logic that deserves a function
+    **Dimension 2: Duplication**
+    - Copy-paste code: similar blocks that should be unified
+    - Repeated patterns: logic that appears multiple times
+    - DRY violations: same calculation/check in multiple places
+    - Near-duplicates: functions that differ by 1-2 lines
 
-**Dimension 5: Shortcuts & Patches**
-- TODOs left behind: unfinished work markers
-- Hardcoded values: magic numbers, inline color strings, hardcoded ports
-- Workarounds: code comments mentioning 'hack', 'workaround', 'temporary'
-- Incomplete error handling: empty catch, swallowed errors, `error as Error`
-- Quick fixes: patches that don't address root cause
+    **Dimension 3: Dead Code**
+    - Unused imports: modules imported but never used
+    - Unreachable branches: conditions that can never be true
+    - Commented-out code: old code left as comments
+    - Unused variables: declared but never read
+    - Orphaned functions: defined but never called
 
-Report each issue as: `file:line | dimension | severity(High/Medium/Low) | issue | fix`
+    **Dimension 4: Refactoring Debt**
+    - Long functions: >30 lines that should be split
+    - Deep nesting: >3 levels of if/loop/try
+    - Unclear names: vague variable/function names
+    - Missing abstractions: inline logic that deserves a function
+    - God objects: classes/objects doing too many things
+
+    **Dimension 5: Shortcuts & Patches**
+    - TODOs left behind: unfinished work markers
+    - Hardcoded values: magic numbers, inline strings
+    - Workarounds: code comments mentioning 'hack', 'workaround', 'temporary'
+    - Incomplete error handling: empty catch, swallowed errors
+    - Quick fixes: patches that don't address root cause
+    - Backward-compat shims: code kept 'just in case'
+
+    Report each issue as: file:line | dimension | severity(High/Medium/Low) | issue | fix"
+```
+
+**Wait for each Codex call to complete before starting the next one.**
 
 Skip non-code files (*.md, *.json, *.yaml, *.css, images) unless specifically requested.
 
@@ -129,6 +128,7 @@ After all audits complete, compile findings:
 **Scope**: {what was audited}
 **Files**: {count}
 **Model**: {chosen_model} | **Effort**: {chosen_effort}
+**Thread ID**: `{threadId}` _(use `/codex-continue {threadId}` to iterate on findings)_
 **Verdict**: CLEAN / NEEDS ATTENTION / NEEDS WORK
 
 ## Findings
@@ -151,14 +151,15 @@ After all audits complete, compile findings:
 
 1. **[High]** {action} - {file:line}
 2. **[Medium]** {action} - {file:line}
+3. ...
 
 ## Notes
 
-- For security/performance/dependency audits, run `/project:codex-audit --full`
-- For verification after fixes, run `/project:codex-verify`
+- For security/performance/dependency audits, run `/codex-audit --full`
+- For verification after fixes, run `/codex-verify`
 ```
 
-### Phase 4: Fallback — Manual Audit
+### Phase 4: Fallback - Manual Audit
 
 **CRITICAL**: If Codex returns empty/no findings, you MUST perform the audit manually.
 
@@ -167,21 +168,42 @@ When Codex returns nothing:
 1. **Read each changed file** using the Read tool
 2. **Analyze all 5 dimensions** as described above
 3. **Use Grep** to search for common issues:
-   ```
+   ```bash
    # Dimension 3: Dead code markers
-   grep -rn "TODO|FIXME|HACK|XXX" {files}
+   grep -rn "TODO\|FIXME\|HACK\|XXX" {files}
 
    # Dimension 5: Shortcut indicators
-   grep -rn "workaround|temporary|quick fix|DEPRECATED" {files}
+   grep -rn "workaround\|temporary\|quick fix\|DEPRECATED" {files}
+
+   # Dimension 3: Commented code (lines starting with //)
+   grep -rn "^[[:space:]]*//.*[{};]" {files}
    ```
+
 4. **Report findings** in the same format as Phase 3
 
 **Do NOT say "Codex didn't return findings" and stop. Always complete the audit manually if Codex fails.**
 
+### Example Execution
+
+```
+1. User picks model + effort level
+2. Parse arguments: (empty) → git diff HEAD --name-only → [file1.ts, file2.ts]
+3. Create todo list with 7 phases
+4. Mark "Identify changed files" complete
+5. Run Codex for file1.ts covering all 5 dimensions
+6. If Codex empty → Read file1.ts and analyze manually
+7. Repeat for file2.ts
+8. Mark each dimension complete as findings accumulate
+9. Compile mini audit report
+10. Mark "Generate report" complete
+```
+
 ### When to Use Full Audit Instead
 
-Use `/project:codex-audit` instead of `/project:codex-audit-mini` when:
-- Auditing security-sensitive code (auth, IPC, MCP bridge)
+Use `/codex-audit` instead of `/codex-audit-mini` when:
+- Auditing security-sensitive code (auth, payments, crypto)
 - Reviewing dependencies or third-party integrations
 - Checking performance-critical paths
+- Auditing documentation or API contracts
+- Running compliance checks
 - Changes span >10 files
