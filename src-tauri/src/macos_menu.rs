@@ -95,7 +95,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("New", "doc.badge.plus"),
     ("New Window", "macwindow.badge.plus"),
     ("Open...", "folder"),
-    ("Open Folder...", "folder.badge.gearshape"),
+    ("Open Workspace...", "folder.badge.gearshape"),
     ("Close", "xmark"),
     ("Close Workspace", "xmark.square"),
     ("Save", "arrow.down.doc"),

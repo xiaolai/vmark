@@ -24,7 +24,7 @@ export interface WorkspaceConfig {
 interface WorkspaceState {
   rootPath: string | null;
   config: WorkspaceConfig | null;
-  isWorkspaceMode: boolean; // true if opened via "Open Folder"
+  isWorkspaceMode: boolean; // true if opened via "Open Workspace"
 }
 
 interface WorkspaceActions {

@@ -34,7 +34,7 @@ export function useWorkspaceMenuEvents() {
       const currentWindow = getCurrentWebviewWindow();
       const windowLabel = currentWindow.label;
 
-      // Open Folder
+      // Open Workspace
       const unlistenOpenFolder = await currentWindow.listen<string>("menu:open-folder", async (event) => {
         if (event.payload !== windowLabel) return;
         try {

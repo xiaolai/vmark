@@ -165,7 +165,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 |--------|----------|
 | New File | `Mod + N` |
 | Open File | `Mod + O` |
-| Open Folder | `Mod + Shift + O` |
+| Open Workspace | `Mod + Shift + O` |
 | Save | `Mod + S` |
 | Save As | `Mod + Shift + S` |
 | Save All and Quit | `Alt + Mod + Shift + Q` |

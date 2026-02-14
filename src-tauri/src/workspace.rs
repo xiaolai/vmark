@@ -214,7 +214,7 @@ pub async fn open_folder_dialog(app: tauri::AppHandle) -> Result<Option<String>,
 
     app.dialog()
         .file()
-        .set_title("Open Folder")
+        .set_title("Open Workspace")
         .pick_folder(move |folder| {
             let _ = tx.send(folder);
         });
