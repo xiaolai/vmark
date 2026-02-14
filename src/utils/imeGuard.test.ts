@@ -31,4 +31,11 @@ describe("imeGuard", () => {
   it("skips cleanup when prefix includes non-pinyin chars", () => {
     expect(getImeCleanupPrefixLength("wo-我", "我")).toBeNull();
   });
+
+  it("skips cleanup when text is exactly the composed text (block-start, #66)", () => {
+    // When composition starts at block beginning (e.g., after Enter from bold text),
+    // the entire text content is just the composed text — no pinyin prefix to clean.
+    expect(getImeCleanupPrefixLength("你好", "你好")).toBeNull();
+    expect(getImeCleanupPrefixLength("我", "我")).toBeNull();
+  });
 });

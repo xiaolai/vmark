@@ -7,6 +7,8 @@
  * Key decisions:
  *   - High priority (1200) to intercept events before other plugins process them
  *   - Tracks composition state (start position, data) to correctly handle composition end
+ *   - filterTransaction allows doc-changing transactions during composition because
+ *     ProseMirror may omit "composition" meta when storedMarks are present (#66)
  *   - Safari fix: ProseMirror's fixUpBadSafariComposition displaces cursor in table headers;
  *     this plugin uses appendTransaction to restore correct cursor position
  *   - Grace period after compositionend prevents race conditions with queued actions
@@ -141,12 +143,23 @@ export const compositionGuardExtension = Extension.create({
           const historyMeta = tr.getMeta("history$");
           if (historyMeta) return true;
 
+          // Allow doc-changing transactions during composition (#66).
+          // ProseMirror's internal composition reconciliation sometimes generates
+          // transactions without "composition" meta — notably when storedMarks are
+          // present (e.g. bold text + Enter → new paragraph inherits marks).
+          // Blocking these prevents composed text from reaching the document.
+          // handleKeyDown already intercepts unwanted keypresses during IME input,
+          // so allowing doc changes here is safe.
+          if (tr.docChanged) return true;
+
           return false;
         },
         props: {
           handleKeyDown(view, event) {
-            if (isImeKeyEvent(event)) return true;
-            if (isProseMirrorInCompositionGrace(view)) return true;
+            const imeKey = isImeKeyEvent(event);
+            const grace = isProseMirrorInCompositionGrace(view);
+            if (imeKey) return true;
+            if (grace) return true;
             return false;
           },
           handleDOMEvents: {
