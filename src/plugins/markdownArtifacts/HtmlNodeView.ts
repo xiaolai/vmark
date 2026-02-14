@@ -1,3 +1,20 @@
+/**
+ * HTML Node View (Block + Inline)
+ *
+ * Purpose: Renders raw HTML nodes in WYSIWYG mode with configurable rendering modes
+ * (hidden, sanitized, sanitized-with-styles). Subscribes to settings store to
+ * live-update when the user changes the HTML rendering preference.
+ *
+ * Key decisions:
+ *   - Single BaseHtmlNodeView class handles both inline and block variants to avoid duplication.
+ *   - Double-click triggers Source mode switch with cursor sync via sourceLine attribute,
+ *     because raw HTML can only be meaningfully edited in source.
+ *   - HTML is sanitized before innerHTML injection to prevent XSS from user content.
+ *
+ * @coordinates-with htmlBlock.ts, htmlInline.ts — factory functions wrap this view
+ * @coordinates-with settingsStore.ts — subscribes to `markdown.htmlRenderingMode`
+ * @module plugins/markdownArtifacts/HtmlNodeView
+ */
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { useSettingsStore, type HtmlRenderingMode } from "@/stores/settingsStore";

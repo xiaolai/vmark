@@ -1,3 +1,14 @@
+/**
+ * Multi-Selection Context Detection
+ *
+ * Purpose: Detects whether multiple cursors/selections are active and what structural
+ * context they span (all in same table? same list? mixed blocks?). This information
+ * drives the enable rules — some actions are only safe when all cursors share context.
+ *
+ * @coordinates-with enableRules.ts — consumes MultiSelectionContext for button states
+ * @coordinates-with multiSelectionPolicy.ts — per-action allow/deny based on context
+ * @module plugins/toolbarActions/multiSelectionContext
+ */
 import type { EditorView as TiptapEditorView } from "@tiptap/pm/view";
 import type { EditorView as CodeMirrorView } from "@codemirror/view";
 import type { ResolvedPos } from "@tiptap/pm/model";

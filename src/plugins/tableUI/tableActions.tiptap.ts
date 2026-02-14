@@ -1,3 +1,18 @@
+/**
+ * Table Actions for WYSIWYG Mode
+ *
+ * Purpose: Provides row/column manipulation commands (add, delete, move, alignment)
+ * for ProseMirror tables. These are called from the table context menu and toolbar.
+ *
+ * Key decisions:
+ *   - Uses @tiptap/pm/tables for core add/delete but adds custom move and alignment
+ *   - Selection.near workaround because TypeScript doesn't expose the static method
+ *   - Alignment is stored per-cell via `textAlign` attribute on table cells
+ *
+ * @coordinates-with TiptapTableContextMenu.ts — context menu triggers these actions
+ * @coordinates-with tiptap.ts — registers the table UI extension
+ * @module plugins/tableUI/tableActions.tiptap
+ */
 import type { EditorView } from "@tiptap/pm/view";
 import type { Node, ResolvedPos } from "@tiptap/pm/model";
 import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow } from "@tiptap/pm/tables";

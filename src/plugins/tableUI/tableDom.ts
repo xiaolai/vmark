@@ -1,3 +1,15 @@
+/**
+ * Table DOM Utilities
+ *
+ * Purpose: Helpers for finding the active table element in the editor DOM.
+ * Used by context menu and column resize to determine which table the user
+ * is interacting with. Includes a visibility check so off-screen tables
+ * (e.g., scrolled out of view) are not treated as active.
+ *
+ * @coordinates-with TiptapTableContextMenu.ts — uses getActiveTableElement for positioning
+ * @coordinates-with columnResize.ts — uses getActiveTableElement for resize handle attachment
+ * @module plugins/tableUI/tableDom
+ */
 import type { EditorView } from "@tiptap/pm/view";
 
 function getSelectionAnchorElement(view: EditorView): Element | null {

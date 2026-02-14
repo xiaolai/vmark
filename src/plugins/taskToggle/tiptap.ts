@@ -1,3 +1,19 @@
+/**
+ * Task Toggle Extension
+ *
+ * Purpose: Extends the listItem node with a `checked` attribute and adds a checkbox
+ * NodeView for task list items. Clicking the checkbox toggles checked state, and
+ * Mod+Enter toggles the checkbox at cursor via keyboard shortcut.
+ *
+ * Key decisions:
+ *   - Checkbox is a real DOM <input type="checkbox"> for accessibility
+ *   - Click handler uses stopPropagation to prevent ProseMirror selection change
+ *   - Keyboard shortcut finds the listItem at cursor depth-first, toggles its checked attr
+ *
+ * @coordinates-with tiptapTaskListUtils.ts — task list toggle/untoggle commands
+ * @coordinates-with shared/sourceLineAttr.ts — source-line tracking on list items
+ * @module plugins/taskToggle/tiptap
+ */
 import { mergeAttributes, Node } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 import { Plugin, PluginKey } from "@tiptap/pm/state";

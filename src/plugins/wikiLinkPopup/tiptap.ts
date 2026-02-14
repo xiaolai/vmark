@@ -1,3 +1,20 @@
+/**
+ * Wiki Link Popup Extension
+ *
+ * Purpose: Shows an editing popup when the cursor enters a [[wiki link]] node in
+ * WYSIWYG mode. Supports hover-to-preview (300ms delay) and click-to-edit.
+ * Cmd+Click opens the target file/heading instead.
+ *
+ * Key decisions:
+ *   - Hover detection uses mouseover + timeout to avoid flicker on fast mouse movement
+ *   - The popup manages target path editing; display text is edited inline in the node
+ *   - Plugin view subscribes to store for lifecycle (store-driven open/close)
+ *
+ * @coordinates-with WikiLinkPopupView.ts — DOM and interaction logic for the popup
+ * @coordinates-with wikiLinkPopupStore.ts — open/close/target state
+ * @coordinates-with markdownArtifacts/wikiLink.ts — the wiki link node definition
+ * @module plugins/wikiLinkPopup/tiptap
+ */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

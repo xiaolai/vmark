@@ -1,3 +1,13 @@
+/**
+ * Tiptap Selection Actions
+ *
+ * Purpose: Selection expansion commands for WYSIWYG mode — select word, line, block,
+ * or progressively expand. Maps ProseMirror positions to visual text boundaries
+ * using the doc structure and textBetween.
+ *
+ * @coordinates-with wysiwygAdapter.ts — routes "selectWord"/"selectLine"/etc. here
+ * @module plugins/toolbarActions/tiptapSelectionActions
+ */
 import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 

@@ -1,3 +1,14 @@
+/**
+ * Multi-Selection Policy
+ *
+ * Purpose: Defines per-action rules for what toolbar actions are allowed when
+ * multiple cursors are active. "allow" = always works, "deny" = disabled,
+ * "conditional" = depends on whether all cursors share the same structural context.
+ *
+ * @coordinates-with enableRules.ts — calls canRunActionInMultiSelection
+ * @coordinates-with multiSelectionContext.ts — provides the context for conditional checks
+ * @module plugins/toolbarActions/multiSelectionPolicy
+ */
 import type { MultiSelectionContext, MultiSelectionPolicy } from "./types";
 
 const MULTI_SELECTION_POLICY: Record<string, MultiSelectionPolicy> = {

@@ -1,3 +1,14 @@
+/**
+ * Source Multi-Selection Block Actions
+ *
+ * Purpose: Applies block-level actions (heading, list, blockquote) across multiple
+ * CodeMirror selections by iterating ranges in reverse document order. Each range
+ * is independently evaluated and transformed.
+ *
+ * @coordinates-with sourceAdapter.ts — delegates here when multi-selection is active
+ * @coordinates-with sourceContextDetection — uses detection + action functions per block type
+ * @module plugins/toolbarActions/sourceMultiSelection
+ */
 import type { EditorView } from "@codemirror/view";
 import { getBlockquoteInfo, nestBlockquote, removeBlockquote, unnestBlockquote } from "@/plugins/sourceContextDetection/blockquoteDetection";
 import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sourceContextDetection/headingDetection";

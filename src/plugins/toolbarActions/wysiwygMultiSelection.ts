@@ -1,3 +1,14 @@
+/**
+ * WYSIWYG Multi-Selection Block Actions
+ *
+ * Purpose: Applies block-level actions (heading, list, blockquote) across multiple
+ * ProseMirror cursors. Iterates ranges in reverse document order to preserve
+ * position validity as earlier ranges shift from edits.
+ *
+ * @coordinates-with wysiwygAdapter.ts — delegates here when MultiSelection is active
+ * @coordinates-with multiCursor — provides MultiSelection and range utilities
+ * @module plugins/toolbarActions/wysiwygMultiSelection
+ */
 import { TextSelection } from "@tiptap/pm/state";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { EditorView } from "@tiptap/pm/view";

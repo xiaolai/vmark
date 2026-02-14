@@ -1,3 +1,13 @@
+/**
+ * Source Selection Actions
+ *
+ * Purpose: Selection expansion commands for source mode — select word, line, block,
+ * or progressively expand selection. Used by the toolbar's selection submenu.
+ *
+ * @coordinates-with sourceSelection.ts — provides range computation utilities
+ * @coordinates-with sourceAdapter.ts — routes "selectWord"/"selectLine"/etc. here
+ * @module plugins/toolbarActions/sourceSelectionActions
+ */
 import { EditorSelection } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import {

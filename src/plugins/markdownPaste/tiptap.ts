@@ -1,3 +1,24 @@
+/**
+ * Markdown Paste Extension
+ *
+ * Purpose: Intercepts clipboard paste events in WYSIWYG mode and parses markdown-formatted
+ * plain text into ProseMirror nodes instead of inserting raw text. This enables rich pasting
+ * from markdown-aware sources without requiring HTML clipboard data.
+ *
+ * Pipeline: ClipboardEvent → shouldHandleMarkdownPaste (detection) → parseMarkdown →
+ *           ProseMirror Slice → dispatch transaction
+ *
+ * Key decisions:
+ *   - Defers to htmlPaste when substantial HTML is present (avoids double-handling)
+ *   - 200K char limit prevents UI freezes on enormous pastes
+ *   - Falls back to Tauri clipboard API when browser API is unavailable
+ *   - Skips markdown parsing inside code blocks and multi-cursor selections
+ *
+ * @coordinates-with markdownPasteDetection.ts — heuristic to determine if text looks like markdown
+ * @coordinates-with htmlPaste/tiptap.ts — HTML paste gets priority when HTML clipboard data exists
+ * @coordinates-with pasteUtils.ts — shared helpers for code/multi-selection checks
+ * @module plugins/markdownPaste/tiptap
+ */
 import { Extension } from "@tiptap/core";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";

@@ -1,3 +1,22 @@
+/**
+ * WYSIWYG Adapter
+ *
+ * Purpose: Toolbar action dispatcher for WYSIWYG (ProseMirror/Tiptap) mode. This is the
+ * largest file in the toolbar system — it maps every toolbar action ID to ProseMirror
+ * commands, Tiptap chain calls, or popup store triggers.
+ *
+ * Pipeline: toolbar click → runToolbarAction(id) → switch(id) → ProseMirror transaction
+ *
+ * Key decisions:
+ *   - Single giant switch for action routing (simple, greppable, no abstraction overhead)
+ *   - Multi-selection actions delegate to wysiwygMultiSelection.ts for per-range handling
+ *   - Link/wiki-link actions delegate to wysiwygAdapterLinks.ts to keep this file focused
+ *
+ * @coordinates-with sourceAdapter.ts — parallel implementation for Source mode
+ * @coordinates-with enableRules.ts — decides which actions are enabled
+ * @coordinates-with UniversalToolbar.tsx — calls runToolbarAction on button click
+ * @module plugins/toolbarActions/wysiwygAdapter
+ */
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import type { Editor as TiptapEditor } from "@tiptap/core";

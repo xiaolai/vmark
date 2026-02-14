@@ -1,3 +1,14 @@
+/**
+ * Math Popup Tiptap Extension
+ *
+ * Purpose: Registers the MathPopupView as a ProseMirror plugin view so it mounts
+ * and destroys with the editor lifecycle. The popup itself is store-driven —
+ * updates come via mathPopupStore subscription, not ProseMirror's `update()` hook.
+ *
+ * @coordinates-with MathPopupView.ts — the popup DOM and interaction logic
+ * @coordinates-with mathPopupStore.ts — open/close/value state
+ * @module plugins/mathPopup/tiptap
+ */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
