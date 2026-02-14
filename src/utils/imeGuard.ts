@@ -1,3 +1,24 @@
+/**
+ * IME Composition Guard
+ *
+ * Purpose: Prevent keyboard shortcuts and editor commands from firing during
+ * CJK IME composition sessions. Without this, pressing Enter to confirm a
+ * Chinese character could trigger "insert new paragraph" instead.
+ *
+ * Key decisions:
+ *   - Uses a 50ms "grace period" after compositionend because some browsers
+ *     fire keydown *after* compositionend for the confirming keystroke
+ *   - Separate guards for ProseMirror and CodeMirror because they expose
+ *     composition state differently (view.composing vs view.compositionStarted)
+ *   - Action queuing (runOrQueue*) defers operations to after composition ends
+ *   - getImeCleanupPrefixLength detects leftover pinyin prefixes that weren't
+ *     consumed by the IME (e.g., "nihao" + composed "你好" -> remove "nihao")
+ *
+ * @coordinates-with plugins/compositionGuard/tiptap.ts — flushes the PM queue on compositionend
+ * @coordinates-with plugins/codemirror/imeGuard.ts — flushes the CM queue on compositionend
+ * @module utils/imeGuard
+ */
+
 import type { Command } from "@tiptap/pm/state";
 import type { EditorView as ProseMirrorView } from "@tiptap/pm/view";
 import type { EditorView as CodeMirrorView, KeyBinding } from "@codemirror/view";

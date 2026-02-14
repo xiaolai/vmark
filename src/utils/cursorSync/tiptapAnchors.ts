@@ -1,3 +1,18 @@
+/**
+ * Tiptap Block Anchor Utilities
+ *
+ * Purpose: Extract and restore precise sub-block cursor coordinates
+ * (table row/col/offset, code block line/column) from ProseMirror positions.
+ *
+ * Key decisions:
+ *   - Table anchor walks the PM ancestor chain to find tableRow/table parents
+ *   - Code block anchor counts newlines before cursor to derive line/column
+ *   - All restoration functions use addToHistory:false to avoid undo pollution
+ *
+ * @coordinates-with cursorSync/table.ts — the source mode table anchor equivalent
+ * @module utils/cursorSync/tiptapAnchors
+ */
+
 import type { EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode, ResolvedPos } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";

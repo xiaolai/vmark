@@ -1,3 +1,23 @@
+/**
+ * Tiptap Cursor Sync
+ *
+ * Purpose: Extract and restore cursor position in Tiptap (WYSIWYG) mode
+ * during mode switches. Extends the ProseMirror version with block anchor
+ * support for tables and code blocks.
+ *
+ * Pipeline: Mode switch -> getCursorInfoFromTiptap() -> CursorInfo struct
+ *   -> restoreCursorInCodeMirror() (or vice versa).
+ *
+ * Key decisions:
+ *   - Prefers block anchors for tables/code blocks over text-based heuristics
+ *   - Container nodes (alertBlock, detailsBlock) resolve to their first textblock child
+ *   - setMeta("addToHistory", false) prevents cursor jumps from polluting undo stack
+ *
+ * @coordinates-with cursorSync/codemirror.ts — the source mode counterpart
+ * @coordinates-with cursorSync/tiptapAnchors.ts — block anchor extraction/restoration
+ * @module utils/cursorSync/tiptap
+ */
+
 import type { EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode, ResolvedPos } from "@tiptap/pm/model";
 import { Selection, TextSelection } from "@tiptap/pm/state";

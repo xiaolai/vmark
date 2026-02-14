@@ -1,3 +1,19 @@
+/**
+ * Table Cursor Anchoring (Source Mode)
+ *
+ * Purpose: Map cursor position in a markdown table row to (row, col, offsetInCell)
+ * coordinates and back. This enables precise cursor restoration across mode switches
+ * for tables, where character offsets are unreliable due to pipe separators and padding.
+ *
+ * Key decisions:
+ *   - Cell ranges account for escaped pipes (\\|) inside cells
+ *   - Leading/trailing pipe handling follows GFM conventions
+ *   - Row index is relative to the table header (row 0 = header row)
+ *
+ * @coordinates-with cursorSync/tiptapAnchors.ts — the WYSIWYG counterpart
+ * @module utils/cursorSync/table
+ */
+
 import type { BlockAnchor } from "@/types/cursorSync";
 
 function isTableSeparatorLine(line: string): boolean {

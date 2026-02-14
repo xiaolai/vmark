@@ -1,3 +1,16 @@
+/**
+ * Cursor Sync — Public API
+ *
+ * Purpose: Maintain cursor position when switching between WYSIWYG and Source modes.
+ * The two editors (Tiptap/ProseMirror and CodeMirror) use different document models,
+ * so this module bridges them via sourceLine attributes and text-based heuristics.
+ *
+ * Pipeline: getCursorInfo*() snapshots position -> CursorInfo travels across mode boundary
+ *   -> restoreCursor*() replays position in the target editor.
+ *
+ * @module utils/cursorSync
+ */
+
 // Re-export all cursor sync utilities
 
 // Types

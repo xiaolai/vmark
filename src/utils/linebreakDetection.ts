@@ -1,3 +1,20 @@
+/**
+ * Linebreak Detection
+ *
+ * Purpose: Detect line ending style (LF vs CRLF) and hard break convention
+ * (backslash vs two-spaces) in existing markdown documents. Used on file load
+ * to preserve the author's formatting conventions on save.
+ *
+ * Key decisions:
+ *   - Skips content inside fenced code blocks to avoid false positives
+ *   - Reports "mixed" when both backslash and two-space breaks are present
+ *   - Lone \r is treated as CRLF (legacy Mac line endings)
+ *
+ * @coordinates-with utils/linebreaks.ts — applies the detected style on save
+ * @coordinates-with stores/documentStore.ts — stores detection result per document
+ * @module utils/linebreakDetection
+ */
+
 export type LineEnding = "lf" | "crlf" | "unknown";
 export type HardBreakStyle = "backslash" | "twoSpaces" | "mixed" | "unknown";
 export type LineEndingOnSave = "preserve" | "lf" | "crlf";

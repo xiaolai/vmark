@@ -1,3 +1,17 @@
+/**
+ * Markdown Line Analysis
+ *
+ * Purpose: Classify markdown lines by node type and strip block-level syntax
+ * to produce "rendered text" for cursor position matching.
+ *
+ * Key decisions:
+ *   - Only strips leading block markers (headings, lists, blockquotes) — not inline formatting
+ *   - Code fence tracking uses fence-type matching (``` vs ~~~) to avoid false toggles
+ *
+ * @coordinates-with cursorSync/codemirror.ts — calls these for source mode extraction
+ * @module utils/cursorSync/markdown
+ */
+
 import type { NodeType } from "@/types/cursorSync";
 
 /**
