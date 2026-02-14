@@ -1,3 +1,21 @@
+/**
+ * useExplorerOperations
+ *
+ * Purpose: Provides file system CRUD operations for the file explorer — create, rename,
+ * delete, move, duplicate, copy path, and reveal in file manager.
+ *
+ * Key decisions:
+ *   - Re-entry guards (isCreatingRef, isDeletingRef, isRenamingRef) prevent duplicate
+ *     operations from rapid clicks or double-invocation.
+ *   - Path reconciliation after rename/move/delete updates any open tabs pointing to
+ *     the affected paths, so editors don't go stale.
+ *   - Delete uses a native confirmation dialog (Tauri ask) with parent folder context
+ *     to help disambiguate similarly-named files.
+ *
+ * @coordinates-with FileExplorer.tsx — consumer of all exported operations
+ * @coordinates-with utils/pathReconciliation.ts — updates open tabs after path changes
+ * @module components/Sidebar/FileExplorer/useExplorerOperations
+ */
 import { useCallback, useRef } from "react";
 import {
   writeTextFile,

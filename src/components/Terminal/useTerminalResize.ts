@@ -1,10 +1,25 @@
+/**
+ * useTerminalResize
+ *
+ * Purpose: Hook for drag-to-resize on the terminal panel's top edge.
+ * Converts vertical mouse movement into terminal height changes stored
+ * in uiStore.
+ *
+ * Key decisions:
+ *   - Uses the handlersRef cleanup pattern (stores mousemove/mouseup references)
+ *     to ensure exact listener removal on mouseup, blur, or unmount.
+ *   - Dragging up increases height (negative delta = taller), matching
+ *     the mental model of "pulling the panel up."
+ *   - Sets document.body cursor to row-resize during drag and disables
+ *     text selection to prevent interference.
+ *   - Calls onResize callback on every move to let the parent refit xterm.
+ *
+ * @coordinates-with TerminalPanel.tsx — attaches handleResizeStart to the resize handle
+ * @coordinates-with uiStore — persists terminalHeight
+ * @module components/Terminal/useTerminalResize
+ */
 import { useCallback, useRef, useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
-
-/**
- * Hook for handling terminal panel resize via drag handle.
- * Mirrors useSidebarResize but for vertical drag (row-resize).
- */
 export function useTerminalResize(onResize?: () => void) {
   const isResizing = useRef(false);
   const startY = useRef(0);

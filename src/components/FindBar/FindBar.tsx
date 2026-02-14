@@ -1,3 +1,26 @@
+/**
+ * FindBar
+ *
+ * Purpose: Inline search-and-replace bar that appears at the top of the editor area.
+ * Supports case-sensitive, whole-word, and regex search modes with match navigation.
+ *
+ * User interactions:
+ *   - Cmd+F opens (via searchStore), Escape closes
+ *   - Enter/Shift+Enter navigates forward/backward through matches
+ *   - Tab moves focus from find input to replace input
+ *   - Toggle buttons for case sensitivity, whole word, and regex modes
+ *   - Replace/Replace All buttons for substitution
+ *
+ * Key decisions:
+ *   - All state lives in searchStore — FindBar is a pure view that delegates actions
+ *     via getState() calls, keeping the component stateless beyond refs.
+ *   - IME guard prevents Enter during CJK composition from triggering find operations.
+ *   - Regex toggle is conditionally shown based on settings (enableRegexSearch).
+ *
+ * @coordinates-with stores/searchStore.ts — all search state and operations
+ * @coordinates-with utils/sourceEditorSearch.ts — CodeMirror search integration
+ * @module components/FindBar/FindBar
+ */
 import { useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   Search,

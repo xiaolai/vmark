@@ -1,3 +1,30 @@
+/**
+ * useStatusBarTabDrag
+ *
+ * Purpose: Orchestrates all tab drag-and-drop behavior — pointer-based reorder
+ * within the tab strip, drag-out to transfer tabs between windows, cross-window
+ * drop preview highlighting, spring-loaded window focus, and keyboard reorder.
+ *
+ * Key decisions:
+ *   - Delegates low-level pointer tracking to useTabDragOut (a shared hook);
+ *     this hook adds StatusBar-specific concerns: ARIA announcements, snapback
+ *     animation, drop preview broadcasts, and spring-loaded focus.
+ *   - Spring-loaded focus: when hovering over another window during drag-out,
+ *     after SPRING_LOAD_FOCUS_MS the target window is focused so the user can
+ *     see where the tab will land.
+ *   - Drop preview: broadcasts a tab:drop-preview event so OTHER windows can
+ *     show a visual "drop target" highlight on their status bar.
+ *   - Reorder validity is checked via planReorder from tabDragRules — pinned
+ *     zone violations trigger snapback + ARIA feedback.
+ *   - Cursor is forced to grabbing/not-allowed during drag to override any
+ *     element-level cursor styles.
+ *
+ * @coordinates-with StatusBar.tsx — consumes the returned drag state for rendering
+ * @coordinates-with tabDragRules.ts — reorder policy (pinned zone)
+ * @coordinates-with tabTransferActions.ts — performs the actual cross-window transfer
+ * @coordinates-with tabKeyboard.ts — keyboard reorder via handleTabKeyDown
+ * @module components/StatusBar/useStatusBarTabDrag
+ */
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";

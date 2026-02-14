@@ -1,3 +1,22 @@
+/**
+ * terminalKeyHandler
+ *
+ * Purpose: Custom key event handler for the integrated terminal. Intercepts
+ * Cmd/Ctrl shortcuts that should not pass through to the shell process.
+ *
+ * Key decisions:
+ *   - Cmd+C with selection → copy to clipboard; without selection → pass through
+ *     for SIGINT (Ctrl+C), maintaining standard terminal behavior.
+ *   - Cmd+V → paste from clipboard directly into PTY (not xterm buffer).
+ *   - Cmd+K → clear terminal scrollback and viewport.
+ *   - Cmd+F → toggle search bar in the terminal panel.
+ *   - Cmd+1-5 → switch between terminal sessions (up to 5).
+ *   - Returns false to consume the event, true to let xterm handle it.
+ *   - Never interferes during IME composition to preserve CJK input.
+ *
+ * @coordinates-with createTerminalInstance.ts — attached via term.attachCustomKeyEventHandler
+ * @module components/Terminal/terminalKeyHandler
+ */
 import type { IPty } from "tauri-pty";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";

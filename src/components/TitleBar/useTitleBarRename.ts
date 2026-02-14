@@ -1,3 +1,23 @@
+/**
+ * useTitleBarRename
+ *
+ * Purpose: Hook that performs file rename operations triggered from the title bar.
+ * Renames the file on disk and updates the document store with the new path.
+ *
+ * Key decisions:
+ *   - Re-entry guard (isRenamingRef) prevents duplicate rename operations from
+ *     rapid double-clicks or keyboard repeat.
+ *   - Always appends .md extension if the user omits it, keeping files consistently
+ *     named as markdown.
+ *   - Checks for target existence before renaming to prevent overwriting an
+ *     existing file.
+ *   - Does NOT do full path reconciliation (unlike useExplorerOperations.renameItem)
+ *     because the title bar only renames the currently active file, which is
+ *     directly updated via setFilePath.
+ *
+ * @coordinates-with TitleBar.tsx — calls renameFile on double-click confirm
+ * @module components/TitleBar/useTitleBarRename
+ */
 import { useState, useCallback, useRef } from "react";
 import { rename, exists } from "@tauri-apps/plugin-fs";
 import { join, basename } from "@tauri-apps/api/path";

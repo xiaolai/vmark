@@ -1,3 +1,24 @@
+/**
+ * tabTransferActions
+ *
+ * Purpose: Cross-window tab transfer logic — moves a tab (with its document
+ * content) to an existing window or detaches it into a new window via Tauri IPC.
+ *
+ * Key decisions:
+ *   - transferTabFromDragOut first asks Rust to find a drop target window
+ *     at the pointer's screen coordinates; if none, it creates a new window.
+ *   - Both paths show an undo toast that calls restoreTransferredTab to
+ *     reverse the transfer, preventing accidental data loss.
+ *   - The last tab in the main window cannot be moved out — enforced here
+ *     with an early snapback + ARIA announcement.
+ *   - After transfer, if the source window has no remaining tabs (and is
+ *     not main), it auto-closes to avoid an empty shell.
+ *
+ * @coordinates-with useStatusBarTabDrag.ts — calls transferTabFromDragOut on drag-out
+ * @coordinates-with useTabContextMenuActions.ts — "Move to New Window" uses similar logic
+ * @coordinates-with WindowContext.tsx — receiving window applies transferred tab data
+ * @module components/StatusBar/tabTransferActions
+ */
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { toast } from "sonner";

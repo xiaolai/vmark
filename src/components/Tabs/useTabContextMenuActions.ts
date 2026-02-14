@@ -1,3 +1,25 @@
+/**
+ * useTabContextMenuActions
+ *
+ * Purpose: Builds the list of menu items for the tab context menu, with
+ * enable/disable logic and action callbacks for each operation.
+ *
+ * Key decisions:
+ *   - Actions use getState() pattern for stores (tabStore, documentStore)
+ *     to avoid stale closures — the menu may stay open while state changes.
+ *   - "Move to New Window" is disabled when it's the last tab in main window.
+ *   - "Copy Relative Path" is only available when the file is within the
+ *     current workspace root.
+ *   - Conditional items (Restore to Disk, Revert to Saved) appear only when
+ *     the document is in a relevant state (missing or dirty).
+ *   - Every action calls onClose() after completion to dismiss the menu.
+ *   - Undo for "Move to New Window" uses restoreTransferredTab to reverse
+ *     the transfer via Tauri IPC.
+ *
+ * @coordinates-with TabContextMenu.tsx — renders the items this hook produces
+ * @coordinates-with tabTransferActions.ts — restoreTransferredTab for undo
+ * @module components/Tabs/useTabContextMenuActions
+ */
 import { useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

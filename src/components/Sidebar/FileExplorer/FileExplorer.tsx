@@ -1,3 +1,29 @@
+/**
+ * FileExplorer
+ *
+ * Purpose: Workspace file tree panel using react-arborist for virtualized tree rendering.
+ * Only available in workspace mode — shows markdown files with drag-and-drop, rename,
+ * delete, and context menu operations.
+ *
+ * User interactions:
+ *   - Double-click or Enter to open a file in a tab
+ *   - Right-click for context menu (file/folder/empty area variants)
+ *   - Drag-and-drop to move files between folders
+ *   - Inline rename on F2 or via context menu
+ *
+ * Key decisions:
+ *   - Uses forwardRef + useImperativeHandle to expose createNewFile/createNewFolder
+ *     to the Sidebar header buttons.
+ *   - File tree is workspace-only — no inferred root from file path (single-file mode
+ *     has no explorer).
+ *   - After create operations, a small timeout allows the tree to refresh before
+ *     auto-entering edit mode on the new node.
+ *
+ * @coordinates-with useFileTree.ts — loads directory tree and watches for fs changes
+ * @coordinates-with useExplorerOperations.ts — CRUD operations on files and folders
+ * @coordinates-with Sidebar.tsx — parent component that provides the ref
+ * @module components/Sidebar/FileExplorer/FileExplorer
+ */
 import { useState, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import { Tree, type TreeApi } from "react-arborist";
 import { Folder } from "lucide-react";

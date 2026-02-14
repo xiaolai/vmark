@@ -1,3 +1,30 @@
+/**
+ * useTerminalSessions
+ *
+ * Purpose: Manages the lifecycle of multiple terminal sessions — each with its own
+ * xterm instance and PTY process. Subscribes to terminalSessionStore for create,
+ * remove, and switch operations.
+ *
+ * Key decisions:
+ *   - Shell spawn is deferred: the PTY is not started until the session's container
+ *     is visible and fitAddon has measured real dimensions. This avoids spawning at
+ *     80x24 defaults while hidden, which causes blank-line artifacts on resize.
+ *   - After a shell exits, pressing any key respawns it — no manual restart needed.
+ *     The "dead session" state is visually indicated in the tab bar.
+ *   - IME composition guard: data from onData during compositionstart..compositionend
+ *     is dropped to prevent garbled preedit text from being sent to the PTY.
+ *   - Theme, font size, and workspace root changes are synced across all sessions
+ *     via settingsStore/workspaceStore subscriptions. Workspace root change
+ *     auto-cd's running sessions (Ctrl+U to clear partial input first).
+ *   - Session map (sessionsRef) is imperative (not React state) because xterm
+ *     instances must be managed outside React's render cycle.
+ *
+ * @coordinates-with TerminalPanel.tsx — provides fit(), getActiveTerminal, getActiveSearchAddon
+ * @coordinates-with createTerminalInstance.ts — factory for xterm + addons
+ * @coordinates-with spawnPty.ts — shell process creation
+ * @coordinates-with terminalSessionStore — store driving session list and active ID
+ * @module components/Terminal/useTerminalSessions
+ */
 import { useRef, useEffect, useCallback } from "react";
 import type { IPty } from "tauri-pty";
 import { useSettingsStore, themes } from "@/stores/settingsStore";
@@ -23,12 +50,6 @@ interface SessionEntry {
 export interface UseTerminalSessionsCallbacks {
   onSearch?: () => void;
 }
-
-/**
- * Hook managing multiple terminal sessions.
- * Each session has its own xterm + PTY.
- * Reacts to the terminalSessionStore for create/remove/switch.
- */
 export function useTerminalSessions(
   containerRef: React.RefObject<HTMLDivElement | null>,
   callbacks?: UseTerminalSessionsCallbacks,

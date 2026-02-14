@@ -1,3 +1,21 @@
+/**
+ * tabDragRules
+ *
+ * Purpose: Pure functions for tab reorder policy. Determines whether a
+ * drag-and-drop reorder is allowed and computes the final insertion index.
+ *
+ * Key decisions:
+ *   - Pinned tabs form a contiguous zone at the left — unpinned tabs cannot
+ *     be dropped into the pinned zone and vice versa.
+ *   - normalizeInsertionIndex converts the visual drop position (between tabs)
+ *     to an array insertion index, accounting for the source tab being removed.
+ *   - All functions are side-effect-free, making them easy to test and reuse
+ *     from both pointer-drag and keyboard-reorder code paths.
+ *
+ * @coordinates-with useStatusBarTabDrag.ts — calls planReorder during drag
+ * @coordinates-with tabKeyboard.ts — calls planReorder for Alt+Shift+Arrow
+ * @module components/StatusBar/tabDragRules
+ */
 import type { Tab } from "@/stores/tabStore";
 
 export interface ReorderPlan {

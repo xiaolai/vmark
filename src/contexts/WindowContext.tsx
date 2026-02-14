@@ -1,27 +1,40 @@
 /**
- * Window Context
+ * WindowContext
  *
- * Purpose: Bootstraps each Tauri window by determining its label, hydrating
- * per-window stores, handling tab transfers (drag-between-windows), loading
- * initial file content, and emitting the "ready" event to Rust.
+ * Purpose: Top-level React context that bootstraps each window — determines the
+ * window label, initializes document state, handles file loading from URL params,
+ * workspace setup, tab transfers from other windows, and signals "ready" to Rust.
  *
  * Pipeline: Tauri creates window → WindowProvider mounts → detect label →
  * rehydrate workspace store → handle transfer / URL params / empty init →
  * emit "ready" to Rust → render children.
  *
  * Key decisions:
- *   - `initStartedRef` guards against double-init from React.StrictMode.
- *   - The "ready" event is delayed by READY_EVENT_DELAY_MS so child hooks
- *     have time to register their menu listeners before Rust sends menu events.
+ *   - initStartedRef guards against React.StrictMode double-init in dev,
+ *     which would create duplicate tabs and documents.
+ *   - Tab transfer: when a window is created via drag-out, the URL includes a
+ *     ?transfer param. handleTabTransfer claims the transfer data from Rust
+ *     (stored in a global pending map) and sets up the tab + document.
+ *   - Runtime transfers (tab:transfer event) are handled by a separate listener
+ *     set up after isReady, enabling cross-window tab moves at any time.
+ *   - The "ready" event is delayed by READY_EVENT_DELAY_MS to ensure child
+ *     components' useEffect hooks have registered their menu event listeners
+ *     before Rust starts sending events.
+ *   - Workspace resolution: for files opened via Finder/drag, resolves the
+ *     workspace root using openPolicy logic. For URL-provided workspace roots,
+ *     loads config from disk.
+ *   - Settings and non-document windows (label !== main/doc-*) skip document
+ *     initialization entirely.
  *   - Doc-window localStorage is cleared on mount to prevent inheriting
  *     main window's persisted workspace state.
  *
  * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
+ * @coordinates-with tabTransferActions.ts — prepares transfer payloads for new windows
  * @coordinates-with workspaceStorage.ts — per-window localStorage key scoping
- * @coordinates-with openPolicy.ts — derives workspace root for external files
+ * @coordinates-with openPolicy.ts — resolves workspace root for external files
+ * @coordinates-with lib.rs (Rust) — listens for "ready" event per window
  * @module contexts/WindowContext
  */
-
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";

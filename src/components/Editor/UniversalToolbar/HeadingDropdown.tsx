@@ -1,3 +1,14 @@
+/**
+ * HeadingDropdown
+ *
+ * Purpose: Dropdown menu for selecting heading levels (H1-H6) or paragraph from the toolbar.
+ * Auto-focuses the currently active heading level on open.
+ *
+ * User interactions: Arrow keys navigate, Enter/click selects, Escape closes.
+ *
+ * @coordinates-with UniversalToolbar.tsx — rendered as a child dropdown
+ * @module components/Editor/UniversalToolbar/HeadingDropdown
+ */
 import { forwardRef, useEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 

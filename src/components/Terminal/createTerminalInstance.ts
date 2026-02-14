@@ -1,3 +1,30 @@
+/**
+ * createTerminalInstance
+ *
+ * Purpose: Factory function that creates a fully-configured xterm.js instance
+ * with all addons loaded (fit, search, serialize, unicode11, webgl, web-links,
+ * file-links) and custom key handling.
+ *
+ * Key decisions:
+ *   - Each instance gets its own child div inside the parent container,
+ *     initially hidden; the caller (useTerminalSessions) toggles visibility
+ *     when switching sessions.
+ *   - IME composition tracking via compositionstart/end on the hidden
+ *     textarea — used to suppress copy-on-select and data forwarding
+ *     during CJK input to avoid garbled text.
+ *   - WebGL renderer is optional (settings-driven); falls back silently
+ *     to canvas on GPU-incompatible systems.
+ *   - File link provider detects file paths in output and opens them as
+ *     new editor tabs on click.
+ *   - Copy-on-select is gated by a settings flag and respects composition.
+ *   - Theme colors are resolved from settingsStore at creation time;
+ *     runtime theme changes are handled by useTerminalSessions.
+ *
+ * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
+ * @coordinates-with fileLinkProvider.ts — file path detection in terminal output
+ * @coordinates-with terminalKeyHandler.ts — custom Cmd+C/V/K/F handling
+ * @module components/Terminal/createTerminalInstance
+ */
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";

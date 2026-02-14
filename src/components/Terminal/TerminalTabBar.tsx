@@ -1,3 +1,21 @@
+/**
+ * TerminalTabBar
+ *
+ * Purpose: Vertical tab bar on the right side of the terminal panel.
+ * Shows numbered buttons for switching between terminal sessions,
+ * plus create/close/restart controls.
+ *
+ * Key decisions:
+ *   - Maximum 5 sessions enforced by disabling the "+" button.
+ *   - getTabDisplay extracts the number from "Terminal N" labels for
+ *     compact display; custom names show first character.
+ *   - Dead sessions (process exited) get a visual indicator via CSS class.
+ *   - Uses getState() pattern for session creation to avoid stale closures.
+ *
+ * @coordinates-with TerminalPanel.tsx — provides onClose and onRestart callbacks
+ * @coordinates-with terminalSessionStore — reads sessions and activeSessionId
+ * @module components/Terminal/TerminalTabBar
+ */
 import { useCallback } from "react";
 import { Plus, Trash2, RotateCcw } from "lucide-react";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
