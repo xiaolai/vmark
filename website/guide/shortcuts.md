@@ -209,7 +209,6 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | New Window | `Mod + Shift + N` |
 | New Tab | `Mod + T` |
 | Close Tab | `Mod + W` |
-| Toggle History | `Ctrl + Shift + 3` |
 | Toggle Hidden Files | `Mod + Shift + .` |
 
 ::: tip Windows/Linux Note
