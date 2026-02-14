@@ -473,7 +473,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "line-numbers", "Toggle Line Numbers", true, Some("Alt+CmdOrCtrl+L"))?,
             &MenuItem::with_id(app, "diagram-preview", "Toggle Diagram Preview", true, Some("Alt+CmdOrCtrl+P"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "sidebar", "Toggle Sidebar", true, Some("CmdOrCtrl+Shift+B"))?,
+            &MenuItem::with_id(app, "sidebar", "Toggle Sidebar", true, Some("Ctrl+Shift+B"))?,
             &MenuItem::with_id(app, "outline", "Toggle Outline", true, Some("Ctrl+Shift+1"))?,
             &MenuItem::with_id(app, "file-explorer", "Toggle File Explorer", true, Some("Ctrl+Shift+2"))?,
             &MenuItem::with_id(app, "view-history", "Toggle History", true, Some("Ctrl+Shift+3"))?,
