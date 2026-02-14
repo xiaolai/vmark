@@ -1,9 +1,11 @@
 /**
  * Wiki Link Popup Store
  *
- * Manages state for the wiki link edit popup.
- * Note: Alias (display text) is now edited inline in the editor,
- * so this store only manages the target.
+ * Purpose: State for the wiki link edit popup — manages the link target.
+ *   Alias (display text) is edited inline in the editor, so this store
+ *   only tracks the target field and node position.
+ *
+ * @module stores/wikiLinkPopupStore
  */
 
 import { create } from "zustand";

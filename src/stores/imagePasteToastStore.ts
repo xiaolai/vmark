@@ -1,9 +1,17 @@
 /**
  * Image Paste Toast Store
  *
- * Manages state for the paste confirmation toast that appears when
- * pasting text that looks like an image URL or path.
- * Supports both single image and multiple images.
+ * Purpose: State for the paste confirmation toast that appears when pasting
+ *   text detected as an image URL or local path. Supports single and
+ *   multiple image paths with distinct toast presentations.
+ *
+ * Pipeline: Paste event → imagePathDetection util detects image paths →
+ *   showToast/showMultiToast → user confirms (insert as image) or
+ *   dismisses (paste as text) → callbacks clean up and toast hides.
+ *
+ * @coordinates-with imagePathDetection.ts — detects image paths in pasted text
+ * @coordinates-with ImagePasteToast component — renders the confirmation UI
+ * @module stores/imagePasteToastStore
  */
 
 import { create } from "zustand";

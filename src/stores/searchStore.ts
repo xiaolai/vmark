@@ -1,3 +1,26 @@
+/**
+ * Search Store
+ *
+ * Purpose: State for the Find & Replace bar — query, options (case/word/regex),
+ *   match count, and current match index.
+ *
+ * Pipeline: User types in FindBar → setQuery() → editor adapter plugin reads
+ *   query via subscription → highlights matches → setMatches(count, index) →
+ *   FindBar displays "N of M".
+ *
+ * Key decisions:
+ *   - Replace actions dispatch CustomEvents ("search:replace-current",
+ *     "search:replace-all") rather than calling editor APIs directly, because
+ *     both CodeMirror and ProseMirror adapters need to handle replacement in
+ *     their own way. The store stays editor-agnostic.
+ *   - currentIndex resets to -1 on query/option change to avoid stale positions.
+ *
+ * @coordinates-with FindBar component — UI for search controls
+ * @coordinates-with searchHighlight plugin — ProseMirror adapter
+ * @coordinates-with cmSearch extension — CodeMirror adapter
+ * @module stores/searchStore
+ */
+
 import { create } from "zustand";
 
 interface SearchState {

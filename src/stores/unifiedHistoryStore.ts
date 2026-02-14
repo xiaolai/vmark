@@ -1,16 +1,31 @@
 /**
  * Unified History Store
  *
- * Manages cross-mode undo/redo by storing checkpoints when switching
- * between WYSIWYG and Source modes. This allows users to undo past
- * mode switches seamlessly.
+ * Purpose: Cross-mode undo/redo — stores checkpoints when switching between
+ *   WYSIWYG and Source modes so users can undo past mode switches seamlessly.
+ *
+ * Pipeline: User toggles source mode → createCheckpoint(tabId, markdown, mode)
+ *   → stored in undoStack → user presses Cmd+Z past native history →
+ *   popUndo() returns checkpoint → mode switches back + content restored.
  *
  * Architecture:
- * - Each editor (Tiptap/CodeMirror) has its own native history
- * - When switching modes, we create a "checkpoint" with the current markdown
- * - When native history is exhausted, we restore from the checkpoint
- * - This may trigger a mode switch to the previous mode
- * - History is stored per-document (tabId) so switching tabs preserves history
+ *   - Each editor (Tiptap/CodeMirror) has its own native history.
+ *   - When switching modes, a checkpoint captures the current markdown.
+ *   - When native history is exhausted, the checkpoint is restored
+ *     (which may trigger a mode switch to the previous mode).
+ *   - History is per-document (tabId) so switching tabs preserves history.
+ *
+ * Key decisions:
+ *   - isRestoring flag prevents checkpoint creation during restore to avoid
+ *     infinite undo loops (restore triggers mode switch which would create
+ *     another checkpoint).
+ *   - Deduplication: skips checkpoint if markdown hasn't changed since last.
+ *   - Max 50 checkpoints per document — old ones are trimmed from the front.
+ *   - New checkpoints clear the redo stack (standard undo/redo tree behavior).
+ *
+ * @coordinates-with useUnifiedHistory.ts — hook that bridges native history with checkpoints
+ * @coordinates-with editorStore.ts — source mode toggle triggers checkpointing
+ * @module stores/unifiedHistoryStore
  */
 
 import { create } from "zustand";

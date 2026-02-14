@@ -1,9 +1,25 @@
 /**
  * AI Provider Store
  *
- * Manages available AI providers (CLI + REST) and active selection.
- * Persists provider selection, REST API configurations, and API keys.
- * On startup, empty API key fields are auto-filled from environment variables.
+ * Purpose: Manages available AI providers (CLI like Claude/Ollama, REST like
+ *   Anthropic API/OpenAI/Google AI) and the user's active selection.
+ *
+ * Pipeline: App startup → onRehydrateStorage → loadEnvApiKeys() fills empty
+ *   API key fields from env vars → detectProviders() invokes Rust to scan
+ *   PATH for CLI tools → auto-selects first available if none set.
+ *
+ * Key decisions:
+ *   - CLI vs REST distinction: CLI providers are detected via Rust PATH scan,
+ *     REST providers are configured with endpoint/key in the UI.
+ *   - Race guard (_detectId counter) prevents stale detection results from
+ *     overwriting fresh data when multiple detections run concurrently.
+ *   - Never auto-overwrites explicit user selection — if a CLI goes missing,
+ *     the error surfaces at invocation time rather than silently switching.
+ *   - Persist version migrations strip dead fields and merge new defaults.
+ *
+ * @coordinates-with geniesStore.ts — genies use the active provider for execution
+ * @coordinates-with ai_provider.rs — Rust backend for CLI detection and env key reading
+ * @module stores/aiProviderStore
  */
 
 import { create } from "zustand";

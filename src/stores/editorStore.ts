@@ -1,3 +1,22 @@
+/**
+ * Editor Store
+ *
+ * Purpose: Per-window editor mode flags and view toggles — focus mode,
+ *   typewriter mode, source mode, word wrap, line numbers, diagram preview.
+ *
+ * Key decisions:
+ *   - This is the "single-document" editor store from the pre-tabs era.
+ *     New code should prefer documentStore (per-tab content) and uiStore
+ *     (per-window view flags). This store remains for backwards compat
+ *     and for editor mode toggles that are window-scoped, not tab-scoped.
+ *   - documentId increments on each loadContent() and reset() to force
+ *     Tiptap editor recreation when the underlying document changes.
+ *
+ * @coordinates-with documentStore.ts — per-tab content (preferred for new code)
+ * @coordinates-with uiStore.ts — UI toggles like sidebar, terminal, toolbar
+ * @module stores/editorStore
+ */
+
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
 

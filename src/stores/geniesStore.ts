@@ -1,8 +1,25 @@
 /**
  * Genies Store
  *
- * Manages loaded AI genie definitions from the global genies directory.
- * Persists recent/favorite genie names only (genies are read from disk).
+ * Purpose: Manages loaded AI genie definitions — prompt templates read from
+ *   disk at startup, with persisted recent/favorite lists for quick access.
+ *
+ * Pipeline: App startup → loadGenies() → Rust list_genies + read_genie for
+ *   each entry → genies[] populated → GeniePicker shows searchable list →
+ *   user picks genie → addRecent() → AI invocation via aiProviderStore.
+ *
+ * Key decisions:
+ *   - Genie definitions are NOT persisted — only names of recents/favorites
+ *     are stored. Genies are re-read from disk on each app launch to pick up
+ *     user edits to genie files.
+ *   - Stale recent/favorite names are pruned after loading to remove references
+ *     to deleted genie files.
+ *   - Race guard (_loadId) prevents stale results when loadGenies() is called
+ *     rapidly (e.g., folder change during initial load).
+ *
+ * @coordinates-with aiProviderStore.ts — active provider executes the selected genie
+ * @coordinates-with genies.rs — Rust backend that lists/reads genie markdown files
+ * @module stores/geniesStore
  */
 
 import { create } from "zustand";

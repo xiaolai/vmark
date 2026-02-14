@@ -1,8 +1,12 @@
 /**
  * Prompt History Store
  *
- * Persists freeform prompts used in the GeniePicker.
- * Newest entries first (index 0 = most recent).
+ * Purpose: Persists freeform AI prompts from the GeniePicker (max 100) so
+ *   users can recall and reuse previous custom prompts. MRU order with
+ *   deduplication — typing the same prompt moves it to the top.
+ *
+ * @coordinates-with GeniePicker component — shows prompt history dropdown
+ * @module stores/promptHistoryStore
  */
 
 import { create } from "zustand";

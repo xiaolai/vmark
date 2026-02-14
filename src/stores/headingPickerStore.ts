@@ -1,8 +1,16 @@
 /**
  * Heading Picker Store
  *
- * Manages state for the heading picker that appears when inserting bookmark links.
- * User selects a heading to create a link like [text](#heading-id).
+ * Purpose: State for the heading picker popup — shows a filterable list of
+ *   document headings for bookmark link insertion [text](#heading-id).
+ *
+ * Key decisions:
+ *   - onSelect callback is stored in state and invoked after picker closes
+ *     (state reset happens first to ensure cleanup even if callback throws).
+ *   - Headings include pre-computed slug IDs from headingSlug util.
+ *
+ * @coordinates-with bookmarkLink command — triggers picker with document headings
+ * @module stores/headingPickerStore
  */
 
 import { create } from "zustand";

@@ -1,8 +1,8 @@
 /**
- * Store for tracking drag-and-drop state.
+ * Drop Zone Store
  *
- * Tracks when files are being dragged over the editor area
- * to show visual drop zone indicators.
+ * Purpose: Tracks file drag-and-drop state over the editor area to show
+ *   visual drop zone indicators (image count, type detection).
  *
  * @module stores/dropZoneStore
  */

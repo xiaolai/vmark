@@ -1,7 +1,10 @@
 /**
  * Image Popup Store
  *
- * Manages state for the image editing popup that appears when clicking images.
+ * Purpose: State for the image editing popup (click-to-edit) — tracks source
+ *   URL, alt text, node position, node type (inline/block), and dimensions.
+ *
+ * @module stores/imagePopupStore
  */
 
 import { create } from "zustand";

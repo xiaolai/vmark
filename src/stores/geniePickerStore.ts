@@ -1,7 +1,10 @@
 /**
  * Genie Picker Store
  *
- * Minimal open/close state for the AI genie picker overlay.
+ * Purpose: Minimal open/close state for the AI genie picker overlay,
+ *   with optional scope filter to limit visible genies.
+ *
+ * @module stores/geniePickerStore
  */
 
 import { create } from "zustand";

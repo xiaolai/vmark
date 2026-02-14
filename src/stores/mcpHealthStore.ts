@@ -1,8 +1,16 @@
 /**
  * MCP Health Store
  *
- * Stores MCP server health information including tool count, version,
- * and connection diagnostics. Shared across StatusBar and Settings.
+ * Purpose: Stores MCP server health diagnostics — version, tool/resource counts,
+ *   last check time, and error state. Shared between StatusBar (tooltip) and
+ *   Settings (MCP status dialog).
+ *
+ * Pipeline: useMcpHealthCheck hook polls server → setHealth() updates state →
+ *   StatusBar and Settings read reactively.
+ *
+ * @coordinates-with useMcpHealthCheck.ts — performs health check polling
+ * @coordinates-with StatusBar component — shows MCP status indicator
+ * @module stores/mcpHealthStore
  */
 
 import { create } from "zustand";

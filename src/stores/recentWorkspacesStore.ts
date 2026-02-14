@@ -1,8 +1,15 @@
 /**
  * Recent Workspaces Store
  *
- * Tracks recently opened workspace folders with persistence across sessions.
- * Syncs with native menu via Tauri command.
+ * Purpose: Tracks recently opened workspace folders (max 10) with persistence
+ *   via zustand/persist. Syncs the list to the native File > Recent Workspaces menu.
+ *
+ * Pipeline: Workspace opened → addWorkspace(path) → MRU list updated → Rust
+ *   update_recent_workspaces rebuilds native menu submenu.
+ *
+ * @coordinates-with recentFilesStore.ts — same pattern for individual files
+ * @coordinates-with menu.rs — native Recent Workspaces submenu
+ * @module stores/recentWorkspacesStore
  */
 
 import { create } from "zustand";

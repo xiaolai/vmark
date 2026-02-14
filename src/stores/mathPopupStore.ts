@@ -1,7 +1,10 @@
 /**
  * Math Popup Store
  *
- * Manages state for the inline math edit popup.
+ * Purpose: State for the inline math edit popup — tracks anchor rect, LaTeX
+ *   content, and node position for live editing of $...$ expressions.
+ *
+ * @module stores/mathPopupStore
  */
 
 import { create } from "zustand";

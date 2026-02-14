@@ -1,9 +1,26 @@
 /**
  * AI Suggestion Store
  *
- * Manages AI-generated content suggestions that require user approval.
- * Uses CustomEvent pattern for plugin communication (like searchStore).
- * Suggestions are scoped to their originating tab.
+ * Purpose: Manages AI-generated content suggestions (insertions, replacements,
+ *   deletions) that require user approval before being applied to the document.
+ *
+ * Pipeline: AI genie response → addSuggestion() → ProseMirror decoration shows
+ *   diff → user accepts/rejects → CustomEvent dispatched → aiSuggestion plugin
+ *   applies or reverts the change.
+ *
+ * Key decisions:
+ *   - Uses CustomEvent pattern (not direct editor API calls) so the store stays
+ *     decoupled from ProseMirror — events are dispatched BEFORE removing from
+ *     store so the plugin can read suggestion data during the apply.
+ *   - acceptAll/rejectAll emit a single batched event with suggestions in
+ *     reverse position order so position offsets don't cascade.
+ *   - Tab watcher (initSuggestionTabWatcher) clears stale suggestions when
+ *     switching tabs to prevent mutations to the wrong document.
+ *   - Focus auto-advances to next suggestion after accept/reject for fast review.
+ *
+ * @coordinates-with aiSuggestion plugin — ProseMirror decorations and event handlers
+ * @coordinates-with GeniePicker component — triggers AI invocation that produces suggestions
+ * @module stores/aiSuggestionStore
  */
 
 import { create } from "zustand";

@@ -1,8 +1,27 @@
 /**
  * Shortcuts Store
  *
- * Centralized keyboard shortcut management with user customization.
- * Supports conflict detection, presets, and import/export.
+ * Purpose: Centralized keyboard shortcut management — stores user customizations
+ *   over the built-in DEFAULT_SHORTCUTS registry, with conflict detection,
+ *   import/export, and live sync to Tauri native menu accelerators.
+ *
+ * Pipeline: User edits shortcut in Settings → setShortcut() → customBindings
+ *   persisted to localStorage → syncMenuShortcuts() invokes Rust rebuild_menu
+ *   → native menu accelerators update live.
+ *
+ * Key decisions:
+ *   - customBindings is a sparse overlay — only stores user-modified shortcuts.
+ *     getShortcut() falls through to the default from DEFAULT_SHORTCUTS.
+ *   - Platform-aware defaults: defaultKeyMac/defaultKeyOther override defaultKey
+ *     based on runtime platform detection (isMacPlatform).
+ *   - Conflict detection normalizes key strings (case-insensitive, sorted modifiers)
+ *     to catch duplicates like "Mod-Shift-N" vs "Shift-Mod-n".
+ *   - After menu rebuild, refreshes genies submenu (rebuild resets it to placeholder).
+ *
+ * @coordinates-with menu.rs — Rust menu accelerators must match (see rule 41)
+ * @coordinates-with useViewShortcuts.ts — frontend shortcut interception
+ * @coordinates-with website/guide/shortcuts.md — documentation (must stay in sync)
+ * @module stores/shortcutsStore
  */
 
 import { create } from "zustand";

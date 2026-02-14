@@ -1,7 +1,17 @@
 /**
  * Footnote Popup Store
  *
- * Manages the state for the footnote hover popup.
+ * Purpose: State for the footnote popup — shows footnote content on hover/click,
+ *   allows editing footnote text, and tracks both the definition and reference
+ *   positions for navigation.
+ *
+ * Key decisions:
+ *   - autoFocus triggers textarea focus for newly created footnotes (no content yet).
+ *   - Tracks both definitionPos and referencePos to support bidirectional navigation
+ *     between footnote reference and definition in the document.
+ *
+ * @coordinates-with footnotePlugin — detects hover/click on footnote marks
+ * @module stores/footnotePopupStore
  */
 
 import { create } from "zustand";

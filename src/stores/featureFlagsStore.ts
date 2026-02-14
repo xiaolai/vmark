@@ -1,9 +1,18 @@
 /**
- * Feature flags for gradual rollout of new features.
+ * Feature Flags
+ *
+ * Purpose: Compile-time constants for gradual feature rollout. Flags are
+ *   `as const` so dead code is tree-shaken in production builds.
  *
  * Usage:
  *   import { FEATURE_FLAGS } from "@/stores/featureFlagsStore";
  *   if (FEATURE_FLAGS.UNIFIED_MENU_DISPATCHER) { ... }
+ *
+ * Key decisions:
+ *   - Not a Zustand store — just a plain const object. No runtime overhead.
+ *   - Flags should be removed (not set to false) once the feature is stable.
+ *
+ * @module stores/featureFlagsStore
  */
 
 export const FEATURE_FLAGS = {

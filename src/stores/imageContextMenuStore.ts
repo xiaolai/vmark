@@ -1,7 +1,10 @@
 /**
  * Image Context Menu Store
  *
- * Manages state for the image context menu (right-click on images).
+ * Purpose: State for the image right-click context menu — position, source
+ *   URL, and node position for actions like copy/save/resize.
+ *
+ * @module stores/imageContextMenuStore
  */
 
 import { create } from "zustand";

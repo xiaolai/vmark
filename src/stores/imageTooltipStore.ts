@@ -1,8 +1,10 @@
 /**
  * Image Tooltip Store
  *
- * Manages state for the read-only image tooltip that appears on hover.
- * Separate from imagePopupStore which handles edit popups.
+ * Purpose: State for the read-only image tooltip (hover) — shows filename
+ *   and dimensions. Separate from imagePopupStore which handles editing.
+ *
+ * @module stores/imageTooltipStore
  */
 
 import { create } from "zustand";
