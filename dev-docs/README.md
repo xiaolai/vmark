@@ -23,6 +23,12 @@
 - Date + status new documents (Active / Historical / Draft) to reduce ambiguity.
 - Update docs in the same change that modifies behavior.
 
+## Important History
+
+Records of significant codebase-wide changes — process, decisions, and lessons learned.
+
+- `important-history/20260214-codebase-documentation.md`: How we added AI-maintenance comments to ~400 files using parallel git worktrees.
+
 ## Archive
 
 Historical docs live in `archive/` (local, not tracked in git).
