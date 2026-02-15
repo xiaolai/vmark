@@ -2,13 +2,19 @@
  * Media Popup View
  *
  * Purpose: Manages the DOM for the media editing popup — shows on video/audio click
- * with controls for editing src path, title, poster (video), and removing.
+ * with controls for editing src path, title, poster (video), browsing files,
+ * copying path, and removing.
  *
  * Key decisions:
  *   - Store-driven: subscribes to mediaPopupStore for visibility and position updates
- *   - Positioned using shared popup positioning relative to the media element
- *   - Uses shared popup styles from popup-shared.css
+ *   - Mirrors ImagePopupView architecture: DOM helper + actions module + view class
+ *   - justOpened guard prevents same-click open/close race
+ *   - pendingCloseRaf defers outside-click close to allow reopen on different node
+ *   - Scroll-close keeps popup position fresh
+ *   - Tab-trapping + IME guard for keyboard accessibility
  *
+ * @coordinates-with mediaPopupDom.ts — DOM element construction
+ * @coordinates-with mediaPopupActions.ts — browse and replace media logic
  * @coordinates-with stores/mediaPopupStore.ts — popup state
  * @module plugins/mediaPopup/MediaPopupView
  */
@@ -22,81 +28,62 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import { createMediaPopupDom, installMediaPopupKeyboardNavigation } from "./mediaPopupDom";
+import { browseAndReplaceMedia } from "./mediaPopupActions";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 
 export class MediaPopupView {
   private container: HTMLElement;
   private srcInput: HTMLInputElement;
   private titleInput: HTMLInputElement;
-  private posterRow: HTMLElement;
   private posterInput: HTMLInputElement;
+  private posterRow: HTMLElement;
   private unsubscribe: () => void;
   private editorView: EditorView;
+  private justOpened = false;
   private wasOpen = false;
+  private removeKeyboardNavigation: (() => void) | null = null;
+  private pendingCloseRaf: number | null = null;
   private host: HTMLElement | null = null;
 
   constructor(view: EditorView) {
     this.editorView = view;
 
-    // Build popup DOM
-    this.container = document.createElement("div");
-    this.container.className = "media-popup popup-container";
-    this.container.style.display = "none";
+    const dom = createMediaPopupDom({
+      onBrowse: this.handleBrowse,
+      onCopy: this.handleCopy,
+      onRemove: this.handleRemove,
+      onInputKeydown: this.handleInputKeydown,
+    });
+    this.container = dom.container;
+    this.srcInput = dom.srcInput;
+    this.titleInput = dom.titleInput;
+    this.posterInput = dom.posterInput;
+    this.posterRow = dom.posterRow;
 
-    // Row 1: src input + remove button
-    const row1 = document.createElement("div");
-    row1.className = "media-popup-row";
-
-    this.srcInput = document.createElement("input");
-    this.srcInput.className = "popup-input popup-input--mono popup-input--full";
-    this.srcInput.type = "text";
-    this.srcInput.placeholder = "Media source path or URL";
+    // Live input updates to store + node attrs
     this.srcInput.addEventListener("input", this.handleSrcChange);
-    this.srcInput.addEventListener("keydown", this.handleKeydown);
-
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "popup-icon-btn popup-icon-btn--danger";
-    removeBtn.title = "Remove";
-    removeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>`;
-    removeBtn.addEventListener("click", this.handleRemove);
-
-    row1.appendChild(this.srcInput);
-    row1.appendChild(removeBtn);
-    this.container.appendChild(row1);
-
-    // Row 2: title input
-    const row2 = document.createElement("div");
-    row2.className = "media-popup-row";
-
-    this.titleInput = document.createElement("input");
-    this.titleInput.className = "popup-input popup-input--full";
-    this.titleInput.type = "text";
-    this.titleInput.placeholder = "Title (optional)";
     this.titleInput.addEventListener("input", this.handleTitleChange);
-    this.titleInput.addEventListener("keydown", this.handleKeydown);
-
-    row2.appendChild(this.titleInput);
-    this.container.appendChild(row2);
-
-    // Row 3: poster input (video only, hidden for audio)
-    this.posterRow = document.createElement("div");
-    this.posterRow.className = "media-popup-row";
-
-    this.posterInput = document.createElement("input");
-    this.posterInput.className = "popup-input popup-input--mono popup-input--full";
-    this.posterInput.type = "text";
-    this.posterInput.placeholder = "Poster image (optional)";
     this.posterInput.addEventListener("input", this.handlePosterChange);
-    this.posterInput.addEventListener("keydown", this.handleKeydown);
 
-    this.posterRow.appendChild(this.posterInput);
-    this.container.appendChild(this.posterRow);
-
-    // Subscribe to store changes
+    // Subscribe to store changes — only show() on open transition
     this.unsubscribe = useMediaPopupStore.subscribe((state) => {
       if (state.isOpen && state.anchorRect) {
+        // Cancel any pending close — popup is being (re)opened
+        if (this.pendingCloseRaf !== null) {
+          cancelAnimationFrame(this.pendingCloseRaf);
+          this.pendingCloseRaf = null;
+        }
+        // Only call show() when transitioning from closed to open
         if (!this.wasOpen) {
-          this.show(state.mediaSrc, state.mediaTitle, state.mediaPoster, state.mediaNodeType, state.anchorRect);
+          this.show(
+            state.mediaSrc,
+            state.mediaTitle,
+            state.mediaPoster,
+            state.mediaNodeType,
+            state.anchorRect
+          );
         }
         this.wasOpen = true;
       } else {
@@ -105,8 +92,13 @@ export class MediaPopupView {
       }
     });
 
-    // Close on outside click
-    document.addEventListener("mousedown", this.handleOutsideClick);
+    // Handle click outside
+    document.addEventListener("mousedown", this.handleClickOutside);
+
+    // Close popup on scroll (popup position becomes stale)
+    this.editorView.dom
+      .closest(".editor-container")
+      ?.addEventListener("scroll", this.handleScroll, true);
   }
 
   private show(
@@ -123,43 +115,60 @@ export class MediaPopupView {
     // Show poster row only for video
     this.posterRow.style.display = mediaType === "block_video" ? "" : "none";
 
-    // Ensure container is attached
-    if (!this.host) {
-      this.host = getPopupHostForDom(this.editorView.dom) ?? this.editorView.dom.parentElement;
-    }
-    if (this.host && !this.host.contains(this.container)) {
+    // Mount to editor container if available, otherwise document.body
+    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    if (this.container.parentElement !== this.host) {
+      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
       this.host.appendChild(this.container);
     }
 
-    this.container.style.display = "";
+    this.container.style.display = "flex";
 
-    // Position popup
+    // Set guard to prevent immediate close from same click event
+    this.justOpened = true;
     requestAnimationFrame(() => {
-      // Get boundaries: horizontal from ProseMirror, vertical from container
-      const containerEl = this.editorView.dom.closest(".editor-container") as HTMLElement;
-      const bounds = containerEl
-        ? getBoundaryRects(this.editorView.dom as HTMLElement, containerEl)
-        : getViewportBounds();
-
-      const popupRect = this.container.getBoundingClientRect();
-      const { top, left } = calculatePopupPosition({
-        anchor: anchorRect,
-        popup: { width: popupRect.width, height: popupRect.height },
-        bounds,
-        gap: 8,
-        preferAbove: false,
-      });
-
-      // Convert to host-relative coordinates if mounted inside editor container
-      if (this.host && this.host !== document.body) {
-        const hostPos = toHostCoordsForDom(this.host, { top, left });
-        this.container.style.top = `${hostPos.top}px`;
-        this.container.style.left = `${hostPos.left}px`;
-      } else {
-        this.container.style.top = `${top}px`;
-        this.container.style.left = `${left}px`;
-      }
+      this.justOpened = false;
     });
+
+    // Get boundaries: horizontal from ProseMirror, vertical from container
+    const containerEl = this.editorView.dom.closest(
+      ".editor-container"
+    ) as HTMLElement;
+    const bounds = containerEl
+      ? getBoundaryRects(this.editorView.dom as HTMLElement, containerEl)
+      : getViewportBounds();
+
+    // Calculate position using utility
+    const popupHeight = mediaType === "block_video" ? 96 : 68;
+    const { top, left } = calculatePopupPosition({
+      anchor: anchorRect,
+      popup: { width: 340, height: popupHeight },
+      bounds,
+      gap: 6,
+      preferAbove: false,
+    });
+
+    // Convert to host-relative coordinates if mounted inside editor container
+    if (this.host !== document.body) {
+      const hostPos = toHostCoordsForDom(this.host, { top, left });
+      this.container.style.top = `${hostPos.top}px`;
+      this.container.style.left = `${hostPos.left}px`;
+    } else {
+      this.container.style.top = `${top}px`;
+      this.container.style.left = `${left}px`;
+    }
+
+    // Set up keyboard navigation with ESC handler
+    if (this.removeKeyboardNavigation) {
+      this.removeKeyboardNavigation();
+    }
+    this.removeKeyboardNavigation = installMediaPopupKeyboardNavigation(
+      this.container,
+      () => {
+        useMediaPopupStore.getState().closePopup();
+        this.editorView.focus();
+      }
+    );
 
     // Focus src input
     requestAnimationFrame(() => {
@@ -170,7 +179,60 @@ export class MediaPopupView {
 
   private hide(): void {
     this.container.style.display = "none";
+    this.host = null;
+    if (this.removeKeyboardNavigation) {
+      this.removeKeyboardNavigation();
+      this.removeKeyboardNavigation = null;
+    }
   }
+
+  private handleInputKeydown = (e: KeyboardEvent) => {
+    if (isImeKeyEvent(e)) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      this.handleSave();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      useMediaPopupStore.getState().closePopup();
+      this.editorView.focus();
+    }
+  };
+
+  private handleSave = () => {
+    const state = useMediaPopupStore.getState();
+    const { mediaNodePos } = state;
+    const newSrc = this.srcInput.value.trim();
+    const newTitle = this.titleInput.value.trim();
+    const newPoster = this.posterInput.value.trim();
+
+    if (!newSrc) {
+      // Empty src — remove the media node
+      this.handleRemove();
+      return;
+    }
+
+    try {
+      const { state: editorState, dispatch } = this.editorView;
+      if (!editorState) return;
+
+      const node = editorState.doc.nodeAt(mediaNodePos);
+      if (!node || (node.type.name !== "block_video" && node.type.name !== "block_audio")) return;
+
+      const tr = editorState.tr.setNodeMarkup(mediaNodePos, null, {
+        ...node.attrs,
+        src: newSrc,
+        title: newTitle,
+        poster: newPoster,
+      });
+
+      dispatch(tr);
+      state.closePopup();
+      this.editorView.focus();
+    } catch (error) {
+      console.error("[MediaPopup] Save failed:", error);
+      state.closePopup();
+    }
+  };
 
   private handleSrcChange = () => {
     const value = this.srcInput.value;
@@ -190,31 +252,81 @@ export class MediaPopupView {
     this.updateNodeAttr("poster", value);
   };
 
-  private handleRemove = () => {
-    const { mediaNodePos } = useMediaPopupStore.getState();
-    if (mediaNodePos < 0) return;
-
-    const { state, dispatch } = this.editorView;
-    const node = state.doc.nodeAt(mediaNodePos);
-    if (!node) return;
-
-    const tr = state.tr.delete(mediaNodePos, mediaNodePos + node.nodeSize);
-    dispatch(tr);
-    useMediaPopupStore.getState().closePopup();
-  };
-
-  private handleKeydown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      useMediaPopupStore.getState().closePopup();
+  private handleBrowse = async () => {
+    const state = useMediaPopupStore.getState();
+    const updated = await browseAndReplaceMedia(
+      this.editorView,
+      state.mediaNodePos,
+      state.mediaNodeType
+    );
+    if (updated) {
+      state.closePopup();
       this.editorView.focus();
     }
   };
 
-  private handleOutsideClick = (e: MouseEvent) => {
-    if (!useMediaPopupStore.getState().isOpen) return;
-    if (this.container.contains(e.target as Node)) return;
+  private handleCopy = async () => {
+    const { mediaSrc } = useMediaPopupStore.getState();
+    if (mediaSrc) {
+      try {
+        await navigator.clipboard.writeText(mediaSrc);
+      } catch (err) {
+        console.error("Failed to copy media path:", err);
+      }
+    }
     useMediaPopupStore.getState().closePopup();
+    this.editorView.focus();
+  };
+
+  private handleRemove = () => {
+    const state = useMediaPopupStore.getState();
+    const { mediaNodePos } = state;
+
+    try {
+      const { state: editorState, dispatch } = this.editorView;
+      if (!editorState) return;
+
+      const node = editorState.doc.nodeAt(mediaNodePos);
+      if (!node || (node.type.name !== "block_video" && node.type.name !== "block_audio")) return;
+
+      const tr = editorState.tr.delete(mediaNodePos, mediaNodePos + node.nodeSize);
+      dispatch(tr);
+      state.closePopup();
+      this.editorView.focus();
+    } catch (error) {
+      console.error("[MediaPopup] Remove failed:", error);
+      state.closePopup();
+    }
+  };
+
+  private handleScroll = () => {
+    if (useMediaPopupStore.getState().isOpen) {
+      useMediaPopupStore.getState().closePopup();
+    }
+  };
+
+  private handleClickOutside = (e: MouseEvent) => {
+    // Guard against race condition where same click opens and closes popup
+    if (this.justOpened) return;
+
+    const { isOpen } = useMediaPopupStore.getState();
+    if (!isOpen) return;
+
+    const target = e.target as Node;
+    if (!this.container.contains(target)) {
+      // Defer the close to next frame — allows click handler to fire first
+      // and potentially reopen/update the popup (e.g., clicking a different media node)
+      if (this.pendingCloseRaf === null) {
+        this.pendingCloseRaf = requestAnimationFrame(() => {
+          this.pendingCloseRaf = null;
+          // Re-check if popup should still close (might have been reopened)
+          const currentState = useMediaPopupStore.getState();
+          if (currentState.isOpen && !this.container.contains(document.activeElement)) {
+            useMediaPopupStore.getState().closePopup();
+          }
+        });
+      }
+    }
   };
 
   private updateNodeAttr(attr: string, value: string): void {
@@ -234,7 +346,18 @@ export class MediaPopupView {
 
   destroy(): void {
     this.unsubscribe();
-    document.removeEventListener("mousedown", this.handleOutsideClick);
+    if (this.removeKeyboardNavigation) {
+      this.removeKeyboardNavigation();
+      this.removeKeyboardNavigation = null;
+    }
+    if (this.pendingCloseRaf !== null) {
+      cancelAnimationFrame(this.pendingCloseRaf);
+      this.pendingCloseRaf = null;
+    }
+    document.removeEventListener("mousedown", this.handleClickOutside);
+    this.editorView.dom
+      .closest(".editor-container")
+      ?.removeEventListener("scroll", this.handleScroll, true);
     this.container.remove();
   }
 }
