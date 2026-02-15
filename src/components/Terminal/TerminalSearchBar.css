@@ -9,8 +9,10 @@
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--popup-shadow);
   z-index: 10;
+  /* Intentionally fixed for compact terminal search UI. */
+  --terminal-search-font-size: 12px;
 }
 
 .terminal-search-input {
@@ -19,7 +21,7 @@
   background: transparent;
   color: var(--text-color);
   outline: none;
-  font-size: 12px;
+  font-size: var(--terminal-search-font-size);
   font-family: var(--font-sans);
   padding: 2px var(--spacing-1);
 }
@@ -66,7 +68,7 @@
   left: 3px;
   right: 3px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 

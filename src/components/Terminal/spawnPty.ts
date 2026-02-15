@@ -59,7 +59,7 @@ export interface SpawnOptions {
 
 /**
  * Spawn a PTY process connected to the terminal.
- * Reads shell from Tauri backend, resolves cwd, wires data streams.
+ * Reads shell from Tauri backend, accepts optional cwd, wires data streams.
  */
 export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   const { term, cwd, onExit, disposed } = options;
@@ -69,6 +69,7 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   const workspaceRoot = useWorkspaceStore.getState().rootPath;
 
   const env: Record<string, string> = {
+    // Ensure consistent color capabilities in xterm.js; Tauri GUI apps may not inherit terminal env vars.
     TERM: "xterm-256color",
     TERM_PROGRAM: "vmark",
     EDITOR: "vmark",

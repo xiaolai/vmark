@@ -133,6 +133,7 @@ export function TerminalPanel() {
           />
           {searchVisible && (
             <TerminalSearchBar
+              // Reset search state when switching terminal sessions so stale highlights are cleared.
               key={activeSessionId}
               getSearchAddon={getActiveSearchAddon}
               onClose={() => setSearchVisible(false)}

@@ -110,6 +110,6 @@
   left: 3px;
   right: 3px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }

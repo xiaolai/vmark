@@ -189,7 +189,9 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   term.onSelectionChange(() => {
     if (!composing && term.hasSelection() && useSettingsStore.getState().terminal.copyOnSelect) {
       const text = term.getSelection().trimEnd();
-      if (text) writeText(text).catch(() => {});
+      if (text) writeText(text).catch(() => {
+        // Clipboard may be unavailable (permissions, headless tests). Ignore.
+      });
     }
   });
 

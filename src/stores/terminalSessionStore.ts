@@ -65,9 +65,18 @@ function generateLabel(sessions: TerminalSession[]): string {
 
 export const useTerminalSessionStore = create<
   TerminalSessionState & TerminalSessionActions
->()((set, get) => ({
-  sessions: [],
-  activeSessionId: null,
+>()((set, get) => {
+  const setSessionAliveState = (id: string, isAlive: boolean) => {
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === id ? { ...s, isAlive } : s,
+      ),
+    }));
+  };
+
+  return ({
+    sessions: [],
+    activeSessionId: null,
 
   createSession: () => {
     const state = get();
@@ -107,30 +116,23 @@ export const useTerminalSessionStore = create<
     }
   },
 
-  markSessionDead: (id) => {
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
-        s.id === id ? { ...s, isAlive: false } : s,
-      ),
-    }));
-  },
+    markSessionDead: (id) => {
+      setSessionAliveState(id, false);
+    },
 
-  markSessionAlive: (id) => {
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
-        s.id === id ? { ...s, isAlive: true } : s,
-      ),
-    }));
-  },
+    markSessionAlive: (id) => {
+      setSessionAliveState(id, true);
+    },
 
-  renameSession: (id, label) => {
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
-        s.id === id ? { ...s, label } : s,
-      ),
-    }));
-  },
-}));
+    renameSession: (id, label) => {
+      set((state) => ({
+        sessions: state.sessions.map((s) =>
+          s.id === id ? { ...s, label } : s,
+        ),
+      }));
+    },
+  });
+});
 
 /** Reset store and ID counter — for tests only. */
 export function resetTerminalSessionStore() {

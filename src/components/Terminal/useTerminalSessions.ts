@@ -37,6 +37,13 @@ import { spawnPty, resolveTerminalCwd } from "./spawnPty";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { SearchAddon } from "@xterm/addon-search";
 
+const PTY_RESIZE_DEBOUNCE_MS = 100;
+
+function sanitizeAndEscapePath(path: string): string {
+  const sanitized = path.replace(/[\n\r]/g, "");
+  return sanitized.replace(/'/g, "'\\''");
+}
+
 interface SessionEntry {
   instance: TerminalInstance;
   pty: IPty | null;
@@ -79,11 +86,16 @@ export function useTerminalSessions(
       // Debounce PTY resize — visual fit is instant, but PTY resize is deferred
       clearTimeout(resizeTimerRef.current);
       resizeTimerRef.current = setTimeout(() => {
+        if (entry.disposed || sessionsRef.current.get(activeId) !== entry) return;
         const { term } = entry.instance;
         if (entry.pty && term.cols > 0 && term.rows > 0) {
-          entry.pty.resize(term.cols, term.rows);
+          try {
+            entry.pty.resize(term.cols, term.rows);
+          } catch {
+            // PTY may have exited/disposed between debounce ticks
+          }
         }
-      }, 100);
+      }, PTY_RESIZE_DEBOUNCE_MS);
     } catch {
       // Container may not be visible
     }
@@ -149,8 +161,7 @@ export function useTerminalSessions(
       // If workspace changed while spawning, cd to the current root
       const currentRoot = useWorkspaceStore.getState().rootPath;
       if (currentRoot && currentRoot !== cwd) {
-        const sanitized = currentRoot.replace(/[\n\r]/g, '');
-        const escaped = sanitized.replace(/'/g, "'\\''");
+        const escaped = sanitizeAndEscapePath(currentRoot);
         pty.write(`\x15cd '${escaped}'\n`);
         currentEntry.spawnedCwd = currentRoot;
       }
@@ -275,6 +286,10 @@ export function useTerminalSessions(
     if (activeId) {
       const entry = sessionsRef.current.get(activeId);
       if (entry) {
+        if (entry.pendingRafId !== null) {
+          cancelAnimationFrame(entry.pendingRafId);
+          entry.pendingRafId = null;
+        }
         entry.pendingRafId = requestAnimationFrame(() => {
           entry.pendingRafId = null;
           try {
@@ -353,9 +368,15 @@ export function useTerminalSessions(
     const sessions = sessionsRef.current;
     return () => {
       unsubscribe();
+      clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = undefined;
       // Dispose all sessions
       for (const [, entry] of sessions) {
         entry.disposed = true;
+        if (entry.pendingRafId !== null) {
+          cancelAnimationFrame(entry.pendingRafId);
+          entry.pendingRafId = null;
+        }
         if (entry.pty) {
           try { entry.pty.kill(); } catch { /* ignore */ }
         }
@@ -398,8 +419,7 @@ export function useTerminalSessions(
       }
       prevRoot = newRoot;
 
-      const sanitized = newRoot.replace(/[\n\r]/g, '');
-      const escaped = sanitized.replace(/'/g, "'\\''");
+      const escaped = sanitizeAndEscapePath(newRoot);
       for (const [, entry] of sessionsRef.current) {
         if (entry.pty && !entry.shellExited && entry.spawnedCwd !== newRoot) {
           // Ctrl+U clears any partial input, then cd to new workspace
