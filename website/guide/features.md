@@ -226,6 +226,7 @@ Built-in Chinese/Japanese/Korean text formatting:
 - Smart quote pairing with apostrophe/prime detection
 - Technical construct protection (URLs, versions, times, decimals)
 - Contextual quote conversion (curly for CJK, straight for Latin)
+- Toggle quote style at cursor (`Shift + Mod + '`)
 - [Learn more →](/guide/cjk-formatting)
 
 ## Document History

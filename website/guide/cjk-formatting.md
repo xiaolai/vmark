@@ -245,6 +245,35 @@ VMark uses a sophisticated stack-based algorithm for quote pairing:
 
 Apostrophes in contractions (like "it's" or "don't") are preserved correctly.
 
+### Toggle Quote Style at Cursor
+
+You can quickly toggle the quote style of existing quotes without reformatting the whole document. Place your cursor inside any quote pair and press `Shift + Mod + '` to toggle.
+
+**Simple mode** (default): Toggles between straight quotes and your preferred style.
+
+| Before | After | After again |
+|--------|-------|-------------|
+| "hello" | "hello" | "hello" |
+| 'world' | 'world' | 'world' |
+
+**Full-cycle mode**: Cycles through all four styles.
+
+| Step | Double | Single |
+|------|--------|--------|
+| 1 | "text" | 'text' |
+| 2 | "text" | 'text' |
+| 3 | 「text」 | 『text』 |
+| 4 | «text» | ‹text› |
+| 5 | "text" (back to start) | 'text' |
+
+**Nested quotes**: When quotes are nested, the command toggles the **innermost** pair enclosing the cursor.
+
+**Smart detection**: Apostrophes (`don't`), primes (`5'10"`), and decade abbreviations (`'90s`) are never treated as quote pairs.
+
+::: tip
+Switch between simple and full-cycle mode in Settings → Language → CJK Formatting → Quote Toggle Mode.
+:::
+
 ### Configuration
 
 Enable Smart Quote Conversion in Settings → Language → CJK Formatting. You can also select your preferred quote style from the dropdown menu.
