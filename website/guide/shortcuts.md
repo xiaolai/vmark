@@ -114,7 +114,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Insert Diagram | `Alt + Shift + Mod + D` |
 | Insert Mindmap | `Alt + Shift + Mod + K` |
 | Toggle Comment | `Mod + /` |
-| Toggle Quote Style | `Alt + Mod + '` |
+| Toggle Quote Style | `Shift + Mod + '` |
 
 ## Selection & Multi-Cursor
 

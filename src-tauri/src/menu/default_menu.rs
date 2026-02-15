@@ -229,7 +229,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &lines_submenu,
             &line_endings_submenu,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, Some("Alt+CmdOrCtrl+'"))?,
+            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, Some("CmdOrCtrl+Shift+'"))?,
         ],
     )?;
 

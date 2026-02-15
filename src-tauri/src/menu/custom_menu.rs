@@ -233,7 +233,7 @@ pub(crate) fn create_menu_with_shortcuts(
             &lines_submenu,
             &line_endings_submenu,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, get_accel("toggle-quote-style", "Alt+CmdOrCtrl+'"))?,
+            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, get_accel("toggle-quote-style", "CmdOrCtrl+Shift+'"))?,
         ],
     )?;
 
