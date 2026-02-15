@@ -106,6 +106,7 @@ export const ACTION_IDS = [
   // === CJK ===
   "formatCJK",
   "formatCJKFile",
+  "toggleQuoteStyle",
 
   // === Text Cleanup ===
   "removeTrailingSpaces",

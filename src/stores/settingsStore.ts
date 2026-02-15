@@ -179,6 +179,7 @@ export interface CJKFormattingSettings {
   singleQuoteSpacing: boolean;
   cjkCornerQuotes: boolean;
   cjkNestedQuotes: boolean;
+  quoteToggleMode: "simple" | "full-cycle"; // Toggle behavior: simple (2-state) or full-cycle (4-state)
   // Group 5: Cleanup
   consecutivePunctuationLimit: number; // 0=off, 1=single, 2=double
   trailingSpaceRemoval: boolean;
@@ -392,6 +393,7 @@ const initialState: SettingsState = {
     singleQuoteSpacing: true,
     cjkCornerQuotes: false, // OFF by default (Traditional Chinese/Japanese only)
     cjkNestedQuotes: false, // OFF by default
+    quoteToggleMode: "simple", // 2-state: straight <-> preferred style
     // Group 5: Cleanup
     consecutivePunctuationLimit: 0, // 0=off
     trailingSpaceRemoval: true,

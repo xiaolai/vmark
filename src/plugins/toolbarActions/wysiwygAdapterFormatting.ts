@@ -15,6 +15,8 @@ import type { Node as PMNode, Mark as PMMark } from "@tiptap/pm/model";
 import { handleRemoveBlockquote } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { MultiSelection } from "@/plugins/multiCursor";
 import { toUpperCase, toLowerCase, toTitleCase, toggleCase } from "@/utils/textTransformations";
+import { computeQuoteToggle } from "@/lib/cjkFormatter/quoteToggle";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type { WysiwygToolbarContext } from "./types";
 
 /**
@@ -203,5 +205,80 @@ export function handleWysiwygTransformCase(
   // Restore selection
   editor.commands.setTextSelection({ from, to: from + transformed.length });
   editor.commands.focus();
+  return true;
+}
+
+/**
+ * Toggle the quote style of the innermost quote pair enclosing the cursor.
+ *
+ * Resolves cursor position to the parent text block, runs computeQuoteToggle
+ * on the block text, then applies replacements via ProseMirror transaction.
+ *
+ * @edge-case Inline atoms (hardBreak, etc.) cause parentOffset and textContent
+ *   to use different coordinate spaces — we map between them explicitly
+ * @edge-case Applies replacements in reverse offset order to preserve positions
+ */
+export function toggleQuoteStyleAtCursor(editor: TiptapEditor): boolean {
+  const { state } = editor;
+  const { $from } = state.selection;
+  const parent = $from.parent;
+
+  if (!parent.isTextblock) return false;
+
+  // Build textContent and a mapping from text offset -> doc-absolute position.
+  // This handles inline atoms (hardBreak, etc.) that occupy space in parentOffset
+  // but contribute nothing to textContent.
+  const blockStart = $from.start();
+  const textOffsetToDocPos: number[] = [];
+  let blockText = "";
+  parent.forEach((child, offset) => {
+    if (child.isText && child.text) {
+      for (let i = 0; i < child.text.length; i++) {
+        textOffsetToDocPos.push(blockStart + offset + i);
+        blockText += child.text[i];
+      }
+    }
+  });
+
+  if (!blockText) return false;
+
+  // Convert parentOffset to textContent offset
+  let cursorTextOffset = 0;
+  let parentOff = 0;
+  for (let ci = 0; ci < parent.childCount; ci++) {
+    const child = parent.child(ci);
+    const childEnd = parentOff + child.nodeSize;
+    if ($from.parentOffset < childEnd) {
+      if (child.isText) {
+        cursorTextOffset += $from.parentOffset - parentOff;
+      }
+      break;
+    }
+    if (child.isText && child.text) {
+      cursorTextOffset += child.text.length;
+    }
+    parentOff = childEnd;
+  }
+
+  // Read settings
+  const cjkSettings = useSettingsStore.getState().cjkFormatting;
+  const mode = cjkSettings.quoteToggleMode;
+  const preferredStyle = cjkSettings.quoteStyle;
+
+  const result = computeQuoteToggle(blockText, cursorTextOffset, mode, preferredStyle);
+  if (!result) return false;
+
+  // Build transaction — apply replacements in reverse order to preserve positions
+  let tr = state.tr;
+  const sorted = [...result.replacements].sort((a, b) => b.offset - a.offset);
+  for (const rep of sorted) {
+    const docPos = textOffsetToDocPos[rep.offset];
+    tr = tr.insertText(rep.newChar, docPos, docPos + rep.oldChar.length);
+  }
+
+  if (!tr.docChanged) return false;
+
+  editor.view.dispatch(tr);
+  editor.view.focus();
   return true;
 }

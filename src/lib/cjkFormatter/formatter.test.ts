@@ -28,6 +28,7 @@ function makeConfig(partial: Partial<CJKFormattingSettings> = {}): CJKFormatting
     singleQuoteSpacing: false,
     cjkCornerQuotes: false,
     cjkNestedQuotes: false,
+    quoteToggleMode: "simple",
     // Group 5
     consecutivePunctuationLimit: 0,
     trailingSpaceRemoval: false,

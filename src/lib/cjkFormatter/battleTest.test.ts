@@ -35,6 +35,7 @@ const config: CJKFormattingSettings = {
   singleQuoteSpacing: true,
   cjkCornerQuotes: false,
   cjkNestedQuotes: false,
+  quoteToggleMode: "simple",
   // Group 5: Cleanup
   consecutivePunctuationLimit: 2,
   trailingSpaceRemoval: true,

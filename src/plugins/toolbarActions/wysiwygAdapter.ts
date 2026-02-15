@@ -34,7 +34,7 @@ import { expandSelectionInView, selectBlockInView, selectLineInView, selectWordI
 import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
 import { insertWikiLink, insertBookmarkLink } from "./wysiwygAdapterLinks";
-import { clearFormattingInView, increaseHeadingLevel, decreaseHeadingLevel, toggleBlockquote, handleWysiwygTransformCase } from "./wysiwygAdapterFormatting";
+import { clearFormattingInView, increaseHeadingLevel, decreaseHeadingLevel, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
 import { handleInsertImage, insertMathBlock, insertDiagramBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { handleFormatCJK, handleFormatCJKFile, handleRemoveTrailingSpaces, handleCollapseBlankLines, handleLineEndings } from "./wysiwygAdapterCjk";
@@ -244,6 +244,10 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       if (!context.editor) return false;
       insertFootnoteAndOpenPopup(context.editor);
       return true;
+
+    // Quote style toggle
+    case "toggleQuoteStyle":
+      return context.editor ? toggleQuoteStyleAtCursor(context.editor) : false;
 
     // CJK formatting and cleanup
     case "formatCJK":

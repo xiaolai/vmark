@@ -121,6 +121,7 @@ export const MENU_TO_ACTION: Record<MenuEventId, MenuActionMapping> = {
   // === CJK ===
   "menu:format-cjk": { actionId: "formatCJK" },
   "menu:format-cjk-file": { actionId: "formatCJKFile" },
+  "menu:toggle-quote-style": { actionId: "toggleQuoteStyle" },
 
   // === Text Cleanup ===
   "menu:remove-trailing-spaces": { actionId: "removeTrailingSpaces" },
@@ -550,6 +551,12 @@ export const ACTION_DEFINITIONS: Record<ActionId, ActionDefinition> = {
     label: "Format CJK File",
     category: "cjk",
     supports: { wysiwyg: true, source: true },
+  },
+  toggleQuoteStyle: {
+    id: "toggleQuoteStyle",
+    label: "Toggle Quote Style",
+    category: "cjk",
+    supports: { wysiwyg: true, source: false },
   },
 
   // === Text Cleanup ===
