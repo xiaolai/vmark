@@ -40,20 +40,8 @@
   padding: var(--spacing-1) 0 0 2em;
 }
 
-/* Override xterm scrollbar to match app style */
-.terminal-container .xterm-viewport::-webkit-scrollbar {
-  width: var(--spacing-1);
-}
-
-.terminal-container .xterm-viewport::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.terminal-container .xterm-viewport::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+/* xterm.js v6 uses a custom DOM scrollbar (.xterm-scrollable-element > .scrollbar).
+   The old ::-webkit-scrollbar rules on .xterm-viewport no longer apply. */
+.terminal-container .xterm .xterm-scrollable-element > .scrollbar > .slider {
   border-radius: 2px;
-}
-
-.terminal-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: var(--md-char-color);
 }

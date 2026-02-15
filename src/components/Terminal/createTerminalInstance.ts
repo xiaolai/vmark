@@ -54,12 +54,22 @@ function resolveMonoFont(): string {
 function buildXtermTheme() {
   const themeId = useSettingsStore.getState().appearance.theme;
   const colors = themes[themeId];
+  const isDark = themeId.includes("night") || themeId.includes("dark");
   return {
     background: colors.background,
     foreground: colors.foreground,
     cursor: colors.foreground,
     cursorAccent: colors.background,
     selectionBackground: colors.selection ?? "rgba(0,102,204,0.25)",
+    scrollbarSliderBackground: isDark
+      ? "rgba(255,255,255,0.12)"
+      : "rgba(0,0,0,0.10)",
+    scrollbarSliderHoverBackground: isDark
+      ? "rgba(255,255,255,0.20)"
+      : "rgba(0,0,0,0.18)",
+    scrollbarSliderActiveBackground: isDark
+      ? "rgba(255,255,255,0.30)"
+      : "rgba(0,0,0,0.25)",
   };
 }
 
@@ -111,6 +121,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     cursorBlink: true,
     allowProposedApi: true,
     scrollback: 5000,
+    overviewRuler: { width: 2 },
   });
 
   // Load addons

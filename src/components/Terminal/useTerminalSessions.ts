@@ -395,12 +395,22 @@ export function useTerminalSessions(
       if (themeId === prevTheme) return;
       prevTheme = themeId;
       const colors = themes[themeId];
+      const isDark = themeId.includes("night") || themeId.includes("dark");
       const newTheme = {
         background: colors.background,
         foreground: colors.foreground,
         cursor: colors.foreground,
         cursorAccent: colors.background,
         selectionBackground: colors.selection ?? "rgba(0,102,204,0.25)",
+        scrollbarSliderBackground: isDark
+          ? "rgba(255,255,255,0.12)"
+          : "rgba(0,0,0,0.10)",
+        scrollbarSliderHoverBackground: isDark
+          ? "rgba(255,255,255,0.20)"
+          : "rgba(0,0,0,0.18)",
+        scrollbarSliderActiveBackground: isDark
+          ? "rgba(255,255,255,0.30)"
+          : "rgba(0,0,0,0.25)",
       };
       for (const [, entry] of sessionsRef.current) {
         entry.instance.term.options.theme = newTheme;
