@@ -527,9 +527,9 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return handleTableAction(view, action);
 
     // Blockquote operations
-    case "nestQuote":
-    case "unnestQuote":
-    case "removeQuote":
+    case "nestBlockquote":
+    case "unnestBlockquote":
+    case "removeBlockquote":
       return handleBlockquoteAction(view, action);
 
     // Selection
@@ -752,13 +752,13 @@ function handleBlockquoteAction(view: EditorView, action: string): boolean {
   if (!info) return false;
 
   switch (action) {
-    case "nestQuote":
+    case "nestBlockquote":
       nestBlockquote(view, info);
       return true;
-    case "unnestQuote":
+    case "unnestBlockquote":
       unnestBlockquote(view, info);
       return true;
-    case "removeQuote":
+    case "removeBlockquote":
       removeBlockquote(view, info);
       return true;
     default:

@@ -148,8 +148,8 @@ const BLOCKQUOTE_GROUP: ToolbarGroup = {
   icon: icons.textQuote,
   items: [
     { id: "blockquote", icon: icons.blockquote, label: "Blockquote", shortcut: "⌥⌘Q", action: "insertBlockquote", enabledIn: ["textblock", "blockquote"] },
-    { id: "nest-quote", icon: icons.nestQuote, label: "Nest Deeper", action: "nestQuote", enabledIn: ["blockquote"] },
-    { id: "unnest-quote", icon: icons.unnestQuote, label: "Unnest", action: "unnestQuote", enabledIn: ["blockquote"] },
+    { id: "nest-blockquote", icon: icons.nestBlockquote, label: "Nest Deeper", action: "nestBlockquote", enabledIn: ["blockquote"] },
+    { id: "unnest-blockquote", icon: icons.unnestBlockquote, label: "Unnest", action: "unnestBlockquote", enabledIn: ["blockquote"] },
   ],
 };
 

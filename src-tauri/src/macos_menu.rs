@@ -167,15 +167,16 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("Indent", "increase.indent"),
     ("Outdent", "decrease.indent"),
     ("Remove List", "xmark.circle"),
-    // Quote
-    ("Quote", "text.quote"),
-    ("Nest Quote", "increase.indent"),
-    ("Unnest Quote", "decrease.indent"),
+    // Blockquote
+    ("Blockquote", "text.quote"),
+    ("Nest Blockquote", "increase.indent"),
+    ("Unnest Blockquote", "decrease.indent"),
     // Transform
     ("UPPERCASE", "textformat.size.larger"),
     ("lowercase", "textformat.size.smaller"),
     ("Title Case", "textformat"),
     ("Toggle Case", "arrow.up.arrow.down"),
+    ("Toggle Quote Style", "quote.opening"),
     // CJK
     ("Format Selection", "globe.asia.australia"),
     ("Format Entire File", "doc.text.magnifyingglass"),

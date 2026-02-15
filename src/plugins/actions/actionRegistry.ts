@@ -67,8 +67,8 @@ export const MENU_TO_ACTION: Record<MenuEventId, MenuActionMapping> = {
 
   // === Blockquote ===
   "menu:quote": { actionId: "blockquote" },
-  "menu:nest-quote": { actionId: "nestQuote" },
-  "menu:unnest-quote": { actionId: "unnestQuote" },
+  "menu:nest-blockquote": { actionId: "nestBlockquote" },
+  "menu:unnest-blockquote": { actionId: "unnestBlockquote" },
 
   // === Code Block ===
   "menu:code-fences": { actionId: "codeBlock" },
@@ -276,21 +276,21 @@ export const ACTION_DEFINITIONS: Record<ActionId, ActionDefinition> = {
     category: "blockquote",
     supports: { wysiwyg: true, source: true },
   },
-  nestQuote: {
-    id: "nestQuote",
-    label: "Nest Quote",
+  nestBlockquote: {
+    id: "nestBlockquote",
+    label: "Nest Blockquote",
     category: "blockquote",
     supports: { wysiwyg: true, source: true },
   },
-  unnestQuote: {
-    id: "unnestQuote",
-    label: "Unnest Quote",
+  unnestBlockquote: {
+    id: "unnestBlockquote",
+    label: "Unnest Blockquote",
     category: "blockquote",
     supports: { wysiwyg: true, source: true },
   },
-  removeQuote: {
-    id: "removeQuote",
-    label: "Remove Quote",
+  removeBlockquote: {
+    id: "removeBlockquote",
+    label: "Remove Blockquote",
     category: "blockquote",
     supports: { wysiwyg: true, source: true },
   },

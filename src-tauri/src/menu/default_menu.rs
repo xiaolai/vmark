@@ -228,8 +228,6 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &selection_submenu,
             &lines_submenu,
             &line_endings_submenu,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, Some("CmdOrCtrl+Shift+'"))?,
         ],
     )?;
 
@@ -270,14 +268,14 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ],
     )?;
 
-    let quote_submenu = Submenu::with_items(
+    let blockquote_submenu = Submenu::with_items(
         app,
-        "Quote",
+        "Blockquote",
         true,
         &[
-            &MenuItem::with_id(app, "quote", "Quote", true, Some("Alt+CmdOrCtrl+Q"))?,
-            &MenuItem::with_id(app, "nest-quote", "Nest Quote", true, None::<&str>)?,
-            &MenuItem::with_id(app, "unnest-quote", "Unnest Quote", true, None::<&str>)?,
+            &MenuItem::with_id(app, "quote", "Blockquote", true, Some("Alt+CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(app, "nest-blockquote", "Nest Blockquote", true, None::<&str>)?,
+            &MenuItem::with_id(app, "unnest-blockquote", "Unnest Blockquote", true, None::<&str>)?,
         ],
     )?;
 
@@ -290,6 +288,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "transform-lowercase", "lowercase", true, Some("Ctrl+Shift+L"))?,
             &MenuItem::with_id(app, "transform-title-case", "Title Case", true, Some("Ctrl+Shift+T"))?,
             &MenuItem::with_id(app, "transform-toggle-case", "Toggle Case", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, Some("CmdOrCtrl+Shift+'"))?,
         ],
     )?;
 
@@ -331,7 +331,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "superscript", "Superscript", true, Some("Alt+CmdOrCtrl+Shift+="))?,
             &PredefinedMenuItem::separator(app)?,
             &lists_submenu,
-            &quote_submenu,
+            &blockquote_submenu,
             &PredefinedMenuItem::separator(app)?,
             &transform_submenu,
             &cjk_submenu,

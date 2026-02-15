@@ -88,13 +88,13 @@ export function applyMultiSelectionBlockquoteAction(view: EditorView, action: st
   return forEachRangeDescending(view, (from, to) => {
     setSelection(view, from, to);
     switch (action) {
-      case "nestQuote":
+      case "nestBlockquote":
         handleBlockquoteNest(view);
         return true;
-      case "unnestQuote":
+      case "unnestBlockquote":
         handleBlockquoteUnnest(view);
         return true;
-      case "removeQuote":
+      case "removeBlockquote":
         handleRemoveBlockquote(view);
         return true;
       default:

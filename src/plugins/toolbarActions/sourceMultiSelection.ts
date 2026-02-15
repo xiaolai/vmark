@@ -76,13 +76,13 @@ export function applyMultiSelectionBlockquoteAction(view: EditorView, action: st
     const info = getBlockquoteInfo(view, pos);
     if (!info) return false;
     switch (action) {
-      case "nestQuote":
+      case "nestBlockquote":
         nestBlockquote(view, info);
         return true;
-      case "unnestQuote":
+      case "unnestBlockquote":
         unnestBlockquote(view, info);
         return true;
-      case "removeQuote":
+      case "removeBlockquote":
         removeBlockquote(view, info);
         return true;
       default:

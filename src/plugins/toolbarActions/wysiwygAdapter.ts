@@ -173,13 +173,13 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       return false;
 
     // Blockquote
-    case "nestQuote":
+    case "nestBlockquote":
       if (view && applyMultiSelectionBlockquoteAction(view, action)) return true;
       return view ? (handleBlockquoteNest(view), true) : false;
-    case "unnestQuote":
+    case "unnestBlockquote":
       if (view && applyMultiSelectionBlockquoteAction(view, action)) return true;
       return view ? (handleBlockquoteUnnest(view), true) : false;
-    case "removeQuote":
+    case "removeBlockquote":
       if (view && applyMultiSelectionBlockquoteAction(view, action)) return true;
       return view ? (handleRemoveBlockquote(view), true) : false;
     case "insertBlockquote":

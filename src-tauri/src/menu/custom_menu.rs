@@ -232,8 +232,6 @@ pub(crate) fn create_menu_with_shortcuts(
             &selection_submenu,
             &lines_submenu,
             &line_endings_submenu,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, get_accel("toggle-quote-style", "CmdOrCtrl+Shift+'"))?,
         ],
     )?;
 
@@ -274,14 +272,14 @@ pub(crate) fn create_menu_with_shortcuts(
         ],
     )?;
 
-    let quote_submenu = Submenu::with_items(
+    let blockquote_submenu = Submenu::with_items(
         app,
-        "Quote",
+        "Blockquote",
         true,
         &[
-            &MenuItem::with_id(app, "quote", "Quote", true, get_accel("quote", "Alt+CmdOrCtrl+Q"))?,
-            &MenuItem::with_id(app, "nest-quote", "Nest Quote", true, None::<&str>)?,
-            &MenuItem::with_id(app, "unnest-quote", "Unnest Quote", true, None::<&str>)?,
+            &MenuItem::with_id(app, "quote", "Blockquote", true, get_accel("quote", "Alt+CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(app, "nest-blockquote", "Nest Blockquote", true, None::<&str>)?,
+            &MenuItem::with_id(app, "unnest-blockquote", "Unnest Blockquote", true, None::<&str>)?,
         ],
     )?;
 
@@ -294,6 +292,8 @@ pub(crate) fn create_menu_with_shortcuts(
             &MenuItem::with_id(app, "transform-lowercase", "lowercase", true, get_accel("transform-lowercase", "Ctrl+Shift+L"))?,
             &MenuItem::with_id(app, "transform-title-case", "Title Case", true, get_accel("transform-title-case", "Ctrl+Shift+T"))?,
             &MenuItem::with_id(app, "transform-toggle-case", "Toggle Case", true, get_accel("transform-toggle-case", ""))?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "toggle-quote-style", "Toggle Quote Style", true, get_accel("toggle-quote-style", "CmdOrCtrl+Shift+'"))?,
         ],
     )?;
 
@@ -337,7 +337,7 @@ pub(crate) fn create_menu_with_shortcuts(
             &MenuItem::with_id(app, "superscript", "Superscript", true, get_accel("superscript", "Alt+CmdOrCtrl+Shift+="))?,
             &PredefinedMenuItem::separator(app)?,
             &lists_submenu,
-            &quote_submenu,
+            &blockquote_submenu,
             &PredefinedMenuItem::separator(app)?,
             &transform_submenu,
             &cjk_submenu,

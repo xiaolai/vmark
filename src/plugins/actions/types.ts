@@ -50,9 +50,9 @@ export const ACTION_IDS = [
 
   // === Blockquote ===
   "blockquote",
-  "nestQuote",
-  "unnestQuote",
-  "removeQuote",
+  "nestBlockquote",
+  "unnestBlockquote",
+  "removeBlockquote",
 
   // === Code Block ===
   "codeBlock",

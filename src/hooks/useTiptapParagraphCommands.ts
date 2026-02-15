@@ -186,11 +186,11 @@ export function useTiptapParagraphCommands(editor: TiptapEditor | null) {
         editor.commands.insertDetailsBlock();
       }))) return;
 
-      if (!(await register("menu:nest-quote", (editor) => {
+      if (!(await register("menu:nest-blockquote", (editor) => {
         handleBlockquoteNest(getEditorView(editor));
       }))) return;
 
-      if (!(await register("menu:unnest-quote", (editor) => {
+      if (!(await register("menu:unnest-blockquote", (editor) => {
         handleBlockquoteUnnest(getEditorView(editor));
       }))) return;
 
