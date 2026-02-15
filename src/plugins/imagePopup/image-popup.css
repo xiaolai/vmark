@@ -1,66 +1,11 @@
 /**
- * Image Popup Styles - Two-row layout
- * Row 1: src input + action buttons
- * Row 2: caption/alt input
+ * Image Popup Styles — type-specific rules only.
+ * Shared styles in src/styles/media-popup-shared.css.
  */
 
-.image-popup {
-  position: fixed;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-color);
-  box-shadow: var(--shadow-md);
-  animation: image-popup-fade-in 0.1s ease-out;
-}
+@import "../../styles/media-popup-shared.css";
 
-@keyframes image-popup-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Row container */
-.image-popup-row {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-/* URL/Path Input - borderless */
-.image-popup-src {
-  width: 220px;
-  padding: 4px 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  font-size: 12px;
-  font-family: var(--font-mono, monospace);
-  outline: none;
-}
-
-/* Caption/Alt Input - flexible width */
-.image-popup-alt {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  font-size: 12px;
-  outline: none;
-}
-
-/* Dimensions display - read only */
+/* Dimensions display - read only, image-specific */
 .image-popup-dimensions {
   font-size: 11px;
   color: var(--text-tertiary);
@@ -68,84 +13,4 @@
   padding-right: 4px;
   flex-shrink: 0;
   user-select: none;
-}
-
-/* Input focus: caret is the indicator (per design rules) */
-.image-popup-src:focus,
-.image-popup-src:focus-visible,
-.image-popup-alt:focus,
-.image-popup-alt:focus-visible {
-  border: none;
-  outline: none;
-  box-shadow: none;
-  /* Caret visibility indicates focus */
-}
-
-.image-popup-src::placeholder,
-.image-popup-alt::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.5;
-}
-
-/* Icon-only buttons */
-.image-popup-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: default;
-  user-select: none;
-}
-
-.image-popup-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.image-popup-btn:active {
-  opacity: 0.8;
-}
-
-/* Focus state for keyboard navigation - U-shaped underline (keyboard focus only) */
-.image-popup-btn:focus-visible {
-  outline: none;
-  color: var(--primary-color);
-}
-
-.image-popup-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: transparent;
-  border-bottom: 2px solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-.image-popup-btn svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-/* Delete button - danger color on hover */
-.image-popup-btn-delete:hover {
-  color: var(--error-color);
-}
-
-/* Dark theme */
-.dark-theme .image-popup-btn:hover {
-  background: var(--hover-bg-dark);
 }

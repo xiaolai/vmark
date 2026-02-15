@@ -8,75 +8,35 @@
  *         → resolveMediaSrc resolves path → video element displays
  *
  * Key decisions:
- *   - Video src resolution is async because relative paths need the document's directory
- *     from the Tauri path API
- *   - Uses convertFileSrc to turn local file paths into Tauri asset:// protocol URLs
+ *   - Video src resolution delegated to shared resolveMediaSrc utility
  *   - Uses `loadedmetadata` event instead of `load` (video loads metadata first)
- *   - Security: relative paths are validated against directory traversal attacks
+ *   - Security: relative paths validated against directory traversal attacks
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_video node type
- * @coordinates-with imageView/security.ts — path validation and URL classification
+ * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
  * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockVideo/BlockVideoNodeView
  */
 
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { dirname, join } from "@tauri-apps/api/path";
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
-import { isAbsolutePath, isExternalUrl, isRelativePath, validateImagePath } from "@/plugins/imageView/security";
-import { decodeMarkdownUrl } from "@/utils/markdownUrl";
+import { isExternalUrl } from "@/plugins/imageView/security";
+import { resolveMediaSrc } from "@/utils/resolveMediaSrc";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import {
+  attachMediaLoadHandlers,
+  showMediaError,
+  clearMediaLoadState,
+  selectMediaNode,
+  type MediaLoadConfig,
+} from "@/plugins/shared/mediaNodeViewHelpers";
 
-function normalizePathForAsset(path: string): string {
-  return path.replace(/\\/g, "/");
-}
-
-function getActiveTabIdForCurrentWindow(): string | null {
-  try {
-    const windowLabel = getWindowLabel();
-    return useTabStore.getState().activeTabId[windowLabel] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveMediaSrc(src: string): Promise<string> {
-  if (isExternalUrl(src)) return src;
-
-  const decodedSrc = decodeMarkdownUrl(src);
-
-  if (isAbsolutePath(decodedSrc)) return convertFileSrc(normalizePathForAsset(decodedSrc));
-
-  if (isRelativePath(decodedSrc)) {
-    if (!validateImagePath(decodedSrc)) {
-      console.warn("[BlockVideoView] Rejected invalid video path:", decodedSrc);
-      return "";
-    }
-
-    const tabId = getActiveTabIdForCurrentWindow();
-    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-    const filePath = doc?.filePath;
-    if (!filePath) return src;
-
-    try {
-      const docDir = await dirname(filePath);
-      const cleanPath = decodedSrc.replace(/^\.\//, "");
-      const absolutePath = await join(docDir, cleanPath);
-      return convertFileSrc(normalizePathForAsset(absolutePath));
-    } catch (error) {
-      console.error("Failed to resolve video path:", error);
-      return src;
-    }
-  }
-
-  return src;
-}
+const VIDEO_LOAD_CONFIG: MediaLoadConfig = {
+  loadEvent: "loadedmetadata",
+  loadingClass: "media-loading",
+  errorClass: "media-error",
+};
 
 export class BlockVideoNodeView implements NodeView {
   dom: HTMLElement;
@@ -86,8 +46,7 @@ export class BlockVideoNodeView implements NodeView {
   private editor: Editor;
   private resolveRequestId = 0;
   private destroyed = false;
-  private activeMetadataHandler: (() => void) | null = null;
-  private activeErrorHandler: (() => void) | null = null;
+  private cleanupHandlers: (() => void) | null = null;
 
   constructor(node: PMNode, getPos: () => number | undefined, editor: Editor) {
     this.getPos = getPos;
@@ -111,17 +70,10 @@ export class BlockVideoNodeView implements NodeView {
   }
 
   private handleClick = (_e: MouseEvent) => {
+    selectMediaNode(this.editor, this.getPos);
+
     const pos = this.getPos();
     if (pos === undefined) return;
-
-    try {
-      const { view } = this.editor;
-      const selection = NodeSelection.create(view.state.doc, pos);
-      const tr = view.state.tr.setSelection(selection);
-      view.dispatch(tr.setMeta("addToHistory", false));
-    } catch {
-      // Ignore selection errors
-    }
 
     const rect = this.video.getBoundingClientRect();
     useMediaPopupStore.getState().openPopup({
@@ -140,11 +92,11 @@ export class BlockVideoNodeView implements NodeView {
   };
 
   private updateSrc(src: string): void {
-    this.dom.classList.remove("media-loading", "media-error");
+    clearMediaLoadState(this.dom, VIDEO_LOAD_CONFIG);
 
     if (!src) {
       this.video.src = "";
-      this.showError("No video source");
+      showMediaError(this.dom, this.video, this.originalSrc, "No video source", VIDEO_LOAD_CONFIG);
       return;
     }
 
@@ -160,10 +112,10 @@ export class BlockVideoNodeView implements NodeView {
 
     const requestId = ++this.resolveRequestId;
 
-    resolveMediaSrc(src).then((resolvedSrc) => {
+    resolveMediaSrc(src, "[BlockVideoView]").then((resolvedSrc) => {
       if (this.destroyed || requestId !== this.resolveRequestId) return;
       if (!resolvedSrc) {
-        this.showError("Failed to resolve path");
+        showMediaError(this.dom, this.video, this.originalSrc, "Failed to resolve path", VIDEO_LOAD_CONFIG);
         return;
       }
       this.video.src = resolvedSrc;
@@ -171,42 +123,15 @@ export class BlockVideoNodeView implements NodeView {
     });
   }
 
-  private cleanupLoadHandlers(): void {
-    if (this.activeMetadataHandler) {
-      this.video.removeEventListener("loadedmetadata", this.activeMetadataHandler);
-      this.activeMetadataHandler = null;
-    }
-    if (this.activeErrorHandler) {
-      this.video.removeEventListener("error", this.activeErrorHandler);
-      this.activeErrorHandler = null;
-    }
-  }
-
   private setupLoadHandlers(): void {
-    this.cleanupLoadHandlers();
-
-    const onMetadata = () => {
-      if (this.destroyed) return;
-      this.dom.classList.remove("media-loading", "media-error");
-      this.cleanupLoadHandlers();
-    };
-
-    const onError = () => {
-      if (this.destroyed) return;
-      this.showError("Failed to load video");
-      this.cleanupLoadHandlers();
-    };
-
-    this.activeMetadataHandler = onMetadata;
-    this.activeErrorHandler = onError;
-    this.video.addEventListener("loadedmetadata", onMetadata);
-    this.video.addEventListener("error", onError);
-  }
-
-  private showError(message: string): void {
-    this.dom.classList.remove("media-loading");
-    this.dom.classList.add("media-error");
-    this.video.title = `${message}: ${this.originalSrc}`;
+    this.cleanupHandlers?.();
+    this.cleanupHandlers = attachMediaLoadHandlers(
+      this.video,
+      this.dom,
+      VIDEO_LOAD_CONFIG,
+      () => { /* video has no extra onLoaded behavior */ },
+      () => { showMediaError(this.dom, this.video, this.originalSrc, "Failed to load video", VIDEO_LOAD_CONFIG); },
+    );
   }
 
   update(node: PMNode): boolean {
@@ -232,7 +157,7 @@ export class BlockVideoNodeView implements NodeView {
     this.destroyed = true;
     this.video.pause();
     this.video.src = "";
-    this.cleanupLoadHandlers();
+    this.cleanupHandlers?.();
     this.dom.removeEventListener("click", this.handleClick);
   }
 
@@ -242,9 +167,9 @@ export class BlockVideoNodeView implements NodeView {
       // Check if click is within the video controls area (bottom of the video)
       const mouseEvent = event as MouseEvent;
       const rect = this.video.getBoundingClientRect();
-      const controlsHeight = 40; // Approximate height of native controls
+      const controlsHeight = 40;
       if (mouseEvent.clientY > rect.bottom - controlsHeight) {
-        return false; // Let video controls handle it
+        return false;
       }
     }
     if (event.type === "mousedown" || event.type === "click") {

@@ -1,70 +1,21 @@
 /**
- * Block Image Styles
- *
- * Styles for block-level images (standalone, not inline).
+ * Block Image Styles — type-specific sizing only.
+ * Shared styles in src/styles/block-media-shared.css.
  */
 
-.block-image {
-  display: block;
-  margin: 0 0 var(--editor-block-spacing, 1em) 0;
-  text-align: center;
-}
+@import "../../styles/block-media-shared.css";
 
 .block-image img {
   max-width: 100%;
   height: auto;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  transition: border-color 0.15s ease;
-  /* Prevent macOS Live Text from selecting text within images */
-  user-select: none;
-  -webkit-user-select: none;
 }
 
-/* Selected state - subtle border on the image, not the container */
-.ProseMirror-selectednode.block-image img,
-.block-image.ProseMirror-selectednode img {
-  border: 1px solid var(--border-color);
-}
-
-/* Media border styles - applied via container class */
-.media-border-always .block-image img {
-  border: 1px solid var(--border-color);
-}
-
-.media-border-hover .block-image img:hover {
-  border: 1px solid var(--border-color);
-}
-
-/* Loading state */
 .block-image.image-loading img {
-  opacity: 0.5;
   min-width: 100px;
   min-height: 60px;
-  background: var(--bg-secondary);
-}
-
-/* Error state */
-.block-image.image-error {
-  position: relative;
 }
 
 .block-image.image-error img {
-  opacity: 0.3;
   min-width: 100px;
   min-height: 60px;
-  background: var(--bg-secondary);
-  border: 1px dashed var(--error-color);
-}
-
-.block-image.image-error::before {
-  content: "⚠";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 24px;
-  color: var(--error-color);
-  pointer-events: none;
-  z-index: 1;
 }

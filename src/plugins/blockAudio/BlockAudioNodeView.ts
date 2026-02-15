@@ -5,68 +5,30 @@
  * src resolution, click-to-select, and loading/error states.
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_audio node type
- * @coordinates-with imageView/security.ts — path validation and URL classification
+ * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
  * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockAudio/BlockAudioNodeView
  */
 
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { dirname, join } from "@tauri-apps/api/path";
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
-import { isAbsolutePath, isExternalUrl, isRelativePath, validateImagePath } from "@/plugins/imageView/security";
-import { decodeMarkdownUrl } from "@/utils/markdownUrl";
+import { isExternalUrl } from "@/plugins/imageView/security";
+import { resolveMediaSrc } from "@/utils/resolveMediaSrc";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import {
+  attachMediaLoadHandlers,
+  showMediaError,
+  clearMediaLoadState,
+  selectMediaNode,
+  type MediaLoadConfig,
+} from "@/plugins/shared/mediaNodeViewHelpers";
 
-function normalizePathForAsset(path: string): string {
-  return path.replace(/\\/g, "/");
-}
-
-function getActiveTabIdForCurrentWindow(): string | null {
-  try {
-    const windowLabel = getWindowLabel();
-    return useTabStore.getState().activeTabId[windowLabel] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveMediaSrc(src: string): Promise<string> {
-  if (isExternalUrl(src)) return src;
-
-  const decodedSrc = decodeMarkdownUrl(src);
-
-  if (isAbsolutePath(decodedSrc)) return convertFileSrc(normalizePathForAsset(decodedSrc));
-
-  if (isRelativePath(decodedSrc)) {
-    if (!validateImagePath(decodedSrc)) {
-      console.warn("[BlockAudioView] Rejected invalid audio path:", decodedSrc);
-      return "";
-    }
-
-    const tabId = getActiveTabIdForCurrentWindow();
-    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-    const filePath = doc?.filePath;
-    if (!filePath) return src;
-
-    try {
-      const docDir = await dirname(filePath);
-      const cleanPath = decodedSrc.replace(/^\.\//, "");
-      const absolutePath = await join(docDir, cleanPath);
-      return convertFileSrc(normalizePathForAsset(absolutePath));
-    } catch (error) {
-      console.error("Failed to resolve audio path:", error);
-      return src;
-    }
-  }
-
-  return src;
-}
+const AUDIO_LOAD_CONFIG: MediaLoadConfig = {
+  loadEvent: "loadedmetadata",
+  loadingClass: "media-loading",
+  errorClass: "media-error",
+};
 
 export class BlockAudioNodeView implements NodeView {
   dom: HTMLElement;
@@ -76,8 +38,7 @@ export class BlockAudioNodeView implements NodeView {
   private editor: Editor;
   private resolveRequestId = 0;
   private destroyed = false;
-  private activeMetadataHandler: (() => void) | null = null;
-  private activeErrorHandler: (() => void) | null = null;
+  private cleanupHandlers: (() => void) | null = null;
 
   constructor(node: PMNode, getPos: () => number | undefined, editor: Editor) {
     this.getPos = getPos;
@@ -100,17 +61,10 @@ export class BlockAudioNodeView implements NodeView {
   }
 
   private handleClick = (_e: MouseEvent) => {
+    selectMediaNode(this.editor, this.getPos);
+
     const pos = this.getPos();
     if (pos === undefined) return;
-
-    try {
-      const { view } = this.editor;
-      const selection = NodeSelection.create(view.state.doc, pos);
-      const tr = view.state.tr.setSelection(selection);
-      view.dispatch(tr.setMeta("addToHistory", false));
-    } catch {
-      // Ignore selection errors
-    }
 
     const rect = this.audio.getBoundingClientRect();
     useMediaPopupStore.getState().openPopup({
@@ -129,11 +83,11 @@ export class BlockAudioNodeView implements NodeView {
   };
 
   private updateSrc(src: string): void {
-    this.dom.classList.remove("media-loading", "media-error");
+    clearMediaLoadState(this.dom, AUDIO_LOAD_CONFIG);
 
     if (!src) {
       this.audio.src = "";
-      this.showError("No audio source");
+      showMediaError(this.dom, this.audio, this.originalSrc, "No audio source", AUDIO_LOAD_CONFIG);
       return;
     }
 
@@ -149,10 +103,10 @@ export class BlockAudioNodeView implements NodeView {
 
     const requestId = ++this.resolveRequestId;
 
-    resolveMediaSrc(src).then((resolvedSrc) => {
+    resolveMediaSrc(src, "[BlockAudioView]").then((resolvedSrc) => {
       if (this.destroyed || requestId !== this.resolveRequestId) return;
       if (!resolvedSrc) {
-        this.showError("Failed to resolve path");
+        showMediaError(this.dom, this.audio, this.originalSrc, "Failed to resolve path", AUDIO_LOAD_CONFIG);
         return;
       }
       this.audio.src = resolvedSrc;
@@ -160,42 +114,15 @@ export class BlockAudioNodeView implements NodeView {
     });
   }
 
-  private cleanupLoadHandlers(): void {
-    if (this.activeMetadataHandler) {
-      this.audio.removeEventListener("loadedmetadata", this.activeMetadataHandler);
-      this.activeMetadataHandler = null;
-    }
-    if (this.activeErrorHandler) {
-      this.audio.removeEventListener("error", this.activeErrorHandler);
-      this.activeErrorHandler = null;
-    }
-  }
-
   private setupLoadHandlers(): void {
-    this.cleanupLoadHandlers();
-
-    const onMetadata = () => {
-      if (this.destroyed) return;
-      this.dom.classList.remove("media-loading", "media-error");
-      this.cleanupLoadHandlers();
-    };
-
-    const onError = () => {
-      if (this.destroyed) return;
-      this.showError("Failed to load audio");
-      this.cleanupLoadHandlers();
-    };
-
-    this.activeMetadataHandler = onMetadata;
-    this.activeErrorHandler = onError;
-    this.audio.addEventListener("loadedmetadata", onMetadata);
-    this.audio.addEventListener("error", onError);
-  }
-
-  private showError(message: string): void {
-    this.dom.classList.remove("media-loading");
-    this.dom.classList.add("media-error");
-    this.audio.title = `${message}: ${this.originalSrc}`;
+    this.cleanupHandlers?.();
+    this.cleanupHandlers = attachMediaLoadHandlers(
+      this.audio,
+      this.dom,
+      AUDIO_LOAD_CONFIG,
+      () => { /* audio has no extra onLoaded behavior */ },
+      () => { showMediaError(this.dom, this.audio, this.originalSrc, "Failed to load audio", AUDIO_LOAD_CONFIG); },
+    );
   }
 
   update(node: PMNode): boolean {
@@ -218,14 +145,14 @@ export class BlockAudioNodeView implements NodeView {
     this.destroyed = true;
     this.audio.pause();
     this.audio.src = "";
-    this.cleanupLoadHandlers();
+    this.cleanupHandlers?.();
     this.dom.removeEventListener("click", this.handleClick);
   }
 
   stopEvent(event: Event): boolean {
     // Allow native audio controls to work
     if (event.target === this.audio && (event.type === "mousedown" || event.type === "click")) {
-      return false; // Let audio controls handle it
+      return false;
     }
     if (event.type === "mousedown" || event.type === "click") {
       const target = event.target as HTMLElement;

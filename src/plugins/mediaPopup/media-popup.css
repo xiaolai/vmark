@@ -1,71 +1,11 @@
 /**
- * Media Popup Styles
- *
- * Mirrors image-popup.css patterns for audio/video editing popup.
- * Row 1: src input + action buttons (browse, copy, delete)
- * Row 2: title input
- * Row 3: poster input (video only, hidden for audio)
+ * Media Popup Styles — type-specific rules only.
+ * Shared styles in src/styles/media-popup-shared.css.
  */
 
-.media-popup {
-  position: fixed;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-color);
-  box-shadow: var(--shadow-md);
-  animation: media-popup-fade-in 0.1s ease-out;
-  min-width: 300px;
-  max-width: 400px;
-}
+@import "../../styles/media-popup-shared.css";
 
-@keyframes media-popup-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Row container */
-.media-popup-row {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-/* Source URL/Path Input - borderless, monospace */
-.media-popup-src {
-  width: 220px;
-  padding: 4px 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  font-size: 12px;
-  font-family: var(--font-mono, monospace);
-  outline: none;
-}
-
-/* Title Input - flexible width */
-.media-popup-title {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  font-size: 12px;
-  outline: none;
-}
-
-/* Poster Input - monospace, flexible width */
+/* Poster Input - monospace, flexible width (video only, hidden for audio) */
 .media-popup-poster {
   flex: 1;
   min-width: 0;
@@ -76,88 +16,4 @@
   font-size: 12px;
   font-family: var(--font-mono, monospace);
   outline: none;
-}
-
-/* Input focus: caret is the indicator (per design rules) */
-.media-popup-src:focus,
-.media-popup-src:focus-visible,
-.media-popup-title:focus,
-.media-popup-title:focus-visible,
-.media-popup-poster:focus,
-.media-popup-poster:focus-visible {
-  border: none;
-  outline: none;
-  box-shadow: none;
-  /* Caret visibility indicates focus */
-}
-
-.media-popup-src::placeholder,
-.media-popup-title::placeholder,
-.media-popup-poster::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.5;
-}
-
-/* Icon-only buttons */
-.media-popup-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: default;
-  user-select: none;
-  position: relative;
-}
-
-.media-popup-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.media-popup-btn:active {
-  opacity: 0.8;
-}
-
-/* Focus state for keyboard navigation - U-shaped underline */
-.media-popup-btn:focus-visible {
-  outline: none;
-  color: var(--primary-color);
-}
-
-.media-popup-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: transparent;
-  border-bottom: 2px solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-.media-popup-btn svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-/* Delete button - danger color on hover */
-.media-popup-btn-delete:hover {
-  color: var(--error-color);
-}
-
-/* Dark theme */
-.dark-theme .media-popup-btn:hover {
-  background: var(--hover-bg-dark);
 }
