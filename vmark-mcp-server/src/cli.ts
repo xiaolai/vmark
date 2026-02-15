@@ -18,7 +18,7 @@
  */
 
 // Package version (injected at build time or read from package.json)
-const VERSION = '0.4.25';
+const VERSION = '0.4.26';
 
 /**
  * Handle --version flag.
