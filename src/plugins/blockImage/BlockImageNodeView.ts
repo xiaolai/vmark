@@ -17,7 +17,7 @@
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_image node type
  * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
- * @coordinates-with stores/imagePopupStore.ts — image popup state for double-click editing
+ * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockImage/BlockImageNodeView
  */
 
@@ -25,7 +25,7 @@ import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { useImageTooltipStore } from "@/stores/imageTooltipStore";
 import { isExternalUrl } from "@/plugins/imageView/security";
 import { resolveMediaSrc } from "@/utils/resolveMediaSrc";
@@ -69,7 +69,7 @@ export class BlockImageNodeView implements NodeView {
     this.updateSrc(this.originalSrc);
 
     this.img.addEventListener("contextmenu", this.handleContextMenu);
-    this.dom.addEventListener("click", this.handleClick);
+    this.dom.addEventListener("dblclick", this.handleClick);
 
     this.dom.appendChild(this.img);
   }
@@ -101,12 +101,12 @@ export class BlockImageNodeView implements NodeView {
       : null;
 
     const rect = this.img.getBoundingClientRect();
-    useImagePopupStore.getState().openPopup({
-      imageSrc: this.originalSrc,
-      imageAlt: this.img.alt ?? "",
-      imageNodePos: pos,
-      imageNodeType: "block_image",
-      imageDimensions: dimensions,
+    useMediaPopupStore.getState().openPopup({
+      mediaSrc: this.originalSrc,
+      mediaAlt: this.img.alt ?? "",
+      mediaNodePos: pos,
+      mediaNodeType: "block_image",
+      mediaDimensions: dimensions,
       anchorRect: {
         top: rect.top,
         left: rect.left,
@@ -206,7 +206,7 @@ export class BlockImageNodeView implements NodeView {
     this.destroyed = true;
     this.cleanupHandlers?.();
     this.img.removeEventListener("contextmenu", this.handleContextMenu);
-    this.dom.removeEventListener("click", this.handleClick);
+    this.dom.removeEventListener("dblclick", this.handleClick);
   }
 
   stopEvent(event: Event): boolean {

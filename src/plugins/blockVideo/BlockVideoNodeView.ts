@@ -65,7 +65,7 @@ export class BlockVideoNodeView implements NodeView {
 
     this.updateSrc(this.originalSrc);
 
-    this.dom.addEventListener("click", this.handleClick);
+    this.dom.addEventListener("dblclick", this.handleClick);
     this.dom.appendChild(this.video);
   }
 
@@ -173,7 +173,7 @@ export class BlockVideoNodeView implements NodeView {
     this.video.pause();
     this.video.src = "";
     this.cleanupHandlers?.();
-    this.dom.removeEventListener("click", this.handleClick);
+    this.dom.removeEventListener("dblclick", this.handleClick);
   }
 
   stopEvent(event: Event): boolean {

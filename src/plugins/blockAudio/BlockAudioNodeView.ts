@@ -56,7 +56,7 @@ export class BlockAudioNodeView implements NodeView {
 
     this.updateSrc(this.originalSrc);
 
-    this.dom.addEventListener("click", this.handleClick);
+    this.dom.addEventListener("dblclick", this.handleClick);
     this.dom.appendChild(this.audio);
   }
 
@@ -159,7 +159,7 @@ export class BlockAudioNodeView implements NodeView {
     this.audio.pause();
     this.audio.src = "";
     this.cleanupHandlers?.();
-    this.dom.removeEventListener("click", this.handleClick);
+    this.dom.removeEventListener("dblclick", this.handleClick);
   }
 
   stopEvent(event: Event): boolean {

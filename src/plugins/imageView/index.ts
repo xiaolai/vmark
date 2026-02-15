@@ -27,7 +27,7 @@ import type { NodeView } from "@tiptap/pm/view";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { useImageTooltipStore } from "@/stores/imageTooltipStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "./security";
@@ -135,7 +135,7 @@ export class ImageNodeView implements NodeView {
     this.dom.addEventListener("contextmenu", this.handleContextMenu);
 
     // Add click handler for popup
-    this.dom.addEventListener("click", this.handleClick);
+    this.dom.addEventListener("dblclick", this.handleClick);
   }
 
   private handleContextMenu = (e: MouseEvent) => {
@@ -173,11 +173,12 @@ export class ImageNodeView implements NodeView {
       : null;
 
     const rect = this.dom.getBoundingClientRect();
-    useImagePopupStore.getState().openPopup({
-      imageSrc: this.originalSrc,
-      imageAlt: this.dom.alt ?? "",
-      imageNodePos: pos,
-      imageDimensions: dimensions,
+    useMediaPopupStore.getState().openPopup({
+      mediaSrc: this.originalSrc,
+      mediaAlt: this.dom.alt ?? "",
+      mediaNodePos: pos,
+      mediaNodeType: "image",
+      mediaDimensions: dimensions,
       anchorRect: {
         top: rect.top,
         left: rect.left,
@@ -294,7 +295,7 @@ export class ImageNodeView implements NodeView {
     this.destroyed = true;
     this.cleanupLoadHandlers();
     this.dom.removeEventListener("contextmenu", this.handleContextMenu);
-    this.dom.removeEventListener("click", this.handleClick);
+    this.dom.removeEventListener("dblclick", this.handleClick);
   }
 
   /**
