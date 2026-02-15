@@ -67,7 +67,7 @@ vi.mock("@/utils/historyTypes", async (importOriginal) => {
   };
 });
 
-import { createSnapshot } from "../useHistoryOperations";
+import { createSnapshot, deleteSnapshot } from "../useHistoryOperations";
 
 const DOC_PATH = "/docs/test.md";
 
@@ -527,5 +527,94 @@ describe("createSnapshot — basic behavior", () => {
     expect(secondSnapshots).toHaveLength(2);
     expect(secondSnapshots[0].id).toBe(firstId); // first unchanged
     expect(secondSnapshots[1].id).not.toBe(firstId); // second is different
+  });
+});
+
+describe("deleteSnapshot", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    fileStore.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("removes snapshot file and updates index", async () => {
+    vi.setSystemTime(1700000000000);
+
+    seedIndex([
+      { id: "snap-1", timestamp: 1000, type: "auto", size: 10, preview: "a" },
+      { id: "snap-2", timestamp: 2000, type: "auto", size: 10, preview: "b" },
+      { id: "snap-3", timestamp: 3000, type: "auto", size: 10, preview: "c" },
+    ]);
+
+    await deleteSnapshot(DOC_PATH, "snap-2");
+
+    // Snapshot file should be removed
+    expect(mockRemove).toHaveBeenCalledWith(`${HISTORY_DIR}/snap-2.md`);
+
+    // Index should have 2 remaining snapshots
+    const writtenIndex = getLastWrittenIndex();
+    const snapshots = writtenIndex.snapshots as Array<{ id: string }>;
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots.map((s) => s.id)).toEqual(["snap-1", "snap-3"]);
+  });
+
+  it("no-ops when document has no history", async () => {
+    // No index seeded — empty fileStore
+    await deleteSnapshot(DOC_PATH, "snap-1");
+
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(mockWriteTextFile).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when snapshot ID not found", async () => {
+    seedIndex([
+      { id: "snap-1", timestamp: 1000, type: "auto", size: 10, preview: "a" },
+    ]);
+
+    await deleteSnapshot(DOC_PATH, "nonexistent");
+
+    // Should not remove any file or rewrite index
+    expect(mockRemove).not.toHaveBeenCalled();
+    // Index should not be rewritten when nothing changed
+    const indexWrites = mockWriteTextFile.mock.calls.filter(
+      (call: unknown[]) =>
+        typeof call[0] === "string" &&
+        (call[0] as string).endsWith("index.json")
+    );
+    expect(indexWrites).toHaveLength(0);
+  });
+
+  it("tolerates missing snapshot file", async () => {
+    seedIndex([
+      { id: "snap-1", timestamp: 1000, type: "auto", size: 10, preview: "a" },
+    ]);
+    // Remove the snapshot file from fileStore so remove() would fail
+    fileStore.delete(`${HISTORY_DIR}/snap-1.md`);
+    mockRemove.mockRejectedValueOnce(new Error("not found"));
+
+    await deleteSnapshot(DOC_PATH, "snap-1");
+
+    // Index should still be updated (snapshot removed from index)
+    const writtenIndex = getLastWrittenIndex();
+    const snapshots = writtenIndex.snapshots as Array<{ id: string }>;
+    expect(snapshots).toHaveLength(0);
+  });
+
+  it("handles deleting last remaining snapshot", async () => {
+    seedIndex([
+      { id: "snap-only", timestamp: 1000, type: "manual", size: 10, preview: "x" },
+    ]);
+
+    await deleteSnapshot(DOC_PATH, "snap-only");
+
+    expect(mockRemove).toHaveBeenCalledWith(`${HISTORY_DIR}/snap-only.md`);
+
+    const writtenIndex = getLastWrittenIndex();
+    const snapshots = writtenIndex.snapshots as Array<{ id: string }>;
+    expect(snapshots).toHaveLength(0);
   });
 });

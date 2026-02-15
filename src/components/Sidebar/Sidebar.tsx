@@ -5,7 +5,9 @@
  */
 
 import { useRef } from "react";
-import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose } from "lucide-react";
+import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2 } from "lucide-react";
+import { ask } from "@tauri-apps/plugin-dialog";
+import { deleteDocumentHistory } from "@/hooks/useHistoryRecovery";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
@@ -35,6 +37,18 @@ export function Sidebar() {
   const Icon = config.icon;
   const nextTitle = VIEW_CONFIG[config.next].title;
 
+  const handleClearDocumentHistory = async () => {
+    if (!filePath) return;
+    const confirmed = await ask(
+      "Delete all history for this document? This cannot be undone.",
+      { title: "Clear Document History", kind: "warning" }
+    );
+    if (confirmed) {
+      await deleteDocumentHistory(filePath);
+      window.dispatchEvent(new CustomEvent("vmark:history-cleared"));
+    }
+  };
+
   const handleToggleView = () => {
     const { sidebarViewMode, setSidebarViewMode } = useUIStore.getState();
     setSidebarViewMode(VIEW_CONFIG[sidebarViewMode].next);
@@ -53,7 +67,7 @@ export function Sidebar() {
           <Icon size={16} />
         </button>
         <span className="sidebar-title">{config.title}</span>
-        {/* Action buttons - only show for files view */}
+        {/* Action buttons - files view */}
         {viewMode === "files" && (
           <div className="sidebar-header-actions">
             <button
@@ -69,6 +83,18 @@ export function Sidebar() {
               title="New Folder"
             >
               <FolderPlus size={14} />
+            </button>
+          </div>
+        )}
+        {/* Action buttons - history view */}
+        {viewMode === "history" && filePath && (
+          <div className="sidebar-header-actions">
+            <button
+              className="sidebar-btn"
+              onClick={handleClearDocumentHistory}
+              title="Clear Document History"
+            >
+              <Trash2 size={14} />
             </button>
           </div>
         )}

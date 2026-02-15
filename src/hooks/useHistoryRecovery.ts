@@ -1,14 +1,16 @@
 /**
  * History Recovery (Hooks Layer)
  *
- * Purpose: Recovery operations for deleted documents — lists documents that
- *   have history snapshots but no longer exist on disk, restores them from
- *   their most recent snapshot, or permanently deletes their history.
+ * Purpose: Recovery and bulk-clearing operations for document history —
+ *   lists documents that have history but no longer exist on disk, restores
+ *   them from their most recent snapshot, deletes history per-document or
+ *   per-workspace, or permanently clears all history.
  *
  * Key decisions:
  *   - Scans the history directory for entries whose original file is missing
  *   - Restore writes the latest snapshot content back to the original path
  *   - Permanent delete removes both index and all snapshot files
+ *   - Workspace clearing uses normalizePath + isWithinRoot for path matching
  *
  * @coordinates-with useHistoryOperations.ts — creates/manages active history
  * @coordinates-with historyTypes.ts — shared types and folder constants
@@ -29,7 +31,9 @@ import {
   type DeletedDocument,
   INDEX_FILE,
   getDocumentName,
+  hashPath,
 } from "@/utils/historyTypes";
+import { normalizePath, isWithinRoot } from "@/utils/paths/paths";
 import { getHistoryBaseDir } from "@/hooks/useHistoryOperations";
 
 // Re-export type for consumers
@@ -156,5 +160,63 @@ export async function clearAllHistory(): Promise<void> {
     }
   } catch (error) {
     console.error("[History] Failed to clear all history:", error);
+  }
+}
+
+/**
+ * Delete all history for a specific document by its file path
+ */
+export async function deleteDocumentHistory(
+  documentPath: string
+): Promise<void> {
+  try {
+    const hash = await hashPath(documentPath);
+    await deleteHistory(hash);
+  } catch (error) {
+    console.error("[History] Failed to delete document history:", error);
+  }
+}
+
+/**
+ * Clear history for all documents within a workspace root path.
+ * Returns the number of document histories deleted.
+ */
+export async function clearWorkspaceHistory(
+  workspaceRootPath: string
+): Promise<number> {
+  try {
+    const baseDir = await getHistoryBaseDir();
+    if (!(await exists(baseDir))) return 0;
+
+    const entries = await readDir(baseDir);
+    let count = 0;
+
+    for (const entry of entries) {
+      if (!entry.isDirectory) continue;
+
+      try {
+        const indexPath = await join(baseDir, entry.name, INDEX_FILE);
+        if (!(await exists(indexPath))) continue;
+
+        const content = await readTextFile(indexPath);
+        const index = JSON.parse(content) as HistoryIndex;
+
+        const docPath = normalizePath(index.documentPath);
+        const rootPath = normalizePath(workspaceRootPath);
+
+        if (isWithinRoot(rootPath, docPath)) {
+          await deleteHistory(entry.name);
+          count++;
+        }
+      } catch {
+        // Skip invalid entries
+      }
+    }
+
+    historyLog(`Cleared workspace history: ${count} document(s)`);
+    return count;
+  } catch (error) {
+    console.error("[History] Failed to clear workspace history:", error);
+    return 0;
   }
 }

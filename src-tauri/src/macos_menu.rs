@@ -107,7 +107,8 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("Copy as HTML", "doc.text"),
     // History
     ("View History...", "clock"),
-    ("Clear History...", "clock.badge.xmark"),
+    ("Clear Workspace History...", "clock.badge.xmark"),
+    ("Clear All History...", "clock.badge.xmark"),
     // Recent
     ("Clear Recent Files", "trash"),
     ("Clear Recent Workspaces", "trash"),

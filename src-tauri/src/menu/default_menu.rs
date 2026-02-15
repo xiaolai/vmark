@@ -91,7 +91,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "Document History",
         true,
         &[
-            &MenuItem::with_id(app, "clear-history", "Clear History...", true, None::<&str>)?,
+            &MenuItem::with_id(app, "clear-workspace-history", "Clear Workspace History...", true, None::<&str>)?,
+            &MenuItem::with_id(app, "clear-history", "Clear All History...", true, None::<&str>)?,
         ],
     )?;
 

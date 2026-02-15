@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -16,6 +16,7 @@ import {
 import {
   getSnapshots,
   revertToSnapshot,
+  deleteSnapshot,
   type Snapshot,
 } from "@/hooks/useHistoryOperations";
 import { buildHistorySettings } from "@/utils/historyTypes";
@@ -27,8 +28,10 @@ export function HistoryView() {
   const historyEnabled = useSettingsStore((state) => state.general.historyEnabled);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const requestIdRef = useRef(0);
   const isRevertingRef = useRef(false);
+  const isDeletingRef = useRef(false);
 
   // Fetch snapshots when filePath changes (with cancellation)
   useEffect(() => {
@@ -61,7 +64,27 @@ export function HistoryView() {
     };
 
     fetchSnapshots();
-  }, [filePath, historyEnabled]);
+  }, [filePath, historyEnabled, refreshKey]);
+
+  // Listen for external clear events (menu actions)
+  useEffect(() => {
+    const handler = () => setRefreshKey((k) => k + 1);
+    window.addEventListener("vmark:history-cleared", handler);
+    return () => window.removeEventListener("vmark:history-cleared", handler);
+  }, []);
+
+  const handleDeleteSnapshot = async (snapshot: Snapshot) => {
+    if (!filePath || isDeletingRef.current) return;
+    isDeletingRef.current = true;
+    try {
+      await deleteSnapshot(filePath, snapshot.id);
+      setRefreshKey((k) => k + 1);
+    } catch (error) {
+      console.error("Failed to delete snapshot:", error);
+    } finally {
+      isDeletingRef.current = false;
+    }
+  };
 
   const handleRevert = async (snapshot: Snapshot) => {
     if (!filePath) return;
@@ -156,13 +179,22 @@ export function HistoryView() {
                 </span>
                 <span className="history-type">({snapshot.type})</span>
               </div>
-              <button
-                className="history-revert-btn"
-                onClick={() => handleRevert(snapshot)}
-                title="Revert to this version"
-              >
-                <RotateCcw size={12} />
-              </button>
+              <div className="history-item-actions">
+                <button
+                  className="history-revert-btn"
+                  onClick={() => handleRevert(snapshot)}
+                  title="Revert to this version"
+                >
+                  <RotateCcw size={12} />
+                </button>
+                <button
+                  className="history-delete-btn"
+                  onClick={() => handleDeleteSnapshot(snapshot)}
+                  title="Delete this snapshot"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </div>
           ))}
         </div>

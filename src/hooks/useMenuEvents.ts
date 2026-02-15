@@ -2,8 +2,8 @@
  * Menu Events Hook
  *
  * Purpose: Handles miscellaneous menu events not covered by specialized hooks —
- *   settings, orphan cleanup, history clear, reveal in Finder, open links,
- *   and other utility menu actions.
+ *   settings, orphan cleanup, history clear (all + workspace), reveal in Finder,
+ *   open links, and other utility menu actions.
  *
  * @coordinates-with useFileOperations.ts — file-related menu events
  * @coordinates-with useViewMenuEvents.ts — view-related menu events
@@ -21,7 +21,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { clearAllHistory } from "@/hooks/useHistoryRecovery";
+import { clearAllHistory, clearWorkspaceHistory } from "@/hooks/useHistoryRecovery";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { historyLog } from "@/utils/debug";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { runOrphanCleanup } from "@/utils/orphanAssetCleanup";
@@ -58,7 +59,7 @@ export function useMenuEvents(): void {
       if (cancelled) { unlistenPreferences(); return; }
       unlistenRefs.current.push(unlistenPreferences);
 
-      // Clear History
+      // Clear All History
       const unlistenClearHistory = await currentWindow.listen<string>("menu:clear-history", async (event) => {
         if (event.payload !== windowLabel) return;
 
@@ -74,6 +75,7 @@ export function useMenuEvents(): void {
             try {
               await clearAllHistory();
               historyLog("All history cleared");
+              window.dispatchEvent(new CustomEvent("vmark:history-cleared"));
             } catch (error) {
               console.error("[History] Failed to clear history:", error);
             }
@@ -82,6 +84,32 @@ export function useMenuEvents(): void {
       });
       if (cancelled) { unlistenClearHistory(); return; }
       unlistenRefs.current.push(unlistenClearHistory);
+
+      // Clear Workspace History
+      const unlistenClearWorkspaceHistory = await currentWindow.listen<string>(
+        "menu:clear-workspace-history",
+        async (event) => {
+          if (event.payload !== windowLabel) return;
+
+          await withReentryGuard(windowLabel, "clear-workspace-history", async () => {
+            const { rootPath } = useWorkspaceStore.getState();
+            if (!rootPath) return;
+
+            const workspaceName = rootPath.split("/").pop() || rootPath;
+            const confirmed = await ask(
+              `Delete history for all documents in workspace "${workspaceName}"?\nThis cannot be undone.`,
+              { title: "Clear Workspace History", kind: "warning" }
+            );
+            if (confirmed) {
+              const count = await clearWorkspaceHistory(rootPath);
+              historyLog(`Cleared workspace history: ${count} document(s)`);
+              window.dispatchEvent(new CustomEvent("vmark:history-cleared"));
+            }
+          });
+        }
+      );
+      if (cancelled) { unlistenClearWorkspaceHistory(); return; }
+      unlistenRefs.current.push(unlistenClearWorkspaceHistory);
 
       // Clean up unused images
       const unlistenCleanupImages = await currentWindow.listen<string>("menu:cleanup-images", async (event) => {

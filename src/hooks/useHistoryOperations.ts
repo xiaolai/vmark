@@ -2,7 +2,8 @@
  * History Operations (Hooks Layer)
  *
  * Purpose: Async CRUD for document version history — creating snapshots,
- *   loading past versions, pruning old entries, and managing the index file.
+ *   loading past versions, deleting individual snapshots, pruning old entries,
+ *   and managing the index file.
  *
  * Pipeline: Save triggers → createSnapshot(filePath, content) → file size guard
  *   → merge window check → write to appDataDir/history/{hash}/ → update index.json
@@ -339,6 +340,35 @@ export async function markAsDeleted(documentPath: string): Promise<void> {
   } catch (error) {
     console.error("[History] Failed to mark as deleted:", error);
   }
+}
+
+/**
+ * Delete a single snapshot from a document's history
+ */
+export async function deleteSnapshot(
+  documentPath: string,
+  snapshotId: string
+): Promise<void> {
+  const index = await getHistoryIndex(documentPath);
+  if (!index) return;
+
+  const snapshotIndex = index.snapshots.findIndex((s) => s.id === snapshotId);
+  if (snapshotIndex === -1) return;
+
+  // Delete snapshot file (tolerate missing)
+  try {
+    const historyDir = await getDocHistoryDir(documentPath);
+    const snapshotPath = await join(historyDir, `${snapshotId}.md`);
+    await remove(snapshotPath);
+  } catch {
+    // File may already be missing — continue to update index
+  }
+
+  // Remove from index and save
+  index.snapshots.splice(snapshotIndex, 1);
+  await saveHistoryIndex(documentPath, index);
+
+  historyLog("Deleted snapshot:", snapshotId);
 }
 
 // Export the base dir getter for recovery operations

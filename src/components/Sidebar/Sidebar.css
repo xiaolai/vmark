@@ -391,3 +391,33 @@
   background-color: var(--hover-bg);
   color: var(--text-color);
 }
+
+.history-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.history-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.history-item:hover .history-delete-btn {
+  opacity: 1;
+}
+
+.history-delete-btn:hover {
+  background-color: var(--hover-bg);
+  color: var(--error-color);
+}

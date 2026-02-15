@@ -95,7 +95,8 @@ pub(crate) fn create_menu_with_shortcuts(
         "Document History",
         true,
         &[
-            &MenuItem::with_id(app, "clear-history", "Clear History...", true, None::<&str>)?,
+            &MenuItem::with_id(app, "clear-workspace-history", "Clear Workspace History...", true, None::<&str>)?,
+            &MenuItem::with_id(app, "clear-history", "Clear All History...", true, None::<&str>)?,
         ],
     )?;
 
