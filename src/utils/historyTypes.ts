@@ -10,7 +10,7 @@ import { getFileName } from "./pathUtils";
 // Types
 
 export interface Snapshot {
-  id: string; // Timestamp as string
+  id: string; // Timestamp + random suffix (e.g. "1700000000000-a1b2c3")
   timestamp: number;
   type: "manual" | "auto" | "revert";
   size: number;
@@ -24,10 +24,7 @@ export interface HistoryIndex {
   status: "active" | "deleted" | "orphaned";
   deletedAt: number | null;
   snapshots: Snapshot[];
-  settings: {
-    maxSnapshots: number;
-    maxAgeDays: number;
-  };
+  settings: HistorySettings;
 }
 
 export interface DeletedDocument {
@@ -66,6 +63,31 @@ export function generatePreview(content: string): string {
  */
 export function getDocumentName(documentPath: string): string {
   return getFileName(documentPath) || "Untitled";
+}
+
+/**
+ * Get the UTF-8 byte size of a string
+ */
+export function getByteSize(content: string): number {
+  return new TextEncoder().encode(content).byteLength;
+}
+
+/**
+ * Build HistorySettings from GeneralSettings fields.
+ * Centralizes the mapping to avoid duplication across callers.
+ */
+export function buildHistorySettings(general: {
+  historyMaxSnapshots: number;
+  historyMaxAgeDays: number;
+  historyMergeWindow: number;
+  historyMaxFileSize: number;
+}): HistorySettings {
+  return {
+    maxSnapshots: general.historyMaxSnapshots,
+    maxAgeDays: general.historyMaxAgeDays,
+    mergeWindowSeconds: general.historyMergeWindow,
+    maxFileSizeKB: general.historyMaxFileSize,
+  };
 }
 
 /**

@@ -37,6 +37,7 @@ import {
   HISTORY_FOLDER,
   INDEX_FILE,
   generatePreview,
+  getByteSize,
   getDocumentName,
   hashPath,
 } from "@/utils/historyTypes";
@@ -122,9 +123,9 @@ export async function createSnapshot(
   settings: HistorySettings
 ): Promise<void> {
   try {
-    // File size guard — skip snapshot for oversized files before any I/O
-    if (settings.maxFileSizeKB > 0) {
-      const sizeKB = content.length / 1024;
+    // File size guard — only for auto-saves; manual/revert always create a safety snapshot
+    if (type === "auto" && settings.maxFileSizeKB > 0) {
+      const sizeKB = getByteSize(content) / 1024;
       if (sizeKB > settings.maxFileSizeKB) {
         historyLog(
           "Skipping snapshot — file size",
@@ -137,8 +138,13 @@ export async function createSnapshot(
       }
     }
 
-    const historyDir = await ensureHistoryDir(documentPath);
+    // Compute hash and ensure dir in one pass (avoids double hashPath)
+    const baseDir = await getHistoryBaseDir();
     const hash = await hashPath(documentPath);
+    const historyDir = await join(baseDir, hash);
+    if (!(await exists(historyDir))) {
+      await mkdir(historyDir, { recursive: true });
+    }
 
     // Get or create index
     let index = await getHistoryIndex(documentPath);
@@ -162,25 +168,29 @@ export async function createSnapshot(
       settings.mergeWindowSeconds > 0 &&
       index.snapshots.length > 0
     ) {
+      // Sort to ensure we check the actual newest snapshot (defensive against corruption)
+      index.snapshots.sort((a, b) => a.timestamp - b.timestamp);
       const lastSnapshot = index.snapshots[index.snapshots.length - 1];
       const windowMs = settings.mergeWindowSeconds * 1000;
       if (
         lastSnapshot.type === "auto" &&
-        timestamp - lastSnapshot.timestamp < windowMs
+        timestamp >= lastSnapshot.timestamp &&
+        timestamp - lastSnapshot.timestamp <= windowMs
       ) {
         const oldPath = await join(historyDir, `${lastSnapshot.id}.md`);
         try {
           if (await exists(oldPath)) await remove(oldPath);
+          // Only pop if deletion succeeded — avoid orphaning the index reference
+          index.snapshots.pop();
+          historyLog("Merged with previous auto snapshot:", lastSnapshot.id);
         } catch {
-          /* ignore cleanup errors */
+          historyLog("Merge cleanup failed, keeping both snapshots:", lastSnapshot.id);
         }
-        index.snapshots.pop();
-        historyLog("Merged with previous auto snapshot:", lastSnapshot.id);
       }
     }
 
-    // Create snapshot
-    const snapshotId = timestamp.toString();
+    // Create snapshot with unique ID (timestamp + random suffix for collision safety)
+    const snapshotId = `${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
     const snapshotPath = await join(historyDir, `${snapshotId}.md`);
 
     // Write snapshot content

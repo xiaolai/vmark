@@ -6,6 +6,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { HistorySettings } from "@/utils/historyTypes";
 
+// Predictable hash for DOC_PATH — vi.hoisted ensures availability inside vi.mock factories
+const { HASH, HISTORY_DIR, INDEX_PATH } = vi.hoisted(() => {
+  const HASH = "testhash01";
+  const HISTORY_DIR = `/app-data/history/${HASH}`;
+  const INDEX_PATH = `${HISTORY_DIR}/index.json`;
+  return { HASH, HISTORY_DIR, INDEX_PATH };
+});
+
 // Virtual filesystem — tracks written files so reads return fresh data
 const fileStore = new Map<string, string>();
 
@@ -35,18 +43,29 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   mkdir: (path: string, opts?: unknown) => mockMkdir(path, opts),
   exists: (path: string) => mockExists(path),
   readTextFile: (path: string) => mockReadTextFile(path),
-  writeTextFile: (path: string, content: string) => mockWriteTextFile(path, content),
+  writeTextFile: (path: string, content: string) =>
+    mockWriteTextFile(path, content),
   remove: (path: string) => mockRemove(path),
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
   appDataDir: () => mockAppDataDir(),
-  join: (a: string, b: string) => mockJoin(a, b),
+  join: (...args: string[]) => mockJoin(...args),
 }));
 
 vi.mock("@/utils/debug", () => ({
   historyLog: vi.fn(),
 }));
+
+// Partial mock — only override hashPath, keep all real types/helpers
+vi.mock("@/utils/historyTypes", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/utils/historyTypes")>();
+  return {
+    ...actual,
+    hashPath: vi.fn().mockResolvedValue(HASH),
+  };
+});
 
 import { createSnapshot } from "../useHistoryOperations";
 
@@ -60,7 +79,7 @@ const defaultSettings: HistorySettings = {
 };
 
 /**
- * Helper: seed the virtual filesystem with an existing index
+ * Seed the virtual filesystem with an existing index and snapshot files
  */
 function seedIndex(
   snapshots: Array<{
@@ -72,69 +91,24 @@ function seedIndex(
   }>,
   settings: HistorySettings = defaultSettings
 ) {
-  // The index path constructed by the code (appDataDir + history + hash + index.json)
-  // Since mockJoin concatenates with "/", and hashPath returns a hex hash,
-  // we need to pre-seed all paths that the code will construct.
-  // We seed the index and snapshot files using a known hash path prefix.
   const indexData = JSON.stringify({
     documentPath: DOC_PATH,
     documentName: "test.md",
-    pathHash: "abc123",
+    pathHash: HASH,
     status: "active",
     deletedAt: null,
     snapshots,
     settings,
   });
 
-  // We need to figure out the actual path. Since mockJoin just joins with "/",
-  // and hashPath generates a real SHA-256 hash, we can't predict the exact path.
-  // Instead, let's intercept by storing based on suffix matching.
-
-  // Actually, let's compute it: the code calls:
-  // appDataDir() -> "/app-data"
-  // join("/app-data", "history") -> "/app-data/history"
-  // hashPath(DOC_PATH) -> real hash of DOC_PATH
-  // join("/app-data/history", hash) -> "/app-data/history/<hash>"
-  // join(historyDir, "index.json") -> "/app-data/history/<hash>/index.json"
-
-  // We need to compute the actual hash. Since hashPath uses crypto.subtle,
-  // we can't easily pre-compute it. Let's use a different approach:
-  // override mockReadTextFile to check for index.json suffix.
-
-  // Reset the mocks to use suffix-based matching
-  mockExists.mockImplementation((path: string) => {
-    if (path.endsWith("index.json")) return Promise.resolve(true);
-    if (path.endsWith(".md")) {
-      // Check if any snapshot file exists
-      for (const s of snapshots) {
-        if (path.endsWith(`${s.id}.md`)) return Promise.resolve(true);
-      }
-    }
-    // History dir exists
-    return Promise.resolve(true);
-  });
-
-  // Track writes for index.json to keep reads fresh
-  let currentIndex = indexData;
-  const writtenFiles = new Map<string, string>();
-
-  mockReadTextFile.mockImplementation((path: string) => {
-    // Return latest written version if available
-    if (writtenFiles.has(path)) return Promise.resolve(writtenFiles.get(path)!);
-    if (path.endsWith("index.json")) return Promise.resolve(currentIndex);
-    return Promise.reject(new Error("not found"));
-  });
-
-  mockWriteTextFile.mockImplementation((path: string, content: string) => {
-    writtenFiles.set(path, content);
-    if (path.endsWith("index.json")) currentIndex = content;
-    return Promise.resolve();
-  });
-
-  mockRemove.mockImplementation((path: string) => {
-    writtenFiles.delete(path);
-    return Promise.resolve();
-  });
+  // Seed index file
+  fileStore.set(INDEX_PATH, indexData);
+  // Seed snapshot files
+  for (const s of snapshots) {
+    fileStore.set(`${HISTORY_DIR}/${s.id}.md`, "snapshot content");
+  }
+  // Mark history dir as existing
+  fileStore.set(HISTORY_DIR, "");
 }
 
 /**
@@ -143,10 +117,13 @@ function seedIndex(
 function getLastWrittenIndex(): Record<string, unknown> {
   const indexWrites = mockWriteTextFile.mock.calls.filter(
     (call: unknown[]) =>
-      typeof call[0] === "string" && (call[0] as string).endsWith("index.json")
+      typeof call[0] === "string" &&
+      (call[0] as string).endsWith("index.json")
   );
   expect(indexWrites.length).toBeGreaterThan(0);
-  return JSON.parse(indexWrites[indexWrites.length - 1][1] as string) as Record<string, unknown>;
+  return JSON.parse(
+    indexWrites[indexWrites.length - 1][1] as string
+  ) as Record<string, unknown>;
 }
 
 describe("createSnapshot — merge window", () => {
@@ -166,19 +143,28 @@ describe("createSnapshot — merge window", () => {
 
     const prevTimestamp = now - 10_000; // 10s ago, within 30s window
     seedIndex([
-      { id: String(prevTimestamp), timestamp: prevTimestamp, type: "auto", size: 100, preview: "old" },
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "old",
+      },
     ]);
 
     await createSnapshot(DOC_PATH, "new content", "auto", defaultSettings);
 
     // Should have removed the old snapshot file
     expect(mockRemove).toHaveBeenCalledWith(
-      expect.stringContaining(`${prevTimestamp}.md`)
+      `${HISTORY_DIR}/${prevTimestamp}.md`
     );
 
     // Final index should have only the new snapshot
     const writtenIndex = getLastWrittenIndex();
-    const snapshots = writtenIndex.snapshots as Array<{ type: string; timestamp: number }>;
+    const snapshots = writtenIndex.snapshots as Array<{
+      type: string;
+      timestamp: number;
+    }>;
     expect(snapshots).toHaveLength(1);
     expect(snapshots[0].type).toBe("auto");
     expect(snapshots[0].timestamp).toBe(now);
@@ -190,7 +176,13 @@ describe("createSnapshot — merge window", () => {
 
     const prevTimestamp = now - 5_000;
     seedIndex([
-      { id: String(prevTimestamp), timestamp: prevTimestamp, type: "auto", size: 100, preview: "old" },
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "old",
+      },
     ]);
 
     await createSnapshot(DOC_PATH, "manual save", "manual", defaultSettings);
@@ -207,7 +199,13 @@ describe("createSnapshot — merge window", () => {
 
     const prevTimestamp = now - 5_000;
     seedIndex([
-      { id: String(prevTimestamp), timestamp: prevTimestamp, type: "auto", size: 100, preview: "old" },
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "old",
+      },
     ]);
 
     await createSnapshot(DOC_PATH, "revert save", "revert", defaultSettings);
@@ -224,10 +222,21 @@ describe("createSnapshot — merge window", () => {
 
     const prevTimestamp = now - 5_000;
     seedIndex([
-      { id: String(prevTimestamp), timestamp: prevTimestamp, type: "manual", size: 100, preview: "manual" },
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "manual",
+        size: 100,
+        preview: "manual",
+      },
     ]);
 
-    await createSnapshot(DOC_PATH, "auto after manual", "auto", defaultSettings);
+    await createSnapshot(
+      DOC_PATH,
+      "auto after manual",
+      "auto",
+      defaultSettings
+    );
 
     expect(mockRemove).not.toHaveBeenCalled();
 
@@ -241,7 +250,13 @@ describe("createSnapshot — merge window", () => {
 
     const prevTimestamp = now - 60_000; // 60s ago, outside 30s window
     seedIndex([
-      { id: String(prevTimestamp), timestamp: prevTimestamp, type: "auto", size: 100, preview: "old" },
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "old",
+      },
     ]);
 
     await createSnapshot(DOC_PATH, "new auto", "auto", defaultSettings);
@@ -258,7 +273,13 @@ describe("createSnapshot — merge window", () => {
 
     const prevTimestamp = now - 5_000;
     seedIndex([
-      { id: String(prevTimestamp), timestamp: prevTimestamp, type: "auto", size: 100, preview: "old" },
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "old",
+      },
     ]);
 
     await createSnapshot(DOC_PATH, "new auto", "auto", {
@@ -271,6 +292,83 @@ describe("createSnapshot — merge window", () => {
     const writtenIndex = getLastWrittenIndex();
     expect(writtenIndex.snapshots as unknown[]).toHaveLength(2);
   });
+
+  it("merges at exact boundary (<=)", async () => {
+    const now = 1700000000000;
+    vi.setSystemTime(now);
+
+    // Exactly 30s ago = exactly at the 30s window boundary
+    const prevTimestamp = now - 30_000;
+    seedIndex([
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "old",
+      },
+    ]);
+
+    await createSnapshot(DOC_PATH, "boundary test", "auto", defaultSettings);
+
+    // Should merge — boundary is inclusive (<=)
+    expect(mockRemove).toHaveBeenCalledWith(
+      `${HISTORY_DIR}/${prevTimestamp}.md`
+    );
+
+    const writtenIndex = getLastWrittenIndex();
+    expect(writtenIndex.snapshots as unknown[]).toHaveLength(1);
+  });
+
+  it("skips merge when clock jumps backward (negative delta)", async () => {
+    const now = 1700000000000;
+    vi.setSystemTime(now);
+
+    // Future timestamp — simulates clock jump backward
+    const futureTimestamp = now + 10_000;
+    seedIndex([
+      {
+        id: String(futureTimestamp),
+        timestamp: futureTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "future",
+      },
+    ]);
+
+    await createSnapshot(DOC_PATH, "after clock jump", "auto", defaultSettings);
+
+    // Should NOT merge — timestamp < lastSnapshot.timestamp
+    expect(mockRemove).not.toHaveBeenCalled();
+
+    const writtenIndex = getLastWrittenIndex();
+    expect(writtenIndex.snapshots as unknown[]).toHaveLength(2);
+  });
+
+  it("keeps index entry when merge file deletion fails", async () => {
+    const now = 1700000000000;
+    vi.setSystemTime(now);
+
+    const prevTimestamp = now - 10_000;
+    seedIndex([
+      {
+        id: String(prevTimestamp),
+        timestamp: prevTimestamp,
+        type: "auto",
+        size: 100,
+        preview: "old",
+      },
+    ]);
+
+    // Make remove fail
+    mockRemove.mockRejectedValueOnce(new Error("permission denied"));
+
+    await createSnapshot(DOC_PATH, "new content", "auto", defaultSettings);
+
+    // Should keep both entries (old + new) since deletion failed
+    const writtenIndex = getLastWrittenIndex();
+    expect(writtenIndex.snapshots as unknown[]).toHaveLength(2);
+  });
 });
 
 describe("createSnapshot — file size guard", () => {
@@ -278,20 +376,13 @@ describe("createSnapshot — file size guard", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     fileStore.clear();
-    // Default: no existing files
-    mockExists.mockResolvedValue(false);
-    mockReadTextFile.mockRejectedValue(new Error("not found"));
-    mockWriteTextFile.mockImplementation((path: string, content: string) => {
-      fileStore.set(path, content);
-      return Promise.resolve();
-    });
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("skips snapshot when content exceeds maxFileSizeKB", async () => {
+  it("skips auto-save snapshot when content exceeds maxFileSizeKB", async () => {
     vi.setSystemTime(1700000000000);
 
     // 600KB content (exceeds 512KB limit)
@@ -302,6 +393,38 @@ describe("createSnapshot — file size guard", () => {
     // Should not write anything
     expect(mockWriteTextFile).not.toHaveBeenCalled();
     expect(mockMkdir).not.toHaveBeenCalled();
+  });
+
+  it("allows manual save regardless of file size (bypasses guard)", async () => {
+    vi.setSystemTime(1700000000000);
+
+    const largeContent = "x".repeat(600 * 1024);
+
+    await createSnapshot(DOC_PATH, largeContent, "manual", defaultSettings);
+
+    // Manual saves bypass the guard — snapshot should be created
+    expect(mockWriteTextFile).toHaveBeenCalled();
+    const snapshotWrite = mockWriteTextFile.mock.calls.find(
+      (call: unknown[]) =>
+        typeof call[0] === "string" && (call[0] as string).endsWith(".md")
+    );
+    expect(snapshotWrite).toBeDefined();
+  });
+
+  it("allows revert save regardless of file size (bypasses guard)", async () => {
+    vi.setSystemTime(1700000000000);
+
+    const largeContent = "x".repeat(600 * 1024);
+
+    await createSnapshot(DOC_PATH, largeContent, "revert", defaultSettings);
+
+    // Revert saves bypass the guard — safety snapshot is critical
+    expect(mockWriteTextFile).toHaveBeenCalled();
+    const snapshotWrite = mockWriteTextFile.mock.calls.find(
+      (call: unknown[]) =>
+        typeof call[0] === "string" && (call[0] as string).endsWith(".md")
+    );
+    expect(snapshotWrite).toBeDefined();
   });
 
   it("creates snapshot when content is within limit", async () => {
@@ -340,6 +463,19 @@ describe("createSnapshot — file size guard", () => {
     );
     expect(snapshotWrite).toBeDefined();
   });
+
+  it("uses byte size not character count for CJK content", async () => {
+    vi.setSystemTime(1700000000000);
+
+    // CJK characters are 3 bytes each in UTF-8 but 1 code unit in JS
+    // 200 * 1024 CJK chars = ~200KB by char count but ~600KB by byte size
+    const cjkContent = "\u4e2d".repeat(200 * 1024);
+
+    await createSnapshot(DOC_PATH, cjkContent, "auto", defaultSettings);
+
+    // Should skip — byte size exceeds 512KB even though char count doesn't
+    expect(mockWriteTextFile).not.toHaveBeenCalled();
+  });
 });
 
 describe("createSnapshot — basic behavior", () => {
@@ -347,12 +483,6 @@ describe("createSnapshot — basic behavior", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     fileStore.clear();
-    mockExists.mockResolvedValue(false);
-    mockReadTextFile.mockRejectedValue(new Error("not found"));
-    mockWriteTextFile.mockImplementation((path: string, content: string) => {
-      fileStore.set(path, content);
-      return Promise.resolve();
-    });
   });
 
   afterEach(() => {
@@ -366,16 +496,36 @@ describe("createSnapshot — basic behavior", () => {
 
     expect(mockWriteTextFile).toHaveBeenCalled();
 
-    const indexWrites = mockWriteTextFile.mock.calls.filter(
-      (call: unknown[]) =>
-        typeof call[0] === "string" && (call[0] as string).endsWith("index.json")
-    );
-    expect(indexWrites.length).toBeGreaterThan(0);
-    const writtenIndex = JSON.parse(
-      indexWrites[indexWrites.length - 1][1] as string
-    );
-    expect(writtenIndex.snapshots).toHaveLength(1);
-    expect(writtenIndex.snapshots[0].type).toBe("manual");
-    expect(writtenIndex.snapshots[0].timestamp).toBe(1700000000000);
+    const writtenIndex = getLastWrittenIndex();
+    const snapshots = writtenIndex.snapshots as Array<{
+      timestamp: number;
+      type: string;
+      id: string;
+    }>;
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0].type).toBe("manual");
+    expect(snapshots[0].timestamp).toBe(1700000000000);
+    // ID contains timestamp + random suffix
+    expect(snapshots[0].id).toMatch(/^1700000000000-/);
+  });
+
+  it("generates unique snapshot IDs (collision safety)", async () => {
+    vi.setSystemTime(1700000000000);
+
+    await createSnapshot(DOC_PATH, "First", "manual", defaultSettings);
+
+    const firstIndex = getLastWrittenIndex();
+    const firstSnapshots = firstIndex.snapshots as Array<{ id: string }>;
+    const firstId = firstSnapshots[0].id;
+
+    // Same timestamp, different random suffix
+    await createSnapshot(DOC_PATH, "Second", "manual", defaultSettings);
+
+    const secondIndex = getLastWrittenIndex();
+    const secondSnapshots = secondIndex.snapshots as Array<{ id: string }>;
+    // Two snapshots should have different IDs despite same timestamp
+    expect(secondSnapshots).toHaveLength(2);
+    expect(secondSnapshots[0].id).toBe(firstId); // first unchanged
+    expect(secondSnapshots[1].id).not.toBe(firstId); // second is different
   });
 });

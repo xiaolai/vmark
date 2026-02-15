@@ -26,6 +26,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { createSnapshot } from "@/hooks/useHistoryOperations";
+import { buildHistorySettings } from "@/utils/historyTypes";
 import {
   resolveHardBreakStyle,
   resolveLineEndingOnSave,
@@ -93,12 +94,7 @@ export async function saveToPath(
   const { general } = useSettingsStore.getState();
   if (general.historyEnabled) {
     try {
-      await createSnapshot(path, output, saveType, {
-        maxSnapshots: general.historyMaxSnapshots,
-        maxAgeDays: general.historyMaxAgeDays,
-        mergeWindowSeconds: general.historyMergeWindow,
-        maxFileSizeKB: general.historyMaxFileSize,
-      });
+      await createSnapshot(path, output, saveType, buildHistorySettings(general));
     } catch (historyError) {
       console.warn("[History] Failed to create snapshot:", historyError);
       // Don't fail the save operation if history fails

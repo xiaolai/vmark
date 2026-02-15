@@ -18,6 +18,7 @@ import {
   revertToSnapshot,
   type Snapshot,
 } from "@/hooks/useHistoryOperations";
+import { buildHistorySettings } from "@/utils/historyTypes";
 import { formatSnapshotTime, groupByDay } from "@/utils/dateUtils";
 
 export function HistoryView() {
@@ -86,12 +87,7 @@ export function HistoryView() {
         filePath,
         snapshot.id,
         currentContent,
-        {
-          maxSnapshots: general.historyMaxSnapshots,
-          maxAgeDays: general.historyMaxAgeDays,
-          mergeWindowSeconds: general.historyMergeWindow,
-          maxFileSizeKB: general.historyMaxFileSize,
-        }
+        buildHistorySettings(general)
       );
 
       if (restoredContent !== null) {
