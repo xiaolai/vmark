@@ -19,7 +19,7 @@ Use TodoWrite to track progress through these phases:
 ☐ Generate verification report
 ```
 
-**Note**: The audit report may contain 5 dimensions (mini audit) or 9 dimensions (full audit). Verify only the dimensions that appear in the report — do not assume all 9 are present.
+**Note**: The audit report may contain 6 dimensions (mini audit) or 10 dimensions (full audit). Verify only the dimensions that appear in the report — do not assume all 10 are present.
 
 ## Model & Settings Selection
 
@@ -82,7 +82,7 @@ mcp__codex__codex with:
 
 1. **Extract Issue Checklist by Dimension**:
    Parse all issues organized by whatever dimensions appear in the audit report.
-   Full audits have 9 dimensions; mini audits have 5. Only verify what's present.
+   Full audits have 10 dimensions; mini audits have 6. Only verify what's present.
 
 2. **Verify Each Issue**:
    For each issue from the report:

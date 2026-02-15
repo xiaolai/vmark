@@ -13,7 +13,7 @@ $ARGUMENTS
 
 Runs a complete audit→fix→verify cycle:
 
-1. **Audit** — find issues (full 9-dimension or mini 5-dimension)
+1. **Audit** — find issues (full 10-dimension or mini 6-dimension)
 2. **Fix** — Claude or Codex fixes the issues (your choice)
 3. **Verify** — check that each fix actually resolved the issue
 4. **Repeat** — if issues remain, loop back to fix
@@ -38,8 +38,8 @@ Parse `$ARGUMENTS`:
 | Input | Interpretation |
 |-------|----------------|
 | (empty) | Mini audit on uncommitted changes |
-| `--full` | Full 9-dimension audit on uncommitted changes |
-| `--mini` | Mini 5-dimension audit (explicit, same as default) |
+| `--full` | Full 10-dimension audit on uncommitted changes |
+| `--mini` | Mini 6-dimension audit (explicit, same as default) |
 | `--full path/to/dir` | Full audit on specific path |
 | `path/to/file` | Mini audit on specific file/directory |
 | `commit -N` | Mini audit on last N commits |
@@ -89,10 +89,10 @@ AskUserQuestion:
   question: "Which audit depth?"
   header: "Audit type"
   options:
-    - label: "Mini (5 dimensions) (Recommended)"
-      description: "Logic, duplication, dead code, refactoring debt, shortcuts — fast"
-    - label: "Full (9 dimensions)"
-      description: "Adds security, performance, compliance, dependencies, documentation — thorough"
+    - label: "Mini (6 dimensions) (Recommended)"
+      description: "Logic, duplication, dead code, refactoring debt, shortcuts, code comments — fast"
+    - label: "Full (10 dimensions)"
+      description: "Adds security, performance, compliance, dependencies, documentation, code comments — thorough"
 ```
 
 ### Step 2: Run initial audit
@@ -317,7 +317,7 @@ Parse verification results:
 
 **Date**: {today}
 **Scope**: {what was audited}
-**Audit type**: Full (9-dim) / Mini (5-dim)
+**Audit type**: Full (10-dim) / Mini (6-dim)
 **Fixer**: {Claude / Codex}
 **Model**: {chosen_model} | **Effort**: {chosen_effort} | **Sandbox**: {chosen_sandbox}
 **Thread ID**: `{audit_threadId}` _(use `/codex-continue {audit_threadId}` to iterate further — Codex only)_

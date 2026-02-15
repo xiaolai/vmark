@@ -20,6 +20,7 @@ Use TodoWrite to track progress through these phases:
 ☐ Dimension 3: Dead Code
 ☐ Dimension 4: Refactoring Debt
 ☐ Dimension 5: Shortcuts & Patches
+☐ Dimension 6: Code Comments
 ☐ Generate mini audit report
 ```
 
@@ -53,7 +54,7 @@ Nothing to audit.
 ```
 And STOP.
 
-### Phase 2: Audit All 5 Dimensions
+### Phase 2: Audit All 6 Dimensions
 
 **Availability test** — before the real audit, send a short ping to Codex:
 ```
@@ -110,6 +111,13 @@ mcp__codex__codex with:
     - Quick fixes: patches that don't address root cause
     - Backward-compat shims: code kept 'just in case'
 
+    **Dimension 6: Code Comments**
+    - Missing file headers: .ts/.tsx source files without a Purpose: line in header block
+    - Stale comments: doc comments or inline comments that don't match current code behavior
+    - Misleading docs: function/class documentation that describes different behavior than implementation
+    - Missing function docs: exported functions without any doc comment
+    - Orphaned TODOs: TODO/FIXME/HACK without actionable description
+
     Report each issue as: file:line | dimension | severity(High/Medium/Low) | issue | fix"
 ```
 
@@ -135,7 +143,7 @@ After all audits complete, compile findings:
 
 | File:Line | Dim | Severity | Issue | Fix |
 |-----------|-----|----------|-------|-----|
-| {file}:{line} | {1-5} | High/Med/Low | {description} | {suggestion} |
+| {file}:{line} | {1-6} | High/Med/Low | {description} | {suggestion} |
 
 ## Summary by Dimension
 
@@ -146,6 +154,7 @@ After all audits complete, compile findings:
 | 3. Dead Code | X | X | X |
 | 4. Refactoring Debt | X | X | X |
 | 5. Shortcuts & Patches | X | X | X |
+| 6. Code Comments | X | X | X |
 
 ## Action Items
 
@@ -166,7 +175,7 @@ After all audits complete, compile findings:
 When Codex returns nothing:
 
 1. **Read each changed file** using the Read tool
-2. **Analyze all 5 dimensions** as described above
+2. **Analyze all 6 dimensions** as described above
 3. **Use Grep** to search for common issues:
    ```bash
    # Dimension 3: Dead code markers
@@ -190,7 +199,7 @@ When Codex returns nothing:
 2. Parse arguments: (empty) → git diff HEAD --name-only → [file1.ts, file2.ts]
 3. Create todo list with 7 phases
 4. Mark "Identify changed files" complete
-5. Run Codex for file1.ts covering all 5 dimensions
+5. Run Codex for file1.ts covering all 6 dimensions
 6. If Codex empty → Read file1.ts and analyze manually
 7. Repeat for file2.ts
 8. Mark each dimension complete as findings accumulate
@@ -206,4 +215,5 @@ Use `/codex-audit` instead of `/codex-audit-mini` when:
 - Checking performance-critical paths
 - Auditing documentation or API contracts
 - Running compliance checks
+- Running a deep comment compliance audit (full audit has 10 sub-checks vs mini's 5)
 - Changes span >10 files

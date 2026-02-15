@@ -78,10 +78,10 @@ AskUserQuestion:
   question: "Default audit depth?"
   header: "Audit type"
   options:
-    - label: "Mini (5 dimensions) (Recommended)"
-      description: "Fast — logic, duplication, dead code, refactoring, shortcuts"
-    - label: "Full (9 dimensions)"
-      description: "Thorough — adds security, performance, compliance, deps, docs"
+    - label: "Mini (6 dimensions) (Recommended)"
+      description: "Fast — logic, duplication, dead code, refactoring, shortcuts, code comments"
+    - label: "Full (10 dimensions)"
+      description: "Thorough — adds security, performance, compliance, deps, docs, code comments"
 ```
 
 ```
