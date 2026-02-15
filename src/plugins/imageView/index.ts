@@ -10,7 +10,6 @@
  *   - Security: relative paths are validated against directory traversal attacks
  *   - Click selects the image node, double-click opens the image editing popup
  *   - Context menu triggers the image context menu store
- *   - Image tooltips shown on hover via the imageTooltipStore
  *
  * @coordinates-with security.ts — path validation and URL classification
  * @coordinates-with tiptap.ts — registers this NodeView for the image node type
@@ -28,7 +27,6 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
-import { useImageTooltipStore } from "@/stores/imageTooltipStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "./security";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
@@ -153,9 +151,6 @@ export class ImageNodeView implements NodeView {
   private handleClick = (_e: MouseEvent) => {
     const pos = this.getPos();
     if (pos === undefined) return;
-
-    // Close tooltip if open
-    useImageTooltipStore.getState().hideTooltip();
 
     // Set NodeSelection on this node for visual selection indicator
     try {

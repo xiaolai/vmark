@@ -26,7 +26,6 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
-import { useImageTooltipStore } from "@/stores/imageTooltipStore";
 import { isExternalUrl } from "@/plugins/imageView/security";
 import { resolveMediaSrc } from "@/utils/resolveMediaSrc";
 import {
@@ -87,9 +86,6 @@ export class BlockImageNodeView implements NodeView {
   };
 
   private handleClick = (_e: MouseEvent) => {
-    // Close tooltip if open
-    useImageTooltipStore.getState().hideTooltip();
-
     selectMediaNode(this.editor, this.getPos);
 
     const pos = this.getPos();

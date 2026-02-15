@@ -53,8 +53,6 @@ import { blockAudioExtension } from "@/plugins/blockAudio/tiptap";
 import { youtubeEmbedExtension } from "@/plugins/youtubeEmbed/tiptap";
 import { mediaPopupExtension } from "@/plugins/mediaPopup/tiptap";
 import { mediaHandlerExtension } from "@/plugins/mediaHandler/tiptap";
-import { imagePopupExtension } from "@/plugins/imagePopup/tiptap";
-import { imageTooltipExtension } from "@/plugins/imageTooltip";
 import { imageHandlerExtension } from "@/plugins/imageHandler/tiptap";
 import { codePreviewExtension } from "@/plugins/codePreview/tiptap";
 import { blockMathKeymapExtension } from "@/plugins/codePreview/blockMathKeymap";
@@ -183,9 +181,7 @@ export function createTiptapExtensions(): Extensions {
     typewriterModeExtension,
     imageHandlerExtension,
     mediaHandlerExtension,
-    imagePopupExtension,
     mediaPopupExtension,
-    imageTooltipExtension,
     codePreviewExtension,
     blockMathKeymapExtension,
     listContinuationExtension,

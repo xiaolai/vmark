@@ -12,7 +12,6 @@
  *   - Windows path normalization for convertFileSrc compatibility
  *
  * @coordinates-with codemirror/sourceImagePreview.ts — Source mode cursor tracking
- * @coordinates-with imageTooltip/tiptap.ts — WYSIWYG hover trigger
  * @module plugins/imagePreview/ImagePreviewView
  */
 
