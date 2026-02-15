@@ -19,6 +19,8 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
 
+const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+
 export class YoutubeEmbedNodeView implements NodeView {
   dom: HTMLElement;
   private wrapper: HTMLElement;
@@ -31,7 +33,8 @@ export class YoutubeEmbedNodeView implements NodeView {
     this.getPos = getPos;
     this.editor = editor;
 
-    const videoId = String(node.attrs.videoId ?? "");
+    const rawId = String(node.attrs.videoId ?? "");
+    const videoId = YOUTUBE_ID_RE.test(rawId) ? rawId : "";
 
     this.dom = document.createElement("figure");
     this.dom.className = "youtube-embed";
@@ -75,7 +78,8 @@ export class YoutubeEmbedNodeView implements NodeView {
   update(node: PMNode): boolean {
     if (node.type.name !== "youtube_embed") return false;
 
-    const videoId = String(node.attrs.videoId ?? "");
+    const rawId = String(node.attrs.videoId ?? "");
+    const videoId = YOUTUBE_ID_RE.test(rawId) ? rawId : "";
     const newSrc = `https://www.youtube-nocookie.com/embed/${videoId}`;
     if (this.iframe.src !== newSrc) {
       this.iframe.src = newSrc;

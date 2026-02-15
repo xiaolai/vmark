@@ -9,32 +9,55 @@
  * @module utils/youtubeUrlParser
  */
 
-/**
- * Regex patterns for YouTube URL formats.
- * Each captures the video ID in group 1.
- */
-const YOUTUBE_PATTERNS = [
-  // youtube.com/watch?v=ID or youtube.com/watch?...&v=ID
-  /(?:youtube\.com|youtube-nocookie\.com)\/watch\?(?:.*&)?v=([a-zA-Z0-9_-]{11})/,
-  // youtu.be/ID
-  /youtu\.be\/([a-zA-Z0-9_-]{11})/,
-  // youtube.com/embed/ID or youtube-nocookie.com/embed/ID
-  /(?:youtube\.com|youtube-nocookie\.com)\/embed\/([a-zA-Z0-9_-]{11})/,
-  // youtube.com/v/ID
-  /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
-];
+/** Allowed YouTube hostnames (exact match after stripping www.). */
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "youtube-nocookie.com",
+  "youtu.be",
+]);
 
 /**
  * Parse a YouTube URL and extract the video ID.
  * Returns the 11-character video ID or null if not a valid YouTube URL.
+ *
+ * Uses URL parsing for hostname validation to prevent matching
+ * look-alike domains (e.g. notyoutube.com).
  */
 export function parseYoutubeUrl(url: string): string | null {
   if (!url) return null;
 
-  for (const pattern of YOUTUBE_PATTERNS) {
-    const match = url.match(pattern);
-    if (match?.[1]) return match[1];
+  const trimmed = url.trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
   }
+
+  // Validate scheme
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+
+  // Validate hostname (strip leading www.)
+  const host = parsed.hostname.replace(/^www\./, "");
+  if (!YOUTUBE_HOSTS.has(host)) return null;
+
+  const ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+
+  // youtu.be/VIDEO_ID
+  if (host === "youtu.be") {
+    const id = parsed.pathname.split("/")[1];
+    return id && ID_RE.test(id) ? id : null;
+  }
+
+  // youtube.com/watch?v=VIDEO_ID
+  if (parsed.pathname === "/watch") {
+    const id = parsed.searchParams.get("v");
+    return id && ID_RE.test(id) ? id : null;
+  }
+
+  // youtube.com/embed/VIDEO_ID or youtube.com/v/VIDEO_ID
+  const pathMatch = parsed.pathname.match(/^\/(?:embed|v)\/([a-zA-Z0-9_-]{11})(?:\/|$)/);
+  if (pathMatch?.[1]) return pathMatch[1];
 
   return null;
 }

@@ -71,6 +71,12 @@ describe("sanitizeHtml", () => {
       expect(result).toContain("https://example.com");
     });
 
+    it("allows rel attribute on links (tabnabbing prevention)", () => {
+      const input = '<a href="https://example.com" target="_blank" rel="noopener noreferrer">Link</a>';
+      const result = sanitizeHtml(input);
+      expect(result).toContain('rel="noopener noreferrer"');
+    });
+
     it("allows images with src and alt", () => {
       const input = '<img src="image.png" alt="Image">';
       const result = sanitizeHtml(input);

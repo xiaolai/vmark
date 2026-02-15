@@ -13,6 +13,13 @@
 import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg } from '../server.js';
 import type { BridgeRequest } from '../bridge/types.js';
 
+/** Escape a string for safe use in an HTML attribute value. */
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+
 export function registerMediaTools(server: VMarkMcpServer): void {
   // insert_video tool
   server.registerTool(
@@ -55,9 +62,9 @@ export function registerMediaTools(server: VMarkMcpServer): void {
       const title = getStringArg(args, 'title');
       const poster = getStringArg(args, 'poster');
 
-      const attrs: string[] = [`src="${src}"`, 'controls'];
-      if (title) attrs.push(`title="${title}"`);
-      if (poster) attrs.push(`poster="${poster}"`);
+      const attrs: string[] = [`src="${escapeAttr(src)}"`, 'controls'];
+      if (title) attrs.push(`title="${escapeAttr(title)}"`);
+      if (poster) attrs.push(`poster="${escapeAttr(poster)}"`);
 
       const html = `<video ${attrs.join(' ')}></video>`;
 
@@ -114,8 +121,8 @@ export function registerMediaTools(server: VMarkMcpServer): void {
       const baseRevision = requireStringArg(args, 'baseRevision');
       const title = getStringArg(args, 'title');
 
-      const attrs: string[] = [`src="${src}"`, 'controls'];
-      if (title) attrs.push(`title="${title}"`);
+      const attrs: string[] = [`src="${escapeAttr(src)}"`, 'controls'];
+      if (title) attrs.push(`title="${escapeAttr(title)}"`);
 
       const html = `<audio ${attrs.join(' ')}></audio>`;
 
@@ -166,6 +173,12 @@ export function registerMediaTools(server: VMarkMcpServer): void {
       const windowId = resolveWindowId(args.windowId as string | undefined);
       const videoId = requireStringArg(args, 'videoId');
       const baseRevision = requireStringArg(args, 'baseRevision');
+
+      if (!YOUTUBE_ID_RE.test(videoId)) {
+        return VMarkMcpServer.errorResult(
+          `Invalid YouTube video ID: "${videoId}". Must be exactly 11 alphanumeric characters (plus - and _).`
+        );
+      }
 
       const html = `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" width="560" height="315" frameborder="0" allowfullscreen></iframe>`;
 

@@ -11,8 +11,8 @@
  *     (Mermaid uses HTML inside SVG for text layout)
  *   - Style attribute sanitization uses a property allowlist to block
  *     expression() and javascript: attacks in inline styles
- *   - Video, audio, and source tags are allowed in sanitizeHtml for media support
- *   - Iframe is allowed but restricted to YouTube domains via DOMPurify hook
+ *   - Video, audio, and source tags are allowed in sanitizeMediaHtml (separate function)
+ *   - Iframe is allowed in sanitizeMediaHtml but restricted to YouTube domains via post-pass
  *   - escapeHtml is a simple entity escape for non-HTML text display
  *
  * @coordinates-with mermaid/index.ts — uses sanitizeSvg for Mermaid diagram output
@@ -64,7 +64,7 @@ export function sanitizeHtml(html: string): string {
       "sub",
       "sup",
     ],
-    ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "id", "target"],
+    ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "id", "target", "rel"],
     ALLOW_DATA_ATTR: false,
   });
 }
@@ -168,7 +168,8 @@ export function sanitizeHtmlPreview(html: string, options?: HtmlPreviewOptions):
 
 function filterAllowedStyles(html: string): string {
   if (typeof document === "undefined") {
-    return html;
+    // No DOM available — strip style attrs entirely for safety
+    return html.replace(/\s+style="[^"]*"/gi, "");
   }
 
   const container = document.createElement("div");
@@ -227,8 +228,7 @@ function isSafeStyleValue(value: string): boolean {
  * via a DOMPurify hook that strips non-YouTube iframe src attributes.
  */
 export function sanitizeMediaHtml(html: string): string {
-  // Use a temporary DOMPurify instance with afterSanitizeAttributes hook
-  // to restrict iframe src to YouTube domains
+  // Sanitize with DOMPurify, then post-process to strip non-YouTube iframes
   const result = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "video",
@@ -254,8 +254,8 @@ export function sanitizeMediaHtml(html: string): string {
     ALLOW_DATA_ATTR: false,
   });
 
-  // Post-process: strip iframes with non-YouTube src
-  if (result.includes("<iframe")) {
+  // Post-process: strip iframes with non-YouTube src (case-insensitive check)
+  if (/<iframe\b/i.test(result)) {
     return stripNonYoutubeIframes(result);
   }
   return result;
@@ -264,8 +264,10 @@ export function sanitizeMediaHtml(html: string): string {
 const YOUTUBE_DOMAIN_RE = /^https?:\/\/(www\.)?(youtube\.com|youtube-nocookie\.com)\//;
 
 function stripNonYoutubeIframes(html: string): string {
-  // Parse and check each iframe's src
-  if (typeof document === "undefined") return html;
+  if (typeof document === "undefined") {
+    // No DOM — strip all iframes for safety (can't verify src)
+    return html.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "");
+  }
   const container = document.createElement("div");
   container.innerHTML = html;
   const iframes = container.querySelectorAll("iframe");

@@ -36,12 +36,12 @@ let storeState = {
   setTitle: mockSetTitle,
   setPoster: mockSetPoster,
 };
-const subscribers: Array<(state: typeof storeState) => void> = [];
+const subscribers: Array<(state: typeof storeState, prevState: typeof storeState) => void> = [];
 
 vi.mock("@/stores/mediaPopupStore", () => ({
   useMediaPopupStore: {
     getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribe: (fn: (state: typeof storeState, prevState: typeof storeState) => void) => {
       subscribers.push(fn);
       return () => {
         const idx = subscribers.indexOf(fn);
@@ -196,8 +196,9 @@ function createMockView(editorDom: HTMLElement) {
 }
 
 function emitStateChange(newState: Partial<typeof storeState>) {
+  const prevState = { ...storeState };
   storeState = { ...storeState, ...newState };
-  subscribers.forEach((fn) => fn(storeState));
+  subscribers.forEach((fn) => fn(storeState, prevState));
 }
 
 function resetState() {

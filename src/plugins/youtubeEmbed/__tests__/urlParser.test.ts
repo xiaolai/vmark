@@ -79,6 +79,23 @@ describe("parseYoutubeUrl", () => {
       expect(parseYoutubeUrl("not-a-url")).toBeNull();
     });
 
+    it("rejects look-alike domains (hostname anchoring)", () => {
+      expect(parseYoutubeUrl("https://notyoutube.com/watch?v=dQw4w9WgXcQ")).toBeNull();
+      expect(parseYoutubeUrl("https://fakeyoutu.be/dQw4w9WgXcQ")).toBeNull();
+    });
+
+    it("rejects YouTube in query string (not hostname)", () => {
+      expect(parseYoutubeUrl("https://example.com/?q=youtube.com/watch?v=dQw4w9WgXcQ")).toBeNull();
+    });
+
+    it("trims whitespace from input", () => {
+      expect(parseYoutubeUrl("  https://youtu.be/dQw4w9WgXcQ  ")).toBe("dQw4w9WgXcQ");
+    });
+
+    it("rejects IDs with trailing characters (boundary check)", () => {
+      expect(parseYoutubeUrl("https://youtu.be/dQw4w9WgXcQextra")).toBeNull();
+    });
+
     it("returns null for watch URL without v param", () => {
       expect(parseYoutubeUrl("https://www.youtube.com/watch")).toBeNull();
     });

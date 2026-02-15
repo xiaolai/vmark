@@ -60,7 +60,10 @@ export class BlockAudioNodeView implements NodeView {
     this.dom.appendChild(this.audio);
   }
 
-  private handleClick = (_e: MouseEvent) => {
+  private handleClick = (e: MouseEvent) => {
+    // Don't open popup when clicking native audio controls
+    if (e.target === this.audio) return;
+
     selectMediaNode(this.editor, this.getPos);
 
     const pos = this.getPos();
@@ -83,6 +86,9 @@ export class BlockAudioNodeView implements NodeView {
   };
 
   private updateSrc(src: string): void {
+    // Bump request ID on every call to cancel any pending async resolution
+    const requestId = ++this.resolveRequestId;
+
     clearMediaLoadState(this.dom, AUDIO_LOAD_CONFIG);
 
     if (!src) {
@@ -92,26 +98,33 @@ export class BlockAudioNodeView implements NodeView {
     }
 
     if (isExternalUrl(src)) {
-      this.dom.classList.add("media-loading");
-      this.audio.src = src;
+      this.dom.classList.add(AUDIO_LOAD_CONFIG.loadingClass);
       this.setupLoadHandlers();
+      this.audio.src = src;
+      // Fast-path: media may already be cached
+      if (this.audio.readyState >= 1) {
+        clearMediaLoadState(this.dom, AUDIO_LOAD_CONFIG);
+      }
       return;
     }
 
     this.audio.src = "";
-    this.dom.classList.add("media-loading");
+    this.dom.classList.add(AUDIO_LOAD_CONFIG.loadingClass);
 
-    const requestId = ++this.resolveRequestId;
-
-    resolveMediaSrc(src, "[BlockAudioView]").then((resolvedSrc) => {
-      if (this.destroyed || requestId !== this.resolveRequestId) return;
-      if (!resolvedSrc) {
-        showMediaError(this.dom, this.audio, this.originalSrc, "Failed to resolve path", AUDIO_LOAD_CONFIG);
-        return;
-      }
-      this.audio.src = resolvedSrc;
-      this.setupLoadHandlers();
-    });
+    resolveMediaSrc(src, "[BlockAudioView]")
+      .then((resolvedSrc) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        if (!resolvedSrc) {
+          showMediaError(this.dom, this.audio, this.originalSrc, "Failed to resolve path", AUDIO_LOAD_CONFIG);
+          return;
+        }
+        this.setupLoadHandlers();
+        this.audio.src = resolvedSrc;
+      })
+      .catch((err) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        showMediaError(this.dom, this.audio, this.originalSrc, err instanceof Error ? err.message : "Failed to resolve path", AUDIO_LOAD_CONFIG);
+      });
   }
 
   private setupLoadHandlers(): void {

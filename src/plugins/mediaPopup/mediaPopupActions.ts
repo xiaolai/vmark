@@ -25,7 +25,7 @@ const AUDIO_EXTENSIONS = ["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"];
 
 export async function browseAndReplaceMedia(
   view: EditorView,
-  mediaNodePos: number,
+  _mediaNodePos: number,
   mediaNodeType: MediaNodeType
 ): Promise<boolean> {
   const windowLabel = getWindowLabel();
@@ -57,12 +57,15 @@ export async function browseAndReplaceMedia(
 
       const relativePath = await copyMediaToAssets(sourcePath as string, filePath);
 
-      const node = view.state.doc.nodeAt(mediaNodePos);
+      // Re-read position from store — it may have been updated if the popup
+      // was reopened on a different node during the async file operation
+      const currentPos = useMediaPopupStore.getState().mediaNodePos;
+      const node = view.state.doc.nodeAt(currentPos);
       if (!node || (node.type.name !== "block_video" && node.type.name !== "block_audio")) {
         return false;
       }
 
-      const tr = view.state.tr.setNodeMarkup(mediaNodePos, null, {
+      const tr = view.state.tr.setNodeMarkup(currentPos, null, {
         ...node.attrs,
         src: relativePath,
       });

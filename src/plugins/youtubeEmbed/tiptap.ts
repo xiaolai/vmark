@@ -55,6 +55,21 @@ export const youtubeEmbedExtension = Node.create({
           };
         },
       },
+      {
+        // Handle pasted/parsed YouTube iframes (e.g., from embed code or markdown HTML)
+        tag: "iframe",
+        getAttrs: (dom) => {
+          const el = dom as HTMLIFrameElement;
+          const src = el.getAttribute("src") ?? "";
+          const match = src.match(/youtube(?:-nocookie)?\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+          if (!match) return false; // Not a YouTube iframe — skip
+          return {
+            videoId: match[1],
+            width: parseInt(el.getAttribute("width") ?? "560", 10),
+            height: parseInt(el.getAttribute("height") ?? "315", 10),
+          };
+        },
+      },
     ];
   },
 

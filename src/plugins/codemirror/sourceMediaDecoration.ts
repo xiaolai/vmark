@@ -83,15 +83,23 @@ function findMediaBlocks(doc: { lines: number; line: (n: number) => { text: stri
 
       // Find the closing tag on subsequent lines
       let endLine = i;
+      let foundClose = false;
       while (endLine < doc.lines) {
         endLine++;
         const nextLine = doc.line(endLine);
         if (closeRegex.test(nextLine.text)) {
+          foundClose = true;
           break;
         }
       }
 
-      blocks.push({ type, startLine, endLine });
+      // Only decorate if we found the closing tag (or reached last line with it)
+      if (!foundClose && endLine >= doc.lines) {
+        // No close tag found — treat as single-line open tag only
+        blocks.push({ type, startLine, endLine: startLine });
+      } else {
+        blocks.push({ type, startLine, endLine });
+      }
       i = endLine + 1;
       continue;
     }

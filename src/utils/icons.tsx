@@ -1,11 +1,11 @@
 /**
  * Shared SVG Icons
  *
- * Lucide-style icons (24x24 viewBox, stroke-based) used across
- * both WYSIWYG (Tiptap/ProseMirror) and CodeMirror editors.
+ * Purpose: Centralized Lucide-style icon definitions (24x24 viewBox, stroke-based)
+ * used across both WYSIWYG (Tiptap/ProseMirror) and CodeMirror editors.
+ *
+ * @module utils/icons
  */
-
-import type { ReactNode } from "react";
 
 export const icons = {
   // Text/Block icons
@@ -97,16 +97,3 @@ export const icons = {
   chevronUp: `<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>`,
 };
 
-/**
- * Create a React component from an SVG string.
- * Applies consistent styling for toolbar buttons.
- */
-export function createIcon(svgString: string, size = 16): ReactNode {
-  return (
-    <span
-      className="icon"
-      style={{ width: size, height: size, display: "flex" }}
-      dangerouslySetInnerHTML={{ __html: svgString }}
-    />
-  );
-}

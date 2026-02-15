@@ -69,7 +69,14 @@ export class BlockVideoNodeView implements NodeView {
     this.dom.appendChild(this.video);
   }
 
-  private handleClick = (_e: MouseEvent) => {
+  private handleClick = (e: MouseEvent) => {
+    // Don't open popup when clicking native video controls area
+    if (e.target === this.video) {
+      const rect = this.video.getBoundingClientRect();
+      const controlsHeight = 40;
+      if (e.clientY > rect.bottom - controlsHeight) return;
+    }
+
     selectMediaNode(this.editor, this.getPos);
 
     const pos = this.getPos();
@@ -92,6 +99,9 @@ export class BlockVideoNodeView implements NodeView {
   };
 
   private updateSrc(src: string): void {
+    // Bump request ID on every call to cancel any pending async resolution
+    const requestId = ++this.resolveRequestId;
+
     clearMediaLoadState(this.dom, VIDEO_LOAD_CONFIG);
 
     if (!src) {
@@ -101,26 +111,33 @@ export class BlockVideoNodeView implements NodeView {
     }
 
     if (isExternalUrl(src)) {
-      this.dom.classList.add("media-loading");
-      this.video.src = src;
+      this.dom.classList.add(VIDEO_LOAD_CONFIG.loadingClass);
       this.setupLoadHandlers();
+      this.video.src = src;
+      // Fast-path: media may already be cached
+      if (this.video.readyState >= 1) {
+        clearMediaLoadState(this.dom, VIDEO_LOAD_CONFIG);
+      }
       return;
     }
 
     this.video.src = "";
-    this.dom.classList.add("media-loading");
+    this.dom.classList.add(VIDEO_LOAD_CONFIG.loadingClass);
 
-    const requestId = ++this.resolveRequestId;
-
-    resolveMediaSrc(src, "[BlockVideoView]").then((resolvedSrc) => {
-      if (this.destroyed || requestId !== this.resolveRequestId) return;
-      if (!resolvedSrc) {
-        showMediaError(this.dom, this.video, this.originalSrc, "Failed to resolve path", VIDEO_LOAD_CONFIG);
-        return;
-      }
-      this.video.src = resolvedSrc;
-      this.setupLoadHandlers();
-    });
+    resolveMediaSrc(src, "[BlockVideoView]")
+      .then((resolvedSrc) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        if (!resolvedSrc) {
+          showMediaError(this.dom, this.video, this.originalSrc, "Failed to resolve path", VIDEO_LOAD_CONFIG);
+          return;
+        }
+        this.setupLoadHandlers();
+        this.video.src = resolvedSrc;
+      })
+      .catch((err) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        showMediaError(this.dom, this.video, this.originalSrc, err instanceof Error ? err.message : "Failed to resolve path", VIDEO_LOAD_CONFIG);
+      });
   }
 
   private setupLoadHandlers(): void {
@@ -140,9 +157,7 @@ export class BlockVideoNodeView implements NodeView {
     this.video.title = String(node.attrs.title ?? "");
     this.video.controls = Boolean(node.attrs.controls);
     this.video.preload = (node.attrs.preload ?? "metadata") as "" | "none" | "auto" | "metadata";
-    if (node.attrs.poster) {
-      this.video.poster = String(node.attrs.poster);
-    }
+    this.video.poster = String(node.attrs.poster ?? "");
 
     const newSrc = String(node.attrs.src ?? "");
     if (this.originalSrc !== newSrc) {

@@ -48,11 +48,13 @@ const IMAGE_EXTENSIONS = [
  */
 function extractExtension(path: string): string {
   if (!path) return "";
-  // Strip query params and hash
-  const clean = path.split(/[?#]/)[0];
+  // Strip query params, hash, and trailing slashes
+  const clean = path.split(/[?#]/)[0].replace(/\/+$/, "");
   const lastDot = clean.lastIndexOf(".");
-  if (lastDot === -1) return "";
-  return clean.slice(lastDot).toLowerCase();
+  if (lastDot <= 0) return ""; // -1 = no dot, 0 = hidden file like ".gitignore"
+  // Guard against paths ending with just a dot (e.g., "file.")
+  const ext = clean.slice(lastDot).toLowerCase();
+  return ext.length > 1 ? ext : "";
 }
 
 /**

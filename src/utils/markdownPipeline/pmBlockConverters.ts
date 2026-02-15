@@ -43,6 +43,11 @@ import type { Details, Yaml } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
 import { encodeUrlForMarkdown } from "./pmInlineConverters";
 
+/** Escape a string for safe use in an HTML attribute value. */
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export type PmToMdastNode = Content | ListItem;
 
 export interface PmToMdastContext {
@@ -251,11 +256,11 @@ export function convertBlockVideo(node: PMNode): Html {
   const preload = String(node.attrs.preload ?? "metadata");
 
   const attrs: string[] = [];
-  attrs.push(`src="${src}"`);
-  if (title) attrs.push(`title="${title}"`);
-  if (poster) attrs.push(`poster="${poster}"`);
+  attrs.push(`src="${escapeAttr(src)}"`);
+  if (title) attrs.push(`title="${escapeAttr(title)}"`);
+  if (poster) attrs.push(`poster="${escapeAttr(poster)}"`);
   if (controls) attrs.push("controls");
-  if (preload && preload !== "metadata") attrs.push(`preload="${preload}"`);
+  if (preload && preload !== "metadata") attrs.push(`preload="${escapeAttr(preload)}"`);
 
   return { type: "html", value: `<video ${attrs.join(" ")}></video>` };
 }
@@ -265,9 +270,12 @@ export function convertYoutubeEmbed(node: PMNode): Html {
   const width = Number(node.attrs.width ?? 560);
   const height = Number(node.attrs.height ?? 315);
 
+  // Validate videoId to prevent attribute injection
+  const safeVideoId = /^[a-zA-Z0-9_-]{11}$/.test(videoId) ? videoId : "";
+
   return {
     type: "html",
-    value: `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" width="${width}" height="${height}" frameborder="0" allowfullscreen></iframe>`,
+    value: `<iframe src="https://www.youtube-nocookie.com/embed/${safeVideoId}" width="${width}" height="${height}" frameborder="0" allowfullscreen></iframe>`,
   };
 }
 
@@ -278,10 +286,10 @@ export function convertBlockAudio(node: PMNode): Html {
   const preload = String(node.attrs.preload ?? "metadata");
 
   const attrs: string[] = [];
-  attrs.push(`src="${src}"`);
-  if (title) attrs.push(`title="${title}"`);
+  attrs.push(`src="${escapeAttr(src)}"`);
+  if (title) attrs.push(`title="${escapeAttr(title)}"`);
   if (controls) attrs.push("controls");
-  if (preload && preload !== "metadata") attrs.push(`preload="${preload}"`);
+  if (preload && preload !== "metadata") attrs.push(`preload="${escapeAttr(preload)}"`);
 
   return { type: "html", value: `<audio ${attrs.join(" ")}></audio>` };
 }

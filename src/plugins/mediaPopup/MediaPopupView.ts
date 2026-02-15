@@ -67,16 +67,17 @@ export class MediaPopupView {
     this.titleInput.addEventListener("input", this.handleTitleChange);
     this.posterInput.addEventListener("input", this.handlePosterChange);
 
-    // Subscribe to store changes — only show() on open transition
-    this.unsubscribe = useMediaPopupStore.subscribe((state) => {
+    // Subscribe to store changes — show() on open transition or data change
+    this.unsubscribe = useMediaPopupStore.subscribe((state, prevState) => {
       if (state.isOpen && state.anchorRect) {
         // Cancel any pending close — popup is being (re)opened
         if (this.pendingCloseRaf !== null) {
           cancelAnimationFrame(this.pendingCloseRaf);
           this.pendingCloseRaf = null;
         }
-        // Only call show() when transitioning from closed to open
-        if (!this.wasOpen) {
+        // Show on open transition or when target node changes (click different media)
+        const nodeChanged = this.wasOpen && state.mediaNodePos !== prevState.mediaNodePos;
+        if (!this.wasOpen || nodeChanged) {
           this.show(
             state.mediaSrc,
             state.mediaTitle,

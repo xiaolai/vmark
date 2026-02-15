@@ -23,8 +23,26 @@ export async function handleInsertMedia(
     const baseRevision = args.baseRevision as string;
     const mediaHtml = args.mediaHtml as string;
 
-    if (!mediaHtml) {
-      throw new Error("mediaHtml is required");
+    if (!mediaHtml || typeof mediaHtml !== "string") {
+      throw new Error("mediaHtml is required and must be a string");
+    }
+
+    // Only allow a single expected media tag — reject arbitrary or appended HTML.
+    // Patterns match: opening tag … closing tag, with nothing after the close.
+    const SINGLE_VIDEO = /^<video[\s>][\s\S]*<\/video>\s*$/i;
+    const SINGLE_AUDIO = /^<audio[\s>][\s\S]*<\/audio>\s*$/i;
+    const SINGLE_IFRAME = /^<iframe[\s>][\s\S]*<\/iframe>\s*$/i;
+    // Also allow self-closing iframe (e.g. <iframe ... />)
+    const SELF_CLOSING_IFRAME = /^<iframe\s[^>]*\/>\s*$/i;
+
+    const trimmed = mediaHtml.trim();
+    const isValid =
+      SINGLE_VIDEO.test(trimmed) ||
+      SINGLE_AUDIO.test(trimmed) ||
+      SINGLE_IFRAME.test(trimmed) ||
+      SELF_CLOSING_IFRAME.test(trimmed);
+    if (!isValid) {
+      throw new Error("mediaHtml must be a single <video>, <audio>, or <iframe> tag");
     }
 
     const revisionError = validateBaseRevision(baseRevision);

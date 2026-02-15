@@ -2,7 +2,7 @@
  * Block Image NodeView
  *
  * Purpose: Custom ProseMirror NodeView for block_image nodes — handles async image
- * resolution (relative/absolute/external paths), click-to-select, double-click-to-popup,
+ * resolution (relative/absolute/external paths), click-to-select, click-to-popup,
  * context menu, and tooltip interactions.
  *
  * Pipeline: Markdown image → parser creates block_image node → this NodeView renders
@@ -117,6 +117,9 @@ export class BlockImageNodeView implements NodeView {
   };
 
   private updateSrc(src: string): void {
+    // Bump request ID on every call to cancel any pending async resolution
+    const requestId = ++this.resolveRequestId;
+
     // Reset states
     this.img.style.opacity = "1";
     clearMediaLoadState(this.dom, IMAGE_LOAD_CONFIG);
@@ -134,26 +137,34 @@ export class BlockImageNodeView implements NodeView {
     }
 
     if (isExternalUrl(src)) {
-      this.dom.classList.add("image-loading");
-      this.img.src = src;
+      this.dom.classList.add(IMAGE_LOAD_CONFIG.loadingClass);
       this.setupLoadHandlers();
+      this.img.src = src;
+      // Fast-path: image may already be cached
+      if (this.img.complete && this.img.naturalWidth > 0) {
+        clearMediaLoadState(this.dom, IMAGE_LOAD_CONFIG);
+        this.img.style.opacity = "1";
+      }
       return;
     }
 
     this.img.src = "";
-    this.dom.classList.add("image-loading");
+    this.dom.classList.add(IMAGE_LOAD_CONFIG.loadingClass);
 
-    const requestId = ++this.resolveRequestId;
-
-    resolveMediaSrc(src, "[BlockImageView]").then((resolvedSrc) => {
-      if (this.destroyed || requestId !== this.resolveRequestId) return;
-      if (!resolvedSrc) {
-        this.handleError("Failed to resolve path");
-        return;
-      }
-      this.img.src = resolvedSrc;
-      this.setupLoadHandlers();
-    });
+    resolveMediaSrc(src, "[BlockImageView]")
+      .then((resolvedSrc) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        if (!resolvedSrc) {
+          this.handleError("Failed to resolve path");
+          return;
+        }
+        this.setupLoadHandlers();
+        this.img.src = resolvedSrc;
+      })
+      .catch((err) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        this.handleError(err instanceof Error ? err.message : "Failed to resolve path");
+      });
   }
 
   private setupLoadHandlers(): void {
@@ -168,13 +179,12 @@ export class BlockImageNodeView implements NodeView {
   }
 
   private handleError(message: string): void {
+    // Store original title before showMediaError overwrites it
+    if (!this.img.hasAttribute("data-original-title")) {
+      this.img.setAttribute("data-original-title", this.img.title || "");
+    }
     showMediaError(this.dom, this.img, this.originalSrc, message, IMAGE_LOAD_CONFIG);
     this.img.style.opacity = "0.5";
-    // Store original title before overwriting
-    if (!this.img.hasAttribute("data-original-title") && this.img.title) {
-      this.img.setAttribute("data-original-title", this.img.title);
-    }
-    this.img.title = `${message}: ${this.originalSrc}`;
   }
 
   update(node: PMNode): boolean {
