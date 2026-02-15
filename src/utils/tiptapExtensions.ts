@@ -1,8 +1,8 @@
 /**
  * Tiptap Extensions Configuration
  *
- * Purpose: Assembles the full Tiptap extension stack for VMark's WYSIWYG editor,
- * including StarterKit overrides, custom marks/nodes, and plugin registrations.
+ * Purpose: Assembles the Tiptap extension stack for VMark's WYSIWYG editor —
+ * StarterKit overrides, custom marks/nodes, media extensions, and plugin registrations.
  *
  * Key decisions:
  *   - StarterKit is used as base but with several nodes overridden
@@ -10,6 +10,8 @@
  *   - Extensions are loaded eagerly (not lazy) since WYSIWYG is the default mode
  *   - Link extension configured with openOnClick:false (we have custom popups)
  *   - Custom marks (highlight, underline, sub/superscript) registered here
+ *   - Media extensions (block_video, block_audio, youtube_embed) with NodeViews
+ *   - Media popup and handler extensions for editing and drag-drop
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters

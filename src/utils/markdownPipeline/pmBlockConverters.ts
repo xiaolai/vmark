@@ -1,8 +1,8 @@
 /**
  * ProseMirror Block Node Converters (PM → MDAST)
  *
- * Purpose: Converts block-level ProseMirror nodes to MDAST nodes for serialization.
- * Split from proseMirrorToMdast.ts for the 300-line limit.
+ * Purpose: Converts block-level ProseMirror nodes (including media and embeds)
+ * to MDAST nodes for serialization. Split from proseMirrorToMdast.ts for size.
  *
  * Key decisions:
  *   - Alert blocks are serialized as blockquotes with `[!TYPE]` markers
@@ -11,6 +11,8 @@
  *     from regular code blocks (must match mdastBlockConverters.ts)
  *   - Table cell alignment is extracted from header row attrs
  *   - Block images are wrapped in a paragraph (markdown has no standalone image block)
+ *   - Block video/audio nodes serialize to <video>/<audio> HTML tags
+ *   - YouTube embed nodes serialize to privacy-enhanced <iframe> HTML
  *
  * @coordinates-with mdastBlockConverters.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmInlineConverters.ts — handles inline content within blocks

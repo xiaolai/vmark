@@ -1,8 +1,8 @@
 /**
  * HTML Sanitization Utilities
  *
- * Purpose: Provides secure HTML sanitization using DOMPurify to prevent XSS attacks.
- * Each function is tailored for a specific content type with appropriate allowlists.
+ * Purpose: Secure HTML sanitization via DOMPurify to prevent XSS attacks. Tailored
+ * allowlists per content type — general HTML (including media tags), SVG, KaTeX.
  *
  * Key decisions:
  *   - Separate functions for each content type (general HTML, SVG, KaTeX) because
@@ -11,6 +11,8 @@
  *     (Mermaid uses HTML inside SVG for text layout)
  *   - Style attribute sanitization uses a property allowlist to block
  *     expression() and javascript: attacks in inline styles
+ *   - Video, audio, and source tags are allowed in sanitizeHtml for media support
+ *   - Iframe is allowed but restricted to YouTube domains via DOMPurify hook
  *   - escapeHtml is a simple entity escape for non-HTML text display
  *
  * @coordinates-with mermaid/index.ts — uses sanitizeSvg for Mermaid diagram output

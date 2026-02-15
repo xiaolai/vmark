@@ -694,6 +694,8 @@ export type BridgeRequest =
   // Smart insert command
   | { type: 'smartInsert'; baseRevision: string; destination: SmartInsertDestination; content: string; mode?: OperationMode; windowId?: WindowId }
   // Genie commands
+  // Media insert command
+  | { type: 'insertMedia'; mediaHtml: string; baseRevision: string; windowId?: WindowId }
   | { type: 'genies.list'; windowId?: WindowId }
   | { type: 'genies.read'; path: string; windowId?: WindowId }
   | { type: 'genies.invoke'; geniePath: string; scope: string; windowId?: WindowId };

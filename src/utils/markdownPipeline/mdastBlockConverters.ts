@@ -1,14 +1,17 @@
 /**
  * MDAST Block Node Converters
  *
- * Purpose: Converts block-level MDAST nodes (paragraphs, headings, lists, tables, etc.)
- * to ProseMirror nodes. Split from mdastToProseMirror.ts for the 300-line limit.
+ * Purpose: Converts block-level MDAST nodes (paragraphs, headings, lists, tables,
+ * media HTML, etc.) to ProseMirror nodes. Split from mdastToProseMirror.ts for size.
  *
  * Key decisions:
  *   - Each converter is a pure function taking a context object — no class state
  *   - Alert blocks are detected by parsing blockquote children for `[!TYPE]` markers
  *     (GitHub-flavored markdown alerts), falling back to normal blockquote conversion
- *   - Paragraphs with a single image child are promoted to block_image nodes
+ *   - Paragraphs with a single image child are promoted to block_image nodes;
+ *     video/audio extensions promote to block_video/block_audio instead
+ *   - HTML blocks containing <video>, <audio>, or YouTube <iframe> tags are
+ *     promoted to block_video, block_audio, or youtube_embed nodes
  *   - sourceLine attributes are extracted from MDAST positions for cursor sync
  *   - MATH_BLOCK_LANGUAGE sentinel stores math blocks as codeBlock with a special
  *     language value, since PM schema doesn't have a dedicated math block node

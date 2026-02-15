@@ -1,9 +1,9 @@
 /**
  * WYSIWYG Adapter - Insert Actions
  *
- * Purpose: Handles insertion of block-level and inline content in WYSIWYG mode:
- * images (with smart clipboard detection), math blocks/inline, diagrams,
- * markmaps, and code blocks.
+ * Purpose: Handles insertion of block-level and inline content in WYSIWYG mode —
+ * images (smart clipboard detection), video/audio (file picker + copy-to-assets),
+ * YouTube embeds (clipboard URL), math blocks/inline, diagrams, markmaps, code blocks.
  *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates insert actions here
  * @coordinates-with wysiwygAdapterUtils.ts — uses isViewConnected, getActiveFilePath

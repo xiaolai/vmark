@@ -126,6 +126,19 @@ Comprehensive image support:
 - Hover tooltip with filename, dimensions, and reveal in Finder
 - Click to edit source path and alt text
 
+## Video & Audio
+
+Full media support with HTML5 tags:
+
+- Insert video and audio via toolbar file picker
+- Drag & drop media files into the editor
+- Auto-copy to project `.assets/` folder
+- Click to edit source path, title, and poster (video)
+- YouTube embed support with privacy-enhanced iframes
+- Image syntax fallback: `![](file.mp4)` auto-promotes to video
+- Source mode decoration with type-specific colored borders
+- [Learn more →](/guide/media-support)
+
 ## Special Content
 
 ### Info Boxes

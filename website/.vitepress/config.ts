@@ -45,6 +45,7 @@ export default withMermaid(defineConfig({
             { text: 'Mermaid Diagrams', link: '/guide/mermaid' },
             { text: 'Markmap Mindmaps', link: '/guide/markmap' },
             { text: 'SVG Graphics', link: '/guide/svg' },
+            { text: 'Media (Video/Audio)', link: '/guide/media-support' },
             { text: 'Integrated Terminal', link: '/guide/terminal' },
             { text: 'CJK Formatting', link: '/guide/cjk-formatting' },
           ]

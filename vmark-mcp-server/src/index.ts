@@ -50,6 +50,7 @@ export { registerBatchOpTools } from './tools/batch-ops.js';
 export { registerParagraphTools } from './tools/paragraphs.js';
 export { registerSmartInsertTool } from './tools/smart-insert.js';
 export { registerGenieTools } from './tools/genies.js';
+export { registerMediaTools } from './tools/media.js';
 
 // Resource registrations
 export { registerDocumentResources } from './resources/document.js';
@@ -154,6 +155,7 @@ import { registerBatchOpTools } from './tools/batch-ops.js';
 import { registerParagraphTools } from './tools/paragraphs.js';
 import { registerSmartInsertTool } from './tools/smart-insert.js';
 import { registerGenieTools } from './tools/genies.js';
+import { registerMediaTools } from './tools/media.js';
 import { registerDocumentResources } from './resources/document.js';
 import type { Bridge } from './bridge/types.js';
 
@@ -185,6 +187,7 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   registerParagraphTools(server);
   registerSmartInsertTool(server);
   registerGenieTools(server);
+  registerMediaTools(server);
 
   // Register resources
   registerDocumentResources(server);
