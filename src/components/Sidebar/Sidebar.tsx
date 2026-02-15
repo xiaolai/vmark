@@ -4,10 +4,11 @@
  * Navigation sidebar with Files, Outline, and History views.
  */
 
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2 } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { deleteDocumentHistory } from "@/hooks/useHistoryRecovery";
+import { emitHistoryCleared } from "@/utils/historyTypes";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
@@ -33,21 +34,27 @@ export function Sidebar() {
   const viewMode = useUIStore((state) => state.sidebarViewMode);
   const filePath = useDocumentFilePath();
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
+  const isClearingRef = useRef(false);
   const config = VIEW_CONFIG[viewMode];
   const Icon = config.icon;
   const nextTitle = VIEW_CONFIG[config.next].title;
 
-  const handleClearDocumentHistory = async () => {
-    if (!filePath) return;
-    const confirmed = await ask(
-      "Delete all history for this document? This cannot be undone.",
-      { title: "Clear Document History", kind: "warning" }
-    );
-    if (confirmed) {
-      await deleteDocumentHistory(filePath);
-      window.dispatchEvent(new CustomEvent("vmark:history-cleared"));
+  const handleClearDocumentHistory = useCallback(async () => {
+    if (!filePath || isClearingRef.current) return;
+    isClearingRef.current = true;
+    try {
+      const confirmed = await ask(
+        "Delete all history for this document? This cannot be undone.",
+        { title: "Clear Document History", kind: "warning" }
+      );
+      if (confirmed) {
+        await deleteDocumentHistory(filePath);
+        emitHistoryCleared();
+      }
+    } finally {
+      isClearingRef.current = false;
     }
-  };
+  }, [filePath]);
 
   const handleToggleView = () => {
     const { sidebarViewMode, setSidebarViewMode } = useUIStore.getState();

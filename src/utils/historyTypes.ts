@@ -48,6 +48,12 @@ export interface HistorySettings {
 export const HISTORY_FOLDER = "history";
 export const INDEX_FILE = "index.json";
 export const PREVIEW_LENGTH = 200;
+export const HISTORY_CLEARED_EVENT = "vmark:history-cleared";
+
+/** Dispatch the history-cleared CustomEvent on the current window */
+export function emitHistoryCleared(): void {
+  window.dispatchEvent(new CustomEvent(HISTORY_CLEARED_EVENT));
+}
 
 // Pure helper functions
 

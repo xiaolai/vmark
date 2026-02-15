@@ -24,6 +24,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { clearAllHistory, clearWorkspaceHistory } from "@/hooks/useHistoryRecovery";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { historyLog } from "@/utils/debug";
+import { emitHistoryCleared } from "@/utils/historyTypes";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { runOrphanCleanup } from "@/utils/orphanAssetCleanup";
 import { openSettingsWindow } from "@/utils/settingsWindow";
@@ -75,7 +76,7 @@ export function useMenuEvents(): void {
             try {
               await clearAllHistory();
               historyLog("All history cleared");
-              window.dispatchEvent(new CustomEvent("vmark:history-cleared"));
+              emitHistoryCleared();
             } catch (error) {
               console.error("[History] Failed to clear history:", error);
             }
@@ -95,7 +96,7 @@ export function useMenuEvents(): void {
             const { rootPath } = useWorkspaceStore.getState();
             if (!rootPath) return;
 
-            const workspaceName = rootPath.split("/").pop() || rootPath;
+            const workspaceName = rootPath.split(/[\\/]/).filter(Boolean).pop() || rootPath;
             const confirmed = await ask(
               `Delete history for all documents in workspace "${workspaceName}"?\nThis cannot be undone.`,
               { title: "Clear Workspace History", kind: "warning" }
@@ -103,7 +104,7 @@ export function useMenuEvents(): void {
             if (confirmed) {
               const count = await clearWorkspaceHistory(rootPath);
               historyLog(`Cleared workspace history: ${count} document(s)`);
-              window.dispatchEvent(new CustomEvent("vmark:history-cleared"));
+              emitHistoryCleared();
             }
           });
         }

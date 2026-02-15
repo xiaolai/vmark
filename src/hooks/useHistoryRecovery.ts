@@ -185,6 +185,8 @@ export async function clearWorkspaceHistory(
   workspaceRootPath: string
 ): Promise<number> {
   try {
+    if (!workspaceRootPath.trim()) return 0;
+
     const baseDir = await getHistoryBaseDir();
     if (!(await exists(baseDir))) return 0;
 

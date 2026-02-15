@@ -19,7 +19,7 @@ import {
   deleteSnapshot,
   type Snapshot,
 } from "@/hooks/useHistoryOperations";
-import { buildHistorySettings } from "@/utils/historyTypes";
+import { buildHistorySettings, HISTORY_CLEARED_EVENT } from "@/utils/historyTypes";
 import { formatSnapshotTime, groupByDay } from "@/utils/dateUtils";
 
 export function HistoryView() {
@@ -30,18 +30,17 @@ export function HistoryView() {
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const requestIdRef = useRef(0);
-  const isRevertingRef = useRef(false);
-  const isDeletingRef = useRef(false);
+  const isMutatingRef = useRef(false);
 
   // Fetch snapshots when filePath changes (with cancellation)
   useEffect(() => {
+    // Always increment to cancel any in-flight request
+    const currentRequestId = ++requestIdRef.current;
+
     if (!filePath || !historyEnabled) {
       setSnapshots([]);
       return;
     }
-
-    // Increment request ID to cancel stale requests
-    const currentRequestId = ++requestIdRef.current;
 
     const fetchSnapshots = async () => {
       setLoading(true);
@@ -69,28 +68,26 @@ export function HistoryView() {
   // Listen for external clear events (menu actions)
   useEffect(() => {
     const handler = () => setRefreshKey((k) => k + 1);
-    window.addEventListener("vmark:history-cleared", handler);
-    return () => window.removeEventListener("vmark:history-cleared", handler);
+    window.addEventListener(HISTORY_CLEARED_EVENT, handler);
+    return () => window.removeEventListener(HISTORY_CLEARED_EVENT, handler);
   }, []);
 
   const handleDeleteSnapshot = async (snapshot: Snapshot) => {
-    if (!filePath || isDeletingRef.current) return;
-    isDeletingRef.current = true;
+    if (!filePath || isMutatingRef.current) return;
+    isMutatingRef.current = true;
     try {
       await deleteSnapshot(filePath, snapshot.id);
       setRefreshKey((k) => k + 1);
     } catch (error) {
       console.error("Failed to delete snapshot:", error);
     } finally {
-      isDeletingRef.current = false;
+      isMutatingRef.current = false;
     }
   };
 
   const handleRevert = async (snapshot: Snapshot) => {
-    if (!filePath) return;
-    // Prevent re-entry (duplicate dialogs from rapid clicks)
-    if (isRevertingRef.current) return;
-    isRevertingRef.current = true;
+    if (!filePath || isMutatingRef.current) return;
+    isMutatingRef.current = true;
 
     try {
       const confirmed = await ask(
@@ -125,7 +122,7 @@ export function HistoryView() {
     } catch (error) {
       console.error("Failed to revert:", error);
     } finally {
-      isRevertingRef.current = false;
+      isMutatingRef.current = false;
     }
   };
 
