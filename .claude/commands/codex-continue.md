@@ -13,6 +13,8 @@ $ARGUMENTS
 
 Uses the `codex-reply` MCP tool to continue a previous Codex session. The thread preserves full context from the original command, so you can:
 
+> **Note**: Codex threads are **in-memory only** — they are lost when the MCP server restarts (e.g. after restarting Claude Code or the Codex MCP process). If a thread is no longer available, start a fresh session with the appropriate `/codex-*` command instead.
+
 - Iterate on audit findings: "Now fix the 3 Critical issues you found"
 - Follow up on implementation: "Run the tests and fix any failures"
 - Drill into bug analysis: "Show me the exact call stack for issue #2"
@@ -69,6 +71,18 @@ mcp__codex__codex-reply with:
   threadId: {threadId}
   prompt: "{follow_up_prompt}"
 ```
+
+**If `codex-reply` fails** (thread not found / expired / MCP server restarted):
+
+Tell the user:
+```
+Thread `{threadId}` is no longer available — Codex threads are in-memory only and are lost when the MCP server restarts.
+
+Options:
+- Start a fresh session: /codex-audit, /codex-implement, /codex-bug-analyze, etc.
+- Re-run the original command to create a new thread
+```
+And STOP.
 
 ### Step 3: Display response
 
