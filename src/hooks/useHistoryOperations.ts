@@ -4,14 +4,17 @@
  * Purpose: Async CRUD for document version history — creating snapshots,
  *   loading past versions, pruning old entries, and managing the index file.
  *
- * Pipeline: Save triggers → createSnapshot(filePath, content) → write to
- *   appDataDir/history/{hash}/ → update index.json → prune if over limit
+ * Pipeline: Save triggers → createSnapshot(filePath, content) → file size guard
+ *   → merge window check → write to appDataDir/history/{hash}/ → update index.json
+ *   → prune if over limit
  *
  * Key decisions:
  *   - Lives in hooks/ (not utils/) because it uses Tauri filesystem APIs
  *   - History stored in appDataDir, not alongside documents (portable)
  *   - Index file tracks metadata; actual content in numbered snapshot files
  *   - Pruning respects HistorySettings (max count, max age)
+ *   - Merge window consolidates consecutive auto-saves into one snapshot
+ *   - File size guard skips snapshots for oversized files before any I/O
  *
  * @coordinates-with historyTypes.ts — shared types and constants
  * @coordinates-with useHistoryRecovery.ts — recovery of deleted document history
@@ -119,6 +122,21 @@ export async function createSnapshot(
   settings: HistorySettings
 ): Promise<void> {
   try {
+    // File size guard — skip snapshot for oversized files before any I/O
+    if (settings.maxFileSizeKB > 0) {
+      const sizeKB = content.length / 1024;
+      if (sizeKB > settings.maxFileSizeKB) {
+        historyLog(
+          "Skipping snapshot — file size",
+          Math.round(sizeKB),
+          "KB exceeds limit",
+          settings.maxFileSizeKB,
+          "KB"
+        );
+        return;
+      }
+    }
+
     const historyDir = await ensureHistoryDir(documentPath);
     const hash = await hashPath(documentPath);
 
@@ -136,8 +154,32 @@ export async function createSnapshot(
       };
     }
 
-    // Create snapshot
     const timestamp = Date.now();
+
+    // Merge window — replace last auto snapshot if within window
+    if (
+      type === "auto" &&
+      settings.mergeWindowSeconds > 0 &&
+      index.snapshots.length > 0
+    ) {
+      const lastSnapshot = index.snapshots[index.snapshots.length - 1];
+      const windowMs = settings.mergeWindowSeconds * 1000;
+      if (
+        lastSnapshot.type === "auto" &&
+        timestamp - lastSnapshot.timestamp < windowMs
+      ) {
+        const oldPath = await join(historyDir, `${lastSnapshot.id}.md`);
+        try {
+          if (await exists(oldPath)) await remove(oldPath);
+        } catch {
+          /* ignore cleanup errors */
+        }
+        index.snapshots.pop();
+        historyLog("Merged with previous auto snapshot:", lastSnapshot.id);
+      }
+    }
+
+    // Create snapshot
     const snapshotId = timestamp.toString();
     const snapshotPath = await join(historyDir, `${snapshotId}.md`);
 

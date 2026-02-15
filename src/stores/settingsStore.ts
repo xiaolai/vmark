@@ -277,6 +277,8 @@ export interface GeneralSettings {
   historyEnabled: boolean;
   historyMaxSnapshots: number;
   historyMaxAgeDays: number;
+  historyMergeWindow: number; // seconds, 0 = disabled (consecutive auto-saves within window overwrite)
+  historyMaxFileSize: number; // KB, 0 = unlimited (skip snapshot for files larger than this)
   // Editor
   tabSize: number; // Number of spaces for Tab key (2 or 4)
   lineEndingsOnSave: LineEndingOnSave; // Preserve or normalize line endings
@@ -351,6 +353,8 @@ const initialState: SettingsState = {
     historyEnabled: true,
     historyMaxSnapshots: 50,
     historyMaxAgeDays: 7,
+    historyMergeWindow: 30,
+    historyMaxFileSize: 512,
     tabSize: 2,
     lineEndingsOnSave: "preserve",
     confirmQuit: true,

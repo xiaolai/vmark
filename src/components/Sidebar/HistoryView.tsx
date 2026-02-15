@@ -89,6 +89,8 @@ export function HistoryView() {
         {
           maxSnapshots: general.historyMaxSnapshots,
           maxAgeDays: general.historyMaxAgeDays,
+          mergeWindowSeconds: general.historyMergeWindow,
+          maxFileSizeKB: general.historyMaxFileSize,
         }
       );
 

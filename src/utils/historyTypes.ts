@@ -42,6 +42,8 @@ export interface DeletedDocument {
 export interface HistorySettings {
   maxSnapshots: number;
   maxAgeDays: number;
+  mergeWindowSeconds: number; // Consecutive auto-saves within this window overwrite (0 = disabled)
+  maxFileSizeKB: number; // Skip snapshot for files larger than this (0 = unlimited)
 }
 
 // Constants

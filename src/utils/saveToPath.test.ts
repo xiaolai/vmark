@@ -81,6 +81,8 @@ describe("saveToPath", () => {
         historyEnabled: true,
         historyMaxSnapshots: 5,
         historyMaxAgeDays: 30,
+        historyMergeWindow: 30,
+        historyMaxFileSize: 512,
         lineEndingsOnSave: "preserve",
       },
       markdown: {
@@ -108,6 +110,8 @@ describe("saveToPath", () => {
     expect(createSnapshot).toHaveBeenCalledWith("/tmp/doc.md", "Hello", "manual", {
       maxSnapshots: 5,
       maxAgeDays: 30,
+      mergeWindowSeconds: 30,
+      maxFileSizeKB: 512,
     });
   });
 
@@ -133,6 +137,8 @@ describe("saveToPath", () => {
         historyEnabled: true,
         historyMaxSnapshots: 5,
         historyMaxAgeDays: 30,
+        historyMergeWindow: 30,
+        historyMaxFileSize: 512,
         lineEndingsOnSave: "preserve",
       },
       markdown: {
@@ -157,6 +163,8 @@ describe("saveToPath", () => {
         historyEnabled: false,
         historyMaxSnapshots: 5,
         historyMaxAgeDays: 30,
+        historyMergeWindow: 30,
+        historyMaxFileSize: 512,
         lineEndingsOnSave: "preserve",
       },
       markdown: {

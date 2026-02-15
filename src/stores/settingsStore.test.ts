@@ -79,6 +79,36 @@ describe("settingsStore confirmQuit", () => {
   });
 });
 
+describe("settingsStore history settings", () => {
+  it("defaults historyMergeWindow to 30", () => {
+    expect(useSettingsStore.getState().general.historyMergeWindow).toBe(30);
+  });
+
+  it("defaults historyMaxFileSize to 512", () => {
+    expect(useSettingsStore.getState().general.historyMaxFileSize).toBe(512);
+  });
+
+  it("updates historyMergeWindow", () => {
+    useSettingsStore.getState().updateGeneralSetting("historyMergeWindow", 0);
+    expect(useSettingsStore.getState().general.historyMergeWindow).toBe(0);
+  });
+
+  it("updates historyMaxFileSize", () => {
+    useSettingsStore.getState().updateGeneralSetting("historyMaxFileSize", 1024);
+    expect(useSettingsStore.getState().general.historyMaxFileSize).toBe(1024);
+  });
+
+  it("resets history settings on resetSettings", () => {
+    useSettingsStore.getState().updateGeneralSetting("historyMergeWindow", 120);
+    useSettingsStore.getState().updateGeneralSetting("historyMaxFileSize", 0);
+
+    useSettingsStore.getState().resetSettings();
+
+    expect(useSettingsStore.getState().general.historyMergeWindow).toBe(30);
+    expect(useSettingsStore.getState().general.historyMaxFileSize).toBe(512);
+  });
+});
+
 describe("settingsStore line break defaults", () => {
   it("sets default line ending and hard break style preferences", () => {
     const state = useSettingsStore.getState();

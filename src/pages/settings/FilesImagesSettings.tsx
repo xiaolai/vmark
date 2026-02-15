@@ -135,6 +135,42 @@ export function FilesImagesSettings() {
             disabled={!general.historyEnabled}
           />
         </SettingRow>
+        <SettingRow
+          label="Merge window"
+          description="Consecutive auto-saves within this window consolidate into one snapshot"
+          disabled={!general.historyEnabled}
+        >
+          <Select
+            value={String(general.historyMergeWindow)}
+            options={[
+              { value: "0", label: "Off" },
+              { value: "10", label: "10 seconds" },
+              { value: "30", label: "30 seconds" },
+              { value: "60", label: "1 minute" },
+              { value: "120", label: "2 minutes" },
+            ]}
+            onChange={(v) => updateGeneralSetting("historyMergeWindow", Number(v))}
+            disabled={!general.historyEnabled}
+          />
+        </SettingRow>
+        <SettingRow
+          label="Max file size for history"
+          description="Skip history snapshots for files larger than this"
+          disabled={!general.historyEnabled}
+        >
+          <Select
+            value={String(general.historyMaxFileSize)}
+            options={[
+              { value: "256", label: "256 KB" },
+              { value: "512", label: "512 KB" },
+              { value: "1024", label: "1 MB" },
+              { value: "5120", label: "5 MB" },
+              { value: "0", label: "Unlimited" },
+            ]}
+            onChange={(v) => updateGeneralSetting("historyMaxFileSize", Number(v))}
+            disabled={!general.historyEnabled}
+          />
+        </SettingRow>
       </SettingsGroup>
 
       {/* Images */}

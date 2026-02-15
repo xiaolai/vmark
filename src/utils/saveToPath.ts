@@ -96,6 +96,8 @@ export async function saveToPath(
       await createSnapshot(path, output, saveType, {
         maxSnapshots: general.historyMaxSnapshots,
         maxAgeDays: general.historyMaxAgeDays,
+        mergeWindowSeconds: general.historyMergeWindow,
+        maxFileSizeKB: general.historyMaxFileSize,
       });
     } catch (historyError) {
       console.warn("[History] Failed to create snapshot:", historyError);
