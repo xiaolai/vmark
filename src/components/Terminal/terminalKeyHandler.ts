@@ -22,6 +22,7 @@ import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { isMacPlatform } from "@/utils/shortcutMatch";
 
 export interface KeyHandlerCallbacks {
   onSearch: () => void;
@@ -45,10 +46,19 @@ export function createTerminalKeyHandler(
     const isMod = event.metaKey || event.ctrlKey;
     if (!isMod) return true;
 
+    if (event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "c") {
+      // macOS: Cmd+C handles copy, so Ctrl+C should always pass through for SIGINT.
+      // Windows/Linux: Ctrl+C should copy if there is a selection, otherwise pass through for SIGINT.
+      if (isMacPlatform()) return true;
+      if (!term.hasSelection()) return true;
+    }
+
     switch (event.key.toLowerCase()) {
       case "c": {
         if (term.hasSelection()) {
-          writeText(term.getSelection().trimEnd());
+          writeText(term.getSelection().trimEnd()).catch(() => {
+            // Clipboard may be unavailable (permissions, headless tests). Ignore.
+          });
           term.clearSelection();
           return false;
         }
@@ -60,6 +70,8 @@ export function createTerminalKeyHandler(
           if (text && ptyRef.current) {
             ptyRef.current.write(text);
           }
+        }).catch(() => {
+          // Clipboard may be unavailable (permissions, headless tests). Ignore.
         });
         return false;
       }
@@ -72,6 +84,7 @@ export function createTerminalKeyHandler(
         return false;
       }
       case "1": case "2": case "3": case "4": case "5": {
+        event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
         const { sessions, setActiveSession } = useTerminalSessionStore.getState();
         if (idx < sessions.length) {

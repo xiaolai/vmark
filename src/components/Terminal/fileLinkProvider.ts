@@ -42,9 +42,10 @@ function looksLikeFilePath(path: string): boolean {
 /** Resolve a possibly-relative path against the workspace root. */
 function resolvePath(raw: string): string {
   if (raw.startsWith("/")) return raw;
+  const clean = raw.replace(/^\.\//, '');
   const root = useWorkspaceStore.getState().rootPath;
-  if (root) return `${root}/${raw}`;
-  return raw;
+  if (root) return `${root}/${clean}`;
+  return clean;
 }
 
 /**

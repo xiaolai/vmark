@@ -113,6 +113,32 @@ describe("createTerminalKeyHandler", () => {
     expect(readText).not.toHaveBeenCalled();
   });
 
+  it("on macOS, Ctrl+C passes through for SIGINT even with selection", () => {
+    vi.stubGlobal("navigator", { platform: "MacIntel" });
+    const term = makeTerm({
+      hasSelection: vi.fn(() => true),
+      getSelection: vi.fn(() => "selected text"),
+    });
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const result = handler(makeEvent("c", false, { ctrlKey: true, metaKey: false }));
+    expect(result).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("on Windows/Linux, Ctrl+C copies selection when selection exists", () => {
+    vi.stubGlobal("navigator", { platform: "Win32" });
+    const term = makeTerm({
+      hasSelection: vi.fn(() => true),
+      getSelection: vi.fn(() => "selected text"),
+    });
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const result = handler(makeEvent("c", false, { ctrlKey: true, metaKey: false }));
+    expect(result).toBe(false);
+    expect(writeText).toHaveBeenCalledWith("selected text");
+    vi.unstubAllGlobals();
+  });
+
   it("passes through IME keyCode 229 events", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
