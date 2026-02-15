@@ -12,6 +12,8 @@
  *     video/audio extensions promote to block_video/block_audio instead
  *   - HTML blocks containing <video>, <audio>, or YouTube <iframe> tags are
  *     promoted to block_video, block_audio, or youtube_embed nodes
+ *   - Paragraphs with a single inline-html child (<video>/<audio>) are also
+ *     promoted as a safety net for CommonMark inline-HTML edge cases
  *   - sourceLine attributes are extracted from MDAST positions for cursor sync
  *   - MATH_BLOCK_LANGUAGE sentinel stores math blocks as codeBlock with a special
  *     language value, since PM schema doesn't have a dedicated math block node
@@ -121,6 +123,13 @@ export function convertParagraph(
       }
     }
   }
+  // Safety net: promote single inline-html child containing <video>/<audio>
+  if (node.children.length === 1 && node.children[0]?.type === "html") {
+    const htmlChild = node.children[0] as import("mdast").Html;
+    const promoted = tryPromoteMediaHtml(context, htmlChild.value ?? "", sourceLine);
+    if (promoted) return promoted;
+  }
+
   const children = context.convertChildren(node.children as Content[], marks, "inline");
   return type.create({ sourceLine }, children);
 }

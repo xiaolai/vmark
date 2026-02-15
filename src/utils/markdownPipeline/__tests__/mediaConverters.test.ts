@@ -2,14 +2,17 @@
  * Tests for media (video/audio) markdown pipeline converters.
  *
  * Tests HTML -> block_video/block_audio node promotion, image-syntax auto-promotion
- * based on file extension, and PM -> MDAST serialization round-trips.
+ * based on file extension, PM -> MDAST serialization (image-syntax-first with HTML
+ * fallback), and round-trip integrity through serialize-then-reparse cycles.
  */
 
 import { describe, it, expect } from "vitest";
 import { Schema } from "@tiptap/pm/model";
-import type { Html, Paragraph, Image } from "mdast";
+import type { Html, Paragraph, Image, Root } from "mdast";
 import { convertHtml, convertParagraph, type MdastToPmContext } from "../mdastBlockConverters";
 import { convertBlockVideo, convertBlockAudio } from "../pmBlockConverters";
+import { serializeMdastToMarkdown } from "../serializer";
+import { parseMarkdownToMdast } from "../parser";
 
 /** Minimal schema with paragraph, block_image, block_video, block_audio, html_block */
 function createMediaSchema() {
@@ -271,65 +274,294 @@ describe("media pipeline converters", () => {
     });
   });
 
-  describe("PM → MDAST: convertBlockVideo", () => {
-    it("serializes to <video> HTML block", () => {
+  describe("convertParagraph — inline HTML media promotion (safety net)", () => {
+    it("promotes single <video> html child to block_video", () => {
+      const paragraph: Paragraph = {
+        type: "paragraph",
+        children: [
+          { type: "html", value: '<video src="clip.mp4" controls></video>' } as Html,
+        ],
+      };
+      const result = convertParagraph(context, paragraph, []);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("block_video");
+      expect(result!.attrs.src).toBe("clip.mp4");
+    });
+
+    it("promotes single <audio> html child to block_audio", () => {
+      const paragraph: Paragraph = {
+        type: "paragraph",
+        children: [
+          { type: "html", value: '<audio src="song.mp3" controls></audio>' } as Html,
+        ],
+      };
+      const result = convertParagraph(context, paragraph, []);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("block_audio");
+      expect(result!.attrs.src).toBe("song.mp3");
+    });
+
+    it("does not promote single <div> html child", () => {
+      const paragraph: Paragraph = {
+        type: "paragraph",
+        children: [
+          { type: "html", value: "<div>Hello</div>" } as Html,
+        ],
+      };
+      const result = convertParagraph(context, paragraph, []);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("paragraph");
+    });
+
+    it("does not promote html child mixed with text", () => {
+      const paragraph: Paragraph = {
+        type: "paragraph",
+        children: [
+          { type: "text", value: "Watch: " },
+          { type: "html", value: '<video src="clip.mp4" controls></video>' } as Html,
+        ],
+      };
+      const result = convertParagraph(context, paragraph, []);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("paragraph");
+    });
+  });
+
+  describe("PM → MDAST: convertBlockVideo (image-syntax-first)", () => {
+    it("serializes default attrs to Paragraph { Image } with .mp4 URL", () => {
+      const node = schema.nodes.block_video.create({
+        src: "clip.mp4",
+        controls: true,
+      });
+      const result = convertBlockVideo(node);
+      expect(result.type).toBe("paragraph");
+      const para = result as Paragraph;
+      expect(para.children).toHaveLength(1);
+      expect(para.children[0].type).toBe("image");
+      const img = para.children[0] as Image;
+      expect(img.url).toBe("clip.mp4");
+    });
+
+    it("includes title in Image node", () => {
       const node = schema.nodes.block_video.create({
         src: "clip.mp4",
         title: "My Video",
         controls: true,
       });
       const result = convertBlockVideo(node);
-      expect(result.type).toBe("html");
-      expect(result.value).toContain("<video");
-      expect(result.value).toContain('src="clip.mp4"');
-      expect(result.value).toContain("controls");
-      expect(result.value).toContain('title="My Video"');
-      expect(result.value).toContain("</video>");
+      expect(result.type).toBe("paragraph");
+      const img = (result as Paragraph).children[0] as Image;
+      expect(img.title).toBe("My Video");
     });
 
-    it("includes poster when present", () => {
+    it("falls back to multi-line HTML when poster is set", () => {
       const node = schema.nodes.block_video.create({
         src: "clip.mp4",
         poster: "thumb.jpg",
         controls: true,
       });
       const result = convertBlockVideo(node);
-      expect(result.value).toContain('poster="thumb.jpg"');
+      expect(result.type).toBe("html");
+      const html = result as Html;
+      expect(html.value).toContain('poster="thumb.jpg"');
+      expect(html.value).toContain("\n");
     });
 
-    it("omits controls when false", () => {
+    it("falls back to multi-line HTML when controls is false", () => {
       const node = schema.nodes.block_video.create({
         src: "clip.mp4",
         controls: false,
       });
       const result = convertBlockVideo(node);
-      expect(result.value).not.toContain("controls");
+      expect(result.type).toBe("html");
+      const html = result as Html;
+      expect(html.value).not.toContain("controls");
+      expect(html.value).toContain("\n");
+    });
+
+    it("falls back to multi-line HTML when preload is not metadata", () => {
+      const node = schema.nodes.block_video.create({
+        src: "clip.mp4",
+        controls: true,
+        preload: "auto",
+      });
+      const result = convertBlockVideo(node);
+      expect(result.type).toBe("html");
+      const html = result as Html;
+      expect(html.value).toContain('preload="auto"');
+      expect(html.value).toContain("\n");
     });
   });
 
-  describe("PM → MDAST: convertBlockAudio", () => {
-    it("serializes to <audio> HTML block", () => {
+  describe("PM → MDAST: convertBlockAudio (image-syntax-first)", () => {
+    it("serializes default attrs to Paragraph { Image } with .mp3 URL", () => {
+      const node = schema.nodes.block_audio.create({
+        src: "song.mp3",
+        controls: true,
+      });
+      const result = convertBlockAudio(node);
+      expect(result.type).toBe("paragraph");
+      const para = result as Paragraph;
+      expect(para.children).toHaveLength(1);
+      expect(para.children[0].type).toBe("image");
+      const img = para.children[0] as Image;
+      expect(img.url).toBe("song.mp3");
+    });
+
+    it("includes title in Image node", () => {
       const node = schema.nodes.block_audio.create({
         src: "song.mp3",
         title: "My Song",
         controls: true,
       });
       const result = convertBlockAudio(node);
-      expect(result.type).toBe("html");
-      expect(result.value).toContain("<audio");
-      expect(result.value).toContain('src="song.mp3"');
-      expect(result.value).toContain("controls");
-      expect(result.value).toContain('title="My Song"');
-      expect(result.value).toContain("</audio>");
+      expect(result.type).toBe("paragraph");
+      const img = (result as Paragraph).children[0] as Image;
+      expect(img.title).toBe("My Song");
     });
 
-    it("omits controls when false", () => {
+    it("falls back to multi-line HTML when controls is false", () => {
       const node = schema.nodes.block_audio.create({
         src: "song.mp3",
         controls: false,
       });
       const result = convertBlockAudio(node);
-      expect(result.value).not.toContain("controls");
+      expect(result.type).toBe("html");
+      const html = result as Html;
+      expect(html.value).not.toContain("controls");
+      expect(html.value).toContain("\n");
+    });
+
+    it("falls back to multi-line HTML when preload is not metadata", () => {
+      const node = schema.nodes.block_audio.create({
+        src: "song.mp3",
+        controls: true,
+        preload: "auto",
+      });
+      const result = convertBlockAudio(node);
+      expect(result.type).toBe("html");
+      const html = result as Html;
+      expect(html.value).toContain('preload="auto"');
+      expect(html.value).toContain("\n");
+    });
+  });
+
+  describe("round-trip: serialize → reparse", () => {
+    it("convertBlockVideo output re-parsed by convertParagraph → block_video", () => {
+      const node = schema.nodes.block_video.create({
+        src: "demo.mp4",
+        title: "Demo",
+        controls: true,
+      });
+      // Serialize: PM → MDAST
+      const mdast = convertBlockVideo(node);
+      expect(mdast.type).toBe("paragraph");
+
+      // Reparse: MDAST → PM (the paragraph contains a single image with .mp4 extension)
+      const reparsed = convertParagraph(context, mdast as Paragraph, []);
+      expect(reparsed).not.toBeNull();
+      expect(reparsed!.type.name).toBe("block_video");
+      expect(reparsed!.attrs.src).toBe("demo.mp4");
+      expect(reparsed!.attrs.title).toBe("Demo");
+    });
+
+    it("convertBlockAudio output re-parsed by convertParagraph → block_audio", () => {
+      const node = schema.nodes.block_audio.create({
+        src: "podcast.mp3",
+        title: "Episode 1",
+        controls: true,
+      });
+      const mdast = convertBlockAudio(node);
+      expect(mdast.type).toBe("paragraph");
+
+      const reparsed = convertParagraph(context, mdast as Paragraph, []);
+      expect(reparsed).not.toBeNull();
+      expect(reparsed!.type.name).toBe("block_audio");
+      expect(reparsed!.attrs.src).toBe("podcast.mp3");
+      expect(reparsed!.attrs.title).toBe("Episode 1");
+    });
+
+    it("convertBlockVideo with poster round-trips via HTML fallback", () => {
+      const node = schema.nodes.block_video.create({
+        src: "clip.mp4",
+        poster: "thumb.jpg",
+        controls: true,
+      });
+      const mdast = convertBlockVideo(node);
+      expect(mdast.type).toBe("html");
+
+      // Multi-line HTML is parsed as block HTML → convertHtml promotes it
+      const reparsed = convertHtml(context, mdast as Html, false);
+      expect(reparsed).not.toBeNull();
+      expect(reparsed!.type.name).toBe("block_video");
+      expect(reparsed!.attrs.poster).toBe("thumb.jpg");
+    });
+  });
+
+  describe("end-to-end: stringify → markdown → reparse MDAST", () => {
+    it("image-syntax video survives full markdown round-trip", () => {
+      const node = schema.nodes.block_video.create({
+        src: "clip.mp4",
+        title: "Demo",
+        controls: true,
+      });
+      const mdast = convertBlockVideo(node);
+      expect(mdast.type).toBe("paragraph");
+
+      // Stringify MDAST → markdown string
+      const root: Root = { type: "root", children: [mdast as Paragraph] };
+      const md = serializeMdastToMarkdown(root);
+      expect(md).toContain("clip.mp4");
+
+      // Reparse markdown string → MDAST
+      const reparsedRoot = parseMarkdownToMdast(md);
+      const para = reparsedRoot.children[0];
+      expect(para?.type).toBe("paragraph");
+      const imgChild = (para as Paragraph).children[0];
+      expect(imgChild?.type).toBe("image");
+      expect((imgChild as Image).url).toBe("clip.mp4");
+    });
+
+    it("HTML-fallback video survives full markdown round-trip", () => {
+      const node = schema.nodes.block_video.create({
+        src: "clip.mp4",
+        poster: "thumb.jpg",
+        controls: true,
+      });
+      const mdast = convertBlockVideo(node);
+      expect(mdast.type).toBe("html");
+
+      const root: Root = { type: "root", children: [mdast as Html] };
+      const md = serializeMdastToMarkdown(root);
+      expect(md).toContain("<video");
+      expect(md).toContain("poster");
+
+      // Reparse: multi-line HTML should parse as block html
+      const reparsedRoot = parseMarkdownToMdast(md);
+      const htmlBlock = reparsedRoot.children[0];
+      expect(htmlBlock?.type).toBe("html");
+      expect((htmlBlock as Html).value).toContain("poster");
+    });
+
+    it("image-syntax audio survives full markdown round-trip", () => {
+      const node = schema.nodes.block_audio.create({
+        src: "song.mp3",
+        title: "Podcast",
+        controls: true,
+      });
+      const mdast = convertBlockAudio(node);
+      expect(mdast.type).toBe("paragraph");
+
+      const root: Root = { type: "root", children: [mdast as Paragraph] };
+      const md = serializeMdastToMarkdown(root);
+      expect(md).toContain("song.mp3");
+
+      const reparsedRoot = parseMarkdownToMdast(md);
+      const para = reparsedRoot.children[0];
+      expect(para?.type).toBe("paragraph");
+      const imgChild = (para as Paragraph).children[0];
+      expect(imgChild?.type).toBe("image");
+      expect((imgChild as Image).url).toBe("song.mp3");
     });
   });
 });

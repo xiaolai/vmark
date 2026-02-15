@@ -11,7 +11,9 @@
  *     from regular code blocks (must match mdastBlockConverters.ts)
  *   - Table cell alignment is extracted from header row attrs
  *   - Block images are wrapped in a paragraph (markdown has no standalone image block)
- *   - Block video/audio nodes serialize to <video>/<audio> HTML tags
+ *   - Block video/audio nodes serialize to image syntax (![](url)) for clean
+ *     round-trips, falling back to multi-line HTML when attributes can't be
+ *     expressed in image syntax (poster, controls=false, non-default preload)
  *   - YouTube embed nodes serialize to privacy-enhanced <iframe> HTML
  *
  * @coordinates-with mdastBlockConverters.ts — reverse direction (MDAST → PM)
@@ -29,6 +31,7 @@ import type {
   Definition,
   Heading,
   Html,
+  Image,
   List,
   ListItem,
   Paragraph,
@@ -248,13 +251,51 @@ export function convertBlockImage(node: PMNode): Paragraph {
   return { type: "paragraph", children: [image] };
 }
 
-export function convertBlockVideo(node: PMNode): Html {
+/**
+ * Build an image-syntax MDAST node for media, or null if attributes
+ * require HTML fallback.  Shared by convertBlockVideo / convertBlockAudio.
+ */
+function tryMediaImageSyntax(
+  src: string,
+  title: string,
+  controls: boolean,
+  preload: string,
+  extraCheck: boolean,
+): Paragraph | null {
+  if (!extraCheck || !controls || preload !== "metadata") return null;
+  const image: Image = {
+    type: "image",
+    url: encodeUrlForMarkdown(src),
+    alt: "",
+    title: title || undefined,
+  };
+  return { type: "paragraph", children: [image] };
+}
+
+/**
+ * Build a multi-line HTML fallback string for media tags.
+ * Multi-line form ensures remark treats it as block HTML (type 7).
+ * Trailing newline prevents the closing tag from swallowing following content.
+ */
+function buildMediaHtmlFallback(
+  tag: "video" | "audio",
+  htmlAttrs: string[],
+): Html {
+  return { type: "html", value: `<${tag} ${htmlAttrs.join(" ")}>\n</${tag}>\n` };
+}
+
+export function convertBlockVideo(node: PMNode): Paragraph | Html {
   const src = String(node.attrs.src ?? "");
   const title = String(node.attrs.title ?? "");
   const poster = String(node.attrs.poster ?? "");
-  const controls = Boolean(node.attrs.controls);
+  const controls = node.attrs.controls !== false;
   const preload = String(node.attrs.preload ?? "metadata");
 
+  // Use image syntax when all attrs are expressible (clean round-trip)
+  const imageResult = tryMediaImageSyntax(src, title, controls, preload, !poster);
+  if (imageResult) return imageResult;
+
+  // Fallback: multi-line HTML (remark treats multi-line as block HTML type 7)
   const attrs: string[] = [];
   attrs.push(`src="${escapeAttr(src)}"`);
   if (title) attrs.push(`title="${escapeAttr(title)}"`);
@@ -262,7 +303,7 @@ export function convertBlockVideo(node: PMNode): Html {
   if (controls) attrs.push("controls");
   if (preload && preload !== "metadata") attrs.push(`preload="${escapeAttr(preload)}"`);
 
-  return { type: "html", value: `<video ${attrs.join(" ")}></video>` };
+  return buildMediaHtmlFallback("video", attrs);
 }
 
 export function convertYoutubeEmbed(node: PMNode): Html {
@@ -279,19 +320,24 @@ export function convertYoutubeEmbed(node: PMNode): Html {
   };
 }
 
-export function convertBlockAudio(node: PMNode): Html {
+export function convertBlockAudio(node: PMNode): Paragraph | Html {
   const src = String(node.attrs.src ?? "");
   const title = String(node.attrs.title ?? "");
-  const controls = Boolean(node.attrs.controls);
+  const controls = node.attrs.controls !== false;
   const preload = String(node.attrs.preload ?? "metadata");
 
+  // Use image syntax when all attrs are expressible (clean round-trip)
+  const imageResult = tryMediaImageSyntax(src, title, controls, preload, true);
+  if (imageResult) return imageResult;
+
+  // Fallback: multi-line HTML
   const attrs: string[] = [];
   attrs.push(`src="${escapeAttr(src)}"`);
   if (title) attrs.push(`title="${escapeAttr(title)}"`);
   if (controls) attrs.push("controls");
   if (preload && preload !== "metadata") attrs.push(`preload="${escapeAttr(preload)}"`);
 
-  return { type: "html", value: `<audio ${attrs.join(" ")}></audio>` };
+  return buildMediaHtmlFallback("audio", attrs);
 }
 
 export function convertFrontmatter(node: PMNode): Yaml {
