@@ -37,6 +37,8 @@ import type { Math } from "mdast-util-math";
 import type { Alert, Details, WikiLink, Yaml } from "./types";
 import * as inlineConverters from "./mdastInlineConverters";
 import { parseInlineMarkdown } from "./inlineParser";
+import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
+import { parseYoutubeUrl } from "@/utils/youtubeUrlParser";
 export type ContentContext = "block" | "inline";
 
 export interface MdastToPmContext {
@@ -74,19 +76,46 @@ export function convertParagraph(
   const type = context.schema.nodes.paragraph;
   if (!type) return null;
   const sourceLine = getSourceLine(node);
-  const blockImageType = context.schema.nodes.block_image;
-  if (blockImageType && node.children.length === 1 && node.children[0]?.type === "image") {
-    const imageNode = inlineConverters.convertImage(
-      context.schema,
-      node.children[0] as import("mdast").Image
-    );
-    if (imageNode) {
-      return blockImageType.create({
-        src: imageNode.attrs.src ?? "",
-        alt: imageNode.attrs.alt ?? "",
-        title: imageNode.attrs.title ?? "",
+
+  // Promote single image child to block_image, block_video, or block_audio based on extension
+  if (node.children.length === 1 && node.children[0]?.type === "image") {
+    const imgChild = node.children[0] as import("mdast").Image;
+    const src = imgChild.url ?? "";
+
+    // Check for video/audio extension first, then fall back to block_image
+    const blockVideoType = context.schema.nodes.block_video;
+    if (blockVideoType && hasVideoExtension(src)) {
+      return blockVideoType.create({
+        src,
+        title: imgChild.title ?? "",
+        controls: true,
+        preload: "metadata",
         sourceLine,
       });
+    }
+
+    const blockAudioType = context.schema.nodes.block_audio;
+    if (blockAudioType && hasAudioExtension(src)) {
+      return blockAudioType.create({
+        src,
+        title: imgChild.title ?? "",
+        controls: true,
+        preload: "metadata",
+        sourceLine,
+      });
+    }
+
+    const blockImageType = context.schema.nodes.block_image;
+    if (blockImageType) {
+      const imageNode = inlineConverters.convertImage(context.schema, imgChild);
+      if (imageNode) {
+        return blockImageType.create({
+          src: imageNode.attrs.src ?? "",
+          alt: imageNode.attrs.alt ?? "",
+          title: imageNode.attrs.title ?? "",
+          sourceLine,
+        });
+      }
     }
   }
   const children = context.convertChildren(node.children as Content[], marks, "inline");
@@ -295,9 +324,97 @@ export function convertHtml(
   node: Html,
   inline: boolean
 ): PMNode | null {
+  const value = node.value ?? "";
+  const sourceLine = getSourceLine(node);
+
+  // In block context, try to promote <video> and <audio> HTML to native nodes
+  if (!inline) {
+    const promoted = tryPromoteMediaHtml(context, value, sourceLine);
+    if (promoted) return promoted;
+  }
+
   const type = inline ? context.schema.nodes.html_inline : context.schema.nodes.html_block;
   if (!type) return null;
-  return type.create({ value: node.value ?? "", sourceLine: getSourceLine(node) });
+  return type.create({ value, sourceLine });
+}
+
+/**
+ * Try to promote HTML containing <video> or <audio> tags to native block nodes.
+ * Returns null if the HTML doesn't match or the schema lacks the node type.
+ */
+function tryPromoteMediaHtml(
+  context: MdastToPmContext,
+  html: string,
+  sourceLine: number | null
+): PMNode | null {
+  const trimmed = html.trim();
+
+  // Detect <video ...>...</video>
+  const videoMatch = trimmed.match(/^<video\b([^>]*)>[\s\S]*<\/video>$/i);
+  if (videoMatch) {
+    const blockVideoType = context.schema.nodes.block_video;
+    if (!blockVideoType) return null;
+    const attrs = parseHtmlAttributes(videoMatch[1]);
+    return blockVideoType.create({
+      src: attrs.src ?? "",
+      title: attrs.title ?? "",
+      poster: attrs.poster ?? "",
+      controls: "controls" in attrs,
+      preload: attrs.preload ?? "metadata",
+      sourceLine,
+    });
+  }
+
+  // Detect <audio ...>...</audio>
+  const audioMatch = trimmed.match(/^<audio\b([^>]*)>[\s\S]*<\/audio>$/i);
+  if (audioMatch) {
+    const blockAudioType = context.schema.nodes.block_audio;
+    if (!blockAudioType) return null;
+    const attrs = parseHtmlAttributes(audioMatch[1]);
+    return blockAudioType.create({
+      src: attrs.src ?? "",
+      title: attrs.title ?? "",
+      controls: "controls" in attrs,
+      preload: attrs.preload ?? "metadata",
+      sourceLine,
+    });
+  }
+
+  // Detect YouTube <iframe ...>...</iframe>
+  const iframeMatch = trimmed.match(/^<iframe\b([^>]*)>[\s\S]*<\/iframe>$/i);
+  if (iframeMatch) {
+    const youtubeEmbedType = context.schema.nodes.youtube_embed;
+    if (!youtubeEmbedType) return null;
+    const attrs = parseHtmlAttributes(iframeMatch[1]);
+    const src = attrs.src ?? "";
+    const videoId = parseYoutubeUrl(src);
+    if (!videoId) return null; // Not a YouTube iframe, let it be html_block
+    return youtubeEmbedType.create({
+      videoId,
+      width: parseInt(attrs.width ?? "560", 10) || 560,
+      height: parseInt(attrs.height ?? "315", 10) || 315,
+      sourceLine,
+    });
+  }
+
+  return null;
+}
+
+/**
+ * Parse HTML attributes from an attribute string.
+ * Handles both quoted (`key="value"`) and boolean (`controls`) attributes.
+ */
+function parseHtmlAttributes(attrString: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  // Match key="value" or key='value' or standalone boolean attributes
+  const re = /([a-zA-Z_-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
+  let match;
+  while ((match = re.exec(attrString)) !== null) {
+    const key = match[1].toLowerCase();
+    const value = match[2] ?? match[3] ?? key; // Boolean attr gets key as value
+    attrs[key] = value;
+  }
+  return attrs;
 }
 
 export function convertFootnoteDefinition(

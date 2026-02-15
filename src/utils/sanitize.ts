@@ -218,6 +218,65 @@ function isSafeStyleValue(value: string): boolean {
 }
 
 /**
+ * Sanitize media HTML content (video, audio, YouTube iframes).
+ * Allows media-specific tags and attributes while preventing XSS.
+ *
+ * YouTube iframes are restricted to youtube.com and youtube-nocookie.com domains
+ * via a DOMPurify hook that strips non-YouTube iframe src attributes.
+ */
+export function sanitizeMediaHtml(html: string): string {
+  // Use a temporary DOMPurify instance with afterSanitizeAttributes hook
+  // to restrict iframe src to YouTube domains
+  const result = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "video",
+      "audio",
+      "source",
+      "iframe",
+    ],
+    ALLOWED_ATTR: [
+      "src",
+      "title",
+      "controls",
+      "preload",
+      "poster",
+      "loop",
+      "muted",
+      "width",
+      "height",
+      "type",
+      "allowfullscreen",
+      "frameborder",
+      "allow",
+    ],
+    ALLOW_DATA_ATTR: false,
+  });
+
+  // Post-process: strip iframes with non-YouTube src
+  if (result.includes("<iframe")) {
+    return stripNonYoutubeIframes(result);
+  }
+  return result;
+}
+
+const YOUTUBE_DOMAIN_RE = /^https?:\/\/(www\.)?(youtube\.com|youtube-nocookie\.com)\//;
+
+function stripNonYoutubeIframes(html: string): string {
+  // Parse and check each iframe's src
+  if (typeof document === "undefined") return html;
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  const iframes = container.querySelectorAll("iframe");
+  for (const iframe of iframes) {
+    const src = iframe.getAttribute("src") ?? "";
+    if (!YOUTUBE_DOMAIN_RE.test(src)) {
+      iframe.remove();
+    }
+  }
+  return container.innerHTML;
+}
+
+/**
  * Sanitize SVG content for safe rendering (e.g., Mermaid diagrams).
  * Allows SVG elements but removes scripts and event handlers.
  * Preserves style attributes and all SVG-specific attributes for proper rendering.

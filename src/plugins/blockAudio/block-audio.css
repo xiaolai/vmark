@@ -1,0 +1,69 @@
+/**
+ * Block Audio Styles
+ *
+ * Styles for block-level audio players (standalone).
+ */
+
+.block-audio {
+  display: block;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
+  text-align: center;
+}
+
+.block-audio audio {
+  width: 100%;
+  max-width: 600px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Selected state */
+.ProseMirror-selectednode.block-audio audio,
+.block-audio.ProseMirror-selectednode audio {
+  border: 1px solid var(--border-color);
+}
+
+/* Media border styles - applied via container class */
+.media-border-always .block-audio audio {
+  border: 1px solid var(--border-color);
+}
+
+.media-border-hover .block-audio audio:hover {
+  border: 1px solid var(--border-color);
+}
+
+/* Loading state */
+.block-audio.media-loading audio {
+  opacity: 0.5;
+  min-width: 200px;
+  min-height: 40px;
+  background: var(--bg-secondary);
+}
+
+/* Error state */
+.block-audio.media-error {
+  position: relative;
+}
+
+.block-audio.media-error audio {
+  opacity: 0.3;
+  min-width: 200px;
+  min-height: 40px;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--error-color);
+}
+
+.block-audio.media-error::before {
+  content: "\26A0";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: var(--error-color);
+  pointer-events: none;
+  z-index: 1;
+}

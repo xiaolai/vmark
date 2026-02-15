@@ -337,6 +337,29 @@ function insertImage(view: EditorView): boolean {
   return true;
 }
 
+function insertVideoTag(view: EditorView): boolean {
+  const template = '<video src="" controls></video>';
+  // Position cursor inside src=""
+  const cursorOffset = 12; // after '<video src="'
+  insertText(view, template, cursorOffset);
+  return true;
+}
+
+function insertAudioTag(view: EditorView): boolean {
+  const template = '<audio src="" controls></audio>';
+  const cursorOffset = 12; // after '<audio src="'
+  insertText(view, template, cursorOffset);
+  return true;
+}
+
+function insertYoutubeEmbed(view: EditorView): boolean {
+  const template = '<iframe src="https://www.youtube-nocookie.com/embed/" width="560" height="315" frameborder="0" allowfullscreen></iframe>';
+  // Position cursor at end of embed URL (after /embed/)
+  const cursorOffset = 50; // after '<iframe src="https://www.youtube-nocookie.com/embed/'
+  insertText(view, template, cursorOffset);
+  return true;
+}
+
 function insertFootnote(view: EditorView): boolean {
   return applyInlineFormat(view, "footnote");
 }
@@ -464,6 +487,12 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
     // Simple insertions
     case "insertImage":
       return insertImage(view);
+    case "insertVideo":
+      return insertVideoTag(view);
+    case "insertAudio":
+      return insertAudioTag(view);
+    case "insertYoutube":
+      return insertYoutubeEmbed(view);
     case "insertFootnote":
       return insertFootnote(view);
     case "insertCodeBlock":

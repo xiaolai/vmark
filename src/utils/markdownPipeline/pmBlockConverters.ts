@@ -241,6 +241,49 @@ export function convertBlockImage(node: PMNode): Paragraph {
   return { type: "paragraph", children: [image] };
 }
 
+export function convertBlockVideo(node: PMNode): Html {
+  const src = String(node.attrs.src ?? "");
+  const title = String(node.attrs.title ?? "");
+  const poster = String(node.attrs.poster ?? "");
+  const controls = Boolean(node.attrs.controls);
+  const preload = String(node.attrs.preload ?? "metadata");
+
+  const attrs: string[] = [];
+  attrs.push(`src="${src}"`);
+  if (title) attrs.push(`title="${title}"`);
+  if (poster) attrs.push(`poster="${poster}"`);
+  if (controls) attrs.push("controls");
+  if (preload && preload !== "metadata") attrs.push(`preload="${preload}"`);
+
+  return { type: "html", value: `<video ${attrs.join(" ")}></video>` };
+}
+
+export function convertYoutubeEmbed(node: PMNode): Html {
+  const videoId = String(node.attrs.videoId ?? "");
+  const width = Number(node.attrs.width ?? 560);
+  const height = Number(node.attrs.height ?? 315);
+
+  return {
+    type: "html",
+    value: `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" width="${width}" height="${height}" frameborder="0" allowfullscreen></iframe>`,
+  };
+}
+
+export function convertBlockAudio(node: PMNode): Html {
+  const src = String(node.attrs.src ?? "");
+  const title = String(node.attrs.title ?? "");
+  const controls = Boolean(node.attrs.controls);
+  const preload = String(node.attrs.preload ?? "metadata");
+
+  const attrs: string[] = [];
+  attrs.push(`src="${src}"`);
+  if (title) attrs.push(`title="${title}"`);
+  if (controls) attrs.push("controls");
+  if (preload && preload !== "metadata") attrs.push(`preload="${preload}"`);
+
+  return { type: "html", value: `<audio ${attrs.join(" ")}></audio>` };
+}
+
 export function convertFrontmatter(node: PMNode): Yaml {
   return { type: "yaml", value: String(node.attrs.value ?? "") };
 }

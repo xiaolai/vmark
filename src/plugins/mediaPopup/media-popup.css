@@ -1,0 +1,19 @@
+/**
+ * Media Popup Styles
+ *
+ * Minimal overrides — uses shared popup styles from popup-shared.css.
+ */
+
+.media-popup {
+  min-width: 300px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.media-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

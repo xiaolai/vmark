@@ -33,6 +33,9 @@ import * as inlineConverters from "./pmInlineConverters";
 import {
   convertAlertBlock,
   convertBlockImage,
+  convertBlockVideo,
+  convertBlockAudio,
+  convertYoutubeEmbed,
   convertBlockquote,
   convertCodeBlock,
   convertDefinition,
@@ -137,6 +140,12 @@ class PMToMdastConverter {
         return convertTable(this.context, node);
       case "block_image":
         return convertBlockImage(node);
+      case "block_video":
+        return convertBlockVideo(node);
+      case "block_audio":
+        return convertBlockAudio(node);
+      case "youtube_embed":
+        return convertYoutubeEmbed(node);
       case "frontmatter":
         return convertFrontmatter(node);
       case "link_definition":

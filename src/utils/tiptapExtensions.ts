@@ -46,6 +46,11 @@ import { focusModeExtension } from "@/plugins/focusMode/tiptap";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
+import { blockVideoExtension } from "@/plugins/blockVideo/tiptap";
+import { blockAudioExtension } from "@/plugins/blockAudio/tiptap";
+import { youtubeEmbedExtension } from "@/plugins/youtubeEmbed/tiptap";
+import { mediaPopupExtension } from "@/plugins/mediaPopup/tiptap";
+import { mediaHandlerExtension } from "@/plugins/mediaHandler/tiptap";
 import { imagePopupExtension } from "@/plugins/imagePopup/tiptap";
 import { imageTooltipExtension } from "@/plugins/imageTooltip";
 import { imageHandlerExtension } from "@/plugins/imageHandler/tiptap";
@@ -157,6 +162,9 @@ export function createTiptapExtensions(): Extensions {
     blockEscapeExtension,
     compositionGuardExtension,
     blockImageExtension,
+    blockVideoExtension,
+    blockAudioExtension,
+    youtubeEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,
     footnotePopupExtension,
@@ -172,7 +180,9 @@ export function createTiptapExtensions(): Extensions {
     focusModeExtension,
     typewriterModeExtension,
     imageHandlerExtension,
+    mediaHandlerExtension,
     imagePopupExtension,
+    mediaPopupExtension,
     imageTooltipExtension,
     codePreviewExtension,
     blockMathKeymapExtension,

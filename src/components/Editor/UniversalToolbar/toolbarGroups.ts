@@ -160,6 +160,9 @@ const INSERT_GROUP: ToolbarGroup = {
   icon: icons.insert,
   items: [
     { id: "insert-image", icon: icons.image, label: "Image", shortcut: "⇧⌘I", action: "insertImage", enabledIn: ["textblock"] },
+    { id: "insert-video", icon: icons.video, label: "Video", action: "insertVideo", enabledIn: ["textblock"] },
+    { id: "insert-audio", icon: icons.audio, label: "Audio", action: "insertAudio", enabledIn: ["textblock"] },
+    { id: "insert-youtube", icon: icons.youtube, label: "YouTube", action: "insertYoutube", enabledIn: ["textblock"] },
     { id: "insert-code-block", icon: icons.codeBlock, label: "Code Block", shortcut: "⌥⌘C", action: "insertCodeBlock", enabledIn: ["textblock"] },
     { id: "insert-diagram", icon: icons.diagram, label: "Diagram", shortcut: "⇧⌥⌘D", action: "insertDiagram", enabledIn: ["textblock"] },
     { id: "insert-mindmap", icon: icons.diagram, label: "Mindmap", shortcut: "⇧⌥⌘K", action: "insertMarkmap", enabledIn: ["textblock"] },
