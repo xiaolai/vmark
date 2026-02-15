@@ -177,14 +177,15 @@ export class BlockVideoNodeView implements NodeView {
   }
 
   stopEvent(event: Event): boolean {
-    // Allow native video controls to work
+    // Stop ProseMirror from handling events in the native video controls area
+    // (bottom ~40px). Without this, PM's mousedown captures drag state, causing
+    // the scrubber/volume to "stick" and follow the cursor after mouse release.
     if (event.target === this.video && (event.type === "mousedown" || event.type === "click")) {
-      // Check if click is within the video controls area (bottom of the video)
       const mouseEvent = event as MouseEvent;
       const rect = this.video.getBoundingClientRect();
       const controlsHeight = 40;
       if (mouseEvent.clientY > rect.bottom - controlsHeight) {
-        return false;
+        return true;
       }
     }
     if (event.type === "mousedown" || event.type === "click") {

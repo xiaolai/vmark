@@ -163,9 +163,12 @@ export class BlockAudioNodeView implements NodeView {
   }
 
   stopEvent(event: Event): boolean {
-    // Allow native audio controls to work
-    if (event.target === this.audio && (event.type === "mousedown" || event.type === "click")) {
-      return false;
+    // Stop ProseMirror from handling events on the <audio> element so native
+    // controls (scrubber, volume, play/pause) work correctly. Without this,
+    // PM's mousedown handler captures drag state, causing the scrubber to
+    // "stick" and follow the cursor even after mouse release.
+    if (event.target === this.audio) {
+      return true;
     }
     if (event.type === "mousedown" || event.type === "click") {
       const target = event.target as HTMLElement;
