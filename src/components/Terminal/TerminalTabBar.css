@@ -94,3 +94,22 @@
   width: var(--tab-icon-size);
   height: var(--tab-icon-size);
 }
+
+/* Focus indicators (accessibility) */
+.terminal-tab:focus-visible,
+.terminal-tab-bar-btn:focus-visible {
+  outline: none;
+  position: relative;
+}
+
+.terminal-tab:focus-visible::after,
+.terminal-tab-bar-btn:focus-visible::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 3px;
+  right: 3px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}

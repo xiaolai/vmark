@@ -47,7 +47,7 @@ describe("createFileLinkProvider", () => {
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
         expect(links).toHaveLength(1);
-        expect(links![0].text).toBe("/workspace/./src/main.ts");
+        expect(links![0].text).toBe("/workspace/src/main.ts");
         resolve();
       });
     });

@@ -19,7 +19,7 @@
   background: transparent;
   color: var(--text-color);
   outline: none;
-  font-size: var(--editor-font-size-mono, 12px);
+  font-size: 12px;
   font-family: var(--font-sans);
   padding: 2px var(--spacing-1);
 }
@@ -51,4 +51,26 @@
 .terminal-search-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Focus indicators (accessibility) */
+.terminal-search-btn:focus-visible {
+  outline: none;
+  position: relative;
+}
+
+.terminal-search-btn:focus-visible::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 3px;
+  right: 3px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+/* Dark theme shadow */
+.dark-theme .terminal-search-bar {
+  box-shadow: var(--popup-shadow-dark);
 }

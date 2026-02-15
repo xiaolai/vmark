@@ -29,7 +29,7 @@ interface TerminalTabBarProps {
 /** Extract display number from "Terminal N" labels, or first char for custom names. */
 function getTabDisplay(label: string): string {
   const m = label.match(/^Terminal (\d+)$/);
-  return m ? m[1] : label.charAt(0).toUpperCase();
+  return m ? m[1] : (label.charAt(0).toUpperCase() || "?");
 }
 
 export function TerminalTabBar({ onClose, onRestart }: TerminalTabBarProps) {

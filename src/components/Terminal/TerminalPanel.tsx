@@ -58,6 +58,8 @@ export function TerminalPanel() {
     setSearchVisible((v) => !v);
   }, []);
 
+  const activeSessionId = useTerminalSessionStore((s) => s.activeSessionId);
+
   const { fit, getActiveTerminal, getActiveSearchAddon, restartActiveSession } =
     useTerminalSessions(activated ? containerRef : NULL_REF, { onSearch });
 
@@ -131,6 +133,7 @@ export function TerminalPanel() {
           />
           {searchVisible && (
             <TerminalSearchBar
+              key={activeSessionId}
               getSearchAddon={getActiveSearchAddon}
               onClose={() => setSearchVisible(false)}
             />

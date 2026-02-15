@@ -113,6 +113,18 @@ describe("createTerminalKeyHandler", () => {
     expect(readText).not.toHaveBeenCalled();
   });
 
+  it("Ctrl+C always passes through for SIGINT even with selection", () => {
+    const term = makeTerm({
+      hasSelection: vi.fn(() => true),
+      getSelection: vi.fn(() => "selected text"),
+    });
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    // Ctrl+C (not Cmd) should pass through for SIGINT regardless of selection
+    const result = handler(makeEvent("c", false, { ctrlKey: true, metaKey: false }));
+    expect(result).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
   it("passes through IME keyCode 229 events", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);

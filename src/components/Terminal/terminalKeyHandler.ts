@@ -45,10 +45,15 @@ export function createTerminalKeyHandler(
     const isMod = event.metaKey || event.ctrlKey;
     if (!isMod) return true;
 
+    // Ctrl+C (not Cmd+C) always passes through for SIGINT, even with selection
+    if (event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "c") {
+      return true;
+    }
+
     switch (event.key.toLowerCase()) {
       case "c": {
         if (term.hasSelection()) {
-          writeText(term.getSelection().trimEnd());
+          writeText(term.getSelection().trimEnd()).catch(() => {});
           term.clearSelection();
           return false;
         }
@@ -60,7 +65,7 @@ export function createTerminalKeyHandler(
           if (text && ptyRef.current) {
             ptyRef.current.write(text);
           }
-        });
+        }).catch(() => {});
         return false;
       }
       case "k": {
@@ -72,6 +77,7 @@ export function createTerminalKeyHandler(
         return false;
       }
       case "1": case "2": case "3": case "4": case "5": {
+        event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
         const { sessions, setActiveSession } = useTerminalSessionStore.getState();
         if (idx < sessions.length) {

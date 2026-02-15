@@ -16,7 +16,7 @@
  * @coordinates-with TerminalPanel.tsx — rendered when right-click occurs in terminal area
  * @module components/Terminal/TerminalContextMenu
  */
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Copy, ClipboardPaste, Square, Trash2 } from "lucide-react";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
@@ -74,8 +74,8 @@ export function TerminalContextMenu({
     };
   }, [onClose]);
 
-  // Adjust position to keep in viewport
-  useEffect(() => {
+  // Adjust position to keep in viewport (useLayoutEffect to avoid flicker)
+  useLayoutEffect(() => {
     if (!menuRef.current) return;
     const menu = menuRef.current;
     const rect = menu.getBoundingClientRect();

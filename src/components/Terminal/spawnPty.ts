@@ -52,6 +52,7 @@ export function resolveTerminalCwd(): string | undefined {
 
 export interface SpawnOptions {
   term: Terminal;
+  cwd?: string;
   onExit: (exitCode: number) => void;
   disposed: () => boolean;
 }
@@ -61,15 +62,14 @@ export interface SpawnOptions {
  * Reads shell from Tauri backend, resolves cwd, wires data streams.
  */
 export async function spawnPty(options: SpawnOptions): Promise<IPty> {
-  const { term, onExit, disposed } = options;
+  const { term, cwd, onExit, disposed } = options;
 
   const shell = await invoke<string>("get_default_shell");
   if (disposed()) throw new Error("disposed before spawn");
-
-  const cwd = resolveTerminalCwd();
   const workspaceRoot = useWorkspaceStore.getState().rootPath;
 
   const env: Record<string, string> = {
+    TERM: "xterm-256color",
     TERM_PROGRAM: "vmark",
     EDITOR: "vmark",
   };

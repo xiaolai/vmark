@@ -38,6 +38,7 @@ interface TerminalSessionActions {
   removeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
   markSessionDead: (id: string) => void;
+  markSessionAlive: (id: string) => void;
   renameSession: (id: string, label: string) => void;
 }
 
@@ -110,6 +111,14 @@ export const useTerminalSessionStore = create<
     set((state) => ({
       sessions: state.sessions.map((s) =>
         s.id === id ? { ...s, isAlive: false } : s,
+      ),
+    }));
+  },
+
+  markSessionAlive: (id) => {
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === id ? { ...s, isAlive: true } : s,
       ),
     }));
   },

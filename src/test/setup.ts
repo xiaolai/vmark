@@ -23,8 +23,8 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 }));
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
-  readText: vi.fn(),
-  writeText: vi.fn(),
+  readText: vi.fn(() => Promise.resolve("")),
+  writeText: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({

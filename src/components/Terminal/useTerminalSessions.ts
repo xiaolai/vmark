@@ -45,6 +45,7 @@ interface SessionEntry {
   shellStarted: boolean;
   shellExited: boolean;
   disposed: boolean;
+  pendingRafId: number | null;
 }
 
 export interface UseTerminalSessionsCallbacks {
@@ -63,6 +64,9 @@ export function useTerminalSessions(
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
+  // Debounce PTY resize to avoid excessive resize calls during drag
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
   // Fit the active terminal
   const fit = useCallback(() => {
     const activeId = useTerminalSessionStore.getState().activeSessionId;
@@ -72,10 +76,14 @@ export function useTerminalSessions(
 
     try {
       entry.instance.fitAddon.fit();
-      const { term } = entry.instance;
-      if (entry.pty && term.cols > 0 && term.rows > 0) {
-        entry.pty.resize(term.cols, term.rows);
-      }
+      // Debounce PTY resize — visual fit is instant, but PTY resize is deferred
+      clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = setTimeout(() => {
+        const { term } = entry.instance;
+        if (entry.pty && term.cols > 0 && term.rows > 0) {
+          entry.pty.resize(term.cols, term.rows);
+        }
+      }, 100);
     } catch {
       // Container may not be visible
     }
@@ -109,6 +117,7 @@ export function useTerminalSessions(
     try {
       const pty = await spawnPty({
         term: entry.instance.term,
+        cwd,
         onExit: (exitCode) => {
           const e = sessionsRef.current.get(sessionId);
           if (e && !e.disposed) {
@@ -133,12 +142,15 @@ export function useTerminalSessions(
         return;
       }
       currentEntry.pty = pty;
+      currentEntry.ptyRefForKeys.current = pty;
       currentEntry.spawnedCwd = cwd;
+      useTerminalSessionStore.getState().markSessionAlive(sessionId);
 
       // If workspace changed while spawning, cd to the current root
       const currentRoot = useWorkspaceStore.getState().rootPath;
       if (currentRoot && currentRoot !== cwd) {
-        const escaped = currentRoot.replace(/'/g, "'\\''");
+        const sanitized = currentRoot.replace(/[\n\r]/g, '');
+        const escaped = sanitized.replace(/'/g, "'\\''");
         pty.write(`\x15cd '${escaped}'\n`);
         currentEntry.spawnedCwd = currentRoot;
       }
@@ -170,10 +182,7 @@ export function useTerminalSessions(
     entry.instance.term.clear();
     entry.instance.term.write("\r\nRestarting shell...\r\n");
 
-    startShell(activeId).then(() => {
-      const e = sessionsRef.current.get(activeId);
-      if (e) e.ptyRefForKeys.current = e.pty;
-    });
+    startShell(activeId);
   }, [startShell]);
 
   /** Create a new session with xterm + PTY. */
@@ -208,6 +217,7 @@ export function useTerminalSessions(
         shellStarted: false,
         shellExited: false,
         disposed: false,
+        pendingRafId: null,
       };
       sessionsRef.current.set(sessionId, entry);
 
@@ -220,11 +230,7 @@ export function useTerminalSessions(
         if (e.shellExited && !e.pty) {
           e.shellExited = false;
           e.instance.term.clear();
-          startShell(sessionId).then(() => {
-            // Update ptyRef for key handler after reconnect
-            const refreshed = sessionsRef.current.get(sessionId);
-            if (refreshed) ptyRefForKeys.current = refreshed.pty;
-          });
+          startShell(sessionId);
           return;
         }
         if (e.pty) {
@@ -240,11 +246,15 @@ export function useTerminalSessions(
     [containerRef, startShell],
   );
 
-  /** Remove a session — kill PTY and dispose instance. */
+  /** Remove a session — cancel pending rAF, kill PTY, and dispose instance. */
   const removeSessionEntry = useCallback((sessionId: string) => {
     const entry = sessionsRef.current.get(sessionId);
     if (!entry) return;
     entry.disposed = true;
+    if (entry.pendingRafId !== null) {
+      cancelAnimationFrame(entry.pendingRafId);
+      entry.pendingRafId = null;
+    }
     if (entry.pty) {
       try { entry.pty.kill(); } catch { /* ignore */ }
     }
@@ -265,20 +275,21 @@ export function useTerminalSessions(
     if (activeId) {
       const entry = sessionsRef.current.get(activeId);
       if (entry) {
-        requestAnimationFrame(() => {
+        entry.pendingRafId = requestAnimationFrame(() => {
+          entry.pendingRafId = null;
           try {
             entry.instance.fitAddon.fit();
             entry.instance.term.focus();
           } catch { /* ignore */ }
 
           // Start shell after first fit so PTY gets the real dimensions
-          // instead of 80×24 defaults from a hidden container
+          // instead of 80×24 defaults from a hidden container.
+          // Reset first to clear blank-line artifacts from opening xterm
+          // in a hidden (display:none) container where it can't measure properly.
           if (!entry.shellStarted && !entry.shellExited && !entry.disposed) {
             entry.shellStarted = true;
-            startShell(activeId).then(() => {
-              const e = sessionsRef.current.get(activeId);
-              if (e) e.ptyRefForKeys.current = e.pty;
-            });
+            entry.instance.term.reset();
+            startShell(activeId);
           }
         });
       }
@@ -387,7 +398,8 @@ export function useTerminalSessions(
       }
       prevRoot = newRoot;
 
-      const escaped = newRoot.replace(/'/g, "'\\''");
+      const sanitized = newRoot.replace(/[\n\r]/g, '');
+      const escaped = sanitized.replace(/'/g, "'\\''");
       for (const [, entry] of sessionsRef.current) {
         if (entry.pty && !entry.shellExited && entry.spawnedCwd !== newRoot) {
           // Ctrl+U clears any partial input, then cd to new workspace
