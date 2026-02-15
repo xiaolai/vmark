@@ -113,6 +113,8 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **Menu builders**: `menu.rs` has TWO menu creation functions (`create_menu` + `create_menu_with_shortcuts`) — both MUST be updated when changing menus.
 
+  - **Menu icons**: Every menu item MUST have an SF Symbol icon mapped in `macos_menu.rs` (`MENU_ICONS` array). Use real SF Symbol names only — verify names exist in the SF Symbols app before adding. Never invent symbol names.
+
   - **Keyboard shortcuts**: Three files must stay in sync — `menu.rs` (Rust accelerators: `CmdOrCtrl+Shift+N`), `shortcutsStore.ts` (frontend defaults: `Mod-Shift-n`), `website/guide/shortcuts.md` (docs: `Mod + Shift + N`).
 
   - **Settings store**: Uses plain `.subscribe()` with manual prev-value tracking — NOT `subscribeWithSelector`.
