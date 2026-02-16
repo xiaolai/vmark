@@ -11,6 +11,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
 // Types
 type OperationMode = "apply" | "suggest";
@@ -224,7 +225,7 @@ export async function handleParagraphWrite(
       throw new Error("target must specify index or containing");
     }
 
-    if (operation !== "delete" && !content) {
+    if (operation !== "delete" && content === undefined) {
       throw new Error("content is required for non-delete operations");
     }
 
@@ -312,11 +313,10 @@ export async function handleParagraphWrite(
         .deleteSelection()
         .run();
     } else {
-      editor.chain()
-        .focus()
-        .setTextSelection({ from, to })
-        .insertContent(newContent)
-        .run();
+      // Parse markdown to preserve special characters (pipes, formatting, etc.)
+      const slice = createMarkdownPasteSlice(editor.state, newContent);
+      const writeTr = editor.state.tr.replaceRange(from, to, slice);
+      editor.view.dispatch(writeTr);
     }
 
     const newRevision = getCurrentRevision();

@@ -10,6 +10,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
 // Types
 type OperationMode = "apply" | "suggest";
@@ -112,18 +113,22 @@ function findInsertPosition(
     let inTargetSection = false;
     let targetLevel = 0;
     let insertPos: number | null = null;
+    let sectionEnded = false;
 
-    // Iterate over top-level children only to avoid nested node issues
+    // Iterate over top-level children only to avoid nested node issues.
+    // doc.forEach can't break, so we use a flag to stop processing.
     doc.forEach((node, offset) => {
+      if (sectionEnded) return;
+
       if (node.type.name === "heading") {
         const headingText = extractText(node).toLowerCase();
         const headingLevel = node.attrs.level as number;
 
         if (inTargetSection) {
-          // Found next heading at same or higher level - insert before it
+          // Found next heading at same or higher level — section boundary
           if (headingLevel <= targetLevel) {
-            // insertPos already points to end of last block in section
-            return; // Stop processing (we can't break forEach, but insertPos is set)
+            sectionEnded = true;
+            return;
           }
         } else if (headingText.includes(searchHeading)) {
           // Found the target heading
@@ -229,12 +234,10 @@ export async function handleSmartInsert(
       return;
     }
 
-    // Apply the insert directly
-    editor.chain()
-      .focus()
-      .setTextSelection(insertPos)
-      .insertContent(contentToInsert)
-      .run();
+    // Apply the insert directly — parse markdown to preserve special characters
+    const slice = createMarkdownPasteSlice(editor.state, contentToInsert);
+    const tr = editor.state.tr.replaceRange(insertPos, insertPos, slice);
+    editor.view.dispatch(tr);
 
     const newRevision = getCurrentRevision();
 
