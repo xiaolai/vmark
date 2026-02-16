@@ -43,7 +43,7 @@ vi.mock("@/stores/searchStore", () => {
       currentIndex: 0,
     })
   );
-  (store as Record<string, unknown>).getState = () => ({
+  (store as unknown as Record<string, unknown>).getState = () => ({
     findNext: mockFindNext,
     findPrevious: mockFindPrevious,
     replaceCurrent: mockReplaceCurrent,
