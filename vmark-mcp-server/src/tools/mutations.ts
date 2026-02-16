@@ -123,7 +123,7 @@ export function registerMutationTools(server: VMarkMcpServer): void {
             description: 'Optional window identifier. Defaults to focused window.',
           },
         },
-        required: ['baseRevision', 'mode', 'operations'],
+        required: ['baseRevision', 'operations'],
       },
     },
     async (args) => {
