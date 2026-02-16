@@ -113,18 +113,22 @@ function findInsertPosition(
     let inTargetSection = false;
     let targetLevel = 0;
     let insertPos: number | null = null;
+    let sectionEnded = false;
 
-    // Iterate over top-level children only to avoid nested node issues
+    // Iterate over top-level children only to avoid nested node issues.
+    // doc.forEach can't break, so we use a flag to stop processing.
     doc.forEach((node, offset) => {
+      if (sectionEnded) return;
+
       if (node.type.name === "heading") {
         const headingText = extractText(node).toLowerCase();
         const headingLevel = node.attrs.level as number;
 
         if (inTargetSection) {
-          // Found next heading at same or higher level - insert before it
+          // Found next heading at same or higher level — section boundary
           if (headingLevel <= targetLevel) {
-            // insertPos already points to end of last block in section
-            return; // Stop processing (we can't break forEach, but insertPos is set)
+            sectionEnded = true;
+            return;
           }
         } else if (headingText.includes(searchHeading)) {
           // Found the target heading

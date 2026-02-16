@@ -12,6 +12,7 @@ import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./util
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
+import { serializeMarkdown } from "@/utils/markdownPipeline";
 
 // Types
 type OperationMode = "apply" | "suggest" | "dryRun";
@@ -72,9 +73,8 @@ function findSection(
           headingIndex++;
         }
       } else if (target.sectionId) {
-        // Section IDs are generated at runtime, so we can't match them here
-        // This would require tracking IDs during traversal
-        // For now, fall back to index-based matching
+        // Section IDs are generated at runtime and not tracked during traversal.
+        // Use heading or byIndex targeting instead.
       }
 
       if (isMatch && headingPos === null) {
@@ -440,6 +440,29 @@ export async function handleSectionMove(
         });
         return;
       }
+      // Guard: moving a section to right after itself is a no-op
+      if (afterSection.from === sectionRange.from && afterSection.to === sectionRange.to) {
+        await respond({
+          id,
+          success: true,
+          data: {
+            success: true,
+            warning: "Source and target are the same section — no move needed",
+            movedSection: sectionRange.headingText,
+          },
+        });
+        return;
+      }
+      // Guard: target position inside the moving section would corrupt the document
+      if (afterSection.to > sectionRange.from && afterSection.to < sectionRange.to) {
+        await respond({
+          id,
+          success: false,
+          error: "Target position is inside the section being moved",
+          data: { code: "invalid_operation" },
+        });
+        return;
+      }
       targetPos = afterSection.to;
     } else {
       // Move to start of document (after any leading content)
@@ -448,8 +471,9 @@ export async function handleSectionMove(
 
     // Slice section content preserving all formatting (bold, tables, etc.)
     const sectionSlice = editor.state.doc.slice(sectionRange.from, sectionRange.to);
-    // Plain text version for suggestion preview
-    const sectionText = editor.state.doc.textBetween(sectionRange.from, sectionRange.to);
+    // Markdown version for suggestion preview (preserves formatting)
+    const sectionDoc = editor.state.schema.nodes.doc.create(null, sectionSlice.content);
+    const sectionMarkdown = serializeMarkdown(editor.state.schema, sectionDoc);
 
     // For dryRun, return preview
     if (mode === "dryRun") {
@@ -478,16 +502,17 @@ export async function handleSectionMove(
         type: "delete",
         from: sectionRange.from,
         to: sectionRange.to,
-        originalContent: sectionText,
+        originalContent: sectionMarkdown,
       });
 
-      // Note: This is a simplification - proper move would need atomic handling
+      // Note: These are separate suggestions — accepting one may invalidate the
+      // other's positions. Accept/reject both together for correct results.
       const insertId = useAiSuggestionStore.getState().addSuggestion({
         tabId: getActiveTabId(),
         type: "insert",
         from: targetPos,
         to: targetPos,
-        newContent: sectionText,
+        newContent: sectionMarkdown,
       });
 
       await respond({
@@ -496,7 +521,7 @@ export async function handleSectionMove(
         data: {
           success: true,
           suggestionIds: [deleteId, insertId],
-          warning: "Move represented as delete+insert suggestions",
+          warning: "Move represented as delete+insert suggestions — accept/reject both together to avoid stale positions",
         },
       });
       return;

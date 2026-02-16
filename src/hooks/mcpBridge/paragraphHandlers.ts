@@ -225,7 +225,7 @@ export async function handleParagraphWrite(
       throw new Error("target must specify index or containing");
     }
 
-    if (operation !== "delete" && !content) {
+    if (operation !== "delete" && content === undefined) {
       throw new Error("content is required for non-delete operations");
     }
 

@@ -353,10 +353,11 @@ export async function handleDocumentReplaceInSourceWithSuggestion(
       return;
     }
 
-    const count = replaceAll ? totalMatches : 1;
+    let count = replaceAll ? totalMatches : 1;
 
     // Perform the replacement on the markdown string
     let newMarkdown: string;
+    let actualCount: number | undefined;
     if (usedNormalized) {
       // Use regex-based replacement that tolerates whitespace differences
       const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -365,7 +366,13 @@ export async function handleDocumentReplaceInSourceWithSuggestion(
         .replace(/[ \t]+/g, "[ \\t]+")
         .replace(/\\n/g, "\\n");
       const regex = new RegExp(flexPattern, replaceAll ? "g" : "");
+      // Count actual regex matches to report accurate replacement count
+      const regexMatches = markdown.match(new RegExp(flexPattern, "g"));
+      const regexMatchCount = regexMatches?.length ?? 0;
+      actualCount = replaceAll ? regexMatchCount : Math.min(1, regexMatchCount);
       newMarkdown = markdown.replace(regex, replace);
+      // Override count with actual regex match count (may differ from normalized split count)
+      if (actualCount !== undefined) count = actualCount;
     } else if (replaceAll) {
       newMarkdown = parts.join(replace);
     } else {

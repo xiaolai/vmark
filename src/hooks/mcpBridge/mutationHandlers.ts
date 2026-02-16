@@ -38,13 +38,6 @@ interface BatchOperation {
   marks?: { type: string; attrs?: Record<string, unknown> }[];
 }
 
-interface BlockQuery {
-  type?: string | string[];
-  level?: number;
-  contains?: string;
-  hasMarks?: string[];
-}
-
 interface TextAnchor {
   text: string;
   beforeContext: string;
@@ -372,9 +365,6 @@ export async function handleApplyDiff(
 ): Promise<void> {
   try {
     const baseRevision = args.baseRevision as string;
-    // Note: scopeQuery support to be implemented in future iteration
-    const _scopeQuery = args.scopeQuery as BlockQuery | undefined;
-    void _scopeQuery; // Placeholder for future use
     const original = args.original as string;
     const replacement = args.replacement as string;
     const matchPolicy = args.matchPolicy as MatchPolicy;
@@ -455,23 +445,26 @@ export async function handleApplyDiff(
       return;
     }
 
-    if (matchPolicy === "error_if_multiple" && matches.length > 1) {
-      await respond({
-        id,
-        success: true,
-        data: {
-          success: false,
-          matchCount: matches.length,
-          appliedCount: 0,
-          matches: matches.map((m) => ({
-            nodeId: m.nodeId,
-            pos: { from: m.from, to: m.to },
-            context: m.context,
-          })),
-          error: "ambiguous_target",
-        },
-      });
-      return;
+    if (matchPolicy === "error_if_multiple") {
+      if (matches.length > 1) {
+        await respond({
+          id,
+          success: true,
+          data: {
+            success: false,
+            matchCount: matches.length,
+            appliedCount: 0,
+            matches: matches.map((m) => ({
+              nodeId: m.nodeId,
+              pos: { from: m.from, to: m.to },
+              context: m.context,
+            })),
+            error: "ambiguous_target",
+          },
+        });
+        return;
+      }
+      // Exactly 1 match — treat as "first" (fall through to apply)
     }
 
     // Validate nth is within bounds
@@ -491,7 +484,7 @@ export async function handleApplyDiff(
     // For dryRun, return preview
     if (mode === "dryRun") {
       let appliedCount = 0;
-      if (matchPolicy === "first") appliedCount = 1;
+      if (matchPolicy === "first" || matchPolicy === "error_if_multiple") appliedCount = 1;
       else if (matchPolicy === "all") appliedCount = matches.length;
       else if (matchPolicy === "nth" && nth !== undefined) appliedCount = 1;
 
@@ -518,7 +511,7 @@ export async function handleApplyDiff(
       const suggestionIds: string[] = [];
       let matchesToProcess: TextMatch[] = [];
 
-      if (matchPolicy === "first") {
+      if (matchPolicy === "first" || matchPolicy === "error_if_multiple") {
         matchesToProcess = [matches[0]];
       } else if (matchPolicy === "all") {
         matchesToProcess = matches;
@@ -554,7 +547,7 @@ export async function handleApplyDiff(
     // Apply replacements
     let appliedCount = 0;
 
-    if (matchPolicy === "first") {
+    if (matchPolicy === "first" || matchPolicy === "error_if_multiple") {
       const match = matches[0];
       const diffSlice = createMarkdownPasteSlice(editor.state, replacement);
       const diffTr = editor.state.tr.replaceRange(match.from, match.to, diffSlice);
@@ -660,14 +653,21 @@ export async function handleReplaceAnchored(
     const doc = editor.state.doc;
     const allMatches = findTextMatches(doc, anchor.text, Math.max(anchor.beforeContext.length, anchor.afterContext.length));
 
-    // Filter matches by context similarity
+    // Filter matches by context similarity and maxDistance
     const candidates: { match: TextMatch; similarity: number }[] = [];
+    const maxDistance = anchor.maxDistance ?? Infinity;
 
     for (const match of allMatches) {
       // Calculate context similarity
       const beforeSim = calculateSimilarity(anchor.beforeContext, match.context.before);
       const afterSim = calculateSimilarity(anchor.afterContext, match.context.after);
       const avgSimilarity = (beforeSim + afterSim) / 2;
+
+      // Enforce maxDistance: context length captures distance from anchor text
+      const contextLen = Math.max(match.context.before.length, match.context.after.length);
+      if (maxDistance < Infinity && contextLen > maxDistance) {
+        continue;
+      }
 
       if (avgSimilarity >= 0.8) {
         candidates.push({ match, similarity: avgSimilarity });

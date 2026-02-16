@@ -16,6 +16,7 @@ import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 type OperationMode = "apply" | "suggest" | "dryRun";
 
 interface TableTarget {
+  /** Not yet implemented — use afterHeading or tableIndex instead. */
   tableId?: string;
   afterHeading?: string;
   tableIndex?: number;
@@ -30,6 +31,7 @@ type TableOperation =
   | { action: "set_header"; row: number; isHeader: boolean };
 
 interface ListTarget {
+  /** Not yet implemented — use selector or listIndex instead. */
   listId?: string;
   selector?: string;
   listIndex?: number;
@@ -151,32 +153,29 @@ function findList(
 }
 
 /**
- * Normalize a table operation object — accept "action", "type", or "op" as
- * the operation key, and normalize action names (e.g. "updateCell" → "update_cell").
+ * Normalize an operation object — accept "action", "type", or "op" as
+ * the operation key, and normalize camelCase → snake_case (e.g. "updateCell" → "update_cell").
+ * Works for both table and list operations.
  */
-function normalizeTableOp(raw: TableOperation | Record<string, unknown>): TableOperation {
+function normalizeOp<T extends { action: string }>(
+  raw: T | Record<string, unknown>,
+  examples: string
+): T {
   const r = raw as Record<string, unknown>;
   const action = (r.action ?? r.type ?? r.op) as string | undefined;
   if (!action) {
-    throw new Error("Operation must have an 'action' field (e.g. 'update_cell', 'add_row')");
+    throw new Error(`Operation must have an 'action' field (e.g. ${examples})`);
   }
-  // Normalize camelCase → snake_case (e.g. "updateCell" → "update_cell")
   const normalized = action.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
-  return { ...r, action: normalized } as unknown as TableOperation;
+  return { ...r, action: normalized } as unknown as T;
 }
 
-/**
- * Normalize a list operation object — accept "action", "type", or "op" as
- * the operation key, and normalize action names (e.g. "addItem" → "add_item").
- */
+function normalizeTableOp(raw: TableOperation | Record<string, unknown>): TableOperation {
+  return normalizeOp<TableOperation>(raw, "'update_cell', 'add_row'");
+}
+
 function normalizeListOp(raw: ListOperation | Record<string, unknown>): ListOperation {
-  const r = raw as Record<string, unknown>;
-  const action = (r.action ?? r.type ?? r.op) as string | undefined;
-  if (!action) {
-    throw new Error("Operation must have an 'action' field (e.g. 'add_item', 'delete_item')");
-  }
-  const normalized = action.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
-  return { ...r, action: normalized } as unknown as ListOperation;
+  return normalizeOp<ListOperation>(raw, "'add_item', 'delete_item'");
 }
 
 /**
@@ -321,6 +320,17 @@ export async function handleTableBatchModify(
       if (!op || op.action === "update_cell") continue;
 
       try {
+        // Position cursor at the target row/col before structural ops so they
+        // act on the correct location instead of current selection.
+        if ("at" in op && typeof op.at === "number") {
+          const cellPos = findCellPosition(table.node, table.pos, op.at, 0);
+          if (cellPos !== null) {
+            editor.chain().focus().setTextSelection(cellPos + 1).run();
+          } else {
+            warnings.push(`${op.action}: row ${op.at} not found, using current position`);
+          }
+        }
+
         switch (op.action) {
           case "add_row":
             editor.commands.addRowAfter();
@@ -342,10 +352,17 @@ export async function handleTableBatchModify(
             appliedCount++;
             break;
 
-          case "set_header":
-            editor.commands.toggleHeaderRow();
+          case "set_header": {
+            // Check current header state to make set_header idempotent
+            const firstRow = table.node.firstChild;
+            const isCurrentlyHeader = firstRow?.firstChild?.type.name === "tableHeader";
+            const wantHeader = op.isHeader !== false; // Default to true
+            if (isCurrentlyHeader !== wantHeader) {
+              editor.commands.toggleHeaderRow();
+            }
             appliedCount++;
             break;
+          }
 
           default:
             warnings.push(`Unknown table operation: ${(op as { action: string }).action}`);
@@ -386,14 +403,17 @@ export async function handleTableBatchModify(
           if (cellNode) {
             const contentStart = cellPos! + 1;
             const contentEnd = cellPos! + cellNode.nodeSize - 1;
-            cellTr.replaceWith(
-              contentStart,
-              contentEnd,
-              editor.state.schema.nodes.paragraph.create(
-                null,
-                cellOp.content ? editor.state.schema.text(cellOp.content) : null
-              )
-            );
+            // Parse cell content as markdown to support rich formatting (bold, links, etc.)
+            if (cellOp.content) {
+              const cellSlice = createMarkdownPasteSlice(editor.state, cellOp.content);
+              cellTr.replaceWith(contentStart, contentEnd, cellSlice.content);
+            } else {
+              cellTr.replaceWith(
+                contentStart,
+                contentEnd,
+                editor.state.schema.nodes.paragraph.create(null)
+              );
+            }
             appliedCount++;
           } else {
             warnings.push(`update_cell at [${cellOp.row},${cellOp.col}] - could not resolve cell node`);
@@ -517,10 +537,37 @@ export async function handleListBatchModify(
     // Position cursor in list first
     editor.chain().focus().setTextSelection(list.pos + 1).run();
 
+    // Helper: find the ProseMirror position of the nth list item
+    const findListItemPos = (listNode: ProseMirrorNode, listPos: number, index: number): number | null => {
+      let itemIndex = 0;
+      let result: number | null = null;
+      listNode.forEach((child, offset) => {
+        if (result !== null) return;
+        if (child.type.name === "listItem" || child.type.name === "taskItem") {
+          if (itemIndex === index) {
+            result = listPos + 1 + offset;
+          }
+          itemIndex++;
+        }
+      });
+      return result;
+    };
+
     for (const rawOp of operations) {
       try {
         // Accept "action", "type", or "op" as the operation key for robustness
         const op = normalizeListOp(rawOp);
+
+        // Position cursor at target list item if `at` is specified
+        if ("at" in op && typeof op.at === "number") {
+          const itemPos = findListItemPos(list.node, list.pos, op.at);
+          if (itemPos !== null) {
+            editor.chain().focus().setTextSelection(itemPos + 1).run();
+          } else {
+            warnings.push(`${op.action}: list item at index ${op.at} not found`);
+            continue;
+          }
+        }
 
         switch (op.action) {
           case "add_item":
@@ -545,15 +592,29 @@ export async function handleListBatchModify(
             warnings.push(`update_item at ${op.at} - requires item selection`);
             break;
 
-          case "toggle_check":
-            // For task lists, toggle the checkbox
-            if (list.type === "taskList") {
-              editor.commands.toggleTaskList();
-              appliedCount++;
-            } else {
+          case "toggle_check": {
+            // Toggle the checked attribute on the task item, not the list type
+            if (list.type !== "taskList") {
               warnings.push("toggle_check only works on task lists");
+              break;
+            }
+            // Find the current task item node and toggle its checked attr
+            const { $from } = editor.state.selection;
+            for (let d = $from.depth; d >= 0; d--) {
+              const node = $from.node(d);
+              if (node.type.name === "taskItem") {
+                const pos = $from.before(d);
+                const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+                  ...node.attrs,
+                  checked: !node.attrs.checked,
+                });
+                editor.view.dispatch(tr);
+                appliedCount++;
+                break;
+              }
             }
             break;
+          }
 
           case "reorder":
             warnings.push("reorder operation requires complex node manipulation");
