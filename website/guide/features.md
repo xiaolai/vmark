@@ -123,8 +123,8 @@ Comprehensive image support:
 - Paste from clipboard
 - Auto-copy to project assets folder
 - Resize via context menu
-- Hover tooltip with filename, dimensions, and reveal in Finder
-- Click to edit source path and alt text
+- Double-click to edit source path, alt text, and dimensions
+- Toggle between inline and block display
 
 ## Video & Audio
 

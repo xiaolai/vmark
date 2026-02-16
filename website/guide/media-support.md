@@ -96,7 +96,7 @@ In Source mode, type the HTML tags directly. Media tags are highlighted with col
 
 ## Editing Media
 
-Click any media element in WYSIWYG mode to open the media popup:
+Double-click any media element in WYSIWYG mode to open the media popup:
 
 - **Source path** — edit the file path or URL
 - **Title** — optional title attribute

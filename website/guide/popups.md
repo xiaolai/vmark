@@ -1,6 +1,6 @@
 # Inline Popups
 
-VMark provides contextual popups for editing links, images, math, footnotes, and more. These popups work in both WYSIWYG and Source modes with consistent keyboard navigation.
+VMark provides contextual popups for editing links, images, media, math, footnotes, and more. These popups work in both WYSIWYG and Source modes with consistent keyboard navigation.
 
 ## Common Keyboard Shortcuts
 
@@ -57,38 +57,40 @@ VMark uses a two-tier system for links: a read-only tooltip on hover, and an edi
 Links starting with `#` are treated as bookmarks (internal heading links). Open jumps to the heading instead of opening a browser.
 :::
 
-## Image Tooltip & Popup
+## Media Popup (Images, Video, Audio)
 
-VMark uses a two-tier system for images: a read-only tooltip on hover, and an edit popup on click.
-
-### Hover Tooltip (Read-Only)
-
-**Trigger:** Hover over image (300ms delay)
-
-**Shows:**
-- **Filename** — Truncated name with full path on hover
-- **Dimensions** — Image width × height in pixels
-- **Reveal button** — Opens image location in Finder
-
-**Behavior:** View-only. Move mouse away to dismiss.
+A unified popup for editing all media types — images, video, and audio.
 
 ### Edit Popup
 
-**Trigger:** Click on image
+**Trigger:** Double-click on any media element (image, video, or audio)
 
-**Fields:**
-- **Source** — Image URL or local path
-- **Alt Text** — Accessibility description
-- **Dimensions** — Read-only display (e.g., "800 × 600 px")
+**Common fields (all media types):**
+- **Source** — File path or URL
+
+**Type-specific fields:**
+
+| Field | Image | Video | Audio |
+|-------|-------|-------|-------|
+| Alt text | Yes | — | — |
+| Title | — | Yes | Yes |
+| Poster | — | Yes | — |
+| Dimensions | Read-only | — | — |
+| Inline/Block toggle | Yes | — | — |
 
 **Buttons:**
-- **Browse** — Pick image from filesystem
-- **Copy** — Copy source path
-- **Toggle** — Switch between inline and block image
-- **Delete** — Remove image
+- **Browse** — Pick file from filesystem
+- **Copy** — Copy source path to clipboard
+- **Delete** — Remove the media element
 
 **Shortcuts:**
 - `Mod + Shift + I` — Insert new image
+- `Enter` — Save changes
+- `Escape` — Close popup
+
+### Source Mode
+
+In Source mode, clicking on image syntax `![alt](path)` opens the same media popup. Media files (video/audio extensions) show a floating preview with native playback controls on hover.
 
 ## Math Popup
 
@@ -180,15 +182,17 @@ Fix spelling errors with suggestions.
 
 ## Mode Comparison
 
-| Element | WYSIWYG Tooltip | WYSIWYG Edit | Source |
-|---------|-----------------|--------------|--------|
-| Link | Hover (read-only) | `Mod+K` | Click / `Mod+K` / `Cmd+Click` to open |
-| Image | Hover (read-only) | Click | `Mod+Shift+I` |
-| Math | — | Click | Direct edit |
-| Footnote | Hover | — | Direct edit |
-| Wiki Link | Hover | — | Click |
-| Table | — | Toolbar | Right-click menu |
-| Spell Check | — | Right-click | Right-click |
+| Element | WYSIWYG Edit | Source |
+|---------|--------------|--------|
+| Link | Hover tooltip / `Mod+K` | Click / `Mod+K` / `Cmd+Click` to open |
+| Image | Double-click | Click on `![](path)` |
+| Video | Double-click | — |
+| Audio | Double-click | — |
+| Math | Click | Direct edit |
+| Footnote | Hover | Direct edit |
+| Wiki Link | Hover | Click |
+| Table | Toolbar | Right-click menu |
+| Spell Check | Right-click | Right-click |
 
 ## Popup Navigation Tips
 
