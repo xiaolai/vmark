@@ -287,7 +287,7 @@ export function requireNumberArg(args: ToolArgs, key: string): number {
   return value;
 }
 
-/** @deprecated Use {@link validateNonNegativeInteger} instead. */
+/** @deprecated Use {@link validateNonNegativeInteger} instead. Remove in v0.5.0. */
 export const validateNonNegativeInt = validateNonNegativeInteger;
 
 /**

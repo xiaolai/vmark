@@ -70,25 +70,19 @@ export function registerProtocolTools(server: VMarkMcpServer): void {
       },
     },
     async () => {
-      try {
-        const capabilities: Capabilities = {
-          version: PROTOCOL_VERSION,
-          supportedNodeTypes: SUPPORTED_NODE_TYPES,
-          supportedQueryOperators: SUPPORTED_QUERY_OPERATORS,
-          limits: LIMITS,
-          features: {
-            suggestionModeSupported: true,
-            revisionTracking: true,
-            idempotency: true,
-          },
-        };
+      const capabilities: Capabilities = {
+        version: PROTOCOL_VERSION,
+        supportedNodeTypes: SUPPORTED_NODE_TYPES,
+        supportedQueryOperators: SUPPORTED_QUERY_OPERATORS,
+        limits: LIMITS,
+        features: {
+          suggestionModeSupported: true,
+          revisionTracking: true,
+          idempotency: true,
+        },
+      };
 
-        return VMarkMcpServer.successResult(JSON.stringify(capabilities, null, 2));
-      } catch (error) {
-        return VMarkMcpServer.errorResult(
-          `Failed to get capabilities: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
+      return VMarkMcpServer.successResult(JSON.stringify(capabilities, null, 2));
     }
   );
 
