@@ -3,7 +3,8 @@
  *
  * Purpose: Encapsulates freeform prompt history interaction for the Genie
  *   input — arrow-key cycling, prefix filtering, ghost text suggestions,
- *   and searchable history dropdown.
+ *   and searchable history dropdown. Accepts an optional isComposing callback
+ *   to guard keyDown against post-composition events (IME grace period).
  *
  * Key decisions:
  *   - Four interaction layers: basic cycling → prefix filter → ghost text → dropdown

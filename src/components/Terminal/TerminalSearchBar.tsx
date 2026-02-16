@@ -3,6 +3,7 @@
  *
  * Purpose: Inline search bar for finding text in terminal output.
  * Uses xterm's SearchAddon for incremental highlight-as-you-type search.
+ * IME-aware: skips search during composition and guards keyDown with grace period.
  *
  * User interactions:
  *   - Type to search (highlights matches incrementally)
