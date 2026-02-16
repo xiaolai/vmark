@@ -11,6 +11,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
 // Types
 type OperationMode = "apply" | "suggest" | "dryRun";
@@ -211,12 +212,12 @@ export async function handleSectionUpdate(
       return;
     }
 
-    // Apply the update
-    editor.chain()
-      .focus()
-      .setTextSelection({ from: contentStart, to: section.to })
-      .insertContent(newContent)
-      .run();
+    // Apply the update — parse markdown to ProseMirror nodes first so that
+    // special characters (e.g. pipe `|` in tables) are preserved correctly.
+    // insertContent(string) treats the string as plain text and escapes it.
+    const slice = createMarkdownPasteSlice(editor.state, newContent);
+    const tr = editor.state.tr.replaceRange(contentStart, section.to, slice);
+    editor.view.dispatch(tr);
 
     const newRevision = getCurrentRevision();
 

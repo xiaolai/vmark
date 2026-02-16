@@ -150,6 +150,54 @@ function findList(
 }
 
 /**
+ * Normalize a table operation object — accept "action", "type", or "op" as
+ * the operation key, and normalize action names (e.g. "updateCell" → "update_cell").
+ */
+function normalizeTableOp(raw: TableOperation | Record<string, unknown>): TableOperation {
+  const r = raw as Record<string, unknown>;
+  const action = (r.action ?? r.type ?? r.op) as string | undefined;
+  if (!action) {
+    throw new Error("Operation must have an 'action' field (e.g. 'update_cell', 'add_row')");
+  }
+  // Normalize camelCase → snake_case (e.g. "updateCell" → "update_cell")
+  const normalized = action.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
+  return { ...r, action: normalized } as unknown as TableOperation;
+}
+
+/**
+ * Find the ProseMirror position of a table cell at [row, col].
+ */
+function findCellPosition(
+  tableNode: ProseMirrorNode,
+  tablePos: number,
+  row: number,
+  col: number
+): number | null {
+  let currentRow = 0;
+  let result: number | null = null;
+
+  tableNode.forEach((rowNode, rowOffset) => {
+    if (result !== null) return;
+    if (rowNode.type.name === "tableRow") {
+      if (currentRow === row) {
+        let currentCol = 0;
+        rowNode.forEach((_cellNode, cellOffset) => {
+          if (result !== null) return;
+          if (currentCol === col) {
+            // tablePos + 1 (inside table) + rowOffset + 1 (inside row) + cellOffset
+            result = tablePos + 1 + rowOffset + 1 + cellOffset;
+          }
+          currentCol++;
+        });
+      }
+      currentRow++;
+    }
+  });
+
+  return result;
+}
+
+/**
  * Handle table.batchModify request.
  */
 export async function handleTableBatchModify(
@@ -238,11 +286,13 @@ export async function handleTableBatchModify(
     // Position cursor in table first
     editor.chain().focus().setTextSelection(table.pos + 1).run();
 
-    for (const op of operations) {
+    for (const rawOp of operations) {
       try {
+        // Accept "action", "type", or "op" as the operation key for robustness
+        const op = normalizeTableOp(rawOp);
+
         switch (op.action) {
           case "add_row":
-            // Note: Tiptap table commands work relative to current selection
             editor.commands.addRowAfter();
             appliedCount++;
             break;
@@ -262,10 +312,35 @@ export async function handleTableBatchModify(
             appliedCount++;
             break;
 
-          case "update_cell":
-            // Navigate to cell and update - simplified implementation
-            warnings.push(`update_cell at [${op.row},${op.col}] - direct cell update requires selection positioning`);
+          case "update_cell": {
+            // Navigate to the target cell and replace its content
+            const cellPos = findCellPosition(table.node, table.pos, op.row, op.col);
+            if (cellPos === null) {
+              warnings.push(`update_cell at [${op.row},${op.col}] - cell not found`);
+              break;
+            }
+            // Select cell content and replace
+            const cellNode = editor.state.doc.nodeAt(cellPos);
+            if (cellNode) {
+              const contentStart = cellPos + 1; // inside the cell
+              const contentEnd = cellPos + cellNode.nodeSize - 1;
+              const tr = editor.state.tr;
+              // Replace cell text content (first paragraph inside cell)
+              tr.replaceWith(
+                contentStart,
+                contentEnd,
+                editor.state.schema.nodes.paragraph.create(
+                  null,
+                  op.content ? editor.state.schema.text(op.content) : null
+                )
+              );
+              editor.view.dispatch(tr);
+              appliedCount++;
+            } else {
+              warnings.push(`update_cell at [${op.row},${op.col}] - could not resolve cell node`);
+            }
             break;
+          }
 
           case "set_header":
             editor.commands.toggleHeaderRow();
@@ -276,7 +351,8 @@ export async function handleTableBatchModify(
             warnings.push(`Unknown table operation: ${(op as { action: string }).action}`);
         }
       } catch (opError) {
-        warnings.push(`Failed: ${op.action} - ${opError instanceof Error ? opError.message : String(opError)}`);
+        const action = (rawOp as Record<string, unknown>).action ?? (rawOp as Record<string, unknown>).type ?? (rawOp as Record<string, unknown>).op ?? "unknown";
+        warnings.push(`Failed: ${action} - ${opError instanceof Error ? opError.message : String(opError)}`);
       }
     }
 

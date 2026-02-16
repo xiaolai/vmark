@@ -320,9 +320,29 @@ export async function handleDocumentReplaceInSourceWithSuggestion(
     // Serialize current document to markdown
     const markdown = serializeMarkdown(editor.state.schema, editor.state.doc);
 
-    // Count non-overlapping matches (consistent with split/join replacement)
-    const parts = markdown.split(search);
-    const totalMatches = parts.length - 1;
+    // Try exact match first, then fall back to normalized matching.
+    // Round-trip serialization can introduce subtle whitespace differences
+    // (e.g. trailing spaces, line break normalization, entity encoding).
+    let parts = markdown.split(search);
+    let totalMatches = parts.length - 1;
+    let usedNormalized = false;
+
+    if (totalMatches === 0) {
+      // Normalize: collapse runs of whitespace to single space, trim lines
+      const normalize = (s: string) =>
+        s.replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
+
+      const normMarkdown = normalize(markdown);
+      const normSearch = normalize(search);
+
+      if (normSearch.length > 0) {
+        const normParts = normMarkdown.split(normSearch);
+        totalMatches = normParts.length - 1;
+        if (totalMatches > 0) {
+          usedNormalized = true;
+        }
+      }
+    }
 
     if (totalMatches === 0) {
       await respond({
@@ -337,7 +357,16 @@ export async function handleDocumentReplaceInSourceWithSuggestion(
 
     // Perform the replacement on the markdown string
     let newMarkdown: string;
-    if (replaceAll) {
+    if (usedNormalized) {
+      // Use regex-based replacement that tolerates whitespace differences
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // Convert normalized search into a regex that allows flexible whitespace
+      const flexPattern = escapeRegex(search)
+        .replace(/[ \t]+/g, "[ \\t]+")
+        .replace(/\\n/g, "\\n");
+      const regex = new RegExp(flexPattern, replaceAll ? "g" : "");
+      newMarkdown = markdown.replace(regex, replace);
+    } else if (replaceAll) {
       newMarkdown = parts.join(replace);
     } else {
       const firstIdx = markdown.indexOf(search);
