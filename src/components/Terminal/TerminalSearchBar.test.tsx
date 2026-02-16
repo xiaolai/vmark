@@ -108,6 +108,25 @@ describe("TerminalSearchBar", () => {
       expect(addon.findNext).not.toHaveBeenCalled();
     });
 
+    it("does not double-search when onChange fires after compositionEnd", () => {
+      render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
+      const input = screen.getByPlaceholderText("Search...");
+
+      // Start composition
+      fireEvent.compositionStart(input);
+
+      // Type during composition
+      fireEvent.change(input, { target: { value: "ni hao" } });
+
+      // End composition — triggers findNext
+      fireEvent.compositionEnd(input);
+      vi.clearAllMocks();
+
+      // Subsequent onChange with same committed value — should be deduped
+      fireEvent.change(input, { target: { value: "ni hao" } });
+      expect(addon.findNext).not.toHaveBeenCalled();
+    });
+
     it("skips addon.findNext during composition onChange", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
       const input = screen.getByPlaceholderText("Search...");

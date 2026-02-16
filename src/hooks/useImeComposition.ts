@@ -17,9 +17,8 @@
  * @module hooks/useImeComposition
  */
 
-import { useCallback, useRef } from "react";
-
-const IME_GRACE_PERIOD_MS = 50;
+import { useCallback, useMemo, useRef } from "react";
+import { IME_GRACE_PERIOD_MS } from "@/utils/imeGuard";
 
 const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -61,5 +60,8 @@ export function useImeComposition(): ImeCompositionResult {
     return elapsed < IME_GRACE_PERIOD_MS;
   }, []);
 
-  return { composingRef, onCompositionStart, onCompositionEnd, isComposing };
+  return useMemo(
+    () => ({ composingRef, onCompositionStart, onCompositionEnd, isComposing }),
+    [composingRef, onCompositionStart, onCompositionEnd, isComposing],
+  );
 }

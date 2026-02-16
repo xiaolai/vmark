@@ -109,6 +109,38 @@ describe("fixCompositionSplitBlock", () => {
     expect(tr).toBeNull();
   });
 
+  it("returns null when cursor block is not a paragraph", () => {
+    // Two headings — cursor in second heading, not a paragraph
+    const doc = schema.node("doc", null, [
+      schema.node("heading", { level: 1 }, [schema.text("wo kj kj")]),
+      schema.node("heading", { level: 2 }, [schema.text("\u6211\u770B\u770B")]),
+    ]);
+    const cursorPos = 1 + "wo kj kj".length + 2 + "\u6211\u770B\u770B".length;
+    const state = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, cursorPos),
+    });
+    const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
+    expect(tr).toBeNull();
+  });
+
+  it("returns null when cursor block is not the immediate next sibling", () => {
+    // Heading, paragraph (unrelated), paragraph (composed text)
+    const doc = schema.node("doc", null, [
+      schema.node("heading", { level: 1 }, [schema.text("wo kj kj")]),
+      schema.node("paragraph", null, [schema.text("unrelated")]),
+      schema.node("paragraph", null, [schema.text("\u6211\u770B\u770B")]),
+    ]);
+    // Cursor at end of third block
+    const pos = 1 + "wo kj kj".length + 2 + "unrelated".length + 2 + "\u6211\u770B\u770B".length;
+    const state = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, pos),
+    });
+    const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
+    expect(tr).toBeNull();
+  });
+
   it("returns null when compositionStartPos is out of bounds", () => {
     const state = createSplitState("wo kj kj", "\u6211\u770B\u770B");
     const tr = fixCompositionSplitBlock(state, 999, "\u6211\u770B\u770B", "wo kj kj");

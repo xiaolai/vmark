@@ -40,6 +40,7 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { composingRef, onCompositionStart, onCompositionEnd: onCompositionEndBase, isComposing } = useImeComposition();
+  const compositionSearchedRef = useRef<string | null>(null);
 
   // Focus input on mount
   useEffect(() => {
@@ -68,6 +69,11 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
       setQuery(value);
       // Skip live search during IME composition
       if (composingRef.current) return;
+      // Skip if compositionEnd already searched this exact value (avoid double search)
+      if (compositionSearchedRef.current === value) {
+        compositionSearchedRef.current = null;
+        return;
+      }
       const addon = getSearchAddon();
       if (addon) {
         if (value) {
@@ -85,6 +91,8 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
     // Trigger search with committed text after composition ends
     const addon = getSearchAddon();
     const currentQuery = inputRef.current?.value ?? "";
+    // Record that we searched this value so handleChange can skip its duplicate call
+    compositionSearchedRef.current = currentQuery;
     if (addon) {
       if (currentQuery) {
         addon.findNext(currentQuery);

@@ -46,8 +46,14 @@ export function fixCompositionSplitBlock(
   // No fix needed if cursor is in the same block
   if ($cursor.parent === parentNode) return null;
 
-  // The spurious block must contain exactly the composed text
+  // The spurious block must be a paragraph with exactly the composed text
+  if ($cursor.parent.type.name !== "paragraph") return null;
   if ($cursor.parent.textContent !== composed) return null;
+
+  // The spurious block must come immediately after the original block
+  const blockStart = $cursor.before($cursor.depth);
+  const expectedSiblingStart = $start.after($start.depth);
+  if (blockStart !== expectedSiblingStart) return null;
 
   // Verify pinyin is at the expected position in the original block
   const pinyinEnd = startPos + pinyin.length;
@@ -63,9 +69,8 @@ export function fixCompositionSplitBlock(
 
   const tr = state.tr;
 
-  // Delete the spurious block (comes after original block in document).
+  // Delete the spurious paragraph (immediately after original block).
   // Since it's later in the doc, positions before it are unaffected.
-  const blockStart = $cursor.before($cursor.depth);
   const blockEnd = $cursor.after($cursor.depth);
   tr.delete(blockStart, blockEnd);
 

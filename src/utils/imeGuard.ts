@@ -29,7 +29,7 @@ type ImeKeyEvent = {
 };
 
 const IME_KEYCODE = 229;
-const IME_GRACE_PERIOD_MS = 50;
+export const IME_GRACE_PERIOD_MS = 50;
 const CJK_COMPOSED_RE = /[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/;
 const PINYIN_PREFIX_RE = /^[A-Za-z0-9;'\s]+$/;
 const PINYIN_PREFIX_WITH_NEWLINE_RE = /^[A-Za-z0-9;'\s\n]+$/;
