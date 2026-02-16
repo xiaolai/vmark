@@ -1,0 +1,29 @@
+/**
+ * Media Popup Styles — type-specific rules only.
+ * Shared styles in src/styles/media-popup-shared.css.
+ */
+
+@import "../../styles/media-popup-shared.css";
+
+/* Dimensions display — inline image only */
+.media-popup-dimensions {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  padding-right: 4px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* Poster Input - monospace, flexible width (video only, hidden for audio) */
+.media-popup-poster {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  outline: none;
+}

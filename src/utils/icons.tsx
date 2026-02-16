@@ -1,11 +1,11 @@
 /**
  * Shared SVG Icons
  *
- * Lucide-style icons (24x24 viewBox, stroke-based) used across
- * both WYSIWYG (Tiptap/ProseMirror) and CodeMirror editors.
+ * Purpose: Centralized Lucide-style icon definitions (24x24 viewBox, stroke-based)
+ * used across both WYSIWYG (Tiptap/ProseMirror) and CodeMirror editors.
+ *
+ * @module utils/icons
  */
-
-import type { ReactNode } from "react";
 
 export const icons = {
   // Text/Block icons
@@ -84,6 +84,11 @@ export const icons = {
   fileImage: `<svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="10" cy="12" r="2"/><path d="m20 17-1.296-1.296a2.41 2.41 0 0 0-3.408 0L9 22"/></svg>`,
   bookmarkLink: `<svg viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`,
 
+  // Media icons
+  video: `<svg viewBox="0 0 24 24"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>`,
+  audio: `<svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>`,
+  youtube: `<svg viewBox="0 0 24 24"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>`,
+
   // AI
   sparkles: `<svg viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>`,
 
@@ -92,16 +97,3 @@ export const icons = {
   chevronUp: `<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>`,
 };
 
-/**
- * Create a React component from an SVG string.
- * Applies consistent styling for toolbar buttons.
- */
-export function createIcon(svgString: string, size = 16): ReactNode {
-  return (
-    <span
-      className="icon"
-      style={{ width: size, height: size, display: "flex" }}
-      dangerouslySetInnerHTML={{ __html: svgString }}
-    />
-  );
-}

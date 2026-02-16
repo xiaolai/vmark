@@ -1,9 +1,11 @@
 /**
  * Source Image Preview Tests
  *
- * Tests that the image preview respects imagePopupStore.isOpen state:
- * - Preview is suppressed when the image edit popup is open
+ * Tests that the media preview respects mediaPopupStore.isOpen state and
+ * supports image, video, and audio file types:
+ * - Preview is suppressed when the media edit popup is open
  * - Preview shows normally when the popup is closed
+ * - Video and audio paths trigger preview with correct media type
  */
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
@@ -27,12 +29,12 @@ vi.mock("@/plugins/imagePreview/ImagePreviewView", () => ({
   hideImagePreview: (...args: unknown[]) => mockHideImagePreview(...args),
 }));
 
-// Mock imagePopupStore with subscribe support for cached state
+// Mock mediaPopupStore with subscribe support for cached state
 let mockIsOpen = false;
 const subscribers = new Set<(state: { isOpen: boolean }) => void>();
 
-vi.mock("@/stores/imagePopupStore", () => ({
-  useImagePopupStore: {
+vi.mock("@/stores/mediaPopupStore", () => ({
+  useMediaPopupStore: {
     getState: () => ({ isOpen: mockIsOpen }),
     subscribe: (cb: (state: { isOpen: boolean }) => void) => {
       subscribers.add(cb);
@@ -41,8 +43,9 @@ vi.mock("@/stores/imagePopupStore", () => ({
   },
 }));
 
-vi.mock("@/utils/imagePathDetection", () => ({
-  hasImageExtension: vi.fn(() => true),
+const mockGetMediaType = vi.fn<(path: string) => "image" | "video" | "audio" | null>(() => "image");
+vi.mock("@/utils/mediaPathDetection", () => ({
+  getMediaType: (...args: unknown[]) => mockGetMediaType(args[0] as string),
 }));
 
 import { createSourceImagePreviewPlugin } from "../sourceImagePreview";
@@ -90,6 +93,8 @@ describe("sourceImagePreview popup-open guard", () => {
     mockShow.mockClear();
     mockIsVisible.mockClear();
     mockUpdateContent.mockClear();
+    mockGetMediaType.mockClear();
+    mockGetMediaType.mockReturnValue("image");
     coordsSpy.mockClear();
   });
 
@@ -98,7 +103,7 @@ describe("sourceImagePreview popup-open guard", () => {
     activeView = null;
   });
 
-  it("does not show preview when imagePopupStore.isOpen is true", async () => {
+  it("does not show preview when mediaPopupStore.isOpen is true", async () => {
     mockIsOpen = true;
     const content = "![alt](image.png)";
     activeView = createView(content, 5);
@@ -113,7 +118,7 @@ describe("sourceImagePreview popup-open guard", () => {
     expect(coordsSpy).not.toHaveBeenCalled();
   });
 
-  it("shows preview when imagePopupStore.isOpen is false", async () => {
+  it("shows preview when mediaPopupStore.isOpen is false", async () => {
     mockIsOpen = false;
     const content = "![alt](image.png)";
     activeView = createView(content, 5);
@@ -122,11 +127,12 @@ describe("sourceImagePreview popup-open guard", () => {
 
     // Guard did NOT block — coordsAtPos was called to get anchor rect
     expect(coordsSpy).toHaveBeenCalled();
-    // show() is called with correct arguments
+    // show() is called with correct arguments including media type
     expect(mockShow).toHaveBeenCalledWith(
       "image.png",
       expect.objectContaining({ top: 100, left: 50, bottom: 120, right: 200 }),
       activeView!.dom,
+      "image",
     );
     expect(mockUpdateContent).not.toHaveBeenCalled();
   });
@@ -186,5 +192,108 @@ describe("sourceImagePreview popup-open guard", () => {
 
     // Subscription triggers hidePreview immediately
     expect(mockHideImagePreview).toHaveBeenCalled();
+  });
+});
+
+describe("sourceImagePreview audio/video support", () => {
+  let coordsSpy: ReturnType<typeof vi.spyOn>;
+  let activeView: EditorView | null = null;
+
+  beforeAll(() => {
+    coordsSpy = vi.spyOn(EditorView.prototype, "coordsAtPos").mockReturnValue({
+      top: 100,
+      left: 50,
+      bottom: 120,
+      right: 200,
+    });
+  });
+
+  afterAll(() => {
+    coordsSpy.mockRestore();
+  });
+
+  beforeEach(() => {
+    mockIsOpen = false;
+    subscribers.clear();
+    mockHide.mockClear();
+    mockHideImagePreview.mockClear();
+    mockShow.mockClear();
+    mockIsVisible.mockClear();
+    mockUpdateContent.mockClear();
+    mockGetMediaType.mockClear();
+    coordsSpy.mockClear();
+  });
+
+  afterEach(() => {
+    activeView?.destroy();
+    activeView = null;
+  });
+
+  it("shows preview for video files with type 'video'", async () => {
+    mockGetMediaType.mockReturnValue("video");
+    const content = "![video](clip.mp4)";
+    activeView = createView(content, 5);
+
+    await flushRaf();
+
+    expect(mockShow).toHaveBeenCalledWith(
+      "clip.mp4",
+      expect.objectContaining({ top: 100, left: 50 }),
+      activeView!.dom,
+      "video",
+    );
+  });
+
+  it("shows preview for audio files with type 'audio'", async () => {
+    mockGetMediaType.mockReturnValue("audio");
+    const content = "![song](track.mp3)";
+    activeView = createView(content, 5);
+
+    await flushRaf();
+
+    expect(mockShow).toHaveBeenCalledWith(
+      "track.mp3",
+      expect.objectContaining({ top: 100, left: 50 }),
+      activeView!.dom,
+      "audio",
+    );
+  });
+
+  it("does not show preview for unknown file extensions", async () => {
+    mockGetMediaType.mockReturnValue(null);
+    const content = "![doc](readme.txt)";
+    activeView = createView(content, 5);
+
+    await flushRaf();
+
+    expect(mockShow).not.toHaveBeenCalled();
+    expect(mockHideImagePreview).toHaveBeenCalled();
+  });
+
+  it("still shows preview for data:image/ URLs as image type", async () => {
+    // data: URLs bypass getMediaType — always treated as image
+    mockGetMediaType.mockReturnValue(null);
+    const content = "![img](data:image/png;base64,abc)";
+    activeView = createView(content, 5);
+
+    await flushRaf();
+
+    expect(mockShow).toHaveBeenCalledWith(
+      "data:image/png;base64,abc",
+      expect.any(Object),
+      activeView!.dom,
+      "image",
+    );
+  });
+
+  it("passes media type through updateContent when preview is already visible", async () => {
+    mockGetMediaType.mockReturnValue("video");
+    mockIsVisible.mockReturnValue(true);
+    const content = "![v](clip.mp4)";
+    activeView = createView(content, 5);
+
+    await flushRaf();
+
+    expect(mockUpdateContent).toHaveBeenCalledWith("clip.mp4", expect.any(Object), "video");
   });
 });

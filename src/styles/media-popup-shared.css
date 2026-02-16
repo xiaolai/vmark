@@ -1,10 +1,14 @@
 /**
- * Image Popup Styles - Two-row layout
- * Row 1: src input + action buttons
- * Row 2: caption/alt input
+ * Shared Media Popup Styles
+ *
+ * Common styles for image and media (audio/video) editing popups.
+ * Each popup's own CSS file adds only type-specific rules.
+ *
+ * @coordinates-with plugins/mediaPopup/media-popup.css
  */
 
-.image-popup {
+/* --- Container --- */
+.media-popup {
   position: fixed;
   z-index: 9999;
   display: flex;
@@ -15,10 +19,12 @@
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--shadow-md);
-  animation: image-popup-fade-in 0.1s ease-out;
+  animation: media-edit-popup-fade-in 0.1s ease-out;
+  min-width: 300px;
+  max-width: 400px;
 }
 
-@keyframes image-popup-fade-in {
+@keyframes media-edit-popup-fade-in {
   from {
     opacity: 0;
     transform: translateY(-2px);
@@ -29,15 +35,15 @@
   }
 }
 
-/* Row container */
-.image-popup-row {
+/* --- Row container --- */
+.media-popup-row {
   display: flex;
   align-items: center;
   gap: 2px;
 }
 
-/* URL/Path Input - borderless */
-.image-popup-src {
+/* --- Source URL/Path Input (monospace, borderless) --- */
+.media-popup-src {
   width: 220px;
   padding: 4px 8px;
   border: none;
@@ -48,8 +54,9 @@
   outline: none;
 }
 
-/* Caption/Alt Input - flexible width */
-.image-popup-alt {
+/* --- Text inputs (caption/alt/title) --- */
+.media-popup-alt,
+.media-popup-title {
   flex: 1;
   min-width: 0;
   padding: 4px 8px;
@@ -60,35 +67,30 @@
   outline: none;
 }
 
-/* Dimensions display - read only */
-.image-popup-dimensions {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  padding-right: 4px;
-  flex-shrink: 0;
-  user-select: none;
-}
-
-/* Input focus: caret is the indicator (per design rules) */
-.image-popup-src:focus,
-.image-popup-src:focus-visible,
-.image-popup-alt:focus,
-.image-popup-alt:focus-visible {
+/* --- Input focus: caret is the indicator (per design rules) --- */
+.media-popup-src:focus,
+.media-popup-src:focus-visible,
+.media-popup-alt:focus,
+.media-popup-alt:focus-visible,
+.media-popup-title:focus,
+.media-popup-title:focus-visible,
+.media-popup-poster:focus,
+.media-popup-poster:focus-visible {
   border: none;
   outline: none;
   box-shadow: none;
-  /* Caret visibility indicates focus */
 }
 
-.image-popup-src::placeholder,
-.image-popup-alt::placeholder {
+.media-popup-src::placeholder,
+.media-popup-alt::placeholder,
+.media-popup-title::placeholder,
+.media-popup-poster::placeholder {
   color: var(--text-secondary);
   opacity: 0.5;
 }
 
-/* Icon-only buttons */
-.image-popup-btn {
+/* --- Icon-only buttons --- */
+.media-popup-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -101,24 +103,25 @@
   color: var(--text-secondary);
   cursor: default;
   user-select: none;
+  position: relative;
 }
 
-.image-popup-btn:hover {
+.media-popup-btn:hover {
   background: var(--hover-bg);
   color: var(--text-color);
 }
 
-.image-popup-btn:active {
+.media-popup-btn:active {
   opacity: 0.8;
 }
 
-/* Focus state for keyboard navigation - U-shaped underline (keyboard focus only) */
-.image-popup-btn:focus-visible {
+/* --- Focus state: U-shaped underline (keyboard only) --- */
+.media-popup-btn:focus-visible {
   outline: none;
   color: var(--primary-color);
 }
 
-.image-popup-btn:focus-visible::after {
+.media-popup-btn:focus-visible::after {
   content: "";
   position: absolute;
   bottom: 2px;
@@ -130,7 +133,8 @@
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
-.image-popup-btn svg {
+/* --- Icon sizing --- */
+.media-popup-btn svg {
   width: 14px;
   height: 14px;
   stroke: currentColor;
@@ -140,12 +144,12 @@
   fill: none;
 }
 
-/* Delete button - danger color on hover */
-.image-popup-btn-delete:hover {
+/* --- Delete button: danger color on hover --- */
+.media-popup-btn-delete:hover {
   color: var(--error-color);
 }
 
-/* Dark theme */
-.dark-theme .image-popup-btn:hover {
+/* --- Dark theme --- */
+.dark-theme .media-popup-btn:hover {
   background: var(--hover-bg-dark);
 }

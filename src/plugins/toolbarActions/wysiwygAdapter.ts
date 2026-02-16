@@ -1,9 +1,9 @@
 /**
  * WYSIWYG Adapter
  *
- * Purpose: Toolbar action dispatcher for WYSIWYG (ProseMirror/Tiptap) mode. Maps
- * every toolbar action ID to the appropriate handler function. Handler implementations
- * are split across category-specific modules to keep each file under ~300 lines.
+ * Purpose: Toolbar action dispatcher for WYSIWYG mode — maps every action ID
+ * (formatting, insert, media, CJK, block ops) to the appropriate handler.
+ * Implementations split across category-specific modules for the ~300-line limit.
  *
  * Pipeline: toolbar click -> runToolbarAction(id) -> switch(id) -> handler module
  *
@@ -13,7 +13,7 @@
  *   - Link/wiki-link actions delegate to wysiwygAdapterLinks.ts to keep this file focused
  *   - Handler implementations split by category:
  *     - wysiwygAdapterFormatting.ts — text formatting, headings, blockquote
- *     - wysiwygAdapterInsert.ts — images, math, diagrams, code blocks
+ *     - wysiwygAdapterInsert.ts — images, video, audio, YouTube, math, diagrams, code blocks
  *     - wysiwygAdapterLinkEditor.ts — link/wiki-link editing with smart clipboard
  *     - wysiwygAdapterCjk.ts — CJK formatting, trailing spaces, line endings
  *     - wysiwygAdapterBlockOps.ts — block move/duplicate/delete/join
@@ -35,7 +35,7 @@ import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
 import { insertWikiLink, insertBookmarkLink } from "./wysiwygAdapterLinks";
 import { clearFormattingInView, increaseHeadingLevel, decreaseHeadingLevel, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
-import { handleInsertImage, insertMathBlock, insertDiagramBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
+import { handleInsertImage, handleInsertVideo, handleInsertAudio, handleInsertYoutube, insertMathBlock, insertDiagramBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { handleFormatCJK, handleFormatCJKFile, handleRemoveTrailingSpaces, handleCollapseBlankLines, handleLineEndings } from "./wysiwygAdapterCjk";
 import { handleWysiwygMoveBlockUp, handleWysiwygMoveBlockDown, handleWysiwygDuplicateBlock, handleWysiwygDeleteBlock, handleWysiwygJoinBlocks, handleWysiwygRemoveBlankLines } from "./wysiwygAdapterBlockOps";
@@ -188,6 +188,12 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
     // Insert actions
     case "insertImage":
       return handleInsertImage(context);
+    case "insertVideo":
+      return handleInsertVideo(context);
+    case "insertAudio":
+      return handleInsertAudio(context);
+    case "insertYoutube":
+      return handleInsertYoutube(context);
     case "insertCodeBlock":
       if (!context.editor) return false;
       context.editor.chain().focus().setCodeBlock().run();

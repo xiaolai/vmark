@@ -7,7 +7,7 @@
 
 import type { EditorView } from "@codemirror/view";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { popupIcons } from "@/utils/popupComponents";
 import { browseImage, copyImagePath, removeImage, saveImageChanges } from "./sourceImageActions";
 
@@ -15,14 +15,14 @@ import { browseImage, copyImagePath, removeImage, saveImageChanges } from "./sou
  * Source image popup view.
  * Extends the base SourcePopupView for common functionality.
  */
-type ImagePopupStoreState = ReturnType<typeof useImagePopupStore.getState>;
+type MediaPopupStoreState = ReturnType<typeof useMediaPopupStore.getState>;
 
-export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> {
+export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> {
   // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
   private declare srcInput: HTMLInputElement;
   private declare altInput: HTMLInputElement;
 
-  constructor(view: EditorView, store: StoreApi<ImagePopupStoreState>) {
+  constructor(view: EditorView, store: StoreApi<MediaPopupStoreState>) {
     super(view, store);
   }
 
@@ -80,10 +80,10 @@ export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> 
     };
   }
 
-  protected onShow(state: ImagePopupStoreState): void {
+  protected onShow(state: MediaPopupStoreState): void {
     // Set input values from store
-    this.srcInput.value = state.imageSrc;
-    this.altInput.value = state.imageAlt;
+    this.srcInput.value = state.mediaSrc;
+    this.altInput.value = state.mediaAlt;
 
     // Focus src input after a brief delay
     requestAnimationFrame(() => {
@@ -117,11 +117,11 @@ export class SourceImagePopupView extends SourcePopupView<ImagePopupStoreState> 
   }
 
   private handleSrcInput(): void {
-    useImagePopupStore.getState().setSrc(this.srcInput.value);
+    useMediaPopupStore.getState().setSrc(this.srcInput.value);
   }
 
   private handleAltInput(): void {
-    useImagePopupStore.getState().setAlt(this.altInput.value);
+    useMediaPopupStore.getState().setAlt(this.altInput.value);
   }
 
   private handleSave(): void {

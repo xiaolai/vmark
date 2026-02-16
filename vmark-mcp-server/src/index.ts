@@ -50,6 +50,7 @@ export { registerBatchOpTools } from './tools/batch-ops.js';
 export { registerParagraphTools } from './tools/paragraphs.js';
 export { registerSmartInsertTool } from './tools/smart-insert.js';
 export { registerGenieTools } from './tools/genies.js';
+export { registerMediaTools } from './tools/media.js';
 
 // Resource registrations
 export { registerDocumentResources } from './resources/document.js';
@@ -154,6 +155,7 @@ import { registerBatchOpTools } from './tools/batch-ops.js';
 import { registerParagraphTools } from './tools/paragraphs.js';
 import { registerSmartInsertTool } from './tools/smart-insert.js';
 import { registerGenieTools } from './tools/genies.js';
+import { registerMediaTools } from './tools/media.js';
 import { registerDocumentResources } from './resources/document.js';
 import type { Bridge } from './bridge/types.js';
 
@@ -185,6 +187,7 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   registerParagraphTools(server);
   registerSmartInsertTool(server);
   registerGenieTools(server);
+  registerMediaTools(server);
 
   // Register resources
   registerDocumentResources(server);
@@ -316,6 +319,15 @@ export const TOOL_CATEGORIES = [
     ],
   },
   {
+    name: 'Media Tools',
+    description: 'Insert video, audio, and YouTube embeds',
+    tools: [
+      'insert_video',
+      'insert_audio',
+      'insert_youtube',
+    ],
+  },
+  {
     name: 'Workspace Tools',
     description: 'Window and document management',
     tools: [
@@ -371,7 +383,7 @@ export const TOOL_CATEGORIES = [
  * Expected tool count — used by --health-check to catch stale builds.
  * Update this number whenever tools are added or removed.
  */
-export const EXPECTED_TOOL_COUNT = 77;
+export const EXPECTED_TOOL_COUNT = 80;
 
 /**
  * List of all resources for documentation.

@@ -1,48 +1,56 @@
 /**
- * Source Mode Image Preview Plugin
+ * Source Mode Media Preview Plugin
  *
- * Purpose: Shows a floating image preview when the cursor is inside a markdown image
- * syntax (`![alt](path)`) in Source mode, giving visual feedback without mode-switching.
+ * Purpose: Shows a floating media preview (image, video, or audio) when the cursor
+ * is inside a markdown image syntax (`![alt](path)`) in Source mode, giving visual
+ * feedback without mode-switching.
  *
  * Key decisions:
  *   - Reuses the ImagePreviewView singleton from the WYSIWYG imagePreview plugin
- *     to avoid duplicating image loading and rendering logic
- *   - Hides preview when image popup is open (avoid visual conflict)
+ *     to avoid duplicating media loading and rendering logic
+ *   - Detects media type via getMediaType() — supports image, video, and audio extensions
+ *   - Hides preview when media popup is open (avoid visual conflict)
  *   - Debounces cursor position checks to avoid excessive preview updates
  *
  * @coordinates-with imagePreview/ImagePreviewView.ts — shared preview rendering singleton
- * @coordinates-with stores/imagePopupStore.ts — checks popup visibility to avoid overlap
+ * @coordinates-with stores/mediaPopupStore.ts — checks popup visibility to avoid overlap
+ * @coordinates-with utils/mediaPathDetection.ts — media type detection
  * @module plugins/codemirror/sourceImagePreview
  */
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { getImagePreviewView, hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
-import { hasImageExtension } from "@/utils/imagePathDetection";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { getMediaType } from "@/utils/mediaPathDetection";
+
+/** Media type for preview rendering. */
+type MediaType = "image" | "video" | "audio";
 
 /**
- * Image markdown range result.
+ * Media markdown range result.
  */
-interface ImageRange {
+interface MediaRange {
   /** Start position of full image markdown (from ![) */
   from: number;
-  /** End position of full image markdown (to ]) */
+  /** End position of full image markdown (to `)`) */
   to: number;
-  /** The image path/URL */
+  /** The media path/URL */
   path: string;
   /** The alt text */
   alt: string;
+  /** Detected media type */
+  type: MediaType;
 }
 
 /**
- * Find image markdown at cursor position.
+ * Find media markdown at cursor position.
  * Detects: ![alt](path) or ![alt](path "title") or ![alt](<path with spaces>)
  *
  * Returns null if:
  * - Not inside an image markdown
- * - Path doesn't have image extension (skip non-image links)
+ * - Path has no recognized media extension (skip non-media links)
  */
-function findImageAtCursor(view: EditorView, pos: number): ImageRange | null {
+function findMediaAtCursor(view: EditorView, pos: number): MediaRange | null {
   const doc = view.state.doc;
   const line = doc.lineAt(pos);
   const lineText = line.text;
@@ -60,21 +68,26 @@ function findImageAtCursor(view: EditorView, pos: number): ImageRange | null {
     const matchEnd = matchStart + match[0].length;
 
     // Check if cursor is inside this image markdown
-    if (pos >= matchStart && pos <= matchEnd) {
+    if (pos >= matchStart && pos < matchEnd) {
       const alt = match[1];
       // Group 2 is angle-bracket path, Group 3 is regular path
       const path = match[2] || match[3];
 
-      // Only show preview for image extensions (skip regular links)
-      if (!hasImageExtension(path) && !path.startsWith("data:image/")) {
-        continue;
+      // data:image/ URLs are always treated as image
+      if (path.startsWith("data:image/")) {
+        return { from: matchStart, to: matchEnd, path, alt, type: "image" };
       }
+
+      // Detect media type — skip paths with no recognized extension
+      const mediaType = getMediaType(path);
+      if (!mediaType) continue;
 
       return {
         from: matchStart,
         to: matchEnd,
         path,
         alt,
+        type: mediaType,
       };
     }
   }
@@ -84,9 +97,9 @@ function findImageAtCursor(view: EditorView, pos: number): ImageRange | null {
 
 class SourceImagePreviewPlugin {
   private view: EditorView;
-  private currentImageRange: ImageRange | null = null;
+  private currentImageRange: MediaRange | null = null;
   private pendingUpdate = false;
-  private hoverImageRange: ImageRange | null = null;
+  private hoverImageRange: MediaRange | null = null;
   private boundMouseMove: (e: MouseEvent) => void;
   private boundMouseLeave: () => void;
   /** Cached popup-open state — updated via store subscription. */
@@ -97,8 +110,8 @@ class SourceImagePreviewPlugin {
     this.view = view;
 
     // Subscribe to popup store so we avoid per-event getState() calls
-    this.popupOpen = useImagePopupStore.getState().isOpen;
-    this.unsubPopup = useImagePopupStore.subscribe((state) => {
+    this.popupOpen = useMediaPopupStore.getState().isOpen;
+    this.unsubPopup = useMediaPopupStore.subscribe((state) => {
       this.popupOpen = state.isOpen;
       if (this.popupOpen) this.hidePreview();
     });
@@ -135,8 +148,8 @@ class SourceImagePreviewPlugin {
       return;
     }
 
-    // Check for image at hover position
-    const imageRange = findImageAtCursor(this.view, pos);
+    // Check for media at hover position
+    const imageRange = findMediaAtCursor(this.view, pos);
 
     // If we're hovering over same image, do nothing
     if (
@@ -193,8 +206,8 @@ class SourceImagePreviewPlugin {
 
     if (this.isPopupSuppressing()) return;
 
-    // Check for image markdown at cursor
-    const imageRange = findImageAtCursor(this.view, from);
+    // Check for media markdown at cursor
+    const imageRange = findMediaAtCursor(this.view, from);
     if (imageRange) {
       this.currentImageRange = imageRange;
       this.showPreview();
@@ -204,12 +217,12 @@ class SourceImagePreviewPlugin {
     this.hidePreview();
   }
 
-  private showPreviewForRange(imageRange: ImageRange) {
+  private showPreviewForRange(imageRange: MediaRange) {
     if (this.isPopupSuppressing()) return;
 
     const preview = getImagePreviewView();
 
-    // Get coordinates for the image range
+    // Get coordinates for the media range
     const fromCoords = this.view.coordsAtPos(imageRange.from);
     const toCoords = this.view.coordsAtPos(imageRange.to);
 
@@ -226,10 +239,10 @@ class SourceImagePreviewPlugin {
 
     if (preview.isVisible()) {
       // Update existing preview
-      preview.updateContent(imageRange.path, anchorRect);
+      preview.updateContent(imageRange.path, anchorRect, imageRange.type);
     } else {
       // Show new preview
-      preview.show(imageRange.path, anchorRect, this.view.dom);
+      preview.show(imageRange.path, anchorRect, this.view.dom, imageRange.type);
     }
   }
 

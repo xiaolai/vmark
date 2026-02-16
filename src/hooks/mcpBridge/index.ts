@@ -1,9 +1,9 @@
 /**
  * MCP Bridge Hook — Central Dispatcher
  *
- * Purpose: Listens for mcp-bridge:request events from the Rust MCP server
- *   and routes each request to the appropriate handler module based on
- *   the operation type (document, selection, mutation, structure, etc.).
+ * Purpose: Listens for mcp-bridge:request events from the Rust MCP server and
+ *   routes each request to the appropriate handler module based on the operation
+ *   type (document, selection, mutation, structure, media insert, etc.).
  *
  * Pipeline: AI client → MCP server (Rust) → WebSocket → Tauri event
  *   "mcp-bridge:request" → this dispatcher → handler function → respond()
@@ -154,6 +154,9 @@ import {
 
 // Smart insert handlers
 import { handleSmartInsert } from "./smartInsertHandlers";
+
+// Media insert handlers
+import { handleInsertMedia } from "./mediaHandlers";
 
 // Batch operation handlers (AI-Oriented MCP Design)
 import {
@@ -443,6 +446,11 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
       // Smart insert (intuitive insertion at common locations)
       case "smartInsert":
         await handleSmartInsert(id, args);
+        break;
+
+      // Media insert (video, audio, YouTube embed)
+      case "insertMedia":
+        await handleInsertMedia(id, args);
         break;
 
       // Batch operations (AI-Oriented MCP Design)

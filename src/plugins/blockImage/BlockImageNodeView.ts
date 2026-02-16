@@ -2,94 +2,45 @@
  * Block Image NodeView
  *
  * Purpose: Custom ProseMirror NodeView for block_image nodes — handles async image
- * resolution (relative/absolute/external paths), click-to-select, double-click-to-popup,
- * context menu, and tooltip interactions.
+ * resolution (relative/absolute/external paths), double-click-to-popup, context menu,
+ * and tooltip interactions.
  *
  * Pipeline: Markdown image → parser creates block_image node → this NodeView renders
- *         → resolveImageSrc resolves path → img element displays
+ *         → resolveMediaSrc resolves path → img element displays
  *
  * Key decisions:
- *   - Image src resolution is async because relative paths need the document's directory
- *     from the Tauri path API
- *   - Uses convertFileSrc to turn local file paths into Tauri asset:// protocol URLs
- *   - Windows path normalization handles backslash-to-forward-slash conversion
- *   - Security: relative paths are validated against directory traversal attacks
+ *   - Image src resolution delegated to shared resolveMediaSrc utility
+ *   - Security: relative paths validated against directory traversal attacks
  *
  * Known limitations:
  *   - No lazy loading — all visible block images resolve immediately
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_image node type
- * @coordinates-with imageView/security.ts — path validation and URL classification
- * @coordinates-with stores/imagePopupStore.ts — image popup state for double-click editing
+ * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
+ * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockImage/BlockImageNodeView
  */
 
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { dirname, join } from "@tauri-apps/api/path";
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
-import { useImageTooltipStore } from "@/stores/imageTooltipStore";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
-import { isAbsolutePath, isExternalUrl, isRelativePath, validateImagePath } from "@/plugins/imageView/security";
-import { decodeMarkdownUrl } from "@/utils/markdownUrl";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { isExternalUrl } from "@/plugins/imageView/security";
+import { resolveMediaSrc } from "@/utils/resolveMediaSrc";
+import {
+  attachMediaLoadHandlers,
+  showMediaError,
+  clearMediaLoadState,
+  selectMediaNode,
+  type MediaLoadConfig,
+} from "@/plugins/shared/mediaNodeViewHelpers";
 
-/**
- * Normalize path for convertFileSrc on Windows.
- * Windows paths use backslashes which convertFileSrc doesn't handle correctly.
- * See: https://github.com/tauri-apps/tauri/issues/7970
- */
-function normalizePathForAsset(path: string): string {
-  return path.replace(/\\/g, "/");
-}
-
-function getActiveTabIdForCurrentWindow(): string | null {
-  try {
-    const windowLabel = getWindowLabel();
-    return useTabStore.getState().activeTabId[windowLabel] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveImageSrc(src: string): Promise<string> {
-  if (isExternalUrl(src)) return src;
-
-  // Decode URL-encoded paths for file system access
-  // Markdown may contain %20 for spaces, but filesystem needs actual spaces
-  const decodedSrc = decodeMarkdownUrl(src);
-
-  if (isAbsolutePath(decodedSrc)) return convertFileSrc(normalizePathForAsset(decodedSrc));
-
-  if (isRelativePath(decodedSrc)) {
-    if (!validateImagePath(decodedSrc)) {
-      console.warn("[BlockImageView] Rejected invalid image path:", decodedSrc);
-      return "";
-    }
-
-    const tabId = getActiveTabIdForCurrentWindow();
-    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-    const filePath = doc?.filePath;
-    if (!filePath) return src;
-
-    try {
-      const docDir = await dirname(filePath);
-      const cleanPath = decodedSrc.replace(/^\.\//, "");
-      const absolutePath = await join(docDir, cleanPath);
-      return convertFileSrc(normalizePathForAsset(absolutePath));
-    } catch (error) {
-      console.error("Failed to resolve image path:", error);
-      return src;
-    }
-  }
-
-  return src;
-}
+const IMAGE_LOAD_CONFIG: MediaLoadConfig = {
+  loadEvent: "load",
+  loadingClass: "image-loading",
+  errorClass: "image-error",
+};
 
 export class BlockImageNodeView implements NodeView {
   dom: HTMLElement;
@@ -99,9 +50,7 @@ export class BlockImageNodeView implements NodeView {
   private editor: Editor;
   private resolveRequestId = 0;
   private destroyed = false;
-  // Store active load handlers for cleanup
-  private activeLoadHandler: (() => void) | null = null;
-  private activeErrorHandler: (() => void) | null = null;
+  private cleanupHandlers: (() => void) | null = null;
 
   constructor(node: PMNode, getPos: () => number | undefined, editor: Editor) {
     this.getPos = getPos;
@@ -119,8 +68,7 @@ export class BlockImageNodeView implements NodeView {
     this.updateSrc(this.originalSrc);
 
     this.img.addEventListener("contextmenu", this.handleContextMenu);
-    // Attach click to the figure so clicking anywhere in the block opens popup
-    this.dom.addEventListener("click", this.handleClick);
+    this.dom.addEventListener("dblclick", this.handleClick);
 
     this.dom.appendChild(this.img);
   }
@@ -138,21 +86,10 @@ export class BlockImageNodeView implements NodeView {
   };
 
   private handleClick = (_e: MouseEvent) => {
+    selectMediaNode(this.editor, this.getPos);
+
     const pos = this.getPos();
     if (pos === undefined) return;
-
-    // Close tooltip if open
-    useImageTooltipStore.getState().hideTooltip();
-
-    // Set NodeSelection on this node for visual selection indicator
-    try {
-      const { view } = this.editor;
-      const selection = NodeSelection.create(view.state.doc, pos);
-      const tr = view.state.tr.setSelection(selection);
-      view.dispatch(tr.setMeta("addToHistory", false));
-    } catch {
-      // Ignore selection errors
-    }
 
     // Get dimensions from the loaded image
     const dimensions = this.img.naturalWidth > 0
@@ -160,12 +97,12 @@ export class BlockImageNodeView implements NodeView {
       : null;
 
     const rect = this.img.getBoundingClientRect();
-    useImagePopupStore.getState().openPopup({
-      imageSrc: this.originalSrc,
-      imageAlt: this.img.alt ?? "",
-      imageNodePos: pos,
-      imageNodeType: "block_image",
-      imageDimensions: dimensions,
+    useMediaPopupStore.getState().openPopup({
+      mediaSrc: this.originalSrc,
+      mediaAlt: this.img.alt ?? "",
+      mediaNodePos: pos,
+      mediaNodeType: "block_image",
+      mediaDimensions: dimensions,
       anchorRect: {
         top: rect.top,
         left: rect.left,
@@ -176,9 +113,12 @@ export class BlockImageNodeView implements NodeView {
   };
 
   private updateSrc(src: string): void {
+    // Bump request ID on every call to cancel any pending async resolution
+    const requestId = ++this.resolveRequestId;
+
     // Reset states
     this.img.style.opacity = "1";
-    this.dom.classList.remove("image-loading", "image-error");
+    clearMediaLoadState(this.dom, IMAGE_LOAD_CONFIG);
     // Restore original title if it was overwritten by error message
     const originalTitle = this.img.getAttribute("data-original-title");
     if (originalTitle !== null) {
@@ -188,76 +128,61 @@ export class BlockImageNodeView implements NodeView {
 
     if (!src) {
       this.img.src = "";
-      this.showError("No image source");
+      this.handleError("No image source");
       return;
     }
 
     if (isExternalUrl(src)) {
-      this.dom.classList.add("image-loading");
-      this.img.src = src;
+      this.dom.classList.add(IMAGE_LOAD_CONFIG.loadingClass);
       this.setupLoadHandlers();
+      this.img.src = src;
+      // Fast-path: image may already be cached
+      if (this.img.complete && this.img.naturalWidth > 0) {
+        this.cleanupHandlers?.();
+        this.cleanupHandlers = null;
+        clearMediaLoadState(this.dom, IMAGE_LOAD_CONFIG);
+        this.img.style.opacity = "1";
+      }
       return;
     }
 
     this.img.src = "";
-    this.dom.classList.add("image-loading");
+    this.dom.classList.add(IMAGE_LOAD_CONFIG.loadingClass);
 
-    const requestId = ++this.resolveRequestId;
-
-    resolveImageSrc(src).then((resolvedSrc) => {
-      if (this.destroyed || requestId !== this.resolveRequestId) return;
-      if (!resolvedSrc) {
-        this.showError("Failed to resolve path");
-        return;
-      }
-      this.img.src = resolvedSrc;
-      this.setupLoadHandlers();
-    });
-  }
-
-  private cleanupLoadHandlers(): void {
-    if (this.activeLoadHandler) {
-      this.img.removeEventListener("load", this.activeLoadHandler);
-      this.activeLoadHandler = null;
-    }
-    if (this.activeErrorHandler) {
-      this.img.removeEventListener("error", this.activeErrorHandler);
-      this.activeErrorHandler = null;
-    }
+    resolveMediaSrc(src, "[BlockImageView]")
+      .then((resolvedSrc) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        if (!resolvedSrc) {
+          this.handleError("Failed to resolve path");
+          return;
+        }
+        this.setupLoadHandlers();
+        this.img.src = resolvedSrc;
+      })
+      .catch((err) => {
+        if (this.destroyed || requestId !== this.resolveRequestId) return;
+        this.handleError(err instanceof Error ? err.message : "Failed to resolve path");
+      });
   }
 
   private setupLoadHandlers(): void {
-    // Clean up any existing handlers first
-    this.cleanupLoadHandlers();
-
-    const onLoad = () => {
-      if (this.destroyed) return;
-      this.dom.classList.remove("image-loading", "image-error");
-      this.img.style.opacity = "1";
-      this.cleanupLoadHandlers();
-    };
-
-    const onError = () => {
-      if (this.destroyed) return;
-      this.showError("Failed to load image");
-      this.cleanupLoadHandlers();
-    };
-
-    this.activeLoadHandler = onLoad;
-    this.activeErrorHandler = onError;
-    this.img.addEventListener("load", onLoad);
-    this.img.addEventListener("error", onError);
+    this.cleanupHandlers?.();
+    this.cleanupHandlers = attachMediaLoadHandlers(
+      this.img,
+      this.dom,
+      IMAGE_LOAD_CONFIG,
+      () => { this.img.style.opacity = "1"; },
+      () => { this.handleError("Failed to load image"); },
+    );
   }
 
-  private showError(message: string): void {
-    this.dom.classList.remove("image-loading");
-    this.dom.classList.add("image-error");
-    this.img.style.opacity = "0.5";
-    // Store original title and set error tooltip
-    if (!this.img.hasAttribute("data-original-title") && this.img.title) {
-      this.img.setAttribute("data-original-title", this.img.title);
+  private handleError(message: string): void {
+    // Store original title before showMediaError overwrites it
+    if (!this.img.hasAttribute("data-original-title")) {
+      this.img.setAttribute("data-original-title", this.img.title || "");
     }
-    this.img.title = `${message}: ${this.originalSrc}`;
+    showMediaError(this.dom, this.img, this.originalSrc, message, IMAGE_LOAD_CONFIG);
+    this.img.style.opacity = "0.5";
   }
 
   update(node: PMNode): boolean {
@@ -277,34 +202,24 @@ export class BlockImageNodeView implements NodeView {
 
   destroy(): void {
     this.destroyed = true;
-    this.cleanupLoadHandlers();
+    this.cleanupHandlers?.();
     this.img.removeEventListener("contextmenu", this.handleContextMenu);
-    this.dom.removeEventListener("click", this.handleClick);
+    this.dom.removeEventListener("dblclick", this.handleClick);
   }
 
   stopEvent(event: Event): boolean {
     if (event.type === "mousedown" || event.type === "click") {
-      // Stop events for both the figure and the image
       const target = event.target as HTMLElement;
       return target === this.img || target === this.dom;
     }
     return false;
   }
 
-  /**
-   * Called when this node receives NodeSelection.
-   * Add visual selection indicator.
-   */
   selectNode(): void {
     this.dom.classList.add("ProseMirror-selectednode");
-    // Clear native browser selection to prevent visual artifacts
     window.getSelection()?.removeAllRanges();
   }
 
-  /**
-   * Called when this node loses NodeSelection.
-   * Remove visual selection indicator.
-   */
   deselectNode(): void {
     this.dom.classList.remove("ProseMirror-selectednode");
   }

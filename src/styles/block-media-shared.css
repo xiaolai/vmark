@@ -1,0 +1,91 @@
+/**
+ * Shared Block Media Styles
+ *
+ * Common styles for block-level media (image, audio, video).
+ * Each media type's own CSS file adds only type-specific sizing.
+ *
+ * @coordinates-with plugins/blockImage/block-image.css
+ * @coordinates-with plugins/blockAudio/block-audio.css
+ * @coordinates-with plugins/blockVideo/block-video.css
+ */
+
+/* --- Container --- */
+.block-image,
+.block-audio,
+.block-video {
+  display: block;
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
+  text-align: center;
+}
+
+/* --- Element base --- */
+.block-image img,
+.block-audio audio,
+.block-video video {
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* --- Selected state --- */
+.ProseMirror-selectednode.block-image img,
+.block-image.ProseMirror-selectednode img,
+.ProseMirror-selectednode.block-audio audio,
+.block-audio.ProseMirror-selectednode audio,
+.ProseMirror-selectednode.block-video video,
+.block-video.ProseMirror-selectednode video {
+  border: 1px solid var(--border-color);
+}
+
+/* --- Media border preferences (applied via container class) --- */
+.media-border-always .block-image img,
+.media-border-always .block-audio audio,
+.media-border-always .block-video video {
+  border: 1px solid var(--border-color);
+}
+
+.media-border-hover .block-image img:hover,
+.media-border-hover .block-audio audio:hover,
+.media-border-hover .block-video video:hover {
+  border: 1px solid var(--border-color);
+}
+
+/* --- Loading state --- */
+.block-image.image-loading img,
+.block-audio.media-loading audio,
+.block-video.media-loading video {
+  opacity: 0.5;
+  background: var(--bg-secondary);
+}
+
+/* --- Error state --- */
+.block-image.image-error,
+.block-audio.media-error,
+.block-video.media-error {
+  position: relative;
+}
+
+.block-image.image-error img,
+.block-audio.media-error audio,
+.block-video.media-error video {
+  opacity: 0.3;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--error-color);
+}
+
+/* --- Error overlay icon --- */
+.block-image.image-error::before,
+.block-audio.media-error::before,
+.block-video.media-error::before {
+  content: "\26A0";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: var(--error-color);
+  pointer-events: none;
+  z-index: 1;
+}

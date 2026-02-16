@@ -1,8 +1,8 @@
 /**
  * CodeMirror Extensions Configuration
  *
- * Purpose: Assembles the full CodeMirror extension stack for VMark's source editor,
- * including markdown language support, custom keymaps, themes, and plugins.
+ * Purpose: Assembles the CodeMirror extension stack for VMark's source editor —
+ * markdown language support, custom keymaps, themes, decorations (media tags), and plugins.
  *
  * Key decisions:
  *   - Uses Compartments for settings that can change at runtime (line numbers,
@@ -58,6 +58,7 @@ import {
   sourceDiagramPreviewExtensions,
   sourceAlertDecorationExtensions,
   sourceDetailsDecorationExtensions,
+  sourceMediaDecorationExtensions,
   visualLineUpKeymap,
   visualLineDownKeymap,
   visualLineUpSelectKeymap,
@@ -261,5 +262,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     ...sourceAlertDecorationExtensions,
     // Details block decorations
     ...sourceDetailsDecorationExtensions,
+    // Media tag decorations (video, audio, YouTube iframe)
+    ...sourceMediaDecorationExtensions,
   ];
 }

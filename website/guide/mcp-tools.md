@@ -2,7 +2,7 @@
 
 This page documents all MCP tools available when Claude (or other AI assistants) connects to VMark.
 
-VMark exposes **77 tools** across 18 categories — from high-level section editing to low-level AST manipulation. All tools are always available; no configuration needed.
+VMark exposes **80 tools** across 19 categories — from high-level section editing to low-level AST manipulation. All tools are always available; no configuration needed.
 
 ::: tip Recommended Workflow
 For most writing tasks, you only need a handful of tools:
@@ -982,6 +982,45 @@ Insert content at common document locations. A unified tool for intuitive insert
 - **Flat documents** (no headings): Use `read_paragraph`, `write_paragraph`, `smart_insert`
 - **End of document**: Use `smart_insert` with `"end_of_document"`
 :::
+
+---
+
+## Media Tools
+
+Tools for inserting video, audio, and YouTube embeds.
+
+### insert_video
+
+Insert a video element into the document.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `src` | string | Yes | Video file path (relative or absolute) or URL |
+| `title` | string | No | Title attribute for the video |
+| `poster` | string | No | Poster image path or URL |
+| `baseRevision` | string | Yes | Document revision for conflict detection |
+| `windowId` | string | No | Target window (defaults to focused) |
+
+### insert_audio
+
+Insert an audio element into the document.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `src` | string | Yes | Audio file path (relative or absolute) or URL |
+| `title` | string | No | Title attribute for the audio |
+| `baseRevision` | string | Yes | Document revision for conflict detection |
+| `windowId` | string | No | Target window (defaults to focused) |
+
+### insert_youtube
+
+Insert a YouTube embed into the document.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `videoId` | string | Yes | YouTube video ID (e.g., "dQw4w9WgXcQ") |
+| `baseRevision` | string | Yes | Document revision for conflict detection |
+| `windowId` | string | No | Target window (defaults to focused) |
 
 ---
 

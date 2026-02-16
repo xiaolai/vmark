@@ -1,8 +1,8 @@
 /**
  * HTML Sanitization Utilities
  *
- * Purpose: Provides secure HTML sanitization using DOMPurify to prevent XSS attacks.
- * Each function is tailored for a specific content type with appropriate allowlists.
+ * Purpose: Secure HTML sanitization via DOMPurify to prevent XSS attacks. Tailored
+ * allowlists per content type — general HTML (including media tags), SVG, KaTeX.
  *
  * Key decisions:
  *   - Separate functions for each content type (general HTML, SVG, KaTeX) because
@@ -11,6 +11,8 @@
  *     (Mermaid uses HTML inside SVG for text layout)
  *   - Style attribute sanitization uses a property allowlist to block
  *     expression() and javascript: attacks in inline styles
+ *   - Video, audio, and source tags are allowed in sanitizeMediaHtml (separate function)
+ *   - Iframe is allowed in sanitizeMediaHtml but restricted to YouTube domains via post-pass
  *   - escapeHtml is a simple entity escape for non-HTML text display
  *
  * @coordinates-with mermaid/index.ts — uses sanitizeSvg for Mermaid diagram output
@@ -62,7 +64,7 @@ export function sanitizeHtml(html: string): string {
       "sub",
       "sup",
     ],
-    ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "id", "target"],
+    ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "id", "target", "rel"],
     ALLOW_DATA_ATTR: false,
   });
 }
@@ -166,7 +168,8 @@ export function sanitizeHtmlPreview(html: string, options?: HtmlPreviewOptions):
 
 function filterAllowedStyles(html: string): string {
   if (typeof document === "undefined") {
-    return html;
+    // No DOM available — strip style attrs entirely for safety
+    return html.replace(/\s+style="[^"]*"/gi, "");
   }
 
   const container = document.createElement("div");
@@ -215,6 +218,69 @@ function isSafeStyleValue(value: string): boolean {
     return false;
   }
   return true;
+}
+
+/**
+ * Sanitize media HTML content (video, audio, YouTube iframes).
+ * Allows media-specific tags and attributes while preventing XSS.
+ *
+ * YouTube iframes are restricted to youtube.com and youtube-nocookie.com domains
+ * via a post-sanitize DOM pass that strips non-YouTube iframes.
+ */
+export function sanitizeMediaHtml(html: string): string {
+  // Sanitize with DOMPurify, then post-process to strip non-YouTube iframes
+  const result = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "video",
+      "audio",
+      "source",
+      "iframe",
+    ],
+    ALLOWED_ATTR: [
+      "src",
+      "title",
+      "controls",
+      "preload",
+      "poster",
+      "loop",
+      "muted",
+      "width",
+      "height",
+      "type",
+      "allowfullscreen",
+      "frameborder",
+      "allow",
+    ],
+    ALLOW_DATA_ATTR: false,
+  });
+
+  // Post-process: strip iframes with non-YouTube src (case-insensitive check)
+  if (/<iframe\b/i.test(result)) {
+    return stripNonYoutubeIframes(result);
+  }
+  return result;
+}
+
+const YOUTUBE_DOMAIN_RE = /^https?:\/\/(www\.)?(youtube\.com|youtube-nocookie\.com)\//;
+
+function stripNonYoutubeIframes(html: string): string {
+  if (typeof document === "undefined") {
+    // No DOM — strip all iframes for safety (can't verify src)
+    // Handles both paired (<iframe>...</iframe>) and self-closing (<iframe ... />) forms
+    return html
+      .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+      .replace(/<iframe\b[^>]*\/\s*>/gi, "");
+  }
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  const iframes = container.querySelectorAll("iframe");
+  for (const iframe of iframes) {
+    const src = iframe.getAttribute("src") ?? "";
+    if (!YOUTUBE_DOMAIN_RE.test(src)) {
+      iframe.remove();
+    }
+  }
+  return container.innerHTML;
 }
 
 /**

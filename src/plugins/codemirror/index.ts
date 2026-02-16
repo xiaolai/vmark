@@ -1,8 +1,8 @@
 /**
  * CodeMirror Plugins — Barrel Export
  *
- * Purpose: Central export point for all custom CodeMirror 6 plugins and keymaps
- * used by the Source mode editor. Each plugin is a separate file for isolation.
+ * Purpose: Central export point for all custom CodeMirror 6 plugins, keymaps,
+ * and decorations (alerts, details, media tags) used by the Source mode editor.
  *
  * Pipeline: sourceEditorExtensions.ts imports from here → assembles into EditorState config
  *
@@ -31,6 +31,7 @@ export { sourceTableCellHighlightExtensions } from "./sourceTableCellHighlight";
 export { sourceDiagramPreviewExtensions } from "./sourceMermaidPreview";
 export { sourceAlertDecorationExtensions } from "./sourceAlertDecoration";
 export { sourceDetailsDecorationExtensions } from "./sourceDetailsDecoration";
+export { sourceMediaDecorationExtensions } from "./sourceMediaDecoration";
 export {
   visualLineUpKeymap,
   visualLineDownKeymap,

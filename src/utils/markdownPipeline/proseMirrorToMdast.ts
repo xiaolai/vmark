@@ -1,8 +1,8 @@
 /**
  * ProseMirror to MDAST Conversion — Orchestrator
  *
- * Purpose: Converts a complete ProseMirror document to an MDAST tree by dispatching
- * each PM node type to the appropriate converter (block or inline).
+ * Purpose: Converts a complete ProseMirror document (including media nodes) to an
+ * MDAST tree by dispatching each PM node type to the appropriate converter.
  *
  * Pipeline: PM doc → PMToMdastConverter.convertDoc() → MDAST root
  *
@@ -12,6 +12,8 @@
  *   - ListItem nodes at root level are filtered out (they should only appear
  *     as children of list nodes)
  *   - Wiki link alias is only serialized if it differs from the target value
+ *   - Media nodes (block_video, block_audio, youtube_embed) dispatch to
+ *     dedicated converters in pmBlockConverters.ts
  *
  * @coordinates-with mdastToProseMirror.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmBlockConverters.ts — block node conversion functions
@@ -33,6 +35,9 @@ import * as inlineConverters from "./pmInlineConverters";
 import {
   convertAlertBlock,
   convertBlockImage,
+  convertBlockVideo,
+  convertBlockAudio,
+  convertYoutubeEmbed,
   convertBlockquote,
   convertCodeBlock,
   convertDefinition,
@@ -137,6 +142,12 @@ class PMToMdastConverter {
         return convertTable(this.context, node);
       case "block_image":
         return convertBlockImage(node);
+      case "block_video":
+        return convertBlockVideo(node);
+      case "block_audio":
+        return convertBlockAudio(node);
+      case "youtube_embed":
+        return convertYoutubeEmbed(node);
       case "frontmatter":
         return convertFrontmatter(node);
       case "link_definition":

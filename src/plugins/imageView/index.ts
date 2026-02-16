@@ -10,7 +10,6 @@
  *   - Security: relative paths are validated against directory traversal attacks
  *   - Click selects the image node, double-click opens the image editing popup
  *   - Context menu triggers the image context menu store
- *   - Image tooltips shown on hover via the imageTooltipStore
  *
  * @coordinates-with security.ts — path validation and URL classification
  * @coordinates-with tiptap.ts — registers this NodeView for the image node type
@@ -27,8 +26,7 @@ import type { NodeView } from "@tiptap/pm/view";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
-import { useImageTooltipStore } from "@/stores/imageTooltipStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "./security";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
@@ -135,7 +133,7 @@ export class ImageNodeView implements NodeView {
     this.dom.addEventListener("contextmenu", this.handleContextMenu);
 
     // Add click handler for popup
-    this.dom.addEventListener("click", this.handleClick);
+    this.dom.addEventListener("dblclick", this.handleClick);
   }
 
   private handleContextMenu = (e: MouseEvent) => {
@@ -154,9 +152,6 @@ export class ImageNodeView implements NodeView {
     const pos = this.getPos();
     if (pos === undefined) return;
 
-    // Close tooltip if open
-    useImageTooltipStore.getState().hideTooltip();
-
     // Set NodeSelection on this node for visual selection indicator
     try {
       const { view } = this.editor;
@@ -173,11 +168,12 @@ export class ImageNodeView implements NodeView {
       : null;
 
     const rect = this.dom.getBoundingClientRect();
-    useImagePopupStore.getState().openPopup({
-      imageSrc: this.originalSrc,
-      imageAlt: this.dom.alt ?? "",
-      imageNodePos: pos,
-      imageDimensions: dimensions,
+    useMediaPopupStore.getState().openPopup({
+      mediaSrc: this.originalSrc,
+      mediaAlt: this.dom.alt ?? "",
+      mediaNodePos: pos,
+      mediaNodeType: "image",
+      mediaDimensions: dimensions,
       anchorRect: {
         top: rect.top,
         left: rect.left,
@@ -266,10 +262,6 @@ export class ImageNodeView implements NodeView {
     this.dom.classList.remove("image-loading");
     this.dom.classList.add("image-error");
     this.dom.style.opacity = "0.5";
-    // Store original title and set error tooltip
-    if (!this.dom.hasAttribute("data-original-title") && this.dom.title) {
-      this.dom.setAttribute("data-original-title", this.dom.title);
-    }
     this.dom.title = `${message}: ${this.originalSrc}`;
   }
 
@@ -294,7 +286,7 @@ export class ImageNodeView implements NodeView {
     this.destroyed = true;
     this.cleanupLoadHandlers();
     this.dom.removeEventListener("contextmenu", this.handleContextMenu);
-    this.dom.removeEventListener("click", this.handleClick);
+    this.dom.removeEventListener("dblclick", this.handleClick);
   }
 
   /**

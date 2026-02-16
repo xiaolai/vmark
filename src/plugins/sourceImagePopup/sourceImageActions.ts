@@ -10,7 +10,7 @@ import { open, message } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
@@ -73,7 +73,7 @@ function findImageAtPos(
 }
 
 function getImageRange(view: EditorView): { from: number; to: number } | null {
-  const { imageNodePos } = useImagePopupStore.getState();
+  const { mediaNodePos: imageNodePos } = useMediaPopupStore.getState();
   if (imageNodePos < 0) return null;
   return findImageAtPos(view, imageNodePos);
 }
@@ -95,8 +95,8 @@ function getImageMetaFromRange(
  * Replaces the current image markdown with updated values.
  */
 export function saveImageChanges(view: EditorView): void {
-  const state = useImagePopupStore.getState();
-  const { imageSrc, imageAlt } = state;
+  const state = useMediaPopupStore.getState();
+  const { mediaSrc: imageSrc, mediaAlt: imageAlt } = state;
   const range = getImageRange(view);
   if (!range) {
     return;
@@ -152,7 +152,7 @@ export async function browseImage(view: EditorView): Promise<boolean> {
       const relativePath = await copyImageToAssets(sourcePath as string, filePath);
 
       // Update store with new path
-      useImagePopupStore.getState().setSrc(relativePath);
+      useMediaPopupStore.getState().setSrc(relativePath);
 
       // Save immediately
       saveImageChanges(view);
@@ -172,7 +172,7 @@ export async function browseImage(view: EditorView): Promise<boolean> {
  * Copy image path to clipboard.
  */
 export async function copyImagePath(): Promise<void> {
-  const { imageSrc } = useImagePopupStore.getState();
+  const { mediaSrc: imageSrc } = useMediaPopupStore.getState();
 
   if (!imageSrc) {
     return;

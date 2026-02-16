@@ -147,12 +147,13 @@ Updated diff: {git diff main --stat}
 
 #### 4f. Fallback — manual mini-audit
 
-If Codex MCP is unavailable, perform a manual 5-dimension audit per `/codex-audit-mini`:
+If Codex MCP is unavailable, perform a manual 6-dimension audit per `/codex-audit-mini`:
 1. Logic & Correctness
 2. Duplication
 3. Dead Code
 4. Refactoring Debt
 5. Shortcuts & Patches
+6. Code Comments
 
 Read each changed file, analyze, fix Critical/High issues.
 

@@ -42,6 +42,8 @@ module.exports = {
           "src/utils/newFile",
           "src/utils/reloadFromDisk",
           "src/utils/workspaceBootstrap",
+          // Media path resolution (needs tab/document store for relative path resolution)
+          "src/utils/resolveMediaSrc",
           // Editor services (bridge between editor internals and stores)
           "src/utils/tiptapFocus",
           "src/utils/sourcePeek",

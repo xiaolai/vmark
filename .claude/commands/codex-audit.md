@@ -24,6 +24,7 @@ Use TodoWrite to track progress through these phases:
 ☐ Dimension 7: Testing & Validation
 ☐ Dimension 8: Dependency & Environment Safety
 ☐ Dimension 9: Documentation & Knowledge Transfer
+☐ Dimension 10: Code Comments & Documentation Headers
 ☐ Generate comprehensive audit report
 ```
 
@@ -56,7 +57,7 @@ Identify:
 - Entry points (main, routes, controllers)
 - High-risk areas (auth, payments, data processing)
 
-### Phase 2: Audit All 9 Dimensions
+### Phase 2: Audit All 10 Dimensions
 
 **Availability test** — before the real audit, send a short ping to Codex:
 ```
@@ -76,7 +77,7 @@ mcp__codex__codex with:
   sandbox: read-only
   approval-policy: never
   developer-instructions: "You are a thorough security and code quality auditor."
-  prompt: "Audit {filename} across all 9 dimensions:
+  prompt: "Audit {filename} across all 10 dimensions:
 
     **Dimension 1: Redundant & Low-Value Code**
     - Dead code: unreachable paths, unused functions/imports, commented-out code
@@ -127,6 +128,18 @@ mcp__codex__codex with:
     - Outdated comments: comments that don't match code
     - Setup instructions: incomplete or missing
 
+    **Dimension 10: Code Comments & Documentation Headers**
+    - Missing file headers: .ts/.tsx source files without a Purpose: line in header block (exclude test files, .css, .json, config)
+    - Missing @module tag: files with Purpose: header but no @module declaration
+    - Missing @coordinates-with: files that import from other feature modules but don't declare coordination
+    - Stale Purpose: lines that don't accurately describe what the file currently does
+    - Misleading comments: inline or doc comments that describe behavior different from the actual code
+    - Outdated @coordinates-with: references to files that have been renamed or deleted
+    - Missing function docs: exported functions/classes without TSDoc /** */ comments
+    - Missing @edge-case tags: complex conditionals or boundary-handling code without @edge-case annotation
+    - Vague descriptions: Purpose: lines that are too generic (e.g., "Utility functions", "Helper module")
+    - Comment rot: TODO/FIXME/HACK markers without concrete, actionable descriptions
+
     Report each issue as: file:line | severity(Critical/High/Medium/Low) | dimension | issue | fix"
 ```
 
@@ -162,6 +175,7 @@ After all audits complete, compile findings into:
 | 7. Testing | X | X | X | X |
 | 8. Dependencies | X | X | X | X |
 | 9. Documentation | X | X | X | X |
+| 10. Code Comments | X | X | X | X |
 
 **Verdict**: PASS / NEEDS WORK / BLOCKED
 
@@ -175,7 +189,12 @@ After all audits complete, compile findings into:
 ### Dimension 2: Security & Risk Management
 ...
 
-[Continue for all 9 dimensions]
+### Dimension 10: Code Comments & Documentation Headers
+| File:Line | Severity | Issue | Fix |
+|-----------|----------|-------|-----|
+| ... | ... | ... | ... |
+
+[Continue for all 10 dimensions]
 
 ## Top Priority Actions
 
@@ -195,7 +214,7 @@ After all audits complete, compile findings into:
 When Codex returns nothing or incomplete results:
 
 1. **Read each file** using the Read tool
-2. **Analyze all 9 dimensions** as described above
+2. **Analyze all 10 dimensions** as described above
 3. **Use Grep** to search for common issues:
    ```bash
    # Dimension 1: Dead code markers
@@ -220,7 +239,7 @@ When Codex returns nothing or incomplete results:
 ```
 1. User picks model + effort level
 2. Determine scope: git diff HEAD --name-only → [file1.py, file2.py]
-3. Create todo list with all 11 phases
+3. Create todo list with all 12 phases
 4. Mark "Reconnaissance" in_progress, identify structure
 5. Mark "Reconnaissance" complete, start "Dimension 1"
 6. Run Codex for file1.py (wait for completion)

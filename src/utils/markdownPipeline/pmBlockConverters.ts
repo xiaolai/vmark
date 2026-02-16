@@ -1,8 +1,8 @@
 /**
  * ProseMirror Block Node Converters (PM → MDAST)
  *
- * Purpose: Converts block-level ProseMirror nodes to MDAST nodes for serialization.
- * Split from proseMirrorToMdast.ts for the 300-line limit.
+ * Purpose: Converts block-level ProseMirror nodes (including media and embeds)
+ * to MDAST nodes for serialization. Split from proseMirrorToMdast.ts for size.
  *
  * Key decisions:
  *   - Alert blocks are serialized as blockquotes with `[!TYPE]` markers
@@ -11,6 +11,10 @@
  *     from regular code blocks (must match mdastBlockConverters.ts)
  *   - Table cell alignment is extracted from header row attrs
  *   - Block images are wrapped in a paragraph (markdown has no standalone image block)
+ *   - Block video/audio nodes serialize to image syntax (![](url)) for clean
+ *     round-trips, falling back to multi-line HTML when attributes can't be
+ *     expressed in image syntax (poster, controls=false, non-default preload)
+ *   - YouTube embed nodes serialize to privacy-enhanced <iframe> HTML
  *
  * @coordinates-with mdastBlockConverters.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmInlineConverters.ts — handles inline content within blocks
@@ -27,6 +31,7 @@ import type {
   Definition,
   Heading,
   Html,
+  Image,
   List,
   ListItem,
   Paragraph,
@@ -40,6 +45,11 @@ import type { Math } from "mdast-util-math";
 import type { Details, Yaml } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
 import { encodeUrlForMarkdown } from "./pmInlineConverters";
+
+/** Escape a string for safe use in an HTML attribute value. */
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 export type PmToMdastNode = Content | ListItem;
 
@@ -239,6 +249,95 @@ function convertTableCellContent(context: PmToMdastContext, node: PMNode): Phras
 export function convertBlockImage(node: PMNode): Paragraph {
   const image = inlineConverters.convertImage(node);
   return { type: "paragraph", children: [image] };
+}
+
+/**
+ * Build an image-syntax MDAST node for media, or null if attributes
+ * require HTML fallback.  Shared by convertBlockVideo / convertBlockAudio.
+ */
+function tryMediaImageSyntax(
+  src: string,
+  title: string,
+  controls: boolean,
+  preload: string,
+  extraCheck: boolean,
+): Paragraph | null {
+  if (!extraCheck || !controls || preload !== "metadata") return null;
+  const image: Image = {
+    type: "image",
+    url: encodeUrlForMarkdown(src),
+    alt: "",
+    title: title || undefined,
+  };
+  return { type: "paragraph", children: [image] };
+}
+
+/**
+ * Build a multi-line HTML fallback string for media tags.
+ * Multi-line form ensures remark treats it as block HTML (type 7).
+ * Trailing newline prevents the closing tag from swallowing following content.
+ */
+function buildMediaHtmlFallback(
+  tag: "video" | "audio",
+  htmlAttrs: string[],
+): Html {
+  return { type: "html", value: `<${tag} ${htmlAttrs.join(" ")}>\n</${tag}>\n` };
+}
+
+export function convertBlockVideo(node: PMNode): Paragraph | Html {
+  const src = String(node.attrs.src ?? "");
+  const title = String(node.attrs.title ?? "");
+  const poster = String(node.attrs.poster ?? "");
+  const controls = node.attrs.controls !== false;
+  const preload = String(node.attrs.preload ?? "metadata");
+
+  // Use image syntax when all attrs are expressible (clean round-trip)
+  const imageResult = tryMediaImageSyntax(src, title, controls, preload, !poster);
+  if (imageResult) return imageResult;
+
+  // Fallback: multi-line HTML (remark treats multi-line as block HTML type 7)
+  const attrs: string[] = [];
+  attrs.push(`src="${escapeAttr(src)}"`);
+  if (title) attrs.push(`title="${escapeAttr(title)}"`);
+  if (poster) attrs.push(`poster="${escapeAttr(poster)}"`);
+  if (controls) attrs.push("controls");
+  if (preload && preload !== "metadata") attrs.push(`preload="${escapeAttr(preload)}"`);
+
+  return buildMediaHtmlFallback("video", attrs);
+}
+
+export function convertYoutubeEmbed(node: PMNode): Html {
+  const videoId = String(node.attrs.videoId ?? "");
+  const width = Number(node.attrs.width ?? 560);
+  const height = Number(node.attrs.height ?? 315);
+
+  // Validate videoId to prevent attribute injection
+  const safeVideoId = /^[a-zA-Z0-9_-]{11}$/.test(videoId) ? videoId : "";
+
+  return {
+    type: "html",
+    value: `<iframe src="https://www.youtube-nocookie.com/embed/${safeVideoId}" width="${width}" height="${height}" frameborder="0" allowfullscreen></iframe>`,
+  };
+}
+
+export function convertBlockAudio(node: PMNode): Paragraph | Html {
+  const src = String(node.attrs.src ?? "");
+  const title = String(node.attrs.title ?? "");
+  const controls = node.attrs.controls !== false;
+  const preload = String(node.attrs.preload ?? "metadata");
+
+  // Use image syntax when all attrs are expressible (clean round-trip)
+  const imageResult = tryMediaImageSyntax(src, title, controls, preload, true);
+  if (imageResult) return imageResult;
+
+  // Fallback: multi-line HTML
+  const attrs: string[] = [];
+  attrs.push(`src="${escapeAttr(src)}"`);
+  if (title) attrs.push(`title="${escapeAttr(title)}"`);
+  if (controls) attrs.push("controls");
+  if (preload && preload !== "metadata") attrs.push(`preload="${escapeAttr(preload)}"`);
+
+  return buildMediaHtmlFallback("audio", attrs);
 }
 
 export function convertFrontmatter(node: PMNode): Yaml {

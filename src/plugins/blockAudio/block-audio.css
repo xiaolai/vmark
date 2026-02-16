@@ -1,0 +1,21 @@
+/**
+ * Block Audio Styles — type-specific sizing only.
+ * Shared styles in src/styles/block-media-shared.css.
+ */
+
+@import "../../styles/block-media-shared.css";
+
+.block-audio audio {
+  width: 100%;
+  max-width: 600px;
+}
+
+.block-audio.media-loading audio {
+  min-width: 200px;
+  min-height: 40px;
+}
+
+.block-audio.media-error audio {
+  min-width: 200px;
+  min-height: 40px;
+}

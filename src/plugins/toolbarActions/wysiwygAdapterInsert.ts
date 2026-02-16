@@ -1,9 +1,9 @@
 /**
  * WYSIWYG Adapter - Insert Actions
  *
- * Purpose: Handles insertion of block-level and inline content in WYSIWYG mode:
- * images (with smart clipboard detection), math blocks/inline, diagrams,
- * markmaps, and code blocks.
+ * Purpose: Handles insertion of block-level and inline content in WYSIWYG mode —
+ * images (smart clipboard detection), video/audio (file picker + copy-to-assets),
+ * YouTube embeds (clipboard URL), math blocks/inline, diagrams, markmaps, code blocks.
  *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates insert actions here
  * @coordinates-with wysiwygAdapterUtils.ts — uses isViewConnected, getActiveFilePath
@@ -14,6 +14,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { NodeSelection, Selection } from "@tiptap/pm/state";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
+import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { readClipboardImagePath } from "@/utils/clipboardImagePath";
 import { withReentryGuard } from "@/utils/reentryGuard";
@@ -340,5 +341,138 @@ export function insertInlineMath(context: WysiwygToolbarContext): boolean {
   tr.setSelection(Selection.near(tr.doc.resolve(from)));
   dispatch(tr);
   focusMathInput(0);
+  return true;
+}
+
+// --- Media insertion (video / audio / YouTube) ---
+
+const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv"];
+const AUDIO_EXTENSIONS = ["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"];
+const INSERT_VIDEO_GUARD = "menu-insert-video";
+const INSERT_AUDIO_GUARD = "menu-insert-audio";
+
+async function insertVideoFromPicker(view: EditorView): Promise<boolean> {
+  const selected = await open({
+    filters: [{ name: "Videos", extensions: VIDEO_EXTENSIONS }],
+  });
+
+  const sourcePath = normalizeDialogPath(selected);
+  if (!sourcePath) return false;
+
+  const filePath = getActiveFilePath();
+  if (!filePath) {
+    await message(
+      "Please save the document first to copy videos to assets folder.",
+      { title: "Unsaved Document", kind: "warning" }
+    );
+    return false;
+  }
+
+  const relativePath = await copyMediaToAssets(sourcePath, filePath);
+  if (!isViewConnected(view)) return false;
+  insertBlockVideoNode(view, relativePath);
+  return true;
+}
+
+/**
+ * Handle the insertVideo toolbar action. Opens a file picker for video files.
+ */
+export function handleInsertVideo(context: WysiwygToolbarContext): boolean {
+  const view = context.view;
+  if (!view) return false;
+
+  const windowLabel = getWindowLabel();
+  void withReentryGuard(windowLabel, INSERT_VIDEO_GUARD, async () => {
+    await insertVideoFromPicker(view);
+  });
+
+  return true;
+}
+
+async function insertAudioFromPicker(view: EditorView): Promise<boolean> {
+  const selected = await open({
+    filters: [{ name: "Audio", extensions: AUDIO_EXTENSIONS }],
+  });
+
+  const sourcePath = normalizeDialogPath(selected);
+  if (!sourcePath) return false;
+
+  const filePath = getActiveFilePath();
+  if (!filePath) {
+    await message(
+      "Please save the document first to copy audio to assets folder.",
+      { title: "Unsaved Document", kind: "warning" }
+    );
+    return false;
+  }
+
+  const relativePath = await copyMediaToAssets(sourcePath, filePath);
+  if (!isViewConnected(view)) return false;
+  insertBlockAudioNode(view, relativePath);
+  return true;
+}
+
+/**
+ * Handle the insertAudio toolbar action. Opens a file picker for audio files.
+ */
+export function handleInsertAudio(context: WysiwygToolbarContext): boolean {
+  const view = context.view;
+  if (!view) return false;
+
+  const windowLabel = getWindowLabel();
+  void withReentryGuard(windowLabel, INSERT_AUDIO_GUARD, async () => {
+    await insertAudioFromPicker(view);
+  });
+
+  return true;
+}
+
+/**
+ * Handle the insertYoutube toolbar action.
+ * Reads a YouTube URL from the clipboard and inserts a youtube_embed node.
+ */
+export function handleInsertYoutube(context: WysiwygToolbarContext): boolean {
+  const view = context.view;
+  if (!view) return false;
+
+  // Read clipboard for a potential YouTube URL
+  void (async () => {
+    try {
+      const clipText = await navigator.clipboard.readText();
+      const { parseYoutubeUrl } = await import("@/plugins/youtubeEmbed/urlParser");
+      const videoId = parseYoutubeUrl(clipText?.trim() ?? "");
+
+      if (videoId) {
+        // Clipboard has a YouTube URL — insert directly
+        const { state, dispatch } = view;
+        const youtubeType = state.schema.nodes.youtube_embed;
+        if (!youtubeType) return;
+
+        const node = youtubeType.create({ videoId });
+        dispatch(state.tr.replaceSelectionWith(node));
+        view.focus();
+      } else {
+        // No YouTube URL on clipboard — prompt the user
+        const youtubeType = view.state.schema.nodes.youtube_embed;
+        if (!youtubeType) {
+          await message(
+            "YouTube embed feature is not available (schema node missing).",
+            { title: "YouTube Embed", kind: "warning" }
+          );
+          return;
+        }
+        await message(
+          "Copy a YouTube URL to clipboard first, then use this action to insert the embed.",
+          { title: "YouTube Embed", kind: "info" }
+        );
+      }
+    } catch {
+      await message(
+        "Copy a YouTube URL to clipboard first, then use this action to insert the embed.",
+        { title: "YouTube Embed", kind: "info" }
+      );
+    }
+  })();
+
   return true;
 }

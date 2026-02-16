@@ -1,8 +1,8 @@
 /**
  * Tiptap Extensions Configuration
  *
- * Purpose: Assembles the full Tiptap extension stack for VMark's WYSIWYG editor,
- * including StarterKit overrides, custom marks/nodes, and plugin registrations.
+ * Purpose: Assembles the Tiptap extension stack for VMark's WYSIWYG editor —
+ * StarterKit overrides, custom marks/nodes, media extensions, and plugin registrations.
  *
  * Key decisions:
  *   - StarterKit is used as base but with several nodes overridden
@@ -10,6 +10,8 @@
  *   - Extensions are loaded eagerly (not lazy) since WYSIWYG is the default mode
  *   - Link extension configured with openOnClick:false (we have custom popups)
  *   - Custom marks (highlight, underline, sub/superscript) registered here
+ *   - Media extensions (block_video, block_audio, youtube_embed) with NodeViews
+ *   - Media popup and handler extensions for editing and drag-drop
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
@@ -46,8 +48,11 @@ import { focusModeExtension } from "@/plugins/focusMode/tiptap";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
-import { imagePopupExtension } from "@/plugins/imagePopup/tiptap";
-import { imageTooltipExtension } from "@/plugins/imageTooltip";
+import { blockVideoExtension } from "@/plugins/blockVideo/tiptap";
+import { blockAudioExtension } from "@/plugins/blockAudio/tiptap";
+import { youtubeEmbedExtension } from "@/plugins/youtubeEmbed/tiptap";
+import { mediaPopupExtension } from "@/plugins/mediaPopup/tiptap";
+import { mediaHandlerExtension } from "@/plugins/mediaHandler/tiptap";
 import { imageHandlerExtension } from "@/plugins/imageHandler/tiptap";
 import { codePreviewExtension } from "@/plugins/codePreview/tiptap";
 import { blockMathKeymapExtension } from "@/plugins/codePreview/blockMathKeymap";
@@ -157,6 +162,9 @@ export function createTiptapExtensions(): Extensions {
     blockEscapeExtension,
     compositionGuardExtension,
     blockImageExtension,
+    blockVideoExtension,
+    blockAudioExtension,
+    youtubeEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,
     footnotePopupExtension,
@@ -172,8 +180,8 @@ export function createTiptapExtensions(): Extensions {
     focusModeExtension,
     typewriterModeExtension,
     imageHandlerExtension,
-    imagePopupExtension,
-    imageTooltipExtension,
+    mediaHandlerExtension,
+    mediaPopupExtension,
     codePreviewExtension,
     blockMathKeymapExtension,
     listContinuationExtension,
