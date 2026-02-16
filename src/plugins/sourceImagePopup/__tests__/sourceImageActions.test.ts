@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { saveImageChanges } from "../sourceImageActions";
 
 function createView(doc: string): EditorView {
@@ -12,7 +12,7 @@ function createView(doc: string): EditorView {
 
 describe("source image actions", () => {
   afterEach(() => {
-    useImagePopupStore.getState().closePopup();
+    useMediaPopupStore.getState().closePopup();
   });
 
   it("preserves title and angle-bracket destination when saving", () => {
@@ -21,12 +21,12 @@ describe("source image actions", () => {
     const imageFrom = doc.indexOf(imageText);
     const view = createView(doc);
 
-    useImagePopupStore.setState({
+    useMediaPopupStore.setState({
       isOpen: true,
-      imageSrc: "new path",
-      imageAlt: "alt",
-      imageNodePos: imageFrom,
-      imageNodeType: "image",
+      mediaSrc: "new path",
+      mediaAlt: "alt",
+      mediaNodePos: imageFrom,
+      mediaNodeType: "image",
       anchorRect: null,
     });
 

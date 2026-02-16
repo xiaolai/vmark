@@ -18,25 +18,33 @@ const mockSetSrc = vi.fn();
 const mockSetAlt = vi.fn();
 const mockOpenPopup = vi.fn();
 const mockSetNodeType = vi.fn();
+const mockSetTitle = vi.fn();
+const mockSetDimensions = vi.fn();
+const mockSetPoster = vi.fn();
 
 let storeState = {
   isOpen: false,
-  imageSrc: "",
-  imageAlt: "",
-  imageNodePos: -1,
-  imageNodeType: "image" as const,
-  imageDimensions: null as { width: number; height: number } | null,
+  mediaSrc: "",
+  mediaAlt: "",
+  mediaTitle: "",
+  mediaPoster: "",
+  mediaNodePos: -1,
+  mediaNodeType: "image" as const,
+  mediaDimensions: null as { width: number; height: number } | null,
   anchorRect: null as AnchorRect | null,
   closePopup: mockClosePopup,
   setSrc: mockSetSrc,
   setAlt: mockSetAlt,
+  setTitle: mockSetTitle,
+  setDimensions: mockSetDimensions,
+  setPoster: mockSetPoster,
   openPopup: mockOpenPopup,
   setNodeType: mockSetNodeType,
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/imagePopupStore", () => ({
-  useImagePopupStore: {
+vi.mock("@/stores/mediaPopupStore", () => ({
+  useMediaPopupStore: {
     getState: () => storeState,
     subscribe: (fn: (state: typeof storeState) => void) => {
       subscribers.push(fn);
@@ -120,15 +128,20 @@ function emitStateChange(newState: Partial<typeof storeState>) {
 function resetState() {
   storeState = {
     isOpen: false,
-    imageSrc: "",
-    imageAlt: "",
-    imageNodePos: -1,
-    imageNodeType: "image",
-    imageDimensions: null,
+    mediaSrc: "",
+    mediaAlt: "",
+    mediaTitle: "",
+    mediaPoster: "",
+    mediaNodePos: -1,
+    mediaNodeType: "image",
+    mediaDimensions: null,
     anchorRect: null,
     closePopup: mockClosePopup,
     setSrc: mockSetSrc,
     setAlt: mockSetAlt,
+    setTitle: mockSetTitle,
+    setDimensions: mockSetDimensions,
+    setPoster: mockSetPoster,
     openPopup: mockOpenPopup,
     setNodeType: mockSetNodeType,
   };
@@ -163,8 +176,8 @@ describe("SourceImagePopupView", () => {
     it("shows popup when store opens", async () => {
       emitStateChange({
         isOpen: true,
-        imageSrc: "/path/to/image.png",
-        imageAlt: "Alt text",
+        mediaSrc: "/path/to/image.png",
+        mediaAlt: "Alt text",
         anchorRect,
       });
 
@@ -176,7 +189,7 @@ describe("SourceImagePopupView", () => {
     });
 
     it("hides popup when store closes", async () => {
-      emitStateChange({ isOpen: true, imageSrc: "test.png", anchorRect });
+      emitStateChange({ isOpen: true, mediaSrc: "test.png", anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
 
       emitStateChange({ isOpen: false, anchorRect: null });
@@ -196,8 +209,8 @@ describe("SourceImagePopupView", () => {
     it("populates src input with imageSrc from store", async () => {
       emitStateChange({
         isOpen: true,
-        imageSrc: "/images/photo.jpg",
-        imageAlt: "",
+        mediaSrc: "/images/photo.jpg",
+        mediaAlt: "",
         anchorRect,
       });
 
@@ -210,8 +223,8 @@ describe("SourceImagePopupView", () => {
     it("populates alt input with imageAlt from store", async () => {
       emitStateChange({
         isOpen: true,
-        imageSrc: "test.png",
-        imageAlt: "A beautiful sunset",
+        mediaSrc: "test.png",
+        mediaAlt: "A beautiful sunset",
         anchorRect,
       });
 
@@ -222,7 +235,7 @@ describe("SourceImagePopupView", () => {
     });
 
     it("calls setSrc on src input change", async () => {
-      emitStateChange({ isOpen: true, imageSrc: "", anchorRect });
+      emitStateChange({ isOpen: true, mediaSrc: "", anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
 
       const srcInput = document.querySelector(".source-image-popup-src") as HTMLInputElement;
@@ -233,7 +246,7 @@ describe("SourceImagePopupView", () => {
     });
 
     it("calls setAlt on alt input change", async () => {
-      emitStateChange({ isOpen: true, imageSrc: "test.png", anchorRect });
+      emitStateChange({ isOpen: true, mediaSrc: "test.png", anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
 
       const altInput = document.querySelector(".source-image-popup-alt") as HTMLInputElement;
@@ -248,9 +261,9 @@ describe("SourceImagePopupView", () => {
     beforeEach(async () => {
       emitStateChange({
         isOpen: true,
-        imageSrc: "/test.png",
-        imageAlt: "Test",
-        imageNodePos: 10,
+        mediaSrc: "/test.png",
+        mediaAlt: "Test",
+        mediaNodePos: 10,
         anchorRect,
       });
       await new Promise((r) => requestAnimationFrame(r));
@@ -291,9 +304,9 @@ describe("SourceImagePopupView", () => {
     beforeEach(async () => {
       emitStateChange({
         isOpen: true,
-        imageSrc: "/path/image.png",
-        imageAlt: "Test image",
-        imageNodePos: 10,
+        mediaSrc: "/path/image.png",
+        mediaAlt: "Test image",
+        mediaNodePos: 10,
         anchorRect,
       });
       await new Promise((r) => requestAnimationFrame(r));
@@ -326,8 +339,8 @@ describe("SourceImagePopupView", () => {
     it("clears inputs on hide", async () => {
       emitStateChange({
         isOpen: true,
-        imageSrc: "test.png",
-        imageAlt: "Test",
+        mediaSrc: "test.png",
+        mediaAlt: "Test",
         anchorRect,
       });
       await new Promise((r) => requestAnimationFrame(r));
@@ -344,7 +357,7 @@ describe("SourceImagePopupView", () => {
     });
 
     it("removes container on destroy", async () => {
-      emitStateChange({ isOpen: true, imageSrc: "test.png", anchorRect });
+      emitStateChange({ isOpen: true, mediaSrc: "test.png", anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
 
       expect(document.querySelector(".source-image-popup")).not.toBeNull();

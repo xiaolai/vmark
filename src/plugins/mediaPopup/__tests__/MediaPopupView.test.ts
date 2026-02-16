@@ -1,7 +1,7 @@
 /**
  * Media Popup View Tests
  *
- * Tests for the upgraded media editing popup including:
+ * Tests for the unified media editing popup including:
  * - Store subscription lifecycle
  * - justOpened guard prevents immediate close
  * - Enter-to-save behavior
@@ -10,31 +10,40 @@
  * - Outside click deferred close via rAF
  * - Scroll close
  * - Pending close rAF cancelled on reopen
+ * - Image-specific: alt row, toggle button, dimensions
+ * - Video/audio-specific: title row, poster row
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnchorRect } from "@/utils/popupPosition";
+import type { ImageDimensions } from "@/types/image";
 
 // Mock stores and utilities before importing the view
 const mockClosePopup = vi.fn();
 const mockSetSrc = vi.fn();
+const mockSetAlt = vi.fn();
 const mockSetTitle = vi.fn();
 const mockSetPoster = vi.fn();
+const mockSetNodeType = vi.fn();
 
-type MediaNodeType = "block_video" | "block_audio";
+type MediaNodeType = "image" | "block_image" | "block_video" | "block_audio";
 
 let storeState = {
   isOpen: false,
   mediaSrc: "",
+  mediaAlt: "",
   mediaTitle: "",
   mediaNodePos: -1,
   mediaNodeType: "block_video" as MediaNodeType,
   mediaPoster: "",
+  mediaDimensions: null as ImageDimensions | null,
   anchorRect: null as AnchorRect | null,
   closePopup: mockClosePopup,
   setSrc: mockSetSrc,
+  setAlt: mockSetAlt,
   setTitle: mockSetTitle,
   setPoster: mockSetPoster,
+  setNodeType: mockSetNodeType,
 };
 const subscribers: Array<(state: typeof storeState, prevState: typeof storeState) => void> = [];
 
@@ -65,14 +74,17 @@ vi.mock("../mediaPopupActions", () => ({
   browseAndReplaceMedia: vi.fn(() => Promise.resolve(false)),
 }));
 
-// Mock the DOM module to avoid double-mocking popupComponents
+// Mock the DOM module — returns all fields the unified view expects
 vi.mock("../mediaPopupDom", () => {
-  const { createMockMediaPopupDom, installMockKeyboardNavigation } = (() => {
+  const { createMockMediaPopupDom, installMockKeyboardNavigation, mockUpdateToggleButton } = (() => {
     function createMockMediaPopupDom(handlers: Record<string, unknown>) {
+      void handlers.onToggle; // captured but not asserted here
+
       const container = document.createElement("div");
       container.className = "media-popup";
       container.style.display = "none";
 
+      // Row 1: Source + buttons
       const row1 = document.createElement("div");
       row1.className = "media-popup-row";
 
@@ -89,26 +101,51 @@ vi.mock("../mediaPopupDom", () => {
       copyBtn.title = "Copy path";
       copyBtn.addEventListener("click", handlers.onCopy as EventListener);
 
+      const toggleBtn = document.createElement("button");
+      toggleBtn.title = "Toggle block/inline";
+      toggleBtn.className = "media-popup-btn-toggle";
+      toggleBtn.addEventListener("click", handlers.onToggle as EventListener);
+
       const deleteBtn = document.createElement("button");
       deleteBtn.title = "Remove media";
-      deleteBtn.className = "media-popup-btn-delete";
+      deleteBtn.className = "popup-icon-btn--danger";
       deleteBtn.addEventListener("click", handlers.onRemove as EventListener);
 
       row1.appendChild(srcInput);
       row1.appendChild(browseBtn);
       row1.appendChild(copyBtn);
+      row1.appendChild(toggleBtn);
       row1.appendChild(deleteBtn);
 
-      const row2 = document.createElement("div");
-      row2.className = "media-popup-row";
+      // Row 2a: Alt + dimensions (images)
+      const altRow = document.createElement("div");
+      altRow.className = "media-popup-row";
+
+      const altInput = document.createElement("input");
+      altInput.className = "media-popup-alt";
+      altInput.placeholder = "Caption (alt text)...";
+      altInput.addEventListener("keydown", handlers.onInputKeydown as EventListener);
+
+      const dimensionsSpan = document.createElement("span");
+      dimensionsSpan.className = "media-popup-dimensions";
+
+      altRow.appendChild(altInput);
+      altRow.appendChild(dimensionsSpan);
+
+      // Row 2b: Title (video/audio)
+      const titleRow = document.createElement("div");
+      titleRow.className = "media-popup-row";
+
       const titleInput = document.createElement("input");
       titleInput.className = "media-popup-title";
       titleInput.placeholder = "Title (optional)...";
       titleInput.addEventListener("keydown", handlers.onInputKeydown as EventListener);
-      row2.appendChild(titleInput);
+      titleRow.appendChild(titleInput);
 
+      // Row 3: Poster (video only)
       const posterRow = document.createElement("div");
       posterRow.className = "media-popup-row";
+
       const posterInput = document.createElement("input");
       posterInput.className = "media-popup-poster";
       posterInput.placeholder = "Poster image (optional)...";
@@ -116,22 +153,39 @@ vi.mock("../mediaPopupDom", () => {
       posterRow.appendChild(posterInput);
 
       container.appendChild(row1);
-      container.appendChild(row2);
+      container.appendChild(altRow);
+      container.appendChild(titleRow);
       container.appendChild(posterRow);
 
-      return { container, srcInput, titleInput, posterInput, posterRow };
+      return {
+        container,
+        srcInput,
+        altRow,
+        altInput,
+        dimensionsSpan,
+        titleRow,
+        titleInput,
+        posterRow,
+        posterInput,
+        toggleBtn,
+      };
     }
 
     function installMockKeyboardNavigation(_container: HTMLElement, _onClose?: () => void) {
       return () => {};
     }
 
-    return { createMockMediaPopupDom, installMockKeyboardNavigation };
+    function mockUpdateToggleButton(_btn: HTMLElement, _type: string) {
+      // no-op for tests
+    }
+
+    return { createMockMediaPopupDom, installMockKeyboardNavigation, mockUpdateToggleButton };
   })();
 
   return {
     createMediaPopupDom: createMockMediaPopupDom,
     installMediaPopupKeyboardNavigation: installMockKeyboardNavigation,
+    updateMediaPopupToggleButton: mockUpdateToggleButton,
   };
 });
 
@@ -174,20 +228,27 @@ function createEditorContainer() {
   };
 }
 
-function createMockView(editorDom: HTMLElement) {
+function createMockView(editorDom: HTMLElement, nodeType = "block_video") {
   return {
     dom: editorDom,
     state: {
       doc: {
         nodeAt: vi.fn(() => ({
-          type: { name: "block_video" },
-          attrs: { src: "", title: "", poster: "" },
+          type: { name: nodeType },
+          attrs: { src: "", alt: "", title: "", poster: "" },
           nodeSize: 1,
         })),
+      },
+      schema: {
+        nodes: {
+          image: { create: vi.fn((attrs) => ({ type: { name: "image" }, attrs, nodeSize: 1 })) },
+          block_image: { create: vi.fn((attrs) => ({ type: { name: "block_image" }, attrs, nodeSize: 1 })) },
+        },
       },
       tr: {
         setNodeMarkup: vi.fn().mockReturnThis(),
         delete: vi.fn().mockReturnThis(),
+        replaceWith: vi.fn().mockReturnThis(),
       },
     },
     dispatch: vi.fn(),
@@ -205,15 +266,19 @@ function resetState() {
   storeState = {
     isOpen: false,
     mediaSrc: "",
+    mediaAlt: "",
     mediaTitle: "",
     mediaNodePos: -1,
     mediaNodeType: "block_video",
     mediaPoster: "",
+    mediaDimensions: null,
     anchorRect: null,
     closePopup: mockClosePopup,
     setSrc: mockSetSrc,
+    setAlt: mockSetAlt,
     setTitle: mockSetTitle,
     setPoster: mockSetPoster,
+    setNodeType: mockSetNodeType,
   };
   subscribers.length = 0;
   mockIsImeKeyEvent = false;
@@ -320,9 +385,90 @@ describe("MediaPopupView", () => {
       const posterInput = dom.container.querySelector(".media-popup-poster") as HTMLInputElement;
       expect(posterInput.value).toBe("/images/poster.jpg");
     });
+
+    it("populates alt input with mediaAlt for image types", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "/path/to/image.png",
+        mediaAlt: "Test image alt",
+        mediaNodeType: "image",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const altInput = dom.container.querySelector(".media-popup-alt") as HTMLInputElement;
+      expect(altInput.value).toBe("Test image alt");
+    });
   });
 
-  describe("Poster row visibility", () => {
+  describe("Conditional row visibility", () => {
+    it("shows alt row and hides title row for image type", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "/image.png",
+        mediaAlt: "Alt text",
+        mediaNodeType: "image",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const altRow = dom.container.querySelectorAll(".media-popup-row")[1] as HTMLElement;
+      const titleRow = dom.container.querySelectorAll(".media-popup-row")[2] as HTMLElement;
+      expect(altRow.style.display).not.toBe("none");
+      expect(titleRow.style.display).toBe("none");
+    });
+
+    it("shows alt row and hides title row for block_image type", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "/image.png",
+        mediaAlt: "Alt text",
+        mediaNodeType: "block_image",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const altRow = dom.container.querySelectorAll(".media-popup-row")[1] as HTMLElement;
+      const titleRow = dom.container.querySelectorAll(".media-popup-row")[2] as HTMLElement;
+      expect(altRow.style.display).not.toBe("none");
+      expect(titleRow.style.display).toBe("none");
+    });
+
+    it("shows title row and hides alt row for video type", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "test.mp4",
+        mediaNodeType: "block_video",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const altRow = dom.container.querySelectorAll(".media-popup-row")[1] as HTMLElement;
+      const titleRow = dom.container.querySelectorAll(".media-popup-row")[2] as HTMLElement;
+      expect(altRow.style.display).toBe("none");
+      expect(titleRow.style.display).not.toBe("none");
+    });
+
+    it("shows title row and hides alt row for audio type", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "test.mp3",
+        mediaNodeType: "block_audio",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const altRow = dom.container.querySelectorAll(".media-popup-row")[1] as HTMLElement;
+      const titleRow = dom.container.querySelectorAll(".media-popup-row")[2] as HTMLElement;
+      expect(altRow.style.display).toBe("none");
+      expect(titleRow.style.display).not.toBe("none");
+    });
+
     it("shows poster row for video", async () => {
       emitStateChange({
         isOpen: true,
@@ -333,7 +479,7 @@ describe("MediaPopupView", () => {
 
       await new Promise((r) => requestAnimationFrame(r));
 
-      const posterRow = dom.container.querySelectorAll(".media-popup-row")[2] as HTMLElement;
+      const posterRow = dom.container.querySelectorAll(".media-popup-row")[3] as HTMLElement;
       expect(posterRow.style.display).not.toBe("none");
     });
 
@@ -347,8 +493,112 @@ describe("MediaPopupView", () => {
 
       await new Promise((r) => requestAnimationFrame(r));
 
-      const posterRow = dom.container.querySelectorAll(".media-popup-row")[2] as HTMLElement;
+      const posterRow = dom.container.querySelectorAll(".media-popup-row")[3] as HTMLElement;
       expect(posterRow.style.display).toBe("none");
+    });
+
+    it("hides poster row for image types", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "/image.png",
+        mediaNodeType: "image",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const posterRow = dom.container.querySelectorAll(".media-popup-row")[3] as HTMLElement;
+      expect(posterRow.style.display).toBe("none");
+    });
+
+    it("shows toggle button for image type", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "/image.png",
+        mediaNodeType: "image",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const toggleBtn = dom.container.querySelector(".media-popup-btn-toggle") as HTMLElement;
+      expect(toggleBtn.style.display).not.toBe("none");
+    });
+
+    it("hides toggle button for video type", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "test.mp4",
+        mediaNodeType: "block_video",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const toggleBtn = dom.container.querySelector(".media-popup-btn-toggle") as HTMLElement;
+      expect(toggleBtn.style.display).toBe("none");
+    });
+
+    it("hides toggle button for audio type", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "test.mp3",
+        mediaNodeType: "block_audio",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const toggleBtn = dom.container.querySelector(".media-popup-btn-toggle") as HTMLElement;
+      expect(toggleBtn.style.display).toBe("none");
+    });
+  });
+
+  describe("Dimensions display", () => {
+    it("shows dimensions for image with valid values", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "/image.png",
+        mediaNodeType: "image",
+        mediaDimensions: { width: 800, height: 600 },
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const dims = dom.container.querySelector(".media-popup-dimensions") as HTMLElement;
+      expect(dims.textContent).toBe("800 × 600 px");
+      expect(dims.style.display).not.toBe("none");
+    });
+
+    it("hides dimensions when not available", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "/image.png",
+        mediaNodeType: "image",
+        mediaDimensions: null,
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const dims = dom.container.querySelector(".media-popup-dimensions") as HTMLElement;
+      expect(dims.style.display).toBe("none");
+    });
+
+    it("hides dimensions for non-image types", async () => {
+      emitStateChange({
+        isOpen: true,
+        mediaSrc: "test.mp4",
+        mediaNodeType: "block_video",
+        mediaDimensions: null,
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const dims = dom.container.querySelector(".media-popup-dimensions") as HTMLElement;
+      expect(dims.style.display).toBe("none");
     });
   });
 

@@ -19,6 +19,11 @@ vi.mock("@/hooks/useMediaOperations", () => ({
   copyMediaToAssets: (...args: unknown[]) => mockCopyMediaToAssets(...args),
 }));
 
+const mockCopyImageToAssets = vi.fn();
+vi.mock("@/hooks/useImageOperations", () => ({
+  copyImageToAssets: (...args: unknown[]) => mockCopyImageToAssets(...args),
+}));
+
 vi.mock("@/utils/reentryGuard", () => ({
   withReentryGuard: vi.fn(
     async (_windowLabel: string, _operation: string, fn: () => Promise<unknown>) => {
@@ -197,6 +202,67 @@ describe("browseAndReplaceMedia", () => {
       10,
       null,
       expect.objectContaining({ src: "assets/new-video.mp4" })
+    );
+  });
+
+  // --- Image browse tests ---
+
+  it("opens dialog with image filters for image type", async () => {
+    mockOpen.mockResolvedValue("/photo.png");
+    mockCopyImageToAssets.mockResolvedValue("images/photo.png");
+
+    storeState = { ...storeState, mediaNodeType: "image" as "block_video", mediaNodePos: 5 };
+    const view = createMockView("image");
+    await browseAndReplaceMedia(view, 5, "image");
+
+    expect(mockOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: [
+          expect.objectContaining({
+            name: "Images",
+            extensions: expect.arrayContaining(["png", "jpg", "jpeg", "gif", "webp", "svg"]),
+          }),
+        ],
+      })
+    );
+  });
+
+  it("uses copyImageToAssets for image types", async () => {
+    mockOpen.mockResolvedValue("/photo.png");
+    mockCopyImageToAssets.mockResolvedValue("images/photo.png");
+
+    storeState = { ...storeState, mediaNodeType: "image" as "block_video", mediaNodePos: 5 };
+    const view = createMockView("image");
+    const result = await browseAndReplaceMedia(view, 5, "image");
+
+    expect(result).toBe(true);
+    expect(mockCopyImageToAssets).toHaveBeenCalledWith("/photo.png", "/docs/my-doc.md");
+    expect(mockCopyMediaToAssets).not.toHaveBeenCalled();
+  });
+
+  it("uses copyMediaToAssets for video types", async () => {
+    mockOpen.mockResolvedValue("/clip.mp4");
+    mockCopyMediaToAssets.mockResolvedValue("media/clip.mp4");
+
+    const view = createMockView();
+    await browseAndReplaceMedia(view, 10, "block_video");
+
+    expect(mockCopyMediaToAssets).toHaveBeenCalledWith("/clip.mp4", "/docs/my-doc.md");
+    expect(mockCopyImageToAssets).not.toHaveBeenCalled();
+  });
+
+  it("opens dialog with image filters for block_image type", async () => {
+    mockOpen.mockResolvedValue("/photo.png");
+    mockCopyImageToAssets.mockResolvedValue("images/photo.png");
+
+    storeState = { ...storeState, mediaNodeType: "block_image" as "block_video", mediaNodePos: 5 };
+    const view = createMockView("block_image");
+    await browseAndReplaceMedia(view, 5, "block_image");
+
+    expect(mockOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: [expect.objectContaining({ name: "Images" })],
+      })
     );
   });
 });

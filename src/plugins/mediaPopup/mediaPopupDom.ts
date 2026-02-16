@@ -1,8 +1,9 @@
 /**
  * Media Popup DOM Helpers
  *
- * Purpose: Shared DOM construction and keyboard navigation for the media popup UI.
- * Extracted from MediaPopupView to keep the view class focused on behavior.
+ * Purpose: Shared DOM construction and keyboard navigation for the unified media
+ * popup UI. Handles all 4 media types (image, block_image, block_video, block_audio)
+ * with conditional row visibility.
  *
  * @coordinates-with MediaPopupView.ts — consumes these helpers for popup DOM construction
  * @coordinates-with utils/popupComponents.ts — shared popup icon buttons and inputs
@@ -10,11 +11,14 @@
  */
 
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { buildPopupIconButton, buildPopupInput } from "@/utils/popupComponents";
+import { buildPopupIconButton, buildPopupInput, popupIcons } from "@/utils/popupComponents";
+
+import type { MediaNodeType } from "@/stores/mediaPopupStore";
 
 interface MediaPopupDomHandlers {
   onBrowse: () => void;
   onCopy: () => void;
+  onToggle: () => void;
   onRemove: () => void;
   onInputKeydown: (e: KeyboardEvent) => void;
 }
@@ -22,9 +26,18 @@ interface MediaPopupDomHandlers {
 export interface MediaPopupDom {
   container: HTMLElement;
   srcInput: HTMLInputElement;
+  // Image-specific (Row 2a)
+  altRow: HTMLElement;
+  altInput: HTMLInputElement;
+  dimensionsSpan: HTMLElement;
+  // Video/audio-specific (Row 2b)
+  titleRow: HTMLElement;
   titleInput: HTMLInputElement;
-  posterInput: HTMLInputElement;
+  // Video-only (Row 3)
   posterRow: HTMLElement;
+  posterInput: HTMLInputElement;
+  // Image-only button
+  toggleBtn: HTMLElement;
 }
 
 export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopupDom {
@@ -57,6 +70,14 @@ export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopup
   });
   copyBtn.classList.add("media-popup-btn");
 
+  // Toggle button (image-only: switch between inline/block)
+  const toggleBtn = buildPopupIconButton({
+    icon: "blockImage",
+    title: "Toggle block/inline",
+    onClick: handlers.onToggle,
+  });
+  toggleBtn.classList.add("media-popup-btn", "media-popup-btn-toggle");
+
   const deleteBtn = buildPopupIconButton({
     icon: "delete",
     title: "Remove media",
@@ -68,9 +89,26 @@ export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopup
   srcRow.appendChild(srcInput);
   srcRow.appendChild(browseBtn);
   srcRow.appendChild(copyBtn);
+  srcRow.appendChild(toggleBtn);
   srcRow.appendChild(deleteBtn);
 
-  // Row 2: Title input
+  // Row 2a: Alt input + dimensions (image/block_image only)
+  const altRow = document.createElement("div");
+  altRow.className = "media-popup-row";
+
+  const altInput = buildPopupInput({
+    placeholder: "Caption (alt text)...",
+    className: "media-popup-alt",
+    onKeydown: handlers.onInputKeydown,
+  });
+
+  const dimensionsSpan = document.createElement("span");
+  dimensionsSpan.className = "media-popup-dimensions";
+
+  altRow.appendChild(altInput);
+  altRow.appendChild(dimensionsSpan);
+
+  // Row 2b: Title input (video/audio only)
   const titleRow = document.createElement("div");
   titleRow.className = "media-popup-row";
 
@@ -98,10 +136,29 @@ export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopup
   posterRow.appendChild(posterInput);
 
   container.appendChild(srcRow);
+  container.appendChild(altRow);
   container.appendChild(titleRow);
   container.appendChild(posterRow);
 
-  return { container, srcInput, titleInput, posterInput, posterRow };
+  return {
+    container,
+    srcInput,
+    altRow,
+    altInput,
+    dimensionsSpan,
+    titleRow,
+    titleInput,
+    posterRow,
+    posterInput,
+    toggleBtn,
+  };
+}
+
+export function updateMediaPopupToggleButton(toggleBtn: HTMLElement, nodeType: MediaNodeType): void {
+  const icon = nodeType === "block_image" ? popupIcons.inlineImage : popupIcons.blockImage;
+  const title = nodeType === "block_image" ? "Convert to inline" : "Convert to block";
+  toggleBtn.innerHTML = icon;
+  toggleBtn.title = title;
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {

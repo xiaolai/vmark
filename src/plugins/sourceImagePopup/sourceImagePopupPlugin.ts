@@ -7,7 +7,7 @@
 
 import type { EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
 import { SourceImagePopupView } from "./SourceImagePopupView";
 
@@ -82,23 +82,23 @@ function detectImageTrigger(view: EditorView): { from: number; to: number } | nu
 function extractImageData(
   view: EditorView,
   range: { from: number; to: number }
-): { imageSrc: string; imageAlt: string; imageNodePos: number; imageNodeType: "image" } {
+): { mediaSrc: string; mediaAlt: string; mediaNodePos: number; mediaNodeType: "image" } {
   // Re-run detection to get full data
   const image = findImageAtPos(view, range.from);
   if (!image) {
     return {
-      imageSrc: "",
-      imageAlt: "",
-      imageNodePos: range.from,
-      imageNodeType: "image",
+      mediaSrc: "",
+      mediaAlt: "",
+      mediaNodePos: range.from,
+      mediaNodeType: "image",
     };
   }
 
   return {
-    imageSrc: image.path,
-    imageAlt: image.alt,
-    imageNodePos: image.from,
-    imageNodeType: "image",
+    mediaSrc: image.path,
+    mediaAlt: image.alt,
+    mediaNodePos: image.from,
+    mediaNodeType: "image",
   };
 }
 
@@ -107,7 +107,7 @@ function extractImageData(
  */
 export function createSourceImagePopupPlugin() {
   return createSourcePopupPlugin({
-    store: useImagePopupStore,
+    store: useMediaPopupStore,
     createView: (view, store) => new SourceImagePopupView(view, store),
     detectTrigger: detectImageTrigger,
     detectTriggerAtPos: (view, pos) => {

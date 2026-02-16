@@ -1,11 +1,17 @@
 /**
  * Media Popup Actions
  *
- * Purpose: File-system operations for the media popup — browse for replacement
- * media file, copy to assets folder, and update the media node's src attribute.
+ * Purpose: File-system operations for the unified media popup — browse for replacement
+ * media file (image, video, or audio), copy to assets folder, and update the node's src.
+ *
+ * Key decisions:
+ *   - Image types use copyImageToAssets (images/ subfolder)
+ *   - Video/audio types use copyMediaToAssets (media/ subfolder)
+ *   - File dialog filters are media-type-aware
  *
  * @coordinates-with MediaPopupView.ts — triggers these actions from popup button clicks
- * @coordinates-with hooks/useMediaOperations.ts — shared media asset copying logic
+ * @coordinates-with hooks/useImageOperations.ts — image asset copying logic
+ * @coordinates-with hooks/useMediaOperations.ts — video/audio asset copying logic
  * @module plugins/mediaPopup/mediaPopupActions
  */
 
@@ -14,14 +20,21 @@ import { open, message } from "@tauri-apps/plugin-dialog";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { copyMediaToAssets } from "@/hooks/useMediaOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 
 import type { MediaNodeType } from "@/stores/mediaPopupStore";
 
+const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"];
 const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv"];
 const AUDIO_EXTENSIONS = ["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"];
+
+/** Check if a media type is an image type. */
+function isImageType(type: MediaNodeType): boolean {
+  return type === "image" || type === "block_image";
+}
 
 export async function browseAndReplaceMedia(
   view: EditorView,
@@ -32,10 +45,14 @@ export async function browseAndReplaceMedia(
 
   const ran = await withReentryGuard(windowLabel, "media-popup:browse", async () => {
     try {
+      const isImage = isImageType(mediaNodeType);
       const isVideo = mediaNodeType === "block_video";
-      const filters = isVideo
-        ? [{ name: "Videos", extensions: VIDEO_EXTENSIONS }]
-        : [{ name: "Audio", extensions: AUDIO_EXTENSIONS }];
+
+      const filters = isImage
+        ? [{ name: "Images", extensions: IMAGE_EXTENSIONS }]
+        : isVideo
+          ? [{ name: "Videos", extensions: VIDEO_EXTENSIONS }]
+          : [{ name: "Audio", extensions: AUDIO_EXTENSIONS }];
 
       const sourcePath = await open({ filters });
 
@@ -55,13 +72,17 @@ export async function browseAndReplaceMedia(
         return false;
       }
 
-      const relativePath = await copyMediaToAssets(sourcePath as string, filePath);
+      // Image types use copyImageToAssets (images/ subfolder),
+      // video/audio use copyMediaToAssets (media/ subfolder)
+      const relativePath = isImage
+        ? await copyImageToAssets(sourcePath as string, filePath)
+        : await copyMediaToAssets(sourcePath as string, filePath);
 
       // Re-read position from store — it may have been updated if the popup
       // was reopened on a different node during the async file operation
       const currentPos = useMediaPopupStore.getState().mediaNodePos;
       const node = view.state.doc.nodeAt(currentPos);
-      if (!node || (node.type.name !== "block_video" && node.type.name !== "block_audio")) {
+      if (!node || node.type.name !== mediaNodeType) {
         return false;
       }
 

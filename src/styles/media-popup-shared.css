@@ -4,12 +4,10 @@
  * Common styles for image and media (audio/video) editing popups.
  * Each popup's own CSS file adds only type-specific rules.
  *
- * @coordinates-with plugins/imagePopup/image-popup.css
  * @coordinates-with plugins/mediaPopup/media-popup.css
  */
 
 /* --- Container --- */
-.image-popup,
 .media-popup {
   position: fixed;
   z-index: 9999;
@@ -21,13 +19,6 @@
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--shadow-md);
-}
-
-.image-popup {
-  animation: media-edit-popup-fade-in 0.1s ease-out;
-}
-
-.media-popup {
   animation: media-edit-popup-fade-in 0.1s ease-out;
   min-width: 300px;
   max-width: 400px;
@@ -45,7 +36,6 @@
 }
 
 /* --- Row container --- */
-.image-popup-row,
 .media-popup-row {
   display: flex;
   align-items: center;
@@ -53,7 +43,6 @@
 }
 
 /* --- Source URL/Path Input (monospace, borderless) --- */
-.image-popup-src,
 .media-popup-src {
   width: 220px;
   padding: 4px 8px;
@@ -66,7 +55,7 @@
 }
 
 /* --- Text inputs (caption/alt/title) --- */
-.image-popup-alt,
+.media-popup-alt,
 .media-popup-title {
   flex: 1;
   min-width: 0;
@@ -79,12 +68,10 @@
 }
 
 /* --- Input focus: caret is the indicator (per design rules) --- */
-.image-popup-src:focus,
-.image-popup-src:focus-visible,
-.image-popup-alt:focus,
-.image-popup-alt:focus-visible,
 .media-popup-src:focus,
 .media-popup-src:focus-visible,
+.media-popup-alt:focus,
+.media-popup-alt:focus-visible,
 .media-popup-title:focus,
 .media-popup-title:focus-visible,
 .media-popup-poster:focus,
@@ -94,9 +81,8 @@
   box-shadow: none;
 }
 
-.image-popup-src::placeholder,
-.image-popup-alt::placeholder,
 .media-popup-src::placeholder,
+.media-popup-alt::placeholder,
 .media-popup-title::placeholder,
 .media-popup-poster::placeholder {
   color: var(--text-secondary);
@@ -104,7 +90,6 @@
 }
 
 /* --- Icon-only buttons --- */
-.image-popup-btn,
 .media-popup-btn {
   display: flex;
   align-items: center;
@@ -121,25 +106,21 @@
   position: relative;
 }
 
-.image-popup-btn:hover,
 .media-popup-btn:hover {
   background: var(--hover-bg);
   color: var(--text-color);
 }
 
-.image-popup-btn:active,
 .media-popup-btn:active {
   opacity: 0.8;
 }
 
 /* --- Focus state: U-shaped underline (keyboard only) --- */
-.image-popup-btn:focus-visible,
 .media-popup-btn:focus-visible {
   outline: none;
   color: var(--primary-color);
 }
 
-.image-popup-btn:focus-visible::after,
 .media-popup-btn:focus-visible::after {
   content: "";
   position: absolute;
@@ -153,7 +134,6 @@
 }
 
 /* --- Icon sizing --- */
-.image-popup-btn svg,
 .media-popup-btn svg {
   width: 14px;
   height: 14px;
@@ -165,13 +145,11 @@
 }
 
 /* --- Delete button: danger color on hover --- */
-.image-popup-btn-delete:hover,
 .media-popup-btn-delete:hover {
   color: var(--error-color);
 }
 
 /* --- Dark theme --- */
-.dark-theme .image-popup-btn:hover,
 .dark-theme .media-popup-btn:hover {
   background: var(--hover-bg-dark);
 }

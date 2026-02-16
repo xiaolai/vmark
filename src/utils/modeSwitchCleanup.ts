@@ -15,7 +15,7 @@
  */
 
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 
@@ -31,7 +31,7 @@ export function cleanupBeforeModeSwitch(): void {
   // Close image popup and preview — wrapped in try/catch so mode switch
   // always proceeds even if DOM state is unexpected.
   try {
-    const popupStore = useImagePopupStore.getState();
+    const popupStore = useMediaPopupStore.getState();
     if (popupStore.isOpen) {
       popupStore.closePopup();
     }

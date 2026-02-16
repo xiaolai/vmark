@@ -15,6 +15,8 @@ vi.mock("@/utils/popupComponents", () => ({
     folder: '<svg data-icon="folder"></svg>',
     copy: '<svg data-icon="copy"></svg>',
     delete: '<svg data-icon="delete"></svg>',
+    blockImage: '<svg data-icon="blockImage"></svg>',
+    inlineImage: '<svg data-icon="inlineImage"></svg>',
   },
   buildPopupIconButton: vi.fn(({ icon, title, onClick, variant, className }) => {
     const btn = document.createElement("button");
@@ -46,13 +48,15 @@ vi.mock("@/utils/popupComponents", () => ({
   }),
 }));
 
-import { createMediaPopupDom, installMediaPopupKeyboardNavigation } from "../mediaPopupDom";
+import { createMediaPopupDom, installMediaPopupKeyboardNavigation, updateMediaPopupToggleButton } from "../mediaPopupDom";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { popupIcons } from "@/utils/popupComponents";
 
 describe("createMediaPopupDom", () => {
   const handlers = {
     onBrowse: vi.fn(),
     onCopy: vi.fn(),
+    onToggle: vi.fn(),
     onRemove: vi.fn(),
     onInputKeydown: vi.fn(),
   };
@@ -136,10 +140,62 @@ describe("createMediaPopupDom", () => {
     const event = new KeyboardEvent("keydown", { key: "a", bubbles: true });
 
     dom.srcInput.dispatchEvent(event);
+    dom.altInput.dispatchEvent(event);
     dom.titleInput.dispatchEvent(event);
     dom.posterInput.dispatchEvent(event);
 
-    expect(handlers.onInputKeydown).toHaveBeenCalledTimes(3);
+    expect(handlers.onInputKeydown).toHaveBeenCalledTimes(4);
+  });
+
+  // --- Image-specific elements ---
+
+  it("creates alt row with alt input and dimensions span", () => {
+    const dom = createMediaPopupDom(handlers);
+    expect(dom.altRow).toBeInstanceOf(HTMLElement);
+    expect(dom.altRow.className).toBe("media-popup-row");
+    expect(dom.container.contains(dom.altRow)).toBe(true);
+    expect(dom.altRow.contains(dom.altInput)).toBe(true);
+    expect(dom.altRow.contains(dom.dimensionsSpan)).toBe(true);
+  });
+
+  it("creates alt input with correct placeholder", () => {
+    const dom = createMediaPopupDom(handlers);
+    expect(dom.altInput).toBeInstanceOf(HTMLInputElement);
+    expect(dom.altInput.placeholder).toContain("alt");
+  });
+
+  it("creates dimensions span", () => {
+    const dom = createMediaPopupDom(handlers);
+    expect(dom.dimensionsSpan).toBeInstanceOf(HTMLElement);
+    expect(dom.dimensionsSpan.className).toBe("media-popup-dimensions");
+  });
+
+  it("has toggle button", () => {
+    const dom = createMediaPopupDom(handlers);
+    expect(dom.toggleBtn).toBeInstanceOf(HTMLElement);
+    expect(dom.toggleBtn.title).toBe("Toggle block/inline");
+  });
+
+  it("wires toggle button click to handler", () => {
+    const dom = createMediaPopupDom(handlers);
+    dom.toggleBtn.click();
+    expect(handlers.onToggle).toHaveBeenCalledOnce();
+  });
+});
+
+describe("updateMediaPopupToggleButton", () => {
+  it("shows inline icon when current type is block_image", () => {
+    const btn = document.createElement("button");
+    updateMediaPopupToggleButton(btn, "block_image");
+    expect(btn.innerHTML).toBe(popupIcons.inlineImage);
+    expect(btn.title).toBe("Convert to inline");
+  });
+
+  it("shows block icon when current type is image", () => {
+    const btn = document.createElement("button");
+    updateMediaPopupToggleButton(btn, "image");
+    expect(btn.innerHTML).toBe(popupIcons.blockImage);
+    expect(btn.title).toBe("Convert to block");
   });
 });
 

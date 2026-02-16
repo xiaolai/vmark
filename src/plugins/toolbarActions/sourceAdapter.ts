@@ -27,7 +27,7 @@ import { readClipboardImagePath } from "@/utils/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useImagePopupStore } from "@/stores/imagePopupStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { useSettingsStore, type CJKFormattingSettings } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
@@ -143,11 +143,11 @@ function showImagePopupForExistingImage(view: EditorView): boolean {
   }
 
   // Open the image popup
-  useImagePopupStore.getState().openPopup({
-    imageSrc: image.src,
-    imageAlt: image.alt,
-    imageNodePos: image.from,
-    imageNodeType: "image",
+  useMediaPopupStore.getState().openPopup({
+    mediaSrc: image.src,
+    mediaAlt: image.alt,
+    mediaNodePos: image.from,
+    mediaNodeType: "image",
     anchorRect,
   });
 
