@@ -15,7 +15,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden; /* Prevent horizontal overflow */
+  overflow-x: clip; /* Prevent horizontal overflow — clip (not hidden) avoids creating a scroll container, so ProseMirror's scrollIntoView cannot set scrollLeft on this element */
   padding-bottom: 40px; /* statusbar/findbar height */
   /* No horizontal padding - applied per-element so tables can span full width */
   transition: padding-bottom 0.15s ease-out;
@@ -479,6 +479,7 @@
    Horizontal scrollbar appears when table is wider than container. */
 .tiptap-editor .table-scroll-wrapper {
   overflow-x: auto;
+  overscroll-behavior-x: contain; /* Prevent horizontal scroll chaining to parent */
   margin: 0 calc(-1 * var(--editor-content-padding)) var(--editor-block-spacing, 1em) calc(-1 * var(--editor-content-padding));
   padding: 0 var(--editor-content-padding); /* Restore visual alignment for table content */
 }
