@@ -4,19 +4,22 @@
  * Purpose: Listens for mcp-bridge:request events from the Rust MCP server and
  *   routes each request to the appropriate handler module based on the operation
  *   type (document, selection, mutation, structure, media insert, etc.).
+ *   Blocks editor-dependent tools in source mode via sourceModeGuard.
  *
  * Pipeline: AI client → MCP server (Rust) → WebSocket → Tauri event
- *   "mcp-bridge:request" → this dispatcher → handler function → respond()
- *   back to Rust → MCP server → AI client
+ *   "mcp-bridge:request" → source mode guard → dispatcher → handler function
+ *   → respond() back to Rust → MCP server → AI client
  *
  * Key decisions:
  *   - Single switch statement routes ~60 operation types to handler functions
  *   - Handlers organized by domain: document, selection, mutation, structure, etc.
  *   - All mutations wrapped in AI suggestion layer for user approval
  *   - Idempotency cache prevents duplicate execution of identical requests
+ *   - Source mode guard blocks editor-dependent tools before the switch
  *
  * @coordinates-with utils.ts — respond(), getEditor(), resolveWindowId()
  * @coordinates-with types.ts — McpRequestEvent, McpResponse
+ * @coordinates-with sourceModeGuard.ts — isBlockedInSourceMode(), SOURCE_MODE_ERROR
  * @module hooks/mcpBridge
  */
 

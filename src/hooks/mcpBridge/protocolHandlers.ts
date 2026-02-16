@@ -2,9 +2,11 @@
  * MCP Bridge — Protocol Handlers
  *
  * Purpose: MCP protocol metadata — capabilities reporting (supported node types,
- *   format types, operations) and document revision tracking for change detection.
+ *   format types, operations, editor mode) and document revision tracking for
+ *   change detection.
  *
  * @coordinates-with revisionStore.ts — reads current document revision
+ * @coordinates-with editorStore.ts — reads sourceMode for editorMode capability
  * @module hooks/mcpBridge/protocolHandlers
  */
 
