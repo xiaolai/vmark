@@ -92,6 +92,9 @@ import { useHotExitCapture } from "@/utils/hotExit/useHotExitCapture";
 import { useHotExitRestore } from "@/utils/hotExit/useHotExitRestore";
 import { useHotExitStartup } from "@/utils/hotExit/useHotExitStartup";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
+import { useCrashRecoveryWriter } from "@/hooks/useCrashRecoveryWriter";
+import { useCrashRecoveryStartup } from "@/hooks/useCrashRecoveryStartup";
+import { useCrashRecoveryCleanup } from "@/hooks/useCrashRecoveryCleanup";
 import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
 
 /** Height of the title bar area in pixels */
@@ -144,6 +147,8 @@ function DocumentWindowHooks() {
   useExternalFileChanges(); // Handle external file changes (auto-reload or prompt)
   useHotExitCapture(); // Respond to hot exit capture requests
   useHotExitRestore(); // Handle hot exit restore on restart
+  useCrashRecoveryWriter(); // Periodically snapshot dirty docs for crash recovery
+  useCrashRecoveryCleanup(); // Clean up recovery files on save/close/exit
   return null;
 }
 
@@ -160,6 +165,7 @@ function MainWindowHooks() {
   useUpdateChecker(); // Check for updates on startup
   useUpdateBroadcast(); // Broadcast update state to other windows
   useHotExitStartup(); // Check for saved session and restore if present (MUST run before Finder)
+  useCrashRecoveryStartup(); // Restore docs from crash recovery (waits for hot exit)
   useFinderFileOpen(); // Handle files opened from Finder (waits for hot exit to complete)
   return null;
 }

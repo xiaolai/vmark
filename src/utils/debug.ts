@@ -30,3 +30,11 @@ export const autoSaveLog = isDev
 export const terminalLog = isDev
   ? (...args: unknown[]) => console.log("[Terminal]", ...args)
   : () => {};
+
+/**
+ * Debug logger for Crash Recovery operations.
+ * Only logs in development mode.
+ */
+export const crashRecoveryLog = isDev
+  ? (...args: unknown[]) => console.log("[CrashRecovery]", ...args)
+  : () => {};
