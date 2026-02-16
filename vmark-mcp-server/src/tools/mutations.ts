@@ -11,7 +11,6 @@ import { VMarkMcpServer, resolveWindowId, requireStringArg, requireStringArgAllo
 import type {
   BatchEditResult,
   ApplyDiffResult,
-  BatchOperation,
   BlockQuery,
   OperationMode,
   MatchPolicy,
@@ -123,7 +122,7 @@ export function registerMutationTools(server: VMarkMcpServer): void {
             description: 'Optional window identifier. Defaults to focused window.',
           },
         },
-        required: ['baseRevision', 'mode', 'operations'],
+        required: ['baseRevision', 'operations'],
       },
     },
     async (args) => {
@@ -131,9 +130,9 @@ export function registerMutationTools(server: VMarkMcpServer): void {
       const baseRevision = requireStringArg(args, 'baseRevision');
       const requestId = getStringArg(args, 'requestId');
       const mode = (args.mode as OperationMode) ?? 'apply';
-      const operations = args.operations as BatchOperation[];
+      const operations = args.operations;
 
-      if (!operations || operations.length === 0) {
+      if (!Array.isArray(operations) || operations.length === 0) {
         return VMarkMcpServer.errorResult('At least one operation is required');
       }
 
@@ -322,8 +321,11 @@ export function registerMutationTools(server: VMarkMcpServer): void {
       const replacement = requireStringArgAllowEmpty(args, 'replacement');
       const mode = (args.mode as OperationMode) ?? 'apply';
 
-      if (!anchor || !anchor.text || !anchor.beforeContext || !anchor.afterContext) {
-        return VMarkMcpServer.errorResult('anchor must include text, beforeContext, and afterContext');
+      if (!anchor || typeof anchor.text !== 'string' || !anchor.text) {
+        return VMarkMcpServer.errorResult('anchor.text must be a non-empty string');
+      }
+      if (typeof anchor.beforeContext !== 'string' || typeof anchor.afterContext !== 'string') {
+        return VMarkMcpServer.errorResult('anchor must include beforeContext and afterContext strings');
       }
 
       try {

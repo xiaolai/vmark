@@ -6,7 +6,7 @@
  * - write_paragraph: Modify paragraph content
  */
 
-import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg, getBooleanArg, validateNonNegativeInt } from '../server.js';
+import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg, getBooleanArg, validateNonNegativeInteger } from '../server.js';
 import type {
   ParagraphTarget,
   ParagraphInfo,
@@ -15,6 +15,17 @@ import type {
   OperationMode,
   BridgeRequest,
 } from '../bridge/types.js';
+
+/** Validate a paragraph target. Returns error message or null if valid. */
+function validateParagraphTarget(target: ParagraphTarget): string | null {
+  if (!target || (target.index === undefined && !target.containing)) {
+    return 'target must specify index or containing';
+  }
+  if (target.index !== undefined) {
+    return validateNonNegativeInteger(target.index, 'target.index');
+  }
+  return null;
+}
 
 /**
  * Register all paragraph tools on the server.
@@ -61,14 +72,8 @@ export function registerParagraphTools(server: VMarkMcpServer): void {
       const target = args.target as ParagraphTarget;
       const includeContext = getBooleanArg(args, 'includeContext') ?? false;
 
-      if (!target || (target.index === undefined && !target.containing)) {
-        return VMarkMcpServer.errorResult('target must specify index or containing');
-      }
-
-      if (target.index !== undefined) {
-        const err = validateNonNegativeInt(target.index, 'target.index');
-        if (err) return VMarkMcpServer.errorResult(err);
-      }
+      const targetErr = validateParagraphTarget(target);
+      if (targetErr) return VMarkMcpServer.errorResult(targetErr);
 
       try {
         const request: BridgeRequest = {
@@ -146,16 +151,10 @@ export function registerParagraphTools(server: VMarkMcpServer): void {
       const content = getStringArg(args, 'content');
       const mode = (args.mode as OperationMode) ?? 'suggest';
 
-      if (!target || (target.index === undefined && !target.containing)) {
-        return VMarkMcpServer.errorResult('target must specify index or containing');
-      }
+      const targetErr = validateParagraphTarget(target);
+      if (targetErr) return VMarkMcpServer.errorResult(targetErr);
 
-      if (target.index !== undefined) {
-        const err = validateNonNegativeInt(target.index, 'target.index');
-        if (err) return VMarkMcpServer.errorResult(err);
-      }
-
-      if (operation !== 'delete' && !content) {
+      if (operation !== 'delete' && content === undefined) {
         return VMarkMcpServer.errorResult('content is required for non-delete operations');
       }
 

@@ -287,15 +287,8 @@ export function requireNumberArg(args: ToolArgs, key: string): number {
   return value;
 }
 
-/**
- * Validate a non-negative integer. Returns error message or null if valid.
- */
-export function validateNonNegativeInt(value: unknown, label: string): string | null {
-  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < 0) {
-    return `${label} must be a non-negative integer`;
-  }
-  return null;
-}
+/** @deprecated Use {@link validateNonNegativeInteger} instead. Remove in v0.5.0. */
+export const validateNonNegativeInt = validateNonNegativeInteger;
 
 /**
  * Validate a heading level (integer 1-6). Returns error message or null if valid.
@@ -312,7 +305,7 @@ export function validateHeadingLevel(value: unknown, label: string): string | nu
  */
 export function validateByIndex(byIndex: { level: unknown; index: unknown }, prefix: string): string | null {
   return validateHeadingLevel(byIndex.level, `${prefix}.level`)
-    ?? validateNonNegativeInt(byIndex.index, `${prefix}.index`);
+    ?? validateNonNegativeInteger(byIndex.index, `${prefix}.index`);
 }
 
 /**
