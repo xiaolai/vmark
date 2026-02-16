@@ -10,6 +10,7 @@
     "align-center",
     "align-left",
     "align-right",
+    "audio",
     "bold",
     "bookmark",
     "clear-format",
@@ -82,6 +83,7 @@
     "undo",
     "unnest-blockquote",
     "unordered-list",
+    "video",
     "wiki-link"
   ],
   "allMenuIds": [
@@ -95,6 +97,7 @@
     "align-center",
     "align-left",
     "align-right",
+    "audio",
     "bold",
     "bookmark",
     "check-updates",
@@ -196,6 +199,7 @@
     "unnest-blockquote",
     "unordered-list",
     "use-selection-find",
+    "video",
     "view-history",
     "wiki-link",
     "word-wrap"

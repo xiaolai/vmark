@@ -103,6 +103,8 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Action | Shortcut |
 |--------|----------|
 | Insert Image | `Mod + Shift + I` |
+| Insert Video | — |
+| Insert Audio | — |
 | Insert Table | `Mod + Shift + T` |
 | Inline Math | `Alt + Mod + M` |
 | Math Block | `Alt + Mod + Shift + M` |

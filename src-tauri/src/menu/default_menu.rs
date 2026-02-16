@@ -404,6 +404,8 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         &[
             &links_submenu,
             &MenuItem::with_id(app, "image", "Image...", true, Some("Shift+CmdOrCtrl+I"))?,
+            &MenuItem::with_id(app, "video", "Video...", true, None::<&str>)?,
+            &MenuItem::with_id(app, "audio", "Audio...", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &table_submenu,
             &MenuItem::with_id(app, "code-fences", "Code Block", true, Some("Alt+CmdOrCtrl+C"))?,

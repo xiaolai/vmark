@@ -104,6 +104,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "insertTable", label: "Insert Table", category: "blocks", defaultKey: "Mod-Shift-t", menuId: "insert-table" },
   { id: "horizontalLine", label: "Horizontal Line", category: "blocks", defaultKey: "Alt-Mod--", menuId: "horizontal-line" },
   { id: "insertImage", label: "Insert Image", category: "blocks", defaultKey: "Shift-Mod-i", menuId: "image" },
+  { id: "insertVideo", label: "Insert Video", category: "blocks", defaultKey: "", menuId: "video" },
+  { id: "insertAudio", label: "Insert Audio", category: "blocks", defaultKey: "", menuId: "audio" },
   { id: "indent", label: "Indent", category: "blocks", defaultKey: "Mod-]", menuId: "indent" },
   { id: "outdent", label: "Outdent", category: "blocks", defaultKey: "Mod-[", menuId: "outdent" },
 

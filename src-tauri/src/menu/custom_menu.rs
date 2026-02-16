@@ -410,6 +410,8 @@ pub(crate) fn create_menu_with_shortcuts(
         &[
             &links_submenu,
             &MenuItem::with_id(app, "image", "Image...", true, get_accel("image", "Shift+CmdOrCtrl+I"))?,
+            &MenuItem::with_id(app, "video", "Video...", true, get_accel("video", ""))?,
+            &MenuItem::with_id(app, "audio", "Audio...", true, get_accel("audio", ""))?,
             &PredefinedMenuItem::separator(app)?,
             &table_submenu,
             &MenuItem::with_id(app, "code-fences", "Code Block", true, get_accel("code-fences", "Alt+CmdOrCtrl+C"))?,
