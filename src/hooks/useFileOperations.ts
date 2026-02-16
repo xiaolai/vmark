@@ -55,6 +55,73 @@ import { saveAllDocuments, type CloseSaveContext } from "@/hooks/closeSave";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 
 /**
+ * Save dialog with timeout and filter fallback for macOS Tahoe compatibility.
+ *
+ * macOS 26 (Tahoe) has known issues with NSSavePanel:
+ *   - XPC service hangs/crashes ("Open and Save Panel Service" stuck)
+ *   - Deprecated setAllowedFileTypes API (removed behavior in Tahoe)
+ *   - Slow/frozen dialog rendering
+ *
+ * Strategy:
+ *   1. Try with file type filters (normal path)
+ *   2. If it times out (15s), retry WITHOUT filters to bypass deprecated API
+ *   3. If retry also fails, throw so caller can show error toast
+ *
+ * @coordinates-with panel_ffi.rs — rfd uses setAllowedFileTypes when filters present
+ */
+async function saveDialogWithFallback(
+  defaultPath: string,
+): Promise<string | null> {
+  const DIALOG_TIMEOUT_MS = 15_000;
+
+  const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`Save dialog timed out after ${ms / 1000}s`)),
+        ms,
+      );
+      promise.then(
+        (val) => { clearTimeout(timer); resolve(val); },
+        (err) => { clearTimeout(timer); reject(err); },
+      );
+    });
+  };
+
+  // Attempt 1: with filters (normal)
+  try {
+    console.log("[FileOps] Save dialog attempt 1: with filters");
+    const path = await withTimeout(
+      save({
+        defaultPath,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      }),
+      DIALOG_TIMEOUT_MS,
+    );
+    return path;
+  } catch (firstError) {
+    console.warn("[FileOps] Save dialog attempt 1 failed:", firstError);
+
+    // If it timed out, retry without filters to bypass deprecated setAllowedFileTypes
+    if (firstError instanceof Error && firstError.message.includes("timed out")) {
+      console.log("[FileOps] Save dialog attempt 2: without filters (Tahoe workaround)");
+      try {
+        const path = await withTimeout(
+          save({ defaultPath }),
+          DIALOG_TIMEOUT_MS,
+        );
+        return path;
+      } catch (secondError) {
+        console.error("[FileOps] Save dialog attempt 2 also failed:", secondError);
+        throw secondError;
+      }
+    }
+
+    // Non-timeout error — propagate immediately
+    throw firstError;
+  }
+}
+
+/**
  * Move a tab to a new workspace window if the file is outside current workspace.
  * Closes the current tab (or window if it's the last tab).
  * @internal Exported for testing
@@ -243,14 +310,28 @@ export function useFileOperations() {
   }, [windowLabel, openFileInNewTab]);
 
   const handleSave = useCallback(async () => {
+    console.log("[FileOps] handleSave called for window:", windowLabel);
     flushActiveWysiwygNow();
 
-    await withReentryGuard(windowLabel, "save", async () => {
+    const guardResult = await withReentryGuard(windowLabel, "save", async () => {
       const tabId = useTabStore.getState().activeTabId[windowLabel];
-      if (!tabId) return;
+      if (!tabId) {
+        console.warn("[FileOps] No active tab for save in window:", windowLabel);
+        return;
+      }
 
       const doc = useDocumentStore.getState().getDocument(tabId);
-      if (!doc) return;
+      if (!doc) {
+        console.warn("[FileOps] No document found for tab:", tabId);
+        return;
+      }
+
+      console.log("[FileOps] Save target:", {
+        tabId,
+        filePath: doc.filePath ?? "(untitled)",
+        isMissing: doc.isMissing,
+        isDirty: doc.isDirty,
+      });
 
       // Check missing file policy - block normal save if file was deleted externally
       const saveAction = resolveMissingFileSaveAction({
@@ -264,17 +345,27 @@ export function useFileOperations() {
 
       // If file is missing, force Save As flow instead of normal save
       if (saveAction === "save_as_required" || !doc.filePath) {
+        console.log("[FileOps] Entering Save As flow (untitled or missing file)");
         // Build default path with suggested filename from H1 or tab title
         const tab = useTabStore.getState().tabs[windowLabel]?.find(t => t.id === tabId);
         const suggestedName = getSaveFileName(doc.content, tab?.title ?? "");
         const filename = `${suggestedName}.md`;
         const folder = await getDefaultSaveFolderWithFallback(windowLabel);
         const defaultPath = joinPath(folder, filename);
+        console.log("[FileOps] Opening save dialog with defaultPath:", defaultPath);
 
-        const path = await save({
-          defaultPath,
-          filters: [{ name: "Markdown", extensions: ["md"] }],
-        });
+        let path: string | null;
+        try {
+          path = await saveDialogWithFallback(defaultPath);
+          console.log("[FileOps] Save dialog returned:", path ?? "(cancelled)");
+        } catch (error) {
+          console.error("[FileOps] Save dialog threw:", error);
+          toast.error(
+            `Save dialog failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+          return;
+        }
+
         if (path) {
           const success = await saveToPath(tabId, path, doc.content, "manual");
           if (success) {
@@ -309,6 +400,9 @@ export function useFileOperations() {
         }
       }
     });
+    if (guardResult === undefined) {
+      console.warn("[FileOps] Save blocked by re-entry guard (another save in progress)");
+    }
   }, [windowLabel]);
 
   const handleSaveAs = useCallback(async () => {
@@ -336,10 +430,16 @@ export function useFileOperations() {
         defaultPath = joinPath(folder, filename);
       }
 
-      const path = await save({
-        defaultPath,
-        filters: [{ name: "Markdown", extensions: ["md"] }],
-      });
+      let path: string | null;
+      try {
+        path = await saveDialogWithFallback(defaultPath);
+      } catch (error) {
+        console.error("[FileOps] Save As dialog threw:", error);
+        toast.error(
+          `Save dialog failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+        return;
+      }
       if (path) {
         const success = await saveToPath(tabId, path, doc.content, "manual");
         if (!success) return;
@@ -375,10 +475,16 @@ export function useFileOperations() {
         defaultPath = joinPath(folder, filename);
       }
 
-      const newPath = await save({
-        defaultPath,
-        filters: [{ name: "Markdown", extensions: ["md"] }],
-      });
+      let newPath: string | null;
+      try {
+        newPath = await saveDialogWithFallback(defaultPath);
+      } catch (error) {
+        console.error("[FileOps] Move To dialog threw:", error);
+        toast.error(
+          `Save dialog failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+        return;
+      }
 
       if (!newPath || newPath === oldPath) return;
 
@@ -454,6 +560,7 @@ export function useFileOperations() {
       unlistenRefs.current.push(unlistenOpen);
 
       const unlistenSave = await currentWindow.listen<string>("menu:save", async (event) => {
+        console.log("[FileOps] menu:save event received, payload:", event.payload);
         if (event.payload !== windowLabel) return;
         await handleSave();
       });
@@ -576,6 +683,7 @@ export function useFileOperations() {
       // Save (Cmd+S)
       const saveKey = shortcuts.getShortcut("save");
       if (matchesShortcutEvent(e, saveKey)) {
+        console.log("[FileOps] Cmd+S keyboard shortcut matched");
         e.preventDefault();
         handleSave();
         return;
