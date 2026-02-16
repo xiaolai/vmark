@@ -117,7 +117,7 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
             view.dispatch(tr);
             view.focus();
 
-            // Scroll heading to center of viewport using native DOM API
+            // Scroll heading to top of viewport using native DOM API
             requestAnimationFrame(() => {
               const headingDOM = view.nodeDOM(pos);
               if (headingDOM instanceof HTMLElement) {

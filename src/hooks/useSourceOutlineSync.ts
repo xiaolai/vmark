@@ -5,7 +5,7 @@
  *   and tracks cursor position to highlight the active heading in the outline.
  *
  * Pipeline: Sidebar outline click → Tauri event "outline:scroll-to-heading" →
- *   this hook → find nth heading in CodeMirror doc → scroll to center
+ *   this hook → find nth heading in CodeMirror doc → scroll to top
  *
  * @coordinates-with useOutlineSync.ts — same event, handles WYSIWYG mode
  * @coordinates-with uiStore.ts — writes activeHeadingLine for outline highlight
@@ -18,6 +18,7 @@ import { EditorView } from "@codemirror/view";
 import type { Text } from "@codemirror/state";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { useUIStore } from "@/stores/uiStore";
+import { parseFenceDelimiter } from "@/components/Sidebar/outlineUtils";
 
 type CMViewRef = React.RefObject<EditorView | null>;
 
@@ -28,27 +29,18 @@ type CMViewRef = React.RefObject<EditorView | null>;
  */
 export function findNthHeadingPos(doc: Text, targetIndex: number): number {
   let currentIndex = 0;
-  let inFence: string | null = null;
+  let currentFence: string | null = null;
 
   for (let lineNum = 1; lineNum <= doc.lines; lineNum++) {
     const line = doc.line(lineNum);
     const text = line.text;
 
-    // Handle code fences (3+ backticks or tildes)
-    const fenceMatch = text.match(/^(`{3,}|~{3,})/);
-    if (fenceMatch) {
-      if (inFence === null) {
-        inFence = fenceMatch[1];
-      } else if (
-        fenceMatch[1][0] === inFence[0] &&
-        fenceMatch[1].length >= inFence.length &&
-        /^\s*$/.test(text.slice(fenceMatch[1].length))
-      ) {
-        inFence = null;
-      }
+    const fence = parseFenceDelimiter(text, currentFence);
+    if (fence !== null) {
+      currentFence = currentFence === null ? fence : null;
       continue;
     }
-    if (inFence !== null) continue;
+    if (currentFence !== null) continue;
 
     if (/^#{1,6}\s+.+/.test(text)) {
       if (currentIndex === targetIndex) return line.from;
@@ -65,25 +57,17 @@ export function findNthHeadingPos(doc: Text, targetIndex: number): number {
  */
 export function findHeadingIndexAtLine(doc: Text, cursorLine: number): number {
   let headingIndex = -1;
-  let inFence: string | null = null;
+  let currentFence: string | null = null;
 
   for (let lineNum = 1; lineNum <= cursorLine; lineNum++) {
     const text = doc.line(lineNum).text;
 
-    const fenceMatch = text.match(/^(`{3,}|~{3,})/);
-    if (fenceMatch) {
-      if (inFence === null) {
-        inFence = fenceMatch[1];
-      } else if (
-        fenceMatch[1][0] === inFence[0] &&
-        fenceMatch[1].length >= inFence.length &&
-        /^\s*$/.test(text.slice(fenceMatch[1].length))
-      ) {
-        inFence = null;
-      }
+    const fence = parseFenceDelimiter(text, currentFence);
+    if (fence !== null) {
+      currentFence = currentFence === null ? fence : null;
       continue;
     }
-    if (inFence !== null) continue;
+    if (currentFence !== null) continue;
 
     if (/^#{1,6}\s+.+/.test(text)) {
       headingIndex++;
