@@ -32,7 +32,7 @@ type MediaType = "image" | "video" | "audio";
 interface MediaRange {
   /** Start position of full image markdown (from ![) */
   from: number;
-  /** End position of full image markdown (to ]) */
+  /** End position of full image markdown (to `)`) */
   to: number;
   /** The media path/URL */
   path: string;
@@ -68,7 +68,7 @@ function findMediaAtCursor(view: EditorView, pos: number): MediaRange | null {
     const matchEnd = matchStart + match[0].length;
 
     // Check if cursor is inside this image markdown
-    if (pos >= matchStart && pos <= matchEnd) {
+    if (pos >= matchStart && pos < matchEnd) {
       const alt = match[1];
       // Group 2 is angle-bracket path, Group 3 is regular path
       const path = match[2] || match[3];

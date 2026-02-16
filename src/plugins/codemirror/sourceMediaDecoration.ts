@@ -34,10 +34,10 @@ interface MediaBlock {
   endLine: number;
 }
 
-/** Match opening <video or <audio tags (possibly self-closing) */
-const VIDEO_OPEN_REGEX = /<video[\s>]/i;
-const AUDIO_OPEN_REGEX = /<audio[\s>]/i;
-const IFRAME_YOUTUBE_REGEX = /<iframe[^>]*src=["'][^"']*youtube(?:-nocookie)?\.com[^"']*["'][^>]*>/i;
+/** Match opening <video or <audio tags at line start (possibly indented) */
+const VIDEO_OPEN_REGEX = /^\s*<video[\s>]/i;
+const AUDIO_OPEN_REGEX = /^\s*<audio[\s>]/i;
+const IFRAME_YOUTUBE_REGEX = /^\s*<iframe[^>]*src=["'][^"']*youtube(?:-nocookie)?\.com[^"']*["'][^>]*>/i;
 
 const VIDEO_CLOSE_REGEX = /<\/video>/i;
 const AUDIO_CLOSE_REGEX = /<\/audio>/i;

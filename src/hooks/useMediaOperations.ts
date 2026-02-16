@@ -15,7 +15,7 @@
  * @module hooks/useMediaOperations
  */
 
-import { copyFile, readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { copyFile, readFile, writeFile, stat } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import type { EditorView } from "@tiptap/pm/view";
 import {
@@ -27,6 +27,9 @@ import { computeDataHash } from "@/utils/imageHash";
 import { findExistingImage, registerImageHash } from "@/utils/imageHashRegistry";
 import { ensureAssetsFolder } from "@/hooks/useImageOperations";
 
+/** Skip hash-based dedup for files larger than 50 MB to avoid OOM. */
+const MAX_DEDUP_SIZE = 50 * 1024 * 1024;
+
 /**
  * Copy a media file (video/audio) from a local path to the document's assets folder.
  * Uses hash-based deduplication.
@@ -36,21 +39,35 @@ export async function copyMediaToAssets(
   sourcePath: string,
   documentPath: string
 ): Promise<string> {
-  const data = await readFile(sourcePath);
-  const hash = await computeDataHash(data);
+  // Check file size — skip hash-based dedup for large media to avoid OOM
+  const fileInfo = await stat(sourcePath);
+  const fileSize = fileInfo.size;
 
-  const existing = await findExistingImage(documentPath, hash);
-  if (existing) return existing;
+  if (fileSize <= MAX_DEDUP_SIZE) {
+    const data = await readFile(sourcePath);
+    const hash = await computeDataHash(data);
 
+    const existing = await findExistingImage(documentPath, hash);
+    if (existing) return existing;
+
+    const assetsPath = await ensureAssetsFolder(documentPath);
+    const originalFilename = getFilename(sourcePath);
+    const filename = generateUniqueFilename(originalFilename);
+    const destPath = await join(assetsPath, filename);
+    await copyFile(sourcePath, destPath);
+
+    const relativePath = buildAssetRelativePath(filename);
+    await registerImageHash(documentPath, hash, relativePath);
+    return relativePath;
+  }
+
+  // Large file: skip dedup, just copy directly
   const assetsPath = await ensureAssetsFolder(documentPath);
   const originalFilename = getFilename(sourcePath);
   const filename = generateUniqueFilename(originalFilename);
   const destPath = await join(assetsPath, filename);
   await copyFile(sourcePath, destPath);
-
-  const relativePath = buildAssetRelativePath(filename);
-  await registerImageHash(documentPath, hash, relativePath);
-  return relativePath;
+  return buildAssetRelativePath(filename);
 }
 
 /**

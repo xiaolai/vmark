@@ -77,6 +77,12 @@ export async function resolveMediaSrc(
   if (isAbsolutePath(decodedSrc))
     return convertFileSrc(normalizePathForAsset(decodedSrc));
 
+  // Reject paths with directory traversal regardless of prefix
+  if (decodedSrc.includes("..")) {
+    console.warn(`${logPrefix} Rejected path with directory traversal:`, decodedSrc);
+    return "";
+  }
+
   if (isRelativePath(decodedSrc)) {
     if (!validateImagePath(decodedSrc)) {
       console.warn(`${logPrefix} Rejected invalid media path:`, decodedSrc);

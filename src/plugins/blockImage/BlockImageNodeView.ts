@@ -2,8 +2,8 @@
  * Block Image NodeView
  *
  * Purpose: Custom ProseMirror NodeView for block_image nodes — handles async image
- * resolution (relative/absolute/external paths), click-to-select, click-to-popup,
- * context menu, and tooltip interactions.
+ * resolution (relative/absolute/external paths), double-click-to-popup, context menu,
+ * and tooltip interactions.
  *
  * Pipeline: Markdown image → parser creates block_image node → this NodeView renders
  *         → resolveMediaSrc resolves path → img element displays
@@ -138,6 +138,8 @@ export class BlockImageNodeView implements NodeView {
       this.img.src = src;
       // Fast-path: image may already be cached
       if (this.img.complete && this.img.naturalWidth > 0) {
+        this.cleanupHandlers?.();
+        this.cleanupHandlers = null;
         clearMediaLoadState(this.dom, IMAGE_LOAD_CONFIG);
         this.img.style.opacity = "1";
       }

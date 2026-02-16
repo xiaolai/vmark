@@ -40,17 +40,23 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 import type { ImageDimensions } from "@/types/image";
 
+/** Approximate popup height by media type (rows × ~24px row height + padding). */
+const POPUP_HEIGHT: Record<MediaNodeType, number> = {
+  image: 72,       // src + alt rows
+  block_image: 72, // src + alt rows
+  block_video: 96, // src + title + poster rows
+  block_audio: 68, // src + title rows
+};
+
+/** Popup width used for position calculation. */
+const POPUP_WIDTH = 340;
+
+/** Gap between anchor element and popup. */
+const POPUP_GAP = 6;
+
 /** Get popup height based on media type. */
 function getPopupHeightForType(type: MediaNodeType): number {
-  switch (type) {
-    case "image":
-    case "block_image":
-      return 72;
-    case "block_video":
-      return 96;
-    case "block_audio":
-      return 68;
-  }
+  return POPUP_HEIGHT[type];
 }
 
 /** Check if a media type is an image type. */
@@ -172,10 +178,14 @@ export class MediaPopupView {
       updateMediaPopupToggleButton(this.toggleBtn, mediaNodeType);
     }
 
-    // Mount to editor container if available, otherwise document.body
-    this.host = getPopupHostForDom(this.editorView.dom) ?? document.body;
+    // Mount to editor container — popups must be inside editor container, not document.body
+    this.host = getPopupHostForDom(this.editorView.dom);
+    if (!this.host) {
+      console.warn("[MediaPopup] No editor container found for popup host");
+      return;
+    }
     if (this.container.parentElement !== this.host) {
-      this.container.style.position = this.host === document.body ? "fixed" : "absolute";
+      this.container.style.position = "absolute";
       this.host.appendChild(this.container);
     }
 
@@ -199,21 +209,16 @@ export class MediaPopupView {
     const popupHeight = getPopupHeightForType(mediaNodeType);
     const { top, left } = calculatePopupPosition({
       anchor: anchorRect,
-      popup: { width: 340, height: popupHeight },
+      popup: { width: POPUP_WIDTH, height: popupHeight },
       bounds,
-      gap: 6,
+      gap: POPUP_GAP,
       preferAbove: isImage,
     });
 
-    // Convert to host-relative coordinates if mounted inside editor container
-    if (this.host !== document.body) {
-      const hostPos = toHostCoordsForDom(this.host, { top, left });
-      this.container.style.top = `${hostPos.top}px`;
-      this.container.style.left = `${hostPos.left}px`;
-    } else {
-      this.container.style.top = `${top}px`;
-      this.container.style.left = `${left}px`;
-    }
+    // Convert to host-relative coordinates (mounted inside editor container)
+    const hostPos = toHostCoordsForDom(this.host, { top, left });
+    this.container.style.top = `${hostPos.top}px`;
+    this.container.style.left = `${hostPos.left}px`;
 
     // Set up keyboard navigation with ESC handler
     if (this.removeKeyboardNavigation) {
@@ -300,7 +305,7 @@ export class MediaPopupView {
       const node = editorState.doc.nodeAt(mediaNodePos);
       if (!node) return;
 
-      const attrs = { src: node.attrs.src, alt: node.attrs.alt, title: node.attrs.title };
+      const attrs = { ...node.attrs };
       const targetType = mediaNodeType === "block_image" ? "image" : "block_image";
       const newNodeType = editorState.schema.nodes[targetType];
       if (!newNodeType) {
@@ -312,7 +317,6 @@ export class MediaPopupView {
       const tr = editorState.tr.replaceWith(mediaNodePos, mediaNodePos + node.nodeSize, newNode);
       dispatch(tr);
 
-      useMediaPopupStore.getState().setNodeType(targetType as MediaNodeType);
       useMediaPopupStore.getState().closePopup();
     } catch (error) {
       console.error("[MediaPopup] Toggle failed:", error);
@@ -421,18 +425,22 @@ export class MediaPopupView {
   };
 
   private updateNodeAttr(attr: string, value: string): void {
-    const { mediaNodePos } = useMediaPopupStore.getState();
+    const { mediaNodePos, mediaNodeType } = useMediaPopupStore.getState();
     if (mediaNodePos < 0) return;
 
-    const { state, dispatch } = this.editorView;
-    const node = state.doc.nodeAt(mediaNodePos);
-    if (!node) return;
+    try {
+      const { state, dispatch } = this.editorView;
+      const node = state.doc.nodeAt(mediaNodePos);
+      if (!node || node.type.name !== mediaNodeType) return;
 
-    const tr = state.tr.setNodeMarkup(mediaNodePos, undefined, {
-      ...node.attrs,
-      [attr]: value,
-    });
-    dispatch(tr);
+      const tr = state.tr.setNodeMarkup(mediaNodePos, undefined, {
+        ...node.attrs,
+        [attr]: value,
+      });
+      dispatch(tr);
+    } catch {
+      // Silently ignore — doc may have changed while popup is open
+    }
   }
 
   destroy(): void {

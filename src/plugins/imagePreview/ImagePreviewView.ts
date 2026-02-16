@@ -244,7 +244,10 @@ export class ImagePreviewView {
   }
 
   updateContent(src: string, anchorRect?: AnchorRect, type?: MediaType) {
-    if (type) this.mediaType = type;
+    if (type) {
+      this.mediaType = type;
+      this.container.classList.toggle("image-preview-popup--interactive", type !== "image");
+    }
     if (anchorRect) {
       this.lastAnchorRect = anchorRect;
       this.updatePosition(anchorRect);
@@ -333,10 +336,10 @@ export class ImagePreviewView {
     const el = type === "video" ? this.videoEl : this.audioEl;
 
     const onReady = () => {
+      cleanup();
       if (token !== this.resolveToken) return;
       this.loadingEl.style.display = "none";
       el.style.display = "block";
-      cleanup();
 
       requestAnimationFrame(() => {
         if (this.visible && this.lastAnchorRect) {
@@ -346,9 +349,9 @@ export class ImagePreviewView {
     };
 
     const onError = () => {
+      cleanup();
       if (token !== this.resolveToken) return;
       this.showError("Failed to load");
-      cleanup();
     };
 
     const cleanup = () => {

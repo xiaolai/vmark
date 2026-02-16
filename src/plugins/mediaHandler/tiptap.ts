@@ -7,7 +7,7 @@
  * Key decisions:
  *   - Runs AFTER imageHandler (lower priority) so images are handled by existing code
  *   - Detects media files by MIME type and file extension
- *   - Only handles drop events (media paste from clipboard is rare)
+ *   - Handles both drop events (media files) and paste events (media file paths/URLs)
  *
  * @coordinates-with hooks/useMediaOperations.ts — media file copy and node insertion
  * @coordinates-with utils/mediaPathDetection.ts — media file type detection
@@ -18,13 +18,16 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
-import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
+import { copyMediaToAssets, saveMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
 
 const mediaHandlerPluginKey = new PluginKey("mediaHandler");
+
+/** Maximum drop file size (500 MB). Rejects files too large to safely load into memory. */
+const MAX_DROP_FILE_SIZE = 500 * 1024 * 1024;
 
 const VIDEO_MIME_PREFIXES = ["video/"];
 const AUDIO_MIME_PREFIXES = ["audio/"];
@@ -67,11 +70,17 @@ async function handleDroppedMediaFile(view: EditorView, file: File): Promise<voi
   }
 
   try {
+    if (file.size > MAX_DROP_FILE_SIZE) {
+      await message(
+        `File is too large (${(file.size / (1024 * 1024)).toFixed(0)} MB). Maximum is ${MAX_DROP_FILE_SIZE / (1024 * 1024)} MB.`,
+        { title: "File Too Large", kind: "warning" }
+      );
+      return;
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const data = new Uint8Array(arrayBuffer);
 
-    // Import saveMediaToAssets dynamically to avoid circular dep
-    const { saveMediaToAssets } = await import("@/hooks/useMediaOperations");
     const relativePath = await saveMediaToAssets(data, file.name, documentPath);
     const mediaType = getMediaType(file);
 

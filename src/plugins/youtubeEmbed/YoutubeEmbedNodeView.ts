@@ -18,8 +18,7 @@ import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
-
-const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+import { YOUTUBE_VIDEO_ID_RE } from "@/utils/youtubeUrlParser";
 
 export class YoutubeEmbedNodeView implements NodeView {
   dom: HTMLElement;
@@ -34,7 +33,7 @@ export class YoutubeEmbedNodeView implements NodeView {
     this.editor = editor;
 
     const rawId = String(node.attrs.videoId ?? "");
-    const videoId = YOUTUBE_ID_RE.test(rawId) ? rawId : "";
+    const videoId = YOUTUBE_VIDEO_ID_RE.test(rawId) ? rawId : "";
 
     this.dom = document.createElement("figure");
     this.dom.className = "youtube-embed";
@@ -44,7 +43,9 @@ export class YoutubeEmbedNodeView implements NodeView {
     this.wrapper.className = "youtube-embed-wrapper";
 
     this.iframe = document.createElement("iframe");
-    this.iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}`;
+    this.iframe.src = videoId
+      ? `https://www.youtube-nocookie.com/embed/${videoId}`
+      : "about:blank";
     this.iframe.width = String(node.attrs.width ?? 560);
     this.iframe.height = String(node.attrs.height ?? 315);
     this.iframe.setAttribute("frameborder", "0");
@@ -79,8 +80,10 @@ export class YoutubeEmbedNodeView implements NodeView {
     if (node.type.name !== "youtube_embed") return false;
 
     const rawId = String(node.attrs.videoId ?? "");
-    const videoId = YOUTUBE_ID_RE.test(rawId) ? rawId : "";
-    const newSrc = `https://www.youtube-nocookie.com/embed/${videoId}`;
+    const videoId = YOUTUBE_VIDEO_ID_RE.test(rawId) ? rawId : "";
+    const newSrc = videoId
+      ? `https://www.youtube-nocookie.com/embed/${videoId}`
+      : "about:blank";
     if (this.iframe.src !== newSrc) {
       this.iframe.src = newSrc;
     }

@@ -54,7 +54,7 @@ export async function browseAndReplaceMedia(
           ? [{ name: "Videos", extensions: VIDEO_EXTENSIONS }]
           : [{ name: "Audio", extensions: AUDIO_EXTENSIONS }];
 
-      const sourcePath = await open({ filters });
+      const sourcePath = await open({ filters, multiple: false, directory: false });
 
       if (!sourcePath) {
         return false;

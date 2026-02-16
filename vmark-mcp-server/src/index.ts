@@ -319,6 +319,15 @@ export const TOOL_CATEGORIES = [
     ],
   },
   {
+    name: 'Media Tools',
+    description: 'Insert video, audio, and YouTube embeds',
+    tools: [
+      'insert_video',
+      'insert_audio',
+      'insert_youtube',
+    ],
+  },
+  {
     name: 'Workspace Tools',
     description: 'Window and document management',
     tools: [
@@ -374,7 +383,7 @@ export const TOOL_CATEGORIES = [
  * Expected tool count — used by --health-check to catch stale builds.
  * Update this number whenever tools are added or removed.
  */
-export const EXPECTED_TOOL_COUNT = 77;
+export const EXPECTED_TOOL_COUNT = 80;
 
 /**
  * List of all resources for documentation.

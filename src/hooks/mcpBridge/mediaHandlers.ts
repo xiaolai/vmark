@@ -11,6 +11,7 @@
 
 import { respond, getEditor } from "./utils";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { sanitizeMediaHtml } from "@/utils/sanitize";
 
 /**
  * Handle insertMedia request — inserts media HTML at cursor or end of document.
@@ -45,6 +46,12 @@ export async function handleInsertMedia(
       throw new Error("mediaHtml must be a single <video>, <audio>, or <iframe> tag");
     }
 
+    // Sanitize media HTML to enforce safe attributes and YouTube-only iframes
+    const sanitized = sanitizeMediaHtml(trimmed);
+    if (!sanitized.trim()) {
+      throw new Error("mediaHtml was rejected by sanitization (e.g. non-YouTube iframe)");
+    }
+
     const revisionError = validateBaseRevision(baseRevision);
     if (revisionError) {
       await respond({
@@ -61,8 +68,8 @@ export async function handleInsertMedia(
       throw new Error("No active editor");
     }
 
-    // Insert the HTML content at the current cursor position
-    const content = `\n\n${mediaHtml}\n\n`;
+    // Insert the sanitized HTML content at the current cursor position
+    const content = `\n\n${sanitized}\n\n`;
     editor.chain().focus().insertContent(content).run();
 
     const newRevision = getCurrentRevision();

@@ -2,7 +2,7 @@
  * Block Audio NodeView
  *
  * Purpose: Custom ProseMirror NodeView for block_audio nodes — handles async audio
- * src resolution, click-to-select, and loading/error states.
+ * src resolution, double-click-to-popup, and loading/error states.
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_audio node type
  * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
@@ -60,10 +60,7 @@ export class BlockAudioNodeView implements NodeView {
     this.dom.appendChild(this.audio);
   }
 
-  private handleClick = (e: MouseEvent) => {
-    // Don't open popup when clicking native audio controls
-    if (e.target === this.audio) return;
-
+  private handleClick = (_e: MouseEvent) => {
     selectMediaNode(this.editor, this.getPos);
 
     const pos = this.getPos();

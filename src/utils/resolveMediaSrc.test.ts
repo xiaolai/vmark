@@ -148,11 +148,10 @@ describe("resolveMediaSrc", () => {
       setupDocWithPath("/Users/test/docs/readme.md");
     });
 
-    it("rejects ../ traversal — not recognized as relative path", async () => {
-      // "../../../etc/passwd" doesn't match isRelativePath (must start with ./ or assets/)
-      // so it falls through and is returned as-is (harmless — won't resolve to a loadable URL)
+    it("rejects ../ traversal — blocked by early traversal check", async () => {
+      // "../../../etc/passwd" is rejected early because it contains ".."
       const result = await resolveMediaSrc("../../../etc/passwd");
-      expect(result).toBe("../../../etc/passwd");
+      expect(result).toBe("");
     });
 
     it("rejects ./../../secret — validateImagePath catches ..", async () => {

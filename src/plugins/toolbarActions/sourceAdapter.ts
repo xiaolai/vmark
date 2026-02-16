@@ -27,7 +27,8 @@ import { readClipboardImagePath } from "@/utils/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { useMediaPopupStore, type MediaNodeType } from "@/stores/mediaPopupStore";
+import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
 import { useSettingsStore, type CJKFormattingSettings } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
@@ -142,12 +143,17 @@ function showImagePopupForExistingImage(view: EditorView): boolean {
     return false;
   }
 
-  // Open the image popup
+  // Derive media type from file extension (image syntax is used for all media in source mode)
+  let mediaNodeType: MediaNodeType = "image";
+  if (hasVideoExtension(image.src)) mediaNodeType = "block_video";
+  else if (hasAudioExtension(image.src)) mediaNodeType = "block_audio";
+
+  // Open the media popup
   useMediaPopupStore.getState().openPopup({
     mediaSrc: image.src,
     mediaAlt: image.alt,
     mediaNodePos: image.from,
-    mediaNodeType: "image",
+    mediaNodeType,
     anchorRect,
   });
 
@@ -353,9 +359,11 @@ function insertAudioTag(view: EditorView): boolean {
 }
 
 function insertYoutubeEmbed(view: EditorView): boolean {
-  const template = '<iframe src="https://www.youtube-nocookie.com/embed/" width="560" height="315" frameborder="0" allowfullscreen></iframe>';
-  // Position cursor at end of embed URL (after /embed/)
-  const cursorOffset = 50; // after '<iframe src="https://www.youtube-nocookie.com/embed/'
+  // Wrap in blank lines to ensure block-level parsing (CommonMark HTML block rule)
+  const iframeTag = '<iframe src="https://www.youtube-nocookie.com/embed/" width="560" height="315" frameborder="0" allowfullscreen></iframe>';
+  const template = `\n${iframeTag}\n`;
+  // Position cursor at end of embed URL (after /embed/) — account for leading newline
+  const cursorOffset = 1 + 51; // \n + '<iframe src="https://www.youtube-nocookie.com/embed/'
   insertText(view, template, cursorOffset);
   return true;
 }

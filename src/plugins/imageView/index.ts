@@ -262,10 +262,6 @@ export class ImageNodeView implements NodeView {
     this.dom.classList.remove("image-loading");
     this.dom.classList.add("image-error");
     this.dom.style.opacity = "0.5";
-    // Store original title and set error tooltip
-    if (!this.dom.hasAttribute("data-original-title") && this.dom.title) {
-      this.dom.setAttribute("data-original-title", this.dom.title);
-    }
     this.dom.title = `${message}: ${this.originalSrc}`;
   }
 

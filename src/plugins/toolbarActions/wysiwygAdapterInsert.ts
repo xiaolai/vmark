@@ -429,7 +429,7 @@ export function handleInsertAudio(context: WysiwygToolbarContext): boolean {
 
 /**
  * Handle the insertYoutube toolbar action.
- * Prompts for a YouTube URL and inserts a youtube_embed node.
+ * Reads a YouTube URL from the clipboard and inserts a youtube_embed node.
  */
 export function handleInsertYoutube(context: WysiwygToolbarContext): boolean {
   const view = context.view;
@@ -449,16 +449,15 @@ export function handleInsertYoutube(context: WysiwygToolbarContext): boolean {
         if (!youtubeType) return;
 
         const node = youtubeType.create({ videoId });
-        const insertPos = state.selection.to;
-        dispatch(state.tr.insert(insertPos, node));
+        dispatch(state.tr.replaceSelectionWith(node));
         view.focus();
       } else {
         // No YouTube URL on clipboard — prompt the user
         const youtubeType = view.state.schema.nodes.youtube_embed;
         if (!youtubeType) {
           await message(
-            "Paste a YouTube URL to clipboard first, then try again.",
-            { title: "YouTube Embed", kind: "info" }
+            "YouTube embed feature is not available (schema node missing).",
+            { title: "YouTube Embed", kind: "warning" }
           );
           return;
         }

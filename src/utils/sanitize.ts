@@ -225,7 +225,7 @@ function isSafeStyleValue(value: string): boolean {
  * Allows media-specific tags and attributes while preventing XSS.
  *
  * YouTube iframes are restricted to youtube.com and youtube-nocookie.com domains
- * via a DOMPurify hook that strips non-YouTube iframe src attributes.
+ * via a post-sanitize DOM pass that strips non-YouTube iframes.
  */
 export function sanitizeMediaHtml(html: string): string {
   // Sanitize with DOMPurify, then post-process to strip non-YouTube iframes
@@ -266,7 +266,10 @@ const YOUTUBE_DOMAIN_RE = /^https?:\/\/(www\.)?(youtube\.com|youtube-nocookie\.c
 function stripNonYoutubeIframes(html: string): string {
   if (typeof document === "undefined") {
     // No DOM — strip all iframes for safety (can't verify src)
-    return html.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "");
+    // Handles both paired (<iframe>...</iframe>) and self-closing (<iframe ... />) forms
+    return html
+      .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+      .replace(/<iframe\b[^>]*\/\s*>/gi, "");
   }
   const container = document.createElement("div");
   container.innerHTML = html;

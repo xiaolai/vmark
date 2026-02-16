@@ -2,7 +2,7 @@
  * Block Video NodeView
  *
  * Purpose: Custom ProseMirror NodeView for block_video nodes — handles async video
- * src resolution (relative/absolute/external paths), click-to-select, and loading/error states.
+ * src resolution (relative/absolute/external paths), double-click-to-popup, and loading/error states.
  *
  * Pipeline: Markdown video HTML → parser creates block_video node → this NodeView renders
  *         → resolveMediaSrc resolves path → video element displays
@@ -31,6 +31,9 @@ import {
   selectMediaNode,
   type MediaLoadConfig,
 } from "@/plugins/shared/mediaNodeViewHelpers";
+
+/** Approximate height of native video controls bar. Varies by platform/zoom. */
+const CONTROLS_HEIGHT_PX = 40;
 
 const VIDEO_LOAD_CONFIG: MediaLoadConfig = {
   loadEvent: "loadedmetadata",
@@ -73,7 +76,7 @@ export class BlockVideoNodeView implements NodeView {
     // Don't open popup when clicking native video controls area
     if (e.target === this.video) {
       const rect = this.video.getBoundingClientRect();
-      const controlsHeight = 40;
+      const controlsHeight = CONTROLS_HEIGHT_PX;
       if (e.clientY > rect.bottom - controlsHeight) return;
     }
 
@@ -183,7 +186,7 @@ export class BlockVideoNodeView implements NodeView {
     if (event.target === this.video && (event.type === "mousedown" || event.type === "click")) {
       const mouseEvent = event as MouseEvent;
       const rect = this.video.getBoundingClientRect();
-      const controlsHeight = 40;
+      const controlsHeight = CONTROLS_HEIGHT_PX;
       if (mouseEvent.clientY > rect.bottom - controlsHeight) {
         return true;
       }

@@ -1,9 +1,10 @@
 /**
  * Shared Media NodeView Helpers
  *
- * Purpose: Composable helper functions for block media NodeViews (image, audio, video).
+ * Purpose: Composable helper functions for block media NodeViews (image, audio, video, youtube).
  * Handles load/error event management, error display, load state CSS classes,
- * and node selection — the ~80% of logic that's identical across all three media types.
+ * node selection, and keyboard shortcuts — the ~80% of logic that's identical across
+ * all media types.
  *
  * Key decisions:
  *   - Composition over inheritance: helper functions with a config object,
@@ -19,7 +20,7 @@
  * @module plugins/shared/mediaNodeViewHelpers
  */
 
-import type { Editor } from "@tiptap/core";
+import type { Editor, KeyboardShortcutCommand } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 
 /**
@@ -102,6 +103,68 @@ export function clearMediaLoadState(
   config: MediaLoadConfig,
 ): void {
   container.classList.remove(config.loadingClass, config.errorClass);
+}
+
+/**
+ * Keyboard shortcuts shared by all atom block media nodes (image, audio, video, youtube).
+ *
+ * - Enter: create a paragraph below the selected node
+ * - ArrowUp: select the media node when cursor is at start of the block below it
+ * - ArrowDown: select the media node when cursor is at end of the block above it
+ */
+export function mediaBlockKeyboardShortcuts(
+  nodeTypeName: string,
+): Record<string, KeyboardShortcutCommand> {
+  return {
+    Enter: ({ editor }) => {
+      const { state } = editor;
+      if (!(state.selection instanceof NodeSelection)) return false;
+      if (state.selection.node.type.name !== nodeTypeName) return false;
+
+      const pos = state.selection.to;
+      editor
+        .chain()
+        .insertContentAt(pos, { type: "paragraph" })
+        .setTextSelection(pos + 1)
+        .run();
+      return true;
+    },
+
+    ArrowUp: ({ editor }) => {
+      const { state } = editor;
+      const { $from } = state.selection;
+
+      if ($from.parentOffset === 0) {
+        const before = $from.before();
+        if (before > 0) {
+          const nodeBefore = state.doc.resolve(before).nodeBefore;
+          if (nodeBefore?.type.name === nodeTypeName) {
+            const nodePos = before - nodeBefore.nodeSize;
+            editor.commands.setNodeSelection(nodePos);
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+
+    ArrowDown: ({ editor }) => {
+      const { state } = editor;
+      const { $to } = state.selection;
+
+      if ($to.parentOffset === $to.parent.content.size) {
+        const after = $to.after();
+        if (after < state.doc.content.size) {
+          const nodeAfter = state.doc.resolve(after).nodeAfter;
+          if (nodeAfter?.type.name === nodeTypeName) {
+            editor.commands.setNodeSelection(after);
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+  };
 }
 
 /**

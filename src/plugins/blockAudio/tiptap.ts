@@ -17,10 +17,10 @@
 
 import "./block-audio.css";
 import { Node } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
 import { BlockAudioNodeView } from "./BlockAudioNodeView";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
+import { mediaBlockKeyboardShortcuts } from "../shared/mediaNodeViewHelpers";
 
 export const blockAudioExtension = Node.create({
   name: "block_audio",
@@ -86,55 +86,6 @@ export const blockAudioExtension = Node.create({
   },
 
   addKeyboardShortcuts() {
-    return {
-      Enter: ({ editor }) => {
-        const { state } = editor;
-        if (!(state.selection instanceof NodeSelection)) return false;
-        if (state.selection.node.type.name !== "block_audio") return false;
-
-        const pos = state.selection.to;
-        editor
-          .chain()
-          .insertContentAt(pos, { type: "paragraph" })
-          .setTextSelection(pos + 1)
-          .run();
-        return true;
-      },
-
-      ArrowUp: ({ editor }) => {
-        const { state } = editor;
-        const { $from } = state.selection;
-
-        if ($from.parentOffset === 0) {
-          const before = $from.before();
-          if (before > 0) {
-            const nodeBefore = state.doc.resolve(before).nodeBefore;
-            if (nodeBefore?.type.name === "block_audio") {
-              const audioPos = before - nodeBefore.nodeSize;
-              editor.commands.setNodeSelection(audioPos);
-              return true;
-            }
-          }
-        }
-        return false;
-      },
-
-      ArrowDown: ({ editor }) => {
-        const { state } = editor;
-        const { $to } = state.selection;
-
-        if ($to.parentOffset === $to.parent.content.size) {
-          const after = $to.after();
-          if (after < state.doc.content.size) {
-            const nodeAfter = state.doc.resolve(after).nodeAfter;
-            if (nodeAfter?.type.name === "block_audio") {
-              editor.commands.setNodeSelection(after);
-              return true;
-            }
-          }
-        }
-        return false;
-      },
-    };
+    return mediaBlockKeyboardShortcuts("block_audio");
   },
 });

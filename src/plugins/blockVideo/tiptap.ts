@@ -18,10 +18,10 @@
 
 import "./block-video.css";
 import { Node } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
 import { BlockVideoNodeView } from "./BlockVideoNodeView";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
+import { mediaBlockKeyboardShortcuts } from "../shared/mediaNodeViewHelpers";
 
 export const blockVideoExtension = Node.create({
   name: "block_video",
@@ -90,55 +90,6 @@ export const blockVideoExtension = Node.create({
   },
 
   addKeyboardShortcuts() {
-    return {
-      Enter: ({ editor }) => {
-        const { state } = editor;
-        if (!(state.selection instanceof NodeSelection)) return false;
-        if (state.selection.node.type.name !== "block_video") return false;
-
-        const pos = state.selection.to;
-        editor
-          .chain()
-          .insertContentAt(pos, { type: "paragraph" })
-          .setTextSelection(pos + 1)
-          .run();
-        return true;
-      },
-
-      ArrowUp: ({ editor }) => {
-        const { state } = editor;
-        const { $from } = state.selection;
-
-        if ($from.parentOffset === 0) {
-          const before = $from.before();
-          if (before > 0) {
-            const nodeBefore = state.doc.resolve(before).nodeBefore;
-            if (nodeBefore?.type.name === "block_video") {
-              const videoPos = before - nodeBefore.nodeSize;
-              editor.commands.setNodeSelection(videoPos);
-              return true;
-            }
-          }
-        }
-        return false;
-      },
-
-      ArrowDown: ({ editor }) => {
-        const { state } = editor;
-        const { $to } = state.selection;
-
-        if ($to.parentOffset === $to.parent.content.size) {
-          const after = $to.after();
-          if (after < state.doc.content.size) {
-            const nodeAfter = state.doc.resolve(after).nodeAfter;
-            if (nodeAfter?.type.name === "block_video") {
-              editor.commands.setNodeSelection(after);
-              return true;
-            }
-          }
-        }
-        return false;
-      },
-    };
+    return mediaBlockKeyboardShortcuts("block_video");
   },
 });
