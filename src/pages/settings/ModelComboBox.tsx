@@ -8,6 +8,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, RefreshCw, Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { RestProviderType } from "@/types/aiGenies";
+import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useImeComposition } from "@/hooks/useImeComposition";
 import { MODEL_SUGGESTIONS } from "./modelSuggestions";
 
 interface ModelComboBoxProps {
@@ -27,6 +29,7 @@ export function ModelComboBox({
   onChange,
   className = "",
 }: ModelComboBoxProps) {
+  const ime = useImeComposition();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [fetchedModels, setFetchedModels] = useState<string[] | null>(null);
@@ -114,6 +117,7 @@ export function ModelComboBox({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
     if (!open) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         handleOpen();
@@ -165,6 +169,8 @@ export function ModelComboBox({
           onChange={handleInputChange}
           onFocus={handleOpen}
           onKeyDown={handleKeyDown}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
         />
         <button
           className="shrink-0 p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--hover-bg)] cursor-pointer focus-visible:outline-none"

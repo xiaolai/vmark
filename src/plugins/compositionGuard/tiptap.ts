@@ -11,6 +11,8 @@
  *     ProseMirror may omit "composition" meta when storedMarks are present (#66)
  *   - Safari fix: ProseMirror's fixUpBadSafariComposition displaces cursor in table headers;
  *     this plugin uses appendTransaction to restore correct cursor position
+ *   - Split-block fix: macOS WebKit can split headings during IME composition acceptance;
+ *     scheduleImeCleanup detects and repairs the split via fixCompositionSplitBlock
  *   - Grace period after compositionend prevents race conditions with queued actions
  *   - Flushes queued ProseMirror actions after composition ends
  *
@@ -18,6 +20,7 @@
  *   - Safari table header fix uses heuristic position detection, may not cover all edge cases
  *
  * @coordinates-with utils/imeGuard.ts — IME state tracking and action queuing utilities
+ * @coordinates-with plugins/compositionGuard/splitBlockFix.ts — split-block repair for headings
  * @module plugins/compositionGuard/tiptap
  */
 
@@ -31,6 +34,7 @@ import {
   isProseMirrorInCompositionGrace,
   markProseMirrorCompositionEnd,
 } from "@/utils/imeGuard";
+import { fixCompositionSplitBlock } from "./splitBlockFix";
 
 export const compositionGuardExtension = Extension.create({
   name: "compositionGuard",
@@ -39,6 +43,7 @@ export const compositionGuardExtension = Extension.create({
     let isComposing = false;
     let compositionStartPos: number | null = null;
     let compositionData = "";
+    let compositionPinyin = "";
 
     // Set after compositionend in a tableHeader cell.
     // appendTransaction consumes this to fix cursor position after
@@ -66,6 +71,19 @@ export const compositionGuardExtension = Extension.create({
         $start = state.doc.resolve(compositionStartPos);
       } catch {
         return;
+      }
+
+      // Detect split-block bug: composed text landed in a different block
+      // (e.g., heading splits into heading + paragraph on macOS WebKit
+      // when Space accepts IME composition)
+      if (compositionPinyin) {
+        const splitFix = fixCompositionSplitBlock(
+          state, compositionStartPos, compositionData, compositionPinyin,
+        );
+        if (splitFix) {
+          view.dispatch(splitFix);
+          return;
+        }
       }
 
       let cleanupEnd = $start.end();
@@ -135,6 +153,7 @@ export const compositionGuardExtension = Extension.create({
 
           const compositionMeta = tr.getMeta("composition");
           const uiEvent = tr.getMeta("uiEvent");
+
           if (compositionMeta) return true;
           if (uiEvent === "input" || uiEvent === "composition") return true;
 
@@ -144,12 +163,6 @@ export const compositionGuardExtension = Extension.create({
           if (historyMeta) return true;
 
           // Allow doc-changing transactions during composition (#66).
-          // ProseMirror's internal composition reconciliation sometimes generates
-          // transactions without "composition" meta — notably when storedMarks are
-          // present (e.g. bold text + Enter → new paragraph inherits marks).
-          // Blocking these prevents composed text from reaching the document.
-          // handleKeyDown already intercepts unwanted keypresses during IME input,
-          // so allowing doc changes here is safe.
           if (tr.docChanged) return true;
 
           return false;
@@ -158,8 +171,7 @@ export const compositionGuardExtension = Extension.create({
           handleKeyDown(view, event) {
             const imeKey = isImeKeyEvent(event);
             const grace = isProseMirrorInCompositionGrace(view);
-            if (imeKey) return true;
-            if (grace) return true;
+            if (imeKey || grace) return true;
             return false;
           },
           handleDOMEvents: {
@@ -167,16 +179,19 @@ export const compositionGuardExtension = Extension.create({
               isComposing = true;
               compositionStartPos = view.state.selection.from;
               compositionData = "";
+              compositionPinyin = "";
               return false;
             },
             compositionupdate(_view, event) {
-              compositionData = (event as CompositionEvent).data ?? compositionData;
+              const data = (event as CompositionEvent).data;
+              compositionData = data ?? compositionData;
               return false;
             },
             compositionend(view, event) {
               isComposing = false;
               markProseMirrorCompositionEnd(view);
               const data = (event as CompositionEvent).data;
+              compositionPinyin = compositionData;
               if (typeof data === "string" && data.length > 0) {
                 compositionData = data;
               }
@@ -208,6 +223,7 @@ export const compositionGuardExtension = Extension.create({
               isComposing = false;
               compositionStartPos = null;
               compositionData = "";
+              compositionPinyin = "";
               markProseMirrorCompositionEnd(view);
               requestAnimationFrame(() => {
                 flushProseMirrorCompositionQueue(view);

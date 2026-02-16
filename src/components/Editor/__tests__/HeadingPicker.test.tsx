@@ -470,6 +470,77 @@ describe("HeadingPicker", () => {
     });
   });
 
+  describe("IME composition guard", () => {
+    it("Enter with isComposing does not select a heading", async () => {
+      setState({
+        isOpen: true,
+        headings: mockHeadings,
+        anchorRect: { top: 100, bottom: 120, left: 50, right: 150 },
+      });
+
+      render(<HeadingPicker />);
+      await vi.runAllTimersAsync();
+
+      const container = document.querySelector(".heading-picker") as HTMLElement;
+      fireEvent.keyDown(container, { key: "Enter", isComposing: true });
+
+      expect(mockSelectHeading).not.toHaveBeenCalled();
+    });
+
+    it("Escape with isComposing does not close picker", async () => {
+      setState({
+        isOpen: true,
+        headings: mockHeadings,
+        anchorRect: { top: 100, bottom: 120, left: 50, right: 150 },
+      });
+
+      render(<HeadingPicker />);
+      await vi.runAllTimersAsync();
+
+      const container = document.querySelector(".heading-picker") as HTMLElement;
+      fireEvent.keyDown(container, { key: "Escape", isComposing: true });
+
+      expect(mockClosePicker).not.toHaveBeenCalled();
+    });
+
+    it("Enter within grace period after compositionEnd is blocked", async () => {
+      setState({
+        isOpen: true,
+        headings: mockHeadings,
+        anchorRect: { top: 100, bottom: 120, left: 50, right: 150 },
+      });
+
+      render(<HeadingPicker />);
+      await vi.runAllTimersAsync();
+
+      const input = screen.getByPlaceholderText("Filter headings...");
+      const container = document.querySelector(".heading-picker") as HTMLElement;
+
+      // Simulate composition then immediate Enter (macOS WebKit pattern)
+      fireEvent.compositionStart(input);
+      fireEvent.compositionEnd(input);
+      fireEvent.keyDown(container, { key: "Enter" });
+
+      expect(mockSelectHeading).not.toHaveBeenCalled();
+    });
+
+    it("keyCode 229 (IME marker) is blocked", async () => {
+      setState({
+        isOpen: true,
+        headings: mockHeadings,
+        anchorRect: { top: 100, bottom: 120, left: 50, right: 150 },
+      });
+
+      render(<HeadingPicker />);
+      await vi.runAllTimersAsync();
+
+      const container = document.querySelector(".heading-picker") as HTMLElement;
+      fireEvent.keyDown(container, { key: "Enter", keyCode: 229 });
+
+      expect(mockSelectHeading).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Selection clamping", () => {
     it("clamps selection when filter reduces list", async () => {
       setState({
