@@ -222,6 +222,20 @@
   --media-icon: #dc2626;
 }
 
+/* Vimeo - Cyan */
+.cm-media-vimeo {
+  --media-border: #00adef;
+  --media-bg: rgba(0, 173, 239, 0.05);
+  --media-icon: #00adef;
+}
+
+/* Bilibili - Pink */
+.cm-media-bilibili {
+  --media-border: #fb7299;
+  --media-bg: rgba(251, 114, 153, 0.05);
+  --media-icon: #fb7299;
+}
+
 /* ===================
    Dark Mode - Media Tags
    =================== */
@@ -241,6 +255,18 @@
   --media-border: #f87171;
   --media-bg: rgba(248, 113, 113, 0.08);
   --media-icon: #f87171;
+}
+
+.dark-theme .cm-media-vimeo {
+  --media-border: #4ac3f0;
+  --media-bg: rgba(74, 195, 240, 0.08);
+  --media-icon: #4ac3f0;
+}
+
+.dark-theme .cm-media-bilibili {
+  --media-border: #fc9cb5;
+  --media-bg: rgba(252, 156, 181, 0.08);
+  --media-icon: #fc9cb5;
 }
 
 /* ===================
@@ -291,4 +317,16 @@
 .cm-media-youtube.cm-media-first::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolygon points='10 8 16 12 10 16 10 8'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolygon points='10 8 16 12 10 16 10 8'/%3E%3C/svg%3E");
+}
+
+/* Vimeo icon - Play triangle with V-shape */
+.cm-media-vimeo.cm-media-first::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpolygon points='10 8 16 12 10 16 10 8'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpolygon points='10 8 16 12 10 16 10 8'/%3E%3C/svg%3E");
+}
+
+/* Bilibili icon - TV screen with play */
+.cm-media-bilibili.cm-media-first::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Crect x='2' y='3' width='20' height='14' rx='2'/%3E%3Cpolygon points='10 7 15 10 10 13 10 7'/%3E%3Cline x1='8' y1='21' x2='16' y2='21'/%3E%3Cline x1='12' y1='17' x2='12' y2='21'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Crect x='2' y='3' width='20' height='14' rx='2'/%3E%3Cpolygon points='10 7 15 10 10 13 10 7'/%3E%3Cline x1='8' y1='21' x2='16' y2='21'/%3E%3Cline x1='12' y1='17' x2='12' y2='21'/%3E%3C/svg%3E");
 }

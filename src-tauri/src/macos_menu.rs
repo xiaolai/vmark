@@ -190,6 +190,8 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("Wiki Link", "link.badge.plus"),
     ("Bookmark", "bookmark"),
     ("Image...", "photo"),
+    ("Video...", "video"),
+    ("Audio...", "waveform"),
     ("Insert Table", "tablecells"),
     ("Code Block", "curlybraces"),
     ("Math Block", "function"),

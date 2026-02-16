@@ -320,11 +320,11 @@ export const TOOL_CATEGORIES = [
   },
   {
     name: 'Media Tools',
-    description: 'Insert video, audio, and YouTube embeds',
+    description: 'Insert video, audio, and video embeds',
     tools: [
       'insert_video',
       'insert_audio',
-      'insert_youtube',
+      'insert_video_embed',
     ],
   },
   {

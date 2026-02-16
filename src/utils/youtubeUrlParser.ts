@@ -4,7 +4,7 @@
  * Purpose: Extracts video IDs from various YouTube URL formats.
  * Supports watch, short (youtu.be), embed, and v/ URLs.
  *
- * @coordinates-with plugins/youtubeEmbed/tiptap.ts — uses parseYoutubeUrl for node creation
+ * @coordinates-with utils/videoProviderRegistry.ts — YouTube provider delegates to this parser
  * @coordinates-with utils/markdownPipeline/mdastBlockConverters.ts — uses parseYoutubeUrl for iframe promotion
  * @module utils/youtubeUrlParser
  */

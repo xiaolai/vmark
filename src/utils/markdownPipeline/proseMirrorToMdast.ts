@@ -12,7 +12,7 @@
  *   - ListItem nodes at root level are filtered out (they should only appear
  *     as children of list nodes)
  *   - Wiki link alias is only serialized if it differs from the target value
- *   - Media nodes (block_video, block_audio, youtube_embed) dispatch to
+ *   - Media nodes (block_video, block_audio, video_embed) dispatch to
  *     dedicated converters in pmBlockConverters.ts
  *
  * @coordinates-with mdastToProseMirror.ts — reverse direction (MDAST → PM)
@@ -37,7 +37,7 @@ import {
   convertBlockImage,
   convertBlockVideo,
   convertBlockAudio,
-  convertYoutubeEmbed,
+  convertVideoEmbed,
   convertBlockquote,
   convertCodeBlock,
   convertDefinition,
@@ -146,8 +146,8 @@ class PMToMdastConverter {
         return convertBlockVideo(node);
       case "block_audio":
         return convertBlockAudio(node);
-      case "youtube_embed":
-        return convertYoutubeEmbed(node);
+      case "video_embed":
+        return convertVideoEmbed(node);
       case "frontmatter":
         return convertFrontmatter(node);
       case "link_definition":

@@ -84,6 +84,8 @@ export const ACTION_IDS = [
 
   // === Inserts ===
   "insertImage",
+  "insertVideo",
+  "insertAudio",
   "insertFootnote",
   "insertMath",
   "insertDiagram",

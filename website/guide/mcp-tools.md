@@ -1012,13 +1012,14 @@ Insert an audio element into the document.
 | `baseRevision` | string | Yes | Document revision for conflict detection |
 | `windowId` | string | No | Target window (defaults to focused) |
 
-### insert_youtube
+### insert_video_embed
 
-Insert a YouTube embed into the document.
+Insert a video embed (iframe) into the document. Supports YouTube (privacy-enhanced), Vimeo, and Bilibili.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `videoId` | string | Yes | YouTube video ID (e.g., "dQw4w9WgXcQ") |
+| `videoId` | string | Yes | Video ID. YouTube: 11-char ID (e.g., "dQw4w9WgXcQ"). Vimeo: numeric ID (e.g., "123456789"). Bilibili: BV ID (e.g., "BV1xx411c7mD"). |
+| `provider` | string | No | Video provider: "youtube" (default), "vimeo", or "bilibili" |
 | `baseRevision` | string | Yes | Document revision for conflict detection |
 | `windowId` | string | No | Target window (defaults to focused) |
 

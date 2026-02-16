@@ -10,7 +10,7 @@
  *   - Extensions are loaded eagerly (not lazy) since WYSIWYG is the default mode
  *   - Link extension configured with openOnClick:false (we have custom popups)
  *   - Custom marks (highlight, underline, sub/superscript) registered here
- *   - Media extensions (block_video, block_audio, youtube_embed) with NodeViews
+ *   - Media extensions (block_video, block_audio, video_embed) with NodeViews
  *   - Media popup and handler extensions for editing and drag-drop
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
@@ -50,7 +50,7 @@ import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
 import { blockVideoExtension } from "@/plugins/blockVideo/tiptap";
 import { blockAudioExtension } from "@/plugins/blockAudio/tiptap";
-import { youtubeEmbedExtension } from "@/plugins/youtubeEmbed/tiptap";
+import { videoEmbedExtension } from "@/plugins/videoEmbed/tiptap";
 import { mediaPopupExtension } from "@/plugins/mediaPopup/tiptap";
 import { mediaHandlerExtension } from "@/plugins/mediaHandler/tiptap";
 import { imageHandlerExtension } from "@/plugins/imageHandler/tiptap";
@@ -164,7 +164,7 @@ export function createTiptapExtensions(): Extensions {
     blockImageExtension,
     blockVideoExtension,
     blockAudioExtension,
-    youtubeEmbedExtension,
+    videoEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,
     footnotePopupExtension,

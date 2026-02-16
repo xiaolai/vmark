@@ -299,3 +299,7 @@
 [data-action="blockquote"] .universal-toolbar-icon svg {
   transform: scale(0.82);
 }
+
+[data-action="genie"] .universal-toolbar-icon svg {
+  transform: scale(0.78);
+}
