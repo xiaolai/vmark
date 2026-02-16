@@ -1,12 +1,16 @@
 /**
  * Window Close Hook
  *
- * Purpose: Intercepts the native window close event to save dirty documents
- *   and persist workspace session before the window actually closes.
+ * Purpose: Handles window-level and tab-level close events — menu:close
+ *   closes the active tab (with dirty check), while traffic-light close and
+ *   Cmd+Q close the entire window after saving dirty documents.
  *
- * Pipeline: User clicks close / Cmd+Q → Tauri close-requested event →
+ * Pipeline (window close): Traffic light / Cmd+Q → Tauri close-requested →
  *   this hook → check dirty tabs → promptSaveForMultipleDocuments() →
  *   persist workspace session → allow close or cancel
+ *
+ * Pipeline (menu close): Cmd+W menu accelerator → menu:close event →
+ *   closeTabWithDirtyCheck → ensureWindowHasTab (creates untitled if last)
  *
  * Key decisions:
  *   - Prevents default close to run async save prompts first
@@ -15,6 +19,7 @@
  *   - Dev-only closeLog for debugging window close race conditions
  *
  * @coordinates-with closeSave.ts — promptSaveForMultipleDocuments dialog
+ * @coordinates-with useTabOperations.ts — closeTabWithDirtyCheck for menu:close
  * @coordinates-with workspaceSession.ts — persists last open tabs
  * @module hooks/useWindowClose
  */
@@ -30,6 +35,7 @@ import {
   promptSaveForMultipleDocuments,
   type CloseSaveContext,
 } from "@/hooks/closeSave";
+import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 
 // Dev-only logging for debugging window close issues
@@ -46,10 +52,11 @@ const closeLog = import.meta.env.DEV
   : () => {};
 
 /**
- * Handle window close with save confirmation dialog.
- * Listens to both:
- * - menu:close (Cmd+W) - emitted only to focused window by Rust
- * - window:close-requested (traffic light) - window-specific from Rust
+ * Handle window and tab close events with save confirmation.
+ * Listens to:
+ * - menu:close (Cmd+W) — closes the active tab (not the window)
+ * - window:close-requested (traffic light) — closes the entire window
+ * - app:quit-requested (Cmd+Q) — closes window as part of app quit
  */
 export function useWindowClose() {
   const windowLabel = useWindowLabel();
@@ -148,13 +155,24 @@ export function useWindowClose() {
     const setup = async () => {
       closeLog(windowLabel, "setting up event listeners");
 
-      // Listen to menu:close (Cmd+W)
-      // Note: Tauri's window.emit() broadcasts to all windows, so we filter by target label
-      const unlistenMenu = await currentWindow.listen<string>("menu:close", (event) => {
+      // Listen to menu:close (Cmd+W menu accelerator).
+      // Close the active tab — NOT the window. ensureWindowHasTab (inside
+      // closeTabWithDirtyCheck) creates a new untitled when the last tab is
+      // closed, keeping the window open.  useTabShortcuts also handles Cmd+W
+      // via keydown; the second invocation is a safe no-op because the tab is
+      // already removed by the time it runs.
+      const unlistenMenu = await currentWindow.listen<string>("menu:close", async (event) => {
         const targetLabel = event.payload;
         closeLog(windowLabel, "menu:close received, target:", targetLabel);
         if (targetLabel === windowLabel) {
-          void handleCloseRequest();
+          const activeTabId = useTabStore.getState().activeTabId[windowLabel];
+          if (activeTabId) {
+            try {
+              await closeTabWithDirtyCheck(windowLabel, activeTabId);
+            } catch (error) {
+              console.error("[WindowClose] menu:close tab close failed:", error);
+            }
+          }
         }
       });
       unlisteners.push(unlistenMenu);

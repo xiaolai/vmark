@@ -6,7 +6,8 @@
  *
  * Key decisions:
  *   - Mod+W intentionally hardcoded (not configurable) for layered close handling
- *   - Close finds the search bar first, then closes the tab
+ *   - Mod+W always closes the active tab (not the window) regardless of tab count;
+ *     ensureWindowHasTab creates a new untitled if the last tab is closed.
  *   - New tab and status bar toggle use configurable shortcuts from store
  *   - Only active in document windows (not settings or other window types)
  *
@@ -47,17 +48,19 @@ export function useTabShortcuts() {
         return;
       }
 
-      // Cmd+W: Close current tab (if multiple tabs) with dirty check
+      // Cmd+W: Close active tab with dirty check (any tab count).
+      // ensureWindowHasTab (inside closeTabWithDirtyCheck) creates a new
+      // untitled tab when the last tab is closed, keeping the window open.
+      // The menu accelerator also emits menu:close; useWindowClose handles
+      // that identically, so the second invocation is a safe no-op.
       if (isMeta && e.key === "w") {
-        const tabs = useTabStore.getState().tabs[windowLabel] ?? [];
+        e.preventDefault();
         const activeTabId = useTabStore.getState().activeTabId[windowLabel];
-
-        // Only handle if we have multiple tabs
-        if (tabs.length > 1 && activeTabId) {
-          e.preventDefault();
-          closeTabWithDirtyCheck(windowLabel, activeTabId);
+        if (activeTabId) {
+          closeTabWithDirtyCheck(windowLabel, activeTabId).catch((error) => {
+            console.error("[TabShortcuts] Cmd+W tab close failed:", error);
+          });
         }
-        // If single tab, let default Cmd+W behavior (close window) happen
         return;
       }
 
