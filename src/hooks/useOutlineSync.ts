@@ -10,7 +10,7 @@
  *
  * Key decisions:
  *   - Polls for editor readiness (100ms intervals, 5s max) for lazy-loaded editors
- *   - Scrolls heading to ~1/3 of viewport for visual context
+ *   - Scrolls heading to top of viewport using native DOM scrollIntoView
  *   - Also handles sync from outline panel toggle via uiStore
  *
  * @coordinates-with uiStore.ts — reads outline panel visibility
@@ -109,12 +109,21 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
             const pos = findHeadingPosition(doc, headingIndex);
             if (pos === -1) return;
 
-            // Use only scrollIntoView() to avoid double-scroll
+            // Set selection without ProseMirror's scrollIntoView (which only
+            // scrolls the minimum to bring the element into view — not centered).
             const tr = view.state.tr
               .setSelection(Selection.near(doc.resolve(pos + 1)))
               .setMeta("addToHistory", false); // Navigation shouldn't add to undo history
-            view.dispatch(tr.scrollIntoView());
+            view.dispatch(tr);
             view.focus();
+
+            // Scroll heading to top of viewport using native DOM API
+            requestAnimationFrame(() => {
+              const headingDOM = view.nodeDOM(pos);
+              if (headingDOM instanceof HTMLElement) {
+                headingDOM.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            });
           }
         );
 

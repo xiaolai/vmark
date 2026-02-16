@@ -19,7 +19,7 @@ export interface HeadingNode extends HeadingItem {
  * Check if a line is a fenced code block delimiter.
  * Returns the fence string if it opens/closes a block, null otherwise.
  */
-function parseFenceDelimiter(line: string, currentFence: string | null): string | null {
+export function parseFenceDelimiter(line: string, currentFence: string | null): string | null {
   // Match opening fence: 3+ backticks or tildes at start of line
   const fenceMatch = line.match(/^(`{3,}|~{3,})/);
 
