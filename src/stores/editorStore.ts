@@ -48,6 +48,7 @@ interface EditorActions {
   toggleFocusMode: () => void;
   toggleTypewriterMode: () => void;
   toggleSourceMode: () => void;
+  setSourceMode: (enabled: boolean) => void;
   toggleWordWrap: () => void;
   toggleLineNumbers: () => void;
   toggleDiagramPreview: () => void;
@@ -112,6 +113,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set) => ({
 
   toggleSourceMode: () =>
     set((state) => ({ sourceMode: !state.sourceMode })),
+
+  setSourceMode: (enabled: boolean) =>
+    set({ sourceMode: enabled }),
 
   toggleWordWrap: () =>
     set((state) => ({ wordWrap: !state.wordWrap })),

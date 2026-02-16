@@ -21,9 +21,18 @@ vi.mock("@/stores/revisionStore", () => ({
   },
 }));
 
+// Mock editor store with mutable state for testing both modes
+const mockEditorState = { sourceMode: false };
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: {
+    getState: () => mockEditorState,
+  },
+}));
+
 describe("protocolHandlers", () => {
   beforeEach(() => {
     mockRespond.mockClear();
+    mockEditorState.sourceMode = false;
   });
 
   describe("handleGetCapabilities", () => {
@@ -54,6 +63,22 @@ describe("protocolHandlers", () => {
       expect(data.limits).toBeDefined();
       expect(data.limits.maxBatchSize).toBe(100);
       expect(data.limits.maxPayloadBytes).toBeGreaterThan(0);
+    });
+
+    it("reports editorMode as wysiwyg when not in source mode", async () => {
+      await handleGetCapabilities("test-id");
+
+      const data = mockRespond.mock.calls[0][0].data;
+      expect(data.editorMode).toBe("wysiwyg");
+    });
+
+    it("reports editorMode as source when in source mode", async () => {
+      mockEditorState.sourceMode = true;
+
+      await handleGetCapabilities("test-id");
+
+      const data = mockRespond.mock.calls[0][0].data;
+      expect(data.editorMode).toBe("source");
     });
 
     it("includes features in response", async () => {

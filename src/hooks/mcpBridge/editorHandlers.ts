@@ -1,10 +1,11 @@
 /**
  * MCP Bridge — Editor Operation Handlers
  *
- * Purpose: Editor-level operations — undo, redo, and focus management
- *   via the unified history system (supports cross-mode undo).
+ * Purpose: Editor-level operations — undo, redo, focus management, and
+ *   editor mode switching via the unified history system (supports cross-mode undo).
  *
  * @coordinates-with useUnifiedHistory.ts — performUnifiedUndo/Redo
+ * @coordinates-with editorStore.ts — sourceMode state for editor.setMode
  * @module hooks/mcpBridge/editorHandlers
  */
 
@@ -119,6 +120,43 @@ export async function handleGetUndoState(id: string): Promise<void> {
         redoDepth: nativeRedoCount,
         hasCheckpointUndo,
         hasCheckpointRedo,
+      },
+    });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Handle editor.setMode request.
+ * Switches editor between "wysiwyg" and "source" mode.
+ * This tool works in any mode, allowing MCP clients to switch
+ * to WYSIWYG before using editor-dependent tools.
+ */
+export async function handleSetMode(id: string, args: Record<string, unknown>): Promise<void> {
+  try {
+    const mode = args.mode;
+    if (mode !== "wysiwyg" && mode !== "source") {
+      throw new Error(`Invalid mode: "${mode}". Must be "wysiwyg" or "source".`);
+    }
+
+    const currentSourceMode = useEditorStore.getState().sourceMode;
+    const wantSource = mode === "source";
+
+    if (currentSourceMode !== wantSource) {
+      useEditorStore.getState().setSourceMode(wantSource);
+    }
+
+    await respond({
+      id,
+      success: true,
+      data: {
+        mode,
+        changed: currentSourceMode !== wantSource,
       },
     });
   } catch (error) {

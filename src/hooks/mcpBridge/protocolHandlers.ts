@@ -10,6 +10,7 @@
 
 import { respond } from "./utils";
 import { useRevisionStore } from "@/stores/revisionStore";
+import { useEditorStore } from "@/stores/editorStore";
 
 /**
  * Protocol version.
@@ -59,8 +60,10 @@ const LIMITS = {
  */
 export async function handleGetCapabilities(id: string): Promise<void> {
   try {
+    const { sourceMode } = useEditorStore.getState();
     const capabilities = {
       version: PROTOCOL_VERSION,
+      editorMode: sourceMode ? "source" : "wysiwyg",
       supportedNodeTypes: SUPPORTED_NODE_TYPES,
       supportedQueryOperators: SUPPORTED_QUERY_OPERATORS,
       limits: LIMITS,

@@ -24,6 +24,8 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { McpRequestEvent, McpRequestEventRaw } from "./types";
 import { respond } from "./utils";
+import { useEditorStore } from "@/stores/editorStore";
+import { isBlockedInSourceMode, SOURCE_MODE_ERROR } from "./sourceModeGuard";
 
 // Document handlers (read-only operations)
 import {
@@ -62,7 +64,7 @@ import {
 } from "./formatHandlers";
 
 // Editor handlers
-import { handleUndo, handleRedo, handleFocus, handleGetUndoState } from "./editorHandlers";
+import { handleUndo, handleRedo, handleFocus, handleGetUndoState, handleSetMode } from "./editorHandlers";
 
 // Block and list handlers
 import {
@@ -177,6 +179,13 @@ import {
 async function handleRequest(event: McpRequestEvent): Promise<void> {
   const { id, type, args } = event;
 
+  // Block editor-dependent tools in source mode
+  const { sourceMode } = useEditorStore.getState();
+  if (sourceMode && isBlockedInSourceMode(type)) {
+    await respond({ id, success: false, error: SOURCE_MODE_ERROR });
+    return;
+  }
+
   try {
     switch (type) {
       // Document operations
@@ -273,6 +282,9 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
         break;
       case "editor.getUndoState":
         await handleGetUndoState(id);
+        break;
+      case "editor.setMode":
+        await handleSetMode(id, args);
         break;
 
       // Block operations
