@@ -2,18 +2,18 @@
  * Source Mode Media Tag Decoration Plugin
  *
  * Purpose: Adds visual markers (colored left border + icon) to media HTML tags
- * in Source mode so users can identify <video>, <audio>, and YouTube <iframe>
+ * in Source mode so users can identify <video>, <audio>, and video embed <iframe>
  * blocks at a glance without switching to WYSIWYG.
  *
  * Key decisions:
- *   - Detects opening tags (<video, <audio, <iframe with YouTube src) and decorates
- *     all lines through the closing tag
+ *   - Detects opening tags (<video, <audio, <iframe with YouTube/Vimeo/Bilibili src)
+ *     and decorates all lines through the closing tag
  *   - Each media type gets a distinct CSS class for type-specific colors
  *   - Rebuilds decorations on doc change (simple approach; media tags are infrequent)
  *
  * @coordinates-with blockVideo/tiptap.ts — WYSIWYG counterpart for video
  * @coordinates-with blockAudio/tiptap.ts — WYSIWYG counterpart for audio
- * @coordinates-with youtubeEmbed/tiptap.ts — WYSIWYG counterpart for YouTube
+ * @coordinates-with videoEmbed/tiptap.ts — WYSIWYG counterpart for video embeds
  * @module plugins/codemirror/sourceMediaDecoration
  */
 
@@ -26,7 +26,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 
-type MediaType = "video" | "audio" | "youtube";
+type MediaType = "video" | "audio" | "youtube" | "vimeo" | "bilibili";
 
 interface MediaBlock {
   type: MediaType;
@@ -38,6 +38,8 @@ interface MediaBlock {
 const VIDEO_OPEN_REGEX = /^\s*<video[\s>]/i;
 const AUDIO_OPEN_REGEX = /^\s*<audio[\s>]/i;
 const IFRAME_YOUTUBE_REGEX = /^\s*<iframe[^>]*src=["'][^"']*youtube(?:-nocookie)?\.com[^"']*["'][^>]*>/i;
+const IFRAME_VIMEO_REGEX = /^\s*<iframe[^>]*src=["'][^"']*player\.vimeo\.com[^"']*["'][^>]*>/i;
+const IFRAME_BILIBILI_REGEX = /^\s*<iframe[^>]*src=["'][^"']*player\.bilibili\.com[^"']*["'][^>]*>/i;
 
 const VIDEO_CLOSE_REGEX = /<\/video>/i;
 const AUDIO_CLOSE_REGEX = /<\/audio>/i;
@@ -68,6 +70,12 @@ function findMediaBlocks(doc: { lines: number; line: (n: number) => { text: stri
       closeRegex = AUDIO_CLOSE_REGEX;
     } else if (IFRAME_YOUTUBE_REGEX.test(text)) {
       type = "youtube";
+      closeRegex = IFRAME_CLOSE_REGEX;
+    } else if (IFRAME_VIMEO_REGEX.test(text)) {
+      type = "vimeo";
+      closeRegex = IFRAME_CLOSE_REGEX;
+    } else if (IFRAME_BILIBILI_REGEX.test(text)) {
+      type = "bilibili";
       closeRegex = IFRAME_CLOSE_REGEX;
     }
 

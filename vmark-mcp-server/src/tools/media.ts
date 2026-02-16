@@ -1,10 +1,10 @@
 /**
  * Media Insert Tools
  *
- * Purpose: MCP tools for inserting video, audio, and YouTube embeds. Each tool
+ * Purpose: MCP tools for inserting video, audio, and video embeds. Each tool
  * builds an HTML tag and sends it via the bridge as an insertMedia request.
  * The frontend pipeline promotes the HTML to block_video, block_audio, or
- * youtube_embed nodes.
+ * video_embed nodes.
  *
  * @coordinates-with hooks/mcpBridge/mediaHandlers.ts — frontend handler
  * @module tools/media
@@ -19,6 +19,44 @@ function escapeAttr(value: string): string {
 }
 
 const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+const VIMEO_ID_RE = /^\d+$/;
+const BILIBILI_BV_RE = /^BV[a-zA-Z0-9]{10}$/;
+
+type VideoProvider = 'youtube' | 'vimeo' | 'bilibili';
+
+interface ProviderEmbed {
+  buildUrl: (videoId: string) => string;
+  validateId: (videoId: string) => boolean;
+  idDescription: string;
+  defaultWidth: number;
+  defaultHeight: number;
+}
+
+const PROVIDER_EMBEDS: Record<VideoProvider, ProviderEmbed> = {
+  youtube: {
+    buildUrl: (id) => `https://www.youtube-nocookie.com/embed/${id}`,
+    validateId: (id) => YOUTUBE_ID_RE.test(id),
+    idDescription: 'Must be exactly 11 alphanumeric characters (plus - and _).',
+    defaultWidth: 560,
+    defaultHeight: 315,
+  },
+  vimeo: {
+    buildUrl: (id) => `https://player.vimeo.com/video/${id}`,
+    validateId: (id) => VIMEO_ID_RE.test(id),
+    idDescription: 'Must be a numeric Vimeo video ID.',
+    defaultWidth: 560,
+    defaultHeight: 315,
+  },
+  bilibili: {
+    buildUrl: (id) => `https://player.bilibili.com/player.html?bvid=${id}`,
+    validateId: (id) => BILIBILI_BV_RE.test(id),
+    idDescription: 'Must be a Bilibili BV ID (e.g., "BV1xx411c7mD").',
+    defaultWidth: 560,
+    defaultHeight: 350,
+  },
+};
+
+const VALID_PROVIDERS = Object.keys(PROVIDER_EMBEDS);
 
 export function registerMediaTools(server: VMarkMcpServer): void {
   // insert_video tool
@@ -143,19 +181,25 @@ export function registerMediaTools(server: VMarkMcpServer): void {
     }
   );
 
-  // insert_youtube tool
+  // insert_video_embed tool (supports YouTube, Vimeo, Bilibili)
   server.registerTool(
     {
-      name: 'insert_youtube',
+      name: 'insert_video_embed',
       description:
-        'Insert a YouTube embed into the document. ' +
-        'Generates a privacy-enhanced iframe (youtube-nocookie.com).',
+        'Insert a video embed (iframe) into the document. ' +
+        'Supports YouTube (privacy-enhanced), Vimeo, and Bilibili. ' +
+        'Generates a provider-specific iframe tag.',
       inputSchema: {
         type: 'object',
         properties: {
           videoId: {
             type: 'string',
-            description: 'YouTube video ID (e.g., "dQw4w9WgXcQ").',
+            description: 'Video ID. YouTube: 11-char ID (e.g., "dQw4w9WgXcQ"). Vimeo: numeric ID (e.g., "123456789"). Bilibili: BV ID (e.g., "BV1xx411c7mD").',
+          },
+          provider: {
+            type: 'string',
+            description: 'Video provider: "youtube" (default), "vimeo", or "bilibili".',
+            enum: ['youtube', 'vimeo', 'bilibili'],
           },
           baseRevision: {
             type: 'string',
@@ -173,14 +217,23 @@ export function registerMediaTools(server: VMarkMcpServer): void {
       const windowId = resolveWindowId(args.windowId as string | undefined);
       const videoId = requireStringArg(args, 'videoId');
       const baseRevision = requireStringArg(args, 'baseRevision');
+      const provider = (getStringArg(args, 'provider') ?? 'youtube') as VideoProvider;
 
-      if (!YOUTUBE_ID_RE.test(videoId)) {
+      if (!VALID_PROVIDERS.includes(provider)) {
         return VMarkMcpServer.errorResult(
-          `Invalid YouTube video ID: "${videoId}". Must be exactly 11 alphanumeric characters (plus - and _).`
+          `Invalid provider: "${provider}". Must be one of: ${VALID_PROVIDERS.join(', ')}.`
         );
       }
 
-      const html = `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" width="560" height="315" frameborder="0" allowfullscreen></iframe>`;
+      const embed = PROVIDER_EMBEDS[provider];
+      if (!embed.validateId(videoId)) {
+        return VMarkMcpServer.errorResult(
+          `Invalid ${provider} video ID: "${videoId}". ${embed.idDescription}`
+        );
+      }
+
+      const embedUrl = embed.buildUrl(videoId);
+      const html = `<iframe src="${embedUrl}" width="${embed.defaultWidth}" height="${embed.defaultHeight}" frameborder="0" allowfullscreen></iframe>`;
 
       try {
         const request: BridgeRequest = {
@@ -193,9 +246,10 @@ export function registerMediaTools(server: VMarkMcpServer): void {
         return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
       } catch (error) {
         return VMarkMcpServer.errorResult(
-          `Failed to insert YouTube embed: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to insert video embed: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }
   );
+
 }

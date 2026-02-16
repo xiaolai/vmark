@@ -14,7 +14,7 @@
  *   - Block video/audio nodes serialize to image syntax (![](url)) for clean
  *     round-trips, falling back to multi-line HTML when attributes can't be
  *     expressed in image syntax (poster, controls=false, non-default preload)
- *   - YouTube embed nodes serialize to privacy-enhanced <iframe> HTML
+ *   - Video embed nodes serialize to provider-specific <iframe> HTML
  *
  * @coordinates-with mdastBlockConverters.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmInlineConverters.ts — handles inline content within blocks
@@ -45,6 +45,7 @@ import type { Math } from "mdast-util-math";
 import type { Details, Yaml } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
 import { encodeUrlForMarkdown } from "./pmInlineConverters";
+import { buildEmbedUrl, type VideoProvider } from "@/utils/videoProviderRegistry";
 
 /** Escape a string for safe use in an HTML attribute value. */
 function escapeAttr(value: string): string {
@@ -306,17 +307,19 @@ export function convertBlockVideo(node: PMNode): Paragraph | Html {
   return buildMediaHtmlFallback("video", attrs);
 }
 
-export function convertYoutubeEmbed(node: PMNode): Html {
+export function convertVideoEmbed(node: PMNode): Html {
+  const provider = String(node.attrs.provider ?? "youtube") as VideoProvider;
   const videoId = String(node.attrs.videoId ?? "");
   const width = Number(node.attrs.width ?? 560);
   const height = Number(node.attrs.height ?? 315);
 
-  // Validate videoId to prevent attribute injection
-  const safeVideoId = /^[a-zA-Z0-9_-]{11}$/.test(videoId) ? videoId : "";
+  // Validate videoId to prevent attribute injection (alphanumeric, hyphen, underscore)
+  const safeVideoId = /^[a-zA-Z0-9_-]+$/.test(videoId) ? videoId : "";
+  const embedUrl = buildEmbedUrl(provider, safeVideoId);
 
   return {
     type: "html",
-    value: `<iframe src="https://www.youtube-nocookie.com/embed/${safeVideoId}" width="${width}" height="${height}" frameborder="0" allowfullscreen></iframe>`,
+    value: `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" allowfullscreen></iframe>`,
   };
 }
 

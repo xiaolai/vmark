@@ -1,9 +1,9 @@
 /**
  * MCP Bridge — Media Insert Handlers
  *
- * Purpose: Handles insert_video, insert_audio, and insert_youtube MCP tool
+ * Purpose: Handles insert_video, insert_audio, and insert_video_embed MCP tool
  *   requests by inserting HTML tags at the cursor position. The markdown
- *   pipeline promotes these tags to block_video, block_audio, or youtube_embed nodes.
+ *   pipeline promotes these tags to block_video, block_audio, or video_embed nodes.
  *
  * @coordinates-with vmark-mcp-server/src/tools/media.ts — MCP tool definitions
  * @module hooks/mcpBridge/mediaHandlers

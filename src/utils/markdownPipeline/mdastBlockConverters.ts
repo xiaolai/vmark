@@ -10,8 +10,8 @@
  *     (GitHub-flavored markdown alerts), falling back to normal blockquote conversion
  *   - Paragraphs with a single image child are promoted to block_image nodes;
  *     video/audio extensions promote to block_video/block_audio instead
- *   - HTML blocks containing <video>, <audio>, or YouTube <iframe> tags are
- *     promoted to block_video, block_audio, or youtube_embed nodes
+ *   - HTML blocks containing <video>, <audio>, or video provider <iframe> tags are
+ *     promoted to block_video, block_audio, or video_embed nodes
  *   - Paragraphs with a single inline-html child (<video>/<audio>) are also
  *     promoted as a safety net for CommonMark inline-HTML edge cases
  *   - sourceLine attributes are extracted from MDAST positions for cursor sync
@@ -43,7 +43,7 @@ import type { Alert, Details, WikiLink, Yaml } from "./types";
 import * as inlineConverters from "./mdastInlineConverters";
 import { parseInlineMarkdown } from "./inlineParser";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
-import { parseYoutubeUrl } from "@/utils/youtubeUrlParser";
+import { detectProviderFromIframeSrc, extractVideoIdFromSrc, getProviderConfig } from "@/utils/videoProviderRegistry";
 export type ContentContext = "block" | "inline";
 
 export interface MdastToPmContext {
@@ -392,19 +392,23 @@ function tryPromoteMediaHtml(
     });
   }
 
-  // Detect YouTube <iframe ...>...</iframe>
+  // Detect video provider <iframe ...>...</iframe> (YouTube, Vimeo, Bilibili)
   const iframeMatch = trimmed.match(/^<iframe\b([^>]*)>[\s\S]*<\/iframe>$/i);
   if (iframeMatch) {
-    const youtubeEmbedType = context.schema.nodes.youtube_embed;
-    if (!youtubeEmbedType) return null;
+    const videoEmbedType = context.schema.nodes.video_embed;
+    if (!videoEmbedType) return null;
     const attrs = parseHtmlAttributes(iframeMatch[1]);
     const src = attrs.src ?? "";
-    const videoId = parseYoutubeUrl(src);
-    if (!videoId) return null; // Not a YouTube iframe, let it be html_block
-    return youtubeEmbedType.create({
+    const provider = detectProviderFromIframeSrc(src);
+    if (!provider) return null; // Not a recognized video iframe, let it be html_block
+    const videoId = extractVideoIdFromSrc(provider, src);
+    if (!videoId) return null;
+    const config = getProviderConfig(provider);
+    return videoEmbedType.create({
+      provider,
       videoId,
-      width: parseInt(attrs.width ?? "560", 10) || 560,
-      height: parseInt(attrs.height ?? "315", 10) || 315,
+      width: parseInt(attrs.width ?? String(config?.defaultWidth ?? 560), 10) || 560,
+      height: parseInt(attrs.height ?? String(config?.defaultHeight ?? 315), 10) || 315,
       sourceLine,
     });
   }

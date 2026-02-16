@@ -12,7 +12,7 @@
  *   - Style attribute sanitization uses a property allowlist to block
  *     expression() and javascript: attacks in inline styles
  *   - Video, audio, and source tags are allowed in sanitizeMediaHtml (separate function)
- *   - Iframe is allowed in sanitizeMediaHtml but restricted to YouTube domains via post-pass
+ *   - Iframe is allowed in sanitizeMediaHtml but restricted to whitelisted video domains via post-pass
  *   - escapeHtml is a simple entity escape for non-HTML text display
  *
  * @coordinates-with mermaid/index.ts — uses sanitizeSvg for Mermaid diagram output
@@ -221,11 +221,11 @@ function isSafeStyleValue(value: string): boolean {
 }
 
 /**
- * Sanitize media HTML content (video, audio, YouTube iframes).
+ * Sanitize media HTML content (video, audio, video embed iframes).
  * Allows media-specific tags and attributes while preventing XSS.
  *
- * YouTube iframes are restricted to youtube.com and youtube-nocookie.com domains
- * via a post-sanitize DOM pass that strips non-YouTube iframes.
+ * Video embed iframes are restricted to whitelisted domains (YouTube, Vimeo, Bilibili)
+ * via a post-sanitize DOM pass that strips non-whitelisted iframes.
  */
 export function sanitizeMediaHtml(html: string): string {
   // Sanitize with DOMPurify, then post-process to strip non-YouTube iframes
@@ -254,16 +254,16 @@ export function sanitizeMediaHtml(html: string): string {
     ALLOW_DATA_ATTR: false,
   });
 
-  // Post-process: strip iframes with non-YouTube src (case-insensitive check)
+  // Post-process: strip iframes with non-whitelisted src (case-insensitive check)
   if (/<iframe\b/i.test(result)) {
-    return stripNonYoutubeIframes(result);
+    return stripNonWhitelistedIframes(result);
   }
   return result;
 }
 
-const YOUTUBE_DOMAIN_RE = /^https?:\/\/(www\.)?(youtube\.com|youtube-nocookie\.com)\//;
+const VIDEO_EMBED_DOMAIN_RE = /^https?:\/\/(www\.)?(youtube\.com|youtube-nocookie\.com|player\.vimeo\.com|player\.bilibili\.com)\//;
 
-function stripNonYoutubeIframes(html: string): string {
+function stripNonWhitelistedIframes(html: string): string {
   if (typeof document === "undefined") {
     // No DOM — strip all iframes for safety (can't verify src)
     // Handles both paired (<iframe>...</iframe>) and self-closing (<iframe ... />) forms
@@ -276,7 +276,7 @@ function stripNonYoutubeIframes(html: string): string {
   const iframes = container.querySelectorAll("iframe");
   for (const iframe of iframes) {
     const src = iframe.getAttribute("src") ?? "";
-    if (!YOUTUBE_DOMAIN_RE.test(src)) {
+    if (!VIDEO_EMBED_DOMAIN_RE.test(src)) {
       iframe.remove();
     }
   }
