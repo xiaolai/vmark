@@ -228,7 +228,7 @@ function isSafeStyleValue(value: string): boolean {
  * via a post-sanitize DOM pass that strips non-whitelisted iframes.
  */
 export function sanitizeMediaHtml(html: string): string {
-  // Sanitize with DOMPurify, then post-process to strip non-YouTube iframes
+  // Sanitize with DOMPurify, then post-process to strip non-whitelisted video-provider iframes
   const result = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "video",

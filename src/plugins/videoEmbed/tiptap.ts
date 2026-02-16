@@ -25,6 +25,7 @@ import {
   buildEmbedUrl,
   detectProviderFromIframeSrc,
   extractVideoIdFromSrc,
+  getProviderConfig,
   type VideoProvider,
 } from "@/utils/videoProviderRegistry";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
@@ -149,10 +150,13 @@ export const videoEmbedExtension = Node.create({
             const result = parseVideoUrl(text);
             if (!result) return false;
 
-            // Insert video_embed node with detected provider
+            // Insert video_embed node with detected provider and provider-specific defaults
+            const config = getProviderConfig(result.provider);
             const node = nodeType.create({
               provider: result.provider,
               videoId: result.videoId,
+              width: config?.defaultWidth ?? 560,
+              height: config?.defaultHeight ?? 315,
             });
             const tr = view.state.tr.replaceSelectionWith(node);
             view.dispatch(tr);

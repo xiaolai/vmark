@@ -313,8 +313,14 @@ export function convertVideoEmbed(node: PMNode): Html {
   const width = Number(node.attrs.width ?? 560);
   const height = Number(node.attrs.height ?? 315);
 
-  // Validate videoId to prevent attribute injection (alphanumeric, hyphen, underscore)
-  const safeVideoId = /^[a-zA-Z0-9_-]+$/.test(videoId) ? videoId : "";
+  // Validate videoId per provider to prevent attribute injection
+  const VIDEO_ID_PATTERNS: Record<VideoProvider, RegExp> = {
+    youtube: /^[a-zA-Z0-9_-]{11}$/,
+    vimeo: /^\d+$/,
+    bilibili: /^BV[a-zA-Z0-9]{10}$/,
+  };
+  const pattern = VIDEO_ID_PATTERNS[provider];
+  const safeVideoId = pattern && pattern.test(videoId) ? videoId : "";
   const embedUrl = buildEmbedUrl(provider, safeVideoId);
 
   return {

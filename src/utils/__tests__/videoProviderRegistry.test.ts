@@ -98,9 +98,8 @@ describe("parseVideoUrl", () => {
       expect(result).toEqual({ provider: "bilibili", videoId: "BV1xx411c7mD" });
     });
 
-    it("parses b23.tv short URLs (returns shortcode as ID)", () => {
-      const result = parseVideoUrl("https://b23.tv/abc1234");
-      expect(result).toEqual({ provider: "bilibili", videoId: "abc1234" });
+    it("rejects b23.tv short URLs (requires redirect to resolve BV ID)", () => {
+      expect(parseVideoUrl("https://b23.tv/abc1234")).toBeNull();
     });
 
     it("rejects look-alike bilibili domains", () => {

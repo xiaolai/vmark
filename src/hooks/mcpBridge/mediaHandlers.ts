@@ -46,10 +46,10 @@ export async function handleInsertMedia(
       throw new Error("mediaHtml must be a single <video>, <audio>, or <iframe> tag");
     }
 
-    // Sanitize media HTML to enforce safe attributes and YouTube-only iframes
+    // Sanitize media HTML to enforce safe attributes and whitelisted-provider iframes
     const sanitized = sanitizeMediaHtml(trimmed);
     if (!sanitized.trim()) {
-      throw new Error("mediaHtml was rejected by sanitization (e.g. non-YouTube iframe)");
+      throw new Error("mediaHtml was rejected by sanitization (e.g. non-whitelisted iframe)");
     }
 
     const revisionError = validateBaseRevision(baseRevision);

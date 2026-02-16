@@ -18,6 +18,7 @@ function escapeAttr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// Provider ID validation patterns — keep in sync with src/utils/videoProviderRegistry.ts
 const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
 const VIMEO_ID_RE = /^\d+$/;
 const BILIBILI_BV_RE = /^BV[a-zA-Z0-9]{10}$/;

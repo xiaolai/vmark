@@ -250,6 +250,7 @@ export function isSubstantialHtml(html: string): boolean {
     /<(strong|b|em|i|u|s|del|mark|code|pre)[^>]*>/i,
     /<a\s+[^>]*href/i,
     /<img\s+[^>]*src/i,
+    /<iframe\s+[^>]*src/i,
     /<blockquote[^>]*>/i,
     /<hr[^>]*>/i,
   ];

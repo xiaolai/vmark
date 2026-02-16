@@ -526,7 +526,7 @@ describe("sanitizeMediaHtml", () => {
     });
   });
 
-  describe("YouTube iframe handling", () => {
+  describe("video provider iframe handling", () => {
     it("allows YouTube iframe with nocookie domain", () => {
       const input = '<iframe src="https://www.youtube-nocookie.com/embed/abc123" width="560" height="315"></iframe>';
       const result = sanitizeMediaHtml(input);
@@ -541,7 +541,21 @@ describe("sanitizeMediaHtml", () => {
       expect(result).toContain("youtube.com");
     });
 
-    it("strips non-YouTube iframes", () => {
+    it("allows Vimeo iframe", () => {
+      const input = '<iframe src="https://player.vimeo.com/video/123456789" width="560" height="315"></iframe>';
+      const result = sanitizeMediaHtml(input);
+      expect(result).toContain("<iframe");
+      expect(result).toContain("player.vimeo.com");
+    });
+
+    it("allows Bilibili iframe", () => {
+      const input = '<iframe src="https://player.bilibili.com/player.html?bvid=BV1xx411c7mD" width="560" height="350"></iframe>';
+      const result = sanitizeMediaHtml(input);
+      expect(result).toContain("<iframe");
+      expect(result).toContain("player.bilibili.com");
+    });
+
+    it("strips non-whitelisted iframes", () => {
       const input = '<iframe src="https://evil.com/page"></iframe>';
       const result = sanitizeMediaHtml(input);
       expect(result).not.toContain("evil.com");
