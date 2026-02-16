@@ -22,6 +22,11 @@
   min-width: 60px;
 }
 
+/* Allow interaction with audio/video controls */
+.image-preview-popup.image-preview-popup--interactive {
+  pointer-events: auto;
+}
+
 @keyframes image-preview-fade-in {
   from {
     opacity: 0;
@@ -39,6 +44,19 @@
   object-fit: contain;
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
+}
+
+.image-preview-video {
+  max-width: 200px;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+
+.image-preview-audio {
+  width: 200px;
+  border-radius: var(--radius-sm);
 }
 
 .image-preview-loading {

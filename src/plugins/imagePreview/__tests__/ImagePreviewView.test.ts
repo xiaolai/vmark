@@ -241,7 +241,7 @@ describe("ImagePreviewView loading states", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     const error = container.querySelector(".image-preview-error") as HTMLElement;
-    expect(error.textContent).toBe("No image path");
+    expect(error.textContent).toBe("No media path");
     const loading = container.querySelector(".image-preview-loading") as HTMLElement;
     expect(loading.style.display).toBe("none");
 
@@ -302,7 +302,7 @@ describe("ImagePreviewView updateContent", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     const error = container.querySelector(".image-preview-error") as HTMLElement;
-    expect(error.textContent).toBe("No image path");
+    expect(error.textContent).toBe("No media path");
 
     view.destroy();
   });
