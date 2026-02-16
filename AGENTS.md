@@ -107,6 +107,8 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - When responding to GitHub issues, reply in the same language the reporter used.
 
+  - **Do not close issues** unless they are completely irrelevant to the project (spam, wrong repo, etc.). Let the reporter verify the fix and close the issue themselves.
+
 - Key architectural patterns:
 
   - **Menu events**: Generic dispatcher in `menu_events.rs` emits `menu:{id}` to the focused window — no per-item handling needed for simple events.
