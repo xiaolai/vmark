@@ -47,6 +47,7 @@ import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts"
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { computeSourceCursorContext } from "@/plugins/sourceContextDetection/cursorContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
+import { useSourceOutlineSync } from "@/hooks/useSourceOutlineSync";
 import { countMatches } from "@/utils/sourceEditorSearch";
 import {
   createSourceEditorExtensions,
@@ -65,6 +66,7 @@ export function SourceEditor({ hidden = false }: SourceEditorProps) {
   hiddenRef.current = hidden;
 
   useSourceMenuCommands(viewRef);
+  useSourceOutlineSync(viewRef, hidden);
 
   // Use document store for content (per-window state)
   const content = useDocumentContent();
