@@ -3,7 +3,7 @@
  *
  * Purpose: Handles insertion of block-level and inline content in WYSIWYG mode —
  * images (smart clipboard detection), video/audio (file picker + copy-to-assets),
- * YouTube embeds (clipboard URL), math blocks/inline, diagrams, markmaps, code blocks.
+ * math blocks/inline, diagrams, markmaps, code blocks.
  *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates insert actions here
  * @coordinates-with wysiwygAdapterUtils.ts — uses isViewConnected, getActiveFilePath
@@ -427,52 +427,3 @@ export function handleInsertAudio(context: WysiwygToolbarContext): boolean {
   return true;
 }
 
-/**
- * Handle the insertYoutube toolbar action.
- * Reads a YouTube URL from the clipboard and inserts a youtube_embed node.
- */
-export function handleInsertYoutube(context: WysiwygToolbarContext): boolean {
-  const view = context.view;
-  if (!view) return false;
-
-  // Read clipboard for a potential YouTube URL
-  void (async () => {
-    try {
-      const clipText = await navigator.clipboard.readText();
-      const { parseYoutubeUrl } = await import("@/plugins/youtubeEmbed/urlParser");
-      const videoId = parseYoutubeUrl(clipText?.trim() ?? "");
-
-      if (videoId) {
-        // Clipboard has a YouTube URL — insert directly
-        const { state, dispatch } = view;
-        const youtubeType = state.schema.nodes.youtube_embed;
-        if (!youtubeType) return;
-
-        const node = youtubeType.create({ videoId });
-        dispatch(state.tr.replaceSelectionWith(node));
-        view.focus();
-      } else {
-        // No YouTube URL on clipboard — prompt the user
-        const youtubeType = view.state.schema.nodes.youtube_embed;
-        if (!youtubeType) {
-          await message(
-            "YouTube embed feature is not available (schema node missing).",
-            { title: "YouTube Embed", kind: "warning" }
-          );
-          return;
-        }
-        await message(
-          "Copy a YouTube URL to clipboard first, then use this action to insert the embed.",
-          { title: "YouTube Embed", kind: "info" }
-        );
-      }
-    } catch {
-      await message(
-        "Copy a YouTube URL to clipboard first, then use this action to insert the embed.",
-        { title: "YouTube Embed", kind: "info" }
-      );
-    }
-  })();
-
-  return true;
-}

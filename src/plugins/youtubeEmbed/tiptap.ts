@@ -17,8 +17,10 @@
 
 import "./youtube-embed.css";
 import { Node } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
 import { YoutubeEmbedNodeView } from "./YoutubeEmbedNodeView";
+import { parseYoutubeUrl } from "./urlParser";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import { mediaBlockKeyboardShortcuts } from "../shared/mediaNodeViewHelpers";
 
@@ -109,5 +111,37 @@ export const youtubeEmbedExtension = Node.create({
 
   addKeyboardShortcuts() {
     return mediaBlockKeyboardShortcuts("youtube_embed");
+  },
+
+  addProseMirrorPlugins() {
+    const nodeType = this.type;
+    return [
+      new Plugin({
+        key: new PluginKey("youtubePasteHandler"),
+        props: {
+          handlePaste(view, event) {
+            const clipboardData = event.clipboardData;
+            if (!clipboardData) return false;
+
+            // Only handle plain-text paste (no HTML — HTML iframes are handled by parseHTML)
+            const html = clipboardData.getData("text/html");
+            if (html) return false;
+
+            const text = clipboardData.getData("text/plain")?.trim();
+            if (!text) return false;
+
+            // Check if the pasted text is a YouTube URL
+            const videoId = parseYoutubeUrl(text);
+            if (!videoId) return false;
+
+            // Insert youtube_embed node
+            const node = nodeType.create({ videoId });
+            const tr = view.state.tr.replaceSelectionWith(node);
+            view.dispatch(tr);
+            return true;
+          },
+        },
+      }),
+    ];
   },
 });

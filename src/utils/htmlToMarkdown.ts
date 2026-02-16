@@ -97,8 +97,8 @@ function createTurndownService(): TurndownService {
     linkReferenceStyle: "full",
   });
 
-  turndown.remove(["script", "style", "noscript", "iframe", "object", "embed"]);
-  turndown.keep(["del", "ins"]);
+  turndown.remove(["script", "style", "noscript", "object", "embed"]);
+  turndown.keep(["del", "ins", "iframe"]);
 
   registerInlineRules(turndown);
   registerBlockRules(turndown);

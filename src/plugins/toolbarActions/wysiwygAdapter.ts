@@ -35,7 +35,7 @@ import { canRunActionInMultiSelection } from "./multiSelectionPolicy";
 import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyMultiSelectionListAction } from "./wysiwygMultiSelection";
 import { insertWikiLink, insertBookmarkLink } from "./wysiwygAdapterLinks";
 import { clearFormattingInView, increaseHeadingLevel, decreaseHeadingLevel, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
-import { handleInsertImage, handleInsertVideo, handleInsertAudio, handleInsertYoutube, insertMathBlock, insertDiagramBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
+import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertMathBlock, insertDiagramBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { handleFormatCJK, handleFormatCJKFile, handleRemoveTrailingSpaces, handleCollapseBlankLines, handleLineEndings } from "./wysiwygAdapterCjk";
 import { handleWysiwygMoveBlockUp, handleWysiwygMoveBlockDown, handleWysiwygDuplicateBlock, handleWysiwygDeleteBlock, handleWysiwygJoinBlocks, handleWysiwygRemoveBlankLines } from "./wysiwygAdapterBlockOps";
@@ -192,8 +192,6 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       return handleInsertVideo(context);
     case "insertAudio":
       return handleInsertAudio(context);
-    case "insertYoutube":
-      return handleInsertYoutube(context);
     case "insertCodeBlock":
       if (!context.editor) return false;
       context.editor.chain().focus().setCodeBlock().run();

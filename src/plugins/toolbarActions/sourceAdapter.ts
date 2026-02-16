@@ -358,16 +358,6 @@ function insertAudioTag(view: EditorView): boolean {
   return true;
 }
 
-function insertYoutubeEmbed(view: EditorView): boolean {
-  // Wrap in blank lines to ensure block-level parsing (CommonMark HTML block rule)
-  const iframeTag = '<iframe src="https://www.youtube-nocookie.com/embed/" width="560" height="315" frameborder="0" allowfullscreen></iframe>';
-  const template = `\n${iframeTag}\n`;
-  // Position cursor at end of embed URL (after /embed/) — account for leading newline
-  const cursorOffset = 1 + 51; // \n + '<iframe src="https://www.youtube-nocookie.com/embed/'
-  insertText(view, template, cursorOffset);
-  return true;
-}
-
 function insertFootnote(view: EditorView): boolean {
   return applyInlineFormat(view, "footnote");
 }
@@ -499,8 +489,6 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return insertVideoTag(view);
     case "insertAudio":
       return insertAudioTag(view);
-    case "insertYoutube":
-      return insertYoutubeEmbed(view);
     case "insertFootnote":
       return insertFootnote(view);
     case "insertCodeBlock":

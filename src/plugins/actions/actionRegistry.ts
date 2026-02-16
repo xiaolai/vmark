@@ -100,6 +100,8 @@ export const MENU_TO_ACTION: Record<MenuEventId, MenuActionMapping> = {
 
   // === Inserts ===
   "menu:image": { actionId: "insertImage" },
+  "menu:video": { actionId: "insertVideo" },
+  "menu:audio": { actionId: "insertAudio" },
   "menu:footnote": { actionId: "insertFootnote" },
   "menu:math-block": { actionId: "insertMath" },
   "menu:diagram": { actionId: "insertDiagram" },
@@ -437,6 +439,18 @@ export const ACTION_DEFINITIONS: Record<ActionId, ActionDefinition> = {
   insertImage: {
     id: "insertImage",
     label: "Insert Image",
+    category: "inserts",
+    supports: { wysiwyg: true, source: true },
+  },
+  insertVideo: {
+    id: "insertVideo",
+    label: "Insert Video",
+    category: "inserts",
+    supports: { wysiwyg: true, source: true },
+  },
+  insertAudio: {
+    id: "insertAudio",
+    label: "Insert Audio",
     category: "inserts",
     supports: { wysiwyg: true, source: true },
   },
