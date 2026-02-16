@@ -10,6 +10,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
 // Types
 type OperationMode = "apply" | "suggest" | "dryRun";
@@ -165,6 +166,20 @@ function normalizeTableOp(raw: TableOperation | Record<string, unknown>): TableO
 }
 
 /**
+ * Normalize a list operation object — accept "action", "type", or "op" as
+ * the operation key, and normalize action names (e.g. "addItem" → "add_item").
+ */
+function normalizeListOp(raw: ListOperation | Record<string, unknown>): ListOperation {
+  const r = raw as Record<string, unknown>;
+  const action = (r.action ?? r.type ?? r.op) as string | undefined;
+  if (!action) {
+    throw new Error("Operation must have an 'action' field (e.g. 'add_item', 'delete_item')");
+  }
+  const normalized = action.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase();
+  return { ...r, action: normalized } as unknown as ListOperation;
+}
+
+/**
  * Find the ProseMirror position of a table cell at [row, col].
  */
 function findCellPosition(
@@ -286,11 +301,26 @@ export async function handleTableBatchModify(
     // Position cursor in table first
     editor.chain().focus().setTextSelection(table.pos + 1).run();
 
-    for (const rawOp of operations) {
+    // Separate update_cell ops from structural ops.
+    // update_cell ops are batched into a single transaction to avoid stale positions.
+    // Structural ops (add/delete row/column) use editor commands and are applied individually.
+    const normalizedOps = operations.map((rawOp) => {
       try {
-        // Accept "action", "type", or "op" as the operation key for robustness
-        const op = normalizeTableOp(rawOp);
+        return { op: normalizeTableOp(rawOp), rawOp, error: null };
+      } catch (e) {
+        return { op: null, rawOp, error: e instanceof Error ? e.message : String(e) };
+      }
+    });
 
+    // Phase 1: Apply structural operations (add/delete rows/columns, set_header)
+    for (const { op, rawOp, error } of normalizedOps) {
+      if (error) {
+        warnings.push(`Failed to normalize: ${error}`);
+        continue;
+      }
+      if (!op || op.action === "update_cell") continue;
+
+      try {
         switch (op.action) {
           case "add_row":
             editor.commands.addRowAfter();
@@ -312,36 +342,6 @@ export async function handleTableBatchModify(
             appliedCount++;
             break;
 
-          case "update_cell": {
-            // Navigate to the target cell and replace its content
-            const cellPos = findCellPosition(table.node, table.pos, op.row, op.col);
-            if (cellPos === null) {
-              warnings.push(`update_cell at [${op.row},${op.col}] - cell not found`);
-              break;
-            }
-            // Select cell content and replace
-            const cellNode = editor.state.doc.nodeAt(cellPos);
-            if (cellNode) {
-              const contentStart = cellPos + 1; // inside the cell
-              const contentEnd = cellPos + cellNode.nodeSize - 1;
-              const tr = editor.state.tr;
-              // Replace cell text content (first paragraph inside cell)
-              tr.replaceWith(
-                contentStart,
-                contentEnd,
-                editor.state.schema.nodes.paragraph.create(
-                  null,
-                  op.content ? editor.state.schema.text(op.content) : null
-                )
-              );
-              editor.view.dispatch(tr);
-              appliedCount++;
-            } else {
-              warnings.push(`update_cell at [${op.row},${op.col}] - could not resolve cell node`);
-            }
-            break;
-          }
-
           case "set_header":
             editor.commands.toggleHeaderRow();
             appliedCount++;
@@ -353,6 +353,56 @@ export async function handleTableBatchModify(
       } catch (opError) {
         const action = (rawOp as Record<string, unknown>).action ?? (rawOp as Record<string, unknown>).type ?? (rawOp as Record<string, unknown>).op ?? "unknown";
         warnings.push(`Failed: ${action} - ${opError instanceof Error ? opError.message : String(opError)}`);
+      }
+    }
+
+    // Phase 2: Batch all update_cell operations into a single transaction.
+    // Re-find the table after structural ops may have changed the document.
+    const cellOps = normalizedOps.filter((n) => n.op?.action === "update_cell");
+    if (cellOps.length > 0) {
+      const updatedTable = findTable(editor.state.doc, target);
+      if (!updatedTable) {
+        warnings.push("Table not found after structural operations — cell updates skipped");
+      } else {
+        const cellTr = editor.state.tr;
+        // Process cell updates in reverse position order to keep earlier positions valid
+        const cellUpdates = cellOps
+          .map(({ op }) => {
+            const cellOp = op as { action: "update_cell"; row: number; col: number; content: string };
+            const cellPos = findCellPosition(updatedTable.node, updatedTable.pos, cellOp.row, cellOp.col);
+            return { cellOp, cellPos };
+          })
+          .filter(({ cellPos, cellOp }) => {
+            if (cellPos === null) {
+              warnings.push(`update_cell at [${cellOp.row},${cellOp.col}] - cell not found`);
+              return false;
+            }
+            return true;
+          })
+          .sort((a, b) => b.cellPos! - a.cellPos!); // Reverse order for safe position updates
+
+        for (const { cellOp, cellPos } of cellUpdates) {
+          const cellNode = editor.state.doc.nodeAt(cellPos!);
+          if (cellNode) {
+            const contentStart = cellPos! + 1;
+            const contentEnd = cellPos! + cellNode.nodeSize - 1;
+            cellTr.replaceWith(
+              contentStart,
+              contentEnd,
+              editor.state.schema.nodes.paragraph.create(
+                null,
+                cellOp.content ? editor.state.schema.text(cellOp.content) : null
+              )
+            );
+            appliedCount++;
+          } else {
+            warnings.push(`update_cell at [${cellOp.row},${cellOp.col}] - could not resolve cell node`);
+          }
+        }
+
+        if (cellTr.docChanged) {
+          editor.view.dispatch(cellTr);
+        }
       }
     }
 
@@ -467,14 +517,19 @@ export async function handleListBatchModify(
     // Position cursor in list first
     editor.chain().focus().setTextSelection(list.pos + 1).run();
 
-    for (const op of operations) {
+    for (const rawOp of operations) {
       try {
+        // Accept "action", "type", or "op" as the operation key for robustness
+        const op = normalizeListOp(rawOp);
+
         switch (op.action) {
           case "add_item":
             // Split list item and add new content
             editor.commands.splitListItem("listItem");
             if (op.text) {
-              editor.commands.insertContent(op.text);
+              const itemSlice = createMarkdownPasteSlice(editor.state, op.text);
+              const itemTr = editor.state.tr.replaceSelection(itemSlice);
+              editor.view.dispatch(itemTr);
             }
             appliedCount++;
             break;
@@ -517,7 +572,8 @@ export async function handleListBatchModify(
             warnings.push(`Unknown list operation: ${(op as { action: string }).action}`);
         }
       } catch (opError) {
-        warnings.push(`Failed: ${op.action} - ${opError instanceof Error ? opError.message : String(opError)}`);
+        const action = (rawOp as Record<string, unknown>).action ?? (rawOp as Record<string, unknown>).type ?? (rawOp as Record<string, unknown>).op ?? "unknown";
+        warnings.push(`Failed: ${action} - ${opError instanceof Error ? opError.message : String(opError)}`);
       }
     }
 

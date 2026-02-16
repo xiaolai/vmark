@@ -446,8 +446,10 @@ export async function handleSectionMove(
       targetPos = 0;
     }
 
-    // Get section content
-    const sectionContent = editor.state.doc.textBetween(sectionRange.from, sectionRange.to);
+    // Slice section content preserving all formatting (bold, tables, etc.)
+    const sectionSlice = editor.state.doc.slice(sectionRange.from, sectionRange.to);
+    // Plain text version for suggestion preview
+    const sectionText = editor.state.doc.textBetween(sectionRange.from, sectionRange.to);
 
     // For dryRun, return preview
     if (mode === "dryRun") {
@@ -476,7 +478,7 @@ export async function handleSectionMove(
         type: "delete",
         from: sectionRange.from,
         to: sectionRange.to,
-        originalContent: sectionContent,
+        originalContent: sectionText,
       });
 
       // Note: This is a simplification - proper move would need atomic handling
@@ -485,7 +487,7 @@ export async function handleSectionMove(
         type: "insert",
         from: targetPos,
         to: targetPos,
-        newContent: sectionContent,
+        newContent: sectionText,
       });
 
       await respond({
@@ -500,28 +502,21 @@ export async function handleSectionMove(
       return;
     }
 
-    // Apply the move (delete then insert)
-    // We need to be careful about position adjustments
+    // Apply the move atomically in a single transaction to avoid stale positions.
+    // Use doc.slice() to preserve all formatting (bold, tables, links, etc.).
+    const moveTr = editor.state.tr;
     if (targetPos > sectionRange.to) {
-      // Moving forward - insert first (positions will shift)
-      const adjustedTarget = targetPos;
-      editor.chain()
-        .focus()
-        .setTextSelection(adjustedTarget)
-        .insertContent(sectionContent)
-        .setTextSelection({ from: sectionRange.from, to: sectionRange.to })
-        .deleteSelection()
-        .run();
+      // Moving forward: insert at target first, then delete original
+      // (inserting first shifts nothing before the delete range)
+      moveTr.replace(targetPos, targetPos, sectionSlice);
+      moveTr.delete(sectionRange.from, sectionRange.to);
     } else {
-      // Moving backward - delete first
-      editor.chain()
-        .focus()
-        .setTextSelection({ from: sectionRange.from, to: sectionRange.to })
-        .deleteSelection()
-        .setTextSelection(targetPos)
-        .insertContent(sectionContent)
-        .run();
+      // Moving backward: delete original first, then insert at target
+      // (target is before delete range, so target pos stays valid after delete)
+      moveTr.delete(sectionRange.from, sectionRange.to);
+      moveTr.replace(targetPos, targetPos, sectionSlice);
     }
+    editor.view.dispatch(moveTr);
 
     const newRevision = getCurrentRevision();
 

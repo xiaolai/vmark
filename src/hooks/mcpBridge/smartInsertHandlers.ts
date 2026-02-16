@@ -10,6 +10,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
 // Types
 type OperationMode = "apply" | "suggest";
@@ -229,12 +230,10 @@ export async function handleSmartInsert(
       return;
     }
 
-    // Apply the insert directly
-    editor.chain()
-      .focus()
-      .setTextSelection(insertPos)
-      .insertContent(contentToInsert)
-      .run();
+    // Apply the insert directly — parse markdown to preserve special characters
+    const slice = createMarkdownPasteSlice(editor.state, contentToInsert);
+    const tr = editor.state.tr.replaceRange(insertPos, insertPos, slice);
+    editor.view.dispatch(tr);
 
     const newRevision = getCurrentRevision();
 

@@ -22,6 +22,7 @@ import {
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { idempotencyCache } from "./idempotencyCache";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
+import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
 // Types
 type OperationMode = "apply" | "suggest" | "dryRun";
@@ -286,11 +287,9 @@ export async function handleBatchEdit(
       switch (op.type) {
         case "insert":
           if (typeof op.content === "string" && resolved) {
-            editor.chain()
-              .focus()
-              .setTextSelection(resolved.from)
-              .insertContent(op.content)
-              .run();
+            const insertSlice = createMarkdownPasteSlice(editor.state, op.content);
+            const insertTr = editor.state.tr.replaceRange(resolved.from, resolved.from, insertSlice);
+            editor.view.dispatch(insertTr);
             addedNodeIds.push(`inserted-${addedNodeIds.length}`);
           }
           break;
@@ -299,11 +298,9 @@ export async function handleBatchEdit(
           if (op.text && resolved) {
             // Get the text content range
             const textRange = getTextRange(editor, resolved.from, resolved.to);
-            editor.chain()
-              .focus()
-              .setTextSelection({ from: textRange.from, to: textRange.to })
-              .insertContent(op.text)
-              .run();
+            const updateSlice = createMarkdownPasteSlice(editor.state, op.text);
+            const updateTr = editor.state.tr.replaceRange(textRange.from, textRange.to, updateSlice);
+            editor.view.dispatch(updateTr);
             changedNodeIds.push(op.nodeId || `updated-${changedNodeIds.length}`);
           }
           break;
@@ -559,30 +556,24 @@ export async function handleApplyDiff(
 
     if (matchPolicy === "first") {
       const match = matches[0];
-      editor.chain()
-        .focus()
-        .setTextSelection({ from: match.from, to: match.to })
-        .insertContent(replacement)
-        .run();
+      const diffSlice = createMarkdownPasteSlice(editor.state, replacement);
+      const diffTr = editor.state.tr.replaceRange(match.from, match.to, diffSlice);
+      editor.view.dispatch(diffTr);
       appliedCount = 1;
     } else if (matchPolicy === "all") {
       // Apply in reverse order to preserve positions
       const sortedMatches = [...matches].sort((a, b) => b.from - a.from);
       for (const match of sortedMatches) {
-        editor.chain()
-          .focus()
-          .setTextSelection({ from: match.from, to: match.to })
-          .insertContent(replacement)
-          .run();
+        const diffSlice = createMarkdownPasteSlice(editor.state, replacement);
+        const diffTr = editor.state.tr.replaceRange(match.from, match.to, diffSlice);
+        editor.view.dispatch(diffTr);
         appliedCount++;
       }
     } else if (matchPolicy === "nth" && nth !== undefined) {
       const match = matches[nth];
-      editor.chain()
-        .focus()
-        .setTextSelection({ from: match.from, to: match.to })
-        .insertContent(replacement)
-        .run();
+      const diffSlice = createMarkdownPasteSlice(editor.state, replacement);
+      const diffTr = editor.state.tr.replaceRange(match.from, match.to, diffSlice);
+      editor.view.dispatch(diffTr);
       appliedCount = 1;
     }
 
@@ -756,12 +747,10 @@ export async function handleReplaceAnchored(
       return;
     }
 
-    // Apply replacement
-    editor.chain()
-      .focus()
-      .setTextSelection({ from: match.from, to: match.to })
-      .insertContent(replacement)
-      .run();
+    // Apply replacement — parse markdown to preserve special characters
+    const anchorSlice = createMarkdownPasteSlice(editor.state, replacement);
+    const anchorTr = editor.state.tr.replaceRange(match.from, match.to, anchorSlice);
+    editor.view.dispatch(anchorTr);
 
     const newRevision = getCurrentRevision();
 
