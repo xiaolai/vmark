@@ -20,6 +20,8 @@ import { useGenieInvocation } from "@/hooks/useGenieInvocation";
 import { useAiProviderStore } from "@/stores/aiProviderStore";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import type { GenieDefinition, GenieScope } from "@/types/aiGenies";
+import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useImeComposition } from "@/hooks/useImeComposition";
 import { GenieChips } from "./GenieChips";
 import { GenieItem } from "./GenieItem";
 import { PromptHistoryDropdown } from "./PromptHistoryDropdown";
@@ -47,9 +49,10 @@ export function GeniePicker() {
 
   const { invokeGenie, invokeFreeform, isRunning } = useGenieInvocation();
   const activeProvider = useAiProviderStore((s) => s.activeProvider);
+  const ime = useImeComposition();
 
-  // Prompt history hook
-  const promptHistory = usePromptHistory();
+  // Prompt history hook (pass grace-period guard for freeform keyDown)
+  const promptHistory = usePromptHistory(ime.isComposing);
 
   // Load genies on open + reset history hook
   useEffect(() => {
@@ -147,6 +150,7 @@ export function GeniePicker() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
       // If freeform is focused, let the hook handle ArrowUp/ArrowDown/Tab/Escape
       // (the hook calls stopPropagation when it consumes the key)
       if (document.activeElement === freeformRef.current) {
@@ -195,7 +199,7 @@ export function GeniePicker() {
         setSelectedIndex(maxIndex >= 0 ? maxIndex : 0);
       }
     },
-    [flatList, selectedIndex, handleClose, handleSelect, activeScope, handleFreeformSubmit]
+    [flatList, selectedIndex, handleClose, handleSelect, activeScope, handleFreeformSubmit, ime]
   );
 
   // Click outside to close
@@ -253,6 +257,8 @@ export function GeniePicker() {
               setSelectedIndex(0);
             }}
             onFocus={() => setSelectedIndex(0)}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
           />
         </div>
 
@@ -339,6 +345,8 @@ export function GeniePicker() {
               value={promptHistory.displayValue}
               onChange={(e) => promptHistory.handleChange(e.target.value)}
               onKeyDown={promptHistory.handleKeyDown}
+              onCompositionStart={ime.onCompositionStart}
+              onCompositionEnd={ime.onCompositionEnd}
               onFocus={() => setSelectedIndex(-1)}
               rows={1}
             />

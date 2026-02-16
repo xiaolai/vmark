@@ -3,6 +3,7 @@
  *
  * Purpose: Inline search bar for finding text in terminal output.
  * Uses xterm's SearchAddon for incremental highlight-as-you-type search.
+ * IME-aware: skips search during composition and guards keyDown with grace period.
  *
  * User interactions:
  *   - Type to search (highlights matches incrementally)
@@ -16,6 +17,8 @@
  *     persisting in the terminal after the search bar is dismissed.
  *   - Incremental search: each character typed triggers findNext immediately,
  *     providing real-time feedback without needing to press Enter.
+ *   - IME guard: during CJK composition, onChange skips findNext to avoid
+ *     searching partial pinyin; compositionEnd triggers the search.
  *
  * @coordinates-with TerminalPanel.tsx — toggles visibility via searchVisible state
  * @coordinates-with useTerminalSessions.ts — provides getActiveSearchAddon callback
@@ -24,6 +27,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronUp, ChevronDown, X } from "lucide-react";
 import type { SearchAddon } from "@xterm/addon-search";
+import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useImeComposition } from "@/hooks/useImeComposition";
 import "./TerminalSearchBar.css";
 
 interface TerminalSearchBarProps {
@@ -34,6 +39,8 @@ interface TerminalSearchBarProps {
 export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBarProps) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const { composingRef, onCompositionStart, onCompositionEnd: onCompositionEndBase, isComposing } = useImeComposition();
+  const compositionSearchedRef = useRef<string | null>(null);
 
   // Focus input on mount
   useEffect(() => {
@@ -60,6 +67,13 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setQuery(value);
+      // Skip live search during IME composition
+      if (composingRef.current) return;
+      // Skip if compositionEnd already searched this exact value (avoid double search)
+      if (compositionSearchedRef.current === value) {
+        compositionSearchedRef.current = null;
+        return;
+      }
       const addon = getSearchAddon();
       if (addon) {
         if (value) {
@@ -69,11 +83,28 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
         }
       }
     },
-    [getSearchAddon],
+    [getSearchAddon, composingRef],
   );
+
+  const handleCompositionEnd = useCallback(() => {
+    onCompositionEndBase();
+    // Trigger search with committed text after composition ends
+    const addon = getSearchAddon();
+    const currentQuery = inputRef.current?.value ?? "";
+    // Record that we searched this value so handleChange can skip its duplicate call
+    compositionSearchedRef.current = currentQuery;
+    if (addon) {
+      if (currentQuery) {
+        addon.findNext(currentQuery);
+      } else {
+        addon.clearDecorations();
+      }
+    }
+  }, [onCompositionEndBase, getSearchAddon]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (isImeKeyEvent(e.nativeEvent) || isComposing()) return;
       if (e.key === "Enter") {
         e.preventDefault();
         if (e.shiftKey) {
@@ -87,7 +118,7 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
         handleClose();
       }
     },
-    [findNext, findPrevious, handleClose],
+    [findNext, findPrevious, handleClose, isComposing],
   );
 
   return (
@@ -100,6 +131,8 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
       />
       <button
         className="terminal-search-btn"

@@ -216,6 +216,90 @@ describe("ModelComboBox", () => {
     });
   });
 
+  describe("IME composition guard", () => {
+    it("Enter with isComposing does not select a model", () => {
+      render(
+        <ModelComboBox
+          provider="openai"
+          value=""
+          apiKey=""
+          endpoint=""
+          onChange={onChange}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("Model");
+      fireEvent.focus(input);
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+      fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+
+      // onChange should not have been called with a model selection
+      // (it may be called from typing, but not from Enter selection)
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("Escape with isComposing does not close dropdown", () => {
+      render(
+        <ModelComboBox
+          provider="openai"
+          value=""
+          apiKey=""
+          endpoint=""
+          onChange={onChange}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("Model");
+      fireEvent.focus(input);
+      expect(screen.getByRole("listbox")).toBeInTheDocument();
+
+      fireEvent.keyDown(input, { key: "Escape", isComposing: true });
+      expect(screen.getByRole("listbox")).toBeInTheDocument();
+    });
+
+    it("Enter within grace period after compositionEnd is blocked", () => {
+      render(
+        <ModelComboBox
+          provider="openai"
+          value=""
+          apiKey=""
+          endpoint=""
+          onChange={onChange}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("Model");
+      fireEvent.focus(input);
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+
+      // Simulate composition then immediate Enter (macOS WebKit pattern)
+      fireEvent.compositionStart(input);
+      fireEvent.compositionEnd(input);
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("keyCode 229 (IME marker) is blocked", () => {
+      render(
+        <ModelComboBox
+          provider="openai"
+          value=""
+          apiKey=""
+          endpoint=""
+          onChange={onChange}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("Model");
+      fireEvent.focus(input);
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+      fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
   it("navigates with ArrowDown/ArrowUp and selects with Enter", () => {
     render(
       <ModelComboBox

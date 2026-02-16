@@ -14,7 +14,8 @@
  * Key decisions:
  *   - All state lives in searchStore — FindBar is a pure view that delegates actions
  *     via getState() calls, keeping the component stateless beyond refs.
- *   - IME guard prevents Enter during CJK composition from triggering find operations.
+ *   - IME guard prevents Enter during CJK composition from triggering find operations;
+ *     uses useImeComposition grace period for macOS WebKit post-composition keydown.
  *   - Regex toggle is conditionally shown based on settings (enableRegexSearch).
  *
  * @coordinates-with stores/searchStore.ts — all search state and operations
@@ -36,6 +37,7 @@ import {
 import { useSearchStore } from "@/stores/searchStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useImeComposition } from "@/hooks/useImeComposition";
 import "./FindBar.css";
 
 /**
@@ -62,6 +64,7 @@ export function FindBar() {
   const enableRegexSearch = useSettingsStore((state) => state.markdown.enableRegexSearch ?? true);
   const currentIndex = useSearchStore((state) => state.currentIndex);
 
+  const ime = useImeComposition();
   const findInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,7 +85,7 @@ export function FindBar() {
   }, []);
 
   const handleFindKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (isImeKeyEvent(e)) return;
+    if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
     if (e.key === "Enter") {
       e.preventDefault();
       if (e.shiftKey) {
@@ -96,10 +99,10 @@ export function FindBar() {
       e.preventDefault();
       replaceInputRef.current?.focus();
     }
-  }, []);
+  }, [ime]);
 
   const handleReplaceKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (isImeKeyEvent(e)) return;
+    if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
     if (e.key === "Enter") {
       e.preventDefault();
       useSearchStore.getState().replaceCurrent();
@@ -109,7 +112,7 @@ export function FindBar() {
       e.preventDefault();
       findInputRef.current?.focus();
     }
-  }, []);
+  }, [ime]);
 
   const handleClose = useCallback(() => {
     useSearchStore.getState().close();
@@ -193,6 +196,8 @@ export function FindBar() {
             value={query}
             onChange={handleQueryChange}
             onKeyDown={handleFindKeyDown}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
           />
         </div>
 
@@ -228,6 +233,8 @@ export function FindBar() {
             value={replaceText}
             onChange={handleReplaceChange}
             onKeyDown={handleReplaceKeyDown}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
           />
         </div>
 

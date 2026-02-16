@@ -10,6 +10,8 @@ import { createPortal } from "react-dom";
 import { useHeadingPickerStore } from "@/stores/headingPickerStore";
 import { calculatePopupPosition, getViewportBounds } from "@/utils/popupPosition";
 import type { HeadingWithId } from "@/utils/headingSlug";
+import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useImeComposition } from "@/hooks/useImeComposition";
 
 const POPUP_WIDTH = 360;
 const POPUP_MAX_HEIGHT = 280;
@@ -43,6 +45,8 @@ export function HeadingPicker() {
   const headings = useHeadingPickerStore((s) => s.headings);
   const anchorRect = useHeadingPickerStore((s) => s.anchorRect);
   const containerBounds = useHeadingPickerStore((s) => s.containerBounds);
+
+  const ime = useImeComposition();
 
   const [filter, setFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -81,6 +85,7 @@ export function HeadingPicker() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
       const maxIndex = filteredHeadings.length - 1;
       if (e.key === "Escape") {
         e.preventDefault();
@@ -103,7 +108,7 @@ export function HeadingPicker() {
         }
       }
     },
-    [filteredHeadings, selectedIndex, handleClose, handleSelect]
+    [filteredHeadings, selectedIndex, handleClose, handleSelect, ime]
   );
 
   // Click outside to close
@@ -111,7 +116,8 @@ export function HeadingPicker() {
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (containerRef.current && !containerRef.current.contains(target)) {
         handleClose();
       }
     };
@@ -212,6 +218,8 @@ export function HeadingPicker() {
           placeholder="Filter headings..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
+          onCompositionStart={() => ime.onCompositionStart()}
+          onCompositionEnd={() => ime.onCompositionEnd()}
         />
       </div>
 

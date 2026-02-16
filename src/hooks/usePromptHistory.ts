@@ -3,7 +3,8 @@
  *
  * Purpose: Encapsulates freeform prompt history interaction for the Genie
  *   input — arrow-key cycling, prefix filtering, ghost text suggestions,
- *   and searchable history dropdown.
+ *   and searchable history dropdown. Accepts an optional isComposing callback
+ *   to guard keyDown against post-composition events (IME grace period).
  *
  * Key decisions:
  *   - Four interaction layers: basic cycling → prefix filter → ghost text → dropdown
@@ -17,6 +18,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { usePromptHistoryStore } from "@/stores/promptHistoryStore";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 
 export interface PromptHistoryResult {
   displayValue: string;
@@ -33,7 +35,12 @@ export interface PromptHistoryResult {
   selectDropdownEntry(index: number): void;
 }
 
-export function usePromptHistory(): PromptHistoryResult {
+/**
+ * @param isComposing — Optional grace-period guard from useImeComposition.
+ *   When provided, handleKeyDown also returns early if isComposing() is true,
+ *   catching post-compositionend keydown events on macOS WebKit.
+ */
+export function usePromptHistory(isComposing?: () => boolean): PromptHistoryResult {
   const [draft, setDraft] = useState("");
   const [cycleIndex, setCycleIndex] = useState<number | null>(null);
   const [filteredCache, setFilteredCache] = useState<string[]>([]);
@@ -116,6 +123,7 @@ export function usePromptHistory(): PromptHistoryResult {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (isImeKeyEvent(e.nativeEvent) || isComposing?.()) return;
       // Layer 4: Ctrl+R toggles dropdown
       if (e.key === "r" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -218,6 +226,7 @@ export function usePromptHistory(): PromptHistoryResult {
       dropdownSelectedIndex,
       startCycling,
       acceptGhostText,
+      isComposing,
     ]
   );
 

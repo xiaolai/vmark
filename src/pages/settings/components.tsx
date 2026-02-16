@@ -108,6 +108,8 @@ export function Select<T extends string>({
 
 import { useState, useRef } from "react";
 import { ChevronRight } from "lucide-react";
+import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useImeComposition } from "@/hooks/useImeComposition";
 
 /**
  * Collapsible settings group for optional/advanced sections.
@@ -161,6 +163,7 @@ export function TagInput({
 }) {
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const ime = useImeComposition();
 
   const addTag = (tag: string) => {
     const trimmed = tag.trim().toLowerCase();
@@ -175,6 +178,7 @@ export function TagInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       addTag(inputValue);
@@ -216,6 +220,8 @@ export function TagInput({
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onCompositionStart={ime.onCompositionStart}
+        onCompositionEnd={ime.onCompositionEnd}
         onBlur={() => inputValue && addTag(inputValue)}
         placeholder={value.length === 0 ? placeholder : ""}
         className="flex-1 min-w-[100px] bg-transparent border-none outline-none
