@@ -475,6 +475,7 @@ export function UniversalToolbar() {
         title="AI Prompts (⌘Y)"
         aria-label="AI Prompts"
         tabIndex={-1}
+        data-action="genie"
         onClick={() => useGeniePickerStore.getState().openPicker({ filterScope: "selection" })}
       >
         <span
