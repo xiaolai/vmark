@@ -9,6 +9,8 @@
  *   - Orphan image cleanup runs only on explicitly closed tabs (not discarded)
  *   - Creates a fresh untitled tab when closing the last tab in a window
  *   - Pure close decision logic delegated to utils/closeDecision.ts
+ *   - Re-entry guard (closingTabIds) prevents duplicate save prompts when
+ *     Cmd+W fires both keydown and menu:close concurrently
  *
  * @coordinates-with closeSave.ts — promptSaveForDirtyDocument dialog
  * @coordinates-with tabStore.ts — removeTab, addTab mutations
@@ -57,9 +59,17 @@ function ensureWindowHasTab(windowLabel: string): void {
 }
 
 /**
+ * Tabs currently being closed — prevents duplicate save prompts when Cmd+W
+ * fires both keydown (useTabShortcuts) and menu:close (useWindowClose).
+ */
+const closingTabIds = new Set<string>();
+
+/**
  * Close a tab with dirty check. If the document has unsaved changes,
  * prompts the user to save, don't save, or cancel.
  * If the last tab is closed, a new untitled tab is created automatically.
+ *
+ * Re-entrant calls for the same tabId are treated as no-ops (returns true).
  *
  * @returns true if tab was closed, false if user cancelled
  */
@@ -67,51 +77,59 @@ export async function closeTabWithDirtyCheck(
   windowLabel: string,
   tabId: string
 ): Promise<boolean> {
+  // Re-entry guard: another close for this tab is already in progress
+  if (closingTabIds.has(tabId)) return true;
+
   const doc = useDocumentStore.getState().getDocument(tabId);
   const tab = useTabStore.getState().tabs[windowLabel]?.find((t) => t.id === tabId);
 
   // Tab or document doesn't exist - treat as already closed
   if (!doc || !tab) return true;
 
-  // If not dirty, clean up orphans and close immediately
-  if (!doc.isDirty) {
-    await cleanupOrphansIfEnabled(doc.filePath, doc.content);
+  closingTabIds.add(tabId);
+  try {
+    // If not dirty, clean up orphans and close immediately
+    if (!doc.isDirty) {
+      await cleanupOrphansIfEnabled(doc.filePath, doc.content);
+      useTabStore.getState().closeTab(windowLabel, tabId);
+      useDocumentStore.getState().removeDocument(tabId);
+      clearDocumentHistory(tabId);
+      ensureWindowHasTab(windowLabel);
+      return true;
+    }
+
+    // Prompt user for dirty document
+    const result = await promptSaveForDirtyDocument({
+      windowLabel,
+      tabId,
+      title: doc.filePath || tab.title,
+      filePath: doc.filePath,
+      content: doc.content,
+    });
+
+    if (result.action === "cancelled") {
+      return false;
+    }
+
+    // If user saved, clean up orphans based on saved content
+    // If user discarded, don't clean up (would delete based on unsaved changes)
+    if (result.action === "saved") {
+      // Re-fetch document content after save
+      const savedDoc = useDocumentStore.getState().getDocument(tabId);
+      if (savedDoc) {
+        await cleanupOrphansIfEnabled(savedDoc.filePath, savedDoc.content);
+      }
+    }
+
+    // Proceed to close
     useTabStore.getState().closeTab(windowLabel, tabId);
     useDocumentStore.getState().removeDocument(tabId);
     clearDocumentHistory(tabId);
     ensureWindowHasTab(windowLabel);
     return true;
+  } finally {
+    closingTabIds.delete(tabId);
   }
-
-  // Prompt user for dirty document
-  const result = await promptSaveForDirtyDocument({
-    windowLabel,
-    tabId,
-    title: doc.filePath || tab.title,
-    filePath: doc.filePath,
-    content: doc.content,
-  });
-
-  if (result.action === "cancelled") {
-    return false;
-  }
-
-  // If user saved, clean up orphans based on saved content
-  // If user discarded, don't clean up (would delete based on unsaved changes)
-  if (result.action === "saved") {
-    // Re-fetch document content after save
-    const savedDoc = useDocumentStore.getState().getDocument(tabId);
-    if (savedDoc) {
-      await cleanupOrphansIfEnabled(savedDoc.filePath, savedDoc.content);
-    }
-  }
-
-  // Proceed to close
-  useTabStore.getState().closeTab(windowLabel, tabId);
-  useDocumentStore.getState().removeDocument(tabId);
-  clearDocumentHistory(tabId);
-  ensureWindowHasTab(windowLabel);
-  return true;
 }
 
 /**

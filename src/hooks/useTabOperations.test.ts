@@ -116,4 +116,30 @@ describe("closeTabWithDirtyCheck", () => {
     expect(result).toBe(false);
     expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(1);
   });
+
+  it("deduplicates concurrent close calls for the same tab (re-entry guard)", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
+    useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
+    useDocumentStore.getState().setContent(tabId, "changed");
+
+    // Make message() hang until we resolve it manually
+    let resolveDialog!: (value: string) => void;
+    vi.mocked(message).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDialog = resolve; })
+    );
+
+    // Fire two concurrent close calls for the same tab
+    const call1 = closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+    const call2 = closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    // Second call returns immediately (re-entry guard)
+    expect(await call2).toBe(true);
+
+    // message() only called once (not twice)
+    expect(message).toHaveBeenCalledTimes(1);
+
+    // Resolve the dialog so call1 completes
+    resolveDialog("No");
+    expect(await call1).toBe(true);
+  });
 });
