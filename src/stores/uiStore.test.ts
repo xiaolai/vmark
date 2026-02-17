@@ -13,6 +13,10 @@ function resetUIStore() {
     universalToolbarHasFocus: false,
     toolbarSessionFocusIndex: -1,
     toolbarDropdownOpen: false,
+    terminalVisible: false,
+    terminalHeight: 250,
+    terminalWidth: 400,
+    effectiveTerminalPosition: "bottom",
   });
 }
 
@@ -169,6 +173,32 @@ describe("uiStore", () => {
       // Sidebar hidden but mode preserved (so re-opening shows same view)
       expect(useUIStore.getState().sidebarVisible).toBe(false);
       expect(useUIStore.getState().sidebarViewMode).toBe("outline");
+    });
+  });
+
+  describe("terminalWidth", () => {
+    it("clamps to min/max", () => {
+      const store = useUIStore.getState();
+
+      store.setTerminalWidth(50);
+      expect(useUIStore.getState().terminalWidth).toBe(200);
+
+      store.setTerminalWidth(1000);
+      expect(useUIStore.getState().terminalWidth).toBe(800);
+
+      store.setTerminalWidth(400);
+      expect(useUIStore.getState().terminalWidth).toBe(400);
+    });
+  });
+
+  describe("effectiveTerminalPosition", () => {
+    it("defaults to bottom", () => {
+      expect(useUIStore.getState().effectiveTerminalPosition).toBe("bottom");
+    });
+
+    it("can be set to right", () => {
+      useUIStore.getState().setEffectiveTerminalPosition("right");
+      expect(useUIStore.getState().effectiveTerminalPosition).toBe("right");
     });
   });
 

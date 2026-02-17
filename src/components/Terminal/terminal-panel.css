@@ -1,22 +1,55 @@
 .terminal-panel {
   position: relative;
   display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border-color);
   background: var(--bg-color);
   overflow: hidden;
   flex-shrink: 0;
+  transition: width 0.2s ease, height 0.2s ease;
 }
 
-.terminal-resize-handle {
+/* Suppress transition during drag resize */
+.terminal-panel.terminal-resizing {
+  transition: none;
+}
+
+/* Bottom position (default) */
+.terminal-panel--bottom {
+  flex-direction: column;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Right position */
+.terminal-panel--right {
+  flex-direction: row;
+  border-left: 1px solid var(--border-color);
+  border-top: none;
+}
+
+/* Horizontal resize handle (bottom position — top edge) */
+.terminal-resize-handle--horizontal {
   height: var(--spacing-1);
+  width: 100%;
   background: transparent;
   cursor: row-resize;
   transition: background 0.15s;
   flex-shrink: 0;
 }
 
-.terminal-resize-handle:hover {
+.terminal-resize-handle--horizontal:hover {
+  background: var(--border-color);
+}
+
+/* Vertical resize handle (right position — left edge) */
+.terminal-resize-handle--vertical {
+  width: var(--spacing-1);
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.terminal-resize-handle--vertical:hover {
   background: var(--border-color);
 }
 
@@ -24,6 +57,7 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
 }
 
 .terminal-sessions-container {

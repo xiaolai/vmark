@@ -25,6 +25,7 @@
  *
  * @coordinates-with useTheme.ts — reads appearance settings to compute CSS vars
  * @coordinates-with useAutoSave.ts — reads general.autoSaveEnabled/autoSaveInterval
+ * @coordinates-with useTerminalPosition.ts — reads terminal.position for panel placement
  * @module stores/settingsStore
  */
 
@@ -218,11 +219,14 @@ export interface McpServerSettings {
   autoApproveEdits: boolean; // Auto-approve AI document edits without preview
 }
 
+export type TerminalPosition = "auto" | "bottom" | "right";
+
 export interface TerminalSettings {
   fontSize: number;    // Default: 13 (range: 10–24)
   lineHeight: number;  // Default: 1.4 (range: 1.0–2.0)
   copyOnSelect: boolean; // Default: false — auto-copy selected text to clipboard
   useWebGL: boolean;   // Default: true — use WebGL renderer (disable to troubleshoot IME issues)
+  position: TerminalPosition; // Default: "auto" — auto-reposition based on window aspect ratio
 }
 
 export interface AdvancedSettingsState {
@@ -435,6 +439,7 @@ const initialState: SettingsState = {
     lineHeight: 1.2,
     copyOnSelect: false,
     useWebGL: true,
+    position: "auto",
   },
   advanced: {
     mcpServer: {

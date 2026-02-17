@@ -4,8 +4,14 @@
  * Font size and line height for the integrated terminal.
  */
 
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, type TerminalPosition } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
+
+const positionOptions = [
+  { value: "auto", label: "Auto (based on window shape)" },
+  { value: "bottom", label: "Bottom" },
+  { value: "right", label: "Right" },
+];
 
 const fontSizeOptions = [
   { value: "10", label: "10px" },
@@ -35,6 +41,14 @@ export function TerminalSettings() {
   return (
     <div className="space-y-6">
       <SettingsGroup title="Terminal">
+        <SettingRow label="Panel Position" description="Where to place the terminal panel. Auto switches based on window aspect ratio.">
+          <Select
+            value={terminal.position}
+            options={positionOptions}
+            onChange={(v) => updateTerminalSetting("position", v as TerminalPosition)}
+          />
+        </SettingRow>
+
         <SettingRow label="Font Size" description="Text size in the terminal">
           <Select
             value={String(terminal.fontSize)}

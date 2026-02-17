@@ -11,16 +11,22 @@
  *     open+editor-focused → back to open+focused (Section 1.2 spec).
  *   - toolbarSessionFocusIndex is ephemeral — cleared when toolbar closes
  *     to avoid stale focus positions on reopen.
- *   - Sidebar width is clamped to [180, 480]px; terminal height to [100, 600]px.
+ *   - Sidebar width is clamped to [180, 480]px; terminal height to [100, 600]px;
+ *     terminal width (right position) to [200, 800]px.
+ *   - effectiveTerminalPosition tracks the resolved position ("bottom" | "right")
+ *     computed by useTerminalPosition from settings + window dimensions.
  *
  * @coordinates-with UniversalToolbar component — reads toolbar visibility/focus
  * @coordinates-with useViewShortcuts.ts — calls toggle methods from keyboard shortcuts
+ * @coordinates-with useTerminalPosition.ts — writes effectiveTerminalPosition
  * @module stores/uiStore
  */
 
 import { create } from "zustand";
 
 export type SidebarViewMode = "files" | "outline" | "history";
+
+export type EffectiveTerminalPosition = "bottom" | "right";
 
 // Sidebar width constraints
 const SIDEBAR_MIN_WIDTH = 180;
@@ -31,6 +37,11 @@ const SIDEBAR_DEFAULT_WIDTH = 260;
 const TERMINAL_MIN_HEIGHT = 100;
 const TERMINAL_MAX_HEIGHT = 600;
 const TERMINAL_DEFAULT_HEIGHT = 250;
+
+// Terminal width constraints (for right-side position)
+const TERMINAL_MIN_WIDTH = 200;
+const TERMINAL_MAX_WIDTH = 800;
+const TERMINAL_DEFAULT_WIDTH = 400;
 
 interface UIState {
   settingsOpen: boolean;
@@ -46,6 +57,8 @@ interface UIState {
   isDraggingFiles: boolean; // Files are being dragged over the window
   terminalVisible: boolean;
   terminalHeight: number;
+  terminalWidth: number;
+  effectiveTerminalPosition: EffectiveTerminalPosition;
 }
 
 interface UIActions {
@@ -70,6 +83,8 @@ interface UIActions {
   setDraggingFiles: (dragging: boolean) => void;
   toggleTerminal: () => void;
   setTerminalHeight: (height: number) => void;
+  setTerminalWidth: (width: number) => void;
+  setEffectiveTerminalPosition: (pos: EffectiveTerminalPosition) => void;
 }
 
 export const useUIStore = create<UIState & UIActions>((set) => ({
@@ -86,6 +101,8 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   isDraggingFiles: false,
   terminalVisible: false,
   terminalHeight: TERMINAL_DEFAULT_HEIGHT,
+  terminalWidth: TERMINAL_DEFAULT_WIDTH,
+  effectiveTerminalPosition: "bottom",
 
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
@@ -150,4 +167,8 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   setTerminalHeight: (h) => set({
     terminalHeight: Math.min(TERMINAL_MAX_HEIGHT, Math.max(TERMINAL_MIN_HEIGHT, h)),
   }),
+  setTerminalWidth: (w) => set({
+    terminalWidth: Math.min(TERMINAL_MAX_WIDTH, Math.max(TERMINAL_MIN_WIDTH, w)),
+  }),
+  setEffectiveTerminalPosition: (pos) => set({ effectiveTerminalPosition: pos }),
 }));

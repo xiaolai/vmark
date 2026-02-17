@@ -1,29 +1,34 @@
 /**
  * useTerminalResize
  *
- * Purpose: Hook for drag-to-resize on the terminal panel's top edge.
- * Converts vertical mouse movement into terminal height changes stored
- * in uiStore.
+ * Purpose: Hook for drag-to-resize on the terminal panel's edge.
+ * Supports both vertical (bottom panel — drag top edge) and horizontal
+ * (right panel — drag left edge) resize directions.
  *
  * Key decisions:
  *   - Uses the handlersRef cleanup pattern (stores mousemove/mouseup references)
  *     to ensure exact listener removal on mouseup, blur, or unmount.
- *   - Dragging up increases height (negative delta = taller), matching
- *     the mental model of "pulling the panel up."
- *   - Sets document.body cursor to row-resize during drag and disables
- *     text selection to prevent interference.
+ *   - Vertical: dragging up increases height (negative Y delta = taller).
+ *   - Horizontal: dragging left increases width (negative X delta = wider).
+ *   - Sets document.body cursor during drag and disables text selection.
  *   - Calls onResize callback on every move to let the parent refit xterm.
  *
  * @coordinates-with TerminalPanel.tsx — attaches handleResizeStart to the resize handle
- * @coordinates-with uiStore — persists terminalHeight
+ * @coordinates-with uiStore — persists terminalHeight / terminalWidth
  * @module components/Terminal/useTerminalResize
  */
 import { useCallback, useRef, useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
-export function useTerminalResize(onResize?: () => void) {
+
+export type ResizeDirection = "vertical" | "horizontal";
+
+export function useTerminalResize(
+  direction: ResizeDirection,
+  onResize?: () => void
+) {
   const isResizing = useRef(false);
-  const startY = useRef(0);
-  const startHeight = useRef(0);
+  const startPos = useRef(0);
+  const startSize = useRef(0);
 
   const handlersRef = useRef<{
     move: ((e: MouseEvent) => void) | null;
@@ -52,15 +57,28 @@ export function useTerminalResize(onResize?: () => void) {
     (e: React.MouseEvent) => {
       e.preventDefault();
       isResizing.current = true;
-      startY.current = e.clientY;
-      startHeight.current = useUIStore.getState().terminalHeight;
+
+      const ui = useUIStore.getState();
+      if (direction === "horizontal") {
+        startPos.current = e.clientX;
+        startSize.current = ui.terminalWidth;
+      } else {
+        startPos.current = e.clientY;
+        startSize.current = ui.terminalHeight;
+      }
 
       const handleMouseMove = (e: MouseEvent) => {
         if (!isResizing.current) return;
-        // Drag up = taller (negative delta = more height)
-        const delta = startY.current - e.clientY;
-        const newHeight = startHeight.current + delta;
-        useUIStore.getState().setTerminalHeight(newHeight);
+
+        if (direction === "horizontal") {
+          // Drag left = wider (negative X delta = more width)
+          const delta = startPos.current - e.clientX;
+          useUIStore.getState().setTerminalWidth(startSize.current + delta);
+        } else {
+          // Drag up = taller (negative Y delta = more height)
+          const delta = startPos.current - e.clientY;
+          useUIStore.getState().setTerminalHeight(startSize.current + delta);
+        }
         onResize?.();
       };
 
@@ -74,10 +92,11 @@ export function useTerminalResize(onResize?: () => void) {
       document.addEventListener("mouseup", handleMouseUp);
       window.addEventListener("blur", handleMouseUp);
 
-      document.body.style.cursor = "row-resize";
+      document.body.style.cursor =
+        direction === "horizontal" ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
     },
-    [cleanup, onResize]
+    [cleanup, direction, onResize]
   );
 
   return handleResizeStart;

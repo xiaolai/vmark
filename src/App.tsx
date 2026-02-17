@@ -92,6 +92,7 @@ import { useHotExitCapture } from "@/utils/hotExit/useHotExitCapture";
 import { useHotExitRestore } from "@/utils/hotExit/useHotExitRestore";
 import { useHotExitStartup } from "@/utils/hotExit/useHotExitStartup";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
+import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
 import { useCrashRecoveryWriter } from "@/hooks/useCrashRecoveryWriter";
 import { useCrashRecoveryStartup } from "@/hooks/useCrashRecoveryStartup";
 import { useCrashRecoveryCleanup } from "@/hooks/useCrashRecoveryCleanup";
@@ -206,6 +207,9 @@ function MainLayout() {
   useUniversalToolbar(); // Universal toolbar toggle (shortcut configurable)
   useFileExplorerShortcuts(); // Toggle hidden files
   useImagePasteToast(); // Image paste confirmation toast
+  useTerminalPosition(); // Auto-reposition terminal panel based on window shape
+
+  const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
 
   const classNames = [
     "app-layout",
@@ -270,12 +274,23 @@ function MainLayout() {
       >
         {/* Spacer for title bar area */}
         <div style={{ height: TITLEBAR_HEIGHT, flexShrink: 0 }} />
-        {/* Editor area */}
-        <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-          <Editor />
+        {/* Editor + Terminal container with dynamic flex direction */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: terminalPosition === "right" ? "row" : "column",
+            minHeight: 0,
+            minWidth: 0,
+          }}
+        >
+          {/* Editor area */}
+          <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+            <Editor />
+          </div>
+          {/* Terminal panel */}
+          <TerminalPanel />
         </div>
-        {/* Terminal panel */}
-        <TerminalPanel />
         {/* Bottom bar container - fixed 40px height, all bars overlay within */}
         <div style={{ position: "relative", height: 40, flexShrink: 0 }}>
           <StatusBar />
