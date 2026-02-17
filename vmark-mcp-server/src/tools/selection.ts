@@ -2,7 +2,7 @@
  * Selection tools - Read and manipulate text selection.
  */
 
-import { VMarkMcpServer, resolveWindowId, validateNonNegativeInteger } from '../server.js';
+import { VMarkMcpServer, resolveWindowId, validateNonNegativeInteger, getNumberArg } from '../server.js';
 import type { Selection, CursorContext, EditResult } from '../bridge/types.js';
 
 /**
@@ -190,8 +190,8 @@ export function registerSelectionTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const linesBefore = (args.linesBefore as number) ?? 3;
-      const linesAfter = (args.linesAfter as number) ?? 3;
+      const linesBefore = getNumberArg(args, 'linesBefore') ?? 3;
+      const linesAfter = getNumberArg(args, 'linesAfter') ?? 3;
       const windowId = resolveWindowId(args.windowId as string | undefined);
 
       const linesBeforeError = validateNonNegativeInteger(linesBefore, 'linesBefore');

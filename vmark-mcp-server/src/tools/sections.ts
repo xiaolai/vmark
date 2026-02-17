@@ -7,7 +7,7 @@
  * - move_section: Reorder sections
  */
 
-import { VMarkMcpServer, resolveWindowId, requireStringArg, getStringArg, validateByIndex } from '../server.js';
+import { VMarkMcpServer, resolveWindowId, requireStringArg, requireStringArgAllowEmpty, getStringArg, validateByIndex } from '../server.js';
 import type {
   BatchEditResult,
   OperationMode,
@@ -77,7 +77,7 @@ export function registerSectionTools(server: VMarkMcpServer): void {
       const windowId = resolveWindowId(args.windowId as string | undefined);
       const baseRevision = requireStringArg(args, 'baseRevision');
       const target = args.target as SectionTarget;
-      const newContent = requireStringArg(args, 'newContent');
+      const newContent = requireStringArgAllowEmpty(args, 'newContent');
       const mode = (args.mode as OperationMode) ?? 'apply';
 
       if (!target || (!target.heading && !target.byIndex && !target.sectionId)) {

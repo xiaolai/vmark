@@ -383,7 +383,10 @@ export const TOOL_CATEGORIES = [
  * Expected tool count — used by --health-check to catch stale builds.
  * Update this number whenever tools are added or removed.
  */
-export const EXPECTED_TOOL_COUNT = 80;
+export const EXPECTED_TOOL_COUNT = TOOL_CATEGORIES.reduce(
+  (sum, cat) => sum + cat.tools.length,
+  0
+);
 
 /**
  * List of all resources for documentation.

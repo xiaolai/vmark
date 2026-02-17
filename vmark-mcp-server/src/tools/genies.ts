@@ -95,6 +95,9 @@ export function registerGenieTools(server: VMarkMcpServer): void {
     },
     async (args) => {
       const path = requireStringArg(args, 'path');
+      if (path.includes('..')) {
+        return VMarkMcpServer.errorResult('Invalid genie path: must not contain ".."');
+      }
       const windowId = resolveWindowId(args.windowId as string | undefined);
 
       try {
