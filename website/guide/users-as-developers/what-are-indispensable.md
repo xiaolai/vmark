@@ -1,4 +1,4 @@
-# Five Skills AI Can't Replace
+# Five Basic Human Skills That Supercharge AI
 
 You don't need a computer science degree to build software with AI coding tools. But you do need a small set of skills that no AI can replace. These are the indispensable foundations — the things that make everything else possible.
 

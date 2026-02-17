@@ -18,7 +18,7 @@ No extra setup needed. Just start asking your AI to help.
 New to AI-assisted development? These pages build on each other:
 
 1. **[Why I Built VMark](/guide/users-as-developers/why-i-built-vmark)** — A non-programmer's journey from scripts to desktop app
-2. **[Five Skills AI Can't Replace](/guide/users-as-developers/what-are-indispensable)** — Git, TDD, terminal literacy, English, and taste — the foundations everything else builds on
+2. **[Five Basic Human Skills That Supercharge AI](/guide/users-as-developers/what-are-indispensable)** — Git, TDD, terminal literacy, English, and taste — the foundations everything else builds on
 3. **[Why Expensive Models Are Cheaper](/guide/users-as-developers/why-expensive-models-are-cheaper)** — Per-token price is a vanity metric; per-task cost is what matters
 4. **[Subscription vs API Pricing](/guide/users-as-developers/subscription-vs-api)** — Why flat-rate subscriptions beat pay-per-token for coding sessions
 5. **[English Prompts Work Better](/guide/users-as-developers/prompt-refinement)** — Translation, refinement, and the `::` hook
