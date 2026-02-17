@@ -16,13 +16,7 @@
 
 import { create } from "zustand";
 import type { ImagePathResult } from "@/utils/imagePathDetection";
-
-interface AnchorRect {
-  top: number;
-  left: number;
-  bottom: number;
-  right: number;
-}
+import type { AnchorRect } from "@/utils/popupPosition";
 
 interface ImagePasteToastState {
   isOpen: boolean;

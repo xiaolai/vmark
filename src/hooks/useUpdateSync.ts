@@ -67,16 +67,13 @@ export function useUpdateBroadcast() {
  * Should be used in non-main windows (e.g., Settings).
  */
 export function useUpdateListener() {
-  const setStatus = useUpdateStore((state) => state.setStatus);
-  const setUpdateInfo = useUpdateStore((state) => state.setUpdateInfo);
-  const setDownloadProgress = useUpdateStore((state) => state.setDownloadProgress);
-  const setError = useUpdateStore((state) => state.setError);
   const hasRequestedState = useRef(false);
 
   // Listen for state broadcasts
   useEffect(() => {
     const unlistenPromise = listen<UpdateStatePayload>(UPDATE_STATE_EVENT, (event) => {
       const { status, updateInfo, downloadProgress, error } = event.payload;
+      const { setStatus, setUpdateInfo, setDownloadProgress, setError } = useUpdateStore.getState();
 
       // Update store with received state
       // Order matters: set info/progress first, then status (which may clear error)
@@ -93,7 +90,7 @@ export function useUpdateListener() {
     return () => {
       safeUnlistenAsync(unlistenPromise);
     };
-  }, [setStatus, setUpdateInfo, setDownloadProgress, setError]);
+  }, []);
 
   // Request initial state from main window on mount
   useEffect(() => {

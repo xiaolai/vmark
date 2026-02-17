@@ -9,13 +9,7 @@
  */
 
 import { create } from "zustand";
-
-interface AnchorRect {
-  top: number;
-  left: number;
-  bottom: number;
-  right: number;
-}
+import type { AnchorRect } from "@/utils/popupPosition";
 
 interface LinkPopupState {
   isOpen: boolean;

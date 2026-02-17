@@ -189,7 +189,13 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
     }),
     {
       name: "vmark-genies",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined" ? localStorage : {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        }
+      ),
       partialize: (state) => ({
         recentGenieNames: state.recentGenieNames,
         favoriteGenieNames: state.favoriteGenieNames,

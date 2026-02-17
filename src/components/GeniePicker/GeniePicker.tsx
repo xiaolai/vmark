@@ -49,6 +49,14 @@ export function GeniePicker() {
 
   const { invokeGenie, invokeFreeform, isRunning } = useGenieInvocation();
   const activeProvider = useAiProviderStore((s) => s.activeProvider);
+  const activeProviderName = useAiProviderStore((s) => {
+    if (!s.activeProvider) return null;
+    return (
+      s.cliProviders.find((p) => p.type === s.activeProvider)?.name ??
+      s.restProviders.find((p) => p.type === s.activeProvider)?.name ??
+      s.activeProvider
+    );
+  });
   const ime = useImeComposition();
 
   // Prompt history hook (pass grace-period guard for freeform keyDown)
@@ -376,7 +384,7 @@ export function GeniePicker() {
                 className="provider-switcher-trigger"
                 onClick={() => setShowProviderSwitcher((v) => !v)}
               >
-                via {useAiProviderStore.getState().getActiveProviderName()}
+                via {activeProviderName}
               </button>
               {showProviderSwitcher && (
                 <ProviderSwitcher

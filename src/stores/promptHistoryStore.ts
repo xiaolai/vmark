@@ -55,7 +55,13 @@ export const usePromptHistoryStore = create<
     }),
     {
       name: "vmark-prompt-history",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined" ? localStorage : {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        }
+      ),
       partialize: (state) => ({
         entries: state.entries,
       }),

@@ -43,7 +43,9 @@ interface ImageContextMenuProps {
 
 export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const { isOpen, position, closeMenu } = useImageContextMenuStore();
+  const isOpen = useImageContextMenuStore((s) => s.isOpen);
+  const position = useImageContextMenuStore((s) => s.position);
+  const closeMenu = useImageContextMenuStore((s) => s.closeMenu);
   // Get platform-appropriate label once (stable across renders)
   const revealLabel = useMemo(() => getRevealInFileManagerLabel(), []);
   const menuItems = useMemo(() => buildMenuItems(revealLabel), [revealLabel]);
