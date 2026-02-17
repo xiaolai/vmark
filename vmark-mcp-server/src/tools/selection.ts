@@ -2,7 +2,14 @@
  * Selection tools - Read and manipulate text selection.
  */
 
-import { VMarkMcpServer, resolveWindowId, validateNonNegativeInteger } from '../server.js';
+import {
+  VMarkMcpServer,
+  validateNonNegativeInteger,
+  requireStringArgAllowEmpty,
+  requireNumberArg,
+  getNumberArg,
+  getWindowIdArg,
+} from '../server.js';
 import type { Selection, CursorContext, EditResult } from '../bridge/types.js';
 
 /**
@@ -27,7 +34,7 @@ export function registerSelectionTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const windowId = resolveWindowId(args.windowId as string | undefined);
+      const windowId = getWindowIdArg(args);
 
       try {
         const selection = await server.sendBridgeRequest<Selection>({
@@ -71,23 +78,23 @@ export function registerSelectionTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const from = args.from as number;
-      const to = args.to as number;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      const fromError = validateNonNegativeInteger(from, 'from');
-      if (fromError) {
-        return VMarkMcpServer.errorResult(fromError);
-      }
-      const toError = validateNonNegativeInteger(to, 'to');
-      if (toError) {
-        return VMarkMcpServer.errorResult(toError);
-      }
-      if (from > to) {
-        return VMarkMcpServer.errorResult('from cannot be greater than to');
-      }
-
       try {
+        const from = requireNumberArg(args, 'from');
+        const to = requireNumberArg(args, 'to');
+        const windowId = getWindowIdArg(args);
+
+        const fromError = validateNonNegativeInteger(from, 'from');
+        if (fromError) {
+          return VMarkMcpServer.errorResult(fromError);
+        }
+        const toError = validateNonNegativeInteger(to, 'to');
+        if (toError) {
+          return VMarkMcpServer.errorResult(toError);
+        }
+        if (from > to) {
+          return VMarkMcpServer.errorResult('from cannot be greater than to');
+        }
+
         await server.sendBridgeRequest<null>({
           type: 'selection.set',
           from,
@@ -133,14 +140,9 @@ export function registerSelectionTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const text = args.text as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof text !== 'string') {
-        return VMarkMcpServer.errorResult('text must be a string');
-      }
-
       try {
+        const text = requireStringArgAllowEmpty(args, 'text');
+        const windowId = getWindowIdArg(args);
         const result = await server.sendBridgeRequest<EditResult>({
           type: 'selection.replace',
           text,
@@ -190,9 +192,9 @@ export function registerSelectionTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const linesBefore = (args.linesBefore as number) ?? 3;
-      const linesAfter = (args.linesAfter as number) ?? 3;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
+      const linesBefore = getNumberArg(args, 'linesBefore') ?? 3;
+      const linesAfter = getNumberArg(args, 'linesAfter') ?? 3;
+      const windowId = getWindowIdArg(args);
 
       const linesBeforeError = validateNonNegativeInteger(linesBefore, 'linesBefore');
       if (linesBeforeError) {
@@ -243,15 +245,14 @@ export function registerSelectionTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const position = args.position as number;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      const positionError = validateNonNegativeInteger(position, 'position');
-      if (positionError) {
-        return VMarkMcpServer.errorResult(positionError);
-      }
-
       try {
+        const position = requireNumberArg(args, 'position');
+        const windowId = getWindowIdArg(args);
+
+        const positionError = validateNonNegativeInteger(position, 'position');
+        if (positionError) {
+          return VMarkMcpServer.errorResult(positionError);
+        }
         await server.sendBridgeRequest<null>({
           type: 'cursor.setPosition',
           position,

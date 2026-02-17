@@ -2,7 +2,15 @@
  * Document tools - Read and write document content.
  */
 
-import { VMarkMcpServer, resolveWindowId, validateNonNegativeInteger } from '../server.js';
+import {
+  VMarkMcpServer,
+  validateNonNegativeInteger,
+  requireStringArg,
+  requireStringArgAllowEmpty,
+  getWindowIdArg,
+  requireNumberArg,
+  getBooleanArg,
+} from '../server.js';
 import type { SearchResult, ReplaceResult, EditResult } from '../bridge/types.js';
 
 /**
@@ -30,7 +38,7 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const windowId = resolveWindowId(args.windowId as string | undefined);
+      const windowId = getWindowIdArg(args);
 
       try {
         const content = await server.sendBridgeRequest<string>({
@@ -72,14 +80,10 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const content = args.content as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof content !== 'string') {
-        return VMarkMcpServer.errorResult('content must be a string');
-      }
-
       try {
+        const content = requireStringArgAllowEmpty(args, 'content');
+        const windowId = getWindowIdArg(args);
+
         const result = await server.sendBridgeRequest<{ message: string }>({
           type: 'document.setContent',
           content,
@@ -119,14 +123,9 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const text = args.text as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof text !== 'string') {
-        return VMarkMcpServer.errorResult('text must be a string');
-      }
-
       try {
+        const text = requireStringArgAllowEmpty(args, 'text');
+        const windowId = getWindowIdArg(args);
         const result = await server.sendBridgeRequest<EditResult>({
           type: 'document.insertAtCursor',
           text,
@@ -175,19 +174,14 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const text = args.text as string;
-      const position = args.position as number;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof text !== 'string') {
-        return VMarkMcpServer.errorResult('text must be a string');
-      }
-      const positionError = validateNonNegativeInteger(position, 'position');
-      if (positionError) {
-        return VMarkMcpServer.errorResult(positionError);
-      }
-
       try {
+        const text = requireStringArgAllowEmpty(args, 'text');
+        const position = requireNumberArg(args, 'position');
+        const windowId = getWindowIdArg(args);
+        const positionError = validateNonNegativeInteger(position, 'position');
+        if (positionError) {
+          return VMarkMcpServer.errorResult(positionError);
+        }
         const result = await server.sendBridgeRequest<EditResult>({
           type: 'document.insertAtPosition',
           text,
@@ -237,15 +231,10 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const query = args.query as string;
-      const caseSensitive = (args.caseSensitive as boolean) ?? false;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof query !== 'string' || query.length === 0) {
-        return VMarkMcpServer.errorResult('query must be a non-empty string');
-      }
-
       try {
+        const query = requireStringArg(args, 'query');
+        const caseSensitive = getBooleanArg(args, 'caseSensitive') ?? false;
+        const windowId = getWindowIdArg(args);
         const result = await server.sendBridgeRequest<SearchResult>({
           type: 'document.search',
           query,
@@ -298,19 +287,11 @@ export function registerDocumentTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const search = args.search as string;
-      const replace = args.replace as string;
-      const all = (args.all as boolean) ?? false;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof search !== 'string' || search.length === 0) {
-        return VMarkMcpServer.errorResult('search must be a non-empty string');
-      }
-      if (typeof replace !== 'string') {
-        return VMarkMcpServer.errorResult('replace must be a string');
-      }
-
       try {
+        const search = requireStringArg(args, 'search');
+        const replace = requireStringArgAllowEmpty(args, 'replace');
+        const all = getBooleanArg(args, 'all') ?? false;
+        const windowId = getWindowIdArg(args);
         const result = await server.sendBridgeRequest<ReplaceResult>({
           type: 'document.replaceInSource',
           search,

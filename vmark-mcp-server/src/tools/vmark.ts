@@ -2,7 +2,12 @@
  * VMark-specific tools - Math, Mermaid, SVG, Wiki links, CJK formatting.
  */
 
-import { VMarkMcpServer, resolveWindowId } from '../server.js';
+import {
+  VMarkMcpServer,
+  requireStringArg,
+  getStringArg,
+  getWindowIdArg,
+} from '../server.js';
 
 /**
  * Register all VMark-specific tools on the server.
@@ -32,14 +37,10 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const latex = args.latex as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof latex !== 'string' || latex.length === 0) {
-        return VMarkMcpServer.errorResult('latex must be a non-empty string');
-      }
-
       try {
+        const latex = requireStringArg(args, 'latex');
+        const windowId = getWindowIdArg(args);
+
         await server.sendBridgeRequest<null>({
           type: 'vmark.insertMathInline',
           latex,
@@ -79,14 +80,9 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const latex = args.latex as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof latex !== 'string' || latex.length === 0) {
-        return VMarkMcpServer.errorResult('latex must be a non-empty string');
-      }
-
       try {
+        const latex = requireStringArg(args, 'latex');
+        const windowId = getWindowIdArg(args);
         await server.sendBridgeRequest<null>({
           type: 'vmark.insertMathBlock',
           latex,
@@ -126,14 +122,10 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const code = args.code as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof code !== 'string' || code.length === 0) {
-        return VMarkMcpServer.errorResult('code must be a non-empty string');
-      }
-
       try {
+        const code = requireStringArg(args, 'code');
+        const windowId = getWindowIdArg(args);
+
         await server.sendBridgeRequest<null>({
           type: 'vmark.insertMermaid',
           code,
@@ -173,14 +165,10 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const code = args.code as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof code !== 'string' || code.length === 0) {
-        return VMarkMcpServer.errorResult('code must be a non-empty string');
-      }
-
       try {
+        const code = requireStringArg(args, 'code');
+        const windowId = getWindowIdArg(args);
+
         await server.sendBridgeRequest<null>({
           type: 'vmark.insertMarkmap',
           code,
@@ -220,14 +208,10 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const code = args.code as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof code !== 'string' || code.length === 0) {
-        return VMarkMcpServer.errorResult('code must be a non-empty string');
-      }
-
       try {
+        const code = requireStringArg(args, 'code');
+        const windowId = getWindowIdArg(args);
+
         await server.sendBridgeRequest<null>({
           type: 'vmark.insertSvg',
           code,
@@ -270,15 +254,10 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const target = args.target as string;
-      const displayText = args.displayText as string | undefined;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
-
-      if (typeof target !== 'string' || target.length === 0) {
-        return VMarkMcpServer.errorResult('target must be a non-empty string');
-      }
-
       try {
+        const target = requireStringArg(args, 'target');
+        const displayText = getStringArg(args, 'displayText');
+        const windowId = getWindowIdArg(args);
         await server.sendBridgeRequest<null>({
           type: 'vmark.insertWikiLink',
           target,
@@ -320,8 +299,8 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const direction = args.direction as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
+      const direction = requireStringArg(args, 'direction');
+      const windowId = getWindowIdArg(args);
 
       if (direction !== 'to-fullwidth' && direction !== 'to-halfwidth') {
         return VMarkMcpServer.errorResult(
@@ -369,8 +348,8 @@ export function registerVMarkTools(server: VMarkMcpServer): void {
       },
     },
     async (args) => {
-      const action = args.action as string;
-      const windowId = resolveWindowId(args.windowId as string | undefined);
+      const action = requireStringArg(args, 'action');
+      const windowId = getWindowIdArg(args);
 
       if (action !== 'add' && action !== 'remove') {
         return VMarkMcpServer.errorResult('action must be "add" or "remove"');
