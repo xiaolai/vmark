@@ -340,7 +340,7 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
 
           return { success: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
         } catch (e) {
-          return { success: false, errors: [`Parse error: ${e}`] };
+          return { success: false, errors: [`Parse error: ${e instanceof Error ? e.message : String(e)}`] };
         }
       },
 

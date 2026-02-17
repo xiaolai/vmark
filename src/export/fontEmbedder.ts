@@ -147,60 +147,7 @@ export function fontDataToDataUri(data: Uint8Array): string {
  * KaTeX fonts are loaded from CDN in exports since they're not bundled.
  */
 export function getKaTeXFontCSS(): string {
-  // Use jsDelivr CDN for KaTeX fonts
-  const cdnBase = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts";
-
-  return `
-/* KaTeX Fonts */
-@font-face {
-  font-family: 'KaTeX_Main';
-  src: url('${cdnBase}/KaTeX_Main-Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'KaTeX_Main';
-  src: url('${cdnBase}/KaTeX_Main-Bold.woff2') format('woff2');
-  font-weight: bold;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'KaTeX_Main';
-  src: url('${cdnBase}/KaTeX_Main-Italic.woff2') format('woff2');
-  font-weight: normal;
-  font-style: italic;
-}
-@font-face {
-  font-family: 'KaTeX_Math';
-  src: url('${cdnBase}/KaTeX_Math-Italic.woff2') format('woff2');
-  font-weight: normal;
-  font-style: italic;
-}
-@font-face {
-  font-family: 'KaTeX_Size1';
-  src: url('${cdnBase}/KaTeX_Size1-Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'KaTeX_Size2';
-  src: url('${cdnBase}/KaTeX_Size2-Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'KaTeX_Size3';
-  src: url('${cdnBase}/KaTeX_Size3-Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'KaTeX_Size4';
-  src: url('${cdnBase}/KaTeX_Size4-Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
-`.trim();
+  return generateLocalFontCSS(getKaTeXFontFiles(), KATEX_CDN_BASE);
 }
 
 /**

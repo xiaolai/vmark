@@ -121,6 +121,7 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 **Acceptable hardcoded values:**
 - `1px` or `2px` for inline elements (code spans, cursor indicators)
 - Focus indicator corners (e.g., `0 0 4px 4px` for U-shape)
+- @media print blocks (color-mix() may not render in all print pipelines)
 
 ### Shadows
 
