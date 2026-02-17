@@ -36,13 +36,13 @@ const SIDEBAR_MAX_WIDTH = 480;
 const SIDEBAR_DEFAULT_WIDTH = 260;
 
 // Terminal height constraints
-const TERMINAL_MIN_HEIGHT = 100;
-const TERMINAL_MAX_HEIGHT = 600;
+export const TERMINAL_MIN_HEIGHT = 100;
+export const TERMINAL_MAX_HEIGHT = 600;
 const TERMINAL_DEFAULT_HEIGHT = 250;
 
 // Terminal width constraints (for right-side position)
-const TERMINAL_MIN_WIDTH = 200;
-const TERMINAL_MAX_WIDTH = 800;
+export const TERMINAL_MIN_WIDTH = 200;
+export const TERMINAL_MAX_WIDTH = 800;
 const TERMINAL_DEFAULT_WIDTH = 400;
 
 interface UIState {

@@ -36,6 +36,17 @@ describe("computeTerminalPosition", () => {
     // Edge: ratio exactly at boundary
     { w: 1500, h: 1000, current: "bottom" as const, expected: "right" }, // ratio 1.5 → landscape
     { w: 850, h: 1000, current: "right" as const, expected: "bottom" }, // ratio 0.85 → portrait
+
+    // Edge: zero, negative, NaN, Infinity → return currentPosition unchanged
+    { w: 0, h: 1080, current: "bottom" as const, expected: "bottom" },
+    { w: 0, h: 1080, current: "right" as const, expected: "right" },
+    { w: 1920, h: 0, current: "bottom" as const, expected: "bottom" },
+    { w: 1920, h: 0, current: "right" as const, expected: "right" },
+    { w: -100, h: 1080, current: "bottom" as const, expected: "bottom" },
+    { w: 1920, h: -100, current: "right" as const, expected: "right" },
+    { w: NaN, h: 1080, current: "bottom" as const, expected: "bottom" },
+    { w: 1920, h: NaN, current: "right" as const, expected: "right" },
+    { w: Infinity, h: 1080, current: "bottom" as const, expected: "bottom" },
   ])(
     "w=$w h=$h current=$current → $expected",
     ({ w, h, current, expected }: { w: number; h: number; current: EffectiveTerminalPosition; expected: string }) => {

@@ -21,21 +21,22 @@
 
 import { useEffect, useRef } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useUIStore, type EffectiveTerminalPosition } from "@/stores/uiStore";
+import {
+  useUIStore,
+  type EffectiveTerminalPosition,
+  TERMINAL_MIN_HEIGHT,
+  TERMINAL_MAX_HEIGHT,
+  TERMINAL_MIN_WIDTH,
+  TERMINAL_MAX_WIDTH,
+} from "@/stores/uiStore";
 
 // Width threshold for the ambiguous aspect-ratio zone
 const WIDTH_THRESHOLD = 1440;
 const HYSTERESIS_PX = 50;
 
-// Layout constants matching App.tsx
+// Layout constants — must match App.tsx TITLEBAR_HEIGHT and bottom bar height
 const TITLEBAR_HEIGHT = 40;
 const STATUSBAR_HEIGHT = 40;
-
-// Pixel clamps
-const MIN_HEIGHT = 100;
-const MAX_HEIGHT = 600;
-const MIN_WIDTH = 200;
-const MAX_WIDTH = 800;
 
 /**
  * Pure function: decide terminal position from window dimensions.
@@ -50,6 +51,11 @@ export function computeTerminalPosition(
   windowHeight: number,
   currentPosition: EffectiveTerminalPosition
 ): EffectiveTerminalPosition {
+  // Guard against zero, negative, or non-finite dimensions
+  if (!Number.isFinite(windowWidth) || !Number.isFinite(windowHeight) || windowWidth <= 0 || windowHeight <= 0) {
+    return currentPosition;
+  }
+
   const ratio = windowWidth / windowHeight;
 
   if (ratio >= 1.5) return "right";
@@ -86,17 +92,22 @@ export function pixelsToRatio(pixels: number, availableDimension: number): numbe
 }
 
 /**
- * Get the available dimension for the terminal based on position.
- * - Bottom: window height minus titlebar and statusbar
- * - Right: window width minus sidebar (if visible)
+ * Pure function: compute available dimension for the terminal panel.
+ * - Bottom: windowHeight minus titlebar and statusbar
+ * - Right: windowWidth minus sidebar (if visible)
  */
-export function getAvailableDimension(pos: EffectiveTerminalPosition): number {
+export function getAvailableDimension(
+  pos: EffectiveTerminalPosition,
+  windowW: number,
+  windowH: number,
+  sidebarVisible: boolean,
+  sidebarW: number
+): number {
   if (pos === "right") {
-    const ui = useUIStore.getState();
-    const sidebarWidth = ui.sidebarVisible ? ui.sidebarWidth : 0;
-    return window.innerWidth - sidebarWidth;
+    const offset = sidebarVisible ? sidebarW : 0;
+    return windowW - offset;
   }
-  return window.innerHeight - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT;
+  return windowH - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT;
 }
 
 /**
@@ -106,6 +117,8 @@ export function getAvailableDimension(pos: EffectiveTerminalPosition): number {
 export function useTerminalPosition() {
   const position = useSettingsStore((s) => s.terminal.position);
   const panelRatio = useSettingsStore((s) => s.terminal.panelRatio);
+  const sidebarVisible = useUIStore((s) => s.sidebarVisible);
+  const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const currentRef = useRef<EffectiveTerminalPosition>(
     useUIStore.getState().effectiveTerminalPosition
   );
@@ -125,9 +138,9 @@ export function useTerminalPosition() {
       }
 
       // 2. Compute pixel dimensions from ratio
-      const available = getAvailableDimension(pos);
-      const height = ratioToPixels(panelRatio, available, MIN_HEIGHT, MAX_HEIGHT);
-      const width = ratioToPixels(panelRatio, available, MIN_WIDTH, MAX_WIDTH);
+      const available = getAvailableDimension(pos, window.innerWidth, window.innerHeight, sidebarVisible, sidebarWidth);
+      const height = ratioToPixels(panelRatio, available, TERMINAL_MIN_HEIGHT, TERMINAL_MAX_HEIGHT);
+      const width = ratioToPixels(panelRatio, available, TERMINAL_MIN_WIDTH, TERMINAL_MAX_WIDTH);
 
       // 3. Batch update uiStore
       const store = useUIStore.getState();
@@ -146,5 +159,5 @@ export function useTerminalPosition() {
 
     window.addEventListener("resize", updateAll);
     return () => window.removeEventListener("resize", updateAll);
-  }, [position, panelRatio]);
+  }, [position, panelRatio, sidebarVisible, sidebarWidth]);
 }

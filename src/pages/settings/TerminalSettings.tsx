@@ -1,7 +1,7 @@
 /**
  * Terminal Settings Section
  *
- * Font size and line height for the integrated terminal.
+ * Panel position, panel size, font size, line height, and other terminal options.
  */
 
 import { useSettingsStore, type TerminalPosition } from "@/stores/settingsStore";
@@ -14,6 +14,8 @@ const positionOptions = [
 ];
 
 const panelSizeOptions = [
+  { value: "0.1", label: "10%" },
+  { value: "0.15", label: "15%" },
   { value: "0.2", label: "20%" },
   { value: "0.25", label: "25%" },
   { value: "0.3", label: "30%" },
@@ -22,6 +24,8 @@ const panelSizeOptions = [
   { value: "0.45", label: "45%" },
   { value: "0.5", label: "50%" },
   { value: "0.6", label: "60%" },
+  { value: "0.7", label: "70%" },
+  { value: "0.8", label: "80%" },
 ];
 
 const fontSizeOptions = [

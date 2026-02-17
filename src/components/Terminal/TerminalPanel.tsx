@@ -33,7 +33,7 @@
  * @coordinates-with TerminalContextMenu.tsx — right-click copy/paste/clear menu
  * @module components/Terminal/TerminalPanel
  */
-import { useRef, useEffect, useState, useCallback, type RefObject } from "react";
+import { useRef, useEffect, useState, useCallback, type RefObject, type MutableRefObject } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import { useTerminalSessions } from "./useTerminalSessions";
@@ -88,6 +88,7 @@ export function TerminalPanel() {
 
   // Track resizing state to suppress CSS transitions during drag
   const [isResizing, setIsResizing] = useState(false);
+  const resizeCleanupRef: MutableRefObject<(() => void) | null> = useRef(null);
 
   const direction = position === "right" ? "horizontal" : "vertical";
 
@@ -96,21 +97,30 @@ export function TerminalPanel() {
     requestAnimationFrame(() => fit());
   });
 
-  // Wrap handleResize to manage resizing state
+  // Wrap handleResize to manage resizing state with proper cleanup
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
       setIsResizing(true);
 
-      const handleMouseUp = () => {
+      const cleanupResize = () => {
         setIsResizing(false);
-        document.removeEventListener("mouseup", handleMouseUp);
+        document.removeEventListener("mouseup", cleanupResize);
+        window.removeEventListener("blur", cleanupResize);
+        resizeCleanupRef.current = null;
       };
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("mouseup", cleanupResize);
+      window.addEventListener("blur", cleanupResize);
+      resizeCleanupRef.current = cleanupResize;
 
       handleResize(e);
     },
     [handleResize]
   );
+
+  // Unmount cleanup for resize wrapper listener
+  useEffect(() => {
+    return () => resizeCleanupRef.current?.();
+  }, []);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);

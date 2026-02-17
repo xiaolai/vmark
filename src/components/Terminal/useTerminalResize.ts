@@ -90,11 +90,13 @@ export function useTerminalResize(
 
       const handleMouseUp = () => {
         // Persist ratio from final pixel size
-        const pos = useUIStore.getState().effectiveTerminalPosition;
-        const pixels = pos === "right"
-          ? useUIStore.getState().terminalWidth
-          : useUIStore.getState().terminalHeight;
-        const available = getAvailableDimension(pos);
+        const ui = useUIStore.getState();
+        const pos = ui.effectiveTerminalPosition;
+        const pixels = pos === "right" ? ui.terminalWidth : ui.terminalHeight;
+        const available = getAvailableDimension(
+          pos, window.innerWidth, window.innerHeight,
+          ui.sidebarVisible, ui.sidebarWidth
+        );
         const ratio = pixelsToRatio(pixels, available);
         useSettingsStore.getState().updateTerminalSetting("panelRatio", ratio);
 
