@@ -53,6 +53,7 @@
 
 .status-toggle,
 .status-mode {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -309,6 +310,7 @@
 
 /* New tab button */
 .status-new-tab {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -411,6 +413,7 @@
    ======================================== */
 
 .status-mcp {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -466,6 +469,7 @@
    ======================================== */
 
 .status-terminal {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -489,6 +493,30 @@
 
 .status-terminal.active {
   color: var(--accent-primary);
+}
+
+/* Focus indicators for StatusBar buttons */
+.status-new-tab:focus-visible,
+.status-toggle:focus-visible,
+.status-mode:focus-visible,
+.status-mcp:focus-visible,
+.status-terminal:focus-visible {
+  outline: none;
+}
+
+.status-new-tab:focus-visible::after,
+.status-toggle:focus-visible::after,
+.status-mode:focus-visible::after,
+.status-mcp:focus-visible::after,
+.status-terminal:focus-visible::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
 }
 
 /* ========================================

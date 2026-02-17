@@ -37,6 +37,7 @@
 }
 
 .sidebar-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -52,6 +53,21 @@
 .sidebar-btn:hover {
   background-color: var(--selection-color);
   color: var(--text-color);
+}
+
+.sidebar-btn:focus-visible {
+  outline: none;
+}
+
+.sidebar-btn:focus-visible::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
 }
 
 .sidebar-title {

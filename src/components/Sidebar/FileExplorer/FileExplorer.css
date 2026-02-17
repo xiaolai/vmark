@@ -32,6 +32,7 @@
 }
 
 .file-explorer-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -47,6 +48,21 @@
 .file-explorer-btn:hover {
   background-color: var(--selection-color);
   color: var(--text-color);
+}
+
+.file-explorer-btn:focus-visible {
+  outline: none;
+}
+
+.file-explorer-btn:focus-visible::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
 }
 
 .file-explorer-tree {

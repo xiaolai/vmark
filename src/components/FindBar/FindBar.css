@@ -118,6 +118,7 @@
 }
 
 .find-bar-nav-btn {
+  position: relative;
   width: 24px;
   height: 24px;
   padding: 0;
@@ -155,6 +156,7 @@
 }
 
 .find-bar-close {
+  position: relative;
   width: 24px;
   height: 24px;
   padding: 0;
@@ -186,6 +188,7 @@
 }
 
 .find-bar-icon-btn {
+  position: relative;
   width: 26px;
   height: 26px;
   padding: 0;
@@ -207,4 +210,26 @@
 .find-bar-icon-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Focus indicators for FindBar buttons */
+.find-bar-nav-btn:focus-visible,
+.find-bar-toggle:focus-visible,
+.find-bar-close:focus-visible,
+.find-bar-icon-btn:focus-visible {
+  outline: none;
+}
+
+.find-bar-nav-btn:focus-visible::after,
+.find-bar-toggle:focus-visible::after,
+.find-bar-close:focus-visible::after,
+.find-bar-icon-btn:focus-visible::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
 }
