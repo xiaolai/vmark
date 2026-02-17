@@ -26,6 +26,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import type { GenieDefinition, GenieMetadata, GenieScope } from "@/types/aiGenies";
+import { geniesWarn, geniesLog } from "@/utils/debug";
 
 // ============================================================================
 // Types
@@ -103,7 +104,7 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
                 source: "global",
               });
             } catch (e) {
-              console.warn(`Failed to read genie ${entry.path}:`, e);
+              geniesWarn(`Failed to read genie ${entry.path}:`, e);
             }
           }
 
@@ -123,7 +124,7 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
             favoriteGenieNames: prunedFavorites,
           });
         } catch (e) {
-          console.error("Failed to load genies:", e);
+          geniesLog("Failed to load genies:", e);
           if (thisLoadId === _loadId) {
             set({ loading: false });
           }

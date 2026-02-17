@@ -53,6 +53,7 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { isWithinRoot, getParentDir } from "@/utils/paths";
 import { saveAllDocuments, type CloseSaveContext } from "@/hooks/closeSave";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
+import { fileOpsLog, fileOpsWarn } from "@/utils/debug";
 
 /**
  * Save dialog with timeout and filter fallback for macOS Tahoe compatibility.
@@ -89,7 +90,7 @@ async function saveDialogWithFallback(
 
   // Attempt 1: with filters (normal)
   try {
-    console.log("[FileOps] Save dialog attempt 1: with filters");
+    fileOpsLog("Save dialog attempt 1: with filters");
     const path = await withTimeout(
       save({
         defaultPath,
@@ -99,11 +100,11 @@ async function saveDialogWithFallback(
     );
     return path;
   } catch (firstError) {
-    console.warn("[FileOps] Save dialog attempt 1 failed:", firstError);
+    fileOpsWarn("Save dialog attempt 1 failed:", firstError);
 
     // If it timed out, retry without filters to bypass deprecated setAllowedFileTypes
     if (firstError instanceof Error && firstError.message.includes("timed out")) {
-      console.log("[FileOps] Save dialog attempt 2: without filters (Tahoe workaround)");
+      fileOpsLog("Save dialog attempt 2: without filters (Tahoe workaround)");
       try {
         const path = await withTimeout(
           save({ defaultPath }),
@@ -111,7 +112,7 @@ async function saveDialogWithFallback(
         );
         return path;
       } catch (secondError) {
-        console.error("[FileOps] Save dialog attempt 2 also failed:", secondError);
+        fileOpsLog("Save dialog attempt 2 also failed:", secondError);
         throw secondError;
       }
     }
@@ -184,7 +185,7 @@ export async function openFileInNewTabCore(
     useRecentFilesStore.getState().addFile(path);
     perfMark("openFileInNewTab:complete");
   } catch (error) {
-    console.error("[FileOps] Failed to open file:", path, error);
+    console.error("[FileOps] Failed to open file:", path, error); // intentional: user-facing error with toast
     // Clean up the orphaned tab — without initDocument, it renders blank.
     // Use detachTab (not closeTab) to avoid polluting the "reopen closed tab" history.
     useTabStore.getState().detachTab(windowLabel, tabId);
@@ -289,7 +290,7 @@ export function useFileOperations() {
             useRecentFilesStore.getState().addFile(path);
             perfMark("handleOpen:replacedTab");
           } catch (error) {
-            console.error("[FileOps] Failed to replace tab with file:", error);
+            fileOpsLog("Failed to replace tab with file:", error);
           }
           break;
         case "open_workspace_in_new_window":
@@ -299,7 +300,7 @@ export function useFileOperations() {
               filePath: decision.filePath,
             });
           } catch (error) {
-            console.error("[FileOps] Failed to open workspace in new window:", error);
+            fileOpsLog("Failed to open workspace in new window:", error);
           }
           break;
         case "no_op":
@@ -310,23 +311,23 @@ export function useFileOperations() {
   }, [windowLabel, openFileInNewTab]);
 
   const handleSave = useCallback(async () => {
-    console.log("[FileOps] handleSave called for window:", windowLabel);
+    fileOpsLog("handleSave called for window:", windowLabel);
     flushActiveWysiwygNow();
 
     const guardResult = await withReentryGuard(windowLabel, "save", async () => {
       const tabId = useTabStore.getState().activeTabId[windowLabel];
       if (!tabId) {
-        console.warn("[FileOps] No active tab for save in window:", windowLabel);
+        fileOpsWarn("No active tab for save in window:", windowLabel);
         return;
       }
 
       const doc = useDocumentStore.getState().getDocument(tabId);
       if (!doc) {
-        console.warn("[FileOps] No document found for tab:", tabId);
+        fileOpsWarn("No document found for tab:", tabId);
         return;
       }
 
-      console.log("[FileOps] Save target:", {
+      fileOpsLog("Save target:", {
         tabId,
         filePath: doc.filePath ?? "(untitled)",
         isMissing: doc.isMissing,
@@ -345,21 +346,21 @@ export function useFileOperations() {
 
       // If file is missing, force Save As flow instead of normal save
       if (saveAction === "save_as_required" || !doc.filePath) {
-        console.log("[FileOps] Entering Save As flow (untitled or missing file)");
+        fileOpsLog("Entering Save As flow (untitled or missing file)");
         // Build default path with suggested filename from H1 or tab title
         const tab = useTabStore.getState().tabs[windowLabel]?.find(t => t.id === tabId);
         const suggestedName = getSaveFileName(doc.content, tab?.title ?? "");
         const filename = `${suggestedName}.md`;
         const folder = await getDefaultSaveFolderWithFallback(windowLabel);
         const defaultPath = joinPath(folder, filename);
-        console.log("[FileOps] Opening save dialog with defaultPath:", defaultPath);
+        fileOpsLog("Opening save dialog with defaultPath:", defaultPath);
 
         let path: string | null;
         try {
           path = await saveDialogWithFallback(defaultPath);
-          console.log("[FileOps] Save dialog returned:", path ?? "(cancelled)");
+          fileOpsLog("Save dialog returned:", path ?? "(cancelled)");
         } catch (error) {
-          console.error("[FileOps] Save dialog threw:", error);
+          console.error("[FileOps] Save dialog threw:", error); // intentional: user-facing error with toast
           toast.error(
             `Save dialog failed: ${error instanceof Error ? error.message : String(error)}`
           );
@@ -395,13 +396,13 @@ export function useFileOperations() {
           try {
             await openWorkspaceWithConfig(postSaveAction.workspaceRoot);
           } catch (error) {
-            console.error("[FileOps] Failed to open workspace after save:", error);
+            fileOpsLog("Failed to open workspace after save:", error);
           }
         }
       }
     });
     if (guardResult === undefined) {
-      console.warn("[FileOps] Save blocked by re-entry guard (another save in progress)");
+      fileOpsWarn("Save blocked by re-entry guard (another save in progress)");
     }
   }, [windowLabel]);
 
@@ -434,7 +435,7 @@ export function useFileOperations() {
       try {
         path = await saveDialogWithFallback(defaultPath);
       } catch (error) {
-        console.error("[FileOps] Save As dialog threw:", error);
+        console.error("[FileOps] Save As dialog threw:", error); // intentional: user-facing error with toast
         toast.error(
           `Save dialog failed: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -479,7 +480,7 @@ export function useFileOperations() {
       try {
         newPath = await saveDialogWithFallback(defaultPath);
       } catch (error) {
-        console.error("[FileOps] Move To dialog threw:", error);
+        console.error("[FileOps] Move To dialog threw:", error); // intentional: user-facing error with toast
         toast.error(
           `Save dialog failed: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -497,7 +498,7 @@ export function useFileOperations() {
         try {
           await remove(oldPath);
         } catch (error) {
-          console.error("[FileOps] Failed to delete old file during move:", error);
+          console.error("[FileOps] Failed to delete old file during move:", error); // intentional: user-facing error with toast
           // File was saved to new location, but old file couldn't be deleted
           toast.warning("File saved to new location, but couldn't delete original file");
         }
@@ -560,7 +561,7 @@ export function useFileOperations() {
       unlistenRefs.current.push(unlistenOpen);
 
       const unlistenSave = await currentWindow.listen<string>("menu:save", async (event) => {
-        console.log("[FileOps] menu:save event received, payload:", event.payload);
+        fileOpsLog("menu:save event received, payload:", event.payload);
         if (event.payload !== windowLabel) return;
         await handleSave();
       });
@@ -640,7 +641,7 @@ export function useFileOperations() {
               }
               // If cancelled, do nothing (stay in app)
             } catch (error) {
-              console.error("[SaveAllQuit] Failed:", error);
+              console.error("[SaveAllQuit] Failed:", error); // intentional: user-facing error with toast
               toast.error("Failed to save documents");
             }
           });
@@ -683,7 +684,7 @@ export function useFileOperations() {
       // Save (Cmd+S)
       const saveKey = shortcuts.getShortcut("save");
       if (matchesShortcutEvent(e, saveKey)) {
-        console.log("[FileOps] Cmd+S keyboard shortcut matched");
+        fileOpsLog("Cmd+S keyboard shortcut matched");
         e.preventDefault();
         handleSave();
         return;

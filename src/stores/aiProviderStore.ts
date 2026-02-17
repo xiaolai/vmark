@@ -25,6 +25,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
+import { aiProviderLog, aiProviderWarn } from "@/utils/debug";
 import type {
   CliProviderInfo,
   RestProviderConfig,
@@ -160,7 +161,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
             }
           }
         } catch (e) {
-          console.error("Failed to detect providers:", e);
+          aiProviderLog("Failed to detect providers:", e);
           if (thisDetectId === _detectId) {
             set({ detecting: false });
           }
@@ -214,7 +215,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
           }));
         } catch (e) {
           // Non-critical — user can still type keys manually
-          console.warn("Failed to read env API keys:", e);
+          aiProviderWarn("Failed to read env API keys:", e);
         }
       },
 

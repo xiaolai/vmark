@@ -28,6 +28,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { isMacPlatform } from "@/utils/shortcutMatch";
+import { shortcutsWarn } from "@/utils/debug";
 
 // ============================================================================
 // Types
@@ -397,7 +398,7 @@ async function syncMenuShortcuts(shortcuts: Record<string, string>) {
     await invoke("refresh_genies_menu");
   } catch (e) {
     // Menu rebuild may fail if command not yet implemented
-    console.warn("Failed to sync menu shortcuts:", e);
+    shortcutsWarn("Failed to sync menu shortcuts:", e);
   }
 }
 

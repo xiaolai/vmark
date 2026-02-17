@@ -27,6 +27,7 @@ import { HOT_EXIT_EVENTS } from './types';
 import type { LineEnding } from '@/utils/linebreakDetection';
 import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/unifiedHistoryStore';
 import type { CursorInfo as StoreCursorInfo } from '@/types/cursorSync';
+import { hotExitLog, hotExitWarn } from '@/utils/debug';
 
 /** Maximum retries when pulling state (handles timing issues) */
 const MAX_STATE_RETRIES = 5;
@@ -72,7 +73,7 @@ function toStoreCursorInfo(cursorInfo: CursorInfo | null | undefined): StoreCurs
     !Number.isFinite(cursorInfo.offset_in_word) ||
     !Number.isFinite(cursorInfo.percent_in_line)
   ) {
-    console.warn('[HotExit] Invalid cursor info, skipping restore');
+    hotExitWarn('Invalid cursor info, skipping restore');
     return null;
   }
 
@@ -113,13 +114,13 @@ function fromHotExitCheckpoint(checkpoint: HistoryCheckpoint): StoreHistoryCheck
 export async function restoreMainWindowState(): Promise<void> {
   const windowLabel = getCurrentWebviewWindow().label;
   if (windowLabel !== 'main') {
-    console.warn('[HotExit] restoreMainWindowState called from non-main window');
+    hotExitWarn('restoreMainWindowState called from non-main window');
     return;
   }
 
   // Guard against double-restore
   if (mainWindowRestoreStarted) {
-    console.log('[HotExit] Main window restore already in progress or completed, skipping');
+    hotExitLog('Main window restore already in progress or completed, skipping');
     return;
   }
   mainWindowRestoreStarted = true;
@@ -128,29 +129,29 @@ export async function restoreMainWindowState(): Promise<void> {
     const windowState = await pullWindowStateWithRetry(windowLabel);
 
     if (!windowState) {
-      console.error('[HotExit] No state found for main window after retries');
+      hotExitLog('No state found for main window after retries');
       void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
         error: `No restore state found for window '${windowLabel}'`,
-      }).catch((e) => console.error('[HotExit] Failed to emit restore failed:', e));
+      }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
       return;
     }
 
-    console.log('[HotExit] Main window found pending state, restoring...');
+    hotExitLog('Main window found pending state, restoring...');
     await restoreWindowState(windowLabel, windowState);
 
     // Signal completion for this window and check if all windows done
     const allDone = await invoke<boolean>('hot_exit_window_restore_complete', { windowLabel });
-    console.log(`[HotExit] Main window restored successfully (allDone: ${allDone})`);
+    hotExitLog(`Main window restored successfully (allDone: ${allDone})`);
 
     // Only emit RESTORE_COMPLETE when ALL windows have completed
     if (allDone) {
       await emit(HOT_EXIT_EVENTS.RESTORE_COMPLETE, {});
     }
   } catch (error) {
-    console.error('[HotExit] Main window restore failed:', error);
+    hotExitLog('Main window restore failed:', error);
     void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
       error: error instanceof Error ? error.message : String(error),
-    }).catch((e) => console.error('[HotExit] Failed to emit restore failed:', e));
+    }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
   }
 }
 
@@ -171,11 +172,11 @@ async function pullWindowStateWithRetry(windowLabel: string, retries = MAX_STATE
 
       // State not found - wait and retry (might not be stored yet)
       if (attempt < retries) {
-        console.log(`[HotExit] Window '${windowLabel}' state not ready, retry ${attempt}/${retries}`);
+        hotExitLog(`Window '${windowLabel}' state not ready, retry ${attempt}/${retries}`);
         await sleep(RETRY_DELAY_MS);
       }
     } catch (error) {
-      console.error(`[HotExit] Failed to pull state for '${windowLabel}' (attempt ${attempt}):`, error);
+      hotExitLog(`Failed to pull state for '${windowLabel}' (attempt ${attempt}):`, error);
       if (attempt < retries) {
         await sleep(RETRY_DELAY_MS);
       }
@@ -203,7 +204,7 @@ export function useHotExitRestore() {
      */
     const restoreFromPulledState = async (isRequestedRestore: boolean) => {
       if (isRestoring.current) {
-        console.warn(`[HotExit] Window '${windowLabel}' ignoring concurrent restore`);
+        hotExitWarn(`Window '${windowLabel}' ignoring concurrent restore`);
         return;
       }
 
@@ -213,35 +214,35 @@ export function useHotExitRestore() {
         const windowState = await pullWindowStateWithRetry(windowLabel);
 
         if (!windowState) {
-          console.warn(`[HotExit] No state found for window '${windowLabel}' after ${MAX_STATE_RETRIES} retries`);
+          hotExitWarn(`No state found for window '${windowLabel}' after ${MAX_STATE_RETRIES} retries`);
 
           // If restore was explicitly requested but no state found, emit failure
           // (This prevents checkAndRestoreSession from waiting until timeout)
           if (isRequestedRestore && isMainWindow) {
-            console.error('[HotExit] Restore was requested but no state available');
+            hotExitLog('Restore was requested but no state available');
             void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
               error: `No restore state found for window '${windowLabel}'`,
-            }).catch((e) => console.error('[HotExit] Failed to emit restore failed:', e));
+            }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
           }
           return;
         }
 
-        console.log(`[HotExit] Window '${windowLabel}' found pending state, restoring...`);
+        hotExitLog(`Window '${windowLabel}' found pending state, restoring...`);
         await restoreWindowState(windowLabel, windowState);
 
         // Signal completion for this window and check if all windows done
         const allDone = await invoke<boolean>('hot_exit_window_restore_complete', { windowLabel });
-        console.log(`[HotExit] Window '${windowLabel}' restored successfully (allDone: ${allDone})`);
+        hotExitLog(`Window '${windowLabel}' restored successfully (allDone: ${allDone})`);
 
         // Only emit RESTORE_COMPLETE when ALL windows have completed
         if (allDone) {
           await emit(HOT_EXIT_EVENTS.RESTORE_COMPLETE, {});
         }
       } catch (error) {
-        console.error(`[HotExit] Window '${windowLabel}' restore failed:`, error);
+        hotExitLog(`Window '${windowLabel}' restore failed:`, error);
         void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
           error: error instanceof Error ? error.message : String(error),
-        }).catch((e) => console.error('[HotExit] Failed to emit restore failed:', e));
+        }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
       } finally {
         isRestoring.current = false;
       }
@@ -272,7 +273,7 @@ export function useHotExitRestore() {
         // Main window: check if already restored via direct call
         if (isMainWindow) {
           if (mainWindowRestoreStarted) {
-            console.log('[HotExit] RESTORE_START received but restore already started, ignoring');
+            hotExitLog('RESTORE_START received but restore already started, ignoring');
             return;
           }
           // Set flag to prevent double-restore via direct call
@@ -286,7 +287,7 @@ export function useHotExitRestore() {
 
     return () => {
       void unlistenPromise.then((unlisten) => unlisten()).catch((e) => {
-        console.debug('[HotExit] Cleanup error (expected during unmount):', e);
+        hotExitLog('Cleanup error (expected during unmount):', e);
       });
     };
   }, []);
@@ -490,7 +491,7 @@ function restoreUnifiedHistory(
     },
   }));
 
-  console.log(
-    `[HotExit] Restored unified history for tab '${tabId}': ${undoStack.length} undo, ${redoStack.length} redo checkpoints`
+  hotExitLog(
+    `Restored unified history for tab '${tabId}': ${undoStack.length} undo, ${redoStack.length} redo checkpoints`
   );
 }

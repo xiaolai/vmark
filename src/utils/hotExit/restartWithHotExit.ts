@@ -17,6 +17,7 @@ import type { SessionData } from './types';
 import { HOT_EXIT_EVENTS } from './types';
 import { migrateSession, canMigrate, needsMigration, SCHEMA_VERSION } from './schemaMigration';
 import { restoreMainWindowState } from './useHotExitRestore';
+import { hotExitLog, hotExitWarn } from '@/utils/debug';
 
 /** Default timeout for restore operation in milliseconds */
 const DEFAULT_RESTORE_TIMEOUT_MS = 15000;
@@ -50,9 +51,9 @@ function formatTimestamp(timestamp: number): string {
 async function clearSessionFile(context: string): Promise<void> {
   try {
     await invoke<void>(HOT_EXIT_COMMANDS.CLEAR);
-    console.log(`[HotExit] Cleared session file (${context})`);
+    hotExitLog(`Cleared session file (${context})`);
   } catch (clearError) {
-    console.warn(`[HotExit] Failed to clear session file (${context}):`, clearError);
+    hotExitWarn(`Failed to clear session file (${context}):`, clearError);
   }
 }
 
@@ -66,13 +67,13 @@ export async function restartWithHotExit(): Promise<void> {
     // This command waits for all windows to respond with 5s timeout
     const session = await invoke<SessionData>(HOT_EXIT_COMMANDS.CAPTURE);
 
-    console.log('[HotExit] Session captured and persisted:', {
+    hotExitLog('Session captured and persisted:', {
       windows: session.windows.length,
       version: session.vmark_version,
     });
   } catch (error) {
     const captureError = error instanceof Error ? error : new Error(String(error));
-    console.error('[HotExit] Failed to capture session before restart:', captureError);
+    console.error('[HotExit] Failed to capture session before restart:', captureError); // intentional: critical error before relaunch
     // Continue to relaunch - user already confirmed restart
   }
 
@@ -80,7 +81,7 @@ export async function restartWithHotExit(): Promise<void> {
   try {
     await relaunch();
   } catch (error) {
-    console.error('[HotExit] Failed to relaunch:', error);
+    console.error('[HotExit] Failed to relaunch:', error); // intentional: critical relaunch failure
     throw error;
   }
 }
@@ -102,7 +103,7 @@ export async function checkAndRestoreSession(
   // Runtime guard: only main window should trigger restore
   const windowLabel = getCurrentWebviewWindow().label;
   if (windowLabel !== 'main') {
-    console.warn(`[HotExit] checkAndRestoreSession called from non-main window: ${windowLabel}`);
+    hotExitWarn(`checkAndRestoreSession called from non-main window: ${windowLabel}`);
     return false;
   }
 
@@ -115,13 +116,13 @@ export async function checkAndRestoreSession(
     const session = await invoke<SessionData | null>(HOT_EXIT_COMMANDS.INSPECT);
 
     if (!session) {
-      console.log('[HotExit] No saved session found');
+      hotExitLog('No saved session found');
       return false;
     }
 
     // Check if session can be migrated
     if (!canMigrate(session.version)) {
-      console.error(`[HotExit] Cannot restore session: incompatible version ${session.version} (current: ${SCHEMA_VERSION})`);
+      hotExitLog(`Cannot restore session: incompatible version ${session.version} (current: ${SCHEMA_VERSION})`);
       await clearSessionFile('incompatible version');
       return false;
     }
@@ -129,13 +130,13 @@ export async function checkAndRestoreSession(
     // Migrate session if needed (frontend applies migration before sending to Rust)
     let migratedSession = session;
     if (needsMigration(session)) {
-      console.log(`[HotExit] Migrating session from v${session.version} to v${SCHEMA_VERSION}`);
+      hotExitLog(`Migrating session from v${session.version} to v${SCHEMA_VERSION}`);
       migratedSession = migrateSession(session);
     }
 
     const hasSecondaryWindows = migratedSession.windows.some(w => !w.is_main_window);
 
-    console.log('[HotExit] Found saved session:', {
+    hotExitLog('Found saved session:', {
       windows: migratedSession.windows.length,
       hasSecondaryWindows,
       timestamp: formatTimestamp(migratedSession.timestamp),
@@ -155,7 +156,7 @@ export async function checkAndRestoreSession(
           HOT_EXIT_COMMANDS.RESTORE_MULTI,
           { session: migratedSession }
         );
-        console.log('[HotExit] Multi-window restore initiated:', {
+        hotExitLog('Multi-window restore initiated:', {
           windowsCreated: result.windows_created,
         });
       } else {
@@ -167,7 +168,7 @@ export async function checkAndRestoreSession(
       // This bypasses the RESTORE_START event listener race condition where
       // useHotExitRestore's listener may not be registered when Rust emits the event.
       // By the time invoke returns, Rust has already stored state in PendingRestoreState.
-      console.log('[HotExit] Invoking main window restore directly (bypassing event)');
+      hotExitLog('Invoking main window restore directly (bypassing event)');
       await restoreMainWindowState();
     } catch (invokeError) {
       // Invoke failed - clean up listeners and rethrow
@@ -184,12 +185,12 @@ export async function checkAndRestoreSession(
       return true;
     } else {
       // Restore failed or timed out - keep session file for retry
-      console.error('[HotExit] Restore failed:', restoreResult.error);
-      console.log('[HotExit] Session file preserved for retry on next launch');
+      hotExitLog('Restore failed:', restoreResult.error);
+      hotExitLog('Session file preserved for retry on next launch');
       return false;
     }
   } catch (error) {
-    console.error('[HotExit] Failed to restore session:', error);
+    hotExitLog('Failed to restore session:', error);
     return false;
   }
 }

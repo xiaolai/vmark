@@ -11,6 +11,7 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { mcpAutoStartLog } from "@/utils/debug";
 
 /**
  * Auto-start the MCP server if enabled in settings.
@@ -37,10 +38,10 @@ export function useMcpAutoStart() {
     // We don't start a local sidecar - that would conflict with the AI client's sidecar.
     invoke("mcp_bridge_start", { port: mcpServer.port })
       .then(() => {
-        console.log("[MCP] Auto-started MCP bridge on port", mcpServer.port);
+        mcpAutoStartLog("Auto-started MCP bridge on port", mcpServer.port);
       })
       .catch((error) => {
-        console.error("[MCP] Failed to auto-start MCP bridge:", error);
+        mcpAutoStartLog("Failed to auto-start MCP bridge:", error);
       });
   }, []);
 }

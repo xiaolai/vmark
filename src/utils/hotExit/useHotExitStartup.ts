@@ -15,6 +15,7 @@ import {
   setRestoreInProgress,
   notifyRestoreComplete,
 } from './hotExitCoordination';
+import { hotExitLog } from '@/utils/debug';
 
 export function useHotExitStartup() {
   const hasChecked = useRef(false);
@@ -33,7 +34,7 @@ export function useHotExitStartup() {
       try {
         const restored = await checkAndRestoreSession();
         if (restored) {
-          console.log('[HotExit] Startup: session restored successfully');
+          hotExitLog('Startup: session restored successfully');
         }
       } finally {
         // Always notify completion, even if restore failed or no session existed

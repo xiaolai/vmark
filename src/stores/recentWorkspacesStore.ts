@@ -16,6 +16,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { getFileName } from "@/utils/pathUtils";
+import { recentWarn } from "@/utils/debug";
 
 export interface RecentWorkspace {
   path: string;       // Absolute path to workspace folder
@@ -37,7 +38,7 @@ async function updateNativeMenu(workspaces: RecentWorkspace[]) {
   try {
     await invoke("update_recent_workspaces", { workspaces: workspaces.map((w) => w.path) });
   } catch (error) {
-    console.warn("[RecentWorkspaces] Failed to update native menu:", error);
+    recentWarn("Failed to update recent workspaces native menu:", error);
   }
 }
 

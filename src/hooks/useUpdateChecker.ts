@@ -30,6 +30,7 @@ import { useUpdateStore, type UpdateStatus } from "@/stores/updateStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUpdateOperationHandler, clearPendingUpdate } from "./useUpdateOperations";
 import { restartWithHotExit } from "@/utils/hotExit/restartWithHotExit";
+import { updateCheckerLog } from "@/utils/debug";
 
 // Time constants in milliseconds
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -101,7 +102,7 @@ export function useUpdateChecker() {
 
       const timer = setTimeout(() => {
         doCheckForUpdates().catch((error) => {
-          console.error("[UpdateChecker] Auto-check failed on startup:", error);
+          updateCheckerLog("Auto-check failed on startup:", error);
         });
       }, STARTUP_CHECK_DELAY_MS);
 
@@ -156,17 +157,17 @@ export function useUpdateChecker() {
         const delay = BASE_RETRY_DELAY_MS * Math.pow(2, retryCount.current);
         retryCount.current += 1;
 
-        console.log(
-          `[UpdateChecker] Retry ${retryCount.current}/${MAX_RETRIES} in ${delay / 1000}s`
+        updateCheckerLog(
+          `Retry ${retryCount.current}/${MAX_RETRIES} in ${delay / 1000}s`
         );
 
         retryTimerRef.current = setTimeout(() => {
           doCheckForUpdates().catch((err) => {
-            console.error("[UpdateChecker] Retry failed:", err);
+            updateCheckerLog("Retry failed:", err);
           });
         }, delay);
       } else {
-        console.log("[UpdateChecker] Max retries reached, giving up");
+        updateCheckerLog("Max retries reached, giving up");
       }
     }
 
@@ -205,7 +206,7 @@ export function useUpdateChecker() {
     ) {
       hasAutoDownloaded.current = true;
       doDownloadAndInstall().catch((error) => {
-        console.error("[UpdateChecker] Auto-download failed:", error);
+        updateCheckerLog("Auto-download failed:", error);
       });
     }
   }, [status, autoDownload, updateInfo, skipVersion, doDownloadAndInstall]);
@@ -222,7 +223,7 @@ export function useUpdateChecker() {
     const unlistenPromise = listen(EVENTS.REQUEST_CHECK, () => {
       isManualCheck.current = true;
       doCheckForUpdates().catch((error) => {
-        console.error("[UpdateChecker] Check request failed:", error);
+        updateCheckerLog("Check request failed:", error);
       });
     });
 
@@ -237,7 +238,7 @@ export function useUpdateChecker() {
   useEffect(() => {
     const unlistenPromise = listen(EVENTS.REQUEST_DOWNLOAD, () => {
       doDownloadAndInstall().catch((error) => {
-        console.error("[UpdateChecker] Download request failed:", error);
+        updateCheckerLog("Download request failed:", error);
       });
     });
 
@@ -262,7 +263,7 @@ export function useUpdateChecker() {
         downloadProgress: currentState.downloadProgress,
         error: currentState.error,
       }).catch((error) => {
-        console.error("[UpdateChecker] Failed to emit state:", error);
+        updateCheckerLog("Failed to emit state:", error);
       });
     });
 
@@ -305,10 +306,10 @@ export function useUpdateChecker() {
             await emit("update:restart-cancelled");
           }
         } catch (error) {
-          console.error("[UpdateChecker] Restart request failed:", error);
+          updateCheckerLog("Restart request failed:", error);
           // Emit cancel event on error so UI can reset
           emit("update:restart-cancelled").catch((e) => {
-            console.error("[UpdateChecker] Failed to emit restart-cancelled:", e);
+            updateCheckerLog("Failed to emit restart-cancelled:", e);
           });
         }
       })();

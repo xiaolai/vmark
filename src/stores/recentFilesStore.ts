@@ -18,6 +18,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { getFileName } from "@/utils/pathUtils";
+import { recentWarn } from "@/utils/debug";
 
 export interface RecentFile {
   path: string;
@@ -39,7 +40,7 @@ async function updateNativeMenu(files: RecentFile[]) {
   try {
     await invoke("update_recent_files", { files: files.map((f) => f.path) });
   } catch (error) {
-    console.warn("[RecentFiles] Failed to update native menu:", error);
+    recentWarn("Failed to update recent files native menu:", error);
   }
 }
 
