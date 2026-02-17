@@ -1,8 +1,8 @@
 /**
  * Table Actions for WYSIWYG Mode
  *
- * Purpose: Provides row/column manipulation commands (add, delete, move, alignment)
- * for ProseMirror tables. These are called from the table context menu and toolbar.
+ * Purpose: Provides row/column manipulation commands (add, delete, move, alignment,
+ * fit-to-width) for ProseMirror tables. Called from the table context menu and toolbar.
  *
  * Key decisions:
  *   - Uses @tiptap/pm/tables for core add/delete but adds custom move and alignment
@@ -17,6 +17,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import type { Node, ResolvedPos } from "@tiptap/pm/model";
 import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow } from "@tiptap/pm/tables";
 import type { Selection } from "@tiptap/pm/state";
+import { isWrapperFitToWidth, toggleWrapperFitToWidth } from "@/plugins/tableScroll/fitToWidth";
 
 type SelectionConstructor = {
   near: (pos: ResolvedPos, bias?: number) => Selection;
@@ -291,4 +292,33 @@ export function formatTable(view: EditorView): boolean {
     console.error("[tableActions.tiptap] Format table failed:", error);
     return false;
   }
+}
+
+/**
+ * Find the .table-scroll-wrapper DOM element for the table at the cursor.
+ * Returns null if cursor is not in a table.
+ */
+export function getTableScrollWrapper(view: EditorView): HTMLElement | null {
+  const info = getTableInfo(view);
+  if (!info) return null;
+  const domNode = view.nodeDOM(info.tablePos);
+  if (domNode instanceof HTMLElement && domNode.classList.contains("table-scroll-wrapper")) {
+    return domNode;
+  }
+  return null;
+}
+
+/** Check if the current table is in per-table fit-to-width mode. */
+export function isCurrentTableFitToWidth(view: EditorView): boolean {
+  const wrapper = getTableScrollWrapper(view);
+  return wrapper ? isWrapperFitToWidth(wrapper) : false;
+}
+
+/** Toggle per-table fit-to-width mode on the current table. */
+export function toggleFitToWidth(view: EditorView): boolean {
+  const wrapper = getTableScrollWrapper(view);
+  if (!wrapper) return false;
+  toggleWrapperFitToWidth(wrapper);
+  view.focus();
+  return true;
 }
