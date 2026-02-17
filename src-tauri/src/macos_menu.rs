@@ -199,6 +199,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("Horizontal Line", "minus"),
     ("Footnote", "note.text"),
     ("Collapsible Block", "chevron.down.square"),
+    ("Mindmap", "brain"),
     // Table
     ("Add Row Above", "arrow.up.to.line"),
     ("Add Row Below", "arrow.down.to.line"),
