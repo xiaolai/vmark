@@ -7,7 +7,7 @@
 /* All matches - underline style */
 .search-match {
   text-decoration: underline;
-  text-decoration-color: rgba(255, 180, 0, 0.8);
+  text-decoration-color: var(--search-match-color);
   text-decoration-thickness: 2px;
   text-underline-offset: 2px;
 }
@@ -15,16 +15,7 @@
 /* Current match - stronger underline */
 .search-match-active {
   text-decoration: underline;
-  text-decoration-color: var(--accent-primary, #007aff);
+  text-decoration-color: var(--search-match-active-color);
   text-decoration-thickness: 2px;
   text-underline-offset: 2px;
-}
-
-/* Dark mode adjustments */
-.dark-theme .search-match {
-  text-decoration-color: rgba(255, 200, 0, 0.7);
-}
-
-.dark-theme .search-match-active {
-  text-decoration-color: var(--primary-color, #58a6ff);
 }

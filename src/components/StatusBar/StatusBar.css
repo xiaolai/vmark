@@ -129,7 +129,7 @@
 }
 
 .dark-theme .status-divergent {
-  border-color: rgba(0, 136, 255, 0.25);
+  border-color: var(--divergent-border-dark);
 }
 
 /* ========================================
@@ -260,7 +260,7 @@
 }
 
 .dark-theme .tab-pill.tab-divergent {
-  border-color: rgba(0, 136, 255, 0.25);
+  border-color: var(--divergent-border-dark);
 }
 
 /* Tab being dragged out of the bar */

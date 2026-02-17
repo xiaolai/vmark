@@ -171,8 +171,12 @@
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--popup-shadow);
   z-index: 103;
+}
+
+.dark-theme .universal-toolbar-dropdown {
+  box-shadow: var(--popup-shadow-dark);
 }
 
 .universal-toolbar-dropdown-item {

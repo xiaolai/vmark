@@ -19,7 +19,8 @@ let currentFontSize: number = 14; // Default fallback
  * Detect if dark mode is active by checking document class
  */
 function isDarkMode(): boolean {
-  return document.documentElement.classList.contains("dark");
+  const cl = document.documentElement.classList;
+  return cl.contains("dark-theme") || cl.contains("dark");
 }
 
 /**

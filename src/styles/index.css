@@ -141,12 +141,23 @@
   --cjk-letter-spacing: 0.05em;        /* Default CJK spacing */
   --editor-width: 50em;                /* Default editor width */
 
+  /* Search match colors */
+  --search-match-color: rgba(255, 180, 0, 0.8);
+  --search-match-active-color: rgba(255, 200, 0, 0.7);
+
   /* Alert tokens for dark mode (centralized) */
   --alert-note-dark: #58a6ff;
   --alert-tip-dark: #3fb950;
   --alert-important-dark: #a371f7;
   --alert-warning-dark: #d29922;
   --alert-caution-dark: #f85149;
+}
+
+/* Dark theme token overrides */
+.dark-theme {
+  --search-match-color: rgba(255, 200, 0, 0.7);
+  --search-match-active-color: rgba(255, 200, 0, 0.5);
+  --divergent-border-dark: rgba(0, 136, 255, 0.25);
 }
 
 html,
