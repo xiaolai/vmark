@@ -111,6 +111,14 @@ export function useViewMenuEvents(): void {
       if (cancelled) { unlistenDiagramPreview(); return; }
       unlistenRefs.current.push(unlistenDiagramPreview);
 
+      const unlistenFitTables = await currentWindow.listen<string>("menu:fit-tables", (event) => {
+        if (event.payload !== windowLabel) return;
+        const current = useSettingsStore.getState().markdown.tableFitToWidth;
+        useSettingsStore.getState().updateMarkdownSetting("tableFitToWidth", !current);
+      });
+      if (cancelled) { unlistenFitTables(); return; }
+      unlistenRefs.current.push(unlistenFitTables);
+
       const unlistenToggleTerminal = await currentWindow.listen<string>("menu:toggle-terminal", (event) => {
         if (event.payload !== windowLabel) return;
         requestToggleTerminal();

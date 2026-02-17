@@ -66,6 +66,7 @@ export function Editor() {
   const mediaAlignment = useSettingsStore((s) => s.markdown.mediaAlignment);
   const headingAlignment = useSettingsStore((s) => s.markdown.headingAlignment);
   const htmlRenderingMode = useSettingsStore((s) => s.markdown.htmlRenderingMode);
+  const tableFitToWidth = useSettingsStore((s) => s.markdown.tableFitToWidth);
   const keepAlive = useSettingsStore((s) => s.advanced.keepBothEditorsAlive);
 
   // Mount unified menu dispatcher (handles routing based on mode)
@@ -74,7 +75,7 @@ export function Editor() {
   // Include tabId in key to ensure editor remounts when switching tabs
   // documentId handles content reloads within the same tab
   const editorKey = `${tabId}-doc-${documentId}`;
-  const containerClass = `editor-container media-border-${mediaBorderStyle} media-align-${mediaAlignment} heading-align-${headingAlignment}`;
+  const containerClass = `editor-container media-border-${mediaBorderStyle} media-align-${mediaAlignment} heading-align-${headingAlignment}${tableFitToWidth ? " table-fit-to-width" : ""}`;
 
   return (
     <div

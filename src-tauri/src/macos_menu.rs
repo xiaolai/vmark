@@ -230,6 +230,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("Toggle Word Wrap", "arrow.right.to.line"),
     ("Toggle Line Numbers", "number"),
     ("Toggle Diagram Preview", "eye.square"),
+    ("Fit Tables to Width", "arrow.left.and.right.righttriangle.left.righttriangle.right"),
     ("Toggle Outline", "list.bullet.indent"),
     ("Toggle File Explorer", "folder"),
     ("Toggle History", "clock.arrow.circlepath"),

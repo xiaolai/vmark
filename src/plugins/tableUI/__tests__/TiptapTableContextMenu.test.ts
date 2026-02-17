@@ -22,6 +22,8 @@ vi.mock("../tableActions.tiptap", () => ({
   deleteCurrentTable: vi.fn(),
   alignColumn: vi.fn(),
   formatTable: vi.fn(),
+  isCurrentTableFitToWidth: vi.fn(() => false),
+  toggleFitToWidth: vi.fn(),
 }));
 
 // Mock icons
@@ -41,12 +43,19 @@ vi.mock("@/utils/icons", () => ({
     alignAllCenter: "<svg>alignAllCenter</svg>",
     alignAllRight: "<svg>alignAllRight</svg>",
     formatTable: "<svg>formatTable</svg>",
+    fitToWidth: "<svg>fitToWidth</svg>",
   },
 }));
 
 vi.mock("@/plugins/sourcePopup", () => ({
   getPopupHostForDom: (dom: HTMLElement) => dom.closest(".editor-container"),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/stores/settingsStore", () => ({
+  useSettingsStore: {
+    getState: () => ({ markdown: { tableFitToWidth: false } }),
+  },
 }));
 
 // Import after mocking
@@ -61,6 +70,7 @@ import {
   deleteCurrentTable,
   alignColumn,
   formatTable,
+  toggleFitToWidth,
 } from "../tableActions.tiptap";
 
 // Helper functions
@@ -184,9 +194,9 @@ describe("TiptapTableContextMenu", () => {
       await new Promise((r) => requestAnimationFrame(r));
     });
 
-    it("renders all 14 menu items", () => {
+    it("renders all 15 menu items (including Fit to Width)", () => {
       const items = document.querySelectorAll(".table-context-menu-item");
-      expect(items.length).toBe(14);
+      expect(items.length).toBe(15);
     });
 
     it("renders dividers between sections", () => {
@@ -290,6 +300,13 @@ describe("TiptapTableContextMenu", () => {
       (items[13] as HTMLElement).click();
 
       expect(formatTable).toHaveBeenCalledWith(view);
+    });
+
+    it("Fit to Width action calls toggleFitToWidth", () => {
+      const items = document.querySelectorAll(".table-context-menu-item");
+      (items[14] as HTMLElement).click();
+
+      expect(toggleFitToWidth).toHaveBeenCalledWith(view);
     });
 
     it("hides menu after action", () => {

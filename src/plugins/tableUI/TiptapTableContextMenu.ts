@@ -2,7 +2,8 @@
  * Tiptap Table Context Menu
  *
  * Purpose: Imperative DOM-based right-click context menu for tables in WYSIWYG mode.
- * Provides row/column add/delete, alignment, format table, and delete table actions.
+ * Provides row/column add/delete, alignment, format table, per-table fit-to-width,
+ * and delete table actions.
  *
  * Key decisions:
  *   - Imperative DOM rather than React to avoid re-render overhead on every table click
@@ -14,9 +15,10 @@
  * @module plugins/tableUI/TiptapTableContextMenu
  */
 import type { EditorView } from "@tiptap/pm/view";
-import { alignColumn, type TableAlignment, addColLeft, addColRight, addRowAbove, addRowBelow, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable } from "./tableActions.tiptap";
+import { alignColumn, type TableAlignment, addColLeft, addColRight, addRowAbove, addRowBelow, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable, isCurrentTableFitToWidth, toggleFitToWidth } from "./tableActions.tiptap";
 import { icons } from "@/utils/icons";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 interface MenuAction {
   label: string;
@@ -73,6 +75,17 @@ export class TiptapTableContextMenu {
       { label: "Align All Right", icon: icons.alignAllRight, action: alignAll("right"), dividerAfter: true },
       { label: "Format Table", icon: icons.formatTable, action: () => formatTable(this.editorView) },
     ];
+
+    // Per-table fit-to-width toggle — hidden when global toggle is ON
+    const globalFit = useSettingsStore.getState().markdown.tableFitToWidth;
+    if (!globalFit) {
+      const isFit = isCurrentTableFitToWidth(this.editorView);
+      actions.push({
+        label: isFit ? "Natural Width" : "Fit to Width",
+        icon: icons.fitToWidth,
+        action: () => toggleFitToWidth(this.editorView),
+      });
+    }
 
     for (const item of actions) {
       const menuItem = document.createElement("button");

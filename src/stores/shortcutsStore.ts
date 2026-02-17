@@ -160,6 +160,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide line numbers in code blocks" },
   { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "toggle-terminal", scope: "global" },
   { id: "diagramPreview", label: "Toggle Diagram Preview", category: "view", defaultKey: "Alt-Mod-p", menuId: "diagram-preview", description: "Show/hide diagram preview" },
+  { id: "fitTables", label: "Fit Tables to Width", category: "view", defaultKey: "", menuId: "fit-tables", description: "Force tables to fit editor width with word wrapping" },
   { id: "toggleHiddenFiles", label: "Toggle Hidden Files", category: "view", defaultKey: "Mod-Shift-.", defaultKeyOther: "Ctrl-h", description: "Show or hide hidden files in the file explorer" },
   { id: "zoomActual", label: "Actual Size", category: "view", defaultKey: "Mod-0", menuId: "zoom-actual", scope: "global", description: "Reset font size to default" },
   { id: "zoomIn", label: "Zoom In", category: "view", defaultKey: "Mod-=", menuId: "zoom-in", scope: "global", description: "Increase font size" },

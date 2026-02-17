@@ -250,6 +250,7 @@ export interface MarkdownSettings {
   autoPairRightDoubleQuote: boolean; // Typing " also inserts "" pair (IME compat)
   copyFormat: CopyFormat; // What to put in text/plain on copy (default = plain text, markdown = markdown syntax)
   copyOnSelect: boolean; // Auto-copy selected text to clipboard
+  tableFitToWidth: boolean; // Force tables to fit editor width (word-wrap cells)
 }
 
 // Image auto-resize options (0 = off, positive = max dimension in pixels)
@@ -420,6 +421,7 @@ const initialState: SettingsState = {
     autoPairRightDoubleQuote: false,
     copyFormat: "default",
     copyOnSelect: false,
+    tableFitToWidth: false,
   },
   image: {
     autoResizeMax: 0, // Off by default

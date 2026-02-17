@@ -475,13 +475,11 @@
 }
 
 /* Table scroll container - enables horizontal scrolling for wide tables.
-   Negative margins break out of ProseMirror padding so tables span full width.
-   Horizontal scrollbar appears when table is wider than container. */
+   Stays within ProseMirror content area (respects --editor-width). */
 .tiptap-editor .table-scroll-wrapper {
   overflow-x: auto;
   overscroll-behavior-x: contain; /* Prevent scroll chaining to parent */
-  margin: 0 calc(-1 * var(--editor-content-padding)) var(--editor-block-spacing, 1em) calc(-1 * var(--editor-content-padding));
-  padding: 0 var(--editor-content-padding); /* Restore visual alignment for table content */
+  margin: 0 0 var(--editor-block-spacing, 1em) 0;
 }
 
 .tiptap-editor .table-scroll-wrapper table {
@@ -489,10 +487,42 @@
   margin: 0;
 }
 
-/* Center alignment for tables (when setting enabled) */
-.media-align-center .tiptap-editor .table-scroll-wrapper {
-  display: flex;
-  justify-content: center;
+/* Fit-to-width: constrain tables to content width with word wrapping */
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper table {
+  width: 100%;
+  table-layout: fixed;
+}
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper td,
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper th {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper td img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Per-table fit-to-width: same properties applied via context menu toggle */
+.tiptap-editor .table-scroll-wrapper.table-fit-to-width table {
+  width: 100%;
+  table-layout: fixed;
+}
+.tiptap-editor .table-scroll-wrapper.table-fit-to-width td,
+.tiptap-editor .table-scroll-wrapper.table-fit-to-width th {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.tiptap-editor .table-scroll-wrapper.table-fit-to-width td img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Center alignment for tables (when setting enabled).
+   Uses auto margins instead of flex centering so wide tables remain
+   left-aligned and fully scrollable — flex centering clips left columns. */
+.media-align-center .tiptap-editor .table-scroll-wrapper table {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Extra breathing room between consecutive visual blocks.
