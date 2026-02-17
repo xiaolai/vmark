@@ -488,6 +488,21 @@
   margin: 0;
 }
 
+/* Fit-to-width: constrain tables to content width with word wrapping */
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper table {
+  width: 100%;
+  table-layout: fixed;
+}
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper td,
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper th {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.table-fit-to-width .tiptap-editor .table-scroll-wrapper td img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Center alignment for tables (when setting enabled) */
 .media-align-center .tiptap-editor .table-scroll-wrapper {
   display: flex;

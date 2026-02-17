@@ -440,6 +440,7 @@ pub fn create_menu(app: &tauri::AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "word-wrap", "Toggle Word Wrap", true, Some("Alt+Z"))?,
             &MenuItem::with_id(app, "line-numbers", "Toggle Line Numbers", true, Some("Alt+CmdOrCtrl+L"))?,
             &MenuItem::with_id(app, "diagram-preview", "Toggle Diagram Preview", true, Some("Alt+CmdOrCtrl+P"))?,
+            &MenuItem::with_id(app, "fit-tables", "Fit Tables to Width", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "outline", "Toggle Outline", true, Some("Ctrl+Shift+1"))?,
             &MenuItem::with_id(app, "file-explorer", "Toggle File Explorer", true, Some("Ctrl+Shift+2"))?,

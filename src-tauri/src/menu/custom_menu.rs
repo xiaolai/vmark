@@ -446,6 +446,7 @@ pub(crate) fn create_menu_with_shortcuts(
             &MenuItem::with_id(app, "word-wrap", "Toggle Word Wrap", true, get_accel("word-wrap", "Alt+Z"))?,
             &MenuItem::with_id(app, "line-numbers", "Toggle Line Numbers", true, get_accel("line-numbers", "Alt+CmdOrCtrl+L"))?,
             &MenuItem::with_id(app, "diagram-preview", "Toggle Diagram Preview", true, get_accel("diagram-preview", "Alt+CmdOrCtrl+P"))?,
+            &MenuItem::with_id(app, "fit-tables", "Fit Tables to Width", true, get_accel("fit-tables", ""))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "outline", "Toggle Outline", true, get_accel("outline", "Ctrl+Shift+1"))?,
             &MenuItem::with_id(app, "file-explorer", "Toggle File Explorer", true, get_accel("file-explorer", "Ctrl+Shift+2"))?,

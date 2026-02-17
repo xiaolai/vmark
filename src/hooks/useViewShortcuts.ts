@@ -26,6 +26,7 @@ import { cleanupBeforeModeSwitch } from "@/utils/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export function useViewShortcuts() {
   useEffect(() => {
@@ -86,6 +87,15 @@ export function useViewShortcuts() {
       if (matchesShortcutEvent(e, lineNumbersKey)) {
         e.preventDefault();
         useEditorStore.getState().toggleLineNumbers();
+        return;
+      }
+
+      // Fit tables to width
+      const fitTablesKey = shortcuts.getShortcut("fitTables");
+      if (fitTablesKey && matchesShortcutEvent(e, fitTablesKey)) {
+        e.preventDefault();
+        const current = useSettingsStore.getState().markdown.tableFitToWidth;
+        useSettingsStore.getState().updateMarkdownSetting("tableFitToWidth", !current);
         return;
       }
 

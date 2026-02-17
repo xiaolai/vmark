@@ -280,6 +280,10 @@ ${contentCSS}
   @page { margin: 1.5cm; }
   body { background: white; }
   .export-surface { max-width: none; padding: 0; }
+  .export-surface-editor .table-scroll-wrapper { overflow-x: visible; }
+  .export-surface-editor .table-scroll-wrapper table { width: 100% !important; table-layout: fixed; }
+  .export-surface-editor td, .export-surface-editor th { overflow-wrap: break-word; word-break: break-word; }
+  .export-surface-editor td img { max-width: 100%; height: auto; }
 }
   </style>
 </head>
