@@ -15,13 +15,13 @@
   user-select: none;
 }
 
-/* Horizontal layout: tab bar at the bottom of the right-side panel */
+/* Horizontal layout: tab bar at the bottom of the right-side panel.
+   Height matches the editor status bar (40px) for visual alignment. */
 .terminal-tab-bar--horizontal {
   flex-direction: row;
   width: 100%;
-  height: var(--tab-bar-width);
-  padding: 0 var(--spacing-1);
-  border-top: 1px solid var(--border-color);
+  height: 40px;
+  padding: 0 var(--spacing-2);
 }
 
 .terminal-tab-bar-tabs {

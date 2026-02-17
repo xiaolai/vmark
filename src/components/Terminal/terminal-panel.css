@@ -79,6 +79,11 @@
   padding: var(--spacing-1) 0 0 2em;
 }
 
+/* Tighter horizontal padding when terminal is on the right */
+.terminal-panel--right .terminal-container {
+  padding: var(--spacing-1) 1em 0 1em;
+}
+
 /* xterm.js v6 uses a custom DOM scrollbar (.xterm-scrollable-element > .scrollbar).
    The old ::-webkit-scrollbar rules on .xterm-viewport no longer apply. */
 .terminal-container .xterm .xterm-scrollable-element > .scrollbar > .slider {
