@@ -115,7 +115,7 @@ fn handle_event(app: &AppHandle, watch_id: &str, root_path: &str, event: Event) 
     let now = Instant::now();
 
     // Collect paths, filtering ignored dirs and those within the debounce window
-    let mut guard = LAST_EMITTED.lock().unwrap();
+    let mut guard = LAST_EMITTED.lock().unwrap_or_else(|p| p.into_inner());
     let map = guard.get_or_insert_with(HashMap::new);
 
     let paths: Vec<String> = event

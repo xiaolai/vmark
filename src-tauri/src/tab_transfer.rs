@@ -40,7 +40,7 @@ pub struct TabTransferData {
 static TRANSFER_REGISTRY: Mutex<Option<HashMap<String, TabTransferData>>> = Mutex::new(None);
 
 fn registry() -> std::sync::MutexGuard<'static, Option<HashMap<String, TabTransferData>>> {
-    TRANSFER_REGISTRY.lock().unwrap()
+    TRANSFER_REGISTRY.lock().unwrap_or_else(|p| p.into_inner())
 }
 
 /// Create a new window and store transfer data for it.

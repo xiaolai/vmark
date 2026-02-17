@@ -60,7 +60,7 @@ static FRONTEND_READY: AtomicBool = AtomicBool::new(false);
 #[tauri::command]
 fn get_pending_file_opens() -> Vec<PendingFileOpen> {
     FRONTEND_READY.store(true, Ordering::SeqCst);
-    let mut pending = PENDING_FILE_OPENS.lock().unwrap();
+    let mut pending = PENDING_FILE_OPENS.lock().unwrap_or_else(|p| p.into_inner());
     pending.drain(..).collect()
 }
 
