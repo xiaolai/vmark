@@ -13,6 +13,7 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useGeniesStore } from "@/stores/geniesStore";
@@ -99,9 +100,7 @@ export function useGenieShortcuts() {
       }
     );
 
-    return () => {
-      unlisten.then((fn) => fn()).catch(() => {});
-    };
+    return () => safeUnlistenAsync(unlisten);
   }, [invokeGenie]);
 
   // "Search Genies…" menu item opens the picker (same as Cmd+Y)
@@ -109,9 +108,7 @@ export function useGenieShortcuts() {
     const unlisten = listen("menu:search-genies", () => {
       useGeniePickerStore.getState().openPicker({ filterScope: detectScope() });
     });
-    return () => {
-      unlisten.then((fn) => fn()).catch(() => {});
-    };
+    return () => safeUnlistenAsync(unlisten);
   }, []);
 
   // "Reload Genies" menu item re-scans the genies folder
@@ -121,8 +118,6 @@ export function useGenieShortcuts() {
         console.error("[useGenieShortcuts] Failed to reload genies:", e)
       );
     });
-    return () => {
-      unlisten.then((fn) => fn()).catch(() => {});
-    };
+    return () => safeUnlistenAsync(unlisten);
   }, []);
 }

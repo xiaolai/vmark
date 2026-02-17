@@ -38,7 +38,8 @@ import { cleanPastedMarkdown } from "@/utils/cleanPastedMarkdown";
 /**
  * Check if a CodeMirror view is still connected and valid.
  */
-function isViewConnected(view: EditorView): boolean {
+function isViewConnected(view: EditorView | null | undefined): boolean {
+  if (!view) return false;
   try {
     return view.dom?.isConnected ?? false;
   } catch {

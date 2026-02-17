@@ -76,7 +76,7 @@ function applySuggestionToTr(
   tr: Transaction,
   suggestion: AiSuggestion,
 ): Transaction {
-  const docSize = state.doc.content.size;
+  const docSize = tr.doc.content.size;
 
   // Whole-document replace (from=0): clamp `to` to current doc size.
   // The doc may have changed since the suggestion was created, but the

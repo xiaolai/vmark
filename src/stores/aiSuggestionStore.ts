@@ -295,6 +295,17 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
 let _tabWatcherInitialized = false;
 let _prevActiveTabIds: Record<string, string | null> = {};
 
+/**
+ * Reset module-level singletons and store state.
+ * For use in tests only — ensures a clean slate between test runs.
+ */
+export function resetAiSuggestionStore(): void {
+  suggestionCounter = 0;
+  _tabWatcherInitialized = false;
+  _prevActiveTabIds = {};
+  useAiSuggestionStore.setState({ suggestions: new Map(), focusedSuggestionId: null });
+}
+
 /** Start watching for tab changes. Call once at app startup. */
 export function initSuggestionTabWatcher(
   tabStoreSubscribe: (cb: (state: { activeTabId: Record<string, string | null> }) => void) => () => void
