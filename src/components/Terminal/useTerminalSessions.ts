@@ -12,7 +12,9 @@
  *   - After a shell exits, pressing any key respawns it — no manual restart needed.
  *     The "dead session" state is visually indicated in the tab bar.
  *   - IME composition guard: data from onData during compositionstart..compositionend
- *     is dropped to prevent garbled preedit text from being sent to the PTY.
+ *     (plus 80ms grace period) is dropped to prevent garbled preedit text from
+ *     being sent to the PTY. Clean committed text is written directly via
+ *     onCompositionCommit, bypassing xterm's space-injected onData.
  *   - Theme, font size, and workspace root changes are synced across all sessions
  *     via settingsStore/workspaceStore subscriptions. Workspace root change
  *     auto-cd's running sessions (Ctrl+U to clear partial input first).
@@ -232,11 +234,22 @@ export function useTerminalSessions(
       };
       sessionsRef.current.set(sessionId, entry);
 
+      // IME composition commit: write clean committed text directly to PTY,
+      // bypassing xterm's onData which may inject spaces (macOS Chinese IME).
+      instance.onCompositionCommit = (text: string) => {
+        const e = sessionsRef.current.get(sessionId);
+        if (!e) return;
+        if (e.pty) {
+          e.pty.write(text);
+        }
+      };
+
       // xterm → PTY (or restart on key press after exit)
       instance.term.onData((data) => {
         const e = sessionsRef.current.get(sessionId);
         if (!e) return;
         // Ignore preedit data leaked by xterm during IME composition (issue #59)
+        // Also blocks during post-composition grace period to prevent garbled text
         if (instance.composing) return;
         if (e.shellExited && !e.pty) {
           e.shellExited = false;

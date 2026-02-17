@@ -11,7 +11,10 @@
  *     when switching sessions.
  *   - IME composition tracking via compositionstart/end on the hidden
  *     textarea — used to suppress copy-on-select and data forwarding
- *     during CJK input to avoid garbled text.
+ *     during CJK input to avoid garbled text. Includes an 80ms grace
+ *     period after compositionend to block xterm's space-injected onData,
+ *     and fires onCompositionCommit with clean committed text for direct
+ *     PTY write (fixes macOS Chinese IME: "claude" → "cl au de").
  *   - WebGL renderer is optional (settings-driven); falls back silently
  *     to canvas on GPU-incompatible systems.
  *   - File link provider detects file paths in output and opens them as
@@ -79,8 +82,14 @@ export interface TerminalInstance {
   searchAddon: SearchAddon;
   serializeAddon: SerializeAddon;
   container: HTMLDivElement;
-  /** Whether an IME composition is active (guards onData in useTerminalSessions + copy-on-select here). */
+  /** Whether an IME composition is active or in grace period (guards onData in useTerminalSessions + copy-on-select here). */
   composing: boolean;
+  /**
+   * Callback invoked with the clean committed text after IME composition ends.
+   * Set by useTerminalSessions to write directly to PTY, bypassing xterm's
+   * onData which may inject spaces (macOS Chinese IME: "claude" → "cl au de").
+   */
+  onCompositionCommit: ((text: string) => void) | null;
   dispose: () => void;
 }
 
@@ -137,16 +146,35 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   // Open terminal
   term.open(container);
 
-  // IME composition tracking (diagnostic + safety net)
+  // IME composition tracking with grace period.
+  // macOS Chinese IME: xterm fires onData with spaces injected between syllable
+  // segments (e.g., "claude" → "cl au de"). We capture the clean committed text
+  // from compositionend.data and write it directly to PTY via onCompositionCommit,
+  // keeping composing=true during a grace period to block xterm's garbled onData.
   let composing = false;
+  let compositionGraceTimer: ReturnType<typeof setTimeout> | null = null;
+  let onCompositionCommit: ((text: string) => void) | null = null;
   const textarea = container.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
   const onCompositionStart = () => {
     composing = true;
+    if (compositionGraceTimer) {
+      clearTimeout(compositionGraceTimer);
+      compositionGraceTimer = null;
+    }
     terminalLog("compositionstart");
   };
-  const onCompositionEnd = () => {
-    composing = false;
-    terminalLog("compositionend");
+  const onCompositionEnd = (e: CompositionEvent) => {
+    const committedText = e.data;
+    terminalLog("compositionend", committedText);
+    // Keep composing=true during grace period to block xterm's onData
+    compositionGraceTimer = setTimeout(() => {
+      compositionGraceTimer = null;
+      composing = false;
+      // Send clean committed text directly to PTY
+      if (committedText && onCompositionCommit) {
+        onCompositionCommit(committedText);
+      }
+    }, 80);
   };
   if (textarea) {
     textarea.addEventListener("compositionstart", onCompositionStart);
@@ -207,6 +235,10 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   });
 
   const dispose = () => {
+    if (compositionGraceTimer) {
+      clearTimeout(compositionGraceTimer);
+      compositionGraceTimer = null;
+    }
     if (textarea) {
       textarea.removeEventListener("compositionstart", onCompositionStart);
       textarea.removeEventListener("compositionend", onCompositionEnd);
@@ -220,6 +252,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   const instance: TerminalInstance = {
     term, fitAddon, searchAddon, serializeAddon, container, dispose,
     get composing() { return composing; },
+    get onCompositionCommit() { return onCompositionCommit; },
+    set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
   };
 
   return instance;
