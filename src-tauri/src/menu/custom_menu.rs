@@ -46,7 +46,7 @@ pub(crate) fn create_menu_with_shortcuts(
             &PredefinedMenuItem::hide_others(app, Some("Hide Others"))?,
             &PredefinedMenuItem::show_all(app, Some("Show All"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "save-all-quit", "Save All and Quit", true, get_accel("saveAllQuit", "Alt+Shift+CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(app, "save-all-quit", "Save All and Quit", true, get_accel("save-all-quit", "Alt+Shift+CmdOrCtrl+Q"))?,
             &MenuItem::with_id(app, "quit", "Quit VMark", true, get_accel("quit", "CmdOrCtrl+Q"))?,
         ],
     )?;
