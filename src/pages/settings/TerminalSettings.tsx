@@ -13,6 +13,17 @@ const positionOptions = [
   { value: "right", label: "Right" },
 ];
 
+const panelSizeOptions = [
+  { value: "0.2", label: "20%" },
+  { value: "0.25", label: "25%" },
+  { value: "0.3", label: "30%" },
+  { value: "0.35", label: "35%" },
+  { value: "0.4", label: "40%" },
+  { value: "0.45", label: "45%" },
+  { value: "0.5", label: "50%" },
+  { value: "0.6", label: "60%" },
+];
+
 const fontSizeOptions = [
   { value: "10", label: "10px" },
   { value: "11", label: "11px" },
@@ -34,6 +45,21 @@ const lineHeightOptions = [
   { value: "2.0", label: "2.0 (Extra)" },
 ];
 
+/** Snap a ratio to the nearest dropdown option value. */
+function snapToOption(ratio: number): string {
+  const values = panelSizeOptions.map((o) => Number(o.value));
+  let closest = values[0];
+  let minDiff = Math.abs(ratio - closest);
+  for (const v of values) {
+    const diff = Math.abs(ratio - v);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = v;
+    }
+  }
+  return String(closest);
+}
+
 export function TerminalSettings() {
   const terminal = useSettingsStore((state) => state.terminal);
   const updateTerminalSetting = useSettingsStore((state) => state.updateTerminalSetting);
@@ -46,6 +72,14 @@ export function TerminalSettings() {
             value={terminal.position}
             options={positionOptions}
             onChange={(v) => updateTerminalSetting("position", v as TerminalPosition)}
+          />
+        </SettingRow>
+
+        <SettingRow label="Panel Size" description="Proportion of available space. Drag-resizing the panel also updates this value.">
+          <Select
+            value={snapToOption(terminal.panelRatio)}
+            options={panelSizeOptions}
+            onChange={(v) => updateTerminalSetting("panelRatio", Number(v))}
           />
         </SettingRow>
 
