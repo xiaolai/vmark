@@ -1,16 +1,21 @@
 /**
  * useTerminalPosition
  *
- * Purpose: Auto-reposition the terminal panel based on window aspect ratio.
+ * Purpose: Auto-reposition the terminal panel based on window aspect ratio
+ * and compute pixel dimensions from the persisted panelRatio.
+ *
  * Landscape windows (ratio >= 1.5) place the terminal on the right;
  * portrait windows (ratio <= 0.85) keep it at the bottom. In the ambiguous
  * zone a width threshold with 50px hysteresis prevents oscillation.
  *
+ * Pixel dimensions are derived from `settingsStore.terminal.panelRatio`
+ * multiplied by the available container dimension, clamped to min/max.
+ *
  * Exports a pure `computeTerminalPosition()` for testing and a React hook
  * `useTerminalPosition()` that wires it to window resize events and settings.
  *
- * @coordinates-with settingsStore — reads terminal.position preference
- * @coordinates-with uiStore — writes effectiveTerminalPosition
+ * @coordinates-with settingsStore — reads terminal.position and terminal.panelRatio
+ * @coordinates-with uiStore — writes effectiveTerminalPosition, terminalHeight, terminalWidth
  * @module components/Terminal/useTerminalPosition
  */
 
@@ -21,6 +26,16 @@ import { useUIStore, type EffectiveTerminalPosition } from "@/stores/uiStore";
 // Width threshold for the ambiguous aspect-ratio zone
 const WIDTH_THRESHOLD = 1440;
 const HYSTERESIS_PX = 50;
+
+// Layout constants matching App.tsx
+const TITLEBAR_HEIGHT = 40;
+const STATUSBAR_HEIGHT = 40;
+
+// Pixel clamps
+const MIN_HEIGHT = 100;
+const MAX_HEIGHT = 600;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 800;
 
 /**
  * Pure function: decide terminal position from window dimensions.
@@ -50,41 +65,86 @@ export function computeTerminalPosition(
 }
 
 /**
- * React hook: watches window resize + settings, updates uiStore.effectiveTerminalPosition.
+ * Compute pixel dimension from ratio, clamped to min/max.
+ */
+function ratioToPixels(
+  ratio: number,
+  availableDimension: number,
+  min: number,
+  max: number
+): number {
+  return Math.round(Math.min(max, Math.max(min, availableDimension * ratio)));
+}
+
+/**
+ * Compute ratio from pixel dimension.
+ */
+export function pixelsToRatio(pixels: number, availableDimension: number): number {
+  if (availableDimension <= 0) return 0.4;
+  // Clamp ratio to 0.1–0.8
+  return Math.min(0.8, Math.max(0.1, pixels / availableDimension));
+}
+
+/**
+ * Get the available dimension for the terminal based on position.
+ * - Bottom: window height minus titlebar and statusbar
+ * - Right: window width minus sidebar (if visible)
+ */
+export function getAvailableDimension(pos: EffectiveTerminalPosition): number {
+  if (pos === "right") {
+    const ui = useUIStore.getState();
+    const sidebarWidth = ui.sidebarVisible ? ui.sidebarWidth : 0;
+    return window.innerWidth - sidebarWidth;
+  }
+  return window.innerHeight - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT;
+}
+
+/**
+ * React hook: watches window resize + settings, updates uiStore with
+ * effectiveTerminalPosition and computed pixel dimensions.
  */
 export function useTerminalPosition() {
   const position = useSettingsStore((s) => s.terminal.position);
+  const panelRatio = useSettingsStore((s) => s.terminal.panelRatio);
   const currentRef = useRef<EffectiveTerminalPosition>(
     useUIStore.getState().effectiveTerminalPosition
   );
 
   useEffect(() => {
-    const setPos = useUIStore.getState().setEffectiveTerminalPosition;
+    const updateAll = () => {
+      // 1. Resolve effective position
+      let pos: EffectiveTerminalPosition;
+      if (position === "bottom" || position === "right") {
+        pos = position;
+      } else {
+        pos = computeTerminalPosition(
+          window.innerWidth,
+          window.innerHeight,
+          currentRef.current
+        );
+      }
 
-    // Manual override — set directly, no resize listener needed
-    if (position === "bottom" || position === "right") {
-      currentRef.current = position;
-      setPos(position);
-      return;
-    }
+      // 2. Compute pixel dimensions from ratio
+      const available = getAvailableDimension(pos);
+      const height = ratioToPixels(panelRatio, available, MIN_HEIGHT, MAX_HEIGHT);
+      const width = ratioToPixels(panelRatio, available, MIN_WIDTH, MAX_WIDTH);
 
-    // Auto mode — compute from window dimensions
-    const update = () => {
-      const next = computeTerminalPosition(
-        window.innerWidth,
-        window.innerHeight,
-        currentRef.current
-      );
-      if (next !== currentRef.current) {
-        currentRef.current = next;
-        setPos(next);
+      // 3. Batch update uiStore
+      const store = useUIStore.getState();
+      if (pos !== currentRef.current) {
+        currentRef.current = pos;
+        store.setEffectiveTerminalPosition(pos);
+      }
+      if (pos === "right") {
+        store.setTerminalWidth(width);
+      } else {
+        store.setTerminalHeight(height);
       }
     };
 
-    // Initial computation
-    update();
+    updateAll();
 
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [position]);
+    window.addEventListener("resize", updateAll);
+    return () => window.removeEventListener("resize", updateAll);
+  }, [position, panelRatio]);
 }

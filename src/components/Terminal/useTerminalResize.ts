@@ -12,13 +12,19 @@
  *   - Horizontal: dragging left increases width (negative X delta = wider).
  *   - Sets document.body cursor during drag and disables text selection.
  *   - Calls onResize callback on every move to let the parent refit xterm.
+ *   - On drag end, computes the ratio from final pixel / available dimension
+ *     and persists it to settingsStore.
  *
  * @coordinates-with TerminalPanel.tsx — attaches handleResizeStart to the resize handle
- * @coordinates-with uiStore — persists terminalHeight / terminalWidth
+ * @coordinates-with uiStore — updates terminalHeight / terminalWidth during drag
+ * @coordinates-with settingsStore — persists panelRatio on drag end
+ * @coordinates-with useTerminalPosition.ts — pixelsToRatio / getAvailableDimension helpers
  * @module components/Terminal/useTerminalResize
  */
 import { useCallback, useRef, useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { pixelsToRatio, getAvailableDimension } from "./useTerminalPosition";
 
 export type ResizeDirection = "vertical" | "horizontal";
 
@@ -83,6 +89,15 @@ export function useTerminalResize(
       };
 
       const handleMouseUp = () => {
+        // Persist ratio from final pixel size
+        const pos = useUIStore.getState().effectiveTerminalPosition;
+        const pixels = pos === "right"
+          ? useUIStore.getState().terminalWidth
+          : useUIStore.getState().terminalHeight;
+        const available = getAvailableDimension(pos);
+        const ratio = pixelsToRatio(pixels, available);
+        useSettingsStore.getState().updateTerminalSetting("panelRatio", ratio);
+
         cleanup();
       };
 

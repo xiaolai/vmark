@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeTerminalPosition } from "../useTerminalPosition";
+import { computeTerminalPosition, pixelsToRatio } from "../useTerminalPosition";
 import type { EffectiveTerminalPosition } from "@/stores/uiStore";
 
 describe("computeTerminalPosition", () => {
@@ -42,4 +42,26 @@ describe("computeTerminalPosition", () => {
       expect(computeTerminalPosition(w, h, current)).toBe(expected);
     }
   );
+});
+
+describe("pixelsToRatio", () => {
+  it("computes ratio from pixel / available", () => {
+    expect(pixelsToRatio(400, 1000)).toBeCloseTo(0.4);
+    expect(pixelsToRatio(250, 1000)).toBeCloseTo(0.25);
+  });
+
+  it("clamps to 0.1 minimum", () => {
+    expect(pixelsToRatio(10, 1000)).toBe(0.1);
+    expect(pixelsToRatio(0, 1000)).toBe(0.1);
+  });
+
+  it("clamps to 0.8 maximum", () => {
+    expect(pixelsToRatio(900, 1000)).toBe(0.8);
+    expect(pixelsToRatio(1000, 1000)).toBe(0.8);
+  });
+
+  it("returns 0.4 when available dimension is 0", () => {
+    expect(pixelsToRatio(400, 0)).toBe(0.4);
+    expect(pixelsToRatio(400, -100)).toBe(0.4);
+  });
 });

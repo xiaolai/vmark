@@ -13,6 +13,8 @@
  *     to avoid stale focus positions on reopen.
  *   - Sidebar width is clamped to [180, 480]px; terminal height to [100, 600]px;
  *     terminal width (right position) to [200, 800]px.
+ *   - Terminal pixel dimensions are transient — computed from the persisted
+ *     panelRatio in settingsStore by useTerminalPosition on each resize.
  *   - effectiveTerminalPosition tracks the resolved position ("bottom" | "right")
  *     computed by useTerminalPosition from settings + window dimensions.
  *
