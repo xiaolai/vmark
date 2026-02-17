@@ -471,7 +471,7 @@ export class MermaidPreviewView {
         if (currentToken !== this.renderToken) return;
 
         if (svg) {
-          this.preview.innerHTML = svg;
+          this.preview.innerHTML = sanitizeSvg(svg);
           this.error.textContent = "";
           this.applyZoom();
         } else {
