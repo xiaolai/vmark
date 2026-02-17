@@ -59,6 +59,9 @@ const PROVIDER_EMBEDS: Record<VideoProvider, ProviderEmbed> = {
 
 const VALID_PROVIDERS = Object.keys(PROVIDER_EMBEDS);
 
+/** Only allow safe URL schemes for media src attributes. */
+const ALLOWED_SCHEMES = /^(https?|file):\/\//i;
+
 export function registerMediaTools(server: VMarkMcpServer): void {
   // insert_video tool
   server.registerTool(
@@ -97,6 +100,9 @@ export function registerMediaTools(server: VMarkMcpServer): void {
     async (args) => {
       const windowId = resolveWindowId(args.windowId as string | undefined);
       const src = requireStringArg(args, 'src');
+      if (!ALLOWED_SCHEMES.test(src)) {
+        return VMarkMcpServer.errorResult('src must use http, https, or file protocol');
+      }
       const baseRevision = requireStringArg(args, 'baseRevision');
       const title = getStringArg(args, 'title');
       const poster = getStringArg(args, 'poster');
@@ -157,6 +163,9 @@ export function registerMediaTools(server: VMarkMcpServer): void {
     async (args) => {
       const windowId = resolveWindowId(args.windowId as string | undefined);
       const src = requireStringArg(args, 'src');
+      if (!ALLOWED_SCHEMES.test(src)) {
+        return VMarkMcpServer.errorResult('src must use http, https, or file protocol');
+      }
       const baseRevision = requireStringArg(args, 'baseRevision');
       const title = getStringArg(args, 'title');
 
