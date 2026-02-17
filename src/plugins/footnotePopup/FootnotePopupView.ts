@@ -9,6 +9,8 @@
  *   - Popup is positioned relative to the popup host (editor container) using fixed coords
  *   - Input is borderless with caret-only focus indicator (matching popup design system)
  *   - Tab navigation cycles through focusable elements within the popup
+ *   - Save parses textarea content as markdown via parseMarkdown to preserve formatting
+ *     (bold, italic, links, etc.) instead of creating plain text nodes
  *
  * @coordinates-with tiptap.ts — creates and destroys this view based on hover/click events
  * @coordinates-with stores/footnotePopupStore.ts — popup visibility and position state
@@ -22,8 +24,10 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
+import { parseMarkdown } from "@/utils/markdownPipeline";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { handlePopupTabNavigation } from "@/utils/popupComponents";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { scrollToPosition } from "./tiptapDomUtils";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
@@ -275,17 +279,18 @@ export class FootnotePopupView {
         return;
       }
 
-      // Create a text node with the new content
+      // Parse the markdown content into ProseMirror nodes to preserve formatting
       const schema = editorState.schema;
-      const textNode = schema.text(content);
-      const paragraph = schema.nodes.paragraph.create(null, textNode);
+      const parsedDoc = parseMarkdown(schema, content);
+      const nodes: PMNode[] = [];
+      parsedDoc.forEach((child) => nodes.push(child));
 
       // Replace the content of the footnote definition
       // The structure is: footnote_definition > paragraph > text
       const contentStart = definitionPos + 1;
       const contentEnd = definitionPos + node.nodeSize - 1;
 
-      const tr = editorState.tr.replaceWith(contentStart, contentEnd, paragraph);
+      const tr = editorState.tr.replaceWith(contentStart, contentEnd, nodes);
       dispatch(tr);
 
       this.closeAndFocus();
