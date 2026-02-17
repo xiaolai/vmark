@@ -68,6 +68,10 @@ Plugins live in `src/plugins/<name>/` with a consistent layout:
 import "./focus-mode.css";
 ```
 
+**Tiptap-only variant:** Plugins that are purely Tiptap extensions (no separate ProseMirror plugin) may omit `index.ts` and use only `tiptap.ts` as their entry point. This applies to: `aiSuggestion`, `alertBlock`, `autoPair`, `codePaste`, `codePreview`, `detailsBlock`, `focusMode`, `highlight`, `htmlPaste`, `listBackspace`, `listContinuation`.
+
+**Note:** `codemirror/` is a module cluster (40+ files) rather than a single plugin. New Source mode features should consider whether they belong there or in their own top-level plugin directory.
+
 **Rule:** Plugin styles live ONLY in the plugin directory. Never define plugin CSS in global `editor.css`.
 
 ## 4. MCP Bridge Handlers
