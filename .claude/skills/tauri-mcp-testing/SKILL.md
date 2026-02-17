@@ -28,7 +28,7 @@ description: E2E testing expert for Tauri applications using Tauri MCP server. U
 
 1. **MCP Bridge Plugin installed** in the Tauri app
 2. **App running** in development mode (`pnpm tauri dev`)
-3. **Port 9324** accessible (default MCP Bridge port)
+3. **Port 9223** accessible (default MCP Bridge port)
 
 If connection fails, run `tauri_get_setup_instructions` to get plugin installation guide.
 
@@ -55,7 +55,7 @@ tauri_driver_session({ action: 'start' })
 tauri_driver_session({ action: 'start', port: 9224 })
 
 // Connect to remote host (mobile testing)
-tauri_driver_session({ action: 'start', host: '<device-ip>', port: 9324 })
+tauri_driver_session({ action: 'start', host: '<device-ip>', port: 9223 })
 ```
 
 ### Check Status
@@ -72,7 +72,7 @@ tauri_driver_session({ action: 'status' })
 tauri_driver_session({ action: 'stop' })
 
 // Stop specific app
-tauri_driver_session({ action: 'stop', appIdentifier: 9324 })
+tauri_driver_session({ action: 'stop', appIdentifier: 9223 })
 ```
 
 ## Testing Patterns

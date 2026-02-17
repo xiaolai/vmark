@@ -283,12 +283,10 @@ pub fn run() {
         });
 
     // Tauri MCP bridge plugin for automation/screenshots (dev only)
-    // Use port 9324 to avoid conflict with VMark MCP bridge on 9223
     #[cfg(debug_assertions)]
     {
         builder = builder.plugin(
             tauri_plugin_mcp_bridge::Builder::new()
-                .base_port(9324)
                 .build(),
         );
     }

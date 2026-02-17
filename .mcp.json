@@ -2,10 +2,7 @@
   "mcpServers": {
     "tauri": {
       "command": "npx",
-      "args": ["-y", "@hypothesi/tauri-mcp-server"],
-      "env": {
-        "TAURI_MCP_URL": "ws://localhost:9324"
-      }
+      "args": ["-y", "@hypothesi/tauri-mcp-server"]
     },
     "codex": {
       "command": "codex",

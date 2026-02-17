@@ -10,7 +10,7 @@ Run VMark end-to-end UI flows using the Tauri MCP tools and summarize results.
 
 ## Workflow
 1) Confirm the desktop app is running. If not, ask the user to start it.
-2) Start MCP session via `mcp__tauri__tauri_driver_session` (action: `start`, port: `9324`). **VMark uses port 9324** (configured in `src-tauri/src/lib.rs` and `.mcp.json`).
+2) Start MCP session via `mcp__tauri__tauri_driver_session` (action: `start`, port: `9223` or omit for default).
 3) List windows (`mcp__tauri__tauri_manage_window` action: `list`) and pick the target window.
 4) Execute test flows using the patterns in `references/flows.md`.
 5) Capture logs when needed (`mcp__tauri__tauri_read_logs`) and stop the session when done.

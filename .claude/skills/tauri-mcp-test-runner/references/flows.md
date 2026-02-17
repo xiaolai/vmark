@@ -70,5 +70,5 @@ To test format toggles (bold, italic, underline, highlight):
 
 ## Port Configuration
 
-- **VMark uses port 9324** for Tauri MCP (configured in `src-tauri/src/lib.rs` and `.mcp.json`).
-- Start session: `tauri_driver_session(action: "start", port: 9324)`
+- Use the default port 9223 for Tauri MCP.
+- Start session: `tauri_driver_session(action: "start")` or `tauri_driver_session(action: "start", port: 9223)`

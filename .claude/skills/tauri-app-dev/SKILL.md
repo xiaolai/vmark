@@ -376,7 +376,7 @@ pnpm tauri build --bundles nsis                   # Windows NSIS
 // Tauri MCP workflow for E2E tests:
 
 // 1. Start session (connect to running Tauri app)
-tauri_driver_session({ action: 'start', port: 9324 })
+tauri_driver_session({ action: 'start', port: 9223 })
 
 // 2. Take snapshot (get DOM state)
 tauri_webview_screenshot()

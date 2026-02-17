@@ -46,8 +46,7 @@ description: Discover, register, and verify MCP servers. Use when a user asks to
   "mcpServers": {
     "tauri": {
       "command": "npx",
-      "args": ["-y", "@hypothesi/tauri-mcp-server"],
-      "env": { "TAURI_MCP_URL": "ws://localhost:9324" }
+      "args": ["-y", "@hypothesi/tauri-mcp-server"]
     }
   }
 }

@@ -9,7 +9,7 @@ The `tauri_driver_session` tool manages connections to running Tauri application
 ```
 ┌────────────────────┐     WebSocket      ┌────────────────────┐
 │    Claude Code     │ ←───────────────── │    Tauri App       │
-│    (MCP Client)    │     Port 9324      │  (MCP Bridge)      │
+│    (MCP Client)    │     Port 9223      │  (MCP Bridge)      │
 └────────────────────┘                    └────────────────────┘
 ```
 
@@ -20,7 +20,7 @@ The MCP Bridge plugin runs inside the Tauri app and exposes a WebSocket server t
 ### Basic Connection
 
 ```typescript
-// Connect to app on default port (9324)
+// Connect to app on default port (9223)
 tauri_driver_session({ action: 'start' })
 ```
 
@@ -38,7 +38,7 @@ tauri_driver_session({ action: 'start', port: 9224 })
 tauri_driver_session({
   action: 'start',
   host: '<device-ip>',
-  port: 9324
+  port: 9223
 })
 ```
 
@@ -54,7 +54,7 @@ You can connect to multiple Tauri apps simultaneously:
 
 ```typescript
 // Connect to first app
-tauri_driver_session({ action: 'start', port: 9324 })
+tauri_driver_session({ action: 'start', port: 9223 })
 
 // Connect to second app
 tauri_driver_session({ action: 'start', port: 9224 })
@@ -68,7 +68,7 @@ tauri_driver_session({ action: 'start', port: 9224 })
 
 ```typescript
 // Target specific app by port
-tauri_webview_screenshot({ appIdentifier: 9324 })
+tauri_webview_screenshot({ appIdentifier: 9223 })
 
 // Target by bundle ID
 tauri_webview_screenshot({ appIdentifier: 'com.vmark.app' })
@@ -86,7 +86,7 @@ tauri_driver_session({ action: 'status' })
 {
   "connected": true,
   "identifier": "com.vmark.app",
-  "port": 9324
+  "port": 9223
 }
 ```
 
@@ -96,7 +96,7 @@ tauri_driver_session({ action: 'status' })
 {
   "connected": true,
   "apps": [
-    { "identifier": "com.vmark.app", "port": 9324, "isDefault": false },
+    { "identifier": "com.vmark.app", "port": 9223, "isDefault": false },
     { "identifier": "com.other.app", "port": 9224, "isDefault": true }
   ]
 }
@@ -114,7 +114,7 @@ tauri_driver_session({ action: 'stop' })
 
 ```typescript
 // Stop by port
-tauri_driver_session({ action: 'stop', appIdentifier: 9324 })
+tauri_driver_session({ action: 'stop', appIdentifier: 9223 })
 
 // Stop by bundle ID
 tauri_driver_session({ action: 'stop', appIdentifier: 'com.vmark.app' })
@@ -135,7 +135,7 @@ tauri_driver_session({ action: 'stop', appIdentifier: 'com.vmark.app' })
 ### Connection Refused
 
 ```
-Error: Connection refused on port 9324
+Error: Connection refused on port 9223
 ```
 
 **Solutions:**
