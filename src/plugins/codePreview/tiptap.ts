@@ -5,14 +5,14 @@
  * Mermaid diagrams, Markmap mindmaps, SVG) in WYSIWYG mode. Also handles click-to-edit
  * for block math ($$...$$ code blocks).
  *
- * Pipeline: code_block node → detect language → render preview widget decoration
- *         → debounced re-render on content change → click to edit → Cmd+Enter to commit
+ * Pipeline: code_block node -> detect language -> render preview widget decoration
+ *         -> debounced re-render on content change -> click to edit -> Cmd+Enter to commit
  *
  * Key decisions:
  *   - Previews are ProseMirror widget decorations (not node views) to avoid complicating
  *     the document schema
  *   - Preview rendering is debounced (200ms) to avoid re-rendering on every keystroke
- *   - Each preview type has its own renderer (renderLatex, renderMermaid, etc.)
+ *   - Each preview type has its own renderer (in renderers/ directory)
  *   - Block math uses a special "$$math$$" sentinel language to distinguish from regular latex
  *   - Export buttons (copy SVG, download PNG) are injected into diagram previews
  *
@@ -20,10 +20,8 @@
  *   - Module-level `currentEditorView` is used for button callbacks (not ideal for multi-editor)
  *
  * @coordinates-with blockMathKeymap.ts — keyboard shortcuts for math editing
- * @coordinates-with latex/ — KaTeX rendering
- * @coordinates-with mermaid/ — Mermaid diagram rendering
- * @coordinates-with markmap/ — Markmap mindmap rendering
- * @coordinates-with svg/ — SVG block rendering
+ * @coordinates-with previewHelpers.ts — shared element creation and utility functions
+ * @coordinates-with renderers/ — per-language preview renderers
  * @module plugins/codePreview/tiptap
  */
 
@@ -31,18 +29,22 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { renderLatex } from "../latex";
-import { renderMermaid, updateMermaidTheme } from "../mermaid";
-import { setupMermaidPanZoom } from "@/plugins/mermaid/mermaidPanZoom";
-import { setupMermaidExport } from "@/plugins/mermaid/mermaidExport";
-import { renderSvgBlock } from "@/plugins/svg/svgRender";
-import { setupSvgExport } from "@/plugins/svg/svgExport";
-import { renderMarkmapToElement, updateMarkmapTheme } from "@/plugins/markmap";
-import { setupMarkmapExport } from "@/plugins/markmap/markmapExport";
-import { sweepDetached, cleanupDescendants } from "@/plugins/shared/diagramCleanup";
-import { sanitizeKatex, sanitizeSvg } from "@/utils/sanitize";
+import { updateMermaidTheme } from "../mermaid";
+import { updateMarkmapTheme } from "@/plugins/markmap";
+import { sweepDetached } from "@/plugins/shared/diagramCleanup";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
-import { parseLatexError } from "@/plugins/latex/latexErrorParser";
+import {
+  isLatexLanguage,
+  createPreviewElement,
+  createPreviewPlaceholder,
+  createLivePreview,
+  createEditHeader,
+  type PreviewCacheEntry,
+} from "./previewHelpers";
+import { updateLatexLivePreview, createLatexPreviewWidget } from "./renderers/renderLatex";
+import { updateMermaidLivePreview, createMermaidPreviewWidget } from "./renderers/renderMermaidPreview";
+import { updateMarkmapLivePreview, createMarkmapPreviewWidget } from "./renderers/renderMarkmapPreview";
+import { updateSvgLivePreview, createSvgPreviewWidget } from "./renderers/renderSvgPreview";
 
 const codePreviewPluginKey = new PluginKey("codePreview");
 const PREVIEW_ONLY_LANGUAGES = new Set(["latex", "mermaid", "markmap", "svg", "$$math$$"]);
@@ -51,15 +53,6 @@ const DEBOUNCE_MS = 200;
 // Store current editor view for button callbacks
 let currentEditorView: EditorView | null = null;
 
-/** Check if language is a latex/math language (handles both "latex" and "$$math$$" sentinel) */
-function isLatexLanguage(lang: string): boolean {
-  return lang === "latex" || lang === "$$math$$";
-}
-
-interface PreviewCacheEntry {
-  rendered?: string;
-  promise?: Promise<string>;
-}
 const previewCache = new Map<string, PreviewCacheEntry>();
 
 let themeObserverSetup = false;
@@ -87,201 +80,6 @@ function setupThemeObserver() {
 
 setupThemeObserver();
 
-/** Install double-click handler for entering edit mode */
-function installDoubleClickHandler(element: HTMLElement, onDoubleClick?: () => void): void {
-  if (!onDoubleClick) return;
-  element.addEventListener("mousedown", (event) => {
-    event.preventDefault();
-  });
-  element.addEventListener("dblclick", (event) => {
-    event.preventDefault();
-    onDoubleClick();
-  });
-}
-
-function createPreviewElement(
-  language: string,
-  rendered: string,
-  onDoubleClick?: () => void,
-  sourceContent?: string,
-): HTMLElement {
-  const wrapper = document.createElement("div");
-  // Use "latex" class for both "latex" and "$$math$$" languages
-  // Use "mermaid" class for SVG too (reuses same pan+zoom styles)
-  const previewClass = isLatexLanguage(language) ? "latex"
-    : language === "svg" ? "mermaid" : language;
-  wrapper.className = `code-block-preview ${previewClass}-preview`;
-  const sanitized = (language === "mermaid" || language === "svg")
-    ? sanitizeSvg(rendered) : sanitizeKatex(rendered);
-  wrapper.innerHTML = sanitized;
-  if (language === "mermaid" || language === "svg") {
-    // Defer panzoom/export setup — Panzoom requires DOM-attached elements,
-    // but ProseMirror attaches the widget after the factory returns.
-    // Panzoom and export auto-register cleanup via diagramCleanup
-    requestAnimationFrame(() => {
-      setupMermaidPanZoom(wrapper);
-      if (sourceContent) {
-        if (language === "mermaid") {
-          setupMermaidExport(wrapper, sourceContent);
-        } else {
-          setupSvgExport(wrapper, sourceContent);
-        }
-      }
-    });
-  }
-  installDoubleClickHandler(wrapper, onDoubleClick);
-  return wrapper;
-}
-
-/** Create a markmap preview with live interactive SVG */
-function createMarkmapPreview(
-  content: string,
-  onDoubleClick?: () => void,
-): HTMLElement {
-  const wrapper = document.createElement("div");
-  wrapper.className = "code-block-preview markmap-preview";
-
-  const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  wrapper.appendChild(svgEl);
-
-  // Defer rendering until DOM-attached
-  requestAnimationFrame(() => {
-    if (!svgEl.isConnected) return; // Widget already removed
-    renderMarkmapToElement(svgEl, content).then((instance) => {
-      if (!instance) return;
-
-      // Add fit button
-      const fitBtn = document.createElement("button");
-      fitBtn.className = "markmap-fit-btn";
-      fitBtn.title = "Fit to view";
-      fitBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`;
-      fitBtn.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-      fitBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        instance.fit();
-      });
-      wrapper.appendChild(fitBtn);
-
-      // Export auto-registers cleanup via diagramCleanup
-      setupMarkmapExport(wrapper, content);
-    });
-  });
-
-  installDoubleClickHandler(wrapper, onDoubleClick);
-  return wrapper;
-}
-
-function createPreviewPlaceholder(
-  language: string,
-  label: string,
-  onDoubleClick?: () => void
-): HTMLElement {
-  const wrapper = document.createElement("div");
-  // Use "latex" class for both "latex" and "$$math$$" languages
-  const previewClass = isLatexLanguage(language) ? "latex" : language;
-  wrapper.className = `code-block-preview ${previewClass}-preview code-block-preview-placeholder`;
-  wrapper.textContent = label;
-  installDoubleClickHandler(wrapper, onDoubleClick);
-  return wrapper;
-}
-
-/** Create edit mode header with title and cancel/save buttons */
-function createEditHeader(
-  language: string,
-  onCancel: () => void,
-  onSave: () => void,
-  onCopy?: () => void,
-): HTMLElement {
-  const header = document.createElement("div");
-  header.className = "code-block-edit-header";
-
-  const title = document.createElement("span");
-  title.className = "code-block-edit-title";
-  title.textContent = language === "mermaid" ? "Mermaid"
-    : language === "markmap" ? "Markmap"
-    : language === "svg" ? "SVG" : "LaTeX";
-
-  const actions = document.createElement("div");
-  actions.className = "code-block-edit-actions";
-
-  // Copy button (mermaid only — passed via onCopy)
-  if (onCopy) {
-    const copyBtn = document.createElement("button");
-    copyBtn.className = "code-block-edit-btn code-block-edit-copy";
-    copyBtn.title = "Copy source code";
-    copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-    copyBtn.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-    copyBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onCopy();
-      // Brief checkmark feedback
-      copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-      copyBtn.classList.add("code-block-edit-btn--success");
-      setTimeout(() => {
-        copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-        copyBtn.classList.remove("code-block-edit-btn--success");
-      }, 1500);
-    });
-    actions.appendChild(copyBtn);
-  }
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "code-block-edit-btn code-block-edit-cancel";
-  cancelBtn.title = "Cancel (Esc)";
-  cancelBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-  // Prevent ProseMirror from capturing mousedown
-  cancelBtn.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
-  cancelBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onCancel();
-  });
-
-  const saveBtn = document.createElement("button");
-  saveBtn.className = "code-block-edit-btn code-block-edit-save";
-  saveBtn.title = "Save";
-  saveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-  // Prevent ProseMirror from capturing mousedown
-  saveBtn.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
-  saveBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onSave();
-  });
-
-  actions.appendChild(cancelBtn);
-  actions.appendChild(saveBtn);
-  header.appendChild(title);
-  header.appendChild(actions);
-
-  return header;
-}
-
-/** Create live preview element for edit mode */
-function createLivePreview(language: string): HTMLElement {
-  const wrapper = document.createElement("div");
-  const previewClass = isLatexLanguage(language) ? "latex"
-    : language === "svg" ? "mermaid"
-    : language === "markmap" ? "markmap" : language;
-  wrapper.className = `code-block-live-preview ${previewClass}-live-preview`;
-  wrapper.innerHTML = '<div class="code-block-live-preview-loading">Rendering...</div>';
-  return wrapper;
-}
-
 /** Update live preview content with debouncing */
 let livePreviewTimeout: ReturnType<typeof setTimeout> | null = null;
 let livePreviewToken = 0;
@@ -296,6 +94,7 @@ function updateLivePreview(
   }
 
   const currentToken = ++livePreviewToken;
+  const getToken = () => livePreviewToken;
 
   livePreviewTimeout = setTimeout(async () => {
     if (currentToken !== livePreviewToken) return;
@@ -307,49 +106,13 @@ function updateLivePreview(
     }
 
     if (isLatexLanguage(language)) {
-      try {
-        const rendered = await renderLatex(trimmed);
-        if (currentToken !== livePreviewToken) return;
-        element.innerHTML = sanitizeKatex(rendered);
-      } catch (e) {
-        if (currentToken !== livePreviewToken) return;
-        const { message, hint } = parseLatexError(e, trimmed);
-        const errorText = hint ? `${message}: ${hint}` : message;
-        const errorDiv = document.createElement("div");
-        errorDiv.className = "code-block-live-preview-error";
-        errorDiv.textContent = errorText;
-        element.replaceChildren(errorDiv);
-      }
+      updateLatexLivePreview(element, trimmed, currentToken, getToken);
     } else if (language === "mermaid") {
-      const svg = await renderMermaid(trimmed);
-      if (currentToken !== livePreviewToken) return;
-      if (svg) {
-        element.innerHTML = sanitizeSvg(svg);
-      } else {
-        element.innerHTML = '<div class="code-block-live-preview-error">Invalid syntax</div>';
-      }
+      await updateMermaidLivePreview(element, trimmed, currentToken, getToken);
     } else if (language === "markmap") {
-      // Clean up previous markmap instance before clearing
-      cleanupDescendants(element);
-      element.innerHTML = "";
-      const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      element.appendChild(svgEl);
-      const instance = await renderMarkmapToElement(svgEl, trimmed);
-      if (currentToken !== livePreviewToken) {
-        // Stale render — next render's cleanupDescendants will handle it
-        return;
-      }
-      if (!instance) {
-        element.innerHTML = '<div class="code-block-live-preview-error">Invalid markmap</div>';
-      }
+      await updateMarkmapLivePreview(element, trimmed, currentToken, getToken);
     } else if (language === "svg") {
-      const rendered = renderSvgBlock(trimmed);
-      if (currentToken !== livePreviewToken) return;
-      if (rendered) {
-        element.innerHTML = sanitizeSvg(rendered);
-      } else {
-        element.innerHTML = '<div class="code-block-live-preview-error">Invalid SVG</div>';
-      }
+      updateSvgLivePreview(element, trimmed, currentToken, getToken);
     }
   }, DEBOUNCE_MS);
 }
@@ -574,17 +337,7 @@ export const codePreviewExtension = Extension.create({
                 return;
               }
 
-              // Markmap renders to live DOM — skip cache, always create fresh
-              if (language === "markmap") {
-                const widget = Decoration.widget(
-                  nodeEnd,
-                  (view) => createMarkmapPreview(content, () => handleEnterEdit(view)),
-                  { side: 1, key: cacheKey }
-                );
-                newDecorations.push(widget);
-                return;
-              }
-
+              // Check cache for already-rendered content
               const cached = previewCache.get(cacheKey);
               if (cached?.rendered) {
                 const rendered = cached.rendered;
@@ -597,94 +350,35 @@ export const codePreviewExtension = Extension.create({
                 return;
               }
 
-              if (isLatexLanguage(language)) {
-                const placeholder = document.createElement("div");
-                placeholder.className = "code-block-preview latex-preview code-block-preview-placeholder";
-                placeholder.textContent = "Rendering math...";
-
-                const widget = Decoration.widget(
-                  nodeEnd,
-                  (view) => {
-                    installDoubleClickHandler(placeholder, () => handleEnterEdit(view));
-
-                    const entry = previewCache.get(cacheKey);
-                    let promise = entry?.promise;
-                    if (!promise) {
-                      promise = Promise.resolve(renderLatex(content));
-                      previewCache.set(cacheKey, { promise });
-                    }
-
-                    promise
-                      .then((rendered) => {
-                        previewCache.set(cacheKey, { rendered });
-                        placeholder.className = "code-block-preview latex-preview";
-                        placeholder.innerHTML = sanitizeKatex(rendered);
-                      })
-                      .catch(() => {
-                        previewCache.delete(cacheKey);
-                        placeholder.className = "code-block-preview latex-preview mermaid-error";
-                        placeholder.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Failed to render math`;
-                      });
-
-                    return placeholder;
-                  },
-                  { side: 1, key: cacheKey }
+              // Markmap renders to live DOM — skip cache, always create fresh
+              if (language === "markmap") {
+                newDecorations.push(
+                  createMarkmapPreviewWidget(nodeEnd, content, cacheKey, handleEnterEdit)
                 );
-
-                newDecorations.push(widget);
                 return;
               }
 
-              if (language === "svg") {
-                const rendered = renderSvgBlock(content);
-                if (rendered) {
-                  previewCache.set(cacheKey, { rendered });
-                  const widget = Decoration.widget(
-                    nodeEnd,
-                    (view) => createPreviewElement(language, rendered, () => handleEnterEdit(view), content),
-                    { side: 1, key: cacheKey }
-                  );
-                  newDecorations.push(widget);
-                } else {
-                  const errorWidget = document.createElement("div");
-                  errorWidget.className = "code-block-preview mermaid-error";
-                  errorWidget.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Invalid SVG`;
-                  const widget = Decoration.widget(
-                    nodeEnd,
-                    (view) => {
-                      installDoubleClickHandler(errorWidget, () => handleEnterEdit(view));
-                      return errorWidget;
-                    },
-                    { side: 1, key: cacheKey }
-                  );
-                  newDecorations.push(widget);
-                }
-              } else if (language === "mermaid") {
-                const placeholder = document.createElement("div");
-                placeholder.className = "code-block-preview mermaid-preview mermaid-loading";
-                placeholder.textContent = "Rendering diagram...";
-
-                const widget = Decoration.widget(
-                  nodeEnd,
-                  (view) => {
-                    installDoubleClickHandler(placeholder, () => handleEnterEdit(view));
-                    renderMermaid(content).then((svg) => {
-                      if (svg) {
-                        previewCache.set(cacheKey, { rendered: svg });
-                        placeholder.className = "code-block-preview mermaid-preview";
-                        placeholder.innerHTML = sanitizeSvg(svg);
-                        setupMermaidPanZoom(placeholder);
-                        setupMermaidExport(placeholder, content);
-                      } else {
-                        placeholder.className = "code-block-preview mermaid-error";
-                        placeholder.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Failed to render diagram`;
-                      }
-                    });
-                    return placeholder;
-                  },
-                  { side: 1, key: cacheKey }
+              // LaTeX (async rendering with placeholder)
+              if (isLatexLanguage(language)) {
+                newDecorations.push(
+                  createLatexPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
                 );
-                newDecorations.push(widget);
+                return;
+              }
+
+              // SVG (synchronous rendering)
+              if (language === "svg") {
+                newDecorations.push(
+                  createSvgPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
+                );
+                return;
+              }
+
+              // Mermaid (async rendering with placeholder)
+              if (language === "mermaid") {
+                newDecorations.push(
+                  createMermaidPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
+                );
               }
             });
 
