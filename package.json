@@ -1,7 +1,7 @@
 {
   "name": "vmark",
   "private": true,
-  "version": "0.4.31",
+  "version": "0.4.32",
   "type": "module",
   "scripts": {
     "dev": "vite",
