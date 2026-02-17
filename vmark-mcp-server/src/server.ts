@@ -287,9 +287,6 @@ export function requireNumberArg(args: ToolArgs, key: string): number {
   return value;
 }
 
-/** @deprecated Use {@link validateNonNegativeInteger} instead. Remove in v0.5.0. */
-export const validateNonNegativeInt = validateNonNegativeInteger;
-
 /**
  * Validate a heading level (integer 1-6). Returns error message or null if valid.
  */

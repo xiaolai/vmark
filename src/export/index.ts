@@ -25,7 +25,6 @@ export {
   generateThemeCSS,
   captureThemeCSS,
   isDarkTheme,
-  capturePartialSnapshot,
   EXPORT_CSS_VARS,
 } from "./themeSnapshot";
 export type { ThemeSnapshot, CSSVarName } from "./themeSnapshot";
@@ -43,10 +42,7 @@ export type { ResourceInfo, ResourceReport, ResolveOptions } from "./resourceRes
 
 // Fonts
 export {
-  embedFonts,
   getKaTeXFontCSS,
-  getFontsFromSettings,
-  generateExportFontCSS,
   contentHasMath,
   getGoogleFontUrl,
   getKaTeXFontFiles,

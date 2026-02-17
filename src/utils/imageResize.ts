@@ -195,13 +195,3 @@ export async function resizeImageIfNeeded(imageData: Uint8Array): Promise<Resize
     newHeight,
   };
 }
-
-/**
- * Resize image data from a file path.
- * Reads the file, resizes if needed, and returns the data.
- */
-export async function resizeImageFileIfNeeded(
-  fileData: Uint8Array
-): Promise<ResizeResult> {
-  return resizeImageIfNeeded(fileData);
-}

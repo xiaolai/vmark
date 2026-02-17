@@ -47,7 +47,6 @@ interface AiProviderActions {
   detectProviders(): Promise<void>;
   /** Ensure a provider is available. Auto-detects if none set. Returns true if ready. */
   ensureProvider(): Promise<boolean>;
-  setActiveProvider(type: ProviderType): void;
   /** Activate a provider — sets it as active and syncs REST `enabled` flags. */
   activateProvider(type: ProviderType): void;
   updateRestProvider(
@@ -182,10 +181,6 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
         return get().activeProvider !== null;
       },
 
-      setActiveProvider: (type) => {
-        set({ activeProvider: type });
-      },
-
       activateProvider: (type) => {
         set({ activeProvider: type });
       },
@@ -248,21 +243,6 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
       migrate: (persisted, version) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let data = persisted as any;
-        if (version < 1) {
-          // v0 → v1: merge DEFAULT_REST_PROVIDERS by type, preserving user overrides
-          const merged = DEFAULT_REST_PROVIDERS.map((def) => {
-            const existing = data.restProviders?.find(
-              (p: RestProviderConfig) => p.type === def.type
-            );
-            return existing
-              ? { ...def, ...existing, apiKey: "" }
-              : def;
-          });
-          data = {
-            activeProvider: data.activeProvider ?? null,
-            restProviders: merged,
-          };
-        }
         if (version < 2) {
           // v1 → v2: strip dead `enabled` field from REST providers
           if (Array.isArray(data.restProviders)) {
