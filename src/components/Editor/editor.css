@@ -479,6 +479,7 @@
    Horizontal scrollbar appears when table is wider than container. */
 .tiptap-editor .table-scroll-wrapper {
   overflow-x: auto;
+  overscroll-behavior-x: contain; /* Prevent scroll chaining to parent */
   margin: 0 calc(-1 * var(--editor-content-padding)) var(--editor-block-spacing, 1em) calc(-1 * var(--editor-content-padding));
   padding: 0 var(--editor-content-padding); /* Restore visual alignment for table content */
 }

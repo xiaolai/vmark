@@ -50,6 +50,7 @@ import { useTiptapParagraphCommands } from "@/hooks/useTiptapParagraphCommands";
 import { useTiptapSelectionCommands } from "@/hooks/useTiptapSelectionCommands";
 import { useTiptapTableCommands } from "@/hooks/useTiptapTableCommands";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
+import { handleTableScrollToSelection } from "@/plugins/tableScroll/scrollGuard";
 import { ImageContextMenu } from "./ImageContextMenu";
 import "@/plugins/codeBlockLineNumbers/code-block-line-numbers.css";
 import "@/plugins/sourcePeekInline/source-peek-inline.css";
@@ -210,6 +211,11 @@ export function TiptapEditorInner({ hidden = false }: TiptapEditorInnerProps) {
         class: "ProseMirror",
         // Enable native browser spellcheck for system-level spell checking
         spellcheck: "true",
+      },
+      // Suppress ProseMirror's default scrollRectIntoView when cursor is in a table
+      // to prevent horizontal scroll jumps on .table-scroll-wrapper
+      handleScrollToSelection(view) {
+        return handleTableScrollToSelection(view);
       },
     },
     onCreate: ({ editor }) => {
