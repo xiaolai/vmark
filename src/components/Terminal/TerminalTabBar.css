@@ -15,11 +15,28 @@
   user-select: none;
 }
 
+/* Horizontal layout: tab bar at the bottom of the right-side panel */
+.terminal-tab-bar--horizontal {
+  flex-direction: row;
+  width: 100%;
+  height: var(--tab-bar-width);
+  padding: 0 var(--spacing-1);
+  border-top: 1px solid var(--border-color);
+}
+
 .terminal-tab-bar-tabs {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
+}
+
+.terminal-tab-bar--horizontal .terminal-tab-bar-tabs {
+  flex-direction: row;
+}
+
+.terminal-tab-bar--horizontal .terminal-tab-bar-actions {
+  flex-direction: row;
 }
 
 .terminal-tab {

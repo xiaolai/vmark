@@ -60,6 +60,11 @@
   min-width: 0;
 }
 
+/* When terminal is on the right, stack content + tab bar vertically */
+.terminal-body--column {
+  flex-direction: column;
+}
+
 .terminal-sessions-container {
   position: relative;
   flex: 1;

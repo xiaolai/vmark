@@ -1,9 +1,10 @@
 /**
  * TerminalTabBar
  *
- * Purpose: Vertical tab bar on the right side of the terminal panel.
- * Shows numbered buttons for switching between terminal sessions,
- * plus create/close/restart controls.
+ * Purpose: Tab bar for the terminal panel. Renders vertically on the right
+ * side (when panel is at the bottom) or horizontally at the bottom (when
+ * panel is on the right). Shows numbered buttons for switching between
+ * terminal sessions, plus create/close/restart controls.
  *
  * Key decisions:
  *   - Maximum 5 sessions enforced by disabling the "+" button.
@@ -24,6 +25,8 @@ import "./TerminalTabBar.css";
 interface TerminalTabBarProps {
   onClose: () => void;
   onRestart: () => void;
+  /** "vertical" = right-side column (default, for bottom panel), "horizontal" = bottom row (for right panel) */
+  orientation?: "vertical" | "horizontal";
 }
 
 /** Extract display number from "Terminal N" labels, or first char for custom names. */
@@ -32,7 +35,7 @@ function getTabDisplay(label: string): string {
   return m ? m[1] : (label.charAt(0).toUpperCase() || "?");
 }
 
-export function TerminalTabBar({ onClose, onRestart }: TerminalTabBarProps) {
+export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }: TerminalTabBarProps) {
   const sessions = useTerminalSessionStore((s) => s.sessions);
   const activeId = useTerminalSessionStore((s) => s.activeSessionId);
 
@@ -47,7 +50,7 @@ export function TerminalTabBar({ onClose, onRestart }: TerminalTabBarProps) {
   const isMaxed = sessions.length >= 5;
 
   return (
-    <div className="terminal-tab-bar">
+    <div className={`terminal-tab-bar ${orientation === "horizontal" ? "terminal-tab-bar--horizontal" : ""}`}>
       <div className="terminal-tab-bar-tabs">
         {sessions.map((s) => (
           <button

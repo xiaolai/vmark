@@ -4,7 +4,8 @@
  * Purpose: Container for the integrated terminal — sits below or to the right
  * of the editor (based on effectiveTerminalPosition) with a drag-to-resize
  * handle. Hosts multiple terminal sessions via useTerminalSessions, a search
- * bar, a tab bar, and a context menu.
+ * bar, a tab bar (vertical when bottom, horizontal when right), and a
+ * context menu.
  *
  * User interactions:
  *   - Drag the resize handle to adjust panel height (bottom) or width (right)
@@ -166,7 +167,7 @@ export function TerminalPanel() {
   return (
     <div className={panelClassName} style={panelStyle}>
       <div className={handleClassName} onMouseDown={handleResizeStart} />
-      <div className="terminal-body">
+      <div className={`terminal-body ${isRight ? "terminal-body--column" : ""}`}>
         <div className="terminal-sessions-container">
           <div
             ref={containerRef}
@@ -182,7 +183,7 @@ export function TerminalPanel() {
             />
           )}
         </div>
-        <TerminalTabBar onClose={handleClose} onRestart={handleRestart} />
+        <TerminalTabBar onClose={handleClose} onRestart={handleRestart} orientation={isRight ? "horizontal" : "vertical"} />
       </div>
       {contextMenu && active && (
         <TerminalContextMenu

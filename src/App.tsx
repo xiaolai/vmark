@@ -284,18 +284,21 @@ function MainLayout() {
             minWidth: 0,
           }}
         >
-          {/* Editor area */}
-          <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-            <Editor />
+          {/* Editor column: editor + bottom bars */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 }}>
+            {/* Editor area */}
+            <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+              <Editor />
+            </div>
+            {/* Bottom bar container - fixed 40px height, all bars overlay within */}
+            <div style={{ position: "relative", height: 40, flexShrink: 0 }}>
+              <StatusBar />
+              <UniversalToolbar />
+              <FindBar />
+            </div>
           </div>
           {/* Terminal panel */}
           <TerminalPanel />
-        </div>
-        {/* Bottom bar container - fixed 40px height, all bars overlay within */}
-        <div style={{ position: "relative", height: 40, flexShrink: 0 }}>
-          <StatusBar />
-          <UniversalToolbar />
-          <FindBar />
         </div>
       </div>
     </div>
