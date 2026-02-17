@@ -135,10 +135,24 @@ export function generateEmbeddedFontCSS(fonts: EmbeddedFont[]): string {
 }
 
 /**
+ * Convert Uint8Array to base64 without hitting V8's argument-count limit.
+ * String.fromCharCode(...data) crashes for arrays > ~65 KB because the
+ * spread exceeds the maximum number of function arguments.
+ */
+export function uint8ArrayToBase64(data: Uint8Array): string {
+  let binary = "";
+  const CHUNK = 8192;
+  for (let i = 0; i < data.length; i += CHUNK) {
+    binary += String.fromCharCode(...data.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+/**
  * Convert font binary data to base64 data URI.
  */
 export function fontDataToDataUri(data: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...data));
+  const base64 = uint8ArrayToBase64(data);
   return `data:font/woff2;base64,${base64}`;
 }
 
@@ -213,7 +227,7 @@ async function fetchFontAsDataUri(url: string): Promise<string | null> {
 
     const buffer = await response.arrayBuffer();
     const bytes = new Uint8Array(buffer);
-    const base64 = btoa(String.fromCharCode(...bytes));
+    const base64 = uint8ArrayToBase64(bytes);
 
     // Determine format from URL
     const format = url.includes(".woff2")

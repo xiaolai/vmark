@@ -7,6 +7,7 @@
 
 import { readFile, copyFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { join, dirname, basename } from "@tauri-apps/api/path";
+import { uint8ArrayToBase64 } from "./fontEmbedder";
 
 export interface ResourceInfo {
   /** Original src value from HTML */
@@ -127,7 +128,7 @@ export async function fileToDataUri(filePath: string): Promise<string | null> {
     const data = await readFile(filePath);
     const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
     const mimeType = getMimeType(ext);
-    const base64 = btoa(String.fromCharCode(...data));
+    const base64 = uint8ArrayToBase64(data);
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {
     console.warn("[ResourceResolver] Failed to read file for data URI:", filePath, error);
