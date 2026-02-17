@@ -2,7 +2,8 @@
  * Tiptap Table Context Menu
  *
  * Purpose: Imperative DOM-based right-click context menu for tables in WYSIWYG mode.
- * Provides row/column add/delete, alignment, format table, and delete table actions.
+ * Provides row/column add/delete, alignment, format table, per-table fit-to-width,
+ * and delete table actions.
  *
  * Key decisions:
  *   - Imperative DOM rather than React to avoid re-render overhead on every table click
