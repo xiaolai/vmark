@@ -65,9 +65,7 @@ export function parseMarkdown(
     const preview = safeMarkdown.slice(0, 100);
     const context = safeMarkdown.length > 100 ? `${preview}...` : preview;
     const message = `[MarkdownPipeline] Parse failed: ${error instanceof Error ? error.message : error}\nInput preview: "${context}"`;
-    const wrapped = new Error(message);
-    (wrapped as Error & { cause?: unknown }).cause = error;
-    throw wrapped;
+    throw new Error(message, { cause: error });
   }
 }
 
@@ -95,8 +93,6 @@ export function serializeMarkdown(
     const nodeCount = doc.content.childCount;
     const docSize = doc.content.size;
     const message = `[MarkdownPipeline] Serialize failed: ${error instanceof Error ? error.message : error}\nDoc info: ${nodeCount} nodes, size ${docSize}`;
-    const wrapped = new Error(message);
-    (wrapped as Error & { cause?: unknown }).cause = error;
-    throw wrapped;
+    throw new Error(message, { cause: error });
   }
 }
