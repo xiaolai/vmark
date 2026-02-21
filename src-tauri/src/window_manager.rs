@@ -188,6 +188,56 @@ pub fn create_document_window_for_transfer(
     create_document_window_with_url(app, "/?transfer=true".to_string())
 }
 
+/// Allocate a unique window label without creating a window.
+///
+/// Increments the global window counter and returns the label that would
+/// be assigned to the next window. Used by hot-exit restore to pre-allocate
+/// labels before storing restore state (crash safety).
+pub(crate) fn allocate_window_label() -> String {
+    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
+    format!("doc-{}", count)
+}
+
+/// Create a document window with a pre-allocated label (no file/workspace).
+///
+/// Uses the given label instead of allocating a new one. The caller is
+/// responsible for ensuring the label is unique (typically via
+/// `allocate_window_label()`).
+pub(crate) fn create_document_window_with_label(
+    app: &AppHandle,
+    label: &str,
+) -> Result<(), tauri::Error> {
+    let title = String::new();
+
+    // Parse counter from label for cascade position (e.g., "doc-5" → 5)
+    let count = label
+        .strip_prefix("doc-")
+        .and_then(|n| n.parse::<u32>().ok())
+        .unwrap_or(0);
+    let (x, y) = get_cascaded_position(count);
+
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
+        .title(&title)
+        .inner_size(MIN_WIDTH, MIN_HEIGHT)
+        .min_inner_size(800.0, 600.0)
+        .position(x, y)
+        .resizable(true)
+        .fullscreen(false)
+        .focused(true);
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true)
+            .accept_first_mouse(true);
+    }
+
+    builder.build()?;
+
+    Ok(())
+}
+
 /// Create a new document window with optional file path and workspace root.
 /// Returns the window label on success.
 ///
@@ -668,5 +718,18 @@ mod tests {
         // Files are JSON-encoded so they should contain the array
         assert!(url.contains("x.md"));
         assert!(url.contains("y.md"));
+    }
+
+    // -- allocate_window_label ------------------------------------------------
+
+    #[test]
+    fn allocate_label_returns_sequential_labels() {
+        let l1 = allocate_window_label();
+        let l2 = allocate_window_label();
+        assert!(l1.starts_with("doc-"));
+        assert!(l2.starts_with("doc-"));
+        let n1: u32 = l1.strip_prefix("doc-").unwrap().parse().unwrap();
+        let n2: u32 = l2.strip_prefix("doc-").unwrap().parse().unwrap();
+        assert_eq!(n2, n1 + 1);
     }
 }

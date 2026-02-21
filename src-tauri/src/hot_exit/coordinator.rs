@@ -411,33 +411,44 @@ pub fn restore_session_multi_window(
         eprintln!("[HotExit] Warning: No main window state in session, main will restore empty");
     }
 
-    // Create secondary windows and collect their new labels
-    // We do this OUTSIDE the mutex to avoid blocking state queries
+    // Phase 1: Pre-allocate labels and store state BEFORE creating windows.
+    // This is crash-safe: if the app crashes after state storage but before
+    // window creation, the extra state entries are harmless (unused). The
+    // reverse ordering (create windows first, store state later) risks
+    // windows existing with no restore state on crash.
+    let mut labels_to_create = Vec::with_capacity(secondary_count);
+
     for window_state in secondary_windows {
-        match crate::window_manager::create_document_window(app, None, None) {
-            Ok(new_label) => {
-                // Prepare state with NEW label
-                let updated_state = WindowState {
-                    window_label: new_label.clone(),
-                    is_main_window: false, // Force non-main
-                    ..window_state
-                };
-                expected_labels.insert(new_label.clone());
-                window_states_to_store.push((new_label.clone(), updated_state));
-                windows_created.push(new_label);
+        let new_label = crate::window_manager::allocate_window_label();
+        let updated_state = WindowState {
+            window_label: new_label.clone(),
+            is_main_window: false, // Force non-main
+            ..window_state
+        };
+        expected_labels.insert(new_label.clone());
+        window_states_to_store.push((new_label.clone(), updated_state));
+        labels_to_create.push(new_label);
+    }
+
+    // Store all state atomically BEFORE any windows are created
+    init_pending_restore_state_sync(window_states_to_store, expected_labels);
+
+    // Phase 2: Create windows with pre-allocated labels
+    for label in &labels_to_create {
+        match crate::window_manager::create_document_window_with_label(app, label) {
+            Ok(()) => {
+                windows_created.push(label.clone());
             }
             Err(e) => {
                 eprintln!(
-                    "[HotExit] Failed to create window for {}: {}",
-                    window_state.window_label, e
+                    "[HotExit] Failed to create window {}: {}",
+                    label, e
                 );
-                // Don't add to expected_labels - window doesn't exist
+                // State was stored but window creation failed — harmless.
+                // The unused state entry will be ignored.
             }
         }
     }
-
-    // Now store all state atomically
-    init_pending_restore_state_sync(window_states_to_store, expected_labels);
 
     // Emit restore signal to main window (signal only, state is pulled)
     main_window
@@ -679,5 +690,38 @@ mod tests {
         let result = prepare_session_for_restore(session);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Incompatible"));
+    }
+
+    // -- Pre-store invariant (crash safety) -----------------------------------
+
+    #[test]
+    fn pre_stored_state_queryable_for_pre_allocated_labels() {
+        let _lock = TEST_LOCK.lock().unwrap();
+        clear_pending_restore();
+
+        // Simulate the atomic restore pattern: pre-allocate labels and store
+        // state BEFORE any windows are created (crash safety invariant).
+        let labels: Vec<String> = (0..3).map(|i| format!("doc-{}", 100 + i)).collect();
+        let mut states = Vec::new();
+        let mut expected = HashSet::new();
+
+        expected.insert(MAIN_WINDOW_LABEL.to_string());
+        states.push((MAIN_WINDOW_LABEL.to_string(), make_window_state(MAIN_WINDOW_LABEL, true)));
+
+        for label in &labels {
+            expected.insert(label.clone());
+            states.push((label.clone(), make_window_state(label, false)));
+        }
+
+        init_pending_restore_state_sync(states, expected);
+
+        // All state must be queryable immediately (before windows exist)
+        assert!(get_window_restore_state(MAIN_WINDOW_LABEL).is_some());
+        for label in &labels {
+            let state = get_window_restore_state(label)
+                .unwrap_or_else(|| panic!("State must be available for pre-allocated label {}", label));
+            assert_eq!(state.window_label, *label);
+            assert!(!state.is_main_window);
+        }
     }
 }
