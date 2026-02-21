@@ -106,6 +106,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z, ZodTypeAny } from 'zod';
 import { readFileSync } from 'fs';
 import { getParentProcessName } from './utils/parentProcess.js';
+import { createToolHandler, createResourceHandler } from './utils/mcpAdapters.js';
 import { join } from 'path';
 import { homedir, platform } from 'os';
 
@@ -286,28 +287,6 @@ const logger = {
 };
 
 /**
- * Convert VMark content items to MCP SDK content format.
- */
-function toMcpContent(items: Array<{ type: string; text?: string }>): Array<{ type: 'text'; text: string }> {
-  return items
-    .filter((item) => item.type === 'text' && typeof item.text === 'string')
-    .map((item) => ({ type: 'text' as const, text: item.text! }));
-}
-
-/**
- * Convert VMark resource contents to MCP SDK format.
- */
-function toMcpContents(items: Array<{ uri: string; text?: string; mimeType?: string }>): Array<{ uri: string; text: string; mimeType?: string }> {
-  return items
-    .filter((item) => typeof item.text === 'string')
-    .map((item) => ({
-      uri: item.uri,
-      text: item.text!,
-      mimeType: item.mimeType,
-    }));
-}
-
-/**
  * JSON Schema property definition.
  */
 interface JsonSchemaProperty {
@@ -479,13 +458,7 @@ async function main(): Promise<void> {
         description: tool.description,
         inputSchema: zodSchema,
       },
-      async (args) => {
-        const result = await vmarkServer.callTool(tool.name, args);
-        return {
-          content: toMcpContent(result.content),
-          isError: result.isError,
-        };
-      }
+      createToolHandler(tool.name, (name, args) => vmarkServer.callTool(name, args))
     );
   }
 
@@ -498,12 +471,7 @@ async function main(): Promise<void> {
         description: resource.description,
         mimeType: resource.mimeType,
       },
-      async () => {
-        const result = await vmarkServer.readResource(resource.uri);
-        return {
-          contents: toMcpContents(result.contents),
-        };
-      }
+      createResourceHandler(resource.uri, (uri) => vmarkServer.readResource(uri))
     );
   }
 
