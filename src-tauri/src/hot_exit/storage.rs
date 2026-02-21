@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use tauri::Manager;
 use tempfile::NamedTempFile;
 use super::session::SessionData;
+use super::validation::validate_and_repair;
 
 /// Get the hot exit session file path in app data directory
 pub fn get_session_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -110,8 +111,14 @@ pub async fn read_session(
         .await
         .map_err(|e| format!("Failed to read session file: {}", e))?;
 
-    let session: SessionData = serde_json::from_str(&contents)
+    let mut session: SessionData = serde_json::from_str(&contents)
         .map_err(|e| format!("Failed to parse session JSON: {}", e))?;
+
+    // Validate structural consistency and auto-repair if needed
+    let warnings = validate_and_repair(&mut session);
+    for warning in &warnings {
+        eprintln!("[HotExit] Session repair: {}", warning);
+    }
 
     Ok(Some(session))
 }

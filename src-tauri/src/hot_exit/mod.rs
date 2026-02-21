@@ -8,6 +8,7 @@ pub mod storage;
 pub mod coordinator;
 pub mod commands;
 pub mod migration;
+pub mod validation;
 
 // Re-export commonly used types
 
