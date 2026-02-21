@@ -23,6 +23,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { renderWarn } from "@/utils/debug";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import {
   calculatePopupPosition,
@@ -304,8 +305,9 @@ export class ImagePreviewView {
           this.loadAudioVideoElement(resolvedSrc, type, currentToken);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (currentToken !== this.resolveToken) return;
+        renderWarn("Image path resolution failed:", error instanceof Error ? error.message : String(error));
         this.showError("Path resolution failed");
       });
   }

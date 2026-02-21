@@ -25,6 +25,7 @@ import { useGenieInvocation } from "@/hooks/useGenieInvocation";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import type { GenieDefinition, GenieMetadata, GenieScope } from "@/types/aiGenies";
+import { genieWarn } from "@/utils/debug";
 
 /** Load genies from disk and refresh the native Genies menu. */
 async function loadAndSyncMenu(): Promise<void> {
@@ -69,7 +70,9 @@ export function useGenieShortcuts() {
     );
     initSuggestionTabWatcher(useTabStore.subscribe);
     return () => {
-      invoke("hide_genies_menu").catch(() => {});
+      invoke("hide_genies_menu").catch((error: unknown) => {
+        genieWarn("Failed to hide genies menu:", error instanceof Error ? error.message : String(error));
+      });
     };
   }, []);
 

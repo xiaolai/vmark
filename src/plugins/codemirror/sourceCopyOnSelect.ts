@@ -18,6 +18,7 @@ import type { Extension } from "@codemirror/state";
 import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cleanTextForClipboard } from "@/plugins/markdownCopy/tiptap";
+import { clipboardWarn } from "@/utils/debug";
 
 export function createSourceCopyOnSelectPlugin(): Extension {
   return ViewPlugin.fromClass(
@@ -43,8 +44,8 @@ export function createSourceCopyOnSelectPlugin(): Extension {
           const raw = view.state.sliceDoc(from, to);
           const text = cleanTextForClipboard(raw);
           if (text) {
-            navigator.clipboard.writeText(text).catch(() => {
-              // Clipboard write can fail if window loses focus
+            navigator.clipboard.writeText(text).catch((error: unknown) => {
+              clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
             });
           }
         });

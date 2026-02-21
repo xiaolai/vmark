@@ -17,7 +17,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { Fragment, Slice, type Schema, type Node as PMNode, type NodeType } from "@tiptap/pm/model";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { markdownCopyWarn } from "@/utils/debug";
+import { clipboardWarn, markdownCopyWarn } from "@/utils/debug";
 
 const markdownCopyPluginKey = new PluginKey("markdownCopy");
 
@@ -151,8 +151,8 @@ export const markdownCopyExtension = Extension.create({
 
                 const text = getSelectionText(view);
                 if (text) {
-                  navigator.clipboard.writeText(text).catch(() => {
-                    // Clipboard write can fail if window loses focus
+                  navigator.clipboard.writeText(text).catch((error: unknown) => {
+                    clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
                   });
                 }
               });

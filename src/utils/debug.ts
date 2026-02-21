@@ -314,3 +314,15 @@ export const imageResizeLog = isDev
 export const workspaceStorageWarn = isDev
   ? (...args: unknown[]) => console.warn("[WorkspaceStorage]", ...args)
   : () => {};
+
+export const clipboardWarn = isDev
+  ? (...args: unknown[]) => console.warn("[Clipboard]", ...args)
+  : () => {};
+
+export const renderWarn = isDev
+  ? (...args: unknown[]) => console.warn("[Render]", ...args)
+  : () => {};
+
+export const cleanupWarn = isDev
+  ? (...args: unknown[]) => console.warn("[Cleanup]", ...args)
+  : () => {};

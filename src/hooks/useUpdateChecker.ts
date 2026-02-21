@@ -31,6 +31,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useUpdateOperationHandler, clearPendingUpdate } from "./useUpdateOperations";
 import { restartWithHotExit } from "@/utils/hotExit/restartWithHotExit";
 import { updateCheckerLog } from "@/utils/debug";
+import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 
 // Time constants in milliseconds
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -228,9 +229,7 @@ export function useUpdateChecker() {
     });
 
     return () => {
-      unlistenPromise.then((fn) => fn()).catch(() => {
-        // Ignore cleanup errors
-      });
+      safeUnlistenAsync(unlistenPromise);
     };
   }, [doCheckForUpdates, EVENTS.REQUEST_CHECK]);
 
@@ -243,9 +242,7 @@ export function useUpdateChecker() {
     });
 
     return () => {
-      unlistenPromise.then((fn) => fn()).catch(() => {
-        // Ignore cleanup errors
-      });
+      safeUnlistenAsync(unlistenPromise);
     };
   }, [doDownloadAndInstall, EVENTS.REQUEST_DOWNLOAD]);
 
@@ -268,9 +265,7 @@ export function useUpdateChecker() {
     });
 
     return () => {
-      unlistenPromise.then((fn) => fn()).catch(() => {
-        // Ignore cleanup errors
-      });
+      safeUnlistenAsync(unlistenPromise);
     };
   }, [EVENTS.REQUEST_STATE]);
 
@@ -316,9 +311,7 @@ export function useUpdateChecker() {
     });
 
     return () => {
-      unlistenPromise.then((fn) => fn()).catch(() => {
-        // Ignore cleanup errors
-      });
+      safeUnlistenAsync(unlistenPromise);
     };
   }, [EVENTS.REQUEST_RESTART]);
 }

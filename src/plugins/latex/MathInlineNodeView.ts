@@ -8,6 +8,7 @@ import { inlineNodeEditingKey } from "@/plugins/inlineNodeEditing/tiptap";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { useInlineMathEditingStore } from "@/stores/inlineMathEditingStore";
+import { renderWarn } from "@/utils/debug";
 
 /**
  * NodeView for inline math with inline editing support.
@@ -476,8 +477,9 @@ export class MathInlineNodeView implements NodeView {
             this.dom.classList.add("math-error");
           }
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (currentToken !== this.renderToken) return;
+          renderWarn("Math inline render failed:", error instanceof Error ? error.message : String(error));
           this.previewDom.textContent = trimmed;
           this.dom.classList.add("math-error");
         });

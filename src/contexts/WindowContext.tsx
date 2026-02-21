@@ -59,6 +59,7 @@ import {
 import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
 import type { TabTransferPayload } from "@/types/tabTransfer";
+import { windowCloseWarn } from "@/utils/debug";
 
 async function applyTabTransferData(label: string, data: TabTransferPayload): Promise<void> {
   // Set up workspace: prefer transferred root, fall back to file's parent
@@ -97,7 +98,9 @@ async function removeTransferredTabData(label: string, tabId: string): Promise<v
   const remaining = useTabStore.getState().getTabsByWindow(label);
   if (remaining.length === 0 && label !== "main") {
     const win = getCurrentWebviewWindow();
-    await invoke("close_window", { label: win.label }).catch(() => {});
+    await invoke("close_window", { label: win.label }).catch((error: unknown) => {
+      windowCloseWarn("Failed to close window:", error instanceof Error ? error.message : String(error));
+    });
   }
 }
 

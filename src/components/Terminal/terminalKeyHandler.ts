@@ -23,6 +23,7 @@ import type { Terminal } from "@xterm/xterm";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
+import { clipboardWarn } from "@/utils/debug";
 
 export interface KeyHandlerCallbacks {
   onSearch: () => void;
@@ -56,8 +57,8 @@ export function createTerminalKeyHandler(
     switch (event.key.toLowerCase()) {
       case "c": {
         if (term.hasSelection()) {
-          writeText(term.getSelection().trimEnd()).catch(() => {
-            // Clipboard may be unavailable (permissions, headless tests). Ignore.
+          writeText(term.getSelection().trimEnd()).catch((error: unknown) => {
+            clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
           });
           term.clearSelection();
           return false;
@@ -73,8 +74,8 @@ export function createTerminalKeyHandler(
           if (text && ptyRef.current) {
             ptyRef.current.write(text);
           }
-        }).catch(() => {
-          // Clipboard may be unavailable (permissions, headless tests). Ignore.
+        }).catch((error: unknown) => {
+          clipboardWarn("Clipboard read failed:", error instanceof Error ? error.message : String(error));
         });
         return false;
       }

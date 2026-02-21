@@ -6,7 +6,7 @@
  * Tauri's internal listener state becomes inconsistent.
  *
  * Key decisions:
- *   - All errors are silently caught — unlisten failures are never actionable
+ *   - Errors are caught and logged via cleanupWarn (dev-only, no-op in production)
  *   - safeUnlistenAll returns empty array for easy ref replacement pattern
  *   - safeUnlistenAsync handles the common case of cleanup running before
  *     the listen() promise resolves
@@ -14,6 +14,8 @@
  * @coordinates-with menuListenerHelper.ts — uses safeUnlisten for cleanup
  * @module utils/safeUnlisten
  */
+
+import { cleanupWarn } from "@/utils/debug";
 
 /**
  * Safely call an unlisten function, catching any errors.
@@ -44,8 +46,8 @@ export function safeUnlistenAsync(
   if (!unlistenPromise) return;
   unlistenPromise
     .then((unlisten) => safeUnlisten(unlisten))
-    .catch(() => {
-      // Ignore errors - listener may have never been registered
+    .catch((error: unknown) => {
+      cleanupWarn("Listener cleanup failed:", error instanceof Error ? error.message : String(error));
     });
 }
 

@@ -15,6 +15,7 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { renderWarn } from "@/utils/debug";
 import "./math-preview.css";
 
 export class MathPreviewView {
@@ -148,8 +149,9 @@ export class MathPreviewView {
           this.error.textContent = hint ? `${message}: ${hint}` : message;
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (currentToken !== this.renderToken) return;
+        renderWarn("Math preview failed:", error instanceof Error ? error.message : String(error));
         this.preview.textContent = trimmed;
         this.preview.classList.add("math-preview-error-state");
         this.error.textContent = "Preview failed";

@@ -15,6 +15,7 @@ import {
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { loadKatex } from "@/plugins/latex/katexLoader";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { renderWarn } from "@/utils/debug";
 
 const DEFAULT_POPUP_WIDTH = 360;
 const DEFAULT_POPUP_HEIGHT = 200;
@@ -192,8 +193,9 @@ export class MathPopupView {
           this.error.textContent = "Invalid LaTeX";
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (token !== this.renderToken) return;
+        renderWarn("LaTeX preview failed:", error instanceof Error ? error.message : String(error));
         this.preview.textContent = trimmed;
         this.error.textContent = "LaTeX preview failed";
       });

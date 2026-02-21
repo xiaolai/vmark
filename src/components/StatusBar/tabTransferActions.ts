@@ -27,6 +27,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { DragOutPoint } from "@/hooks/useTabDragOut";
 import type { TabTransferPayload } from "@/types/tabTransfer";
+import { windowCloseWarn } from "@/utils/debug";
 
 interface DragOutTransferOptions {
   tabId: string;
@@ -138,7 +139,9 @@ export async function transferTabFromDragOut({
     const remaining = useTabStore.getState().getTabsByWindow(windowLabel);
     if (remaining.length === 0 && windowLabel !== "main") {
       const win = getCurrentWebviewWindow();
-      invoke("close_window", { label: win.label }).catch(() => {});
+      invoke("close_window", { label: win.label }).catch((error: unknown) => {
+        windowCloseWarn("Failed to close window:", error instanceof Error ? error.message : String(error));
+      });
     }
   } catch (error) {
     console.error("[StatusBar] drag-out failed:", error);

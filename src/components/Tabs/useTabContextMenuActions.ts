@@ -35,6 +35,7 @@ import { reloadTabFromDisk } from "@/utils/reloadFromDisk";
 import { getRelativePath, isWithinRoot } from "@/utils/paths";
 import { restoreTransferredTab } from "@/components/StatusBar/tabTransferActions";
 import type { TabTransferPayload } from "@/types/tabTransfer";
+import { windowCloseWarn } from "@/utils/debug";
 
 export interface TabMenuItem {
   id: string;
@@ -153,7 +154,9 @@ export function useTabContextMenuActions({
       const remaining = useTabStore.getState().getTabsByWindow(windowLabel);
       if (remaining.length === 0 && windowLabel !== "main") {
         const win = getCurrentWebviewWindow();
-        void invoke("close_window", { label: win.label }).catch(() => {});
+        void invoke("close_window", { label: win.label }).catch((error: unknown) => {
+          windowCloseWarn("Failed to close window:", error instanceof Error ? error.message : String(error));
+        });
       }
     } catch (error) {
       console.error("[TabContextMenu] Move to new window failed:", error);

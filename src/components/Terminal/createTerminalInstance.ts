@@ -42,7 +42,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { createFileLinkProvider } from "./fileLinkProvider";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
-import { terminalLog } from "@/utils/debug";
+import { clipboardWarn, terminalLog } from "@/utils/debug";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -215,8 +215,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
         const windowLabel = getCurrentWindowLabel();
         const tabId = useTabStore.getState().createTab(windowLabel, filePath);
         useDocumentStore.getState().initDocument(tabId, content, filePath);
-      }).catch(() => {
-        // File not readable
+      }).catch((error: unknown) => {
+        terminalLog("File not readable:", error instanceof Error ? error.message : String(error));
       });
     });
   }));
@@ -230,8 +230,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   term.onSelectionChange(() => {
     if (!composing && term.hasSelection() && useSettingsStore.getState().terminal.copyOnSelect) {
       const text = term.getSelection().trimEnd();
-      if (text) writeText(text).catch(() => {
-        // Clipboard may be unavailable (permissions, headless tests). Ignore.
+      if (text) writeText(text).catch((error: unknown) => {
+        clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
       });
     }
   });

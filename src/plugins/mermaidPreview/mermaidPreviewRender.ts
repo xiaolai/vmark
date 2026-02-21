@@ -10,6 +10,7 @@ import { renderMarkmapToElement } from "@/plugins/markmap";
 import { cleanupDescendants } from "@/plugins/shared/diagramCleanup";
 import { renderSvgBlock } from "@/plugins/svg/svgRender";
 import { sanitizeSvg } from "@/utils/sanitize";
+import { diagramWarn } from "@/utils/debug";
 
 export interface RenderContext {
   preview: HTMLElement;
@@ -74,8 +75,9 @@ export function renderPreview(content: string, ctx: RenderContext): number {
           ctx.error.textContent = "";
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (currentToken !== ctx.getCurrentToken()) return;
+        diagramWarn("Markmap render failed:", error instanceof Error ? error.message : String(error));
         ctx.preview.innerHTML = "";
         ctx.preview.classList.add("mermaid-preview-error-state");
         ctx.error.textContent = "Preview failed";
@@ -101,8 +103,9 @@ export function renderPreview(content: string, ctx: RenderContext): number {
         ctx.error.textContent = "Invalid mermaid syntax";
       }
     })
-    .catch(() => {
+    .catch((error: unknown) => {
       if (currentToken !== ctx.getCurrentToken()) return;
+      diagramWarn("Mermaid render failed:", error instanceof Error ? error.message : String(error));
       ctx.preview.innerHTML = "";
       ctx.preview.classList.add("mermaid-preview-error-state");
       ctx.error.textContent = "Preview failed";
