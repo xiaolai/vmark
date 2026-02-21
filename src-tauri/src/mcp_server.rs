@@ -257,6 +257,11 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
                 _ => {}
             }
         }
+
+        // Ensure cleanup on ANY loop exit (channel closed without Terminated, break, etc.)
+        if let Ok(mut guard) = MCP_SERVER.lock() {
+            *guard = None;
+        }
     });
 
     // Emit started event with actual port
