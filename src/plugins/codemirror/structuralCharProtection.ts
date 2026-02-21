@@ -53,9 +53,9 @@ export function getCellStartPipePos(view: EditorView): number {
   const offsetInLine = head - line.from;
   const textBefore = line.text.slice(0, offsetInLine);
 
-  // Check if we're right after a pipe (with only whitespace between)
-  // Pattern: | followed by optional spaces, cursor here
-  const match = textBefore.match(/\|\s*$/);
+  // Check if we're right after a pipe (with only whitespace between).
+  // Negative lookbehind excludes escaped pipes (\|) which are cell content, not delimiters.
+  const match = textBefore.match(/(?<!\\)\|\s*$/);
   if (match) {
     return line.from + textBefore.length - match[0].length;
   }

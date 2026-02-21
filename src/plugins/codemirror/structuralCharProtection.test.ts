@@ -197,6 +197,21 @@ describe("Structural Character Protection", () => {
       const pipePos = getCellStartPipePos(view);
       expect(pipePos).toBe(7); // Position of second pipe
     });
+
+    it("returns -1 when cursor is right after an escaped pipe (\\|)", () => {
+      // Escaped pipes are cell content, not structural delimiters
+      // Text: "| cell \| with pipe | next |", cursor after \|
+      const view = createView("| cell \\|^ with pipe | next |");
+      const pipePos = getCellStartPipePos(view);
+      expect(pipePos).toBe(-1);
+    });
+
+    it("returns -1 when cursor is after escaped pipe with whitespace", () => {
+      // Text: "| cell \|  something", cursor after \| and spaces
+      const view = createView("| cell \\|  ^something | next |");
+      const pipePos = getCellStartPipePos(view);
+      expect(pipePos).toBe(-1);
+    });
   });
 
   describe("getListMarkerRange", () => {
@@ -432,6 +447,13 @@ describe("Structural Character Protection", () => {
       const handled = smartBackspace(view);
       expect(handled).toBe(true);
       expect(view.state.doc.toString()).toBe("- [ ] task");
+    });
+
+    it("does NOT intercept backspace after escaped pipe (\\|) in a table cell", () => {
+      // Cursor is right after the | of \| — should let normal backspace delete it
+      const view = createView("| cell \\|^ with pipe | next |");
+      const handled = smartBackspace(view);
+      expect(handled).toBe(false);
     });
   });
 
