@@ -24,7 +24,7 @@
   left: 0;
   width: 2px;
   height: 1.2em;
-  background-color: var(--multi-cursor-color, hsl(217 91% 60%));
+  background-color: var(--multi-cursor-color);
   animation: multi-cursor-blink 1s step-end infinite;
 }
 
@@ -41,19 +41,7 @@
 
 /* Secondary selection highlight */
 .multi-cursor-selection {
-  background-color: var(--multi-cursor-selection-bg, hsla(217, 91%, 60%, 0.3));
-}
-
-/* Light theme (default) */
-:root {
-  --multi-cursor-color: hsl(217 91% 60%);
-  --multi-cursor-selection-bg: hsla(217, 91%, 60%, 0.3);
-}
-
-/* Dark theme */
-.dark-theme {
-  --multi-cursor-color: hsl(217 91% 70%);
-  --multi-cursor-selection-bg: hsla(217, 91%, 70%, 0.25);
+  background-color: var(--multi-cursor-selection-bg);
 }
 
 /* Reduce motion preference */

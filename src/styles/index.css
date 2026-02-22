@@ -145,6 +145,10 @@
   --search-match-color: rgba(255, 180, 0, 0.8);
   --search-match-active-color: rgba(255, 200, 0, 0.7);
 
+  /* Multi-cursor */
+  --multi-cursor-color: hsl(217 91% 60%);
+  --multi-cursor-selection-bg: hsla(217, 91%, 60%, 0.3);
+
   /* Alert tokens for dark mode (centralized) */
   --alert-note-dark: #58a6ff;
   --alert-tip-dark: #3fb950;
@@ -155,6 +159,8 @@
 
 /* Dark theme token overrides */
 .dark-theme {
+  --multi-cursor-color: hsl(217 91% 70%);
+  --multi-cursor-selection-bg: hsla(217, 91%, 70%, 0.25);
   --search-match-color: rgba(255, 200, 0, 0.7);
   --search-match-active-color: rgba(255, 200, 0, 0.5);
   --divergent-border-dark: rgba(0, 136, 255, 0.25);
