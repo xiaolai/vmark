@@ -95,7 +95,7 @@ describe("blockHandlers", () => {
     });
 
     it("respects limit parameter", async () => {
-      const nodes = Array.from({ length: 5 }, (_, i) => ({
+      const nodes = Array.from({ length: 5 }, () => ({
         type: { name: "paragraph" },
         isBlock: true,
         isTextblock: true,
