@@ -13,6 +13,7 @@ import { Decoration } from "@tiptap/pm/view";
 import { renderMarkmapToElement } from "@/plugins/markmap";
 import { setupMarkmapExport } from "@/plugins/markmap/markmapExport";
 import { cleanupDescendants } from "@/plugins/shared/diagramCleanup";
+import { diagramWarn } from "@/utils/debug";
 import { installDoubleClickHandler } from "../previewHelpers";
 
 /**
@@ -76,6 +77,10 @@ export function createMarkmapPreview(
 
       // Export auto-registers cleanup via diagramCleanup
       setupMarkmapExport(wrapper, content);
+    }).catch((error: unknown) => {
+      diagramWarn("Markmap preview render failed:", error instanceof Error ? error.message : String(error));
+      wrapper.className = "code-block-preview markmap-error";
+      wrapper.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Failed to render mindmap`;
     });
   });
 

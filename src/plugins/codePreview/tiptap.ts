@@ -30,6 +30,7 @@ import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { updateMermaidTheme } from "../mermaid";
+import { diagramWarn } from "@/utils/debug";
 import { updateMarkmapTheme } from "@/plugins/markmap";
 import { sweepDetached } from "@/plugins/shared/diagramCleanup";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
@@ -70,6 +71,8 @@ function setupThemeObserver() {
           if (themeChanged) {
             previewCache.clear();
           }
+        }).catch((error: unknown) => {
+          diagramWarn("Mermaid theme update failed:", error instanceof Error ? error.message : String(error));
         });
         updateMarkmapTheme(isDark);
       }
