@@ -204,7 +204,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   // Web links
   term.loadAddon(new WebLinksAddon((_event, uri) => {
     import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-      openUrl(uri);
+      openUrl(uri).catch((error: unknown) => {
+        terminalLog("Failed to open URL:", error instanceof Error ? error.message : String(error));
+      });
+    }).catch((error: unknown) => {
+      terminalLog("Failed to load opener plugin:", error instanceof Error ? error.message : String(error));
     });
   }));
 
@@ -218,6 +222,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
       }).catch((error: unknown) => {
         terminalLog("File not readable:", error instanceof Error ? error.message : String(error));
       });
+    }).catch((error: unknown) => {
+      terminalLog("Failed to load fs plugin:", error instanceof Error ? error.message : String(error));
     });
   }));
 
