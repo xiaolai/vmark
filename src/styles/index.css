@@ -151,6 +151,20 @@
   --alert-important-dark: #a371f7;
   --alert-warning-dark: #d29922;
   --alert-caution-dark: #f85149;
+
+  /* Media type colors (light mode) */
+  --media-video: #0d9488;
+  --media-audio: #6366f1;
+  --media-youtube: #dc2626;
+  --media-vimeo: #00adef;
+  --media-bilibili: #fb7299;
+
+  /* Media type colors (dark mode) */
+  --media-video-dark: #2dd4bf;
+  --media-audio-dark: #818cf8;
+  --media-youtube-dark: #f87171;
+  --media-vimeo-dark: #4ac3f0;
+  --media-bilibili-dark: #fc9cb5;
 }
 
 /* Dark theme token overrides */

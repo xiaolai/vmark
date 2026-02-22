@@ -203,70 +203,70 @@
 
 /* Video - Teal */
 .cm-media-video {
-  --media-border: #0d9488;
-  --media-bg: rgba(13, 148, 136, 0.05);
-  --media-icon: #0d9488;
+  --media-border: var(--media-video);
+  --media-bg: color-mix(in srgb, var(--media-video) 5%, transparent);
+  --media-icon: var(--media-video);
 }
 
 /* Audio - Indigo */
 .cm-media-audio {
-  --media-border: #6366f1;
-  --media-bg: rgba(99, 102, 241, 0.05);
-  --media-icon: #6366f1;
+  --media-border: var(--media-audio);
+  --media-bg: color-mix(in srgb, var(--media-audio) 5%, transparent);
+  --media-icon: var(--media-audio);
 }
 
 /* YouTube - Red */
 .cm-media-youtube {
-  --media-border: #dc2626;
-  --media-bg: rgba(220, 38, 38, 0.05);
-  --media-icon: #dc2626;
+  --media-border: var(--media-youtube);
+  --media-bg: color-mix(in srgb, var(--media-youtube) 5%, transparent);
+  --media-icon: var(--media-youtube);
 }
 
 /* Vimeo - Cyan */
 .cm-media-vimeo {
-  --media-border: #00adef;
-  --media-bg: rgba(0, 173, 239, 0.05);
-  --media-icon: #00adef;
+  --media-border: var(--media-vimeo);
+  --media-bg: color-mix(in srgb, var(--media-vimeo) 5%, transparent);
+  --media-icon: var(--media-vimeo);
 }
 
 /* Bilibili - Pink */
 .cm-media-bilibili {
-  --media-border: #fb7299;
-  --media-bg: rgba(251, 114, 153, 0.05);
-  --media-icon: #fb7299;
+  --media-border: var(--media-bilibili);
+  --media-bg: color-mix(in srgb, var(--media-bilibili) 5%, transparent);
+  --media-icon: var(--media-bilibili);
 }
 
 /* ===================
    Dark Mode - Media Tags
    =================== */
 .dark-theme .cm-media-video {
-  --media-border: #2dd4bf;
-  --media-bg: rgba(45, 212, 191, 0.08);
-  --media-icon: #2dd4bf;
+  --media-border: var(--media-video-dark);
+  --media-bg: color-mix(in srgb, var(--media-video-dark) 8%, transparent);
+  --media-icon: var(--media-video-dark);
 }
 
 .dark-theme .cm-media-audio {
-  --media-border: #818cf8;
-  --media-bg: rgba(129, 140, 248, 0.08);
-  --media-icon: #818cf8;
+  --media-border: var(--media-audio-dark);
+  --media-bg: color-mix(in srgb, var(--media-audio-dark) 8%, transparent);
+  --media-icon: var(--media-audio-dark);
 }
 
 .dark-theme .cm-media-youtube {
-  --media-border: #f87171;
-  --media-bg: rgba(248, 113, 113, 0.08);
-  --media-icon: #f87171;
+  --media-border: var(--media-youtube-dark);
+  --media-bg: color-mix(in srgb, var(--media-youtube-dark) 8%, transparent);
+  --media-icon: var(--media-youtube-dark);
 }
 
 .dark-theme .cm-media-vimeo {
-  --media-border: #4ac3f0;
-  --media-bg: rgba(74, 195, 240, 0.08);
-  --media-icon: #4ac3f0;
+  --media-border: var(--media-vimeo-dark);
+  --media-bg: color-mix(in srgb, var(--media-vimeo-dark) 8%, transparent);
+  --media-icon: var(--media-vimeo-dark);
 }
 
 .dark-theme .cm-media-bilibili {
-  --media-border: #fc9cb5;
-  --media-bg: rgba(252, 156, 181, 0.08);
-  --media-icon: #fc9cb5;
+  --media-border: var(--media-bilibili-dark);
+  --media-bg: color-mix(in srgb, var(--media-bilibili-dark) 8%, transparent);
+  --media-icon: var(--media-bilibili-dark);
 }
 
 /* ===================

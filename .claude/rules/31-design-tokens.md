@@ -71,6 +71,26 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 | `--alert-warning-dark` | `#d29922` | Warning blocks in dark mode |
 | `--alert-caution-dark` | `#f85149` | Caution blocks in dark mode |
 
+## Media Type Colors
+
+| Token | Purpose | Default |
+|-------|---------|---------|
+| `--media-video` | Video media tags | `#0d9488` |
+| `--media-audio` | Audio media tags | `#6366f1` |
+| `--media-youtube` | YouTube media tags | `#dc2626` |
+| `--media-vimeo` | Vimeo media tags | `#00adef` |
+| `--media-bilibili` | Bilibili media tags | `#fb7299` |
+
+### Dark Mode Media Tokens
+
+| Token | Value | Use For |
+|-------|-------|---------|
+| `--media-video-dark` | `#2dd4bf` | Video in dark mode |
+| `--media-audio-dark` | `#818cf8` | Audio in dark mode |
+| `--media-youtube-dark` | `#f87171` | YouTube in dark mode |
+| `--media-vimeo-dark` | `#4ac3f0` | Vimeo in dark mode |
+| `--media-bilibili-dark` | `#fc9cb5` | Bilibili in dark mode |
+
 ## Highlight Tokens
 
 | Token | Purpose | Default |
