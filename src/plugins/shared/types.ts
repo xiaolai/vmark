@@ -4,18 +4,18 @@
  * Common type definitions used by popup view classes.
  */
 
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 import type { AnchorRect } from "@/utils/popupPosition";
 
 /**
  * Minimal TipTap/ProseMirror-like editor view interface.
- * We use a structural type to avoid tight coupling to specific ProseMirror versions.
+ * Uses concrete ProseMirror types for state and dispatch
+ * to enforce type safety at all call sites.
  */
 export type EditorViewLike = {
   dom: HTMLElement;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  state: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dispatch: (tr: any) => void;
+  state: EditorState;
+  dispatch: (tr: Transaction) => void;
   focus: () => void;
 };
 
