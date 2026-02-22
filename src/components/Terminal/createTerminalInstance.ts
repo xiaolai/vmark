@@ -42,6 +42,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { createFileLinkProvider } from "./fileLinkProvider";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
+import { openTerminalLink } from "./openTerminalLink";
 import { clipboardWarn, terminalLog } from "@/utils/debug";
 
 import "@xterm/xterm/css/xterm.css";
@@ -203,9 +204,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
   // Web links
   term.loadAddon(new WebLinksAddon((_event, uri) => {
-    import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-      openUrl(uri);
-    });
+    openTerminalLink(uri);
   }));
 
   // File links
