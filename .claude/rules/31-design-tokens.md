@@ -78,6 +78,13 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 | `--highlight-bg` | Highlight mark background | `#fff3a3` |
 | `--highlight-text` | Highlight text color | `inherit` |
 
+## Multi-cursor Tokens
+
+| Token | Purpose | Light Default | Dark Override |
+|-------|---------|---------------|---------------|
+| `--multi-cursor-color` | Secondary cursor caret color | `hsl(217 91% 60%)` | `hsl(217 91% 70%)` |
+| `--multi-cursor-selection-bg` | Secondary cursor selection background | `hsla(217, 91%, 60%, 0.3)` | `hsla(217, 91%, 70%, 0.25)` |
+
 ## Spacing Tokens
 
 | Token | Value | Use For |
