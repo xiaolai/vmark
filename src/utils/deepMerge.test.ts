@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { deepMerge } from "./deepMerge";
 
+type R = Record<string, unknown>;
+
 describe("deepMerge", () => {
   it.each([
     {
@@ -58,12 +60,12 @@ describe("deepMerge", () => {
       expected: { a: false },
     },
   ])("$name", ({ target, source, expected }) => {
-    expect(deepMerge(target, source)).toEqual(expected);
+    expect(deepMerge(target as R, source as R)).toEqual(expected);
   });
 
   it("merges multiple levels deep", () => {
     const target = { a: { b: { c: 1, d: 2 }, e: 3 } };
-    const source = { a: { b: { c: 10 } } };
+    const source: R = { a: { b: { c: 10 } } };
     expect(deepMerge(target, source)).toEqual({
       a: { b: { c: 10, d: 2 }, e: 3 },
     });
@@ -84,7 +86,7 @@ describe("deepMerge", () => {
 
   it("skips null in nested objects (corrupted localStorage)", () => {
     const target = { settings: { fontSize: 16, theme: "light" } };
-    const source = { settings: { fontSize: null, theme: "dark" } };
+    const source: R = { settings: { fontSize: null, theme: "dark" } };
     expect(deepMerge(target, source)).toEqual({
       settings: { fontSize: 16, theme: "dark" },
     });
@@ -92,13 +94,13 @@ describe("deepMerge", () => {
 
   it("does not deep merge when target value is not an object", () => {
     const target = { a: "string" };
-    const source = { a: { nested: true } };
-    expect(deepMerge(target, source as never)).toEqual({ a: { nested: true } });
+    const source: R = { a: { nested: true } };
+    expect(deepMerge(target, source)).toEqual({ a: { nested: true } });
   });
 
   it("does not deep merge when source value is an array", () => {
     const target = { a: { x: 1 } };
-    const source = { a: [1, 2, 3] };
-    expect(deepMerge(target, source as never)).toEqual({ a: [1, 2, 3] });
+    const source: R = { a: [1, 2, 3] };
+    expect(deepMerge(target, source)).toEqual({ a: [1, 2, 3] });
   });
 });
