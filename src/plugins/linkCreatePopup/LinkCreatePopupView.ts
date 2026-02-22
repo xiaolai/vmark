@@ -14,15 +14,7 @@ import {
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
-
-type EditorViewLike = {
-  dom: HTMLElement;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  state: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dispatch: (tr: any) => void;
-  focus: () => void;
-};
+import type { EditorViewLike } from "@/plugins/shared/types";
 
 /**
  * Link create popup view - manages the floating popup UI for creating links.
