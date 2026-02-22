@@ -26,6 +26,7 @@
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
  * @coordinates-with fileLinkProvider.ts — file path detection in terminal output
  * @coordinates-with terminalKeyHandler.ts — custom Cmd+C/V/K/F handling
+ * @coordinates-with openTerminalLink.ts — URL opening with error handling
  * @module components/Terminal/createTerminalInstance
  */
 import { Terminal } from "@xterm/xterm";
@@ -42,6 +43,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { createFileLinkProvider } from "./fileLinkProvider";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
+import { openTerminalLink } from "./openTerminalLink";
 import { clipboardWarn, terminalLog } from "@/utils/debug";
 
 import "@xterm/xterm/css/xterm.css";
@@ -203,9 +205,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
   // Web links
   term.loadAddon(new WebLinksAddon((_event, uri) => {
-    import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-      openUrl(uri);
-    });
+    openTerminalLink(uri);
   }));
 
   // File links
@@ -218,6 +218,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
       }).catch((error: unknown) => {
         terminalLog("File not readable:", error instanceof Error ? error.message : String(error));
       });
+    }).catch((error: unknown) => {
+      terminalLog("Failed to load file plugin:", error instanceof Error ? error.message : String(error));
     });
   }));
 
