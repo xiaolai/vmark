@@ -35,6 +35,10 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.genie-picker-input-wrapper {
+  position: relative;
+}
+
 .genie-picker-search {
   width: 100%;
   padding: 6px 0;
@@ -44,6 +48,9 @@
   font-size: 15px;
   font-family: var(--font-sans);
   outline: none;
+  resize: none;
+  overflow: hidden;
+  max-height: calc(15px * 1.5 * 6); /* ~6 rows max */
 }
 
 .genie-picker-search::placeholder {
@@ -160,39 +167,27 @@
   flex-shrink: 0;
 }
 
-/* ---- Freeform ---- */
+/* ---- Body (mode-switching area) ---- */
 
-.genie-picker-freeform {
-  position: relative;
-  padding: 8px 14px;
-  border-top: 1px solid var(--border-color);
-  background: var(--subtle-bg);
+.genie-picker-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.genie-freeform-ghost-wrapper {
-  position: relative;
-}
+/* ---- No-match / freeform hint ---- */
 
-.genie-picker-freeform-input {
-  width: 100%;
-  padding: 4px 0;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  font-size: 15px;
-  font-family: var(--font-sans);
-  outline: none;
-  resize: none;
-}
-
-/* Focus indicator: highlight the divider between freeform and footer */
-.genie-picker-freeform:focus-within + .genie-picker-footer {
-  border-top-color: var(--primary-color);
-  transition: border-color 0.15s;
-}
-
-.genie-picker-freeform-input::placeholder {
+.genie-picker-no-match {
+  padding: 16px 8px;
+  text-align: center;
   color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.genie-picker-confirm-hint {
+  color: var(--primary-color);
+  font-weight: 500;
 }
 
 /* ---- Ghost text (Layer 3) ---- */
