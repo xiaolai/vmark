@@ -29,6 +29,47 @@ const MAX_STATE_RETRIES = 5;
 /** Module-level flag to prevent double-restore of main window */
 let mainWindowRestoreStarted = false;
 
+/** Reset the main window restore guard (allows future restores) */
+function resetMainRestoreGuard() {
+  mainWindowRestoreStarted = false;
+}
+
+/**
+ * Core restore logic: pull state, restore, signal completion.
+ * Shared by restoreMainWindowState() and the hook's restoreFromPulledState().
+ *
+ * @returns true if restore succeeded (allDone or partial), false if no state found
+ * @throws on restore or invoke failure (caller handles guard reset)
+ */
+async function pullAndRestore(windowLabel: string): Promise<boolean> {
+  const windowState = await pullWindowStateWithRetry(windowLabel);
+
+  if (!windowState) {
+    hotExitWarn(`No state found for window '${windowLabel}' after ${MAX_STATE_RETRIES} retries`);
+    return false;
+  }
+
+  hotExitLog(`Window '${windowLabel}' found pending state, restoring...`);
+  await restoreWindowState(windowLabel, windowState);
+
+  // Signal completion for this window and check if all windows done
+  const allDone = await invoke<boolean>('hot_exit_window_restore_complete', { windowLabel });
+  hotExitLog(`Window '${windowLabel}' restored successfully (allDone: ${allDone})`);
+
+  if (allDone) {
+    await emit(HOT_EXIT_EVENTS.RESTORE_COMPLETE, {});
+    resetMainRestoreGuard();
+  }
+
+  return true;
+}
+
+/** Emit RESTORE_FAILED event (fire-and-forget) */
+function emitRestoreFailed(error: string) {
+  void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, { error })
+    .catch((e) => hotExitWarn('Failed to emit restore failed:', e));
+}
+
 /**
  * Pull main window state from Rust and restore it.
  * This is called directly by checkAndRestoreSession after Rust invoke returns
@@ -52,33 +93,15 @@ export async function restoreMainWindowState(): Promise<void> {
   mainWindowRestoreStarted = true;
 
   try {
-    const windowState = await pullWindowStateWithRetry(windowLabel);
-
-    if (!windowState) {
-      hotExitWarn('No state found for main window after retries');
-      void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
-        error: `No restore state found for window '${windowLabel}'`,
-      }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
-      return;
-    }
-
-    hotExitLog('Main window found pending state, restoring...');
-    await restoreWindowState(windowLabel, windowState);
-
-    // Signal completion for this window and check if all windows done
-    const allDone = await invoke<boolean>('hot_exit_window_restore_complete', { windowLabel });
-    hotExitLog(`Main window restored successfully (allDone: ${allDone})`);
-
-    // Only emit RESTORE_COMPLETE when ALL windows have completed
-    if (allDone) {
-      await emit(HOT_EXIT_EVENTS.RESTORE_COMPLETE, {});
+    const restored = await pullAndRestore(windowLabel);
+    if (!restored) {
+      resetMainRestoreGuard();
+      emitRestoreFailed(`No restore state found for window '${windowLabel}'`);
     }
   } catch (error) {
-    mainWindowRestoreStarted = false; // Allow retry on failure
+    resetMainRestoreGuard();
     hotExitWarn('Main window restore failed:', error);
-    void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
-      error: error instanceof Error ? error.message : String(error),
-    }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
+    emitRestoreFailed(error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -110,40 +133,27 @@ export function useHotExitRestore() {
       isRestoring.current = true;
 
       try {
-        const windowState = await pullWindowStateWithRetry(windowLabel);
+        const restored = await pullAndRestore(windowLabel);
 
-        if (!windowState) {
-          hotExitWarn(`No state found for window '${windowLabel}' after ${MAX_STATE_RETRIES} retries`);
-
+        if (!restored) {
           // If restore was explicitly requested but no state found, emit failure
           // (This prevents checkAndRestoreSession from waiting until timeout)
           if (isRequestedRestore && isMainWindow) {
+            resetMainRestoreGuard();
             hotExitWarn('Restore was requested but no state available');
-            void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
-              error: `No restore state found for window '${windowLabel}'`,
             /* v8 ignore start -- @preserve reason: emit().catch() callback only fires on Tauri IPC errors; not triggered in mocked tests */
-            }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
+            emitRestoreFailed(`No restore state found for window '${windowLabel}'`);
             /* v8 ignore stop */
           }
-          return;
-        }
-
-        hotExitLog(`Window '${windowLabel}' found pending state, restoring...`);
-        await restoreWindowState(windowLabel, windowState);
-
-        // Signal completion for this window and check if all windows done
-        const allDone = await invoke<boolean>('hot_exit_window_restore_complete', { windowLabel });
-        hotExitLog(`Window '${windowLabel}' restored successfully (allDone: ${allDone})`);
-
-        // Only emit RESTORE_COMPLETE when ALL windows have completed
-        if (allDone) {
-          await emit(HOT_EXIT_EVENTS.RESTORE_COMPLETE, {});
         }
       } catch (error) {
+        /* v8 ignore start -- defensive guard: main-window failure in hook path is covered by restoreMainWindowState() catch; hook path only fires as fallback */
+        if (isMainWindow) {
+          resetMainRestoreGuard();
+        }
+        /* v8 ignore stop */
         hotExitWarn(`Window '${windowLabel}' restore failed:`, error);
-        void emit(HOT_EXIT_EVENTS.RESTORE_FAILED, {
-          error: error instanceof Error ? error.message : String(error),
-        }).catch((e) => hotExitWarn('Failed to emit restore failed:', e));
+        emitRestoreFailed(error instanceof Error ? error.message : String(error));
       } finally {
         isRestoring.current = false;
       }

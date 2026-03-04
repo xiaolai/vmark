@@ -18,6 +18,10 @@ const RESPONSE_POLL_INTERVAL_MS: u64 = 100;
 /// Capture timeout in seconds
 const CAPTURE_TIMEOUT_SECS: u64 = 5;
 
+/// Timeout for pending restore state cleanup (seconds).
+/// If not all windows complete within this window, state is cleared to avoid leaks.
+const RESTORE_TIMEOUT_SECS: u64 = 60;
+
 /// Pending restore state for multi-window restoration
 /// Windows pull their state from here on startup
 #[derive(Debug, Default)]
@@ -28,6 +32,8 @@ pub(crate) struct PendingRestoreState {
     pub expected_labels: HashSet<String>,
     /// Labels of windows that have completed restoration
     pub completed_windows: HashSet<String>,
+    /// Generation counter — incremented on each new restore to invalidate stale timeouts
+    pub generation: u64,
 }
 
 impl PendingRestoreState {
@@ -37,16 +43,29 @@ impl PendingRestoreState {
             && self.expected_labels.iter().all(|label| self.completed_windows.contains(label))
     }
 
-    /// Clear all state
+    /// Clear all state (preserves generation counter)
     fn clear(&mut self) {
         self.window_states.clear();
         self.expected_labels.clear();
         self.completed_windows.clear();
     }
+
+    /// Advance generation and clear all state
+    fn advance_and_clear(&mut self) {
+        self.generation += 1;
+        self.clear();
+    }
 }
 
 /// Global pending restore state
 static PENDING_RESTORE: OnceLock<Arc<Mutex<PendingRestoreState>>> = OnceLock::new();
+
+/// Handle for the active restore timeout task (cancelled on new restore)
+static RESTORE_TIMEOUT_HANDLE: OnceLock<Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>> = OnceLock::new();
+
+fn get_timeout_handle() -> Arc<Mutex<Option<tokio::task::JoinHandle<()>>>> {
+    Arc::clone(RESTORE_TIMEOUT_HANDLE.get_or_init(|| Arc::new(Mutex::new(None))))
+}
 
 /// Get the pending restore state (for internal use)
 pub(crate) fn get_pending_restore_state() -> Arc<Mutex<PendingRestoreState>> {
@@ -309,18 +328,20 @@ fn prepare_session_for_restore(session: SessionData) -> Result<SessionData, Stri
     Ok(session)
 }
 
-/// Initialize pending restore state with given windows (sync version)
+/// Initialize pending restore state with given windows (sync version).
+/// Advances the generation counter and returns the new generation for timeout binding.
 fn init_pending_restore_state_sync(
     windows: impl IntoIterator<Item = (String, WindowState)>,
     expected_labels: HashSet<String>,
-) {
+) -> u64 {
     let pending = get_pending_restore_state();
     let mut state = lock_pending_restore(&pending);
-    state.clear();
+    state.advance_and_clear();
     state.expected_labels = expected_labels;
     for (label, window_state) in windows {
         state.window_states.insert(label, window_state);
     }
+    state.generation
 }
 
 /// Restore session to main window (legacy single-window restore)
@@ -360,10 +381,14 @@ pub fn restore_session(
         window_label: target_label.clone(),
         ..main_state
     };
-    init_pending_restore_state_sync(
+    let gen = init_pending_restore_state_sync(
         std::iter::once((target_label.clone(), state_with_correct_label)),
         expected,
     );
+
+    // Safety net: clear pending state after timeout to avoid memory leaks
+    // if the window never calls mark_window_restore_complete
+    spawn_restore_timeout(gen);
 
     // Emit restore signal to target window (signal only, state is pulled)
     target_window
@@ -454,7 +479,11 @@ pub fn restore_session_multi_window(
     }
 
     // Store all state atomically BEFORE any windows are created
-    init_pending_restore_state_sync(window_states_to_store, expected_labels);
+    let gen = init_pending_restore_state_sync(window_states_to_store, expected_labels);
+
+    // Safety net: clear pending state after timeout to avoid memory leaks
+    // if any window crashes or fails to call mark_window_restore_complete
+    spawn_restore_timeout(gen);
 
     // Phase 2: Create windows with pre-allocated labels
     for label in &labels_to_create {
@@ -483,6 +512,43 @@ pub fn restore_session_multi_window(
         .map_err(|e| format!("Failed to emit restore event to main: {}", e))?;
 
     Ok(RestoreMultiWindowResult { windows_created })
+}
+
+/// Spawn a background task that clears pending restore state after a timeout.
+/// This prevents memory leaks if a window crashes or never completes restoration.
+///
+/// Generation-safe: captures the current generation at spawn time and only
+/// clears state if the generation still matches (a newer restore hasn't started).
+/// Also cancels any previously running timeout task.
+fn spawn_restore_timeout(generation: u64) {
+    // Cancel any existing timeout task
+    let handle_arc = get_timeout_handle();
+    let mut handle_slot = handle_arc.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some(prev) = handle_slot.take() {
+        prev.abort();
+    }
+
+    let new_handle = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(RESTORE_TIMEOUT_SECS)).await;
+        let pending = get_pending_restore_state();
+        let mut state = lock_pending_restore(&pending);
+        // Only clear if this timeout's generation still matches current state
+        if state.generation == generation && !state.expected_labels.is_empty() {
+            let incomplete: Vec<_> = state
+                .expected_labels
+                .iter()
+                .filter(|l| !state.completed_windows.contains(*l))
+                .cloned()
+                .collect();
+            eprintln!(
+                "[HotExit] Restore timeout ({}s) — clearing pending state. Incomplete windows: {:?}",
+                RESTORE_TIMEOUT_SECS,
+                incomplete
+            );
+            state.clear();
+        }
+    });
+    *handle_slot = Some(new_handle);
 }
 
 /// Get pending window state for restoration
@@ -525,7 +591,13 @@ mod tests {
     use super::*;
 
     // Tests mutate a global OnceLock, so they must run serially.
+    // Use unwrap_or_else to recover from poisoning (a panicking test must not
+    // cascade failures to all subsequent tests).
     static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn acquire_test_lock() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 
     fn make_window_state(label: &str, is_main: bool) -> WindowState {
         WindowState {
@@ -553,7 +625,7 @@ mod tests {
 
     #[test]
     fn pending_restore_state_all_complete_empty() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let state = PendingRestoreState::default();
         // Empty expected_labels → not complete (guard against vacuous truth)
         assert!(!state.all_complete());
@@ -561,7 +633,7 @@ mod tests {
 
     #[test]
     fn pending_restore_state_all_complete_partial() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let mut state = PendingRestoreState::default();
         state.expected_labels.insert("main".to_string());
         state.expected_labels.insert("doc-1".to_string());
@@ -571,7 +643,7 @@ mod tests {
 
     #[test]
     fn pending_restore_state_all_complete_full() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let mut state = PendingRestoreState::default();
         state.expected_labels.insert("main".to_string());
         state.expected_labels.insert("doc-1".to_string());
@@ -582,7 +654,7 @@ mod tests {
 
     #[test]
     fn pending_restore_state_clear() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let mut state = PendingRestoreState::default();
         state.expected_labels.insert("main".to_string());
         state.window_states.insert("main".to_string(), make_window_state("main", true));
@@ -597,7 +669,7 @@ mod tests {
 
     #[test]
     fn normalize_matching_label_is_noop() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let mut ws = make_window_state("main", true);
         normalize_window_label(&mut ws, "main");
         assert_eq!(ws.window_label, "main");
@@ -605,7 +677,7 @@ mod tests {
 
     #[test]
     fn normalize_mismatched_label_updates() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let mut ws = make_window_state("old-label", false);
         normalize_window_label(&mut ws, "doc-5");
         assert_eq!(ws.window_label, "doc-5");
@@ -615,7 +687,7 @@ mod tests {
 
     #[test]
     fn store_and_retrieve_window_state() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         clear_pending_restore();
 
         let ws = make_window_state("main", true);
@@ -632,7 +704,7 @@ mod tests {
 
     #[test]
     fn retrieve_nonexistent_window_returns_none() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         clear_pending_restore();
 
         let result = get_window_restore_state("nonexistent");
@@ -641,7 +713,7 @@ mod tests {
 
     #[test]
     fn mark_complete_tracks_expected_only() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         clear_pending_restore();
 
         let expected: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
@@ -665,7 +737,7 @@ mod tests {
 
     #[test]
     fn clear_pending_restore_resets_state() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         clear_pending_restore();
 
         let expected: HashSet<String> = ["main".to_string()].into_iter().collect();
@@ -683,7 +755,7 @@ mod tests {
 
     #[test]
     fn prepare_session_valid() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let session = SessionData {
             version: SCHEMA_VERSION,
             timestamp: chrono::Utc::now().timestamp(),
@@ -696,7 +768,7 @@ mod tests {
 
     #[test]
     fn prepare_session_stale_rejected() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let stale_timestamp = chrono::Utc::now().timestamp() - (8 * 86_400); // 8 days ago
         let session = SessionData {
             version: SCHEMA_VERSION,
@@ -712,7 +784,7 @@ mod tests {
 
     #[test]
     fn prepare_session_incompatible_version_rejected() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         let session = SessionData {
             version: 999,
             timestamp: chrono::Utc::now().timestamp(),
@@ -729,7 +801,7 @@ mod tests {
 
     #[test]
     fn pre_stored_state_queryable_for_pre_allocated_labels() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = acquire_test_lock();
         clear_pending_restore();
 
         // Simulate the atomic restore pattern: pre-allocate labels and store
@@ -756,5 +828,192 @@ mod tests {
             assert_eq!(state.window_label, *label);
             assert!(!state.is_main_window);
         }
+    }
+
+    // -- Generation counter ---------------------------------------------------
+
+    #[test]
+    fn init_advances_generation() {
+        let _lock = acquire_test_lock();
+        clear_pending_restore();
+
+        let expected1: HashSet<String> = ["main".to_string()].into_iter().collect();
+        let gen1 = init_pending_restore_state_sync(
+            std::iter::once(("main".to_string(), make_window_state("main", true))),
+            expected1,
+        );
+
+        let expected2: HashSet<String> = ["main".to_string()].into_iter().collect();
+        let gen2 = init_pending_restore_state_sync(
+            std::iter::once(("main".to_string(), make_window_state("main", true))),
+            expected2,
+        );
+
+        assert!(gen2 > gen1, "Generation must advance on each init");
+    }
+
+    #[test]
+    fn generation_preserved_across_clear() {
+        let _lock = acquire_test_lock();
+        clear_pending_restore();
+
+        let expected: HashSet<String> = ["main".to_string()].into_iter().collect();
+        let gen = init_pending_restore_state_sync(
+            std::iter::once(("main".to_string(), make_window_state("main", true))),
+            expected,
+        );
+
+        // clear() preserves generation
+        let pending = get_pending_restore_state();
+        {
+            let mut state = lock_pending_restore(&pending);
+            state.clear();
+            assert_eq!(state.generation, gen, "clear() must preserve generation");
+        }
+
+        // advance_and_clear() bumps it
+        {
+            let mut state = lock_pending_restore(&pending);
+            state.advance_and_clear();
+            assert!(state.generation > gen, "advance_and_clear() must bump generation");
+        }
+    }
+
+    #[test]
+    fn stale_generation_would_not_clear_new_state() {
+        let _lock = acquire_test_lock();
+        clear_pending_restore();
+
+        // Simulate restore A
+        let expected_a: HashSet<String> = ["main".to_string()].into_iter().collect();
+        let gen_a = init_pending_restore_state_sync(
+            std::iter::once(("main".to_string(), make_window_state("main", true))),
+            expected_a,
+        );
+
+        // Simulate restore B (overwrites A)
+        let expected_b: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
+        let gen_b = init_pending_restore_state_sync(
+            [
+                ("main".to_string(), make_window_state("main", true)),
+                ("doc-1".to_string(), make_window_state("doc-1", false)),
+            ],
+            expected_b,
+        );
+
+        // A stale timeout from restore A should NOT clear restore B's state
+        let pending = get_pending_restore_state();
+        let mut state = lock_pending_restore(&pending);
+        assert_ne!(gen_a, gen_b);
+        assert_ne!(state.generation, gen_a);
+        // Simulate what the timeout task does: check generation before clearing
+        if state.generation == gen_a {
+            state.clear(); // This should NOT execute
+        }
+        // State B must still be intact
+        assert_eq!(state.expected_labels.len(), 2);
+        assert!(state.window_states.contains_key("doc-1"));
+    }
+
+    // -- Async timeout tests (tokio paused time) ------------------------------
+
+    /// Helper: let spawned tasks register timers, advance time, then flush.
+    /// The initial yield lets spawned tasks poll once to register their sleep
+    /// with the time driver (required for paused time to work correctly).
+    async fn yield_advance_flush(duration: Duration) {
+        // Let spawned tasks register their timers
+        tokio::task::yield_now().await;
+        // Advance past the timer deadline
+        tokio::time::advance(duration).await;
+        // Let the now-resolved tasks run to completion
+        tokio::task::yield_now().await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn timeout_clears_incomplete_restore() {
+        let _lock = acquire_test_lock();
+        clear_pending_restore();
+
+        let expected: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
+        let gen = init_pending_restore_state_sync(
+            [
+                ("main".to_string(), make_window_state("main", true)),
+                ("doc-1".to_string(), make_window_state("doc-1", false)),
+            ],
+            expected,
+        );
+
+        // Only mark main as complete — doc-1 never completes
+        mark_window_restore_complete("main");
+
+        // Spawn timeout and advance time past the deadline
+        spawn_restore_timeout(gen);
+        yield_advance_flush(Duration::from_secs(RESTORE_TIMEOUT_SECS + 1)).await;
+
+        // State should be cleared by timeout
+        let pending = get_pending_restore_state();
+        let state = lock_pending_restore(&pending);
+        assert!(state.expected_labels.is_empty(), "Timeout must clear incomplete state");
+        assert!(state.window_states.is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn timeout_skips_already_completed_restore() {
+        let _lock = acquire_test_lock();
+        clear_pending_restore();
+
+        let expected: HashSet<String> = ["main".to_string()].into_iter().collect();
+        let gen = init_pending_restore_state_sync(
+            std::iter::once(("main".to_string(), make_window_state("main", true))),
+            expected,
+        );
+
+        // Complete restore before timeout fires
+        let all_done = mark_window_restore_complete("main");
+        assert!(all_done);
+
+        // Spawn timeout and advance time
+        spawn_restore_timeout(gen);
+        yield_advance_flush(Duration::from_secs(RESTORE_TIMEOUT_SECS + 1)).await;
+
+        // State was already cleared by completion — timeout is a no-op
+        let pending = get_pending_restore_state();
+        let state = lock_pending_restore(&pending);
+        assert!(state.expected_labels.is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn new_restore_cancels_old_timeout() {
+        let _lock = acquire_test_lock();
+        clear_pending_restore();
+
+        // Restore A
+        let expected_a: HashSet<String> = ["main".to_string()].into_iter().collect();
+        let gen_a = init_pending_restore_state_sync(
+            std::iter::once(("main".to_string(), make_window_state("main", true))),
+            expected_a,
+        );
+        spawn_restore_timeout(gen_a);
+
+        // Before timeout fires, start restore B
+        yield_advance_flush(Duration::from_secs(30)).await;
+        let expected_b: HashSet<String> = ["main".to_string(), "doc-1".to_string()].into_iter().collect();
+        let gen_b = init_pending_restore_state_sync(
+            [
+                ("main".to_string(), make_window_state("main", true)),
+                ("doc-1".to_string(), make_window_state("doc-1", false)),
+            ],
+            expected_b,
+        );
+        spawn_restore_timeout(gen_b); // Cancels restore A's timeout
+
+        // Advance past restore A's original timeout (60s from start = 30s more)
+        yield_advance_flush(Duration::from_secs(31)).await;
+
+        // Restore B's state must NOT have been cleared (A's timeout was cancelled)
+        let pending = get_pending_restore_state();
+        let state = lock_pending_restore(&pending);
+        assert_eq!(state.expected_labels.len(), 2, "Restore B state must survive A's cancelled timeout");
+        assert!(state.window_states.contains_key("doc-1"));
     }
 }
