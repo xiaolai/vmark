@@ -21,6 +21,7 @@
  * @coordinates-with aiSuggestionStore.ts — stores the suggestion for accept/reject
  * @coordinates-with aiProviderStore.ts — provides API key and provider config
  * @coordinates-with geniesStore.ts — provides genie definitions and templates
+ * @coordinates-with geniePickerStore.ts — feeds mode/response state for picker UI
  * @module hooks/useGenieInvocation
  */
 
@@ -37,6 +38,7 @@ import { useAiInvocationStore } from "@/stores/aiInvocationStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useGeniesStore } from "@/stores/geniesStore";
+import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getExpandedSourcePeekRange, serializeSourcePeekRange } from "@/utils/sourcePeek";
 import { extractSurroundingContext } from "@/utils/extractContext";
@@ -60,10 +62,12 @@ function extractContent(scope: GenieScope, contextRadius = 0): ExtractionResult 
   const editor = useTiptapEditorStore.getState().editor;
   const sourceMode = useEditorStore.getState().sourceMode;
 
+  /* v8 ignore start -- callers guard against source mode; defensive only */
   if (sourceMode) {
     const content = useEditorStore.getState().content;
     return { text: content, from: 0, to: content.length };
   }
+  /* v8 ignore stop */
 
   if (!editor) return null;
 
@@ -102,8 +106,10 @@ function extractContent(scope: GenieScope, contextRadius = 0): ExtractionResult 
       return { text, from: 0, to: doc.content.size };
     }
 
+    /* v8 ignore start -- defensive: all valid scopes handled above */
     default:
       return null;
+    /* v8 ignore stop */
   }
 
   // Attach surrounding context for non-document scopes
@@ -232,12 +238,18 @@ export function useGenieInvocation() {
         if (chunk.requestId !== requestId) return;
 
         if (chunk.error) {
-          toast.error(chunk.error);
-          cancel();
+          useGeniePickerStore.getState().setPickerError(chunk.error);
+          useAiInvocationStore.getState().setError(chunk.error);
+          // Clean up listener without calling cancel() (which would reset error state)
+          if (unlistenRef.current) {
+            unlistenRef.current();
+            unlistenRef.current = null;
+          }
           return;
         }
 
         accumulated += chunk.chunk;
+        useGeniePickerStore.getState().appendResponse(chunk.chunk);
 
         if (chunk.done) {
           // Apply accumulated result
@@ -258,8 +270,13 @@ export function useGenieInvocation() {
                   .setMeta("addToHistory", true);
                 editor.view.dispatch(tr);
               }
+              useGeniePickerStore.getState().closePicker();
+              useAiInvocationStore.getState().finish();
             } else {
-              // Show as ghost text suggestion for user approval
+              // Show preview in picker (don't close)
+              useGeniePickerStore.getState().setPreview(accumulated.trim());
+              useAiInvocationStore.getState().finish();
+              // Also create suggestion for when user accepts
               useAiSuggestionStore.getState().addSuggestion({
                 tabId,
                 type: isInsert ? "insert" : "replace",
@@ -269,8 +286,16 @@ export function useGenieInvocation() {
                 originalContent: isInsert ? "" : extraction.text,
               });
             }
+          } else {
+            // Empty result
+            useGeniePickerStore.getState().setPickerError("AI returned empty response");
+            useAiInvocationStore.getState().setError("Empty response");
           }
-          cancel();
+          // Clean up listener but don't call cancel() (which would reset the stores)
+          if (unlistenRef.current) {
+            unlistenRef.current();
+            unlistenRef.current = null;
+          }
         }
       });
 
@@ -290,11 +315,16 @@ export function useGenieInvocation() {
           cliPath: cliInfo?.path ?? null,
         });
       } catch (e) {
-        toast.error(`Failed to invoke AI genie: ${e}`);
-        cancel();
+        const message = e instanceof Error ? e.message : String(e);
+        useGeniePickerStore.getState().setPickerError(message);
+        useAiInvocationStore.getState().setError(message);
+        if (unlistenRef.current) {
+          unlistenRef.current();
+          unlistenRef.current = null;
+        }
       }
     },
-    [cancel]
+    []
   );
 
   const invokeGenie = useCallback(
@@ -330,6 +360,9 @@ export function useGenieInvocation() {
 
       // Track genie as recent
       useGeniesStore.getState().addRecent(genie.metadata.name);
+
+      // Signal picker to show processing state
+      useGeniePickerStore.getState().startProcessing(genie.metadata.name);
 
       await runGenie(filled, extracted, genie.metadata.model, genie.metadata.action ?? "replace");
     },
@@ -370,6 +403,9 @@ export function useGenieInvocation() {
       } else {
         filled = `${userPrompt}\n\n${extracted.text}`;
       }
+      // Signal picker to show processing state
+      useGeniePickerStore.getState().startProcessing(userPrompt);
+
       await runGenie(filled, extracted);
     },
     [runGenie]
