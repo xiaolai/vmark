@@ -1,0 +1,176 @@
+/* ============================================================================
+ * GenieResponseView — Inline AI response display
+ * ============================================================================ */
+
+.genie-response-view {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-color);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+/* ---- Submitted prompt (dimmed) ---- */
+
+.genie-response-prompt {
+  padding: 8px 14px 4px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-tertiary);
+}
+
+/* ---- Thinking indicator ---- */
+
+.genie-response-thinking {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--primary-color);
+}
+
+.genie-response-spinner {
+  animation: genie-bounce 0.6s ease-in-out infinite;
+}
+
+@keyframes genie-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* ---- Response text ---- */
+
+.genie-response-text {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-color);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.5;
+}
+
+/* ---- Streaming cursor ---- */
+
+.genie-response-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--primary-color);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: genie-cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes genie-cursor-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---- Action buttons row ---- */
+
+.genie-response-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.genie-response-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.genie-response-btn--accept {
+  color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+.genie-response-btn--accept:hover {
+  background: color-mix(in srgb, var(--success-color) 10%, transparent);
+}
+
+.genie-response-btn--reject {
+  color: var(--text-secondary);
+}
+
+.genie-response-btn--reject:hover {
+  color: var(--text-color);
+  background: var(--hover-bg);
+}
+
+.genie-response-btn--retry {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.genie-response-btn--retry:hover {
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
+/* Focus: U-shaped underline */
+.genie-response-btn:focus-visible {
+  outline: none;
+}
+
+.genie-response-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 1px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+/* ---- Error state ---- */
+
+.genie-response-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--error-color);
+  background: var(--error-bg);
+  border-left: 3px solid var(--error-color);
+}
+
+.genie-response-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ---- Dark theme ---- */
+
+.dark-theme .genie-response-btn--accept {
+  color: var(--success-color-dark);
+  border-color: var(--success-color-dark);
+}
+
+.dark-theme .genie-response-btn--accept:hover {
+  background: color-mix(in srgb, var(--success-color-dark) 10%, transparent);
+}
+
+.dark-theme .genie-response-error {
+  background: color-mix(in srgb, var(--error-color) 10%, transparent);
+}
