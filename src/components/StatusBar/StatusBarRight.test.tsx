@@ -122,6 +122,12 @@ describe("formatMcpTooltip", () => {
 
 const baseProps = {
   aiRunning: false,
+  elapsedSeconds: 0,
+  aiError: null as string | null,
+  showSuccess: false,
+  onCancelAi: vi.fn(),
+  onRetryAi: vi.fn(),
+  onDismissError: vi.fn(),
   mcpRunning: false,
   mcpLoading: false,
   mcpError: null,
@@ -194,14 +200,111 @@ describe("StatusBarRight", () => {
     expect(screen.queryByText("1s ago")).not.toBeInTheDocument();
   });
 
-  it("shows AI running spinner", () => {
-    const { container } = render(<StatusBarRight {...baseProps} aiRunning={true} />);
-    expect(container.querySelector(".status-ai-running")).toBeInTheDocument();
+  // --- AI indicator: running state ---
+
+  it("shows running indicator with 'Thinking...' when elapsed < 10s", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={5} />
+    );
+    expect(container.querySelector(".status-ai-indicator--running")).toBeInTheDocument();
+    expect(screen.getByText("Thinking... 5s")).toBeInTheDocument();
   });
 
-  it("hides AI spinner when not running", () => {
-    const { container } = render(<StatusBarRight {...baseProps} aiRunning={false} />);
-    expect(container.querySelector(".status-ai-running")).not.toBeInTheDocument();
+  it("shows running indicator with 'Still working...' when elapsed >= 10s", () => {
+    render(<StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={15} />);
+    expect(screen.getByText("Still working... 15s")).toBeInTheDocument();
+  });
+
+  it("shows cancel button when AI is running", () => {
+    render(<StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={2} />);
+    const cancelBtn = screen.getByLabelText("Cancel AI request");
+    expect(cancelBtn).toBeInTheDocument();
+  });
+
+  it("calls onCancelAi when cancel button is clicked", () => {
+    const onCancelAi = vi.fn();
+    render(
+      <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={2} onCancelAi={onCancelAi} />
+    );
+    fireEvent.click(screen.getByLabelText("Cancel AI request"));
+    expect(onCancelAi).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides AI indicator when not running and no error/success", () => {
+    const { container } = render(<StatusBarRight {...baseProps} />);
+    expect(container.querySelector(".status-ai-indicator")).not.toBeInTheDocument();
+  });
+
+  // --- AI indicator: error state ---
+
+  it("shows error indicator when aiError is set and not running", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} aiError="Rate limit exceeded" />
+    );
+    expect(container.querySelector(".status-ai-indicator--error")).toBeInTheDocument();
+    expect(screen.getByText("Rate limit exceeded")).toBeInTheDocument();
+  });
+
+  it("truncates long error messages to 30 chars", () => {
+    const longError = "This is a very long error message that exceeds thirty characters";
+    render(<StatusBarRight {...baseProps} aiError={longError} />);
+    expect(screen.getByText("This is a very long error mess...")).toBeInTheDocument();
+  });
+
+  it("shows retry and dismiss buttons on error", () => {
+    render(<StatusBarRight {...baseProps} aiError="fail" />);
+    expect(screen.getByText("Retry")).toBeInTheDocument();
+    expect(screen.getByLabelText("Dismiss error")).toBeInTheDocument();
+  });
+
+  it("calls onRetryAi when retry button clicked", () => {
+    const onRetryAi = vi.fn();
+    render(<StatusBarRight {...baseProps} aiError="fail" onRetryAi={onRetryAi} />);
+    fireEvent.click(screen.getByText("Retry"));
+    expect(onRetryAi).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onDismissError when dismiss button clicked", () => {
+    const onDismissError = vi.fn();
+    render(
+      <StatusBarRight {...baseProps} aiError="fail" onDismissError={onDismissError} />
+    );
+    fireEvent.click(screen.getByLabelText("Dismiss error"));
+    expect(onDismissError).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show error indicator when AI is running (running takes priority)", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={3} aiError="stale error" />
+    );
+    expect(container.querySelector(".status-ai-indicator--running")).toBeInTheDocument();
+    expect(container.querySelector(".status-ai-indicator--error")).not.toBeInTheDocument();
+  });
+
+  // --- AI indicator: success state ---
+
+  it("shows success indicator when showSuccess and not running/error", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} showSuccess={true} />
+    );
+    expect(container.querySelector(".status-ai-indicator--success")).toBeInTheDocument();
+    expect(screen.getByText("Done")).toBeInTheDocument();
+  });
+
+  it("does not show success when error is present (error takes priority)", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} showSuccess={true} aiError="fail" />
+    );
+    expect(container.querySelector(".status-ai-indicator--error")).toBeInTheDocument();
+    expect(container.querySelector(".status-ai-indicator--success")).not.toBeInTheDocument();
+  });
+
+  it("does not show success when AI is running (running takes priority)", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={1} showSuccess={true} />
+    );
+    expect(container.querySelector(".status-ai-indicator--running")).toBeInTheDocument();
+    expect(container.querySelector(".status-ai-indicator--success")).not.toBeInTheDocument();
   });
 
   it("applies connected class when MCP is running", () => {

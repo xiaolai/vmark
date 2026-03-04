@@ -18,7 +18,7 @@
  * @coordinates-with UpdateIndicator.tsx — inline update badge
  * @module components/StatusBar/StatusBarRight
  */
-import { AlertTriangle, Code2, GitFork, Satellite, Save, Sparkles, Terminal, Type } from "lucide-react";
+import { AlertTriangle, Check, Code2, GitFork, Satellite, Save, Sparkles, Terminal, Type } from "lucide-react";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
@@ -63,6 +63,12 @@ export function formatMcpTooltip(
 
 interface StatusBarRightProps {
   aiRunning: boolean;
+  elapsedSeconds: number;
+  aiError: string | null;
+  showSuccess: boolean;
+  onCancelAi: () => void;
+  onRetryAi: () => void;
+  onDismissError: () => void;
   mcpRunning: boolean;
   mcpLoading: boolean;
   mcpError: string | null;
@@ -83,6 +89,12 @@ interface StatusBarRightProps {
 
 export function StatusBarRight({
   aiRunning,
+  elapsedSeconds,
+  aiError,
+  showSuccess,
+  onCancelAi,
+  onRetryAi,
+  onDismissError,
   mcpRunning,
   mcpLoading,
   mcpError,
@@ -134,8 +146,46 @@ export function StatusBarRight({
       <UpdateIndicator />
 
       {aiRunning && (
-        <span className="status-ai-running" title="AI genie is working...">
-          <Sparkles size={12} />
+        <span className="status-ai-indicator status-ai-indicator--running" title="AI genie is working...">
+          <Sparkles size={12} className="status-ai-spinner" />
+          <span className="status-ai-text">
+            {elapsedSeconds < 10
+              ? `Thinking... ${elapsedSeconds}s`
+              : `Still working... ${elapsedSeconds}s`}
+          </span>
+          <button
+            className="status-ai-cancel"
+            onClick={onCancelAi}
+            title="Cancel"
+            aria-label="Cancel AI request"
+          >
+            ×
+          </button>
+        </span>
+      )}
+
+      {!aiRunning && aiError && (
+        <span className="status-ai-indicator status-ai-indicator--error" title={aiError}>
+          <AlertTriangle size={12} />
+          <span className="status-ai-text">
+            {aiError.length > 30 ? `${aiError.slice(0, 30)}...` : aiError}
+          </span>
+          <button className="status-ai-action" onClick={onRetryAi}>Retry</button>
+          <button
+            className="status-ai-cancel"
+            onClick={onDismissError}
+            title="Dismiss"
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </span>
+      )}
+
+      {!aiRunning && !aiError && showSuccess && (
+        <span className="status-ai-indicator status-ai-indicator--success">
+          <Check size={12} />
+          <span className="status-ai-text">Done</span>
         </span>
       )}
 

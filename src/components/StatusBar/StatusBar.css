@@ -402,25 +402,93 @@
   .tab-pill,
   .tab-drag-ghost,
   .status-autosave,
-  .status-ai-running svg {
+  .status-ai-indicator,
+  .status-ai-spinner {
     transition: none !important;
     animation: none !important;
   }
 }
 
 /* ========================================
-   AI Genie Running Indicator
+   AI Status Indicator (running / error / success)
    ======================================== */
 
-.status-ai-running {
+.status-ai-indicator {
   display: flex;
   align-items: center;
-  padding: 2px 4px;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  white-space: nowrap;
+  animation: popup-fade-in 0.15s ease-out;
+}
+
+.status-ai-indicator--running {
   color: var(--primary-color);
 }
 
-.status-ai-running svg {
+.status-ai-indicator--running .status-ai-spinner {
   animation: ai-bounce 0.6s ease-in-out infinite;
+}
+
+.status-ai-indicator--error {
+  color: var(--error-color);
+}
+
+.status-ai-indicator--success {
+  color: var(--success-color);
+}
+
+.dark-theme .status-ai-indicator--success {
+  color: var(--success-color-dark);
+}
+
+.status-ai-text {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-ai-cancel {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.status-ai-cancel:hover {
+  opacity: 1;
+}
+
+.status-ai-cancel:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+.status-ai-action {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 11px;
+  text-decoration: underline;
+}
+
+.status-ai-action:hover {
+  color: var(--accent-primary);
+}
+
+.status-ai-action:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+  border-radius: 2px;
 }
 
 @keyframes ai-bounce {
