@@ -2,8 +2,8 @@
  * StatusBarRight
  *
  * Purpose: Right-hand section of the status bar — word/char count, update indicator,
- * auto-save/divergent/missing warnings, AI spinner, MCP connection status,
- * terminal toggle, and editor mode toggle.
+ * auto-save/divergent/missing warnings, AI status indicator (running/error/success),
+ * MCP connection status, terminal toggle, and editor mode toggle.
  *
  * Key decisions:
  *   - Split from StatusBar.tsx to isolate re-renders: props like wordCount

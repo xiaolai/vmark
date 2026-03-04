@@ -2,7 +2,8 @@
  * StatusBar
  *
  * Purpose: Bottom bar combining tab strip, word/character counts, auto-save indicator,
- * MCP status, terminal toggle, and editor mode toggle into a single horizontal bar.
+ * AI status indicator, MCP status, terminal toggle, and editor mode toggle into a
+ * single horizontal bar. Auto-shows when AI has active status (hasActiveStatus).
  *
  * User interactions:
  *   - Click a tab pill to switch documents; middle-click or X to close
