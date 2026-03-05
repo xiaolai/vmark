@@ -158,7 +158,9 @@ vi.mock("@/stores/aiInvocationStore", () => ({
 }));
 
 const mockPromptHistoryReset = vi.fn();
-const mockHandleChange = vi.fn();
+const mockHandleChange = vi.fn((value: string) => {
+  mockDisplayValue = value;
+});
 const mockHandleKeyDown = vi.fn();
 const mockRecordAndReset = vi.fn();
 let mockDisplayValue = "";
@@ -1072,5 +1074,105 @@ describe("GeniePicker — search input focus", () => {
     if (items.length > 0) {
       expect(items[0]?.classList.contains("genie-picker-item--selected")).toBe(true);
     }
+  });
+});
+
+// ============================================================================
+// Prompt history integration
+// ============================================================================
+
+describe("GeniePicker — prompt history integration", () => {
+  beforeEach(() => {
+    resetState();
+    geniesState.genies = SAMPLE_GENIES;
+  });
+  afterEach(cleanup);
+
+  it("calls promptHistory.handleChange on every input change", async () => {
+    const user = userEvent.setup();
+    render(<GeniePicker />);
+
+    const input = getUnifiedInput();
+    await user.type(input, "abc");
+
+    // handleChange should be called for each character typed
+    expect(mockHandleChange).toHaveBeenCalledTimes(3);
+    expect(mockHandleChange).toHaveBeenLastCalledWith("abc");
+  });
+
+  it("delegates keyDown to promptHistory in freeform mode (no genie matches)", async () => {
+    const user = userEvent.setup();
+    render(<GeniePicker />);
+
+    // Type something that doesn't match any genie to enter freeform mode
+    const input = getUnifiedInput();
+    await user.type(input, "xyznonexistent");
+
+    // Now fire a keyDown on the textarea — should delegate to promptHistory
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+
+    expect(mockHandleKeyDown).toHaveBeenCalled();
+  });
+
+  it("does NOT delegate keyDown to promptHistory when genies match (search mode)", () => {
+    render(<GeniePicker />);
+
+    // With default SAMPLE_GENIES and no filter, genies are visible
+    const input = getUnifiedInput();
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+
+    expect(mockHandleKeyDown).not.toHaveBeenCalled();
+  });
+
+  it("delegates Tab to promptHistory in freeform mode (stopPropagation prevents scope cycling)", async () => {
+    // Make handleKeyDown call stopPropagation to simulate ghost text acceptance
+    mockHandleKeyDown.mockImplementation((e: React.KeyboardEvent) => {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+
+    const user = userEvent.setup();
+    render(<GeniePicker />);
+
+    const input = getUnifiedInput();
+    await user.type(input, "xyznonexistent");
+
+    fireEvent.keyDown(input, { key: "Tab" });
+
+    expect(mockHandleKeyDown).toHaveBeenCalled();
+    // Scope should NOT have changed because stopPropagation blocked container handler
+    expect(screen.getByText(/scope: all/)).toBeInTheDocument();
+  });
+
+  it("Ctrl+R in freeform mode delegates to promptHistory", async () => {
+    const user = userEvent.setup();
+    render(<GeniePicker />);
+
+    const input = getUnifiedInput();
+    await user.type(input, "xyznonexistent");
+
+    fireEvent.keyDown(input, { key: "r", ctrlKey: true });
+
+    expect(mockHandleKeyDown).toHaveBeenCalled();
+  });
+
+  it("syncs displayValue back to filter when cycling changes it", async () => {
+    // Start with no genies so we're in freeform mode
+    geniesState.genies = [];
+    mockDisplayValue = "";
+    const { rerender } = render(<GeniePicker />);
+
+    const input = getUnifiedInput();
+    expect(input.value).toBe("");
+
+    // Simulate prompt history cycling changing displayValue
+    mockDisplayValue = "previous prompt";
+    rerender(<GeniePicker />);
+
+    // The filter (textarea value) should sync to the displayValue
+    const updatedInput = getUnifiedInput();
+    expect(updatedInput.value).toBe("previous prompt");
   });
 });

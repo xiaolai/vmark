@@ -257,6 +257,17 @@ export function GeniePicker() {
     [flatList, selectedIndex, handleClose, handleSelect, activeScope, handleFreeformSubmit, ime, mode, filter, freeformConfirmed]
   );
 
+  // Sync prompt history cycling back to filter.
+  // When cycling changes displayValue, push it into filter so the textarea updates.
+  // Safe from loops: typing sets displayValue === filter via handleChange, so the
+  // guard (displayValue !== filter) is only true when cycling produces a new value.
+  useEffect(() => {
+    if (flatList.length === 0 && promptHistory.displayValue !== filter) {
+      setFilter(promptHistory.displayValue);
+      setSelectedIndex(0);
+    }
+  }, [promptHistory.displayValue, filter, flatList.length]);
+
   // Click outside to close
   useEffect(() => {
     if (!isOpen) return;
@@ -320,6 +331,12 @@ export function GeniePicker() {
                 setFilter(e.target.value);
                 setSelectedIndex(0);
                 setFreeformConfirmed(false);
+                promptHistory.handleChange(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (isInputMode && flatList.length === 0) {
+                  promptHistory.handleKeyDown(e);
+                }
               }}
               onFocus={() => setSelectedIndex(0)}
               onCompositionStart={ime.onCompositionStart}
