@@ -12,17 +12,27 @@ AI Genies are prompt templates that transform your text using AI. Select text, i
 
 ## The Genie Picker
 
-Press `Mod + Y` (or menu **Tools > AI Genies**) to open a spotlight-style overlay.
+Press `Mod + Y` (or menu **Tools > AI Genies**) to open a spotlight-style overlay with a single unified input.
 
-**Search** — Type to filter genies by name, description, or category.
+**Search & freeform** — Start typing to filter genies by name, description, or category. If no genies match, the input becomes a freeform prompt field.
 
-**Quick Chips** — When the scope is "selection", one-click buttons appear for common actions (Polish, Condense, Grammar, Rephrase).
+**Quick Chips** — When the scope is "selection" and the input is empty, one-click buttons appear for common actions (Polish, Condense, Grammar, Rephrase).
 
-**Freeform** — Type any instruction in the bottom field and press Enter to use it as a one-off prompt. Your text is appended after the instruction automatically.
+**Two-step freeform** — When no genies match, press `Enter` once to see a confirmation hint, then `Enter` again to submit as an AI prompt. This prevents accidental submissions.
 
 **Scope cycling** — Press `Tab` to cycle through scopes: selection → block → document → all.
 
-The picker closes after selecting a genie, and the AI begins generating.
+**Prompt history** — In freeform mode (no matching genies), press `ArrowUp` / `ArrowDown` to cycle through previous prompts. Press `Ctrl + R` to open a searchable history dropdown. Ghost text shows the most recent matching prompt as a grayed hint — press `Tab` to accept it.
+
+### Processing Feedback
+
+After selecting a genie or submitting a freeform prompt, the picker shows inline feedback:
+
+- **Processing** — A thinking indicator with elapsed time counter. Press `Escape` to cancel.
+- **Preview** — The AI response streams in real-time. Use `Accept` to apply or `Reject` to discard.
+- **Error** — If something goes wrong, the error message appears with a `Retry` button.
+
+The status bar also shows AI progress — a spinning icon with elapsed time while running, a brief "Done" flash on success, or an error indicator with Retry/Dismiss buttons. The status bar auto-shows when AI has active status, even if you previously hid it with `F7`.
 
 ## Built-in Genies
 
@@ -92,9 +102,13 @@ Each suggestion has accept (checkmark) and reject (X) buttons.
 | Accept all | `Mod + Shift + Enter` |
 | Reject all | `Mod + Shift + Escape` |
 
-## Running Indicator
+## Status Bar Indicator
 
-While AI is generating, a bouncing sparkle icon appears in the status bar. The status bar briefly shows even if hidden, so you always know when AI is working.
+While AI is generating, the status bar shows a spinning sparkle icon with an elapsed time counter ("Thinking... 3s"). A cancel button (×) lets you stop the request.
+
+After completion, a brief "Done" checkmark flashes for 3 seconds. If an error occurs, the status bar shows the error message with Retry and Dismiss buttons.
+
+The status bar auto-shows when AI has active status (running, error, or success), even if you hid it with `F7`.
 
 ---
 
