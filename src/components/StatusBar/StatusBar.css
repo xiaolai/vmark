@@ -33,25 +33,11 @@
   min-width: 0;
 }
 
-.status-file {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.status-dirty-indicator {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--primary-color);
-}
-
 .status-item {
   color: var(--text-secondary);
   white-space: nowrap;
 }
 
-.status-toggle,
 .status-mode {
   position: relative;
   display: flex;
@@ -66,19 +52,13 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.status-toggle:hover,
 .status-mode:hover {
   background-color: var(--hover-bg);
   color: var(--text-color);
 }
 
-.status-toggle:active,
 .status-mode:active {
   background-color: var(--hover-bg-strong);
-}
-
-.status-toggle.active {
-  color: var(--primary-color);
 }
 
 .status-autosave {
@@ -199,7 +179,7 @@
 .tab-pill.active {
   background-color: var(--bg-primary);
   color: var(--text-color);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .tab-title {
@@ -248,11 +228,11 @@
 }
 
 .tab-pill.tab-missing:hover {
-  background-color: var(--warning-bg-hover, rgba(245, 158, 11, 0.15));
+  background-color: color-mix(in srgb, var(--warning-color) 15%, transparent);
 }
 
 .tab-pill.tab-missing.active {
-  background-color: var(--warning-bg-active, rgba(245, 158, 11, 0.2));
+  background-color: color-mix(in srgb, var(--warning-color) 20%, transparent);
 }
 
 /* Divergent file indicator (local differs from disk) */
@@ -528,7 +508,7 @@
 }
 
 .status-mcp.connected {
-  color: var(--success-color, #22c55e);
+  color: var(--success-color);
 }
 
 .status-mcp.loading {
@@ -590,7 +570,6 @@
 /* Focus indicators for StatusBar buttons */
 .status-sidebar-toggle:focus-visible,
 .status-new-tab:focus-visible,
-.status-toggle:focus-visible,
 .status-mode:focus-visible,
 .status-mcp:focus-visible,
 .status-terminal:focus-visible {
@@ -599,7 +578,6 @@
 
 .status-sidebar-toggle:focus-visible::after,
 .status-new-tab:focus-visible::after,
-.status-toggle:focus-visible::after,
 .status-mode:focus-visible::after,
 .status-mcp:focus-visible::after,
 .status-terminal:focus-visible::after {
@@ -679,7 +657,7 @@
 
 /* Ready state - success color with dot */
 .status-update.ready {
-  color: var(--success-color, #22c55e);
+  color: var(--success-color);
 }
 
 .dark-theme .status-update.ready {

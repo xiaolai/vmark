@@ -29,6 +29,7 @@ import { usePromptHistory } from "@/hooks/usePromptHistory";
 import type { GenieDefinition, GenieScope } from "@/types/aiGenies";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { GenieChips } from "./GenieChips";
 import { GenieItem } from "./GenieItem";
 import { GenieResponseView } from "./GenieResponseView";
@@ -83,6 +84,7 @@ export function GeniePicker() {
       setFilter("");
       setSelectedIndex(0);
       setFreeformConfirmed(false);
+      setShowProviderSwitcher(false);
       promptHistory.reset();
       setActiveScope(filterScope);
     }
@@ -125,9 +127,10 @@ export function GeniePicker() {
 
   const grouped = useMemo(() => {
     const groups = new Map<string, GenieDefinition[]>();
+    const recentNames = new Set(recents.map((r) => r.metadata.name));
     for (const g of filtered) {
       // Skip recents from main list if showing recents section
-      if (!filter && recents.some((r) => r.metadata.name === g.metadata.name)) {
+      if (!filter && recentNames.has(g.metadata.name)) {
         continue;
       }
       /* v8 ignore next -- @preserve ?? fallback: all test genies have a category defined */
@@ -154,6 +157,7 @@ export function GeniePicker() {
     setFilter("");
     setSelectedIndex(0);
     setFreeformConfirmed(false);
+    setShowProviderSwitcher(false);
     promptHistory.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -178,7 +182,11 @@ export function GeniePicker() {
   }, [filter, activeScope, handleClose, invokeFreeform]);
 
   const handleAccept = useCallback(() => {
-    // For now, just close the picker. Task 6 will wire actual application.
+    // Accept the focused AI suggestion (created by useGenieInvocation in preview mode)
+    const { focusedSuggestionId, acceptSuggestion } = useAiSuggestionStore.getState();
+    if (focusedSuggestionId) {
+      acceptSuggestion(focusedSuggestionId);
+    }
     handleClose();
   }, [handleClose]);
 
@@ -195,17 +203,16 @@ export function GeniePicker() {
     (e: React.KeyboardEvent) => {
       if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
 
-      // In non-input modes, Escape returns to input (does not close)
+      // In non-input modes, Escape returns to input; all other keys are blocked
       if (mode === "processing" || mode === "preview" || mode === "error") {
-        /* v8 ignore next -- @preserve non-Escape keys are silently blocked in response modes */
+        e.preventDefault();
         if (e.key === "Escape") {
-          e.preventDefault();
           if (mode === "processing") {
             useAiInvocationStore.getState().cancel();
           }
           useGeniePickerStore.getState().resetToInput();
         }
-        return; // Block all other keys in response modes
+        return;
       }
 
       const maxIndex = flatList.length - 1;

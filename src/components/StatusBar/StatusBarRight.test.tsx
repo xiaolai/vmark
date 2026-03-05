@@ -273,6 +273,25 @@ describe("StatusBarRight", () => {
     expect(onDismissError).toHaveBeenCalledTimes(1);
   });
 
+  it("clicking Retry dismisses the error via onRetryAi (matches actual StatusBar wiring)", () => {
+    const onRetryAi = vi.fn();
+    const onDismissError = vi.fn();
+    render(
+      <StatusBarRight
+        {...baseProps}
+        aiError="Something failed"
+        onRetryAi={onRetryAi}
+        onDismissError={onDismissError}
+      />
+    );
+    fireEvent.click(screen.getByText("Retry"));
+
+    // Retry calls onRetryAi which in StatusBar.tsx calls dismissError()
+    expect(onRetryAi).toHaveBeenCalledTimes(1);
+    // Dismiss button should NOT have been called
+    expect(onDismissError).not.toHaveBeenCalled();
+  });
+
   it("does not show error indicator when AI is running (running takes priority)", () => {
     const { container } = render(
       <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={3} aiError="stale error" />

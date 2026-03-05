@@ -897,6 +897,52 @@ describe("GeniePicker — mode integration", () => {
     expect(mockResetToInput).toHaveBeenCalled();
   });
 
+  it("blocks non-Escape keys in processing mode (preventDefault called)", () => {
+    pickerState.mode = "processing";
+    pickerState.submittedPrompt = "test";
+    render(<GeniePicker />);
+
+    const container = document.querySelector(".genie-picker") as HTMLElement;
+    const event = new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true });
+    const preventDefaultSpy = vi.spyOn(event, "preventDefault");
+    container.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    // Picker should not close and should not reset
+    expect(mockClosePicker).not.toHaveBeenCalled();
+    expect(mockResetToInput).not.toHaveBeenCalled();
+  });
+
+  it("blocks non-Escape keys in preview mode (preventDefault called)", () => {
+    pickerState.mode = "preview";
+    pickerState.responseText = "result";
+    render(<GeniePicker />);
+
+    const container = document.querySelector(".genie-picker") as HTMLElement;
+    const event = new KeyboardEvent("keydown", { key: "b", bubbles: true, cancelable: true });
+    const preventDefaultSpy = vi.spyOn(event, "preventDefault");
+    container.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(mockClosePicker).not.toHaveBeenCalled();
+    expect(mockResetToInput).not.toHaveBeenCalled();
+  });
+
+  it("blocks non-Escape keys in error mode (preventDefault called)", () => {
+    pickerState.mode = "error";
+    pickerState.pickerError = "fail";
+    render(<GeniePicker />);
+
+    const container = document.querySelector(".genie-picker") as HTMLElement;
+    const event = new KeyboardEvent("keydown", { key: "x", bubbles: true, cancelable: true });
+    const preventDefaultSpy = vi.spyOn(event, "preventDefault");
+    container.dispatchEvent(event);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(mockClosePicker).not.toHaveBeenCalled();
+    expect(mockResetToInput).not.toHaveBeenCalled();
+  });
+
   it("Cancel button in processing mode cancels AI and resets to input", async () => {
     const user = userEvent.setup();
     pickerState.mode = "processing";
@@ -994,6 +1040,29 @@ describe("GeniePicker — provider switcher", () => {
     const providerBtn = screen.getByText(/via Claude Code/);
     await user.click(providerBtn);
     await user.click(providerBtn);
+  });
+
+  it("resets provider switcher on close and reopen", async () => {
+    const user = userEvent.setup();
+    render(<GeniePicker />);
+
+    // Open provider switcher
+    const providerBtn = screen.getByText(/via Claude Code/);
+    await user.click(providerBtn);
+
+    // Provider switcher should be visible
+    expect(document.querySelector(".provider-switcher")).not.toBeNull();
+
+    // Close picker
+    pickerState.isOpen = false;
+    cleanup();
+
+    // Reopen picker
+    pickerState.isOpen = true;
+    render(<GeniePicker />);
+
+    // Provider switcher should NOT be visible after reopen
+    expect(document.querySelector(".provider-switcher")).toBeNull();
   });
 });
 

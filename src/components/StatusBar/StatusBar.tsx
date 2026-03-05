@@ -108,7 +108,7 @@ export function StatusBar() {
 
   const openMcpSettings = useCallback(() => openSettingsWindow("integrations"), []);
   const handleRetryAi = useCallback(() => {
-    // TODO: Will be wired in Task 6 when useGenieInvocation is updated
+    // Dismiss error in status bar — user can retry from the picker or resubmit
     useAiInvocationStore.getState().dismissError();
   }, []);
   const showAutoSavePaused = isMissing && autoSaveEnabled;

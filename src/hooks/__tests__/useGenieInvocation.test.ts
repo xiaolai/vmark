@@ -59,6 +59,11 @@ vi.mock("@/utils/debug", () => ({
   genieWarn: vi.fn(),
 }));
 
+let mockWindowLabel = "main";
+vi.mock("@/utils/workspaceStorage", () => ({
+  getCurrentWindowLabel: () => mockWindowLabel,
+}));
+
 // ---------------------------------------------------------------------------
 // Store imports (after mocks)
 // ---------------------------------------------------------------------------
@@ -124,6 +129,7 @@ function resetStores() {
   useAiSuggestionStore.setState({ suggestions: new Map(), focusedSuggestionId: null });
   useEditorStore.setState({ sourceMode: false, content: "" });
   useTabStore.setState({ activeTabId: { main: "tab-1" } });
+  mockWindowLabel = "main";
 }
 
 function setupProviderAndEditor() {
@@ -547,6 +553,69 @@ describe("useGenieInvocation — picker store wiring", () => {
     // Should not have called startProcessing a second time for the new genie
     // (first call was from the test itself, not from the hook)
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  // =========================================================================
+  // Validation: picker mode does NOT change when tryStart fails
+  // =========================================================================
+
+  it("does not set processing mode when tryStart returns false (already running)", async () => {
+    setupProviderAndEditor();
+    // Pre-acquire the lock so tryStart will return false
+    useAiInvocationStore.getState().tryStart("existing-request");
+
+    // Set picker to search mode initially
+    useGeniePickerStore.setState({ mode: "search" });
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    // Picker should NOT be stuck in processing — it should remain in search mode
+    expect(useGeniePickerStore.getState().mode).toBe("search");
+    expect(useGeniePickerStore.getState().submittedPrompt).toBeNull();
+  });
+
+  // =========================================================================
+  // Multi-window: tabId derived from window label
+  // =========================================================================
+
+  it("creates suggestion with correct tabId for non-main window", async () => {
+    setupProviderAndEditor();
+    useSettingsStore.setState({
+      advanced: { mcpServer: { autoApproveEdits: false } } as never,
+    });
+
+    // Simulate window-2 with its own active tab
+    mockWindowLabel = "window-2";
+    useTabStore.setState({ activeTabId: { main: "tab-1", "window-2": "tab-xyz" } });
+
+    const { result } = renderHook(() => useGenieInvocation());
+
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    const requestId = useAiInvocationStore.getState().requestId;
+
+    act(() => {
+      listenCallback?.({
+        payload: { requestId, chunk: "multi-window result", done: false, error: null },
+      });
+    });
+
+    act(() => {
+      listenCallback?.({
+        payload: { requestId, chunk: "", done: true, error: null },
+      });
+    });
+
+    // Suggestion should be created with the tab ID for window-2
+    const suggestions = useAiSuggestionStore.getState().suggestions;
+    expect(suggestions.size).toBe(1);
+    const [, suggestion] = [...suggestions.entries()][0];
+    expect(suggestion.tabId).toBe("tab-xyz");
   });
 
   // =========================================================================

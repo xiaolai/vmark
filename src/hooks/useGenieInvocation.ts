@@ -7,7 +7,7 @@
  *   or applies changes directly when auto-approve is enabled.
  *
  * Pipeline: User triggers genie → extractContent(scope) → fillTemplate()
- *   → invoke("stream_ai_response") → listen("ai:chunk") → accumulate
+ *   → invoke("stream_ai_response") → listen("ai:response") → accumulate
  *   → if autoApprove: apply directly via createMarkdownPasteSlice
  *   → else: aiSuggestionStore.createSuggestion() → user accepts/rejects
  *
@@ -40,6 +40,7 @@ import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useGeniesStore } from "@/stores/geniesStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useTabStore } from "@/stores/tabStore";
+import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { getExpandedSourcePeekRange, serializeSourcePeekRange } from "@/utils/sourcePeek";
 import { extractSurroundingContext } from "@/utils/extractContext";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
@@ -191,7 +192,7 @@ export function useGenieInvocation() {
   }, []);
 
   const runGenie = useCallback(
-    async (filledPrompt: string, extraction: ExtractionResult, model?: string, action: GenieAction = "replace") => {
+    async (filledPrompt: string, extraction: ExtractionResult, model?: string, action: GenieAction = "replace", processingLabel?: string) => {
       const providerState = useAiProviderStore.getState();
       const provider = providerState.activeProvider;
       if (!provider) return; // Callers ensure provider exists
@@ -223,11 +224,17 @@ export function useGenieInvocation() {
       const requestId = crypto.randomUUID();
 
       // Capture current tab ID for suggestion scoping
-      const tabId = useTabStore.getState().activeTabId["main"] ?? "unknown";
+      const windowLabel = getCurrentWindowLabel();
+      const tabId = useTabStore.getState().activeTabId[windowLabel] ?? "unknown";
 
       // Try to acquire the invocation lock
       if (!useAiInvocationStore.getState().tryStart(requestId)) {
         return; // Already running
+      }
+
+      // Signal picker to show processing state (after lock acquired to avoid stale UI)
+      if (processingLabel) {
+        useGeniePickerStore.getState().startProcessing(processingLabel);
       }
 
       let accumulated = "";
@@ -269,9 +276,12 @@ export function useGenieInvocation() {
                   .scrollIntoView()
                   .setMeta("addToHistory", true);
                 editor.view.dispatch(tr);
+                useGeniePickerStore.getState().closePicker();
+                useAiInvocationStore.getState().finish();
+              } else {
+                useGeniePickerStore.getState().setPickerError("Editor unavailable — cannot apply changes");
+                useAiInvocationStore.getState().setError("Editor unavailable");
               }
-              useGeniePickerStore.getState().closePicker();
-              useAiInvocationStore.getState().finish();
             } else {
               // Show preview in picker (don't close)
               useGeniePickerStore.getState().setPreview(accumulated.trim());
@@ -361,10 +371,7 @@ export function useGenieInvocation() {
       // Track genie as recent
       useGeniesStore.getState().addRecent(genie.metadata.name);
 
-      // Signal picker to show processing state
-      useGeniePickerStore.getState().startProcessing(genie.metadata.name);
-
-      await runGenie(filled, extracted, genie.metadata.model, genie.metadata.action ?? "replace");
+      await runGenie(filled, extracted, genie.metadata.model, genie.metadata.action ?? "replace", genie.metadata.name);
     },
     [runGenie]
   );
@@ -403,10 +410,7 @@ export function useGenieInvocation() {
       } else {
         filled = `${userPrompt}\n\n${extracted.text}`;
       }
-      // Signal picker to show processing state
-      useGeniePickerStore.getState().startProcessing(userPrompt);
-
-      await runGenie(filled, extracted);
+      await runGenie(filled, extracted, undefined, "replace", userPrompt);
     },
     [runGenie]
   );

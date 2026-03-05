@@ -10,7 +10,7 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 15vh;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--hover-bg-strong);
 }
 
 .genie-picker {
@@ -303,14 +303,6 @@
   font-family: var(--font-mono);
 }
 
-.genie-picker-provider {
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
-}
-
-.genie-picker-running {
-  color: var(--primary-color);
-}
 
 .genie-picker-hint {
   margin-left: auto;
@@ -495,7 +487,7 @@
 /* ---- Dark theme ---- */
 
 .dark-theme .genie-picker-backdrop {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--hover-bg-dark-strong);
 }
 
 .dark-theme .genie-picker {
