@@ -511,6 +511,70 @@ describe("useGenieInvocation — picker store wiring", () => {
   });
 
   // =========================================================================
+  // CLI provider: invoke with null rest config fields
+  // =========================================================================
+
+  it("invokes with null model/apiKey/endpoint for CLI provider", async () => {
+    const fakeEditor = makeFakeEditor();
+    useTiptapEditorStore.setState({ editor: fakeEditor as never });
+    useAiProviderStore.setState({
+      activeProvider: "claude-cli",
+      restProviders: [],
+      cliProviders: [
+        { type: "claude-cli", name: "Claude CLI", available: true, path: "/usr/bin/claude" } as never,
+      ],
+      ensureProvider: vi.fn(async () => true),
+    } as never);
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "run_ai_prompt",
+      expect.objectContaining({
+        model: null,
+        apiKey: null,
+        endpoint: null,
+        cliPath: "/usr/bin/claude",
+      })
+    );
+  });
+
+  // =========================================================================
+  // Fallback: tabId defaults to "unknown" when window has no active tab
+  // =========================================================================
+
+  it("uses 'unknown' tabId when window has no active tab", async () => {
+    setupProviderAndEditor();
+    useSettingsStore.setState({
+      advanced: { mcpServer: { autoApproveEdits: false } } as never,
+    });
+
+    // Remove active tab for the window
+    useTabStore.setState({ activeTabId: {} });
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    const requestId = useAiInvocationStore.getState().requestId;
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "text", done: false, error: null } });
+    });
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "", done: true, error: null } });
+    });
+
+    const suggestions = useAiSuggestionStore.getState().suggestions;
+    expect(suggestions.size).toBe(1);
+    const [, suggestion] = [...suggestions.entries()][0];
+    expect(suggestion.tabId).toBe("unknown");
+  });
+
+  // =========================================================================
   // Validation: REST provider missing API key
   // =========================================================================
 
@@ -533,6 +597,28 @@ describe("useGenieInvocation — picker store wiring", () => {
 
     expect(toast.error).toHaveBeenCalledWith(
       expect.stringContaining("API key is required")
+    );
+  });
+
+  it("falls back to provider type when REST config has no name", async () => {
+    const fakeEditor = makeFakeEditor();
+    useTiptapEditorStore.setState({ editor: fakeEditor as never });
+    useAiProviderStore.setState({
+      activeProvider: "openai",
+      restProviders: [
+        { type: "openai", apiKey: "", model: "gpt-4", endpoint: null } as never,
+      ],
+      cliProviders: [],
+      ensureProvider: vi.fn(async () => true),
+    } as never);
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("openai API key is required")
     );
   });
 
@@ -653,6 +739,23 @@ describe("useGenieInvocation — picker store wiring", () => {
   // Freeform: document scope (no context)
   // =========================================================================
 
+  it("invokes genie with block scope", async () => {
+    setupProviderAndEditor();
+    const genie = makeGenie({ metadata: { name: "Block Genie", scope: "block", action: "replace" } as never });
+    const { result } = renderHook(() => useGenieInvocation());
+
+    await act(async () => {
+      await result.current.invokeGenie(genie);
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "run_ai_prompt",
+      expect.objectContaining({
+        prompt: expect.stringContaining("hello"),
+      })
+    );
+  });
+
   it("invokes freeform with document scope (no context)", async () => {
     setupProviderAndEditor();
 
@@ -667,6 +770,87 @@ describe("useGenieInvocation — picker store wiring", () => {
         prompt: expect.stringContaining("summarize"),
       })
     );
+  });
+
+  // =========================================================================
+  // Freeform: selection scope (with surrounding context)
+  // =========================================================================
+
+  it("invokes freeform with selection scope and includes surrounding context", async () => {
+    setupProviderAndEditor();
+    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    vi.mocked(extractSurroundingContext).mockReturnValue({
+      before: "paragraph above",
+      after: "paragraph below",
+    } as never);
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeFreeform("improve this", "selection");
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "run_ai_prompt",
+      expect.objectContaining({
+        prompt: expect.stringContaining("Context (do not modify)"),
+      })
+    );
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "run_ai_prompt",
+      expect.objectContaining({
+        prompt: expect.stringContaining("paragraph above"),
+      })
+    );
+  });
+
+  // =========================================================================
+  // Freeform: selection scope with only before context (no after)
+  // =========================================================================
+
+  it("invokes freeform with only before context", async () => {
+    setupProviderAndEditor();
+    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    vi.mocked(extractSurroundingContext).mockReturnValue({
+      before: "only before",
+      after: "",
+    } as never);
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeFreeform("fix it", "selection");
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "run_ai_prompt",
+      expect.objectContaining({
+        prompt: expect.stringContaining("[Before]"),
+      })
+    );
+    // Should NOT contain [After] section
+    const prompt = mockInvoke.mock.calls[0][1] as { prompt: string };
+    expect(prompt.prompt).not.toContain("[After]");
+  });
+
+  // =========================================================================
+  // Freeform: selection scope with only after context (no before)
+  // =========================================================================
+
+  it("invokes freeform with only after context", async () => {
+    setupProviderAndEditor();
+    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    vi.mocked(extractSurroundingContext).mockReturnValue({
+      before: "",
+      after: "only after",
+    } as never);
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeFreeform("fix it", "selection");
+    });
+
+    const prompt = (mockInvoke.mock.calls[0][1] as { prompt: string }).prompt;
+    expect(prompt).toContain("[After]");
+    expect(prompt).not.toContain("[Before]");
   });
 
   // =========================================================================
@@ -720,6 +904,71 @@ describe("useGenieInvocation — picker store wiring", () => {
     const [, suggestion] = [...suggestions.entries()][0];
     expect(suggestion.type).toBe("insert");
     expect(suggestion.originalContent).toBe("");
+  });
+
+  // =========================================================================
+  // Insert action with autoApprove: uses extraction.to as from position
+  // =========================================================================
+
+  it("auto-applies insert action at extraction.to position", async () => {
+    const fakeEditor = setupProviderAndEditor();
+    useSettingsStore.setState({
+      advanced: { mcpServer: { autoApproveEdits: true } } as never,
+    });
+
+    const genie = makeGenie({ metadata: { name: "Insert Genie", scope: "selection", action: "insert" } as never });
+    const { result } = renderHook(() => useGenieInvocation());
+
+    await act(async () => {
+      await result.current.invokeGenie(genie);
+    });
+
+    const requestId = useAiInvocationStore.getState().requestId;
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "new text", done: false, error: null } });
+    });
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "", done: true, error: null } });
+    });
+
+    // Auto-approve with insert: from should be extraction.to (5), not extraction.from (0)
+    expect(fakeEditor.state.tr.replaceRange).toHaveBeenCalledWith(5, 5, expect.anything());
+    expect(useGeniePickerStore.getState().isOpen).toBe(false);
+  });
+
+  // =========================================================================
+  // Action defaults to "replace" when undefined
+  // =========================================================================
+
+  it("defaults to replace action when genie has no action metadata", async () => {
+    setupProviderAndEditor();
+    useSettingsStore.setState({
+      advanced: { mcpServer: { autoApproveEdits: false } } as never,
+    });
+
+    // Create genie without action field
+    const genie = {
+      metadata: { name: "No Action Genie", scope: "selection" as const },
+      template: "Fix: {{content}}",
+    } as GenieDefinition;
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeGenie(genie);
+    });
+
+    const requestId = useAiInvocationStore.getState().requestId;
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "result", done: false, error: null } });
+    });
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "", done: true, error: null } });
+    });
+
+    const suggestions = useAiSuggestionStore.getState().suggestions;
+    expect(suggestions.size).toBe(1);
+    const [, suggestion] = [...suggestions.entries()][0];
+    expect(suggestion.type).toBe("replace");
   });
 
   // =========================================================================
@@ -902,5 +1151,42 @@ describe("useGenieInvocation — picker store wiring", () => {
     });
 
     expect(genieWarn).toHaveBeenCalledWith("No content to extract for scope:", "selection");
+  });
+
+  // =========================================================================
+  // Streaming: done + autoApprove + editor null → error
+  // =========================================================================
+
+  it("sets error when editor is null during auto-approve apply", async () => {
+    setupProviderAndEditor();
+    useSettingsStore.setState({
+      advanced: { mcpServer: { autoApproveEdits: true } } as never,
+    });
+
+    const { result } = renderHook(() => useGenieInvocation());
+
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    const requestId = useAiInvocationStore.getState().requestId;
+
+    // Remove editor after streaming has started (simulates race condition)
+    useTiptapEditorStore.setState({ editor: null as never });
+
+    act(() => {
+      listenCallback?.({
+        payload: { requestId, chunk: "result text", done: false, error: null },
+      });
+    });
+
+    act(() => {
+      listenCallback?.({
+        payload: { requestId, chunk: "", done: true, error: null },
+      });
+    });
+
+    expect(useGeniePickerStore.getState().pickerError).toBe("Editor unavailable — cannot apply changes");
+    expect(useAiInvocationStore.getState().error).toBe("Editor unavailable");
   });
 });

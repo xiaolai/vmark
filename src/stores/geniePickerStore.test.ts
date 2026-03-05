@@ -83,4 +83,18 @@ describe("geniePickerStore", () => {
       expect(state.filterScope).toBeNull();
     });
   });
+
+  // ── setMode ─────────────────────────────────────────────────────────
+
+  describe("setMode", () => {
+    it("updates mode to freeform", () => {
+      useGeniePickerStore.getState().setMode("freeform");
+      expect(useGeniePickerStore.getState().mode).toBe("freeform");
+    });
+
+    it("updates mode to processing", () => {
+      useGeniePickerStore.getState().setMode("processing");
+      expect(useGeniePickerStore.getState().mode).toBe("processing");
+    });
+  });
 });

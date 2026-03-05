@@ -157,6 +157,23 @@ vi.mock("@/stores/aiInvocationStore", () => ({
   ),
 }));
 
+let mockFocusedSuggestionId: string | null = null;
+const mockAcceptSuggestion = vi.fn();
+
+vi.mock("@/stores/aiSuggestionStore", () => ({
+  useAiSuggestionStore: Object.assign(
+    (selector: (s: Record<string, unknown>) => unknown) =>
+      selector({ focusedSuggestionId: mockFocusedSuggestionId }),
+    {
+      getState: () => ({
+        focusedSuggestionId: mockFocusedSuggestionId,
+        acceptSuggestion: mockAcceptSuggestion,
+      }),
+      subscribe: vi.fn(() => () => {}),
+    }
+  ),
+}));
+
 const mockPromptHistoryReset = vi.fn();
 const mockHandleChange = vi.fn((value: string) => {
   mockDisplayValue = value;
@@ -209,6 +226,7 @@ function resetState() {
   mockActiveProvider = null;
   mockDisplayValue = "";
   mockElapsedSeconds = 0;
+  mockFocusedSuggestionId = null;
   vi.clearAllMocks();
 }
 
@@ -883,6 +901,19 @@ describe("GeniePicker — mode integration", () => {
 
     await user.click(screen.getByText("Accept"));
 
+    expect(mockClosePicker).toHaveBeenCalled();
+  });
+
+  it("Accept button calls acceptSuggestion when a suggestion is focused", async () => {
+    const user = userEvent.setup();
+    pickerState.mode = "preview";
+    pickerState.responseText = "AI result";
+    mockFocusedSuggestionId = "suggestion-123";
+    render(<GeniePicker />);
+
+    await user.click(screen.getByText("Accept"));
+
+    expect(mockAcceptSuggestion).toHaveBeenCalledWith("suggestion-123");
     expect(mockClosePicker).toHaveBeenCalled();
   });
 
