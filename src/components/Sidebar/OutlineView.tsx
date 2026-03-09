@@ -175,7 +175,7 @@ export function OutlineView() {
 
   const handleClick = (headingIndex: number) => {
     // Emit event to scroll editor to this heading
-    emit("outline:scroll-to-heading", { headingIndex });
+    void emit("outline:scroll-to-heading", { headingIndex });
     // Update active heading immediately for responsive UI
     useUIStore.getState().setActiveHeadingLine(headingIndex);
   };

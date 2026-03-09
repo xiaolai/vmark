@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { requireString, optionalString, optionalNumber, optionalBoolean, numberWithDefault, booleanWithDefault, stringWithDefault } from "./validateArgs";
+import { requireString, optionalString, optionalNumber, optionalBoolean, numberWithDefault, booleanWithDefault, stringWithDefault, requireEnum } from "./validateArgs";
 
 describe("requireString", () => {
   it.each([
@@ -170,5 +170,41 @@ describe("stringWithDefault", () => {
 
   it("throws for non-string value", () => {
     expect(() => stringWithDefault({ key: 123 }, "key", "default")).toThrow("expected string, got number");
+  });
+});
+
+describe("requireEnum", () => {
+  const allowed = ["apply", "suggest", "dryRun"] as const;
+
+  it("returns value when it is in the allowed set", () => {
+    expect(requireEnum({ mode: "apply" }, "mode", allowed)).toBe("apply");
+    expect(requireEnum({ mode: "suggest" }, "mode", allowed)).toBe("suggest");
+    expect(requireEnum({ mode: "dryRun" }, "mode", allowed)).toBe("dryRun");
+  });
+
+  it("returns default when key is missing", () => {
+    expect(requireEnum({}, "mode", allowed, "apply")).toBe("apply");
+  });
+
+  it("returns default when value is undefined", () => {
+    expect(requireEnum({ mode: undefined }, "mode", allowed, "apply")).toBe("apply");
+  });
+
+  it("returns default when value is null", () => {
+    expect(requireEnum({ mode: null }, "mode", allowed, "apply")).toBe("apply");
+  });
+
+  it("throws for value not in allowed set", () => {
+    expect(() => requireEnum({ mode: "invalid" }, "mode", allowed)).toThrow(
+      'Invalid mode: "invalid". Must be one of: apply, suggest, dryRun'
+    );
+  });
+
+  it("throws for non-string value", () => {
+    expect(() => requireEnum({ mode: 42 }, "mode", allowed)).toThrow("expected string, got number");
+  });
+
+  it("throws when missing with no default", () => {
+    expect(() => requireEnum({}, "mode", allowed)).toThrow("expected string, got undefined");
   });
 });

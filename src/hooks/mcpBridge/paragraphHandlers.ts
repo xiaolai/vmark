@@ -9,14 +9,12 @@
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
-import { requireString, optionalString, stringWithDefault, booleanWithDefault } from "./validateArgs";
+import { requireString, optionalString, requireEnum, booleanWithDefault } from "./validateArgs";
+import { OPERATION_MODES } from "./types";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
-// Types — 'apply'/'suggest' accepted for backward compat but ignored;
-// only 'dryRun' has effect. Apply-vs-suggest is controlled by autoApproveEdits.
-type OperationMode = "apply" | "suggest" | "dryRun";
 type ParagraphOperation = "replace" | "append" | "prepend" | "delete";
 
 interface ParagraphTarget {
@@ -210,7 +208,7 @@ export async function handleParagraphWrite(
     const target = args.target as ParagraphTarget;
     const operation = requireString(args, "operation") as ParagraphOperation;
     const content = optionalString(args, "content");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);

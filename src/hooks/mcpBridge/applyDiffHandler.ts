@@ -20,11 +20,9 @@ import {
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-import { requireString, optionalNumber, stringWithDefault } from "./validateArgs";
+import { requireString, optionalNumber, requireEnum } from "./validateArgs";
+import { OPERATION_MODES, MATCH_POLICIES } from "./types";
 
-// Types
-type OperationMode = "apply" | "suggest" | "dryRun";
-type MatchPolicy = "first" | "all" | "nth" | "error_if_multiple";
 
 /**
  * Handle apply_diff request.
@@ -37,9 +35,9 @@ export async function handleApplyDiff(
     const baseRevision = requireString(args, "baseRevision");
     const original = requireString(args, "original");
     const replacement = requireString(args, "replacement");
-    const matchPolicy = requireString(args, "matchPolicy") as MatchPolicy;
+    const matchPolicy = requireEnum(args, "matchPolicy", MATCH_POLICIES);
     const nth = optionalNumber(args, "nth");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);

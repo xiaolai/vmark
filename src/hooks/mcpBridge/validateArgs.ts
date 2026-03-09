@@ -104,3 +104,24 @@ export function stringWithDefault(args: Record<string, unknown>, key: string, de
   }
   return val;
 }
+
+/**
+ * Require a value from a fixed set of allowed strings, with optional default.
+ * Validates at runtime that the value is one of the allowed options.
+ */
+export function requireEnum<T extends string>(
+  args: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[],
+  defaultValue?: T
+): T {
+  const raw = args[key];
+  if ((raw === undefined || raw === null) && defaultValue !== undefined) return defaultValue;
+  if (typeof raw !== "string") {
+    throw new Error(`Missing or invalid '${key}' (expected string, got ${typeof raw})`);
+  }
+  if (!(allowed as readonly string[]).includes(raw)) {
+    throw new Error(`Invalid ${key}: "${raw}". Must be one of: ${allowed.join(", ")}`);
+  }
+  return raw as T;
+}
