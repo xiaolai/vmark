@@ -104,3 +104,38 @@ export function stringWithDefault(args: Record<string, unknown>, key: string, de
   }
   return val;
 }
+
+/**
+ * Require a string value from a fixed set of allowed values (enum validation).
+ * Returns the default if the key is missing; throws if present but not in the allowed set.
+ */
+export function requireEnum<T extends string>(
+  args: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[],
+  defaultValue?: T
+): T {
+  const val = args[key];
+  if (val === undefined || val === null) {
+    if (defaultValue !== undefined) return defaultValue;
+    throw new Error(`Missing required '${key}' (expected one of: ${allowed.join(", ")})`);
+  }
+  if (typeof val !== "string") {
+    throw new Error(`Invalid '${key}' (expected string, got ${typeof val})`);
+  }
+  if (!allowed.includes(val as T)) {
+    throw new Error(`Invalid '${key}': "${val}". Must be one of: ${allowed.join(", ")}`);
+  }
+  return val as T;
+}
+
+/**
+ * Require an array argument. Throws if missing or not an array.
+ */
+export function requireArray(args: Record<string, unknown>, key: string): unknown[] {
+  const val = args[key];
+  if (!Array.isArray(val)) {
+    throw new Error(`Missing or invalid '${key}' (expected array, got ${typeof val})`);
+  }
+  return val;
+}

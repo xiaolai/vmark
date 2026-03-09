@@ -11,10 +11,8 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-import { stringWithDefault } from "./validateArgs";
-
-// Types
-type OperationMode = "apply" | "suggest" | "dryRun";
+import { requireEnum } from "./validateArgs";
+import { OPERATION_MODES } from "./types";
 
 interface TableTarget {
   /** Not yet implemented — use afterHeading or tableIndex instead. */
@@ -225,7 +223,7 @@ export async function handleTableBatchModify(
     const baseRevision = typeof args.baseRevision === "string" ? args.baseRevision : "";
     const target = args.target as TableTarget;
     const operations = Array.isArray(args.operations) ? (args.operations as TableOperation[]) : [];
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);
@@ -465,7 +463,7 @@ export async function handleListBatchModify(
     const baseRevision = typeof args.baseRevision === "string" ? args.baseRevision : "";
     const target = args.target as ListTarget;
     const operations = Array.isArray(args.operations) ? (args.operations as ListOperation[]) : [];
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);

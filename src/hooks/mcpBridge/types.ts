@@ -30,3 +30,11 @@ export interface McpResponse {
   data?: unknown;
   error?: string;
 }
+
+/** Shared operation mode for MCP edit handlers. */
+export type OperationMode = "apply" | "suggest" | "dryRun";
+export const OPERATION_MODES = ["apply", "suggest", "dryRun"] as const;
+
+/** Match policy for apply_diff handler. */
+export type MatchPolicy = "first" | "all" | "nth" | "error_if_multiple";
+export const MATCH_POLICIES = ["first", "all", "nth", "error_if_multiple"] as const;

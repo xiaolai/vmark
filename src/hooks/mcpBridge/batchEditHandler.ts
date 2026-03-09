@@ -16,14 +16,12 @@ import {
   resolveNodeId,
   getTextRange,
 } from "./utils";
-import { requireString, optionalString, stringWithDefault } from "./validateArgs";
+import { requireString, optionalString, requireEnum, requireArray } from "./validateArgs";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { idempotencyCache } from "./idempotencyCache";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-
-// Types
-type OperationMode = "apply" | "suggest" | "dryRun";
+import { OPERATION_MODES } from "./types";
 
 interface BatchOperation {
   type: "update" | "insert" | "delete" | "format" | "move";
@@ -45,8 +43,8 @@ export async function handleBatchEdit(
   try {
     const baseRevision = requireString(args, "baseRevision");
     const requestId = optionalString(args, "requestId");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
-    const operations = args.operations as BatchOperation[];
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
+    const operations = requireArray(args, "operations") as BatchOperation[];
 
     // Check idempotency cache
     if (requestId) {

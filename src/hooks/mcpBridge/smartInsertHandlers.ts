@@ -8,14 +8,11 @@
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
-import { requireString, stringWithDefault } from "./validateArgs";
+import { requireString, requireEnum } from "./validateArgs";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-
-// Types — 'apply'/'suggest' accepted for backward compat but ignored;
-// only 'dryRun' has effect. Apply-vs-suggest is controlled by autoApproveEdits.
-type OperationMode = "apply" | "suggest" | "dryRun";
+import { OPERATION_MODES } from "./types";
 
 type SmartInsertDestination =
   | "end_of_document"
@@ -23,6 +20,19 @@ type SmartInsertDestination =
   | { after_paragraph: number }
   | { after_paragraph_containing: string }
   | { after_section: string };
+
+function validateDestination(raw: unknown): SmartInsertDestination {
+  if (raw === "end_of_document" || raw === "start_of_document") return raw;
+  if (typeof raw === "object" && raw !== null) {
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.after_paragraph === "number") return { after_paragraph: obj.after_paragraph };
+    if (typeof obj.after_paragraph_containing === "string") return { after_paragraph_containing: obj.after_paragraph_containing };
+    if (typeof obj.after_section === "string") return { after_section: obj.after_section };
+  }
+  throw new Error(
+    `Invalid 'destination': expected "end_of_document", "start_of_document", or an object with after_paragraph/after_paragraph_containing/after_section`
+  );
+}
 
 interface SmartInsertResult {
   success: boolean;
@@ -163,9 +173,9 @@ export async function handleSmartInsert(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const destination = args.destination as SmartInsertDestination;
+    const destination = validateDestination(args.destination);
     const content = requireString(args, "content");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);
@@ -182,10 +192,6 @@ export async function handleSmartInsert(
     const editor = getEditor();
     if (!editor) {
       throw new Error("No active editor");
-    }
-
-    if (!destination) {
-      throw new Error("destination is required");
     }
 
     // Find the insertion position

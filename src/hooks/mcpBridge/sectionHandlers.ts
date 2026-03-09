@@ -13,10 +13,8 @@ import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
-import { requireString, stringWithDefault } from "./validateArgs";
-
-// Types
-type OperationMode = "apply" | "suggest" | "dryRun";
+import { requireString, requireEnum, stringWithDefault } from "./validateArgs";
+import { OPERATION_MODES } from "./types";
 
 interface SectionTarget {
   heading?: string;
@@ -131,7 +129,7 @@ export async function handleSectionUpdate(
     const baseRevision = requireString(args, "baseRevision");
     const target = args.target as SectionTarget;
     const newContent = requireString(args, "newContent");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);
@@ -256,7 +254,7 @@ export async function handleSectionInsert(
     const after = args.after as SectionTarget | undefined;
     const heading = args.heading as NewHeading;
     const content = stringWithDefault(args, "content", "");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);
@@ -396,7 +394,7 @@ export async function handleSectionMove(
     const baseRevision = requireString(args, "baseRevision");
     const section = args.section as SectionTarget;
     const after = args.after as SectionTarget | undefined;
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);

@@ -175,7 +175,7 @@ describe("smartInsertHandlers", () => {
     expect(mockRespond).toHaveBeenCalledWith({
       id: "req-4",
       success: false,
-      error: "destination is required",
+      error: expect.stringContaining("Invalid 'destination'"),
     });
   });
 
@@ -420,7 +420,7 @@ describe("smartInsertHandlers", () => {
 
     const call = mockRespond.mock.calls[0][0];
     expect(call.success).toBe(false);
-    expect(call.error).toContain("Invalid destination");
+    expect(call.error).toContain("Invalid 'destination'");
   });
 
   it("returns error when baseRevision is missing", async () => {
