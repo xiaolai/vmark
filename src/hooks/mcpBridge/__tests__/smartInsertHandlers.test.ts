@@ -175,7 +175,7 @@ describe("smartInsertHandlers", () => {
     expect(mockRespond).toHaveBeenCalledWith({
       id: "req-4",
       success: false,
-      error: "destination is required",
+      error: "Missing or invalid 'destination' (expected string or object, got undefined)",
     });
   });
 

@@ -17,13 +17,12 @@ import {
   findTextMatches,
   type TextMatch,
 } from "./utils";
-import { requireString, stringWithDefault } from "./validateArgs";
+import { requireString, requireEnum } from "./validateArgs";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-
-// Types
-type OperationMode = "apply" | "suggest" | "dryRun";
+import { OPERATION_MODES } from "./types";
+import type { OperationMode } from "./types";
 
 interface TextAnchor {
   text: string;
@@ -66,7 +65,7 @@ export async function handleReplaceAnchored(
     const baseRevision = requireString(args, "baseRevision");
     const anchor = args.anchor as TextAnchor;
     const replacement = requireString(args, "replacement");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum<OperationMode>(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);

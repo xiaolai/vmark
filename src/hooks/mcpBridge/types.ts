@@ -30,3 +30,11 @@ export interface McpResponse {
   data?: unknown;
   error?: string;
 }
+
+// Shared operation mode — 'apply'/'suggest' accepted for backward compat but ignored;
+// only 'dryRun' has effect. Apply-vs-suggest is controlled by autoApproveEdits.
+export type OperationMode = "apply" | "suggest" | "dryRun";
+export const OPERATION_MODES = ["apply", "suggest", "dryRun"] as const;
+
+export type MatchPolicy = "first" | "all" | "nth" | "error_if_multiple";
+export const MATCH_POLICIES = ["first", "all", "nth", "error_if_multiple"] as const;

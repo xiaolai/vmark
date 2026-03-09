@@ -66,7 +66,7 @@ export function TitleBar() {
   const handleDoubleClick = useCallback(() => {
     if (isUnsaved) {
       // For unsaved files, open save dialog
-      emit("menu:save");
+      void emit("menu:save");
       return;
     }
 

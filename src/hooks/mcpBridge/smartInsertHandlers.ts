@@ -8,14 +8,12 @@
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
-import { requireString, stringWithDefault } from "./validateArgs";
+import { requireString, requireEnum } from "./validateArgs";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-
-// Types — 'apply'/'suggest' accepted for backward compat but ignored;
-// only 'dryRun' has effect. Apply-vs-suggest is controlled by autoApproveEdits.
-type OperationMode = "apply" | "suggest" | "dryRun";
+import { OPERATION_MODES } from "./types";
+import type { OperationMode } from "./types";
 
 type SmartInsertDestination =
   | "end_of_document"
@@ -23,6 +21,23 @@ type SmartInsertDestination =
   | { after_paragraph: number }
   | { after_paragraph_containing: string }
   | { after_section: string };
+
+const DESTINATION_STRINGS = ["end_of_document", "start_of_document"];
+
+function validateSmartInsertDestination(val: unknown): SmartInsertDestination {
+  if (typeof val === "string") {
+    if (DESTINATION_STRINGS.includes(val)) return val as SmartInsertDestination;
+    throw new Error(`Invalid destination: "${val}". Must be one of: ${DESTINATION_STRINGS.join(", ")}, or an object`);
+  }
+  if (val !== null && typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    if (typeof obj.after_paragraph === "number") return obj as { after_paragraph: number };
+    if (typeof obj.after_paragraph_containing === "string") return obj as { after_paragraph_containing: string };
+    if (typeof obj.after_section === "string") return obj as { after_section: string };
+    throw new Error("Invalid destination object. Must have after_paragraph (number), after_paragraph_containing (string), or after_section (string)");
+  }
+  throw new Error(`Missing or invalid 'destination' (expected string or object, got ${typeof val})`);
+}
 
 interface SmartInsertResult {
   success: boolean;
@@ -163,9 +178,9 @@ export async function handleSmartInsert(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const destination = args.destination as SmartInsertDestination;
+    const destination = validateSmartInsertDestination(args.destination);
     const content = requireString(args, "content");
-    const mode = stringWithDefault(args, "mode", "apply") as OperationMode;
+    const mode = requireEnum<OperationMode>(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
     const revisionError = validateBaseRevision(baseRevision);

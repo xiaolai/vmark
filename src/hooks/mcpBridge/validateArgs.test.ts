@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { requireString, optionalString, optionalNumber, optionalBoolean, numberWithDefault, booleanWithDefault, stringWithDefault } from "./validateArgs";
+import { requireString, optionalString, optionalNumber, optionalBoolean, numberWithDefault, booleanWithDefault, stringWithDefault, requireEnum, requireArray } from "./validateArgs";
 
 describe("requireString", () => {
   it.each([
@@ -170,5 +170,92 @@ describe("stringWithDefault", () => {
 
   it("throws for non-string value", () => {
     expect(() => stringWithDefault({ key: 123 }, "key", "default")).toThrow("expected string, got number");
+  });
+});
+
+describe("requireEnum", () => {
+  const allowed = ["apply", "suggest", "dryRun"] as const;
+
+  it("returns valid enum value", () => {
+    expect(requireEnum({ mode: "apply" }, "mode", allowed)).toBe("apply");
+    expect(requireEnum({ mode: "suggest" }, "mode", allowed)).toBe("suggest");
+    expect(requireEnum({ mode: "dryRun" }, "mode", allowed)).toBe("dryRun");
+  });
+
+  it("returns default when key is missing", () => {
+    expect(requireEnum({}, "mode", allowed, "apply")).toBe("apply");
+  });
+
+  it("returns default when value is null", () => {
+    expect(requireEnum({ mode: null }, "mode", allowed, "apply")).toBe("apply");
+  });
+
+  it("returns default when value is undefined", () => {
+    expect(requireEnum({ mode: undefined }, "mode", allowed, "apply")).toBe("apply");
+  });
+
+  it("throws for invalid enum value", () => {
+    expect(() => requireEnum({ mode: "invalid" }, "mode", allowed)).toThrow(
+      'Invalid \'mode\': "invalid". Must be one of: apply, suggest, dryRun'
+    );
+  });
+
+  it("throws for non-string value without default", () => {
+    expect(() => requireEnum({ mode: 42 }, "mode", allowed)).toThrow(
+      "expected one of: apply, suggest, dryRun; got number"
+    );
+  });
+
+  it("throws for missing key without default", () => {
+    expect(() => requireEnum({}, "mode", allowed)).toThrow("got undefined");
+  });
+
+  it("throws for invalid value even when default exists", () => {
+    expect(() => requireEnum({ mode: "bad" }, "mode", allowed, "apply")).toThrow(
+      'Invalid \'mode\': "bad"'
+    );
+  });
+});
+
+describe("requireArray", () => {
+  it("returns array when present", () => {
+    expect(requireArray({ items: [1, 2, 3] }, "items")).toEqual([1, 2, 3]);
+  });
+
+  it("returns empty array", () => {
+    expect(requireArray({ items: [] }, "items")).toEqual([]);
+  });
+
+  it("throws for missing key", () => {
+    expect(() => requireArray({}, "items")).toThrow("expected array, got undefined");
+  });
+
+  it("throws for string value", () => {
+    expect(() => requireArray({ items: "hello" }, "items")).toThrow("expected array, got string");
+  });
+
+  it("throws for number value", () => {
+    expect(() => requireArray({ items: 42 }, "items")).toThrow("expected array, got number");
+  });
+
+  it("throws for null value", () => {
+    expect(() => requireArray({ items: null }, "items")).toThrow("expected array, got object");
+  });
+
+  it("applies element validator to each item", () => {
+    const result = requireArray({ items: ["a", "b"] }, "items", (el, _i) => {
+      if (typeof el !== "string") throw new Error("not a string");
+      return el.toUpperCase();
+    });
+    expect(result).toEqual(["A", "B"]);
+  });
+
+  it("element validator throws on invalid element", () => {
+    expect(() =>
+      requireArray({ items: ["a", 42] }, "items", (el) => {
+        if (typeof el !== "string") throw new Error("element must be a string");
+        return el;
+      })
+    ).toThrow("element must be a string");
   });
 });
