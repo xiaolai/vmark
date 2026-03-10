@@ -13,7 +13,7 @@ import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
-import { requireString, requireEnum, stringWithDefault } from "./validateArgs";
+import { requireString, requireEnum, stringWithDefault, requireObject, optionalObject } from "./validateArgs";
 import { OPERATION_MODES } from "./types";
 
 interface SectionTarget {
@@ -127,7 +127,7 @@ export async function handleSectionUpdate(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const target = args.target as SectionTarget;
+    const target = requireObject<SectionTarget>(args, "target");
     const newContent = requireString(args, "newContent");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
@@ -251,8 +251,8 @@ export async function handleSectionInsert(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const after = args.after as SectionTarget | undefined;
-    const heading = args.heading as NewHeading;
+    const after = optionalObject<SectionTarget>(args, "after");
+    const heading = requireObject<NewHeading>(args, "heading", ["level", "text"]);
     const content = stringWithDefault(args, "content", "");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
@@ -392,8 +392,8 @@ export async function handleSectionMove(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const section = args.section as SectionTarget;
-    const after = args.after as SectionTarget | undefined;
+    const section = requireObject<SectionTarget>(args, "section");
+    const after = optionalObject<SectionTarget>(args, "after");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision

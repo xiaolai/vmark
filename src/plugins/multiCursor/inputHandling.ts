@@ -101,7 +101,12 @@ export function handleMultiCursorBackspace(
     } else {
       const $pos = state.doc.resolve(from);
       if ($pos.parentOffset > 0) {
-        tr = tr.delete(from - 1, from);
+        // Use Unicode-aware iteration to find the proper character boundary,
+        // so surrogate pairs (emoji) are deleted as a whole unit.
+        const textBefore = $pos.parent.textBetween(0, $pos.parentOffset);
+        const lastChar = [...textBefore].at(-1);
+        const charLen = lastChar ? lastChar.length : 1;
+        tr = tr.delete(from - charLen, from);
       }
     }
   }
@@ -152,7 +157,12 @@ export function handleMultiCursorDelete(
     } else {
       const $pos = state.doc.resolve(from);
       if ($pos.parentOffset < $pos.parent.content.size) {
-        tr = tr.delete(from, from + 1);
+        // Use Unicode-aware iteration to find the proper character boundary,
+        // so surrogate pairs (emoji) are deleted as a whole unit.
+        const textAfter = $pos.parent.textBetween($pos.parentOffset, $pos.parent.content.size);
+        const firstChar = [...textAfter].at(0);
+        const charLen = firstChar ? firstChar.length : 1;
+        tr = tr.delete(from, from + charLen);
       }
     }
   }

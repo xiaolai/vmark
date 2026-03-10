@@ -91,7 +91,7 @@ describe("batchOpHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-3",
         success: false,
-        error: "target is required",
+        error: "Missing or invalid 'target' (expected object, got undefined)",
       });
     });
 
@@ -241,7 +241,7 @@ describe("batchOpHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-10",
         success: false,
-        error: "target is required",
+        error: "Missing or invalid 'target' (expected object, got undefined)",
       });
     });
 
@@ -2919,7 +2919,7 @@ describe("batchOpHandlers", () => {
       expect(mockValidateBaseRevision).toHaveBeenCalledWith("");
     });
 
-    it("table: treats non-array operations as empty array", async () => {
+    it("table: rejects non-array operations", async () => {
       mockGetEditor.mockReturnValue({ state: { doc: { descendants: vi.fn() } } });
 
       await handleTableBatchModify("req-type-2", {
@@ -2928,12 +2928,11 @@ describe("batchOpHandlers", () => {
         operations: "not-an-array",
       });
 
-      // Should fail with "At least one operation is required" since [] is empty
       expect(mockRespond).toHaveBeenCalledWith(
         expect.objectContaining({
           id: "req-type-2",
           success: false,
-          error: "At least one operation is required",
+          error: "Missing or invalid 'operations' (expected array, got string)",
         })
       );
     });
@@ -2950,7 +2949,7 @@ describe("batchOpHandlers", () => {
       expect(mockValidateBaseRevision).toHaveBeenCalledWith("");
     });
 
-    it("list: treats non-array operations as empty array", async () => {
+    it("list: rejects non-array operations", async () => {
       mockGetEditor.mockReturnValue({ state: { doc: { descendants: vi.fn() } } });
 
       await handleListBatchModify("req-type-4", {
@@ -2963,7 +2962,7 @@ describe("batchOpHandlers", () => {
         expect.objectContaining({
           id: "req-type-4",
           success: false,
-          error: "At least one operation is required",
+          error: "Missing or invalid 'operations' (expected array, got null)",
         })
       );
     });

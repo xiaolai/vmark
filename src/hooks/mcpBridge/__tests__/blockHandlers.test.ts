@@ -183,7 +183,7 @@ describe("blockHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-5",
         success: false,
-        error: "query is required",
+        error: "Missing or invalid 'query' (expected object, got undefined)",
       });
     });
 

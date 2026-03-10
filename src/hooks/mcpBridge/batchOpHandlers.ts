@@ -11,7 +11,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-import { requireEnum } from "./validateArgs";
+import { requireEnum, requireObject, requireArray } from "./validateArgs";
 import { OPERATION_MODES } from "./types";
 
 interface TableTarget {
@@ -221,8 +221,8 @@ export async function handleTableBatchModify(
 ): Promise<void> {
   try {
     const baseRevision = typeof args.baseRevision === "string" ? args.baseRevision : "";
-    const target = args.target as TableTarget;
-    const operations = Array.isArray(args.operations) ? (args.operations as TableOperation[]) : [];
+    const target = requireObject<TableTarget>(args, "target");
+    const operations = requireArray(args, "operations") as TableOperation[];
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
@@ -461,8 +461,8 @@ export async function handleListBatchModify(
 ): Promise<void> {
   try {
     const baseRevision = typeof args.baseRevision === "string" ? args.baseRevision : "";
-    const target = args.target as ListTarget;
-    const operations = Array.isArray(args.operations) ? (args.operations as ListOperation[]) : [];
+    const target = requireObject<ListTarget>(args, "target");
+    const operations = requireArray(args, "operations") as ListOperation[];
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision

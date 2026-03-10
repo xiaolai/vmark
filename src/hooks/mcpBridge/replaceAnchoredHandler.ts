@@ -17,7 +17,7 @@ import {
   findTextMatches,
   type TextMatch,
 } from "./utils";
-import { requireString, requireEnum } from "./validateArgs";
+import { requireString, requireEnum, requireObject } from "./validateArgs";
 import { OPERATION_MODES } from "./types";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
@@ -62,7 +62,7 @@ export async function handleReplaceAnchored(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const anchor = args.anchor as TextAnchor;
+    const anchor = requireObject<TextAnchor>(args, "anchor", ["text"]);
     const replacement = requireString(args, "replacement");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 

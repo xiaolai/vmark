@@ -9,7 +9,7 @@
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
-import { requireString, optionalString, requireEnum, booleanWithDefault } from "./validateArgs";
+import { requireString, optionalString, requireEnum, booleanWithDefault, requireObject } from "./validateArgs";
 import { OPERATION_MODES } from "./types";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
@@ -140,7 +140,7 @@ export async function handleParagraphRead(
   args: Record<string, unknown>
 ): Promise<void> {
   try {
-    const target = args.target as ParagraphTarget;
+    const target = requireObject<ParagraphTarget>(args, "target");
     const includeContext = booleanWithDefault(args, "includeContext", false);
 
     const editor = getEditor();
@@ -205,7 +205,7 @@ export async function handleParagraphWrite(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const target = args.target as ParagraphTarget;
+    const target = requireObject<ParagraphTarget>(args, "target");
     const operation = requireString(args, "operation") as ParagraphOperation;
     const content = optionalString(args, "content");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");

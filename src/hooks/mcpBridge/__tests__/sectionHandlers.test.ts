@@ -205,7 +205,7 @@ describe("sectionHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-3",
         success: false,
-        error: "target is required",
+        error: "Missing or invalid 'target' (expected object, got undefined)",
       });
     });
 
@@ -284,7 +284,7 @@ describe("sectionHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-7",
         success: false,
-        error: "heading with level and text is required",
+        error: "Missing or invalid 'heading' (expected object, got undefined)",
       });
     });
 
@@ -358,7 +358,7 @@ describe("sectionHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-11",
         success: false,
-        error: "section is required",
+        error: "Missing or invalid 'section' (expected object, got undefined)",
       });
     });
 

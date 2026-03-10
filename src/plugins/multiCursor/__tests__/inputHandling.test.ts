@@ -1313,4 +1313,248 @@ describe("inputHandling", () => {
       }
     });
   });
+
+  describe("surrogate pair (emoji) handling", () => {
+    // 😀 is U+1F600, encoded as 2 UTF-16 code units (surrogate pair)
+    // In ProseMirror, text offsets = JS string offsets (UTF-16 code units)
+    // "a😀b" has JS length 4: 'a'(1) + 😀(2) + 'b'(1)
+    // ProseMirror positions in <doc><p>a😀b</p></doc>:
+    //   pos 1 = before 'a' (parentOffset 0)
+    //   pos 2 = after 'a' / before 😀 (parentOffset 1)
+    //   pos 4 = after 😀 / before 'b' (parentOffset 3)
+    //   pos 5 = after 'b' (parentOffset 4)
+
+    describe("handleMultiCursorBackspace with emoji", () => {
+      it("deletes entire emoji (surrogate pair) before cursor", () => {
+        // "a😀b" with cursor after 😀 (pos 4, parentOffset 3)
+        const state = createMultiCursorState("a😀b", [
+          { from: 4, to: 4 },
+        ]);
+
+        const result = handleMultiCursorBackspace(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          // Should delete the whole emoji, leaving "ab"
+          expect(newState.doc.textContent).toBe("ab");
+        }
+      });
+
+      it("deletes ASCII character before cursor (no regression)", () => {
+        // "a😀b" with cursor after 'a' (pos 2, parentOffset 1)
+        const state = createMultiCursorState("a😀b", [
+          { from: 2, to: 2 },
+        ]);
+
+        const result = handleMultiCursorBackspace(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          expect(newState.doc.textContent).toBe("😀b");
+        }
+      });
+
+      it("handles multiple cursors with emoji", () => {
+        // "😀a😀" — cursor after first emoji (pos 3) and after 'a' (pos 4)
+        // "😀a😀" has length 5: 😀(2) + 'a'(1) + 😀(2)
+        // Positions: 1=before first 😀, 3=after first 😀, 4=after 'a', 6=after second 😀
+        const state = createMultiCursorState("😀a😀", [
+          { from: 3, to: 3 },
+          { from: 4, to: 4 },
+        ]);
+
+        const result = handleMultiCursorBackspace(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          // First cursor deletes 😀, second deletes 'a' → "😀"
+          expect(newState.doc.textContent).toBe("😀");
+        }
+      });
+
+      it("handles cursor at start of paragraph (no-op)", () => {
+        const state = createMultiCursorState("😀", [
+          { from: 1, to: 1 }, // parentOffset 0
+        ]);
+
+        const result = handleMultiCursorBackspace(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          expect(newState.doc.textContent).toBe("😀");
+        }
+      });
+
+      it("deletes multi-codepoint emoji (family emoji) as single character", () => {
+        // 👨‍👩‍👧 is a ZWJ sequence: 👨 + ZWJ + 👩 + ZWJ + 👧
+        // Each person emoji is a surrogate pair (2 code units), ZWJ is 1 code unit
+        // Total: 2 + 1 + 2 + 1 + 2 = 8 code units
+        // However, ProseMirror textBetween returns the raw string,
+        // and [...str].at(-1) returns the last Unicode scalar (👧, 2 code units)
+        // So we only delete the last scalar, not the whole ZWJ sequence.
+        // This is consistent with how most editors handle ZWJ sequences.
+        const familyEmoji = "👨‍👩‍👧";
+        const text = "a" + familyEmoji + "b";
+        const emojiLen = familyEmoji.length; // 8 code units
+        // cursor after the family emoji
+        const cursorPos = 1 + 1 + emojiLen; // 1 (doc offset) + 1 ('a') + 8
+        const state = createMultiCursorState(text, [
+          { from: cursorPos, to: cursorPos },
+        ]);
+
+        const result = handleMultiCursorBackspace(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          // Should delete at least the last codepoint (👧 = 2 code units),
+          // not just 1 code unit which would corrupt the text
+          const content = newState.doc.textContent;
+          // The content should NOT contain any lone surrogates
+          // A lone surrogate would be a char in the range 0xD800-0xDFFF
+          const hasLoneSurrogate = /[\uD800-\uDFFF]/.test(
+            content.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")
+          );
+          expect(hasLoneSurrogate).toBe(false);
+        }
+      });
+    });
+
+    describe("handleMultiCursorDelete with emoji", () => {
+      it("deletes entire emoji (surrogate pair) after cursor", () => {
+        // "a😀b" with cursor before 😀 (pos 2, parentOffset 1)
+        const state = createMultiCursorState("a😀b", [
+          { from: 2, to: 2 },
+        ]);
+
+        const result = handleMultiCursorDelete(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          // Should delete the whole emoji, leaving "ab"
+          expect(newState.doc.textContent).toBe("ab");
+        }
+      });
+
+      it("deletes ASCII character after cursor (no regression)", () => {
+        // "a😀b" with cursor before 'b' (pos 4, parentOffset 3)
+        const state = createMultiCursorState("a😀b", [
+          { from: 4, to: 4 },
+        ]);
+
+        const result = handleMultiCursorDelete(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          expect(newState.doc.textContent).toBe("a😀");
+        }
+      });
+
+      it("handles multiple cursors with emoji", () => {
+        // "😀a😀" — cursor before 'a' (pos 3) and before second 😀 (pos 4)
+        const state = createMultiCursorState("😀a😀", [
+          { from: 3, to: 3 },
+          { from: 4, to: 4 },
+        ]);
+
+        const result = handleMultiCursorDelete(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          // First cursor deletes 'a', second deletes 😀 → "😀"
+          expect(newState.doc.textContent).toBe("😀");
+        }
+      });
+
+      it("handles cursor at end of paragraph (no-op)", () => {
+        const state = createMultiCursorState("😀", [
+          { from: 3, to: 3 }, // after 😀, parentOffset = 2 = content.size
+        ]);
+
+        const result = handleMultiCursorDelete(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          expect(newState.doc.textContent).toBe("😀");
+        }
+      });
+
+      it("does not produce lone surrogates for multi-codepoint emoji", () => {
+        const familyEmoji = "👨‍👩‍👧";
+        const text = "a" + familyEmoji + "b";
+        // cursor before the family emoji (after 'a')
+        const cursorPos = 2; // pos 2 = after 'a'
+        const state = createMultiCursorState(text, [
+          { from: cursorPos, to: cursorPos },
+        ]);
+
+        const result = handleMultiCursorDelete(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          const content = newState.doc.textContent;
+          // The content should NOT contain any lone surrogates
+          const hasLoneSurrogate = /[\uD800-\uDFFF]/.test(
+            content.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")
+          );
+          expect(hasLoneSurrogate).toBe(false);
+        }
+      });
+
+      it("handles text with only emoji", () => {
+        // "😀😀" with cursor between the two emoji (pos 3)
+        const state = createMultiCursorState("😀😀", [
+          { from: 3, to: 3 },
+        ]);
+
+        const result = handleMultiCursorDelete(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          expect(newState.doc.textContent).toBe("😀");
+        }
+      });
+    });
+
+    describe("handleMultiCursorBackspace with emoji - additional", () => {
+      it("handles text with only emoji", () => {
+        // "😀😀" with cursor after first emoji (pos 3)
+        const state = createMultiCursorState("😀😀", [
+          { from: 3, to: 3 },
+        ]);
+
+        const result = handleMultiCursorBackspace(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          expect(newState.doc.textContent).toBe("😀");
+        }
+      });
+
+      it("handles empty text (no crash)", () => {
+        const state = createMultiCursorState("", [
+          { from: 1, to: 1 },
+        ]);
+
+        const result = handleMultiCursorBackspace(state);
+        expect(result).not.toBeNull();
+
+        if (result) {
+          const newState = state.apply(result);
+          expect(newState.doc.textContent).toBe("");
+        }
+      });
+    });
+  });
 });

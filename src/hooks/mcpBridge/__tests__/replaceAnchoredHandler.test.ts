@@ -112,7 +112,7 @@ describe("replaceAnchoredHandler", () => {
     expect(mockRespond).toHaveBeenCalledWith({
       id: "req-3",
       success: false,
-      error: "anchor.text is required",
+      error: "Missing required field 'anchor.text'",
     });
   });
 
@@ -439,7 +439,7 @@ describe("replaceAnchoredHandler", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-null-anchor",
         success: false,
-        error: "anchor.text is required",
+        error: "Missing or invalid 'anchor' (expected object, got null)",
       });
     });
   });

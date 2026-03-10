@@ -11,7 +11,7 @@
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor } from "./utils";
-import { optionalString, optionalNumber, optionalBoolean } from "./validateArgs";
+import { optionalString, optionalNumber, optionalBoolean, optionalObject, requireObject } from "./validateArgs";
 import { useRevisionStore } from "@/stores/revisionStore";
 import {
   type AstNode,
@@ -39,7 +39,7 @@ export async function handleListBlocks(
       throw new Error("No active editor");
     }
 
-    const query = args.query as BlockQuery | undefined;
+    const query = optionalObject<BlockQuery>(args, "query");
     const limit = optionalNumber(args, "limit") ?? 50;
     const afterCursor = optionalString(args, "afterCursor");
 
@@ -122,7 +122,7 @@ export async function handleResolveTargets(
       throw new Error("No active editor");
     }
 
-    const query = args.query as BlockQuery;
+    const query = requireObject<BlockQuery>(args, "query");
     const maxResults = optionalNumber(args, "maxResults") ?? 10;
 
     if (!query) {
@@ -235,12 +235,15 @@ export async function handleGetSection(
       throw new Error("No active editor");
     }
 
-    const heading = args.heading as string | { level: number; index: number };
-    const includeNested = optionalBoolean(args, "includeNested");
-
-    if (!heading) {
+    const rawHeading = args.heading;
+    if (rawHeading === null || rawHeading === undefined) {
       throw new Error("heading is required");
     }
+    if (typeof rawHeading !== "string" && (typeof rawHeading !== "object" || Array.isArray(rawHeading))) {
+      throw new Error("heading must be a string or object with level and index");
+    }
+    const heading = rawHeading as string | { level: number; index: number };
+    const includeNested = optionalBoolean(args, "includeNested");
 
     resetNodeIdCounters();
 

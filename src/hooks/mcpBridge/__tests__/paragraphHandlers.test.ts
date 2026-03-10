@@ -260,7 +260,7 @@ describe("paragraphHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-11",
         success: false,
-        error: "target must specify index or containing",
+        error: "Missing or invalid 'target' (expected object, got undefined)",
       });
     });
 
@@ -513,7 +513,7 @@ describe("paragraphHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-33",
         success: false,
-        error: "target must specify index or containing",
+        error: "Missing or invalid 'target' (expected object, got undefined)",
       });
     });
 

@@ -11,7 +11,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor } from "./utils";
 import { useRevisionStore } from "@/stores/revisionStore";
-import { numberWithDefault, optionalString } from "./validateArgs";
+import { numberWithDefault, optionalString, optionalArray, optionalObject } from "./validateArgs";
 
 // ── Shared Types ──────────────────────────────────────────────────────
 
@@ -228,8 +228,8 @@ export async function handleGetAst(
       throw new Error("No active editor");
     }
 
-    const projection = args.projection as string[] | undefined;
-    const filter = args.filter as BlockQuery | undefined;
+    const projection = optionalArray(args, "projection") as string[] | undefined;
+    const filter = optionalObject<BlockQuery>(args, "filter");
     const limit = numberWithDefault(args, "limit", 100);
     const offset = numberWithDefault(args, "offset", 0);
     const afterCursor = optionalString(args, "afterCursor");

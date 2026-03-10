@@ -160,7 +160,14 @@ export async function handleSmartInsert(
 ): Promise<void> {
   try {
     const baseRevision = requireString(args, "baseRevision");
-    const destination = args.destination as SmartInsertDestination;
+    const rawDest = args.destination;
+    if (rawDest === null || rawDest === undefined) {
+      throw new Error("destination is required");
+    }
+    if (typeof rawDest !== "string" && (typeof rawDest !== "object" || Array.isArray(rawDest))) {
+      throw new Error("destination must be a string or object");
+    }
+    const destination = rawDest as SmartInsertDestination;
     const content = requireString(args, "content");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
@@ -179,10 +186,6 @@ export async function handleSmartInsert(
     const editor = getEditor();
     if (!editor) {
       throw new Error("No active editor");
-    }
-
-    if (!destination) {
-      throw new Error("destination is required");
     }
 
     // Find the insertion position

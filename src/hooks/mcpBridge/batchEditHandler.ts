@@ -16,7 +16,7 @@ import {
   resolveNodeId,
   getTextRange,
 } from "./utils";
-import { requireString, optionalString, requireEnum } from "./validateArgs";
+import { requireString, optionalString, requireEnum, requireArray } from "./validateArgs";
 import { OPERATION_MODES } from "./types";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { idempotencyCache } from "./idempotencyCache";
@@ -44,7 +44,7 @@ export async function handleBatchEdit(
     const baseRevision = requireString(args, "baseRevision");
     const requestId = optionalString(args, "requestId");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
-    const operations = args.operations as BatchOperation[];
+    const operations = requireArray(args, "operations") as BatchOperation[];
 
     // Check idempotency cache
     if (requestId) {

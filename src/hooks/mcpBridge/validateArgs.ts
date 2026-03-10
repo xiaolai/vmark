@@ -106,6 +106,87 @@ export function stringWithDefault(args: Record<string, unknown>, key: string, de
 }
 
 /**
+ * Require a plain object argument. Throws with a clear message if missing,
+ * wrong type, or missing required keys. Arrays are rejected (not plain objects).
+ */
+export function requireObject<T = Record<string, unknown>>(
+  args: Record<string, unknown>,
+  key: string,
+  requiredKeys?: string[]
+): T {
+  const val = args[key];
+  if (val === null) {
+    throw new Error(`Missing or invalid '${key}' (expected object, got null)`);
+  }
+  if (val === undefined || typeof val !== "object") {
+    throw new Error(`Missing or invalid '${key}' (expected object, got ${typeof val})`);
+  }
+  if (Array.isArray(val)) {
+    throw new Error(`Missing or invalid '${key}' (expected object, got array)`);
+  }
+  if (requiredKeys) {
+    for (const k of requiredKeys) {
+      if (!(k in (val as Record<string, unknown>))) {
+        throw new Error(`Missing required field '${key}.${k}'`);
+      }
+    }
+  }
+  return val as T;
+}
+
+/**
+ * Get an optional plain object argument. Returns undefined if not present.
+ * Throws if present but wrong type. Arrays are rejected.
+ */
+export function optionalObject<T = Record<string, unknown>>(
+  args: Record<string, unknown>,
+  key: string
+): T | undefined {
+  const val = args[key];
+  if (val === undefined || val === null) return undefined;
+  if (typeof val !== "object") {
+    throw new Error(`Invalid '${key}' (expected object, got ${typeof val})`);
+  }
+  if (Array.isArray(val)) {
+    throw new Error(`Invalid '${key}' (expected object, got array)`);
+  }
+  return val as T;
+}
+
+/**
+ * Require an array argument. Throws with a clear message if missing or wrong type.
+ */
+export function requireArray(
+  args: Record<string, unknown>,
+  key: string
+): unknown[] {
+  const val = args[key];
+  if (val === null) {
+    throw new Error(`Missing or invalid '${key}' (expected array, got null)`);
+  }
+  if (!Array.isArray(val)) {
+    throw new Error(`Missing or invalid '${key}' (expected array, got ${typeof val})`);
+  }
+  return val;
+}
+
+/**
+ * Get an optional array argument. Returns undefined if not present.
+ * Throws if present but wrong type.
+ */
+export function optionalArray(
+  args: Record<string, unknown>,
+  key: string
+): unknown[] | undefined {
+  const val = args[key];
+  if (val === undefined || val === null) return undefined;
+  if (!Array.isArray(val)) {
+    throw new Error(`Invalid '${key}' (expected array, got ${typeof val})`);
+  }
+  return val;
+}
+
+/**
  * Require a value from a fixed set of allowed strings, with optional default.
  * Validates at runtime that the value is one of the allowed options.
  */
