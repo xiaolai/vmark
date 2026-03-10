@@ -139,22 +139,22 @@ async function handleDelete(server: VMarkMcpServer, windowId: string) {
 async function handleModify(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const target = args.target as TableTarget;
-  const operations = args.operations as TableOperation[];
-  const mode = (args.mode as OperationMode) ?? 'apply';
-
-  if (!target || (target.tableId === undefined && target.afterHeading === undefined && target.tableIndex === undefined)) {
-    return VMarkMcpServer.errorResult('target must specify tableId, afterHeading, or tableIndex');
-  }
-  if (!Array.isArray(operations) || operations.length === 0) {
-    return VMarkMcpServer.errorResult('operations must be a non-empty array');
-  }
-  if (operations.length > 100) {
-    return VMarkMcpServer.errorResult('Maximum 100 operations per table modify');
-  }
-
   try {
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const target = args.target as TableTarget;
+    const operations = args.operations as TableOperation[];
+    const mode = (args.mode as OperationMode) ?? 'apply';
+
+    if (!target || (target.tableId === undefined && target.afterHeading === undefined && target.tableIndex === undefined)) {
+      return VMarkMcpServer.errorResult('target must specify tableId, afterHeading, or tableIndex');
+    }
+    if (!Array.isArray(operations) || operations.length === 0) {
+      return VMarkMcpServer.errorResult('operations must be a non-empty array');
+    }
+    if (operations.length > 100) {
+      return VMarkMcpServer.errorResult('Maximum 100 operations per table modify');
+    }
+
     const request: BridgeRequest = {
       type: 'table.batchModify',
       baseRevision,

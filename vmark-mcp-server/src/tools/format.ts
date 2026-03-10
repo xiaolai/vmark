@@ -176,23 +176,23 @@ async function handleToggle(
 async function handleSetLink(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const href = requireStringArg(args, 'href');
-  const title = getStringArg(args, 'title');
-
-  // Validate URL scheme to prevent javascript: and data: injection
-  const ALLOWED_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:'];
   try {
-    const url = new URL(href);
-    if (!ALLOWED_SCHEMES.includes(url.protocol)) {
-      return VMarkMcpServer.errorResult(
-        `Unsupported URL scheme: ${url.protocol}. Allowed: ${ALLOWED_SCHEMES.join(', ')}`
-      );
+    const href = requireStringArg(args, 'href');
+    const title = getStringArg(args, 'title');
+
+    // Validate URL scheme to prevent javascript: and data: injection
+    const ALLOWED_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:'];
+    try {
+      const url = new URL(href);
+      if (!ALLOWED_SCHEMES.includes(url.protocol)) {
+        return VMarkMcpServer.errorResult(
+          `Unsupported URL scheme: ${url.protocol}. Allowed: ${ALLOWED_SCHEMES.join(', ')}`
+        );
+      }
+    } catch {
+      // Not a valid absolute URL — allow relative URLs and anchors (e.g. "#section", "./file.md")
     }
-  } catch {
-    // Not a valid absolute URL — allow relative URLs and anchors (e.g. "#section", "./file.md")
-  }
 
-  try {
     await server.sendBridgeRequest<null>({ type: 'format.setLink', href, title, windowId });
     return VMarkMcpServer.successResult(`Link set: ${href}`);
   } catch (error) {
@@ -333,22 +333,22 @@ async function handleOutdentList(server: VMarkMcpServer, windowId: string) {
 async function handleListModify(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const target = args.target as ListTarget;
-  const operations = args.operations as ListOperation[];
-  const mode = (args.mode as OperationMode) ?? 'apply';
-
-  if (!target || (target.listId === undefined && target.selector === undefined && target.listIndex === undefined)) {
-    return VMarkMcpServer.errorResult('target must specify listId, selector, or listIndex');
-  }
-  if (!Array.isArray(operations) || operations.length === 0) {
-    return VMarkMcpServer.errorResult('operations must be a non-empty array');
-  }
-  if (operations.length > 100) {
-    return VMarkMcpServer.errorResult('Maximum 100 operations per list_modify');
-  }
-
   try {
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const target = args.target as ListTarget;
+    const operations = args.operations as ListOperation[];
+    const mode = (args.mode as OperationMode) ?? 'apply';
+
+    if (!target || (target.listId === undefined && target.selector === undefined && target.listIndex === undefined)) {
+      return VMarkMcpServer.errorResult('target must specify listId, selector, or listIndex');
+    }
+    if (!Array.isArray(operations) || operations.length === 0) {
+      return VMarkMcpServer.errorResult('operations must be a non-empty array');
+    }
+    if (operations.length > 100) {
+      return VMarkMcpServer.errorResult('Maximum 100 operations per list_modify');
+    }
+
     const request: BridgeRequest = {
       type: 'list.batchModify',
       baseRevision,

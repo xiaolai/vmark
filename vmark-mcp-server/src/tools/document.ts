@@ -329,19 +329,19 @@ async function handleReplaceInSource(
 async function handleBatchEdit(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const requestId = getStringArg(args, 'requestId');
-  const mode = (args.mode as OperationMode) ?? 'apply';
-  const operations = args.operations;
-
-  if (!Array.isArray(operations) || operations.length === 0) {
-    return VMarkMcpServer.errorResult('At least one operation is required');
-  }
-  if (operations.length > 100) {
-    return VMarkMcpServer.errorResult('Maximum 100 operations per batch');
-  }
-
   try {
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const requestId = getStringArg(args, 'requestId');
+    const mode = (args.mode as OperationMode) ?? 'apply';
+    const operations = args.operations;
+
+    if (!Array.isArray(operations) || operations.length === 0) {
+      return VMarkMcpServer.errorResult('At least one operation is required');
+    }
+    if (operations.length > 100) {
+      return VMarkMcpServer.errorResult('Maximum 100 operations per batch');
+    }
+
     const result = await server.sendBridgeRequest<BatchEditResult>({
       type: 'mutation.batchEdit',
       baseRevision,
@@ -361,19 +361,19 @@ async function handleBatchEdit(
 async function handleApplyDiff(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const scopeQuery = args.scopeQuery as BlockQuery | undefined;
-  const original = requireStringArg(args, 'original');
-  const replacement = requireStringArgAllowEmpty(args, 'replacement');
-  const matchPolicy = (args.matchPolicy as MatchPolicy) ?? 'first';
-  const nth = getNumberArg(args, 'nth');
-  const mode = (args.mode as OperationMode) ?? 'apply';
-
-  if (matchPolicy === 'nth' && nth === undefined) {
-    return VMarkMcpServer.errorResult('nth parameter is required when matchPolicy is "nth"');
-  }
-
   try {
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const scopeQuery = args.scopeQuery as BlockQuery | undefined;
+    const original = requireStringArg(args, 'original');
+    const replacement = requireStringArgAllowEmpty(args, 'replacement');
+    const matchPolicy = (args.matchPolicy as MatchPolicy) ?? 'first';
+    const nth = getNumberArg(args, 'nth');
+    const mode = (args.mode as OperationMode) ?? 'apply';
+
+    if (matchPolicy === 'nth' && nth === undefined) {
+      return VMarkMcpServer.errorResult('nth parameter is required when matchPolicy is "nth"');
+    }
+
     const result = await server.sendBridgeRequest<ApplyDiffResult>({
       type: 'mutation.applyDiff',
       baseRevision,
@@ -396,23 +396,23 @@ async function handleApplyDiff(
 async function handleReplaceAnchored(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const anchor = args.anchor as TextAnchor;
-  const replacement = requireStringArgAllowEmpty(args, 'replacement');
-  const mode = (args.mode as OperationMode) ?? 'apply';
-
-  if (!anchor || typeof anchor.text !== 'string' || !anchor.text) {
-    return VMarkMcpServer.errorResult('anchor.text must be a non-empty string');
-  }
-  if (typeof anchor.beforeContext !== 'string' || typeof anchor.afterContext !== 'string') {
-    return VMarkMcpServer.errorResult('anchor must include beforeContext and afterContext strings');
-  }
-  if (anchor.maxDistance !== undefined) {
-    const distErr = validateNonNegativeInteger(anchor.maxDistance, 'anchor.maxDistance');
-    if (distErr) return VMarkMcpServer.errorResult(distErr);
-  }
-
   try {
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const anchor = args.anchor as TextAnchor;
+    const replacement = requireStringArgAllowEmpty(args, 'replacement');
+    const mode = (args.mode as OperationMode) ?? 'apply';
+
+    if (!anchor || typeof anchor.text !== 'string' || !anchor.text) {
+      return VMarkMcpServer.errorResult('anchor.text must be a non-empty string');
+    }
+    if (typeof anchor.beforeContext !== 'string' || typeof anchor.afterContext !== 'string') {
+      return VMarkMcpServer.errorResult('anchor must include beforeContext and afterContext strings');
+    }
+    if (anchor.maxDistance !== undefined) {
+      const distErr = validateNonNegativeInteger(anchor.maxDistance, 'anchor.maxDistance');
+      if (distErr) return VMarkMcpServer.errorResult(distErr);
+    }
+
     const result = await server.sendBridgeRequest<ApplyDiffResult>({
       type: 'mutation.replaceAnchored',
       baseRevision,
@@ -459,27 +459,27 @@ async function handleReadParagraph(
 async function handleWriteParagraph(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const target = args.target as ParagraphTarget;
-  const operation = args.operation as ParagraphOperation;
-  const content = getStringArg(args, 'content');
-  const mode = (args.mode as OperationMode) ?? 'apply';
-
-  const VALID_OPERATIONS: ParagraphOperation[] = ['replace', 'append', 'prepend', 'delete'];
-  if (!operation || !VALID_OPERATIONS.includes(operation)) {
-    return VMarkMcpServer.errorResult(
-      `Invalid operation: ${String(operation)}. Valid operations: ${VALID_OPERATIONS.join(', ')}`
-    );
-  }
-
-  const targetErr = validateParagraphTarget(target);
-  if (targetErr) return VMarkMcpServer.errorResult(targetErr);
-
-  if (operation !== 'delete' && content === undefined) {
-    return VMarkMcpServer.errorResult('content is required for non-delete operations');
-  }
-
   try {
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const target = args.target as ParagraphTarget;
+    const operation = args.operation as ParagraphOperation;
+    const content = getStringArg(args, 'content');
+    const mode = (args.mode as OperationMode) ?? 'apply';
+
+    const VALID_OPERATIONS: ParagraphOperation[] = ['replace', 'append', 'prepend', 'delete'];
+    if (!operation || !VALID_OPERATIONS.includes(operation)) {
+      return VMarkMcpServer.errorResult(
+        `Invalid operation: ${String(operation)}. Valid operations: ${VALID_OPERATIONS.join(', ')}`
+      );
+    }
+
+    const targetErr = validateParagraphTarget(target);
+    if (targetErr) return VMarkMcpServer.errorResult(targetErr);
+
+    if (operation !== 'delete' && content === undefined) {
+      return VMarkMcpServer.errorResult('content is required for non-delete operations');
+    }
+
     const request: BridgeRequest = {
       type: 'paragraph.write',
       baseRevision,
@@ -503,20 +503,20 @@ async function handleWriteParagraph(
 async function handleSmartInsert(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const content = requireStringArg(args, 'content');
-  const mode = (args.mode as OperationMode) ?? 'apply';
-
-  const destination = parseDestination(args.destination);
-  if (!destination) {
-    return VMarkMcpServer.errorResult(
-      'Invalid destination. Use "end_of_document", "start_of_document", ' +
-        '{ after_paragraph: <index> }, { after_paragraph_containing: "<text>" }, ' +
-        'or { after_section: "<heading>" }'
-    );
-  }
-
   try {
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const content = requireStringArg(args, 'content');
+    const mode = (args.mode as OperationMode) ?? 'apply';
+
+    const destination = parseDestination(args.destination);
+    if (!destination) {
+      return VMarkMcpServer.errorResult(
+        'Invalid destination. Use "end_of_document", "start_of_document", ' +
+          '{ after_paragraph: <index> }, { after_paragraph_containing: "<text>" }, ' +
+          'or { after_section: "<heading>" }'
+      );
+    }
+
     const request: BridgeRequest = {
       type: 'smartInsert',
       baseRevision,

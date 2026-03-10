@@ -121,9 +121,8 @@ async function handleGetFocused(server: VMarkMcpServer) {
 }
 
 async function handleFocusWindow(server: VMarkMcpServer, args: Record<string, unknown>) {
-  const windowId = requireStringArg(args, 'windowId');
-
   try {
+    const windowId = requireStringArg(args, 'windowId');
     await server.sendBridgeRequest<null>({ type: 'windows.focus', windowId });
     return VMarkMcpServer.successResult(`Focused window: ${windowId}`);
   } catch (error) {
@@ -150,9 +149,8 @@ async function handleNewDocument(server: VMarkMcpServer, args: Record<string, un
 }
 
 async function handleOpenDocument(server: VMarkMcpServer, args: Record<string, unknown>) {
-  const path = requireStringArg(args, 'path');
-
   try {
+    const path = requireStringArg(args, 'path');
     const result = await server.sendBridgeRequest<{ windowId: string }>({
       type: 'workspace.openDocument',
       path,
@@ -181,9 +179,8 @@ async function handleSaveAs(
   windowId: string,
   args: Record<string, unknown>
 ) {
-  const path = requireStringArg(args, 'path');
-
   try {
+    const path = requireStringArg(args, 'path');
     await server.sendBridgeRequest<null>({
       type: 'workspace.saveDocumentAs',
       path,

@@ -261,20 +261,20 @@ async function handleWikiLink(
 async function handleVideo(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const src = requireStringArg(args, 'src');
-  if (!ALLOWED_SCHEMES.test(src)) {
-    return VMarkMcpServer.errorResult('src must use http, https, or file protocol');
-  }
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const title = getStringArg(args, 'title');
-  const poster = getStringArg(args, 'poster');
-
-  const attrs: string[] = [`src="${escapeAttr(src)}"`, 'controls'];
-  if (title) attrs.push(`title="${escapeAttr(title)}"`);
-  if (poster) attrs.push(`poster="${escapeAttr(poster)}"`);
-  const html = `<video ${attrs.join(' ')}></video>`;
-
   try {
+    const src = requireStringArg(args, 'src');
+    if (!ALLOWED_SCHEMES.test(src)) {
+      return VMarkMcpServer.errorResult('src must use http, https, or file protocol');
+    }
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const title = getStringArg(args, 'title');
+    const poster = getStringArg(args, 'poster');
+
+    const attrs: string[] = [`src="${escapeAttr(src)}"`, 'controls'];
+    if (title) attrs.push(`title="${escapeAttr(title)}"`);
+    if (poster) attrs.push(`poster="${escapeAttr(poster)}"`);
+    const html = `<video ${attrs.join(' ')}></video>`;
+
     const request: BridgeRequest = { type: 'insertMedia', mediaHtml: html, baseRevision, windowId };
     const result = await server.sendBridgeRequest(request);
     return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
@@ -288,18 +288,18 @@ async function handleVideo(
 async function handleAudio(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const src = requireStringArg(args, 'src');
-  if (!ALLOWED_SCHEMES.test(src)) {
-    return VMarkMcpServer.errorResult('src must use http, https, or file protocol');
-  }
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const title = getStringArg(args, 'title');
-
-  const attrs: string[] = [`src="${escapeAttr(src)}"`, 'controls'];
-  if (title) attrs.push(`title="${escapeAttr(title)}"`);
-  const html = `<audio ${attrs.join(' ')}></audio>`;
-
   try {
+    const src = requireStringArg(args, 'src');
+    if (!ALLOWED_SCHEMES.test(src)) {
+      return VMarkMcpServer.errorResult('src must use http, https, or file protocol');
+    }
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const title = getStringArg(args, 'title');
+
+    const attrs: string[] = [`src="${escapeAttr(src)}"`, 'controls'];
+    if (title) attrs.push(`title="${escapeAttr(title)}"`);
+    const html = `<audio ${attrs.join(' ')}></audio>`;
+
     const request: BridgeRequest = { type: 'insertMedia', mediaHtml: html, baseRevision, windowId };
     const result = await server.sendBridgeRequest(request);
     return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));
@@ -313,27 +313,27 @@ async function handleAudio(
 async function handleVideoEmbed(
   server: VMarkMcpServer, windowId: string, args: Record<string, unknown>
 ) {
-  const videoId = requireStringArg(args, 'videoId');
-  const baseRevision = requireStringArg(args, 'baseRevision');
-  const provider = (getStringArg(args, 'provider') ?? 'youtube') as VideoProvider;
-
-  if (!VALID_PROVIDERS.includes(provider)) {
-    return VMarkMcpServer.errorResult(
-      `Invalid provider: "${provider}". Must be one of: ${VALID_PROVIDERS.join(', ')}.`
-    );
-  }
-
-  const embed = PROVIDER_EMBEDS[provider];
-  if (!embed.validateId(videoId)) {
-    return VMarkMcpServer.errorResult(
-      `Invalid ${provider} video ID: "${videoId}". ${embed.idDescription}`
-    );
-  }
-
-  const embedUrl = embed.buildUrl(videoId);
-  const html = `<iframe src="${embedUrl}" width="${embed.defaultWidth}" height="${embed.defaultHeight}" frameborder="0" allowfullscreen></iframe>`;
-
   try {
+    const videoId = requireStringArg(args, 'videoId');
+    const baseRevision = requireStringArg(args, 'baseRevision');
+    const provider = (getStringArg(args, 'provider') ?? 'youtube') as VideoProvider;
+
+    if (!VALID_PROVIDERS.includes(provider)) {
+      return VMarkMcpServer.errorResult(
+        `Invalid provider: "${provider}". Must be one of: ${VALID_PROVIDERS.join(', ')}.`
+      );
+    }
+
+    const embed = PROVIDER_EMBEDS[provider];
+    if (!embed.validateId(videoId)) {
+      return VMarkMcpServer.errorResult(
+        `Invalid ${provider} video ID: "${videoId}". ${embed.idDescription}`
+      );
+    }
+
+    const embedUrl = embed.buildUrl(videoId);
+    const html = `<iframe src="${embedUrl}" width="${embed.defaultWidth}" height="${embed.defaultHeight}" frameborder="0" allowfullscreen></iframe>`;
+
     const request: BridgeRequest = { type: 'insertMedia', mediaHtml: html, baseRevision, windowId };
     const result = await server.sendBridgeRequest(request);
     return VMarkMcpServer.successResult(JSON.stringify(result, null, 2));

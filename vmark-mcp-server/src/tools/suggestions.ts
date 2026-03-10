@@ -84,9 +84,8 @@ async function handleAccept(
   windowId: string,
   args: Record<string, unknown>
 ) {
-  const suggestionId = requireStringArg(args, 'suggestionId');
-
   try {
+    const suggestionId = requireStringArg(args, 'suggestionId');
     await server.sendBridgeRequest<{ message: string; suggestionId: string }>({
       type: 'suggestion.accept',
       suggestionId,
@@ -105,9 +104,8 @@ async function handleReject(
   windowId: string,
   args: Record<string, unknown>
 ) {
-  const suggestionId = requireStringArg(args, 'suggestionId');
-
   try {
+    const suggestionId = requireStringArg(args, 'suggestionId');
     await server.sendBridgeRequest<{ message: string; suggestionId: string }>({
       type: 'suggestion.reject',
       suggestionId,
