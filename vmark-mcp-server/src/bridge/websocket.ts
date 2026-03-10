@@ -58,7 +58,7 @@ export interface WebSocketBridgeConfig {
   port?: number;
   /** Function to resolve port dynamically (called on each connect attempt) */
   portResolver?: PortResolver;
-  /** Request timeout in ms (default: 30000) */
+  /** Request timeout in ms (default: 10000, aligned with Rust bridge timeout) */
   timeout?: number;
   /** Whether to auto-reconnect on disconnect (default: true) */
   autoReconnect?: boolean;
@@ -146,7 +146,7 @@ export class WebSocketBridge implements Bridge {
     this.host = config.host ?? '127.0.0.1'; // Use IPv4 explicitly to avoid IPv6 issues
     this.port = config.port; // May be undefined - will use portResolver
     this.portResolver = config.portResolver;
-    this.timeout = config.timeout ?? 30000;
+    this.timeout = config.timeout ?? 10000;
     this.autoReconnect = config.autoReconnect ?? true;
     this.maxReconnectAttempts = config.maxReconnectAttempts ?? 10;
     this.reconnectDelay = config.reconnectDelay ?? 1000;
@@ -447,10 +447,19 @@ export class WebSocketBridge implements Bridge {
     }
 
     return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        // Remove from queue if still pending
+        const idx = this.requestQueue.findIndex((q) => q.request === request);
+        if (idx !== -1) {
+          this.requestQueue.splice(idx, 1);
+        }
+        reject(new Error(`Queued request ${request.type} timed out`));
+      }, this.timeout);
+
       this.requestQueue.push({
         request,
-        resolve: resolve as (response: BridgeResponse) => void,
-        reject,
+        resolve: (value: BridgeResponse) => { clearTimeout(timer); (resolve as (response: BridgeResponse) => void)(value); },
+        reject: (err: Error) => { clearTimeout(timer); reject(err); },
       });
 
       this.logger.debug(`Request queued (queue size: ${this.requestQueue.length})`);

@@ -226,8 +226,8 @@ pub fn mcp_config_uninstall(provider: String) -> Result<UninstallResult, String>
     // Remove vmark entry
     let new_content = remove_vmark_from_config(config.id, &content)?;
 
-    // Write updated content
-    fs::write(&path, &new_content).map_err(|e| format!("Failed to write config: {}", e))?;
+    // Atomic write (consistent with install path — prevents corruption on interrupted writes)
+    crate::app_paths::atomic_write_file(&path, new_content.as_bytes())?;
 
     Ok(UninstallResult {
         success: true,

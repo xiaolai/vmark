@@ -39,7 +39,7 @@ const customServer = new VMarkMcpServer({ bridge });
 interface WebSocketBridgeConfig {
   host?: string;              // Default: 'localhost'
   port?: number;              // Default: 9224
-  timeout?: number;           // Request timeout in ms (default: 30000)
+  timeout?: number;           // Request timeout in ms (default: 10000)
   autoReconnect?: boolean;    // Auto-reconnect on disconnect (default: true)
   maxReconnectAttempts?: number; // Max reconnect attempts (default: 10)
   reconnectDelay?: number;    // Base reconnect delay in ms (default: 1000)
