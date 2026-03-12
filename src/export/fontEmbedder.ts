@@ -87,18 +87,25 @@ export function getKaTeXFontFiles(): FontFile[] {
   ];
 }
 
+/** Per-font download timeout (10 seconds). */
+const FONT_DOWNLOAD_TIMEOUT_MS = 10_000;
+
 /**
  * Download a font file and return the binary data.
  */
-export async function downloadFont(url: string): Promise<Uint8Array | null> {
+export async function downloadFont(url: string, timeoutMs = FONT_DOWNLOAD_TIMEOUT_MS): Promise<Uint8Array | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) return null;
     const buffer = await response.arrayBuffer();
     return new Uint8Array(buffer);
   } catch (error) {
     exportWarn("Failed to download font:", url, error);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

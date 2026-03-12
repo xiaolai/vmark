@@ -463,6 +463,29 @@ describe("downloadFont", () => {
     const result = await downloadFont("https://example.com/font.woff2");
     expect(result).toBeNull();
   });
+
+  it("passes an AbortSignal to fetch", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+    } as Response);
+
+    await downloadFont("https://example.com/font.woff2");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://example.com/font.woff2",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("returns null when fetch is aborted by timeout", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      // Simulate immediate abort
+      (init as RequestInit).signal!.addEventListener("abort", () => {});
+      return Promise.reject(new DOMException("The operation was aborted.", "AbortError"));
+    });
+    const result = await downloadFont("https://example.com/font.woff2", 1);
+    expect(result).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

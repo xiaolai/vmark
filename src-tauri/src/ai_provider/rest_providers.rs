@@ -9,6 +9,18 @@ use tauri::WebviewWindow;
 
 use super::types::{emit_chunk, emit_done, emit_error};
 
+/// Prompt execution timeout (3 minutes).
+/// Longer than the 10-15s test/list/validate timeouts in `rest_api.rs`
+/// because LLM responses can take time, but prevents indefinite hangs.
+const PROMPT_TIMEOUT_SECS: u64 = 180;
+
+fn make_prompt_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(PROMPT_TIMEOUT_SECS))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))
+}
+
 // ============================================================================
 // Anthropic
 // ============================================================================
@@ -21,7 +33,7 @@ pub(super) async fn run_rest_anthropic(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::new();
+    let client = make_prompt_client()?;
     let body = serde_json::json!({
         "model": model,
         "max_tokens": 4096,
@@ -86,7 +98,7 @@ pub(super) async fn run_rest_openai(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::new();
+    let client = make_prompt_client()?;
     let body = serde_json::json!({
         "model": model,
         "messages": [{"role": "user", "content": prompt}]
@@ -146,7 +158,7 @@ pub(super) async fn run_rest_google(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::new();
+    let client = make_prompt_client()?;
     let body = serde_json::json!({
         "contents": [{"parts": [{"text": prompt}]}]
     });
@@ -213,7 +225,7 @@ pub(super) async fn run_rest_ollama(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::new();
+    let client = make_prompt_client()?;
     let body = serde_json::json!({
         "model": model,
         "prompt": prompt,
