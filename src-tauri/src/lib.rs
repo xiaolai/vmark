@@ -290,10 +290,10 @@ fn windows_absolute_cmd() -> String {
     cmd.to_string_lossy().into_owned()
 }
 
-/// Resolve absolute path for a shell executable using `where.exe`.
+/// Resolve absolute path for a shell executable using `which`/`where`.
 /// Returns `None` if the executable is not found.
-fn resolve_windows_shell(where_exe: &std::path::Path, name: &str) -> Option<String> {
-    let output = std::process::Command::new(where_exe)
+fn resolve_windows_shell(name: &str) -> Option<String> {
+    let output = ai_provider::which_command()
         .arg(name)
         .output()
         .ok()?;
@@ -326,15 +326,8 @@ fn list_available_shells() -> Vec<String> {
     let mut shells = Vec::new();
 
     if cfg!(target_os = "windows") {
-        // Use absolute path to where.exe to avoid PATH hijacking
-        let where_exe = std::path::PathBuf::from(
-            std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".to_string()),
-        )
-        .join("System32")
-        .join("where.exe");
-
         for candidate in &["powershell.exe", "pwsh.exe", "cmd.exe"] {
-            if let Some(abs_path) = resolve_windows_shell(&where_exe, candidate) {
+            if let Some(abs_path) = resolve_windows_shell(candidate) {
                 shells.push(abs_path);
             }
         }

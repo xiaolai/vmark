@@ -5,13 +5,13 @@
 //! thread with a timeout to avoid stalling the async runtime.
 //!
 //! @coordinates-with ai_provider/cli.rs — build_command() for cross-platform spawn
-//! @coordinates-with ai_provider/detection.rs — login_shell_path() for PATH resolution
+//! @coordinates-with ai_provider/detection.rs — login_shell_path(), which_command() for PATH resolution
 
 use std::process::Stdio;
 use std::time::Duration;
 use tauri::command;
 
-use crate::ai_provider::{build_command, login_shell_path};
+use crate::ai_provider::{build_command, login_shell_path, which_command};
 
 /// Allowed output extensions (strict allowlist).
 const ALLOWED_EXTENSIONS: &[&str] = &["docx", "epub", "tex", "odt", "rtf", "txt"];
@@ -98,9 +98,7 @@ pub async fn export_via_pandoc(
 
 /// Resolve the absolute path to the Pandoc executable.
 pub(crate) fn resolve_pandoc_path() -> Option<String> {
-    let which_cmd = if cfg!(target_os = "windows") { "where" } else { "which" };
-
-    let output = std::process::Command::new(which_cmd)
+    let output = which_command()
         .arg("pandoc")
         .env("PATH", login_shell_path())
         .output()

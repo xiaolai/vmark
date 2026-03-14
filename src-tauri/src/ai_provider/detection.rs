@@ -139,19 +139,34 @@ pub(crate) fn login_shell_path() -> String {
         .clone()
 }
 
+/// Build a `Command` for the system's `which` (Unix) or `where` (Windows).
+///
+/// On Windows, uses the absolute path `%WINDIR%\System32\where.exe` to
+/// prevent PATH-hijacking attacks. On Unix, uses bare `which` (safe because
+/// `/usr/bin` is always on PATH and not user-writable).
+pub(crate) fn which_command() -> Command {
+    #[cfg(target_os = "windows")]
+    {
+        let where_exe = std::path::PathBuf::from(
+            std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".to_string()),
+        )
+        .join("System32")
+        .join("where.exe");
+        Command::new(where_exe)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Command::new("which")
+    }
+}
+
 /// Check if a command exists on the system PATH.
 ///
-/// Uses `which` (Unix) or `where` (Windows) directly via `Command::new` —
+/// Uses `which` (Unix) or `where` (Windows) via `which_command()` —
 /// intentionally bypasses `build_command()` because `which`/`where` are
 /// system lookup utilities, not AI tools that need `.cmd` shim handling.
 fn check_command(cmd: &str) -> (bool, Option<String>) {
-    let which_cmd = if cfg!(target_os = "windows") {
-        "where"
-    } else {
-        "which"
-    };
-
-    match Command::new(which_cmd)
+    match which_command()
         .arg(cmd)
         .env("PATH", login_shell_path())
         .output()
