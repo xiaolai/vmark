@@ -484,6 +484,79 @@ describe("resolveResources", () => {
     expect(report.resolved).toHaveLength(1);
   });
 
+  it("deduplicates filenames in folder mode to prevent overwrite", async () => {
+    // Two different source images with the same basename
+    const html =
+      '<img src="chapter1/image.png"><img src="chapter2/image.png">';
+    mockExists.mockImplementation(async (path: string) => {
+      if (path.includes("assets/images")) return false; // dir doesn't exist
+      return true; // source files exist
+    });
+    mockMkdir.mockResolvedValue(undefined);
+    mockCopyFile.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "folder",
+      outputDir: "/output",
+    });
+
+    // First image keeps original name, second gets deduplicated
+    expect(result).toContain("assets/images/image.png");
+    expect(result).toContain("assets/images/image-1.png");
+    expect(report.resolved).toHaveLength(2);
+
+    // Verify two different destinations were used
+    const copyPaths = mockCopyFile.mock.calls.map(
+      (call: unknown[]) => call[1],
+    );
+    expect(copyPaths).toContain("/output/assets/images/image.png");
+    expect(copyPaths).toContain("/output/assets/images/image-1.png");
+  });
+
+  it("deduplicates filenames with multiple collisions", async () => {
+    const html =
+      '<img src="a/photo.jpg"><img src="b/photo.jpg"><img src="c/photo.jpg">';
+    mockExists.mockImplementation(async (path: string) => {
+      if (path.includes("assets/images")) return false;
+      return true;
+    });
+    mockMkdir.mockResolvedValue(undefined);
+    mockCopyFile.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue(new Uint8Array([1]));
+
+    const { html: result } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "folder",
+      outputDir: "/output",
+    });
+
+    expect(result).toContain("assets/images/photo.jpg");
+    expect(result).toContain("assets/images/photo-1.jpg");
+    expect(result).toContain("assets/images/photo-2.jpg");
+  });
+
+  it("deduplicates filenames without extension", async () => {
+    const html = '<img src="a/icon"><img src="b/icon">';
+    mockExists.mockImplementation(async (path: string) => {
+      if (path.includes("assets/images")) return false;
+      return true;
+    });
+    mockMkdir.mockResolvedValue(undefined);
+    mockCopyFile.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue(new Uint8Array([1]));
+
+    const { html: result } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "folder",
+      outputDir: "/output",
+    });
+
+    expect(result).toContain("assets/images/icon");
+    expect(result).toContain("assets/images/icon-1");
+  });
+
   it("handles mkdir failure gracefully in folder mode", async () => {
     const html = '<img src="photo.png">';
     mockExists.mockImplementation(async (path: string) => {

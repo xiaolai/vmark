@@ -204,6 +204,8 @@ export async function resolveResources(
   }
 
   let modifiedHtml = html;
+  /** Track used filenames in folder mode to prevent overwrite collisions */
+  const usedFileNames = new Set<string>();
 
   for (const src of sources) {
     const info: ResourceInfo = {
@@ -251,8 +253,19 @@ export async function resolveResources(
           modifiedHtml = modifiedHtml.split(src).join(dataUri);
         }
       } else if (mode === "folder" && imagesDir) {
-        // Copy to images folder
-        const fileName = await basename(resolvedPath);
+        // Copy to images folder, deduplicating filenames to prevent overwrites
+        let fileName = await basename(resolvedPath);
+        if (usedFileNames.has(fileName)) {
+          const dotIndex = fileName.lastIndexOf(".");
+          const name = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+          const ext = dotIndex > 0 ? fileName.slice(dotIndex) : "";
+          let counter = 1;
+          while (usedFileNames.has(`${name}-${counter}${ext}`)) {
+            counter++;
+          }
+          fileName = `${name}-${counter}${ext}`;
+        }
+        usedFileNames.add(fileName);
         const destPath = await join(imagesDir, fileName);
 
         try {
