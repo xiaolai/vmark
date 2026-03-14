@@ -16,7 +16,7 @@
  * background load, and slower machines without flaking.
  */
 
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 
 // Skip performance tests in CI — timing thresholds are meaningless on shared runners
 const isCI = !!process.env.CI;
@@ -24,7 +24,6 @@ const describePerf = isCI ? describe.skip : describe;
 import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { parseMarkdown, serializeMarkdown } from "../adapter";
-import { parseMarkdownCached, clearCache, getCacheStats } from "../parsingCache";
 import { parseMarkdownToMdast } from "../parser";
 
 // Create a minimal schema for performance testing
@@ -320,68 +319,4 @@ const x = 1;
     });
   });
 
-  describe("parsing cache performance", () => {
-    beforeEach(() => {
-      clearCache();
-    });
-
-    it("cache hit is significantly faster than cache miss", () => {
-      // Use content with math to force remark (slow path) - this makes cache benefit clearer
-      const baseMarkdown = generateLargeMarkdown(2000);
-      const markdown = baseMarkdown + "\n\n$E = mc^2$\n\n" + generateLargeMarkdown(1000);
-
-      // First parse (cache miss) - will use remark due to math
-      const missStart = performance.now();
-      const doc1 = parseMarkdownCached(schema, markdown);
-      const missTime = performance.now() - missStart;
-
-      // Second parse (cache hit) - returns cached result
-      const hitStart = performance.now();
-      const doc2 = parseMarkdownCached(schema, markdown);
-      const hitTime = performance.now() - hitStart;
-
-      expect(doc1).toBeDefined();
-      expect(doc2).toBeDefined();
-
-      console.log(`[Perf] Cache miss: ${missTime.toFixed(2)}ms`);
-      console.log(`[Perf] Cache hit: ${hitTime.toFixed(2)}ms`);
-      console.log(`[Perf] Cache speedup: ${(missTime / hitTime).toFixed(1)}x`);
-
-      // Cache hit should be at least 2x faster when using slow parser
-      expect(hitTime).toBeLessThan(missTime / 2);
-    });
-
-    it("tracks cache statistics", () => {
-      const markdown = generateLargeMarkdown(3000);
-
-      // Initial state
-      const initialStats = getCacheStats();
-      expect(initialStats.size).toBe(0);
-
-      // After first parse
-      parseMarkdownCached(schema, markdown);
-      const afterFirstParse = getCacheStats();
-      expect(afterFirstParse.size).toBe(1);
-
-      // After second parse (same content)
-      parseMarkdownCached(schema, markdown);
-      const afterSecondParse = getCacheStats();
-      expect(afterSecondParse.size).toBe(1); // Still 1, cache hit
-
-      // After different content
-      parseMarkdownCached(schema, markdown + "\n\nNew content.");
-      const afterDifferentContent = getCacheStats();
-      expect(afterDifferentContent.size).toBe(2);
-    });
-
-    it("does not cache small documents", () => {
-      const smallMarkdown = "# Hello\n\nSmall document.";
-
-      parseMarkdownCached(schema, smallMarkdown);
-      const stats = getCacheStats();
-
-      // Small docs should not be cached (< MIN_CACHE_SIZE)
-      expect(stats.size).toBe(0);
-    });
-  });
 });

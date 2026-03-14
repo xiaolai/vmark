@@ -12,7 +12,6 @@
  * Key decisions:
  *   - MDAST chosen as IR because remark ecosystem provides robust parsing
  *     and serialization, plus plugin support for GFM/math/frontmatter
- *   - Caching layer (parsingCache) sits above adapter for hot-path performance
  *   - Custom VMark extensions (wiki links, alerts, details, sub/superscript)
  *     are added via remark plugins in ./plugins/
  *
@@ -28,15 +27,6 @@
 
 // Adapter - unified interface
 export { parseMarkdown, serializeMarkdown } from "./adapter";
-
-// Cached parsing
-export {
-  parseMarkdownCached,
-  parseMarkdownToMdastCached,
-  getCacheStats,
-  clearCache,
-  prewarmCache,
-} from "./parsingCache";
 
 // Types
 export * from "./types";
