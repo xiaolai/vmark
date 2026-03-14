@@ -5,7 +5,7 @@
  * Resolves relative paths, copies local files, and rewrites URLs.
  */
 
-import { readFile, copyFile, exists, mkdir } from "@tauri-apps/plugin-fs";
+import { readFile, copyFile, exists, mkdir, stat } from "@tauri-apps/plugin-fs";
 import { join, dirname, basename } from "@tauri-apps/api/path";
 import { uint8ArrayToBase64 } from "./fontEmbedder";
 import { exportWarn } from "@/utils/debug";
@@ -125,8 +125,11 @@ export async function resolveRelativePath(
 
 /**
  * Convert a file to a data URI.
+ * Returns the data URI and the file size in bytes.
  */
-export async function fileToDataUri(filePath: string): Promise<string | null> {
+export async function fileToDataUri(
+  filePath: string
+): Promise<{ dataUri: string; size: number } | null> {
   try {
     const data = await readFile(filePath);
     /* v8 ignore start -- split(".") always has ≥1 element, pop() is never undefined */
@@ -134,7 +137,7 @@ export async function fileToDataUri(filePath: string): Promise<string | null> {
     /* v8 ignore stop */
     const mimeType = getMimeType(ext);
     const base64 = uint8ArrayToBase64(data);
-    return `data:${mimeType};base64,${base64}`;
+    return { dataUri: `data:${mimeType};base64,${base64}`, size: data.length };
   } catch (error) {
     exportWarn("Failed to read file for data URI:", filePath, error);
     return null;
@@ -244,11 +247,13 @@ export async function resolveResources(
       info.found = true;
 
       if (mode === "single") {
-        // Embed as data URI
-        const dataUri = await fileToDataUri(resolvedPath);
-        if (dataUri) {
-          info.exportSrc = dataUri;
-          modifiedHtml = modifiedHtml.split(src).join(dataUri);
+        // Embed as data URI (returns size from the same read)
+        const result = await fileToDataUri(resolvedPath);
+        if (result) {
+          info.exportSrc = result.dataUri;
+          info.size = result.size;
+          totalSize += result.size;
+          modifiedHtml = modifiedHtml.split(src).join(result.dataUri);
         }
       } else if (mode === "folder" && imagesDir) {
         // Copy to images folder
@@ -264,15 +269,15 @@ export async function resolveResources(
         } catch (e) {
           exportWarn(`Failed to copy ${resolvedPath}:`, e);
         }
-      }
 
-      // Try to get file size (may fail if file was just copied/moved)
-      try {
-        const data = await readFile(resolvedPath);
-        info.size = data.length;
-        totalSize += data.length;
-      } catch {
-        // Size unknown - not critical, continue without it
+        // Use stat() to get size without re-reading the file
+        try {
+          const fileStat = await stat(resolvedPath);
+          info.size = fileStat.size;
+          totalSize += fileStat.size;
+        } catch {
+          // Size unknown - not critical, continue without it
+        }
       }
 
       resources.push(info);

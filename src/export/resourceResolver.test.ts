@@ -12,12 +12,14 @@ const mockReadFile = vi.fn();
 const mockCopyFile = vi.fn();
 const mockExists = vi.fn();
 const mockMkdir = vi.fn();
+const mockStat = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readFile: (...args: unknown[]) => mockReadFile(...args),
   copyFile: (...args: unknown[]) => mockCopyFile(...args),
   exists: (...args: unknown[]) => mockExists(...args),
   mkdir: (...args: unknown[]) => mockMkdir(...args),
+  stat: (...args: unknown[]) => mockStat(...args),
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -252,43 +254,46 @@ describe("resolveRelativePath", () => {
 // fileToDataUri
 // ---------------------------------------------------------------------------
 describe("fileToDataUri", () => {
-  it("converts a PNG file to data URI", async () => {
+  it("converts a PNG file to data URI with size", async () => {
     const fakeData = new Uint8Array([137, 80, 78, 71]); // PNG magic bytes
     mockReadFile.mockResolvedValue(fakeData);
 
     const result = await fileToDataUri("/path/to/image.png");
-    expect(result).toMatch(/^data:image\/png;base64,/);
+    expect(result).not.toBeNull();
+    expect(result!.dataUri).toMatch(/^data:image\/png;base64,/);
+    expect(result!.size).toBe(4);
     expect(mockReadFile).toHaveBeenCalledWith("/path/to/image.png");
   });
 
   it("uses correct MIME type for JPEG", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([255, 216]));
     const result = await fileToDataUri("/path/to/photo.jpg");
-    expect(result).toMatch(/^data:image\/jpeg;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/jpeg;base64,/);
+    expect(result!.size).toBe(2);
   });
 
   it("uses correct MIME type for SVG", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([60, 115, 118, 103]));
     const result = await fileToDataUri("/path/to/icon.svg");
-    expect(result).toMatch(/^data:image\/svg\+xml;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/svg\+xml;base64,/);
   });
 
   it("uses correct MIME type for GIF", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([71, 73, 70]));
     const result = await fileToDataUri("/path/to/anim.gif");
-    expect(result).toMatch(/^data:image\/gif;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/gif;base64,/);
   });
 
   it("uses correct MIME type for WebP", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([82, 73, 70, 70]));
     const result = await fileToDataUri("/path/to/image.webp");
-    expect(result).toMatch(/^data:image\/webp;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/webp;base64,/);
   });
 
   it("falls back to application/octet-stream for unknown extensions", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([0, 1, 2]));
     const result = await fileToDataUri("/path/to/file.xyz");
-    expect(result).toMatch(/^data:application\/octet-stream;base64,/);
+    expect(result!.dataUri).toMatch(/^data:application\/octet-stream;base64,/);
   });
 
   it("returns null when file read fails", async () => {
@@ -300,31 +305,31 @@ describe("fileToDataUri", () => {
   it("handles files with no extension", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([0]));
     const result = await fileToDataUri("/path/to/noext");
-    expect(result).toMatch(/^data:application\/octet-stream;base64,/);
+    expect(result!.dataUri).toMatch(/^data:application\/octet-stream;base64,/);
   });
 
   it("uses correct MIME type for ICO", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([0, 0, 1, 0]));
     const result = await fileToDataUri("/path/to/favicon.ico");
-    expect(result).toMatch(/^data:image\/x-icon;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/x-icon;base64,/);
   });
 
   it("uses correct MIME type for BMP", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([66, 77]));
     const result = await fileToDataUri("/path/to/image.bmp");
-    expect(result).toMatch(/^data:image\/bmp;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/bmp;base64,/);
   });
 
   it("uses correct MIME type for AVIF", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([0, 0, 0]));
     const result = await fileToDataUri("/path/to/image.avif");
-    expect(result).toMatch(/^data:image\/avif;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/avif;base64,/);
   });
 
   it("uses correct MIME type for JPEG extension", async () => {
     mockReadFile.mockResolvedValue(new Uint8Array([255, 216]));
     const result = await fileToDataUri("/path/to/photo.jpeg");
-    expect(result).toMatch(/^data:image\/jpeg;base64,/);
+    expect(result!.dataUri).toMatch(/^data:image\/jpeg;base64,/);
   });
 });
 
@@ -401,7 +406,7 @@ describe("resolveResources", () => {
     });
     mockMkdir.mockResolvedValue(undefined);
     mockCopyFile.mockResolvedValue(undefined);
-    mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3, 4, 5]));
+    mockStat.mockResolvedValue({ size: 5 });
 
     const { html: result, report } = await resolveResources(html, {
       baseDir: "/docs",
@@ -420,7 +425,7 @@ describe("resolveResources", () => {
     const html = '<img src="photo.png">';
     mockExists.mockResolvedValue(true);
     mockCopyFile.mockResolvedValue(undefined);
-    mockReadFile.mockResolvedValue(new Uint8Array([1, 2]));
+    mockStat.mockResolvedValue({ size: 2 });
 
     await resolveResources(html, {
       baseDir: "/docs",
@@ -472,7 +477,7 @@ describe("resolveResources", () => {
     const html = '<img src="photo.png">';
     mockExists.mockResolvedValue(true);
     mockCopyFile.mockRejectedValue(new Error("Copy failed"));
-    mockReadFile.mockResolvedValue(new Uint8Array([1, 2]));
+    mockStat.mockResolvedValue({ size: 2 });
 
     const { report } = await resolveResources(html, {
       baseDir: "/docs",
@@ -491,7 +496,7 @@ describe("resolveResources", () => {
       return true;
     });
     mockMkdir.mockRejectedValue(new Error("Permission denied"));
-    mockReadFile.mockResolvedValue(new Uint8Array([1]));
+    mockStat.mockResolvedValue({ size: 1 });
 
     // Should not throw — mkdir failure is logged and continued
     const { report } = await resolveResources(html, {
@@ -522,12 +527,11 @@ describe("resolveResources", () => {
   it("skips image copy in folder mode when outputDir is not provided", async () => {
     const html = '<img src="photo.png">';
     mockExists.mockResolvedValue(true);
-    mockReadFile.mockResolvedValue(new Uint8Array([1, 2]));
 
     const { report } = await resolveResources(html, {
       baseDir: "/docs",
       mode: "folder",
-      // no outputDir
+      // no outputDir — no copy, no stat
     });
 
     expect(mockCopyFile).not.toHaveBeenCalled();
@@ -544,16 +548,10 @@ describe("resolveResources", () => {
     expect(report.resources).toHaveLength(0);
   });
 
-  it("handles file size read failure silently", async () => {
+  it("gets size from fileToDataUri in single mode without extra read", async () => {
     const html = '<img src="photo.png">';
     mockExists.mockResolvedValue(true);
-    // First readFile call for data URI succeeds, second for size fails
-    let callCount = 0;
-    mockReadFile.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) return new Uint8Array([1, 2, 3]);
-      throw new Error("Read failed");
-    });
+    mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
 
     const { report } = await resolveResources(html, {
       baseDir: "/docs",
@@ -561,7 +559,27 @@ describe("resolveResources", () => {
     });
 
     expect(report.resolved).toHaveLength(1);
-    // Size unknown since second read failed
+    // Size comes from the same readFile call inside fileToDataUri
+    expect(report.totalSize).toBe(3);
+    expect(report.resolved[0].size).toBe(3);
+    // readFile should only be called once (inside fileToDataUri)
+    expect(mockReadFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles stat failure silently in folder mode", async () => {
+    const html = '<img src="photo.png">';
+    mockExists.mockResolvedValue(true);
+    mockCopyFile.mockResolvedValue(undefined);
+    mockStat.mockRejectedValue(new Error("Stat failed"));
+
+    const { report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "folder",
+      outputDir: "/output",
+    });
+
+    expect(report.resolved).toHaveLength(1);
+    // Size unknown since stat failed
     expect(report.totalSize).toBe(0);
   });
 });
