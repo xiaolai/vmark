@@ -5,9 +5,23 @@
 //! frontend as `ai:response` events.  These are non-streaming
 //! implementations -- the full response is fetched and then emitted.
 
+use std::time::Duration;
+
 use tauri::WebviewWindow;
 
 use super::types::{emit_chunk, emit_done, emit_error};
+
+/// Build an HTTP client with standard timeouts.
+///
+/// * `connect_timeout` — 10 s (TCP handshake).
+/// * `timeout` — 120 s (entire request, including body read).
+fn make_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))
+}
 
 // ============================================================================
 // Anthropic
@@ -21,10 +35,7 @@ pub(super) async fn run_rest_anthropic(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+    let client = make_client()?;
     let body = serde_json::json!({
         "model": model,
         "max_tokens": 4096,
@@ -89,10 +100,7 @@ pub(super) async fn run_rest_openai(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+    let client = make_client()?;
     let body = serde_json::json!({
         "model": model,
         "messages": [{"role": "user", "content": prompt}]
@@ -152,10 +160,7 @@ pub(super) async fn run_rest_google(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+    let client = make_client()?;
     let body = serde_json::json!({
         "contents": [{"parts": [{"text": prompt}]}]
     });
@@ -222,10 +227,7 @@ pub(super) async fn run_rest_ollama(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+    let client = make_client()?;
     let body = serde_json::json!({
         "model": model,
         "prompt": prompt,
