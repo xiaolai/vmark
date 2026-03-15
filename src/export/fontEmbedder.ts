@@ -89,23 +89,35 @@ export function getKaTeXFontFiles(): FontFile[] {
 
 /**
  * Download a font file and return the binary data.
+ * Retries with exponential backoff on transient failures (network errors, non-ok responses).
  */
-export async function downloadFont(url: string): Promise<Uint8Array | null> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
+export async function downloadFont(url: string, retries = 3): Promise<Uint8Array | null> {
+  for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const response = await fetch(url, { signal: controller.signal });
-      if (!response.ok) return null;
-      const buffer = await response.arrayBuffer();
-      return new Uint8Array(buffer);
-    } finally {
-      clearTimeout(timer);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) {
+          if (attempt === retries - 1) return null;
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        const buffer = await response.arrayBuffer();
+        return new Uint8Array(buffer);
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (error) {
+      if (attempt === retries - 1) {
+        exportWarn("Failed to download font after retries:", url, error);
+        return null;
+      }
+      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
     }
-  } catch (error) {
-    exportWarn("Failed to download font:", url, error);
-    return null;
   }
+  /* v8 ignore next */
+  return null;
 }
 
 /**

@@ -428,8 +428,24 @@ describe("getGoogleFontUrl", () => {
 // ---------------------------------------------------------------------------
 describe("downloadFont", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.restoreAllMocks();
   });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Run downloadFont while advancing fake timers so backoff delays resolve. */
+  async function runWithTimers(promise: Promise<Uint8Array | null>): Promise<Uint8Array | null> {
+    let result: Uint8Array | null = null;
+    let done = false;
+    promise.then((r) => { result = r; done = true; });
+    while (!done) {
+      await vi.advanceTimersByTimeAsync(5000);
+    }
+    return result;
+  }
 
   it("returns Uint8Array on successful fetch", async () => {
     const fakeData = new Uint8Array([0x00, 0x01, 0x02]);
@@ -438,30 +454,79 @@ describe("downloadFont", () => {
       arrayBuffer: () => Promise.resolve(fakeData.buffer),
     } as Response);
 
-    const result = await downloadFont("https://example.com/font.woff2");
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
     expect(result).toBeInstanceOf(Uint8Array);
     expect(result).toEqual(fakeData);
   });
 
-  it("returns null on non-ok response", async () => {
+  it("returns null on non-ok response after retries exhausted", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
     } as Response);
 
-    const result = await downloadFont("https://example.com/font.woff2");
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
     expect(result).toBeNull();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
   });
 
-  it("returns null on network error", async () => {
+  it("returns null on network error after retries exhausted", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network error"));
-    const result = await downloadFont("https://example.com/font.woff2");
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
     expect(result).toBeNull();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
   });
 
-  it("returns null on fetch throwing TypeError", async () => {
+  it("returns null on fetch throwing TypeError after retries", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
-    const result = await downloadFont("https://example.com/font.woff2");
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
     expect(result).toBeNull();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on transient failure then succeeds", async () => {
+    const fakeData = new Uint8Array([0x10, 0x20]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("DNS hiccup"))
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(fakeData.buffer),
+      } as Response);
+
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
+    expect(result).toEqual(fakeData);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on non-ok response then succeeds", async () => {
+    const fakeData = new Uint8Array([0x30]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: false } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(fakeData.buffer),
+      } as Response);
+
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
+    expect(result).toEqual(fakeData);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry on success", async () => {
+    const fakeData = new Uint8Array([0x00]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(fakeData.buffer),
+    } as Response);
+
+    await runWithTimers(downloadFont("https://example.com/font.woff2"));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects custom retries parameter", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fail"));
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2", 5));
+    expect(result).toBeNull();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
   });
 });
 
