@@ -154,7 +154,10 @@ pub async fn list_models(
                         .filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(String::from))
                         .collect()
                 })
-                .unwrap_or_default();
+                .unwrap_or_else(|| {
+                    eprintln!("[AI Provider] Unexpected model list response shape from Ollama (missing \"models\" key)");
+                    Vec::new()
+                });
             Ok(models)
         }
 
@@ -187,7 +190,10 @@ pub async fn list_models(
                         })
                         .collect()
                 })
-                .unwrap_or_default();
+                .unwrap_or_else(|| {
+                    eprintln!("[AI Provider] Unexpected model list response shape from OpenAI (missing \"data\" key)");
+                    Vec::new()
+                });
             models.sort();
             Ok(models)
         }
@@ -217,7 +223,10 @@ pub async fn list_models(
                         })
                         .collect()
                 })
-                .unwrap_or_default();
+                .unwrap_or_else(|| {
+                    eprintln!("[AI Provider] Unexpected model list response shape from Google AI (missing \"models\" key)");
+                    Vec::new()
+                });
             models.sort();
             Ok(models)
         }
