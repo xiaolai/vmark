@@ -35,7 +35,7 @@
  * @coordinates-with reader/ — vmark-reader CSS/JS for interactive exports
  */
 
-import { writeTextFile, writeFile, mkdir } from "@tauri-apps/plugin-fs";
+import { writeTextFile, writeFile, mkdir, remove } from "@tauri-apps/plugin-fs";
 import { captureThemeCSS, isDarkTheme } from "./themeSnapshot";
 import { resolveResources, getDocumentBaseDir } from "./resourceResolver";
 import {
@@ -275,6 +275,14 @@ export async function exportHtml(
       warnings,
     };
   } catch (error) {
+    // Clean up partially-created output folder to avoid leaving
+    // incomplete files on disk (e.g., index.html without standalone.html)
+    try {
+      await remove(outputPath, { recursive: true });
+    } catch {
+      // Best-effort cleanup — folder may not exist yet if mkdir failed
+    }
+
     return {
       success: false,
       indexPath,
