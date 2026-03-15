@@ -44,7 +44,6 @@
     "@tiptap/core": "^3.18.0",
     "@tiptap/extension-blockquote": "^3.18.0",
     "@tiptap/extension-bullet-list": "^3.18.0",
-    "@tiptap/extension-code-block": "^3.18.0",
     "@tiptap/extension-code-block-lowlight": "^3.18.0",
     "@tiptap/extension-heading": "^3.18.0",
     "@tiptap/extension-horizontal-rule": "^3.18.0",
