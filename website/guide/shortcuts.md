@@ -1,6 +1,6 @@
 # Keyboard Shortcuts
 
-VMark is designed for keyboard-first workflows. All shortcuts can be customized in Settings.
+VMark is designed for keyboard-first workflows. Most shortcuts can be customized in Settings. A few — such as multi-cursor shortcuts (Select Next Occurrence, Select All Occurrences), Undo, and Redo — are not yet customizable.
 
 ## Notation
 
