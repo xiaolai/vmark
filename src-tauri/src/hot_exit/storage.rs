@@ -85,6 +85,10 @@ pub async fn write_session_atomic(
                     .flush()
                     .map_err(|e| format!("Failed to flush backup temp file: {}", e))?;
                 backup_tmp
+                    .as_file()
+                    .sync_all()
+                    .map_err(|e| format!("Failed to sync backup temp file: {}", e))?;
+                backup_tmp
                     .persist(&backup_path)
                     .map_err(|e| format!("Failed to persist backup: {}", e))?;
             }
