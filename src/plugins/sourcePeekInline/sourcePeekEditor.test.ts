@@ -76,7 +76,10 @@ import { syntaxHighlighting } from "@codemirror/language";
 
 /** Flush the async initCMEditor promise so the CM view is mounted. */
 async function flushCMInit(): Promise<void> {
-  // Dynamic imports resolve in one microtask tick when mocked
+  // Lazy-loaded modules resolve via Promise.all inside loadCMModules,
+  // then initCMEditor continues after that. Need multiple microtask
+  // ticks for the full async chain to settle.
+  await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
 }
 
