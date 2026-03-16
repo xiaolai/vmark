@@ -1,19 +1,22 @@
 /**
  * Tests for sourcePeekEditor — createCodeMirrorEditor and cleanupCMView.
+ *
+ * CodeMirror modules are dynamically imported; mocks intercept vi.importActual
+ * so the lazy-load path is exercised.
  */
 
 const mockDestroy = vi.fn();
 const mockFocus = vi.fn();
+
+// Capture keymap bindings and updateListener callback so tests can invoke them
+let capturedKeymapBindings: Array<{ key: string; run: () => boolean }> = [];
+let capturedUpdateListener: ((update: unknown) => void) | null = null;
 
 vi.mock("@codemirror/state", () => ({
   EditorState: {
     create: vi.fn(() => ({ doc: { toString: () => "test" } })),
   },
 }));
-
-// Capture keymap bindings and updateListener callback so tests can invoke them
-let capturedKeymapBindings: Array<{ key: string; run: () => boolean }> = [];
-let capturedUpdateListener: ((update: unknown) => void) | null = null;
 
 vi.mock("@codemirror/view", () => {
   class MockCMView {
@@ -71,12 +74,18 @@ import { history } from "@codemirror/commands";
 import { markdown as markdownLang } from "@codemirror/lang-markdown";
 import { syntaxHighlighting } from "@codemirror/language";
 
+/** Flush the async initCMEditor promise so the CM view is mounted. */
+async function flushCMInit(): Promise<void> {
+  // Dynamic imports resolve in one microtask tick when mocked
+  await new Promise((r) => setTimeout(r, 0));
+}
+
 // ---------------------------------------------------------------------------
 // cleanupCMView
 // ---------------------------------------------------------------------------
 
 describe("cleanupCMView", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     cleanupCMView();
     vi.clearAllMocks();
@@ -86,23 +95,26 @@ describe("cleanupCMView", () => {
     expect(() => cleanupCMView()).not.toThrow();
   });
 
-  it("destroys CM view after createCodeMirrorEditor was called", () => {
+  it("destroys CM view after createCodeMirrorEditor was called", async () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+    await flushCMInit();
     cleanupCMView();
     expect(mockDestroy).toHaveBeenCalled();
   });
 
-  it("calling cleanupCMView twice does not throw", () => {
+  it("calling cleanupCMView twice does not throw", async () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+    await flushCMInit();
     cleanupCMView();
     expect(() => cleanupCMView()).not.toThrow();
   });
 
-  it("only calls destroy once on double cleanup", () => {
+  it("only calls destroy once on double cleanup", async () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+    await flushCMInit();
     cleanupCMView();
     const destroyCount = mockDestroy.mock.calls.length;
     cleanupCMView();
@@ -115,13 +127,13 @@ describe("cleanupCMView", () => {
 // ---------------------------------------------------------------------------
 
 describe("createCodeMirrorEditor", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     cleanupCMView();
     vi.clearAllMocks();
   });
 
-  it("returns an HTMLElement", () => {
+  it("returns an HTMLElement synchronously", () => {
     const noop = () => {};
     const el = createCodeMirrorEditor("# Hello", noop, noop, noop);
     expect(el).toBeInstanceOf(HTMLElement);
@@ -133,42 +145,49 @@ describe("createCodeMirrorEditor", () => {
     expect(el.className).toBe("source-peek-inline-editor");
   });
 
-  it("creates CMState with provided markdown", () => {
+  it("creates CMState with provided markdown", async () => {
     const noop = () => {};
     createCodeMirrorEditor("# My Content", noop, noop, noop);
+    await flushCMInit();
     expect(CMState.create).toHaveBeenCalledWith(
       expect.objectContaining({ doc: "# My Content" })
     );
   });
 
-  it("destroys previous CM view when creating a new one", () => {
+  it("destroys previous CM view when creating a new one", async () => {
     const noop = () => {};
     createCodeMirrorEditor("first", noop, noop, noop);
+    await flushCMInit();
     createCodeMirrorEditor("second", noop, noop, noop);
+    await flushCMInit();
     expect(mockDestroy).toHaveBeenCalled();
   });
 
-  it("creates a theme with CMView.theme", () => {
+  it("creates a theme with CMView.theme", async () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+    await flushCMInit();
     expect((CMView as unknown as Record<string, ReturnType<typeof vi.fn>>).theme).toHaveBeenCalled();
   });
 
-  it("configures markdown language support", () => {
+  it("configures markdown language support", async () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+    await flushCMInit();
     expect(markdownLang).toHaveBeenCalled();
   });
 
-  it("configures syntax highlighting", () => {
+  it("configures syntax highlighting", async () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+    await flushCMInit();
     expect(syntaxHighlighting).toHaveBeenCalled();
   });
 
-  it("configures history extension", () => {
+  it("configures history extension", async () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+    await flushCMInit();
     expect(history).toHaveBeenCalled();
   });
 
@@ -178,12 +197,13 @@ describe("createCodeMirrorEditor", () => {
     expect(el.tagName).toBe("DIV");
   });
 
-  it("handleSave keymap binding calls onSave and returns true (lines 52-53)", () => {
+  it("handleSave keymap binding calls onSave and returns true", async () => {
     const onSave = vi.fn();
     const onCancel = vi.fn();
     const onUpdate = vi.fn();
 
     createCodeMirrorEditor("test", onSave, onCancel, onUpdate);
+    await flushCMInit();
 
     // Find the Mod-Enter binding in captured keymap bindings
     const saveBinding = capturedKeymapBindings.find((b) => b.key === "Mod-Enter");
@@ -194,12 +214,13 @@ describe("createCodeMirrorEditor", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
-  it("handleCancel keymap binding calls onCancel and returns true (lines 57-58)", () => {
+  it("handleCancel keymap binding calls onCancel and returns true", async () => {
     const onSave = vi.fn();
     const onCancel = vi.fn();
     const onUpdate = vi.fn();
 
     createCodeMirrorEditor("test", onSave, onCancel, onUpdate);
+    await flushCMInit();
 
     // Find the Escape binding in captured keymap bindings
     const cancelBinding = capturedKeymapBindings.find((b) => b.key === "Escape");
@@ -210,12 +231,13 @@ describe("createCodeMirrorEditor", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it("updateListener calls onUpdate when docChanged is true (lines 73-75)", () => {
+  it("updateListener calls onUpdate when docChanged is true", async () => {
     const onSave = vi.fn();
     const onCancel = vi.fn();
     const onUpdate = vi.fn();
 
     createCodeMirrorEditor("initial text", onSave, onCancel, onUpdate);
+    await flushCMInit();
 
     expect(capturedUpdateListener).not.toBeNull();
 
@@ -228,11 +250,12 @@ describe("createCodeMirrorEditor", () => {
     expect(onUpdate).toHaveBeenCalledWith("updated text");
   });
 
-  it("updateListener does not call onUpdate when docChanged is false", () => {
+  it("updateListener does not call onUpdate when docChanged is false", async () => {
     const onUpdate = vi.fn();
     const noop = () => {};
 
     createCodeMirrorEditor("test", noop, noop, onUpdate);
+    await flushCMInit();
 
     capturedUpdateListener!({
       docChanged: false,
@@ -242,10 +265,13 @@ describe("createCodeMirrorEditor", () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
-  it("focuses the CM view via requestAnimationFrame (line 97)", () => {
+  it("focuses the CM view via requestAnimationFrame", async () => {
     vi.useFakeTimers();
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
+
+    // Flush the async init (fakeTimers require manual advancement of setTimeout)
+    await vi.advanceTimersByTimeAsync(0);
 
     // requestAnimationFrame callback fires after flush
     vi.runAllTimers();

@@ -2,21 +2,34 @@
  * Source Peek CodeMirror Editor
  *
  * Creates and manages the CodeMirror editor instance for inline Source Peek.
+ * CodeMirror modules are lazily loaded on first use to avoid bloating the main bundle.
  */
 
-import { EditorState as CMState } from "@codemirror/state";
-import { EditorView as CMView, keymap as cmKeymap } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { markdown as markdownLang } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
-import { syntaxHighlighting } from "@codemirror/language";
 import { codeHighlightStyle } from "@/plugins/codemirror";
 
+/** Cached CodeMirror modules — loaded once on first activation. */
+let cmModules: Awaited<ReturnType<typeof loadCMModules>> | null = null;
+
+async function loadCMModules() {
+  const [state, view, commands, lang, langData, language] = await Promise.all([
+    import("@codemirror/state"),
+    import("@codemirror/view"),
+    import("@codemirror/commands"),
+    import("@codemirror/lang-markdown"),
+    import("@codemirror/language-data"),
+    import("@codemirror/language"),
+  ]);
+  return { state, view, commands, lang, langData, language };
+}
+
 /** Track CodeMirror view for cleanup */
-let currentCMView: CMView | null = null;
+let currentCMView: { destroy: () => void; focus: () => void } | null = null;
 
 /**
  * Create CodeMirror editor element.
+ *
+ * Returns the container synchronously; CodeMirror is mounted inside it
+ * asynchronously after dynamic imports resolve.
  */
 export function createCodeMirrorEditor(
   markdown: string,
@@ -26,6 +39,26 @@ export function createCodeMirrorEditor(
 ): HTMLElement {
   const container = document.createElement("div");
   container.className = "source-peek-inline-editor";
+
+  // Kick off async CM creation
+  initCMEditor(container, markdown, onSave, onCancel, onUpdate);
+
+  return container;
+}
+
+async function initCMEditor(
+  container: HTMLElement,
+  markdown: string,
+  onSave: () => void,
+  onCancel: () => void,
+  onUpdate: (markdown: string) => void
+): Promise<void> {
+  if (!cmModules) cmModules = await loadCMModules();
+
+  const { state, view, commands, lang, langData, language } = cmModules;
+  const CMState = state.EditorState;
+  const CMView = view.EditorView;
+  const cmKeymap = view.keymap;
 
   const theme = CMView.theme({
     "&": {
@@ -58,24 +91,24 @@ export function createCodeMirrorEditor(
     return true;
   };
 
-  const state = CMState.create({
+  const editorState = CMState.create({
     doc: markdown,
     extensions: [
       CMView.lineWrapping,
-      history(),
+      commands.history(),
       cmKeymap.of([
         { key: "Mod-Enter", run: handleSave },
         { key: "Escape", run: handleCancel },
-        ...defaultKeymap,
-        ...historyKeymap,
+        ...commands.defaultKeymap,
+        ...commands.historyKeymap,
       ]),
-      CMView.updateListener.of((update) => {
+      CMView.updateListener.of((update: { docChanged: boolean; state: { doc: { toString: () => string } } }) => {
         if (update.docChanged) {
           onUpdate(update.state.doc.toString());
         }
       }),
-      markdownLang({ codeLanguages: languages }),
-      syntaxHighlighting(codeHighlightStyle, { fallback: true }),
+      lang.markdown({ codeLanguages: langData.languages }),
+      language.syntaxHighlighting(codeHighlightStyle, { fallback: true }),
       theme,
     ],
   });
@@ -86,7 +119,7 @@ export function createCodeMirrorEditor(
   }
 
   const cmView = new CMView({
-    state,
+    state: editorState,
     parent: container,
   });
 
@@ -96,8 +129,6 @@ export function createCodeMirrorEditor(
   requestAnimationFrame(() => {
     cmView.focus();
   });
-
-  return container;
 }
 
 /**
