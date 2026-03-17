@@ -261,10 +261,7 @@ export class WebSocketBridge implements Bridge {
     const port = this.resolvePort();
     if (port === undefined) {
       this.connecting = false;
-      // Schedule reconnect if port file not found (VMark may start later)
-      if (this.autoReconnect && !this.intentionalDisconnect) {
-        this.scheduleReconnect();
-      }
+      // Let the caller (scheduleReconnect's catch block) handle reconnection
       throw new Error(
         'Cannot determine VMark port. Is VMark running? ' +
           'The port file (mcp-port) was not found in the app data directory.'
@@ -291,10 +288,7 @@ export class WebSocketBridge implements Bridge {
           if (!this.connected) {
             this.ws?.close();
             this.connecting = false;
-            // Schedule reconnect if connection times out
-            if (this.autoReconnect && !this.intentionalDisconnect) {
-              this.scheduleReconnect();
-            }
+            // Let the caller (scheduleReconnect's catch block) handle reconnection
             reject(new Error(`Connection timeout to ${url}`));
           }
         }, this.timeout);
@@ -341,10 +335,7 @@ export class WebSocketBridge implements Bridge {
           clearTimeout(connectionTimeout);
           if (!this.connected) {
             this.connecting = false;
-            // Schedule reconnect if initial connection fails
-            if (this.autoReconnect && !this.intentionalDisconnect) {
-              this.scheduleReconnect();
-            }
+            // Let the caller (scheduleReconnect's catch block) handle reconnection
             reject(new Error(`WebSocket error: ${error.message}`));
           }
           // If already connected, error will trigger close event
@@ -602,8 +593,7 @@ export class WebSocketBridge implements Bridge {
     }
 
     // Guard against exceeding max reconnect attempts.
-    // Without this check, callers like connect() (port not found, timeout)
-    // would schedule reconnects indefinitely since they bypass handleDisconnect.
+    // Guard against exceeding max reconnect attempts
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       this.logger.warn(
         `Max reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`
@@ -637,7 +627,14 @@ export class WebSocketBridge implements Bridge {
           `Reconnect attempt ${this.reconnectAttempts} failed:`,
           error instanceof Error ? error.message : error
         );
-        // handleDisconnect will schedule next attempt if attempts remain
+        // Schedule next attempt if allowed (connect no longer self-schedules)
+        if (
+          this.autoReconnect &&
+          !this.intentionalDisconnect &&
+          this.reconnectAttempts < this.maxReconnectAttempts
+        ) {
+          this.scheduleReconnect();
+        }
       }
     }, delay);
   }
