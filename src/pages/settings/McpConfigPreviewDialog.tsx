@@ -80,6 +80,9 @@ export function McpConfigPreviewDialog({
       <div
         ref={dialogRef}
         tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="MCP Config Preview"
         className="mx-auto bg-[var(--bg-primary)] border border-[var(--border-color)]
                    rounded-lg shadow-lg w-[560px] max-w-[90vw] max-h-[80vh]
                    flex flex-col outline-none"
