@@ -179,5 +179,21 @@
   "lint.W02": "Image missing alt text",
   "lint.W03": "Unused link definition: [{{ref}}]",
   "lint.W04": "Fragment #{{anchor}} does not match any heading",
-  "lint.W05": "Empty link href"
+  "lint.W05": "Empty link href",
+
+  "plugin.exportPng": "Export as PNG",
+  "plugin.zoomOut": "Zoom out",
+  "plugin.zoomIn": "Zoom in",
+  "plugin.resetZoom": "Reset zoom",
+  "plugin.fitToView": "Fit to view",
+  "plugin.copySource": "Copy source code",
+  "plugin.cancel": "Cancel (Esc)",
+  "plugin.save": "Save",
+  "plugin.toggleLivePreview": "Toggle live preview",
+  "plugin.saveCmdEnter": "Save (\u2318+Enter)",
+  "plugin.insertAsImage": "Insert as Image",
+  "plugin.pasteAsText": "Paste as Text",
+  "plugin.imageDetected": "Image detected",
+  "plugin.acceptSuggestion": "Accept (Enter)",
+  "plugin.rejectSuggestion": "Reject (Escape)"
 }

@@ -9,6 +9,7 @@
  * is handled here.
  */
 
+import i18n from "@/i18n";
 import { registerCleanup } from "@/plugins/shared/diagramCleanup";
 
 const EXPORT_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
@@ -37,7 +38,9 @@ export function setupDiagramExport(
 
   const btn = document.createElement("button");
   btn.className = "mermaid-export-btn";
-  btn.title = "Export as PNG";
+  const exportLabel = i18n.t("editor:plugin.exportPng");
+  btn.title = exportLabel;
+  btn.setAttribute("aria-label", exportLabel);
   btn.innerHTML = EXPORT_ICON_SVG;
 
   if (resetBtn) {

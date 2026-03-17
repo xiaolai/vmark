@@ -184,6 +184,7 @@ export function HistoryView() {
                   className="history-revert-btn"
                   onClick={() => handleRevert(snapshot)}
                   title={t("history.revertButton")}
+                  aria-label={t("history.revertButton")}
                 >
                   <RotateCcw size={12} />
                 </button>
@@ -191,6 +192,7 @@ export function HistoryView() {
                   className="history-delete-btn"
                   onClick={() => handleDeleteSnapshot(snapshot)}
                   title={t("history.deleteSnapshot")}
+                  aria-label={t("history.deleteSnapshot")}
                 >
                   <Trash2 size={12} />
                 </button>

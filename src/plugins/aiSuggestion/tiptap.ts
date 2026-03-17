@@ -19,6 +19,7 @@
  * @module plugins/aiSuggestion/tiptap
  */
 
+import i18n from "@/i18n";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
@@ -136,8 +137,9 @@ function createButtons(suggestion: AiSuggestion): HTMLSpanElement {
   // DOM is replaced before the click event fires.
   const acceptBtn = document.createElement("button");
   acceptBtn.className = "ai-suggestion-btn ai-suggestion-btn-accept";
-  acceptBtn.title = "Accept (Enter)";
-  acceptBtn.setAttribute("aria-label", "Accept (Enter)");
+  const acceptLabel = i18n.t("editor:plugin.acceptSuggestion");
+  acceptBtn.title = acceptLabel;
+  acceptBtn.setAttribute("aria-label", acceptLabel);
   acceptBtn.appendChild(createIcon(ICON_CHECK));
   acceptBtn.onmousedown = (e) => {
     e.preventDefault();
@@ -151,8 +153,9 @@ function createButtons(suggestion: AiSuggestion): HTMLSpanElement {
   // Reject button with X icon
   const rejectBtn = document.createElement("button");
   rejectBtn.className = "ai-suggestion-btn ai-suggestion-btn-reject";
-  rejectBtn.title = "Reject (Escape)";
-  rejectBtn.setAttribute("aria-label", "Reject (Escape)");
+  const rejectLabel = i18n.t("editor:plugin.rejectSuggestion");
+  rejectBtn.title = rejectLabel;
+  rejectBtn.setAttribute("aria-label", rejectLabel);
   rejectBtn.appendChild(createIcon(ICON_X));
   rejectBtn.onmousedown = (e) => {
     e.preventDefault();

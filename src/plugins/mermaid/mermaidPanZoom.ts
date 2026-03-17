@@ -7,6 +7,7 @@
  * Plain scroll passes through to the document.
  */
 
+import i18n from "@/i18n";
 import Panzoom, { type PanzoomObject } from "@panzoom/panzoom";
 import { registerCleanup } from "@/plugins/shared/diagramCleanup";
 
@@ -77,7 +78,9 @@ export function setupMermaidPanZoom(
   if (showReset) {
     resetBtn = document.createElement("button");
     resetBtn.className = "mermaid-panzoom-reset";
-    resetBtn.title = "Reset zoom";
+    const resetLabel = i18n.t("editor:plugin.resetZoom");
+    resetBtn.title = resetLabel;
+    resetBtn.setAttribute("aria-label", resetLabel);
     resetBtn.innerHTML = RESET_ICON_SVG;
     resetBtn.addEventListener("pointerdown", (e) => {
       e.stopPropagation();

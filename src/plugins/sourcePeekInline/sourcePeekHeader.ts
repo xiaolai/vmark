@@ -4,6 +4,8 @@
  * Creates the header widget for inline Source Peek with block type label and action buttons.
  */
 
+import i18n from "@/i18n";
+
 /**
  * Get block type label for display in header.
  */
@@ -59,7 +61,9 @@ export function createEditHeader(
   // Live preview toggle - both icons in DOM, CSS toggles visibility
   const liveBtn = document.createElement("button");
   liveBtn.className = `source-peek-inline-btn source-peek-inline-btn--live${livePreview ? " active" : ""}`;
-  liveBtn.title = "Toggle live preview";
+  const liveLabel = i18n.t("editor:plugin.toggleLivePreview");
+  liveBtn.title = liveLabel;
+  liveBtn.setAttribute("aria-label", liveLabel);
   // Both icons present, CSS shows/hides based on .active class
   const eyeIcon = `<svg class="icon-eye" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>`;
   const eyeOffIcon = `<svg class="icon-eye-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>`;
@@ -78,7 +82,9 @@ export function createEditHeader(
   // Cancel button
   const cancelBtn = document.createElement("button");
   cancelBtn.className = "source-peek-inline-btn source-peek-inline-btn--cancel";
-  cancelBtn.title = "Cancel (Esc)";
+  const cancelLabel = i18n.t("editor:plugin.cancel");
+  cancelBtn.title = cancelLabel;
+  cancelBtn.setAttribute("aria-label", cancelLabel);
   cancelBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
   cancelBtn.addEventListener("mousedown", (e) => e.preventDefault());
   cancelBtn.addEventListener("click", (e) => {
@@ -89,7 +95,9 @@ export function createEditHeader(
   // Save button
   const saveBtn = document.createElement("button");
   saveBtn.className = "source-peek-inline-btn source-peek-inline-btn--save";
-  saveBtn.title = "Save (\u2318+Enter)";
+  const saveLabel = i18n.t("editor:plugin.saveCmdEnter");
+  saveBtn.title = saveLabel;
+  saveBtn.setAttribute("aria-label", saveLabel);
   saveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
   /* v8 ignore next -- @preserve reason: mousedown preventDefault callback only fires in live DOM; not triggered in unit tests */
   saveBtn.addEventListener("mousedown", (e) => e.preventDefault());

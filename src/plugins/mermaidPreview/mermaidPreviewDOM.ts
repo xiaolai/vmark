@@ -5,6 +5,8 @@
  * Pure DOM creation -- no state, no event handlers.
  */
 
+import i18n from "@/i18n";
+
 /** Build the preview popup container with header, content, error, and resize handles. */
 export function buildContainer(): HTMLElement {
   const container = document.createElement("div");
@@ -26,7 +28,9 @@ export function buildContainer(): HTMLElement {
   const zoomOut = document.createElement("button");
   zoomOut.className = "mermaid-preview-zoom-btn";
   zoomOut.dataset.action = "out";
-  zoomOut.title = "Zoom out";
+  const zoomOutLabel = i18n.t("editor:plugin.zoomOut");
+  zoomOut.title = zoomOutLabel;
+  zoomOut.setAttribute("aria-label", zoomOutLabel);
   zoomOut.textContent = "\u2212";
 
   const zoomValue = document.createElement("span");
@@ -36,7 +40,9 @@ export function buildContainer(): HTMLElement {
   const zoomIn = document.createElement("button");
   zoomIn.className = "mermaid-preview-zoom-btn";
   zoomIn.dataset.action = "in";
-  zoomIn.title = "Zoom in";
+  const zoomInLabel = i18n.t("editor:plugin.zoomIn");
+  zoomIn.title = zoomInLabel;
+  zoomIn.setAttribute("aria-label", zoomInLabel);
   zoomIn.textContent = "+";
 
   zoomControls.appendChild(zoomOut);

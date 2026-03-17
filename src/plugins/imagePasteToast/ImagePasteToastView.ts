@@ -15,6 +15,11 @@
  * @module plugins/imagePasteToast/ImagePasteToastView
  */
 
+import i18n from "@/i18n";
+
+/**
+ */
+
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import {
   calculatePopupPosition,
@@ -72,14 +77,16 @@ export class ImagePasteToastView {
     // Message
     const messageEl = document.createElement("span");
     messageEl.className = "image-paste-toast-message";
-    messageEl.textContent = "Image detected";
+    messageEl.textContent = i18n.t("editor:plugin.imageDetected");
 
     // Icon buttons (matching link popup style)
     // Insert button (check mark)
     const insertBtn = document.createElement("button");
     insertBtn.type = "button";
     insertBtn.className = "image-paste-toast-btn image-paste-toast-btn-insert";
-    insertBtn.title = "Insert as Image";
+    const insertLabel = i18n.t("editor:plugin.insertAsImage");
+    insertBtn.title = insertLabel;
+    insertBtn.setAttribute("aria-label", insertLabel);
     insertBtn.innerHTML = popupIcons.save;
     insertBtn.addEventListener("click", this.handleInsert);
 
@@ -87,7 +94,9 @@ export class ImagePasteToastView {
     const dismissBtn = document.createElement("button");
     dismissBtn.type = "button";
     dismissBtn.className = "image-paste-toast-btn image-paste-toast-btn-dismiss";
-    dismissBtn.title = "Paste as Text";
+    const dismissLabel = i18n.t("editor:plugin.pasteAsText");
+    dismissBtn.title = dismissLabel;
+    dismissBtn.setAttribute("aria-label", dismissLabel);
     dismissBtn.innerHTML = popupIcons.type;
     dismissBtn.addEventListener("click", this.handleDismiss);
 

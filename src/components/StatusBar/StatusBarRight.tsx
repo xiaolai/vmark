@@ -218,6 +218,7 @@ export function StatusBarRight({
       <button
         className="status-mode"
         title={sourceMode ? t("sourceModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) }) : t("richTextModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) })}
+        aria-label={sourceMode ? t("sourceModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) }) : t("richTextModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) })}
         onClick={() => {
           const toastStore = useImagePasteToastStore.getState();
           /* v8 ignore next -- @preserve toastStore.isOpen true branch: toast not open during mode toggle tests */
