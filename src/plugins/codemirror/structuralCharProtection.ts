@@ -292,6 +292,15 @@ export function smartDelete(view: EditorView): boolean {
   if (head === line.to && line.number < state.doc.lines) {
     const nextLine = state.doc.line(line.number + 1);
 
+    // Check table row
+    if (TABLE_ROW_PATTERN.test(nextLine.text)) {
+      view.dispatch({
+        selection: { anchor: nextLine.from },
+        scrollIntoView: true,
+      });
+      return true;
+    }
+
     // Check task marker first (more specific than list)
     const taskMatch = nextLine.text.match(TASK_ITEM_PATTERN);
     if (taskMatch) {

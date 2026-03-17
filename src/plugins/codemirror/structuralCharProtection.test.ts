@@ -561,6 +561,16 @@ describe("Structural Character Protection", () => {
       expect(cursor - line.from).toBe(3); // after "1. "
     });
 
+    it("skips table row on next line", () => {
+      const view = createView("text^\n| col1 | col2 |");
+      const handled = smartDelete(view);
+      expect(handled).toBe(true);
+      const cursor = view.state.selection.main.head;
+      const line = view.state.doc.lineAt(cursor);
+      expect(line.text).toBe("| col1 | col2 |");
+      expect(cursor).toBe(line.from); // cursor at start of table row
+    });
+
     it("returns false when not at end of line", () => {
       const view = createView("te^xt\n- item");
       const handled = smartDelete(view);
