@@ -195,7 +195,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
 
   // === Future: Cycling (Phase 4) ===
   { id: "cycleEmphasis", label: "Cycle Emphasis", category: "formatting", defaultKey: "Mod-Alt-e", description: "Cycle: none → italic → bold → bold+italic" },
-  { id: "cycleList", label: "Cycle List Type", category: "blocks", defaultKey: "Mod-Alt-l", description: "Cycle: paragraph → bullet → ordered → task" },
+  { id: "cycleList", label: "Cycle List Type", category: "blocks", defaultKey: "", description: "Cycle: paragraph → bullet → ordered → task" },
   { id: "cycleHeading", label: "Cycle Heading", category: "blocks", defaultKey: "Mod-Alt-h", description: "Cycle: P → H1 → H2 → ... → H6" },
 
   // === Future: Table (Phase 2) ===
@@ -203,7 +203,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "tableColumnRight", label: "Add Column Right", category: "blocks", defaultKey: "Alt-Mod-Right" },
   { id: "tableDeleteColumn", label: "Delete Column", category: "blocks", defaultKey: "Alt-Mod-Backspace" },
   { id: "tableAlignLeft", label: "Align Left", category: "blocks", defaultKey: "Mod-Alt-Shift-l" },
-  { id: "tableAlignCenter", label: "Align Center", category: "blocks", defaultKey: "Mod-Alt-c" },
+  { id: "tableAlignCenter", label: "Align Center", category: "blocks", defaultKey: "" },
   { id: "tableAlignRight", label: "Align Right", category: "blocks", defaultKey: "Mod-Shift-r" },
   { id: "formatTable", label: "Format Table", category: "blocks", defaultKey: "Alt-Mod-t", menuId: "format-table", description: "Align table columns with proper spacing" },
 
