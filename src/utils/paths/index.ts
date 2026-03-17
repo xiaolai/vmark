@@ -9,6 +9,5 @@ export {
   getParentDir,
   getRelativePath,
   isWithinRoot,
-  pathSegments,
   isPathExcluded,
 } from "./paths";

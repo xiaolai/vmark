@@ -27,14 +27,6 @@ export interface SourcePeekRange {
   to: number;
 }
 
-/** Viewport rectangle for positioning the Source Peek popup. */
-export interface SourcePeekAnchorRect {
-  top: number;
-  left: number;
-  right: number;
-  bottom: number;
-}
-
 interface SourcePeekState {
   /** Whether Source Peek is currently open */
   isOpen: boolean;
@@ -44,9 +36,6 @@ interface SourcePeekState {
 
   /** Range of the block being edited */
   range: SourcePeekRange | null;
-
-  /** Anchor rect for popup positioning (legacy, may be removed) */
-  anchorRect: SourcePeekAnchorRect | null;
 
   /** Current markdown content in the editor */
   markdown: string;
@@ -75,7 +64,6 @@ interface SourcePeekActions {
   open: (payload: {
     markdown: string;
     range: SourcePeekRange;
-    anchorRect?: SourcePeekAnchorRect;
     blockTypeName?: string;
   }) => void;
 
@@ -116,7 +104,6 @@ const initialState: SourcePeekState = {
   isOpen: false,
   editingPos: null,
   range: null,
-  anchorRect: null,
   markdown: "",
   originalMarkdown: null,
   livePreview: false,
@@ -129,11 +116,10 @@ const initialState: SourcePeekState = {
 export const useSourcePeekStore = create<SourcePeekState & SourcePeekActions>((set, get) => ({
   ...initialState,
 
-  open: ({ markdown, range, anchorRect, blockTypeName }) => set({
+  open: ({ markdown, range, blockTypeName }) => set({
     isOpen: true,
     editingPos: range.from,
     range,
-    anchorRect: anchorRect ?? null,
     markdown,
     originalMarkdown: markdown,
     parseError: null,

@@ -6,22 +6,14 @@
 use super::types::{ClientIdentity, McpResponse};
 use crate::app_paths;
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Instant;
 use tauri::AppHandle;
 use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
 
 /// Connected client information.
 pub(crate) struct ClientConnection {
-    #[allow(dead_code)]
-    pub id: u64,
-    #[allow(dead_code)]
-    pub addr: SocketAddr,
     pub tx: mpsc::UnboundedSender<String>,
     pub shutdown: Option<oneshot::Sender<()>>,
-    #[allow(dead_code)]
-    pub connected_at: Instant,
     /// Client identity (set after identify message)
     pub identity: Option<ClientIdentity>,
 }
@@ -39,8 +31,6 @@ pub(crate) struct BridgeState {
 /// Pending request with client ID for routing response.
 pub(crate) struct PendingRequest {
     pub response_tx: oneshot::Sender<McpResponse>,
-    #[allow(dead_code)]
-    pub client_id: u64,
 }
 
 /// Global bridge state.

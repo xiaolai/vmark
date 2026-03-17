@@ -98,4 +98,3 @@ export const useMediaPopupStore = create<MediaPopupStore>((set) => ({
 }));
 
 export type { MediaNodeType };
-export type { ImageDimensions } from "@/types/image";

@@ -20,8 +20,6 @@
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
 
-// Re-export for backwards compatibility
-export type { NodeType, CursorInfo } from "@/types/cursorSync";
 
 interface EditorState {
   content: string;

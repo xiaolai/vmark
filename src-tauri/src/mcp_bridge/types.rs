@@ -91,15 +91,6 @@ pub(crate) struct ClientIdentity {
     /// Client version
     #[serde(default)]
     pub version: Option<String>,
-    /// Process ID
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub pid: Option<u32>,
-    /// Parent process name
-    #[serde(rename = "parentProcess")]
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub parent_process: Option<String>,
 }
 
 impl ClientIdentity {

@@ -12,7 +12,6 @@ use super::types::{
 };
 use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
-use std::time::Instant;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::net::{TcpListener, TcpStream};
@@ -142,11 +141,8 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle) 
         guard.next_client_id += 1;
 
         let client = ClientConnection {
-            id: client_id,
-            addr,
             tx: tx.clone(),
             shutdown: Some(shutdown_tx),
-            connected_at: Instant::now(),
             identity: None,
         };
 
@@ -337,7 +333,6 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
             request_id.clone(),
             PendingRequest {
                 response_tx,
-                client_id,
             },
         );
     }
