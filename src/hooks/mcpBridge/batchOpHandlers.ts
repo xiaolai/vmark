@@ -563,12 +563,19 @@ export async function handleListBatchModify(
 
     for (const rawOp of operations) {
       try {
+        // Re-find list after each structural mutation (add/delete changes positions)
+        const currentList = findList(editor.state.doc, target);
+        if (!currentList) {
+          warnings.push("List lost after mutation");
+          break;
+        }
+
         // Accept "action", "type", or "op" as the operation key for robustness
         const op = normalizeListOp(rawOp);
 
         // Position cursor at target list item if `at` is specified
         if ("at" in op && typeof op.at === "number") {
-          const itemPos = findListItemPos(list.node, list.pos, op.at);
+          const itemPos = findListItemPos(currentList.node, currentList.pos, op.at);
           if (itemPos !== null) {
             editor.chain().focus().setTextSelection(itemPos + 1).run();
           } else {
@@ -602,7 +609,7 @@ export async function handleListBatchModify(
 
           case "toggle_check": {
             // Toggle the checked attribute on the task item, not the list type
-            if (list.type !== "taskList") {
+            if (currentList.type !== "taskList") {
               warnings.push("toggle_check only works on task lists");
               break;
             }
