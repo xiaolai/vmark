@@ -39,13 +39,17 @@ function looksLikeFilePath(path: string): boolean {
   return path.includes("/") && /\.\w{1,10}$/.test(path);
 }
 
-/** Resolve a possibly-relative path against the workspace root. */
+/** Resolve a possibly-relative path against the workspace root.
+ * Normalizes the result and rejects paths that escape the workspace via `..`. */
 function resolvePath(raw: string): string {
   if (raw.startsWith("/")) return raw;
   const clean = raw.replace(/^\.\//, '');
   const root = useWorkspaceStore.getState().rootPath;
-  if (root) return `${root}/${clean}`;
-  return clean;
+  if (!root) return clean;
+  // Normalize to resolve .. segments, then verify prefix
+  const resolved = new URL(clean, 'file://' + root + '/').pathname;
+  if (!resolved.startsWith(root + '/') && resolved !== root) return clean;
+  return resolved;
 }
 
 /**

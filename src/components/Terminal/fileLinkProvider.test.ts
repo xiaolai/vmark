@@ -139,14 +139,29 @@ describe("createFileLinkProvider", () => {
     });
   });
 
-  it("handles relative path with ../ prefix", () => {
+  it("rejects ../ relative path that escapes workspace root", () => {
     const term = makeTerm("found ../src/components/App.tsx");
     const provider = createFileLinkProvider(term, onActivate);
 
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
         expect(links).toHaveLength(1);
-        expect(links![0].text).toBe("/workspace/../src/components/App.tsx");
+        // ../src/components/App.tsx from /workspace resolves outside workspace — rejected
+        expect(links![0].text).toBe("../src/components/App.tsx");
+        resolve();
+      });
+    });
+  });
+
+  it("rejects relative path with ../ that escapes workspace root", () => {
+    const term = makeTerm("found ../../etc/passwd.txt");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        // Should return the raw relative path, not a resolved escape
+        expect(links![0].text).toBe("../../etc/passwd.txt");
         resolve();
       });
     });
