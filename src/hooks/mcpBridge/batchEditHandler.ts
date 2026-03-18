@@ -16,7 +16,7 @@ import {
   resolveNodeId,
   getTextRange,
 } from "./utils";
-import { requireString, optionalString, requireEnum, requireArray } from "./validateArgs";
+import { requireString, optionalString, requireEnum, requireTypedArray } from "./validateArgs";
 import { OPERATION_MODES } from "./types";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { idempotencyCache } from "./idempotencyCache";
@@ -44,7 +44,16 @@ export async function handleBatchEdit(
     const baseRevision = requireString(args, "baseRevision");
     const requestId = optionalString(args, "requestId");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
-    const operations = requireArray(args, "operations") as BatchOperation[];
+    const operations = requireTypedArray<BatchOperation>(args, "operations", (item, index) => {
+      if (typeof item !== "object" || item === null) {
+        throw new Error(`invalid operation at index ${index}: expected object`);
+      }
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.type !== "string") {
+        throw new Error(`invalid operation at index ${index}: missing required field 'type'`);
+      }
+      return { ...obj, type: obj.type } as BatchOperation;
+    });
 
     // Check idempotency cache
     if (requestId) {

@@ -187,6 +187,19 @@ export function optionalArray(
 }
 
 /**
+ * Require an array argument and validate each element with a custom validator.
+ * Throws with a clear, indexed error message if any element fails validation.
+ */
+export function requireTypedArray<T>(
+  args: Record<string, unknown>,
+  key: string,
+  validate: (item: unknown, index: number) => T
+): T[] {
+  const arr = requireArray(args, key);
+  return arr.map((item, i) => validate(item, i));
+}
+
+/**
  * Require a value from a fixed set of allowed strings, with optional default.
  * Validates at runtime that the value is one of the allowed options.
  */

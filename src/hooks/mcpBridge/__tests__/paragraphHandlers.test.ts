@@ -227,7 +227,7 @@ describe("paragraphHandlers", () => {
       expect(mockRespond).toHaveBeenCalledWith({
         id: "req-9",
         success: false,
-        error: "Unknown operation: unknown",
+        error: 'Invalid operation: "unknown". Must be one of: replace, append, prepend, delete',
       });
     });
 

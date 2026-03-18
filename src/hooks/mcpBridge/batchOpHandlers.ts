@@ -11,7 +11,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled } from "./utils";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
-import { requireEnum, requireObject, requireArray } from "./validateArgs";
+import { requireEnum, requireObject, requireTypedArray } from "./validateArgs";
 import { OPERATION_MODES } from "./types";
 
 interface TableTarget {
@@ -223,7 +223,16 @@ export async function handleTableBatchModify(
   try {
     const baseRevision = typeof args.baseRevision === "string" ? args.baseRevision : "";
     const target = requireObject<TableTarget>(args, "target");
-    const operations = requireArray(args, "operations") as TableOperation[];
+    const operations = requireTypedArray<TableOperation>(args, "operations", (item, index) => {
+      if (typeof item !== "object" || item === null) {
+        throw new Error(`invalid table operation at index ${index}: expected object`);
+      }
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.action !== "string" && typeof obj.type !== "string" && typeof obj.op !== "string") {
+        throw new Error(`invalid table operation at index ${index}: missing required field 'action'`);
+      }
+      return obj as TableOperation;
+    });
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision
@@ -464,7 +473,16 @@ export async function handleListBatchModify(
   try {
     const baseRevision = typeof args.baseRevision === "string" ? args.baseRevision : "";
     const target = requireObject<ListTarget>(args, "target");
-    const operations = requireArray(args, "operations") as ListOperation[];
+    const operations = requireTypedArray<ListOperation>(args, "operations", (item, index) => {
+      if (typeof item !== "object" || item === null) {
+        throw new Error(`invalid list operation at index ${index}: expected object`);
+      }
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.action !== "string" && typeof obj.type !== "string" && typeof obj.op !== "string") {
+        throw new Error(`invalid list operation at index ${index}: missing required field 'action'`);
+      }
+      return obj as ListOperation;
+    });
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 
     // Validate revision

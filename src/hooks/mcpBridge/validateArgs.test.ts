@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { requireString, optionalString, optionalNumber, optionalBoolean, numberWithDefault, booleanWithDefault, stringWithDefault, requireEnum, requireObject, requireArray, optionalObject, optionalArray } from "./validateArgs";
+import { requireString, optionalString, optionalNumber, optionalBoolean, numberWithDefault, booleanWithDefault, stringWithDefault, requireEnum, requireObject, requireArray, requireTypedArray, optionalObject, optionalArray } from "./validateArgs";
 
 describe("requireString", () => {
   it.each([
@@ -315,6 +315,52 @@ describe("optionalArray", () => {
 
   it("throws for plain object value", () => {
     expect(() => optionalArray({ items: { a: 1 } }, "items")).toThrow("expected array, got object");
+  });
+});
+
+describe("requireTypedArray", () => {
+  it("validates each element with the provided validator", () => {
+    const args = { ops: [{ type: "update", nodeId: "n1" }, { type: "delete", nodeId: "n2" }] };
+    const validate = (item: unknown, index: number) => {
+      if (typeof item !== "object" || item === null) {
+        throw new Error(`invalid operation at index ${index}: expected object`);
+      }
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.type !== "string") {
+        throw new Error(`invalid operation at index ${index}: missing required field 'type'`);
+      }
+      return obj as { type: string; nodeId?: string };
+    };
+    const result = requireTypedArray(args, "ops", validate);
+    expect(result).toEqual([{ type: "update", nodeId: "n1" }, { type: "delete", nodeId: "n2" }]);
+  });
+
+  it("throws when an element fails validation", () => {
+    const args = { ops: [{ type: "update" }, { type: 123 }] };
+    const validate = (item: unknown, index: number) => {
+      if (typeof item !== "object" || item === null) {
+        throw new Error(`invalid operation at index ${index}: expected object`);
+      }
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.type !== "string") {
+        throw new Error(`invalid operation at index ${index}: missing required field 'type'`);
+      }
+      return obj;
+    };
+    expect(() => requireTypedArray(args, "ops", validate)).toThrow(
+      "invalid operation at index 1: missing required field 'type'"
+    );
+  });
+
+  it("throws when the value is not an array", () => {
+    expect(() => requireTypedArray({ ops: "not-array" }, "ops", (x: unknown) => x)).toThrow(
+      "expected array"
+    );
+  });
+
+  it("returns empty array for empty input", () => {
+    const result = requireTypedArray({ ops: [] }, "ops", (x: unknown) => x);
+    expect(result).toEqual([]);
   });
 });
 

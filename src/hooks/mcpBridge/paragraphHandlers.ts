@@ -10,12 +10,13 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { respond, getEditor, isAutoApproveEnabled, getActiveTabId } from "./utils";
 import { requireString, optionalString, requireEnum, booleanWithDefault, requireObject } from "./validateArgs";
+
+const PARAGRAPH_OPERATIONS = ["replace", "append", "prepend", "delete"] as const;
 import { OPERATION_MODES } from "./types";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { validateBaseRevision, getCurrentRevision } from "./revisionTracker";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 
-type ParagraphOperation = "replace" | "append" | "prepend" | "delete";
 
 interface ParagraphTarget {
   index?: number;
@@ -206,7 +207,7 @@ export async function handleParagraphWrite(
   try {
     const baseRevision = requireString(args, "baseRevision");
     const target = requireObject<ParagraphTarget>(args, "target");
-    const operation = requireString(args, "operation") as ParagraphOperation;
+    const operation = requireEnum(args, "operation", PARAGRAPH_OPERATIONS);
     const content = optionalString(args, "content");
     const mode = requireEnum(args, "mode", OPERATION_MODES, "apply");
 

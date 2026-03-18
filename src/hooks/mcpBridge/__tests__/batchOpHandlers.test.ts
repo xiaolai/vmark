@@ -718,7 +718,7 @@ describe("batchOpHandlers", () => {
       expect(call.data.warnings).toContain("Unknown table operation: unknown_op");
     });
 
-    it("warns when operation has no action field", async () => {
+    it("rejects operation with no action field", async () => {
       const editor = makeTableEditor();
       mockGetEditor.mockReturnValue(editor);
 
@@ -729,8 +729,8 @@ describe("batchOpHandlers", () => {
       });
 
       const call = mockRespond.mock.calls[0][0];
-      expect(call.success).toBe(true);
-      expect(call.data.warnings.some((w: string) => w.includes("Failed to normalize"))).toBe(true);
+      expect(call.success).toBe(false);
+      expect(call.error).toContain("invalid table operation at index 0");
     });
 
     it("applies multiple operations in sequence", async () => {
@@ -2622,9 +2622,8 @@ describe("batchOpHandlers", () => {
       };
       mockGetEditor.mockReturnValue(editor);
 
-      // rawOp has no action/type/op keys at all — normalizeListOp will throw.
-      // That throw is caught in the inner catch at line 635.
-      // At line 636: rawOp.action ?? rawOp.type ?? rawOp.op ?? "unknown" → "unknown"
+      // rawOp has no action/type/op keys at all — requireTypedArray rejects it
+      // during element validation before reaching normalizeListOp.
       await handleListBatchModify("req-unknown-fallback", {
         baseRevision: "rev-1",
         target: { listIndex: 0 },
@@ -2632,8 +2631,8 @@ describe("batchOpHandlers", () => {
       });
 
       const call = mockRespond.mock.calls[0][0];
-      expect(call.success).toBe(true);
-      expect(call.data.warnings.some((w: string) => w.includes("Failed: unknown"))).toBe(true);
+      expect(call.success).toBe(false);
+      expect(call.error).toContain("invalid list operation at index 0");
     });
   });
 
