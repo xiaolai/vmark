@@ -30,6 +30,19 @@ vi.mock("@tauri-apps/api/path", () => ({
   basename: vi.fn((path: string) =>
     Promise.resolve(path.split("/").pop() || ""),
   ),
+  normalize: vi.fn((path: string) => {
+    // Simple POSIX path normalization for tests
+    const parts = path.split("/");
+    const normalized: string[] = [];
+    for (const part of parts) {
+      if (part === "..") {
+        normalized.pop();
+      } else if (part !== "." && part !== "") {
+        normalized.push(part);
+      }
+    }
+    return Promise.resolve("/" + normalized.join("/"));
+  }),
 }));
 
 vi.mock("./fontEmbedder", () => ({
@@ -246,6 +259,32 @@ describe("resolveRelativePath", () => {
     // A URL that the URL constructor can parse but has unusual shape
     const result = await resolveRelativePath("simple-file.png", "/base");
     expect(result).toBe("/base/simple-file.png");
+  });
+
+  it("blocks path traversal with ..", async () => {
+    const result = await resolveRelativePath(
+      "../../.ssh/id_rsa",
+      "/Users/test/docs",
+    );
+    // Should return null when traversal escapes baseDir
+    expect(result).toBeNull();
+  });
+
+  it("blocks path traversal with encoded ..", async () => {
+    const result = await resolveRelativePath(
+      "..%2F..%2F.ssh/id_rsa",
+      "/Users/test/docs",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("allows .. that stays within baseDir", async () => {
+    const result = await resolveRelativePath(
+      "subdir/../photo.png",
+      "/Users/test/docs",
+    );
+    // subdir/.. resolves back to /Users/test/docs — still within baseDir
+    expect(result).toBe("/Users/test/docs/photo.png");
   });
 
 });
@@ -637,6 +676,19 @@ describe("resolveResources", () => {
     expect(report.resolved[0].size).toBe(3);
     // readFile should only be called once (inside fileToDataUri)
     expect(mockReadFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats path-traversal images as missing", async () => {
+    const html = '<img src="../../.ssh/id_rsa">';
+    const { report } = await resolveResources(html, {
+      baseDir: "/Users/test/docs",
+      mode: "folder",
+      outputDir: "/output",
+    });
+
+    expect(report.missing).toHaveLength(1);
+    expect(report.resolved).toHaveLength(0);
+    expect(mockCopyFile).not.toHaveBeenCalled();
   });
 
   it("handles stat failure silently in folder mode", async () => {

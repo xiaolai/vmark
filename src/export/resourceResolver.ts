@@ -6,7 +6,7 @@
  */
 
 import { readFile, copyFile, exists, mkdir, stat } from "@tauri-apps/plugin-fs";
-import { join, dirname, basename } from "@tauri-apps/api/path";
+import { join, dirname, basename, normalize } from "@tauri-apps/api/path";
 import { uint8ArrayToBase64 } from "./fontEmbedder";
 import { exportWarn } from "@/utils/debug";
 
@@ -97,11 +97,12 @@ export function extractImageSources(html: string): string[] {
 
 /**
  * Resolve a relative path against a base directory.
+ * Returns null if the resolved path escapes baseDir (path traversal).
  */
 export async function resolveRelativePath(
   src: string,
   baseDir: string
-): Promise<string> {
+): Promise<string | null> {
   // Handle absolute paths
   if (src.startsWith("/")) {
     return src;
@@ -122,8 +123,21 @@ export async function resolveRelativePath(
     }
   }
 
+  // Decode percent-encoded sequences before joining to catch encoded traversal
+  const decodedSrc = decodeURIComponent(src);
+
   // Resolve relative to base directory
-  return await join(baseDir, src);
+  const resolved = await join(baseDir, decodedSrc);
+  const normalizedPath = await normalize(resolved);
+  const normalizedBase = await normalize(baseDir);
+
+  // Block path traversal: resolved path must stay within baseDir
+  if (!normalizedPath.startsWith(normalizedBase)) {
+    exportWarn(`Path traversal blocked: ${src}`);
+    return null;
+  }
+
+  return normalizedPath;
 }
 
 /**
@@ -233,6 +247,15 @@ export async function resolveResources(
     // Resolve local path
     try {
       const resolvedPath = await resolveRelativePath(src, baseDir);
+
+      // Path traversal blocked — treat as missing
+      if (resolvedPath === null) {
+        info.found = false;
+        resources.push(info);
+        missing.push(info);
+        continue;
+      }
+
       info.resolvedPath = resolvedPath;
 
       // Check if file exists
