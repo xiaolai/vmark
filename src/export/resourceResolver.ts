@@ -284,6 +284,7 @@ export async function resolveResources(
           modifiedHtml = modifiedHtml.split(src).join(relativePath);
         } catch (e) {
           exportWarn(`Failed to copy ${resolvedPath}:`, e);
+          info.found = false;
         }
 
         // Use stat() to get size without re-reading the file
@@ -297,7 +298,11 @@ export async function resolveResources(
       }
 
       resources.push(info);
-      resolved.push(info);
+      if (info.found) {
+        resolved.push(info);
+      } else {
+        missing.push(info);
+      }
     } catch (e) {
       exportWarn(`Failed to resolve ${src}:`, e);
       info.found = false;

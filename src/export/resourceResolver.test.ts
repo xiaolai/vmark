@@ -473,20 +473,25 @@ describe("resolveResources", () => {
     expect(report.missing[0].found).toBe(false);
   });
 
-  it("handles copy failure in folder mode gracefully", async () => {
+  it("handles copy failure in folder mode by marking resource as missing", async () => {
     const html = '<img src="photo.png">';
     mockExists.mockResolvedValue(true);
     mockCopyFile.mockRejectedValue(new Error("Copy failed"));
     mockStat.mockResolvedValue({ size: 2 });
 
-    const { report } = await resolveResources(html, {
+    const { html: result, report } = await resolveResources(html, {
       baseDir: "/docs",
       mode: "folder",
       outputDir: "/output",
     });
 
-    // File was found but copy failed — still in resolved since it exists
-    expect(report.resolved).toHaveLength(1);
+    // Copy failed — resource should be marked as missing, not resolved
+    expect(report.resolved).toHaveLength(0);
+    expect(report.missing).toHaveLength(1);
+    expect(report.missing[0].found).toBe(false);
+    // Original src should remain (not rewritten to assets/ path)
+    expect(result).toContain("photo.png");
+    expect(result).not.toContain("assets/images/");
   });
 
   it("deduplicates filenames in folder mode to prevent overwrite", async () => {
