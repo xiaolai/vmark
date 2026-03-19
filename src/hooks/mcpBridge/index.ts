@@ -104,6 +104,7 @@ import {
 // Tab handlers
 import {
   handleTabsList,
+  handleTabsGetActive,
   handleTabsSwitch,
   handleTabsClose,
   handleTabsCreate,
@@ -361,6 +362,9 @@ async function handleRequest(event: McpRequestEvent): Promise<void> {
       // Tab operations
       case "tabs.list":
         await handleTabsList(id, args);
+        break;
+      case "tabs.getActive":
+        await handleTabsGetActive(id, args);
         break;
       case "tabs.switch":
         await handleTabsSwitch(id, args);

@@ -1,6 +1,6 @@
 /**
- * Tests for tabHandlers — tabs.list, tabs.switch, tabs.close,
- * tabs.create, tabs.getInfo, tabs.reopenClosed.
+ * Tests for tabHandlers — tabs.list, tabs.getActive, tabs.switch,
+ * tabs.close, tabs.create, tabs.getInfo, tabs.reopenClosed.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -49,6 +49,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 
 import {
   handleTabsList,
+  handleTabsGetActive,
   handleTabsSwitch,
   handleTabsClose,
   handleTabsCreate,
@@ -79,6 +80,64 @@ describe("tabHandlers", () => {
       const call = mockRespond.mock.calls[0][0];
       expect(call.success).toBe(true);
       expect(call.data).toHaveLength(0);
+    });
+  });
+
+  describe("handleTabsGetActive", () => {
+    it("returns active tab info", async () => {
+      await handleTabsGetActive("req-ga-1", {});
+
+      const call = mockRespond.mock.calls[0][0];
+      expect(call.success).toBe(true);
+      expect(call.data.id).toBe("tab-1");
+      expect(call.data.title).toBe("Doc 1");
+      expect(call.data.isActive).toBe(true);
+    });
+
+    it("returns null when no active tab", async () => {
+      mockTabStoreState.activeTabId = {};
+
+      await handleTabsGetActive("req-ga-2", {});
+
+      expect(mockRespond).toHaveBeenCalledWith({
+        id: "req-ga-2",
+        success: true,
+        data: null,
+      });
+    });
+
+    it("returns null when active tab ID not found in tabs array", async () => {
+      mockTabStoreState.activeTabId = { main: "tab-nonexistent" };
+
+      await handleTabsGetActive("req-ga-3", {});
+
+      expect(mockRespond).toHaveBeenCalledWith({
+        id: "req-ga-3",
+        success: true,
+        data: null,
+      });
+    });
+
+    it("handles non-Error thrown value", async () => {
+      const origTabs = mockTabStoreState.tabs;
+      Object.defineProperty(mockTabStoreState, "tabs", {
+        get: () => { throw "getActive error"; },
+        configurable: true,
+      });
+
+      await handleTabsGetActive("req-ga-err", {});
+
+      expect(mockRespond).toHaveBeenCalledWith({
+        id: "req-ga-err",
+        success: false,
+        error: "getActive error",
+      });
+
+      Object.defineProperty(mockTabStoreState, "tabs", {
+        value: origTabs,
+        writable: true,
+        configurable: true,
+      });
     });
   });
 

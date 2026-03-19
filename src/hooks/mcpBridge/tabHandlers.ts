@@ -151,6 +151,52 @@ export async function handleTabsCreate(
 }
 
 /**
+ * Handle tabs.getActive request.
+ * Returns information about the active tab in the specified window.
+ */
+export async function handleTabsGetActive(
+  id: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  try {
+    const windowId = resolveWindowId(optionalString(args, "windowId"));
+    const tabStore = useTabStore.getState();
+    const docStore = useDocumentStore.getState();
+
+    const activeTabId = tabStore.activeTabId[windowId];
+    if (!activeTabId) {
+      await respond({ id, success: true, data: null });
+      return;
+    }
+
+    const tabs = tabStore.tabs[windowId] ?? [];
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (!tab) {
+      await respond({ id, success: true, data: null });
+      return;
+    }
+
+    const doc = docStore.getDocument(tab.id);
+
+    const tabInfo: TabInfo = {
+      id: tab.id,
+      title: tab.title,
+      filePath: tab.filePath,
+      isDirty: doc?.isDirty ?? false,
+      isActive: true,
+    };
+
+    await respond({ id, success: true, data: tabInfo });
+  } catch (error) {
+    await respond({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
  * Handle tabs.getInfo request.
  * Gets detailed information about a specific tab.
  */
