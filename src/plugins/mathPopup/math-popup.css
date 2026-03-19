@@ -30,13 +30,12 @@
   outline: none;
 }
 
-/* Input focus: caret is the indicator (per design rules) */
+/* Input focus: distinguishable border color (dialog input pattern) */
 .math-popup-input:focus,
 .math-popup-input:focus-visible {
   outline: none;
   box-shadow: none;
-  border-color: var(--border-color);
-  /* Caret visibility indicates focus */
+  border-color: var(--primary-color);
 }
 
 .math-popup-preview {
