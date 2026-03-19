@@ -77,14 +77,12 @@ export const compositionGuardExtension = Extension.create({
       // Detect split-block bug: composed text landed in a different block
       // (e.g., heading splits into heading + paragraph on macOS WebKit
       // when Space accepts IME composition)
-      if (compositionPinyin) {
-        const splitFix = fixCompositionSplitBlock(
-          state, compositionStartPos, compositionData, compositionPinyin,
-        );
-        if (splitFix) {
-          view.dispatch(splitFix);
-          return;
-        }
+      const splitFix = fixCompositionSplitBlock(
+        state, compositionStartPos, compositionData, compositionPinyin,
+      );
+      if (splitFix) {
+        view.dispatch(splitFix);
+        return;
       }
 
       let cleanupEnd = $start.end();

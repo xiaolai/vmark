@@ -25,13 +25,16 @@ import { type EditorState, TextSelection, type Transaction } from "@tiptap/pm/st
  * @param pinyin     The pinyin that was typed during composition (e.g., "wo kj kj")
  * @returns          A corrective Transaction, or null if no fix is needed
  */
+/** Match ASCII pinyin residue: letters, digits, spaces, apostrophes, semicolons */
+const PINYIN_CHAR_RE = /^[A-Za-z0-9;' ]+$/;
+
 export function fixCompositionSplitBlock(
   state: EditorState,
   startPos: number,
   composed: string,
   pinyin: string,
 ): Transaction | null {
-  if (!composed || !pinyin) return null;
+  if (!composed) return null;
 
   let $start;
   try {
@@ -46,6 +49,9 @@ export function fixCompositionSplitBlock(
   // No fix needed if cursor is in the same block
   if ($cursor.parent === parentNode) return null;
 
+  // The original block must be a heading (this bug only affects headings)
+  if (parentNode.type.name !== "heading") return null;
+
   // The spurious block must be a paragraph with exactly the composed text
   if ($cursor.parent.type.name !== "paragraph") return null;
   if ($cursor.parent.textContent !== composed) return null;
@@ -55,19 +61,6 @@ export function fixCompositionSplitBlock(
   const expectedSiblingStart = $start.after($start.depth);
   if (blockStart !== expectedSiblingStart) return null;
 
-  // Verify pinyin is at the expected position in the original block
-  const pinyinEnd = startPos + pinyin.length;
-  if (pinyinEnd > $start.end()) return null;
-
-  let textAtPos: string;
-  try {
-    textAtPos = state.doc.textBetween(startPos, pinyinEnd);
-  } catch {
-    /* v8 ignore next -- @preserve textBetween only throws for out-of-range positions; guarded by pinyinEnd check above */
-    return null;
-  }
-  if (textAtPos !== pinyin) return null;
-
   const tr = state.tr;
 
   // Delete the spurious paragraph (immediately after original block).
@@ -75,9 +68,35 @@ export function fixCompositionSplitBlock(
   const blockEnd = $cursor.after($cursor.depth);
   tr.delete(blockStart, blockEnd);
 
-  // Replace pinyin in original block with composed text.
-  // After deleting the later block, heading positions are unchanged.
-  tr.insertText(composed, startPos, pinyinEnd);
+  // Remove leftover preedit text from the heading. Strategy:
+  // 1. If pinyin matches exactly at startPos, delete that exact range
+  // 2. Otherwise, scan forward from startPos and delete only ASCII
+  //    pinyin-looking characters (preserves any user content after preedit)
+  const headingEnd = $start.end();
+  if (startPos < headingEnd) {
+    const tailText = state.doc.textBetween(startPos, headingEnd);
+
+    if (pinyin && tailText.startsWith(pinyin)) {
+      // Exact pinyin match — delete precisely
+      tr.delete(startPos, startPos + pinyin.length);
+    } else if (tailText.length > 0) {
+      // Scan forward: delete only contiguous ASCII pinyin chars
+      let pinyinLen = 0;
+      for (const ch of tailText) {
+        if (PINYIN_CHAR_RE.test(ch)) {
+          pinyinLen += ch.length;
+        } else {
+          break;
+        }
+      }
+      if (pinyinLen > 0) {
+        tr.delete(startPos, startPos + pinyinLen);
+      }
+    }
+  }
+
+  // Insert composed text at the composition start position
+  tr.insertText(composed, startPos);
 
   // Place cursor at end of composed text
   const newCursorPos = startPos + composed.length;

@@ -27,10 +27,8 @@ function createSplitState(
     schema.node("paragraph", null, paragraphText ? [schema.text(paragraphText)] : []),
   ]);
 
-  // Position cursor at end of paragraph text if cursorInParagraph,
-  // otherwise at end of heading text
-  const headingEnd = 1 + headingText.length; // end of heading content
-  const paragraphContentStart = headingEnd + 2; // +1 heading close, +1 paragraph open
+  const headingEnd = 1 + headingText.length;
+  const paragraphContentStart = headingEnd + 2;
   const paragraphContentEnd = paragraphContentStart + paragraphText.length;
 
   const cursorPos = cursorInParagraph ? paragraphContentEnd : headingEnd;
@@ -48,19 +46,39 @@ describe("fixCompositionSplitBlock", () => {
     expect(tr).not.toBeNull();
     const result = tr!.doc;
 
-    // Should have a single heading with composed text, no paragraph
     expect(result.childCount).toBe(1);
     expect(result.child(0).type.name).toBe("heading");
     expect(result.child(0).textContent).toBe("\u6211\u770B\u770B");
-
-    // Cursor should be at end of composed text
     expect(tr!.selection.from).toBe(1 + "\u6211\u770B\u770B".length);
   });
 
+  it("fixes split even when pinyin in heading doesn't match compositionPinyin exactly", () => {
+    // Abbreviated pinyin: user typed "ch qi" but heading shows different preedit
+    const state = createSplitState("ch qi", "\u957F\u671F");
+    const tr = fixCompositionSplitBlock(state, 1, "\u957F\u671F", "chang qi");
+
+    expect(tr).not.toBeNull();
+    const result = tr!.doc;
+    expect(result.childCount).toBe(1);
+    expect(result.child(0).type.name).toBe("heading");
+    expect(result.child(0).textContent).toBe("\u957F\u671F");
+  });
+
+  it("fixes split when browser already cleared heading preedit", () => {
+    // Browser removed pinyin from heading, leaving it empty
+    const state = createSplitState("", "\u6211\u770B\u770B");
+    const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
+
+    expect(tr).not.toBeNull();
+    const result = tr!.doc;
+    expect(result.childCount).toBe(1);
+    expect(result.child(0).type.name).toBe("heading");
+    expect(result.child(0).textContent).toBe("\u6211\u770B\u770B");
+  });
+
   it("preserves heading text before composition start", () => {
-    // "Chapter 1: wo kj kj" — composition started after "Chapter 1: "
     const state = createSplitState("Chapter 1: wo kj kj", "\u6211\u770B\u770B");
-    const compositionStartPos = 1 + "Chapter 1: ".length; // after prefix
+    const compositionStartPos = 1 + "Chapter 1: ".length;
     const tr = fixCompositionSplitBlock(state, compositionStartPos, "\u6211\u770B\u770B", "wo kj kj");
 
     expect(tr).not.toBeNull();
@@ -70,8 +88,30 @@ describe("fixCompositionSplitBlock", () => {
     expect(tr!.selection.from).toBe(compositionStartPos + "\u6211\u770B\u770B".length);
   });
 
+  it("preserves CJK suffix after preedit in heading", () => {
+    // Heading: "wo kj kj已有内容" — "已有内容" existed before composition
+    const state = createSplitState("wo kj kj\u5DF2\u6709\u5185\u5BB9", "\u6211\u770B\u770B");
+    const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
+
+    expect(tr).not.toBeNull();
+    const result = tr!.doc;
+    expect(result.childCount).toBe(1);
+    expect(result.child(0).textContent).toBe("\u6211\u770B\u770B\u5DF2\u6709\u5185\u5BB9");
+  });
+
+  it("preserves suffix when pinyin doesn't match (scan mode)", () => {
+    // Abbreviated pinyin "ch qi" but compositionPinyin was "chang qi"
+    const state = createSplitState("ch qi\u5DF2\u6709", "\u957F\u671F");
+    const tr = fixCompositionSplitBlock(state, 1, "\u957F\u671F", "chang qi");
+
+    expect(tr).not.toBeNull();
+    const result = tr!.doc;
+    expect(result.childCount).toBe(1);
+    // "ch qi" is ASCII pinyin → scanned and deleted, "已有" preserved
+    expect(result.child(0).textContent).toBe("\u957F\u671F\u5DF2\u6709");
+  });
+
   it("returns null when cursor is in the same block (no split)", () => {
-    // Heading-only doc, cursor in heading — no fix needed
     const doc = schema.node("doc", null, [
       schema.node("heading", { level: 1 }, [schema.text("\u6211\u770B\u770B")]),
       schema.node("paragraph", null, [schema.text("other")]),
@@ -84,15 +124,23 @@ describe("fixCompositionSplitBlock", () => {
     expect(tr).toBeNull();
   });
 
-  it("returns null when cursor block text does not match composed text", () => {
-    const state = createSplitState("wo kj kj", "something else");
+  it("returns null when original block is not a heading", () => {
+    // Paragraph split — not a heading, should not fix
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("wo kj kj")]),
+      schema.node("paragraph", null, [schema.text("\u6211\u770B\u770B")]),
+    ]);
+    const cursorPos = 1 + "wo kj kj".length + 2 + "\u6211\u770B\u770B".length;
+    const state = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, cursorPos),
+    });
     const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
     expect(tr).toBeNull();
   });
 
-  it("returns null when pinyin does not match at expected position", () => {
-    // Heading has different text than expected pinyin
-    const state = createSplitState("different text", "\u6211\u770B\u770B");
+  it("returns null when cursor block text does not match composed text", () => {
+    const state = createSplitState("wo kj kj", "something else");
     const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
     expect(tr).toBeNull();
   });
@@ -103,14 +151,7 @@ describe("fixCompositionSplitBlock", () => {
     expect(tr).toBeNull();
   });
 
-  it("returns null for empty compositionPinyin", () => {
-    const state = createSplitState("wo kj kj", "\u6211\u770B\u770B");
-    const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "");
-    expect(tr).toBeNull();
-  });
-
   it("returns null when cursor block is not a paragraph", () => {
-    // Two headings — cursor in second heading, not a paragraph
     const doc = schema.node("doc", null, [
       schema.node("heading", { level: 1 }, [schema.text("wo kj kj")]),
       schema.node("heading", { level: 2 }, [schema.text("\u6211\u770B\u770B")]),
@@ -125,13 +166,11 @@ describe("fixCompositionSplitBlock", () => {
   });
 
   it("returns null when cursor block is not the immediate next sibling", () => {
-    // Heading, paragraph (unrelated), paragraph (composed text)
     const doc = schema.node("doc", null, [
       schema.node("heading", { level: 1 }, [schema.text("wo kj kj")]),
       schema.node("paragraph", null, [schema.text("unrelated")]),
       schema.node("paragraph", null, [schema.text("\u6211\u770B\u770B")]),
     ]);
-    // Cursor at end of third block
     const pos = 1 + "wo kj kj".length + 2 + "unrelated".length + 2 + "\u6211\u770B\u770B".length;
     const state = EditorState.create({
       doc,
@@ -152,29 +191,5 @@ describe("fixCompositionSplitBlock", () => {
     const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
     expect(tr).not.toBeNull();
     expect(tr!.getMeta("uiEvent")).toBe("composition-cleanup");
-  });
-
-  it("returns null when pinyin extends beyond heading end", () => {
-    // Heading has "wo" (2 chars), but pinyin is "wo kj kj" (8 chars)
-    // pinyinEnd = 1 + 8 = 9, but heading content ends at 1 + 2 = 3
-    const state = createSplitState("wo", "\u6211\u770B\u770B");
-    const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "wo kj kj");
-    expect(tr).toBeNull();
-  });
-
-  it("returns null when textBetween throws for invalid range", () => {
-    // Create a state where startPos is valid but pinyin range overlaps block boundary
-    const doc = schema.node("doc", null, [
-      schema.node("heading", { level: 1 }, [schema.text("ab")]),
-      schema.node("paragraph", null, [schema.text("\u6211\u770B\u770B")]),
-    ]);
-    const paragraphStart = 1 + 2 + 2; // heading content + boundaries
-    const state = EditorState.create({
-      doc,
-      selection: TextSelection.create(doc, paragraphStart + "\u6211\u770B\u770B".length),
-    });
-    // pinyin "abcdef" is longer than heading content "ab" (2 chars)
-    const tr = fixCompositionSplitBlock(state, 1, "\u6211\u770B\u770B", "abcdef");
-    expect(tr).toBeNull();
   });
 });
