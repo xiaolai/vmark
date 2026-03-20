@@ -210,6 +210,7 @@ export function StatusBarRight({
         className={`status-terminal ${terminalVisible ? "active" : ""}`}
         title={t("toggleTerminal", { shortcut: formatKeyForDisplay(terminalShortcut) })}
         aria-label={t("toggleTerminal", { shortcut: formatKeyForDisplay(terminalShortcut) })}
+        aria-expanded={terminalVisible}
         onClick={() => requestToggleTerminal()}
       >
         <Terminal size={12} />

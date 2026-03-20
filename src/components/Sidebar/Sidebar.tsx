@@ -139,6 +139,7 @@ export function Sidebar() {
           onClick={() => useUIStore.getState().toggleSidebar()}
           title={t("closeSidebar")}
           aria-label={t("closeSidebar")}
+          aria-expanded={true}
         >
           <PanelLeftClose size={16} />
         </button>
