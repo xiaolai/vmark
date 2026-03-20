@@ -44,7 +44,6 @@ import type {
 import type { Math } from "mdast-util-math";
 import type { Details, Yaml } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
-import { encodeUrlForMarkdown } from "./pmInlineConverters";
 import { buildEmbedUrl, type VideoProvider } from "@/utils/videoProviderRegistry";
 
 /** Escape a string for safe use in an HTML attribute value. */
@@ -283,7 +282,7 @@ function tryMediaImageSyntax(
   if (!extraCheck || !controls || preload !== "metadata") return null;
   const image: Image = {
     type: "image",
-    url: encodeUrlForMarkdown(src),
+    url: src,
     alt: "",
     title: title || undefined,
   };
@@ -375,7 +374,7 @@ export function convertDefinition(node: PMNode): Definition {
     type: "definition",
     identifier: String(node.attrs.identifier ?? ""),
     label: node.attrs.label ? String(node.attrs.label) : undefined,
-    url: encodeUrlForMarkdown(String(node.attrs.url ?? "")),
+    url: String(node.attrs.url ?? ""),
     title: node.attrs.title ? String(node.attrs.title) : undefined,
   };
 }

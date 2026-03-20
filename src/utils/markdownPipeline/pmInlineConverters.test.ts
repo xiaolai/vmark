@@ -12,7 +12,6 @@ import {
   convertTextWithMarks,
   wrapWithMark,
   convertHardBreak,
-  encodeUrlForMarkdown,
   convertImage,
   convertMathInline,
   convertFootnoteReference,
@@ -233,20 +232,6 @@ describe("pmInlineConverters", () => {
     it("returns break node", () => {
       const result = convertHardBreak();
       expect(result.type).toBe("break");
-    });
-  });
-
-  describe("encodeUrlForMarkdown", () => {
-    it("returns URL as-is (no-op pass-through)", () => {
-      expect(encodeUrlForMarkdown("https://example.com")).toBe("https://example.com");
-    });
-
-    it("preserves spaces in URL", () => {
-      expect(encodeUrlForMarkdown("/path/with spaces/file.md")).toBe("/path/with spaces/file.md");
-    });
-
-    it("preserves special characters", () => {
-      expect(encodeUrlForMarkdown("https://example.com/a?b=c&d=e")).toBe("https://example.com/a?b=c&d=e");
     });
   });
 

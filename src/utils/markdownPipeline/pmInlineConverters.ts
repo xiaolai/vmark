@@ -7,8 +7,8 @@
  * Key decisions:
  *   - Marks are converted by wrapping: innermost mark wraps text first,
  *     then outer marks wrap that result — producing nested MDAST nodes
- *   - encodeUrlForMarkdown is now a no-op pass-through; the serializer's
- *     custom handlers add angle brackets for URLs with spaces
+ *   - URLs are passed through unchanged; the serializer's custom handlers
+ *     add angle brackets for URLs with spaces
  *   - Inline code mark collapses children to a single string value
  *     (MDAST inlineCode has no children, just a value)
  *
@@ -88,7 +88,7 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
       return [
         {
           type: "link",
-          url: encodeUrlForMarkdown(mark.attrs.href as string),
+          url: mark.attrs.href as string,
           children: content,
         } as Link,
       ];
@@ -118,26 +118,12 @@ export function convertHardBreak(): Break {
 }
 
 /**
- * Prepare URL for MDAST.
- * Returns the URL as-is - the serializer's custom handlers will add
- * angle brackets for URLs with spaces when generating markdown.
- *
- * @deprecated This function is now a no-op. URLs are passed through unchanged
- * and the serializer handles angle-bracket formatting.
- */
-export function encodeUrlForMarkdown(url: string): string {
-  // Just return the URL as-is. The serializer's custom handlers (handleImage,
-  // handleLink) will add angle brackets for URLs with whitespace.
-  return url;
-}
-
-/**
  * Convert an image node to MDAST image.
  */
 export function convertImage(node: PMNode): Image {
   return {
     type: "image",
-    url: encodeUrlForMarkdown(node.attrs.src as string),
+    url: node.attrs.src as string,
     alt: (node.attrs.alt as string) || undefined,
     title: (node.attrs.title as string) || undefined,
   };
