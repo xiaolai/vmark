@@ -337,8 +337,7 @@ export async function handleWorkspaceGetInfo(id: string): Promise<void> {
     // Extract workspace name from root path
     let workspaceName: string | null = null;
     if (rootPath) {
-      const parts = rootPath.split("/");
-      workspaceName = parts[parts.length - 1] || null;
+      workspaceName = getFileName(rootPath) || null;
     }
 
     await respond({
