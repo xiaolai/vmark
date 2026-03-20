@@ -108,7 +108,7 @@ pub(crate) fn write_port_file(app: &AppHandle, port: u16) -> Result<(), String> 
 
 /// Remove the port file when bridge stops.
 /// Logs errors for non-NotFound failures (permission issues, etc.)
-pub(crate) fn remove_port_file(app: &AppHandle) {
+pub fn remove_port_file(app: &AppHandle) {
     match app_paths::get_port_file_path(app) {
         Ok(path) => {
             match std::fs::remove_file(&path) {

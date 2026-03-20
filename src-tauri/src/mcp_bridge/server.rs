@@ -23,7 +23,15 @@ use tokio_tungstenite::{accept_async, tungstenite::Message};
 
 /// Start the MCP bridge WebSocket server.
 /// Returns the actual port the server is listening on.
-pub async fn start_bridge(app: AppHandle, _port: u16) -> Result<u16, String> {
+///
+/// `on_exit` is called when the server loop terminates (shutdown signal or
+/// unexpected exit) so the caller can reset external state like
+/// `BRIDGE_RUNNING`.
+pub async fn start_bridge(
+    app: AppHandle,
+    _port: u16,
+    on_exit: impl FnOnce() + Send + 'static,
+) -> Result<u16, String> {
     // Always bind to port 0 to let OS assign an available port
     // This eliminates port conflicts entirely
     let addr = "127.0.0.1:0";
@@ -74,6 +82,9 @@ pub async fn start_bridge(app: AppHandle, _port: u16) -> Result<u16, String> {
                 }
             }
         }
+
+        // Server loop exited — reset external state so the bridge can be restarted.
+        on_exit();
     });
 
     Ok(actual_port)

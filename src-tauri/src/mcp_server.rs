@@ -77,8 +77,18 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
         });
     }
 
-    // Start the bridge WebSocket server (returns actual port assigned by OS)
-    let actual_port = mcp_bridge::start_bridge(app.clone(), port).await?;
+    // Start the bridge WebSocket server (returns actual port assigned by OS).
+    // The on_exit callback resets state if the server loop exits unexpectedly.
+    let app_for_cleanup = app.clone();
+    let actual_port = mcp_bridge::start_bridge(app.clone(), port, move || {
+        log::warn!("[MCP] Bridge server loop exited — resetting BRIDGE_RUNNING");
+        BRIDGE_RUNNING.store(false, Ordering::SeqCst);
+        if let Ok(mut p) = BRIDGE_PORT.lock() {
+            *p = None;
+        }
+        mcp_bridge::remove_port_file(&app_for_cleanup);
+    })
+    .await?;
 
     // Mark bridge as running with actual port
     BRIDGE_RUNNING.store(true, Ordering::SeqCst);
@@ -176,7 +186,16 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
 
     // Start the bridge first (if not already running)
     let actual_port = if !BRIDGE_RUNNING.load(Ordering::SeqCst) {
-        let actual = mcp_bridge::start_bridge(app.clone(), port).await?;
+        let app_for_cleanup = app.clone();
+        let actual = mcp_bridge::start_bridge(app.clone(), port, move || {
+            log::warn!("[MCP] Bridge server loop exited — resetting BRIDGE_RUNNING");
+            BRIDGE_RUNNING.store(false, Ordering::SeqCst);
+            if let Ok(mut p) = BRIDGE_PORT.lock() {
+                *p = None;
+            }
+            mcp_bridge::remove_port_file(&app_for_cleanup);
+        })
+        .await?;
         BRIDGE_RUNNING.store(true, Ordering::SeqCst);
         {
             let mut port_guard = BRIDGE_PORT.lock().map_err(|e| e.to_string())?;

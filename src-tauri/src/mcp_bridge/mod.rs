@@ -18,4 +18,5 @@ mod types;
 // Re-export public API used by other modules (mcp_server.rs, lib.rs)
 pub use commands::{client_count, connected_clients};
 pub use server::{start_bridge, stop_bridge};
+pub use state::remove_port_file;
 pub use types::ConnectedClientInfo;
