@@ -5,14 +5,24 @@
  * actions depending on whether the user clicked a file, folder, or empty area.
  * All user-visible labels are translated via the "sidebar" i18n namespace.
  *
- * User interactions: Click to execute action, Escape or click-outside to close.
+ * User interactions:
+ *   - Arrow keys navigate menu items; Enter/Space activates
+ *   - Escape or click-outside closes the menu
+ *   - Tab key closes the menu
  * Automatically adjusts position to stay within viewport bounds.
  *
  * @coordinates-with FileExplorer.tsx — rendered as a child when contextMenu.visible is true
  * @coordinates-with useExplorerOperations.ts — file operations triggered by menu actions
  * @module components/Sidebar/FileExplorer/ContextMenu
  */
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   FileText,
@@ -86,6 +96,13 @@ function getMenuItems(type: ContextMenuType, labels: Record<string, string>): Me
   }
 }
 
+function findNextFocusable(total: number, current: number, direction: 1 | -1): number {
+  /* v8 ignore next -- @preserve reason: empty menu guard; menu always has at least one item */
+  if (total === 0) return -1;
+  if (current === -1) return direction === 1 ? 0 : total - 1;
+  return (current + direction + total) % total;
+}
+
 interface ContextMenuProps {
   type: ContextMenuType;
   position: ContextMenuPosition;
@@ -93,10 +110,12 @@ interface ContextMenuProps {
   onClose: () => void;
 }
 
-/** Renders a macOS-style context menu with viewport-aware positioning. */
+/** Renders a macOS-style context menu with viewport-aware positioning and keyboard navigation. */
 export function ContextMenu({ type, position, onAction, onClose }: ContextMenuProps) {
   const { t } = useTranslation("sidebar");
   const menuRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
 
   // Resolve platform-appropriate "reveal in file manager" label via translation keys
   const revealLabel = useMemo(() => {
@@ -171,6 +190,17 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     menu.style.top = `${adjustedY}px`;
   }, [position]);
 
+  // Auto-focus first item on mount
+  useEffect(() => {
+    setFocusedIndex(0);
+  }, []);
+
+  // Move DOM focus when focusedIndex changes
+  useEffect(() => {
+    if (focusedIndex < 0) return;
+    itemRefs.current[focusedIndex]?.focus();
+  }, [focusedIndex]);
+
   const handleItemClick = useCallback(
     (id: string) => {
       onAction(id);
@@ -179,25 +209,80 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
     [onAction, onClose]
   );
 
+  const handleMenuKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (isImeKeyEvent(event.nativeEvent)) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setFocusedIndex((current) => findNextFocusable(items.length, current, 1));
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setFocusedIndex((current) => findNextFocusable(items.length, current, -1));
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        setFocusedIndex(0);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        setFocusedIndex(items.length - 1);
+        return;
+      }
+
+      if (event.key === "Tab") {
+        onClose();
+        return;
+      }
+
+      if ((event.key === "Enter" || event.key === " ") && focusedIndex >= 0) {
+        event.preventDefault();
+        const item = items[focusedIndex];
+        /* v8 ignore next -- @preserve reason: null item guard; focusedIndex always valid in tests */
+        if (!item) return;
+        handleItemClick(item.id);
+      }
+    },
+    [items, focusedIndex, onClose, handleItemClick]
+  );
+
   return (
     <div
       ref={menuRef}
       className="context-menu"
       style={{ left: position.x, top: position.y }}
+      role="menu"
+      aria-label={t("contextMenu.ariaLabel")}
+      onKeyDown={handleMenuKeyDown}
     >
       {items.map((item, index) => (
         <div key={item.id}>
           {item.separator && index > 0 && <div className="context-menu-separator" />}
-          <div
+          <button
+            ref={(node) => {
+              itemRefs.current[index] = node;
+            }}
+            type="button"
+            role="menuitem"
             className="context-menu-item"
             onClick={() => handleItemClick(item.id)}
+            onFocus={() => setFocusedIndex(index)}
+            onMouseEnter={() => setFocusedIndex(index)}
+            tabIndex={focusedIndex === index ? 0 : -1}
           >
             <span className="context-menu-item-icon">{item.icon}</span>
             <span className="context-menu-item-label">{item.label}</span>
             {item.shortcut && (
               <span className="context-menu-item-shortcut">{item.shortcut}</span>
             )}
-          </div>
+          </button>
         </div>
       ))}
     </div>

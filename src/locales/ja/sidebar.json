@@ -24,7 +24,8 @@
     "copyPath": "パスをコピー",
     "revealInFinder": "Finderで表示",
     "showInExplorer": "エクスプローラーで表示",
-    "showInFileManager": "ファイルマネージャーで表示"
+    "showInFileManager": "ファイルマネージャーで表示",
+    "ariaLabel": "File actions"
   },
   "outline": {
     "documentOutline": "ドキュメントアウトライン",

@@ -24,7 +24,8 @@
     "copyPath": "複製路徑",
     "revealInFinder": "在 Finder 中顯示",
     "showInExplorer": "在檔案總管中顯示",
-    "showInFileManager": "在檔案管理員中顯示"
+    "showInFileManager": "在檔案管理員中顯示",
+    "ariaLabel": "File actions"
   },
   "outline": {
     "documentOutline": "文件大綱",

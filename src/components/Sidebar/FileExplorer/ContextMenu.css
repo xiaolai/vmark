@@ -30,24 +30,33 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 5px 10px;
+  border: none;
   border-radius: var(--radius-sm);
+  background: transparent;
   cursor: default;
   color: var(--text-color);
+  font: inherit;
+  text-align: left;
   transition: none;
   user-select: none;
+  outline: none;
 }
 
-.context-menu-item:hover {
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
   background: var(--primary-color);
   color: var(--contrast-text);
 }
 
-.context-menu-item:hover .context-menu-item-icon {
+.context-menu-item:hover .context-menu-item-icon,
+.context-menu-item:focus-visible .context-menu-item-icon {
   color: var(--contrast-text);
 }
 
-.context-menu-item:hover .context-menu-item-shortcut {
+.context-menu-item:hover .context-menu-item-shortcut,
+.context-menu-item:focus-visible .context-menu-item-shortcut {
   color: var(--contrast-text);
   opacity: 0.7;
 }

@@ -24,7 +24,8 @@
     "copyPath": "Copy Path",
     "revealInFinder": "Reveal in Finder",
     "showInExplorer": "Show in Explorer",
-    "showInFileManager": "Show in File Manager"
+    "showInFileManager": "Show in File Manager",
+    "ariaLabel": "File actions"
   },
   "outline": {
     "documentOutline": "Document outline",

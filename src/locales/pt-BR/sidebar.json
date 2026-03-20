@@ -24,7 +24,8 @@
     "copyPath": "Copiar caminho",
     "revealInFinder": "Mostrar no Finder",
     "showInExplorer": "Mostrar no Explorador",
-    "showInFileManager": "Mostrar no gerenciador de arquivos"
+    "showInFileManager": "Mostrar no gerenciador de arquivos",
+    "ariaLabel": "File actions"
   },
   "outline": {
     "documentOutline": "Estrutura do documento",

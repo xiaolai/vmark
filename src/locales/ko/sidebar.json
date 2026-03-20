@@ -24,7 +24,8 @@
     "copyPath": "경로 복사",
     "revealInFinder": "Finder에서 보기",
     "showInExplorer": "탐색기에서 보기",
-    "showInFileManager": "파일 관리자에서 보기"
+    "showInFileManager": "파일 관리자에서 보기",
+    "ariaLabel": "File actions"
   },
   "outline": {
     "documentOutline": "문서 개요",
