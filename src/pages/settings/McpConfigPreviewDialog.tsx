@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Button, CloseButton, CopyButton } from "./components";
 
 interface ConfigPreview {
@@ -62,6 +63,7 @@ export function McpConfigPreviewDialog({
     dialogRef.current?.focus();
   }, []);
 
+  const { t } = useTranslation("settings");
   const providerName = PROVIDER_NAMES[preview.provider] || preview.provider;
   // Shorten home paths: macOS /Users/x, Windows C:/Users/x, Linux /home/x → ~
   const shortenHome = (p: string) =>
@@ -82,7 +84,7 @@ export function McpConfigPreviewDialog({
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="MCP Config Preview"
+        aria-label={t("integrations.installMcp.previewAriaLabel")}
         className="mx-auto bg-[var(--bg-primary)] border border-[var(--border-color)]
                    rounded-lg shadow-lg w-[560px] max-w-[90vw] max-h-[80vh]
                    flex flex-col outline-none"
@@ -91,7 +93,7 @@ export function McpConfigPreviewDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            Install MCP Config for {providerName}
+            {t("integrations.installMcp.previewTitle", { provider: providerName })}
           </h3>
           <CloseButton onClick={onCancel} />
         </div>
@@ -100,25 +102,25 @@ export function McpConfigPreviewDialog({
         <div className="flex-1 overflow-auto p-4 space-y-4">
           {/* Config Info */}
           <div className="space-y-2">
-            <InfoRow label="Config File" value={shortPath} mono />
+            <InfoRow label={t("integrations.installMcp.configFile")} value={shortPath} mono />
             <InfoRow
-              label="Binary Path"
+              label={t("integrations.installMcp.binaryPath")}
               value={shortBinaryPath}
               fullValue={preview.binaryPath}
               mono
               copyable
-              badge={preview.isDev ? "Development" : undefined}
+              badge={preview.isDev ? t("integrations.installMcp.devBadge") : undefined}
               badgeColor={preview.isDev ? "amber" : undefined}
             />
             {preview.currentContent && (
-              <InfoRow label="Backup" value={shortBackupPath} mono />
+              <InfoRow label={t("integrations.installMcp.backup")} value={shortBackupPath} mono />
             )}
           </div>
 
           {/* Proposed Content */}
           <div>
             <div className="text-xs font-medium text-[var(--text-primary)] mb-1.5">
-              Proposed Configuration
+              {t("integrations.installMcp.proposedConfig")}
             </div>
             <pre className="p-3 bg-[var(--bg-tertiary)] rounded-md text-xs font-mono
                            text-[var(--text-primary)] overflow-auto max-h-48 whitespace-pre">
@@ -130,7 +132,7 @@ export function McpConfigPreviewDialog({
           {preview.currentContent && (
             <div>
               <div className="text-xs font-medium text-[var(--text-primary)] mb-1.5">
-                Current Configuration
+                {t("integrations.installMcp.currentConfig")}
               </div>
               <pre className="p-3 bg-[var(--bg-tertiary)] rounded-md text-xs font-mono
                              text-[var(--text-tertiary)] overflow-auto max-h-32 whitespace-pre">
@@ -148,8 +150,8 @@ export function McpConfigPreviewDialog({
             </svg>
             <span>
               {preview.currentContent
-                ? "A backup will be created before modifying the existing configuration."
-                : "A new configuration file will be created."}
+                ? t("integrations.installMcp.safetyBackup")
+                : t("integrations.installMcp.safetyNew")}
             </span>
           </div>
         </div>
@@ -157,10 +159,10 @@ export function McpConfigPreviewDialog({
         {/* Footer */}
         <div className="flex justify-end gap-2 px-4 py-3 border-t border-[var(--border-color)]">
           <Button onClick={onCancel} disabled={loading}>
-            Cancel
+            {t("integrations.installMcp.cancel")}
           </Button>
           <Button variant="primary" onClick={onConfirm} disabled={loading}>
-            {loading ? "Installing..." : "Install"}
+            {loading ? t("integrations.installMcp.installing") : t("integrations.installMcp.installButton")}
           </Button>
         </div>
       </div>
