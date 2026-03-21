@@ -11,7 +11,7 @@
 import { Selection, SelectionRange } from "@tiptap/pm/state";
 import type { Node } from "@tiptap/pm/model";
 import type { Mappable } from "@tiptap/pm/transform";
-import { normalizeRangesWithPrimary } from "./rangeUtils";
+import { normalizeRangesWithPrimary, remapBackwardFlags } from "./rangeUtils";
 
 export class MultiSelection extends Selection {
   /** Index of the primary range (used for anchor/head compatibility) */
@@ -56,7 +56,8 @@ export class MultiSelection extends Selection {
     });
 
     const normalized = normalizeRangesWithPrimary(mappedRanges, doc, this.primaryIndex, true);
-    return new MultiSelection(normalized.ranges, normalized.primaryIndex, this.backward);
+    const remapped = remapBackwardFlags(mappedRanges, this.backward, normalized.ranges);
+    return new MultiSelection(normalized.ranges, normalized.primaryIndex, remapped);
   }
 
   /**

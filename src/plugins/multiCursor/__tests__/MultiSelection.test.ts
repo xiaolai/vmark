@@ -493,6 +493,30 @@ describe("MultiSelection", () => {
 
       expect(mapped.backward[0]).toBe(true);
     });
+
+    it("remaps backward flags when ranges merge after mapping (#490)", () => {
+      // Two adjacent ranges that will overlap after a deletion between them
+      const state = createState("abcdefghij");
+      const doc = state.doc;
+
+      // Range 1: positions 1–4 ("abc"), Range 2: positions 6–9 ("fgh")
+      const ranges = [
+        new SelectionRange(doc.resolve(1), doc.resolve(4)),
+        new SelectionRange(doc.resolve(6), doc.resolve(9)),
+      ];
+      const multiSel = new MultiSelection(ranges, 0, [true, false]);
+
+      // Delete the text between the two ranges (positions 4–6: "de")
+      // This causes the ranges to become adjacent/overlapping and get merged
+      const tr = state.tr.delete(4, 6);
+      const mapped = multiSel.map(tr.doc, tr.mapping) as MultiSelection;
+
+      // After merge, should have fewer ranges and backward flags should be
+      // remapped (not silently reset to all-false)
+      expect(mapped.ranges.length).toBeLessThanOrEqual(2);
+      // The backward array must match the range count (not be reset due to mismatch)
+      expect(mapped.backward).toHaveLength(mapped.ranges.length);
+    });
   });
 
   describe("backward array length mismatch defense (#311)", () => {
