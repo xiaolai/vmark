@@ -289,6 +289,7 @@ mod tests {
             "document.replaceInSource",
             "document.setContent",
             // Selection/cursor mutations
+            "selection.delete",
             "selection.replace",
             "selection.set",
             "cursor.setPosition",
@@ -310,10 +311,18 @@ mod tests {
             // Block operations
             "block.insertHorizontalRule",
             "block.setType",
+            "block.toggle",
             // Table operations
+            "table.addColumnAfter",
+            "table.addColumnBefore",
+            "table.addRowAfter",
+            "table.addRowBefore",
             "table.batchModify",
             "table.delete",
+            "table.deleteColumn",
+            "table.deleteRow",
             "table.insert",
+            "table.toggleHeaderRow",
             // Mutation/batch operations
             "mutation.applyDiff",
             "mutation.batchEdit",
@@ -345,6 +354,9 @@ mod tests {
             "workspace.saveDocumentAs",
             // Genie invocation (side-effecting)
             "genies.invoke",
+            // Smart/media insert
+            "smartInsert",
+            "insertMedia",
             // VMark-specific commands
             "vmark.cjkPunctuationConvert",
             "vmark.cjkSpacingFix",
