@@ -51,11 +51,9 @@ libc = "0.2"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem", "NSImage", "NSResponder", "NSDocumentController", "NSPrintInfo", "NSPrintOperation", "NSView", "NSWindow", "NSGraphics"] }
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSData", "NSDate", "NSRunLoop", "NSError", "NSDictionary", "NSProcessInfo"] }
-dispatch2 = "0.2"
 objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKNavigation", "WKNavigationDelegate", "WKPDFConfiguration", "block2", "objc2-core-foundation"] }
 objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFOutline", "PDFPage", "PDFDestination"] }
 objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] }
-block2 = "0.6"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
