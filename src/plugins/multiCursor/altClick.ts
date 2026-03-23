@@ -121,7 +121,7 @@ export function addCursorAtPosition(
   }
 
   // Convert single selection to MultiSelection
-  const existingRange = new SelectionRange(selection.$anchor, selection.$head);
+  const existingRange = new SelectionRange(selection.$from, selection.$to);
 
   // Check if clicking on same position
   if (selection.from === snappedPos && selection.to === snappedPos) {
