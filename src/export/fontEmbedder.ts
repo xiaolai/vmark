@@ -49,7 +49,7 @@ export const KATEX_FONTS = [
 ] as const;
 
 /** KaTeX CDN base URL */
-const KATEX_CDN_BASE = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts";
+const KATEX_CDN_BASE = "https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/fonts";
 
 /** Font file to download */
 export interface FontFile {

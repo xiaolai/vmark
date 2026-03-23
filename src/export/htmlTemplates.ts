@@ -48,7 +48,7 @@ export function generateIndexHtml(
   const themeClass = isDark ? "dark-theme" : "";
 
   const katexLink = includeKaTeX
-    ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">`
+    ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/katex.min.css" crossorigin="anonymous">`
     : "";
 
   return `<!DOCTYPE html>
@@ -102,7 +102,7 @@ export function generateStandaloneHtml(
   const themeClass = isDark ? "dark-theme" : "";
 
   const katexLink = includeKaTeX
-    ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">`
+    ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/katex.min.css" crossorigin="anonymous">`
     : "";
 
   return `<!DOCTYPE html>
