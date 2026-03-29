@@ -5,7 +5,7 @@
  * Resolves relative paths, copies local files, and rewrites URLs.
  */
 
-import { readFile, copyFile, exists, mkdir, stat } from "@tauri-apps/plugin-fs";
+import { readFile, copyFile, exists, mkdir, stat, lstat } from "@tauri-apps/plugin-fs";
 import { join, dirname, basename, normalize } from "@tauri-apps/api/path";
 import { uint8ArrayToBase64 } from "./fontEmbedder";
 import { exportWarn } from "@/utils/debug";
@@ -267,6 +267,24 @@ export async function resolveResources(
         const placeholderDataUri = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect fill='%23f0f0f0' width='200' height='150'/%3E%3Ctext x='100' y='75' text-anchor='middle' fill='%23999' font-family='sans-serif' font-size='14'%3EImage not found%3C/text%3E%3C/svg%3E";
         info.exportSrc = placeholderDataUri;
         modifiedHtml = modifiedHtml.split(src).join(placeholderDataUri);
+        resources.push(info);
+        missing.push(info);
+        continue;
+      }
+
+      // Block symlinks to prevent traversal via symlink targets outside baseDir
+      try {
+        const fileStat = await lstat(resolvedPath);
+        if (fileStat.isSymlink) {
+          exportWarn(`Symlink traversal blocked: ${src}`);
+          info.found = false;
+          resources.push(info);
+          missing.push(info);
+          continue;
+        }
+      } catch {
+        // lstat failure — treat as inaccessible
+        info.found = false;
         resources.push(info);
         missing.push(info);
         continue;

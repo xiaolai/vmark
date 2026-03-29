@@ -13,6 +13,7 @@ const mockCopyFile = vi.fn();
 const mockExists = vi.fn();
 const mockMkdir = vi.fn();
 const mockStat = vi.fn();
+const mockLstat = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readFile: (...args: unknown[]) => mockReadFile(...args),
@@ -20,6 +21,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   exists: (...args: unknown[]) => mockExists(...args),
   mkdir: (...args: unknown[]) => mockMkdir(...args),
   stat: (...args: unknown[]) => mockStat(...args),
+  lstat: (...args: unknown[]) => mockLstat(...args),
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -70,6 +72,8 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: files are not symlinks
+  mockLstat.mockResolvedValue({ isSymlink: false });
 });
 
 // ---------------------------------------------------------------------------
@@ -694,6 +698,51 @@ describe("resolveResources", () => {
     expect(report.missing).toHaveLength(1);
     expect(report.resolved).toHaveLength(0);
     expect(mockCopyFile).not.toHaveBeenCalled();
+  });
+
+  it("blocks symlinks to prevent traversal", async () => {
+    const html = '<img src="evil.png">';
+    mockExists.mockResolvedValue(true);
+    mockLstat.mockResolvedValue({ isSymlink: true });
+
+    const { report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "single",
+    });
+
+    expect(report.missing).toHaveLength(1);
+    expect(report.resolved).toHaveLength(0);
+    expect(mockReadFile).not.toHaveBeenCalled();
+  });
+
+  it("blocks symlinks in folder mode without copying", async () => {
+    const html = '<img src="evil.png">';
+    mockExists.mockResolvedValue(true);
+    mockLstat.mockResolvedValue({ isSymlink: true });
+
+    const { report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "folder",
+      outputDir: "/output",
+    });
+
+    expect(report.missing).toHaveLength(1);
+    expect(report.resolved).toHaveLength(0);
+    expect(mockCopyFile).not.toHaveBeenCalled();
+  });
+
+  it("treats lstat failure as inaccessible", async () => {
+    const html = '<img src="broken.png">';
+    mockExists.mockResolvedValue(true);
+    mockLstat.mockRejectedValue(new Error("Permission denied"));
+
+    const { report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "single",
+    });
+
+    expect(report.missing).toHaveLength(1);
+    expect(report.resolved).toHaveLength(0);
   });
 
   it("handles stat failure silently in folder mode", async () => {
