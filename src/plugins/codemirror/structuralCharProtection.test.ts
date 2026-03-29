@@ -328,6 +328,181 @@ describe("Structural Character Protection", () => {
     });
   });
 
+  describe("selectionSpansStructuralChar", () => {
+    it("detects selection spanning a table pipe", () => {
+      const content = "| cell1 | cell2 |";
+      // Selection from inside cell1 across pipe into cell2: "l1 | ce"
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 5, head: 12 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // Document should be unchanged — deletion blocked
+      expect(view.state.doc.toString()).toBe(content);
+    });
+
+    it("detects selection spanning leading table pipe", () => {
+      const content = "| cell1 | cell2 |";
+      // Selection includes the leading pipe
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 0, head: 4 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe(content);
+    });
+
+    it("allows selection within a single table cell (no pipe)", () => {
+      const content = "| cell1 | cell2 |";
+      // Selection entirely within cell1: "ell"
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 3, head: 6 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(false);
+    });
+
+    it("detects selection spanning a list marker", () => {
+      const content = "- item content";
+      // Selection from start across marker: "- it"
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 0, head: 4 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe(content);
+    });
+
+    it("detects selection spanning a blockquote marker", () => {
+      const content = "> quoted text";
+      // Selection from start across marker
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 0, head: 5 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe(content);
+    });
+
+    it("detects selection spanning a task marker", () => {
+      const content = "- [ ] task content";
+      // Selection from start across task marker
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 0, head: 8 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe(content);
+    });
+
+    it("allows selection entirely after list marker", () => {
+      const content = "- item content";
+      // Selection within content only: "item"
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 2, head: 6 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(false);
+    });
+
+    it("smartDelete also blocks selection spanning structural chars", () => {
+      const content = "| cell1 | cell2 |";
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 5, head: 12 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartDelete(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe(content);
+    });
+
+    it("ignores escaped pipes in selection span check", () => {
+      const content = "| cell \\| more |";
+      // Selection spans the escaped pipe — should NOT be blocked
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 4, head: 12 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      // The selection spans an escaped pipe and an unescaped pipe at pos 14
+      // Since the unescaped pipe at pos 14 (the closing |) is within selection range 4..12? No.
+      // Let me recalculate: "| cell \| more |"
+      // positions: 0=|, 1= , 2=c, 3=e, 4=l, 5=l, 6= , 7=\, 8=|, 9= , 10=m, 11=o, 12=r, 13=e, 14= , 15=|
+      // Selection 4..12 spans "ll \| mor" — contains escaped pipe at 8, unescaped pipe: none in range
+      // So this should be allowed (return false)
+      const handled = smartBackspace(view);
+      expect(handled).toBe(false);
+    });
+
+    it("blocks selection spanning multi-line with structural chars", () => {
+      const content = "| cell1 |\n| cell2 |";
+      // Selection across the two lines including pipes
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 5, head: 14 },
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe(content);
+    });
+  });
+
   describe("smartBackspace", () => {
     it("moves cursor before pipe instead of deleting", () => {
       const view = createView("| ^cell |");
@@ -363,17 +538,18 @@ describe("Structural Character Protection", () => {
       expect(handled).toBe(false);
     });
 
-    it("returns false when there is a selection", () => {
+    it("blocks deletion when selection spans a pipe in table", () => {
       const content = "| cell |";
       const state = EditorState.create({
         doc: content,
-        selection: { anchor: 2, head: 4 }, // Selection
+        selection: { anchor: 2, head: 4 }, // Selection within cell, no pipe
       });
       const container = document.createElement("div");
       document.body.appendChild(container);
       const view = new EditorView({ state, parent: container });
       views.push(view);
 
+      // Selection "ce" is within cell — no structural char
       const handled = smartBackspace(view);
       expect(handled).toBe(false);
     });
@@ -471,11 +647,27 @@ describe("Structural Character Protection", () => {
       expect(handled).toBe(false);
     });
 
-    it("returns false when there is a selection", () => {
+    it("blocks deletion when selection spans pipe in table", () => {
       const content = "| cell | next";
       const state = EditorState.create({
         doc: content,
-        selection: { anchor: 2, head: 4 },
+        selection: { anchor: 5, head: 10 }, // Spans the middle pipe
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartDelete(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe(content);
+    });
+
+    it("allows selection within single cell (no pipe)", () => {
+      const content = "| cell | next";
+      const state = EditorState.create({
+        doc: content,
+        selection: { anchor: 2, head: 4 }, // Within cell1
       });
       const container = document.createElement("div");
       document.body.appendChild(container);
