@@ -161,9 +161,13 @@ export async function triggerPastePlainText(view: EditorView): Promise<void> {
 
   const text = await readClipboardPlainText();
   if (!text) return;
-  const { from, to } = view.state.selection;
-  const tr = view.state.tr.insertText(text, from, to);
-  view.dispatch(tr.scrollIntoView());
+  try {
+    const { from, to } = view.state.selection;
+    const tr = view.state.tr.insertText(text, from, to);
+    view.dispatch(tr.scrollIntoView());
+  } catch {
+    // View may have been destroyed during clipboard read
+  }
 }
 
 /** Tiptap extension that intercepts paste events and parses markdown-formatted plain text. */
