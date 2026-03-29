@@ -16,7 +16,7 @@
  */
 
 import { type KeyBinding, type EditorView } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
+import { EditorState, EditorSelection, type ChangeSpec, type SelectionRange } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 
 /**
@@ -37,13 +37,10 @@ export const TASK_ITEM_PATTERN = /^(\s*)([-*+])\s\[([ xX])\]\s/;
 export const BLOCKQUOTE_PATTERN = /^(\s*)(>+)\s?/;
 
 /**
- * Check if cursor is right after a table pipe at cell start.
+ * Check if a position is right after a table pipe at cell start.
  * Returns the pipe position if true, or -1 if not.
- * Exported for testing.
  */
-export function getCellStartPipePos(view: EditorView): number {
-  const { state } = view;
-  const { head } = state.selection.main;
+function getCellStartPipePosAt(state: EditorState, head: number): number {
   const line = state.doc.lineAt(head);
 
   // Not in a table row
@@ -64,15 +61,21 @@ export function getCellStartPipePos(view: EditorView): number {
 }
 
 /**
- * Check if cursor is right after a list marker.
- * Returns the marker range if true, or null if not.
+ * Check if cursor is right after a table pipe at cell start.
+ * Returns the pipe position if true, or -1 if not.
  * Exported for testing.
  */
-export function getListMarkerRange(
-  view: EditorView
+export function getCellStartPipePos(view: EditorView): number {
+  return getCellStartPipePosAt(view.state, view.state.selection.main.head);
+}
+
+/**
+ * Check if a position is right after a list marker.
+ * Returns the marker range if true, or null if not.
+ */
+function getListMarkerRangeAt(
+  state: EditorState, head: number
 ): { from: number; to: number; indent: number } | null {
-  const { state } = view;
-  const { head } = state.selection.main;
   const line = state.doc.lineAt(head);
   const offsetInLine = head - line.from;
 
@@ -95,15 +98,22 @@ export function getListMarkerRange(
 }
 
 /**
- * Check if cursor is right after a task list marker.
- * Returns the marker range and indent if true, or null if not.
+ * Check if cursor is right after a list marker.
  * Exported for testing.
  */
-export function getTaskMarkerRange(
+export function getListMarkerRange(
   view: EditorView
 ): { from: number; to: number; indent: number } | null {
-  const { state } = view;
-  const { head } = state.selection.main;
+  return getListMarkerRangeAt(view.state, view.state.selection.main.head);
+}
+
+/**
+ * Check if a position is right after a task list marker.
+ * Returns the marker range and indent if true, or null if not.
+ */
+function getTaskMarkerRangeAt(
+  state: EditorState, head: number
+): { from: number; to: number; indent: number } | null {
   const line = state.doc.lineAt(head);
   const offsetInLine = head - line.from;
 
@@ -126,13 +136,22 @@ export function getTaskMarkerRange(
 }
 
 /**
- * Check if cursor is right after a blockquote marker.
- * Returns the marker position info if true, or null if not.
+ * Check if cursor is right after a task list marker.
  * Exported for testing.
  */
-export function getBlockquoteMarkerInfo(view: EditorView): { markerEnd: number; depth: number } | null {
-  const { state } = view;
-  const { head } = state.selection.main;
+export function getTaskMarkerRange(
+  view: EditorView
+): { from: number; to: number; indent: number } | null {
+  return getTaskMarkerRangeAt(view.state, view.state.selection.main.head);
+}
+
+/**
+ * Check if a position is right after a blockquote marker.
+ * Returns the marker position info if true, or null if not.
+ */
+function getBlockquoteMarkerInfoAt(
+  state: EditorState, head: number
+): { markerEnd: number; depth: number } | null {
   const line = state.doc.lineAt(head);
   const offsetInLine = head - line.from;
 
@@ -153,121 +172,138 @@ export function getBlockquoteMarkerInfo(view: EditorView): { markerEnd: number; 
 }
 
 /**
- * Handle backspace on a list/task marker: outdent if indented, remove marker at level 0.
+ * Check if cursor is right after a blockquote marker.
+ * Exported for testing.
  */
-function backspaceMarker(
-  view: EditorView,
+export function getBlockquoteMarkerInfo(view: EditorView): { markerEnd: number; depth: number } | null {
+  return getBlockquoteMarkerInfoAt(view.state, view.state.selection.main.head);
+}
+
+/**
+ * Compute backspace change for a list/task marker: outdent if indented, remove at level 0.
+ * Returns { changes, range } for use with changeByRange.
+ */
+function backspaceMarkerSpec(
+  state: EditorState,
+  head: number,
   marker: { from: number; to: number; indent: number }
-): void {
-  const { state } = view;
-  const { head } = state.selection.main;
+): { changes: ChangeSpec; range: SelectionRange } {
   if (marker.indent > 0) {
     const line = state.doc.lineAt(head);
     const tabSize = state.facet(EditorState.tabSize);
     const removeCount = Math.min(marker.indent, tabSize);
-    view.dispatch({
+    return {
       changes: { from: line.from, to: line.from + removeCount },
-      scrollIntoView: true,
-    });
-  } else {
-    view.dispatch({
-      changes: { from: marker.from, to: marker.to },
-      scrollIntoView: true,
-    });
+      range: EditorSelection.cursor(head - removeCount),
+    };
   }
+  return {
+    changes: { from: marker.from, to: marker.to },
+    range: EditorSelection.cursor(marker.from),
+  };
+}
+
+/**
+ * Compute backspace change for a blockquote marker.
+ * Returns { changes, range } for use with changeByRange.
+ */
+function backspaceBlockquoteSpec(
+  state: EditorState,
+  head: number,
+  info: { markerEnd: number; depth: number }
+): { changes: ChangeSpec; range: SelectionRange } | null {
+  const line = state.doc.lineAt(head);
+  const match = line.text.match(BLOCKQUOTE_PATTERN);
+  /* v8 ignore next -- @preserve else branch: match always succeeds when getBlockquoteMarkerInfo returns non-null */
+  if (!match) return null;
+
+  if (info.depth > 1) {
+    const newText = match[1] + ">".repeat(info.depth - 1) + " ";
+    return {
+      changes: { from: line.from, to: line.from + match[0].length, insert: newText },
+      range: EditorSelection.cursor(line.from + newText.length),
+    };
+  }
+  return {
+    changes: { from: line.from, to: line.from + match[0].length },
+    range: EditorSelection.cursor(line.from),
+  };
+}
+
+/**
+ * Compute the backspace change spec for a single cursor position.
+ * Returns null if the position is not at a structural character.
+ */
+function backspaceSpecForCursor(
+  state: EditorState, head: number
+): { changes: ChangeSpec; range: SelectionRange } | null {
+  const pipePos = getCellStartPipePosAt(state, head);
+  if (pipePos >= 0) {
+    return { changes: [], range: EditorSelection.cursor(pipePos) };
+  }
+
+  const taskMarker = getTaskMarkerRangeAt(state, head);
+  if (taskMarker) return backspaceMarkerSpec(state, head, taskMarker);
+
+  const listMarker = getListMarkerRangeAt(state, head);
+  if (listMarker) return backspaceMarkerSpec(state, head, listMarker);
+
+  const bqInfo = getBlockquoteMarkerInfoAt(state, head);
+  if (bqInfo) return backspaceBlockquoteSpec(state, head, bqInfo);
+
+  return null;
 }
 
 /**
  * Smart backspace handler that protects structural characters.
+ * Processes each cursor independently for multi-cursor support.
  * Exported for testing.
  */
 export function smartBackspace(view: EditorView): boolean {
   const { state } = view;
+  const { ranges } = state.selection;
 
-  // Bail out with multiple cursors — let CodeMirror handle default behavior
-  if (state.selection.ranges.length > 1) return false;
+  // Only handle when all cursors are empty (no text selection)
+  if (ranges.some(r => !r.empty)) return false;
 
-  const { head, empty } = state.selection.main;
-
-  // Only handle when there's no selection
-  if (!empty) return false;
-
-  // At document start - nothing to delete
-  if (head === 0) return false;
-
-  // Check if we're at a table cell start
-  const pipePos = getCellStartPipePos(view);
-  if (pipePos >= 0) {
-    // Move cursor before the pipe instead of deleting it
-    // This allows user to navigate to previous cell
-    view.dispatch({
-      selection: { anchor: pipePos },
-      scrollIntoView: true,
-    });
-    return true;
-  }
-
-  // Check task marker first (more specific pattern, before regular list)
-  const taskMarker = getTaskMarkerRange(view);
-  if (taskMarker) {
-    backspaceMarker(view, taskMarker);
-    return true;
-  }
-
-  // Check if we're at a list marker
-  const listMarker = getListMarkerRange(view);
-  if (listMarker) {
-    backspaceMarker(view, listMarker);
-    return true;
-  }
-
-  // Check if we're at a blockquote marker
-  const blockquoteInfo = getBlockquoteMarkerInfo(view);
-  if (blockquoteInfo) {
-    const line = state.doc.lineAt(head);
-    const match = line.text.match(BLOCKQUOTE_PATTERN);
-    /* v8 ignore next -- @preserve else branch: match always succeeds when getBlockquoteMarkerInfo returns non-null */
-    if (match) {
-      if (blockquoteInfo.depth > 1) {
-        // Multiple > characters - remove just one level
-        const newText = match[1] + ">".repeat(blockquoteInfo.depth - 1) + " ";
-        view.dispatch({
-          changes: { from: line.from, to: line.from + match[0].length, insert: newText },
-          selection: { anchor: line.from + newText.length },
-          scrollIntoView: true,
-        });
-      } else {
-        // Single > - remove the entire marker
-        view.dispatch({
-          changes: { from: line.from, to: line.from + match[0].length },
-          scrollIntoView: true,
-        });
-      }
-      return true;
+  // Check if any cursor is at a structural position
+  let anyStructural = false;
+  for (const range of ranges) {
+    if (range.head > 0 && backspaceSpecForCursor(state, range.head)) {
+      anyStructural = true;
+      break;
     }
   }
+  if (!anyStructural) return false;
 
-  // Not at a structural character - let default behavior proceed
-  return false;
+  view.dispatch(
+    state.changeByRange(range => {
+      const { head } = range;
+      if (head === 0) return { range };
+
+      const spec = backspaceSpecForCursor(state, head);
+      if (spec) return spec;
+
+      // Non-structural cursor: apply default single-char backspace
+      return {
+        changes: { from: head - 1, to: head },
+        range: EditorSelection.cursor(head - 1),
+      };
+    }),
+    { scrollIntoView: true }
+  );
+
+  return true;
 }
 
 /**
- * Smart delete handler (similar logic for forward delete).
- * Exported for testing.
+ * Compute the delete change spec for a single cursor position.
+ * Returns null if the position is not at a structural character.
  */
-export function smartDelete(view: EditorView): boolean {
-  const { state } = view;
-
-  // Bail out with multiple cursors — let CodeMirror handle default behavior
-  if (state.selection.ranges.length > 1) return false;
-
-  const { head, empty } = state.selection.main;
-
-  // Only handle when there's no selection
-  if (!empty) return false;
-
-  // At document end - nothing to delete
-  if (head >= state.doc.length) return false;
+function deleteSpecForCursor(
+  state: EditorState, head: number
+): { changes: ChangeSpec; range: SelectionRange } | null {
+  if (head >= state.doc.length) return null;
 
   const line = state.doc.lineAt(head);
   const offsetInLine = head - line.from;
@@ -276,15 +312,8 @@ export function smartDelete(view: EditorView): boolean {
   const charAfter = line.text[offsetInLine];
   if (charAfter === "|" && TABLE_ROW_PATTERN.test(line.text)) {
     // Don't protect escaped pipes (\|) — they are cell content, not delimiters
-    if (offsetInLine > 0 && line.text[offsetInLine - 1] === "\\") {
-      return false;
-    }
-    // Skip over the pipe instead of deleting
-    view.dispatch({
-      selection: { anchor: head + 1 },
-      scrollIntoView: true,
-    });
-    return true;
+    if (offsetInLine > 0 && line.text[offsetInLine - 1] === "\\") return null;
+    return { changes: [], range: EditorSelection.cursor(head + 1) };
   }
 
   // At end of line, forward-deleting would merge with next line —
@@ -292,45 +321,69 @@ export function smartDelete(view: EditorView): boolean {
   if (head === line.to && line.number < state.doc.lines) {
     const nextLine = state.doc.line(line.number + 1);
 
-    // Check table row
     if (TABLE_ROW_PATTERN.test(nextLine.text)) {
-      view.dispatch({
-        selection: { anchor: nextLine.from },
-        scrollIntoView: true,
-      });
-      return true;
+      return { changes: [], range: EditorSelection.cursor(nextLine.from) };
     }
 
-    // Check task marker first (more specific than list)
     const taskMatch = nextLine.text.match(TASK_ITEM_PATTERN);
     if (taskMatch) {
-      view.dispatch({
-        selection: { anchor: nextLine.from + taskMatch[0].length },
-        scrollIntoView: true,
-      });
-      return true;
+      return { changes: [], range: EditorSelection.cursor(nextLine.from + taskMatch[0].length) };
     }
 
     const listMatch = nextLine.text.match(LIST_ITEM_PATTERN);
     if (listMatch) {
-      view.dispatch({
-        selection: { anchor: nextLine.from + listMatch[0].length },
-        scrollIntoView: true,
-      });
-      return true;
+      return { changes: [], range: EditorSelection.cursor(nextLine.from + listMatch[0].length) };
     }
 
     const blockquoteMatch = nextLine.text.match(BLOCKQUOTE_PATTERN);
     if (blockquoteMatch) {
-      view.dispatch({
-        selection: { anchor: nextLine.from + blockquoteMatch[0].length },
-        scrollIntoView: true,
-      });
-      return true;
+      return { changes: [], range: EditorSelection.cursor(nextLine.from + blockquoteMatch[0].length) };
     }
   }
 
-  return false;
+  return null;
+}
+
+/**
+ * Smart delete handler that protects structural characters.
+ * Processes each cursor independently for multi-cursor support.
+ * Exported for testing.
+ */
+export function smartDelete(view: EditorView): boolean {
+  const { state } = view;
+  const { ranges } = state.selection;
+
+  // Only handle when all cursors are empty (no text selection)
+  if (ranges.some(r => !r.empty)) return false;
+
+  // Check if any cursor is at a structural position
+  let anyStructural = false;
+  for (const range of ranges) {
+    if (deleteSpecForCursor(state, range.head)) {
+      anyStructural = true;
+      break;
+    }
+  }
+  if (!anyStructural) return false;
+
+  view.dispatch(
+    state.changeByRange(range => {
+      const { head } = range;
+
+      const spec = deleteSpecForCursor(state, head);
+      if (spec) return spec;
+
+      // Non-structural cursor: apply default single-char delete
+      if (head >= state.doc.length) return { range };
+      return {
+        changes: { from: head, to: head + 1 },
+        range: EditorSelection.cursor(head),
+      };
+    }),
+    { scrollIntoView: true }
+  );
+
+  return true;
 }
 
 /**

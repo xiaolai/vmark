@@ -499,7 +499,7 @@ describe("Structural Character Protection", () => {
       expect(handled).toBe(false);
     });
 
-    it("returns false with multiple cursors (multi-cursor bail-out)", () => {
+    it("protects pipes with multiple cursors", () => {
       const content = "| cell | next |";
       const state = EditorState.create({
         doc: content,
@@ -515,7 +515,12 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartDelete(view);
-      expect(handled).toBe(false);
+      expect(handled).toBe(true);
+      // Both cursors should skip over their respective pipes
+      const ranges = view.state.selection.ranges;
+      expect(ranges).toHaveLength(2);
+      expect(ranges[0].head).toBe(8);  // after second pipe
+      expect(ranges[1].head).toBe(15); // after last pipe
     });
   });
 
@@ -584,15 +589,16 @@ describe("Structural Character Protection", () => {
     });
   });
 
-  describe("multi-cursor bail-out", () => {
-    it("smartBackspace returns false with multiple cursors", () => {
+  describe("multi-cursor structural protection", () => {
+    it("smartBackspace protects pipes with multiple cursors", () => {
+      // Two cursors right after pipes: "| ^cell | ^next |"
       const content = "| cell | next |";
       const state = EditorState.create({
         doc: content,
         extensions: [EditorState.allowMultipleSelections.of(true)],
         selection: EditorSelection.create([
-          EditorSelection.cursor(2),
-          EditorSelection.cursor(9),
+          EditorSelection.cursor(2),  // after "| " (right after pipe+space)
+          EditorSelection.cursor(9),  // after "| next " -> after second "| "
         ], 0),
       });
       const container = document.createElement("div");
@@ -601,6 +607,120 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // Both cursors should move before their respective pipes
+      const ranges = view.state.selection.ranges;
+      expect(ranges).toHaveLength(2);
+      expect(ranges[0].head).toBe(0); // before first pipe
+      expect(ranges[1].head).toBe(7); // before second pipe
+    });
+
+    it("smartBackspace removes list markers with multiple cursors", () => {
+      const content = "- item1\n- item2";
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(2),  // after "- " on line 1
+          EditorSelection.cursor(10), // after "- " on line 2
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      expect(view.state.doc.toString()).toBe("item1\nitem2");
+    });
+
+    it("smartBackspace handles mixed structural and non-structural cursors", () => {
+      // Cursor 1 is at a pipe (structural), cursor 2 is at normal text
+      const content = "| cell |\nplain text";
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(2),  // after "| " (structural)
+          EditorSelection.cursor(13), // between "i" and "n" in "plain" (non-structural)
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // Pipe cursor should move before pipe, text cursor should delete prev char ("i")
+      const doc = view.state.doc.toString();
+      expect(doc).toBe("| cell |\nplan text");
+      const ranges = view.state.selection.ranges;
+      expect(ranges).toHaveLength(2);
+      expect(ranges[0].head).toBe(0);  // before pipe
+      expect(ranges[1].head).toBe(12); // where "i" was
+    });
+
+    it("smartDelete protects structural markers with multiple cursors on next lines", () => {
+      const content = "text1\n- item1\ntext2\n> quote";
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(5),  // end of "text1", next line has "- item1"
+          EditorSelection.cursor(19), // end of "text2", next line has "> quote"
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartDelete(view);
+      expect(handled).toBe(true);
+      // Cursors should skip to after markers on next lines
+      const ranges = view.state.selection.ranges;
+      expect(ranges).toHaveLength(2);
+      expect(ranges[0].head).toBe(8);  // after "- " on line 2
+      expect(ranges[1].head).toBe(22); // after "> " on line 4
+    });
+
+    it("smartBackspace returns false when no cursor is at structural position", () => {
+      const content = "plain1\nplain2";
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(3),
+          EditorSelection.cursor(10),
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(false);
+    });
+
+    it("smartDelete returns false when no cursor is at structural position", () => {
+      const content = "plain1\nplain2";
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(3),
+          EditorSelection.cursor(10),
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartDelete(view);
       expect(handled).toBe(false);
     });
   });
