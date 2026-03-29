@@ -103,22 +103,34 @@ export async function resolveRelativePath(
   src: string,
   baseDir: string
 ): Promise<string | null> {
-  // Handle absolute paths
+  // Handle absolute paths — must still be within baseDir
   if (src.startsWith("/")) {
-    return src;
+    const normalizedPath = await normalize(src);
+    const normalizedBase = await normalize(baseDir);
+    if (!normalizedPath.startsWith(normalizedBase)) {
+      exportWarn(`Absolute path traversal blocked: ${src}`);
+      return null;
+    }
+    return normalizedPath;
   }
 
-  // Handle asset URLs - extract the path
+  // Handle asset URLs - extract the path, then validate against baseDir
   // Formats: asset://localhost/path, https://asset.localhost/path
   if (isAssetUrl(src)) {
     try {
       const url = new URL(src);
-      // pathname is /path/to/file.png (includes leading slash)
-      return decodeURIComponent(url.pathname);
+      const extractedPath = decodeURIComponent(url.pathname);
+      const normalizedPath = await normalize(extractedPath);
+      const normalizedBase = await normalize(baseDir);
+      if (!normalizedPath.startsWith(normalizedBase)) {
+        exportWarn(`Asset URL path traversal blocked: ${src}`);
+        return null;
+      }
+      return normalizedPath;
     } catch (error) {
       /* v8 ignore start -- @preserve reason: asset:// and https://asset.localhost/ URLs always parse successfully via new URL(); catch is defensive only */
       exportWarn("Failed to parse asset URL:", src, error);
-      return src;
+      return null;
       /* v8 ignore stop */
     }
   }

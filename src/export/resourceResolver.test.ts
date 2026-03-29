@@ -210,9 +210,17 @@ describe("extractImageSources", () => {
 // resolveRelativePath
 // ---------------------------------------------------------------------------
 describe("resolveRelativePath", () => {
-  it("returns absolute paths as-is", async () => {
-    const result = await resolveRelativePath("/absolute/path.png", "/base");
-    expect(result).toBe("/absolute/path.png");
+  it("blocks absolute paths outside baseDir", async () => {
+    const result = await resolveRelativePath("/etc/passwd", "/Users/test/docs");
+    expect(result).toBeNull();
+  });
+
+  it("allows absolute paths within baseDir", async () => {
+    const result = await resolveRelativePath(
+      "/Users/test/docs/images/photo.png",
+      "/Users/test/docs",
+    );
+    expect(result).toBe("/Users/test/docs/images/photo.png");
   });
 
   it("resolves relative paths against base directory", async () => {
@@ -223,36 +231,52 @@ describe("resolveRelativePath", () => {
     expect(result).toBe("/Users/test/docs/images/photo.png");
   });
 
-  it("extracts path from asset:// URLs", async () => {
+  it("allows asset:// URLs within baseDir", async () => {
     const result = await resolveRelativePath(
-      "asset://localhost/path/to/file.png",
-      "/base",
+      "asset://localhost/Users/test/docs/file.png",
+      "/Users/test/docs",
     );
-    expect(result).toBe("/path/to/file.png");
+    expect(result).toBe("/Users/test/docs/file.png");
   });
 
-  it("extracts path from https://asset.localhost/ URLs", async () => {
+  it("blocks asset:// URLs outside baseDir", async () => {
     const result = await resolveRelativePath(
-      "https://asset.localhost/path/to/file.png",
-      "/base",
+      "asset://localhost/etc/passwd",
+      "/Users/test/docs",
     );
-    expect(result).toBe("/path/to/file.png");
+    expect(result).toBeNull();
+  });
+
+  it("allows https://asset.localhost/ URLs within baseDir", async () => {
+    const result = await resolveRelativePath(
+      "https://asset.localhost/Users/test/docs/file.png",
+      "/Users/test/docs",
+    );
+    expect(result).toBe("/Users/test/docs/file.png");
+  });
+
+  it("blocks https://asset.localhost/ URLs outside baseDir", async () => {
+    const result = await resolveRelativePath(
+      "https://asset.localhost/etc/shadow",
+      "/Users/test/docs",
+    );
+    expect(result).toBeNull();
   });
 
   it("decodes URI-encoded characters in asset URLs", async () => {
     const result = await resolveRelativePath(
-      "asset://localhost/path/to/my%20file.png",
-      "/base",
+      "asset://localhost/Users/test/docs/my%20file.png",
+      "/Users/test/docs",
     );
-    expect(result).toBe("/path/to/my file.png");
+    expect(result).toBe("/Users/test/docs/my file.png");
   });
 
-  it("handles tauri:// URLs", async () => {
+  it("blocks tauri:// URLs outside baseDir", async () => {
     const result = await resolveRelativePath(
       "tauri://localhost/resource.png",
-      "/base",
+      "/Users/test/docs",
     );
-    expect(result).toBe("/resource.png");
+    expect(result).toBeNull();
   });
 
   it("returns src as-is for invalid asset URL parse", async () => {
