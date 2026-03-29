@@ -284,7 +284,9 @@ export function useDragDropOpen(): void {
       unlistenRef.current = unlisten;
     };
 
-    setupDragDrop();
+    setupDragDrop().catch((error) => {
+      dragDropError("Failed to setup drag-drop listeners:", error);
+    });
 
     return () => {
       cancelled = true;

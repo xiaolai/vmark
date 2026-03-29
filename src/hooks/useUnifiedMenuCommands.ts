@@ -382,7 +382,9 @@ export function useUnifiedMenuCommands(): void {
       unlistenRefs.current = unlisteners;
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      menuError("Failed to setup unified menu listeners:", error);
+    });
 
     return () => {
       disposed = true;

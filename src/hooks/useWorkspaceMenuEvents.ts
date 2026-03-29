@@ -134,7 +134,9 @@ export function useWorkspaceMenuEvents() {
       unlistenRefs.current.push(unlistenCloseWorkspace);
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      workspaceError("Failed to setup workspace menu listeners:", error);
+    });
 
     return () => {
       cancelled = true;

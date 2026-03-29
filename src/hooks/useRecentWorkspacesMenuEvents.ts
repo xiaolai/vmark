@@ -147,7 +147,9 @@ export function useRecentWorkspacesMenuEvents(): void {
       unlistenRefs.current.push(unlistenOpenRecent);
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      workspaceWarn("Failed to setup recent workspaces listeners:", error);
+    });
 
     return () => {
       cancelled = true;

@@ -29,6 +29,7 @@ import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
+import { menuError } from "@/utils/debug";
 
 const DEFAULT_FONT_SIZE = 18;
 const MIN_FONT_SIZE = 12;
@@ -234,7 +235,9 @@ export function useViewMenuEvents(): void {
       unlistenRefs.current.push(unlistenLintPrev);
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      menuError("Failed to setup view menu listeners:", error);
+    });
 
     return () => {
       cancelled = true;

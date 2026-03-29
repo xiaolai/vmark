@@ -140,7 +140,9 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
       }
     };
 
-    setup();
+    setup().catch((error) => {
+      outlineSyncError("Failed to setup outline scroll listener:", error);
+    });
 
     return () => {
       cancelled = true;

@@ -399,7 +399,9 @@ export function useExternalFileChanges(): void {
       unlistenRef.current = unlisten;
     };
 
-    setupListener();
+    setupListener().catch((error) => {
+      fileOpsError("Failed to setup external file change listener:", error);
+    });
 
     return () => {
       cancelled = true;

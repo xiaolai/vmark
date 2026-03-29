@@ -105,7 +105,9 @@ export function useFileShortcuts(windowLabel: string): void {
       unlistenRefs.current.push(unlistenOpenFile);
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      fileOpsError("Failed to setup file shortcut listeners:", error);
+    });
 
     // Keyboard shortcut handler for file operations
     // Menu accelerators don't always work reliably (TipTap captures events),

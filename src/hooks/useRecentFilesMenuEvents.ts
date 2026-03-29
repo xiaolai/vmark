@@ -165,7 +165,9 @@ export function useRecentFilesMenuEvents(): void {
       unlistenRefs.current.push(unlistenOpenRecent);
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      menuError("Failed to setup recent files menu listeners:", error);
+    });
 
     return () => {
       cancelled = true;

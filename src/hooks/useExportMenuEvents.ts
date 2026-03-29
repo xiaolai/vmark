@@ -178,7 +178,9 @@ export function useExportMenuEvents(): void {
       unlistenRefs.current.push(unlistenCopyHtml);
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      menuError("Failed to setup export menu listeners:", error);
+    });
 
     return () => {
       cancelled = true;

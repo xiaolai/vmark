@@ -262,7 +262,9 @@ export function useImageDragDrop({
       unlistenRef.current = unlisten;
     };
 
-    setupDragDrop();
+    setupDragDrop().catch((error) => {
+      dragDropError("Failed to setup image drag-drop listeners:", error);
+    });
 
     return () => {
       cancelled = true;

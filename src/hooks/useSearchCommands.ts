@@ -15,6 +15,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSearchStore } from "@/stores/searchStore";
 import { useUIStore } from "@/stores/uiStore";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
+import { menuError } from "@/utils/debug";
 
 /** Hook that handles Find/Replace menu events (open, next, prev, use-selection) for the current window. */
 export function useSearchCommands() {
@@ -82,7 +83,9 @@ export function useSearchCommands() {
       unlistenRefs.current.push(unlistenUseSelection);
     };
 
-    setupListeners();
+    setupListeners().catch((error) => {
+      menuError("Failed to setup search listeners:", error);
+    });
 
     return () => {
       cancelled = true;
