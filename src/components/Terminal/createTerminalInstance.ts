@@ -83,6 +83,8 @@ export interface TerminalInstance {
    * onData which may inject spaces (macOS Chinese IME: "claude" → "cl au de").
    */
   onCompositionCommit: ((text: string) => void) | null;
+  /** Text pending commit during grace period — used to block xterm re-emission (#608). */
+  pendingCommitText: string | null;
   /** Last text committed via onCompositionCommit — used for dedup against late onData (#525). */
   lastCommittedText: string | null;
   /** Timestamp (Date.now()) of the last onCompositionCommit — dedup window check (#525). */
@@ -345,6 +347,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     get inGracePeriod() { return inGracePeriod; },
     get onCompositionCommit() { return onCompositionCommit; },
     set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
+    get pendingCommitText() { return pendingCommitText; },
     get lastCommittedText() { return lastCommittedText; },
     get lastCommitTime() { return lastCommitTime; },
   };
