@@ -292,6 +292,10 @@ export function useTerminalSessions(
         // let non-ASCII through so CJK punctuation isn't silently dropped (#454).
         if (instance.composing) {
           if (!instance.inGracePeriod) return; // active composition — block all
+          // Grace period: block the committed text xterm re-emits (#608).
+          // Without this, CJK text (e.g., "你好") passes the ASCII-only check below,
+          // gets written to PTY, and then onCompositionCommit writes it again → duplication.
+          if (instance.pendingCommitText && data === instance.pendingCommitText) return;
           // eslint-disable-next-line no-control-regex
           if (/^[\x00-\x7F]+$/.test(data)) return; // grace period — block ASCII only
         }
