@@ -130,6 +130,9 @@ const HTML_PREVIEW_ATTRS = [
   "id",
   "target",
   "rel",
+  "width",
+  "height",
+  "align",
 ];
 
 const HTML_PREVIEW_STYLE_PROPS = new Set([
@@ -138,6 +141,21 @@ const HTML_PREVIEW_STYLE_PROPS = new Set([
   "font-weight",
   "font-style",
   "text-decoration",
+  "text-align",
+  "margin",
+  "margin-left",
+  "margin-right",
+  "margin-top",
+  "margin-bottom",
+  "padding",
+  "padding-left",
+  "padding-right",
+  "padding-top",
+  "padding-bottom",
+  "display",
+  "max-width",
+  "width",
+  "height",
 ]);
 
 /** Whether the HTML preview allows inline-only or block-level elements. */

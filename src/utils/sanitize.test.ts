@@ -975,11 +975,11 @@ describe("sanitizeHtmlPreview — additional coverage", () => {
   });
 
   it("removes style attribute with only unsafe properties", () => {
-    const input = '<span style="position: absolute; display: flex;">Text</span>';
+    const input = '<span style="position: absolute; z-index: 9999;">Text</span>';
     const result = sanitizeHtmlPreview(input, { allowStyles: true });
-    // position and display are not in the allowlist
+    // position and z-index are not in the allowlist
     expect(result).not.toContain("position");
-    expect(result).not.toContain("display");
+    expect(result).not.toContain("z-index");
   });
 
   it("handles style with < and > in value", () => {
@@ -1190,5 +1190,84 @@ describe("sanitize — stripNonWhitelistedIframes no-DOM branch (line 267)", () 
     } finally {
       global.document = saved;
     }
+  });
+});
+
+describe("sanitizeHtmlPreview — layout attributes (#618)", () => {
+  it("preserves width attribute on img", () => {
+    const input = '<img src="photo.jpg" alt="Photo" width="200" />';
+    const result = sanitizeHtmlPreview(input, { context: "block" });
+    expect(result).toContain('width="200"');
+  });
+
+  it("preserves height attribute on img", () => {
+    const input = '<img src="photo.jpg" alt="Photo" height="100" />';
+    const result = sanitizeHtmlPreview(input, { context: "block" });
+    expect(result).toContain('height="100"');
+  });
+
+  it("preserves align attribute on p", () => {
+    const input = '<p align="center">Centered</p>';
+    const result = sanitizeHtmlPreview(input, { context: "block" });
+    expect(result).toContain('align="center"');
+  });
+
+  it("renders centered image pattern from GitHub READMEs", () => {
+    const input = '<p align="center"><img src="icon.svg" alt="Icon" width="200" /></p>';
+    const result = sanitizeHtmlPreview(input, { context: "block" });
+    expect(result).toContain('align="center"');
+    expect(result).toContain('width="200"');
+    expect(result).toContain('src="icon.svg"');
+  });
+
+  it("preserves text-align style when allowStyles is true", () => {
+    const input = '<div style="text-align: center;">Centered</div>';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).toContain("text-align");
+  });
+
+  it("preserves margin style when allowStyles is true", () => {
+    const input = '<div style="margin: 0 auto;">Centered</div>';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).toContain("margin");
+  });
+
+  it("preserves max-width style when allowStyles is true", () => {
+    const input = '<img style="max-width: 100%;" src="img.png" />';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).toContain("max-width");
+  });
+
+  it("preserves display style when allowStyles is true", () => {
+    const input = '<span style="display: inline-block;">Box</span>';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).toContain("display");
+  });
+
+  it("preserves padding style when allowStyles is true", () => {
+    const input = '<div style="padding: 10px;">Padded</div>';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).toContain("padding");
+  });
+
+  it("preserves width/height styles when allowStyles is true", () => {
+    const input = '<div style="width: 200px; height: 100px;">Sized</div>';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).toContain("width");
+    expect(result).toContain("height");
+  });
+
+  it("still blocks position style (security)", () => {
+    const input = '<div style="position: fixed; text-align: center;">Trap</div>';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).not.toContain("position");
+    expect(result).toContain("text-align");
+  });
+
+  it("still blocks url() in layout styles (security)", () => {
+    const input = '<div style="background: url(evil.jpg); margin: 10px;">Test</div>';
+    const result = sanitizeHtmlPreview(input, { context: "block", allowStyles: true });
+    expect(result).not.toContain("url(");
+    expect(result).toContain("margin");
   });
 });

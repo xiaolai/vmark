@@ -194,7 +194,7 @@ const initialState: SettingsState = {
     mediaAlignment: "center",
     headingAlignment: "left",
     blockFontSize: "1",
-    htmlRenderingMode: "hidden",
+    htmlRenderingMode: "sanitized",
     hardBreakStyleOnSave: "preserve",
     autoPairEnabled: true,
     autoPairCJKStyle: "auto",

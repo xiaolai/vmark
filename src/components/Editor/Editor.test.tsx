@@ -90,7 +90,7 @@ vi.mock("@/stores/settingsStore", () => {
       mediaAlignment: "center",
       headingAlignment: "left",
       blockFontSize: "1",
-      htmlRenderingMode: "hidden",
+      htmlRenderingMode: "sanitized",
     },
     advanced: {
       keepBothEditorsAlive: false,

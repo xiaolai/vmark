@@ -469,3 +469,10 @@ describe("settingsStore paragraphSpacing → blockSpacing migration", () => {
     expect(appearance.blockSpacing).toBe(2);
   });
 });
+
+describe("settingsStore markdown defaults (#618)", () => {
+  it("defaults htmlRenderingMode to sanitized so HTML blocks render", () => {
+    const { markdown } = useSettingsStore.getState();
+    expect(markdown.htmlRenderingMode).toBe("sanitized");
+  });
+});
