@@ -23,7 +23,6 @@
     "mcp-bridge:default",
     "shell:allow-spawn",
     "shell:allow-kill",
-    "pty:default",
     "updater:default",
     "process:allow-restart",
     "process:allow-exit",

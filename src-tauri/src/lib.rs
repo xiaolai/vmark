@@ -38,6 +38,7 @@ mod window_manager;
 mod workspace;
 mod content_search;
 mod file_tree;
+mod pty;
 mod hot_exit;
 mod pandoc;
 mod tab_transfer;
@@ -451,7 +452,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_pty::init())
+        // PTY managed via custom commands (pty.rs), not a plugin
         .plugin({
             let mid = machine_id_hash();
             tauri_plugin_updater::Builder::new()
@@ -560,8 +561,17 @@ pub fn run() {
             pandoc::commands::detect_pandoc,
             pandoc::commands::export_via_pandoc,
             content_search::search_workspace_content,
+            pty::pty_spawn,
+            pty::pty_start,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_kill,
+            pty::pty_close,
+            pty::pty_pause,
+            pty::pty_resume,
         ])
         .setup(|app| {
+            app.manage(pty::PtyState::default());
             let menu = menu::localized::create_localized_menu(app.handle(), None)?;
             app.set_menu(menu)?;
 

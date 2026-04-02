@@ -3665,8 +3665,6 @@ dependencies = [
  "libc",
  "log",
  "nix 0.28.0",
- "serde",
- "serde_derive",
  "serial2",
  "shared_library",
  "shell-words",
@@ -5373,19 +5371,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-pty"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5da8233d3c7b3581ff7da274d32b9145396da9d68bd16cedbbcb9a6908438be6"
-dependencies = [
- "portable-pty",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
-]
-
-[[package]]
 name = "tauri-plugin-shell"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6210,7 +6195,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vmark"
-version = "0.6.26"
+version = "0.6.27"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
@@ -6225,6 +6210,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "objc2-pdf-kit",
  "objc2-web-kit 0.3.2",
+ "portable-pty",
  "regex",
  "reqwest",
  "rust-i18n",
@@ -6241,7 +6227,6 @@ dependencies = [
  "tauri-plugin-mcp-bridge",
  "tauri-plugin-opener",
  "tauri-plugin-process",
- "tauri-plugin-pty",
  "tauri-plugin-shell",
  "tauri-plugin-store",
  "tauri-plugin-updater",

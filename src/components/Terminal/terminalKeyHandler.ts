@@ -17,7 +17,7 @@
  * @coordinates-with createTerminalInstance.ts — attached via term.attachCustomKeyEventHandler
  * @module components/Terminal/terminalKeyHandler
  */
-import type { IPty } from "tauri-pty";
+import type { IPty } from "@/lib/pty";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";

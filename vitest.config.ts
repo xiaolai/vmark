@@ -28,8 +28,6 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@shared": path.resolve(__dirname, "./src/shared"),
-      // tauri-pty has no "main" field, only "module" — resolve explicitly for vitest
-      "tauri-pty": path.resolve(__dirname, "node_modules/tauri-pty/dist/index.es.js"),
     },
   },
 });

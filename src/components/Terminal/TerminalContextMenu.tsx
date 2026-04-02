@@ -20,7 +20,7 @@ import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Copy, ClipboardPaste, Square, Trash2 } from "lucide-react";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
-import type { IPty } from "tauri-pty";
+import type { IPty } from "@/lib/pty";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import "../Sidebar/FileExplorer/ContextMenu.css";
 

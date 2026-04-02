@@ -39,7 +39,7 @@ vi.mock("@/utils/workspaceStorage", () => ({
   getCurrentWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("tauri-pty", () => ({
+vi.mock("@/lib/pty", () => ({
   spawn: vi.fn(() => ({
     onData: vi.fn(),
     onExit: vi.fn(),
@@ -54,7 +54,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { invoke } from "@tauri-apps/api/core";
-import { spawn } from "tauri-pty";
+import { spawn } from "@/lib/pty";
 
 describe("resolveTerminalCwd", () => {
   beforeEach(() => {
@@ -222,34 +222,6 @@ describe("wirePtyFlowControl", () => {
     // Next small chunk should go fast path (written was reset)
     sendChunk(100);
     expect(writeCallbacks).toHaveLength(1); // no new callback
-  });
-
-  it("survives when pause() throws (tauri-pty 0.2.x unimplemented)", () => {
-    mockPty.pause = vi.fn(() => { throw new Error("Method not implemented."); });
-    wirePtyFlowControl(mockPty, mockTerm, () => false);
-
-    // Should not throw even when pause() is unimplemented
-    expect(() => {
-      for (let i = 0; i <= HIGH_WATERMARK; i++) {
-        sendChunk(CALLBACK_BYTE_LIMIT + 1);
-      }
-    }).not.toThrow();
-  });
-
-  it("survives when resume() throws (tauri-pty 0.2.x unimplemented)", () => {
-    mockPty.resume = vi.fn(() => { throw new Error("Method not implemented."); });
-    wirePtyFlowControl(mockPty, mockTerm, () => false);
-
-    // Build up callbacks then flush — resume() should not throw
-    for (let i = 0; i <= HIGH_WATERMARK; i++) {
-      sendChunk(CALLBACK_BYTE_LIMIT + 1);
-    }
-    expect(() => {
-      const toFlush = writeCallbacks.length - LOW_WATERMARK + 1;
-      for (let i = 0; i < toFlush; i++) {
-        writeCallbacks.shift()?.();
-      }
-    }).not.toThrow();
   });
 
   it("converts plain number array to Uint8Array for correct UTF-8 decoding", () => {

@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TerminalContextMenu } from "./TerminalContextMenu";
 import type { Terminal } from "@xterm/xterm";
-import type { IPty } from "tauri-pty";
+import type { IPty } from "@/lib/pty";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
-vi.mock("tauri-pty", () => ({ spawn: vi.fn() }));
+vi.mock("@/lib/pty", () => ({ spawn: vi.fn() }));
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn(() => false),
 }));

@@ -167,13 +167,15 @@ vi.mock("@tauri-apps/api/webviewWindow", () => {
   };
 });
 
-vi.mock("tauri-pty", () => ({
+vi.mock("@/lib/pty", () => ({
   spawn: vi.fn(() => ({
     onData: vi.fn(),
     onExit: vi.fn(),
     write: vi.fn(),
     resize: vi.fn(),
     kill: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
   })),
 }));
 

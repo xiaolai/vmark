@@ -1,0 +1,84 @@
+<h2>Where should the search panel live?</h2>
+<p class="subtitle">Consider how it fits into VMark's existing layout (sidebar + editor + outline)</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Sidebar Panel (VS Code style)</h3>
+      <p>Replaces file explorer in the left sidebar. Search input at top, grouped results below. Persists while you navigate files. Clicking a result opens the file in editor.</p>
+      <div style="margin-top:12px; padding:12px; background:rgba(0,0,0,0.05); border-radius:8px; font-family:monospace; font-size:12px; line-height:1.6;">
+        <div style="display:flex; height:180px;">
+          <div style="width:240px; border-right:1px solid rgba(0,0,0,0.15); padding-right:8px;">
+            <div style="padding:4px 8px; background:rgba(0,0,0,0.06); border-radius:4px; margin-bottom:8px;">🔍 search query...</div>
+            <div style="font-size:11px; color:#666; margin-bottom:4px;">☐ Case ☐ Word ☐ Regex</div>
+            <div style="font-size:11px; margin-top:8px;">
+              <div style="font-weight:bold; color:#0066cc;">notes.md</div>
+              <div style="padding-left:12px; color:#666;">3: ...matching <span style="background:#fff3a3;">line</span>...</div>
+              <div style="padding-left:12px; color:#666;">17: ...another <span style="background:#fff3a3;">line</span>...</div>
+              <div style="font-weight:bold; color:#0066cc; margin-top:4px;">readme.md</div>
+              <div style="padding-left:12px; color:#666;">1: ...<span style="background:#fff3a3;">line</span> here...</div>
+            </div>
+          </div>
+          <div style="flex:1; padding-left:12px; color:#999; display:flex; align-items:center; justify-content:center;">
+            Editor area
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Center Overlay (Spotlight style)</h3>
+      <p>Like Quick Open — appears as a floating overlay on Cmd+Shift+F, disappears when you select a result. Lightweight, fast, non-persistent. Results listed below the search input.</p>
+      <div style="margin-top:12px; padding:12px; background:rgba(0,0,0,0.05); border-radius:8px; font-family:monospace; font-size:12px; line-height:1.6;">
+        <div style="height:180px; display:flex; align-items:flex-start; justify-content:center; padding-top:16px; position:relative;">
+          <div style="width:420px; background:white; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.15); padding:8px; position:relative; z-index:2;">
+            <div style="padding:6px 10px; background:rgba(0,0,0,0.04); border-radius:4px; margin-bottom:6px;">🔍 search query...</div>
+            <div style="font-size:11px; color:#666; margin-bottom:6px; padding:0 4px;">☐ Case ☐ Word ☐ Regex &nbsp; 3 results in 2 files</div>
+            <div style="font-size:11px; border-top:1px solid rgba(0,0,0,0.08); padding-top:6px;">
+              <div style="padding:4px 8px; background:rgba(0,102,204,0.08); border-radius:4px;">
+                <span style="color:#0066cc;">notes.md</span><span style="color:#999;">:3</span> — ...matching <span style="background:#fff3a3;">line</span>...
+              </div>
+              <div style="padding:4px 8px;">
+                <span style="color:#0066cc;">notes.md</span><span style="color:#999;">:17</span> — ...another <span style="background:#fff3a3;">line</span>...
+              </div>
+              <div style="padding:4px 8px;">
+                <span style="color:#0066cc;">readme.md</span><span style="color:#999;">:1</span> — ...<span style="background:#fff3a3;">line</span> here...
+              </div>
+            </div>
+          </div>
+          <div style="position:absolute; inset:0; background:rgba(0,0,0,0.02); border-radius:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Bottom Panel</h3>
+      <p>Horizontal panel below the editor (like terminal in VS Code). Search input on the left, results on the right. Can be resized or collapsed. Persists across file switches.</p>
+      <div style="margin-top:12px; padding:12px; background:rgba(0,0,0,0.05); border-radius:8px; font-family:monospace; font-size:12px; line-height:1.6;">
+        <div style="display:flex; flex-direction:column; height:180px;">
+          <div style="flex:1; color:#999; display:flex; align-items:center; justify-content:center; border-bottom:1px solid rgba(0,0,0,0.1);">
+            Editor area
+          </div>
+          <div style="height:80px; padding:6px 8px; font-size:11px;">
+            <div style="display:flex; gap:8px; margin-bottom:4px;">
+              <div style="padding:2px 6px; background:rgba(0,0,0,0.06); border-radius:3px; flex:1;">🔍 search query...</div>
+              <span style="color:#666;">☐ Case ☐ Regex</span>
+            </div>
+            <div>
+              <span style="color:#0066cc;">notes.md</span>:3 — ...matching <span style="background:#fff3a3;">line</span>... &nbsp;|&nbsp;
+              <span style="color:#0066cc;">notes.md</span>:17 — ...another <span style="background:#fff3a3;">line</span>... &nbsp;|&nbsp;
+              <span style="color:#0066cc;">readme.md</span>:1 — ...<span style="background:#fff3a3;">line</span>...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
