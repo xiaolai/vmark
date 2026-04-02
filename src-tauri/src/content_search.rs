@@ -355,7 +355,7 @@ fn search_sync(
                     .strip_prefix(&root)
                     .unwrap_or(&file_path)
                     .to_string_lossy()
-                    .to_string();
+                    .replace('\\', "/");
 
                 results.push(FileSearchResult {
                     path: file_path.to_string_lossy().to_string(),
