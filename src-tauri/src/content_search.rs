@@ -4,16 +4,20 @@
 //! returns matching lines grouped by file. Powers the "Find in Files" feature.
 //!
 //! Pipeline: Frontend invoke("search_workspace_content") → this module
-//!   → walkdir (ignore crate) → regex matching → Vec<FileSearchResult>
+//!   → manual BFS via std::fs::read_dir → regex matching → Vec<FileSearchResult>
 //!
 //! Key decisions:
-//!   - Uses `walkdir` + `regex` (already in deps) rather than the heavier
-//!     grep-searcher crate — markdown workspaces are small enough.
+//!   - Uses `std::fs::read_dir` + `regex` crate — markdown workspaces are small
+//!     enough that a manual BFS walker is adequate without heavier dependencies.
 //!   - Runs inside `spawn_blocking` because it does synchronous I/O.
 //!   - Results capped at MAX_MATCHES total and MAX_FILES to prevent UI flooding.
+//!   - Files over MAX_FILE_SIZE are skipped to avoid memory pressure.
 //!   - Line content is trimmed and capped at MAX_LINE_LEN chars.
+//!   - Match range offsets are character indices (not byte offsets) for JS compat.
 //!   - Binary files are skipped via a simple NUL-byte check on the first 8KB.
+//!   - Symlinks are skipped to prevent directory traversal outside workspace.
 //!   - Invalid regex returns a structured error string (never panics).
+//!   - Regex compilation has an explicit 1MB size limit to prevent DoS.
 //!
 //! @coordinates-with contentSearchStore.ts — frontend consumer
 //! @coordinates-with workspaceStore.ts — provides rootPath and excludeFolders
@@ -34,6 +38,12 @@ const MAX_LINE_LEN: usize = 200;
 
 /// Bytes to check for binary detection.
 const BINARY_CHECK_LEN: usize = 8192;
+
+/// Maximum file size to read (1 MB). Skips large non-binary files to prevent memory pressure.
+const MAX_FILE_SIZE: u64 = 1_024 * 1_024;
+
+/// Maximum compiled regex size (1 MB) to prevent regex compilation DoS.
+const MAX_REGEX_SIZE: usize = 1_024 * 1_024;
 
 /// Directories always skipped (in addition to user-configured excludeFolders).
 const ALWAYS_SKIP: &[&str] = &[
@@ -101,6 +111,7 @@ fn build_regex(
 
     RegexBuilder::new(&pattern)
         .case_insensitive(!case_sensitive)
+        .size_limit(MAX_REGEX_SIZE)
         .build()
         .map_err(|e| format!("Invalid regex: {}", e))
 }
@@ -313,7 +324,16 @@ fn search_sync(
                 continue;
             }
 
+            // Skip files larger than MAX_FILE_SIZE to prevent memory pressure
+            if let Ok(meta) = fs::metadata(&file_path) {
+                if meta.len() > MAX_FILE_SIZE {
+                    log::debug!("[ContentSearch] Skipping large file ({} bytes): {}", meta.len(), file_path.display());
+                    continue;
+                }
+            }
+
             let Ok(content) = fs::read_to_string(&file_path) else {
+                log::debug!("[ContentSearch] Cannot read file: {}", file_path.display());
                 continue;
             };
 
@@ -363,9 +383,9 @@ pub async fn search_workspace_content(
     extensions: Vec<String>,
     exclude_folders: Vec<String>,
 ) -> Result<Vec<FileSearchResult>, String> {
-    // Reject empty/very short queries
-    if query.trim().len() < 2 {
-        return Err("Query must be at least 2 characters".to_string());
+    // Reject empty/very short queries (matches frontend MIN_QUERY_LENGTH = 3)
+    if query.trim().len() < 3 {
+        return Err("Query must be at least 3 characters".to_string());
     }
 
     tokio::task::spawn_blocking(move || {
@@ -425,10 +445,10 @@ mod tests {
 
         let results = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
 
-        // Should find matches in hello.md and sub/nested.md
-        assert!(results.len() >= 2);
+        // hello.md (2 matches), sub/nested.md (1 match), readme.txt has no "World"
+        assert_eq!(results.len(), 2);
         let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert!(all_matches >= 3); // "Hello World", "Goodbye World", "Nested content with World"
+        assert_eq!(all_matches, 3); // "Hello World", "Goodbye World", "Nested content with World"
     }
 
     #[test]
@@ -453,7 +473,7 @@ mod tests {
             search_sync(root, "world", false, false, false, false, vec![], vec![]).unwrap();
 
         let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert!(all_matches >= 3);
+        assert_eq!(all_matches, 3);
     }
 
     #[test]
@@ -478,7 +498,7 @@ mod tests {
             search_sync(root, r"Hello|Goodbye", false, false, true, false, vec![], vec![]).unwrap();
 
         let all_matches: usize = results.iter().map(|r| r.matches.len()).sum();
-        assert!(all_matches >= 2); // "Hello World" and "Goodbye World"
+        assert_eq!(all_matches, 3); // "Hello World", "Goodbye World", hello in code.rs println
     }
 
     #[test]
@@ -661,5 +681,80 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].matches[0].line_number, 2);
+    }
+
+    #[test]
+    fn test_empty_workspace() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().to_str().unwrap();
+
+        let results = search_sync(root, "anything", false, false, false, false, vec![], vec![]).unwrap();
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_cjk_char_indices() {
+        let dir = TempDir::new().unwrap();
+        // Each CJK char is 3 bytes in UTF-8 but 1 char index for JS
+        fs::write(dir.path().join("cjk.md"), "你好世界test你好\n").unwrap();
+
+        let results = search_sync(
+            dir.path().to_str().unwrap(),
+            "test",
+            false, false, false, false, vec![], vec![],
+        ).unwrap();
+
+        assert_eq!(results.len(), 1);
+        let m = &results[0].matches[0];
+        // "你好世界" = 4 chars, then "test" starts at char index 4
+        assert_eq!(m.match_ranges[0].start, 4);
+        assert_eq!(m.match_ranges[0].end, 8);
+        // Verify the slice works correctly (simulating JS behavior)
+        let content_chars: Vec<char> = m.line_content.chars().collect();
+        let slice: String = content_chars[m.match_ranges[0].start as usize..m.match_ranges[0].end as usize].iter().collect();
+        assert_eq!(slice, "test");
+    }
+
+    #[test]
+    fn test_nonexistent_root_returns_error() {
+        let result = search_sync("/nonexistent/path", "test", false, false, false, false, vec![], vec![]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not a directory"));
+    }
+
+    #[test]
+    fn test_large_file_skipped() {
+        let dir = TempDir::new().unwrap();
+        // Create a file larger than MAX_FILE_SIZE (1 MB)
+        let large_content = "x".repeat(1_100_000) + "\nsearchterm\n";
+        fs::write(dir.path().join("large.md"), large_content).unwrap();
+        // Also create a small file with the same term
+        fs::write(dir.path().join("small.md"), "searchterm\n").unwrap();
+
+        let results = search_sync(
+            dir.path().to_str().unwrap(),
+            "searchterm",
+            false, false, false, false, vec![], vec![],
+        ).unwrap();
+
+        // Only small.md should match; large.md skipped
+        assert_eq!(results.len(), 1);
+        assert!(results[0].relative_path.contains("small"));
+    }
+
+    #[test]
+    fn test_min_query_length_enforced() {
+        // The async command rejects < 3 chars, test the sync function still works
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("ab.md"), "ab\n").unwrap();
+
+        let results = search_sync(
+            dir.path().to_str().unwrap(),
+            "ab",
+            false, false, false, false, vec![], vec![],
+        ).unwrap();
+
+        // sync function itself doesn't enforce length — that's the command's job
+        assert_eq!(results.len(), 1);
     }
 }

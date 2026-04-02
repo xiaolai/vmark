@@ -28,7 +28,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { MARKDOWN_EXTENSIONS } from "@/utils/dropPaths";
 
-/** A single match range within a line (byte offsets into lineContent). */
+/** A single match range within a line (character indices into lineContent). */
 export interface MatchRange {
   start: number;
   end: number;

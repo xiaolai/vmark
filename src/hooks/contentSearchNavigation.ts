@@ -51,6 +51,11 @@ export function consumePendingContentSearchNav(
   return nav;
 }
 
+/** Clear pending navigation for a tab (called on tab close to prevent leaks). */
+export function clearPendingContentSearchNav(tabId: string): void {
+  delete pendingNavByTab[tabId];
+}
+
 /**
  * Open FindBar with a pre-filled query, handling mutual exclusion with
  * StatusBar and UniversalToolbar (same logic as useSearchCommands.ts).

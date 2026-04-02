@@ -33,6 +33,8 @@ import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
 import { useTabStore } from "@/stores/tabStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { contentSearchLog, contentSearchWarn } from "@/utils/debug";
+import { renderHighlightedLine, buildFlatIndex } from "./contentSearchUtils";
 import "./content-search.css";
 
 const DEBOUNCE_MS = 300;
@@ -47,49 +49,6 @@ function FileIcon() {
       <path d="M9 1v4h4" />
     </svg>
   );
-}
-
-/** Render line content with match ranges highlighted. */
-function renderHighlightedLine(
-  text: string,
-  ranges: { start: number; end: number }[]
-): React.ReactNode {
-  if (ranges.length === 0) return text;
-
-  const parts: React.ReactNode[] = [];
-  let lastEnd = 0;
-
-  for (let i = 0; i < ranges.length; i++) {
-    const { start, end } = ranges[i];
-    if (start > lastEnd) {
-      parts.push(text.slice(lastEnd, start));
-    }
-    parts.push(
-      <span key={i} className="content-search-highlight">
-        {text.slice(start, end)}
-      </span>
-    );
-    lastEnd = end;
-  }
-
-  if (lastEnd < text.length) {
-    parts.push(text.slice(lastEnd));
-  }
-
-  return parts;
-}
-
-/** Build a flat list of { fileIndex, matchIndex } for keyboard navigation. */
-function buildFlatIndex(
-  results: FileSearchResult[]
-): { fileIndex: number; matchIndex: number }[] {
-  const flat: { fileIndex: number; matchIndex: number }[] = [];
-  for (let fi = 0; fi < results.length; fi++) {
-    for (let mi = 0; mi < results[fi].matches.length; mi++) {
-      flat.push({ fileIndex: fi, matchIndex: mi });
-    }
-  }
-  return flat;
 }
 
 interface ContentSearchProps {
@@ -168,32 +127,37 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     async (file: FileSearchResult, match: LineMatch) => {
       handleClose();
 
-      // Determine the tab ID — either existing tab or new
-      const { tabs } = useTabStore.getState();
-      const windowTabs = tabs[windowLabel] ?? [];
-      const existingTab = windowTabs.find((tab) => tab.filePath === file.path);
-      const tabId = existingTab?.id ?? null;
+      try {
+        // Determine the tab ID — either existing tab or new
+        const { tabs } = useTabStore.getState();
+        const windowTabs = tabs[windowLabel] ?? [];
+        const existingTab = windowTabs.find((tab) => tab.filePath === file.path);
+        const tabId = existingTab?.id ?? null;
 
-      // Set pending nav before opening the file
-      // If the file is already open, the tab ID is known; otherwise
-      // openFileInNewTabCore will create a new one and the editor will
-      // consume the pending nav on mount.
-      if (tabId) {
-        setPendingContentSearchNav(tabId, match.lineNumber, query);
-      }
-
-      await openFileInNewTabCore(windowLabel, file.path);
-
-      // If it was a new tab, set pending nav using the now-active tab ID
-      if (!tabId) {
-        const newActiveId = useTabStore.getState().activeTabId[windowLabel];
-        if (newActiveId) {
-          setPendingContentSearchNav(
-            newActiveId,
-            match.lineNumber,
-            query
-          );
+        // Set pending nav before opening the file
+        // If the file is already open, the tab ID is known; otherwise
+        // openFileInNewTabCore will create a new one and the editor will
+        // consume the pending nav on mount.
+        if (tabId) {
+          setPendingContentSearchNav(tabId, match.lineNumber, query);
         }
+
+        contentSearchLog("Opening", file.relativePath, "at line", match.lineNumber);
+        await openFileInNewTabCore(windowLabel, file.path);
+
+        // If it was a new tab, set pending nav using the now-active tab ID
+        if (!tabId) {
+          const newActiveId = useTabStore.getState().activeTabId[windowLabel];
+          if (newActiveId) {
+            setPendingContentSearchNav(
+              newActiveId,
+              match.lineNumber,
+              query
+            );
+          }
+        }
+      } catch (error) {
+        contentSearchWarn("Failed to open search result:", error);
       }
     },
     [windowLabel, handleClose, query]

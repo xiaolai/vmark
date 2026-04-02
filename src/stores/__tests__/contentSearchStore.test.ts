@@ -233,7 +233,8 @@ describe("contentSearchStore", () => {
     it("handles invoke errors", async () => {
       const { invoke } = await import("@tauri-apps/api/core");
       const mockInvoke = vi.mocked(invoke);
-      mockInvoke.mockRejectedValue(new Error("Invalid regex: [bad"));
+      // Tauri invoke rejects with plain strings, not Error objects
+      mockInvoke.mockRejectedValue("Invalid regex: [bad");
 
       useContentSearchStore.getState().setQuery("test query");
       await useContentSearchStore.getState().search("/root", []);
