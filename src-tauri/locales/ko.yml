@@ -54,6 +54,7 @@ menu:
   edit.findNext: "다음 찾기"
   edit.findPrev: "이전 찾기"
   edit.useSelectionFind: "선택 영역을 찾기에 사용"
+  edit.findInFiles: "Find in Files..."
   edit.selection: "선택"
   edit.selection.word: "단어 선택"
   edit.selection.line: "줄 선택"

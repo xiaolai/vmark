@@ -128,6 +128,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "findNext", label: "Find Next", category: "navigation", defaultKey: "Mod-g", menuId: "find-next" },
   { id: "findPrevious", label: "Find Previous", category: "navigation", defaultKey: "Mod-Shift-g", menuId: "find-prev" },
   { id: "useSelectionFind", label: "Use Selection for Find", category: "navigation", defaultKey: "Mod-e", menuId: "use-selection-find" },
+  { id: "contentSearch", label: "Find in Files", category: "navigation", defaultKey: "Mod-Shift-h", menuId: "find-in-files", description: "Search workspace file contents" },
 
   // === Editing ===
   { id: "formatCJKSelection", label: "Format CJK Selection", category: "editing", defaultKey: "Mod-Shift-f", menuId: "format-cjk" },
