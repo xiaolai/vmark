@@ -137,14 +137,22 @@ fn matches_extensions(path: &Path, extensions: &[String]) -> bool {
     })
 }
 
+/// Convert a byte offset within a string to a character (UTF-16 code unit) index.
+/// This ensures offsets sent to JS `String.slice()` work correctly for multibyte text.
+fn byte_offset_to_char_index(s: &str, byte_offset: usize) -> usize {
+    s[..byte_offset].chars().count()
+}
+
 /// Search line content and return match ranges, trimming if necessary.
+/// All returned offsets are character indices (not byte offsets) so they
+/// work correctly with JS `String.slice()`.
 fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
     let trimmed = line.trim_end();
     if trimmed.is_empty() {
         return None;
     }
 
-    // Collect all matches on this line
+    // Collect all matches on this line (byte offsets)
     let raw_ranges: Vec<(usize, usize)> = re
         .find_iter(trimmed)
         .map(|m| (m.start(), m.end()))
@@ -178,9 +186,14 @@ fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
         let ranges = raw_ranges
             .iter()
             .filter(|(s, e)| *s >= start_byte && *e <= snippet_end_byte)
-            .map(|(s, e)| MatchRange {
-                start: (s - start_byte) as u32,
-                end: (e - start_byte) as u32,
+            .map(|(s, e)| {
+                // Convert byte offsets within snippet to char indices
+                let relative_start = byte_offset_to_char_index(&trimmed[start_byte..], s - start_byte);
+                let relative_end = byte_offset_to_char_index(&trimmed[start_byte..], e - start_byte);
+                MatchRange {
+                    start: relative_start as u32,
+                    end: relative_end as u32,
+                }
             })
             .collect::<Vec<_>>();
 
@@ -192,7 +205,7 @@ fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
         };
 
         let display = format!("{}{}{}", prefix, snippet, suffix);
-        let offset = prefix.len();
+        let offset = prefix.chars().count(); // char count, not byte count
         let adjusted_ranges = ranges
             .into_iter()
             .map(|r| MatchRange {
@@ -203,11 +216,12 @@ fn search_line(line: &str, line_number: u32, re: &Regex) -> Option<LineMatch> {
 
         (display, adjusted_ranges)
     } else {
+        // Convert byte offsets to char indices for JS compatibility
         let ranges = raw_ranges
             .iter()
             .map(|(s, e)| MatchRange {
-                start: *s as u32,
-                end: *e as u32,
+                start: byte_offset_to_char_index(trimmed, *s) as u32,
+                end: byte_offset_to_char_index(trimmed, *e) as u32,
             })
             .collect();
         (trimmed.to_string(), ranges)
@@ -233,6 +247,12 @@ fn search_sync(
 ) -> Result<Vec<FileSearchResult>, String> {
     let re = build_regex(query, case_sensitive, whole_word, use_regex)?;
     let root = PathBuf::from(root_path);
+
+    // Fail fast if root is unreadable (not silently return empty)
+    if !root.is_dir() {
+        return Err(format!("Workspace root is not a directory: {}", root_path));
+    }
+    fs::read_dir(&root).map_err(|e| format!("Cannot read workspace root: {}", e))?;
 
     let mut results: Vec<FileSearchResult> = Vec::new();
     let mut total_matches: usize = 0;

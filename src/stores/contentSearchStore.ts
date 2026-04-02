@@ -115,7 +115,10 @@ export const useContentSearchStore = create<ContentSearchState & ContentSearchAc
         error: null,
       }),
 
-    close: () => set({ isOpen: false }),
+    close: () => {
+      ++searchRequestId; // invalidate in-flight searches
+      set({ isOpen: false, isSearching: false });
+    },
 
     setQuery: (query) => set({ query, selectedIndex: 0, error: null }),
 
@@ -148,7 +151,7 @@ export const useContentSearchStore = create<ContentSearchState & ContentSearchAc
           "search_workspace_content",
           {
             rootPath,
-            query: query.trim(),
+            query,
             caseSensitive,
             wholeWord,
             useRegex,
@@ -203,13 +206,16 @@ export const useContentSearchStore = create<ContentSearchState & ContentSearchAc
       set({ selectedIndex: (selectedIndex - 1 + total) % total });
     },
 
-    clearResults: () =>
+    clearResults: () => {
+      ++searchRequestId; // invalidate in-flight searches
       set({
         results: [],
         totalMatches: 0,
         totalFiles: 0,
         selectedIndex: 0,
         error: null,
-      }),
+        isSearching: false,
+      });
+    },
   })
 );

@@ -351,6 +351,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
                   .getState()
                   .setCaseSensitive(!caseSensitive)
               }
+              aria-pressed={caseSensitive}
+              aria-label={t("contentSearch.caseSensitive", "Case Sensitive")}
               title={t("contentSearch.caseSensitive", "Case Sensitive")}
             >
               Aa
@@ -360,6 +362,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
               onClick={() =>
                 useContentSearchStore.getState().setWholeWord(!wholeWord)
               }
+              aria-pressed={wholeWord}
+              aria-label={t("contentSearch.wholeWord", "Whole Word")}
               title={t("contentSearch.wholeWord", "Whole Word")}
             >
               ab
@@ -369,6 +373,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
               onClick={() =>
                 useContentSearchStore.getState().setUseRegex(!useRegex)
               }
+              aria-pressed={useRegex}
+              aria-label={t("contentSearch.regex", "Regular Expression")}
               title={t("contentSearch.regex", "Regular Expression")}
             >
               .*
@@ -378,6 +384,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
               onClick={() =>
                 useContentSearchStore.getState().setMarkdownOnly(!markdownOnly)
               }
+              aria-pressed={markdownOnly}
+              aria-label={t("contentSearch.markdownOnly", "Markdown Files Only")}
               title={t("contentSearch.markdownOnly", "Markdown Files Only")}
             >
               .md
