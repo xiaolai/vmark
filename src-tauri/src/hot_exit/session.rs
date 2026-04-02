@@ -60,7 +60,7 @@ pub struct DocumentState {
     pub last_modified_timestamp: Option<i64>,
     pub is_untitled: bool,
     pub untitled_number: Option<u32>,
-    /// Whether the document is read-only - added in v3
+    /// Whether the document is read-only (added in v2 via serde default)
     #[serde(default)]
     pub is_read_only: bool,
     /// Undo history checkpoints (cross-mode undo) - added in v2

@@ -50,10 +50,15 @@ export function getDefinitionInfo(doc: PMNode): Array<{ label: string; pos: numb
   return collectFootnoteNodes(doc).defs;
 }
 
-export function createRenumberTransaction(state: EditorState, refType: NodeType, defType: NodeType): Transaction | null {
+export function createRenumberTransaction(
+  state: EditorState,
+  refType: NodeType,
+  defType: NodeType,
+  preCollected?: ReturnType<typeof collectFootnoteNodes>,
+): Transaction | null {
   const { doc, schema } = state;
 
-  const { refs, defs } = collectFootnoteNodes(doc);
+  const { refs, defs } = preCollected ?? collectFootnoteNodes(doc);
 
   if (refs.length === 0) return null;
 
@@ -135,11 +140,12 @@ export function createCleanupAndRenumberTransaction(
   state: EditorState,
   remainingRefLabels: Set<string>,
   refType: NodeType,
-  defType: NodeType
+  defType: NodeType,
+  preCollected?: ReturnType<typeof collectFootnoteNodes>,
 ): Transaction | null {
   const { doc, schema } = state;
 
-  const { refs, defs: allDefs } = collectFootnoteNodes(doc);
+  const { refs, defs: allDefs } = preCollected ?? collectFootnoteNodes(doc);
 
   const labelMap = new Map<string, string>();
   refs.forEach((ref, index) => {

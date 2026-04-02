@@ -283,9 +283,9 @@ export function skipOccurrence(state: EditorState): Transaction | null {
   // Find all occurrences and look for the next one after the removed range
   const occurrences = findAllOccurrences(state, searchText, bounds ?? undefined);
 
-  // Use afterPos - 1 so findNextUnusedOccurrence's `> afterPos` becomes `>= primaryRange.$to.pos`
+  // Find next unused occurrence after the skipped primary range
   const nextOcc = findNextUnusedOccurrence(
-    occurrences, primaryRange.$to.pos - 1, primaryRange.$from.pos, remaining
+    occurrences, primaryRange.$to.pos, primaryRange.$from.pos, remaining
   );
 
   if (nextOcc) {

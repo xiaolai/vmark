@@ -26,7 +26,7 @@ import { Plugin, PluginKey, type Transaction, NodeSelection } from "@tiptap/pm/s
 import type { EditorView } from "@tiptap/pm/view";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { FootnotePopupView } from "./FootnotePopupView";
-import { createCleanupAndRenumberTransaction, createRenumberTransaction, getDefinitionInfo, getReferenceLabels } from "./tiptapCleanup";
+import { collectFootnoteNodes, createCleanupAndRenumberTransaction, createRenumberTransaction } from "./tiptapCleanup";
 import { findFootnoteDefinition, findFootnoteReference, getFootnoteDefFromTarget, getFootnoteRefFromTarget, scrollToPosition } from "./tiptapDomUtils";
 import "./footnote-popup.css";
 
@@ -263,8 +263,11 @@ export const footnotePopupExtension = Extension.create({
           });
           if (!hasFootnotes) return null;
 
-          const oldRefLabels = getReferenceLabels(oldState.doc);
-          const newRefLabels = getReferenceLabels(newState.doc);
+          const oldCollected = collectFootnoteNodes(oldState.doc);
+          const newCollected = collectFootnoteNodes(newState.doc);
+
+          const oldRefLabels = oldCollected.refLabels;
+          const newRefLabels = newCollected.refLabels;
 
           let refDeleted = false;
           for (const label of oldRefLabels) {
@@ -275,7 +278,7 @@ export const footnotePopupExtension = Extension.create({
           }
           if (!refDeleted) return null;
 
-          const defs = getDefinitionInfo(newState.doc);
+          const defs = newCollected.defs;
           const orphanedDefs = defs.filter((d) => !newRefLabels.has(d.label));
 
           if (orphanedDefs.length === 0 && newRefLabels.size === 0) {
@@ -291,10 +294,10 @@ export const footnotePopupExtension = Extension.create({
           }
 
           if (orphanedDefs.length === 0) {
-            return createRenumberTransaction(newState, refType, defType);
+            return createRenumberTransaction(newState, refType, defType, newCollected);
           }
 
-          return createCleanupAndRenumberTransaction(newState, newRefLabels, refType, defType);
+          return createCleanupAndRenumberTransaction(newState, newRefLabels, refType, defType, newCollected);
         },
       }),
     ];

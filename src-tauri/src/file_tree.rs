@@ -93,8 +93,8 @@ pub fn list_directory_entries(path: &str) -> Result<Vec<DirectoryEntry>, String>
     }
 
     if truncated {
-        eprintln!(
-            "[file_tree] Warning: directory listing truncated at {} entries for: {}",
+        log::warn!(
+            "directory listing truncated at {} entries for: {}",
             MAX_DIR_ENTRIES, path
         );
     }

@@ -98,7 +98,7 @@ mod tests {
             sidebar_visible: true,
             sidebar_width: 260,
             outline_visible: false,
-            sidebar_view_mode: "explorer".to_string(),
+            sidebar_view_mode: "files".to_string(),
             status_bar_visible: true,
             source_mode_enabled: false,
             focus_mode_enabled: false,
