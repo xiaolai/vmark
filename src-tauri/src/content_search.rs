@@ -278,6 +278,11 @@ fn search_sync(
                 continue;
             };
 
+            // Skip symlinks to prevent directory traversal outside workspace
+            if path.symlink_metadata().map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+                continue;
+            }
+
             if path.is_dir() {
                 if !should_skip_dir(name, &exclude_folders) {
                     subdirs.push(path);
