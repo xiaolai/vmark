@@ -104,7 +104,7 @@ export interface TerminalInstanceSettings {
 interface CreateOptions {
   parentEl: HTMLElement;
   settings: TerminalInstanceSettings;
-  ptyRef: React.RefObject<import("tauri-pty").IPty | null>;
+  ptyRef: React.RefObject<import("@/lib/pty").IPty | null>;
   onSearch: () => void;
 }
 

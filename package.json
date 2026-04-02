@@ -98,7 +98,6 @@
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
     "sonner": "^2.0.7",
-    "tauri-pty": "^0.2.1",
     "turndown": "^7.2.2",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",

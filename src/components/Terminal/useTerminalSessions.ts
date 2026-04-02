@@ -33,7 +33,7 @@
  * @module components/Terminal/useTerminalSessions
  */
 import { useRef, useEffect, useCallback } from "react";
-import type { IPty } from "tauri-pty";
+import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import {

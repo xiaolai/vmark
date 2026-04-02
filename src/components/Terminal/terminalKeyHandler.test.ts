@@ -17,9 +17,9 @@ vi.mock("@/stores/terminalSessionStore", () => ({
 import { createTerminalKeyHandler, type KeyHandlerCallbacks } from "./terminalKeyHandler";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
-import type { IPty } from "tauri-pty";
+import type { IPty } from "@/lib/pty";
 
-vi.mock("tauri-pty", () => ({ spawn: vi.fn() }));
+vi.mock("@/lib/pty", () => ({ spawn: vi.fn() }));
 
 function makeTerm(overrides: Partial<Terminal> = {}): Terminal {
   return {

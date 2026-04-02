@@ -25,13 +25,13 @@
  *   - Watermark-based flow control pauses the PTY when xterm.js can't keep up
  *     with rapid output (e.g. AI tool redraws), preventing lag and freezes.
  *   - PTY data is coerced to Uint8Array before passing to xterm.js because
- *     tauri-plugin-pty serializes Vec<u8> as a JSON number array, not a typed array.
+ *     Tauri event IPC serializes Rust Vec<u8> as a JSON number array, not a typed array.
  *
  * @coordinates-with useTerminalSessions.ts — calls spawnPty when starting a shell
  * @coordinates-with createTerminalInstance.ts — provides the xterm Terminal instance
  * @module components/Terminal/spawnPty
  */
-import { spawn, type IPty, type IEvent } from "tauri-pty";
+import { spawn, type IPty, type IEvent } from "@/lib/pty";
 import { invoke } from "@tauri-apps/api/core";
 import type { Terminal } from "@xterm/xterm";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -105,10 +105,11 @@ export function wirePtyFlowControl(
 ): void {
   let written = 0;
   let pendingCallbacks = 0;
+  let paused = false;
 
   pty.onData((rawData) => {
     if (disposed()) return;
-    // tauri-plugin-pty serializes Vec<u8> as a JSON array of numbers.
+    // Tauri event IPC serializes Rust Vec<u8> as a JSON number array.
     // xterm.js needs a real Uint8Array for correct UTF-8 multibyte decoding (CJK, emoji, etc.).
     if (!(rawData instanceof Uint8Array) && !Array.isArray(rawData)) return;
     const data = rawData instanceof Uint8Array ? rawData : new Uint8Array(rawData);
@@ -117,16 +118,16 @@ export function wirePtyFlowControl(
     if (written > CALLBACK_BYTE_LIMIT) {
       term.write(data, () => {
         pendingCallbacks = Math.max(pendingCallbacks - 1, 0);
-        if (pendingCallbacks < LOW_WATERMARK) {
-          // tauri-pty 0.2.x doesn't implement resume() — degrade gracefully
-          try { pty.resume(); } catch { /* noop */ }
+        if (paused && pendingCallbacks < LOW_WATERMARK) {
+          paused = false;
+          pty.resume();
         }
       });
       pendingCallbacks++;
       written = 0;
-      if (pendingCallbacks > HIGH_WATERMARK) {
-        // tauri-pty 0.2.x doesn't implement pause() — degrade gracefully
-        try { pty.pause(); } catch { /* noop */ }
+      if (!paused && pendingCallbacks > HIGH_WATERMARK) {
+        paused = true;
+        pty.pause();
       }
     } else {
       term.write(data);

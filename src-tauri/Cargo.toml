@@ -35,7 +35,7 @@ notify = { version = "7", default-features = false, features = ["macos_fsevent"]
 tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread"] }
 tokio-tungstenite = "0.28"
 futures-util = "0.3"
-tauri-plugin-pty = "0.2"
+portable-pty = "0.9"
 toml = "0.8"
 dirs = "5"
 chrono = "0.4"

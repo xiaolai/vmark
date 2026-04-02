@@ -1,0 +1,81 @@
+<h2>Architecture Overview</h2>
+<p class="subtitle">Data flow from user keystroke to file opened at matching line</p>
+
+<div class="mockup">
+  <div class="mockup-header">Workspace Content Search — Data Flow</div>
+  <div class="mockup-body" style="padding:24px; font-family:monospace; font-size:12px;">
+
+    <!-- Flow diagram using CSS -->
+    <div style="display:flex; flex-direction:column; gap:16px; align-items:center;">
+
+      <!-- User input -->
+      <div style="background:#e8f0fe; border:2px solid #4285f4; border-radius:8px; padding:10px 20px; font-weight:bold; color:#1a73e8;">
+        User types in ContentSearch overlay (Cmd+Shift+F)
+      </div>
+      <div style="color:#666;">↓ 300ms debounce, min 3 chars</div>
+
+      <!-- Frontend -->
+      <div style="background:#fef7e0; border:2px solid #f9ab00; border-radius:8px; padding:10px 20px; width:80%; text-align:center;">
+        <div style="font-weight:bold; color:#e37400;">contentSearchStore.ts</div>
+        <div style="color:#666; font-size:11px; margin-top:4px;">query, options (case/word/regex/scope), results[], isSearching</div>
+      </div>
+      <div style="color:#666;">↓ invoke("search_workspace_content", { rootPath, query, options })</div>
+
+      <!-- Tauri bridge -->
+      <div style="background:#fce8e6; border:2px solid #ea4335; border-radius:8px; padding:10px 20px; width:80%; text-align:center;">
+        <div style="font-weight:bold; color:#c5221f;">Rust: search_workspace_content</div>
+        <div style="color:#666; font-size:11px; margin-top:4px;">walkdir → filter by extension → regex match → collect results</div>
+      </div>
+      <div style="color:#666;">↓ Vec&lt;FileSearchResult&gt; { path, matches: [{ line_number, line_content, match_ranges }] }</div>
+
+      <!-- Results back -->
+      <div style="background:#fef7e0; border:2px solid #f9ab00; border-radius:8px; padding:10px 20px; width:80%; text-align:center;">
+        <div style="font-weight:bold; color:#e37400;">contentSearchStore → setResults()</div>
+        <div style="color:#666; font-size:11px; margin-top:4px;">Results grouped by file, displayed in overlay list</div>
+      </div>
+      <div style="color:#666;">↓ User selects a result (click / Enter)</div>
+
+      <!-- File open flow -->
+      <div style="display:flex; gap:12px; width:80%;">
+        <div style="flex:1; background:#e6f4ea; border:2px solid #34a853; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-weight:bold; color:#137333;">openFileInNewTabCore()</div>
+          <div style="color:#666; font-size:11px;">Open file → create tab</div>
+        </div>
+        <div style="flex:1; background:#e6f4ea; border:2px solid #34a853; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-weight:bold; color:#137333;">scrollToLine(lineNumber)</div>
+          <div style="color:#666; font-size:11px;">Scroll editor to match</div>
+        </div>
+        <div style="flex:1; background:#e6f4ea; border:2px solid #34a853; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-weight:bold; color:#137333;">searchStore.prefill(query)</div>
+          <div style="color:#666; font-size:11px;">Pre-fill FindBar</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px;">
+  <h3>New Files</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:13px;">
+    <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px;">
+      <div style="font-weight:bold; color:#1a73e8;">Rust (Backend)</div>
+      <div style="margin-top:6px; font-family:monospace; font-size:12px;">
+        src-tauri/src/content_search.rs<br>
+        <span style="color:#666;">• search_workspace_content command</span><br>
+        <span style="color:#666;">• walkdir + regex matching</span><br>
+        <span style="color:#666;">• respects excludeFolders</span>
+      </div>
+    </div>
+    <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius:6px;">
+      <div style="font-weight:bold; color:#e37400;">React (Frontend)</div>
+      <div style="margin-top:6px; font-family:monospace; font-size:12px;">
+        src/stores/contentSearchStore.ts<br>
+        src/components/ContentSearch/ContentSearch.tsx<br>
+        src/components/ContentSearch/content-search.css<br>
+        src/components/ContentSearch/useContentSearchShortcuts.ts<br>
+        <span style="color:#666;">• Spotlight overlay, store, keyboard handler</span>
+      </div>
+    </div>
+  </div>
+</div>
