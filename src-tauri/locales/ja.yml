@@ -54,6 +54,7 @@ menu:
   edit.findNext: "次を検索"
   edit.findPrev: "前を検索"
   edit.useSelectionFind: "選択範囲で検索"
+  edit.findInFiles: "Find in Files..."
   edit.selection: "選択"
   edit.selection.word: "単語を選択"
   edit.selection.line: "行を選択"

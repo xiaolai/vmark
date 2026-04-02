@@ -54,6 +54,7 @@ menu:
   edit.findNext: "Localizar próximo"
   edit.findPrev: "Localizar anterior"
   edit.useSelectionFind: "Usar seleção para localizar"
+  edit.findInFiles: "Find in Files..."
   edit.selection: "Seleção"
   edit.selection.word: "Selecionar palavra"
   edit.selection.line: "Selecionar linha"

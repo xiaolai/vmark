@@ -207,6 +207,8 @@ pub fn create_localized_menu(
             &MenuItem::with_id(app, "find-prev", &t!("menu.edit.findPrev").to_string(), true, accel("find-prev", "CmdOrCtrl+Shift+G"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "use-selection-find", &t!("menu.edit.useSelectionFind").to_string(), true, accel("use-selection-find", "CmdOrCtrl+E"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "find-in-files", &t!("menu.edit.findInFiles").to_string(), true, accel("find-in-files", "CmdOrCtrl+Shift+H"))?,
         ],
     )?;
 

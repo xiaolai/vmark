@@ -650,6 +650,16 @@ export const workflowWarn = isDev
   ? (...args: unknown[]) => console.warn("[Workflow]", ...args)
   : (...args: unknown[]) => prodWarn("[Workflow]", ...args);
 
+/** Debug logger for Content Search operations. */
+export const contentSearchLog = isDev
+  ? (...args: unknown[]) => console.log("[ContentSearch]", ...args)
+  : () => {};
+
+/** Warn logger for Content Search operations. */
+export const contentSearchWarn = isDev
+  ? (...args: unknown[]) => console.warn("[ContentSearch]", ...args)
+  : (...args: unknown[]) => prodWarn("[ContentSearch]", ...args);
+
 /** Warn logger for Menu Sync (startup menu rebuild) operations. */
 export const menuSyncWarn = isDev
   ? (...args: unknown[]) => console.warn("[MenuSync]", ...args)

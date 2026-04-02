@@ -137,6 +137,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("find-next", "chevron.down"),
     ("find-prev", "chevron.up"),
     ("use-selection-find", "text.magnifyingglass"),
+    ("find-in-files", "doc.text.magnifyingglass"),
     // Selection
     ("select-word", "textformat.abc"),
     ("select-line", "arrow.left.and.line.vertical.and.arrow.right"),

@@ -46,7 +46,8 @@ import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
 import { handleTableScrollToSelection } from "@/plugins/tableScroll/scrollGuard";
-import { tiptapError } from "@/utils/debug";
+import { tiptapError, contentSearchLog } from "@/utils/debug";
+import { consumePendingContentSearchNav, openFindBarWithQuery } from "@/hooks/contentSearchNavigation";
 import { ImageContextMenu } from "./ImageContextMenu";
 
 /**
@@ -451,6 +452,41 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       () => cursorInfoRef.current,
       restoreCursorInTiptap
     );
+
+    // Consume pending content search nav (set when opening a file from Find in Files)
+    const activeTabId = useTabStore.getState().activeTabId[windowLabel];
+    if (activeTabId) {
+      const pendingNav = consumePendingContentSearchNav(activeTabId);
+      if (pendingNav) {
+        contentSearchLog("WYSIWYG nav to line", pendingNav.line);
+        // In WYSIWYG mode, scroll to approximate position by walking block nodes
+        const view = getTiptapEditorView(editor);
+        if (view) {
+          // Walk the document to find the Nth block (lines map roughly to blocks)
+          let blockCount = 0;
+          let targetPos = 0;
+          view.state.doc.descendants((node, pos) => {
+            if (node.isBlock && node.isTextblock) {
+              blockCount++;
+              if (blockCount === pendingNav.line) {
+                targetPos = pos;
+                return false; // stop walking
+              }
+            }
+            return true;
+          });
+          if (targetPos > 0) {
+            view.dispatch(
+              view.state.tr
+                .setSelection(Selection.near(view.state.doc.resolve(targetPos)))
+                .scrollIntoView()
+            );
+          }
+          // Pre-fill FindBar after a brief delay to let the scroll settle
+          setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+        }
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden]);
 

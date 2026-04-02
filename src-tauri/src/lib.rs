@@ -36,6 +36,7 @@ mod quit;
 mod watcher;
 mod window_manager;
 mod workspace;
+mod content_search;
 mod file_tree;
 mod hot_exit;
 mod pandoc;
@@ -558,6 +559,7 @@ pub fn run() {
             pdf_export::commands::print_document,
             pandoc::commands::detect_pandoc,
             pandoc::commands::export_via_pandoc,
+            content_search::search_workspace_content,
         ])
         .setup(|app| {
             let menu = menu::localized::create_localized_menu(app.handle(), None)?;

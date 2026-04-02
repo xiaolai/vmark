@@ -54,6 +54,7 @@ menu:
   edit.findNext: "查找下一个"
   edit.findPrev: "查找上一个"
   edit.useSelectionFind: "将选中内容用于查找"
+  edit.findInFiles: "Find in Files..."
   edit.selection: "选择"
   edit.selection.word: "选择单词"
   edit.selection.line: "选择行"
