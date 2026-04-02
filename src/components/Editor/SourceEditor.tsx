@@ -55,6 +55,7 @@ import {
   readOnlyCompartment,
 } from "@/utils/sourceEditorExtensions";
 import { consumePendingLintScroll } from "@/hooks/lintNavigation";
+import { consumePendingContentSearchNav, openFindBarWithQuery } from "@/hooks/contentSearchNavigation";
 
 interface SourceEditorProps {
   hidden?: boolean;
@@ -247,6 +248,18 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
               ),
             });
           }
+          // Consume pending content search nav (set when opening a file from Find in Files)
+          const pendingNav = consumePendingContentSearchNav(mountTabId);
+          if (pendingNav) {
+            const line = Math.min(pendingNav.line, view.state.doc.lines);
+            const lineInfo = view.state.doc.line(line);
+            view.dispatch({
+              selection: { anchor: lineInfo.from },
+              effects: EditorView.scrollIntoView(lineInfo.from),
+            });
+            // Pre-fill FindBar with the search query
+            setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+          }
         }
       }, 50);
     }
@@ -304,6 +317,17 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
               Math.min(pendingOffset, view.state.doc.length)
             ),
           });
+        }
+        // Consume pending content search nav (set when opening a file from Find in Files)
+        const pendingNav = consumePendingContentSearchNav(visibleTabId);
+        if (pendingNav) {
+          const line = Math.min(pendingNav.line, view.state.doc.lines);
+          const lineInfo = view.state.doc.line(line);
+          view.dispatch({
+            selection: { anchor: lineInfo.from },
+            effects: EditorView.scrollIntoView(lineInfo.from),
+          });
+          setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
         }
       }
     }, 50);
