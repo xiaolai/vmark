@@ -192,7 +192,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          REPORT_TITLE: "Claude cost — ${{ env.TODAY }} ($$${{ env.TOTAL_COST_FMT }} today, $$${{ env.CUMULATIVE_COST }} total)"
+          REPORT_TITLE: "Claude cost — ${{ env.TODAY }} ($${{ env.TOTAL_COST_FMT }} today, $${{ env.CUMULATIVE_COST }} total)"
         run: |
           gh issue create \
             --title "$REPORT_TITLE" \
