@@ -69,6 +69,7 @@ const WRITE_OPS = new Set([
   "vmark.insertWikiLink",
   "vmark.cjkPunctuationConvert",
   "vmark.cjkSpacingFix",
+  "vmark.cjkFormat",
   // Mutation operations
   "mutation.batchEdit",
   "mutation.applyDiff",

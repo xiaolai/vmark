@@ -117,7 +117,7 @@ pub async fn run_workflow(
     let app_data_dir = app
         .path()
         .app_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("/tmp"));
+        .unwrap_or_else(|_| std::env::temp_dir());
     let snapshot_workspace = workspace.clone();
 
     // Collect file paths from save-file steps for snapshotting

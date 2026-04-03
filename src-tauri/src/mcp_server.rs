@@ -273,6 +273,19 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
                         serde_json::json!({ "code": payload.code, "signal": payload.signal }),
                     );
 
+                    // Emit a status-changed event so the frontend can refresh its
+                    // status indicator (bridge may still be running without a sidecar)
+                    let bridge_running = BRIDGE_RUNNING.load(Ordering::SeqCst);
+                    let port = BRIDGE_PORT.lock().ok().and_then(|p| *p);
+                    let _ = app_handle.emit(
+                        "mcp-server:status-changed",
+                        serde_json::json!({
+                            "running": bridge_running,
+                            "port": port,
+                            "local_sidecar": false,
+                        }),
+                    );
+
                     break;
                 }
                 _ => {}

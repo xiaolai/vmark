@@ -295,9 +295,15 @@ export class WebSocketBridge implements Bridge {
       // writes the port file. Without this call the reconnect loop never starts
       // because handleDisconnect() (which normally triggers scheduleReconnect)
       // is never reached when no WebSocket is created. See issue #524.
+      //
+      // Don't count port-discovery polls against reconnectAttempts — those are
+      // for real connection failures. Reset attempts so the sidecar keeps trying
+      // until VMark starts.
       if (this.autoReconnect && !this.intentionalDisconnect) {
-        this.logger.debug('Port not available yet, scheduling reconnect...');
+        this.logger.debug('Port not available yet, scheduling reconnect (not counted against limit)...');
+        const savedAttempts = this.reconnectAttempts;
         this.scheduleReconnect();
+        this.reconnectAttempts = savedAttempts;
       }
       throw new Error(
         'Cannot determine VMark port. Is VMark running? ' +

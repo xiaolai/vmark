@@ -372,6 +372,7 @@ mod tests {
             "smartInsert",
             "insertMedia",
             // VMark-specific commands
+            "vmark.cjkFormat",
             "vmark.cjkPunctuationConvert",
             "vmark.cjkSpacingFix",
             "vmark.insertMarkmap",

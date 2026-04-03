@@ -68,7 +68,7 @@ pub(crate) fn login_shell_path() -> String {
             const START: &str = "__VMARK_PATH_START__";
             const END: &str = "__VMARK_PATH_END__";
 
-            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
 
             // Fish uses list-based $PATH -- need `string join` for colon-separated
             let cmd = if shell.ends_with("/fish") {

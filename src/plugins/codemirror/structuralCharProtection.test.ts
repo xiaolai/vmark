@@ -329,7 +329,7 @@ describe("Structural Character Protection", () => {
   });
 
   describe("selectionSpansStructuralChar", () => {
-    it("detects selection spanning a table pipe", () => {
+    it("passes through selection spanning a table pipe", () => {
       const content = "| cell1 | cell2 |";
       // Selection from inside cell1 across pipe into cell2: "l1 | ce"
       const state = EditorState.create({
@@ -341,13 +341,12 @@ describe("Structural Character Protection", () => {
       const view = new EditorView({ state, parent: container });
       views.push(view);
 
+      // Selections pass through to default editor behavior
       const handled = smartBackspace(view);
-      expect(handled).toBe(true);
-      // Document should be unchanged — deletion blocked
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
 
-    it("detects selection spanning leading table pipe", () => {
+    it("passes through selection spanning leading table pipe", () => {
       const content = "| cell1 | cell2 |";
       // Selection includes the leading pipe
       const state = EditorState.create({
@@ -360,8 +359,7 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartBackspace(view);
-      expect(handled).toBe(true);
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
 
     it("allows selection within a single table cell (no pipe)", () => {
@@ -380,7 +378,7 @@ describe("Structural Character Protection", () => {
       expect(handled).toBe(false);
     });
 
-    it("detects selection spanning a list marker", () => {
+    it("passes through selection spanning a list marker", () => {
       const content = "- item content";
       // Selection from start across marker: "- it"
       const state = EditorState.create({
@@ -393,11 +391,10 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartBackspace(view);
-      expect(handled).toBe(true);
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
 
-    it("detects selection spanning a blockquote marker", () => {
+    it("passes through selection spanning a blockquote marker", () => {
       const content = "> quoted text";
       // Selection from start across marker
       const state = EditorState.create({
@@ -410,11 +407,10 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartBackspace(view);
-      expect(handled).toBe(true);
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
 
-    it("detects selection spanning a task marker", () => {
+    it("passes through selection spanning a task marker", () => {
       const content = "- [ ] task content";
       // Selection from start across task marker
       const state = EditorState.create({
@@ -427,8 +423,7 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartBackspace(view);
-      expect(handled).toBe(true);
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
 
     it("allows selection entirely after list marker", () => {
@@ -447,7 +442,7 @@ describe("Structural Character Protection", () => {
       expect(handled).toBe(false);
     });
 
-    it("smartDelete also blocks selection spanning structural chars", () => {
+    it("smartDelete passes through selection spanning structural chars", () => {
       const content = "| cell1 | cell2 |";
       const state = EditorState.create({
         doc: content,
@@ -459,8 +454,7 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartDelete(view);
-      expect(handled).toBe(true);
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
 
     it("ignores escaped pipes in selection span check", () => {
@@ -485,7 +479,7 @@ describe("Structural Character Protection", () => {
       expect(handled).toBe(false);
     });
 
-    it("blocks selection spanning multi-line with structural chars", () => {
+    it("passes through selection spanning multi-line with structural chars", () => {
       const content = "| cell1 |\n| cell2 |";
       // Selection across the two lines including pipes
       const state = EditorState.create({
@@ -498,8 +492,7 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartBackspace(view);
-      expect(handled).toBe(true);
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
   });
 
@@ -647,7 +640,7 @@ describe("Structural Character Protection", () => {
       expect(handled).toBe(false);
     });
 
-    it("blocks deletion when selection spans pipe in table", () => {
+    it("passes through selection spanning pipe in table", () => {
       const content = "| cell | next";
       const state = EditorState.create({
         doc: content,
@@ -659,8 +652,7 @@ describe("Structural Character Protection", () => {
       views.push(view);
 
       const handled = smartDelete(view);
-      expect(handled).toBe(true);
-      expect(view.state.doc.toString()).toBe(content);
+      expect(handled).toBe(false);
     });
 
     it("allows selection within single cell (no pipe)", () => {

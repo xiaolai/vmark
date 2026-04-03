@@ -312,8 +312,8 @@ export function smartBackspace(view: EditorView): boolean {
   const { state } = view;
   const { ranges } = state.selection;
 
-  // When there's a selection, check if it spans structural characters
-  if (ranges.some(r => !r.empty)) return selectionSpansStructuralChar(state);
+  // When there's a selection, let default behavior handle it
+  if (ranges.some(r => !r.empty)) return false;
 
   // Check if any cursor is at a structural position
   let anyStructural = false;
@@ -402,8 +402,8 @@ export function smartDelete(view: EditorView): boolean {
   const { state } = view;
   const { ranges } = state.selection;
 
-  // When there's a selection, check if it spans structural characters
-  if (ranges.some(r => !r.empty)) return selectionSpansStructuralChar(state);
+  // When there's a selection, let default behavior handle it
+  if (ranges.some(r => !r.empty)) return false;
 
   // Check if any cursor is at a structural position
   let anyStructural = false;

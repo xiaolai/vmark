@@ -528,7 +528,11 @@ pub fn restore_session_multi_window(
     // Emit restore signal to main window (signal only, state is pulled)
     if let Err(e) = main_window.emit(EVENT_RESTORE_START, ()) {
         // Clean up: pending state + orphaned secondary windows
-        clear_pending_restore();
+        // Use advance_and_clear to bump generation, invalidating the stale timeout task
+        let pending = get_pending_restore_state();
+        let mut state = lock_pending_restore(&pending);
+        state.advance_and_clear();
+        drop(state);
         for label in &windows_created {
             if let Some(w) = app.get_webview_window(label) {
                 let _ = w.close();

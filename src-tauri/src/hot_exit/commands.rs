@@ -31,8 +31,10 @@ static CAPTURE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 /// instead of being silently dropped.
 #[tauri::command]
 pub async fn hot_exit_capture(app: AppHandle) -> Result<SessionData, String> {
-    let _guard = CAPTURE_LOCK.lock().await;
+    // Capture outside the lock — the IPC broadcast can take up to CAPTURE_TIMEOUT_SECS.
+    // Only the read-merge-write section needs serialization.
     let CaptureResult { mut session, expected_labels } = capture_session(&app).await?;
+    let _guard = CAPTURE_LOCK.lock().await;
 
     // Merge partial captures: only resurrect windows that were expected (alive
     // at capture time) but failed to respond (timed out). Windows that were

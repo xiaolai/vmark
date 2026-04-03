@@ -344,6 +344,7 @@ export const tableArrowDownKeymap: KeyBinding = guardCodeMirrorKeyBinding({
  * Mod-Enter: insert a new row below current position in a table.
  */
 export function tableModEnter(view: EditorView): boolean {
+  if (view.state.selection.ranges.length > 1) return false;
   const info = getSourceTableInfo(view);
   if (!info) return false;
   if (!isInEditableTableRow(info)) return false;
@@ -356,6 +357,7 @@ export function tableModEnter(view: EditorView): boolean {
  * Mod-Shift-Enter: insert a new row above current position in a table.
  */
 export function tableModShiftEnter(view: EditorView): boolean {
+  if (view.state.selection.ranges.length > 1) return false;
   const info = getSourceTableInfo(view);
   if (!info) return false;
   if (!isInEditableTableRow(info)) return false;

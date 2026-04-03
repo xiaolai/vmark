@@ -227,7 +227,8 @@ export async function handleSelectionReplaceWithSuggestion(
     const { from, to } = editor.state.selection;
     if (from === to) {
       // No selection - treat as insert at cursor
-      return handleInsertAtCursorWithSuggestion(id, { text });
+      await handleInsertAtCursorWithSuggestion(id, { text });
+      return;
     }
 
     // Get original content that would be replaced

@@ -39,7 +39,6 @@ export type BridgeRequest =
   | { type: 'document.insertAtCursor'; text: string; windowId?: WindowId }
   | { type: 'document.insertAtPosition'; text: string; position: number; windowId?: WindowId }
   | { type: 'document.search'; query: string; caseSensitive?: boolean; windowId?: WindowId }
-  | { type: 'document.replace'; search: string; replace: string; all?: boolean; windowId?: WindowId }
   | { type: 'document.replaceInSource'; search: string; replace: string; all?: boolean; windowId?: WindowId }
   // Selection commands
   | { type: 'selection.get'; windowId?: WindowId }

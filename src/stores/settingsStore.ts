@@ -286,10 +286,18 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           appearance.blockSpacing = appearance.paragraphSpacing;
           delete appearance.paragraphSpacing;
         }
-        return deepMerge(
+        const merged = deepMerge(
           currentState as unknown as Record<string, unknown>,
           persisted
         ) as unknown as typeof currentState;
+        // Union array-typed defaults so new entries (e.g., link protocols) reach existing users
+        const defaultProtocols = currentState.advanced.customLinkProtocols;
+        const persistedAdvanced = persisted.advanced as Record<string, unknown> | undefined;
+        const persistedProtocols = persistedAdvanced?.customLinkProtocols;
+        if (Array.isArray(persistedProtocols)) {
+          merged.advanced.customLinkProtocols = [...new Set([...defaultProtocols, ...persistedProtocols])];
+        }
+        return merged;
       },
     }
   )

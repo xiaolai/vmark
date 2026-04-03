@@ -64,6 +64,7 @@ describe("sourceModeGuard", () => {
         "suggestion.list",
         "suggestion.acceptAll",
         "suggestion.rejectAll",
+        "genies.invoke",
       ])("blocks %s in source mode", (type) => {
         expect(isBlockedInSourceMode(type)).toBe(true);
       });
@@ -93,7 +94,6 @@ describe("sourceModeGuard", () => {
         "protocol.getRevision",
         "genies.list",
         "genies.read",
-        "genies.invoke",
         "editor.undo",
         "editor.redo",
         "editor.getUndoState",

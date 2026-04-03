@@ -108,6 +108,8 @@ const EDITOR_DEPENDENT_OPS = new Set([
   // Batch operations (Tiptap table/list manipulation)
   "table.batchModify",
   "list.batchModify",
+  // Genie invocation (dispatches against Tiptap editor)
+  "genies.invoke",
 ]);
 
 /**

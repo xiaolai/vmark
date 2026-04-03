@@ -143,6 +143,14 @@ pub async fn read_session(
     // Try main session file first
     match try_read_session_file(&session_path).await {
         Ok(Some(mut session)) => {
+            if !super::migration::can_migrate(session.version) {
+                log::warn!("[HotExit] Session version {} not supported, discarding", session.version);
+                return Ok(None);
+            }
+            if super::migration::needs_migration(&session) {
+                session = super::migration::migrate_session(session)
+                    .map_err(|e| format!("Migration failed: {}", e))?;
+            }
             let warnings = validate_and_repair(&mut session);
             for warning in &warnings {
                 log::warn!("[HotExit] Session repair: {}", warning);
@@ -162,6 +170,14 @@ pub async fn read_session(
     match try_read_session_file(&backup_path).await {
         Ok(Some(mut session)) => {
             log::info!("[HotExit] Restored session from backup");
+            if !super::migration::can_migrate(session.version) {
+                log::warn!("[HotExit] Backup session version {} not supported, discarding", session.version);
+                return Ok(None);
+            }
+            if super::migration::needs_migration(&session) {
+                session = super::migration::migrate_session(session)
+                    .map_err(|e| format!("Backup migration failed: {}", e))?;
+            }
             let warnings = validate_and_repair(&mut session);
             for warning in &warnings {
                 log::warn!("[HotExit] Session repair (backup): {}", warning);
