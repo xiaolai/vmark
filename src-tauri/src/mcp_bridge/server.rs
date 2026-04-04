@@ -332,19 +332,50 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle, 
     send_task.abort();
 }
 
-/// Try to wake the webview by evaluating a no-op JS snippet.
+/// Try to wake the target webview by evaluating a no-op JS snippet.
 ///
 /// When macOS suspends the webview (App Nap, display sleep), emitted events
 /// are queued but the frontend JS never executes. Calling the Tauri webview
 /// eval API nudges the webview process and can revive the JS event loop.
-async fn wake_webview(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        log::debug!("[MCP Bridge] Attempting to wake webview via Tauri eval API");
-        // Tauri's eval() is the official API for running JS in the webview.
-        // We use a no-op expression ("void(0)") purely to wake a suspended webview.
-        let _ = window.eval("void(0)");
+async fn wake_webview(app: &AppHandle, target_label: &str) {
+    if let Some(window) = app.get_webview_window(target_label) {
+        log::debug!(
+            "[MCP Bridge] Attempting to wake webview '{}' via Tauri eval API",
+            target_label
+        );
+        let _ = window.eval("void(0)");  // no-op to wake suspended webview
     } else {
-        log::warn!("[MCP Bridge] Cannot wake webview — main window not found");
+        log::warn!(
+            "[MCP Bridge] Cannot wake webview — window '{}' not found",
+            target_label
+        );
+    }
+}
+
+/// Resolve the target window label from a bridge request's args.
+///
+/// Extracts the `windowId` field from request args. If `"focused"`, resolves to
+/// the currently focused document window. Falls back to `"main"` when no
+/// `windowId` is provided or no window has focus.
+fn resolve_target_window(args: &serde_json::Value, app: &AppHandle) -> String {
+    let window_id = args
+        .get("windowId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("focused");
+
+    if window_id == "focused" {
+        // Find the focused document window (main or doc-*)
+        app.webview_windows()
+            .values()
+            .find(|w| {
+                let label = w.label();
+                w.is_focused().unwrap_or(false)
+                    && (label == "main" || label.starts_with("doc-"))
+            })
+            .map(|w| w.label().to_string())
+            .unwrap_or_else(|| "main".to_string())
+    } else {
+        window_id.to_string()
     }
 }
 
@@ -482,8 +513,10 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
         );
     }
 
-    // Emit event to frontend
-    // Serialize args to JSON string to avoid Tauri IPC double-encoding
+    // Emit event to the target window (not broadcast to all windows).
+    // Each window has its own webview with independent editor state, so we
+    // must route to the correct one to avoid cross-window content leakage.
+    // Serialize args to JSON string to avoid Tauri IPC double-encoding.
     let args_json = serde_json::to_string(&request.args)
         .unwrap_or_else(|_| "{}".to_string());
     let event = McpRequestEvent {
@@ -492,18 +525,28 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
         args_json,
     };
 
-    if let Err(e) = app.emit("mcp-bridge:request", &event) {
+    let target_label = resolve_target_window(&request.args, app);
+    let emit_result = if let Some(window) = app.get_webview_window(&target_label) {
+        log::debug!(
+            "[MCP Bridge] Emitting mcp-bridge:request to window '{}' for {} (id: {})",
+            target_label, request.request_type, request_id
+        );
+        window.emit("mcp-bridge:request", &event)
+    } else {
+        // Window not found — clean up and report error
+        let state = get_bridge_state();
+        let mut guard = state.lock().await;
+        guard.pending.remove(&request_id);
+        return Err(format!("Target window '{}' not found", target_label));
+    };
+
+    if let Err(e) = emit_result {
         // Clean up pending request on emit failure
         let state = get_bridge_state();
         let mut guard = state.lock().await;
         guard.pending.remove(&request_id);
         return Err(format!("Failed to emit event: {}", e));
     }
-
-    log::debug!(
-        "[MCP Bridge] Emitted mcp-bridge:request for {} (id: {})",
-        request.request_type, request_id
-    );
 
     // Wait for response with timeout (10 seconds - operations should be fast)
     let response = match tokio::time::timeout(Duration::from_secs(10), response_rx).await {
@@ -529,7 +572,7 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 client_id, request_type_for_log, webview_was_alive
             );
 
-            wake_webview(app).await;
+            wake_webview(app, &target_label).await;
 
             // Create a new oneshot channel for the retry attempt
             let (retry_tx, retry_rx) = oneshot::channel();
@@ -546,8 +589,13 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 );
             }
 
-            // Re-emit the event so the (now hopefully awake) frontend picks it up
-            let _ = app.emit("mcp-bridge:request", &event);
+            // Re-emit the event to the target window (not broadcast)
+            if let Some(window) = app.get_webview_window(&target_label) {
+                let _ = window.emit("mcp-bridge:request", &event);
+            } else {
+                let _ = app.get_webview_window("main")
+                    .map(|w| w.emit("mcp-bridge:request", &event));
+            }
 
             // Wait another 10 seconds for the retry
             match tokio::time::timeout(Duration::from_secs(10), retry_rx).await {

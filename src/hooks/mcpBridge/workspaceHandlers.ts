@@ -16,6 +16,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { getFileName } from "@/utils/paths";
+import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { reloadTabFromDisk } from "@/utils/reloadFromDisk";
 import { respond, getEditor, resolveWindowId } from "./utils";
 import { requireString, optionalString, booleanWithDefault } from "./validateArgs";
@@ -25,9 +26,10 @@ import { requireString, optionalString, booleanWithDefault } from "./validateArg
  */
 export async function handleWindowsList(id: string): Promise<void> {
   try {
+    const windowLabel = getCurrentWindowLabel();
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
-    const activeTabId = tabStore.activeTabId["main"];
+    const activeTabId = tabStore.activeTabId[windowLabel];
     const doc = activeTabId ? docStore.getDocument(activeTabId) : undefined;
 
     await respond({
@@ -35,7 +37,7 @@ export async function handleWindowsList(id: string): Promise<void> {
       success: true,
       data: [
         {
-          label: "main",
+          label: windowLabel,
           title: doc?.filePath ? getFileName(doc.filePath) || "Untitled" : "Untitled",
           filePath: doc?.filePath ?? null,
           isFocused: true,
@@ -57,7 +59,7 @@ export async function handleWindowsList(id: string): Promise<void> {
  */
 export async function handleWindowsGetFocused(id: string): Promise<void> {
   try {
-    await respond({ id, success: true, data: "main" });
+    await respond({ id, success: true, data: getCurrentWindowLabel() });
   } catch (error) {
     await respond({
       id,
@@ -102,11 +104,12 @@ export async function handleWorkspaceNewDocument(id: string): Promise<void> {
     const docStore = useDocumentStore.getState();
 
     // Create new tab and initialize empty document
-    const tabId = tabStore.createTab("main", null);
+    const windowLabel = getCurrentWindowLabel();
+    const tabId = tabStore.createTab(windowLabel, null);
     docStore.initDocument(tabId, "", null);
 
     // Return windowId as expected by MCP server
-    await respond({ id, success: true, data: { windowId: "main" } });
+    await respond({ id, success: true, data: { windowId: windowLabel } });
   } catch (error) {
     await respond({
       id,
@@ -134,10 +137,11 @@ export async function handleWorkspaceOpenDocument(
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
 
-    const tabId = tabStore.createTab("main", path);
+    const windowLabel = getCurrentWindowLabel();
+    const tabId = tabStore.createTab(windowLabel, path);
     docStore.initDocument(tabId, content, path);
 
-    await respond({ id, success: true, data: { windowId: "main" } });
+    await respond({ id, success: true, data: { windowId: windowLabel } });
   } catch (error) {
     await respond({
       id,
@@ -154,7 +158,7 @@ export async function handleWorkspaceSaveDocument(id: string): Promise<void> {
   try {
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
-    const activeTabId = tabStore.activeTabId["main"];
+    const activeTabId = tabStore.activeTabId[getCurrentWindowLabel()];
 
     if (!activeTabId) {
       throw new Error("No active document");
@@ -221,7 +225,7 @@ export async function handleWorkspaceSaveDocumentAs(
 
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
-    const activeTabId = tabStore.activeTabId["main"];
+    const activeTabId = tabStore.activeTabId[getCurrentWindowLabel()];
 
     if (!activeTabId) {
       throw new Error("No active document");

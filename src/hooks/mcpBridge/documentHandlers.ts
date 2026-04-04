@@ -12,6 +12,7 @@
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { respond, getEditor, getDocumentContent } from "./utils";
+import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { requireString, booleanWithDefault } from "./validateArgs";
 
 /**
@@ -133,14 +134,15 @@ export async function handleMetadataGet(id: string): Promise<void> {
 
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
-    const activeTabId = tabStore.activeTabId["main"];
+    const windowLabel = getCurrentWindowLabel();
+    const activeTabId = tabStore.activeTabId[windowLabel];
 
     if (!activeTabId) {
       throw new Error("No active document");
     }
 
     const doc = docStore.getDocument(activeTabId);
-    const tab = tabStore.tabs["main"]?.find((t) => t.id === activeTabId);
+    const tab = tabStore.tabs[windowLabel]?.find((t) => t.id === activeTabId);
 
     // Calculate word and character count
     const text = editor.state.doc.textContent;

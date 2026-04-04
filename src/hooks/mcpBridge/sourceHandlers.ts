@@ -14,6 +14,7 @@ import { respond } from "./utils";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 /**
  * Extract headings from raw markdown text.
  */
@@ -41,9 +42,10 @@ function extractHeadingsFromMarkdown(content: string): Array<{ level: number; te
  */
 export async function handleSourceDocumentGetContent(id: string, args: Record<string, unknown>): Promise<void> {
   try {
+    const windowLabel = getCurrentWindowLabel();
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
-    const activeTabId = tabStore.activeTabId["main"];
+    const activeTabId = tabStore.activeTabId[windowLabel];
 
     if (!activeTabId) throw new Error("No active document");
 
@@ -67,9 +69,10 @@ export async function handleSourceDocumentGetContent(id: string, args: Record<st
  */
 export async function handleSourceOutlineGet(id: string): Promise<void> {
   try {
+    const windowLabel = getCurrentWindowLabel();
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
-    const activeTabId = tabStore.activeTabId["main"];
+    const activeTabId = tabStore.activeTabId[windowLabel];
 
     if (!activeTabId) throw new Error("No active document");
 
@@ -90,14 +93,15 @@ export async function handleSourceOutlineGet(id: string): Promise<void> {
  */
 export async function handleSourceMetadataGet(id: string): Promise<void> {
   try {
+    const windowLabel = getCurrentWindowLabel();
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
-    const activeTabId = tabStore.activeTabId["main"];
+    const activeTabId = tabStore.activeTabId[windowLabel];
 
     if (!activeTabId) throw new Error("No active document");
 
     const doc = docStore.getDocument(activeTabId);
-    const tab = tabStore.tabs["main"]?.find((t) => t.id === activeTabId);
+    const tab = tabStore.tabs[windowLabel]?.find((t) => t.id === activeTabId);
 
     const content = doc?.content ?? "";
     const charCount = content.length;
