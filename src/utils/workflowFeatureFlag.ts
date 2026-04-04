@@ -15,9 +15,3 @@ import { useSettingsStore } from "@/stores/settingsStore";
 export function isWorkflowEnabled(): boolean {
   return useSettingsStore.getState().advanced.workflowEngine ?? false;
 }
-
-/**
- * Static export for tree-shaking compatibility in module-level guards.
- * Falls back to false during SSR/test where the store may not be initialized.
- */
-export const WORKFLOW_ENABLED = false; // kept for backward compat; runtime reads store
