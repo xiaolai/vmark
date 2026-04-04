@@ -3,6 +3,7 @@
  *
  * Purpose: Handles MCP operations that can work in Source mode by reading
  * from the document store and CodeMirror state instead of Tiptap DOM.
+ * Uses getCurrentWindowLabel() for per-window scoped tab lookups.
  * These produce the same response shapes as the WYSIWYG handlers.
  *
  * @coordinates-with sourceModeGuard.ts — routes source-capable ops here

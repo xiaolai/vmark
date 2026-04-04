@@ -3,6 +3,7 @@
  *
  * Purpose: Workspace-level operations — list/open/save documents, open workspace,
  *   get workspace info, and new-window creation via AI assistant requests.
+ *   Uses getCurrentWindowLabel() for per-window scoped tab/document lookups.
  *
  * @coordinates-with workspaceStore.ts — reads workspace root and config
  * @coordinates-with tabStore.ts — manages tabs for open/save

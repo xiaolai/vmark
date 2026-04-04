@@ -2,8 +2,9 @@
  * MCP Bridge — Document Handlers (Read-Only)
  *
  * Purpose: Read-only document operations — get content, search text,
- *   get outline (headings), and get document metadata. Write operations
- *   are in suggestionHandlers.ts for user approval.
+ *   get outline (headings), and get document metadata. Uses
+ *   getCurrentWindowLabel() for per-window scoped tab lookups.
+ *   Write operations are in suggestionHandlers.ts for user approval.
  *
  * @coordinates-with suggestionHandlers.ts — handles write operations
  * @module hooks/mcpBridge/documentHandlers

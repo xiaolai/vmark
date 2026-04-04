@@ -9,7 +9,8 @@
  *   - respond() sends result back to Rust via invoke (not emit) for reliability
  *   - getEditor() returns the active Tiptap editor or null (safe for handlers)
  *   - getDocumentContent() serializes ProseMirror doc to markdown
- *   - resolveWindowId() maps "main"/"focused" to actual window labels
+ *   - resolveWindowId() uses getCurrentWindowLabel() for per-window routing
+ *   - getActiveTabId() defaults to current window, not hardcoded "main"
  *
  * @module hooks/mcpBridge/utils
  */
