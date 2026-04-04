@@ -9,7 +9,8 @@
  *   - respond() sends result back to Rust via invoke (not emit) for reliability
  *   - getEditor() returns the active Tiptap editor or null (safe for handlers)
  *   - getDocumentContent() serializes ProseMirror doc to markdown
- *   - resolveWindowId() maps "main"/"focused" to actual window labels
+ *   - resolveWindowId() uses getCurrentWindowLabel() for per-window routing
+ *   - getActiveTabId() defaults to current window, not hardcoded "main"
  *
  * @module hooks/mcpBridge/utils
  */
@@ -19,6 +20,7 @@ import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
+import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import type { McpResponse } from "./types";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
@@ -56,23 +58,25 @@ export function getDocumentContent(): string {
 
 /**
  * Resolve windowId parameter to actual window label.
- * Maps "focused" to the currently focused window (currently always "main").
- * Defaults undefined to "main".
+ *
+ * Note: Window routing is primarily handled on the Rust side —
+ * `resolve_target_window()` in `server.rs` emits events only to the
+ * target window. This frontend helper is kept for edge cases where
+ * handlers need to resolve window labels locally.
  */
 export function resolveWindowId(windowId: string | undefined): string {
   if (windowId === "focused") {
-    // For now, VMark is single-window, so "focused" always means "main"
-    // Future: look up actual focused window from window manager
-    return "main";
+    return getCurrentWindowLabel();
   }
-  return windowId ?? "main";
+  return windowId ?? getCurrentWindowLabel();
 }
 
 /**
- * Get the active tab ID for the given window (defaults to "main").
+ * Get the active tab ID for the given window (defaults to current window).
  */
-export function getActiveTabId(windowLabel = "main"): string {
-  return useTabStore.getState().activeTabId[windowLabel] ?? "unknown";
+export function getActiveTabId(windowLabel?: string): string {
+  const label = windowLabel ?? getCurrentWindowLabel();
+  return useTabStore.getState().activeTabId[label] ?? "unknown";
 }
 
 /**
