@@ -1,17 +1,22 @@
 /**
  * Tests for terminal IME composition grace period.
  *
- * Validates the pattern used in createTerminalInstance.ts:
+ * This file tests the composition guard PATTERN in isolation using a minimal
+ * reimplementation. The real wiring (xterm textarea → composition events →
+ * onCompositionCommit → PTY write) is tested in createTerminalInstance.test.ts.
+ *
+ * Validates:
  * - composing stays true during grace period after compositionend
  * - onCompositionCommit fires with clean committed text after grace period
- * - onData is blocked during grace period (composing=true)
+ * - ALL onData is blocked during grace period (#619) — no selective filtering
  * - new compositionstart cancels pending grace timer
  * - single non-ASCII chars (CJK brackets) flush immediately without grace period (#525)
  * - lastCommittedText / lastCommitTime enable onData deduplication (#525)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { IME_COMPOSITION_GRACE_MS, IME_DEDUP_WINDOW_MS } from "./createTerminalInstance";
 
-const GRACE_MS = 80;
+const GRACE_MS = IME_COMPOSITION_GRACE_MS;
 
 /**
  * Minimal reproduction of the composition guard logic from createTerminalInstance.
@@ -187,28 +192,71 @@ describe("terminal IME composition grace period", () => {
     expect(commit).toHaveBeenCalledWith("你好");
   });
 
-  it("blocks onData-style forwarding during grace period", () => {
+  it("blocks ALL onData during grace period — ASCII and CJK alike (#619)", () => {
     const guard = createCompositionGuard();
     const ptyWrite = vi.fn();
 
-    // Simulate the onData guard pattern from useTerminalSessions
+    // Simulate the onData guard pattern from useTerminalSessions.
+    // ALL data is blocked during composition and grace period — no selective
+    // filtering. The committed text is written directly via onCompositionCommit.
     const onData = (data: string) => {
       if (guard.composing) return; // blocked
       ptyWrite(data);
     };
 
     guard.compositionStart();
-    onData("cl"); // blocked during composition
+    onData("cl"); // blocked during active composition
     expect(ptyWrite).not.toHaveBeenCalled();
 
     guard.compositionEnd("claude");
-    onData("cl au de"); // blocked during grace period
+    onData("cl au de"); // ASCII re-emission — blocked during grace period
     expect(ptyWrite).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(GRACE_MS);
     // After grace, normal data passes through
     onData("hello");
     expect(ptyWrite).toHaveBeenCalledWith("hello");
+  });
+
+  it("blocks CJK text re-emitted by xterm during grace period (#619)", () => {
+    const guard = createCompositionGuard();
+    const commit = vi.fn();
+    const ptyWrite = vi.fn();
+    guard.onCompositionCommit = commit;
+
+    // Simulate the full onData guard from useTerminalSessions
+    const onData = (data: string) => {
+      if (guard.composing) return;
+      if (
+        guard.lastCommittedText &&
+        Date.now() - guard.lastCommitTime < IME_DEDUP_WINDOW_MS &&
+        (data === guard.lastCommittedText || guard.lastCommittedText.startsWith(data))
+      ) {
+        return;
+      }
+      ptyWrite(data);
+    };
+
+    // User types "你好世界" with Chinese IME
+    guard.compositionStart();
+    guard.compositionEnd("你好世界");
+
+    // xterm re-emits the composed text via onData during grace period —
+    // this was the root cause of duplication in #619
+    onData("你好世界");
+    expect(ptyWrite).not.toHaveBeenCalled();
+
+    // Also block if xterm chunks the text as prefix segments
+    onData("你好");
+    expect(ptyWrite).not.toHaveBeenCalled();
+
+    // Grace period expires — committed text written via onCompositionCommit
+    vi.advanceTimersByTime(GRACE_MS);
+    expect(commit).toHaveBeenCalledWith("你好世界");
+
+    // After grace, normal data flows
+    onData("ls\n");
+    expect(ptyWrite).toHaveBeenCalledWith("ls\n");
   });
 });
 
@@ -314,7 +362,7 @@ describe("single non-ASCII char immediate flush (#525 — CJK brackets)", () => 
 });
 
 describe("WeChat IME onData dedup (#525)", () => {
-  const DEDUP_WINDOW_MS = 150;
+  const DEDUP_WINDOW_MS = IME_DEDUP_WINDOW_MS;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -352,8 +400,8 @@ describe("WeChat IME onData dedup (#525)", () => {
     const onData = (data: string) => {
       if (
         guard.lastCommittedText &&
-        data === guard.lastCommittedText &&
-        Date.now() - guard.lastCommitTime < DEDUP_WINDOW_MS
+        Date.now() - guard.lastCommitTime < DEDUP_WINDOW_MS &&
+        (data === guard.lastCommittedText || guard.lastCommittedText.startsWith(data))
       ) {
         return; // deduped
       }
@@ -364,9 +412,13 @@ describe("WeChat IME onData dedup (#525)", () => {
     vi.advanceTimersByTime(50);
     onData("你好");
     expect(ptyWrite).not.toHaveBeenCalled();
+
+    // Prefix chunk also blocked
+    onData("你");
+    expect(ptyWrite).not.toHaveBeenCalled();
   });
 
-  it("dedup guard allows onData with different text", () => {
+  it("dedup guard allows onData with non-prefix text", () => {
     const guard = createCompositionGuard();
     const commit = vi.fn();
     const ptyWrite = vi.fn();
@@ -379,8 +431,8 @@ describe("WeChat IME onData dedup (#525)", () => {
     const onData = (data: string) => {
       if (
         guard.lastCommittedText &&
-        data === guard.lastCommittedText &&
-        Date.now() - guard.lastCommitTime < DEDUP_WINDOW_MS
+        Date.now() - guard.lastCommitTime < DEDUP_WINDOW_MS &&
+        (data === guard.lastCommittedText || guard.lastCommittedText.startsWith(data))
       ) {
         return;
       }
@@ -405,8 +457,8 @@ describe("WeChat IME onData dedup (#525)", () => {
     const onData = (data: string) => {
       if (
         guard.lastCommittedText &&
-        data === guard.lastCommittedText &&
-        Date.now() - guard.lastCommitTime < DEDUP_WINDOW_MS
+        Date.now() - guard.lastCommitTime < DEDUP_WINDOW_MS &&
+        (data === guard.lastCommittedText || guard.lastCommittedText.startsWith(data))
       ) {
         return;
       }

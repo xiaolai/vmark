@@ -11,11 +11,11 @@
  *     80x24 defaults while hidden, which causes blank-line artifacts on resize.
  *   - After a shell exits, pressing any key respawns it — no manual restart needed.
  *     The "dead session" state is visually indicated in the tab bar.
- *   - IME composition guard: during active composition all onData is blocked;
- *     during the 80ms grace period only ASCII data is blocked (garbled spaces)
- *     while non-ASCII (CJK punctuation) passes through (#454). Clean committed
- *     text is written directly via onCompositionCommit. Late onData events
- *     matching recently committed text are deduplicated within 150ms (#525).
+ *   - IME composition guard: ALL onData is blocked during both active composition
+ *     and the 80ms post-composition grace period (#59, #454, #525, #608, #619).
+ *     Clean committed text is written directly via onCompositionCommit, bypassing
+ *     xterm entirely. Late onData matching recently committed text is deduplicated
+ *     within 150ms as a safety net (#525).
  *   - Theme sync uses buildXtermThemeForId() from terminalTheme.ts for
  *     per-theme ANSI color palettes. Font size and workspace root changes
  *     are also synced across all sessions via store subscriptions.
@@ -38,6 +38,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import {
   createTerminalInstance,
+  IME_DEDUP_WINDOW_MS,
   type TerminalInstance,
 } from "./createTerminalInstance";
 import { buildXtermThemeForId } from "./terminalTheme";
@@ -268,44 +269,42 @@ export function useTerminalSessions(
 
       // IME composition commit: write clean committed text directly to PTY,
       // bypassing xterm's onData which may inject spaces (macOS Chinese IME).
-      // If the shell is dead/spawning, restart it — don't silently drop CJK input.
       instance.onCompositionCommit = (text: string) => {
         const e = sessionsRef.current.get(sessionId);
         if (!e) return;
         if (e.pty) {
           e.pty.write(text);
         } else if (e.shellExited) {
-          // "Press any key to restart" — treat IME commit as that key
+          // "Press any key to restart" — treat IME commit as that key.
+          // The committed text is intentionally not replayed after restart;
+          // the user retypes once a fresh prompt appears.
           e.shellExited = false;
           e.instance.term.clear();
           startShell(sessionId);
         }
+        // During shell spawn or before first start: text is dropped.
+        // No prompt is visible yet, so buffering would be confusing.
       };
 
       // xterm → PTY (or restart on key press after exit)
       instance.term.onData((data) => {
         const e = sessionsRef.current.get(sessionId);
         if (!e) return;
-        // Ignore preedit data leaked by xterm during IME composition (issue #59).
-        // During active composition: block everything (preedit is garbled).
-        // During grace period: only block ASCII data (garbled syllable spaces);
-        // let non-ASCII through so CJK punctuation isn't silently dropped (#454).
-        if (instance.composing) {
-          if (!instance.inGracePeriod) return; // active composition — block all
-          // Grace period: block the committed text xterm re-emits (#608).
-          // Without this, CJK text (e.g., "你好") passes the ASCII-only check below,
-          // gets written to PTY, and then onCompositionCommit writes it again → duplication.
-          if (instance.pendingCommitText && data === instance.pendingCommitText) return;
-          // eslint-disable-next-line no-control-regex
-          if (/^[\x00-\x7F]+$/.test(data)) return; // grace period — block ASCII only
-        }
-        // Deduplicate: WeChat IME may send onData with the same text that was
-        // already committed via onCompositionCommit. Skip if data matches the
-        // last committed text and arrives within 150ms of the commit (#525).
+        // Block ALL onData during IME composition and the post-composition
+        // grace period (#59, #454, #525, #608, #619). The clean committed text
+        // is written directly to PTY via onCompositionCommit — nothing from
+        // onData is needed during this window. Previous approaches tried to
+        // selectively block (ASCII-only, exact-match) but different IMEs
+        // re-emit text in unpredictable ways, causing recurring duplication.
+        if (instance.composing) return;
+        // Safety net: some IMEs (WeChat) may emit onData with the committed
+        // text AFTER the grace period ends. Deduplicate within 150ms (#525).
+        // Uses startsWith to also catch chunked re-emission (e.g., xterm
+        // splitting "你好世界" into "你好" + "世界" as separate onData calls).
         if (
           instance.lastCommittedText &&
-          data === instance.lastCommittedText &&
-          Date.now() - instance.lastCommitTime < 150
+          Date.now() - instance.lastCommitTime < IME_DEDUP_WINDOW_MS &&
+          (data === instance.lastCommittedText || instance.lastCommittedText.startsWith(data))
         ) {
           return;
         }
