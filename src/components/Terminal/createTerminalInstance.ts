@@ -12,15 +12,14 @@
  *   - IME composition tracking via compositionstart/end on the hidden
  *     textarea — used to suppress copy-on-select and data forwarding
  *     during CJK input to avoid garbled text. Includes an 80ms grace
- *     period after compositionend to block xterm's space-injected ASCII
- *     onData while allowing non-ASCII (CJK punctuation) through (#454).
- *     Fires onCompositionCommit with clean committed text for direct
- *     PTY write (fixes macOS Chinese IME: "claude" → "cl au de").
- *     Rapid back-to-back compositions flush pending text immediately.
- *     Single non-ASCII chars (CJK brackets/punctuation) flush immediately
- *     without the grace period to fix WeChat IME bracket input (#525).
- *     Tracks lastCommittedText/lastCommitTime for dedup against late
- *     onData events from WeChat IME (#525).
+ *     period after compositionend during which ALL onData is blocked
+ *     (#59, #454, #525, #608, #619). Fires onCompositionCommit with
+ *     clean committed text for direct PTY write, bypassing xterm's
+ *     onData entirely. Rapid back-to-back compositions flush pending
+ *     text immediately. Single non-ASCII chars (CJK brackets/punctuation)
+ *     flush immediately without the grace period (#525). Tracks
+ *     lastCommittedText/lastCommitTime for dedup against late onData
+ *     events that arrive after the grace period ends (#525).
  *   - WebGL renderer is optional (settings-driven); falls back silently
  *     to canvas on GPU-incompatible systems.
  *   - Web links only open safe URL schemes (http, https, mailto);
@@ -57,6 +56,11 @@ import { clipboardWarn, terminalLog } from "@/utils/debug";
 
 import "@xterm/xterm/css/xterm.css";
 
+/** Milliseconds to keep composing=true after compositionend to block xterm's onData re-emission. */
+export const IME_COMPOSITION_GRACE_MS = 80;
+/** Milliseconds after onCompositionCommit during which duplicate onData is suppressed. */
+export const IME_DEDUP_WINDOW_MS = 150;
+
 /** Resolve --font-mono CSS variable to actual font family names. */
 function resolveMonoFont(): string {
   const style = getComputedStyle(document.documentElement);
@@ -83,8 +87,6 @@ export interface TerminalInstance {
    * onData which may inject spaces (macOS Chinese IME: "claude" → "cl au de").
    */
   onCompositionCommit: ((text: string) => void) | null;
-  /** Text pending commit during grace period — used to block xterm re-emission (#608). */
-  pendingCommitText: string | null;
   /** Last text committed via onCompositionCommit — used for dedup against late onData (#525). */
   lastCommittedText: string | null;
   /** Timestamp (Date.now()) of the last onCompositionCommit — dedup window check (#525). */
@@ -202,8 +204,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
       return;
     }
 
-    // Multi-char (or ASCII): use grace period to block xterm's garbled ASCII onData.
-    // Non-ASCII chars (CJK punctuation) are allowed through by the onData guard.
+    // Multi-char (or ASCII): use grace period to block ALL xterm onData.
+    // Clean committed text is written directly via onCompositionCommit.
     pendingCommitText = committedText;
     inGracePeriod = true;
     compositionGraceTimer = setTimeout(() => {
@@ -217,7 +219,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
         onCompositionCommit(pendingCommitText);
       }
       pendingCommitText = null;
-    }, 80);
+    }, IME_COMPOSITION_GRACE_MS);
   };
   if (textarea) {
     textarea.addEventListener("compositionstart", onCompositionStart);
@@ -347,7 +349,6 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     get inGracePeriod() { return inGracePeriod; },
     get onCompositionCommit() { return onCompositionCommit; },
     set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
-    get pendingCommitText() { return pendingCommitText; },
     get lastCommittedText() { return lastCommittedText; },
     get lastCommitTime() { return lastCommitTime; },
   };
