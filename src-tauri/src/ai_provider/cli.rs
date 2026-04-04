@@ -7,10 +7,14 @@
 
 use std::io::{BufRead, BufReader, Write as IoWrite};
 use std::process::{Command, Stdio};
+use std::time::Duration;
 use tauri::WebviewWindow;
 
 use super::detection::login_shell_path;
 use super::types::{emit_chunk, emit_done, emit_error};
+
+/// Maximum time a CLI provider is allowed to run before being killed.
+const CLI_TIMEOUT: Duration = Duration::from_secs(300);
 
 // ============================================================================
 // Command Building
@@ -61,29 +65,37 @@ pub(super) async fn run_cli_blocking(
     let w = window.clone();
     let rid = request_id.to_string();
     let prov = provider.to_string();
-    let result = tokio::task::spawn_blocking(move || {
-        let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        run_cli_provider(
-            &w,
-            &rid,
-            &prov,
-            &arg_refs,
-            stdin_prompt.as_deref(),
-            cli_path.as_deref(),
-        )
-    })
+    let result = tokio::time::timeout(
+        CLI_TIMEOUT,
+        tokio::task::spawn_blocking(move || {
+            let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+            run_cli_provider(
+                &w,
+                &rid,
+                &prov,
+                &arg_refs,
+                stdin_prompt.as_deref(),
+                cli_path.as_deref(),
+            )
+        }),
+    )
     .await;
 
     match result {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(e)) => {
+        Ok(Ok(Ok(()))) => Ok(()),
+        Ok(Ok(Err(e))) => {
             // run_cli_provider already emits error/done events on most paths,
             // but spawn and stdin-write failures return Err without emitting.
             emit_error(window, request_id, &e);
             Err(e)
         }
-        Err(join_err) => {
+        Ok(Err(join_err)) => {
             let msg = format!("Task join error: {join_err}");
+            emit_error(window, request_id, &msg);
+            Err(msg)
+        }
+        Err(_elapsed) => {
+            let msg = format!("{provider} timed out after {}s", CLI_TIMEOUT.as_secs());
             emit_error(window, request_id, &msg);
             Err(msg)
         }
