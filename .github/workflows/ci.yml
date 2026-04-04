@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  frontend:
+  frontend-run:
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -36,6 +36,21 @@ jobs:
         continue-on-error: ${{ github.event_name == 'pull_request' }}
 
       - run: pnpm check:all
+
+  # Gate job: required by branch protection (exact name "frontend")
+  frontend:
+    if: always()
+    needs: [frontend-run]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check matrix result
+        env:
+          RESULT: ${{ needs.frontend-run.result }}
+        run: |
+          if [ "$RESULT" != "success" ]; then
+            echo "frontend-run: $RESULT"
+            exit 1
+          fi
 
   rust-test:
     timeout-minutes: 30
