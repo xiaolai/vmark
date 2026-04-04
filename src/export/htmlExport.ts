@@ -200,8 +200,21 @@ export async function exportHtml(
 
       const downloadedFonts: FontFile[] = [];
       const embeddedFonts: EmbeddedFont[] = [];
-      for (const font of fontsToExport) {
-        const data = await downloadFont(font.url);
+
+      // Download all fonts in parallel to avoid sequential worst-case latency
+      const results = await Promise.allSettled(
+        fontsToExport.map(async (font) => {
+          const data = await downloadFont(font.url);
+          return { font, data };
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "rejected") {
+          warnings.push(`Failed to download font: ${String(result.reason)}`);
+          continue;
+        }
+        const { font, data } = result.value;
         if (data) {
           const fontPath = `${fontsPath}/${font.filename}`;
           await writeFile(fontPath, data);
