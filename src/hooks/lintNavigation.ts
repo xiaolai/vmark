@@ -61,6 +61,11 @@ export function scrollToSelectedDiagnostic(tabId: string): void {
 /** Pending scroll offsets for tabs that switched to Source mode for navigation. */
 const pendingScrollByTab: Record<string, number> = {};
 
+/** Clear pending scroll for a tab (called on tab close to prevent leaks). */
+export function clearPendingLintScroll(tabId: string): void {
+  delete pendingScrollByTab[tabId];
+}
+
 /**
  * Consume pending scroll for a tab. Called by Source editor on mount/activation.
  * Returns the offset to scroll to, or undefined if none pending.
