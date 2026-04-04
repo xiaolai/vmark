@@ -343,7 +343,12 @@ async fn wake_webview(app: &AppHandle, target_label: &str) {
             "[MCP Bridge] Attempting to wake webview '{}' via Tauri eval API",
             target_label
         );
-        let _ = window.eval("void(0)");  // no-op to wake suspended webview
+        if let Err(e) = window.eval("void(0)") {
+            log::debug!(
+                "[MCP Bridge] Failed to wake webview '{}': {} (continuing anyway)",
+                target_label, e
+            );
+        }
     } else {
         log::warn!(
             "[MCP Bridge] Cannot wake webview — window '{}' not found",
@@ -365,15 +370,22 @@ fn resolve_target_window(args: &serde_json::Value, app: &AppHandle) -> String {
 
     if window_id == "focused" {
         // Find the focused document window (main or doc-*)
-        app.webview_windows()
+        let resolved = app.webview_windows()
             .values()
             .find(|w| {
                 let label = w.label();
                 w.is_focused().unwrap_or(false)
                     && (label == "main" || label.starts_with("doc-"))
             })
-            .map(|w| w.label().to_string())
-            .unwrap_or_else(|| "main".to_string())
+            .map(|w| w.label().to_string());
+
+        if resolved.is_none() {
+            log::warn!(
+                "[MCP Bridge] No focused document window found — falling back to 'main'. \
+                 Non-document window may have focus, or app may be in background."
+            );
+        }
+        resolved.unwrap_or_else(|| "main".to_string())
     } else {
         window_id.to_string()
     }
@@ -591,12 +603,35 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
 
             // Re-emit the event to the target window (not broadcast)
             if let Some(window) = app.get_webview_window(&target_label) {
-                let _ = window.emit("mcp-bridge:request", &event);
+                if let Err(e) = window.emit("mcp-bridge:request", &event) {
+                    log::warn!(
+                        "[MCP Bridge] Retry emit to window '{}' failed: {}",
+                        target_label, e
+                    );
+                    let state = get_bridge_state();
+                    let mut guard = state.lock().await;
+                    guard.pending.remove(&request_id);
+                    drop(guard);
+                    send_error_response(
+                        &client_tx, &msg.id,
+                        &format!("Failed to re-emit to window '{}' on retry: {}", target_label, e),
+                    );
+                    return Ok(());
+                }
             } else {
                 log::warn!(
                     "[MCP Bridge] Target window '{}' no longer exists for retry",
                     target_label
                 );
+                let state = get_bridge_state();
+                let mut guard = state.lock().await;
+                guard.pending.remove(&request_id);
+                drop(guard);
+                send_error_response(
+                    &client_tx, &msg.id,
+                    &format!("Target window '{}' was closed during retry", target_label),
+                );
+                return Ok(());
             }
 
             // Wait another 10 seconds for the retry
@@ -705,17 +740,22 @@ fn handle_rust_side(request: &McpRequest, app: &AppHandle) -> Option<McpResponse
             })
         }
         "windows.getFocused" => {
+            // Only consider document windows (main, doc-*), not settings/utility windows
             let focused = app
                 .webview_windows()
                 .iter()
-                .find(|(_, w)| w.is_focused().unwrap_or(false))
+                .find(|(label, w)| {
+                    w.is_focused().unwrap_or(false)
+                        && (*label == "main" || label.starts_with("doc-"))
+                })
                 .map(|(label, _)| label.clone());
 
             Some(McpResponse {
                 success: true,
-                data: Some(serde_json::Value::String(
-                    focused.unwrap_or_else(|| "main".to_string()),
-                )),
+                data: Some(match focused {
+                    Some(label) => serde_json::Value::String(label),
+                    None => serde_json::Value::Null,
+                }),
                 error: None,
             })
         }
