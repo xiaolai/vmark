@@ -64,12 +64,12 @@ jobs:
         id: find-issues
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          if [ "${{ github.event_name }}" = "issues" ]; then
-            # Direct issue trigger — use the issue number
-            echo "ISSUE_NUMBERS=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "issues" ]; then
+            echo "ISSUE_NUMBERS=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           else
-            # workflow_run trigger — find all open audit issues
             NUMBERS=$(gh issue list --state open --label audit --json number --jq '.[].number' | tr '\n' ' ')
             echo "ISSUE_NUMBERS=$NUMBERS" >> "$GITHUB_OUTPUT"
           fi
@@ -94,7 +94,8 @@ jobs:
             5. If the fix touches Rust code (src-tauri/), also run `cargo check --manifest-path src-tauri/Cargo.toml`
             6. Commit with message: `fix: <issue title> (Closes #<NUMBER>)`
             7. Push and create a PR: `gh pr create --title "fix: <issue title>" --body "Closes #<NUMBER>" --label audit`
-            8. Go back to main for the next issue: `git checkout main`
+            8. Enable auto-merge: `gh pr merge --auto --squash <PR_URL>`
+            9. Go back to main for the next issue: `git checkout main`
 
             If a fix causes test failures, adjust until gates pass.
             If an issue is unclear or unfixable, comment on the issue explaining why and move on.
@@ -131,7 +132,8 @@ jobs:
       - name: Enable auto-merge for bot PRs
         if: >-
           github.event_name == 'pull_request' &&
-          github.event.pull_request.user.login == 'claude[bot]'
+          (github.event.pull_request.user.login == 'claude[bot]' ||
+           github.event.pull_request.user.login == 'github-actions[bot]')
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
