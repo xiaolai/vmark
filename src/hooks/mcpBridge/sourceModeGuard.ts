@@ -31,7 +31,7 @@ export const SOURCE_MODE_ERROR =
  * Operations that have Source-mode-capable handlers.
  * These are routed to sourceHandlers.ts instead of being blocked.
  */
-export const SOURCE_CAPABLE_OPS = new Set([
+const SOURCE_CAPABLE_OPS: ReadonlySet<string> = new Set([
   "document.getContent",
   "outline.get",
   "metadata.get",
