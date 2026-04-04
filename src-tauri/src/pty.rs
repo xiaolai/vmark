@@ -52,19 +52,19 @@ impl PauseControl {
     }
 
     fn pause(&self) {
-        *self.paused.lock().unwrap() = true;
+        *self.paused.lock().unwrap_or_else(|p| p.into_inner()) = true;
     }
 
     fn resume(&self) {
-        *self.paused.lock().unwrap() = false;
+        *self.paused.lock().unwrap_or_else(|p| p.into_inner()) = false;
         self.cond.notify_one();
     }
 
     /// Block the calling thread until unpaused. No-op when not paused.
     fn wait_if_paused(&self) {
-        let mut guard = self.paused.lock().unwrap();
+        let mut guard = self.paused.lock().unwrap_or_else(|p| p.into_inner());
         while *guard {
-            guard = self.cond.wait(guard).unwrap();
+            guard = self.cond.wait(guard).unwrap_or_else(|p| p.into_inner());
         }
     }
 }
