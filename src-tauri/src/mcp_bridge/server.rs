@@ -593,8 +593,10 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
             if let Some(window) = app.get_webview_window(&target_label) {
                 let _ = window.emit("mcp-bridge:request", &event);
             } else {
-                let _ = app.get_webview_window("main")
-                    .map(|w| w.emit("mcp-bridge:request", &event));
+                log::warn!(
+                    "[MCP Bridge] Target window '{}' no longer exists for retry",
+                    target_label
+                );
             }
 
             // Wait another 10 seconds for the retry
