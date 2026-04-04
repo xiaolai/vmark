@@ -160,6 +160,7 @@ function DocumentWindowHooks() {
   useHotExitRestore(); // Handle hot exit restore on restart
   useCrashRecoveryWriter(); // Periodically snapshot dirty docs for crash recovery
   useCrashRecoveryCleanup(); // Clean up recovery files on save/close/exit
+  useMcpBridge(); // Handle MCP bridge requests — each window has its own editor
   return null;
 }
 
@@ -182,7 +183,6 @@ function ContentSearchShortcutsRunner() {
 // Main window specific hooks (only for "main" window, not doc-*)
 function MainWindowHooks() {
   useMcpAutoStart(); // Auto-start MCP server if enabled
-  useMcpBridge(); // Handle MCP bridge requests from AI assistants
   useUpdateChecker(); // Check for updates on startup
   useUpdateBroadcast(); // Broadcast update state to other windows
   useHotExitStartup(); // Check for saved session and restore if present (MUST run before Finder)
