@@ -9,6 +9,11 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Mock workspaceStorage — must be before handler imports
+vi.mock("@/utils/workspaceStorage", () => ({
+  getCurrentWindowLabel: () => "main",
+}));
+
 // Mock utils
 const mockRespond = vi.fn();
 const mockGetEditor = vi.fn();
