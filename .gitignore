@@ -15,6 +15,7 @@ vectors.d*
 CLAUDE.local.md
 .claude/settings.local.json
 .codex/prompts/
+.superpowers/
 # AGENTS.md
 *_ANALYSIS.md
 *_PLAN.md
