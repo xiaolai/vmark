@@ -169,7 +169,18 @@ async fn atomic_write_file(path: String, content: String) -> Result<(), String> 
         use std::io::Write;
         use tempfile::NamedTempFile;
 
+        // Defense-in-depth: reject path traversal to prevent writing outside
+        // intended directories if the webview is compromised.
+        if path.contains("..") {
+            return Err("Path traversal (..) not allowed".into());
+        }
+
         let target = std::path::Path::new(&path);
+
+        if !target.is_absolute() {
+            return Err("Path must be absolute".into());
+        }
+
         let dir = target.parent().ok_or("File path has no parent directory")?;
 
         let mut tmp = NamedTempFile::new_in(dir)
