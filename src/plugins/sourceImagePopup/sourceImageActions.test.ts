@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   ),
   getWindowLabel: vi.fn(() => "main"),
   runOrQueueCodeMirrorAction: vi.fn((_view: unknown, fn: () => void) => fn()),
+  dirname: vi.fn((p: string) => Promise.resolve(p.replace(/\/[^/]+$/, ""))),
+  join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -27,6 +29,11 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: mocks.writeText,
+}));
+
+vi.mock("@tauri-apps/api/path", () => ({
+  dirname: mocks.dirname,
+  join: mocks.join,
 }));
 
 vi.mock("@/hooks/useImageOperations", () => ({
@@ -303,17 +310,96 @@ describe("browseImage", () => {
 describe("copyImagePath", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Restore default store mocks
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: vi.fn(() => ({
+        filePath: "/docs/test.md",
+        content: "# Hello",
+      })),
+    } as never);
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      activeTabId: { main: "tab-1" },
+    } as never);
+    mocks.getWindowLabel.mockReturnValue("main");
   });
 
-  it("copies image src to clipboard", async () => {
+  it("resolves relative path to absolute before copying", async () => {
     mocks.writeText.mockResolvedValue(undefined);
+    mocks.dirname.mockResolvedValue("/docs");
+    mocks.join.mockResolvedValue("/docs/my-image.png");
     vi.mocked(useMediaPopupStore.getState).mockReturnValue({
       mediaSrc: "my-image.png",
     } as never);
 
     await copyImagePath();
 
-    expect(mocks.writeText).toHaveBeenCalledWith("my-image.png");
+    expect(mocks.dirname).toHaveBeenCalledWith("/docs/test.md");
+    expect(mocks.join).toHaveBeenCalledWith("/docs", "my-image.png");
+    expect(mocks.writeText).toHaveBeenCalledWith("/docs/my-image.png");
+  });
+
+  it("strips ./ prefix from relative path", async () => {
+    mocks.writeText.mockResolvedValue(undefined);
+    mocks.dirname.mockResolvedValue("/docs");
+    mocks.join.mockResolvedValue("/docs/assets/img.png");
+    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+      mediaSrc: "./assets/img.png",
+    } as never);
+
+    await copyImagePath();
+
+    expect(mocks.join).toHaveBeenCalledWith("/docs", "assets/img.png");
+    expect(mocks.writeText).toHaveBeenCalledWith("/docs/assets/img.png");
+  });
+
+  it("copies absolute path as-is without resolution", async () => {
+    mocks.writeText.mockResolvedValue(undefined);
+    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+      mediaSrc: "/absolute/path/image.png",
+    } as never);
+
+    await copyImagePath();
+
+    expect(mocks.dirname).not.toHaveBeenCalled();
+    expect(mocks.writeText).toHaveBeenCalledWith("/absolute/path/image.png");
+  });
+
+  it("copies URL as-is without resolution", async () => {
+    mocks.writeText.mockResolvedValue(undefined);
+    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+      mediaSrc: "https://example.com/image.png",
+    } as never);
+
+    await copyImagePath();
+
+    expect(mocks.dirname).not.toHaveBeenCalled();
+    expect(mocks.writeText).toHaveBeenCalledWith("https://example.com/image.png");
+  });
+
+  it("falls back to raw src when document has no filePath", async () => {
+    mocks.writeText.mockResolvedValue(undefined);
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: vi.fn(() => ({ filePath: null, content: "" })),
+    } as never);
+    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+      mediaSrc: "img.png",
+    } as never);
+
+    await copyImagePath();
+
+    expect(mocks.writeText).toHaveBeenCalledWith("img.png");
+  });
+
+  it("falls back to raw src when path resolution fails", async () => {
+    mocks.writeText.mockResolvedValue(undefined);
+    mocks.dirname.mockRejectedValue(new Error("path error"));
+    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+      mediaSrc: "img.png",
+    } as never);
+
+    await copyImagePath();
+
+    expect(mocks.writeText).toHaveBeenCalledWith("img.png");
   });
 
   it("does nothing when imageSrc is empty", async () => {
@@ -329,6 +415,8 @@ describe("copyImagePath", () => {
   it("handles clipboard write failure gracefully", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.writeText.mockRejectedValue(new Error("clipboard denied"));
+    mocks.dirname.mockResolvedValue("/docs");
+    mocks.join.mockResolvedValue("/docs/img.png");
     vi.mocked(useMediaPopupStore.getState).mockReturnValue({
       mediaSrc: "img.png",
     } as never);
