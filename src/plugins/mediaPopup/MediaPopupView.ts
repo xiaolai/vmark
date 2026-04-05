@@ -10,6 +10,7 @@
  *   - Store-driven: subscribes to mediaPopupStore for visibility and position updates
  *   - Conditional rows: alt row for images, title row for video/audio, poster row for video
  *   - Toggle button only visible for image types (inline ↔ block)
+ *   - Copy resolves relative paths to absolute via document directory for external tool compatibility
  *   - justOpened guard prevents same-click open/close race
  *   - pendingCloseRaf defers outside-click close to allow reopen on different node
  *   - Scroll-close keeps popup position fresh
