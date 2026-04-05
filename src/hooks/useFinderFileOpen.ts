@@ -22,6 +22,8 @@
  * @edge-case Cold start: files opened before React mounts are queued in Rust
  * @edge-case Hot open: app already running — app:open-file event fires directly
  * @edge-case Hot exit: waits for restore to complete to avoid tab overwrite
+ * @edge-case File deleted: read fails → tab path stays untouched, early return
+ * @edge-case Window destroyed: cancelled guards after every await prevent unmounted-component errors
  * @coordinates-with openPolicy.ts — resolveOpenAction for routing decision
  * @module hooks/useFinderFileOpen
  */
@@ -125,16 +127,22 @@ export function useFinderFileOpen(): void {
       const replaceableTab = getReplaceableTab(windowLabel);
 
       if (replaceableTab) {
-        // Load file into the empty tab
+        // Load file into the empty tab — read FIRST, then update path.
+        // If readTextFile fails (file deleted, volume unmounted), the tab
+        // path stays untouched instead of pointing to a broken path.
         if (workspaceRoot) {
           await openWorkspaceWithConfig(workspaceRoot);
         }
         try {
           await loadFileIntoTab(replaceableTab.tabId, path, false);
+          // Only update path after successful read
+          if (cancelled) return;
           useTabStore.getState().updateTabPath(replaceableTab.tabId, path);
         } catch (error) {
           finderFileOpenError("Failed to load file:", path, error);
+          return; // Don't activate a tab that failed to load
         }
+        if (cancelled) return;
         // Explicitly activate — the replaceable tab is likely already active
         // (it's the only tab), but concurrent crash-recovery tabs could have
         // stolen focus during the async loadFileIntoTab above.
@@ -156,6 +164,7 @@ export function useFinderFileOpen(): void {
         if (workspaceRoot && !rootPath) {
           await openWorkspaceWithConfig(workspaceRoot);
         }
+        if (cancelled) return;
         const tabId = useTabStore.getState().createTab(windowLabel, path);
         try {
           await loadFileIntoTab(tabId, path, true);
@@ -163,6 +172,7 @@ export function useFinderFileOpen(): void {
           finderFileOpenError("Failed to load file:", path, error);
           useDocumentStore.getState().initDocument(tabId, "", null);
         }
+        if (cancelled) return;
         // Re-assert activation after async load — concurrent crash-recovery
         // tabs may have auto-activated during the await above.
         useTabStore.getState().setActiveTab(windowLabel, tabId);
