@@ -15,6 +15,9 @@ const {
   mockSetPoster,
   mockBrowseAndReplaceMedia,
   mockInstallKeyboardNavigation,
+  mockDirname,
+  mockJoin,
+  mockGetActiveTabIdForCurrentWindow,
 } = vi.hoisted(() => ({
   mockClosePopup: vi.fn(),
   mockSetSrc: vi.fn(),
@@ -23,6 +26,9 @@ const {
   mockSetPoster: vi.fn(),
   mockBrowseAndReplaceMedia: vi.fn(() => Promise.resolve(false)),
   mockInstallKeyboardNavigation: vi.fn(() => vi.fn()),
+  mockDirname: vi.fn((p: string) => Promise.resolve(p.replace(/\/[^/]+$/, ""))),
+  mockJoin: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
+  mockGetActiveTabIdForCurrentWindow: vi.fn(() => "tab-1"),
 }));
 
 vi.mock("./media-popup.css", () => ({}));
@@ -76,6 +82,26 @@ vi.mock("@/utils/popupPosition", () => ({
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn(() => false),
+}));
+
+vi.mock("@tauri-apps/api/path", () => ({
+  dirname: mockDirname,
+  join: mockJoin,
+}));
+
+vi.mock("@/stores/documentStore", () => ({
+  useDocumentStore: {
+    getState: vi.fn(() => ({
+      getDocument: vi.fn(() => ({
+        filePath: "/docs/test.md",
+        content: "",
+      })),
+    })),
+  },
+}));
+
+vi.mock("@/utils/resolveMediaSrc", () => ({
+  getActiveTabIdForCurrentWindow: mockGetActiveTabIdForCurrentWindow,
 }));
 
 vi.mock("./mediaPopupActions", () => ({
@@ -1317,7 +1343,7 @@ describe("MediaPopupView — handleRemove with nodeAt null (line 385)", () => {
   });
 });
 
-describe("MediaPopupView — handleCopy error path", () => {
+describe("MediaPopupView — handleCopy", () => {
   let view: ReturnType<typeof createMockView>;
   let popup: MediaPopupView;
 
@@ -1325,8 +1351,76 @@ describe("MediaPopupView — handleCopy error path", () => {
     if (popup) popup.destroy();
   });
 
+  it("resolves relative path to absolute before copying", async () => {
+    vi.clearAllMocks();
+    mockDirname.mockResolvedValue("/docs");
+    mockJoin.mockResolvedValue("/docs/test.png");
+    mockGetActiveTabIdForCurrentWindow.mockReturnValue("tab-1");
+
+    view = createMockView();
+    store._state.isOpen = true;
+    store._state.mediaSrc = "test.png";
+
+    const writeTextSpy = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextSpy },
+      configurable: true,
+    });
+
+    popup = new MediaPopupView(view);
+    const handlers = vi.mocked(createMediaPopupDom).mock.calls[0][0];
+
+    await handlers.onCopy();
+    expect(writeTextSpy).toHaveBeenCalledWith("/docs/test.png");
+    expect(mockClosePopup).toHaveBeenCalled();
+  });
+
+  it("copies absolute path as-is", async () => {
+    vi.clearAllMocks();
+    view = createMockView();
+    store._state.isOpen = true;
+    store._state.mediaSrc = "/absolute/image.png";
+
+    const writeTextSpy = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextSpy },
+      configurable: true,
+    });
+
+    popup = new MediaPopupView(view);
+    const handlers = vi.mocked(createMediaPopupDom).mock.calls[0][0];
+
+    await handlers.onCopy();
+    expect(writeTextSpy).toHaveBeenCalledWith("/absolute/image.png");
+    expect(mockDirname).not.toHaveBeenCalled();
+  });
+
+  it("copies URL as-is", async () => {
+    vi.clearAllMocks();
+    view = createMockView();
+    store._state.isOpen = true;
+    store._state.mediaSrc = "https://example.com/image.png";
+
+    const writeTextSpy = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextSpy },
+      configurable: true,
+    });
+
+    popup = new MediaPopupView(view);
+    const handlers = vi.mocked(createMediaPopupDom).mock.calls[0][0];
+
+    await handlers.onCopy();
+    expect(writeTextSpy).toHaveBeenCalledWith("https://example.com/image.png");
+    expect(mockDirname).not.toHaveBeenCalled();
+  });
+
   it("handles clipboard writeText failure gracefully", async () => {
     vi.clearAllMocks();
+    mockDirname.mockResolvedValue("/docs");
+    mockJoin.mockResolvedValue("/docs/test.png");
+    mockGetActiveTabIdForCurrentWindow.mockReturnValue("tab-1");
+
     view = createMockView();
     store._state.isOpen = true;
     store._state.mediaSrc = "test.png";
@@ -1342,5 +1436,27 @@ describe("MediaPopupView — handleCopy error path", () => {
 
     await handlers.onCopy();
     expect(mockClosePopup).toHaveBeenCalled();
+  });
+
+  it("falls back to raw src when path resolution fails", async () => {
+    vi.clearAllMocks();
+    mockDirname.mockRejectedValue(new Error("path error"));
+    mockGetActiveTabIdForCurrentWindow.mockReturnValue("tab-1");
+
+    view = createMockView();
+    store._state.isOpen = true;
+    store._state.mediaSrc = "test.png";
+
+    const writeTextSpy = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextSpy },
+      configurable: true,
+    });
+
+    popup = new MediaPopupView(view);
+    const handlers = vi.mocked(createMediaPopupDom).mock.calls[0][0];
+
+    await handlers.onCopy();
+    expect(writeTextSpy).toHaveBeenCalledWith("test.png");
   });
 });

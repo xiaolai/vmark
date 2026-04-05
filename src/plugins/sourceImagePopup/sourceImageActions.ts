@@ -8,6 +8,7 @@
 import type { EditorView } from "@codemirror/view";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { dirname, join } from "@tauri-apps/api/path";
 import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -185,6 +186,7 @@ export async function browseImage(view: EditorView): Promise<boolean> {
 
 /**
  * Copy image path to clipboard.
+ * Resolves relative paths to absolute using the current document's directory.
  */
 export async function copyImagePath(): Promise<void> {
   const { mediaSrc: imageSrc } = useMediaPopupStore.getState();
@@ -193,8 +195,26 @@ export async function copyImagePath(): Promise<void> {
     return;
   }
 
+  // Resolve relative paths to absolute
+  let pathToCopy = imageSrc;
+  if (!imageSrc.startsWith("/") && !imageSrc.startsWith("http")) {
+    const windowLabel = getWindowLabel();
+    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
+    const filePath = doc?.filePath;
+    if (filePath) {
+      try {
+        const docDir = await dirname(filePath);
+        const cleanPath = imageSrc.replace(/^\.\//, "");
+        pathToCopy = await join(docDir, cleanPath);
+      } catch {
+        // Fall back to raw src if resolution fails
+      }
+    }
+  }
+
   try {
-    await writeText(imageSrc);
+    await writeText(pathToCopy);
   } catch (error) {
     sourceActionError("Copy failed:", error);
   }

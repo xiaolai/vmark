@@ -74,6 +74,26 @@ vi.mock("../mediaPopupActions", () => ({
   browseAndReplaceMedia: vi.fn(() => Promise.resolve(false)),
 }));
 
+vi.mock("@tauri-apps/api/path", () => ({
+  dirname: vi.fn((p: string) => Promise.resolve(p.replace(/\/[^/]+$/, ""))),
+  join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
+}));
+
+vi.mock("@/stores/documentStore", () => ({
+  useDocumentStore: {
+    getState: () => ({
+      getDocument: () => ({
+        filePath: "/docs/test.md",
+        content: "",
+      }),
+    }),
+  },
+}));
+
+vi.mock("@/utils/resolveMediaSrc", () => ({
+  getActiveTabIdForCurrentWindow: () => "tab-1",
+}));
+
 // Mock the DOM module — returns all fields the unified view expects
 vi.mock("../mediaPopupDom", () => {
   const { createMockMediaPopupDom, installMockKeyboardNavigation, mockUpdateToggleButton } = (() => {

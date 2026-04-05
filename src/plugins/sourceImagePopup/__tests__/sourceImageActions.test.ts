@@ -13,6 +13,11 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   message: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("@tauri-apps/api/path", () => ({
+  dirname: vi.fn((p: string) => Promise.resolve(p.replace(/\/[^/]+$/, ""))),
+  join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
+}));
+
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
@@ -164,7 +169,7 @@ describe("source image actions", () => {
   });
 
   describe("copyImagePath", () => {
-    it("copies image path to clipboard", async () => {
+    it("resolves relative path to absolute before copying", async () => {
       useMediaPopupStore.setState({
         isOpen: true,
         mediaSrc: "./assets/photo.png",
@@ -176,7 +181,8 @@ describe("source image actions", () => {
 
       await copyImagePath();
 
-      expect(writeText).toHaveBeenCalledWith("./assets/photo.png");
+      // ./assets/photo.png → dirname("/test/doc.md") = "/test" → join("/test", "assets/photo.png")
+      expect(writeText).toHaveBeenCalledWith("/test/assets/photo.png");
     });
 
     it("does nothing when imageSrc is empty", async () => {

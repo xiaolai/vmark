@@ -23,8 +23,11 @@
 
 import "./media-popup.css";
 import type { EditorView } from "@tiptap/pm/view";
+import { dirname, join } from "@tauri-apps/api/path";
 import { mediaPopupWarn, mediaPopupError } from "@/utils/debug";
 import { useMediaPopupStore, type MediaNodeType } from "@/stores/mediaPopupStore";
+import { useDocumentStore } from "@/stores/documentStore";
+import { getActiveTabIdForCurrentWindow } from "@/utils/resolveMediaSrc";
 import {
   calculatePopupPosition,
   getBoundaryRects,
@@ -367,8 +370,24 @@ export class MediaPopupView {
   private handleCopy = async () => {
     const { mediaSrc } = useMediaPopupStore.getState();
     if (mediaSrc) {
+      // Resolve relative paths to absolute
+      let pathToCopy = mediaSrc;
+      if (!mediaSrc.startsWith("/") && !mediaSrc.startsWith("http")) {
+        const tabId = getActiveTabIdForCurrentWindow();
+        const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
+        const filePath = doc?.filePath;
+        if (filePath) {
+          try {
+            const docDir = await dirname(filePath);
+            const cleanPath = mediaSrc.replace(/^\.\//, "");
+            pathToCopy = await join(docDir, cleanPath);
+          } catch {
+            // Fall back to raw src if resolution fails
+          }
+        }
+      }
       try {
-        await navigator.clipboard.writeText(mediaSrc);
+        await navigator.clipboard.writeText(pathToCopy);
       } catch (err) {
         mediaPopupError("Failed to copy media path:", err);
       }
