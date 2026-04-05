@@ -10,10 +10,14 @@
  * Key decisions:
  *   - Waits for hot exit restore before processing (prevents race condition)
  *   - Cold-start files queued in Rust, drained after React mounts
+ *   - Hot open (app running): Rust emits app:open-file via app.emit() (global
+ *     broadcast) so this hook's global listen() receives it. window.emit()
+ *     (webview-specific) would be silently dropped by global listen() in Tauri v2.
  *   - Empty untitled tab gets reused (replaced, not creating a new one)
  *   - Files within workspace open as tabs; outside opens new window
  *
  * @edge-case Cold start: files opened before React mounts are queued in Rust
+ * @edge-case Hot open: app already running — app:open-file event fires directly
  * @edge-case Hot exit: waits for restore to complete to avoid tab overwrite
  * @coordinates-with openPolicy.ts — resolveOpenAction for routing decision
  * @module hooks/useFinderFileOpen
