@@ -10,7 +10,10 @@
 //!   - Window close is intercepted for document windows (main, doc-*) to allow
 //!     dirty-document prompts; non-document windows close immediately.
 //!   - File opens from Finder are queued in `PENDING_FILE_OPENS` until the frontend
-//!     signals readiness, solving a cold-start race condition.
+//!     signals readiness, solving a cold-start race condition. Hot opens (app already
+//!     running) use `app.emit()` (global broadcast) — NOT `window.emit()` — so the
+//!     frontend's global `listen()` in `useFinderFileOpen` receives them. Tauri v2
+//!     webview-specific events are not delivered to global `listen()`.
 //!   - macOS Reopen event (dock click) creates a new main window when none visible.
 //!   - Default shell resolved via `getpwuid_r` → `$SHELL` → `/bin/sh` (reliable in
 //!     GUI apps). Available shells detected from `/etc/shells` (Unix) or `where.exe`
@@ -767,13 +770,19 @@ pub fn run() {
                         match action {
                             window_manager::FileOpenAction::EmitToMainWindow => {
                                 use tauri::Emitter;
-                                if let Some(main_window) = app.get_webview_window("main") {
+                                // Use app.emit() (global broadcast) so the frontend's
+                                // global listen() in useFinderFileOpen receives it.
+                                // window.emit() sends a webview-specific event that is
+                                // NOT delivered to @tauri-apps/api/event listen() —
+                                // only to currentWindow.listen() — so the hook would
+                                // silently miss every hot open.
+                                if app.get_webview_window("main").is_some() {
                                     for path in paths {
                                         let payload = PendingFileOpen {
                                             path,
                                             workspace_root: ws.map(String::from),
                                         };
-                                        let _ = main_window.emit("app:open-file", payload);
+                                        let _ = app.emit("app:open-file", payload);
                                     }
                                 } else {
                                     // Window disappeared between decision and emit — queue and create

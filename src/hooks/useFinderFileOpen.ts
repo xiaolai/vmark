@@ -10,15 +10,25 @@
  * Key decisions:
  *   - Waits for hot exit restore before processing (prevents race condition)
  *   - Cold-start files queued in Rust, drained after React mounts
+ *   - Hot open (app running): Rust emits app:open-file via app.emit() (global
+ *     broadcast) so this hook's global listen() receives it. window.emit()
+ *     (webview-specific) would be silently dropped by global listen() in Tauri v2.
  *   - Empty untitled tab gets reused (replaced, not creating a new one)
  *   - Files within workspace open as tabs; outside opens new window
+ *   - Explicit setActiveTab after loading: ensures the Finder-opened file is
+ *     always the active tab, even if concurrent createTab calls (e.g., from
+ *     crash recovery) stole focus during the async loadFileIntoTab.
  *
  * @edge-case Cold start: files opened before React mounts are queued in Rust
+ * @edge-case Hot open: app already running — app:open-file event fires directly
  * @edge-case Hot exit: waits for restore to complete to avoid tab overwrite
  * @coordinates-with openPolicy.ts — resolveOpenAction for routing decision
  * @module hooks/useFinderFileOpen
  */
 import { useEffect, useRef } from "react";
+// Global listen() is correct here — Rust emits app:open-file via app.emit() (global
+// broadcast), and only global listen() is guaranteed to receive global events.
+// See: https://v2.tauri.app/develop/calling-frontend
 import { listen } from "@tauri-apps/api/event";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
@@ -125,6 +135,10 @@ export function useFinderFileOpen(): void {
         } catch (error) {
           finderFileOpenError("Failed to load file:", path, error);
         }
+        // Explicitly activate — the replaceable tab is likely already active
+        // (it's the only tab), but concurrent crash-recovery tabs could have
+        // stolen focus during the async loadFileIntoTab above.
+        useTabStore.getState().setActiveTab(windowLabel, replaceableTab.tabId);
         return;
       }
 
@@ -149,6 +163,9 @@ export function useFinderFileOpen(): void {
           finderFileOpenError("Failed to load file:", path, error);
           useDocumentStore.getState().initDocument(tabId, "", null);
         }
+        // Re-assert activation after async load — concurrent crash-recovery
+        // tabs may have auto-activated during the await above.
+        useTabStore.getState().setActiveTab(windowLabel, tabId);
       } else {
         // Different workspace — open in new window
         try {

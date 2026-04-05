@@ -5,7 +5,8 @@
  *   - Event listener registration
  *   - File routing: existing tab, replaceable tab, new tab, new window
  *   - Hot exit restore waiting
- *   - Pending file queue from Rust
+ *   - Pending file queue from Rust (cold start path)
+ *   - Hot open: app:open-file event when app is already running (warm path)
  *   - Workspace adoption, different workspace (new window)
  *   - Error handling in loadFileIntoTab
  */
@@ -388,6 +389,71 @@ describe("useFinderFileOpen", () => {
 
     await vi.waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("open_workspace_in_new_window", expect.any(Object));
+    });
+  });
+
+  // Regression test: hot open (app already running) was silently dropped because
+  // Rust used main_window.emit() (webview-specific) but the hook used global listen().
+  // In Tauri v2, webview-specific events are NOT delivered to global listen() —
+  // only to currentWindow.listen(). The fix changes Rust to app.emit() (global).
+  it("processes app:open-file event when app is already running (hot open)", async () => {
+    let eventHandler!: (event: { payload: { path: string; workspace_root: string | null } }) => void;
+    mockListen.mockImplementation(
+      (_event: string, handler: typeof eventHandler) => {
+        eventHandler = handler;
+        return Promise.resolve(vi.fn());
+      },
+    );
+
+    renderHook(() => useFinderFileOpen());
+
+    // Wait for restore to complete and listener to be active
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith("get_pending_file_opens");
+    });
+
+    // Simulate Rust firing app:open-file after app is already running (warm path)
+    eventHandler({ payload: { path: "/hot/opened/file.md", workspace_root: null } });
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/hot/opened/file.md");
+    });
+
+    // Must also explicitly activate to survive concurrent focus steals
+    await vi.waitFor(() => {
+      expect(mockSetActiveTab).toHaveBeenCalledWith("main", "new-tab");
+    });
+  });
+
+  it("explicitly activates new tab after loading (resilient to concurrent focus steals)", async () => {
+    mockInvoke.mockResolvedValue([{ path: "/new/file.md", workspace_root: null }]);
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/new/file.md");
+    });
+
+    // setActiveTab must be called AFTER createTab (not relying solely on
+    // createTab auto-activation, which can be overridden by concurrent ops)
+    await vi.waitFor(() => {
+      expect(mockSetActiveTab).toHaveBeenCalledWith("main", "new-tab");
+    });
+  });
+
+  it("explicitly activates replaceable tab after loading", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "empty-tab" });
+    mockInvoke.mockResolvedValue([{ path: "/new/file.md", workspace_root: null }]);
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockUpdateTabPath).toHaveBeenCalledWith("empty-tab", "/new/file.md");
+    });
+
+    // Replaceable tab must be explicitly activated after load
+    await vi.waitFor(() => {
+      expect(mockSetActiveTab).toHaveBeenCalledWith("main", "empty-tab");
     });
   });
 
