@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "VMark",
-  "version": "0.6.31",
+  "version": "0.6.32",
   "identifier": "app.vmark",
   "build": {
     "beforeDevCommand": "pnpm dev",
