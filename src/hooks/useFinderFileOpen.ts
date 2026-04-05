@@ -15,6 +15,9 @@
  *     (webview-specific) would be silently dropped by global listen() in Tauri v2.
  *   - Empty untitled tab gets reused (replaced, not creating a new one)
  *   - Files within workspace open as tabs; outside opens new window
+ *   - Explicit setActiveTab after loading: ensures the Finder-opened file is
+ *     always the active tab, even if concurrent createTab calls (e.g., from
+ *     crash recovery) stole focus during the async loadFileIntoTab.
  *
  * @edge-case Cold start: files opened before React mounts are queued in Rust
  * @edge-case Hot open: app already running — app:open-file event fires directly
