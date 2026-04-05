@@ -19,7 +19,13 @@
  *     text immediately. Single non-ASCII chars (CJK brackets/punctuation)
  *     flush immediately without the grace period (#525). Tracks
  *     lastCommittedText/lastCommitTime for dedup against late onData
- *     events that arrive after the grace period ends (#525).
+ *     events that arrive after the grace period ends (#525). Spurious
+ *     compositionend events (without preceding compositionstart, seen
+ *     with fcitx5+rime on Linux) are dropped to prevent duplicate PTY
+ *     writes (#659). Orphaned grace timers from back-to-back
+ *     compositionend events are cancelled before scheduling new ones.
+ *   - macOptionIsMeta is enabled so macOS Option+Arrow keys generate
+ *     proper Alt-modifier escape sequences for word movement (#660).
  *   - WebGL renderer is optional (settings-driven); falls back silently
  *     to canvas on GPU-incompatible systems.
  *   - Web links only open safe URL schemes (http, https, mailto);
