@@ -663,6 +663,13 @@ export class WebSocketBridge implements Bridge {
       this.reconnectAttempts < this.maxReconnectAttempts
     ) {
       this.scheduleReconnect();
+    } else {
+      // Reconnection won't be attempted — drain queued requests immediately
+      // instead of letting them hang until their individual timeouts.
+      for (const queued of this.requestQueue) {
+        queued.reject(new Error('Connection lost and reconnection not available'));
+      }
+      this.requestQueue = [];
     }
   }
 
