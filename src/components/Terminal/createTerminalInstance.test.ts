@@ -41,6 +41,10 @@ vi.mock("@/utils/debug", () => ({
 
 vi.mock("@xterm/xterm", () => ({
   Terminal: class MockTerminal {
+    _constructorOptions: Record<string, unknown>;
+    constructor(options: Record<string, unknown> = {}) {
+      this._constructorOptions = options;
+    }
     loadAddon = vi.fn();
     open = vi.fn((container: HTMLElement) => {
       if (terminalFlags.createsTextarea) {
@@ -312,6 +316,15 @@ describe("createTerminalInstance with WebGL", () => {
         onSearch: vi.fn(),
       })
     ).not.toThrow();
+  });
+});
+
+describe("createTerminalInstance — macOptionIsMeta (#660)", () => {
+  it("passes macOptionIsMeta: true to Terminal constructor for proper Option+Arrow handling", () => {
+    const inst = makeInstance();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((inst.term as any)._constructorOptions.macOptionIsMeta).toBe(true);
+    inst.dispose();
   });
 });
 

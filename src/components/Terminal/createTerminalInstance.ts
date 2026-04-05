@@ -132,6 +132,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     lineHeight: settings.lineHeight,
     cursorStyle: settings.cursorStyle,
     cursorBlink: settings.cursorBlink,
+    macOptionIsMeta: true,
     allowProposedApi: true,
     scrollback: 5000,
   });
@@ -184,6 +185,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     const committedText = e.data;
     terminalLog("compositionend", committedText);
 
+    // Guard: if composing is already false, this is a spurious compositionend
+    // fired without a preceding compositionstart (seen with fcitx5+rime on
+    // Linux: #659). Skip to prevent duplicate PTY writes.
+    if (!composing && !inGracePeriod) return;
+
     // Single non-ASCII character (CJK punctuation/bracket) — flush immediately.
     // These don't trigger xterm's garbled space injection, so no grace period needed.
     // Fixes CJK brackets not inputting with WeChat IME (#525).
@@ -206,6 +212,12 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
     // Multi-char (or ASCII): use grace period to block ALL xterm onData.
     // Clean committed text is written directly via onCompositionCommit.
+    // Cancel any orphaned timer from a previous compositionend that fired
+    // without a compositionstart in between (fcitx5+rime on Linux: #659).
+    if (compositionGraceTimer) {
+      clearTimeout(compositionGraceTimer);
+      compositionGraceTimer = null;
+    }
     pendingCommitText = committedText;
     inGracePeriod = true;
     compositionGraceTimer = setTimeout(() => {

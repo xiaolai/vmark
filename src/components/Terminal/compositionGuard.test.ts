@@ -58,6 +58,10 @@ function createCompositionGuard() {
     },
 
     compositionEnd(data: string) {
+      // Guard: if composing is already false, this is a spurious compositionend
+      // fired without a preceding compositionstart (fcitx5+rime on Linux: #659).
+      if (!composing && !inGracePeriod) return;
+
       // Single non-ASCII character (CJK punctuation/bracket) — flush immediately.
       // These don't trigger xterm's garbled space injection, so no grace period needed.
       // eslint-disable-next-line no-control-regex
@@ -77,7 +81,13 @@ function createCompositionGuard() {
         return;
       }
 
-      // Multi-char: use grace period as before
+      // Multi-char: use grace period as before.
+      // Cancel any orphaned timer from a previous compositionend that fired
+      // without a compositionstart in between (fcitx5+rime on Linux: #659).
+      if (graceTimer) {
+        clearTimeout(graceTimer);
+        graceTimer = null;
+      }
       pendingCommitText = data;
       inGracePeriod = true;
       graceTimer = setTimeout(() => {
@@ -358,6 +368,64 @@ describe("single non-ASCII char immediate flush (#525 — CJK brackets)", () => 
 
       guard.dispose();
     }
+  });
+});
+
+describe("back-to-back compositionend without compositionstart (#659 — fcitx5+rime)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("cancels orphaned timer when compositionend fires twice without compositionstart", () => {
+    const guard = createCompositionGuard();
+    const commit = vi.fn();
+    guard.onCompositionCommit = commit;
+
+    guard.compositionStart();
+    guard.compositionEnd("一");
+    // Second compositionend without compositionstart (fcitx5+rime behavior)
+    guard.compositionEnd("一");
+
+    vi.advanceTimersByTime(GRACE_MS);
+    // Must commit exactly once — orphaned timer from first compositionEnd must not fire
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledWith("一");
+  });
+
+  it("drops subsequent compositionend with accumulated text (already committed)", () => {
+    const guard = createCompositionGuard();
+    const commit = vi.fn();
+    guard.onCompositionCommit = commit;
+
+    guard.compositionStart();
+    guard.compositionEnd("你");
+    // fcitx5 fires again with accumulated text — but "你" was already committed.
+    // Committing "你好" would produce "你你好" in PTY, so it must be dropped.
+    guard.compositionEnd("你好");
+
+    vi.advanceTimersByTime(GRACE_MS);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledWith("你");
+  });
+
+  it("drops all spurious compositionend events after the first commit", () => {
+    const guard = createCompositionGuard();
+    const commit = vi.fn();
+    guard.onCompositionCommit = commit;
+
+    guard.compositionStart();
+    guard.compositionEnd("一");
+    // Spurious events with accumulated text — all dropped
+    guard.compositionEnd("一一");
+    guard.compositionEnd("一一一");
+
+    vi.advanceTimersByTime(GRACE_MS * 2);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledWith("一");
   });
 });
 
