@@ -420,6 +420,38 @@ describe("useFinderFileOpen", () => {
     });
   });
 
+  it("explicitly activates new tab after loading (resilient to concurrent focus steals)", async () => {
+    mockInvoke.mockResolvedValue([{ path: "/new/file.md", workspace_root: null }]);
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/new/file.md");
+    });
+
+    // setActiveTab must be called AFTER createTab (not relying solely on
+    // createTab auto-activation, which can be overridden by concurrent ops)
+    await vi.waitFor(() => {
+      expect(mockSetActiveTab).toHaveBeenCalledWith("main", "new-tab");
+    });
+  });
+
+  it("explicitly activates replaceable tab after loading", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "empty-tab" });
+    mockInvoke.mockResolvedValue([{ path: "/new/file.md", workspace_root: null }]);
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockUpdateTabPath).toHaveBeenCalledWith("empty-tab", "/new/file.md");
+    });
+
+    // Replaceable tab must be explicitly activated after load
+    await vi.waitFor(() => {
+      expect(mockSetActiveTab).toHaveBeenCalledWith("main", "empty-tab");
+    });
+  });
+
   it("recovers the processing chain after an unhandled error in processFileOpen", async () => {
     // First file: findExistingTabForPath throws (uncaught path before the fix)
     let callCount = 0;

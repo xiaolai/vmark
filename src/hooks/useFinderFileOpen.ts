@@ -133,6 +133,10 @@ export function useFinderFileOpen(): void {
         } catch (error) {
           finderFileOpenError("Failed to load file:", path, error);
         }
+        // Explicitly activate — the replaceable tab is likely already active
+        // (it's the only tab), but concurrent crash-recovery tabs could have
+        // stolen focus during the async loadFileIntoTab above.
+        useTabStore.getState().setActiveTab(windowLabel, replaceableTab.tabId);
         return;
       }
 
@@ -157,6 +161,9 @@ export function useFinderFileOpen(): void {
           finderFileOpenError("Failed to load file:", path, error);
           useDocumentStore.getState().initDocument(tabId, "", null);
         }
+        // Re-assert activation after async load — concurrent crash-recovery
+        // tabs may have auto-activated during the await above.
+        useTabStore.getState().setActiveTab(windowLabel, tabId);
       } else {
         // Different workspace — open in new window
         try {

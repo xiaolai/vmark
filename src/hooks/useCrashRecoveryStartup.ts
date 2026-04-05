@@ -5,6 +5,11 @@
  * Scans for recovery snapshots, restores them as dirty tabs,
  * and shows a toast notification.
  *
+ * Key decisions:
+ *   - Recovery tabs are created in the background — the active tab is
+ *     snapshotted before the loop and restored after, so createTab()
+ *     auto-activation never steals focus from hot-exit or Finder-opened files.
+ *
  * @module hooks/useCrashRecoveryStartup
  * @coordinates-with crashRecovery.ts, hotExitCoordination.ts
  */
@@ -64,6 +69,12 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
     const deduped = deduplicateSnapshots(snapshots);
     crashRecoveryLog(`Found ${deduped.length} recovery snapshot(s)`);
 
+    // Snapshot the current active tab BEFORE creating recovery tabs.
+    // createTab() auto-activates, which would steal focus from whatever
+    // the user intended to see (e.g., a Finder-opened file that
+    // useFinderFileOpen is loading concurrently).
+    const prevActiveTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+
     let restoredCount = 0;
 
     for (const snapshot of deduped) {
@@ -79,6 +90,15 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
           snapshot.tabId,
           error instanceof Error ? error.message : String(error)
         );
+      }
+    }
+
+    // Restore the previously active tab — recovery tabs belong in the
+    // background, never stealing focus from hot-exit or Finder-opened files.
+    if (restoredCount > 0 && prevActiveTabId) {
+      const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
+      if (tabs.some((t) => t.id === prevActiveTabId)) {
+        useTabStore.getState().setActiveTab(windowLabel, prevActiveTabId);
       }
     }
 
