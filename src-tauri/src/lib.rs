@@ -10,7 +10,8 @@
 //!   - Window close is intercepted for document windows (main, doc-*) to allow
 //!     dirty-document prompts; non-document windows close immediately.
 //!   - File opens from Finder are queued in `PENDING_FILE_OPENS` until the frontend
-//!     signals readiness, solving a cold-start race condition. Hot opens (app already
+//!     signals readiness, solving a cold-start race condition. Only .md/.markdown
+//!     files are accepted; other extensions are skipped. Hot opens (app already
 //!     running) use `app.emit()` (global broadcast) — NOT `window.emit()` — so the
 //!     frontend's global `listen()` in `useFinderFileOpen` receives them. Tauri v2
 //!     webview-specific events are not delivered to global `listen()`.

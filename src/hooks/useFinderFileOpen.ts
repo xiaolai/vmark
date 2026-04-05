@@ -22,6 +22,8 @@
  * @edge-case Cold start: files opened before React mounts are queued in Rust
  * @edge-case Hot open: app already running — app:open-file event fires directly
  * @edge-case Hot exit: waits for restore to complete to avoid tab overwrite
+ * @edge-case File deleted: read fails → tab path stays untouched, early return
+ * @edge-case Window destroyed: cancelled guards after every await prevent unmounted-component errors
  * @coordinates-with openPolicy.ts — resolveOpenAction for routing decision
  * @module hooks/useFinderFileOpen
  */
