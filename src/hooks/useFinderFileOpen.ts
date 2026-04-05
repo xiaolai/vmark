@@ -26,10 +26,9 @@
  * @module hooks/useFinderFileOpen
  */
 import { useEffect, useRef } from "react";
-// Global listen() is correct here: Rust emits app:open-file via app.emit() (global
-// broadcast) so it reaches this handler. Do NOT switch to currentWindow.listen() —
-// that API only receives webview-specific events (window.emit()), and global broadcast
-// events would be silently dropped. See: https://v2.tauri.app/develop/calling-frontend
+// Global listen() is correct here — Rust emits app:open-file via app.emit() (global
+// broadcast), and only global listen() is guaranteed to receive global events.
+// See: https://v2.tauri.app/develop/calling-frontend
 import { listen } from "@tauri-apps/api/event";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";

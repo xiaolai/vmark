@@ -56,11 +56,12 @@ const mockSetActiveTab = vi.fn();
 const mockCreateTab = vi.fn(() => "recovery-tab");
 const mockUpdateTabPath = vi.fn();
 const mockGetTabsByWindow = vi.fn(() => [{ id: "existing-tab" }]);
+let mockActiveTabId: Record<string, string> = { main: "existing-tab" };
 
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
-      activeTabId: { main: "existing-tab" },
+      get activeTabId() { return mockActiveTabId; },
       setActiveTab: mockSetActiveTab,
       createTab: mockCreateTab,
       updateTabPath: mockUpdateTabPath,
@@ -85,6 +86,7 @@ describe("useCrashRecoveryStartup", () => {
     mockUseWindowLabel.mockReturnValue("main");
     mockWaitForRestoreComplete.mockResolvedValue(true);
     mockReadRecoverySnapshots.mockResolvedValue([]);
+    mockActiveTabId = { main: "existing-tab" };
   });
 
   it("does not change active tab when no snapshots found", async () => {
@@ -130,5 +132,32 @@ describe("useCrashRecoveryStartup", () => {
       // Previous active tab was restored — recovery tab did NOT steal focus
       expect(mockSetActiveTab).toHaveBeenCalledWith("main", "existing-tab");
     });
+  });
+
+  it("does not call setActiveTab when there was no previous active tab", async () => {
+    // Simulate no active tab for this window (e.g., tabs were just cleared)
+    mockActiveTabId = {};
+
+    mockReadRecoverySnapshots.mockResolvedValue([
+      {
+        version: 1,
+        tabId: "crashed-tab",
+        windowLabel: "main",
+        content: "recovered content",
+        filePath: "/recovered/file.md",
+        title: "file.md",
+        timestamp: Date.now(),
+      },
+    ]);
+
+    renderHook(() => useCrashRecoveryStartup());
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", null);
+    });
+
+    // With no previous active tab, setActiveTab must NOT be called —
+    // the recovery tab's auto-activation is the only sensible default.
+    expect(mockSetActiveTab).not.toHaveBeenCalled();
   });
 });

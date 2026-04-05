@@ -418,6 +418,11 @@ describe("useFinderFileOpen", () => {
     await vi.waitFor(() => {
       expect(mockCreateTab).toHaveBeenCalledWith("main", "/hot/opened/file.md");
     });
+
+    // Must also explicitly activate to survive concurrent focus steals
+    await vi.waitFor(() => {
+      expect(mockSetActiveTab).toHaveBeenCalledWith("main", "new-tab");
+    });
   });
 
   it("explicitly activates new tab after loading (resilient to concurrent focus steals)", async () => {
