@@ -149,6 +149,17 @@ pub async fn pty_spawn(
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
 
+    // Defense-in-depth: validate that the shell is an absolute path to an
+    // existing executable.  The frontend is trusted, but if the webview were
+    // compromised this prevents spawning arbitrary binaries.
+    let shell_path = std::path::Path::new(&file);
+    if !shell_path.is_absolute() {
+        return Err("Shell must be an absolute path".into());
+    }
+    if !shell_path.exists() {
+        return Err(format!("Shell not found: {}", file));
+    }
+
     let mut cmd = CommandBuilder::new(&file);
     cmd.args(args);
     if let Some(ref d) = cwd {
