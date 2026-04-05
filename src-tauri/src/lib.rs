@@ -767,13 +767,19 @@ pub fn run() {
                         match action {
                             window_manager::FileOpenAction::EmitToMainWindow => {
                                 use tauri::Emitter;
-                                if let Some(main_window) = app.get_webview_window("main") {
+                                // Use app.emit() (global broadcast) so the frontend's
+                                // global listen() in useFinderFileOpen receives it.
+                                // window.emit() sends a webview-specific event that is
+                                // NOT delivered to @tauri-apps/api/event listen() —
+                                // only to currentWindow.listen() — so the hook would
+                                // silently miss every hot open.
+                                if app.get_webview_window("main").is_some() {
                                     for path in paths {
                                         let payload = PendingFileOpen {
                                             path,
                                             workspace_root: ws.map(String::from),
                                         };
-                                        let _ = main_window.emit("app:open-file", payload);
+                                        let _ = app.emit("app:open-file", payload);
                                     }
                                 } else {
                                     // Window disappeared between decision and emit — queue and create
