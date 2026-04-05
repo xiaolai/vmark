@@ -755,14 +755,23 @@ pub fn run() {
                         if let Ok(path) = url.to_file_path() {
                             let Some(path_str) = path.to_str() else { continue };
                             if path.is_dir() {
+                                log::info!("[Finder] Opening directory: {}", path_str);
                                 let _ = window_manager::create_document_window(
                                     app, None, Some(path_str),
                                 );
                                 continue;
                             }
+                            // Only queue markdown files — non-markdown files would
+                            // create broken empty tabs (#661 audit gap 9.1)
+                            if !path_str.ends_with(".md") && !path_str.ends_with(".markdown") {
+                                log::warn!("[Finder] Skipping non-markdown file: {}", path_str);
+                                continue;
+                            }
                             file_paths.push(path_str.to_string());
                         }
                     }
+                    if !file_paths.is_empty() {
+                    log::info!("[Finder] Opening {} file(s)", file_paths.len());
 
                     let groups = window_manager::group_paths_by_workspace(&file_paths);
 
@@ -781,6 +790,7 @@ pub fn run() {
                         match action {
                             window_manager::FileOpenAction::EmitToMainWindow => {
                                 use tauri::Emitter;
+                                log::info!("[Finder] Emitting to main window");
                                 // Use app.emit() (global broadcast) so the frontend's
                                 // global listen() in useFinderFileOpen receives it.
                                 // window.emit() sends a webview-specific event that is
@@ -788,12 +798,22 @@ pub fn run() {
                                 // only to currentWindow.listen() — so the hook would
                                 // silently miss every hot open.
                                 if app.get_webview_window("main").is_some() {
-                                    for path in paths {
+                                    for path in &paths {
                                         let payload = PendingFileOpen {
-                                            path,
+                                            path: path.clone(),
                                             workspace_root: ws.map(String::from),
                                         };
-                                        let _ = app.emit("app:open-file", payload);
+                                        if let Err(e) = app.emit("app:open-file", payload) {
+                                            // Emit failed — fallback to queue so the file isn't lost
+                                            log::warn!("[Finder] emit failed, queueing: {e}");
+                                            FRONTEND_READY.store(false, Ordering::SeqCst);
+                                            if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
+                                                window_manager::queue_pending_file_opens(
+                                                    &mut pending, paths, ws,
+                                                );
+                                            }
+                                            break;
+                                        }
                                     }
                                 } else {
                                     // Window disappeared between decision and emit — queue and create
@@ -807,6 +827,7 @@ pub fn run() {
                                 }
                             }
                             window_manager::FileOpenAction::QueueAndCreateWindow => {
+                                log::info!("[Finder] Queueing files, creating main window");
                                 FRONTEND_READY.store(false, Ordering::SeqCst);
                                 if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
                                     window_manager::queue_pending_file_opens(
@@ -816,6 +837,7 @@ pub fn run() {
                                 let _ = window_manager::create_main_window(app);
                             }
                             window_manager::FileOpenAction::QueueOnly => {
+                                log::info!("[Finder] Queueing files (frontend not ready)");
                                 if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
                                     window_manager::queue_pending_file_opens(
                                         &mut pending, paths, ws,
@@ -824,6 +846,7 @@ pub fn run() {
                             }
                         }
                     }
+                    } // if !file_paths.is_empty()
                 }
                 _ => {}
             }
