@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.6.30"
+version = "0.6.31"
 description = "AI friendly markdown editor"
 authors = ["Xiaolai"]
 license = "ISC"
