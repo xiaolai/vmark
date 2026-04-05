@@ -27,7 +27,7 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { join, basename } from "@tauri-apps/api/path";
-import { emit } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
@@ -248,7 +248,7 @@ export function useExplorerOperations() {
   );
 
   const openFile = useCallback(async (path: string): Promise<void> => {
-    await emit("open-file", { path });
+    await getCurrentWebviewWindow().emit("open-file", { path });
   }, []);
 
   const openWithDefaultApp = useCallback(async (path: string): Promise<void> => {
