@@ -19,7 +19,13 @@
  *     text immediately. Single non-ASCII chars (CJK brackets/punctuation)
  *     flush immediately without the grace period (#525). Tracks
  *     lastCommittedText/lastCommitTime for dedup against late onData
- *     events that arrive after the grace period ends (#525).
+ *     events that arrive after the grace period ends (#525). Spurious
+ *     compositionend events (without preceding compositionstart, seen
+ *     with fcitx5+rime on Linux) are dropped to prevent duplicate PTY
+ *     writes (#659). Orphaned grace timers from back-to-back
+ *     compositionend events are cancelled before scheduling new ones.
+ *   - macOptionIsMeta is enabled so macOS Option+Arrow keys generate
+ *     proper Alt-modifier escape sequences for word movement (#660).
  *   - WebGL renderer is optional (settings-driven); falls back silently
  *     to canvas on GPU-incompatible systems.
  *   - Web links only open safe URL schemes (http, https, mailto);
@@ -132,6 +138,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     lineHeight: settings.lineHeight,
     cursorStyle: settings.cursorStyle,
     cursorBlink: settings.cursorBlink,
+    macOptionIsMeta: true,
     allowProposedApi: true,
     scrollback: 5000,
   });
@@ -184,6 +191,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     const committedText = e.data;
     terminalLog("compositionend", committedText);
 
+    // Guard: if composing is already false, this is a spurious compositionend
+    // fired without a preceding compositionstart (seen with fcitx5+rime on
+    // Linux: #659). Skip to prevent duplicate PTY writes.
+    if (!composing && !inGracePeriod) return;
+
     // Single non-ASCII character (CJK punctuation/bracket) — flush immediately.
     // These don't trigger xterm's garbled space injection, so no grace period needed.
     // Fixes CJK brackets not inputting with WeChat IME (#525).
@@ -206,6 +218,12 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
     // Multi-char (or ASCII): use grace period to block ALL xterm onData.
     // Clean committed text is written directly via onCompositionCommit.
+    // Cancel any orphaned timer from a previous compositionend that fired
+    // without a compositionstart in between (fcitx5+rime on Linux: #659).
+    if (compositionGraceTimer) {
+      clearTimeout(compositionGraceTimer);
+      compositionGraceTimer = null;
+    }
     pendingCommitText = committedText;
     inGracePeriod = true;
     compositionGraceTimer = setTimeout(() => {
