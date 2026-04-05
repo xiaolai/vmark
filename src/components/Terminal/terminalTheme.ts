@@ -73,7 +73,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     brightWhite:   "#767676",
   },
 
-  // ── Paper: slightly warmer tones on #EEEDED (all colors ≥ 4.5:1) ──
+  // ── Paper: slightly warmer tones on #EEEDED ──
   paper: {
     black:         "#2e3436",
     red:           "#c33820",
@@ -82,7 +82,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     blue:          "#2f5a92",
     magenta:       "#7b4d82",
     cyan:          "#086e6e",
-    white:         "#6b6b6b",
+    white:         "#595959",
     brightBlack:   "#5c5c5a",
     brightRed:     "#c03820",
     brightGreen:   "#367004",
@@ -90,10 +90,10 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     brightBlue:    "#3a6494",
     brightMagenta: "#7d4d84",
     brightCyan:    "#086c6c",
-    brightWhite:   "#6b6b6b",
+    brightWhite:   "#595959",
   },
 
-  // ── Mint: green-shifted palette on #CCE6D0 (all colors ≥ 4.5:1) ──
+  // ── Mint: green-shifted palette on #CCE6D0 ──
   mint: {
     black:         "#2a3832",
     red:           "#9e3020",
@@ -102,7 +102,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     blue:          "#155878",
     magenta:       "#7b4a8a",
     cyan:          "#006464",
-    white:         "#546856",
+    white:         "#3d5240",
     brightBlack:   "#4d6054",
     brightRed:     "#a83828",
     brightGreen:   "#2a6a2e",
@@ -110,10 +110,10 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     brightBlue:    "#1a6896",
     brightMagenta: "#7a4490",
     brightCyan:    "#056060",
-    brightWhite:   "#546856",
+    brightWhite:   "#3d5240",
   },
 
-  // ── Sepia: warm earthy tones on #F9F0DB (all colors ≥ 4.5:1) ──
+  // ── Sepia: warm earthy tones on #F9F0DB ──
   sepia: {
     black:         "#3e3328",
     red:           "#b5421a",
@@ -122,7 +122,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     blue:          "#4a6a8a",
     magenta:       "#8a5470",
     cyan:          "#1e645e",
-    white:         "#706454",
+    white:         "#5e5345",
     brightBlack:   "#6b5d4f",
     brightRed:     "#b04828",
     brightGreen:   "#4e7018",
@@ -130,7 +130,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     brightBlue:    "#3e6490",
     brightMagenta: "#8a5470",
     brightCyan:    "#267a6e",
-    brightWhite:   "#706454",
+    brightWhite:   "#5e5345",
   },
 
   // ── Night: vivid colors on #23262B ──
