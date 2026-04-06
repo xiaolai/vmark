@@ -273,12 +273,16 @@ export const footnotePopupExtension = Extension.create({
             return null;
           }
 
-          // If cleanup was deferred, clear the flag — we'll run it now.
+          // If cleanup was deferred from a composition transaction, clear
+          // the flag and run cleanup/renumber unconditionally based on the
+          // current state — the old ref deletion is no longer visible in
+          // oldState vs newState since both already reflect the change.
+          const wasDeferred = cleanupPending;
           cleanupPending = false;
 
-          // Fast check: if old doc has no footnote refs AND no definitions, skip full scan
+          // Fast check: if new doc has no footnote refs AND no definitions, skip full scan
           let hasFootnotes = false;
-          oldState.doc.descendants((node) => {
+          newState.doc.descendants((node) => {
             if (node.type.name === "footnote_reference" || node.type.name === "footnote_definition") {
               hasFootnotes = true;
               return false; // Stop traversal on first match
@@ -287,20 +291,24 @@ export const footnotePopupExtension = Extension.create({
           });
           if (!hasFootnotes) return null;
 
-          const oldCollected = collectFootnoteNodes(oldState.doc);
           const newCollected = collectFootnoteNodes(newState.doc);
-
-          const oldRefLabels = oldCollected.refLabels;
           const newRefLabels = newCollected.refLabels;
 
-          let refDeleted = false;
-          for (const label of oldRefLabels) {
-            if (!newRefLabels.has(label)) {
-              refDeleted = true;
-              break;
+          if (!wasDeferred) {
+            // Normal path: check if any ref was deleted in this transaction
+            const oldCollected = collectFootnoteNodes(oldState.doc);
+            const oldRefLabels = oldCollected.refLabels;
+
+            let refDeleted = false;
+            for (const label of oldRefLabels) {
+              if (!newRefLabels.has(label)) {
+                refDeleted = true;
+                break;
+              }
             }
+            if (!refDeleted) return null;
           }
-          if (!refDeleted) return null;
+          // Deferred path: skip refDeleted check — cleanup needed regardless
 
           const defs = newCollected.defs;
           const orphanedDefs = defs.filter((d) => !newRefLabels.has(d.label));

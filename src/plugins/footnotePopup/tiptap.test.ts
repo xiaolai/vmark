@@ -671,6 +671,55 @@ describe("footnotePopup plugin handler integration", () => {
       expect(result).toBeNull();
     });
 
+    it("runs deferred cleanup on first non-composition transaction after composition deleted a ref", () => {
+      // Set up doc with 2 footnotes
+      const doc = schema.node("doc", null, [
+        pWithRef("A", "1"),
+        pWithRef("B", "2"),
+        fnDef("1"),
+        fnDef("2"),
+      ]);
+      const state = createState(doc);
+
+      // 1. Composition transaction deletes ref "2" — cleanup is deferred
+      const refPos = (() => {
+        let pos = 0;
+        state.doc.descendants((node, p) => {
+          if (node.type.name === "paragraph" && node.textContent.includes("B")) {
+            pos = p;
+            return false;
+          }
+          return true;
+        });
+        return pos;
+      })();
+      const compositionTr = state.tr
+        .replaceWith(refPos, refPos + state.doc.child(1).nodeSize, p("B was here"))
+        .setMeta("composition", { type: "compositionend" });
+      const postCompState = state.apply(compositionTr);
+
+      // appendTransaction skips during composition
+      const skipped = plugin.spec.appendTransaction!(
+        [compositionTr],
+        state,
+        postCompState,
+      );
+      expect(skipped).toBeNull();
+
+      // 2. Next non-composition transaction triggers deferred cleanup
+      const normalTr = postCompState.tr.insertText("x", 1);
+      const finalState = postCompState.apply(normalTr);
+
+      const cleanup = plugin.spec.appendTransaction!(
+        [normalTr],
+        postCompState,
+        finalState,
+      );
+      // Deferred cleanup should have run — orphaned def "2" should be removed
+      // and remaining ref "1" should stay as-is
+      expect(cleanup).not.toBeNull();
+    });
+
     it("returns null when old doc has no footnotes", () => {
       const oldDoc = schema.node("doc", null, [p("no footnotes")]);
       const newDoc = schema.node("doc", null, [p("still no footnotes")]);
