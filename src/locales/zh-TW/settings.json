@@ -345,6 +345,8 @@
   "terminal.copyOnSelect.description": "自動將選取的文字複製到剪貼簿",
   "terminal.webgl.label": "WebGL 渲染器",
   "terminal.webgl.description": "使用 GPU 加速渲染。如果遇到輸入法問題請停用。需要重新啟動終端機。",
+  "terminal.macOptionIsMeta.label": "將 Option 作為 Meta 鍵",
+  "terminal.macOptionIsMeta.description": "將 macOS Option 鍵視為 Meta 鍵，以啟用 Alt+Arrow 按詞導覽。如果需要透過死鍵輸入重音符號（Option+E/N/U），請停用此選項。需要重新啟動終端機。",
   "about.version": "版本 {{version}}",
   "about.group.updates": "更新",
   "about.updateAvailable.group": "有可用更新",

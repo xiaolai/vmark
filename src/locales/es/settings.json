@@ -345,6 +345,8 @@
   "terminal.copyOnSelect.description": "Copiar automáticamente el texto seleccionado al portapapeles",
   "terminal.webgl.label": "Renderizador WebGL",
   "terminal.webgl.description": "Usar renderizado acelerado por GPU. Desactívalo si tienes problemas con la entrada IME. Requiere reiniciar la terminal.",
+  "terminal.macOptionIsMeta.label": "Option como tecla Meta",
+  "terminal.macOptionIsMeta.description": "Tratar la tecla Option de macOS como Meta para navegación por palabras con Alt+Arrow. Desactívalo si necesitas composición de acentos con teclas muertas (Option+E/N/U). Requiere reiniciar la terminal.",
   "about.version": "Versión {{version}}",
   "about.group.updates": "Actualizaciones",
   "about.updateAvailable.group": "Actualización disponible",

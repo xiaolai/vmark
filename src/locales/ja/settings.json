@@ -345,6 +345,8 @@
   "terminal.copyOnSelect.description": "選択したテキストを自動的にクリップボードにコピーする",
   "terminal.webgl.label": "WebGLレンダラー",
   "terminal.webgl.description": "GPUアクセラレーションによるレンダリングを使用します。IME入力に問題がある場合は無効にしてください。ターミナルの再起動が必要です。",
+  "terminal.macOptionIsMeta.label": "OptionをMetaキーとして使用",
+  "terminal.macOptionIsMeta.description": "macOSのOptionキーをMetaとして扱い、Alt+Arrowで単語単位のナビゲーションを有効にします。デッドキーによるアクセント入力（Option+E/N/U）が必要な場合は無効にしてください。ターミナルの再起動が必要です。",
   "about.version": "バージョン {{version}}",
   "about.group.updates": "アップデート",
   "about.updateAvailable.group": "アップデートあり",

@@ -345,6 +345,8 @@
   "terminal.copyOnSelect.description": "Copier automatiquement le texte sélectionné dans le presse-papiers",
   "terminal.webgl.label": "Rendu WebGL",
   "terminal.webgl.description": "Utiliser le rendu accéléré par GPU. Désactivez en cas de problèmes de saisie IME. Nécessite un redémarrage du terminal.",
+  "terminal.macOptionIsMeta.label": "Option comme touche Meta",
+  "terminal.macOptionIsMeta.description": "Traiter la touche Option de macOS comme Meta pour la navigation par mots avec Alt+Arrow. Désactivez si vous avez besoin de la composition d'accents avec les touches mortes (Option+E/N/U). Nécessite un redémarrage du terminal.",
   "about.version": "Version {{version}}",
   "about.group.updates": "Mises à jour",
   "about.updateAvailable.group": "Mise à jour disponible",
