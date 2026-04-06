@@ -8,6 +8,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   isImeKeyEvent,
+  HANGUL_RE,
   IME_GRACE_PERIOD_MS,
   isProseMirrorComposing,
   isCodeMirrorComposing,
@@ -431,5 +432,35 @@ describe("getImeCleanupPrefixLength", () => {
 
   it("returns null when composed is purely ASCII", () => {
     expect(getImeCleanupPrefixLength("abc", "c")).toBeNull();
+  });
+});
+
+// ---- HANGUL_RE ----
+
+describe("HANGUL_RE", () => {
+  it("matches Korean Hangul syllables", () => {
+    expect(HANGUL_RE.test("한")).toBe(true);   // U+D55C
+    expect(HANGUL_RE.test("글")).toBe(true);   // U+AE00
+    expect(HANGUL_RE.test("한글")).toBe(true);
+  });
+
+  it("matches Korean Jamo (consonants/vowels)", () => {
+    expect(HANGUL_RE.test("\u1100")).toBe(true);  // Hangul Jamo: ᄀ
+    expect(HANGUL_RE.test("\u3131")).toBe(true);  // Compatibility Jamo: ㄱ
+  });
+
+  it("does not match Chinese characters", () => {
+    expect(HANGUL_RE.test("你好")).toBe(false);
+    expect(HANGUL_RE.test("世界")).toBe(false);
+  });
+
+  it("does not match Japanese characters", () => {
+    expect(HANGUL_RE.test("こんにちは")).toBe(false);
+    expect(HANGUL_RE.test("テスト")).toBe(false);
+  });
+
+  it("does not match ASCII", () => {
+    expect(HANGUL_RE.test("hello")).toBe(false);
+    expect(HANGUL_RE.test("123")).toBe(false);
   });
 });

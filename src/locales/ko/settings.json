@@ -345,6 +345,8 @@
   "terminal.copyOnSelect.description": "선택한 텍스트를 자동으로 클립보드에 복사합니다",
   "terminal.webgl.label": "WebGL 렌더러",
   "terminal.webgl.description": "GPU 가속 렌더링 사용. IME 입력 문제가 발생하면 비활성화하세요. 터미널 재시작이 필요합니다.",
+  "terminal.macOptionIsMeta.label": "Option을 Meta 키로 사용",
+  "terminal.macOptionIsMeta.description": "macOS Option 키를 Meta로 처리하여 Alt+Arrow 단어 탐색을 활성화합니다. 데드 키 악센트 입력(Option+E/N/U)이 필요하면 비활성화하세요. 터미널 재시작이 필요합니다.",
   "about.version": "버전 {{version}}",
   "about.group.updates": "업데이트",
   "about.updateAvailable.group": "업데이트 가능",

@@ -345,6 +345,8 @@
   "terminal.copyOnSelect.description": "Ausgewählten Text automatisch in die Zwischenablage kopieren",
   "terminal.webgl.label": "WebGL-Renderer",
   "terminal.webgl.description": "GPU-beschleunigtes Rendering verwenden. Deaktivieren, wenn IME-Eingabeprobleme auftreten. Erfordert Terminal-Neustart.",
+  "terminal.macOptionIsMeta.label": "Option als Meta-Taste",
+  "terminal.macOptionIsMeta.description": "macOS-Option-Taste als Meta behandeln für Alt+Arrow-Wortnavigation. Deaktivieren, wenn Sie Akzentkomposition mit Tottasten benötigen (Option+E/N/U). Erfordert Terminal-Neustart.",
   "about.version": "Version {{version}}",
   "about.group.updates": "Updates",
   "about.updateAvailable.group": "Update verfügbar",

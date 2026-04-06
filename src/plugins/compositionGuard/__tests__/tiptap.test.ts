@@ -16,6 +16,8 @@ const mockMarkProseMirrorCompositionEnd = vi.fn();
 vi.mock("@/utils/imeGuard", () => ({
   flushProseMirrorCompositionQueue: (...args: unknown[]) => mockFlushProseMirrorCompositionQueue(...args),
   getImeCleanupPrefixLength: (...args: unknown[]) => mockGetImeCleanupPrefixLength(...args),
+  HANGUL_RE: /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/,
+  IME_GRACE_PERIOD_MS: 50,
   isImeKeyEvent: (...args: unknown[]) => mockIsImeKeyEvent(...args),
   isProseMirrorInCompositionGrace: (...args: unknown[]) => mockIsProseMirrorInCompositionGrace(...args),
   markProseMirrorCompositionEnd: (...args: unknown[]) => mockMarkProseMirrorCompositionEnd(...args),
@@ -25,6 +27,12 @@ vi.mock("@/utils/imeGuard", () => ({
 const mockFixCompositionSplitBlock = vi.fn(() => null);
 vi.mock("../splitBlockFix", () => ({
   fixCompositionSplitBlock: (...args: unknown[]) => mockFixCompositionSplitBlock(...args),
+}));
+
+// Mock splitBlock from ProseMirror commands (used for Korean deferred Enter)
+const mockSplitBlock = vi.fn();
+vi.mock("@tiptap/pm/commands", () => ({
+  splitBlock: (...args: unknown[]) => mockSplitBlock(...args),
 }));
 
 import { compositionGuardExtension } from "../tiptap";
@@ -148,6 +156,140 @@ describe("compositionGuard handleKeyDown", () => {
     const handleKeyDown = getHandleKeyDown();
     const result = handleKeyDown({}, {});
     expect(result).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Korean Hangul deferred Enter (Tiptap #4108)
+// ---------------------------------------------------------------------------
+
+describe("compositionGuard Korean Hangul deferred Enter", () => {
+  function getPluginParts() {
+    const plugins = compositionGuardExtension.config.addProseMirrorPlugins!.call({
+      editor: {},
+      name: "compositionGuard",
+      options: {},
+      storage: {},
+      type: undefined,
+      parent: undefined,
+    } as never);
+    const plugin = plugins[0] as {
+      props: {
+        handleKeyDown: (view: unknown, event: unknown) => boolean;
+        handleDOMEvents: {
+          compositionstart: (view: unknown) => boolean;
+          compositionupdate: (view: unknown, event: unknown) => boolean;
+          compositionend: (view: unknown, event: unknown) => boolean;
+        };
+      };
+    };
+    return plugin.props;
+  }
+
+  const mockView = {
+    state: {
+      selection: { from: 5 },
+      doc: {
+        resolve: () => ({ end: () => 20, depth: 1, node: () => ({ type: { name: "paragraph" } }) }),
+        textBetween: () => "한",
+        childCount: 1,
+      },
+    },
+    dispatch: vi.fn(),
+  };
+
+  it("queues deferred splitBlock when Enter pressed during Korean composition", () => {
+    const { handleKeyDown, handleDOMEvents } = getPluginParts();
+
+    // 1. Start composition
+    handleDOMEvents.compositionstart(mockView);
+
+    // 2. Compose Korean text
+    mockIsImeKeyEvent.mockReturnValue(true);
+    handleDOMEvents.compositionupdate(mockView, { data: "한" });
+
+    // 3. Press Enter during composition
+    handleKeyDown(mockView, { key: "Enter", isComposing: true, keyCode: 13 });
+
+    // 4. Composition ends
+    handleDOMEvents.compositionend(mockView, { data: "한" });
+
+    // rAF fires synchronously (mocked), then the deferred timer fires
+    vi.advanceTimersByTime(60);
+
+    // splitBlock should have been called
+    expect(mockSplitBlock).toHaveBeenCalledWith(mockView.state, mockView.dispatch);
+  });
+
+  it("does NOT queue splitBlock for Chinese composition", () => {
+    mockSplitBlock.mockClear();
+    const { handleKeyDown, handleDOMEvents } = getPluginParts();
+
+    handleDOMEvents.compositionstart(mockView);
+    mockIsImeKeyEvent.mockReturnValue(true);
+    handleDOMEvents.compositionupdate(mockView, { data: "你好" });
+
+    // Press Enter — Chinese characters are NOT in Hangul range
+    handleKeyDown(mockView, { key: "Enter", isComposing: true, keyCode: 13 });
+
+    handleDOMEvents.compositionend(mockView, { data: "你好" });
+    vi.runAllTimers();
+
+    expect(mockSplitBlock).not.toHaveBeenCalled();
+  });
+
+  it("cancels deferred Enter if new composition starts", () => {
+    mockSplitBlock.mockClear();
+    const { handleKeyDown, handleDOMEvents } = getPluginParts();
+
+    handleDOMEvents.compositionstart(mockView);
+    mockIsImeKeyEvent.mockReturnValue(true);
+    handleDOMEvents.compositionupdate(mockView, { data: "한" });
+    handleKeyDown(mockView, { key: "Enter", isComposing: true, keyCode: 13 });
+    handleDOMEvents.compositionend(mockView, { data: "한" });
+
+    // New composition starts before timer fires
+    handleDOMEvents.compositionstart(mockView);
+
+    vi.advanceTimersByTime(100);
+
+    // splitBlock should NOT have been called — cancelled by new composition
+    expect(mockSplitBlock).not.toHaveBeenCalled();
+  });
+
+  it("cancels deferred Enter on blur", () => {
+    mockSplitBlock.mockClear();
+    const plugins = compositionGuardExtension.config.addProseMirrorPlugins!.call({
+      editor: {},
+      name: "compositionGuard",
+      options: {},
+      storage: {},
+      type: undefined,
+      parent: undefined,
+    } as never);
+    const plugin = plugins[0] as {
+      props: {
+        handleKeyDown: (view: unknown, event: unknown) => boolean;
+        handleDOMEvents: {
+          compositionstart: (view: unknown) => boolean;
+          compositionupdate: (view: unknown, event: unknown) => boolean;
+          compositionend: (view: unknown, event: unknown) => boolean;
+          blur: (view: unknown) => boolean;
+        };
+      };
+    };
+
+    plugin.props.handleDOMEvents.compositionstart(mockView);
+    mockIsImeKeyEvent.mockReturnValue(true);
+    plugin.props.handleDOMEvents.compositionupdate(mockView, { data: "한" });
+    plugin.props.handleKeyDown(mockView, { key: "Enter", isComposing: true, keyCode: 13 });
+    plugin.props.handleDOMEvents.compositionend(mockView, { data: "한" });
+
+    // Blur cancels the deferred Enter
+    plugin.props.handleDOMEvents.blur(mockView);
+
+    vi.advanceTimersByTime(100);
+    expect(mockSplitBlock).not.toHaveBeenCalled();
   });
 });
 
@@ -297,9 +439,56 @@ describe("compositionGuard compositionstart", () => {
 
   it("returns false (does not prevent default)", () => {
     const events = getDomEvents();
-    const mockView = { state: { selection: { from: 5 } } };
+    const parentNode = { type: { name: "paragraph" } };
+    const mockView = {
+      state: {
+        selection: { from: 5, to: 5 },
+        doc: { resolve: () => ({ parent: parentNode }) },
+      },
+    };
     const result = events.compositionstart(mockView);
     expect(result).toBe(false);
+  });
+
+  it("pre-deletes multi-block selection at compositionstart (Tiptap #5416)", () => {
+    const events = getDomEvents();
+    const parentA = { type: { name: "paragraph" } };
+    const parentB = { type: { name: "paragraph" } };
+    const mockDispatch = vi.fn();
+    const mockDeleteSelection = vi.fn().mockReturnValue({ fake: "tr" });
+    const mockView = {
+      state: {
+        selection: { from: 5, to: 20 },
+        doc: {
+          resolve: (pos: number) => ({
+            parent: pos <= 10 ? parentA : parentB,
+          }),
+        },
+        tr: { deleteSelection: mockDeleteSelection },
+      },
+      dispatch: mockDispatch,
+    };
+    events.compositionstart(mockView);
+    // Should have dispatched deleteSelection since from/to are in different parents
+    expect(mockDeleteSelection).toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  it("does NOT pre-delete single-block selection at compositionstart", () => {
+    const events = getDomEvents();
+    const parentNode = { type: { name: "paragraph" } };
+    const mockDispatch = vi.fn();
+    const mockView = {
+      state: {
+        selection: { from: 5, to: 10 },
+        doc: { resolve: () => ({ parent: parentNode }) },
+        tr: { deleteSelection: vi.fn() },
+      },
+      dispatch: mockDispatch,
+    };
+    events.compositionstart(mockView);
+    // Same parent block — no pre-deletion needed
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 });
 

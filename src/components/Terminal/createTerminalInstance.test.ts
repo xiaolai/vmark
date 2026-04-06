@@ -134,6 +134,7 @@ function makeInstance() {
       cursorStyle: "block",
       cursorBlink: true,
       useWebGL: false,
+      macOptionIsMeta: true,
     },
     ptyRef: { current: null },
     onSearch: vi.fn(),
@@ -235,6 +236,7 @@ describe("createTerminalInstance dispose", () => {
         cursorStyle: "block",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -253,6 +255,7 @@ describe("createTerminalInstance dispose", () => {
         cursorStyle: "block",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -311,6 +314,7 @@ describe("createTerminalInstance with WebGL", () => {
           cursorStyle: "block",
           cursorBlink: true,
           useWebGL: true,
+          macOptionIsMeta: true,
         },
         ptyRef: { current: null },
         onSearch: vi.fn(),
@@ -320,10 +324,30 @@ describe("createTerminalInstance with WebGL", () => {
 });
 
 describe("createTerminalInstance — macOptionIsMeta (#660)", () => {
-  it("passes macOptionIsMeta: true to Terminal constructor for proper Option+Arrow handling", () => {
+  it("passes macOptionIsMeta: true from settings by default", () => {
     const inst = makeInstance();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((inst.term as any)._constructorOptions.macOptionIsMeta).toBe(true);
+    inst.dispose();
+  });
+
+  it("passes macOptionIsMeta: false when setting is disabled", () => {
+    const parentEl = document.createElement("div");
+    const inst = createTerminalInstance({
+      parentEl,
+      settings: {
+        fontSize: 14,
+        lineHeight: 1.2,
+        cursorStyle: "block",
+        cursorBlink: true,
+        useWebGL: false,
+        macOptionIsMeta: false,
+      },
+      ptyRef: { current: null },
+      onSearch: vi.fn(),
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((inst.term as any)._constructorOptions.macOptionIsMeta).toBe(false);
     inst.dispose();
   });
 });
@@ -343,6 +367,7 @@ describe("createTerminalInstance — different settings", () => {
         cursorStyle: "bar",
         cursorBlink: false,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -361,6 +386,7 @@ describe("createTerminalInstance — different settings", () => {
         cursorStyle: "underline",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -422,6 +448,7 @@ describe("createTerminalInstance — dispose edge cases", () => {
         cursorStyle: "block",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -446,6 +473,7 @@ describe("createTerminalInstance — dispose edge cases", () => {
         cursorStyle: "block",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -481,6 +509,7 @@ describe("createTerminalInstance — IME composition with textarea", () => {
         cursorStyle: "block",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -760,6 +789,7 @@ describe("createTerminalInstance — copy-on-select with copyOnSelect enabled", 
         cursorStyle: "block",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -905,6 +935,7 @@ describe("createTerminalInstance — dark theme", () => {
         cursorStyle: "block",
         cursorBlink: true,
         useWebGL: false,
+        macOptionIsMeta: true,
       },
       ptyRef: { current: null },
       onSearch: vi.fn(),
@@ -943,6 +974,7 @@ describe("createTerminalInstance — WebGL failure fallback", () => {
           cursorStyle: "block",
           cursorBlink: true,
           useWebGL: true,
+          macOptionIsMeta: true,
         },
         ptyRef: { current: null },
         onSearch: vi.fn(),
