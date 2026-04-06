@@ -172,17 +172,31 @@ describe("inline code boundary plugin", () => {
     expect(hasCode).toBe(false);
   });
 
-  it("does not set storedMarks during input uiEvent transactions", () => {
+  it("does not set storedMarks during composition uiEvent transactions", () => {
     const state = createStateWithPlugin("Hello ", "code", " world");
 
+    const tr = state.tr
+      .setSelection(TextSelection.create(state.doc, 7))
+      .setMeta("uiEvent", "composition");
+    const newState = state.apply(tr);
+
+    const storedMarks = newState.storedMarks;
+    const hasCode = storedMarks?.some((m) => m.type.name === "code") ?? false;
+    expect(hasCode).toBe(false);
+  });
+
+  it("still sets storedMarks during normal input uiEvent (not composition)", () => {
+    const state = createStateWithPlugin("Hello ", "code", " world");
+
+    // uiEvent "input" is normal typing — should NOT suppress the boundary fix
     const tr = state.tr
       .setSelection(TextSelection.create(state.doc, 7))
       .setMeta("uiEvent", "input");
     const newState = state.apply(tr);
 
     const storedMarks = newState.storedMarks;
-    const hasCode = storedMarks?.some((m) => m.type.name === "code") ?? false;
-    expect(hasCode).toBe(false);
+    expect(storedMarks).not.toBeNull();
+    expect(storedMarks?.some((m) => m.type.name === "code")).toBe(true);
   });
 
   it("does not act on schema without code mark", () => {

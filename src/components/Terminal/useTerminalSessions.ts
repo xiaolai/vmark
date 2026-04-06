@@ -507,7 +507,8 @@ export function useTerminalSessions(
       if (!curr || !prev) { prev = curr; return; }
       const fontChanged = curr.fontSize !== prev.fontSize || curr.lineHeight !== prev.lineHeight;
       const cursorChanged = curr.cursorStyle !== prev.cursorStyle || curr.cursorBlink !== prev.cursorBlink;
-      if (!fontChanged && !cursorChanged) return;
+      const metaChanged = curr.macOptionIsMeta !== prev.macOptionIsMeta;
+      if (!fontChanged && !cursorChanged && !metaChanged) return;
       prev = curr;
       for (const [, entry] of sessionsRef.current) {
         const opts = entry.instance.term.options;
@@ -518,6 +519,9 @@ export function useTerminalSessions(
         if (cursorChanged) {
           opts.cursorStyle = curr.cursorStyle;
           opts.cursorBlink = curr.cursorBlink;
+        }
+        if (metaChanged) {
+          opts.macOptionIsMeta = curr.macOptionIsMeta;
         }
         if (fontChanged) {
           try { entry.instance.fitAddon.fit(); } catch { /* ignore */ }

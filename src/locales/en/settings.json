@@ -358,7 +358,7 @@
   "terminal.webgl.label": "WebGL Renderer",
   "terminal.webgl.description": "Use GPU-accelerated rendering. Disable if you experience IME input issues. Requires terminal restart.",
   "terminal.macOptionIsMeta.label": "Option as Meta Key",
-  "terminal.macOptionIsMeta.description": "Treat macOS Option key as Meta for Alt+Arrow word navigation. Disable if you need dead-key accent composition (Option+E/N/U). Requires terminal restart.",
+  "terminal.macOptionIsMeta.description": "Treat macOS Option key as Meta for Alt+Arrow word navigation. Disable if you need dead-key accent composition (Option+E/N/U).",
 
   "about.version": "Version {{version}}",
   "about.group.updates": "Updates",

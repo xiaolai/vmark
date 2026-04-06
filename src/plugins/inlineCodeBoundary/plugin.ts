@@ -33,8 +33,10 @@ export function createInlineCodeBoundaryPlugin(): Plugin {
     ) {
       // Skip during IME composition — setting storedMarks mid-composition
       // can corrupt mark state and disrupt CJK input (cf. ProseMirror #1476).
+      // Only check "composition" meta (not uiEvent "input" which is too broad
+      // and would also suppress the fix for normal typing).
       const isComposition = transactions.some(
-        (tr) => tr.getMeta("composition") || tr.getMeta("uiEvent") === "input"
+        (tr) => tr.getMeta("composition") || tr.getMeta("uiEvent") === "composition"
       );
       if (isComposition) return null;
 

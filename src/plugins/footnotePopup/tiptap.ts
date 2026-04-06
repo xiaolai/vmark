@@ -23,7 +23,7 @@
  */
 
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, type Transaction, NodeSelection } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type Transaction, type EditorState, NodeSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { FootnotePopupView } from "./FootnotePopupView";
@@ -245,13 +245,20 @@ export const footnotePopupExtension = Extension.create({
             mouseout: handleMouseOut,
           },
         },
-        appendTransaction(transactions: readonly Transaction[], oldState, newState) {
+        appendTransaction: (() => {
+          // Track whether cleanup was deferred during IME composition.
+          // If a composition transaction deletes a footnote ref, the cleanup
+          // can't run mid-composition (would disrupt CJK input), so we mark
+          // it pending and run on the first non-composition doc change.
+          let cleanupPending = false;
+
+          return (transactions: readonly Transaction[], oldState: EditorState, newState: EditorState) => {
           const refType = newState.schema.nodes.footnote_reference;
           const defType = newState.schema.nodes.footnote_definition;
           if (!refType || !defType) return null;
 
           const docChanged = transactions.some((tr) => tr.docChanged);
-          if (!docChanged) return null;
+          if (!docChanged && !cleanupPending) return null;
 
           // Skip during IME composition — dispatching transactions mid-composition
           // can cause ProseMirror to reconcile the DOM, disrupting active CJK input
@@ -259,7 +266,15 @@ export const footnotePopupExtension = Extension.create({
           const isComposition = transactions.some(
             (tr) => tr.getMeta("composition") || tr.getMeta("uiEvent") === "input"
           );
-          if (isComposition) return null;
+          if (isComposition) {
+            // Mark pending if doc changed during composition — cleanup will
+            // run on the next non-composition transaction.
+            if (docChanged) cleanupPending = true;
+            return null;
+          }
+
+          // If cleanup was deferred, clear the flag — we'll run it now.
+          cleanupPending = false;
 
           // Fast check: if old doc has no footnote refs AND no definitions, skip full scan
           let hasFootnotes = false;
@@ -307,7 +322,8 @@ export const footnotePopupExtension = Extension.create({
           }
 
           return createCleanupAndRenumberTransaction(newState, newRefLabels, refType, defType, newCollected);
-        },
+          };
+        })(),
       }),
     ];
   },

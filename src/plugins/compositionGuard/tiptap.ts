@@ -237,7 +237,21 @@ export const compositionGuardExtension = Extension.create({
                 compositionData &&
                 HANGUL_RE.test(compositionData)
               ) {
-                pendingEnterAfterComposition = true;
+                if (grace && !isComposing) {
+                  // Enter during grace period (compositionend rAF already ran).
+                  // Schedule splitBlock directly since no rAF callback will
+                  // consume the flag.
+                  if (pendingEnterTimer) clearTimeout(pendingEnterTimer);
+                  const snapshotFrom = view.state.selection.from;
+                  pendingEnterTimer = setTimeout(() => {
+                    pendingEnterTimer = null;
+                    if (!isComposing && view.state.selection.from === snapshotFrom) {
+                      splitBlock(view.state, view.dispatch);
+                    }
+                  }, IME_GRACE_PERIOD_MS);
+                } else {
+                  pendingEnterAfterComposition = true;
+                }
               }
               return true;
             }
@@ -346,10 +360,12 @@ export const compositionGuardExtension = Extension.create({
                 if (pendingEnterAfterComposition) {
                   pendingEnterAfterComposition = false;
                   if (pendingEnterTimer) clearTimeout(pendingEnterTimer);
+                  // Snapshot selection so we don't split at a stale position
+                  // if the user moves the cursor before the timer fires.
+                  const enterFrom = view.state.selection.from;
                   pendingEnterTimer = setTimeout(() => {
                     pendingEnterTimer = null;
-                    // Guard: if a new composition started, don't split
-                    if (!isComposing) {
+                    if (!isComposing && view.state.selection.from === enterFrom) {
                       splitBlock(view.state, view.dispatch);
                     }
                   }, IME_GRACE_PERIOD_MS);
