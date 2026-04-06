@@ -155,6 +155,36 @@ describe("inline code boundary plugin", () => {
     expect(storedMarks).toBeNull();
   });
 
+  it("does not set storedMarks during IME composition transactions", () => {
+    // During CJK input, ProseMirror fires transactions with composition meta.
+    // Setting storedMarks mid-composition can corrupt mark state (cf. ProseMirror #1476).
+    const state = createStateWithPlugin("Hello ", "code", " world");
+
+    // Simulate a composition transaction (as ProseMirror does during IME input)
+    const tr = state.tr
+      .setSelection(TextSelection.create(state.doc, 7))
+      .setMeta("composition", { type: "compositionend" });
+    const newState = state.apply(tr);
+
+    // During composition, storedMarks should NOT be set — let the IME finish
+    const storedMarks = newState.storedMarks;
+    const hasCode = storedMarks?.some((m) => m.type.name === "code") ?? false;
+    expect(hasCode).toBe(false);
+  });
+
+  it("does not set storedMarks during input uiEvent transactions", () => {
+    const state = createStateWithPlugin("Hello ", "code", " world");
+
+    const tr = state.tr
+      .setSelection(TextSelection.create(state.doc, 7))
+      .setMeta("uiEvent", "input");
+    const newState = state.apply(tr);
+
+    const storedMarks = newState.storedMarks;
+    const hasCode = storedMarks?.some((m) => m.type.name === "code") ?? false;
+    expect(hasCode).toBe(false);
+  });
+
   it("does not act on schema without code mark", () => {
     const noCodeSchema = new Schema({
       nodes: {

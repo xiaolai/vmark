@@ -31,6 +31,13 @@ export function createInlineCodeBoundaryPlugin(): Plugin {
       _oldState: EditorState,
       newState: EditorState
     ) {
+      // Skip during IME composition — setting storedMarks mid-composition
+      // can corrupt mark state and disrupt CJK input (cf. ProseMirror #1476).
+      const isComposition = transactions.some(
+        (tr) => tr.getMeta("composition") || tr.getMeta("uiEvent") === "input"
+      );
+      if (isComposition) return null;
+
       // Only act when selection or doc changed
       const changed = transactions.some((tr) => tr.selectionSet || tr.docChanged);
       if (!changed) return null;
