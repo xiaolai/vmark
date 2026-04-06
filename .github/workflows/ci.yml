@@ -9,14 +9,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Frontend checks: lint, tests, build — platform-independent (jsdom + vite)
   frontend-run:
+    runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
 
@@ -43,7 +44,7 @@ jobs:
     needs: [frontend-run]
     runs-on: ubuntu-latest
     steps:
-      - name: Check matrix result
+      - name: Check result
         env:
           RESULT: ${{ needs.frontend-run.result }}
         run: |
@@ -52,7 +53,24 @@ jobs:
             exit 1
           fi
 
+  # Detect if Rust code changed — skip rust-test for frontend-only PRs
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'src-tauri/**'
+              - 'Cargo.lock'
+
   rust-test:
+    needs: [changes]
+    if: needs.changes.outputs.rust == 'true' || github.event_name == 'push'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -62,12 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install system dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
-            libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev
+      - uses: ./.github/actions/setup-tauri-deps
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -76,9 +89,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src-tauri/target
-          key: rust-test-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: rust-test-${{ runner.os }}-
+          key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-
 
       - name: Create sidecar stub for Tauri build script
         shell: bash
@@ -97,10 +109,7 @@ jobs:
 
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
-
       - name: Security audit (Rust)
-        run: cargo audit
-        working-directory: src-tauri
-        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        uses: actions-rust-lang/audit@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
