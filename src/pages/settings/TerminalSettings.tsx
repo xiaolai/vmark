@@ -188,6 +188,13 @@ export function TerminalSettings() {
             onChange={(v) => updateTerminalSetting("useWebGL", v)}
           />
         </SettingRow>
+
+        <SettingRow label={t("terminal.macOptionIsMeta.label")} description={t("terminal.macOptionIsMeta.description")}>
+          <Toggle
+            checked={terminal.macOptionIsMeta}
+            onChange={(v) => updateTerminalSetting("macOptionIsMeta", v)}
+          />
+        </SettingRow>
       </SettingsGroup>
     </div>
   );

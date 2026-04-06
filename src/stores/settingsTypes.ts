@@ -207,6 +207,7 @@ export interface TerminalSettings {
   cursorBlink: boolean; // Default: true
   copyOnSelect: boolean; // Default: false — auto-copy selected text to clipboard
   useWebGL: boolean;   // Default: true — use WebGL renderer (disable to troubleshoot IME issues)
+  macOptionIsMeta: boolean; // Default: true — treat macOS Option as Meta for Alt+Arrow word navigation; disable for dead-key accent composition (Option+E/N/U)
   position: TerminalPosition; // Default: "auto" — auto-reposition based on window aspect ratio
   panelRatio: number;  // Default: 0.4 — fraction of available space (0.1–0.8), persisted on drag end
 }

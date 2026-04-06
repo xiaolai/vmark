@@ -107,6 +107,7 @@ export interface TerminalInstanceSettings {
   cursorStyle: "block" | "underline" | "bar";
   cursorBlink: boolean;
   useWebGL: boolean;
+  macOptionIsMeta: boolean;
 }
 
 interface CreateOptions {
@@ -138,7 +139,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     lineHeight: settings.lineHeight,
     cursorStyle: settings.cursorStyle,
     cursorBlink: settings.cursorBlink,
-    macOptionIsMeta: true,
+    macOptionIsMeta: settings.macOptionIsMeta,
     allowProposedApi: true,
     scrollback: 5000,
   });

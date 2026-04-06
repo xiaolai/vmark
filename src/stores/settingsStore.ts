@@ -220,6 +220,7 @@ const initialState: SettingsState = {
     cursorBlink: true,
     copyOnSelect: false,
     useWebGL: true,
+    macOptionIsMeta: true,
     position: "auto",
     panelRatio: 0.4,
   },
