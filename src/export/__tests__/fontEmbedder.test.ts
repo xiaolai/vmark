@@ -94,12 +94,27 @@ describe("getKaTeXFontFiles", () => {
     expect(unique.size).toBe(urls.length);
   });
 
-  it("all URLs point to CDN with woff2 format", () => {
+  it("all primary URLs point to jsdelivr CDN with woff2 format", () => {
     const files = getKaTeXFontFiles();
     for (const f of files) {
       expect(f.url).toMatch(/^https:\/\/cdn\.jsdelivr\.net/);
       expect(f.url).toMatch(/\.woff2$/);
     }
+  });
+
+  it("all entries have a fallback URL pointing to cdnjs", () => {
+    const files = getKaTeXFontFiles();
+    for (const f of files) {
+      expect(f.fallbackUrl).toBeDefined();
+      expect(f.fallbackUrl).toMatch(/^https:\/\/cdnjs\.cloudflare\.com/);
+      expect(f.fallbackUrl).toMatch(/\.woff2$/);
+    }
+  });
+
+  it("fallback URLs have no duplicates", () => {
+    const files = getKaTeXFontFiles();
+    const urls = files.map((f) => f.fallbackUrl!);
+    expect(new Set(urls).size).toBe(urls.length);
   });
 
   it("all filenames end with .woff2", () => {
@@ -527,6 +542,52 @@ describe("downloadFont", () => {
     const result = await runWithTimers(downloadFont("https://example.com/font.woff2", 5));
     expect(result).toBeNull();
     expect(globalThis.fetch).toHaveBeenCalledTimes(5);
+  });
+
+  it("tries fallback URL when primary fails all retries", async () => {
+    const fakeData = new Uint8Array([0xAA, 0xBB]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("fail"))
+      .mockRejectedValueOnce(new Error("fail"))
+      .mockRejectedValueOnce(new Error("fail"))
+      // Fallback succeeds on first try
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(fakeData.buffer),
+      } as Response);
+
+    const result = await runWithTimers(
+      downloadFont("https://primary.com/font.woff2", 3, "https://fallback.com/font.woff2")
+    );
+    expect(result).toEqual(fakeData);
+    // 3 primary attempts + 1 fallback attempt
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(fetchSpy).toHaveBeenLastCalledWith("https://fallback.com/font.woff2", expect.any(Object));
+  });
+
+  it("returns null when both primary and fallback fail", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fail"));
+    const result = await runWithTimers(
+      downloadFont("https://primary.com/font.woff2", 2, "https://fallback.com/font.woff2")
+    );
+    expect(result).toBeNull();
+    // 2 primary + 2 fallback
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not try fallback when primary succeeds", async () => {
+    const fakeData = new Uint8Array([0x01]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(fakeData.buffer),
+    } as Response);
+
+    const result = await runWithTimers(
+      downloadFont("https://primary.com/font.woff2", 3, "https://fallback.com/font.woff2")
+    );
+    expect(result).toEqual(fakeData);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith("https://primary.com/font.woff2", expect.any(Object));
   });
 });
 

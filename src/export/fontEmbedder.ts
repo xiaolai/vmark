@@ -48,8 +48,12 @@ export const KATEX_FONTS = [
   "KaTeX_Size4-Regular",
 ] as const;
 
-/** KaTeX CDN base URL */
-const KATEX_CDN_BASE = "https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/fonts";
+/** KaTeX CDN base URLs — primary (jsdelivr) with cdnjs fallback */
+const KATEX_CDN_PRIMARY = "https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/fonts";
+const KATEX_CDN_FALLBACK = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.28/fonts";
+
+/** @internal Exported for tests */
+export const KATEX_CDN_BASE = KATEX_CDN_PRIMARY;
 
 /** Font file to download */
 export interface FontFile {
@@ -59,6 +63,8 @@ export interface FontFile {
   filename: string;
   /** Source URL to download from */
   url: string;
+  /** Fallback URL to try when primary fails all retries */
+  fallbackUrl?: string;
   /** Font weight */
   weight: string;
   /** Font style */
@@ -78,22 +84,22 @@ export interface DownloadedFont {
  */
 export function getKaTeXFontFiles(): FontFile[] {
   return [
-    { family: "KaTeX_Main", filename: "KaTeX_Main-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Main", filename: "KaTeX_Main-Bold.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Bold.woff2`, weight: "bold", style: "normal" },
-    { family: "KaTeX_Main", filename: "KaTeX_Main-Italic.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Italic.woff2`, weight: "normal", style: "italic" },
-    { family: "KaTeX_Math", filename: "KaTeX_Math-Italic.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Math-Italic.woff2`, weight: "normal", style: "italic" },
-    { family: "KaTeX_Size1", filename: "KaTeX_Size1-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size1-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Size2", filename: "KaTeX_Size2-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size2-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Size3", filename: "KaTeX_Size3-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size3-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Size4", filename: "KaTeX_Size4-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size4-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Main", filename: "KaTeX_Main-Regular.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Main-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Main-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Main", filename: "KaTeX_Main-Bold.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Main-Bold.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Main-Bold.woff2`, weight: "bold", style: "normal" },
+    { family: "KaTeX_Main", filename: "KaTeX_Main-Italic.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Main-Italic.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Main-Italic.woff2`, weight: "normal", style: "italic" },
+    { family: "KaTeX_Math", filename: "KaTeX_Math-Italic.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Math-Italic.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Math-Italic.woff2`, weight: "normal", style: "italic" },
+    { family: "KaTeX_Size1", filename: "KaTeX_Size1-Regular.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Size1-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size1-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Size2", filename: "KaTeX_Size2-Regular.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Size2-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size2-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Size3", filename: "KaTeX_Size3-Regular.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Size3-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size3-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Size4", filename: "KaTeX_Size4-Regular.woff2", url: `${KATEX_CDN_PRIMARY}/KaTeX_Size4-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size4-Regular.woff2`, weight: "normal", style: "normal" },
   ];
 }
 
 /**
- * Download a font file and return the binary data.
- * Retries with exponential backoff on transient failures (network errors, non-ok responses).
+ * Try fetching a single URL with retries and exponential backoff.
+ * Returns the font data on success, or null if all retries are exhausted.
  */
-export async function downloadFont(url: string, retries = 3): Promise<Uint8Array | null> {
+async function fetchWithRetries(url: string, retries: number): Promise<Uint8Array | null> {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const controller = new AbortController();
@@ -110,15 +116,31 @@ export async function downloadFont(url: string, retries = 3): Promise<Uint8Array
       } finally {
         clearTimeout(timer);
       }
-    } catch (error) {
-      if (attempt === retries - 1) {
-        exportWarn("Failed to download font after retries:", url, error);
-        return null;
-      }
+    } catch {
+      if (attempt === retries - 1) return null;
       await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
     }
   }
   /* v8 ignore next */
+  return null;
+}
+
+/**
+ * Download a font file and return the binary data.
+ * Retries with exponential backoff on transient failures.
+ * When a fallbackUrl is provided, tries it after the primary URL exhausts all retries.
+ */
+export async function downloadFont(url: string, retries = 3, fallbackUrl?: string): Promise<Uint8Array | null> {
+  const result = await fetchWithRetries(url, retries);
+  if (result) return result;
+
+  if (fallbackUrl) {
+    exportWarn("Primary CDN failed, trying fallback:", fallbackUrl);
+    const fallbackResult = await fetchWithRetries(fallbackUrl, retries);
+    if (fallbackResult) return fallbackResult;
+  }
+
+  exportWarn("Failed to download font after retries:", url);
   return null;
 }
 
@@ -183,7 +205,7 @@ export function fontDataToDataUri(data: Uint8Array): string {
  * KaTeX fonts are loaded from CDN in exports since they're not bundled.
  */
 export function getKaTeXFontCSS(): string {
-  return generateLocalFontCSS(getKaTeXFontFiles(), KATEX_CDN_BASE);
+  return generateLocalFontCSS(getKaTeXFontFiles(), KATEX_CDN_PRIMARY);
 }
 
 /**

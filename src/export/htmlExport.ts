@@ -204,7 +204,7 @@ export async function exportHtml(
       // Download all fonts in parallel to avoid sequential worst-case latency
       const results = await Promise.allSettled(
         fontsToExport.map(async (font) => {
-          const data = await downloadFont(font.url);
+          const data = await downloadFont(font.url, 3, font.fallbackUrl);
           return { font, data };
         })
       );
@@ -227,7 +227,12 @@ export async function exportHtml(
             dataUri: fontDataToDataUri(data),
           });
         } else {
-          warnings.push(`Failed to download font: ${font.filename}`);
+          const isKaTeX = font.family.startsWith("KaTeX_");
+          warnings.push(
+            isKaTeX
+              ? `Math formulas may not render correctly — KaTeX font unavailable: ${font.filename}`
+              : `Failed to download font: ${font.filename}`
+          );
         }
       }
 
