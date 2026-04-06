@@ -204,7 +204,11 @@ export async function exportHtml(
       // Download all fonts in parallel to avoid sequential worst-case latency
       const results = await Promise.allSettled(
         fontsToExport.map(async (font) => {
-          const data = await downloadFont(font.url);
+          let data = await downloadFont(font.url);
+          // Try fallback CDN if primary failed and a fallback URL is available
+          if (!data && font.fallbackUrl) {
+            data = await downloadFont(font.fallbackUrl);
+          }
           return { font, data };
         })
       );

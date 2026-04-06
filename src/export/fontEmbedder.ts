@@ -48,8 +48,9 @@ export const KATEX_FONTS = [
   "KaTeX_Size4-Regular",
 ] as const;
 
-/** KaTeX CDN base URL */
+/** KaTeX CDN base URLs — primary and fallback for resilience against CDN outages */
 const KATEX_CDN_BASE = "https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/fonts";
+const KATEX_CDN_FALLBACK = "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.28/fonts";
 
 /** Font file to download */
 export interface FontFile {
@@ -59,6 +60,8 @@ export interface FontFile {
   filename: string;
   /** Source URL to download from */
   url: string;
+  /** Fallback URL if primary CDN is down */
+  fallbackUrl?: string;
   /** Font weight */
   weight: string;
   /** Font style */
@@ -78,14 +81,14 @@ export interface DownloadedFont {
  */
 export function getKaTeXFontFiles(): FontFile[] {
   return [
-    { family: "KaTeX_Main", filename: "KaTeX_Main-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Main", filename: "KaTeX_Main-Bold.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Bold.woff2`, weight: "bold", style: "normal" },
-    { family: "KaTeX_Main", filename: "KaTeX_Main-Italic.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Italic.woff2`, weight: "normal", style: "italic" },
-    { family: "KaTeX_Math", filename: "KaTeX_Math-Italic.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Math-Italic.woff2`, weight: "normal", style: "italic" },
-    { family: "KaTeX_Size1", filename: "KaTeX_Size1-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size1-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Size2", filename: "KaTeX_Size2-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size2-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Size3", filename: "KaTeX_Size3-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size3-Regular.woff2`, weight: "normal", style: "normal" },
-    { family: "KaTeX_Size4", filename: "KaTeX_Size4-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size4-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Main", filename: "KaTeX_Main-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Main-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Main", filename: "KaTeX_Main-Bold.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Bold.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Main-Bold.woff2`, weight: "bold", style: "normal" },
+    { family: "KaTeX_Main", filename: "KaTeX_Main-Italic.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Main-Italic.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Main-Italic.woff2`, weight: "normal", style: "italic" },
+    { family: "KaTeX_Math", filename: "KaTeX_Math-Italic.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Math-Italic.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Math-Italic.woff2`, weight: "normal", style: "italic" },
+    { family: "KaTeX_Size1", filename: "KaTeX_Size1-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size1-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size1-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Size2", filename: "KaTeX_Size2-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size2-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size2-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Size3", filename: "KaTeX_Size3-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size3-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size3-Regular.woff2`, weight: "normal", style: "normal" },
+    { family: "KaTeX_Size4", filename: "KaTeX_Size4-Regular.woff2", url: `${KATEX_CDN_BASE}/KaTeX_Size4-Regular.woff2`, fallbackUrl: `${KATEX_CDN_FALLBACK}/KaTeX_Size4-Regular.woff2`, weight: "normal", style: "normal" },
   ];
 }
 
