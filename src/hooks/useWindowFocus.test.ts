@@ -1,60 +1,17 @@
 /**
- * Tests for useWindowFocus — window focus check and label retrieval
+ * Tests for useWindowFocus — window label retrieval
  *
  * @module hooks/useWindowFocus.test
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-const { mockIsFocused } = vi.hoisted(() => ({
-  mockIsFocused: vi.fn(() => Promise.resolve(true)),
-}));
+import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: vi.fn(() => ({
     label: "main",
-    isFocused: mockIsFocused,
   })),
 }));
 
-import { isWindowFocused, getWindowLabel } from "./useWindowFocus";
-
-describe("isWindowFocused", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("returns true when window is focused", async () => {
-    mockIsFocused.mockResolvedValueOnce(true);
-
-    const result = await isWindowFocused();
-
-    expect(result).toBe(true);
-  });
-
-  it("returns false when window is not focused", async () => {
-    mockIsFocused.mockResolvedValueOnce(false);
-
-    const result = await isWindowFocused();
-
-    expect(result).toBe(false);
-  });
-
-  it("returns false when isFocused throws", async () => {
-    mockIsFocused.mockRejectedValueOnce(new Error("Window not found"));
-
-    const result = await isWindowFocused();
-
-    expect(result).toBe(false);
-  });
-
-  it("returns false on unexpected error type", async () => {
-    mockIsFocused.mockRejectedValueOnce("string error");
-
-    const result = await isWindowFocused();
-
-    expect(result).toBe(false);
-  });
-});
+import { getWindowLabel } from "./useWindowFocus";
 
 describe("getWindowLabel", () => {
   it("returns the current window label", () => {
