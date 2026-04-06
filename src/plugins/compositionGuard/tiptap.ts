@@ -31,10 +31,13 @@ import type { EditorView } from "@tiptap/pm/view";
 import {
   flushProseMirrorCompositionQueue,
   getImeCleanupPrefixLength,
+  HANGUL_RE,
+  IME_GRACE_PERIOD_MS,
   isImeKeyEvent,
   isProseMirrorInCompositionGrace,
   markProseMirrorCompositionEnd,
 } from "@/utils/imeGuard";
+import { splitBlock } from "@tiptap/pm/commands";
 import { fixCompositionSplitBlock } from "./splitBlockFix";
 
 /** Tiptap extension that guards against IME composition artifacts in ProseMirror. */
@@ -46,6 +49,13 @@ export const compositionGuardExtension = Extension.create({
     let compositionStartPos: number | null = null;
     let compositionData = "";
     let compositionPinyin = "";
+
+    // Korean Hangul: Enter during composition confirms the syllable AND
+    // requests a newline. Our handleKeyDown blocks Enter to prevent premature
+    // block splitting, but that also swallows the newline intent. This flag
+    // queues a deferred splitBlock after the grace period (Tiptap #4108).
+    let pendingEnterAfterComposition = false;
+    let pendingEnterTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Set to true by appendTransaction when it detects a heading→paragraph
     // split during composition. The rAF cleanup checks this flag to know
@@ -216,7 +226,21 @@ export const compositionGuardExtension = Extension.create({
           handleKeyDown(view, event) {
             const imeKey = isImeKeyEvent(event);
             const grace = isProseMirrorInCompositionGrace(view);
-            if (imeKey || grace) return true;
+            if (imeKey || grace) {
+              // Korean Hangul: Enter during composition confirms the syllable
+              // AND requests a newline. We block it to prevent premature block
+              // splitting, but queue a deferred split for after the grace
+              // period so the newline intent is not lost (Tiptap #4108).
+              if (
+                event.key === "Enter" &&
+                (isComposing || grace) &&
+                compositionData &&
+                HANGUL_RE.test(compositionData)
+              ) {
+                pendingEnterAfterComposition = true;
+              }
+              return true;
+            }
             return false;
           },
           handleDOMEvents: {
@@ -226,6 +250,11 @@ export const compositionGuardExtension = Extension.create({
               compositionData = "";
               compositionPinyin = "";
               splitDetected = false;
+              pendingEnterAfterComposition = false;
+              if (pendingEnterTimer) {
+                clearTimeout(pendingEnterTimer);
+                pendingEnterTimer = null;
+              }
               return false;
             },
             compositionupdate(_view, event) {
@@ -295,11 +324,33 @@ export const compositionGuardExtension = Extension.create({
                 // Normal pinyin cleanup
                 scheduleImeCleanup(view);
                 flushProseMirrorCompositionQueue(view);
+
+                // Korean Hangul deferred Enter: dispatch splitBlock after
+                // cleanup so the committed character is in place (Tiptap #4108).
+                if (pendingEnterAfterComposition) {
+                  pendingEnterAfterComposition = false;
+                  if (pendingEnterTimer) clearTimeout(pendingEnterTimer);
+                  pendingEnterTimer = setTimeout(() => {
+                    pendingEnterTimer = null;
+                    // Guard: if a new composition started, don't split
+                    if (!isComposing) {
+                      splitBlock(view.state, view.dispatch);
+                    }
+                  }, IME_GRACE_PERIOD_MS);
+                }
               });
 
               return false;
             },
             blur(view) {
+              // Always cancel deferred Enter on blur — even if composition
+              // already ended via compositionend (isComposing is false),
+              // the timer may still be pending.
+              pendingEnterAfterComposition = false;
+              if (pendingEnterTimer) {
+                clearTimeout(pendingEnterTimer);
+                pendingEnterTimer = null;
+              }
               if (!isComposing) return false;
               isComposing = false;
               compositionStartPos = null;
