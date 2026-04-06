@@ -11,6 +11,7 @@
  *   - Hover has a delay (150ms open, 100ms close) to avoid flickering on mouse movement
  *   - Popup uses FootnotePopupView (DOM-based, not React) for performance
  *   - appendTransaction handles footnote deletion + renumbering in a single atomic step
+ *   - appendTransaction skips during IME composition to avoid disrupting CJK input
  *   - Footnote references and definitions are bidirectionally linked for navigation
  *
  * @coordinates-with FootnotePopupView.ts — DOM construction and event handling for the popup
@@ -251,6 +252,14 @@ export const footnotePopupExtension = Extension.create({
 
           const docChanged = transactions.some((tr) => tr.docChanged);
           if (!docChanged) return null;
+
+          // Skip during IME composition — dispatching transactions mid-composition
+          // can cause ProseMirror to reconcile the DOM, disrupting active CJK input
+          // (cf. Tiptap #6758 emoji extension, #7126 TableOfContents).
+          const isComposition = transactions.some(
+            (tr) => tr.getMeta("composition") || tr.getMeta("uiEvent") === "input"
+          );
+          if (isComposition) return null;
 
           // Fast check: if old doc has no footnote refs AND no definitions, skip full scan
           let hasFootnotes = false;

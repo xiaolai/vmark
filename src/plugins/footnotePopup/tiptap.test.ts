@@ -628,6 +628,49 @@ describe("footnotePopup plugin handler integration", () => {
       expect(result).toBeNull();
     });
 
+    it("returns null during IME composition transactions", () => {
+      const doc = schema.node("doc", null, [
+        pWithRef("A", "2"),
+        pWithRef("B", "3"),
+        fnDef("2"),
+        fnDef("3"),
+      ]);
+      const state = createState(doc);
+
+      // Simulate a composition transaction that changes the doc
+      const tr = state.tr.insertText("你好", 1).setMeta("composition", { type: "compositionend" });
+      const newState = state.apply(tr);
+
+      // appendTransaction should skip during composition to avoid
+      // disrupting active CJK input (cf. Tiptap #6758, #7126)
+      const result = plugin.spec.appendTransaction!(
+        [tr],
+        state,
+        newState,
+      );
+      expect(result).toBeNull();
+    });
+
+    it("returns null during input uiEvent transactions", () => {
+      const doc = schema.node("doc", null, [
+        pWithRef("A", "2"),
+        pWithRef("B", "3"),
+        fnDef("2"),
+        fnDef("3"),
+      ]);
+      const state = createState(doc);
+
+      const tr = state.tr.insertText("你", 1).setMeta("uiEvent", "input");
+      const newState = state.apply(tr);
+
+      const result = plugin.spec.appendTransaction!(
+        [tr],
+        state,
+        newState,
+      );
+      expect(result).toBeNull();
+    });
+
     it("returns null when old doc has no footnotes", () => {
       const oldDoc = schema.node("doc", null, [p("no footnotes")]);
       const newDoc = schema.node("doc", null, [p("still no footnotes")]);
