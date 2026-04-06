@@ -16,9 +16,6 @@ permissions:
   contents: write
   actions: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   create-release:
     runs-on: ubuntu-latest
@@ -93,6 +90,14 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: release-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: release-${{ runner.os }}-
+
       # macOS: Add the specific target for this build
       - name: Add macOS target (Apple Silicon)
         if: matrix.platform == 'macos-latest' && matrix.sidecar_target == 'darwin-arm64'
@@ -119,12 +124,7 @@ jobs:
           security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
           rm certificate.p12
 
-      # Linux: Install system dependencies
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: ./.github/actions/setup-tauri-deps
 
       - name: Install frontend dependencies
         run: pnpm install
