@@ -246,7 +246,6 @@ export const compositionGuardExtension = Extension.create({
           handleDOMEvents: {
             compositionstart(view) {
               isComposing = true;
-              compositionStartPos = view.state.selection.from;
               compositionData = "";
               compositionPinyin = "";
               splitDetected = false;
@@ -255,6 +254,23 @@ export const compositionGuardExtension = Extension.create({
                 clearTimeout(pendingEnterTimer);
                 pendingEnterTimer = null;
               }
+
+              // Multi-block selection fix (Tiptap #5416): if the selection
+              // spans multiple blocks, pre-delete it so the composition
+              // starts in a clean single block. Without this, ProseMirror
+              // only deletes the first block, leaving orphaned content.
+              const { from, to } = view.state.selection;
+              if (typeof to === "number" && from !== to) {
+                try {
+                  const $from = view.state.doc.resolve(from);
+                  const $to = view.state.doc.resolve(to);
+                  if ($from.parent !== $to.parent) {
+                    view.dispatch(view.state.tr.deleteSelection());
+                  }
+                } catch { /* pos out of range — skip pre-deletion */ }
+              }
+              compositionStartPos = view.state.selection.from;
+
               return false;
             },
             compositionupdate(_view, event) {

@@ -439,9 +439,56 @@ describe("compositionGuard compositionstart", () => {
 
   it("returns false (does not prevent default)", () => {
     const events = getDomEvents();
-    const mockView = { state: { selection: { from: 5 } } };
+    const parentNode = { type: { name: "paragraph" } };
+    const mockView = {
+      state: {
+        selection: { from: 5, to: 5 },
+        doc: { resolve: () => ({ parent: parentNode }) },
+      },
+    };
     const result = events.compositionstart(mockView);
     expect(result).toBe(false);
+  });
+
+  it("pre-deletes multi-block selection at compositionstart (Tiptap #5416)", () => {
+    const events = getDomEvents();
+    const parentA = { type: { name: "paragraph" } };
+    const parentB = { type: { name: "paragraph" } };
+    const mockDispatch = vi.fn();
+    const mockDeleteSelection = vi.fn().mockReturnValue({ fake: "tr" });
+    const mockView = {
+      state: {
+        selection: { from: 5, to: 20 },
+        doc: {
+          resolve: (pos: number) => ({
+            parent: pos <= 10 ? parentA : parentB,
+          }),
+        },
+        tr: { deleteSelection: mockDeleteSelection },
+      },
+      dispatch: mockDispatch,
+    };
+    events.compositionstart(mockView);
+    // Should have dispatched deleteSelection since from/to are in different parents
+    expect(mockDeleteSelection).toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  it("does NOT pre-delete single-block selection at compositionstart", () => {
+    const events = getDomEvents();
+    const parentNode = { type: { name: "paragraph" } };
+    const mockDispatch = vi.fn();
+    const mockView = {
+      state: {
+        selection: { from: 5, to: 10 },
+        doc: { resolve: () => ({ parent: parentNode }) },
+        tr: { deleteSelection: vi.fn() },
+      },
+      dispatch: mockDispatch,
+    };
+    events.compositionstart(mockView);
+    // Same parent block — no pre-deletion needed
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 });
 
