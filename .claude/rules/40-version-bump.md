@@ -62,8 +62,15 @@ When bumping the version number, **all five files must be updated together**.
 4. **Tag and push**:
    ```bash
    git tag v0.4.0
-   git push origin main --tags
+   git push origin main v0.4.0
    ```
+
+   **CRITICAL: Never use `git push --tags`** — it pushes ALL local tags, including
+   stale ones. Each `v*` tag triggers a release workflow. If a stale tag (e.g., v0.3.0)
+   is pushed alongside v0.4.0, both trigger releases, and the stale one can finish
+   last and become "Latest" — causing users to receive an old version.
+
+   Always push the **specific tag only**: `git push origin v0.4.0`
 
 ## Common Mistakes
 
@@ -71,6 +78,7 @@ When bumping the version number, **all five files must be updated together**.
 - Forgetting MCP server files (causes version mismatch in health check)
 - Tagging before all files are updated
 - Using different versions across files
+- **Using `git push --tags`** (pushes stale tags, triggers duplicate releases)
 
 ## Verification
 

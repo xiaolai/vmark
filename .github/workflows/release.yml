@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get version
         id: get-version
@@ -35,6 +37,32 @@ jobs:
           else
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Guard against stale tags
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.get-version.outputs.version }}
+        run: |
+          # Extract semver from tag (v0.6.35 -> 0.6.35)
+          THIS_VER="${TAG#v}"
+
+          # Get the latest published release tag
+          LATEST_TAG=$(gh release list --exclude-drafts --json tagName \
+            --jq '.[0].tagName // empty') || true
+
+          if [ -n "$LATEST_TAG" ]; then
+            LATEST_VER="${LATEST_TAG#v}"
+            echo "This tag: $THIS_VER, Latest release: $LATEST_VER"
+
+            # Compare versions using sort -V (version sort)
+            HIGHER=$(printf '%s\n%s' "$THIS_VER" "$LATEST_VER" | sort -V | tail -1)
+            if [ "$HIGHER" = "$LATEST_VER" ] && [ "$THIS_VER" != "$LATEST_VER" ]; then
+              echo "::error::Tag $TAG is older than current latest $LATEST_TAG — aborting to prevent version regression."
+              exit 1
+            fi
+          fi
+          echo "✅ Tag $TAG is newer than or equal to latest — proceeding"
 
       - name: Create Release
         id: create-release
