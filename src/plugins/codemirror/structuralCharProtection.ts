@@ -255,55 +255,6 @@ function backspaceSpecForCursor(
 }
 
 /**
- * Check if a non-empty selection spans any structural characters.
- * Returns true if deletion should be blocked.
- * Exported for testing.
- */
-export function selectionSpansStructuralChar(state: EditorState): boolean {
-  for (const range of state.selection.ranges) {
-    const { from, to } = range;
-    const startLine = state.doc.lineAt(from);
-    const endLine = state.doc.lineAt(to);
-
-    for (let lineNum = startLine.number; lineNum <= endLine.number; lineNum++) {
-      const line = state.doc.line(lineNum);
-
-      // Check table pipes on table rows
-      if (TABLE_ROW_PATTERN.test(line.text)) {
-        // Find all unescaped pipes in this line
-        for (let i = 0; i < line.text.length; i++) {
-          if (line.text[i] === "|" && (i === 0 || line.text[i - 1] !== "\\")) {
-            const absPos = line.from + i;
-            if (absPos >= from && absPos < to) return true;
-          }
-        }
-      }
-
-      // Check list/task/blockquote markers at line start
-      const taskMatch = line.text.match(TASK_ITEM_PATTERN);
-      const listMatch = !taskMatch ? line.text.match(LIST_ITEM_PATTERN) : null;
-      const bqMatch = line.text.match(BLOCKQUOTE_PATTERN);
-
-      const markerMatch = taskMatch ?? listMatch;
-      if (markerMatch) {
-        const markerFrom = line.from;
-        const markerTo = line.from + markerMatch[0].length;
-        // Selection overlaps the marker region
-        if (from < markerTo && to > markerFrom) return true;
-      }
-
-      if (bqMatch) {
-        const markerFrom = line.from;
-        const markerTo = line.from + bqMatch[0].length;
-        if (from < markerTo && to > markerFrom) return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
  * Smart backspace handler that protects structural characters.
  * Processes each cursor independently for multi-cursor support.
  * Exported for testing.
