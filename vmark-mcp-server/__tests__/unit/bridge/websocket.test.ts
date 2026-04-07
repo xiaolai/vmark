@@ -429,6 +429,33 @@ describe('WebSocketBridge', () => {
     });
   });
 
+  describe('auth handshake', () => {
+    it('should reject connect() if WebSocket closes during auth handshake', async () => {
+      const authBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 5000,
+        autoReconnect: false,
+        authTokenResolver: () => 'test-token',
+      });
+
+      // Server receives connection but closes it immediately after auth message
+      // (simulates VMark restart or invalid token before auth_result is sent)
+      server.on('connection', (ws) => {
+        ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'auth') {
+            // Close without sending auth_result
+            ws.close();
+          }
+        });
+      });
+
+      await expect(authBridge.connect()).rejects.toThrow(
+        'Connection closed during authentication'
+      );
+    });
+  });
+
   describe('connection lost during request', () => {
     it('should reject request when connection is lost', async () => {
       await bridge.connect();
