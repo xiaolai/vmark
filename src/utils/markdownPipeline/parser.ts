@@ -9,6 +9,7 @@
  * Key decisions:
  *   - Lazy plugin loading based on content analysis (analyzeContent) — avoids
  *     loading remark-math/frontmatter/etc. when content doesn't use them
+ *   - remarkTocBlock converts `[TOC]` paragraphs to toc MDAST nodes (always loaded)
  *   - Custom escape preprocessing using Unicode Private Use Area placeholders
  *     because remark processes backslash escapes before our plugins run
  *   - remarkValidateMath rejects `$100 and $200` (leading/trailing whitespace)

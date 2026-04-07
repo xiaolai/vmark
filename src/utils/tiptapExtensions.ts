@@ -13,6 +13,7 @@
  *   - Custom marks (highlight, underline, sub/superscript) registered here
  *   - Media extensions (block_video, block_audio, video_embed) with NodeViews
  *   - Media popup and handler extensions for editing and drag-drop
+ *   - Table of contents (tocExtension) for [TOC] inline navigation
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters

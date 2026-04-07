@@ -13,6 +13,7 @@
  *     tags like `<kbd>...</kbd>` become a single html_inline node — but only when
  *     inner content has no formatting marks (otherwise marks would be lost)
  *   - Schema is passed in (not imported) to keep this layer framework-free
+ *   - TOC nodes (`toc` type) are dispatched to convertToc from mdastBlockConverters
  *
  * @coordinates-with mdastBlockConverters.ts — block node conversion functions
  * @coordinates-with mdastInlineConverters.ts — inline node conversion functions

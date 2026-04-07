@@ -15,6 +15,7 @@
  *     round-trips, falling back to multi-line HTML when attributes can't be
  *     expressed in image syntax (poster, controls=false, non-default preload)
  *   - Video embed nodes serialize to provider-specific <iframe> HTML
+ *   - TOC nodes serialize to `toc` MDAST type (remarkTocBlock handles markdown output)
  *
  * @coordinates-with mdastBlockConverters.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmInlineConverters.ts — handles inline content within blocks

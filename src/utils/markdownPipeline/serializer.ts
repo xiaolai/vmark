@@ -9,6 +9,7 @@
  *   - listItemIndent: "one" — minimizes diff noise compared to "tab"
  *   - Custom handlers for image/link to use angle brackets for URLs with spaces
  *     instead of percent-encoding (more readable, CommonMark compliant)
+ *   - tocToMarkdown handler serializes `toc` MDAST nodes back to `[TOC]` text
  *   - Post-processes &#x20; entities back to spaces (remark-stringify adds these
  *     near line breaks but they are unnecessary for our use case)
  *   - Strips unnecessary backslash escapes ($, [, ], *, _, `, !) that

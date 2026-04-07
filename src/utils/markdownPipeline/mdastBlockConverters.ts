@@ -17,6 +17,7 @@
  *   - sourceLine attributes are extracted from MDAST positions for cursor sync
  *   - MATH_BLOCK_LANGUAGE sentinel stores math blocks as codeBlock with a special
  *     language value, since PM schema doesn't have a dedicated math block node
+ *   - TOC nodes are converted from `toc` MDAST type to atom PM nodes
  *
  * @coordinates-with mdastInlineConverters.ts — handles inline content within blocks
  * @coordinates-with mdastToProseMirror.ts — orchestrates block + inline conversion
