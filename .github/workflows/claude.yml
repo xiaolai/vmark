@@ -116,12 +116,66 @@ jobs:
             5. If the fix touches Rust code (src-tauri/), also run `cargo check --manifest-path src-tauri/Cargo.toml`
             6. Commit with message: `fix: <issue title> (Closes #${{ matrix.issue }})`
             7. Push and create a PR: `gh pr create --title "fix: <issue title>" --body "Closes #${{ matrix.issue }}" --label audit`
-            8. Enable auto-merge: `gh pr merge --auto --squash <PR_URL>`
 
+            Do NOT enable auto-merge — the audit-verify job handles that after verification.
             If the fix causes test failures, adjust until gates pass.
             If the issue is unclear or unfixable, comment on the issue explaining why.
 
-  # General Claude Code: review issues, PRs, respond to @claude
+  # Verify audit-fix PRs: targeted check that the original finding is resolved
+  audit-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: audit-verify-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    if: >-
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'audit') &&
+      (github.event.pull_request.user.login == 'claude[bot]' ||
+       github.event.pull_request.user.login == 'github-actions[bot]')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        id: verify
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          claude_args: "--model opus --max-turns 10 --allowedTools Bash Read Glob Grep"
+          use_sticky_comment: true
+          prompt: |
+            You are an audit-fix VERIFIER — not an open-ended reviewer.
+            Your ONLY job is to check whether this PR actually resolves the linked audit issue.
+
+            Steps:
+            1. Read the PR description to find the linked issue number (look for "Closes #N")
+            2. Read that issue: `gh issue view <N>`
+            3. Read the PR diff: `gh pr diff ${{ github.event.pull_request.number }}`
+            4. Answer THREE questions:
+               a. Does the diff address the specific finding described in the issue?
+               b. Does the fix introduce any obvious regressions (wrong logic, removed unrelated code)?
+               c. Is the fix minimal and focused (no scope creep)?
+
+            Output format — use EXACTLY one of:
+            - ✅ **VERIFIED** — The audit finding is resolved. [1-sentence explanation]
+            - ❌ **NOT VERIFIED** — The finding is NOT resolved. [specific reason]
+            - ⚠️ **PARTIAL** — The finding is partially addressed. [what's missing]
+
+            Rules:
+            - Do NOT do open-ended code review. Only verify the specific finding.
+            - Do NOT suggest improvements beyond the finding.
+            - Do NOT approve or request changes — just report verification status.
+            - If you cannot determine the linked issue, say so.
+
+      - name: Enable auto-merge on verification pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash 2>&1 || echo "Auto-merge not available for this PR"
+
+  # General Claude Code: review issues, PRs (non-audit), respond to @claude
   claude:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -130,7 +184,7 @@ jobs:
       cancel-in-progress: true
     if: >-
       (github.event_name == 'issues' && !contains(github.event.issue.labels.*.name, 'audit') && !contains(github.event.issue.labels.*.name, 'cost-report')) ||
-      (github.event_name == 'pull_request') ||
+      (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'audit')) ||
       (github.event_name == 'issue_comment' && !github.event.comment.performed_via_github_app && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && !github.event.comment.performed_via_github_app && contains(github.event.comment.body, '@claude'))
     steps:
@@ -153,6 +207,7 @@ jobs:
       - name: Enable auto-merge for bot PRs
         if: >-
           github.event_name == 'pull_request' &&
+          !contains(github.event.pull_request.labels.*.name, 'audit') &&
           (github.event.pull_request.user.login == 'claude[bot]' ||
            github.event.pull_request.user.login == 'github-actions[bot]')
         env:
