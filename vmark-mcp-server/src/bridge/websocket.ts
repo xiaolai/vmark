@@ -638,6 +638,13 @@ export class WebSocketBridge implements Bridge {
     const wasConnected = this.connected;
     this.connected = false;
 
+    // Reject pending auth if WebSocket closed during handshake
+    if (this._authReject) {
+      this._authReject('Connection closed during authentication');
+    }
+    this._authResolve = null;
+    this._authReject = null;
+
     // Remove all listeners before dereferencing to prevent stale handlers
     // from firing and interfering with a new connection
     if (this.ws) {
