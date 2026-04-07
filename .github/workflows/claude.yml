@@ -30,17 +30,57 @@ permissions:
   id-token: write
 
 jobs:
-  # Auto-fix audit issues: find open audit issues, fix each, open PRs
-  # Triggered by workflow_run (after audit creates issues) or by human-opened audit issues
-  audit-fix:
+  # Collect open audit issues into a matrix — one job per issue
+  audit-collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 5
     concurrency:
-      group: audit-fix
-      cancel-in-progress: false
+      group: audit-collect
+      cancel-in-progress: true
     if: >-
       (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'audit')) ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+      has_issues: ${{ steps.collect.outputs.has_issues }}
+    steps:
+      - name: Collect audit issues
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          if [ "$EVENT_NAME" = "issues" ]; then
+            NUMBERS="$ISSUE_NUMBER"
+          else
+            NUMBERS=$(gh issue list --state open --label audit --json number --jq '.[].number' | tr '\n' ' ')
+          fi
+
+          if [ -z "$NUMBERS" ]; then
+            echo "has_issues=false" >> "$GITHUB_OUTPUT"
+            echo 'matrix={"issue":[]}' >> "$GITHUB_OUTPUT"
+          else
+            # Build JSON array: "123 456" -> [123,456]
+            JSON=$(echo "$NUMBERS" | xargs -n1 | jq -R 'tonumber' | jq -sc '.')
+            echo "has_issues=true" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"issue\":$JSON}" >> "$GITHUB_OUTPUT"
+            echo "Will fix issues: $NUMBERS"
+          fi
+
+  # Fix one audit issue per matrix job — independent branches, PRs, and Claude sessions
+  audit-fix:
+    needs: audit-collect
+    if: needs.audit-collect.outputs.has_issues == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: audit-fix-${{ matrix.issue }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.audit-collect.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -57,45 +97,29 @@ jobs:
       - name: Install dependencies
         run: npm install -g pnpm && pnpm install --frozen-lockfile
 
-      - name: Find open audit issues
-        id: find-issues
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          if [ "$EVENT_NAME" = "issues" ]; then
-            echo "ISSUE_NUMBERS=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
-          else
-            NUMBERS=$(gh issue list --state open --label audit --json number --jq '.[].number' | tr '\n' ' ')
-            echo "ISSUE_NUMBERS=$NUMBERS" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Fix audit issues
-        if: steps.find-issues.outputs.ISSUE_NUMBERS != ''
+      - name: Fix issue #${{ matrix.issue }}
         uses: anthropics/claude-code-action@v1
         with:
           allowed_bots: "claude[bot]"
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
-          claude_args: "--model opus --max-turns 20 --allowedTools Bash Read Write Edit Glob Grep MultiEdit"
+          claude_args: "--model opus --max-turns 15 --allowedTools Bash Read Write Edit Glob Grep MultiEdit"
           show_full_output: true
           prompt: |
-            Fix the open audit issues. Issue numbers: ${{ steps.find-issues.outputs.ISSUE_NUMBERS }}
+            Fix audit issue #${{ matrix.issue }}.
 
-            For EACH issue number:
-            1. Read the issue: `gh issue view <NUMBER>`
-            2. Create a fix branch: `git checkout -b fix/audit-<NUMBER>`
+            Steps:
+            1. Read the issue: `gh issue view ${{ matrix.issue }}`
+            2. Create a fix branch: `git checkout -b fix/audit-${{ matrix.issue }}`
             3. Apply the suggested fix
             4. Run `pnpm check:all` to verify frontend gates pass
             5. If the fix touches Rust code (src-tauri/), also run `cargo check --manifest-path src-tauri/Cargo.toml`
-            6. Commit with message: `fix: <issue title> (Closes #<NUMBER>)`
-            7. Push and create a PR: `gh pr create --title "fix: <issue title>" --body "Closes #<NUMBER>" --label audit`
+            6. Commit with message: `fix: <issue title> (Closes #${{ matrix.issue }})`
+            7. Push and create a PR: `gh pr create --title "fix: <issue title>" --body "Closes #${{ matrix.issue }}" --label audit`
             8. Enable auto-merge: `gh pr merge --auto --squash <PR_URL>`
-            9. Go back to main for the next issue: `git checkout main`
 
-            If a fix causes test failures, adjust until gates pass.
-            If an issue is unclear or unfixable, comment on the issue explaining why and move on.
+            If the fix causes test failures, adjust until gates pass.
+            If the issue is unclear or unfixable, comment on the issue explaining why.
 
   # General Claude Code: review issues, PRs, respond to @claude
   claude:
