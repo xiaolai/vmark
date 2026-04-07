@@ -32,6 +32,7 @@ import { codePreviewExtension } from "@/plugins/codePreview/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { CJKLetterSpacing } from "@/plugins/cjkLetterSpacing";
+import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 
 /**
  * Creates a filtered array of Tiptap extensions for export rendering.
@@ -101,6 +102,7 @@ export function createExportExtensions(): Extensions {
     alertBlockExtension,
     detailsSummaryExtension,
     detailsBlockExtension,
+    tocExtension,
     // Wiki links and markdown artifacts
     wikiLinkExtension,
     linkDefinitionExtension,

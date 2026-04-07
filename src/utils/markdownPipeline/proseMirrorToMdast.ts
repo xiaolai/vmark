@@ -50,6 +50,7 @@ import {
   convertListItem,
   convertParagraph,
   convertTable,
+  convertToc,
   type PmToMdastContext,
   type PmToMdastNode,
 } from "./pmBlockConverters";
@@ -155,6 +156,8 @@ class PMToMdastConverter {
         return convertDefinition(node);
       case "html_block":
         return convertHtmlBlock(node);
+      case "toc":
+        return convertToc();
       case "hardBreak":
         return inlineConverters.convertHardBreak();
       case "image":

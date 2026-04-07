@@ -42,7 +42,7 @@ import type {
   ThematicBreak,
 } from "mdast";
 import type { Math } from "mdast-util-math";
-import type { Details, Yaml } from "./types";
+import type { Details, Toc, Yaml } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
 import { buildEmbedUrl, type VideoProvider } from "@/utils/videoProviderRegistry";
 
@@ -381,6 +381,10 @@ export function convertDefinition(node: PMNode): Definition {
 
 export function convertHtmlBlock(node: PMNode): Html {
   return { type: "html", value: String(node.attrs.value ?? "") };
+}
+
+export function convertToc(): Toc {
+  return { type: "toc" };
 }
 
 function normalizeAlignment(value: unknown): "left" | "center" | "right" | null {

@@ -74,6 +74,7 @@ import {
   convertParagraph,
   convertTable,
   convertThematicBreak,
+  convertToc,
   convertWikiLink,
   type ContentContext,
   type MdastToPmContext,
@@ -197,6 +198,8 @@ class MdastToPMConverter {
         return convertMathBlock(this.context, node as Math);
       case "definition":
         return convertDefinition(this.context, node as Definition);
+      case "toc":
+        return convertToc(this.context, node as unknown as import("./types").Toc);
       case "details":
         return convertDetails(this.context, node as Details, marks);
 

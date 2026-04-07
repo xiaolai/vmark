@@ -29,7 +29,7 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkBreaks from "remark-breaks";
 import type { Root, Parent, Text, List, ListItem, Paragraph } from "mdast";
 import type { InlineMath } from "mdast-util-math";
-import { remarkCustomInline, remarkDetailsBlock, remarkResolveReferences, remarkWikiLinks } from "./plugins";
+import { remarkCustomInline, remarkDetailsBlock, remarkResolveReferences, remarkTocBlock, remarkWikiLinks } from "./plugins";
 import type { MarkdownPipelineOptions } from "./types";
 import { perfStart, perfEnd } from "@/utils/perfLog";
 
@@ -346,6 +346,9 @@ function createProcessor(markdown: string, options: MarkdownPipelineOptions = {}
     processor.use(remarkDetailsBlock);
   }
 
+  // Always load TOC block detection (lightweight, checks single-text paragraphs)
+  processor.use(remarkTocBlock);
+
   // Always load custom inline (lightweight, common syntax)
   processor.use(remarkCustomInline);
 
@@ -557,6 +560,7 @@ export function createMarkdownProcessor() {
     .use(remarkFrontmatter, ["yaml"])
     .use(remarkWikiLinks)
     .use(remarkDetailsBlock)
+    .use(remarkTocBlock)
     .use(remarkCustomInline)
     .use(remarkResolveReferences);
 

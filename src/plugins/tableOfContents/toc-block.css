@@ -1,0 +1,78 @@
+/**
+ * Table of Contents — Styles
+ *
+ * Co-located with the plugin per codebase convention.
+ * Uses design tokens for all colors.
+ */
+
+.toc-block {
+  margin: 1em 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--subtle-bg);
+}
+
+.toc-block::before {
+  content: "Table of Contents";
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc-item {
+  line-height: 1.6;
+}
+
+.toc-item a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 0.9em;
+  transition: color 0.15s;
+}
+
+.toc-item a:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.toc-empty {
+  color: var(--text-tertiary);
+  font-size: 0.85em;
+  font-style: italic;
+  list-style: none;
+}
+
+/* Dark theme adjustments */
+.dark-theme .toc-block {
+  background: var(--subtle-bg);
+}
+
+/* Selected state (when node is selected in editor) */
+.ProseMirror-selectednode .toc-block,
+.toc-block.ProseMirror-selectednode {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Print: hide interactive cues */
+@media print {
+  .toc-block::before {
+    content: "Table of Contents";
+    font-weight: 600;
+  }
+
+  .toc-item a {
+    color: var(--text-color);
+    text-decoration: none;
+  }
+}

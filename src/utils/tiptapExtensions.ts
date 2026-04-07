@@ -91,6 +91,7 @@ import { smartSelectAllExtension } from "@/plugins/smartSelectAll/tiptap";
 import { inlineCodeBoundaryExtension } from "@/plugins/inlineCodeBoundary/tiptap";
 import { CJKBold, CJKItalic } from "@/plugins/markInputRules/tiptap";
 import { textDragDropExtension } from "@/plugins/textDragDrop/tiptap";
+import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 
 export interface TiptapExtensionConfig {
@@ -165,6 +166,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     alertBlockExtension,
     detailsSummaryExtension,
     detailsBlockExtension,
+    tocExtension,
     wikiLinkExtension,
     linkDefinitionExtension,
     frontmatterExtension,

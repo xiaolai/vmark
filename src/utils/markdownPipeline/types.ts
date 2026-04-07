@@ -99,6 +99,12 @@ export interface Alert {
   position?: UnistPosition;
 }
 
+// Table of Contents block type
+export interface Toc {
+  type: "toc";
+  position?: UnistPosition;
+}
+
 // Details block types (HTML <details>/<summary>)
 // Note: children uses the extended BlockContent type to support nested details
 export interface Details {
@@ -128,7 +134,8 @@ export type BlockContent =
   | import("mdast").BlockContent
   | Yaml
   | Alert
-  | Details;
+  | Details
+  | Toc;
 
 // Augment MDAST module for custom VMark types
 // Note: math and inlineMath are already augmented by mdast-util-math
@@ -137,6 +144,7 @@ declare module "mdast" {
     yaml: Yaml;
     alert: Alert;
     details: Details;
+    toc: Toc;
   }
 
   interface PhrasingContentMap {
