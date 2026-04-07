@@ -7,7 +7,8 @@
  * Tiptap editor with editable:false).
  *
  * The node is an atom (no editable content) — users interact by clicking headings
- * to scroll, or by selecting/deleting the node as a whole.
+ * to scroll, or by selecting/deleting the node as a whole. The static renderHTML
+ * includes aria-label for accessibility.
  *
  * @coordinates-with TocNodeView.ts — provides the interactive NodeView
  * @coordinates-with headingSlug.ts — extracts headings with stable IDs
