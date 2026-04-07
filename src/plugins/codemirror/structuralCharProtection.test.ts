@@ -328,7 +328,7 @@ describe("Structural Character Protection", () => {
     });
   });
 
-  describe("selectionSpansStructuralChar", () => {
+  describe("non-empty selections pass through to default behavior", () => {
     it("passes through selection spanning a table pipe", () => {
       const content = "| cell1 | cell2 |";
       // Selection from inside cell1 across pipe into cell2: "l1 | ce"
