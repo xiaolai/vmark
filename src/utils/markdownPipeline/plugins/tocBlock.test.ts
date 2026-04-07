@@ -88,6 +88,21 @@ describe("remarkTocBlock", () => {
     const tree = parse("");
     expect(tree.children).toHaveLength(0);
   });
+
+  it("does not convert [TOC] inside a blockquote", () => {
+    const tree = parse("> [TOC]\n");
+    expect(tree.children[0].type).toBe("blockquote");
+  });
+
+  it("does not convert [TOC] inside a list item", () => {
+    const tree = parse("- [TOC]\n");
+    expect(tree.children[0].type).toBe("list");
+  });
+
+  it("does not convert [TOC] that looks like a link", () => {
+    const tree = parse("[TOC](http://example.com)\n");
+    expect(tree.children[0].type).toBe("paragraph");
+  });
 });
 
 describe("tocToMarkdown", () => {

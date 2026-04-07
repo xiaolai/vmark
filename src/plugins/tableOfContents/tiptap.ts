@@ -47,6 +47,7 @@ export const tocExtension = Node.create({
       "nav",
       mergeAttributes(HTMLAttributes, {
         "data-type": "toc",
+        "aria-label": "Table of Contents",
         class: "toc-block",
         contenteditable: "false",
       }),

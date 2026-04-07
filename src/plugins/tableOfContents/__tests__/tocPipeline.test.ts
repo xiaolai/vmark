@@ -105,7 +105,13 @@ describe("TOC pipeline", () => {
 
   it("handles empty document", () => {
     const doc = parseMarkdown(schema, "");
-    expect(doc.content.childCount).toBeGreaterThanOrEqual(0);
+    // Empty markdown produces an empty doc — no TOC nodes created
+    let hasToc = false;
+    doc.descendants((node) => {
+      if (node.type.name === "toc") hasToc = true;
+      return true;
+    });
+    expect(hasToc).toBe(false);
   });
 
   it("preserves sourceLine attribute", () => {

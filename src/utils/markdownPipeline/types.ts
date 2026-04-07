@@ -140,6 +140,10 @@ export type BlockContent =
 // Augment MDAST module for custom VMark types
 // Note: math and inlineMath are already augmented by mdast-util-math
 declare module "mdast" {
+  interface BlockContentMap {
+    toc: Toc;
+  }
+
   interface RootContentMap {
     yaml: Yaml;
     alert: Alert;

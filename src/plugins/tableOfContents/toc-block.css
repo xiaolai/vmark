@@ -45,16 +45,19 @@
   text-decoration: underline;
 }
 
+.toc-item a:focus-visible {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
 .toc-empty {
   color: var(--text-tertiary);
   font-size: 0.85em;
   font-style: italic;
   list-style: none;
-}
-
-/* Dark theme adjustments */
-.dark-theme .toc-block {
-  background: var(--subtle-bg);
 }
 
 /* Selected state (when node is selected in editor) */
