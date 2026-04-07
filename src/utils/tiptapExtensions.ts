@@ -13,6 +13,7 @@
  *   - Custom marks (highlight, underline, sub/superscript) registered here
  *   - Media extensions (block_video, block_audio, video_embed) with NodeViews
  *   - Media popup and handler extensions for editing and drag-drop
+ *   - Table of contents (tocExtension) for [TOC] inline navigation
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
@@ -91,6 +92,7 @@ import { smartSelectAllExtension } from "@/plugins/smartSelectAll/tiptap";
 import { inlineCodeBoundaryExtension } from "@/plugins/inlineCodeBoundary/tiptap";
 import { CJKBold, CJKItalic } from "@/plugins/markInputRules/tiptap";
 import { textDragDropExtension } from "@/plugins/textDragDrop/tiptap";
+import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 
 export interface TiptapExtensionConfig {
@@ -165,6 +167,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     alertBlockExtension,
     detailsSummaryExtension,
     detailsBlockExtension,
+    tocExtension,
     wikiLinkExtension,
     linkDefinitionExtension,
     frontmatterExtension,

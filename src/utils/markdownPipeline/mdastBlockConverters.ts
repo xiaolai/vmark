@@ -17,6 +17,7 @@
  *   - sourceLine attributes are extracted from MDAST positions for cursor sync
  *   - MATH_BLOCK_LANGUAGE sentinel stores math blocks as codeBlock with a special
  *     language value, since PM schema doesn't have a dedicated math block node
+ *   - TOC nodes are converted from `toc` MDAST type to atom PM nodes
  *
  * @coordinates-with mdastInlineConverters.ts — handles inline content within blocks
  * @coordinates-with mdastToProseMirror.ts — orchestrates block + inline conversion
@@ -39,7 +40,7 @@ import type {
   ThematicBreak,
 } from "mdast";
 import type { Math } from "mdast-util-math";
-import type { Alert, Details, WikiLink, Yaml } from "./types";
+import type { Alert, Details, Toc, WikiLink, Yaml } from "./types";
 import * as inlineConverters from "./mdastInlineConverters";
 import { parseInlineMarkdown } from "./inlineParser";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
@@ -515,6 +516,12 @@ function stripAlertMarker(
 
   const nextParagraph = children.length > 0 ? { ...paragraph, children } : null;
   return { alertType: alertType as (typeof ALERT_TYPES)[number], paragraph: nextParagraph };
+}
+
+export function convertToc(context: MdastToPmContext, node: Toc): PMNode | null {
+  const type = context.schema.nodes.toc;
+  if (!type) return null;
+  return type.create({ sourceLine: getSourceLine(node) });
 }
 
 function supportsAlignmentAttr(nodeType: { spec?: { attrs?: Record<string, unknown> } }): boolean {

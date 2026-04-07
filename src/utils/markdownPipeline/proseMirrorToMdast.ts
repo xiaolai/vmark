@@ -14,6 +14,7 @@
  *   - Wiki link alias is only serialized if it differs from the target value
  *   - Media nodes (block_video, block_audio, video_embed) dispatch to
  *     dedicated converters in pmBlockConverters.ts
+ *   - TOC nodes dispatch to convertToc for serialization to `toc` MDAST type
  *
  * @coordinates-with mdastToProseMirror.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmBlockConverters.ts — block node conversion functions
@@ -50,6 +51,7 @@ import {
   convertListItem,
   convertParagraph,
   convertTable,
+  convertToc,
   type PmToMdastContext,
   type PmToMdastNode,
 } from "./pmBlockConverters";
@@ -155,6 +157,8 @@ class PMToMdastConverter {
         return convertDefinition(node);
       case "html_block":
         return convertHtmlBlock(node);
+      case "toc":
+        return convertToc();
       case "hardBreak":
         return inlineConverters.convertHardBreak();
       case "image":

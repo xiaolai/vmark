@@ -232,6 +232,15 @@ Render raw SVG inline via ` ```svg ` code blocks:
 - Ideal for AI-generated charts and custom illustrations
 - [Learn more →](/guide/svg)
 
+### Inline Table of Contents
+
+Type `[TOC]` on its own line to insert a live table of contents:
+
+- Auto-generated from document headings with proper nesting
+- Click any heading to scroll directly to it
+- Updates in real-time as you edit
+- Renders in WYSIWYG, export (HTML/PDF), and Source mode round-trips cleanly
+
 ## AI Genies
 
 Built-in AI writing assistance powered by your choice of provider:

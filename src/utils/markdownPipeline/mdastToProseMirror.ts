@@ -13,6 +13,7 @@
  *     tags like `<kbd>...</kbd>` become a single html_inline node — but only when
  *     inner content has no formatting marks (otherwise marks would be lost)
  *   - Schema is passed in (not imported) to keep this layer framework-free
+ *   - TOC nodes (`toc` type) are dispatched to convertToc from mdastBlockConverters
  *
  * @coordinates-with mdastBlockConverters.ts — block node conversion functions
  * @coordinates-with mdastInlineConverters.ts — inline node conversion functions
@@ -74,6 +75,7 @@ import {
   convertParagraph,
   convertTable,
   convertThematicBreak,
+  convertToc,
   convertWikiLink,
   type ContentContext,
   type MdastToPmContext,
@@ -197,6 +199,8 @@ class MdastToPMConverter {
         return convertMathBlock(this.context, node as Math);
       case "definition":
         return convertDefinition(this.context, node as Definition);
+      case "toc":
+        return convertToc(this.context, node as unknown as import("./types").Toc);
       case "details":
         return convertDetails(this.context, node as Details, marks);
 

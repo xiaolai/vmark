@@ -670,3 +670,13 @@ export const updateSyncWarn = isDev
   ? (...args: unknown[]) => console.warn("[UpdateSync]", ...args)
   : (...args: unknown[]) => prodWarn("[UpdateSync]", ...args);
 
+/** Debug logger for Table of Contents NodeView operations. */
+export const tocLog = isDev
+  ? (...args: unknown[]) => console.log("[TOC]", ...args)
+  : () => {};
+
+/** Warn logger for Table of Contents operations. */
+export const tocWarn = isDev
+  ? (...args: unknown[]) => console.warn("[TOC]", ...args)
+  : (...args: unknown[]) => prodWarn("[TOC]", ...args);
+

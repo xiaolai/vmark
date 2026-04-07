@@ -9,6 +9,7 @@
  *   - listItemIndent: "one" — minimizes diff noise compared to "tab"
  *   - Custom handlers for image/link to use angle brackets for URLs with spaces
  *     instead of percent-encoding (more readable, CommonMark compliant)
+ *   - tocToMarkdown handler serializes `toc` MDAST nodes back to `[TOC]` text
  *   - Post-processes &#x20; entities back to spaces (remark-stringify adds these
  *     near line breaks but they are unnecessary for our use case)
  *   - Strips unnecessary backslash escapes ($, [, ], *, _, `, !) that
@@ -27,7 +28,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
 import type { Root, Image, Link, Parents } from "mdast";
-import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks } from "./plugins";
+import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks, tocToMarkdown } from "./plugins";
 import type { MarkdownPipelineOptions } from "./types";
 
 // Type for mdast-util-to-markdown state (simplified for our handlers)
@@ -108,10 +109,11 @@ function createSerializer(_options: MarkdownPipelineOptions = {}) {
       fences: true, // Use fenced code blocks
       rule: "-", // Use --- for thematic breaks
       listItemIndent: "one", // Use one space indent for list items
-      // Custom handlers for angle-bracket URL syntax
+      // Custom handlers for angle-bracket URL syntax and custom node types
       handlers: {
         image: handleImage,
         link: handleLink,
+        ...tocToMarkdown.handlers,
       } as Record<string, unknown>,
     })
     .use(remarkGfm, {

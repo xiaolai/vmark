@@ -9,6 +9,7 @@
  * Key decisions:
  *   - Lazy plugin loading based on content analysis (analyzeContent) — avoids
  *     loading remark-math/frontmatter/etc. when content doesn't use them
+ *   - remarkTocBlock converts `[TOC]` paragraphs to toc MDAST nodes (always loaded)
  *   - Custom escape preprocessing using Unicode Private Use Area placeholders
  *     because remark processes backslash escapes before our plugins run
  *   - remarkValidateMath rejects `$100 and $200` (leading/trailing whitespace)
@@ -29,7 +30,7 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkBreaks from "remark-breaks";
 import type { Root, Parent, Text, List, ListItem, Paragraph } from "mdast";
 import type { InlineMath } from "mdast-util-math";
-import { remarkCustomInline, remarkDetailsBlock, remarkResolveReferences, remarkWikiLinks } from "./plugins";
+import { remarkCustomInline, remarkDetailsBlock, remarkResolveReferences, remarkTocBlock, remarkWikiLinks } from "./plugins";
 import type { MarkdownPipelineOptions } from "./types";
 import { perfStart, perfEnd } from "@/utils/perfLog";
 
@@ -346,6 +347,9 @@ function createProcessor(markdown: string, options: MarkdownPipelineOptions = {}
     processor.use(remarkDetailsBlock);
   }
 
+  // Always load TOC block detection (lightweight, checks single-text paragraphs)
+  processor.use(remarkTocBlock);
+
   // Always load custom inline (lightweight, common syntax)
   processor.use(remarkCustomInline);
 
@@ -557,6 +561,7 @@ export function createMarkdownProcessor() {
     .use(remarkFrontmatter, ["yaml"])
     .use(remarkWikiLinks)
     .use(remarkDetailsBlock)
+    .use(remarkTocBlock)
     .use(remarkCustomInline)
     .use(remarkResolveReferences);
 
