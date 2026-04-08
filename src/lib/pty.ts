@@ -25,6 +25,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { ptyWarn, terminalLog } from "@/utils/debug";
 
 // ---------------------------------------------------------------------------
 // Public types — match the tauri-pty interface that spawnPty.ts expects
@@ -148,14 +149,18 @@ class VMarkPty implements IPty {
         this._onExit.fire({ exitCode: event.payload.exit_code });
         this._cleanup();
         // Free the Rust-side session (FDs, memory)
-        invoke("pty_close", { pid: this._pid }).catch(() => {});
+        invoke("pty_close", { pid: this._pid }).catch((err) => {
+          terminalLog("pty_close failed:", err instanceof Error ? err.message : String(err));
+        });
       },
     );
 
     // Guard: if kill() was called while setup was in flight, abort
     if (this._destroyed) {
       this._cleanup();
-      await invoke("pty_kill", { pid: this._pid }).catch(() => {});
+      await invoke("pty_kill", { pid: this._pid }).catch((err) => {
+        terminalLog("pty_kill (setup guard) failed:", err instanceof Error ? err.message : String(err));
+      });
       return;
     }
 
@@ -171,7 +176,9 @@ class VMarkPty implements IPty {
   write(data: string): void {
     this._ready
       .then(() => invoke("pty_write", { pid: this._pid, data }))
-      .catch(() => {});
+      .catch((err) => {
+        ptyWarn("pty_write failed:", err instanceof Error ? err.message : String(err));
+      });
   }
 
   resize(columns: number, rows: number): void {
@@ -181,7 +188,9 @@ class VMarkPty implements IPty {
       .then(() =>
         invoke("pty_resize", { pid: this._pid, cols: columns, rows }),
       )
-      .catch(() => {});
+      .catch((err) => {
+        ptyWarn("pty_resize failed:", err instanceof Error ? err.message : String(err));
+      });
   }
 
   kill(): void {
@@ -189,19 +198,25 @@ class VMarkPty implements IPty {
     this._cleanup();
     this._ready
       .then(() => invoke("pty_kill", { pid: this._pid }))
-      .catch(() => {});
+      .catch((err) => {
+        terminalLog("pty_kill failed:", err instanceof Error ? err.message : String(err));
+      });
   }
 
   pause(): void {
     this._ready
       .then(() => invoke("pty_pause", { pid: this._pid }))
-      .catch(() => {});
+      .catch((err) => {
+        terminalLog("pty_pause failed:", err instanceof Error ? err.message : String(err));
+      });
   }
 
   resume(): void {
     this._ready
       .then(() => invoke("pty_resume", { pid: this._pid }))
-      .catch(() => {});
+      .catch((err) => {
+        terminalLog("pty_resume failed:", err instanceof Error ? err.message : String(err));
+      });
   }
 
   private _cleanup(): void {

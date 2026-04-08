@@ -205,6 +205,84 @@ describe("error resilience", () => {
   });
 });
 
+describe("error logging", () => {
+  let pty: IPty;
+
+  beforeEach(async () => {
+    mockInvoke.mockResolvedValue(5);
+    mockListen.mockResolvedValue(mockUnlisten);
+    pty = spawn("/bin/sh", []);
+    await vi.waitFor(() => expect(pty.pid).toBe(5));
+    vi.clearAllMocks();
+  });
+
+  it("logs warning when pty_write fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockInvoke.mockRejectedValueOnce(new Error("session closed"));
+
+    pty.write("data");
+    await vi.waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith("[PTY]", "pty_write failed:", "session closed");
+    });
+    warnSpy.mockRestore();
+  });
+
+  it("logs warning when pty_resize fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockInvoke.mockRejectedValueOnce(new Error("invalid dimensions"));
+
+    pty.resize(0, 0);
+    await vi.waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith("[PTY]", "pty_resize failed:", "invalid dimensions");
+    });
+    warnSpy.mockRestore();
+  });
+
+  it("logs debug when pty_kill fails", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockInvoke.mockRejectedValueOnce(new Error("already dead"));
+
+    pty.kill();
+    await vi.waitFor(() => {
+      expect(logSpy).toHaveBeenCalledWith("[Terminal]", "pty_kill failed:", "already dead");
+    });
+    logSpy.mockRestore();
+  });
+
+  it("logs debug when pty_pause fails", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockInvoke.mockRejectedValueOnce(new Error("not running"));
+
+    pty.pause();
+    await vi.waitFor(() => {
+      expect(logSpy).toHaveBeenCalledWith("[Terminal]", "pty_pause failed:", "not running");
+    });
+    logSpy.mockRestore();
+  });
+
+  it("logs debug when pty_resume fails", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockInvoke.mockRejectedValueOnce(new Error("not paused"));
+
+    pty.resume();
+    await vi.waitFor(() => {
+      expect(logSpy).toHaveBeenCalledWith("[Terminal]", "pty_resume failed:", "not paused");
+    });
+    logSpy.mockRestore();
+  });
+
+  it("handles non-Error rejection values", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockInvoke.mockRejectedValueOnce("string error");
+
+    pty.write("data");
+    await vi.waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith("[PTY]", "pty_write failed:", "string error");
+    });
+    warnSpy.mockRestore();
+  });
+});
+
 describe("string args coercion", () => {
   it("accepts a single string arg and wraps it in array", async () => {
     mockInvoke.mockResolvedValue(1);
