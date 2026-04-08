@@ -907,5 +907,54 @@ describe("Structural Character Protection", () => {
       const handled = smartDelete(view);
       expect(handled).toBe(false);
     });
+
+    it("smartBackspace handles surrogate pair at non-structural cursor", () => {
+      // 🎉 is a surrogate pair (2 UTF-16 code units)
+      // Cursor 1 at pipe (structural), cursor 2 after emoji (non-structural)
+      const content = "| cell |\n🎉hello";
+      const emojiEnd = 9 + 2; // line start (9) + emoji length (2 code units)
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(2),       // after "| " (structural)
+          EditorSelection.cursor(emojiEnd), // after 🎉 (non-structural)
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartBackspace(view);
+      expect(handled).toBe(true);
+      // Emoji should be fully deleted, not half-deleted
+      const doc = view.state.doc.toString();
+      expect(doc).toBe("| cell |\nhello");
+    });
+
+    it("smartDelete handles surrogate pair at non-structural cursor", () => {
+      // Cursor 1 before pipe (structural), cursor 2 before emoji (non-structural)
+      const content = "| cell |\nhello🎉";
+      const emojiStart = 9 + 5; // line start (9) + "hello" length (5)
+      const state = EditorState.create({
+        doc: content,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+        selection: EditorSelection.create([
+          EditorSelection.cursor(7),         // before last pipe (structural)
+          EditorSelection.cursor(emojiStart), // before 🎉 (non-structural)
+        ], 0),
+      });
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const view = new EditorView({ state, parent: container });
+      views.push(view);
+
+      const handled = smartDelete(view);
+      expect(handled).toBe(true);
+      // Emoji should be fully deleted, not half-deleted
+      const doc = view.state.doc.toString();
+      expect(doc).toBe("| cell |\nhello");
+    });
   });
 });
