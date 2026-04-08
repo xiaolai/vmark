@@ -2,14 +2,15 @@
  * WYSIWYG Multi-Selection Block Actions
  *
  * Purpose: Applies block-level actions (heading, list, blockquote) across multiple
- * ProseMirror cursors. Iterates ranges in reverse document order to preserve
- * position validity as earlier ranges shift from edits.
+ * ProseMirror cursors. Iterates ranges in reverse document order and remaps
+ * positions through accumulated transaction mappings to handle structural edits.
  *
  * @coordinates-with wysiwygAdapter.ts — delegates here when MultiSelection is active
  * @coordinates-with multiCursor — provides MultiSelection and range utilities
  * @module plugins/toolbarActions/wysiwygMultiSelection
  */
 import { TextSelection } from "@tiptap/pm/state";
+import { Mapping } from "@tiptap/pm/transform";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { EditorView } from "@tiptap/pm/view";
 import { MultiSelection } from "@/plugins/multiCursor";
@@ -21,10 +22,27 @@ function forEachRangeDescending(
   handler: (from: number, to: number) => boolean
 ): boolean {
   if (!(view.state.selection instanceof MultiSelection)) return false;
-  const ranges = [...view.state.selection.ranges].sort((a, b) => b.$from.pos - a.$from.pos);
+  const positions = [...view.state.selection.ranges]
+    .sort((a, b) => b.$from.pos - a.$from.pos)
+    .map((r) => ({ from: r.$from.pos, to: r.$to.pos }));
+
+  const originalDispatch = view.dispatch;
+  const mapping = new Mapping();
+
+  view.dispatch = (tr) => {
+    mapping.appendMapping(tr.mapping);
+    return originalDispatch.call(view, tr);
+  };
+
   let applied = false;
-  for (const range of ranges) {
-    applied = handler(range.$from.pos, range.$to.pos) || applied;
+  try {
+    for (const pos of positions) {
+      const from = mapping.map(pos.from);
+      const to = mapping.map(pos.to);
+      applied = handler(from, to) || applied;
+    }
+  } finally {
+    view.dispatch = originalDispatch;
   }
   return applied;
 }
