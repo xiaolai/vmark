@@ -139,6 +139,7 @@ export function RestProviderConfigFields({
           className={iconBtnClass}
           onClick={() => setRevealed((r) => !r)}
           title={revealed ? t("integrations.hideApiKey") : t("integrations.showApiKey")}
+          aria-label={revealed ? t("integrations.hideApiKey") : t("integrations.showApiKey")}
           tabIndex={-1}
         >
           {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -147,6 +148,7 @@ export function RestProviderConfigFields({
           className={iconBtnClass}
           onClick={handleCopy}
           title={t("integrations.copyApiKey")}
+          aria-label={t("integrations.copyApiKey")}
           tabIndex={-1}
           disabled={!apiKey}
         >
@@ -156,6 +158,7 @@ export function RestProviderConfigFields({
           className={iconBtnClass}
           onClick={handleTest}
           title={t("integrations.testApiKey")}
+          aria-label={t("integrations.testApiKey")}
           tabIndex={-1}
           disabled={testDisabled || testState === "testing"}
         >
@@ -183,6 +186,7 @@ export function RestProviderConfigFields({
           className={iconBtnClass}
           onClick={handleModelTest}
           title={t("integrations.testModel")}
+          aria-label={t("integrations.testModel")}
           tabIndex={-1}
           disabled={modelTestDisabled || modelTestState === "testing"}
         >
