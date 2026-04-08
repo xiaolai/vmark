@@ -57,6 +57,8 @@ vi.mock("@xterm/xterm", () => ({
     onSelectionChange = vi.fn();
     hasSelection = vi.fn(() => false);
     getSelection = vi.fn(() => "");
+    write = vi.fn();
+    writeln = vi.fn();
     attachCustomKeyEventHandler = vi.fn();
     registerLinkProvider = vi.fn();
     cols = 80;
@@ -985,6 +987,7 @@ describe("createTerminalInstance — WebGL failure fallback", () => {
 
 describe("createTerminalInstance — file link callback", () => {
   let fileLinkCallback: (filePath: string) => void;
+  let termInst: ReturnType<typeof makeInstance>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -992,7 +995,7 @@ describe("createTerminalInstance — file link callback", () => {
     mockReadTextFile.mockResolvedValue("# Hello");
     mockCreateTab.mockReturnValue("tab-new");
 
-    makeInstance();
+    termInst = makeInstance();
 
     // Capture the file link callback passed to createFileLinkProvider
     fileLinkCallback = mockCreateFileLinkProvider.mock.calls[0][1];
@@ -1046,6 +1049,9 @@ describe("createTerminalInstance — file link callback", () => {
         "(20MB)",
       );
     });
+    expect(termInst.term.writeln).toHaveBeenCalledWith(
+      "\x1b[33m[File too large: 20MB, max 10MB]\x1b[0m",
+    );
     expect(mockReadTextFile).not.toHaveBeenCalled();
   });
 
