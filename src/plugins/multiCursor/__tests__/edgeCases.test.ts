@@ -90,6 +90,79 @@ describe("edgeCases", () => {
     });
   });
 
+  describe("overlapping selection ranges", () => {
+    it("merges overlapping ranges before input", () => {
+      // Ranges [3,7] and [5,9] overlap at positions 5-7
+      // Merged: [3,9] covers "llo wo" in "hello world"
+      // Replace with "X" → "he" + "X" + "rld" = "heXrld"
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 7 },
+        { from: 5, to: 9 },
+      ]);
+
+      const result = handleMultiCursorInput(state, "X");
+      expect(result).not.toBeNull();
+
+      const newState = state.apply(result!);
+      expect(newState.doc.textContent).toBe("heXrld");
+      const sel = newState.selection as MultiSelection;
+      // Merged to single range, cursor after inserted "X"
+      expect(sel.ranges.length).toBe(1);
+    });
+
+    it("merges overlapping ranges before backspace", () => {
+      // Ranges [3,7] and [5,9] overlap → merged to [3,9]
+      // Backspace on selection = delete selection
+      // Delete [3,9] → "he" + "rld" = "herld"
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 7 },
+        { from: 5, to: 9 },
+      ]);
+
+      const result = handleMultiCursorBackspace(state);
+      expect(result).not.toBeNull();
+
+      const newState = state.apply(result!);
+      expect(newState.doc.textContent).toBe("herld");
+      const sel = newState.selection as MultiSelection;
+      expect(sel.ranges.length).toBe(1);
+    });
+
+    it("merges overlapping ranges before delete", () => {
+      // Same as backspace — delete on non-empty selection deletes it
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 7 },
+        { from: 5, to: 9 },
+      ]);
+
+      const result = handleMultiCursorDelete(state);
+      expect(result).not.toBeNull();
+
+      const newState = state.apply(result!);
+      expect(newState.doc.textContent).toBe("herld");
+      const sel = newState.selection as MultiSelection;
+      expect(sel.ranges.length).toBe(1);
+    });
+
+    it("merges chain of 3 overlapping ranges before input", () => {
+      // [2,5]+[4,7]+[6,9] → merged to [2,9] covers "ello wo"
+      // Replace with "X" → "h" + "X" + "rld" = "hXrld"
+      const state = createMultiCursorState("hello world", [
+        { from: 2, to: 5 },
+        { from: 4, to: 7 },
+        { from: 6, to: 9 },
+      ]);
+
+      const result = handleMultiCursorInput(state, "X");
+      expect(result).not.toBeNull();
+
+      const newState = state.apply(result!);
+      expect(newState.doc.textContent).toBe("hXrld");
+      const sel = newState.selection as MultiSelection;
+      expect(sel.ranges.length).toBe(1);
+    });
+  });
+
   describe("document boundary positions", () => {
     it("backspace at pos 1 (start of content) is no-op for that cursor", () => {
       const state = createMultiCursorState("hello", [
