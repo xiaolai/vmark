@@ -82,9 +82,11 @@ jobs:
       max-parallel: 3
       matrix: ${{ fromJSON(needs.audit-collect.outputs.matrix) }}
     steps:
+      # Checkout with PAT so git push creates events that trigger CI
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
+          token: ${{ secrets.PAT_TOKEN }}
 
       - uses: actions/setup-node@v6
         with:
@@ -100,10 +102,13 @@ jobs:
       - name: Fix issue #${{ matrix.issue }}
         id: fix
         uses: anthropics/claude-code-action@v1
+        env:
+          # Claude's gh/git commands use PAT so PRs trigger CI
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           allowed_bots: "claude[bot]"
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
+          github_token: ${{ secrets.PAT_TOKEN }}
           claude_args: "--model opus --max-turns 25 --allowedTools Bash Read Write Edit Glob Grep MultiEdit"
           show_full_output: true
           prompt: |
@@ -127,7 +132,7 @@ jobs:
         id: find-pr
         if: success()
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           PR=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fix/audit-${{ matrix.issue }}" --json number --jq '.[0].number // empty')
           if [ -n "$PR" ]; then
@@ -143,7 +148,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
+          github_token: ${{ secrets.PAT_TOKEN }}
           claude_args: "--model opus --max-turns 10 --allowedTools Bash Read Glob Grep"
           prompt: |
             You are an audit-fix VERIFIER — not an open-ended reviewer.
@@ -174,7 +179,7 @@ jobs:
       - name: Enable auto-merge
         if: steps.find-pr.outputs.number
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_NUMBER: ${{ steps.find-pr.outputs.number }}
         run: gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash 2>&1 || echo "Auto-merge not available"
 
