@@ -22,6 +22,12 @@ export default defineConfig({
         "**/*.css",
         "src/assets/**",
       ],
+      thresholds: {
+        statements: 97,
+        branches: 96.5,
+        functions: 97,
+        lines: 97,
+      },
     },
   },
   resolve: {
