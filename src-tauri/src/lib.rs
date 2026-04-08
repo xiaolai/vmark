@@ -172,11 +172,10 @@ async fn atomic_write_file(path: String, content: String) -> Result<(), String> 
 
         // Defense-in-depth: reject path traversal to prevent writing outside
         // intended directories if the webview is compromised.
-        if path.contains("..") {
+        let target = std::path::Path::new(&path);
+        if target.components().any(|c| c == std::path::Component::ParentDir) {
             return Err("Path traversal (..) not allowed".into());
         }
-
-        let target = std::path::Path::new(&path);
 
         if !target.is_absolute() {
             return Err("Path must be absolute".into());
