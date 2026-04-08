@@ -20,6 +20,7 @@
  * @coordinates-with saveToPath.ts — shared save logic with line ending handling
  * @coordinates-with reentryGuard.ts — prevents concurrent save operations
  * @coordinates-with settingsStore.ts — reads autoSaveEnabled and autoSaveInterval
+ * @coordinates-with wysiwygFlush.ts — flushActiveWysiwygNow ensures content is synced before save
  * @module hooks/useAutoSave
  */
 
@@ -30,6 +31,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { saveToPath } from "@/utils/saveToPath";
 import { isOperationInProgress } from "@/utils/reentryGuard";
+import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { autoSaveLog, saveError } from "@/utils/debug";
 
 const MIN_INTERVAL_MS = 1000;
@@ -67,6 +69,9 @@ export function useAutoSave() {
 
       isSavingRef.current = true;
       try {
+        // Ensure WYSIWYG content is synced to store before reading
+        flushActiveWysiwygNow();
+
         // Iterate ALL tabs for this window — not just the active one
         const tabs = useTabStore.getState().tabs[windowLabel] ?? [];
         let anySaved = false;

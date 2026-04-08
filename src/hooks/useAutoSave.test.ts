@@ -35,6 +35,10 @@ vi.mock("@/utils/reentryGuard", () => ({
   isOperationInProgress: vi.fn(() => false),
 }));
 
+vi.mock("@/utils/wysiwygFlush", () => ({
+  flushActiveWysiwygNow: vi.fn(),
+}));
+
 vi.mock("@/utils/debug", () => ({
   autoSaveLog: vi.fn(),
   saveError: vi.fn(),
@@ -45,6 +49,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { saveToPath } from "@/utils/saveToPath";
+import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 
 describe("useAutoSave", () => {
   beforeEach(() => {
@@ -96,6 +101,31 @@ describe("useAutoSave", () => {
       "Hello World",
       "auto"
     );
+  });
+
+  it("flushes WYSIWYG content before reading document state", async () => {
+    const mockFlush = vi.mocked(flushActiveWysiwygNow);
+    const getDocMock = vi.fn().mockReturnValue({
+      isDirty: true,
+      filePath: "/tmp/doc.md",
+      content: "Hello World",
+      isMissing: false,
+    });
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: getDocMock,
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    renderHook(() => useAutoSave());
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    // flush must be called before getDocument reads content
+    expect(mockFlush).toHaveBeenCalledTimes(1);
+    const flushOrder = mockFlush.mock.invocationCallOrder[0];
+    const getDocOrder = getDocMock.mock.invocationCallOrder[0];
+    expect(flushOrder).toBeLessThan(getDocOrder);
   });
 
   it("does not save when auto-save is disabled", async () => {
