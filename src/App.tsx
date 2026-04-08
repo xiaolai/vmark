@@ -9,7 +9,9 @@ import { StatusBar } from "@/components/StatusBar";
 import { FindBar } from "@/components/FindBar";
 import { TitleBar } from "@/components/TitleBar";
 import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
-import { TerminalPanel } from "@/components/Terminal";
+const TerminalPanel = lazy(() =>
+  import("@/components/Terminal").then((m) => ({ default: m.TerminalPanel }))
+);
 
 // Lazy-load page routes so non-document windows don't evaluate stores they don't need.
 // SettingsPage → aiProviderStore (credentials); must not evaluate in pdf-export window.
@@ -325,7 +327,7 @@ function MainLayout() {
             </div>
           </div>
           {/* Terminal panel */}
-          <TerminalPanel />
+          <Suspense fallback={null}><TerminalPanel /></Suspense>
         </div>
       </div>
     </div>
