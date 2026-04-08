@@ -81,7 +81,7 @@ type ReadResourceFn = (
  * Convert VMark content items to MCP SDK content format.
  * Filters to text-only items with valid text values.
  */
-export function toMcpContent(
+function toMcpContent(
   items: VMarkContentItem[]
 ): McpTextContent[] {
   return items
@@ -93,7 +93,7 @@ export function toMcpContent(
  * Convert VMark resource contents to MCP SDK format.
  * Filters to items with valid text values.
  */
-export function toMcpContents(
+function toMcpContents(
   items: VMarkResourceItem[]
 ): McpResourceContent[] {
   return items

@@ -9,7 +9,7 @@
  * CSS variables to capture for export.
  * These are the variables that affect content rendering.
  */
-export const EXPORT_CSS_VARS = [
+const EXPORT_CSS_VARS = [
   // Core colors
   "--bg-color",
   "--text-color",
@@ -130,9 +130,9 @@ export const EXPORT_CSS_VARS = [
 ] as const;
 
 /** Union of all CSS variable names captured during export. */
-export type CSSVarName = (typeof EXPORT_CSS_VARS)[number];
+type CSSVarName = (typeof EXPORT_CSS_VARS)[number];
 /** A snapshot mapping each CSS variable name to its computed value at export time. */
-export type ThemeSnapshot = Record<CSSVarName, string>;
+type ThemeSnapshot = Record<CSSVarName, string>;
 
 /**
  * Capture current computed CSS variables for export.
@@ -150,7 +150,7 @@ export type ThemeSnapshot = Record<CSSVarName, string>;
  * // snapshot['--editor-font-size'] === '16px'
  * ```
  */
-export function captureThemeSnapshot(): ThemeSnapshot {
+function captureThemeSnapshot(): ThemeSnapshot {
   const style = getComputedStyle(document.documentElement);
   const snapshot: Partial<ThemeSnapshot> = {};
 
@@ -182,7 +182,7 @@ export function captureThemeSnapshot(): ThemeSnapshot {
  * // }
  * ```
  */
-export function generateThemeCSS(snapshot: ThemeSnapshot): string {
+function generateThemeCSS(snapshot: ThemeSnapshot): string {
   const lines = Object.entries(snapshot)
     .filter(([, value]) => value !== "")
     .map(([name, value]) => `  ${name}: ${value};`);
