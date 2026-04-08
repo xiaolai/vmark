@@ -1,7 +1,7 @@
 /**
  * Tests for the Tiptap lint extension (tiptap.ts).
  *
- * Covers: findBlockForLine, buildDecorations, LintExtension options,
+ * Covers: buildDecorations (with line-to-block mapping), LintExtension options,
  * addProseMirrorPlugins, plugin state (init/apply), view subscription,
  * and props.decorations.
  */
@@ -668,9 +668,9 @@ describe("LintExtension", () => {
   });
 
   // -----------------------------------------------------------------------
-  // findBlockForLine — via buildDecorations (private function tested indirectly)
+  // Line-to-block mapping — via buildDecorations (tested indirectly)
   // -----------------------------------------------------------------------
-  describe("findBlockForLine (indirect via buildDecorations)", () => {
+  describe("line-to-block mapping (indirect via buildDecorations)", () => {
     function getDecorations(doc: PMNode, diagnostics: LintDiagnostic[]) {
       useLintStore.setState({
         diagnosticsByTab: { "tab-1": diagnostics },
@@ -704,7 +704,7 @@ describe("LintExtension", () => {
 
     it("handles code block with multi-line content", () => {
       // A code block with "line1\nline2\nline3" is still one block,
-      // but the findBlockForLine counts newlines within it
+      // but the line-to-block mapping counts newlines within it
       const doc = makeDoc(
         makePara("intro"),
         makeCode("line1\nline2\nline3")

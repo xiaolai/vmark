@@ -26,40 +26,32 @@ import "./lint.css";
 
 const lintPluginKey = new PluginKey("markdownLintWysiwyg");
 
-/** Map 1-based line number to block node position in the PM doc. */
-function findBlockForLine(
-  doc: PMNode,
-  targetLine: number
-): { pos: number; node: PMNode } | null {
-  let currentLine = 1;
-  let result: { pos: number; node: PMNode } | null = null;
-
-  doc.forEach((node, pos) => {
-    if (result) return;
-    const text = node.textContent;
-    const lineCount = (text.match(/\n/g) ?? []).length + 1;
-
-    if (targetLine >= currentLine && targetLine < currentLine + lineCount) {
-      result = { pos, node };
-    }
-    currentLine += lineCount;
-  });
-
-  return result;
-}
-
-/** Build decorations from diagnostics. Skips "sourceOnly" entries. */
+/** Build decorations from diagnostics. Skips "sourceOnly" entries.
+ *  Builds a line-to-block map in a single O(B) pass, then looks up
+ *  each diagnostic in O(1) — total complexity O(B + D). */
 function buildDecorations(doc: PMNode, diagnostics: LintDiagnostic[]): DecorationSet {
   if (!diagnostics || diagnostics.length === 0) {
     return DecorationSet.empty;
   }
+
+  // Build line-to-block map in a single pass: O(B)
+  const lineToBlock = new Map<number, { pos: number; node: PMNode }>();
+  let currentLine = 1;
+  doc.forEach((node, pos) => {
+    const lineCount = (node.textContent.match(/\n/g) ?? []).length + 1;
+    const entry = { pos, node };
+    for (let line = currentLine; line < currentLine + lineCount; line++) {
+      lineToBlock.set(line, entry);
+    }
+    currentLine += lineCount;
+  });
 
   const decos: Decoration[] = [];
 
   for (const d of diagnostics) {
     if (d.uiHint === "sourceOnly") continue;
 
-    const block = findBlockForLine(doc, d.line);
+    const block = lineToBlock.get(d.line);
     if (!block) continue;
 
     const className =
