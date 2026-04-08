@@ -44,7 +44,11 @@ export function handleMultiCursorInput(
     return null;
   }
 
-  const sortedRanges = sortRangesDescending(selection.ranges);
+  // Pre-merge overlapping ranges so each edit targets a disjoint span
+  const preMerged = normalizeRangesWithPrimary(
+    selection.ranges, state.doc, selection.primaryIndex, true
+  );
+  const sortedRanges = sortRangesDescending(preMerged.ranges);
   let tr = state.tr;
 
   // Apply insertions from end to start
@@ -55,7 +59,7 @@ export function handleMultiCursorInput(
   }
 
   // Remap selection through the changes, merging any overlaps caused by edits
-  const newRanges = selection.ranges.map((range) => {
+  const newRanges = preMerged.ranges.map((range) => {
     const newFrom = tr.mapping.map(range.$from.pos);
     const newTo = tr.mapping.map(range.$to.pos);
     const $from = tr.doc.resolve(newFrom);
@@ -63,7 +67,7 @@ export function handleMultiCursorInput(
     return new SelectionRange($from, $to);
   });
 
-  const merged = normalizeRangesWithPrimary(newRanges, tr.doc, selection.primaryIndex, true);
+  const merged = normalizeRangesWithPrimary(newRanges, tr.doc, preMerged.primaryIndex, true);
   const newSel = new MultiSelection(merged.ranges, merged.primaryIndex);
   tr = tr.setSelection(newSel);
   tr = tr.setMeta("addToHistory", true);
@@ -87,7 +91,11 @@ export function handleMultiCursorBackspace(
     return null;
   }
 
-  const sortedRanges = sortRangesDescending(selection.ranges);
+  // Pre-merge overlapping ranges so each edit targets a disjoint span
+  const preMerged = normalizeRangesWithPrimary(
+    selection.ranges, state.doc, selection.primaryIndex, true
+  );
+  const sortedRanges = sortRangesDescending(preMerged.ranges);
   let tr = state.tr;
 
   // Apply deletions from end to start
@@ -114,13 +122,13 @@ export function handleMultiCursorBackspace(
 
   // Remap selection through the changes, merging any overlaps caused by edits
   const newRanges: SelectionRange[] = [];
-  for (const range of selection.ranges) {
+  for (const range of preMerged.ranges) {
     const newPos = tr.mapping.map(range.$from.pos);
     const $pos = tr.doc.resolve(newPos);
     newRanges.push(new SelectionRange($pos, $pos));
   }
 
-  const merged = normalizeRangesWithPrimary(newRanges, tr.doc, selection.primaryIndex, true);
+  const merged = normalizeRangesWithPrimary(newRanges, tr.doc, preMerged.primaryIndex, true);
   const newSel = new MultiSelection(merged.ranges, merged.primaryIndex);
   tr = tr.setSelection(newSel);
   tr = tr.setMeta("addToHistory", true);
@@ -144,7 +152,11 @@ export function handleMultiCursorDelete(
     return null;
   }
 
-  const sortedRanges = sortRangesDescending(selection.ranges);
+  // Pre-merge overlapping ranges so each edit targets a disjoint span
+  const preMerged = normalizeRangesWithPrimary(
+    selection.ranges, state.doc, selection.primaryIndex, true
+  );
+  const sortedRanges = sortRangesDescending(preMerged.ranges);
   let tr = state.tr;
 
   // Apply deletions from end to start
@@ -171,13 +183,13 @@ export function handleMultiCursorDelete(
 
   // Remap selection through the changes, merging any overlaps caused by edits
   const newRanges: SelectionRange[] = [];
-  for (const range of selection.ranges) {
+  for (const range of preMerged.ranges) {
     const newPos = tr.mapping.map(range.$from.pos);
     const $pos = tr.doc.resolve(newPos);
     newRanges.push(new SelectionRange($pos, $pos));
   }
 
-  const merged = normalizeRangesWithPrimary(newRanges, tr.doc, selection.primaryIndex, true);
+  const merged = normalizeRangesWithPrimary(newRanges, tr.doc, preMerged.primaryIndex, true);
   const newSel = new MultiSelection(merged.ranges, merged.primaryIndex);
   tr = tr.setSelection(newSel);
   tr = tr.setMeta("addToHistory", true);
