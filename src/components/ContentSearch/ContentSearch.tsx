@@ -167,7 +167,23 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     (e: React.KeyboardEvent) => {
       if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
 
-      if (e.key === "Escape") {
+      if (e.key === "Tab") {
+        // Focus trap: cycle within the dialog (aria-modal semantics)
+        const focusable = containerRef.current?.querySelectorAll<HTMLElement>(
+          'input, button, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable && focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      } else if (e.key === "Escape") {
         e.preventDefault();
         handleClose();
       } else if (e.key === "ArrowDown") {
