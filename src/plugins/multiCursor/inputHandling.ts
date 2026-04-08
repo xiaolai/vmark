@@ -293,7 +293,8 @@ export function handleMultiCursorArrow(
   const normalized = normalizeRangesWithPrimary(
     nextRanges,
     doc,
-    selection.primaryIndex
+    selection.primaryIndex,
+    extend
   );
   const remappedBackward = remapBackwardFlags(nextRanges, newBackward, normalized.ranges);
   const newSel = new MultiSelection(normalized.ranges, normalized.primaryIndex, remappedBackward);

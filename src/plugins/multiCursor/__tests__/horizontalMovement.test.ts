@@ -539,4 +539,80 @@ describe("handleMultiCursorHorizontal", () => {
       }
     });
   });
+
+  describe("overlapping selection merge (#692)", () => {
+    it("merges overlapping selections after Shift+Right extend", () => {
+      // Two cursors close together: pos 3 and pos 5
+      // After Shift+Right x3, selections would be [3,6] and [5,8] — overlapping
+      // They should be merged into a single [3,8] range
+      const state = createMultiState(
+        "hello world",
+        [
+          { from: 3, to: 6 },
+          { from: 5, to: 8 },
+        ]
+      );
+
+      // Extend right by one more char — ranges overlap more
+      const tr = handleMultiCursorHorizontal(state, "ArrowRight", true, "char");
+      expect(tr).not.toBeNull();
+
+      if (tr) {
+        const newState = state.apply(tr);
+        const multiSel = newState.selection as MultiSelection;
+        // Overlapping ranges should be merged
+        expect(multiSel.ranges.length).toBe(1);
+      }
+    });
+
+    it("merges adjacent selections that become overlapping via Shift+Right", () => {
+      // Two cursors at 3 and 5, extend right until they overlap
+      const state = createMultiState(
+        "hello world",
+        [
+          { from: 3, to: 3 },
+          { from: 5, to: 5 },
+        ]
+      );
+
+      // Extend right: [3,4] and [5,6] — not yet overlapping
+      let tr = handleMultiCursorHorizontal(state, "ArrowRight", true, "char");
+      expect(tr).not.toBeNull();
+      let newState = state.apply(tr!);
+
+      // Extend right again: [3,5] and [5,7] — touching/overlapping
+      tr = handleMultiCursorHorizontal(newState, "ArrowRight", true, "char");
+      expect(tr).not.toBeNull();
+      newState = newState.apply(tr!);
+
+      // Extend right again: [3,6] and [5,8] — overlapping
+      tr = handleMultiCursorHorizontal(newState, "ArrowRight", true, "char");
+      expect(tr).not.toBeNull();
+      newState = newState.apply(tr!);
+
+      const multiSel = newState.selection as MultiSelection;
+      // Should merge overlapping ranges
+      expect(multiSel.ranges.length).toBe(1);
+    });
+
+    it("does not merge non-overlapping selections", () => {
+      const state = createMultiState(
+        "hello world",
+        [
+          { from: 1, to: 1 },
+          { from: 7, to: 7 },
+        ]
+      );
+
+      const tr = handleMultiCursorHorizontal(state, "ArrowRight", true, "char");
+      expect(tr).not.toBeNull();
+
+      if (tr) {
+        const newState = state.apply(tr);
+        const multiSel = newState.selection as MultiSelection;
+        // Ranges don't overlap — should remain separate
+        expect(multiSel.ranges.length).toBe(2);
+      }
+    });
+  });
 });
