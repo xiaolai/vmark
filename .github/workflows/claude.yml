@@ -28,8 +28,6 @@ permissions:
   issues: write
   pull-requests: write
   id-token: write
-  # Required for git push when repo contains .github/workflows/ files
-  workflows: write
 
 jobs:
   # Collect open audit issues into a matrix — one job per issue
