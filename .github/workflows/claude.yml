@@ -28,6 +28,8 @@ permissions:
   issues: write
   pull-requests: write
   id-token: write
+  # Required for git push when repo contains .github/workflows/ files
+  workflows: write
 
 jobs:
   # Collect open audit issues into a matrix — one job per issue
@@ -104,7 +106,7 @@ jobs:
           allowed_bots: "claude[bot]"
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
-          claude_args: "--model opus --max-turns 15 --allowedTools Bash Read Write Edit Glob Grep MultiEdit"
+          claude_args: "--model opus --max-turns 25 --allowedTools Bash Read Write Edit Glob Grep MultiEdit"
           show_full_output: true
           prompt: |
             Fix audit issue #${{ matrix.issue }}.
