@@ -125,6 +125,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     btn.className = "source-wiki-link-popup-btn";
     btn.type = "button";
     btn.title = title;
+    btn.setAttribute("aria-label", title);
     btn.innerHTML = iconSvg;
     btn.addEventListener("click", onClick);
     return btn;

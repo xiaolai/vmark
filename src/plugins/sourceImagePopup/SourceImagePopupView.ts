@@ -104,6 +104,7 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> 
     btn.className = "source-image-popup-btn";
     btn.type = "button";
     btn.title = title;
+    btn.setAttribute("aria-label", title);
     btn.innerHTML = iconSvg;
     btn.addEventListener("click", onClick);
     return btn;

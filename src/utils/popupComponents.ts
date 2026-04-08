@@ -76,6 +76,7 @@ export function buildPopupIconButton(
   const btn = document.createElement("button");
   btn.type = "button";
   btn.title = title;
+  btn.setAttribute("aria-label", title);
   btn.innerHTML = popupIcons[icon];
   btn.addEventListener("click", onClick);
 

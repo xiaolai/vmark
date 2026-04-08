@@ -103,6 +103,7 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     btn.type = "button";
     btn.className = `link-popup-btn ${className}`;
     btn.title = title;
+    btn.setAttribute("aria-label", title);
     btn.innerHTML = iconSvg;
     return btn;
   }

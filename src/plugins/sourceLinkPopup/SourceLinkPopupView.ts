@@ -116,6 +116,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     btn.className = "source-link-popup-btn";
     btn.type = "button";
     btn.title = title;
+    btn.setAttribute("aria-label", title);
     btn.innerHTML = iconSvg;
     btn.addEventListener("click", onClick);
     return btn;
