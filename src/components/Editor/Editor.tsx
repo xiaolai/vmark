@@ -8,8 +8,8 @@
  * via the status bar button or keyboard shortcut.
  *
  * Key decisions:
- *   - SourceEditor is lazy-loaded via React.lazy() so the CodeMirror bundle is deferred
- *     until source mode is first activated.
+ *   - SourceEditor and WorkflowSidePanel are lazy-loaded via React.lazy() so their
+ *     bundles (CodeMirror, React Flow) are deferred until first use.
  *   - `keepAlive` setting keeps both editors mounted (hidden) to preserve undo history
  *     across mode switches — at the cost of double memory usage.
  *   - `editorKey` includes both tabId and documentId to force remount on tab switch AND
@@ -34,7 +34,10 @@ const SourceEditor = lazy(() =>
   import("./SourceEditor").then((m) => ({ default: m.SourceEditor }))
 );
 import { DropZoneIndicator } from "./DropZoneIndicator";
-import { WorkflowSidePanel } from "@/plugins/workflowPreview";
+/* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
+const WorkflowSidePanel = lazy(() =>
+  import("@/plugins/workflowPreview/WorkflowSidePanel").then((m) => ({ default: m.WorkflowSidePanel }))
+);
 import "./editor.css";
 import "./heading-picker.css";
 import "@/styles/popup-shared.css";
@@ -89,7 +92,7 @@ export function Editor() {
       <div className="editor-content" data-active-editor={activeEditor}>
         {editorContent}
       </div>
-      {workflowEnabled && <WorkflowSidePanel />}
+      {workflowEnabled && <Suspense fallback={null}><WorkflowSidePanel /></Suspense>}
       <HeadingPicker />
       <DropZoneIndicator />
     </div>
