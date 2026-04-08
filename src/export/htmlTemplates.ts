@@ -7,7 +7,10 @@
  *
  * @module export/htmlTemplates
  * @coordinates-with htmlExport.ts — called during export to produce final HTML files
+ * @coordinates-with pdfHtmlTemplate.ts — shares bundled KaTeX CSS for offline-capable templates
  */
+
+import { getKatexCSS } from "./pdfHtmlTemplate";
 
 /**
  * Escape HTML special characters.
@@ -101,8 +104,8 @@ export function generateStandaloneHtml(
 
   const themeClass = isDark ? "dark-theme" : "";
 
-  const katexLink = includeKaTeX
-    ? `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/katex.min.css" crossorigin="anonymous">`
+  const katexStyle = includeKaTeX
+    ? `\n/* KaTeX (bundled) */\n${getKatexCSS()}`
     : "";
 
   return `<!DOCTYPE html>
@@ -111,8 +114,8 @@ export function generateStandaloneHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
-  ${katexLink}
   <style>
+${katexStyle}
 ${allStyles}
   </style>
 </head>
