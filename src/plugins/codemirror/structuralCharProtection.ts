@@ -16,7 +16,7 @@
  */
 
 import { type KeyBinding, type EditorView } from "@codemirror/view";
-import { EditorState, EditorSelection, type ChangeSpec, type SelectionRange } from "@codemirror/state";
+import { EditorState, EditorSelection, findClusterBreak, type ChangeSpec, type SelectionRange } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 
 /**
@@ -285,9 +285,11 @@ export function smartBackspace(view: EditorView): boolean {
       if (spec) return spec;
 
       // Non-structural cursor: apply default single-char backspace
+      // Use findClusterBreak to respect surrogate pairs / grapheme clusters
+      const prevPos = findClusterBreak(state.doc.toString(), head, false);
       return {
-        changes: { from: head - 1, to: head },
-        range: EditorSelection.cursor(head - 1),
+        changes: { from: prevPos, to: head },
+        range: EditorSelection.cursor(prevPos),
       };
     }),
     { scrollIntoView: true }
@@ -374,9 +376,11 @@ export function smartDelete(view: EditorView): boolean {
       if (spec) return spec;
 
       // Non-structural cursor: apply default single-char delete
+      // Use findClusterBreak to respect surrogate pairs / grapheme clusters
       if (head >= state.doc.length) return { range };
+      const nextPos = findClusterBreak(state.doc.toString(), head, true);
       return {
-        changes: { from: head, to: head + 1 },
+        changes: { from: head, to: nextPos },
         range: EditorSelection.cursor(head),
       };
     }),
