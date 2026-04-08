@@ -63,10 +63,17 @@ pub(super) async fn run_rest_anthropic(
         return Ok(());
     }
 
-    let json: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let json: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => {
+            emit_error(
+                window,
+                request_id,
+                &format!("Failed to parse Anthropic response: {}", e),
+            );
+            return Ok(());
+        }
+    };
 
     // Extract text from content blocks
     if let Some(content) = json.get("content").and_then(|c| c.as_array()) {
@@ -126,10 +133,17 @@ pub(super) async fn run_rest_openai(
         return Ok(());
     }
 
-    let json: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let json: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => {
+            emit_error(
+                window,
+                request_id,
+                &format!("Failed to parse OpenAI response: {}", e),
+            );
+            return Ok(());
+        }
+    };
 
     if let Some(text) = json
         .get("choices")
@@ -191,10 +205,17 @@ pub(super) async fn run_rest_google(
         return Ok(());
     }
 
-    let json: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let json: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => {
+            emit_error(
+                window,
+                request_id,
+                &format!("Failed to parse Google AI response: {}", e),
+            );
+            return Ok(());
+        }
+    };
 
     if let Some(text) = json
         .get("candidates")
@@ -254,10 +275,17 @@ pub(super) async fn run_rest_ollama(
         return Ok(());
     }
 
-    let json: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let json: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => {
+            emit_error(
+                window,
+                request_id,
+                &format!("Failed to parse Ollama response: {}", e),
+            );
+            return Ok(());
+        }
+    };
 
     if let Some(text) = json.get("response").and_then(|r| r.as_str()) {
         emit_chunk(window, request_id, text);
