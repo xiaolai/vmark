@@ -98,6 +98,7 @@ jobs:
         run: npm install -g pnpm && pnpm install --frozen-lockfile
 
       - name: Fix issue #${{ matrix.issue }}
+        id: fix
         uses: anthropics/claude-code-action@v1
         with:
           allowed_bots: "claude[bot]"
@@ -117,11 +118,68 @@ jobs:
             6. Commit with message: `fix: <issue title> (Closes #${{ matrix.issue }})`
             7. Push and create a PR: `gh pr create --title "fix: <issue title>" --body "Closes #${{ matrix.issue }}" --label audit`
 
-            Do NOT enable auto-merge — the audit-verify job handles that after verification.
+            Do NOT enable auto-merge — a verification step runs after this.
             If the fix causes test failures, adjust until gates pass.
             If the issue is unclear or unfixable, comment on the issue explaining why.
 
-  # Verify audit-fix PRs: targeted check that the original finding is resolved
+      # Find the PR created by the fix step
+      - name: Find created PR
+        id: find-pr
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fix/audit-${{ matrix.issue }}" --json number --jq '.[0].number // empty')
+          if [ -n "$PR" ]; then
+            echo "number=$PR" >> "$GITHUB_OUTPUT"
+            echo "Found PR #$PR"
+          else
+            echo "No PR found for fix/audit-${{ matrix.issue }}"
+          fi
+
+      # Verify the fix in a separate read-only Claude session
+      - name: Verify fix for #${{ matrix.issue }}
+        if: steps.find-pr.outputs.number
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          claude_args: "--model opus --max-turns 10 --allowedTools Bash Read Glob Grep"
+          prompt: |
+            You are an audit-fix VERIFIER — not an open-ended reviewer.
+            Your ONLY job is to check whether PR #${{ steps.find-pr.outputs.number }} actually resolves audit issue #${{ matrix.issue }}.
+
+            Steps:
+            1. Read the issue: `gh issue view ${{ matrix.issue }} --repo "$GITHUB_REPOSITORY"`
+            2. Read the PR diff: `gh pr diff ${{ steps.find-pr.outputs.number }} --repo "$GITHUB_REPOSITORY"`
+            3. Answer THREE questions:
+               a. Does the diff address the specific finding described in the issue?
+               b. Does the fix introduce any obvious regressions (wrong logic, removed unrelated code)?
+               c. Is the fix minimal and focused (no scope creep)?
+
+            Output format — use EXACTLY one of:
+            - ✅ **VERIFIED** — The audit finding is resolved. [1-sentence explanation]
+            - ❌ **NOT VERIFIED** — The finding is NOT resolved. [specific reason]
+            - ⚠️ **PARTIAL** — The finding is partially addressed. [what's missing]
+
+            Post your verification as a comment on PR #${{ steps.find-pr.outputs.number }}:
+            `gh pr comment ${{ steps.find-pr.outputs.number }} --repo "$GITHUB_REPOSITORY" --body "<your output>"`
+
+            Rules:
+            - Do NOT do open-ended code review. Only verify the specific finding.
+            - Do NOT suggest improvements beyond the finding.
+            - If you cannot determine the finding, say so.
+
+      # Auto-merge after verification
+      - name: Enable auto-merge
+        if: steps.find-pr.outputs.number
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.find-pr.outputs.number }}
+        run: gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash 2>&1 || echo "Auto-merge not available"
+
+  # Fallback: verify audit PRs created externally (PAT/App token that triggers workflows)
+  # Primary verification now runs inline in audit-fix above.
   audit-verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
