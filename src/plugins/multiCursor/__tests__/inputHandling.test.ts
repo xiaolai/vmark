@@ -433,6 +433,59 @@ describe("inputHandling", () => {
     });
   });
 
+  describe("overlapping selection merge (#692)", () => {
+    it("merges overlapping selections from Shift+Arrow in vertical movement", () => {
+      // Two overlapping selections — simulates what happens after Shift+Arrow extends
+      const state = createMultiCursorState("hello world test", [
+        { from: 3, to: 6 },
+        { from: 5, to: 8 },
+      ]);
+
+      // Extend right — ranges overlap even more, should be merged
+      const result = handleMultiCursorArrow(state, "ArrowRight", true);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = state.apply(result);
+        const multiSel = newState.selection as MultiSelection;
+        // Overlapping ranges should be merged into one
+        expect(multiSel.ranges.length).toBe(1);
+      }
+    });
+
+    it("typing after Shift+Arrow merge produces correct text", () => {
+      // End-to-end: two close cursors, extend to overlap, then type
+      // Cursors at pos 3 and 5 in "hello world"
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 3 },
+        { from: 5, to: 5 },
+      ]);
+
+      // Shift+Right x3 — ranges would be [3,6] and [5,8] without merge
+      // With merge, they collapse to a single range
+      let current = state;
+      for (let i = 0; i < 3; i++) {
+        const tr = handleMultiCursorArrow(current, "ArrowRight", true);
+        expect(tr).not.toBeNull();
+        current = current.apply(tr!);
+      }
+
+      const multiSel = current.selection as MultiSelection;
+      // Ranges should be merged (1 range, not 2 overlapping)
+      expect(multiSel.ranges.length).toBe(1);
+
+      // Now type — should work correctly on the merged range
+      const typeTr = handleMultiCursorInput(current, "X");
+      expect(typeTr).not.toBeNull();
+
+      if (typeTr) {
+        const final = current.apply(typeTr);
+        // Merged range [3,8] replaces "llo w" with "X" → "heXorld"
+        expect(final.doc.textContent).toBe("heXorld");
+      }
+    });
+  });
+
   describe("handleMultiCursorKeyDown (arrows)", () => {
     it("moves all cursors with ArrowRight", () => {
       const state = createMultiCursorState("hello", [
