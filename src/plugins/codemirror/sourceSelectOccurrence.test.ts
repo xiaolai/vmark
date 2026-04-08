@@ -186,3 +186,38 @@ describe("selectAllOccurrencesSource", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("getCodeFenceBounds — parity discrimination", () => {
+  it("does not treat closing fence as opening fence when cursor is between blocks", () => {
+    // Cursor is between two code blocks, in regular text
+    const text = "```python\ncode1\n```\nregular text foo\n```javascript\ncode2\n```";
+    // "foo" appears only in "regular text foo" at position 23-26
+    // Cursor at "foo" (position 32 = "f" in "foo") — outside any fence
+    const fooIndex = text.indexOf("foo");
+    const state = createState(text, fooIndex, fooIndex + 3);
+    const result = selectAllOccurrencesSource(state);
+    // Should find "foo" in regular text (not restricted by phantom fence)
+    expect(result).not.toBeNull();
+    if (!result) return;
+    const ranges = result.selection.ranges;
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].from).toBe(fooIndex);
+    expect(ranges[0].to).toBe(fooIndex + 3);
+  });
+
+  it("selectNext does not restrict search when cursor is between code blocks", () => {
+    // Two code blocks with text between and after them, both containing "word"
+    const text = "```\ninner\n```\nword between\n```\ninner\n```\nword after";
+    const firstWordIdx = text.indexOf("word between");
+    const secondWordIdx = text.indexOf("word after");
+    const state = createState(text, firstWordIdx, firstWordIdx + 4);
+    const result = selectNextOccurrenceSource(state);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    const ranges = result.selection.ranges;
+    // Should find both "word" outside fences
+    expect(ranges).toHaveLength(2);
+    expect(ranges[0].from).toBe(firstWordIdx);
+    expect(ranges[1].from).toBe(secondWordIdx);
+  });
+});

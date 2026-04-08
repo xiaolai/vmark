@@ -54,6 +54,15 @@ function getCodeFenceBounds(state: EditorState, pos: number): FenceBounds | null
 
   if (openLineNum === null) return null;
 
+  // Parity check: count all fence-like lines from the start of the document
+  // up to (but not including) the found line. If the count is odd, the found
+  // line is a closing fence, not an opening fence — so we're not inside a fence.
+  let fenceCount = 0;
+  for (let ln = 1; ln < openLineNum; ln++) {
+    if (FENCE_OPEN_PATTERN.test(doc.line(ln).text)) fenceCount++;
+  }
+  if (fenceCount % 2 !== 0) return null;
+
   // If cursor is on the opening line itself, it's not "inside" the fence
   if (cursorLine.number === openLineNum) return null;
 
