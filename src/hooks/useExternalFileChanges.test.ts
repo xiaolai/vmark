@@ -76,7 +76,7 @@ import { useExternalFileChanges } from "./useExternalFileChanges";
 
 type ListenCallback = (event: { payload: { watchId: string; rootPath: string; paths: string[]; kind: string } }) => Promise<void>;
 
-function seedStores(overrides: { isMissing?: boolean; lastDiskContent?: string } = {}) {
+function seedStores(overrides: { isMissing?: boolean; isDirty?: boolean; lastDiskContent?: string } = {}) {
   useTabStore.setState({
     tabs: {
       main: [{ id: "tab-1", title: "test.md", filePath: "/workspace/test.md", isPinned: false }],
@@ -93,7 +93,7 @@ function seedStores(overrides: { isMissing?: boolean; lastDiskContent?: string }
         savedContent: "# old content",
         lastDiskContent: overrides.lastDiskContent ?? "# old content",
         filePath: "/workspace/test.md",
-        isDirty: false,
+        isDirty: overrides.isDirty ?? false,
         documentId: 0,
         cursorInfo: null,
         lastAutoSave: null,
@@ -206,6 +206,31 @@ describe("useExternalFileChanges — file reappearance", () => {
 
     // Should hit the lastDiskContent check and skip — no toast
     expect(mocks.toastInfo).not.toHaveBeenCalled();
+  });
+
+  it("prompts user instead of reloading when dirty file reappears after deletion", async () => {
+    seedStores({ isMissing: true, isDirty: true, lastDiskContent: "# old content" });
+    mocks.readTextFile.mockResolvedValue("# recreated content");
+    mocks.dialogMessage.mockResolvedValue("Cancel");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/test.md"],
+        kind: "create",
+      },
+    });
+
+    // Should NOT auto-reload — user has unsaved edits
+    expect(mocks.toastInfo).not.toHaveBeenCalledWith(expect.stringContaining("Restored"));
+
+    // isMissing should remain true (not cleared silently)
+    const doc = useDocumentStore.getState().documents["tab-1"];
+    expect(doc?.isMissing).toBe(true);
+    expect(doc?.isDirty).toBe(true);
   });
 });
 
