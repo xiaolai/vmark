@@ -54,7 +54,7 @@ jobs:
           if [ "$EVENT_NAME" = "issues" ]; then
             NUMBERS="$ISSUE_NUMBER"
           else
-            NUMBERS=$(gh issue list --state open --label audit --json number --jq '.[].number' | tr '\n' ' ')
+            NUMBERS=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label audit --json number --jq '.[].number' | tr '\n' ' ')
           fi
 
           if [ -z "$NUMBERS" ]; then
