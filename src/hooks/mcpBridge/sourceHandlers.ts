@@ -19,7 +19,7 @@ import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 /**
  * Extract headings from raw markdown text.
  */
-function extractHeadingsFromMarkdown(content: string): Array<{ level: number; text: string; position: number }> {
+export function extractHeadingsFromMarkdown(content: string): Array<{ level: number; text: string; position: number }> {
   const headings: Array<{ level: number; text: string; position: number }> = [];
   const lines = content.split("\n");
   let offset = 0;
