@@ -20,7 +20,7 @@ import {
 
 /* ──── Punctuation maps ──── */
 
-const HALF_TO_FULL: Record<string, string> = {
+export const HALF_TO_FULL: Record<string, string> = {
   ",": "\uFF0C",
   ".": "\u3002",
   "!": "\uFF01",
@@ -31,7 +31,7 @@ const HALF_TO_FULL: Record<string, string> = {
   ")": "\uFF09",
 };
 
-const FULL_TO_HALF: Record<string, string> = Object.fromEntries(
+export const FULL_TO_HALF: Record<string, string> = Object.fromEntries(
   Object.entries(HALF_TO_FULL).map(([k, v]) => [v, k])
 );
 
