@@ -52,14 +52,22 @@ class FrontmatterNodeView implements NodeView {
     this.dom.className = "frontmatter-panel";
     this.dom.contentEditable = "false";
 
-    // Header
+    // Header — keyboard-accessible toggle
     const header = document.createElement("div");
     header.className = "frontmatter-panel-header";
+    header.setAttribute("role", "button");
+    header.setAttribute("tabindex", "0");
     header.appendChild(createChevronSvg());
     const label = document.createElement("span");
     label.textContent = i18n.t("editor:frontmatter.label");
     header.appendChild(label);
     header.addEventListener("click", this.toggleExpanded);
+    header.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        this.toggleExpanded();
+      }
+    });
     this.dom.appendChild(header);
 
     // Editor area

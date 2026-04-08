@@ -109,6 +109,24 @@
   color: var(--success-color-dark);
 }
 
+/* Focus indicator — U-shaped underline (matches code-lang-selector pattern) */
+.tiptap-editor .code-copy-btn:focus-visible {
+  opacity: 1;
+  outline: none;
+  position: relative;
+}
+
+.tiptap-editor .code-copy-btn:focus-visible::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
 /* Language selector chip */
 .tiptap-editor .code-lang-selector {
   position: relative;
