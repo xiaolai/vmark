@@ -249,11 +249,14 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
   try {
     raw = jsYaml.load(yaml);
   } catch (e) {
-    const yamlError = e as { mark?: { line?: number; column?: number } };
+    const yamlMark =
+      typeof e === "object" && e !== null && "mark" in e
+        ? (e as { mark?: { line?: number; column?: number } }).mark
+        : undefined;
     throw new WorkflowParseError(
       `Invalid YAML: ${e instanceof Error ? e.message : String(e)}`,
-      yamlError.mark?.line != null ? yamlError.mark.line + 1 : undefined,
-      yamlError.mark?.column,
+      yamlMark?.line != null ? yamlMark.line + 1 : undefined,
+      yamlMark?.column,
     );
   }
 
