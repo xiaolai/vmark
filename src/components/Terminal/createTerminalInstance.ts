@@ -303,6 +303,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
         const info = await stat(filePath);
         if (info.size > MAX_FILE_LINK_SIZE) {
           terminalLog("File too large to open in editor:", filePath, `(${Math.round(info.size / 1024 / 1024)}MB)`);
+          term.writeln(`\x1b[33m[File too large: ${Math.round(info.size / 1024 / 1024)}MB, max 10MB]\x1b[0m`);
           return;
         }
       } catch {
