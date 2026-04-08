@@ -124,5 +124,5 @@
 
 @keyframes workflow-node-pulse-dark {
   0%, 100% { box-shadow: 0 0 0 0 transparent; }
-  50% { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning-color) 15%, transparent); }
 }
