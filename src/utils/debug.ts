@@ -583,6 +583,11 @@ export const pdfError = isDev
   ? (...args: unknown[]) => console.error("[PDF]", ...args)
   : (...args: unknown[]) => prodError("[PDF]", ...args);
 
+/** Warn logger for PTY IPC operations (write/resize failures). */
+export const ptyWarn = isDev
+  ? (...args: unknown[]) => console.warn("[PTY]", ...args)
+  : (...args: unknown[]) => prodWarn("[PTY]", ...args);
+
 /** Warn logger for Terminal Settings operations. */
 export const terminalSettingsWarn = isDev
   ? (...args: unknown[]) => console.warn("[TerminalSettings]", ...args)
