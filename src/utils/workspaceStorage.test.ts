@@ -3,7 +3,15 @@
  *
  * @module utils/workspaceStorage.test
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+const { mockToastWarning } = vi.hoisted(() => ({
+  mockToastWarning: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { warning: mockToastWarning },
+}));
 import {
   getWorkspaceStorageKey,
   migrateWorkspaceStorage,
@@ -128,8 +136,10 @@ describe("windowScopedStorage", () => {
     expect(windowScopedStorage.getItem("ignored")).toBeNull();
   });
 
-  it("swallows QuotaExceededError on setItem", () => {
-    // Simulate QuotaExceededError
+  it("swallows QuotaExceededError on setItem and shows toast", () => {
+    mockToastWarning.mockClear();
+    setCurrentWindowLabel("doc-quota");
+
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = () => {
       const error = new DOMException("quota exceeded", "QuotaExceededError");
@@ -138,6 +148,29 @@ describe("windowScopedStorage", () => {
 
     // Should not throw
     expect(() => windowScopedStorage.setItem("ignored", "data")).not.toThrow();
+    // Should show toast warning
+    expect(mockToastWarning).toHaveBeenCalledTimes(1);
+    expect(mockToastWarning).toHaveBeenCalledWith(
+      expect.stringContaining("Storage full"),
+    );
+
+    Storage.prototype.setItem = originalSetItem;
+  });
+
+  it("shows toast only once per key on repeated QuotaExceededError", () => {
+    mockToastWarning.mockClear();
+    setCurrentWindowLabel("doc-repeat");
+
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      const error = new DOMException("quota exceeded", "QuotaExceededError");
+      throw error;
+    };
+
+    windowScopedStorage.setItem("ignored", "data");
+    windowScopedStorage.setItem("ignored", "data");
+    // Toast should fire only once for the same key
+    expect(mockToastWarning).toHaveBeenCalledTimes(1);
 
     Storage.prototype.setItem = originalSetItem;
   });

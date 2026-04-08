@@ -17,7 +17,11 @@
  * @module utils/workspaceStorage
  */
 import type { StateStorage } from "zustand/middleware";
+import { toast } from "sonner";
 import { workspaceStorageWarn } from "@/utils/debug";
+
+/** Tracks which workspace keys have already shown a quota warning. */
+const quotaWarnedKeys = new Set<string>();
 
 /** Base key prefix for workspace storage */
 const STORAGE_KEY_PREFIX = "vmark-workspace";
@@ -166,6 +170,12 @@ export const windowScopedStorage: StateStorage = {
         error.name === "QuotaExceededError"
       ) {
         workspaceStorageWarn(`QuotaExceededError for key "${key}" — localStorage is full`);
+        if (!quotaWarnedKeys.has(key)) {
+          quotaWarnedKeys.add(key);
+          toast.warning(
+            `Storage full — workspace changes won't be saved until space is freed.`,
+          );
+        }
       } else {
         throw error;
       }
