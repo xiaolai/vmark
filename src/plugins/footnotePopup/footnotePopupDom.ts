@@ -77,6 +77,7 @@ function buildIconButton(svg: string, title: string, onClick: () => void): HTMLB
   btn.className = "footnote-popup-btn";
   btn.type = "button";
   btn.title = title;
+  btn.setAttribute("aria-label", title);
   btn.innerHTML = svg;
   btn.addEventListener("click", onClick);
   return btn;

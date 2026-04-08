@@ -123,6 +123,7 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     btn.className = "source-footnote-popup-btn";
     btn.type = "button";
     btn.title = title;
+    btn.setAttribute("aria-label", title);
     btn.innerHTML = iconSvg;
     btn.addEventListener("click", onClick);
     return btn;
