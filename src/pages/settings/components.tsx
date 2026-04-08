@@ -158,6 +158,7 @@ export function CollapsibleGroup({
     <div className="mb-6">
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-2
                    rounded hover:text-[var(--text-secondary)] transition-colors
                    focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1"
@@ -371,6 +372,7 @@ export function CopyButton({ text, size = "sm", className = "" }: CopyButtonProp
                   focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
                   ${className}`}
       title={copied ? t("copied") : t("copy")}
+      aria-label={copied ? t("copied") : t("copy")}
     >
       {copied ? (
         <svg className={`${iconSize} text-[var(--success-color)]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -405,6 +407,7 @@ export function CloseButton({ onClick, className = "" }: CloseButtonProps) {
                   focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
                   ${className}`}
       title={t("close")}
+      aria-label={t("close")}
     >
       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <line x1="18" y1="6" x2="6" y2="18" />

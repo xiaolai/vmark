@@ -139,6 +139,7 @@ export function ShortcutsSettings() {
               className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]
                          hover:bg-[var(--bg-secondary)] rounded transition-colors"
               title={t("shortcuts.resetToDefault")}
+              aria-label={t("shortcuts.resetToDefault")}
             >
               <svg
                 className="w-3.5 h-3.5"

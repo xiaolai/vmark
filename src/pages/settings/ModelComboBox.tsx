@@ -187,6 +187,7 @@ export function ModelComboBox({
           className="shrink-0 p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--hover-bg)] cursor-pointer focus-visible:outline-none"
           onClick={() => (open ? setOpen(false) : handleOpen())}
           title={t("integrations.showModels")}
+          aria-label={t("integrations.showModels")}
           tabIndex={-1}
           type="button"
         >
@@ -201,6 +202,7 @@ export function ModelComboBox({
             if (!open) handleOpen();
           }}
           title={t("integrations.refreshModels")}
+          aria-label={t("integrations.refreshModels")}
           tabIndex={-1}
           type="button"
           disabled={fetching}
