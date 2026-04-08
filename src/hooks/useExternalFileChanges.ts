@@ -260,8 +260,12 @@ export function useExternalFileChanges(): void {
       /* v8 ignore next -- @preserve doc is always defined when tabId is from an open tab; null branch is defensive */
       if (!doc) return;
 
-      // File reappeared after deletion — always reload and clear missing
+      // File reappeared after deletion — reload unless the user has unsaved edits
       if (doc.isMissing) {
+        if (doc.isDirty) {
+          queueDirtyChange(tabId, changedPath);
+          return;
+        }
         useDocumentStore.getState().loadContent(tabId, diskContent, changedPath, detectLinebreaks(diskContent));
         useDocumentStore.getState().clearMissing(tabId);
         toast.info(i18n.t("dialog:toast.restored", { filename: getFileName(changedPath) }));
