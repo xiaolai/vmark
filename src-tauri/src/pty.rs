@@ -101,8 +101,8 @@ impl Drop for PtyState {
     fn drop(&mut self) {
         // Kill all active PTY child processes on app exit so they don't become
         // orphans. get_mut() is safe here because Drop receives &mut self.
-        let sessions = self.sessions.get_mut();
-        for (pid, session) in sessions.drain(..) {
+        let sessions = std::mem::take(self.sessions.get_mut());
+        for (pid, session) in sessions {
             session.shutdown.store(true, Ordering::Release);
             session.pause_ctl.resume();
             if let Ok(mut killer) = session.child_killer.lock() {
