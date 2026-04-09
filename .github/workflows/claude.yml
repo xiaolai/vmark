@@ -1,21 +1,13 @@
 name: Claude Code
 
 on:
-  # Auto-review new issues (from humans — bot-created issues don't trigger)
+  # Audit-fix pipeline reacts to [audit]-labeled issues; general issues are not auto-processed.
   issues:
     types: [opened, reopened]
 
-  # PR review on open/update
+  # Review Claude-proposed PRs
   pull_request:
     types: [opened, synchronize]
-
-  # Respond to @claude mentions in issues/PRs
-  issue_comment:
-    types: [created]
-
-  # Respond to @claude in PR review comments
-  pull_request_review_comment:
-    types: [created]
 
   # Trigger audit-fix after the audit workflow creates issues
   # (github-actions[bot] events don't trigger 'issues' — this is the workaround)
@@ -319,18 +311,18 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: gh pr merge "$PR_NUMBER" --auto --squash 2>&1 || echo "Auto-merge not available for this PR"
 
-  # General Claude Code: review issues, PRs (non-audit), respond to @claude
+  # Review and auto-merge Claude-proposed PRs (non-audit)
   claude:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      group: claude-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+      group: claude-${{ github.event.pull_request.number || github.run_id }}
       cancel-in-progress: true
     if: >-
-      (github.event_name == 'issues' && !contains(github.event.issue.labels.*.name, 'audit') && !contains(github.event.issue.labels.*.name, 'cost-report')) ||
-      (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'audit')) ||
-      (github.event_name == 'issue_comment' && !github.event.comment.performed_via_github_app && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && !github.event.comment.performed_via_github_app && contains(github.event.comment.body, '@claude'))
+      github.event_name == 'pull_request' &&
+      !contains(github.event.pull_request.labels.*.name, 'audit') &&
+      (github.event.pull_request.user.login == 'claude[bot]' ||
+       github.event.pull_request.user.login == 'github-actions[bot]')
     steps:
       - uses: actions/checkout@v6
         with:
@@ -341,19 +333,10 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
-
           claude_args: "--model opus --max-turns 15"
-
-          # PR review: consolidate into one comment, add "Fix this" links
           use_sticky_comment: true
-          include_fix_links: true
 
-      - name: Enable auto-merge for bot PRs
-        if: >-
-          github.event_name == 'pull_request' &&
-          !contains(github.event.pull_request.labels.*.name, 'audit') &&
-          (github.event.pull_request.user.login == 'claude[bot]' ||
-           github.event.pull_request.user.login == 'github-actions[bot]')
+      - name: Enable auto-merge
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
