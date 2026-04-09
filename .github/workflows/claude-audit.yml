@@ -198,13 +198,80 @@ jobs:
 
             - **High confidence only** — do not report speculative or low-confidence findings
             - **Skip cosmetics** — no style, formatting, or naming nitpicks
-            - **One issue per finding** — open a separate GitHub issue for each
-            - **Issue format:**
-              - Title: `[audit] <category>: <concise problem>`
-              - Body: file path + line, impact explanation, suggested fix
-              - Labels: `audit` + one of: `bug`, `security`, `dead-code`, `convention`,
-                `test-gap`, `performance`, `accessibility`, `type-safety`, `error-handling`,
-                `dependency`, `menu-sync`, `hot-exit`, `mcp-bridge`, `cross-platform`,
-                `export`, `terminal`
             - **If nothing found, create no issues**
+
+            ## Issue Creation Rules (CRITICAL)
+
+            Each issue will be fixed by an AI agent with limited turns. The issue body
+            IS the agent's only context. Write issues that an agent can fix in one sitting.
+
+            ### Atomicity — one fix per issue
+
+            - **ONE file, ONE concern per issue.** Never combine multiple files or unrelated
+              findings. If you find 3 dead exports in 3 different files, create 3 issues.
+            - **If a finding spans 2+ files that must change together** (e.g., a type in
+              core-types.ts and its handler in index.ts), that's ONE issue — but explain
+              all files that need changing.
+            - **Test gaps**: one issue per hook/store/util. Never "20+ hooks need tests" —
+              that's unfixable. Instead: "[audit] test-gap: useTheme has no tests for
+              font stack building and CSS var computation".
+
+            ### Issue body — machine-readable fix spec
+
+            Every issue body MUST include ALL of these sections:
+
+            ```
+            ## Problem
+            [1-2 sentences: what's wrong and why it matters]
+
+            ## Location
+            - `src/path/to/file.ts:42` — [what's wrong at this line]
+            - `src/path/to/other.ts:18` — [related change needed, if any]
+
+            ## Suggested Fix
+            [Step-by-step instructions specific enough for an agent to follow blindly]
+            1. In `file.ts`, change X to Y
+            2. In `other.ts`, remove the Z import
+            3. Run `pnpm test src/path/to/file.test.ts` to verify
+
+            ## Scope Guard
+            Do NOT touch any files outside the ones listed above.
+            Do NOT refactor surrounding code.
+            Do NOT add features beyond the fix.
+
+            ## Verification
+            [How to confirm the fix works]
+            - `grep -r "oldPattern" src/` returns zero matches
+            - `pnpm test src/path/to/file.test.ts` passes
+            ```
+
+            ### Labels
+            - Always: `audit`
+            - Plus ONE of: `bug`, `security`, `dead-code`, `convention`,
+              `test-gap`, `performance`, `accessibility`, `type-safety`,
+              `error-handling`, `dependency`, `menu-sync`, `hot-exit`,
+              `mcp-bridge`, `cross-platform`, `export`, `terminal`
+
+            ### Title format
+            `[audit] <category>: <specific problem in one file>`
+
+            ### Examples of GOOD vs BAD issues
+
+            **BAD:** `[audit] dead-code: unused exports in themeSnapshot.ts and mcpAdapters.ts`
+            → Two unrelated files. Agent has to context-switch. May run out of turns.
+
+            **GOOD:** `[audit] dead-code: captureThemeSnapshot exported but never imported`
+            → One function, one file, verifiable with grep.
+
+            **BAD:** `[audit] test-gap: 20+ hooks with non-trivial logic lack tests`
+            → Impossible to fix in one PR. Agent will attempt everything and fail.
+
+            **GOOD:** `[audit] test-gap: useWindowTitle formatWindowTitle() has no unit tests`
+            → One function, clear scope, ~30 min of agent work.
+
+            **BAD:** `[audit] accessibility: missing ARIA attributes across settings page`
+            → Vague scope, multiple components.
+
+            **GOOD:** `[audit] accessibility: ModelComboBox missing aria-label on icon button`
+            → One component, one attribute, verifiable.
 

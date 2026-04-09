@@ -73,7 +73,7 @@ jobs:
     needs: audit-collect
     if: needs.audit-collect.outputs.has_issues == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     concurrency:
       group: audit-fix-${{ matrix.issue }}
       cancel-in-progress: false
@@ -112,20 +112,64 @@ jobs:
           claude_args: "--model opus --max-turns 25 --allowedTools Bash Read Write Edit Glob Grep MultiEdit"
           show_full_output: true
           prompt: |
-            Fix audit issue #${{ matrix.issue }}.
+            You are fixing a single audit finding in the VMark codebase.
+            VMark is a Tauri v2 + React 19 + Zustand v5 desktop Markdown editor.
 
-            Steps:
-            1. Read the issue: `gh issue view ${{ matrix.issue }}`
-            2. Create a fix branch: `git checkout -b fix/audit-${{ matrix.issue }}`
-            3. Apply the suggested fix
-            4. Run `pnpm check:all` to verify frontend gates pass
-            5. If the fix touches Rust code (src-tauri/), also run `cargo check --manifest-path src-tauri/Cargo.toml`
-            6. Commit with message: `fix: <issue title> (Closes #${{ matrix.issue }})`
-            7. Push and create a PR: `gh pr create --title "fix: <issue title>" --body "Closes #${{ matrix.issue }}" --label audit`
+            ## Step 1: Understand the issue
 
-            Do NOT enable auto-merge — a verification step runs after this.
-            If the fix causes test failures, adjust until gates pass.
-            If the issue is unclear or unfixable, comment on the issue explaining why.
+            Run: `gh issue view ${{ matrix.issue }}`
+
+            Read the ENTIRE issue body carefully. It contains:
+            - **Problem**: what's wrong
+            - **Location**: exact file paths and line numbers
+            - **Suggested Fix**: step-by-step instructions
+            - **Scope Guard**: what NOT to touch
+            - **Verification**: how to confirm the fix
+
+            Follow the suggested fix closely. Do not deviate unless it's clearly wrong.
+
+            ## Step 2: Plan before coding
+
+            Before writing any code, read the files listed in "Location".
+            Verify the problem exists at the stated lines (code may have shifted).
+            If the issue is outdated or already fixed, comment on the issue and stop.
+
+            ## Step 3: Fix
+
+            - Create a branch: `git checkout -b fix/audit-${{ matrix.issue }}`
+            - Make ONLY the changes described in the issue
+            - Stay within the files listed in "Location" — do not touch unrelated files
+            - If the fix requires a new test, write it next to the source file
+            - If the fix removes code, also remove its tests (don't leave dead test code)
+
+            ## Step 4: Verify
+
+            - Run `pnpm check:all` (lint + test + build)
+            - If Rust code changed: `cargo check --manifest-path src-tauri/Cargo.toml`
+            - Run the specific verification from the issue body
+            - If tests fail, fix them — but only for code you changed
+
+            ## Step 5: Ship
+
+            - Commit: `fix: <concise description> (Closes #${{ matrix.issue }})`
+            - Push and create PR:
+              `gh pr create --title "fix: <title>" --body "Closes #${{ matrix.issue }}" --label audit`
+
+            ## Anti-patterns (DO NOT)
+
+            - Do NOT refactor surrounding code
+            - Do NOT add features beyond the fix
+            - Do NOT update documentation unless the issue says to
+            - Do NOT enable auto-merge (verification step handles that)
+            - Do NOT spend more than 3 turns debugging a single test failure —
+              if stuck, comment on the issue with what you tried and stop
+
+            ## If unfixable
+
+            Comment on the issue explaining:
+            1. What you tried
+            2. What went wrong
+            3. What a human would need to do differently
 
       # Find the PR created by the fix step
       - name: Find created PR
