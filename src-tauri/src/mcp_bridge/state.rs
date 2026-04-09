@@ -303,7 +303,6 @@ mod tests {
             "document.replaceInSource",
             "document.setContent",
             // Selection/cursor mutations
-            "selection.delete",
             "selection.replace",
             "selection.set",
             "cursor.setPosition",
@@ -325,7 +324,6 @@ mod tests {
             // Block operations
             "block.insertHorizontalRule",
             "block.setType",
-            "block.toggle",
             // Table operations
             "table.addColumnAfter",
             "table.addColumnBefore",

@@ -19,6 +19,34 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useDocumentFilePath, useDocumentIsDirty } from "./useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getFileName } from "@/utils/pathUtils";
+
+// ---------------------------------------------------------------------------
+// Pure formatting functions — exported for testing, no DOM access
+// ---------------------------------------------------------------------------
+
+/** Format the native window title from document state. Pure — no DOM access. */
+export function formatWindowTitle(
+  filePath: string | null | undefined,
+  isDirty: boolean,
+  showFilename: boolean
+): string {
+  if (!showFilename) return "";
+  const filename = filePath ? getFileName(filePath) || "Untitled" : "Untitled";
+  const dirtyIndicator = isDirty ? "• " : "";
+  return `${dirtyIndicator}${filename}`;
+}
+
+/** Format the document.title for print dialog PDF naming. Pure — no DOM access. */
+export function formatDocumentTitle(filePath: string | null | undefined): string {
+  const filename = filePath ? getFileName(filePath) || "Untitled" : "Untitled";
+  // Remove extension for cleaner PDF naming, but keep dotfiles intact
+  return filename.replace(/(?<=.)\.[^.]+$/, "");
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
 /** Hook that updates the native window title with the filename and dirty indicator based on settings. */
 export function useWindowTitle() {
   const filePath = useDocumentFilePath();
@@ -30,24 +58,10 @@ export function useWindowTitle() {
     const updateTitle = async () => {
       const window = getCurrentWebviewWindow();
 
-      // Extract filename from path or use "Untitled"
-      const filename = filePath ? getFileName(filePath) || "Untitled" : "Untitled";
+      document.title = formatDocumentTitle(filePath);
 
-      // Always update document.title for print dialog PDF filename
-      // Remove extension for cleaner PDF naming
-      const baseName = filename.replace(/\.[^.]+$/, "");
-      document.title = baseName;
-
-      if (showFilename) {
-        // Add dirty indicator for window title
-        const dirtyIndicator = isDirty ? "• " : "";
-        const title = `${dirtyIndicator}${filename}`;
-
-        await window.setTitle(title);
-      } else {
-        // Empty titlebar when setting is off
-        await window.setTitle("");
-      }
+      const title = formatWindowTitle(filePath, isDirty, showFilename);
+      await window.setTitle(title);
     };
 
     updateTitle();

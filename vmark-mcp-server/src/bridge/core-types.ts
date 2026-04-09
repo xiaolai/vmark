@@ -44,7 +44,6 @@ export type BridgeRequest =
   | { type: 'selection.get'; windowId?: WindowId }
   | { type: 'selection.set'; from: number; to: number; windowId?: WindowId }
   | { type: 'selection.replace'; text: string; windowId?: WindowId }
-  | { type: 'selection.delete'; windowId?: WindowId }
   // Cursor commands
   | { type: 'cursor.getContext'; linesBefore?: number; linesAfter?: number; windowId?: WindowId }
   | { type: 'cursor.setPosition'; position: number; windowId?: WindowId }
@@ -55,7 +54,6 @@ export type BridgeRequest =
   | { type: 'format.clear'; windowId?: WindowId }
   // Block commands
   | { type: 'block.setType'; blockType: BlockType; level?: number; language?: string; windowId?: WindowId }
-  | { type: 'block.toggle'; blockType: BlockType; level?: number; windowId?: WindowId }
   | { type: 'block.insertHorizontalRule'; windowId?: WindowId }
   // List commands
   | { type: 'list.toggle'; listType: ListType; windowId?: WindowId }

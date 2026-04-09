@@ -14,7 +14,6 @@ describe("MCP readOnlyGuard", () => {
       "document.insertAtPosition",
       "document.replaceInSource",
       "selection.replace",
-      "selection.delete",
       "format.toggle",
       "format.setLink",
       "format.removeLink",
@@ -22,7 +21,6 @@ describe("MCP readOnlyGuard", () => {
       "editor.undo",
       "editor.redo",
       "block.setType",
-      "block.toggle",
       "block.insertHorizontalRule",
       "list.toggle",
       "list.increaseIndent",
@@ -97,5 +95,14 @@ describe("MCP readOnlyGuard", () => {
     it("allows unknown operations through", () => {
       expect(isBlockedInReadOnly("unknown.operation")).toBe(false);
     });
+
+    // #697: selection.delete and block.toggle have no frontend handler.
+    // They must NOT appear in the write ops set (dead protocol definitions removed).
+    it.each(["selection.delete", "block.toggle"])(
+      "does not recognize removed dead protocol type: %s",
+      (op) => {
+        expect(isBlockedInReadOnly(op)).toBe(false);
+      }
+    );
   });
 });

@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "Default",
+  "pdf.preset.academic": "Academic",
+  "pdf.preset.compact": "Compact",
+  "pdf.preset.elegant": "Elegant",
+  "pdf.preset.custom": "Custom",
+
+  "pdf.pageSetup.size": "Size",
+  "pdf.pageSetup.orientation": "Orientation",
+  "pdf.pageSetup.orientation.portrait": "Portrait",
+  "pdf.pageSetup.orientation.landscape": "Landscape",
+  "pdf.pageSetup.margins": "Margins",
+  "pdf.pageSetup.margins.normal": "Normal",
+  "pdf.pageSetup.margins.narrow": "Narrow",
+  "pdf.pageSetup.margins.wide": "Wide",
+  "pdf.pageSetup.margins.custom": "Custom",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "Typography",
+  "pdf.typography.fontSize": "Font Size",
+  "pdf.typography.lineHeight": "Line Height",
+  "pdf.typography.cjkSpacing": "CJK Spacing",
+  "pdf.typography.cjkSpacing.off": "Off",
+  "pdf.typography.latinFont": "Latin Font",
+  "pdf.typography.cjkFont": "CJK Font",
+  "pdf.typography.font.systemDefault": "System Default",
+
+  "pdf.appearance": "Appearance",
+  "pdf.appearance.useEditorTheme": "Use Editor Theme",
+
+  "pdf.headersFooters": "Headers & Footers (Preview Only)",
+  "pdf.headersFooters.title": "Title",
+  "pdf.headersFooters.header": "Header",
+  "pdf.headersFooters.pageNumbers": "Page Numbers",
+  "pdf.headersFooters.date": "Date",
+
+  "pdf.exportButton": "Export PDF",
+  "pdf.exporting": "Exporting\u2026",
+
+  "pdf.preview.rendering": "Rendering preview\u2026",
+  "pdf.preview.failed": "Preview failed to render. You can still export.",
+  "pdf.preview.iframeTitle": "PDF Preview",
+  "pdf.preview.pageCount": "{{count}} page",
+  "pdf.preview.pageCount_other": "{{count}} pages",
+
+  "pdf.progress.preparing": "Preparing\u2026",
+  "pdf.progress.loading": "Loading content\u2026",
+  "pdf.progress.rendering": "Generating PDF\u2026",
+  "pdf.progress.done": "Done",
+
+  "pdf.saveDialog.title": "Export PDF",
+  "pdf.defaultTitle": "Document"
+}

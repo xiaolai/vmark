@@ -50,7 +50,6 @@ export const TERMINAL_MAX_WIDTH = 800;
 const TERMINAL_DEFAULT_WIDTH = 400;
 
 interface UIState {
-  settingsOpen: boolean;
   sidebarVisible: boolean;
   sidebarWidth: number;
   sidebarViewMode: SidebarViewMode;
@@ -68,8 +67,6 @@ interface UIState {
 }
 
 interface UIActions {
-  openSettings: () => void;
-  closeSettings: () => void;
   toggleSidebar: () => void;
   /** Toggle a specific sidebar view: show if hidden/different, hide if already showing */
   toggleSidebarView: (mode: SidebarViewMode) => void;
@@ -95,7 +92,6 @@ interface UIActions {
 
 /** Manages transient UI state — sidebar, toolbar, terminal, status bar, and drag state. Use selectors, not destructuring. */
 export const useUIStore = create<UIState & UIActions>((set) => ({
-  settingsOpen: false,
   sidebarVisible: false,
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   sidebarViewMode: "outline",
@@ -111,8 +107,6 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   terminalWidth: TERMINAL_DEFAULT_WIDTH,
   effectiveTerminalPosition: "bottom",
 
-  openSettings: () => set({ settingsOpen: true }),
-  closeSettings: () => set({ settingsOpen: false }),
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
   toggleSidebarView: (mode) => set((state) => {
     if (state.sidebarVisible && state.sidebarViewMode === mode) {

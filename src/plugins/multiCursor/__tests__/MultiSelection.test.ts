@@ -544,6 +544,111 @@ describe("MultiSelection", () => {
     });
   });
 
+  describe("getBookmark", () => {
+    it("creates a bookmark that resolves back to equivalent MultiSelection", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+
+      const ranges = [
+        new SelectionRange(doc.resolve(1), doc.resolve(1)),
+        new SelectionRange(doc.resolve(7), doc.resolve(7)),
+      ];
+      const original = new MultiSelection(ranges, 1);
+      const bookmark = original.getBookmark();
+      const resolved = bookmark.resolve(doc);
+
+      expect(resolved).toBeInstanceOf(MultiSelection);
+      expect(original.eq(resolved)).toBe(true);
+    });
+
+    it("maps bookmark through document changes", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+
+      const ranges = [
+        new SelectionRange(doc.resolve(1), doc.resolve(1)),
+        new SelectionRange(doc.resolve(7), doc.resolve(7)),
+      ];
+      const multiSel = new MultiSelection(ranges, 0);
+      const bookmark = multiSel.getBookmark();
+
+      // Insert "XX" at position 4 (shifts second cursor)
+      const tr = state.tr.insertText("XX", 4, 4);
+      const mappedBookmark = bookmark.map(tr.mapping);
+      const resolved = mappedBookmark.resolve(tr.doc) as MultiSelection;
+
+      expect(resolved).toBeInstanceOf(MultiSelection);
+      expect(resolved.ranges).toHaveLength(2);
+      expect(resolved.ranges[0].$from.pos).toBe(1);
+      expect(resolved.ranges[1].$from.pos).toBe(9); // 7 + 2
+    });
+
+    it("preserves backward flags through bookmark roundtrip", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+
+      const ranges = [new SelectionRange(doc.resolve(1), doc.resolve(6))];
+      const original = new MultiSelection(ranges, 0, [true]);
+      const bookmark = original.getBookmark();
+      const resolved = bookmark.resolve(doc) as MultiSelection;
+
+      expect(resolved.backward[0]).toBe(true);
+    });
+
+    it("preserves primaryIndex through bookmark roundtrip", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+
+      const ranges = [
+        new SelectionRange(doc.resolve(1), doc.resolve(1)),
+        new SelectionRange(doc.resolve(7), doc.resolve(7)),
+      ];
+      const original = new MultiSelection(ranges, 1);
+      const bookmark = original.getBookmark();
+      const resolved = bookmark.resolve(doc) as MultiSelection;
+
+      expect(resolved.primaryIndex).toBe(1);
+    });
+
+    it("clamps positions that exceed doc size after mapping", () => {
+      const state = createState("hello world");
+      const doc = state.doc;
+
+      const ranges = [
+        new SelectionRange(doc.resolve(1), doc.resolve(1)),
+        new SelectionRange(doc.resolve(11), doc.resolve(11)),
+      ];
+      const multiSel = new MultiSelection(ranges, 0);
+      const bookmark = multiSel.getBookmark();
+
+      // Resolve against a shorter document
+      const shortDoc = createDoc("hi");
+      const resolved = bookmark.resolve(shortDoc) as MultiSelection;
+
+      expect(resolved).toBeInstanceOf(MultiSelection);
+      // Positions should be clamped to doc boundaries
+      for (const range of resolved.ranges) {
+        expect(range.$from.pos).toBeGreaterThanOrEqual(0);
+        expect(range.$to.pos).toBeLessThanOrEqual(shortDoc.content.size);
+      }
+    });
+
+    it("handles single collapsed cursor bookmark", () => {
+      const state = createState("hello");
+      const doc = state.doc;
+
+      const ranges = [new SelectionRange(doc.resolve(3), doc.resolve(3))];
+      const original = new MultiSelection(ranges, 0);
+      const bookmark = original.getBookmark();
+      const resolved = bookmark.resolve(doc) as MultiSelection;
+
+      expect(resolved).toBeInstanceOf(MultiSelection);
+      expect(resolved.ranges).toHaveLength(1);
+      expect(resolved.ranges[0].$from.pos).toBe(3);
+      expect(resolved.ranges[0].$to.pos).toBe(3);
+    });
+  });
+
   describe("backward array length mismatch defense (#311)", () => {
     it("resets backward to all-false when length mismatches ranges", () => {
       const state = createState("hello world");

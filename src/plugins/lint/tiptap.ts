@@ -10,7 +10,6 @@
  *   - On docChanged: clears decorations (stale results dismissed).
  *   - skips "sourceOnly" diagnostics — they cannot be represented in WYSIWYG.
  *
- * @coordinates-with plugins/lint/index.ts — ProseMirror plugin implementation
  * @coordinates-with stores/lintStore.ts — listens for diagnostic changes
  * @module plugins/lint/tiptap
  */

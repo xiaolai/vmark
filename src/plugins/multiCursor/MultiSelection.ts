@@ -9,6 +9,7 @@
  * We use $from/$to throughout since that's what SelectionRange provides.
  */
 import { Selection, SelectionRange } from "@tiptap/pm/state";
+import type { SelectionBookmark } from "@tiptap/pm/state";
 import type { Node } from "@tiptap/pm/model";
 import type { Mappable } from "@tiptap/pm/transform";
 import { normalizeRangesWithPrimary, remapBackwardFlags } from "./rangeUtils";
@@ -85,7 +86,8 @@ export class MultiSelection extends Selection {
   }
 
   /**
-   * Serialize selection to JSON for undo/redo history.
+   * Serialize selection to JSON for EditorState.toJSON() persistence.
+   * Note: undo/redo uses getBookmark() instead.
    */
   toJSON(): {
     type: string;
@@ -149,6 +151,55 @@ export class MultiSelection extends Selection {
     return this.ranges
       .map((range) => doc.textBetween(range.$from.pos, range.$to.pos))
       .join("\n");
+  }
+
+  /**
+   * Create a bookmark for this selection, used by ProseMirror's history plugin
+   * to store and restore selections across undo/redo without holding a reference
+   * to the document.
+   */
+  getBookmark(): SelectionBookmark {
+    return new MultiSelectionBookmark(
+      this.ranges.map((r, i) => ({
+        anchor: this.backward[i] ? r.$to.pos : r.$from.pos,
+        head: this.backward[i] ? r.$from.pos : r.$to.pos,
+      })),
+      this.primaryIndex,
+    );
+  }
+}
+
+/**
+ * Bookmark that stores multi-cursor positions as plain numbers.
+ * Supports mapping through document changes and resolving back to a MultiSelection.
+ */
+class MultiSelectionBookmark implements SelectionBookmark {
+  constructor(
+    readonly ranges: ReadonlyArray<{ anchor: number; head: number }>,
+    readonly primaryIndex: number,
+  ) {}
+
+  map(mapping: Mappable): SelectionBookmark {
+    return new MultiSelectionBookmark(
+      this.ranges.map((r) => ({
+        anchor: mapping.map(r.anchor),
+        head: mapping.map(r.head),
+      })),
+      this.primaryIndex,
+    );
+  }
+
+  resolve(doc: Node): Selection {
+    const size = doc.content.size;
+    const backwardFlags: boolean[] = [];
+    const resolved = this.ranges.map((r) => {
+      const isBackward = r.anchor > r.head;
+      backwardFlags.push(isBackward);
+      const from = Math.max(0, Math.min(Math.min(r.anchor, r.head), size));
+      const to = Math.max(0, Math.min(Math.max(r.anchor, r.head), size));
+      return new SelectionRange(doc.resolve(from), doc.resolve(to));
+    });
+    return new MultiSelection(resolved, this.primaryIndex, backwardFlags);
   }
 }
 

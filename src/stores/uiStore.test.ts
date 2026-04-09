@@ -3,7 +3,6 @@ import { useUIStore } from "./uiStore";
 
 function resetUIStore() {
   useUIStore.setState({
-    settingsOpen: false,
     sidebarVisible: false,
     sidebarWidth: 260,
     sidebarViewMode: "outline",
@@ -229,19 +228,6 @@ describe("uiStore", () => {
       expect(state.universalToolbarHasFocus).toBe(false);
       expect(state.toolbarSessionFocusIndex).toBe(-1);
       expect(state.toolbarDropdownOpen).toBe(false);
-    });
-  });
-
-  describe("openSettings / closeSettings", () => {
-    it("opens settings", () => {
-      useUIStore.getState().openSettings();
-      expect(useUIStore.getState().settingsOpen).toBe(true);
-    });
-
-    it("closes settings", () => {
-      useUIStore.getState().openSettings();
-      useUIStore.getState().closeSettings();
-      expect(useUIStore.getState().settingsOpen).toBe(false);
     });
   });
 

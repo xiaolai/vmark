@@ -14,6 +14,7 @@ import settingsEn from "../locales/en/settings.json";
 import aiEn from "../locales/en/ai.json";
 import editorEn from "../locales/en/editor.json";
 import dialogEn from "../locales/en/dialog.json";
+import exportEn from "../locales/en/export.json";
 
 const localeMap: Record<string, Record<string, unknown>> = {
   common: commonEn as Record<string, unknown>,
@@ -24,6 +25,7 @@ const localeMap: Record<string, Record<string, unknown>> = {
   ai: aiEn as Record<string, unknown>,
   editor: editorEn as Record<string, unknown>,
   dialog: dialogEn as Record<string, unknown>,
+  export: exportEn as Record<string, unknown>,
 };
 
 function applyInterpolation(template: string, opts?: Record<string, unknown>): string {

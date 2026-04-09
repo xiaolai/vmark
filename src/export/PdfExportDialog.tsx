@@ -61,7 +61,8 @@ export function PdfExportContent({
 }: PdfExportContentProps) {
   // Font choices inherited from user's editor settings
   const appearance = useSettingsStore.getState().appearance;
-  const { t } = useTranslation("dialog");
+  const { t } = useTranslation("export");
+  const { t: tDialog } = useTranslation("dialog");
 
   const [options, setOptions] = useState<PdfOptions>({
     pageSize: "a4",
@@ -73,7 +74,7 @@ export function PdfExportContent({
     showPageNumbers: true,
     showHeader: true,
     showDate: false,
-    title: defaultName?.replace(/\.[^.]+$/, "") ?? "Document",
+    title: defaultName?.replace(/\.[^.]+$/, "") ?? t("pdf.defaultTitle"),
     fontSize: 11,
     lineHeight: 1.6,
     cjkLetterSpacing: "0.05em",
@@ -197,20 +198,20 @@ export function PdfExportContent({
 
   // Listen for progress events from Rust PDF renderer
   useEffect(() => {
-    const stageLabels: Record<string, string> = {
-      loading: "Loading content…",
-      rendering: "Generating PDF…",
-      done: "Done",
+    const stageKeys: Record<string, string> = {
+      loading: "pdf.progress.loading",
+      rendering: "pdf.progress.rendering",
+      done: "pdf.progress.done",
     };
     const unlisten = listen<{ stage: string }>(
       "pdf-export-progress",
       (event) => {
-        const label = stageLabels[event.payload.stage] ?? event.payload.stage;
-        setExportStage(label);
+        const key = stageKeys[event.payload.stage];
+        setExportStage(key ? t(key) : event.payload.stage);
       },
     );
     return () => { unlisten.then((f) => f()); };
-  }, []);
+  }, [t]);
 
   // Extract headings from rendered HTML for PDF bookmarks
   const extractHeadings = useCallback(() => {
@@ -227,10 +228,10 @@ export function PdfExportContent({
   const handleExport = useCallback(async () => {
     try {
       setExporting(true);
-      setExportStage("Preparing…");
+      setExportStage(t("pdf.progress.preparing"));
       const outputPath = await save({
-        defaultPath: `${options.title ?? "document"}.pdf`,
-        title: "Export PDF",
+        defaultPath: `${options.title ?? t("pdf.defaultTitle")}.pdf`,
+        title: t("pdf.saveDialog.title"),
         filters: [{ name: "PDF", extensions: ["pdf"] }],
       });
       if (!outputPath) {
@@ -242,15 +243,15 @@ export function PdfExportContent({
       const html = buildExportHtml();
       const headings = extractHeadings();
       await invoke("export_pdf", { html, outputPath, headings });
-      toast.success(t("toast.pdfExportSuccess"));
+      toast.success(tDialog("toast.pdfExportSuccess"));
       onClose();
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      toast.error(t("toast.pdfExportFailed", { error: msg }));
+      toast.error(tDialog("toast.pdfExportFailed", { error: msg }));
       setExporting(false);
       setExportStage("");
     }
-  }, [buildExportHtml, extractHeadings, options.title, onClose, t]);
+  }, [buildExportHtml, extractHeadings, options.title, onClose, t, tDialog]);
 
   // Update a single option
   const setOption = useCallback(
@@ -272,12 +273,12 @@ export function PdfExportContent({
         <div className="pdf-export-preview" ref={previewContainerRef}>
         {loading && (
           <div className="pdf-export-preview-loading">
-            Rendering preview...
+            {t("pdf.preview.rendering")}
           </div>
         )}
         {previewError && (
           <div className="pdf-export-preview-loading">
-            Preview failed to render. You can still export.
+            {t("pdf.preview.failed")}
           </div>
         )}
         <div
@@ -297,7 +298,7 @@ export function PdfExportContent({
           >
             <iframe
               ref={iframeRef}
-              title="PDF Preview"
+              title={t("pdf.preview.iframeTitle")}
               sandbox="allow-scripts"
             />
           </div>
@@ -306,7 +307,7 @@ export function PdfExportContent({
         {/* Page count indicator */}
         {pageCount > 0 && (
           <div className="pdf-export-page-count">
-            {pageCount} {pageCount === 1 ? "page" : "pages"}
+            {t("pdf.preview.pageCount", { count: pageCount })}
           </div>
         )}
       </div>

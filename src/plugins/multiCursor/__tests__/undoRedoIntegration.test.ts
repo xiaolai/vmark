@@ -3,7 +3,7 @@
  *
  * Verifies that:
  * 1. Multi-cursor edits undo as a single atomic step
- * 2. Undo restores MultiSelection correctly (via toJSON/fromJSON roundtrip)
+ * 2. Undo restores MultiSelection correctly (via getBookmark/resolve roundtrip)
  * 3. Redo re-applies both document content and MultiSelection
  * 4. Multiple sequential multi-cursor edits produce incremental undo
  */
@@ -76,7 +76,7 @@ describe("multi-cursor undo/redo integration with history()", () => {
     expect(getDocText(state)).toBe("hello world");
   });
 
-  it("redo restores multi-cursor edit after undo", () => {
+  it("redo restores multi-cursor edit and selection after undo", () => {
     let state = createState(createDoc("abc"));
     const multiSel = makeMultiSelection(state, [1, 2, 3]);
     state = state.apply(state.tr.setSelection(multiSel));
@@ -86,13 +86,22 @@ describe("multi-cursor undo/redo integration with history()", () => {
     state = state.apply(inputTr!);
     expect(getDocText(state)).toBe("XaXbXc");
 
-    // Undo
+    // Undo — should restore original MultiSelection
     undo(state, (tr) => { state = state.apply(tr); });
     expect(getDocText(state)).toBe("abc");
+    expect(state.selection).toBeInstanceOf(MultiSelection);
+    const afterUndo = state.selection as MultiSelection;
+    expect(afterUndo.ranges).toHaveLength(3);
+    expect(afterUndo.ranges[0].$from.pos).toBe(1);
+    expect(afterUndo.ranges[1].$from.pos).toBe(2);
+    expect(afterUndo.ranges[2].$from.pos).toBe(3);
 
-    // Redo should restore both content and selection
+    // Redo — should restore the post-edit MultiSelection
     redo(state, (tr) => { state = state.apply(tr); });
     expect(getDocText(state)).toBe("XaXbXc");
+    expect(state.selection).toBeInstanceOf(MultiSelection);
+    const afterRedo = state.selection as MultiSelection;
+    expect(afterRedo.ranges).toHaveLength(3);
   });
 
   it("multiple sequential edits produce incremental undo", () => {
@@ -123,12 +132,12 @@ describe("multi-cursor undo/redo integration with history()", () => {
     expect(getDocText(state)).toBe("ab");
   });
 
-  it("undo restores MultiSelection via toJSON/fromJSON roundtrip", () => {
+  it("undo restores MultiSelection with correct cursor positions via getBookmark roundtrip", () => {
     let state = createState(createDoc("hello world"));
     const multiSel = makeMultiSelection(state, [1, 7]);
     state = state.apply(state.tr.setSelection(multiSel));
 
-    // Verify MultiSelection is active
+    // Verify MultiSelection is active before the edit
     expect(state.selection).toBeInstanceOf(MultiSelection);
     expect((state.selection as MultiSelection).ranges).toHaveLength(2);
 
@@ -140,9 +149,24 @@ describe("multi-cursor undo/redo integration with history()", () => {
     // Undo
     undo(state, (tr) => { state = state.apply(tr); });
 
-    // After undo, selection should be restored (may be MultiSelection or TextSelection
-    // depending on ProseMirror history's selection serialization)
+    // Document text is restored
     expect(getDocText(state)).toBe("hello world");
+
+    // Selection must be restored as a MultiSelection (requires getBookmark implementation)
+    expect(state.selection).toBeInstanceOf(MultiSelection);
+    const restored = state.selection as MultiSelection;
+
+    // Must have the same number of cursor ranges as the original
+    expect(restored.ranges).toHaveLength(2);
+
+    // Cursor positions must match the original positions (1 and 7)
+    expect(restored.ranges[0].$from.pos).toBe(1);
+    expect(restored.ranges[0].$to.pos).toBe(1);
+    expect(restored.ranges[1].$from.pos).toBe(7);
+    expect(restored.ranges[1].$to.pos).toBe(7);
+
+    // Primary index must be preserved
+    expect(restored.primaryIndex).toBe(1);
   });
 
   it("handles undo when multi-cursor edit merges into single range", () => {

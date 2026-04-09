@@ -55,9 +55,6 @@ interface TabActions {
   createTab: (windowLabel: string, filePath?: string | null) => string;
   createTransferredTab: (windowLabel: string, tab: Tab) => string;
   closeTab: (windowLabel: string, tabId: string) => void;
-  closeOtherTabs: (windowLabel: string, tabId: string) => void;
-  closeTabsToRight: (windowLabel: string, tabId: string) => void;
-  closeAllTabs: (windowLabel: string) => void;
 
   // Tab state
   setActiveTab: (windowLabel: string, tabId: string) => void;
@@ -76,7 +73,6 @@ interface TabActions {
   getTabsByWindow: (windowLabel: string) => Tab[];
   getActiveTab: (windowLabel: string) => Tab | null;
   findTabByPath: (windowLabel: string, filePath: string) => Tab | null;
-  findTabByFilePath: (filePath: string) => { tab: Tab; windowLabel: string } | null;
   getAllOpenFilePaths: () => string[];
 
   // Cleanup
@@ -199,69 +195,6 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
       return {
         tabs: { ...state.tabs, [windowLabel]: newTabs },
-        activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
-        closedTabs: { ...state.closedTabs, [windowLabel]: newClosed },
-      };
-    });
-  },
-
-  closeOtherTabs: (windowLabel, tabId) => {
-    set((state) => {
-      const windowTabs = state.tabs[windowLabel] || [];
-      const keptTabs = windowTabs.filter((t) => t.id === tabId || t.isPinned);
-      const closedOnes = windowTabs.filter((t) => t.id !== tabId && !t.isPinned);
-
-      const closed = state.closedTabs[windowLabel] || [];
-      const newClosed = [...closedOnes, ...closed].slice(0, 10);
-
-      return {
-        tabs: { ...state.tabs, [windowLabel]: keptTabs },
-        activeTabId: { ...state.activeTabId, [windowLabel]: tabId },
-        closedTabs: { ...state.closedTabs, [windowLabel]: newClosed },
-      };
-    });
-  },
-
-  closeTabsToRight: (windowLabel, tabId) => {
-    set((state) => {
-      const windowTabs = state.tabs[windowLabel] || [];
-      const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
-
-      if (tabIndex === -1) return state;
-
-      const keptTabs = windowTabs.filter((t, i) => i <= tabIndex || t.isPinned);
-      const closedOnes = windowTabs.filter((t, i) => i > tabIndex && !t.isPinned);
-
-      const closed = state.closedTabs[windowLabel] || [];
-      const newClosed = [...closedOnes, ...closed].slice(0, 10);
-
-      let newActiveId = state.activeTabId[windowLabel];
-      if (newActiveId && !keptTabs.find((t) => t.id === newActiveId)) {
-        /* v8 ignore next -- @preserve keptTabs always has at least the pivot tab; || null is structurally unreachable */
-        newActiveId = keptTabs[keptTabs.length - 1]?.id || null;
-      }
-
-      return {
-        tabs: { ...state.tabs, [windowLabel]: keptTabs },
-        activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
-        closedTabs: { ...state.closedTabs, [windowLabel]: newClosed },
-      };
-    });
-  },
-
-  closeAllTabs: (windowLabel) => {
-    set((state) => {
-      const windowTabs = state.tabs[windowLabel] || [];
-      const keptTabs = windowTabs.filter((t) => t.isPinned);
-      const closedOnes = windowTabs.filter((t) => !t.isPinned);
-
-      const closed = state.closedTabs[windowLabel] || [];
-      const newClosed = [...closedOnes, ...closed].slice(0, 10);
-
-      const newActiveId = keptTabs.length > 0 ? keptTabs[0].id : null;
-
-      return {
-        tabs: { ...state.tabs, [windowLabel]: keptTabs },
         activeTabId: { ...state.activeTabId, [windowLabel]: newActiveId },
         closedTabs: { ...state.closedTabs, [windowLabel]: newClosed },
       };
@@ -402,16 +335,6 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     const windowTabs = get().tabs[windowLabel] || [];
     const normalized = normalizePath(filePath);
     return windowTabs.find((t) => t.filePath && normalizePath(t.filePath) === normalized) || null;
-  },
-
-  findTabByFilePath: (filePath) => {
-    const state = get();
-    const normalized = normalizePath(filePath);
-    for (const [windowLabel, windowTabs] of Object.entries(state.tabs)) {
-      const tab = windowTabs.find((t) => t.filePath && normalizePath(t.filePath) === normalized);
-      if (tab) return { tab, windowLabel };
-    }
-    return null;
   },
 
   getAllOpenFilePaths: () => {

@@ -25,7 +25,7 @@ import { useSettingsStore, themes, type ThemeColors } from "@/stores/settingsSto
 import { updateMermaidFontSize } from "@/plugins/mermaid";
 import { refreshPreviews } from "@/plugins/codePreview/tiptap";
 
-const fontStacks = {
+export const fontStacks = {
   latin: {
     system: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
     athelas: "Athelas, Georgia, serif", // Apple Books default
@@ -154,9 +154,35 @@ function applyVars(root: HTMLElement, vars: Record<string, string>) {
   }
 }
 
-/** Apply core theme colors (background, foreground, accents) */
-function applyCoreColors(root: HTMLElement, colors: ThemeColors) {
-  applyVars(root, {
+// ---------------------------------------------------------------------------
+// Pure computation functions — exported for testing, no DOM access
+// ---------------------------------------------------------------------------
+
+/** Build font stacks from font key selections. Pure — no DOM access. */
+export function buildFontStack(
+  latinFont: string,
+  cjkFont: string,
+  monoFont: string
+): { sans: string; mono: string } {
+  const latinStack =
+    fontStacks.latin[latinFont as keyof typeof fontStacks.latin] ||
+    fontStacks.latin.system;
+  const cjkStack =
+    fontStacks.cjk[cjkFont as keyof typeof fontStacks.cjk] ||
+    fontStacks.cjk.system;
+  const monoStack =
+    fontStacks.mono[monoFont as keyof typeof fontStacks.mono] ||
+    fontStacks.mono.system;
+
+  return {
+    sans: `${latinStack}, ${cjkStack}`,
+    mono: monoStack,
+  };
+}
+
+/** Compute core theme color CSS vars. Pure — no DOM access. */
+export function computeCoreColorVars(colors: ThemeColors): Record<string, string> {
+  return {
     "--bg-color": colors.background,
     "--text-color": colors.foreground,
     "--primary-color": colors.link,
@@ -168,46 +194,59 @@ function applyCoreColors(root: HTMLElement, colors: ThemeColors) {
     "--code-bg-color": colors.secondary,
     "--code-border-color": colors.border,
     "--table-border-color": colors.border,
-  });
+  };
 }
 
-/** Apply mode-specific colors (dark/light) */
-function applyModeColors(root: HTMLElement, colors: ThemeColors, isDark: boolean) {
+export type ModeColorResult = {
+  __isDark: boolean;
+  vars: Record<string, string>;
+};
+
+/** Compute mode-specific (dark/light) color CSS vars. Pure — no DOM access.
+ *  Returns the vars plus a `__isDark` flag for class toggling. */
+export function computeModeColorVars(
+  colors: ThemeColors,
+  isDark: boolean
+): ModeColorResult {
   if (isDark) {
-    applyVars(root, {
-      "--text-secondary": colors.textSecondary ?? darkModeColors["--text-secondary"],
-      "--code-text-color": colors.codeText ?? colors.foreground,
-      "--selection-color": colors.selection ?? darkModeColors["--selection-color"],
-      "--md-char-color": colors.mdChar ?? darkModeColors["--md-char-color"],
-      "--meta-content-color": colors.mdChar ?? darkModeColors["--meta-content-color"],
-      "--strong-color": colors.strong ?? darkModeColors["--strong-color"],
-      "--emphasis-color": colors.emphasis ?? darkModeColors["--emphasis-color"],
-      "--blur-text-color": darkModeColors["--blur-text-color"],
-      "--bg-tertiary": darkModeColors["--bg-tertiary"],
-      "--text-tertiary": darkModeColors["--text-tertiary"],
-      "--accent-bg": darkModeColors["--accent-bg"],
-      "--source-mode-bg": darkModeColors["--source-mode-bg"],
-      "--error-color": darkModeColors["--error-color"],
-      "--error-color-hover": darkModeColors["--error-color-hover"],
-      "--error-bg": darkModeColors["--error-bg"],
-      "--success-color": darkModeColors["--success-color"],
-      "--success-color-hover": darkModeColors["--success-color-hover"],
-      // Alert block colors
-      "--alert-note": darkModeColors["--alert-note"],
-      "--alert-tip": darkModeColors["--alert-tip"],
-      "--alert-important": darkModeColors["--alert-important"],
-      "--alert-warning": darkModeColors["--alert-warning"],
-      "--alert-caution": darkModeColors["--alert-caution"],
-      // Highlight mark
-      "--highlight-bg": darkModeColors["--highlight-bg"],
-      "--highlight-text": darkModeColors["--highlight-text"],
-      // Subtle block background for dark mode (light overlay)
-      "--block-bg-subtle": "rgba(255, 255, 255, 0.03)",
-      "--block-bg-subtle-hover": "rgba(255, 255, 255, 0.05)",
-    });
-    root.classList.add("dark-theme", "dark");
-  } else {
-    applyVars(root, {
+    return {
+      __isDark: true,
+      vars: {
+        "--text-secondary": colors.textSecondary ?? darkModeColors["--text-secondary"],
+        "--code-text-color": colors.codeText ?? colors.foreground,
+        "--selection-color": colors.selection ?? darkModeColors["--selection-color"],
+        "--md-char-color": colors.mdChar ?? darkModeColors["--md-char-color"],
+        "--meta-content-color": colors.mdChar ?? darkModeColors["--meta-content-color"],
+        "--strong-color": colors.strong ?? darkModeColors["--strong-color"],
+        "--emphasis-color": colors.emphasis ?? darkModeColors["--emphasis-color"],
+        "--blur-text-color": darkModeColors["--blur-text-color"],
+        "--bg-tertiary": darkModeColors["--bg-tertiary"],
+        "--text-tertiary": darkModeColors["--text-tertiary"],
+        "--accent-bg": darkModeColors["--accent-bg"],
+        "--source-mode-bg": darkModeColors["--source-mode-bg"],
+        "--error-color": darkModeColors["--error-color"],
+        "--error-color-hover": darkModeColors["--error-color-hover"],
+        "--error-bg": darkModeColors["--error-bg"],
+        "--success-color": darkModeColors["--success-color"],
+        "--success-color-hover": darkModeColors["--success-color-hover"],
+        // Alert block colors
+        "--alert-note": darkModeColors["--alert-note"],
+        "--alert-tip": darkModeColors["--alert-tip"],
+        "--alert-important": darkModeColors["--alert-important"],
+        "--alert-warning": darkModeColors["--alert-warning"],
+        "--alert-caution": darkModeColors["--alert-caution"],
+        // Highlight mark
+        "--highlight-bg": darkModeColors["--highlight-bg"],
+        "--highlight-text": darkModeColors["--highlight-text"],
+        // Subtle block background for dark mode (light overlay)
+        "--block-bg-subtle": "rgba(255, 255, 255, 0.03)",
+        "--block-bg-subtle-hover": "rgba(255, 255, 255, 0.05)",
+      },
+    };
+  }
+  return {
+    __isDark: false,
+    vars: {
       ...lightModeColors,
       // Use theme-specific optional colors if defined, fallback to defaults
       "--text-secondary": colors.textSecondary ?? lightModeColors["--text-secondary"],
@@ -222,33 +261,26 @@ function applyModeColors(root: HTMLElement, colors: ThemeColors, isDark: boolean
       // Subtle block background for light mode (dark overlay)
       "--block-bg-subtle": "rgba(0, 0, 0, 0.02)",
       "--block-bg-subtle-hover": "rgba(0, 0, 0, 0.04)",
-    });
-    root.classList.remove("dark-theme", "dark");
-  }
+    },
+  };
 }
 
-/** Apply typography settings (fonts, sizes, spacing) */
-function applyTypography(
-  root: HTMLElement,
-  latinFont: string,
-  cjkFont: string,
-  monoFont: string,
-  fontSize: number,
-  lineHeight: number,
-  blockSpacing: number,
-  cjkLetterSpacing: string,
-  editorWidth: number,
-  blockFontSize: string
-) {
-  const latinStack =
-    fontStacks.latin[latinFont as keyof typeof fontStacks.latin] ||
-    fontStacks.latin.system;
-  const cjkStack =
-    fontStacks.cjk[cjkFont as keyof typeof fontStacks.cjk] ||
-    fontStacks.cjk.system;
-  const monoStack =
-    fontStacks.mono[monoFont as keyof typeof fontStacks.mono] ||
-    fontStacks.mono.system;
+export type TypographyInput = {
+  latinFont: string;
+  cjkFont: string;
+  monoFont: string;
+  fontSize: number;
+  lineHeight: number;
+  blockSpacing: number;
+  cjkLetterSpacing: string;
+  editorWidth: number;
+  blockFontSize: string;
+};
+
+/** Compute typography CSS vars. Pure — no DOM access. */
+export function computeTypographyVars(input: TypographyInput): Record<string, string> {
+  const { fontSize, lineHeight, blockSpacing, cjkLetterSpacing, editorWidth, blockFontSize } = input;
+  const { sans, mono } = buildFontStack(input.latinFont, input.cjkFont, input.monoFont);
 
   // Calculate absolute line-height for use with reduced font sizes
   const lineHeightPx = fontSize * lineHeight;
@@ -267,9 +299,9 @@ function applyTypography(
   // when block elements are nested (e.g., list inside blockquote)
   const blockFontSizePx = fontSize * parseFloat(blockFontSize);
 
-  applyVars(root, {
-    "--font-sans": `${latinStack}, ${cjkStack}`,
-    "--font-mono": monoStack,
+  return {
+    "--font-sans": sans,
+    "--font-mono": mono,
     "--editor-font-size": `${fontSize}px`,
     "--editor-font-size-sm": `${fontSize * 0.9}px`,
     "--editor-font-size-mono": `${fontSize * 0.85}px`,
@@ -282,7 +314,46 @@ function applyTypography(
     "--cjk-letter-spacing": cjkLetterSpacing === "0" ? "0" : `${cjkLetterSpacing}em`,
     "--editor-width": editorWidth > 0 ? `${editorWidth}em` : "none",
     "--mermaid-scale": String(mermaidScale),
-  });
+  };
+}
+
+// ---------------------------------------------------------------------------
+// DOM-mutating helpers — used by the useTheme hook
+// ---------------------------------------------------------------------------
+
+/** Apply core theme colors (background, foreground, accents) */
+function applyCoreColors(root: HTMLElement, colors: ThemeColors) {
+  applyVars(root, computeCoreColorVars(colors));
+}
+
+/** Apply mode-specific colors (dark/light) */
+function applyModeColors(root: HTMLElement, colors: ThemeColors, isDark: boolean) {
+  const { __isDark: wasDark, vars } = computeModeColorVars(colors, isDark);
+  applyVars(root, vars);
+  if (wasDark) {
+    root.classList.add("dark-theme", "dark");
+  } else {
+    root.classList.remove("dark-theme", "dark");
+  }
+}
+
+/** Apply typography settings (fonts, sizes, spacing) */
+function applyTypography(
+  root: HTMLElement,
+  latinFont: string,
+  cjkFont: string,
+  monoFont: string,
+  fontSize: number,
+  lineHeight: number,
+  blockSpacing: number,
+  cjkLetterSpacing: string,
+  editorWidth: number,
+  blockFontSize: string
+) {
+  applyVars(root, computeTypographyVars({
+    latinFont, cjkFont, monoFont, fontSize, lineHeight,
+    blockSpacing, cjkLetterSpacing, editorWidth, blockFontSize,
+  }));
 }
 
 /** Hook that applies CSS design tokens (fonts, sizes, colors, dark/light mode) from appearance settings. */

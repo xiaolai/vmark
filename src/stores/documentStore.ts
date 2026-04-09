@@ -34,7 +34,7 @@ import type { CursorInfo } from "@/types/cursorSync";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
 
 // Re-export for backwards compatibility
-export type { NodeType, CursorInfo } from "@/types/cursorSync";
+export type { CursorInfo } from "@/types/cursorSync";
 
 /** Per-tab document state — content snapshots, dirty tracking, file path, and external-change flags. */
 export interface DocumentState {

@@ -22,7 +22,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { matchesShortcutEvent } from "@/utils/shortcutMatch";
+import { matchesShortcutEvent, isMacPlatform } from "@/utils/shortcutMatch";
 import { cleanupBeforeModeSwitch } from "@/utils/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
@@ -37,6 +37,83 @@ import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
+
+// ---------------------------------------------------------------------------
+// Pure functions — exported for testing, no DOM or store access
+// ---------------------------------------------------------------------------
+
+/** Return true if the event should be skipped entirely (IME composition). */
+export function shouldSkipKeyEvent(event: KeyboardEvent): boolean {
+  return isImeKeyEvent(event);
+}
+
+/** View action identifiers returned by resolveViewAction. */
+export type ViewAction =
+  | "toggleTerminal"
+  | "sourceMode"
+  | "focusMode"
+  | "typewriterMode"
+  | "wordWrap"
+  | "lineNumbers"
+  | "readOnly"
+  | "fitTables"
+  | "validateMarkdown"
+  | "lintNext"
+  | "lintPrev"
+  | "toggleOutline"
+  | "fileExplorer"
+  | "viewHistory";
+
+/**
+ * Resolve a keyboard event to a view action identifier. Pure — no DOM mutation or store access.
+ * Returns null if the event does not match any view shortcut.
+ */
+export function resolveViewAction(
+  event: KeyboardEvent,
+  shortcuts: Record<string, string>,
+  platform: "mac" | "other" = isMacPlatform() ? "mac" : "other"
+): ViewAction | null {
+  // Terminal toggle fires even from textarea
+  if (shortcuts.toggleTerminal && matchesShortcutEvent(event, shortcuts.toggleTerminal, platform)) {
+    return "toggleTerminal";
+  }
+
+  // All other shortcuts are suppressed when in input/textarea
+  const target = event.target as HTMLElement;
+  if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+    return null;
+  }
+
+  // Ordered shortcut-to-action map (order matters for early return)
+  const actionMap: Array<[string, ViewAction]> = [
+    ["sourceMode", "sourceMode"],
+    ["focusMode", "focusMode"],
+    ["typewriterMode", "typewriterMode"],
+    ["wordWrap", "wordWrap"],
+    ["lineNumbers", "lineNumbers"],
+    ["readOnly", "readOnly"],
+    ["fitTables", "fitTables"],
+    ["validateMarkdown", "validateMarkdown"],
+    ["lintNext", "lintNext"],
+    ["lintPrev", "lintPrev"],
+    ["toggleOutline", "toggleOutline"],
+    ["fileExplorer", "fileExplorer"],
+    ["viewHistory", "viewHistory"],
+  ];
+
+  for (const [key, action] of actionMap) {
+    const binding = shortcuts[key];
+    if (binding && matchesShortcutEvent(event, binding, platform)) {
+      return action;
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
 
 /** Hook that handles keyboard shortcuts for view-mode toggles (source, focus, typewriter, wrap, line numbers, terminal, sidebar panels). */
 export function useViewShortcuts() {

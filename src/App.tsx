@@ -80,7 +80,6 @@ import { useRecentWorkspacesSync } from "@/hooks/useRecentWorkspacesSync";
 import { useRecentWorkspacesMenuEvents } from "@/hooks/useRecentWorkspacesMenuEvents";
 import { useWindowClose } from "@/hooks/useWindowClose";
 import { useWindowTitle } from "@/hooks/useWindowTitle";
-import { useDisableContextMenu } from "@/hooks/useDisableContextMenu";
 import { useViewShortcuts } from "@/hooks/useViewShortcuts";
 import { useTabShortcuts } from "@/hooks/useTabShortcuts";
 import { useReloadGuard } from "@/hooks/useReloadGuard";
@@ -223,7 +222,6 @@ function MainLayout() {
   useRecentFilesSync(); // Sync recent files to native menu
   useRecentWorkspacesSync(); // Sync recent workspaces to native menu
   useRecentWorkspacesMenuEvents(); // Handle recent workspace menu events
-  useDisableContextMenu(); // Disable browser context menu
   useViewShortcuts(); // F8, F9 view shortcuts
   useTabShortcuts(); // Cmd+T, Cmd+W tab shortcuts
   useReloadGuard(); // Prevent reload when dirty

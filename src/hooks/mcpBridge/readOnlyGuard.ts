@@ -30,7 +30,6 @@ const WRITE_OPS = new Set([
   "document.replaceInSource",
   // Selection mutation operations (set/move are navigation, not blocked)
   "selection.replace",
-  "selection.delete",
   // Format operations
   "format.toggle",
   "format.setLink",
@@ -41,7 +40,6 @@ const WRITE_OPS = new Set([
   "editor.redo",
   // Block operations
   "block.setType",
-  "block.toggle",
   "block.insertHorizontalRule",
   // List operations
   "list.toggle",

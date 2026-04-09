@@ -52,41 +52,6 @@ describe("tabStore", () => {
     });
   });
 
-  describe("findTabByFilePath (cross-window)", () => {
-    it("finds tab across windows with normalized paths", () => {
-      useTabStore.getState().createTab("window-1", "/Users/test/file.md");
-      const result = useTabStore.getState().findTabByFilePath("/Users/test/file.md");
-      expect(result).not.toBeNull();
-      expect(result!.windowLabel).toBe("window-1");
-    });
-
-    it("finds tab with different separator styles", () => {
-      useTabStore.getState().createTab("window-1", "C:\\Users\\test\\file.md");
-      const result = useTabStore.getState().findTabByFilePath("c:/Users/test/file.md");
-      expect(result).not.toBeNull();
-    });
-
-    it("returns null when file not found in any window (line 427)", () => {
-      // Create tabs in multiple windows — none matching the searched path
-      useTabStore.getState().createTab("window-1", "/Users/test/a.md");
-      useTabStore.getState().createTab("window-2", "/Users/test/b.md");
-      const result = useTabStore.getState().findTabByFilePath("/Users/test/nonexistent.md");
-      expect(result).toBeNull();
-    });
-
-    it("returns null when all windows are empty", () => {
-      useTabStore.setState({ tabs: { "window-1": [], "window-2": [] } });
-      const result = useTabStore.getState().findTabByFilePath("/some/file.md");
-      expect(result).toBeNull();
-    });
-
-    it("returns null when tabs have no filePath (untitled)", () => {
-      useTabStore.getState().createTab("window-1", null);
-      const result = useTabStore.getState().findTabByFilePath("/any.md");
-      expect(result).toBeNull();
-    });
-  });
-
   describe("createTab dedup", () => {
     it("returns existing tab ID when file is already open", () => {
       const id1 = useTabStore.getState().createTab(WINDOW, "/Users/test/file.md");
@@ -140,93 +105,6 @@ describe("tabStore", () => {
       const closed = useTabStore.getState().closedTabs[WINDOW];
       expect(closed).toHaveLength(1);
       expect(closed[0].filePath).toBe("/file.md");
-    });
-  });
-
-  describe("closeOtherTabs", () => {
-    it("keeps target tab and pinned tabs, closes others", () => {
-      const id1 = useTabStore.getState().createTab(WINDOW, "/file1.md");
-      const id2 = useTabStore.getState().createTab(WINDOW, "/file2.md");
-      useTabStore.getState().createTab(WINDOW, "/file3.md");
-
-      useTabStore.getState().togglePin(WINDOW, id2);
-      useTabStore.getState().closeOtherTabs(WINDOW, id1);
-
-      const tabs = useTabStore.getState().getTabsByWindow(WINDOW);
-      expect(tabs).toHaveLength(2); // id1 + pinned id2
-      expect(useTabStore.getState().activeTabId[WINDOW]).toBe(id1);
-    });
-
-    it("handles empty window tabs", () => {
-      useTabStore.getState().closeOtherTabs(WINDOW, "nonexistent");
-      expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(0);
-    });
-  });
-
-  describe("closeTabsToRight", () => {
-    it("closes tabs to the right of target, keeping pinned", () => {
-      const id1 = useTabStore.getState().createTab(WINDOW, "/file1.md");
-      const _id2 = useTabStore.getState().createTab(WINDOW, "/file2.md");
-      const _id3 = useTabStore.getState().createTab(WINDOW, "/file3.md");
-
-      useTabStore.getState().closeTabsToRight(WINDOW, id1);
-
-      const tabs = useTabStore.getState().getTabsByWindow(WINDOW);
-      expect(tabs).toHaveLength(1);
-      expect(tabs[0].id).toBe(id1);
-    });
-
-    it("adjusts activeTabId when active tab is closed to right", () => {
-      const id1 = useTabStore.getState().createTab(WINDOW, "/file1.md");
-      const _id2 = useTabStore.getState().createTab(WINDOW, "/file2.md");
-      const id3 = useTabStore.getState().createTab(WINDOW, "/file3.md");
-
-      // Make id3 active, then close tabs to right of id1 (closes id2 and id3)
-      useTabStore.getState().setActiveTab(WINDOW, id3);
-      useTabStore.getState().closeTabsToRight(WINDOW, id1);
-
-      // Active tab was closed, should fallback to last kept tab
-      expect(useTabStore.getState().activeTabId[WINDOW]).toBe(id1);
-    });
-
-    it("returns early when tab not found", () => {
-      useTabStore.getState().createTab(WINDOW, "/file.md");
-      useTabStore.getState().closeTabsToRight(WINDOW, "nonexistent");
-      expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(1);
-    });
-
-    it("fallback to null when all kept tabs empty", () => {
-      // Close tabs to right of first tab when no pinned tabs and only one tab
-      const id = useTabStore.getState().createTab(WINDOW, "/file.md");
-      useTabStore.getState().closeTabsToRight(WINDOW, id);
-      // Only the target tab remains, no change needed
-      expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(1);
-    });
-  });
-
-  describe("closeAllTabs", () => {
-    it("closes all non-pinned tabs", () => {
-      const id1 = useTabStore.getState().createTab(WINDOW, "/file1.md");
-      const _id2 = useTabStore.getState().createTab(WINDOW, "/file2.md");
-      useTabStore.getState().togglePin(WINDOW, id1);
-      useTabStore.getState().closeAllTabs(WINDOW);
-
-      const tabs = useTabStore.getState().getTabsByWindow(WINDOW);
-      expect(tabs).toHaveLength(1);
-      expect(tabs[0].isPinned).toBe(true);
-      expect(useTabStore.getState().activeTabId[WINDOW]).toBe(id1);
-    });
-
-    it("sets activeTabId to null when no pinned tabs remain", () => {
-      useTabStore.getState().createTab(WINDOW, "/file1.md");
-      useTabStore.getState().closeAllTabs(WINDOW);
-
-      expect(useTabStore.getState().activeTabId[WINDOW]).toBeNull();
-    });
-
-    it("handles empty window", () => {
-      useTabStore.getState().closeAllTabs(WINDOW);
-      expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(0);
     });
   });
 
@@ -568,29 +446,6 @@ describe("tabStore", () => {
       const _id = useTabStore.getState().createTab(WINDOW, null);
       const tabs = useTabStore.getState().getTabsByWindow(WINDOW);
       expect(tabs[0].title).toMatch(/^Untitled-\d+$/);
-    });
-  });
-
-  describe("closeTabsToRight — edge cases (lines 227, 240)", () => {
-    it("falls back for non-existent window (line 227)", () => {
-      useTabStore.getState().closeTabsToRight("no-such-window", "tab-1");
-      // No crash
-      expect(useTabStore.getState().tabs).toEqual({});
-    });
-
-    it("sets active to null when all kept tabs are empty after closing right (line 240)", () => {
-      // Create tabs where active is to the right and all right tabs close
-      const id1 = useTabStore.getState().createTab(WINDOW, "/a.md");
-      const id2 = useTabStore.getState().createTab(WINDOW, "/b.md");
-      // Make id2 active
-      useTabStore.setState((s) => ({
-        activeTabId: { ...s.activeTabId, [WINDOW]: id2 },
-      }));
-      // Close tabs to the right of id1 — id2 is to the right and active
-      useTabStore.getState().closeTabsToRight(WINDOW, id1);
-      // Active tab was closed, so it should fall back to last kept tab
-      const active = useTabStore.getState().activeTabId[WINDOW];
-      expect(active).toBe(id1);
     });
   });
 
