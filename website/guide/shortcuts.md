@@ -101,6 +101,8 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | UPPERCASE | `Ctrl + Shift + U` | `Alt + Shift + U` |
 | lowercase | `Ctrl + Shift + L` | `Alt + Shift + L` |
 | Title Case | `Ctrl + Shift + T` | `Alt + Shift + T` |
+| Toggle Case | _(customizable)_ | _(customizable)_ |
+| Remove Blank Lines | _(customizable)_ | _(customizable)_ |
 | Toggle Quote Style | `Shift + Mod + '` | `Shift + Mod + '` |
 
 ## Insert
