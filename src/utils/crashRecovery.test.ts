@@ -16,7 +16,6 @@ import {
   writeRecoverySnapshot,
   readRecoverySnapshots,
   deleteRecoverySnapshot,
-  deleteAllRecoveryFiles,
   deleteRecoveryFilesForTabs,
   deleteStaleRecoveryFiles,
   type RecoverySnapshot,
@@ -207,26 +206,6 @@ describe("crashRecovery", () => {
     });
   });
 
-  describe("deleteAllRecoveryFiles", () => {
-    it("removes all snapshot files in recovery dir", async () => {
-      mockExists.mockResolvedValue(true);
-      mockReadDir.mockResolvedValue([
-        { name: "snapshot-tab-1.json", isDirectory: false, isFile: true, isSymlink: false },
-        { name: "snapshot-tab-2.json", isDirectory: false, isFile: true, isSymlink: false },
-        { name: ".tmp-tab-3", isDirectory: false, isFile: true, isSymlink: false },
-      ] as never);
-
-      await deleteAllRecoveryFiles();
-      // Should remove snapshot files and tmp files
-      expect(mockRemove).toHaveBeenCalledTimes(3);
-    });
-
-    it("does not throw if dir does not exist", async () => {
-      mockExists.mockResolvedValue(false);
-      await expect(deleteAllRecoveryFiles()).resolves.toBeUndefined();
-    });
-  });
-
   describe("deleteStaleRecoveryFiles", () => {
     it("deletes files older than maxAgeDays", async () => {
       mockExists.mockResolvedValue(true);
@@ -312,41 +291,6 @@ describe("crashRecovery", () => {
     });
   });
 
-  describe("deleteAllRecoveryFiles - edge cases", () => {
-    it("skips entries without names", async () => {
-      mockExists.mockResolvedValue(true);
-      mockReadDir.mockResolvedValue([
-        { name: null, isDirectory: false, isFile: true, isSymlink: false },
-        { name: "snapshot-tab-1.json", isDirectory: false, isFile: true, isSymlink: false },
-      ] as never);
-
-      await deleteAllRecoveryFiles();
-      // Should only remove the one with a name
-      expect(mockRemove).toHaveBeenCalledTimes(1);
-    });
-
-    it("handles individual remove errors gracefully", async () => {
-      mockExists.mockResolvedValue(true);
-      mockReadDir.mockResolvedValue([
-        { name: "snapshot-tab-1.json", isDirectory: false, isFile: true, isSymlink: false },
-        { name: "snapshot-tab-2.json", isDirectory: false, isFile: true, isSymlink: false },
-      ] as never);
-      mockRemove
-        .mockRejectedValueOnce(new Error("permission denied"))
-        .mockResolvedValueOnce(undefined);
-
-      // Should not throw even if individual remove fails
-      await expect(deleteAllRecoveryFiles()).resolves.toBeUndefined();
-    });
-
-    it("handles readDir throwing", async () => {
-      mockExists.mockResolvedValue(true);
-      mockReadDir.mockRejectedValue(new Error("readDir failed"));
-
-      await expect(deleteAllRecoveryFiles()).resolves.toBeUndefined();
-    });
-  });
-
   describe("readRecoverySnapshots - edge cases", () => {
     it("skips entries without names", async () => {
       mockExists.mockResolvedValue(true);
@@ -415,14 +359,6 @@ describe("crashRecovery", () => {
       mockRemove.mockRejectedValue("string error");
       // Should not throw even when error is not an Error instance
       await expect(deleteRecoverySnapshot("tab-123")).resolves.toBeUndefined();
-    });
-  });
-
-  describe("deleteAllRecoveryFiles - non-Error rejection (line 185)", () => {
-    it("handles non-Error thrown by readDir", async () => {
-      mockExists.mockResolvedValue(true);
-      mockReadDir.mockRejectedValue("string error");
-      await expect(deleteAllRecoveryFiles()).resolves.toBeUndefined();
     });
   });
 

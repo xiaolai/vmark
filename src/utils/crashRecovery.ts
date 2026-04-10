@@ -159,33 +159,6 @@ export async function deleteRecoverySnapshot(tabId: string): Promise<void> {
   }
 }
 
-/**
- * Delete all recovery files (snapshots and tmp files).
- * Called on normal exit.
- */
-export async function deleteAllRecoveryFiles(): Promise<void> {
-  try {
-    const dir = await getRecoveryDir();
-    if (!(await exists(dir))) return;
-
-    const entries = await readDir(dir);
-    for (const entry of entries) {
-      if (!entry.name) continue;
-      try {
-        const filePath = await join(dir, entry.name);
-        await remove(filePath);
-      } catch {
-        // Best-effort deletion
-      }
-    }
-    crashRecoveryLog("Deleted all recovery files");
-  } catch (error) {
-    crashRecoveryLog(
-      "Failed to delete all recovery files:",
-      error instanceof Error ? error.message : String(error)
-    );
-  }
-}
 
 /**
  * Delete recovery files for specific tabs only.

@@ -29,7 +29,7 @@ import { useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
-import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
+import { registerActiveWysiwygFlusher, flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/utils/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/utils/tiptapFocus";
@@ -326,9 +326,15 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     enabled: !!editor && !hidden,
   });
 
-  // Cleanup all pending timers/RAFs on unmount to prevent memory leaks
+  // Cleanup all pending timers/RAFs on unmount to prevent memory leaks.
+  // Flush any pending content BEFORE cancelling timers to avoid data loss —
+  // keystrokes within the debounce window exist only in PM's in-memory doc (#755).
   useEffect(() => {
     return () => {
+      // Flush pending content via the registered flusher (avoids stale closure)
+      if (pendingRaf.current || pendingDebounceTimeout.current) {
+        try { flushActiveWysiwygNow(); } catch { /* flusher may not be registered */ }
+      }
       if (pendingRaf.current) {
         cancelAnimationFrame(pendingRaf.current);
         pendingRaf.current = null;
