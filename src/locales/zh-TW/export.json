@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "\u9810\u8a2d",
+  "pdf.preset.academic": "\u5b78\u8853",
+  "pdf.preset.compact": "\u7dca\u6e4a",
+  "pdf.preset.elegant": "\u512a\u96c5",
+  "pdf.preset.custom": "\u81ea\u8a02",
+
+  "pdf.pageSetup.size": "\u7d19\u5f35\u5927\u5c0f",
+  "pdf.pageSetup.orientation": "\u65b9\u5411",
+  "pdf.pageSetup.orientation.portrait": "\u7e31\u5411",
+  "pdf.pageSetup.orientation.landscape": "\u6a6b\u5411",
+  "pdf.pageSetup.margins": "\u908a\u8ddd",
+  "pdf.pageSetup.margins.normal": "\u6a19\u6e96",
+  "pdf.pageSetup.margins.narrow": "\u7a84",
+  "pdf.pageSetup.margins.wide": "\u5bec",
+  "pdf.pageSetup.margins.custom": "\u81ea\u8a02",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "\u6392\u7248",
+  "pdf.typography.fontSize": "\u5b57\u578b\u5927\u5c0f",
+  "pdf.typography.lineHeight": "\u884c\u9ad8",
+  "pdf.typography.cjkSpacing": "\u4e2d\u65e5\u97d3\u9593\u8ddd",
+  "pdf.typography.cjkSpacing.off": "\u95dc\u9589",
+  "pdf.typography.latinFont": "\u897f\u6587\u5b57\u578b",
+  "pdf.typography.cjkFont": "\u4e2d\u65e5\u97d3\u5b57\u578b",
+  "pdf.typography.font.systemDefault": "\u7cfb\u7d71\u9810\u8a2d",
+
+  "pdf.appearance": "\u5916\u89c0",
+  "pdf.appearance.useEditorTheme": "\u4f7f\u7528\u7de8\u8f2f\u5668\u4e3b\u984c",
+
+  "pdf.headersFooters": "\u9801\u9996\u8207\u9801\u5c3e\uff08\u50c5\u9810\u89bd\uff09",
+  "pdf.headersFooters.title": "\u6a19\u984c",
+  "pdf.headersFooters.header": "\u9801\u9996",
+  "pdf.headersFooters.pageNumbers": "\u9801\u78bc",
+  "pdf.headersFooters.date": "\u65e5\u671f",
+
+  "pdf.exportButton": "\u532f\u51fa PDF",
+  "pdf.exporting": "\u532f\u51fa\u4e2d\u2026",
+
+  "pdf.preview.rendering": "\u6b63\u5728\u7522\u751f\u9810\u89bd\u2026",
+  "pdf.preview.failed": "\u9810\u89bd\u7522\u751f\u5931\u6557\uff0c\u4f46\u4ecd\u53ef\u532f\u51fa\u3002",
+  "pdf.preview.iframeTitle": "PDF \u9810\u89bd",
+  "pdf.preview.pageCount": "{{count}} \u9801",
+  "pdf.preview.pageCount_other": "{{count}} \u9801",
+
+  "pdf.progress.preparing": "\u6e96\u5099\u4e2d\u2026",
+  "pdf.progress.loading": "\u6b63\u5728\u8f09\u5165\u5167\u5bb9\u2026",
+  "pdf.progress.rendering": "\u6b63\u5728\u7522\u751f PDF\u2026",
+  "pdf.progress.done": "\u5b8c\u6210",
+
+  "pdf.saveDialog.title": "\u532f\u51fa PDF",
+  "pdf.defaultTitle": "\u6587\u4ef6"
+}

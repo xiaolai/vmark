@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "Predeterminado",
+  "pdf.preset.academic": "Acad\u00e9mico",
+  "pdf.preset.compact": "Compacto",
+  "pdf.preset.elegant": "Elegante",
+  "pdf.preset.custom": "Personalizado",
+
+  "pdf.pageSetup.size": "Tama\u00f1o",
+  "pdf.pageSetup.orientation": "Orientaci\u00f3n",
+  "pdf.pageSetup.orientation.portrait": "Vertical",
+  "pdf.pageSetup.orientation.landscape": "Horizontal",
+  "pdf.pageSetup.margins": "M\u00e1rgenes",
+  "pdf.pageSetup.margins.normal": "Normal",
+  "pdf.pageSetup.margins.narrow": "Estrecho",
+  "pdf.pageSetup.margins.wide": "Amplio",
+  "pdf.pageSetup.margins.custom": "Personalizado",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "Tipograf\u00eda",
+  "pdf.typography.fontSize": "Tama\u00f1o de fuente",
+  "pdf.typography.lineHeight": "Altura de l\u00ednea",
+  "pdf.typography.cjkSpacing": "Espaciado CJK",
+  "pdf.typography.cjkSpacing.off": "Desactivado",
+  "pdf.typography.latinFont": "Fuente latina",
+  "pdf.typography.cjkFont": "Fuente CJK",
+  "pdf.typography.font.systemDefault": "Predeterminada del sistema",
+
+  "pdf.appearance": "Apariencia",
+  "pdf.appearance.useEditorTheme": "Usar tema del editor",
+
+  "pdf.headersFooters": "Encabezados y pies (solo vista previa)",
+  "pdf.headersFooters.title": "T\u00edtulo",
+  "pdf.headersFooters.header": "Encabezado",
+  "pdf.headersFooters.pageNumbers": "N\u00fameros de p\u00e1gina",
+  "pdf.headersFooters.date": "Fecha",
+
+  "pdf.exportButton": "Exportar PDF",
+  "pdf.exporting": "Exportando\u2026",
+
+  "pdf.preview.rendering": "Generando vista previa\u2026",
+  "pdf.preview.failed": "No se pudo generar la vista previa. A\u00fan puede exportar.",
+  "pdf.preview.iframeTitle": "Vista previa del PDF",
+  "pdf.preview.pageCount": "{{count}} p\u00e1gina",
+  "pdf.preview.pageCount_other": "{{count}} p\u00e1ginas",
+
+  "pdf.progress.preparing": "Preparando\u2026",
+  "pdf.progress.loading": "Cargando contenido\u2026",
+  "pdf.progress.rendering": "Generando PDF\u2026",
+  "pdf.progress.done": "Listo",
+
+  "pdf.saveDialog.title": "Exportar PDF",
+  "pdf.defaultTitle": "Documento"
+}

@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "\uae30\ubcf8",
+  "pdf.preset.academic": "\ud559\uc220",
+  "pdf.preset.compact": "\ucef4\ud329\ud2b8",
+  "pdf.preset.elegant": "\uc5d8\ub808\uac04\ud2b8",
+  "pdf.preset.custom": "\uc0ac\uc6a9\uc790 \uc9c0\uc815",
+
+  "pdf.pageSetup.size": "\ud06c\uae30",
+  "pdf.pageSetup.orientation": "\ub0a9\ubc29\ud5a5",
+  "pdf.pageSetup.orientation.portrait": "\uc138\ub85c",
+  "pdf.pageSetup.orientation.landscape": "\uac00\ub85c",
+  "pdf.pageSetup.margins": "\uc5ec\ubc31",
+  "pdf.pageSetup.margins.normal": "\ubcf4\ud1b5",
+  "pdf.pageSetup.margins.narrow": "\uc880\uac8c",
+  "pdf.pageSetup.margins.wide": "\ub113\uac8c",
+  "pdf.pageSetup.margins.custom": "\uc0ac\uc6a9\uc790 \uc9c0\uc815",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "\ud0c0\uc774\ud3ec\uadf8\ub798\ud53c",
+  "pdf.typography.fontSize": "\uae00\uaf34 \ud06c\uae30",
+  "pdf.typography.lineHeight": "\uc904 \ub192\uc774",
+  "pdf.typography.cjkSpacing": "CJK \uac04\uaca9",
+  "pdf.typography.cjkSpacing.off": "\ub044\uae30",
+  "pdf.typography.latinFont": "\ub77c\ud2f4 \uae00\uaf34",
+  "pdf.typography.cjkFont": "CJK \uae00\uaf34",
+  "pdf.typography.font.systemDefault": "\uc2dc\uc2a4\ud15c \uae30\ubcf8\uac12",
+
+  "pdf.appearance": "\uc678\uad00",
+  "pdf.appearance.useEditorTheme": "\uc5d0\ub514\ud130 \ud14c\ub9c8 \uc0ac\uc6a9",
+
+  "pdf.headersFooters": "\uba38\ub9ac\uae00 \ubc0f \ubc14\ub2e5\uae00 (\ubbf8\ub9ac\ubcf4\uae30 \uc804\uc6a9)",
+  "pdf.headersFooters.title": "\uc81c\ubaa9",
+  "pdf.headersFooters.header": "\uba38\ub9ac\uae00",
+  "pdf.headersFooters.pageNumbers": "\ud398\uc774\uc9c0 \ubc88\ud638",
+  "pdf.headersFooters.date": "\ub0a0\uc9dc",
+
+  "pdf.exportButton": "PDF \ub0b4\ubcf4\ub0b4\uae30",
+  "pdf.exporting": "\ub0b4\ubcf4\ub0b4\ub294 \uc911\u2026",
+
+  "pdf.preview.rendering": "\ubbf8\ub9ac\ubcf4\uae30 \uc0dd\uc131 \uc911\u2026",
+  "pdf.preview.failed": "\ubbf8\ub9ac\ubcf4\uae30\ub97c \uc0dd\uc131\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4. \ub0b4\ubcf4\ub0b4\uae30\ub294 \uacc4\uc18d \uac00\ub2a5\ud569\ub2c8\ub2e4.",
+  "pdf.preview.iframeTitle": "PDF \ubbf8\ub9ac\ubcf4\uae30",
+  "pdf.preview.pageCount": "{{count}} \ud398\uc774\uc9c0",
+  "pdf.preview.pageCount_other": "{{count}} \ud398\uc774\uc9c0",
+
+  "pdf.progress.preparing": "\uc900\ube44 \uc911\u2026",
+  "pdf.progress.loading": "\ucf58\ud150\uce20 \ub85c\ub4dc \uc911\u2026",
+  "pdf.progress.rendering": "PDF \uc0dd\uc131 \uc911\u2026",
+  "pdf.progress.done": "\uc644\ub8cc",
+
+  "pdf.saveDialog.title": "PDF \ub0b4\ubcf4\ub0b4\uae30",
+  "pdf.defaultTitle": "\ubb38\uc11c"
+}

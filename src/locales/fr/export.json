@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "Par d\u00e9faut",
+  "pdf.preset.academic": "Acad\u00e9mique",
+  "pdf.preset.compact": "Compact",
+  "pdf.preset.elegant": "\u00c9l\u00e9gant",
+  "pdf.preset.custom": "Personnalis\u00e9",
+
+  "pdf.pageSetup.size": "Taille",
+  "pdf.pageSetup.orientation": "Orientation",
+  "pdf.pageSetup.orientation.portrait": "Portrait",
+  "pdf.pageSetup.orientation.landscape": "Paysage",
+  "pdf.pageSetup.margins": "Marges",
+  "pdf.pageSetup.margins.normal": "Normales",
+  "pdf.pageSetup.margins.narrow": "\u00c9troites",
+  "pdf.pageSetup.margins.wide": "Larges",
+  "pdf.pageSetup.margins.custom": "Personnalis\u00e9es",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "Typographie",
+  "pdf.typography.fontSize": "Taille de police",
+  "pdf.typography.lineHeight": "Interligne",
+  "pdf.typography.cjkSpacing": "Espacement CJK",
+  "pdf.typography.cjkSpacing.off": "D\u00e9sactiv\u00e9",
+  "pdf.typography.latinFont": "Police latine",
+  "pdf.typography.cjkFont": "Police CJK",
+  "pdf.typography.font.systemDefault": "Par d\u00e9faut du syst\u00e8me",
+
+  "pdf.appearance": "Apparence",
+  "pdf.appearance.useEditorTheme": "Utiliser le th\u00e8me de l\u2019\u00e9diteur",
+
+  "pdf.headersFooters": "En-t\u00eates et pieds de page (aper\u00e7u uniquement)",
+  "pdf.headersFooters.title": "Titre",
+  "pdf.headersFooters.header": "En-t\u00eate",
+  "pdf.headersFooters.pageNumbers": "Num\u00e9ros de page",
+  "pdf.headersFooters.date": "Date",
+
+  "pdf.exportButton": "Exporter en PDF",
+  "pdf.exporting": "Exportation\u2026",
+
+  "pdf.preview.rendering": "G\u00e9n\u00e9ration de l\u2019aper\u00e7u\u2026",
+  "pdf.preview.failed": "L\u2019aper\u00e7u n\u2019a pas pu \u00eatre g\u00e9n\u00e9r\u00e9. Vous pouvez tout de m\u00eame exporter.",
+  "pdf.preview.iframeTitle": "Aper\u00e7u du PDF",
+  "pdf.preview.pageCount": "{{count}} page",
+  "pdf.preview.pageCount_other": "{{count}} pages",
+
+  "pdf.progress.preparing": "Pr\u00e9paration\u2026",
+  "pdf.progress.loading": "Chargement du contenu\u2026",
+  "pdf.progress.rendering": "G\u00e9n\u00e9ration du PDF\u2026",
+  "pdf.progress.done": "Termin\u00e9",
+
+  "pdf.saveDialog.title": "Exporter en PDF",
+  "pdf.defaultTitle": "Document"
+}

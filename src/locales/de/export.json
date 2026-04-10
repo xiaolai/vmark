@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "Standard",
+  "pdf.preset.academic": "Akademisch",
+  "pdf.preset.compact": "Kompakt",
+  "pdf.preset.elegant": "Elegant",
+  "pdf.preset.custom": "Benutzerdefiniert",
+
+  "pdf.pageSetup.size": "Gr\u00f6\u00dfe",
+  "pdf.pageSetup.orientation": "Ausrichtung",
+  "pdf.pageSetup.orientation.portrait": "Hochformat",
+  "pdf.pageSetup.orientation.landscape": "Querformat",
+  "pdf.pageSetup.margins": "R\u00e4nder",
+  "pdf.pageSetup.margins.normal": "Normal",
+  "pdf.pageSetup.margins.narrow": "Schmal",
+  "pdf.pageSetup.margins.wide": "Breit",
+  "pdf.pageSetup.margins.custom": "Benutzerdefiniert",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "Typografie",
+  "pdf.typography.fontSize": "Schriftgr\u00f6\u00dfe",
+  "pdf.typography.lineHeight": "Zeilenh\u00f6he",
+  "pdf.typography.cjkSpacing": "CJK-Abstand",
+  "pdf.typography.cjkSpacing.off": "Aus",
+  "pdf.typography.latinFont": "Lateinische Schrift",
+  "pdf.typography.cjkFont": "CJK-Schrift",
+  "pdf.typography.font.systemDefault": "Systemstandard",
+
+  "pdf.appearance": "Erscheinungsbild",
+  "pdf.appearance.useEditorTheme": "Editor-Design verwenden",
+
+  "pdf.headersFooters": "Kopf- & Fu\u00dfzeilen (nur Vorschau)",
+  "pdf.headersFooters.title": "Titel",
+  "pdf.headersFooters.header": "Kopfzeile",
+  "pdf.headersFooters.pageNumbers": "Seitenzahlen",
+  "pdf.headersFooters.date": "Datum",
+
+  "pdf.exportButton": "Als PDF exportieren",
+  "pdf.exporting": "Exportiert\u2026",
+
+  "pdf.preview.rendering": "Vorschau wird gerendert\u2026",
+  "pdf.preview.failed": "Vorschau konnte nicht gerendert werden. Sie k\u00f6nnen trotzdem exportieren.",
+  "pdf.preview.iframeTitle": "PDF-Vorschau",
+  "pdf.preview.pageCount": "{{count}} Seite",
+  "pdf.preview.pageCount_other": "{{count}} Seiten",
+
+  "pdf.progress.preparing": "Vorbereitung\u2026",
+  "pdf.progress.loading": "Inhalt wird geladen\u2026",
+  "pdf.progress.rendering": "PDF wird erstellt\u2026",
+  "pdf.progress.done": "Fertig",
+
+  "pdf.saveDialog.title": "Als PDF exportieren",
+  "pdf.defaultTitle": "Dokument"
+}

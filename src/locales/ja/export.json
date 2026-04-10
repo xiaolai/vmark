@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "\u30c7\u30d5\u30a9\u30eb\u30c8",
+  "pdf.preset.academic": "\u30a2\u30ab\u30c7\u30df\u30c3\u30af",
+  "pdf.preset.compact": "\u30b3\u30f3\u30d1\u30af\u30c8",
+  "pdf.preset.elegant": "\u30a8\u30ec\u30ac\u30f3\u30c8",
+  "pdf.preset.custom": "\u30ab\u30b9\u30bf\u30e0",
+
+  "pdf.pageSetup.size": "\u30b5\u30a4\u30ba",
+  "pdf.pageSetup.orientation": "\u5370\u5237\u306e\u5411\u304d",
+  "pdf.pageSetup.orientation.portrait": "\u7e26",
+  "pdf.pageSetup.orientation.landscape": "\u6a2a",
+  "pdf.pageSetup.margins": "\u4f59\u767d",
+  "pdf.pageSetup.margins.normal": "\u6a19\u6e96",
+  "pdf.pageSetup.margins.narrow": "\u72ed\u3044",
+  "pdf.pageSetup.margins.wide": "\u5e83\u3044",
+  "pdf.pageSetup.margins.custom": "\u30ab\u30b9\u30bf\u30e0",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "\u30bf\u30a4\u30dd\u30b0\u30e9\u30d5\u30a3",
+  "pdf.typography.fontSize": "\u30d5\u30a9\u30f3\u30c8\u30b5\u30a4\u30ba",
+  "pdf.typography.lineHeight": "\u884c\u9ad8",
+  "pdf.typography.cjkSpacing": "CJK \u30b9\u30da\u30fc\u30b9",
+  "pdf.typography.cjkSpacing.off": "\u30aa\u30d5",
+  "pdf.typography.latinFont": "\u6b27\u6587\u30d5\u30a9\u30f3\u30c8",
+  "pdf.typography.cjkFont": "CJK \u30d5\u30a9\u30f3\u30c8",
+  "pdf.typography.font.systemDefault": "\u30b7\u30b9\u30c6\u30e0\u65e2\u5b9a",
+
+  "pdf.appearance": "\u5916\u89b3",
+  "pdf.appearance.useEditorTheme": "\u30a8\u30c7\u30a3\u30bf\u306e\u30c6\u30fc\u30de\u3092\u4f7f\u7528",
+
+  "pdf.headersFooters": "\u30d8\u30c3\u30c0\u30fc\u3068\u30d5\u30c3\u30bf\u30fc\uff08\u30d7\u30ec\u30d3\u30e5\u30fc\u306e\u307f\uff09",
+  "pdf.headersFooters.title": "\u30bf\u30a4\u30c8\u30eb",
+  "pdf.headersFooters.header": "\u30d8\u30c3\u30c0\u30fc",
+  "pdf.headersFooters.pageNumbers": "\u30da\u30fc\u30b8\u756a\u53f7",
+  "pdf.headersFooters.date": "\u65e5\u4ed8",
+
+  "pdf.exportButton": "PDF \u3092\u30a8\u30af\u30b9\u30dd\u30fc\u30c8",
+  "pdf.exporting": "\u30a8\u30af\u30b9\u30dd\u30fc\u30c8\u4e2d\u2026",
+
+  "pdf.preview.rendering": "\u30d7\u30ec\u30d3\u30e5\u30fc\u3092\u751f\u6210\u4e2d\u2026",
+  "pdf.preview.failed": "\u30d7\u30ec\u30d3\u30e5\u30fc\u306e\u751f\u6210\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002\u30a8\u30af\u30b9\u30dd\u30fc\u30c8\u306f\u5f15\u304d\u7d9a\u304d\u53ef\u80fd\u3067\u3059\u3002",
+  "pdf.preview.iframeTitle": "PDF \u30d7\u30ec\u30d3\u30e5\u30fc",
+  "pdf.preview.pageCount": "{{count}} \u30da\u30fc\u30b8",
+  "pdf.preview.pageCount_other": "{{count}} \u30da\u30fc\u30b8",
+
+  "pdf.progress.preparing": "\u6e96\u5099\u4e2d\u2026",
+  "pdf.progress.loading": "\u30b3\u30f3\u30c6\u30f3\u30c4\u3092\u8aad\u307f\u8fbc\u307f\u4e2d\u2026",
+  "pdf.progress.rendering": "PDF \u3092\u751f\u6210\u4e2d\u2026",
+  "pdf.progress.done": "\u5b8c\u4e86",
+
+  "pdf.saveDialog.title": "PDF \u3092\u30a8\u30af\u30b9\u30dd\u30fc\u30c8",
+  "pdf.defaultTitle": "\u30c9\u30ad\u30e5\u30e1\u30f3\u30c8"
+}

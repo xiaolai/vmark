@@ -1,0 +1,53 @@
+{
+  "pdf.preset.default": "Padr\u00e3o",
+  "pdf.preset.academic": "Acad\u00eamico",
+  "pdf.preset.compact": "Compacto",
+  "pdf.preset.elegant": "Elegante",
+  "pdf.preset.custom": "Personalizado",
+
+  "pdf.pageSetup.size": "Tamanho",
+  "pdf.pageSetup.orientation": "Orienta\u00e7\u00e3o",
+  "pdf.pageSetup.orientation.portrait": "Retrato",
+  "pdf.pageSetup.orientation.landscape": "Paisagem",
+  "pdf.pageSetup.margins": "Margens",
+  "pdf.pageSetup.margins.normal": "Normal",
+  "pdf.pageSetup.margins.narrow": "Estreita",
+  "pdf.pageSetup.margins.wide": "Larga",
+  "pdf.pageSetup.margins.custom": "Personalizada",
+  "pdf.pageSetup.marginUnit": "mm",
+
+  "pdf.typography": "Tipografia",
+  "pdf.typography.fontSize": "Tamanho da fonte",
+  "pdf.typography.lineHeight": "Altura da linha",
+  "pdf.typography.cjkSpacing": "Espa\u00e7amento CJK",
+  "pdf.typography.cjkSpacing.off": "Desativado",
+  "pdf.typography.latinFont": "Fonte latina",
+  "pdf.typography.cjkFont": "Fonte CJK",
+  "pdf.typography.font.systemDefault": "Padr\u00e3o do sistema",
+
+  "pdf.appearance": "Apar\u00eancia",
+  "pdf.appearance.useEditorTheme": "Usar tema do editor",
+
+  "pdf.headersFooters": "Cabe\u00e7alhos e rodap\u00e9s (somente pr\u00e9via)",
+  "pdf.headersFooters.title": "T\u00edtulo",
+  "pdf.headersFooters.header": "Cabe\u00e7alho",
+  "pdf.headersFooters.pageNumbers": "N\u00fameros de p\u00e1gina",
+  "pdf.headersFooters.date": "Data",
+
+  "pdf.exportButton": "Exportar PDF",
+  "pdf.exporting": "Exportando\u2026",
+
+  "pdf.preview.rendering": "Gerando pr\u00e9via\u2026",
+  "pdf.preview.failed": "N\u00e3o foi poss\u00edvel gerar a pr\u00e9via. Voc\u00ea ainda pode exportar.",
+  "pdf.preview.iframeTitle": "Pr\u00e9via do PDF",
+  "pdf.preview.pageCount": "{{count}} p\u00e1gina",
+  "pdf.preview.pageCount_other": "{{count}} p\u00e1ginas",
+
+  "pdf.progress.preparing": "Preparando\u2026",
+  "pdf.progress.loading": "Carregando conte\u00fado\u2026",
+  "pdf.progress.rendering": "Gerando PDF\u2026",
+  "pdf.progress.done": "Conclu\u00eddo",
+
+  "pdf.saveDialog.title": "Exportar PDF",
+  "pdf.defaultTitle": "Documento"
+}
