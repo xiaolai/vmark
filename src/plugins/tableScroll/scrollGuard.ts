@@ -3,19 +3,21 @@
  *
  * Purpose: Prevents ProseMirror's scrollRectIntoView from causing unwanted
  * horizontal scroll jumps on .table-scroll-wrapper elements when the cursor
- * moves inside a table cell.
+ * moves inside a table cell. Also exports shared helpers (isSelectionInTable,
+ * scrollVerticalOnly) used by scrollFreeze.ts.
  *
  * Key decisions:
  *   - Uses handleScrollToSelection (ProseMirror's official escape hatch) rather
  *     than a standalone plugin or CSS hacks.
  *   - Returns true (suppress PM default) only when cursor is inside a table,
- *     performing vertical-only scroll manually.
+ *     performing vertical-only scroll manually via scrollVerticalOnly.
  *   - Returns false for non-table positions, letting PM handle scroll normally.
  *   - Falls back to PM default when coordsAtPos throws (detached/invalid
  *     positions). Unsupported scrollMargin shapes use a safe default margin.
  *
  * @coordinates-with TiptapEditor.tsx — called from editorProps.handleScrollToSelection
  * @coordinates-with index.ts — table scroll wrapper NodeView
+ * @coordinates-with scrollFreeze.ts — imports isSelectionInTable, scrollVerticalOnly
  * @module plugins/tableScroll/scrollGuard
  */
 
@@ -45,8 +47,10 @@ function resolveVerticalMargin(raw: unknown): { top: number; bottom: number } {
 
 /**
  * Check if the current selection head is inside a table node.
+ * Exported for use by scrollFreeze and other plugins that need
+ * to adjust behavior when the cursor is in a table.
  */
-function isSelectionInTable(view: EditorView): boolean {
+export function isSelectionInTable(view: EditorView): boolean {
   const { $head } = view.state.selection;
   for (let d = $head.depth; d > 0; d--) {
     if ($head.node(d).type.name === "table") return true;
@@ -55,20 +59,11 @@ function isSelectionInTable(view: EditorView): boolean {
 }
 
 /**
- * Performs vertical-only scroll on .editor-content when cursor is in a table.
- * Suppresses ProseMirror's default scrollRectIntoView to prevent horizontal
- * scroll jumps on .table-scroll-wrapper.
- *
- * For non-table selections, returns false to use PM's default scroll behavior.
- *
- * @returns true if scroll was handled (suppress PM default), false otherwise
+ * Perform vertical-only scroll to keep the cursor visible.
+ * Adjusts scrollContainer.scrollTop using PM's scrollMargin prop.
+ * Shared by handleTableScrollToSelection and scrollFreeze's unfreeze.
  */
-export function handleTableScrollToSelection(view: EditorView): boolean {
-  if (!isSelectionInTable(view)) return false;
-
-  const scrollContainer = view.dom.closest(".editor-content") as HTMLElement | null;
-  if (!scrollContainer) return false;
-
+export function scrollVerticalOnly(view: EditorView, scrollContainer: HTMLElement): void {
   try {
     const coords = view.coordsAtPos(view.state.selection.head, 1);
     const rect = scrollContainer.getBoundingClientRect();
@@ -80,9 +75,30 @@ export function handleTableScrollToSelection(view: EditorView): boolean {
       scrollContainer.scrollTop += coords.bottom - rect.bottom + margin.bottom;
     }
   } catch {
-    // coordsAtPos can throw for detached/invalid positions — fall back to PM default
+    // coordsAtPos can throw for detached/invalid positions — no-op
+  }
+}
+
+/**
+ * handleScrollToSelection prop for ProseMirror editorProps.
+ * Intercepts PM's scrollRectIntoView for table selections, performing
+ * vertical-only scroll and suppressing horizontal adjustments.
+ *
+ * @returns true if scroll was handled (suppress PM default), false otherwise
+ */
+export function handleTableScrollToSelection(view: EditorView): boolean {
+  if (!isSelectionInTable(view)) return false;
+
+  const scrollContainer = view.dom.closest(".editor-content") as HTMLElement | null;
+  if (!scrollContainer) return false;
+
+  try {
+    // Verify coordsAtPos works before committing to handle scroll
+    view.coordsAtPos(view.state.selection.head, 1);
+  } catch {
     return false;
   }
 
+  scrollVerticalOnly(view, scrollContainer);
   return true;
 }
