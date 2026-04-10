@@ -45,10 +45,13 @@ class TableScrollNodeView implements NodeView {
   }
 
   /**
-   * Ignore mutations on the wrapper div and table element that are
-   * outside contentDOM. Matches the upstream TableView pattern:
-   * only ignore attribute mutations on our own structural elements,
-   * not on child cells/paragraphs (which have their own ViewDescs).
+   * Ignore mutations on structural elements and column resize handles.
+   *
+   * Without the resize handle check, PM's MutationObserver sees the handle
+   * div appended to a <th>, re-parses it as content (empty paragraph),
+   * dispatches a reconciliation transaction WITH .scrollIntoView(), which
+   * strips the handle. The resize manager then re-adds it after 200ms,
+   * creating a loop where every cycle triggers scrollToSelection (#754).
    */
   ignoreMutation(mutation: ViewMutationRecord): boolean {
     if (
@@ -58,6 +61,22 @@ class TableScrollNodeView implements NodeView {
       return true;
     }
     if (!this.contentDOM.contains(mutation.target)) return true;
+
+    // Column resize handles: ignore all mutations involving .table-resize-handle elements.
+    // childList (add/remove) and attributes (.active class toggle) both need filtering.
+    const target = mutation.target as HTMLElement;
+    if (target.classList?.contains("table-resize-handle")) return true;
+
+    if (mutation.type === "childList") {
+      const nodes = [
+        ...Array.from(mutation.addedNodes ?? []),
+        ...Array.from(mutation.removedNodes ?? []),
+      ];
+      if (nodes.some((n) => (n as HTMLElement).classList?.contains("table-resize-handle"))) {
+        return true;
+      }
+    }
+
     return false;
   }
 }

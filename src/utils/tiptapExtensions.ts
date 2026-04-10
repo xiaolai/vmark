@@ -35,6 +35,7 @@ import {
   TableRowWithSourceLine,
 } from "@/plugins/shared/sourceLineNodes";
 import { TableWithScrollWrapper } from "@/plugins/tableScroll";
+import { tableScrollFreezeExtension } from "@/plugins/tableScroll/scrollFreeze";
 import { smartPasteExtension } from "@/plugins/smartPaste/tiptap";
 import { markdownPasteExtension } from "@/plugins/markdownPaste/tiptap";
 import { htmlPasteExtension } from "@/plugins/htmlPaste/tiptap";
@@ -181,6 +182,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     AlignedTableHeader,
     AlignedTableCell,
     tableUIExtension,
+    tableScrollFreezeExtension,
     blockEscapeExtension,
     compositionGuardExtension,
     blockImageExtension,

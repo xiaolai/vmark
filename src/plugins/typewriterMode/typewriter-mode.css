@@ -9,7 +9,8 @@
   padding-bottom: 50vh;
 }
 
-/* Ensure the editor container allows smooth scrolling */
-.typewriter-mode .editor-content {
-  scroll-behavior: smooth;
-}
+/* NOTE: Do NOT set scroll-behavior:smooth on .editor-content here.
+   It causes PM's resetScrollPos (which uses direct scrollTop assignment)
+   to animate instead of jumping, creating visible scroll jitter in tables (#754).
+   Typewriter mode's JS already uses scrollBy({behavior:'smooth'}) for its own
+   centering, so this CSS rule was redundant anyway. */
