@@ -163,13 +163,19 @@ function getPortFilePath(): string {
   return join(getAppDataDir(), 'mcp-port');
 }
 
-/** Cached auth token from the last port file read. */
-let _lastAuthToken: string | undefined;
+/** Result of reading the port file — port and token returned atomically. */
+interface PortFileResult {
+  port: number;
+  token?: string;
+}
+
+/** Cached result from the last port file read. */
+let _lastPortFileResult: PortFileResult | undefined;
 
 /**
- * Read port from the port file written by VMark.
+ * Read port and auth token from the port file written by VMark.
  * Port file format: `{port}:{token}` (authenticated) or `{port}` (legacy).
- * Returns port number or undefined. Auth token is cached in `_lastAuthToken`.
+ * Returns { port, token } or undefined. Result is also cached for getAuthToken().
  */
 function readPortFromFile(): number | undefined {
   const portFilePath = getPortFilePath();
@@ -180,17 +186,18 @@ function readPortFromFile(): number | undefined {
     // Parse format: "{port}:{token}" or "{port}" (legacy)
     const colonIndex = content.indexOf(':');
     let portStr: string;
+    let token: string | undefined;
 
     if (colonIndex > 0) {
       portStr = content.substring(0, colonIndex);
-      _lastAuthToken = content.substring(colonIndex + 1);
+      token = content.substring(colonIndex + 1);
     } else {
       portStr = content;
-      _lastAuthToken = undefined;
     }
 
     const port = parseInt(portStr, 10);
     if (!isNaN(port) && port > 0 && port < 65536) {
+      _lastPortFileResult = { port, token };
       return port;
     }
   } catch (err) {
@@ -203,12 +210,13 @@ function readPortFromFile(): number | undefined {
     // ENOENT is expected if VMark hasn't started yet
   }
 
+  _lastPortFileResult = undefined;
   return undefined;
 }
 
 /** Get the auth token from the last port file read. */
 function getAuthToken(): string | undefined {
-  return _lastAuthToken;
+  return _lastPortFileResult?.token;
 }
 
 /**
