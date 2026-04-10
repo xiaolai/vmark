@@ -8,8 +8,11 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock Tauri APIs (setup.ts provides defaults, but we need specific behavior here)
-const mockConvertFileSrc = vi.fn((path: string) => `asset://localhost/${path}`);
+// Mock Tauri APIs — matches real runtime: convertFileSrc calls encodeURIComponent
+// (see @tauri-apps/api mocks.ts and crates/tauri/scripts/core.js)
+const mockConvertFileSrc = vi.fn(
+  (path: string) => `asset://localhost/${encodeURIComponent(path)}`,
+);
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
   convertFileSrc: (path: string) => mockConvertFileSrc(path),
@@ -62,6 +65,24 @@ describe("normalizePathForAsset", () => {
   it("handles empty string", () => {
     expect(normalizePathForAsset("")).toBe("");
   });
+
+  it("preserves CJK characters (encoding is done by convertFileSrc)", () => {
+    expect(normalizePathForAsset("/Users/docs/文档/photo.jpg")).toBe(
+      "/Users/docs/文档/photo.jpg",
+    );
+  });
+
+  it("preserves spaces (encoding is done by convertFileSrc)", () => {
+    expect(normalizePathForAsset("/Users/docs/my photos/photo.jpg")).toBe(
+      "/Users/docs/my photos/photo.jpg",
+    );
+  });
+
+  it("preserves CJK + spaces together", () => {
+    expect(normalizePathForAsset("/Users/docs/文档 示例.assets/photo.jpg")).toBe(
+      "/Users/docs/文档 示例.assets/photo.jpg",
+    );
+  });
 });
 
 describe("getActiveTabIdForCurrentWindow", () => {
@@ -105,7 +126,7 @@ describe("resolveMediaSrc", () => {
     it("converts Unix absolute path via convertFileSrc", async () => {
       const result = await resolveMediaSrc("/Users/test/photo.png");
       expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/photo.png");
-      expect(result).toBe("asset://localhost//Users/test/photo.png");
+      expect(result).toContain("asset://localhost/");
     });
 
     it("converts Windows absolute path via convertFileSrc", async () => {
@@ -113,7 +134,7 @@ describe("resolveMediaSrc", () => {
       expect(mockConvertFileSrc).toHaveBeenCalledWith(
         "C:/Users/test/photo.png",
       );
-      expect(result).toBe("asset://localhost/C:/Users/test/photo.png");
+      expect(result).toContain("asset://localhost/");
     });
   });
 
@@ -126,9 +147,8 @@ describe("resolveMediaSrc", () => {
       const result = await resolveMediaSrc("./image.png");
       expect(mockDirname).toHaveBeenCalledWith("/Users/test/docs/readme.md");
       expect(mockJoin).toHaveBeenCalledWith("/Users/test/docs", "image.png");
-      expect(result).toBe(
-        "asset://localhost//Users/test/docs/image.png",
-      );
+      expect(result).toContain("asset://localhost/");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/docs/image.png");
     });
 
     it("resolves assets/bar.mp3 relative to doc directory", async () => {
@@ -137,9 +157,8 @@ describe("resolveMediaSrc", () => {
         "/Users/test/docs",
         "assets/bar.mp3",
       );
-      expect(result).toBe(
-        "asset://localhost//Users/test/docs/assets/bar.mp3",
-      );
+      expect(result).toContain("asset://localhost/");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/docs/assets/bar.mp3");
     });
 
     it("resolves bare relative path without ./ prefix", async () => {
@@ -148,9 +167,8 @@ describe("resolveMediaSrc", () => {
         "/Users/test/docs",
         "images/photo.jpg",
       );
-      expect(result).toBe(
-        "asset://localhost//Users/test/docs/images/photo.jpg",
-      );
+      expect(result).toContain("asset://localhost/");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/docs/images/photo.jpg");
     });
   });
 
@@ -179,14 +197,39 @@ describe("resolveMediaSrc", () => {
     it("strips angle brackets from <path>", async () => {
       const result = await resolveMediaSrc("</Users/test/photo.png>");
       expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/photo.png");
-      expect(result).toBe("asset://localhost//Users/test/photo.png");
+      expect(result).toContain("asset://localhost/");
     });
 
-    it("decodes %20 in paths", async () => {
+    it("decodes %20 before passing to convertFileSrc", async () => {
       await resolveMediaSrc("/Users/test/my%20photos/pic.png");
+      // decodeMarkdownUrl decodes %20 → space; convertFileSrc re-encodes
       expect(mockConvertFileSrc).toHaveBeenCalledWith(
         "/Users/test/my photos/pic.png",
       );
+    });
+
+    it("handles CJK characters in absolute paths", async () => {
+      const result = await resolveMediaSrc("/Users/test/文档/photo.jpg");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/文档/photo.jpg");
+      expect(result).toContain("asset://localhost/");
+    });
+
+    it("handles CJK + spaces in relative paths (#752)", async () => {
+      setupDocWithPath("/Users/test/test.md");
+      const result = await resolveMediaSrc("文档 示例.assets/photo.jpg");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith(
+        "/Users/test/文档 示例.assets/photo.jpg",
+      );
+      expect(result).toContain("asset://localhost/");
+    });
+
+    it("handles angle-bracket syntax with CJK + spaces (#752)", async () => {
+      setupDocWithPath("/Users/test/test.md");
+      const result = await resolveMediaSrc("<文档 示例.assets/photo.jpg>");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith(
+        "/Users/test/文档 示例.assets/photo.jpg",
+      );
+      expect(result).toContain("asset://localhost/");
     });
   });
 

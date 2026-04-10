@@ -32,9 +32,13 @@ import { imageViewWarn, resolveMediaError } from "@/utils/debug";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 
 /**
- * Normalize path for convertFileSrc on Windows.
- * Windows paths use backslashes which convertFileSrc doesn't handle correctly.
- * See: https://github.com/tauri-apps/tauri/issues/7970
+ * Normalize a filesystem path for use with Tauri's convertFileSrc().
+ *
+ * - Windows backslashes → forward slashes (tauri-apps/tauri#7970)
+ *
+ * NOTE: Do NOT percent-encode here. Tauri's convertFileSrc() already calls
+ * encodeURIComponent() on the entire path (see @tauri-apps/api mocks.js:235).
+ * Encoding here would double-encode and break the asset protocol (#752).
  */
 export function normalizePathForAsset(path: string): string {
   return path.replace(/\\/g, "/");
