@@ -3,19 +3,21 @@
  *
  * Purpose: Prevents ProseMirror's scrollRectIntoView from causing unwanted
  * horizontal scroll jumps on .table-scroll-wrapper elements when the cursor
- * moves inside a table cell.
+ * moves inside a table cell. Also exports shared helpers (isSelectionInTable,
+ * scrollVerticalOnly) used by scrollFreeze.ts.
  *
  * Key decisions:
  *   - Uses handleScrollToSelection (ProseMirror's official escape hatch) rather
  *     than a standalone plugin or CSS hacks.
  *   - Returns true (suppress PM default) only when cursor is inside a table,
- *     performing vertical-only scroll manually.
+ *     performing vertical-only scroll manually via scrollVerticalOnly.
  *   - Returns false for non-table positions, letting PM handle scroll normally.
  *   - Falls back to PM default when coordsAtPos throws (detached/invalid
  *     positions). Unsupported scrollMargin shapes use a safe default margin.
  *
  * @coordinates-with TiptapEditor.tsx — called from editorProps.handleScrollToSelection
  * @coordinates-with index.ts — table scroll wrapper NodeView
+ * @coordinates-with scrollFreeze.ts — imports isSelectionInTable, scrollVerticalOnly
  * @module plugins/tableScroll/scrollGuard
  */
 
