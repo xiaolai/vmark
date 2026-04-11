@@ -33,7 +33,13 @@ export function handleMultiCursorEnter(
     return null;
   }
 
-  const sortedRanges = sortRangesDescending(selection.ranges);
+  // Pre-merge overlapping ranges so each split targets a disjoint span —
+  // without this, overlapping regions would be deleted and split multiple
+  // times, producing extra paragraph nodes or lost content.
+  const preMerged = normalizeRangesWithPrimary(
+    selection.ranges, state.doc, selection.primaryIndex, true
+  );
+  const sortedRanges = sortRangesDescending(preMerged.ranges);
   let tr = state.tr;
 
   // Track ranges skipped by canSplit to preserve their selection span
@@ -63,7 +69,7 @@ export function handleMultiCursorEnter(
   }
 
   // Remap cursors through the changes
-  const newRanges = selection.ranges.map((range) => {
+  const newRanges = preMerged.ranges.map((range) => {
     if (skippedFromPositions.has(range.$from.pos)) {
       // Preserve original range span for skipped ranges
       const newFrom = tr.mapping.map(range.$from.pos);
@@ -79,7 +85,7 @@ export function handleMultiCursorEnter(
     return new SelectionRange($pos, $pos);
   });
 
-  const normalized = normalizeRangesWithPrimary(newRanges, tr.doc, selection.primaryIndex, true);
+  const normalized = normalizeRangesWithPrimary(newRanges, tr.doc, preMerged.primaryIndex, true);
   const newSel = new MultiSelection(normalized.ranges, normalized.primaryIndex);
   tr = tr.setSelection(newSel);
   tr = tr.setMeta("addToHistory", true);

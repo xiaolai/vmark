@@ -154,6 +154,86 @@ describe("handleMultiCursorEnter", () => {
     }
   });
 
+  describe("overlapping selection ranges", () => {
+    it("merges overlapping ranges before splitting", () => {
+      // Ranges [3,7] and [5,9] overlap at positions 5-7.
+      // Merged: [3,9] covers "llo wo" in "hello world".
+      // Without pre-merge: the region would be deleted and split twice,
+      // producing an extra paragraph or duplicated content.
+      // With pre-merge: delete [3,9] then split at 3 → "he" | "rld".
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 7 },
+        { from: 5, to: 9 },
+      ]);
+
+      const result = handleMultiCursorEnter(state);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = state.apply(result);
+        // Exactly 2 paragraphs — NOT 3 (which would indicate double-splitting)
+        expect(newState.doc.childCount).toBe(2);
+        expect(newState.doc.child(0).textContent).toBe("he");
+        expect(newState.doc.child(1).textContent).toBe("rld");
+
+        // Selection merged to a single cursor at start of second paragraph
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel).toBeInstanceOf(MultiSelection);
+        expect(multiSel.ranges.length).toBe(1);
+      }
+    });
+
+    it("merges chain of 3 overlapping ranges before splitting", () => {
+      // [2,5] + [4,7] + [6,9] → merged to [2,9] covers "ello wo"
+      // Delete [2,9] then split at 2 → "h" | "rld"
+      const state = createMultiCursorState("hello world", [
+        { from: 2, to: 5 },
+        { from: 4, to: 7 },
+        { from: 6, to: 9 },
+      ]);
+
+      const result = handleMultiCursorEnter(state);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = state.apply(result);
+        // Exactly 2 paragraphs — NOT 4 (which would indicate triple-splitting)
+        expect(newState.doc.childCount).toBe(2);
+        expect(newState.doc.child(0).textContent).toBe("h");
+        expect(newState.doc.child(1).textContent).toBe("rld");
+
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges.length).toBe(1);
+      }
+    });
+
+    it("merges overlapping cursor + selection ranges before splitting", () => {
+      // Cursor at 5 overlaps with selection [3,7] (5 is inside [3,7]).
+      // Merged: [3,7] covers "llo " in "hello world".
+      // Delete [3,7] then split at 3 → "he" | "world".
+      // Without pre-merge: would split at 5 first (creating extra para)
+      // then process [3,7] → 3 paragraphs with corrupted content.
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 7 },
+        { from: 5, to: 5 },
+      ]);
+
+      const result = handleMultiCursorEnter(state);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = state.apply(result);
+        // Exactly 2 paragraphs — NOT 3 (double-split by the cursor inside [3,7])
+        expect(newState.doc.childCount).toBe(2);
+        expect(newState.doc.child(0).textContent).toBe("he");
+        expect(newState.doc.child(1).textContent).toBe("world");
+
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges.length).toBe(1);
+      }
+    });
+  });
+
   describe("canSplit guard behavior", () => {
     it("returns null when all ranges fail canSplit", () => {
       vi.mocked(canSplit).mockReturnValue(false);
