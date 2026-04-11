@@ -187,3 +187,58 @@ describe("handleMultiCursorPaste edge cases", () => {
     }
   });
 });
+
+describe("overlapping ranges", () => {
+  it("merges overlapping ranges before cut", () => {
+    // Ranges [3,7] and [5,9] overlap at positions 5-7
+    // Merged: [3,9] covers "llo wo" in "hello world"
+    // Cut → "he" + "rld" = "herld"
+    const state = createState("hello world", [
+      { from: 3, to: 7 },
+      { from: 5, to: 9 },
+    ]);
+
+    const tr = handleMultiCursorCut(state);
+    expect(tr).not.toBeNull();
+
+    const newState = state.apply(tr!);
+    expect(newState.doc.textContent).toBe("herld");
+    const sel = newState.selection as MultiSelection;
+    expect(sel.ranges.length).toBe(1);
+  });
+
+  it("merges overlapping ranges before paste", () => {
+    // Ranges [3,7] and [5,9] overlap → merged to [3,9]
+    // Paste "X" into merged range → "he" + "X" + "rld" = "heXrld"
+    const state = createState("hello world", [
+      { from: 3, to: 7 },
+      { from: 5, to: 9 },
+    ]);
+
+    const tr = handleMultiCursorPaste(state, "X");
+    expect(tr).not.toBeNull();
+
+    const newState = state.apply(tr!);
+    expect(newState.doc.textContent).toBe("heXrld");
+    const sel = newState.selection as MultiSelection;
+    expect(sel.ranges.length).toBe(1);
+  });
+
+  it("merges chain of 3 overlapping ranges before cut", () => {
+    // [2,5]+[4,7]+[6,9] → merged to [2,9] covers "ello wo"
+    // Cut → "h" + "rld" = "hrld"
+    const state = createState("hello world", [
+      { from: 2, to: 5 },
+      { from: 4, to: 7 },
+      { from: 6, to: 9 },
+    ]);
+
+    const tr = handleMultiCursorCut(state);
+    expect(tr).not.toBeNull();
+
+    const newState = state.apply(tr!);
+    expect(newState.doc.textContent).toBe("hrld");
+    const sel = newState.selection as MultiSelection;
+    expect(sel.ranges.length).toBe(1);
+  });
+});

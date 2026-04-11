@@ -48,7 +48,11 @@ export function handleMultiCursorCut(
   );
   if (!hasNonEmptyRange) return null;
 
-  const sortedRanges = sortRangesDescending(selection.ranges);
+  // Pre-merge overlapping ranges so each edit targets a disjoint span
+  const preMerged = normalizeRangesWithPrimary(
+    selection.ranges, state.doc, selection.primaryIndex, true
+  );
+  const sortedRanges = sortRangesDescending(preMerged.ranges);
   let tr = state.tr;
 
   for (const range of sortedRanges) {
@@ -60,7 +64,7 @@ export function handleMultiCursorCut(
   }
 
   // Remap all cursors to collapsed positions
-  const newRanges: SelectionRange[] = selection.ranges.map((range) => {
+  const newRanges: SelectionRange[] = preMerged.ranges.map((range) => {
     const newPos = tr.mapping.map(range.$from.pos);
     const $pos = tr.doc.resolve(newPos);
     return new SelectionRange($pos, $pos);
@@ -69,7 +73,7 @@ export function handleMultiCursorCut(
   const normalized = normalizeRangesWithPrimary(
     newRanges,
     tr.doc,
-    selection.primaryIndex,
+    preMerged.primaryIndex,
     true
   );
 
@@ -94,7 +98,11 @@ export function handleMultiCursorPaste(
     return null;
   }
 
-  const ranges = selection.ranges;
+  // Pre-merge overlapping ranges so each edit targets a disjoint span
+  const preMerged = normalizeRangesWithPrimary(
+    selection.ranges, state.doc, selection.primaryIndex, true
+  );
+  const ranges = preMerged.ranges;
   /* v8 ignore next -- @preserve MultiSelection always has at least one range; empty guard is defensive */
   if (ranges.length === 0) return null;
 
@@ -123,7 +131,7 @@ export function handleMultiCursorPaste(
   const normalized = normalizeRangesWithPrimary(
     newRanges,
     tr.doc,
-    selection.primaryIndex,
+    preMerged.primaryIndex,
     true
   );
 
