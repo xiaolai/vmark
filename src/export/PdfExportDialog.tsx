@@ -17,6 +17,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -210,7 +211,7 @@ export function PdfExportContent({
         setExportStage(key ? t(key) : event.payload.stage);
       },
     );
-    return () => { unlisten.then((f) => f()); };
+    return () => { safeUnlistenAsync(unlisten); };
   }, [t]);
 
   // Extract headings from rendered HTML for PDF bookmarks
