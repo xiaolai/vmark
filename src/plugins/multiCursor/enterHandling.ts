@@ -39,7 +39,41 @@ export function handleMultiCursorEnter(
   const preMerged = normalizeRangesWithPrimary(
     selection.ranges, state.doc, selection.primaryIndex, true
   );
-  const sortedRanges = sortRangesDescending(preMerged.ranges);
+
+  // Enter-specific boundary absorption: the shared merge in rangeUtils
+  // deliberately excludes touching boundaries ("boundary-touching does
+  // not count" — see rangesOverlap), but for Enter, a collapsed cursor
+  // sitting at the start or end of a sibling selection targets the same
+  // logical split point as that selection. Left alone, tr.split would
+  // fire twice at the same position, producing an extra empty paragraph.
+  // Drop such collapsed cursors here so they are handled as part of the
+  // absorbing non-empty range.
+  const nonEmptyRanges = preMerged.ranges.filter(
+    (r) => r.$from.pos !== r.$to.pos
+  );
+  const effectiveRanges = preMerged.ranges.filter((r) => {
+    if (r.$from.pos !== r.$to.pos) return true;
+    const pos = r.$from.pos;
+    return !nonEmptyRanges.some(
+      (n) => pos >= n.$from.pos && pos <= n.$to.pos
+    );
+  });
+
+  // Route the primary index through the absorption: if the original
+  // primary range was absorbed, point it at the range that swallowed it.
+  const originalPrimary = preMerged.ranges[preMerged.primaryIndex];
+  let effectivePrimaryIndex = effectiveRanges.indexOf(originalPrimary);
+  if (effectivePrimaryIndex < 0) {
+    effectivePrimaryIndex = effectiveRanges.findIndex(
+      (r) =>
+        originalPrimary.$from.pos >= r.$from.pos &&
+        originalPrimary.$from.pos <= r.$to.pos
+    );
+    /* v8 ignore next -- @preserve defensive: an absorbed cursor is always contained within a surviving non-empty range */
+    if (effectivePrimaryIndex < 0) effectivePrimaryIndex = 0;
+  }
+
+  const sortedRanges = sortRangesDescending(effectiveRanges);
   let tr = state.tr;
 
   // Track ranges skipped by canSplit to preserve their selection span
@@ -69,7 +103,7 @@ export function handleMultiCursorEnter(
   }
 
   // Remap cursors through the changes
-  const newRanges = preMerged.ranges.map((range) => {
+  const newRanges = effectiveRanges.map((range) => {
     if (skippedFromPositions.has(range.$from.pos)) {
       // Preserve original range span for skipped ranges
       const newFrom = tr.mapping.map(range.$from.pos);
@@ -85,7 +119,7 @@ export function handleMultiCursorEnter(
     return new SelectionRange($pos, $pos);
   });
 
-  const normalized = normalizeRangesWithPrimary(newRanges, tr.doc, preMerged.primaryIndex, true);
+  const normalized = normalizeRangesWithPrimary(newRanges, tr.doc, effectivePrimaryIndex, true);
   const newSel = new MultiSelection(normalized.ranges, normalized.primaryIndex);
   tr = tr.setSelection(newSel);
   tr = tr.setMeta("addToHistory", true);

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { SelectionRange } from "@tiptap/pm/state";
 import { MultiSelection } from "../MultiSelection";
 import { handleMultiCursorKeyDown } from "../inputHandling";
 import { createState, createMultiCursorState } from "./testHelpers";
@@ -232,6 +233,87 @@ describe("handleMultiCursorEnter", () => {
         expect(multiSel.ranges.length).toBe(1);
       }
     });
+
+    it("absorbs collapsed cursor at end boundary of sibling selection", () => {
+      // Selection [3,7] + collapsed cursor exactly at position 7.
+      // The shared rangeUtils merge skips boundary-touching, so without
+      // the Enter-specific absorption pass, tr.split would fire twice at
+      // position 7 and produce an extra empty paragraph.
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 7 },
+        { from: 7, to: 7 },
+      ]);
+
+      const result = handleMultiCursorEnter(state);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = state.apply(result);
+        // Exactly 2 paragraphs — NOT 3 (double-split at position 7)
+        expect(newState.doc.childCount).toBe(2);
+        expect(newState.doc.child(0).textContent).toBe("he");
+        expect(newState.doc.child(1).textContent).toBe("world");
+
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges.length).toBe(1);
+      }
+    });
+
+    it("absorbs collapsed cursor at start boundary of sibling selection", () => {
+      // Collapsed cursor at position 3 + selection [3,7].
+      // Without absorption, tr.split would fire twice at position 3.
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 3 },
+        { from: 3, to: 7 },
+      ]);
+
+      const result = handleMultiCursorEnter(state);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = state.apply(result);
+        expect(newState.doc.childCount).toBe(2);
+        expect(newState.doc.child(0).textContent).toBe("he");
+        expect(newState.doc.child(1).textContent).toBe("world");
+
+        const multiSel = newState.selection as MultiSelection;
+        expect(multiSel.ranges.length).toBe(1);
+      }
+    });
+
+    it("preserves non-zero primary index when merged-away range was primary", () => {
+      // Build the MultiSelection directly with primaryIndex=1 — the
+      // second range is the primary. After merge, only one range
+      // survives and the primary must be routed to it.
+      const state = createState("hello world");
+      const doc = state.doc;
+      const ranges = [
+        new SelectionRange(doc.resolve(3), doc.resolve(7)),
+        new SelectionRange(doc.resolve(5), doc.resolve(9)),
+      ];
+      const multiSel = new MultiSelection(ranges, 1);
+      const initState = state.apply(state.tr.setSelection(multiSel));
+
+      const result = handleMultiCursorEnter(initState);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = initState.apply(result);
+        const newSel = newState.selection as MultiSelection;
+
+        // Merged to 1 range → primaryIndex must be 0 (only surviving range)
+        expect(newSel.ranges).toHaveLength(1);
+        expect(newSel.primaryIndex).toBe(0);
+
+        // After delete [3,9] and split at 3: "he" | "rld"
+        // Cursor should be at start of the second paragraph ("rld")
+        expect(newState.doc.childCount).toBe(2);
+        expect(newState.doc.child(0).textContent).toBe("he");
+        expect(newState.doc.child(1).textContent).toBe("rld");
+        const para2Start = newState.doc.child(0).nodeSize + 1;
+        expect(newSel.ranges[0].$from.pos).toBe(para2Start);
+      }
+    });
   });
 
   describe("canSplit guard behavior", () => {
@@ -273,6 +355,45 @@ describe("handleMultiCursorEnter", () => {
         expect(r0.$to.pos).toBe(5);
 
         // Second range was split — collapsed to cursor
+        const r1 = multiSel.ranges[1];
+        expect(r1.$from.pos).toBe(r1.$to.pos);
+      }
+    });
+
+    it("preserves merged span when canSplit fails on the merged from", () => {
+      // canSplit returns false for pos 3 (the merged from), true elsewhere.
+      // This exercises the skipped-range branch operating on merged ranges
+      // rather than raw selection.ranges.
+      vi.mocked(canSplit).mockImplementation(
+        (_doc: unknown, pos: number) => pos !== 3
+      );
+
+      // Overlapping [3,7] + [5,9] merge to [3,9], plus a non-overlapping
+      // cursor at 11 that successfully splits. The merged range is skipped
+      // (canSplit false at 3) and its selection span must be preserved.
+      const state = createMultiCursorState("hello world", [
+        { from: 3, to: 7 },
+        { from: 5, to: 9 },
+        { from: 11, to: 11 },
+      ]);
+
+      const result = handleMultiCursorEnter(state);
+      expect(result).not.toBeNull();
+
+      if (result) {
+        const newState = state.apply(result);
+        const multiSel = newState.selection as MultiSelection;
+
+        // Two surviving ranges: the preserved merged span + the split cursor
+        expect(multiSel.ranges).toHaveLength(2);
+
+        // First range: merged span [3,9] preserved as a selection (from !== to)
+        const r0 = multiSel.ranges[0];
+        expect(r0.$from.pos).toBe(3);
+        expect(r0.$to.pos).toBe(9);
+        expect(r0.$from.pos).not.toBe(r0.$to.pos);
+
+        // Second range: cursor, collapsed
         const r1 = multiSel.ranges[1];
         expect(r1.$from.pos).toBe(r1.$to.pos);
       }
