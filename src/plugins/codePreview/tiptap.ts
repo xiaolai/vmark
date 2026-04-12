@@ -108,21 +108,27 @@ function updateLivePreview(
     /* v8 ignore next -- @preserve stale-token guard: fires only when a prior timer somehow outlives a later updateLivePreview call; in practice all callers clear the timeout before incrementing the token, making the early-return unreachable in synchronous tests */
     if (currentToken !== livePreviewToken) return;
 
-    const trimmed = content.trim();
-    if (!trimmed) {
-      element.innerHTML = '<div class="code-block-live-preview-empty">Empty</div>';
-      return;
-    }
+    try {
+      const trimmed = content.trim();
+      if (!trimmed) {
+        element.innerHTML = '<div class="code-block-live-preview-empty">Empty</div>';
+        return;
+      }
 
-    if (isLatexLanguage(language)) {
-      updateLatexLivePreview(element, trimmed, currentToken, getToken);
-    } else if (language === "mermaid") {
-      await updateMermaidLivePreview(element, trimmed, currentToken, getToken);
-    } else if (language === "markmap") {
-      await updateMarkmapLivePreview(element, trimmed, currentToken, getToken);
-    } else {
-      // Only "svg" reaches this branch among PREVIEW_ONLY_LANGUAGES
-      updateSvgLivePreview(element, trimmed, currentToken, getToken);
+      if (isLatexLanguage(language)) {
+        updateLatexLivePreview(element, trimmed, currentToken, getToken);
+      } else if (language === "mermaid") {
+        await updateMermaidLivePreview(element, trimmed, currentToken, getToken);
+      } else if (language === "markmap") {
+        await updateMarkmapLivePreview(element, trimmed, currentToken, getToken);
+      } else {
+        // Only "svg" reaches this branch among PREVIEW_ONLY_LANGUAGES
+        updateSvgLivePreview(element, trimmed, currentToken, getToken);
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      diagramWarn("code preview live render failed:", msg);
+      element.innerHTML = '<div class="code-block-live-preview-error">Preview failed</div>';
     }
   }, DEBOUNCE_MS);
 }
