@@ -429,6 +429,130 @@ describe("back-to-back compositionend without compositionstart (#659 — fcitx5+
   });
 });
 
+describe("chunked onData re-emission dedup (#768)", () => {
+  const DEDUP_WINDOW_MS = IME_DEDUP_WINDOW_MS;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * Mirrors the dedup guard in useTerminalSessions.ts, including the
+   * consumed-prefix pointer that advances as chunks are absorbed.
+   * This enables matching suffix chunks when xterm splits a commit
+   * like "你好世界" into "你好" + "世界" across two onData calls.
+   */
+  function makeOnData(guard: ReturnType<typeof createCompositionGuard>, ptyWrite: (d: string) => void) {
+    let lastSeenCommitTime = 0;
+    let consumed = 0;
+    return (data: string) => {
+      if (guard.composing) return;
+      const lastText = guard.lastCommittedText;
+      const lastTime = guard.lastCommitTime;
+      if (lastText && Date.now() - lastTime < DEDUP_WINDOW_MS) {
+        if (lastSeenCommitTime !== lastTime) {
+          lastSeenCommitTime = lastTime;
+          consumed = 0;
+        }
+        const remainder = lastText.slice(consumed);
+        if (data.length > 0 && (remainder === data || remainder.startsWith(data))) {
+          consumed += data.length;
+          return;
+        }
+      }
+      ptyWrite(data);
+    };
+  }
+
+  it("blocks both prefix and suffix chunks of a split re-emission", () => {
+    const guard = createCompositionGuard();
+    const commit = vi.fn();
+    const ptyWrite = vi.fn();
+    guard.onCompositionCommit = commit;
+
+    // Full commit "你好世界" fires via onCompositionCommit after grace.
+    guard.compositionStart();
+    guard.compositionEnd("你好世界");
+    vi.advanceTimersByTime(GRACE_MS);
+    expect(commit).toHaveBeenCalledWith("你好世界");
+
+    // xterm then re-emits the same text chunked across two onData calls.
+    const onData = makeOnData(guard, ptyWrite);
+    vi.advanceTimersByTime(10);
+    onData("你好");
+    onData("世界");
+
+    // PTY must receive ZERO writes — both chunks absorbed by the pointer.
+    expect(ptyWrite).not.toHaveBeenCalled();
+  });
+
+  it("still allows unrelated text after a chunked re-emission is consumed", () => {
+    const guard = createCompositionGuard();
+    const ptyWrite = vi.fn();
+    // commitCallback must be set — the guard only records lastCommittedText
+    // when there is a commit sink to notify.
+    guard.onCompositionCommit = vi.fn();
+
+    guard.compositionStart();
+    guard.compositionEnd("你好");
+    vi.advanceTimersByTime(GRACE_MS);
+
+    const onData = makeOnData(guard, ptyWrite);
+    vi.advanceTimersByTime(10);
+    onData("你");
+    onData("好");
+    // Full committed text consumed — subsequent unrelated data must pass.
+    onData("ls\n");
+    expect(ptyWrite).toHaveBeenCalledTimes(1);
+    expect(ptyWrite).toHaveBeenCalledWith("ls\n");
+  });
+
+  it("resets consumed pointer when a new commit arrives", () => {
+    const guard = createCompositionGuard();
+    const commit = vi.fn();
+    const ptyWrite = vi.fn();
+    guard.onCompositionCommit = commit;
+
+    guard.compositionStart();
+    guard.compositionEnd("你好");
+    vi.advanceTimersByTime(GRACE_MS);
+
+    const onData = makeOnData(guard, ptyWrite);
+    vi.advanceTimersByTime(5);
+    onData("你"); // consume prefix of first commit
+
+    // New commit — pointer should reset so first chunk of new commit is blocked.
+    guard.compositionStart();
+    guard.compositionEnd("世界");
+    vi.advanceTimersByTime(GRACE_MS);
+
+    onData("世界");
+    expect(ptyWrite).not.toHaveBeenCalled();
+  });
+
+  it("does not dedup when data is longer than remainder", () => {
+    const guard = createCompositionGuard();
+    const ptyWrite = vi.fn();
+    guard.onCompositionCommit = vi.fn();
+
+    guard.compositionStart();
+    guard.compositionEnd("你好");
+    vi.advanceTimersByTime(GRACE_MS);
+
+    const onData = makeOnData(guard, ptyWrite);
+    vi.advanceTimersByTime(10);
+    onData("你"); // consumed by pointer, remainder becomes "好"
+    // Data longer than remainder — don't absorb, pass to PTY.
+    onData("好世界");
+    expect(ptyWrite).toHaveBeenCalledTimes(1);
+    expect(ptyWrite).toHaveBeenCalledWith("好世界");
+  });
+});
+
 describe("WeChat IME onData dedup (#525)", () => {
   const DEDUP_WINDOW_MS = IME_DEDUP_WINDOW_MS;
 
