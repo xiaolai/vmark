@@ -32,7 +32,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
-          claude_args: "--model opus --max-turns 25 --allowedTools Bash,Read,Glob,Grep,WebSearch,WebFetch"
+          claude_args: "--model opus --max-turns 50 --allowedTools Bash,Read,Glob,Grep,WebSearch,WebFetch"
 
           prompt: |
             You are a codebase auditor for **VMark** — a Tauri v2 + React 19 + Zustand v5
