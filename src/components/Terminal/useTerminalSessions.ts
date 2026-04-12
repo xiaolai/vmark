@@ -75,6 +75,20 @@ interface SessionEntry {
   shellSpawning: boolean;
   disposed: boolean;
   pendingRafId: number | null;
+  /**
+   * Last observed `instance.lastCommitTime`. When it changes, a new IME
+   * commit has occurred and `lastCommittedConsumed` must reset to 0.
+   * Without this we cannot distinguish "same commit, next chunk" from
+   * "new commit, fresh state" when deduping chunked re-emissions.
+   */
+  lastSeenCommitTime: number;
+  /**
+   * Number of chars from `instance.lastCommittedText` that have already
+   * been deduped via onData. Enables suffix-chunk matching when xterm
+   * splits a commit like "你好世界" into "你好" + "世界" — the second
+   * chunk is matched against the remainder, not the full committed text.
+   */
+  lastCommittedConsumed: number;
 }
 
 /** Callbacks passed to the terminal sessions hook for panel-level actions. */
@@ -265,6 +279,8 @@ export function useTerminalSessions(
         shellSpawning: false,
         disposed: false,
         pendingRafId: null,
+        lastSeenCommitTime: 0,
+        lastCommittedConsumed: 0,
       };
       sessionsRef.current.set(sessionId, entry);
 
@@ -300,14 +316,25 @@ export function useTerminalSessions(
         if (instance.composing) return;
         // Safety net: some IMEs (WeChat) may emit onData with the committed
         // text AFTER the grace period ends. Deduplicate within 150ms (#525).
-        // Uses startsWith to also catch chunked re-emission (e.g., xterm
-        // splitting "你好世界" into "你好" + "世界" as separate onData calls).
+        // Tracks a consumed-prefix pointer so chunked re-emissions — e.g.
+        // xterm splitting "你好世界" into "你好" + "世界" — match against
+        // the remainder of the committed text, not the full string. Without
+        // this, the suffix chunk ("世界") would slip through and duplicate.
         if (
           instance.lastCommittedText &&
-          Date.now() - instance.lastCommitTime < IME_DEDUP_WINDOW_MS &&
-          (data === instance.lastCommittedText || instance.lastCommittedText.startsWith(data))
+          Date.now() - instance.lastCommitTime < IME_DEDUP_WINDOW_MS
         ) {
-          return;
+          // Reset consumed pointer when a new commit lands (lastCommitTime
+          // changes), so prior-chunk bookkeeping doesn't leak across commits.
+          if (e.lastSeenCommitTime !== instance.lastCommitTime) {
+            e.lastSeenCommitTime = instance.lastCommitTime;
+            e.lastCommittedConsumed = 0;
+          }
+          const remainder = instance.lastCommittedText.slice(e.lastCommittedConsumed);
+          if (data.length > 0 && (remainder === data || remainder.startsWith(data))) {
+            e.lastCommittedConsumed += data.length;
+            return;
+          }
         }
         if (e.shellExited && !e.pty) {
           e.shellExited = false;
