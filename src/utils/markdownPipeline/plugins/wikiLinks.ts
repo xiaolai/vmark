@@ -11,7 +11,7 @@
  *   - Pipe character `|` separates target from alias: [[target|display text]]
  *   - Empty targets after trimming return null (invalid wiki link)
  *
- * @coordinates-with markdownLinkPatterns.ts — WIKI_LINK_REGEX for source mode detection
+ * @coordinates-with markdownLinkPatterns.ts — findWikiLinksInLine for source mode detection
  * @coordinates-with markdownArtifacts/wikiLink.ts — PM node definition for wiki links
  * @module utils/markdownPipeline/plugins/wikiLinks
  */

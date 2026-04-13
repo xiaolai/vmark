@@ -24,7 +24,7 @@
  *
  * Does NOT match images - caller must check for preceding `!`
  */
-export const MARKDOWN_LINK_REGEX = /\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+"[^"]*")?\)/g;
+const MARKDOWN_LINK_REGEX = /\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+"[^"]*")?\)/g;
 
 /**
  * Regex to match wiki links: [[target]] or [[target|alias]]
@@ -33,7 +33,7 @@ export const MARKDOWN_LINK_REGEX = /\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+
  * - [1]: Target (required)
  * - [2]: Alias (optional)
  */
-export const WIKI_LINK_REGEX = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+const WIKI_LINK_REGEX = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 
 /**
  * Result of finding a markdown link at a position.
