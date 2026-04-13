@@ -202,6 +202,59 @@ describe("terminalTheme", () => {
       return Math.min(d, 360 - d);
     }
 
+    // CIEDE2000 perceptual color distance. ΔE < 1 = imperceptible,
+    // 2-5 = perceptible at glance, > 5 = clearly different.
+    // We require cross-family ANSI pairs (cyan vs blue, etc.) to have
+    // ΔE ≥ 5 so they're distinguishable at terminal reading speed.
+    function rgbToLab(hex: string): [number, number, number] {
+      const [r, g, b] = hexToSrgb(hex).map((v) => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      });
+      const X = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
+      const Y = (r * 0.2126729 + g * 0.7151522 + b * 0.072175);
+      const Z = (r * 0.0193339 + g * 0.119192 + b * 0.9503041) / 1.08883;
+      const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+    }
+    function deltaE2000(hex1: string, hex2: string): number {
+      const [L1, a1, b1] = rgbToLab(hex1);
+      const [L2, a2, b2] = rgbToLab(hex2);
+      const avgL = (L1 + L2) / 2;
+      const C1 = Math.hypot(a1, b1), C2 = Math.hypot(a2, b2);
+      const avgC = (C1 + C2) / 2;
+      const G = 0.5 * (1 - Math.sqrt(Math.pow(avgC, 7) / (Math.pow(avgC, 7) + Math.pow(25, 7))));
+      const a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+      const C1p = Math.hypot(a1p, b1), C2p = Math.hypot(a2p, b2);
+      const avgCp = (C1p + C2p) / 2;
+      const h1p = (Math.atan2(b1, a1p) * 180 / Math.PI + 360) % 360;
+      const h2p = (Math.atan2(b2, a2p) * 180 / Math.PI + 360) % 360;
+      const dhp = (() => {
+        if (C1p * C2p === 0) return 0;
+        let d = h2p - h1p;
+        if (d > 180) d -= 360;
+        else if (d < -180) d += 360;
+        return d;
+      })();
+      const dLp = L2 - L1, dCp = C2p - C1p;
+      const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin((dhp / 2) * Math.PI / 180);
+      const avgHp = (() => {
+        if (C1p * C2p === 0) return h1p + h2p;
+        return Math.abs(h1p - h2p) <= 180 ? (h1p + h2p) / 2 : (h1p + h2p + 360) / 2;
+      })();
+      const T = 1 - 0.17 * Math.cos((avgHp - 30) * Math.PI / 180)
+              + 0.24 * Math.cos((2 * avgHp) * Math.PI / 180)
+              + 0.32 * Math.cos((3 * avgHp + 6) * Math.PI / 180)
+              - 0.20 * Math.cos((4 * avgHp - 63) * Math.PI / 180);
+      const Sl = 1 + (0.015 * Math.pow(avgL - 50, 2)) / Math.sqrt(20 + Math.pow(avgL - 50, 2));
+      const Sc = 1 + 0.045 * avgCp;
+      const Sh = 1 + 0.015 * avgCp * T;
+      const Rt = -2 * Math.sqrt(Math.pow(avgCp, 7) / (Math.pow(avgCp, 7) + Math.pow(25, 7)))
+               * Math.sin(60 * Math.exp(-Math.pow((avgHp - 275) / 25, 2)) * Math.PI / 180);
+      return Math.sqrt(Math.pow(dLp / Sl, 2) + Math.pow(dCp / Sc, 2)
+                     + Math.pow(dHp / Sh, 2) + Rt * (dCp / Sc) * (dHp / Sh));
+    }
+
     it.each(["mint", "sepia"] as ThemeId[])(
       "%s: cyan and green hues are ≥ 45° apart (visually distinguishable)",
       (themeId) => {
@@ -213,6 +266,36 @@ describe("terminalTheme", () => {
           dist,
           `cyan (${theme.cyan}, H=${cyanHue.toFixed(0)}) vs green (${theme.green}, H=${greenHue.toFixed(0)}) — only ${dist.toFixed(0)}° apart`,
         ).toBeGreaterThanOrEqual(45);
+      },
+    );
+
+    // Cross-family perceptual distance — pairs that SHOULD be semantically
+    // distinct must be clearly distinguishable (ΔE ≥ 5). Covers all adjacent
+    // hue pairs on the color wheel for each ANSI variant (normal + bright).
+    const crossFamilyPairs: ReadonlyArray<readonly [string, string]> = [
+      ["red", "magenta"], ["red", "yellow"],
+      ["yellow", "green"],
+      ["green", "cyan"], ["cyan", "blue"],
+      ["blue", "magenta"],
+      ["brightRed", "brightMagenta"], ["brightRed", "brightYellow"],
+      ["brightYellow", "brightGreen"],
+      ["brightGreen", "brightCyan"], ["brightCyan", "brightBlue"],
+      ["brightBlue", "brightMagenta"],
+    ];
+
+    it.each(["white", "paper", "mint", "sepia", "night"] as ThemeId[])(
+      "%s: all cross-family ANSI pairs have ΔE ≥ 5 (perceptually distinct)",
+      (themeId) => {
+        const theme = buildXtermThemeForId(themeId) as Record<string, string>;
+        for (const [a, b] of crossFamilyPairs) {
+          const colorA = theme[a];
+          const colorB = theme[b];
+          const de = deltaE2000(colorA, colorB);
+          expect(
+            de,
+            `${a} (${colorA}) vs ${b} (${colorB}) — ΔE=${de.toFixed(1)} (< 5)`,
+          ).toBeGreaterThanOrEqual(5);
+        }
       },
     );
   });

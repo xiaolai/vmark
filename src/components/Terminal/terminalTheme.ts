@@ -94,8 +94,9 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
   },
 
   // ── Mint: green-shifted palette on #CCE6D0 ──
-  // Cyan leans blue here (#0a5d75 / #0c6580) instead of pure teal —
-  // a teal cyan reads as green against the mint background.
+  // Cyan sits at H≈187° — between green (H=124°) and blue (H=202°).
+  // A pure-teal cyan (H=180°) reads as green against the mint background
+  // (issue #773); a too-blue cyan (H>195°) becomes confusable with blue.
   mint: {
     black:         "#2a3832",
     red:           "#9e3020",
@@ -103,7 +104,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     yellow:        "#7a5c00",
     blue:          "#155878",
     magenta:       "#7b4a8a",
-    cyan:          "#0a5d75",
+    cyan:          "#0a6571",
     white:         "#3d5240",
     brightBlack:   "#4d6054",
     brightRed:     "#a83828",
@@ -111,7 +112,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     brightYellow:  "#7a5c00",
     brightBlue:    "#1a6896",
     brightMagenta: "#7a4490",
-    brightCyan:    "#0c6580",
+    brightCyan:    "#0e6b7a",
     brightWhite:   "#3d5240",
   },
 
