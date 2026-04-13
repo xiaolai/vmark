@@ -94,6 +94,8 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
   },
 
   // ── Mint: green-shifted palette on #CCE6D0 ──
+  // Cyan leans blue here (#0a5d75 / #0c6580) instead of pure teal —
+  // a teal cyan reads as green against the mint background.
   mint: {
     black:         "#2a3832",
     red:           "#9e3020",
@@ -101,7 +103,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     yellow:        "#7a5c00",
     blue:          "#155878",
     magenta:       "#7b4a8a",
-    cyan:          "#006464",
+    cyan:          "#0a5d75",
     white:         "#3d5240",
     brightBlack:   "#4d6054",
     brightRed:     "#a83828",
@@ -109,7 +111,7 @@ const ansiPalettes: Record<ThemeId, AnsiPalette> = {
     brightYellow:  "#7a5c00",
     brightBlue:    "#1a6896",
     brightMagenta: "#7a4490",
-    brightCyan:    "#056060",
+    brightCyan:    "#0c6580",
     brightWhite:   "#3d5240",
   },
 

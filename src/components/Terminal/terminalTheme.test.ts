@@ -179,5 +179,41 @@ describe("terminalTheme", () => {
         expect(ratio, `${key} (${color}) on ${bg} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
       }
     });
+
+    // Hue-distinguishability check for tinted themes — passing WCAG AA on the
+    // background is necessary but not sufficient. Cyan and green can both end
+    // up as "dark teal" against a green-tinted background (#773), making them
+    // visually indistinguishable even though contrast ratios pass.
+    function hueOf(hex: string): number {
+      const [r, g, b] = hexToSrgb(hex).map((c) => c / 255);
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const d = max - min;
+      if (d === 0) return 0;
+      let h: number;
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      return h < 0 ? h + 360 : h;
+    }
+    function hueDistance(a: number, b: number): number {
+      const d = Math.abs(a - b);
+      return Math.min(d, 360 - d);
+    }
+
+    it.each(["mint", "sepia"] as ThemeId[])(
+      "%s: cyan and green hues are ≥ 45° apart (visually distinguishable)",
+      (themeId) => {
+        const theme = buildXtermThemeForId(themeId);
+        const cyanHue = hueOf(theme.cyan as string);
+        const greenHue = hueOf(theme.green as string);
+        const dist = hueDistance(cyanHue, greenHue);
+        expect(
+          dist,
+          `cyan (${theme.cyan}, H=${cyanHue.toFixed(0)}) vs green (${theme.green}, H=${greenHue.toFixed(0)}) — only ${dist.toFixed(0)}° apart`,
+        ).toBeGreaterThanOrEqual(45);
+      },
+    );
   });
 });
