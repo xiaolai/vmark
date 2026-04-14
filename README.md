@@ -23,7 +23,7 @@ VMark is a modern, local-first Markdown editor designed for the AI era. Three ed
 - **CJK Done Right** — 20+ formatting rules for Chinese, Japanese, Korean text
 - **5 Themes** — White, Paper, Mint, Sepia, Night
 - **Local-First** — No cloud, no accounts, no analytics. Documents stay on your machine.
-- **117 Shortcuts** — All customizable in Settings
+- **122 Shortcuts** — All customizable in Settings
 
 See the full feature list at **[vmark.app/guide/features](https://vmark.app/guide/features)**.
 
