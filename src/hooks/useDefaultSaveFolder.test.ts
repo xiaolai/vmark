@@ -43,9 +43,17 @@ describe("getDefaultSaveFolderWithFallback", () => {
     expect(result).toBe("/workspace/project");
   });
 
-  it("returns Documents directory when not in workspace mode", async () => {
+  it("returns Documents directory when not in workspace mode and no saved tabs", async () => {
     const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
     expect(result).toBe("/Users/test/Documents");
+  });
+
+  it("returns saved tab folder when not in workspace mode with saved tabs", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/projects/notes/file.md");
+    useDocumentStore.getState().initDocument(tabId, "content", "/projects/notes/file.md", "content");
+
+    const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
+    expect(result).toBe("/projects/notes");
   });
 
   it("falls back to home directory when documentDir throws", async () => {

@@ -3,7 +3,7 @@
  *
  * Purpose: Gathers workspace state and Tauri path APIs, then calls the
  *   pure resolver to determine the default save folder — workspace root,
- *   Documents directory, or home directory fallback.
+ *   sibling tab folder, or Documents/home directory fallback.
  *
  * @coordinates-with defaultSaveFolder.ts — pure resolution logic
  * @module hooks/useDefaultSaveFolder
@@ -22,8 +22,8 @@ import { resolveDefaultSaveFolder } from "@/utils/defaultSaveFolder";
  *
  * Precedence:
  * 1. Workspace root - if the window is in workspace mode
- * 2. Documents directory - when not in workspace mode
- * 3. Home directory - final fallback if Documents unavailable
+ * 2. Sibling tab folder - first saved file's directory
+ * 3. Documents/Home directory - fallback
  *
  * @param windowLabel - The window label to check for saved tabs
  * @returns The resolved default folder path

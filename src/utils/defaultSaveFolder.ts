@@ -6,8 +6,8 @@
  *
  * Precedence:
  * 1. Workspace root (if in workspace mode)
- * 2. Documents directory (when not in workspace mode)
- * 3. Saved tab's folder (edge case: workspace mode but no root)
+ * 2. Sibling tab's folder (any saved file open in the window)
+ * 3. Documents/Home directory (fallback)
  *
  * @module utils/defaultSaveFolder
  */
@@ -35,8 +35,8 @@ export interface DefaultSaveFolderInput {
  *
  * Precedence:
  * 1. Workspace root - if in workspace mode with valid root
- * 2. Fallback directory (Documents) - when not in workspace mode
- * 3. Saved tab folder - edge case fallback when in workspace mode but no root
+ * 2. Sibling tab folder - first saved file's directory
+ * 3. Fallback directory (Documents/Home)
  *
  * @param input - Pre-gathered workspace and tab data
  * @returns The resolved default folder path
@@ -51,13 +51,13 @@ export interface DefaultSaveFolderInput {
  * }); // Returns "/workspace/project"
  *
  * @example
- * // Not in workspace mode - returns Documents folder
+ * // Not in workspace mode but saved tabs open - returns sibling folder
  * resolveDefaultSaveFolder({
  *   isWorkspaceMode: false,
  *   workspaceRoot: null,
  *   savedFilePaths: ["/other/path/file.md"],
  *   fallbackDirectory: "/Users/test/Documents"
- * }); // Returns "/Users/test/Documents"
+ * }); // Returns "/other/path"
  */
 export function resolveDefaultSaveFolder(input: DefaultSaveFolderInput): string {
   const { isWorkspaceMode, workspaceRoot, savedFilePaths, fallbackDirectory } = input;
@@ -67,19 +67,14 @@ export function resolveDefaultSaveFolder(input: DefaultSaveFolderInput): string 
     return workspaceRoot;
   }
 
-  // 2. Not in workspace mode → use Documents folder
-  //    This prevents save dialogs opening in unexpected folders
-  if (!isWorkspaceMode) {
-    return fallbackDirectory;
-  }
-
-  // 3. In workspace mode but no root (edge case) → try saved tabs
+  // 2. Sibling tab folder — if any saved file is open, save next to it
+  //    This keeps related files together regardless of workspace mode
   for (const filePath of savedFilePaths) {
     const dir = getDirectory(filePath);
     if (dir) return dir;
   }
 
-  // 4. Final fallback: Documents/Home directory
+  // 3. Final fallback: Documents/Home directory
   return fallbackDirectory;
 }
 
