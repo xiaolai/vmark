@@ -3,8 +3,8 @@
  *
  * Tests the pure resolveDefaultSaveFolder function with three-tier precedence:
  * 1. Workspace root (if in workspace mode)
- * 2. Documents directory (when not in workspace mode)
- * 3. First saved tab's folder (edge case: workspace mode but no root)
+ * 2. Sibling tab's folder (any saved file open in the window)
+ * 3. Documents/Home directory (fallback)
  *
  * @module utils/defaultSaveFolder.test
  */
@@ -29,15 +29,15 @@ describe("resolveDefaultSaveFolder", () => {
     expect(result).toBe("/workspace/project");
   });
 
-  it("returns fallback directory when no workspace (ignores saved tabs)", () => {
-    // When not in workspace mode, always use Documents directory
-    // This prevents save dialogs opening in unexpected folders
+  it("returns saved tab folder when not in workspace mode with saved tabs", () => {
+    // When not in workspace mode but sibling files are open, use their folder
+    // instead of Documents — this keeps related files together
     const result = resolveDefaultSaveFolder({
       ...defaultInput,
       savedFilePaths: ["/docs/notes/file.md", "/other/path/doc.md"],
     });
 
-    expect(result).toBe("/Users/test");
+    expect(result).toBe("/docs/notes");
   });
 
   it("uses saved tab folder only when in workspace mode but missing root", () => {
@@ -95,7 +95,7 @@ describe("resolveDefaultSaveFolder", () => {
     expect(result).toBe("C:\\Users\\Test\\Documents");
   });
 
-  it("ignores workspace root and saved tabs if not in workspace mode", () => {
+  it("uses saved tab folder when not in workspace mode (ignores stale workspaceRoot)", () => {
     const result = resolveDefaultSaveFolder({
       isWorkspaceMode: false,
       workspaceRoot: "/workspace/project", // Set but not in workspace mode
@@ -103,8 +103,19 @@ describe("resolveDefaultSaveFolder", () => {
       fallbackDirectory: "/Users/test",
     });
 
-    // Should use home directory directly when not in workspace mode
-    expect(result).toBe("/Users/test");
+    // Should use saved tab folder, not stale workspaceRoot or Documents
+    expect(result).toBe("/other/path");
+  });
+
+  it("returns fallback directory when not in workspace mode and no saved tabs", () => {
+    const result = resolveDefaultSaveFolder({
+      isWorkspaceMode: false,
+      workspaceRoot: null,
+      savedFilePaths: [],
+      fallbackDirectory: "/Users/test/Documents",
+    });
+
+    expect(result).toBe("/Users/test/Documents");
   });
 
   it("ignores null workspace root even in workspace mode", () => {
