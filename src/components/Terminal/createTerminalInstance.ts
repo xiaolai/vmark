@@ -314,7 +314,9 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
         const tabId = useTabStore.getState().createTab(windowLabel, filePath);
         useDocumentStore.getState().initDocument(tabId, content, filePath);
       }).catch((error: unknown) => {
-        terminalLog("File not readable:", error instanceof Error ? error.message : String(error));
+        const message = error instanceof Error ? error.message : String(error);
+        terminalLog("File not readable:", message);
+        term.writeln(`\x1b[33m[Cannot open file: ${message}]\x1b[0m`);
       });
     /* v8 ignore start -- @preserve reason: dynamic import of a vi.mock'd module always resolves in tests; the import-failure catch is only reachable in production when the plugin binary is missing */
     }).catch((error: unknown) => {
