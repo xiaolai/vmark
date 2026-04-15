@@ -106,11 +106,6 @@ pub async fn run_workflow(
     let execution_id = Uuid::new_v4().to_string();
     let exec_id_clone = execution_id.clone();
     let cancel_token = Arc::clone(&state.cancel_requested);
-    let running_flag = Arc::new(AtomicBool::new(true));
-    // We need a second reference to clear the flag after the task finishes.
-    // Since WorkflowRunnerState is behind a State<'_>, we clone the AtomicBool's
-    // address via a raw pointer dance — but that's unsafe. Instead, use a
-    // separate Arc for the spawned task and sync back via event.
     let app_clone = app.clone();
 
     // Create snapshot of files that may be modified
@@ -166,9 +161,13 @@ pub async fn run_workflow(
             log::error!("Workflow execution failed: {}", e);
         }
 
-        // Clear the running flag via event (the State<'_> isn't accessible here)
-        use tauri::Emitter;
-        let _ = app_clone.emit("workflow:runner-idle", ());
+        // Reset the concurrency guard so the next workflow can run.
+        // AppHandle::state::<T>() is available inside tokio::spawn because
+        // AppHandle implements Clone + Send + Sync.
+        app_clone
+            .state::<WorkflowRunnerState>()
+            .running
+            .store(false, Ordering::SeqCst);
     });
 
     Ok(execution_id)
