@@ -170,7 +170,7 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   const env: Record<string, string> = {
     // Ensure consistent color capabilities in xterm.js; Tauri GUI apps may not inherit terminal env vars.
     TERM: "xterm-256color",
-    TERM_PROGRAM: "vmark",
+    TERM_PROGRAM: "WezTerm",
     EDITOR: "vmark",
     // macOS GUI apps launched from Dock/Spotlight have minimal environment —
     // set UTF-8 encoding so the shell and tools handle CJK/multibyte correctly.
