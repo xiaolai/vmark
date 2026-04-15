@@ -55,6 +55,8 @@ interface UIState {
   sidebarViewMode: SidebarViewMode;
   activeHeadingLine: number | null; // Current heading line for outline highlight
   statusBarVisible: boolean; // Simple toggle for status bar visibility (Cmd+J)
+  /** Saved StatusBar state before displacement by a transient bar (FindBar/Toolbar). Null = no displacement in progress. */
+  _savedStatusBarVisible: boolean | null;
   universalToolbarVisible: boolean; // Universal formatting toolbar (shortcut configurable)
   universalToolbarHasFocus: boolean; // Keyboard focus is inside the universal toolbar
   toolbarSessionFocusIndex: number; // Session-only focus index (cleared on toolbar close)
@@ -75,6 +77,10 @@ interface UIActions {
   setActiveHeadingLine: (line: number | null) => void;
   setSidebarWidth: (width: number) => void;
   setStatusBarVisible: (visible: boolean) => void;
+  /** Hide StatusBar and save its previous state for later restoration. Idempotent — won't overwrite an existing save. */
+  displaceStatusBar: () => void;
+  /** Restore StatusBar to the state saved by displaceStatusBar. No-op if nothing was saved. */
+  restoreStatusBar: () => void;
   /** Focus toggle per spec Section 1.2 */
   toggleUniversalToolbar: () => void;
   setUniversalToolbarVisible: (visible: boolean) => void;
@@ -97,6 +103,7 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   sidebarViewMode: "outline",
   activeHeadingLine: null,
   statusBarVisible: true, // Default to visible
+  _savedStatusBarVisible: null,
   universalToolbarVisible: false,
   universalToolbarHasFocus: false,
   toolbarSessionFocusIndex: -1, // Session-only, -1 = use smart focus
@@ -120,7 +127,17 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   setSidebarWidth: (width) => set({
     sidebarWidth: Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width)),
   }),
-  setStatusBarVisible: (visible) => set({ statusBarVisible: visible }),
+  setStatusBarVisible: (visible) => set({ statusBarVisible: visible, _savedStatusBarVisible: null }),
+
+  displaceStatusBar: () => set((state) => ({
+    statusBarVisible: false,
+    _savedStatusBarVisible: state._savedStatusBarVisible ?? state.statusBarVisible,
+  })),
+
+  restoreStatusBar: () => set((state) => {
+    if (state._savedStatusBarVisible === null) return {};
+    return { statusBarVisible: state._savedStatusBarVisible, _savedStatusBarVisible: null };
+  }),
 
   /**
    * Focus toggle per spec Section 1.2:

@@ -63,7 +63,7 @@ export function clearPendingContentSearchNav(tabId: string): void {
 export function openFindBarWithQuery(query: string): void {
   const search = useSearchStore.getState();
   if (!search.isOpen) {
-    useUIStore.getState().setStatusBarVisible(false);
+    useUIStore.getState().displaceStatusBar();
     useUIStore.getState().setUniversalToolbarVisible(false);
   }
   useSearchStore.getState().setQuery(query);
