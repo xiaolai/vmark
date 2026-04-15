@@ -9,7 +9,6 @@
  */
 
 import { vi } from "vitest";
-import type { AnchorRect } from "@/utils/popupPosition";
 
 // ============================================================================
 // DOM Helpers
@@ -30,154 +29,6 @@ export function createMockRect(overrides: Partial<DOMRect> = {}): DOMRect {
     y: 100,
     toJSON: () => ({}),
     ...overrides,
-  };
-}
-
-/**
- * Create a mock AnchorRect for popup positioning.
- */
-export function createMockAnchorRect(overrides: Partial<AnchorRect> = {}): AnchorRect {
-  return {
-    top: 200,
-    left: 150,
-    bottom: 220,
-    right: 250,
-    ...overrides,
-  };
-}
-
-/**
- * Create an editor container DOM structure matching real app layout.
- *
- * Structure:
- * ```
- * .editor-container
- *   .ProseMirror (editorDom)
- *     [contentEditable div]
- * ```
- */
-export function createMockEditorContainer(): {
-  container: HTMLElement;
-  editorDom: HTMLElement;
-  contentDom: HTMLElement;
-  cleanup: () => void;
-} {
-  const container = document.createElement("div");
-  container.className = "editor-container";
-  container.style.position = "relative";
-  container.getBoundingClientRect = () =>
-    createMockRect({
-      top: 100,
-      left: 50,
-      bottom: 600,
-      right: 800,
-      width: 750,
-      height: 500,
-    });
-
-  const editorDom = document.createElement("div");
-  editorDom.className = "ProseMirror";
-  editorDom.getBoundingClientRect = () =>
-    createMockRect({
-      top: 100,
-      left: 50,
-      bottom: 600,
-      right: 800,
-      width: 750,
-      height: 500,
-    });
-  container.appendChild(editorDom);
-
-  const contentDom = document.createElement("div");
-  contentDom.contentEditable = "true";
-  editorDom.appendChild(contentDom);
-
-  document.body.appendChild(container);
-
-  return {
-    container,
-    editorDom,
-    contentDom,
-    cleanup: () => container.remove(),
-  };
-}
-
-// ============================================================================
-// Mock Tiptap/ProseMirror View
-// ============================================================================
-
-export interface MockEditorState {
-  doc: {
-    resolve: (pos: number) => { node: () => Record<string, unknown> };
-    content: { size: number };
-  };
-  schema: {
-    marks: Record<string, { create: (attrs?: Record<string, unknown>) => Record<string, unknown> }>;
-    nodes: Record<string, unknown>;
-  };
-  tr: {
-    removeMark: ReturnType<typeof vi.fn>;
-    addMark: ReturnType<typeof vi.fn>;
-    setSelection: ReturnType<typeof vi.fn>;
-    scrollIntoView: ReturnType<typeof vi.fn>;
-    replaceWith: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-  };
-  selection: {
-    from: number;
-    to: number;
-  };
-}
-
-export interface MockEditorView {
-  dom: HTMLElement;
-  contentDOM?: HTMLElement;
-  state: MockEditorState;
-  dispatch: ReturnType<typeof vi.fn>;
-  focus: ReturnType<typeof vi.fn>;
-  coordsAtPos: ReturnType<typeof vi.fn>;
-}
-
-/**
- * Create a mock Tiptap/ProseMirror EditorView.
- */
-export function createMockTiptapView(editorDom: HTMLElement, contentDom?: HTMLElement): MockEditorView {
-  const tr = {
-    removeMark: vi.fn().mockReturnThis(),
-    addMark: vi.fn().mockReturnThis(),
-    setSelection: vi.fn().mockReturnThis(),
-    scrollIntoView: vi.fn().mockReturnThis(),
-    replaceWith: vi.fn().mockReturnThis(),
-    delete: vi.fn().mockReturnThis(),
-  };
-
-  return {
-    dom: editorDom,
-    contentDOM: contentDom,
-    state: {
-      doc: {
-        resolve: vi.fn((pos: number) => ({
-          node: () => ({ pos }),
-        })),
-        content: { size: 1000 },
-      },
-      schema: {
-        marks: {
-          link: { create: (attrs) => ({ type: "link", attrs }) },
-        },
-        nodes: {},
-      },
-      tr,
-      selection: { from: 0, to: 0 },
-    },
-    dispatch: vi.fn(),
-    focus: vi.fn(),
-    coordsAtPos: vi.fn((pos: number) => ({
-      top: 100 + pos,
-      left: 50,
-      bottom: 120 + pos,
-      right: 100,
-    })),
   };
 }
 
@@ -404,14 +255,6 @@ export function getFocusableElements(container: HTMLElement): HTMLElement[] {
       'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     )
   ).filter((el) => el.offsetParent !== null);
-}
-
-/**
- * Assert that an element is visible (display !== none, visibility !== hidden).
- */
-export function isVisible(el: HTMLElement): boolean {
-  const style = window.getComputedStyle(el);
-  return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
 }
 
 // ============================================================================
