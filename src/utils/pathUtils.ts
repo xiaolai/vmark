@@ -36,7 +36,11 @@ export function getFileNameWithoutExtension(filePath: string): string {
  */
 export function getDirectory(filePath: string): string {
   const lastSlash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
-  return lastSlash >= 0 ? filePath.slice(0, lastSlash) : "";
+  if (lastSlash < 0) return "";
+  if (lastSlash === 0) return "/";
+  const dir = filePath.slice(0, lastSlash);
+  if (/^[A-Za-z]:$/.test(dir)) return dir + "\\";
+  return dir;
 }
 
 /**

@@ -207,7 +207,7 @@ mod tests {
     /// Reset confirm-quit state. Must be called under TEST_LOCK.
     fn reset_confirm_quit() {
         CONFIRM_QUIT_ENABLED.store(true, Ordering::SeqCst);
-        *FIRST_QUIT_PRESS.lock().unwrap() = None;
+        *FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()) = None;
     }
 
     #[test]
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn gate_disabled_proceeds_immediately() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
         CONFIRM_QUIT_ENABLED.store(false, Ordering::SeqCst);
 
@@ -230,18 +230,18 @@ mod tests {
 
     #[test]
     fn gate_first_press_blocks() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
         assert_eq!(check_confirm_quit_gate(now), QuitGateResult::WaitForSecondPress);
         // Timestamp is recorded
-        assert!(FIRST_QUIT_PRESS.lock().unwrap().is_some());
+        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_some());
     }
 
     #[test]
     fn gate_second_press_within_window_proceeds() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -252,12 +252,12 @@ mod tests {
         assert_eq!(check_confirm_quit_gate(later), QuitGateResult::Proceed);
 
         // Timestamp cleared after proceed
-        assert!(FIRST_QUIT_PRESS.lock().unwrap().is_none());
+        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
     }
 
     #[test]
     fn gate_expired_first_press_blocks_again() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn gate_at_exact_boundary_blocks() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -287,34 +287,34 @@ mod tests {
 
     #[test]
     fn set_confirm_quit_clears_first_press() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         // Record a first press
-        *FIRST_QUIT_PRESS.lock().unwrap() = Some(Instant::now());
-        assert!(FIRST_QUIT_PRESS.lock().unwrap().is_some());
+        *FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()) = Some(Instant::now());
+        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_some());
 
         // Toggling the setting clears the pending press
         set_confirm_quit(false);
-        assert!(FIRST_QUIT_PRESS.lock().unwrap().is_none());
+        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
     }
 
     #[test]
     fn cancel_quit_clears_first_press() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         // Record a first press then cancel quit
-        *FIRST_QUIT_PRESS.lock().unwrap() = Some(Instant::now());
+        *FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()) = Some(Instant::now());
         cancel_quit();
-        assert!(FIRST_QUIT_PRESS.lock().unwrap().is_none());
+        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
     }
 
     // --- Rapid double-quit ---
 
     #[test]
     fn rapid_double_quit_1ms_apart_proceeds() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn rapid_double_quit_0ms_apart_proceeds() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn quit_after_timeout_resets_first_press() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -353,13 +353,13 @@ mod tests {
         assert_eq!(check_confirm_quit_gate(expired), QuitGateResult::WaitForSecondPress);
 
         // The new first press timestamp should be `expired`, not `now`
-        let guard = FIRST_QUIT_PRESS.lock().unwrap();
+        let guard = FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner());
         assert_eq!(*guard, Some(expired));
     }
 
     #[test]
     fn quit_after_timeout_then_quick_second_proceeds() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let t0 = Instant::now();
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn cancel_between_quits_requires_fresh_double_press() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let t0 = Instant::now();
@@ -399,29 +399,29 @@ mod tests {
 
     #[test]
     fn cancel_clears_all_quit_state() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         // Set up quit-in-progress state
         QUIT_IN_PROGRESS.store(true, Ordering::SeqCst);
         EXIT_ALLOWED.store(true, Ordering::SeqCst);
         set_quit_targets(HashSet::from(["main".to_string(), "doc-0".to_string()]));
-        *FIRST_QUIT_PRESS.lock().unwrap() = Some(Instant::now());
+        *FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()) = Some(Instant::now());
 
         cancel_quit();
 
         // All state should be cleared
         assert!(!QUIT_IN_PROGRESS.load(Ordering::SeqCst));
         assert!(!EXIT_ALLOWED.load(Ordering::SeqCst));
-        assert!(QUIT_TARGETS.lock().unwrap().is_empty());
-        assert!(FIRST_QUIT_PRESS.lock().unwrap().is_none());
+        assert!(QUIT_TARGETS.lock().unwrap_or_else(|p| p.into_inner()).is_empty());
+        assert!(FIRST_QUIT_PRESS.lock().unwrap_or_else(|p| p.into_inner()).is_none());
     }
 
     // --- Exit allowed flag ---
 
     #[test]
     fn exit_allowed_initially_false() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         // Reset to default
         set_exit_allowed(false);
 
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn exit_allowed_set_and_clear() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
 
         set_exit_allowed(true);
         assert!(is_exit_allowed());
@@ -441,7 +441,7 @@ mod tests {
 
     #[test]
     fn exit_allowed_toggled_multiple_times() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
 
         for _ in 0..10 {
             set_exit_allowed(true);
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn remove_quit_target_returns_true_when_last_removed() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
 
         set_quit_targets(HashSet::from(["main".to_string()]));
         assert!(remove_quit_target("main"));
@@ -463,7 +463,7 @@ mod tests {
 
     #[test]
     fn remove_quit_target_returns_false_when_others_remain() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
 
         set_quit_targets(HashSet::from(["main".to_string(), "doc-0".to_string()]));
         assert!(!remove_quit_target("main"));
@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn remove_nonexistent_target_checks_emptiness() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
 
         set_quit_targets(HashSet::from(["main".to_string()]));
         // Removing a label that doesn't exist — set still has "main"
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn remove_all_targets_one_by_one() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
 
         set_quit_targets(HashSet::from([
             "main".to_string(),
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn empty_quit_targets_remove_returns_true() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
 
         set_quit_targets(HashSet::new());
         // Removing from empty set — it's already empty, so returns true
@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn gate_disabled_after_first_press_proceeds() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -551,7 +551,7 @@ mod tests {
 
     #[test]
     fn gate_reenabled_requires_fresh_double_press() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         // Disable gate, do a press
@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn triple_press_first_two_proceed_third_is_new_first() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let t0 = Instant::now();
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn gate_just_before_boundary_proceeds() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -605,7 +605,7 @@ mod tests {
 
     #[test]
     fn gate_just_after_boundary_blocks() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         let now = Instant::now();
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn concurrent_quit_gate_calls_do_not_panic() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
 
         // Use a barrier so all threads call check_confirm_quit_gate simultaneously
@@ -644,7 +644,7 @@ mod tests {
 
     #[test]
     fn concurrent_cancel_and_gate_check_no_panic() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         reset_confirm_quit();
         QUIT_IN_PROGRESS.store(false, Ordering::SeqCst);
         set_exit_allowed(false);
@@ -679,7 +679,7 @@ mod tests {
 
     #[test]
     fn concurrent_exit_allowed_toggle_no_panic() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         set_exit_allowed(false);
 
         let barrier = std::sync::Arc::new(std::sync::Barrier::new(10));

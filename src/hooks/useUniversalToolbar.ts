@@ -29,8 +29,8 @@ export function useUniversalToolbar(): void {
   const toggleToolbar = useCallback(() => {
     const ui = useUIStore.getState();
     if (!ui.universalToolbarVisible) {
-      // Opening UniversalToolbar: close StatusBar and FindBar
-      ui.setStatusBarVisible(false);
+      // Opening UniversalToolbar: displace StatusBar and close FindBar
+      ui.displaceStatusBar();
       useSearchStore.getState().close();
     }
     ui.toggleUniversalToolbar();
@@ -60,10 +60,13 @@ export function useUniversalToolbar(): void {
           ui.setToolbarDropdownOpen(false);
           return;
         }
-        // Step 2: Close toolbar entirely
+        // Step 2: Close toolbar entirely and restore StatusBar
         e.preventDefault();
         e.stopPropagation();
         ui.clearToolbarSession();
+        if (!useSearchStore.getState().isOpen) {
+          ui.restoreStatusBar();
+        }
         return;
       }
       const shortcut = useShortcutsStore.getState().getShortcut("formatToolbar");

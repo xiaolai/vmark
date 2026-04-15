@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchStore } from "@/stores/searchStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
@@ -89,6 +90,13 @@ export function FindBar() {
     useSearchStore.getState().setReplaceText(e.target.value);
   }, []);
 
+  const handleClose = useCallback(() => {
+    useSearchStore.getState().close();
+    if (!useUIStore.getState().universalToolbarVisible) {
+      useUIStore.getState().restoreStatusBar();
+    }
+  }, []);
+
   const handleFindKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
     /* v8 ignore start -- @preserve reason: else-if chain branches (Escape, Tab) not fully exercised in tests */
@@ -100,13 +108,13 @@ export function FindBar() {
         useSearchStore.getState().findNext();
       }
     } else if (e.key === "Escape") {
-      useSearchStore.getState().close();
+      handleClose();
     } else if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       replaceInputRef.current?.focus();
     }
     /* v8 ignore stop */
-  }, [ime]);
+  }, [ime, handleClose]);
 
   const handleReplaceKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
@@ -115,17 +123,13 @@ export function FindBar() {
       e.preventDefault();
       useSearchStore.getState().replaceCurrent();
     } else if (e.key === "Escape") {
-      useSearchStore.getState().close();
+      handleClose();
     } else if (e.key === "Tab" && e.shiftKey) {
       e.preventDefault();
       findInputRef.current?.focus();
     }
     /* v8 ignore stop */
-  }, [ime]);
-
-  const handleClose = useCallback(() => {
-    useSearchStore.getState().close();
-  }, []);
+  }, [ime, handleClose]);
 
   const handleFindNext = useCallback(() => {
     useSearchStore.getState().findNext();

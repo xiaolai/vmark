@@ -67,6 +67,8 @@ export class MermaidPreviewView {
   private boundDragUp: (() => void) | null = null;
   private boundResizeMove: ((e: MouseEvent) => void) | null = null;
   private boundResizeUp: (() => void) | null = null;
+  private boundZoomClick: EventListener | null = null;
+  private boundWheel: EventListener | null = null;
 
   constructor() {
     this.container = buildContainer();
@@ -191,8 +193,8 @@ export class MermaidPreviewView {
   }
 
   private setupZoomHandlers() {
-    this.container.querySelector(".mermaid-preview-zoom")?.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement;
+    this.boundZoomClick = (e: Event) => {
+      const target = (e as MouseEvent).target as HTMLElement;
       const btn = target.closest(".mermaid-preview-zoom-btn") as HTMLElement;
       if (!btn) return;
 
@@ -203,19 +205,22 @@ export class MermaidPreviewView {
       } else if (action === "out" && this.zoom > ZOOM_MIN) {
         this.setZoom(Math.max(ZOOM_MIN, this.zoom - ZOOM_STEP));
       }
-    });
+    };
+    this.container.querySelector(".mermaid-preview-zoom")?.addEventListener("click", this.boundZoomClick!);
 
     // Cmd/Ctrl+scroll to zoom
-    this.preview.addEventListener("wheel", (e) => {
-      if (e.metaKey || e.ctrlKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    this.boundWheel = (e: Event) => {
+      const we = e as WheelEvent;
+      if (we.metaKey || we.ctrlKey) {
+        we.preventDefault();
+        const delta = we.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
         const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, this.zoom + delta));
         if (newZoom !== this.zoom) {
           this.setZoom(newZoom);
         }
       }
-    }, { passive: false });
+    };
+    this.preview.addEventListener("wheel", this.boundWheel!, { passive: false });
   }
 
   private setZoom(level: number) {
@@ -369,6 +374,16 @@ export class MermaidPreviewView {
     if (this.boundResizeUp) {
       document.removeEventListener("mouseup", this.boundResizeUp);
       this.boundResizeUp = null;
+    }
+
+    // Clean up element-level event listeners
+    if (this.boundZoomClick) {
+      this.container.querySelector(".mermaid-preview-zoom")?.removeEventListener("click", this.boundZoomClick);
+      this.boundZoomClick = null;
+    }
+    if (this.boundWheel) {
+      this.preview.removeEventListener("wheel", this.boundWheel);
+      this.boundWheel = null;
     }
 
     cleanupDescendants(this.preview);

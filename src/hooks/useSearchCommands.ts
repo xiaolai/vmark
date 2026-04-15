@@ -40,8 +40,8 @@ export function useSearchCommands() {
         if (event.payload !== windowLabel) return;
         const search = useSearchStore.getState();
         if (!search.isOpen) {
-          // Opening FindBar: close StatusBar and UniversalToolbar
-          useUIStore.getState().setStatusBarVisible(false);
+          // Opening FindBar: displace StatusBar and close UniversalToolbar
+          useUIStore.getState().displaceStatusBar();
           useUIStore.getState().setUniversalToolbarVisible(false);
         }
         search.toggle();
