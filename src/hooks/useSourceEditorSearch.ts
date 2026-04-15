@@ -109,19 +109,28 @@ export function useSourceEditorSearch(
       return true;
     };
 
-    // Try immediate initialization, fall back to polling if view not ready
+    // Try immediate initialization, fall back to polling if view not ready.
+    // Both timer IDs stored in an object so cleanup closures can always find them.
+    const initTimers = {
+      interval: null as ReturnType<typeof setInterval> | null,
+      timeout: null as ReturnType<typeof setTimeout> | null,
+    };
+
     if (!initSearchState()) {
-      const checkInterval = setInterval(() => {
+      initTimers.interval = setInterval(() => {
         if (initSearchState()) {
           isInitialized = true;
-          clearInterval(checkInterval);
+          clearInterval(initTimers.interval!);
+          initTimers.interval = null;
         }
       }, 50);
 
       // Safety: clear interval after max wait time
-      setTimeout(() => {
-        if (!isInitialized) {
-          clearInterval(checkInterval);
+      initTimers.timeout = setTimeout(() => {
+        initTimers.timeout = null;
+        if (!isInitialized && initTimers.interval !== null) {
+          clearInterval(initTimers.interval);
+          initTimers.interval = null;
         }
       }, 500);
     } else {
@@ -210,6 +219,8 @@ export function useSourceEditorSearch(
     window.addEventListener("search:replace-all", handleReplaceAll);
 
     return () => {
+      if (initTimers.interval !== null) clearInterval(initTimers.interval);
+      if (initTimers.timeout !== null) clearTimeout(initTimers.timeout);
       unsubscribe();
       window.removeEventListener("search:replace-current", handleReplaceCurrent);
       window.removeEventListener("search:replace-all", handleReplaceAll);
