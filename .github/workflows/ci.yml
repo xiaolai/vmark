@@ -33,6 +33,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Security audit
+        # pnpm 10 audit broken: npm retired legacy endpoint (410), bulk API lands in pnpm 11
+        # Track: https://github.com/pnpm/pnpm/issues/11265
+        continue-on-error: true
         run: pnpm audit --audit-level=critical
 
       - run: pnpm check:all
