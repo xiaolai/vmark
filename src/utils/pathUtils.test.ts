@@ -119,8 +119,8 @@ describe("pathUtils", () => {
         expect(getDirectory("document.md")).toBe("");
       });
 
-      it("extracts root directory", () => {
-        expect(getDirectory("/document.md")).toBe("");
+      it("returns root for root-level file", () => {
+        expect(getDirectory("/document.md")).toBe("/");
       });
     });
 
@@ -133,8 +133,8 @@ describe("pathUtils", () => {
         expect(getDirectory("C:\\Users\\user\\projects\\readme.md")).toBe("C:\\Users\\user\\projects");
       });
 
-      it("extracts drive root", () => {
-        expect(getDirectory("C:\\document.md")).toBe("C:");
+      it("returns drive root with backslash for drive-root file", () => {
+        expect(getDirectory("C:\\document.md")).toBe("C:\\");
       });
     });
   });
