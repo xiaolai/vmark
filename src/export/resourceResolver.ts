@@ -82,11 +82,13 @@ export function isAssetUrl(src: string): boolean {
  */
 export function extractImageSources(html: string): string[] {
   const sources: string[] = [];
-  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  // Match double-quoted or single-quoted src separately so an apostrophe
+  // inside a double-quoted value (e.g. Writer's Office) doesn't truncate the match.
+  const imgRegex = /<img[^>]+src=(?:"([^"]+)"|'([^']+)')[^>]*>/gi;
   let match;
 
   while ((match = imgRegex.exec(html)) !== null) {
-    const src = match[1];
+    const src = match[1] ?? match[2];
     if (src && !isDataUri(src)) {
       sources.push(src);
     }

@@ -208,6 +208,18 @@ describe("extractImageSources", () => {
     const html = '<img src="photo.png" />';
     expect(extractImageSources(html)).toEqual(["photo.png"]);
   });
+
+  it("extracts src containing apostrophe in double-quoted attribute", () => {
+    const html = `<img src="asset://localhost/%2FUsers%2Fjoker%2FWriter's%20Office%2Fimages%2Fcover.png" alt="Cover">`;
+    expect(extractImageSources(html)).toEqual([
+      "asset://localhost/%2FUsers%2Fjoker%2FWriter's%20Office%2Fimages%2Fcover.png",
+    ]);
+  });
+
+  it("extracts src containing double quote in single-quoted attribute", () => {
+    const html = `<img src='path/with&quot;quote/file.png' alt='test'>`;
+    expect(extractImageSources(html)).toEqual([`path/with&quot;quote/file.png`]);
+  });
 });
 
 // ---------------------------------------------------------------------------
