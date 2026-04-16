@@ -297,6 +297,60 @@ describe("reconstructText", () => {
   });
 });
 
+describe("findProtectedRegions — reference section skipping", () => {
+  it("does not skip reference sections by default", () => {
+    const text = "中文Python\n\n## References\n\nAuthor, A. Title.\n\n## Other";
+    const regions = findProtectedRegions(text);
+    const refRegions = regions.filter((r) => r.type === "reference_section");
+    expect(refRegions).toHaveLength(0);
+  });
+
+  it("protects References section when skipReferenceSections is true", () => {
+    const text = "中文Python\n\n## References\n\nAuthor, A. Title.\n\n## Other";
+    const regions = findProtectedRegions(text, { skipReferenceSections: true });
+    const refRegions = regions.filter((r) => r.type === "reference_section");
+    expect(refRegions).toHaveLength(1);
+    const refText = text.slice(refRegions[0].start, refRegions[0].end);
+    expect(refText).toContain("## References");
+    expect(refText).toContain("Author, A. Title.");
+    // Should NOT include the next section
+    expect(refText).not.toContain("## Other");
+  });
+
+  it("protects Further Reading section when skipReferenceSections is true", () => {
+    const text = "Content\n\n## Further Reading\n\n- Book by Author\n- Another resource";
+    const regions = findProtectedRegions(text, { skipReferenceSections: true });
+    const refRegions = regions.filter((r) => r.type === "reference_section");
+    expect(refRegions).toHaveLength(1);
+    const refText = text.slice(refRegions[0].start, refRegions[0].end);
+    expect(refText).toContain("## Further Reading");
+    expect(refText).toContain("Book by Author");
+  });
+
+  it("protects References section until end of document", () => {
+    const text = "Content\n\n## References\n\nEntry 1.\nEntry 2.";
+    const regions = findProtectedRegions(text, { skipReferenceSections: true });
+    const refRegions = regions.filter((r) => r.type === "reference_section");
+    expect(refRegions).toHaveLength(1);
+    expect(refRegions[0].end).toBe(text.length);
+  });
+
+  it("protects multiple reference-like sections", () => {
+    const text = "Content\n\n## References\n\nRef entry\n\n## Further Reading\n\nBook entry";
+    const regions = findProtectedRegions(text, { skipReferenceSections: true });
+    const refRegions = regions.filter((r) => r.type === "reference_section");
+    // References ends at "## Further Reading", then Further Reading is also protected
+    expect(refRegions).toHaveLength(2);
+  });
+
+  it("does not protect sections with similar but different names", () => {
+    const text = "Content\n\n## Reference Guide\n\nThis is a guide.";
+    const regions = findProtectedRegions(text, { skipReferenceSections: true });
+    const refRegions = regions.filter((r) => r.type === "reference_section");
+    expect(refRegions).toHaveLength(0);
+  });
+});
+
 describe("findProtectedRegions — inline math inside another region", () => {
   it("skips inline math that appears inside a code span", () => {
     // The $x$ inside backticks should be treated as code, not math_inline

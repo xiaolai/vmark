@@ -183,6 +183,8 @@ const initialState: SettingsState = {
     // Group 5: Cleanup
     consecutivePunctuationLimit: 0, // 0=off
     trailingSpaceRemoval: true,
+    // Group 6: Section Handling
+    skipReferenceSections: false, // OFF by default — opt-in for academic documents
   },
   markdown: {
     preserveLineBreaks: false,

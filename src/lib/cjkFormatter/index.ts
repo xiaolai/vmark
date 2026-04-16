@@ -19,4 +19,6 @@
 
 export { formatMarkdown, formatSelection, formatFile } from "./formatter";
 export { containsCJK, removeTrailingSpaces, collapseNewlines } from "./rules";
+export { verifyIntegrity } from "./integrity";
+export type { IntegrityResult } from "./integrity";
 export type { CJKFormattingSettings } from "@/stores/settingsStore";

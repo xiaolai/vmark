@@ -39,6 +39,8 @@ const config: CJKFormattingSettings = {
   // Group 5: Cleanup
   consecutivePunctuationLimit: 2,
   trailingSpaceRemoval: true,
+  // Group 6: Section Handling
+  skipReferenceSections: false,
 };
 
 describe("CJK Battle Test", () => {

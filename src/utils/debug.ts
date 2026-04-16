@@ -685,3 +685,8 @@ export const tocWarn = isDev
   ? (...args: unknown[]) => console.warn("[TOC]", ...args)
   : (...args: unknown[]) => prodWarn("[TOC]", ...args);
 
+/** Warn logger for CJK Formatter integrity checks. */
+export const cjkFmtWarn = isDev
+  ? (...args: unknown[]) => console.warn("[CJK Formatter]", ...args)
+  : (...args: unknown[]) => prodWarn("[CJK Formatter]", ...args);
+

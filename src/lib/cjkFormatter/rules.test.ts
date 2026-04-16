@@ -1342,6 +1342,7 @@ function makeConfig(partial: Partial<CJKFormattingSettings> = {}): CJKFormatting
     quoteToggleMode: "simple",
     consecutivePunctuationLimit: 0,
     trailingSpaceRemoval: false,
+    skipReferenceSections: false,
     ...partial,
   };
 }

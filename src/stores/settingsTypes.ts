@@ -100,6 +100,8 @@ export interface CJKFormattingSettings {
   // Group 5: Cleanup
   consecutivePunctuationLimit: number; // 0=off, 1=single, 2=double
   trailingSpaceRemoval: boolean;
+  // Group 6: Section Handling
+  skipReferenceSections: boolean; // Skip ## References and ## Further Reading (off by default)
 }
 
 // ---------------------------------------------------------------------------

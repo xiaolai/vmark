@@ -5,6 +5,7 @@
 - `dev-docs/architecture.md`: system architecture overview — C4 diagram, entry points, data flows, module map.
 - `dev-docs/design-system.md`: design tokens, components, patterns (single source of truth).
 - `dev-docs/css-reference.md`: visual QA reference document for CSS changes.
+- `dev-docs/cjk-gotchas.md`: CJK formatter pitfalls — things that will bite you if you're not careful.
 - `dev-docs/decisions/`: architecture decision records (ADRs).
   - `heading-ime-composition-fix.md`: How we fixed the WebKit heading IME split-block bug — 5 attempts, root cause analysis, and why prevention beats repair.
 

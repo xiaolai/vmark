@@ -32,6 +32,8 @@ function makeConfig(partial: Partial<CJKFormattingSettings> = {}): CJKFormatting
     // Group 5
     consecutivePunctuationLimit: 0,
     trailingSpaceRemoval: false,
+    // Group 6
+    skipReferenceSections: false,
     ...partial,
   };
 }
@@ -380,6 +382,167 @@ describe("formatter branch coverage — formatTableBlock cell regex (lines 190-1
     ].join("\n");
     // Should not throw; empty cells formatted as-is
     expect(() => formatMarkdown(input, makeConfig())).not.toThrow();
+  });
+});
+
+// ============================================================
+// Regression tests: segment architecture prevents Glean-class bugs
+// These document that VMark's segment extraction approach is immune
+// to classes of bugs found in placeholder-based systems (e.g., Glean).
+// ============================================================
+
+describe("segment architecture: indented code blocks survive newline collapse", () => {
+  it("preserves blank lines inside indented code blocks when newlineCollapsing is on", () => {
+    const input = [
+      "中文Python before",
+      "",
+      "    code line 1",
+      "",
+      "",
+      "",
+      "    code line 2",
+      "",
+      "中文Python after",
+    ].join("\n");
+
+    const out = formatMarkdown(
+      input,
+      makeConfig({ newlineCollapsing: true })
+    );
+
+    // The 3+ blank lines INSIDE the indented code block must survive
+    // because indented code is a protected region
+    expect(out).toContain("    code line 1");
+    expect(out).toContain("    code line 2");
+    // Non-protected text should still be formatted
+    expect(out).toContain("中文 Python before");
+    expect(out).toContain("中文 Python after");
+  });
+
+  it("preserves fenced code blocks with internal blank lines during newline collapse", () => {
+    const input = [
+      "中文Python before",
+      "",
+      "```",
+      "line 1",
+      "",
+      "",
+      "",
+      "line 2",
+      "```",
+      "",
+      "中文Python after",
+    ].join("\n");
+
+    const out = formatMarkdown(
+      input,
+      makeConfig({ newlineCollapsing: true })
+    );
+
+    // Blank lines inside fenced code block must survive
+    expect(out).toContain("line 1\n\n\n\nline 2");
+    expect(out).toContain("中文 Python before");
+    expect(out).toContain("中文 Python after");
+  });
+});
+
+describe("segment architecture: no cross-span matching on bold/italic", () => {
+  it("does not corrupt bold spans across lines in CJK text", () => {
+    const input = [
+      "中文 **bold1** 文字",
+      "中文 **bold2** 文字",
+      "中文 **bold3** 文字",
+    ].join("\n");
+
+    const out = formatMarkdown(input, makeConfig());
+
+    // Each bold span must survive intact — no greedy cross-line matching
+    expect(out).toContain("**bold1**");
+    expect(out).toContain("**bold2**");
+    expect(out).toContain("**bold3**");
+  });
+
+  it("does not corrupt italic spans across lines in CJK text", () => {
+    const input = [
+      "中文 *italic1* 文字",
+      "中文 *italic2* 文字",
+    ].join("\n");
+
+    const out = formatMarkdown(input, makeConfig());
+
+    expect(out).toContain("*italic1*");
+    expect(out).toContain("*italic2*");
+  });
+
+  it("handles mixed bold/italic without cross-span corruption", () => {
+    const input = [
+      "中文 **粗体** 和 *斜体* 文字",
+      "另一行 **bold** and *italic* text",
+    ].join("\n");
+
+    const out = formatMarkdown(input, makeConfig());
+
+    expect(out).toContain("**粗体**");
+    expect(out).toContain("*斜体*");
+    expect(out).toContain("**bold**");
+    expect(out).toContain("*italic*");
+  });
+});
+
+describe("reference section skipping (opt-in)", () => {
+  it("formats reference sections normally when skipReferenceSections is off", () => {
+    const input = [
+      "中文Python content",
+      "",
+      "## References",
+      "",
+      "Author,A. Title. 中文Python Book.",
+    ].join("\n");
+
+    const out = formatMarkdown(input, makeConfig({ skipReferenceSections: false }));
+
+    // References section IS formatted (comma becomes fullwidth, spacing added)
+    expect(out).toContain("中文 Python content");
+    expect(out).toContain("中文 Python Book");
+  });
+
+  it("skips reference sections when skipReferenceSections is on", () => {
+    const input = [
+      "中文Python content",
+      "",
+      "## References",
+      "",
+      "Author,A. Title. 中文Python Book.",
+    ].join("\n");
+
+    const out = formatMarkdown(input, makeConfig({ skipReferenceSections: true }));
+
+    // Main content IS formatted
+    expect(out).toContain("中文 Python content");
+    // References section is NOT formatted (no CJK spacing added)
+    expect(out).toContain("中文Python Book");
+  });
+});
+
+describe("segment architecture: no placeholder collision possible", () => {
+  it("handles text containing placeholder-like patterns", () => {
+    // In placeholder-based systems, text like ___CODE_BLOCK_0___ could collide.
+    // VMark's segment extraction never inserts placeholders, so this is safe.
+    const input = "中文Python ___PLACEHOLDER_0___ and `code` block";
+
+    const out = formatMarkdown(input, makeConfig());
+
+    expect(out).toContain("___PLACEHOLDER_0___");
+    expect(out).toContain("`code`");
+  });
+
+  it("handles text with UUID-like patterns", () => {
+    const input = "中文Python __GLEAN_CJK_abc123_0__ and `inline` code";
+
+    const out = formatMarkdown(input, makeConfig());
+
+    expect(out).toContain("__GLEAN_CJK_abc123_0__");
+    expect(out).toContain("`inline`");
   });
 });
 

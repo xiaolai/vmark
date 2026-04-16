@@ -27,6 +27,8 @@ import {
 } from "./markdownParser";
 import { applyRules } from "./rules";
 import { splitTableCells } from "@/utils/tableParser";
+import { verifyIntegrity } from "./integrity";
+import { cjkFmtWarn } from "@/utils/debug";
 
 interface TableBlock {
   start: number;
@@ -155,7 +157,9 @@ function formatMarkdownWithoutTables(
   config: CJKFormattingSettings,
   options: { preserveTwoSpaceHardBreaks?: boolean } = {}
 ): string {
-  const protectedRegions = findProtectedRegions(text);
+  const protectedRegions = findProtectedRegions(text, {
+    skipReferenceSections: config.skipReferenceSections,
+  });
   const segments = extractFormattableSegments(text, protectedRegions);
   const formattedSegments: TextSegment[] = segments.map((segment) => ({
     ...segment,
@@ -222,7 +226,9 @@ export function formatMarkdown(
 ): string {
   // Detect table blocks first so we can format table cells without breaking table structure.
   // We must not treat pipes in code as delimiters, and must not rewrite the delimiter row.
-  const protectedRegions = findProtectedRegions(text);
+  const protectedRegions = findProtectedRegions(text, {
+    skipReferenceSections: config.skipReferenceSections,
+  });
   const tableBlocks = detectTableBlocks(text, protectedRegions);
 
   let out: string;
@@ -248,7 +254,17 @@ export function formatMarkdown(
   }
 
   // Final cleanup: trim trailing whitespace and remove trailing backslashes
-  return out.trimEnd().replace(/\\+$/, "");
+  out = out.trimEnd().replace(/\\+$/, "");
+
+  // Integrity check: verify structural patterns survived formatting.
+  // If any pattern count changed, the parser has a bug — return original text.
+  const integrity = verifyIntegrity(text, out);
+  if (!integrity.ok) {
+    cjkFmtWarn("Integrity check failed, returning original text:", integrity.details);
+    return text;
+  }
+
+  return out;
 }
 
 /**

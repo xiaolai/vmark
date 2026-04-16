@@ -40,14 +40,23 @@ export interface ProtectedRegion {
     | "footnote_def"
     | "math_block"
     | "math_inline"
-    | "thematic_break";
+    | "thematic_break"
+    | "reference_section";
+}
+
+export interface ProtectedRegionOptions {
+  /** Skip ## References and ## Further Reading sections (off by default). */
+  skipReferenceSections?: boolean;
 }
 
 /**
  * Find all protected regions in markdown text.
  * These regions should be skipped during CJK formatting.
  */
-export function findProtectedRegions(text: string): ProtectedRegion[] {
+export function findProtectedRegions(
+  text: string,
+  options: ProtectedRegionOptions = {}
+): ProtectedRegion[] {
   const regions: ProtectedRegion[] = [];
 
   // 1. Frontmatter (must be at start of document)
@@ -253,6 +262,27 @@ export function findProtectedRegions(text: string): ProtectedRegion[] {
       end: text.length,
       type: "indented_code",
     });
+  }
+
+  // 13. Reference sections (opt-in): ## References, ## Further Reading
+  // Academic/technical documents often have bibliographic entries with specific
+  // punctuation that CJK formatting would corrupt (DOIs, citation commas, etc.)
+  if (options.skipReferenceSections) {
+    const refHeadingRegex = /^## (?:References|Further Reading)[ \t]*$/gm;
+    const nextH2Regex = /^## /gm;
+    let refMatch;
+    while ((refMatch = refHeadingRegex.exec(text)) !== null) {
+      if (isInsideRegion(refMatch.index, regions)) continue;
+      // Find the next ## heading after this one
+      nextH2Regex.lastIndex = refMatch.index + refMatch[0].length;
+      const nextHeading = nextH2Regex.exec(text);
+      const sectionEnd = nextHeading ? nextHeading.index : text.length;
+      regions.push({
+        start: refMatch.index,
+        end: sectionEnd,
+        type: "reference_section",
+      });
+    }
   }
 
   // Sort by start position
