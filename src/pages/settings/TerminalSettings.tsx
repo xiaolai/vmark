@@ -69,14 +69,25 @@ export function TerminalSettings() {
 
   const [shells, setShells] = useState<string[]>([]);
   const [defaultShell, setDefaultShell] = useState<string>("");
+  const [shellsLoaded, setShellsLoaded] = useState(false);
 
   useEffect(() => {
-    invoke<string[]>("list_available_shells").then(setShells).catch((e) => {
+    let cancelled = false;
+    invoke<string[]>("list_available_shells").then((result) => {
+      if (!cancelled) {
+        setShells(result);
+        setShellsLoaded(true);
+      }
+    }).catch((e) => {
       terminalSettingsWarn(" Failed to list shells:", e);
+      if (!cancelled) setShellsLoaded(true);
     });
-    invoke<string>("get_default_shell").then(setDefaultShell).catch((e) => {
+    invoke<string>("get_default_shell").then((result) => {
+      if (!cancelled) setDefaultShell(result);
+    }).catch((e) => {
       terminalSettingsWarn(" Failed to get default shell:", e);
     });
+    return () => { cancelled = true; };
   }, []);
 
   const detectedOptions = shells.map((s) => ({ value: s, label: shellLabel(s) }));
@@ -90,9 +101,16 @@ export function TerminalSettings() {
         : t("terminal.shell.systemDefault"),
     },
     ...detectedOptions,
-    // If persisted shell is not in detected list, add a fallback entry
+    // If persisted shell is not in detected list AND shells have finished loading,
+    // show unavailable fallback. While still loading, show the persisted value
+    // with its plain label to avoid a flash of "(unavailable)".
     ...(terminal.shell && !shellInList
-      ? [{ value: terminal.shell, label: t("terminal.shell.unavailable", { name: shellLabel(terminal.shell) }) }]
+      ? [{
+          value: terminal.shell,
+          label: shellsLoaded
+            ? t("terminal.shell.unavailable", { name: shellLabel(terminal.shell) })
+            : shellLabel(terminal.shell),
+        }]
       : []),
   ];
 

@@ -60,8 +60,14 @@ pub(crate) fn login_shell_path() -> String {
 
     CACHED
         .get_or_init(|| {
-            // Windows GUI apps inherit full system PATH -- skip the shell dance
+            // Windows: tools installed via npm/pnpm/scoop may add paths in the
+            // PowerShell $PROFILE that aren't in the base system+user PATH.
+            // Try spawning PowerShell to get the full PATH including profile
+            // additions, with a timeout. Fall back to the inherited PATH.
             if cfg!(target_os = "windows") {
+                if let Some(path) = windows_profile_path() {
+                    return path;
+                }
                 return std::env::var("PATH").unwrap_or_default();
             }
 
@@ -137,6 +143,86 @@ pub(crate) fn login_shell_path() -> String {
             std::env::var("PATH").unwrap_or_default()
         })
         .clone()
+}
+
+/// Spawn PowerShell to get the full PATH including `$PROFILE` additions.
+///
+/// Many Windows CLI tools (claude, codex, fnm, volta, etc.) add themselves
+/// to PATH via the PowerShell profile rather than the system environment
+/// variables.  This mirrors the macOS approach where we spawn a login shell
+/// to source `.zshrc`/`.bashrc`.
+///
+/// Returns `None` if PowerShell is unavailable, times out (3s), or produces
+/// empty output.
+#[cfg(target_os = "windows")]
+fn windows_profile_path() -> Option<String> {
+    const START: &str = "__VMARK_PATH_START__";
+    const END: &str = "__VMARK_PATH_END__";
+
+    // Try pwsh (PowerShell 7+) first, then powershell.exe (Windows PowerShell 5.x)
+    let shells = ["pwsh.exe", "powershell.exe"];
+    for shell in &shells {
+        let cmd_str = format!("Write-Output '{START}'; Write-Output $env:Path; Write-Output '{END}'");
+        let result = Command::new(shell)
+            .args(["-NoLogo", "-NonInteractive", "-Command", &cmd_str])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+
+        let mut child = match result {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let stdout_pipe = child.stdout.take();
+        let reader = std::thread::spawn(move || -> Vec<u8> {
+            let mut buf = Vec::new();
+            if let Some(mut pipe) = stdout_pipe {
+                use std::io::Read;
+                let _ = pipe.read_to_end(&mut buf);
+            }
+            buf
+        });
+
+        let timeout = std::time::Duration::from_secs(3);
+        let start = std::time::Instant::now();
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let buf = reader.join().ok()?;
+                    if status.success() {
+                        let raw = String::from_utf8_lossy(&buf);
+                        if let Some(s) = raw.find(START) {
+                            if let Some(e) = raw.find(END) {
+                                let path = raw[s + START.len()..e].trim();
+                                if !path.is_empty() {
+                                    return Some(path.to_string());
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+                Ok(None) => {
+                    if start.elapsed() > timeout {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        log::warn!("[VMark] windows_profile_path: {shell} timed out");
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                Err(_) => break,
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+fn windows_profile_path() -> Option<String> {
+    None
 }
 
 /// Build a `Command` for the system's `which` (Unix) or `where` (Windows).

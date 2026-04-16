@@ -152,7 +152,12 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     loginPath = "";
   }
   if (!loginPath) {
-    loginPath = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    // Platform-appropriate fallback when IPC fails or returns empty.
+    // navigator.platform is deprecated but still reliable for this check.
+    const isWindows = navigator.platform.startsWith("Win");
+    loginPath = isWindows
+      ? "C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\WindowsPowerShell\\v1.0"
+      : "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
   }
 
   const configuredShell = useSettingsStore.getState().terminal.shell.trim();
