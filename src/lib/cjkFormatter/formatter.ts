@@ -11,10 +11,12 @@
  *     excluded from formatting to prevent corruption
  *   - File-level formatting includes trailing whitespace and newline cleanup
  *   - Selection-level formatting applies rules only within the selected range
+ *   - Post-format integrity check verifies structural patterns survived;
+ *     returns original text on mismatch (defense-in-depth)
  *
  * @coordinates-with markdownParser.ts — identifies protected regions and segments
  * @coordinates-with rules.ts — contains the actual CJK formatting rules
- * @coordinates-with markdownCodeMask.ts — code region detection for protection
+ * @coordinates-with integrity.ts — post-format integrity verification
  * @module lib/cjkFormatter/formatter
  */
 

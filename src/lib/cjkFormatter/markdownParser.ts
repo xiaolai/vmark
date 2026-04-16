@@ -18,6 +18,8 @@
  *   - Indented code detection skips list continuations by checking previous
  *     non-blank line for list markers
  *   - Thematic breaks (---) are protected to avoid dash-to-emdash conversion
+ *   - Reference sections (## References, ## Further Reading) can be optionally
+ *     skipped via skipReferenceSections option to protect bibliographic formatting
  *
  * @coordinates-with formatter.ts — calls findProtectedRegions before formatting
  * @coordinates-with rules.ts — formatting rules operate only on non-protected segments

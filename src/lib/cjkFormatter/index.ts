@@ -7,10 +7,11 @@
  *
  * Architecture:
  *   formatter.ts — orchestrates the pipeline (parse → segment → rules → reconstruct)
- *   markdownParser.ts — identifies protected regions (code, URLs) to skip
+ *   markdownParser.ts — identifies protected regions (code, URLs, reference sections) to skip
  *   rules.ts — individual formatting rules (spacing, punctuation, etc.)
  *   latinSpanScanner.ts — identifies Latin spans within CJK text
  *   quotePairing.ts — matches and converts quote pairs to fullwidth
+ *   integrity.ts — post-format structural integrity verification
  *
  * @coordinates-with settingsStore.ts — CJKFormattingSettings controls which rules are active
  * @coordinates-with menu_events.rs — "format-cjk" menu item triggers formatFile
