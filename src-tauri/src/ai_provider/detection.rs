@@ -190,7 +190,7 @@ fn windows_profile_path() -> Option<String> {
         loop {
             match child.try_wait() {
                 Ok(Some(status)) => {
-                    let buf = reader.join().ok()?;
+                    let Ok(buf) = reader.join() else { break };
                     if status.success() {
                         let raw = String::from_utf8_lossy(&buf);
                         if let Some(s) = raw.find(START) {
