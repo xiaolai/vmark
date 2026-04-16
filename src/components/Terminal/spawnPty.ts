@@ -14,7 +14,7 @@
  *   - Sets TERM_PROGRAM=vmark and EDITOR=vmark so CLI tools can detect the host.
  *   - Injects login shell PATH via get_login_shell_path Tauri command so CLI
  *     tools (node, claude, etc.) are discoverable — macOS GUI apps have minimal
- *     PATH by default.
+ *     PATH by default. Fallback PATH is platform-aware (Windows vs Unix).
  *   - Sets LC_CTYPE=UTF-8 because macOS GUI apps have minimal env; without it
  *     the shell defaults to C locale and tools emit "?" for CJK characters.
  *     LC_CTYPE (not LANG) avoids overriding the user's full locale.
