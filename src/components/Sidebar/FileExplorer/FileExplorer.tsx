@@ -14,17 +14,21 @@
  *   - Inline rename on F2 or via context menu
  *
  * Key decisions:
- *   - Uses forwardRef + useImperativeHandle to expose createNewFile/createNewFolder
- *     to the Sidebar header buttons.
+ *   - Uses forwardRef + useImperativeHandle to expose createNewFile / createNewFolder /
+ *     collapseAll / expandAll to the Sidebar header buttons.
  *   - File tree is workspace-only — no inferred root from file path (single-file mode
  *     has no explorer).
  *   - Tree height is measured dynamically via ResizeObserver because react-arborist
  *     (react-window) requires an explicit numeric pixel height.
  *   - After create operations, a small timeout allows the tree to refresh before
  *     auto-entering edit mode on the new node.
+ *   - Folders default to collapsed (openByDefault=false). Open/closed state is persisted
+ *     across Files ↔ Outline ↔ History view switches via useFileExplorerOpenState, which
+ *     snapshots uiStore at mount and mirrors toggles back.
  *
  * @coordinates-with useFileTree.ts — loads directory tree and watches for fs changes
  * @coordinates-with useExplorerOperations.ts — CRUD operations on files and folders
+ * @coordinates-with useFileExplorerOpenState.ts — persists folder open state across remounts
  * @coordinates-with Sidebar.tsx — parent component that provides the ref
  * @module components/Sidebar/FileExplorer/FileExplorer
  */

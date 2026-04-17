@@ -2,7 +2,8 @@
  * UI Store
  *
  * Purpose: Transient UI state — sidebar visibility/width/mode, status bar,
- *   universal toolbar focus management, terminal panel, and file drag state.
+ *   universal toolbar focus management, terminal panel, file drag state, and
+ *   FileExplorer folder open/closed state across view-mode switches.
  *
  * Key decisions:
  *   - Not persisted — UI state resets on reload. Persistent prefs go in
@@ -17,10 +18,14 @@
  *     panelRatio in settingsStore by useTerminalPosition on each resize.
  *   - effectiveTerminalPosition tracks the resolved position ("bottom" | "right")
  *     computed by useTerminalPosition from settings + window dimensions.
+ *   - fileExplorerOpenState is keyed by absolute path; setFileExplorerNodeOpen
+ *     short-circuits before `set()` when the value is unchanged so Zustand
+ *     publishes nothing and listeners stay silent.
  *
  * @coordinates-with UniversalToolbar component — reads toolbar visibility/focus
  * @coordinates-with useViewShortcuts.ts — calls toggle methods from keyboard shortcuts
  * @coordinates-with useTerminalPosition.ts — writes effectiveTerminalPosition
+ * @coordinates-with useFileExplorerOpenState.ts — reads/writes fileExplorerOpenState
  * @module stores/uiStore
  */
 
