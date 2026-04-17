@@ -53,14 +53,25 @@ vi.mock("@/contexts/WindowContext", () => ({
 const mockSetActiveTab = vi.fn();
 const mockCreateTab = vi.fn(() => "new-tab");
 const mockUpdateTabPath = vi.fn();
+const mockDetachTab = vi.fn();
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
       setActiveTab: mockSetActiveTab,
       createTab: mockCreateTab,
       updateTabPath: mockUpdateTabPath,
+      detachTab: mockDetachTab,
     }),
   },
+}));
+
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...args: unknown[]) => mockToastError(...args) },
+}));
+
+vi.mock("@/i18n", () => ({
+  default: { t: (key: string, vars?: Record<string, unknown>) => `${key}:${JSON.stringify(vars ?? {})}` },
 }));
 
 const mockInitDocument = vi.fn();
@@ -205,15 +216,21 @@ describe("useFinderFileOpen", () => {
     });
   });
 
-  it("handles loadFileIntoTab error gracefully for new tab", async () => {
-    mockReadTextFile.mockRejectedValue(new Error("read error"));
+  it("detaches orphan tab and toasts on loadFileIntoTab error for new tab", async () => {
+    mockReadTextFile.mockRejectedValue(new Error("forbidden path: /bad/file.md"));
     mockInvoke.mockResolvedValue([{ path: "/bad/file.md", workspace_root: null }]);
 
     renderHook(() => useFinderFileOpen());
 
     await vi.waitFor(() => {
-      expect(mockInitDocument).toHaveBeenCalledWith("new-tab", "", null);
+      // Orphan tab is cleaned up and the error surfaces via toast — no
+      // silent empty tab, no initDocument zeroing the path.
+      expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab");
+      expect(mockToastError).toHaveBeenCalledWith(
+        expect.stringContaining("forbidden path")
+      );
     });
+    expect(mockInitDocument).not.toHaveBeenCalled();
   });
 
   it("waits for hot exit restore before processing", async () => {

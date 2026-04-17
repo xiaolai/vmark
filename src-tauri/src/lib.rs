@@ -88,6 +88,67 @@ fn get_pending_file_opens() -> Vec<PendingFileOpen> {
     pending.drain(..).collect()
 }
 
+/// Runtime-extend the fs plugin's read scope for a path the user asked to open.
+///
+/// Tauri's static capability scope in `capabilities/default.json` grants
+/// read access only under `$HOME/**`, `/Volumes/**`, `/mnt/**`, `/media/**`.
+/// Files arriving via Finder (`RunEvent::Opened`), CLI args, or explicit
+/// "Open in new window" commands can live anywhere on disk (`/private/tmp`,
+/// `/etc`, etc.). Without extension, `readTextFile` in the webview rejects
+/// them with `forbidden path`, leaving tabs with empty content.
+///
+/// This mirrors what `tauri_plugin_dialog` does automatically for
+/// user-picked paths — the intent signal (user chose this file) is the same.
+/// Best-effort: failures are logged, not propagated.
+pub(crate) fn allow_fs_read<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
+    use tauri_plugin_fs::FsExt;
+    if let Err(e) = app.fs_scope().allow_file(path) {
+        log::warn!("[fs-scope] Failed to allow file '{}': {}", path, e);
+    }
+}
+
+/// Accepted markdown file extensions (lowercased, without the leading dot).
+///
+/// Kept as a single source of truth so CLI arg filtering, Finder `Opened`
+/// filtering, and runtime path validation for `open_*_in_new_window`
+/// commands all agree on what counts as a markdown document.
+pub(crate) const MARKDOWN_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx"];
+
+/// True if `path` has a markdown extension (case-insensitive).
+///
+/// Only inspects the extension — does not touch the filesystem. Callers
+/// that also need existence / file-type checks should compose this with
+/// `path.exists()` / `path.is_file()` as needed.
+pub(crate) fn has_markdown_extension(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| {
+            let lowered = ext.to_ascii_lowercase();
+            MARKDOWN_EXTENSIONS.iter().any(|allowed| *allowed == lowered)
+        })
+        .unwrap_or(false)
+}
+
+/// True if `path` refers to an existing, regular, markdown-extension file.
+///
+/// Single gate used by every "open this path" entry point (CLI args,
+/// Finder `RunEvent::Opened`, `open_*_in_new_window` commands) so they
+/// all agree on which paths VMark will accept.
+pub(crate) fn is_openable_markdown(path: &std::path::Path) -> bool {
+    path.is_file() && has_markdown_extension(path)
+}
+
+/// Pure wrapper over the Windows/Linux CLI-args filter.
+///
+/// Extracted so the filter's acceptance policy can be unit-tested
+/// exhaustively — the real call site in `run()` only differs by where
+/// the input `Vec<String>` comes from (`std::env::args().skip(1)`).
+pub(crate) fn filter_markdown_args(args: impl IntoIterator<Item = String>) -> Vec<String> {
+    args.into_iter()
+        .filter(|arg| is_openable_markdown(std::path::Path::new(arg)))
+        .collect()
+}
+
 /// Debug logging from frontend (logs to terminal, debug builds only)
 #[cfg(debug_assertions)]
 #[tauri::command]
@@ -610,25 +671,13 @@ pub fn run() {
             // (macOS uses RunEvent::Opened from Finder instead)
             #[cfg(not(target_os = "macos"))]
             {
-                let md_extensions = ["md", "markdown", "mdown", "mkd", "mdx"];
-                let args: Vec<String> = std::env::args().skip(1).collect();
-                let file_args: Vec<String> = args
-                    .into_iter()
-                    .filter(|arg| {
-                        let path = std::path::Path::new(arg);
-                        path.exists()
-                            && path.is_file()
-                            && path
-                                .extension()
-                                .and_then(|e| e.to_str())
-                                .map(|e| md_extensions.contains(&e.to_lowercase().as_str()))
-                                .unwrap_or(false)
-                    })
-                    .collect();
+                let file_args =
+                    filter_markdown_args(std::env::args().skip(1));
 
                 if !file_args.is_empty() {
                     if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
                         for path_str in file_args {
+                            allow_fs_read(app.handle(), &path_str);
                             let workspace_root =
                                 window_manager::get_workspace_root_for_file(&path_str);
                             pending.push(PendingFileOpen {
@@ -762,11 +811,18 @@ pub fn run() {
                                 continue;
                             }
                             // Only queue markdown files — non-markdown files would
-                            // create broken empty tabs (#661 audit gap 9.1)
-                            if !path_str.ends_with(".md") && !path_str.ends_with(".markdown") {
+                            // create broken empty tabs (#661 audit gap 9.1).
+                            // Uses the shared helper so CLI and Finder filters
+                            // stay in sync — the same set of markdown
+                            // extensions is accepted at every entry point.
+                            if !is_openable_markdown(&path) {
                                 log::warn!("[Finder] Skipping non-markdown file: {}", path_str);
                                 continue;
                             }
+                            // Extend fs read scope so the webview's readTextFile
+                            // succeeds for paths outside the static capability
+                            // scope (e.g. /private/tmp). See allow_fs_read docs.
+                            allow_fs_read(app, path_str);
                             file_paths.push(path_str.to_string());
                         }
                     }
@@ -851,4 +907,248 @@ pub fn run() {
                 _ => {}
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        filter_markdown_args, has_markdown_extension, is_openable_markdown, MARKDOWN_EXTENSIONS,
+    };
+    use std::path::{Path, PathBuf};
+
+    // -- MARKDOWN_EXTENSIONS constant ----------------------------------------
+
+    #[test]
+    fn markdown_extensions_cover_known_variants() {
+        // Freezes the accepted set — if this list changes, every entry point
+        // (CLI args, Finder RunEvent::Opened, open_*_in_new_window commands,
+        // `dialog:allow-open` filters) must be audited for consistency.
+        assert_eq!(
+            MARKDOWN_EXTENSIONS,
+            &["md", "markdown", "mdown", "mkd", "mdx"],
+        );
+    }
+
+    // -- has_markdown_extension ----------------------------------------------
+
+    #[test]
+    fn accepts_every_markdown_extension() {
+        for ext in MARKDOWN_EXTENSIONS {
+            let path = PathBuf::from(format!("/some/file.{ext}"));
+            assert!(
+                has_markdown_extension(&path),
+                "expected '.{ext}' to be accepted",
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_uppercase_and_mixed_case_extensions() {
+        assert!(has_markdown_extension(Path::new("/a/NOTE.MD")));
+        assert!(has_markdown_extension(Path::new("/a/note.Md")));
+        assert!(has_markdown_extension(Path::new("/a/Readme.MARKDOWN")));
+    }
+
+    #[test]
+    fn rejects_non_markdown_extensions() {
+        assert!(!has_markdown_extension(Path::new("/a/note.txt")));
+        assert!(!has_markdown_extension(Path::new("/a/image.png")));
+        // `.md.bak` resolves to extension `bak`, not a markdown variant
+        assert!(!has_markdown_extension(Path::new("/a/note.md.bak")));
+    }
+
+    #[test]
+    fn rejects_path_without_extension() {
+        assert!(!has_markdown_extension(Path::new("/a/README")));
+        assert!(!has_markdown_extension(Path::new("/a/.hiddenrc")));
+    }
+
+    #[test]
+    fn rejects_empty_path() {
+        assert!(!has_markdown_extension(Path::new("")));
+    }
+
+    // -- is_openable_markdown (requires real filesystem) ---------------------
+
+    #[test]
+    fn rejects_missing_path() {
+        let missing = PathBuf::from("/definitely/does/not/exist-vmark-test.md");
+        assert!(!is_openable_markdown(&missing));
+    }
+
+    #[test]
+    fn rejects_directory_even_with_markdown_name() {
+        // Build a temp directory whose name ends in .md — the extension
+        // check alone would pass, so this proves is_file() is consulted.
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let md_dir = dir.path().join("looks-like-note.md");
+        std::fs::create_dir(&md_dir).expect("create subdir");
+        assert!(!is_openable_markdown(&md_dir));
+    }
+
+    #[test]
+    fn accepts_existing_markdown_file() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let file_path = dir.path().join("note.MD");
+        std::fs::write(&file_path, b"# hi").expect("write temp file");
+        assert!(is_openable_markdown(&file_path));
+    }
+
+    #[test]
+    fn rejects_existing_non_markdown_file() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let file_path = dir.path().join("note.txt");
+        std::fs::write(&file_path, b"not markdown").expect("write temp file");
+        assert!(!is_openable_markdown(&file_path));
+    }
+
+    // -- filter_markdown_args -------------------------------------------------
+    // Covers the Windows/Linux CLI entry point. macOS Finder
+    // (RunEvent::Opened) and the `open_*_in_new_window` commands go through
+    // the same `is_openable_markdown` gate, so the acceptance policy is
+    // uniform across all three surfaces.
+
+    #[test]
+    fn cli_filter_keeps_every_markdown_variant() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let mut inputs = Vec::new();
+        for ext in MARKDOWN_EXTENSIONS {
+            let path = dir.path().join(format!("note.{ext}"));
+            std::fs::write(&path, b"# hi").expect("write");
+            inputs.push(path.to_string_lossy().into_owned());
+        }
+        let kept = filter_markdown_args(inputs.clone());
+        assert_eq!(kept, inputs, "every markdown variant should pass");
+    }
+
+    #[test]
+    fn cli_filter_drops_non_markdown_and_missing_and_directory() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let good = dir.path().join("keep.md");
+        std::fs::write(&good, b"# hi").expect("write good");
+
+        let plain = dir.path().join("drop.txt");
+        std::fs::write(&plain, b"plain").expect("write plain");
+
+        let md_dir = dir.path().join("looks-markdown.md");
+        std::fs::create_dir(&md_dir).expect("mkdir");
+
+        let missing = dir.path().join("vanished.md");
+
+        let inputs = vec![
+            good.to_string_lossy().into_owned(),
+            plain.to_string_lossy().into_owned(),
+            md_dir.to_string_lossy().into_owned(),
+            missing.to_string_lossy().into_owned(),
+        ];
+
+        let kept = filter_markdown_args(inputs);
+        assert_eq!(kept, vec![good.to_string_lossy().into_owned()]);
+    }
+
+    #[test]
+    fn cli_filter_empty_input_returns_empty() {
+        let kept = filter_markdown_args(Vec::<String>::new());
+        assert!(kept.is_empty());
+    }
+
+    // -- parity across entry points ------------------------------------------
+
+    #[test]
+    fn finder_and_cli_share_acceptance_policy() {
+        // The Finder RunEvent::Opened handler uses `is_openable_markdown`
+        // directly (lib.rs `tauri::RunEvent::Opened` arm). The CLI filter
+        // routes through the same predicate via filter_markdown_args. This
+        // test pins that invariant — if either surface diverges, this
+        // fails loudly rather than letting drift recur silently.
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let file = dir.path().join("note.MD");
+        std::fs::write(&file, b"# hi").expect("write");
+        let raw = file.to_string_lossy().into_owned();
+
+        // Finder path (the predicate called inside RunEvent::Opened)
+        let finder_accepts = is_openable_markdown(&file);
+        // CLI path (the wrapper used in the setup closure)
+        let cli_accepts = !filter_markdown_args(vec![raw.clone()]).is_empty();
+
+        assert!(finder_accepts, "finder arm must accept note.MD");
+        assert!(cli_accepts, "cli arm must accept note.MD");
+        assert_eq!(finder_accepts, cli_accepts);
+    }
+
+    // -- allow_fs_read runtime scope extension (mock Tauri app) --------------
+    //
+    // Covers the wiring that the CLI, Finder, and `open_*_in_new_window`
+    // entry points all rely on: calling `allow_fs_read(app, path)` must
+    // mutate the fs plugin's scope so `readTextFile(path)` in the webview
+    // later succeeds. Without this, the bug reported in #676 recurs
+    // silently — validators pass, but the webview read is still denied.
+
+    use super::allow_fs_read;
+    use tauri_plugin_fs::FsExt;
+
+    fn mock_app_with_fs() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("build mock app with fs plugin")
+    }
+
+    #[test]
+    fn allow_fs_read_extends_scope_so_read_is_permitted() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("note.md");
+        std::fs::write(&file, b"# hi").expect("write");
+
+        let app = mock_app_with_fs();
+        // Sanity: a fresh mock scope does NOT already allow this arbitrary
+        // path. If this flips, the rest of the test is meaningless.
+        assert!(
+            !app.fs_scope().is_allowed(&file),
+            "mock fs scope should reject unknown path before extension"
+        );
+
+        allow_fs_read(app.handle(), file.to_str().unwrap());
+
+        assert!(
+            app.fs_scope().is_allowed(&file),
+            "allow_fs_read should extend scope so the webview can read the path"
+        );
+    }
+
+    #[test]
+    fn allow_fs_read_is_idempotent() {
+        // Calling twice must not panic, error, or double-allow in a way
+        // that breaks subsequent reads. The Finder cold-start path does
+        // this when a file arrives via both the pending queue and a later
+        // hot event.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("note.md");
+        std::fs::write(&file, b"# hi").expect("write");
+
+        let app = mock_app_with_fs();
+        allow_fs_read(app.handle(), file.to_str().unwrap());
+        allow_fs_read(app.handle(), file.to_str().unwrap());
+
+        assert!(app.fs_scope().is_allowed(&file));
+    }
+
+    #[test]
+    fn allow_fs_read_does_not_grant_unrelated_paths() {
+        // Extending scope for one file must not leak into neighbors.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let allowed = dir.path().join("keep.md");
+        let other = dir.path().join("other.md");
+        std::fs::write(&allowed, b"# hi").expect("write allowed");
+        std::fs::write(&other, b"# hi").expect("write other");
+
+        let app = mock_app_with_fs();
+        allow_fs_read(app.handle(), allowed.to_str().unwrap());
+
+        assert!(app.fs_scope().is_allowed(&allowed));
+        assert!(
+            !app.fs_scope().is_allowed(&other),
+            "scope extension must be per-file, not per-directory"
+        );
+    }
 }

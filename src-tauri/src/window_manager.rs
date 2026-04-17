@@ -319,9 +319,35 @@ pub fn new_window(app: AppHandle) -> Result<String, String> {
     create_document_window(&app, None, None).map_err(|e| e.to_string())
 }
 
+/// Validate that a frontend-supplied path is safe to extend into the fs
+/// read scope. Rejects non-files, non-markdown extensions, and paths that
+/// don't resolve on disk — so a compromised webview can't escalate by
+/// invoking these commands with arbitrary targets.
+///
+/// Canonicalization resolves symlinks so the markdown-extension check
+/// runs on the real target, not the link name (e.g. a `.md` symlink
+/// pointing to `/etc/passwd` is rejected).
+///
+/// Returns `Ok(())` when the raw path is acceptable. The raw string is
+/// intentionally used downstream — the scope pattern must match what the
+/// webview will pass to `readTextFile`, which is the same raw path.
+fn validate_openable_path(raw: &str) -> Result<(), String> {
+    let canonical = std::path::Path::new(raw)
+        .canonicalize()
+        .map_err(|e| format!("invalid path '{raw}': {e}"))?;
+    if !crate::is_openable_markdown(&canonical) {
+        return Err(format!(
+            "path '{raw}' is not an openable markdown file"
+        ));
+    }
+    Ok(())
+}
+
 /// Open a file in a new window (Tauri command)
 #[tauri::command]
 pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, String> {
+    validate_openable_path(&path)?;
+    crate::allow_fs_read(&app, &path);
     create_document_window(&app, Some(&path), None).map_err(|e| e.to_string())
 }
 
@@ -335,6 +361,10 @@ pub fn open_workspace_in_new_window(
     workspace_root: String,
     file_path: Option<String>,
 ) -> Result<String, String> {
+    if let Some(ref path) = file_path {
+        validate_openable_path(path)?;
+        crate::allow_fs_read(&app, path);
+    }
     create_document_window(
         &app,
         file_path.as_deref(),
@@ -350,6 +380,14 @@ pub fn open_workspace_with_files_in_new_window(
     workspace_root: String,
     file_paths: Vec<String>,
 ) -> Result<String, String> {
+    // Validate every path up-front so a single bad entry doesn't leave the
+    // scope partially extended for the rest of the batch.
+    for path in &file_paths {
+        validate_openable_path(path)?;
+    }
+    for path in &file_paths {
+        crate::allow_fs_read(&app, path);
+    }
     let url = build_window_url_with_files(&file_paths, Some(&workspace_root));
     create_document_window_with_url(&app, url).map_err(|e| e.to_string())
 }
@@ -725,5 +763,59 @@ mod tests {
         let n1: u32 = l1.strip_prefix("doc-").unwrap().parse().unwrap();
         let n2: u32 = l2.strip_prefix("doc-").unwrap().parse().unwrap();
         assert_eq!(n2, n1 + 1);
+    }
+
+    // -- validate_openable_path -----------------------------------------------
+
+    #[test]
+    fn validate_accepts_existing_markdown_file() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let file = dir.path().join("note.md");
+        std::fs::write(&file, b"# hi").expect("write");
+        let result = validate_openable_path(file.to_str().unwrap());
+        assert!(result.is_ok(), "got {:?}", result);
+    }
+
+    #[test]
+    fn validate_rejects_missing_path() {
+        let missing = "/definitely/does/not/exist-vmark-test.md";
+        let err = validate_openable_path(missing).unwrap_err();
+        assert!(err.contains("invalid path"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_directory() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        // Directory with a markdown-looking name — extension alone must not
+        // be enough to pass validation.
+        let md_dir = dir.path().join("looks-like-note.md");
+        std::fs::create_dir(&md_dir).expect("mkdir");
+        let err = validate_openable_path(md_dir.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("not an openable markdown file"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_rejects_non_markdown_file() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let file = dir.path().join("note.txt");
+        std::fs::write(&file, b"plain").expect("write");
+        let err = validate_openable_path(file.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("not an openable markdown file"), "got: {err}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_rejects_markdown_symlink_to_non_markdown() {
+        // Canonicalization catches a crafted symlink: the link name ends
+        // in .md but it points at a non-markdown target. This is the
+        // concrete security reason validate_openable_path canonicalizes
+        // before checking the extension.
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let target = dir.path().join("real.txt");
+        std::fs::write(&target, b"not markdown").expect("write target");
+        let link = dir.path().join("looks-markdown.md");
+        std::os::unix::fs::symlink(&target, &link).expect("symlink");
+        let err = validate_openable_path(link.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("not an openable markdown file"), "got: {err}");
     }
 }

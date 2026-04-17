@@ -57,6 +57,7 @@ vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
 const mockSetActiveTab = vi.fn();
 const mockCreateTab = vi.fn(() => "new-tab-id");
 const mockUpdateTabPath = vi.fn();
+const mockDetachTab = vi.fn();
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
@@ -64,8 +65,18 @@ vi.mock("@/stores/tabStore", () => ({
       setActiveTab: mockSetActiveTab,
       createTab: mockCreateTab,
       updateTabPath: mockUpdateTabPath,
+      detachTab: mockDetachTab,
     }),
   },
+}));
+
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...args: unknown[]) => mockToastError(...args) },
+}));
+
+vi.mock("@/i18n", () => ({
+  default: { t: (key: string, vars?: Record<string, unknown>) => `${key}:${JSON.stringify(vars ?? {})}` },
 }));
 
 const mockInitDocument = vi.fn();
@@ -266,8 +277,8 @@ describe("useFinderFileOpen", () => {
     expect(mockCreateTab).toHaveBeenCalledTimes(2);
   });
 
-  it("handles readTextFile failure gracefully for new tab", async () => {
-    mockReadTextFile.mockRejectedValue(new Error("not found"));
+  it("detaches orphan tab and toasts on readTextFile failure for new tab", async () => {
+    mockReadTextFile.mockRejectedValue(new Error("forbidden path: /docs/broken.md"));
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -285,15 +296,21 @@ describe("useFinderFileOpen", () => {
       await Promise.resolve();
     });
 
-    // Should still create a tab, init with empty content on failure
+    // Tab is created, then detached after read fails — no empty-content
+    // document is left behind, and the user sees a toast with the cause.
     expect(mockCreateTab).toHaveBeenCalled();
-    expect(mockInitDocument).toHaveBeenCalledWith("new-tab-id", "", null);
+    expect(mockInitDocument).not.toHaveBeenCalled();
+    expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab-id");
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining("forbidden path")
+    );
+    expect(mockSetActiveTab).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 
-  it("handles readTextFile failure for replaceable tab", async () => {
+  it("toasts and preserves untouched tab on replaceable-tab read failure", async () => {
     mockGetReplaceableTab.mockReturnValue({ tabId: "empty-tab", filePath: null });
-    mockReadTextFile.mockRejectedValue(new Error("read error"));
+    mockReadTextFile.mockRejectedValue(new Error("forbidden path: /docs/broken.md"));
 
     const { finderFileOpenError } = await import("@/utils/debug");
 
@@ -311,12 +328,20 @@ describe("useFinderFileOpen", () => {
       await Promise.resolve();
     });
 
-    // Should not crash, error is caught
+    // Error is logged AND surfaced to the user via toast — no silent no-op.
     expect(finderFileOpenError).toHaveBeenCalledWith(
       expect.stringContaining("Failed to load file"),
       "/docs/broken.md",
       expect.any(Error)
     );
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining("forbidden path")
+    );
+    // Tab path must NOT be rewritten to the failed file — the untitled
+    // tab stays untitled, ready for the next attempt.
+    expect(mockUpdateTabPath).not.toHaveBeenCalled();
+    // And we do NOT activate a tab with stale content — short-circuit.
+    expect(mockSetActiveTab).not.toHaveBeenCalled();
   });
 
   it("warns when hot exit restore times out", async () => {

@@ -60,3 +60,7 @@ objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] 
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
+# Pulls in tauri::test (mock_app, mock_builder) for command-wiring tests
+# — scope extension, path validation, etc. The `test` feature is gated by
+# #[cfg(any(test, feature = "test"))], so it vanishes from release builds.
+tauri = { version = "2", features = ["protocol-asset", "test"] }
