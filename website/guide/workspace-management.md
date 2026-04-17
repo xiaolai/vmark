@@ -28,6 +28,14 @@ The file explorer appears in the sidebar whenever a workspace is open. It shows 
 - **Single-click** a folder to expand or collapse it
 - **Double-click** or **Enter** on a file to open it in a tab
 - Non-markdown files open with your system's default application
+- Folders start collapsed when a workspace is first opened; their open state is preserved while you switch between the Files, Outline, and History views
+
+### Expand / Collapse All
+
+Two buttons in the Files-view header toggle the entire tree at once:
+
+- **Expand All Folders** — opens every folder in the tree
+- **Collapse All Folders** — closes every folder back to the root
 
 ### File Operations
 

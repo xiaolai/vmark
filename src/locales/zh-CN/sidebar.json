@@ -7,6 +7,8 @@
   "showHistory": "显示历史记录",
   "newFile": "新建文件",
   "newFolder": "新建文件夹",
+  "expandAllFolders": "展开所有文件夹",
+  "collapseAllFolders": "折叠所有文件夹",
   "clearDocumentHistory": "清空文档历史记录",
   "closeSidebar": "关闭侧栏",
   "clearHistoryMessage": "删除此文档的所有历史记录？此操作无法撤销。",

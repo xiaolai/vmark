@@ -35,6 +35,7 @@ import { Folder } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useFileTree } from "./useFileTree";
 import { useExplorerOperations } from "./useExplorerOperations";
+import { useFileExplorerOpenState } from "./useFileExplorerOpenState";
 import { FileNode } from "./FileNode";
 import { ContextMenu, type ContextMenuType, type ContextMenuPosition } from "./ContextMenu";
 import { useObservedHeight } from "./useObservedHeight";
@@ -57,10 +58,12 @@ interface ContextMenuState {
   targetIsFolder: boolean;
 }
 
-/** Imperative handle exposed by FileExplorer for programmatic file/folder creation. */
+/** Imperative handle exposed by FileExplorer for programmatic file/folder creation and tree expansion. */
 export interface FileExplorerHandle {
   createNewFile: () => void;
   createNewFolder: () => void;
+  collapseAll: () => void;
+  expandAll: () => void;
 }
 
 interface FileExplorerProps {
@@ -98,6 +101,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
 
   // Workspace-only: no inferred root from file path
   const rootPath = isWorkspaceMode ? workspaceRootPath : null;
+
+  // Persisted folder open state — preserved across sidebar view-mode switches
+  // (react-arborist unmounts on viewMode change, losing internal state otherwise).
+  const { initialOpenState, handleToggle, collapseAll, expandAll } =
+    useFileExplorerOpenState(treeRef);
 
   const { tree, isLoading, refresh } = useFileTree(rootPath, {
     excludeFolders,
@@ -347,7 +355,9 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   useImperativeHandle(ref, () => ({
     createNewFile: () => handleNewFile(),
     createNewFolder: () => handleNewFolder(),
-  }), [handleNewFile, handleNewFolder]);
+    collapseAll,
+    expandAll,
+  }), [handleNewFile, handleNewFolder, collapseAll, expandAll]);
 
   // Extract workspace name from path
   const workspaceName = workspaceRootPath
@@ -386,12 +396,14 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
         <Tree<FileNodeType>
           ref={treeRef}
           data={tree}
-          openByDefault={true}
+          openByDefault={false}
+          initialOpenState={initialOpenState}
           width="100%"
           height={treeHeight}
           indent={16}
           rowHeight={26}
           onActivate={handleActivate}
+          onToggle={handleToggle}
           onRename={handleRename}
           onDelete={handleDelete}
           onMove={handleMove}

@@ -7,6 +7,8 @@
   "showHistory": "Show History",
   "newFile": "New File",
   "newFolder": "New Folder",
+  "expandAllFolders": "Expand All Folders",
+  "collapseAllFolders": "Collapse All Folders",
   "clearDocumentHistory": "Clear Document History",
   "closeSidebar": "Close Sidebar",
   "clearHistoryMessage": "Delete all history for this document? This cannot be undone.",

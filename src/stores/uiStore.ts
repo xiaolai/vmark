@@ -66,6 +66,9 @@ interface UIState {
   terminalHeight: number;
   terminalWidth: number;
   effectiveTerminalPosition: EffectiveTerminalPosition;
+  /** FileExplorer folder open state, keyed by absolute path. Preserved across
+   * sidebar view switches (Files ↔ Outline ↔ History); cleared on app reload. */
+  fileExplorerOpenState: Record<string, boolean>;
 }
 
 interface UIActions {
@@ -94,6 +97,10 @@ interface UIActions {
   setTerminalHeight: (height: number) => void;
   setTerminalWidth: (width: number) => void;
   setEffectiveTerminalPosition: (pos: EffectiveTerminalPosition) => void;
+  /** Record whether a single folder node is open (true) or closed (false). */
+  setFileExplorerNodeOpen: (id: string, open: boolean) => void;
+  /** Replace the entire FileExplorer open-state map. */
+  setFileExplorerOpenState: (next: Record<string, boolean>) => void;
 }
 
 /** Manages transient UI state — sidebar, toolbar, terminal, status bar, and drag state. Use selectors, not destructuring. */
@@ -113,6 +120,7 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   terminalHeight: TERMINAL_DEFAULT_HEIGHT,
   terminalWidth: TERMINAL_DEFAULT_WIDTH,
   effectiveTerminalPosition: "bottom",
+  fileExplorerOpenState: {},
 
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
   toggleSidebarView: (mode) => set((state) => {
@@ -189,4 +197,14 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
     terminalWidth: Math.min(TERMINAL_MAX_WIDTH, Math.max(TERMINAL_MIN_WIDTH, w)),
   }),
   setEffectiveTerminalPosition: (pos) => set({ effectiveTerminalPosition: pos }),
+
+  setFileExplorerNodeOpen: (id, open) => {
+    const current = useUIStore.getState().fileExplorerOpenState;
+    // True no-op on unchanged value: bail out before `set` so Zustand neither
+    // publishes a new root state nor notifies listeners.
+    if (current[id] === open) return;
+    set({ fileExplorerOpenState: { ...current, [id]: open } });
+  },
+
+  setFileExplorerOpenState: (next) => set({ fileExplorerOpenState: next }),
 }));

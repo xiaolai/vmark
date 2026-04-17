@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useUIStore } from "./uiStore";
 
 function resetUIStore() {
@@ -16,6 +16,7 @@ function resetUIStore() {
     terminalHeight: 250,
     terminalWidth: 400,
     effectiveTerminalPosition: "bottom",
+    fileExplorerOpenState: {},
   });
 }
 
@@ -359,6 +360,87 @@ describe("uiStore", () => {
     it("accepts values within range", () => {
       useUIStore.getState().setTerminalHeight(300);
       expect(useUIStore.getState().terminalHeight).toBe(300);
+    });
+  });
+
+  describe("fileExplorerOpenState", () => {
+    it("starts with an empty map", () => {
+      expect(useUIStore.getState().fileExplorerOpenState).toEqual({});
+    });
+
+    it("sets a single folder open", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a/b", true);
+      expect(useUIStore.getState().fileExplorerOpenState).toEqual({ "/a/b": true });
+    });
+
+    it("overwrites open → closed for the same path", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+      useUIStore.getState().setFileExplorerNodeOpen("/a", false);
+      expect(useUIStore.getState().fileExplorerOpenState).toEqual({ "/a": false });
+    });
+
+    it("preserves other entries when updating one", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+      useUIStore.getState().setFileExplorerNodeOpen("/b", true);
+      useUIStore.getState().setFileExplorerNodeOpen("/a", false);
+
+      expect(useUIStore.getState().fileExplorerOpenState).toEqual({
+        "/a": false,
+        "/b": true,
+      });
+    });
+
+    it("returns a new reference when a value actually changes", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+      const before = useUIStore.getState().fileExplorerOpenState;
+
+      useUIStore.getState().setFileExplorerNodeOpen("/a", false);
+      const after = useUIStore.getState().fileExplorerOpenState;
+
+      expect(after).not.toBe(before);
+    });
+
+    it("is a no-op when the value is unchanged (stable reference)", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+      const before = useUIStore.getState().fileExplorerOpenState;
+
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+      const after = useUIStore.getState().fileExplorerOpenState;
+
+      expect(after).toBe(before);
+    });
+
+    it("replaces the whole map via setFileExplorerOpenState", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+
+      useUIStore.getState().setFileExplorerOpenState({ "/x": true, "/y": false });
+
+      expect(useUIStore.getState().fileExplorerOpenState).toEqual({
+        "/x": true,
+        "/y": false,
+      });
+    });
+
+    it("does not notify subscribers on a no-op write", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+      const listener = vi.fn();
+      const unsubscribe = useUIStore.subscribe(listener);
+
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+
+      expect(listener).not.toHaveBeenCalled();
+      unsubscribe();
+    });
+
+    it("notifies subscribers exactly once when the value changes", () => {
+      useUIStore.getState().setFileExplorerNodeOpen("/a", true);
+      const listener = vi.fn();
+      const unsubscribe = useUIStore.subscribe(listener);
+
+      useUIStore.getState().setFileExplorerNodeOpen("/a", false);
+
+      expect(listener).toHaveBeenCalledOnce();
+      unsubscribe();
     });
   });
 

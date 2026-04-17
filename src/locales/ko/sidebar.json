@@ -7,6 +7,8 @@
   "showHistory": "기록 보기",
   "newFile": "새 파일",
   "newFolder": "새 폴더",
+  "expandAllFolders": "모든 폴더 펼치기",
+  "collapseAllFolders": "모든 폴더 접기",
   "clearDocumentHistory": "문서 기록 지우기",
   "closeSidebar": "사이드바 닫기",
   "clearHistoryMessage": "이 문서의 모든 기록을 삭제할까요? 이 작업은 취소할 수 없습니다.",

@@ -7,6 +7,8 @@
   "showHistory": "履歴を表示",
   "newFile": "新しいファイル",
   "newFolder": "新しいフォルダ",
+  "expandAllFolders": "すべてのフォルダを展開",
+  "collapseAllFolders": "すべてのフォルダを折りたたむ",
   "clearDocumentHistory": "ドキュメント履歴を消去",
   "closeSidebar": "サイドバーを閉じる",
   "clearHistoryMessage": "このドキュメントの履歴をすべて削除しますか？この操作は取り消せません。",

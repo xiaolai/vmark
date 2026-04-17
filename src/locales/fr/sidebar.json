@@ -7,6 +7,8 @@
   "showHistory": "Afficher l'historique",
   "newFile": "Nouveau fichier",
   "newFolder": "Nouveau dossier",
+  "expandAllFolders": "Développer tous les dossiers",
+  "collapseAllFolders": "Réduire tous les dossiers",
   "clearDocumentHistory": "Effacer l'historique du document",
   "closeSidebar": "Fermer la barre latérale",
   "clearHistoryMessage": "Supprimer tout l'historique de ce document ? Cette action est irréversible.",

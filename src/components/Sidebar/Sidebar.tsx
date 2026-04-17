@@ -6,7 +6,7 @@
 
 import { useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2 } from "lucide-react";
+import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { deleteDocumentHistory } from "@/hooks/useHistoryRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
@@ -94,6 +94,22 @@ export function Sidebar() {
         {/* Action buttons - files view */}
         {viewMode === "files" && (
           <div className="sidebar-header-actions">
+            <button
+              className="sidebar-btn"
+              onClick={() => fileExplorerRef.current?.expandAll()}
+              title={t("expandAllFolders")}
+              aria-label={t("expandAllFolders")}
+            >
+              <ChevronsUpDown size={14} />
+            </button>
+            <button
+              className="sidebar-btn"
+              onClick={() => fileExplorerRef.current?.collapseAll()}
+              title={t("collapseAllFolders")}
+              aria-label={t("collapseAllFolders")}
+            >
+              <ChevronsDownUp size={14} />
+            </button>
             <button
               className="sidebar-btn"
               onClick={() => fileExplorerRef.current?.createNewFile()}

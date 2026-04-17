@@ -7,6 +7,8 @@
   "showHistory": "Verlauf anzeigen",
   "newFile": "Neue Datei",
   "newFolder": "Neuer Ordner",
+  "expandAllFolders": "Alle Ordner ausklappen",
+  "collapseAllFolders": "Alle Ordner einklappen",
   "clearDocumentHistory": "Dokumentverlauf löschen",
   "closeSidebar": "Seitenleiste schließen",
   "clearHistoryMessage": "Gesamten Verlauf für dieses Dokument löschen? Dies kann nicht rückgängig gemacht werden.",

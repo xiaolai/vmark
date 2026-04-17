@@ -7,6 +7,8 @@
   "showHistory": "Mostrar histórico",
   "newFile": "Novo arquivo",
   "newFolder": "Nova pasta",
+  "expandAllFolders": "Expandir todas as pastas",
+  "collapseAllFolders": "Recolher todas as pastas",
   "clearDocumentHistory": "Limpar histórico do documento",
   "closeSidebar": "Fechar barra lateral",
   "clearHistoryMessage": "Excluir todo o histórico deste documento? Esta ação não pode ser desfeita.",

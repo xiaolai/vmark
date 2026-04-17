@@ -7,6 +7,8 @@
   "showHistory": "Mostra cronologia",
   "newFile": "Nuovo file",
   "newFolder": "Nuova cartella",
+  "expandAllFolders": "Espandi tutte le cartelle",
+  "collapseAllFolders": "Comprimi tutte le cartelle",
   "clearDocumentHistory": "Cancella cronologia documento",
   "closeSidebar": "Chiudi barra laterale",
   "clearHistoryMessage": "Eliminare tutta la cronologia per questo documento? L'operazione non può essere annullata.",
