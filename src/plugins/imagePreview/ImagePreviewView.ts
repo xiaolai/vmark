@@ -19,101 +19,23 @@
  * @module plugins/imagePreview/ImagePreviewView
  */
 
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { dirname, join } from "@tauri-apps/api/path";
 import i18n from "@/i18n";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import { renderWarn, imagePreviewError } from "@/utils/debug";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { renderWarn } from "@/utils/debug";
 import {
   calculatePopupPosition,
   getBoundaryRects,
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
-import { decodeMarkdownUrl } from "@/utils/markdownUrl";
-import { normalizePathForAsset } from "@/utils/resolveMediaSrc";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { buildPreviewContainer } from "./containerDom";
+import {
+  MAX_THUMBNAIL_WIDTH,
+  MAX_THUMBNAIL_HEIGHT,
+  resolveImageSrc,
+  type MediaType,
+} from "./resolveSrc";
 import "./image-preview.css";
-
-/** Maximum thumbnail dimensions */
-const MAX_THUMBNAIL_WIDTH = 200;
-const MAX_THUMBNAIL_HEIGHT = 150;
-
-function getActiveFilePath(): string | null {
-  try {
-    const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    if (!tabId) return null;
-    return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Check if a path is an external URL (http/https/data).
- */
-function isExternalUrl(src: string): boolean {
-  return src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:");
-}
-
-/**
- * Check if a path is a relative path.
- */
-function isRelativePath(src: string): boolean {
-  return src.startsWith("./") || src.startsWith("assets/");
-}
-
-/**
- * Check if a path is an absolute local path.
- */
-function isAbsolutePath(src: string): boolean {
-  return src.startsWith("/") || /^[A-Za-z]:/.test(src);
-}
-
-/**
- * Resolve image path to asset:// URL for preview.
- * Decodes URL-encoded paths (e.g., %20 -> space) for file system access.
- */
-async function resolveImageSrc(src: string): Promise<string> {
-  // External URLs - use directly
-  if (isExternalUrl(src)) {
-    return src;
-  }
-
-  // Decode URL-encoded paths for file system access
-  const decodedSrc = decodeMarkdownUrl(src);
-
-  // Absolute local paths - convert to asset:// URL
-  if (isAbsolutePath(decodedSrc)) {
-    return convertFileSrc(normalizePathForAsset(decodedSrc));
-  }
-
-  // Relative paths - resolve against document directory
-  if (isRelativePath(decodedSrc)) {
-    const filePath = getActiveFilePath();
-    if (!filePath) {
-      return src;
-    }
-
-    try {
-      const docDir = await dirname(filePath);
-      const cleanPath = decodedSrc.replace(/^\.\//, "");
-      const absolutePath = await join(docDir, cleanPath);
-      return convertFileSrc(normalizePathForAsset(absolutePath));
-    } catch (error) {
-      imagePreviewError("Failed to resolve path:", error);
-      return src;
-    }
-  }
-
-  return src;
-}
-
-/** Media type for preview rendering. */
-type MediaType = "image" | "video" | "audio";
 
 export class ImagePreviewView {
   private container: HTMLElement;
@@ -132,50 +54,14 @@ export class ImagePreviewView {
   private lastAnchorRect: AnchorRect | null = null;
 
   constructor() {
-    this.container = this.buildContainer();
-    this.imageEl = this.container.querySelector(".image-preview-img") as HTMLImageElement;
-    this.videoEl = this.container.querySelector(".image-preview-video") as HTMLVideoElement;
-    this.audioEl = this.container.querySelector(".image-preview-audio") as HTMLAudioElement;
-    this.errorEl = this.container.querySelector(".image-preview-error") as HTMLElement;
-    this.loadingEl = this.container.querySelector(".image-preview-loading") as HTMLElement;
+    const refs = buildPreviewContainer();
+    this.container = refs.container;
+    this.imageEl = refs.imageEl;
+    this.videoEl = refs.videoEl;
+    this.audioEl = refs.audioEl;
+    this.errorEl = refs.errorEl;
+    this.loadingEl = refs.loadingEl;
     // Container will be appended to host in show()
-  }
-
-  private buildContainer(): HTMLElement {
-    const container = document.createElement("div");
-    container.className = "image-preview-popup";
-    container.style.display = "none";
-
-    const loading = document.createElement("div");
-    loading.className = "image-preview-loading";
-    loading.textContent = i18n.t("editor:preview.loading");
-
-    const img = document.createElement("img");
-    img.className = "image-preview-img";
-    img.style.display = "none";
-
-    const video = document.createElement("video");
-    video.className = "image-preview-video";
-    video.controls = true;
-    video.preload = "metadata";
-    video.style.display = "none";
-
-    const audio = document.createElement("audio");
-    audio.className = "image-preview-audio";
-    audio.controls = true;
-    audio.preload = "metadata";
-    audio.style.display = "none";
-
-    const error = document.createElement("div");
-    error.className = "image-preview-error";
-
-    container.appendChild(loading);
-    container.appendChild(img);
-    container.appendChild(video);
-    container.appendChild(audio);
-    container.appendChild(error);
-
-    return container;
   }
 
   show(src: string, anchorRect: AnchorRect, editorDom?: HTMLElement, type: MediaType = "image") {

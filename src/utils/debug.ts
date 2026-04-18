@@ -14,7 +14,6 @@
  * @module utils/debug
  */
 
-export { formatArgs, prodWarn, prodError } from "./debug/internals";
 export * from "./debug/log";
 export * from "./debug/warn";
 export * from "./debug/error";
