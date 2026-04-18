@@ -117,11 +117,19 @@ export async function resolveRelativePath(
   }
 
   // Handle asset URLs - extract the path, then validate against baseDir
-  // Formats: asset://localhost/path, https://asset.localhost/path
+  // Formats: asset://localhost/path (macOS/Linux), https://asset.localhost/path (Windows)
   if (isAssetUrl(src)) {
     try {
       const url = new URL(src);
-      const extractedPath = decodeURIComponent(url.pathname);
+      // Tauri's convertFileSrc() always encodes the whole absolute path via
+      // encodeURIComponent, so url.pathname is exactly "/" + encoded(origPath).
+      // Strip that one structural slash before decoding to recover the
+      // original path verbatim — works for macOS ("/Users/..."), Windows
+      // forward-slash ("C:/Users/..."), and Windows backslash paths.
+      // Naively decoding url.pathname would produce "//Users/..." on macOS
+      // (the encoded leading "/" becomes a second slash) which Tauri's
+      // normalize() does not collapse, breaking the baseDir check below.
+      const extractedPath = decodeURIComponent(url.pathname.slice(1));
       const normalizedPath = await normalize(extractedPath);
       const normalizedBase = await normalize(baseDir);
       if (!normalizedPath.startsWith(normalizedBase)) {

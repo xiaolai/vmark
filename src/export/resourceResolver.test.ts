@@ -33,8 +33,13 @@ vi.mock("@tauri-apps/api/path", () => ({
     Promise.resolve(path.split("/").pop() || ""),
   ),
   normalize: vi.fn((path: string) => {
-    // Simple POSIX path normalization for tests
-    const parts = path.split("/");
+    // Tauri-like normalization: resolves "." and ".." but PRESERVES leading
+    // "//" (POSIX allows implementation-defined meaning for paths starting
+    // with exactly two slashes; Tauri does not collapse them). Also respects
+    // paths without any leading slash (e.g. Windows "C:/..." drive paths).
+    const leadingSlashes = path.match(/^\/+/)?.[0] ?? "";
+    const rest = path.slice(leadingSlashes.length);
+    const parts = rest.split("/");
     const normalized: string[] = [];
     for (const part of parts) {
       if (part === "..") {
@@ -43,7 +48,14 @@ vi.mock("@tauri-apps/api/path", () => ({
         normalized.push(part);
       }
     }
-    return Promise.resolve("/" + normalized.join("/"));
+    // Preserve leading slashes as-is (none / single / double), collapse 3+ to //
+    const prefix =
+      leadingSlashes.length === 0
+        ? ""
+        : leadingSlashes.length >= 2
+          ? "//"
+          : "/";
+    return Promise.resolve(prefix + normalized.join("/"));
   }),
 }));
 
@@ -248,43 +260,49 @@ describe("resolveRelativePath", () => {
   });
 
   it("allows asset:// URLs within baseDir", async () => {
-    const result = await resolveRelativePath(
-      "asset://localhost/Users/test/docs/file.png",
-      "/Users/test/docs",
-    );
+    const src = `asset://localhost/${encodeURIComponent("/Users/test/docs/file.png")}`;
+    const result = await resolveRelativePath(src, "/Users/test/docs");
     expect(result).toBe("/Users/test/docs/file.png");
   });
 
   it("blocks asset:// URLs outside baseDir", async () => {
-    const result = await resolveRelativePath(
-      "asset://localhost/etc/passwd",
-      "/Users/test/docs",
-    );
+    const src = `asset://localhost/${encodeURIComponent("/etc/passwd")}`;
+    const result = await resolveRelativePath(src, "/Users/test/docs");
     expect(result).toBeNull();
   });
 
   it("allows https://asset.localhost/ URLs within baseDir", async () => {
-    const result = await resolveRelativePath(
-      "https://asset.localhost/Users/test/docs/file.png",
-      "/Users/test/docs",
-    );
+    const src = `https://asset.localhost/${encodeURIComponent("/Users/test/docs/file.png")}`;
+    const result = await resolveRelativePath(src, "/Users/test/docs");
     expect(result).toBe("/Users/test/docs/file.png");
   });
 
   it("blocks https://asset.localhost/ URLs outside baseDir", async () => {
-    const result = await resolveRelativePath(
-      "https://asset.localhost/etc/shadow",
-      "/Users/test/docs",
-    );
+    const src = `https://asset.localhost/${encodeURIComponent("/etc/shadow")}`;
+    const result = await resolveRelativePath(src, "/Users/test/docs");
     expect(result).toBeNull();
   });
 
   it("decodes URI-encoded characters in asset URLs", async () => {
-    const result = await resolveRelativePath(
-      "asset://localhost/Users/test/docs/my%20file.png",
-      "/Users/test/docs",
-    );
+    // Real convertFileSrc() output: asset://localhost/ + encodeURIComponent(absPath).
+    // encodeURIComponent encodes the leading "/" as "%2F", so after decoding
+    // the URL path has a double-slash at the start. The resolver must collapse
+    // it back to a single slash to match baseDir.
+    const absPath = "/Users/test/docs/my file.png";
+    const src = `asset://localhost/${encodeURIComponent(absPath)}`;
+    const result = await resolveRelativePath(src, "/Users/test/docs");
     expect(result).toBe("/Users/test/docs/my file.png");
+  });
+
+  it("handles Windows convertFileSrc shape (https://asset.localhost/ with drive letter)", async () => {
+    // On Windows, convertFileSrc uses the https://asset.localhost/ scheme
+    // and encodes the whole path including the drive letter's ":".
+    // No leading-slash artifact exists on Windows, but the resolver must
+    // still strip the URL's own structural slash to recover "C:/...".
+    const absPath = "C:/Users/test/docs/photo.png";
+    const src = `https://asset.localhost/${encodeURIComponent(absPath)}`;
+    const result = await resolveRelativePath(src, "C:/Users/test/docs");
+    expect(result).toBe("C:/Users/test/docs/photo.png");
   });
 
   it("blocks tauri:// URLs outside baseDir", async () => {
