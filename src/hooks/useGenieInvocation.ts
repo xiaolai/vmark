@@ -186,7 +186,12 @@ export function useGenieInvocation() {
         id: string;
         genie: GenieDefinition;
         scopeOverride?: GenieScope;
+        handled?: boolean;
       };
+      // Synchronous handshake with genieHandlers.handleGeniesInvoke: flip
+      // `handled` before returning so the MCP bridge can distinguish a real
+      // invocation from a dropped one (no listener mounted).
+      detail.handled = true;
       invokeGenieRef.current?.(detail.genie, detail.scopeOverride);
     };
     window.addEventListener("mcp:invoke-genie", handler);

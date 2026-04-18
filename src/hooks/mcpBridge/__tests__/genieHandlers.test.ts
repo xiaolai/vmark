@@ -112,40 +112,59 @@ describe("genieHandlers", () => {
   });
 
   describe("handleGeniesInvoke", () => {
-    it("dispatches genie invocation event", async () => {
-      const genie = {
-        metadata: {
-          name: "Test",
-          description: "Test genie",
-          scope: "selection",
-          category: null,
-          model: null,
-          action: null,
-          context: null,
-        },
-        template: "Test: {{selection}}",
+    const makeGenieContent = () => ({
+      metadata: {
+        name: "Test",
+        description: "Test genie",
+        scope: "selection",
+        category: null,
+        model: null,
+        action: null,
+        context: null,
+      },
+      template: "Test: {{selection}}",
+    });
+
+    it("dispatches genie invocation event and reports success when a listener handles it", async () => {
+      mockInvoke.mockResolvedValue(makeGenieContent());
+
+      const listener = (e: Event) => {
+        (e as CustomEvent).detail.handled = true;
       };
-      mockInvoke.mockResolvedValue(genie);
+      window.addEventListener("mcp:invoke-genie", listener);
 
-      const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+      try {
+        await handleGeniesInvoke("req-6", {
+          geniePath: "/genies/test.md",
+          scope: "selection",
+        });
 
-      await handleGeniesInvoke("req-6", {
+        expect(mockRespond).toHaveBeenCalledWith({
+          id: "req-6",
+          success: true,
+          data: expect.objectContaining({ status: expect.any(String) }),
+        });
+      } finally {
+        window.removeEventListener("mcp:invoke-genie", listener);
+      }
+    });
+
+    it("reports failure when no listener is mounted", async () => {
+      // Regression for #794: fire-and-forget dispatch previously reported
+      // success even when the React listener was absent (feature disabled,
+      // hook unmounted, or not yet registered).
+      mockInvoke.mockResolvedValue(makeGenieContent());
+
+      await handleGeniesInvoke("req-no-listener", {
         geniePath: "/genies/test.md",
         scope: "selection",
       });
 
-      expect(dispatchSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "mcp:invoke-genie",
-        })
-      );
       expect(mockRespond).toHaveBeenCalledWith({
-        id: "req-6",
-        success: true,
-        data: expect.objectContaining({ status: expect.any(String) }),
+        id: "req-no-listener",
+        success: false,
+        error: expect.stringContaining("not available"),
       });
-
-      dispatchSpy.mockRestore();
     });
 
     it("returns error for missing geniePath", async () => {
@@ -177,26 +196,19 @@ describe("genieHandlers", () => {
     });
 
     it("defaults scope to selection when not specified", async () => {
-      mockInvoke.mockResolvedValue({
-        metadata: {
-          name: "Test",
-          description: "",
-          scope: "selection",
-          category: null,
-          model: null,
-          action: null,
-          context: null,
-        },
-        template: "",
-      });
+      mockInvoke.mockResolvedValue(makeGenieContent());
 
-      const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+      const listener = (e: Event) => {
+        (e as CustomEvent).detail.handled = true;
+      };
+      window.addEventListener("mcp:invoke-genie", listener);
 
-      await handleGeniesInvoke("req-9", { geniePath: "/genies/test.md" });
-
-      expect(mockRespond.mock.calls[0][0].success).toBe(true);
-
-      dispatchSpy.mockRestore();
+      try {
+        await handleGeniesInvoke("req-9", { geniePath: "/genies/test.md" });
+        expect(mockRespond.mock.calls[0][0].success).toBe(true);
+      } finally {
+        window.removeEventListener("mcp:invoke-genie", listener);
+      }
     });
 
     it("returns error for non-string geniePath", async () => {

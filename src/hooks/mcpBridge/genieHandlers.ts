@@ -95,27 +95,41 @@ export async function handleGeniesInvoke(
     // The genie invocation pipeline is complex (provider detection, streaming,
     // suggestion creation) and lives in React hook land. We emit a DOM event
     // to bridge from the MCP handler to the React hook.
-    const event = new CustomEvent("mcp:invoke-genie", {
-      detail: {
-        id,
-        genie: {
-          metadata: {
-            name: genie.metadata.name,
-            description: genie.metadata.description,
-            scope: genie.metadata.scope as "selection" | "block" | "document",
-            category: genie.metadata.category ?? undefined,
-            model: genie.metadata.model ?? undefined,
-            action: genie.metadata.action ?? undefined,
-            context: genie.metadata.context ?? undefined,
-          },
-          template: genie.template,
-          filePath: geniePath,
-          source: "global" as const,
+    //
+    // Synchronous handshake via `detail.handled`: the React listener sets
+    // this to true as it begins processing. If no listener is mounted
+    // (feature disabled, hook unmounted, or not yet registered), the flag
+    // remains false after dispatchEvent returns — we then surface a clear
+    // error rather than misreporting success on a dropped invocation.
+    const detail = {
+      id,
+      genie: {
+        metadata: {
+          name: genie.metadata.name,
+          description: genie.metadata.description,
+          scope: genie.metadata.scope as "selection" | "block" | "document",
+          category: genie.metadata.category ?? undefined,
+          model: genie.metadata.model ?? undefined,
+          action: genie.metadata.action ?? undefined,
+          context: genie.metadata.context ?? undefined,
         },
-        scopeOverride: scope as "selection" | "block" | "document",
+        template: genie.template,
+        filePath: geniePath,
+        source: "global" as const,
       },
-    });
-    window.dispatchEvent(event);
+      scopeOverride: scope as "selection" | "block" | "document",
+      handled: false,
+    };
+    window.dispatchEvent(new CustomEvent("mcp:invoke-genie", { detail }));
+
+    if (!detail.handled) {
+      await respond({
+        id,
+        success: false,
+        error: "Genie invocation handler not available",
+      });
+      return;
+    }
 
     // Respond immediately — the actual AI result will arrive via the suggestion system
     await respond({
