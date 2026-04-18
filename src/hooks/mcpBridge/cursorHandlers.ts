@@ -156,6 +156,10 @@ export async function handleCursorSetPosition(
     if (!editor) throw new Error("No active editor");
 
     const position = requireNumber(args, "position");
+    const docSize = editor.state.doc.content.size;
+    if (position < 0 || position > docSize) {
+      throw new Error(`Invalid position: ${position} (document size: ${docSize})`);
+    }
     editor.commands.setTextSelection(position);
 
     await respond({ id, success: true, data: null });

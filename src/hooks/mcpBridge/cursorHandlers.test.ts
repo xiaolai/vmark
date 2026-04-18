@@ -217,7 +217,7 @@ describe("cursorHandlers", () => {
     it("sets cursor position via setTextSelection", async () => {
       const setTextSelection = vi.fn();
       const editor = {
-        state: { selection: { from: 0 }, doc: {} },
+        state: { selection: { from: 0 }, doc: { content: { size: 100 } } },
         commands: { setTextSelection },
       };
 
@@ -228,6 +228,63 @@ describe("cursorHandlers", () => {
       expect(setTextSelection).toHaveBeenCalledWith(42);
       expect(respond).toHaveBeenCalledWith({
         id: "req-10",
+        success: true,
+        data: null,
+      });
+    });
+
+    it("rejects negative position with a clear error", async () => {
+      const setTextSelection = vi.fn();
+      const editor = {
+        state: { selection: { from: 0 }, doc: { content: { size: 100 } } },
+        commands: { setTextSelection },
+      };
+
+      vi.mocked(getEditor).mockReturnValue(editor as never);
+
+      await handleCursorSetPosition("req-neg", { position: -1 });
+
+      expect(setTextSelection).not.toHaveBeenCalled();
+      expect(respond).toHaveBeenCalledWith({
+        id: "req-neg",
+        success: false,
+        error: "Invalid position: -1 (document size: 100)",
+      });
+    });
+
+    it("rejects position beyond document size with a clear error", async () => {
+      const setTextSelection = vi.fn();
+      const editor = {
+        state: { selection: { from: 0 }, doc: { content: { size: 100 } } },
+        commands: { setTextSelection },
+      };
+
+      vi.mocked(getEditor).mockReturnValue(editor as never);
+
+      await handleCursorSetPosition("req-over", { position: 1_000_000_000 });
+
+      expect(setTextSelection).not.toHaveBeenCalled();
+      expect(respond).toHaveBeenCalledWith({
+        id: "req-over",
+        success: false,
+        error: "Invalid position: 1000000000 (document size: 100)",
+      });
+    });
+
+    it("accepts position equal to document size (end of document)", async () => {
+      const setTextSelection = vi.fn();
+      const editor = {
+        state: { selection: { from: 0 }, doc: { content: { size: 100 } } },
+        commands: { setTextSelection },
+      };
+
+      vi.mocked(getEditor).mockReturnValue(editor as never);
+
+      await handleCursorSetPosition("req-edge", { position: 100 });
+
+      expect(setTextSelection).toHaveBeenCalledWith(100);
+      expect(respond).toHaveBeenCalledWith({
+        id: "req-edge",
         success: true,
         data: null,
       });
