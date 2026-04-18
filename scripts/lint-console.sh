@@ -1,7 +1,8 @@
 #!/bin/bash
 # Lint for bare console.error/warn/log calls in production code.
-# Allowed: debug.ts (defines loggers), perfLog.ts (opt-in dev tool),
-# test files, setup.ts, JSDoc comments, and template strings.
+# Allowed: utils/debug barrel + utils/debug/*.ts (define loggers),
+# perfLog.ts (opt-in dev tool), test files, setup.ts, JSDoc comments,
+# and template strings.
 
 set -euo pipefail
 
@@ -11,7 +12,8 @@ VIOLATIONS=$(grep -rn "console\.\(error\|warn\|log\)" src/ \
   | grep -v "node_modules" \
   | grep -v "\.test\." \
   | grep -v "__tests__" \
-  | grep -v "debug\.ts" \
+  | grep -v "utils/debug\.ts" \
+  | grep -v "utils/debug/" \
   | grep -v "perfLog\.ts" \
   | grep -v "setup\.ts" \
   | grep -v " \* " \
