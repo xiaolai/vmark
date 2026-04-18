@@ -672,6 +672,53 @@ describe("createTerminalInstance — IME composition with textarea", () => {
     vi.useRealTimers();
   });
 
+  it("flushes pending committed text on dispose before grace period ends", () => {
+    vi.useFakeTimers();
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
+    const commitCb = vi.fn();
+    inst.onCompositionCommit = commitCb;
+
+    // Start composition and end it to queue pendingCommitText
+    textarea.dispatchEvent(new Event("compositionstart"));
+    const compEnd = new Event("compositionend") as CompositionEvent;
+    Object.defineProperty(compEnd, "data", { value: "你好世界" });
+    textarea.dispatchEvent(compEnd);
+
+    // Not yet fired — still in grace period
+    expect(commitCb).not.toHaveBeenCalled();
+
+    // Dispose inside the grace window — should flush pending text
+    inst.dispose();
+    expect(commitCb).toHaveBeenCalledTimes(1);
+    expect(commitCb).toHaveBeenCalledWith("你好世界");
+
+    // Timer firing after dispose must not re-invoke the callback
+    vi.advanceTimersByTime(100);
+    expect(commitCb).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
+  it("swallows onCompositionCommit errors during dispose flush", () => {
+    vi.useFakeTimers();
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
+    inst.onCompositionCommit = () => {
+      throw new Error("PTY closed");
+    };
+
+    textarea.dispatchEvent(new Event("compositionstart"));
+    const compEnd = new Event("compositionend") as CompositionEvent;
+    Object.defineProperty(compEnd, "data", { value: "abc" });
+    textarea.dispatchEvent(compEnd);
+
+    // Should not throw even though callback raises
+    expect(() => inst.dispose()).not.toThrow();
+
+    vi.useRealTimers();
+  });
+
   it("does not log textarea-not-found when textarea exists", () => {
     makeInstanceWithTextarea();
     expect(mockTerminalLog).not.toHaveBeenCalledWith(
