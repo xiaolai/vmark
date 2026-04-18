@@ -350,6 +350,14 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     if (compositionGraceTimer) {
       clearTimeout(compositionGraceTimer);
       compositionGraceTimer = null;
+      if (pendingCommitText && onCompositionCommit) {
+        try {
+          onCompositionCommit(pendingCommitText);
+        } catch {
+          // best-effort: PTY may already be closing
+        }
+      }
+      pendingCommitText = null;
     }
     if (copyOnSelectTimer) {
       clearTimeout(copyOnSelectTimer);
