@@ -1,55 +1,88 @@
 /**
  * List Backspace Extension
  *
- * Overrides Backspace in list items to implement two-step removal:
- * 1. First Backspace at content start: lift item out of list (become paragraph)
- * 2. Second Backspace: standard paragraph joining (handled by defaultKeymap)
+ * Intercepts Backspace at the start of list items:
+ *   - Empty list item → delete the entire listItem so the surrounding
+ *     bulletList/orderedList stays contiguous (#790).
+ *   - Non-empty list item at content start → lift item to paragraph
+ *     (two-step removal: Backspace again falls through to default
+ *     paragraph-join behavior).
  *
- * Runs at priority 1000 (before ListKeymap at priority 0) so it intercepts
- * Backspace before the default joinItemBackward behavior fires.
+ * Uses `handleDOMEvents.keydown` rather than a ProseMirror keymap because
+ * Tiptap's core Keymap extension (`addKeyboardShortcuts`) also binds
+ * Backspace and runs earlier than extension-supplied keymaps. Its
+ * `joinBackward` command succeeds for empty middle/last list items and
+ * produces a split list with an empty paragraph between halves.
+ * `handleDOMEvents.keydown` runs before any keymap, guaranteeing we
+ * observe Backspace first and can short-circuit with `event.preventDefault`
+ * + returning true.
  *
  * @coordinates-with shared/listHelpers.ts — shared list item lookup and ancestor walk
  */
 
 import { Extension, isAtStartOfNode } from "@tiptap/core";
-import { keymap } from "@tiptap/pm/keymap";
+import { Plugin } from "@tiptap/pm/state";
+import { TextSelection } from "@tiptap/pm/state";
 import { liftListItem } from "@tiptap/pm/schema-list";
-import type { EditorState, Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { guardProseMirrorCommand } from "@/utils/imeGuard";
-import { findListItemType, isPositionInsideListItem } from "@/plugins/shared/listHelpers";
+import {
+  findEnclosingListItem,
+  findListItemType,
+} from "@/plugins/shared/listHelpers";
 
-function handleListBackspace(
-  state: EditorState,
-  dispatch?: (tr: Transaction) => void,
-  _view?: EditorView
-): boolean {
-  // Only handle empty (collapsed) selections
+function handleBackspaceKeydown(view: EditorView, event: KeyboardEvent): boolean {
+  if (event.key !== "Backspace") return false;
+  // Let modifier combos (Alt+Backspace "delete word", etc.) and IME
+  // compositions fall through to the default behavior.
+  if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (event.isComposing) return false;
+
+  const { state, dispatch } = view;
   if (!state.selection.empty) return false;
 
   const listItemType = findListItemType(state.schema);
   /* v8 ignore next -- @preserve defensive: schema always includes listItem in VMark */
   if (!listItemType) return false;
 
-  // Check if cursor is inside a list item
   const { $from } = state.selection;
-  if (!isPositionInsideListItem($from, listItemType)) return false;
+  const enclosing = findEnclosingListItem($from, listItemType);
+  if (!enclosing) return false;
 
-  // Must be at start of node content (no chars before cursor in this textblock)
+  // Only act at the start of the textblock — preserve normal mid-text Backspace.
   if (!isAtStartOfNode(state)) return false;
 
-  // Lift the list item out — converts to paragraph at same position
-  return liftListItem(listItemType)(state, dispatch);
+  if (enclosing.node.textContent.trim() === "") {
+    // Empty list item: delete the entire node so the list does not split
+    // around a stray empty paragraph. TextSelection.near with bias -1
+    // places the cursor at the end of the previous sibling list item
+    // (or the nearest backward cursor position when none exists).
+    const from = $from.before(enclosing.depth);
+    const to = $from.after(enclosing.depth);
+    const tr = state.tr.delete(from, to);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(from), -1));
+    dispatch(tr);
+    event.preventDefault();
+    return true;
+  }
+
+  // Non-empty list item at content start: lift to paragraph.
+  const handled = liftListItem(listItemType)(state, dispatch);
+  if (handled) event.preventDefault();
+  return handled;
 }
 
-/** Tiptap extension that handles backspace at the start of list items to unwrap them. */
+/** Tiptap extension that handles backspace at the start of list items. */
 export const listBackspaceExtension = Extension.create({
   name: "listBackspace",
   priority: 1000,
   addProseMirrorPlugins() {
     return [
-      keymap({
-        Backspace: guardProseMirrorCommand(handleListBackspace),
+      new Plugin({
+        props: {
+          handleDOMEvents: {
+            keydown: handleBackspaceKeydown,
+          },
+        },
       }),
     ];
   },
