@@ -35,6 +35,7 @@ import {
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { normalizePathForAsset } from "@/utils/resolveMediaSrc";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import "./image-preview.css";
 
 /** Maximum thumbnail dimensions */
 const MAX_THUMBNAIL_WIDTH = 200;
