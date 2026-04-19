@@ -1084,9 +1084,17 @@ mod tests {
     // later succeeds. Without this, the bug reported in #676 recurs
     // silently — validators pass, but the webview read is still denied.
 
+    // tauri::test::MockRuntime crashes the test binary at startup on
+    // windows-latest (STATUS_ENTRYPOINT_NOT_FOUND). The `test` feature of
+    // tauri is not enabled on Windows (see Cargo.toml target-specific
+    // dev-dependency), and these tests are cfg-gated to match. macOS/Linux
+    // still exercise the scope-extension wiring end-to-end.
+    #[cfg(not(target_os = "windows"))]
     use super::allow_fs_read;
+    #[cfg(not(target_os = "windows"))]
     use tauri_plugin_fs::FsExt;
 
+    #[cfg(not(target_os = "windows"))]
     fn mock_app_with_fs() -> tauri::App<tauri::test::MockRuntime> {
         tauri::test::mock_builder()
             .plugin(tauri_plugin_fs::init())
@@ -1094,6 +1102,7 @@ mod tests {
             .expect("build mock app with fs plugin")
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn allow_fs_read_extends_scope_so_read_is_permitted() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -1116,6 +1125,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn allow_fs_read_is_idempotent() {
         // Calling twice must not panic, error, or double-allow in a way
@@ -1133,6 +1143,7 @@ mod tests {
         assert!(app.fs_scope().is_allowed(&file));
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn allow_fs_read_does_not_grant_unrelated_paths() {
         // Extending scope for one file must not leak into neighbors.

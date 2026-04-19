@@ -60,7 +60,13 @@ objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] 
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
-# Pulls in tauri::test (mock_app, mock_builder) for command-wiring tests
-# — scope extension, path validation, etc. The `test` feature is gated by
-# #[cfg(any(test, feature = "test"))], so it vanishes from release builds.
+
+# Tauri's `test` feature enables mock_app / mock_builder for command-wiring
+# tests (fs scope extension, path validation, etc.). It is scoped to non-
+# Windows targets because the MockRuntime test binary triggers
+# STATUS_ENTRYPOINT_NOT_FOUND (exit code 0xc0000139) at startup on
+# windows-latest runners — the build links but the loader can't resolve
+# a symbol in the test DLL path. macOS and Linux are fine. Callers of
+# tauri::test are cfg-gated accordingly in tests.
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 tauri = { version = "2", features = ["protocol-asset", "test"] }
