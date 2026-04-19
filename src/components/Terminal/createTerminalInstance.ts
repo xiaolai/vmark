@@ -36,6 +36,9 @@
  *     and respects composition state.
  *   - Theme colors are resolved via buildXtermTheme() from terminalTheme.ts;
  *     runtime theme changes are handled by useTerminalSessions.
+ *   - minimumContrastRatio is set to 4.5 (WCAG AA) so xterm dynamically
+ *     lifts foreground per-cell when an app paints low-contrast bg+fg
+ *     (e.g. Claude Code's chalk.bgCyan.black tag on a light theme).
  *
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
  * @coordinates-with terminalTheme.ts — per-theme ANSI color palettes for xterm.js
@@ -140,6 +143,12 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     cursorStyle: settings.cursorStyle,
     cursorBlink: settings.cursorBlink,
     macOptionIsMeta: settings.macOptionIsMeta,
+    // Per-cell foreground lift when an app paints a filled tag
+    // (e.g. Claude Code statusline: `chalk.bgCyan.black`). Light-theme ANSI
+    // palettes are tuned for colors-as-foreground, so a dark cyan bg paired
+    // with a dark-charcoal fg leaves text unreadable. xterm dynamically lifts
+    // the foreground to meet WCAG AA against the actual background color.
+    minimumContrastRatio: 4.5,
     allowProposedApi: true,
     scrollback: 5000,
   });
