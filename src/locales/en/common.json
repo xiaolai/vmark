@@ -30,6 +30,9 @@
   "aria.mainContent": "Main content",
 
   "untitled": "Untitled",
+  "unknown": "Unknown",
+  "running": "Running",
+  "dropToOpen": "Drop to open",
   "fileDeleted": "File deleted from disk",
   "fileDivergent": "Local differs from disk",
   "closeTab": "Close {{title}}",

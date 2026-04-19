@@ -152,7 +152,7 @@ pub async fn capture_session(app: &AppHandle) -> Result<CaptureResult, String> {
         .collect();
 
     if windows.is_empty() {
-        return Err("No document windows to capture".to_string());
+        return Err(rust_i18n::t!("errors.hotExit.noWindows").to_string());
     }
 
     // Generate unique capture ID for this request
@@ -223,7 +223,9 @@ pub async fn capture_session(app: &AppHandle) -> Result<CaptureResult, String> {
     let request = CaptureRequest { capture_id };
     if let Err(e) = app.emit(EVENT_CAPTURE_REQUEST, &request) {
         app.unlisten(unlisten);
-        return Err(format!("Failed to emit capture request: {}", e));
+        return Err(
+            rust_i18n::t!("errors.hotExit.captureEmitFailed", detail = e.to_string()).to_string(),
+        );
     }
 
     // Wait for responses with timeout
@@ -261,7 +263,7 @@ pub async fn capture_session(app: &AppHandle) -> Result<CaptureResult, String> {
 
         // If we got zero responses, this is a critical failure
         if got_responses == 0 {
-            return Err("Capture timeout: no windows responded".to_string());
+            return Err(rust_i18n::t!("errors.hotExit.captureTimeout").to_string());
         }
 
         // Partial capture — log warning and notify frontend

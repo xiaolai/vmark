@@ -49,7 +49,10 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "미디어 파일을 추가하기 전에 문서를 저장하세요.",
+    "messageOrphanCheck": "사용하지 않는 이미지를 확인하기 전에 문서를 저장하세요.",
+    "messageOrphanCheckUnsaved": "사용하지 않는 이미지를 확인하기 전에 변경 사항을 저장하세요.\n\n이렇게 해야 저장된 내용을 대상으로 확인할 수 있습니다."
   },
   "saveVersionAs": {
     "title": "버전을 다른 이름으로 저장..."
@@ -120,6 +123,28 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "저장 공간이 가득 찼습니다 — 공간이 확보될 때까지 \"{{key}}\"의 변경 사항이 저장되지 않습니다."
+    "localStorageQuotaExceeded": "저장 공간이 가득 찼습니다 — 공간이 확보될 때까지 \"{{key}}\"의 변경 사항이 저장되지 않습니다.",
+    "tableFormatted": "표가 정리되었습니다",
+    "unpinBeforeClosing": "닫기 전에 고정을 해제하세요",
+    "failedToInsertDroppedImage": "드래그한 이미지 삽입에 실패했습니다."
+  },
+  "saveRequired": {
+    "title": "저장 필요"
+  },
+  "fileTooLarge": {
+    "title": "파일이 너무 큼",
+    "message": "파일이 너무 큽니다({{size}} MB). 최대 {{max}} MB입니다."
+  },
+  "errorBoundary": {
+    "title": "문제가 발생했습니다"
+  },
+  "pdfExport": {
+    "title": "PDF 내보내기",
+    "missingPath": "HTML 경로가 제공되지 않았습니다",
+    "loadFailed": "HTML 로드 실패: {{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "MCP 브리지가 실행되고 있지 않습니다",
+    "healthCheckFailed": "사이드카 상태 확인 실패"
   }
 }

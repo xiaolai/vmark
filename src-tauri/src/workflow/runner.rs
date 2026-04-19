@@ -119,7 +119,7 @@ fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
     }
 
     if sorted_ids.len() != resolved.len() {
-        return Err("Circular dependency detected in workflow steps".to_string());
+        return Err(rust_i18n::t!("errors.workflow.circularDependency").to_string());
     }
 
     // Reorder resolved steps by sorted order
@@ -564,7 +564,7 @@ async fn execute_action(
             let input = params.get("input").cloned().unwrap_or_default();
             Ok(input)
         }
-        "prompt" => Err("Interactive prompt not supported in workflow execution".to_string()),
+        "prompt" => Err(rust_i18n::t!("errors.workflow.noInteractivePrompt").to_string()),
         _ => Err(format!("Unknown action: {}", action)),
     }
 }

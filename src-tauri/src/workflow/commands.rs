@@ -43,9 +43,7 @@ pub async fn run_workflow(
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        return Err(
-            "A workflow is already running. Wait for it to complete or cancel it.".to_string(),
-        );
+        return Err(rust_i18n::t!("errors.workflow.alreadyRunning").to_string());
     }
 
     // Reset cancellation flag
@@ -54,33 +52,37 @@ pub async fn run_workflow(
     // Validate inputs
     if yaml.trim().is_empty() {
         state.running.store(false, Ordering::SeqCst);
-        return Err("Workflow YAML is empty".to_string());
+        return Err(rust_i18n::t!("errors.workflow.emptyYaml").to_string());
     }
 
     let workspace = PathBuf::from(&workspace_root);
     if !workspace.is_dir() {
         state.running.store(false, Ordering::SeqCst);
-        return Err(format!(
-            "Workspace root '{}' is not a valid directory",
-            workspace_root
-        ));
+        return Err(
+            rust_i18n::t!("errors.workflow.invalidWorkspace", path = workspace_root).to_string(),
+        );
     }
 
     let workflow: RawWorkflow = match serde_yaml::from_str(&yaml) {
         Ok(w) => w,
         Err(e) => {
             state.running.store(false, Ordering::SeqCst);
-            return Err(format!("Failed to parse workflow YAML: {}", e));
+            return Err(
+                rust_i18n::t!("errors.workflow.parseFailed", detail = e.to_string()).to_string(),
+            );
         }
     };
 
     // Validate step count
     if workflow.steps.len() > 50 {
         state.running.store(false, Ordering::SeqCst);
-        return Err(format!(
-            "Workflow has {} steps (max 50)",
-            workflow.steps.len()
-        ));
+        return Err(
+            rust_i18n::t!(
+                "errors.workflow.tooManySteps",
+                count = workflow.steps.len().to_string()
+            )
+            .to_string(),
+        );
     }
 
     // Validate supported features — reject what the runner can't handle yet
@@ -88,17 +90,25 @@ pub async fn run_workflow(
         let step_id = step.id.as_deref().unwrap_or("(unnamed)");
         if step.uses.starts_with("genie/") {
             state.running.store(false, Ordering::SeqCst);
-            return Err(format!(
-                "Step {} ('{}') uses genie execution which is not yet implemented",
-                i + 1, step_id
-            ));
+            return Err(
+                rust_i18n::t!(
+                    "errors.workflow.genieNotImplemented",
+                    index = (i + 1).to_string(),
+                    id = step_id
+                )
+                .to_string(),
+            );
         }
         if step.uses.starts_with("webhook/") {
             state.running.store(false, Ordering::SeqCst);
-            return Err(format!(
-                "Step {} ('{}') uses webhook execution which is not yet implemented",
-                i + 1, step_id
-            ));
+            return Err(
+                rust_i18n::t!(
+                    "errors.workflow.webhookNotImplemented",
+                    index = (i + 1).to_string(),
+                    id = step_id
+                )
+                .to_string(),
+            );
         }
     }
 
@@ -181,7 +191,7 @@ pub async fn cancel_workflow(
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<(), String> {
     if !state.running.load(Ordering::SeqCst) {
-        return Err("No workflow is currently running".to_string());
+        return Err(rust_i18n::t!("errors.workflow.notRunning").to_string());
     }
     state.cancel_requested.store(true, Ordering::SeqCst);
     log::info!("Workflow cancellation requested");

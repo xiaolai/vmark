@@ -32,5 +32,8 @@
   "tabActions": "Acciones de pestaña",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize"
+  "resize": "Resize",
+  "unknown": "Desconocido",
+  "running": "En ejecución",
+  "dropToOpen": "Soltar para abrir"
 }

@@ -37,6 +37,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { deepMerge } from "@/utils/deepMerge";
 import { createSafeStorage } from "@/utils/safeStorage";
+import { resolveInitialLanguage } from "@/utils/localeDetect";
 import type { ThemeId, ThemeColors, SettingsState, SettingsActions } from "./settingsTypes";
 
 // Re-export all types for backward compatibility — consumers can keep
@@ -139,7 +140,9 @@ const initialState: SettingsState = {
     tabSize: 2,
     lineEndingsOnSave: "preserve",
     confirmQuit: true,
-    language: "en",
+    // First-run default derived from OS locale; persisted value from zustand/persist
+    // overrides this via the merge hook below, so existing users are untouched.
+    language: resolveInitialLanguage(),
   },
   appearance: {
     theme: "paper",

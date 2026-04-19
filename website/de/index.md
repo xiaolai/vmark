@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: Stärke ohne Komplexität
     details: 165 Tastaturkürzel. Drei Editorenmodi — WYSIWYG, Quellvorschau und Quelle. Mehrcursor-Bearbeitung, Fokusmodus, Schreibmaschinenmodus, Dokumentverlauf. Alles da, wenn Sie es brauchen. Unsichtbar, wenn nicht.
+
+  - icon:
+      src: /icons/globe.svg
+    title: Spricht Ihre Sprache
+    details: 10 Sprachen direkt nach der Installation — English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Español, Français, Italiano, Português (Brasil). Erkennt Ihre OS-Sprache beim ersten Start automatisch. Menüs, Dialoge, Fehlermeldungen — alles übersetzt.
 ---
 
 <script setup>

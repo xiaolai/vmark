@@ -190,7 +190,7 @@ pub fn mcp_config_install(provider: String) -> Result<InstallResult, String> {
     // Validate by re-reading
     let validation = fs::read_to_string(&path).ok();
     if validation.as_ref() != Some(&new_content) {
-        return Err("Config validation failed: written content does not match".to_string());
+        return Err(rust_i18n::t!("errors.mcp.configMismatch").to_string());
     }
 
     Ok(InstallResult {

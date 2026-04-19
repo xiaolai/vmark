@@ -49,7 +49,10 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "請先儲存文件再新增媒體檔案。",
+    "messageOrphanCheck": "請先儲存文件再檢查未使用的圖片。",
+    "messageOrphanCheckUnsaved": "請先儲存您的變更再檢查未使用的圖片。\n\n這樣才能基於已儲存的內容進行檢查。"
   },
   "saveVersionAs": {
     "title": "將您的版本另存新檔..."
@@ -120,6 +123,28 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "儲存空間已滿 — 在釋放空間之前，對「{{key}}」的變更將不會被儲存。"
+    "localStorageQuotaExceeded": "儲存空間已滿 — 在釋放空間之前，對「{{key}}」的變更將不會被儲存。",
+    "tableFormatted": "表格已格式化",
+    "unpinBeforeClosing": "關閉前請先取消釘選",
+    "failedToInsertDroppedImage": "插入拖放的圖片失敗。"
+  },
+  "saveRequired": {
+    "title": "需要儲存"
+  },
+  "fileTooLarge": {
+    "title": "檔案過大",
+    "message": "檔案過大（{{size}} MB）。最大為 {{max}} MB。"
+  },
+  "errorBoundary": {
+    "title": "發生錯誤"
+  },
+  "pdfExport": {
+    "title": "匯出 PDF",
+    "missingPath": "未提供 HTML 路徑",
+    "loadFailed": "載入 HTML 失敗：{{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "MCP 橋接未執行",
+    "healthCheckFailed": "側載健康檢查失敗"
   }
 }

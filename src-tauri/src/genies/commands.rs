@@ -49,7 +49,7 @@ pub fn read_genie(app: AppHandle, path: String) -> Result<GenieContent, String> 
         .map_err(|e| format!("Genies directory does not exist or is inaccessible: {}", e))?;
 
     if !requested.starts_with(&global_dir) {
-        return Err("Genie path is outside allowed directories".to_string());
+        return Err(rust_i18n::t!("errors.genie.pathBlocked").to_string());
     }
 
     let content = fs::read_to_string(&requested)

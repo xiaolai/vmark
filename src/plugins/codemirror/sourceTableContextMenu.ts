@@ -17,6 +17,7 @@
 
 import { EditorView, ViewPlugin } from "@codemirror/view";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import { icons } from "@/utils/icons";
 import { getPopupHost, toHostCoords } from "@/plugins/sourcePopup";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
@@ -165,7 +166,7 @@ class SourceTableContextMenuView {
         icon: icons.formatTable,
         action: (v, i) => {
           if (formatTable(v, i)) {
-            toast.success("Table formatted");
+            toast.success(i18n.t("dialog:toast.tableFormatted"));
           }
         },
       },

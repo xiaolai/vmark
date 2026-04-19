@@ -27,6 +27,7 @@
 
 import { create } from "zustand";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { stripMarkdownExtension } from "@/utils/dropPaths";
 
@@ -172,7 +173,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
       // Don't close pinned tabs without explicit unpin
       if (tab.isPinned) {
-        toast.info("Unpin tab before closing");
+        toast.info(i18n.t("dialog:toast.unpinBeforeClosing"));
         return state;
       }
 

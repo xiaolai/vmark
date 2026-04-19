@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: Poder Sin Complejidad
     details: 165 atajos de teclado. Tres modos de edición — WYSIWYG, Vista Previa de Fuente y Fuente. Edición multicursor, modo enfoque, modo máquina de escribir, historial de documentos. Todo disponible cuando lo necesitas. Invisible cuando no.
+
+  - icon:
+      src: /icons/globe.svg
+    title: Habla tu idioma
+    details: 10 idiomas listos para usar — English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Español, Français, Italiano, Português (Brasil). Detecta automáticamente el idioma del sistema al primer arranque. Menús, diálogos, errores — todo traducido.
 ---
 
 <script setup>

@@ -10,6 +10,7 @@
 
 import type { EditorView } from "@codemirror/view";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
 import {
   deleteColumn,
@@ -70,7 +71,7 @@ export function handleTableAction(view: EditorView, action: string): boolean {
       return true;
     case "formatTable":
       if (formatTable(view, info)) {
-        toast.success("Table formatted");
+        toast.success(i18n.t("dialog:toast.tableFormatted"));
       }
       return true;
     default:

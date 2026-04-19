@@ -170,7 +170,7 @@ fn write_temp_html(app: tauri::AppHandle, html: String) -> Result<String, String
 
     // Reject obviously oversized input (>50 MB)
     if html.len() > 50 * 1024 * 1024 {
-        return Err("HTML content too large (>50 MB)".to_string());
+        return Err(rust_i18n::t!("errors.core.htmlTooLarge").to_string());
     }
 
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -235,11 +235,11 @@ async fn atomic_write_file(path: String, content: String) -> Result<(), String> 
         // intended directories if the webview is compromised.
         let target = std::path::Path::new(&path);
         if target.components().any(|c| c == std::path::Component::ParentDir) {
-            return Err("Path traversal (..) not allowed".into());
+            return Err(rust_i18n::t!("errors.core.pathTraversal").to_string());
         }
 
         if !target.is_absolute() {
-            return Err("Path must be absolute".into());
+            return Err(rust_i18n::t!("errors.core.pathNotAbsolute").to_string());
         }
 
         let dir = target.parent().ok_or("File path has no parent directory")?;

@@ -20,6 +20,7 @@
 import { readDir, remove, exists } from "@tauri-apps/plugin-fs";
 import { dirname, join } from "@tauri-apps/api/path";
 import { confirm, message } from "@tauri-apps/plugin-dialog";
+import i18n from "@/i18n";
 import { ASSETS_FOLDER, IMAGE_EXTENSIONS } from "./imageUtils";
 import { orphanCleanupError } from "@/utils/debug";
 
@@ -170,8 +171,8 @@ export async function runOrphanCleanup(
   autoCleanupEnabled = false
 ): Promise<number> {
   if (!documentPath) {
-    await message("Please save the document first before checking for unused images.", {
-      title: "Unsaved Document",
+    await message(i18n.t("dialog:unsavedDocument.messageOrphanCheck"), {
+      title: i18n.t("dialog:unsavedDocument.title"),
       kind: "warning",
     });
     return -1;
@@ -179,10 +180,9 @@ export async function runOrphanCleanup(
 
   if (documentContent === null) {
     await message(
-      "Please save your changes first before checking for unused images.\n\n" +
-        "This ensures the check analyzes your saved content.",
+      i18n.t("dialog:unsavedDocument.messageOrphanCheckUnsaved"),
       {
-        title: "Unsaved Changes",
+        title: i18n.t("dialog:unsavedChanges.title"),
         kind: "warning",
       }
     );

@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: 複雑さのないパワー
     details: 165のキーボードショートカット。3つのエディタモード — WYSIWYG、ソースプレビュー、ソース。マルチカーソル編集、フォーカスモード、タイプライターモード、ドキュメント履歴。必要なときはすべて利用可能。不要なときは非表示。
+
+  - icon:
+      src: /icons/globe.svg
+    title: あなたの言語で
+    details: 初期状態で 10 言語に対応 —— English、簡体中文、繁體中文、日本語、한국어、Deutsch、Español、Français、Italiano、Português (Brasil)。初回起動時に OS のロケールを自動検出。メニュー、ダイアログ、エラーメッセージ、すべて翻訳済み。
 ---
 
 <script setup>

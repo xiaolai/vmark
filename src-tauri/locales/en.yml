@@ -200,3 +200,63 @@ menu:
   genies.empty: "No Genies"
   genies.reload: "Reload Genies"
   genies.openFolder: "Open Genies Folder"
+
+errors:
+  # === Core (lib.rs) ===
+  core.htmlTooLarge: "HTML content too large (>50 MB)"
+  core.pathTraversal: "Path traversal (..) not allowed"
+  core.pathNotAbsolute: "Path must be absolute"
+
+  # === Pandoc export ===
+  pandoc.pathTraversal: "Path traversal not allowed in output path"
+  pandoc.emptySourceDir: "source_dir cannot be empty"
+  pandoc.sourcePathTraversal: "Path traversal not allowed in source_dir"
+  pandoc.invalidSourceDir: "Invalid source_dir '%{dir}': %{detail}"
+  pandoc.notADirectory: "source_dir '%{dir}' is not a directory"
+  pandoc.notFound: "Pandoc not found on PATH"
+  pandoc.exitedWithCode: "Pandoc exited with code %{code}"
+  pandoc.timeout: "Pandoc timed out (exceeded 2 minutes)"
+  pandoc.taskPanicked: "Pandoc task panicked: %{detail}"
+  pandoc.startFailed: "Failed to start Pandoc: %{detail}"
+  pandoc.stdinFailed: "Failed to write to Pandoc stdin: %{detail}"
+  pandoc.waitFailed: "Failed to wait for Pandoc: %{detail}"
+
+  # === PDF export ===
+  pdf.invalidExtension: "Output path must have .pdf extension"
+  pdf.dirNotFound: "Output directory does not exist"
+  pdf.loadTimeout: "HTML load timeout (10s)"
+  pdf.emptyOutput: "Print operation produced empty PDF"
+  pdf.printTimeout: "Print operation timeout (60s)"
+  pdf.noPages: "PDF has no pages"
+  pdf.writeFailed: "Failed to write PDF with bookmarks"
+
+  # === Workflow execution ===
+  workflow.alreadyRunning: "A workflow is already running. Wait for it to complete or cancel it."
+  workflow.emptyYaml: "Workflow YAML is empty"
+  workflow.invalidWorkspace: "Workspace root '%{path}' is not a valid directory"
+  workflow.parseFailed: "Failed to parse workflow YAML: %{detail}"
+  workflow.tooManySteps: "Workflow has %{count} steps (max 50)"
+  workflow.genieNotImplemented: "Step %{index} ('%{id}') uses genie execution which is not yet implemented"
+  workflow.webhookNotImplemented: "Step %{index} ('%{id}') uses webhook execution which is not yet implemented"
+  workflow.notRunning: "No workflow is currently running"
+  workflow.circularDependency: "Circular dependency detected in workflow steps"
+  workflow.noInteractivePrompt: "Interactive prompt not supported in workflow execution"
+
+  # === Hot exit ===
+  hotExit.noWindows: "No document windows to capture"
+  hotExit.captureEmitFailed: "Failed to emit capture request: %{detail}"
+  hotExit.captureTimeout: "Capture timeout: no windows responded"
+
+  # === Content search ===
+  search.queryTooShort: "Query must be at least 3 characters"
+
+  # === CLI install ===
+  cli.noFile: "Installation appeared to succeed but the file was not created."
+  cli.mismatch: "Installation completed but file content does not match expected script."
+
+  # === Genies ===
+  genie.pathBlocked: "Genie path is outside allowed directories"
+
+  # === MCP ===
+  mcp.spawnInProgress: "MCP sidecar spawn already in progress"
+  mcp.configMismatch: "Config validation failed: written content does not match"

@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -35,6 +36,7 @@ function usePdfExportClose() {
 }
 
 export function PdfExportPage() {
+  const { t } = useTranslation(["dialog", "common"]);
   const [renderedHtml, setRenderedHtml] = useState<string | null>(null);
   const [defaultName, setDefaultName] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export function PdfExportPage() {
     if (name) setDefaultName(name);
 
     if (!htmlPath) {
-      setError("No HTML path provided");
+      setError(t("dialog:pdfExport.missingPath"));
       return;
     }
 
@@ -59,9 +61,9 @@ export function PdfExportPage() {
       .then((html) => setRenderedHtml(html))
       .catch((e) => {
         const msg = e instanceof Error ? e.message : String(e);
-        setError(`Failed to load HTML: ${msg}`);
+        setError(t("dialog:pdfExport.loadFailed", { error: msg }));
       });
-  }, []);
+  }, [t]);
 
   const handleClose = async () => {
     const currentWindow = getCurrentWebviewWindow();
@@ -84,7 +86,7 @@ export function PdfExportPage() {
       <div className="relative flex h-screen bg-[var(--bg-primary)]">
         <div data-tauri-drag-region className="absolute top-0 left-0 right-0 h-12" />
         <div className="flex items-center justify-center flex-1 pt-12">
-          <p className="text-sm text-[var(--text-secondary)]">Loading...</p>
+          <p className="text-sm text-[var(--text-secondary)]">{t("common:loading")}</p>
         </div>
       </div>
     );
@@ -105,7 +107,7 @@ export function PdfExportPage() {
         style={{ right: "18rem" }}
       >
         <span className="text-sm font-medium text-[var(--text-primary)]">
-          Export PDF
+          {t("dialog:pdfExport.title")}
         </span>
       </div>
     </div>

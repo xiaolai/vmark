@@ -25,6 +25,7 @@
  * @module plugins/toolbarActions/wysiwygAdapter
  */
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveBlockquote, handleListIndent, handleListOutdent, handleRemoveList, handleToBulletList, handleToOrderedList } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { addColLeft, addColRight, addRowAbove, addRowBelow, alignColumn, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable } from "@/plugins/tableUI/tableActions.tiptap";
@@ -167,7 +168,7 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
       return view ? alignColumn(view, "right", true) : false;
     case "formatTable":
       if (view && formatTable(view)) {
-        toast.success("Table formatted");
+        toast.success(i18n.t("dialog:toast.tableFormatted"));
         return true;
       }
       return false;

@@ -49,7 +49,10 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "Veuillez enregistrer le document avant d'ajouter des fichiers multimédias.",
+    "messageOrphanCheck": "Veuillez enregistrer le document avant de rechercher les images inutilisées.",
+    "messageOrphanCheckUnsaved": "Veuillez enregistrer vos modifications avant de rechercher les images inutilisées.\n\nCela garantit que la vérification analyse le contenu enregistré."
   },
   "saveVersionAs": {
     "title": "Enregistrer votre version sous..."
@@ -120,6 +123,28 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "Stockage plein — les modifications de \"{{key}}\" ne seront pas enregistrées tant que de l'espace ne sera pas libéré."
+    "localStorageQuotaExceeded": "Stockage plein — les modifications de \"{{key}}\" ne seront pas enregistrées tant que de l'espace ne sera pas libéré.",
+    "tableFormatted": "Tableau mis en forme",
+    "unpinBeforeClosing": "Détachez avant de fermer",
+    "failedToInsertDroppedImage": "Échec de l'insertion de l'image déposée."
+  },
+  "saveRequired": {
+    "title": "Enregistrement requis"
+  },
+  "fileTooLarge": {
+    "title": "Fichier trop volumineux",
+    "message": "Le fichier est trop volumineux ({{size}} Mo). Maximum : {{max}} Mo."
+  },
+  "errorBoundary": {
+    "title": "Un problème est survenu"
+  },
+  "pdfExport": {
+    "title": "Exporter le PDF",
+    "missingPath": "Aucun chemin HTML fourni",
+    "loadFailed": "Échec du chargement du HTML : {{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "Le pont MCP n'est pas en cours d'exécution",
+    "healthCheckFailed": "Échec de la vérification d'état du sidecar"
   }
 }

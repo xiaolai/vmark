@@ -22,6 +22,7 @@ import { useEffect, useRef, useCallback, type RefObject } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readFile } from "@tauri-apps/plugin-fs";
 import type { Editor } from "@tiptap/core";
+import i18n from "@/i18n";
 import type { EditorView as CMEditorView } from "@codemirror/view";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -240,7 +241,7 @@ export function useImageDragDrop({
             processedPaths.push(insertPath);
           } catch (error) {
             dragDropError("Failed to process image:", imagePath, error);
-            await message("Failed to insert dropped image.", { kind: "error" });
+            await message(i18n.t("dialog:toast.failedToInsertDroppedImage"), { kind: "error" });
           }
         }
 

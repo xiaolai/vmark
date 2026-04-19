@@ -32,5 +32,8 @@
   "tabActions": "标签页操作",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize"
+  "resize": "Resize",
+  "unknown": "未知",
+  "running": "运行中",
+  "dropToOpen": "拖放以打开"
 }

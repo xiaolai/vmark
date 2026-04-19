@@ -49,7 +49,29 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "Please save the document before adding media files.",
+    "messageOrphanCheck": "Please save the document first before checking for unused images.",
+    "messageOrphanCheckUnsaved": "Please save your changes first before checking for unused images.\n\nThis ensures the check analyzes your saved content."
+  },
+  "saveRequired": {
+    "title": "Save Required"
+  },
+  "fileTooLarge": {
+    "title": "File Too Large",
+    "message": "File is too large ({{size}} MB). Maximum is {{max}} MB."
+  },
+  "errorBoundary": {
+    "title": "Something went wrong"
+  },
+  "pdfExport": {
+    "title": "Export PDF",
+    "missingPath": "No HTML path provided",
+    "loadFailed": "Failed to load HTML: {{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "MCP bridge is not running",
+    "healthCheckFailed": "Sidecar health check failed"
   },
   "saveVersionAs": {
     "title": "Save your version as..."
@@ -120,6 +142,9 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "Storage full — changes to \"{{key}}\" won't be saved until space is freed."
+    "localStorageQuotaExceeded": "Storage full — changes to \"{{key}}\" won't be saved until space is freed.",
+    "tableFormatted": "Table formatted",
+    "unpinBeforeClosing": "Unpin tab before closing",
+    "failedToInsertDroppedImage": "Failed to insert dropped image."
   }
 }
