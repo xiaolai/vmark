@@ -119,24 +119,31 @@ pub async fn export_via_pandoc(
 
     // Reject path traversal in output path
     if output_path.contains("..") {
-        return Err("Path traversal not allowed in output path".into());
+        return Err(rust_i18n::t!("errors.pandoc.pathTraversal").to_string());
     }
 
     // Validate source_dir if provided (reject traversal, verify it exists and is a directory)
     let validated_source_dir = match &source_dir {
         Some(dir) => {
             if dir.is_empty() {
-                return Err("source_dir cannot be empty".into());
+                return Err(rust_i18n::t!("errors.pandoc.emptySourceDir").to_string());
             }
             if dir.contains("..") {
-                return Err("Path traversal not allowed in source_dir".into());
+                return Err(rust_i18n::t!("errors.pandoc.sourcePathTraversal").to_string());
             }
             let path = std::path::Path::new(dir);
             let canonical = path.canonicalize().map_err(|e| {
-                format!("Invalid source_dir '{}': {}", dir, e)
+                rust_i18n::t!(
+                    "errors.pandoc.invalidSourceDir",
+                    dir = dir,
+                    detail = e.to_string()
+                )
+                .to_string()
             })?;
             if !canonical.is_dir() {
-                return Err(format!("source_dir '{}' is not a directory", dir));
+                return Err(
+                    rust_i18n::t!("errors.pandoc.notADirectory", dir = dir).to_string(),
+                );
             }
             Some(canonical.to_string_lossy().into_owned())
         }
@@ -144,14 +151,15 @@ pub async fn export_via_pandoc(
     };
 
     // Resolve Pandoc path once (avoid TOCTOU with detect)
-    let pandoc_exe = resolve_pandoc_path().ok_or("Pandoc not found on PATH")?;
+    let pandoc_exe = resolve_pandoc_path()
+        .ok_or_else(|| rust_i18n::t!("errors.pandoc.notFound").to_string())?;
 
     // Run blocking I/O on a dedicated thread with timeout
     let result = tokio::task::spawn_blocking(move || {
         run_pandoc(&pandoc_exe, &markdown, &output_path, validated_source_dir.as_deref())
     })
     .await
-    .map_err(|e| format!("Pandoc task panicked: {}", e))?;
+    .map_err(|e| rust_i18n::t!("errors.pandoc.taskPanicked", detail = e.to_string()).to_string())?;
 
     result
 }
@@ -194,13 +202,13 @@ fn run_pandoc(
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to start Pandoc: {}", e))?;
+        .map_err(|e| rust_i18n::t!("errors.pandoc.startFailed", detail = e.to_string()).to_string())?;
 
     // Write markdown to stdin
     if let Some(mut stdin) = child.stdin.take() {
         stdin
             .write_all(markdown.as_bytes())
-            .map_err(|e| format!("Failed to write to Pandoc stdin: {}", e))?;
+            .map_err(|e| rust_i18n::t!("errors.pandoc.stdinFailed", detail = e.to_string()).to_string())?;
         // stdin is dropped here, closing the pipe
     }
 
@@ -233,7 +241,8 @@ fn run_pandoc(
 
                 let stderr = String::from_utf8_lossy(&stderr_buf);
                 let msg = if stderr.trim().is_empty() {
-                    format!("Pandoc exited with code {}", status)
+                    rust_i18n::t!("errors.pandoc.exitedWithCode", code = status.to_string())
+                        .to_string()
                 } else {
                     stderr.trim().to_string()
                 };
@@ -242,11 +251,15 @@ fn run_pandoc(
             Ok(None) => {
                 if start.elapsed() > PANDOC_TIMEOUT {
                     let _ = child.kill();
-                    return Err("Pandoc timed out (exceeded 2 minutes)".into());
+                    return Err(rust_i18n::t!("errors.pandoc.timeout").to_string());
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
-            Err(e) => return Err(format!("Failed to wait for Pandoc: {}", e)),
+            Err(e) => {
+                return Err(
+                    rust_i18n::t!("errors.pandoc.waitFailed", detail = e.to_string()).to_string(),
+                );
+            }
         }
     }
 }

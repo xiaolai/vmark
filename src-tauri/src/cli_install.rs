@@ -149,11 +149,11 @@ pub fn cli_install() -> Result<String, String> {
     // Verify: check file exists, is a regular file, and has expected content
     let path = Path::new(CLI_PATH);
     if !path.is_file() {
-        return Err("Installation appeared to succeed but the file was not created.".to_string());
+        return Err(rust_i18n::t!("errors.cli.noFile").to_string());
     }
     let actual = std::fs::read_to_string(path).unwrap_or_default();
     if actual != SCRIPT_CONTENT {
-        return Err("Installation completed but file content does not match expected script.".to_string());
+        return Err(rust_i18n::t!("errors.cli.mismatch").to_string());
     }
 
     Ok(format!("'vmark' command installed at {}", CLI_PATH))

@@ -125,7 +125,7 @@ fn load_html_and_wait(
             "[PDF] load TIMEOUT after {:.2}s",
             load_start.elapsed().as_secs_f64()
         );
-        return Err("HTML load timeout (10s)".to_string());
+        return Err(rust_i18n::t!("errors.pdf.loadTimeout").to_string());
     }
 
     // Extra settle time for CSS parsing, layout, font loading
@@ -389,10 +389,10 @@ fn print_to_pdf(
         }
         log::debug!("[PDF] file exists but is empty (0 bytes)");
         let _ = std::fs::remove_file(output_path);
-        return Err("Print operation produced empty PDF".to_string());
+        return Err(rust_i18n::t!("errors.pdf.emptyOutput").to_string());
     }
 
-    Err("Print operation timeout (60s)".to_string())
+    Err(rust_i18n::t!("errors.pdf.printTimeout").to_string())
 }
 
 // ============================================================================

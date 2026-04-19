@@ -24,12 +24,12 @@ pub async fn export_pdf(
         .and_then(|e| e.to_str())
         .unwrap_or("");
     if !ext.eq_ignore_ascii_case("pdf") {
-        return Err("Output path must have .pdf extension".to_string());
+        return Err(rust_i18n::t!("errors.pdf.invalidExtension").to_string());
     }
 
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() && !parent.exists() {
-            return Err("Output directory does not exist".to_string());
+            return Err(rust_i18n::t!("errors.pdf.dirNotFound").to_string());
         }
     }
 

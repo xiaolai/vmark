@@ -165,7 +165,7 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        return Err("MCP sidecar spawn already in progress".to_string());
+        return Err(rust_i18n::t!("errors.mcp.spawnInProgress").to_string());
     }
     // RAII guard — cleared on normal return, early `?`, or panic
     let _spawning = SpawningGuard;

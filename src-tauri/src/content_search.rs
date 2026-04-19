@@ -385,7 +385,7 @@ pub async fn search_workspace_content(
 ) -> Result<Vec<FileSearchResult>, String> {
     // Reject empty/very short queries (matches frontend MIN_QUERY_LENGTH = 3)
     if query.trim().len() < 3 {
-        return Err("Query must be at least 3 characters".to_string());
+        return Err(rust_i18n::t!("errors.search.queryTooShort").to_string());
     }
 
     tokio::task::spawn_blocking(move || {

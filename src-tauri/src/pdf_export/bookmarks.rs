@@ -37,7 +37,7 @@ pub fn add_bookmarks(pdf_path: &str, headings: &[Heading]) -> Result<(), String>
     // SAFETY: doc is a valid PDFDocument obtained from a successful initWithURL above.
     let page_count = unsafe { doc.pageCount() };
     if page_count == 0 {
-        return Err("PDF has no pages".to_string());
+        return Err(rust_i18n::t!("errors.pdf.noPages").to_string());
     }
 
     log::debug!("[PDF] PDF has {} pages", page_count);
@@ -119,7 +119,7 @@ pub fn add_bookmarks(pdf_path: &str, headings: &[Heading]) -> Result<(), String>
     // writeToFile writes to a valid path and returns a bool indicating success.
     let success = unsafe { doc.writeToFile(&NSString::from_str(pdf_path)) };
     if !success {
-        return Err("Failed to write PDF with bookmarks".to_string());
+        return Err(rust_i18n::t!("errors.pdf.writeFailed").to_string());
     }
 
     log::info!("[PDF] bookmarks added successfully");
