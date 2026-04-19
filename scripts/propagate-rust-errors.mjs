@@ -212,7 +212,7 @@ errors:
 
   # === Pandoc export ===
   pandoc.pathTraversal: "출력 경로에 경로 탐색이 허용되지 않습니다"
-  pandoc.emptySourceDir: "source_dir를 비워둘 수 없습니다"
+  pandoc.emptySourceDir: "source_dir은 비워둘 수 없습니다"
   pandoc.sourcePathTraversal: "source_dir에 경로 탐색이 허용되지 않습니다"
   pandoc.invalidSourceDir: "잘못된 source_dir '%{dir}': %{detail}"
   pandoc.notADirectory: "source_dir '%{dir}'은(는) 디렉터리가 아닙니다"

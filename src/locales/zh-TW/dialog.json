@@ -145,6 +145,6 @@
   },
   "mcp": {
     "bridgeNotRunning": "MCP 橋接未執行",
-    "healthCheckFailed": "側載健康檢查失敗"
+    "healthCheckFailed": "MCP 輔助程序健康檢查失敗"
   }
 }

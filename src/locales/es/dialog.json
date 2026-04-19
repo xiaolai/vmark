@@ -125,7 +125,7 @@
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
     "localStorageQuotaExceeded": "Almacenamiento lleno — los cambios en \"{{key}}\" no se guardarán hasta que se libere espacio.",
     "tableFormatted": "Tabla formateada",
-    "unpinBeforeClosing": "Desancla antes de cerrar",
+    "unpinBeforeClosing": "Desanclar antes de cerrar",
     "failedToInsertDroppedImage": "Error al insertar la imagen soltada."
   },
   "saveRequired": {
