@@ -422,6 +422,17 @@ describe("documentStore", () => {
       expect(getDocument("missing-tab")).toBeUndefined();
     });
 
+    it("is a no-op when text is unchanged (skips state update)", () => {
+      const { initDocument, setSelectedText, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL);
+      setSelectedText(WINDOW_LABEL, "abc");
+      const docBefore = getDocument(WINDOW_LABEL);
+      setSelectedText(WINDOW_LABEL, "abc");
+      const docAfter = getDocument(WINDOW_LABEL);
+      // Same reference proves no state object was created
+      expect(docAfter).toBe(docBefore);
+    });
+
     it("loadContent clears selectedText", () => {
       const { initDocument, setSelectedText, loadContent, getDocument } =
         useDocumentStore.getState();

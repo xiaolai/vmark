@@ -350,6 +350,35 @@ describe("TiptapEditorInner", () => {
     expect(config.onUpdate).toBeInstanceOf(Function);
   });
 
+  it("onSelectionUpdate pushes selected text even before cursor-tracking warmup completes", () => {
+    // Selection-text sync runs BEFORE the cursor-tracking gate — stale
+    // state from a previous editor must not linger during the 200ms warmup.
+    const editor = createMockEditor({ selectedText: "early select", from: 1, to: 13 });
+    mocks.useEditor.mockReturnValue(editor);
+
+    render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[0][0];
+
+    mocks.setSelectedText.mockClear();
+    config.onSelectionUpdate({ editor });
+    expect(mocks.setSelectedText).toHaveBeenCalledWith("early select");
+  });
+
+  it("clears selectedText when transitioning to hidden (mode-switch cleanup)", () => {
+    mocks.useEditor.mockReturnValue(createMockEditor());
+
+    const { rerender } = render(<TiptapEditorInner hidden={false} />);
+    mocks.setSelectedText.mockClear();
+
+    rerender(<TiptapEditorInner hidden={true} />);
+
+    expect(mocks.setSelectedText).toHaveBeenCalledWith("");
+  });
+
+  // NOTE: this test must stay LAST in this describe. Sibling describes below
+  // (no beforeEach) read `mocks.useEditor.mock.calls[0][0]` and expect it to
+  // point at a config rendered with hidden=false. Keep a simple non-hidden
+  // render here so that leftover config is well-formed.
   it("provides onSelectionUpdate callback to useEditor", () => {
     render(<TiptapEditorInner />);
     const config = mocks.useEditor.mock.calls[0][0];
@@ -448,9 +477,7 @@ describe("TiptapEditorInner — onSelectionUpdate", () => {
 
     config.onSelectionUpdate({ editor });
     expect(mocks.getCursorInfoFromTiptap).not.toHaveBeenCalled();
-    expect(mocks.setSelectedText).not.toHaveBeenCalled();
   });
-
 });
 
 describe("TiptapEditorInner — onUpdate debouncing", () => {

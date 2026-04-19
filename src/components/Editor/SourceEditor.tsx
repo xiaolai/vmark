@@ -114,6 +114,13 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     }
   }, [hidden]);
 
+  // Clear shared selectedText when this editor becomes hidden — keeps the
+  // status bar from showing this editor's last selection while the other
+  // editor (WYSIWYG mode) is active.
+  useEffect(() => {
+    if (hidden) setSelectedTextRef.current("");
+  }, [hidden]);
+
   // Create CodeMirror instance
   useEffect(() => {
     /* v8 ignore next -- @preserve guard: true branch fires only when container unmounts mid-init */
@@ -163,10 +170,13 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       if (update.selectionSet || update.docChanged) {
         const info = getCursorInfoFromCodeMirror(update.view);
         setCursorInfoRef.current(info);
-        const sel = update.state.selection.main;
-        setSelectedTextRef.current(
-          sel.empty ? "" : update.state.sliceDoc(sel.from, sel.to)
-        );
+        // Aggregate every range — CodeMirror supports multi-range selection.
+        const ranges = update.state.selection.ranges;
+        const slices: string[] = [];
+        for (const r of ranges) {
+          if (r.from !== r.to) slices.push(update.state.sliceDoc(r.from, r.to));
+        }
+        setSelectedTextRef.current(slices.join("\n"));
       }
     });
 

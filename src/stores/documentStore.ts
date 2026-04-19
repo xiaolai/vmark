@@ -226,7 +226,11 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     set((state) => updateDoc(state, tabId, () => ({ cursorInfo: info }))),
 
   setSelectedText: (tabId, text) =>
-    set((state) => updateDoc(state, tabId, () => ({ selectedText: text }))),
+    set((state) => {
+      const doc = state.documents[tabId];
+      if (!doc || doc.selectedText === text) return state;
+      return updateDoc(state, tabId, () => ({ selectedText: text }));
+    }),
 
   setLineMetadata: (tabId, meta) =>
     set((state) =>

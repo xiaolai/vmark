@@ -117,6 +117,16 @@ describe("StatusBarCounts", () => {
       expect(screen.getByText("2 words")).toBeInTheDocument();
     });
 
+    it("treats selection as present even when only markdown syntax is selected", () => {
+      // Selecting just the bold markers around no text — stripped is empty,
+      // but the user clearly intended to select something.
+      mockContent = "alpha **bold** gamma";
+      mockSelectedText = "**";
+      render(<StatusBarCounts />);
+      // Should still show selection mode (0 selected, total)
+      expect(screen.getByText("0 / 3 words")).toBeInTheDocument();
+    });
+
     it("strips markdown from selected text before counting", () => {
       mockContent = "intro **bold word** outro";
       mockSelectedText = "**bold word**";

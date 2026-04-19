@@ -48,7 +48,11 @@ export const StatusBarCounts = memo(function StatusBarCounts() {
     [strippedSelected]
   );
 
-  const hasSelection = strippedSelected.length > 0;
+  // Detect selection from raw, trimmed text. Whitespace-only selections
+  // (cursor moved across spaces) read as no selection, but selections of
+  // pure markdown syntax (e.g. "**") still register as a real selection
+  // even though they strip to an empty string for counting.
+  const hasSelection = deferredSelected.trim().length > 0;
 
   return (
     <>

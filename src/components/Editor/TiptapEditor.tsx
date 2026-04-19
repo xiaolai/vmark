@@ -303,13 +303,16 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     },
     onSelectionUpdate: ({ editor }) => {
       if (hiddenRef.current) return;
+      // Selection text sync runs before the cursor-tracking gate — it has
+      // no feedback-loop risk and must update immediately so the status bar
+      // reflects the active editor (especially after a mode switch).
+      const { from, to, empty } = editor.state.selection;
+      setSelectedText(empty ? "" : editor.state.doc.textBetween(from, to, "\n", " "));
       if (!cursorTrackingEnabled.current) return;
       const view = getTiptapEditorView(editor);
       if (!view) return;
       scheduleCursorUpdate(getCursorInfoFromTiptap(view));
       useTiptapEditorStore.getState().setContext(extractTiptapContext(editor.state), view);
-      const { from, to, empty } = editor.state.selection;
-      setSelectedText(empty ? "" : editor.state.doc.textBetween(from, to, "\n", " "));
     },
   });
 
@@ -406,6 +409,13 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     if (!editor) return;
     editor.setEditable(!readOnly, false);
   }, [editor, readOnly]);
+
+  // Clear shared selectedText when this editor becomes hidden — prevents
+  // its last selection from lingering in the status bar while the other
+  // editor (Source mode) is active.
+  useEffect(() => {
+    if (hidden) setSelectedText("");
+  }, [hidden, setSelectedText]);
 
   // Sync external content changes TO the editor.
   // Only runs for SUBSEQUENT content changes after onCreate has initialized the editor.

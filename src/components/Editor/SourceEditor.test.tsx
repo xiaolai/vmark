@@ -87,11 +87,19 @@ vi.mock("@/hooks/useDocumentState", () => ({
 }));
 
 /** Build a CodeMirror-like update state with a default empty selection for tests. */
-function makeUpdateState(doc: string, extra?: { selection?: { from: number; to: number } }) {
+function makeUpdateState(
+  doc: string,
+  extra?: { selection?: { from: number; to: number }; ranges?: Array<{ from: number; to: number }> }
+) {
   const sel = extra?.selection ?? { from: 0, to: 0 };
+  const ranges = extra?.ranges ?? [{ from: sel.from, to: sel.to }];
+  const main = { from: sel.from, to: sel.to, empty: sel.from === sel.to };
   return {
     doc: { toString: () => doc },
-    selection: { main: { from: sel.from, to: sel.to, empty: sel.from === sel.to } },
+    selection: {
+      main,
+      ranges: ranges.map((r) => ({ ...r, empty: r.from === r.to })),
+    },
     sliceDoc: (from: number, to: number) => doc.slice(from, to),
   };
 }
@@ -556,6 +564,32 @@ describe("SourceEditor", () => {
       });
 
       expect(mockSetSelectedText).toHaveBeenCalledWith("hello");
+    });
+
+    it("aggregates multiple selection ranges joined by newlines", () => {
+      render(<SourceEditor />);
+
+      capturedUpdateListener!({
+        docChanged: false,
+        selectionSet: true,
+        state: makeUpdateState("alpha beta gamma", {
+          selection: { from: 0, to: 5 },
+          ranges: [
+            { from: 0, to: 5 },     // "alpha"
+            { from: 11, to: 16 },   // "gamma"
+          ],
+        }),
+        view: mockEditorViewInstance,
+      });
+
+      expect(mockSetSelectedText).toHaveBeenCalledWith("alpha\ngamma");
+    });
+
+    it("clears selectedText in store when transitioning to hidden (mode-switch cleanup)", () => {
+      const { rerender } = render(<SourceEditor hidden={false} />);
+      mockSetSelectedText.mockClear();
+      rerender(<SourceEditor hidden={true} />);
+      expect(mockSetSelectedText).toHaveBeenCalledWith("");
     });
 
     it("clears selected text when selection is empty", () => {
