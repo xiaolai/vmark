@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: Power Without Complexity
     details: 165 keyboard shortcuts. Three editor modes — WYSIWYG, Source Peek, and Source. Multi-cursor editing, focus mode, typewriter mode, document history. All there when you need them. Invisible when you don't.
+
+  - icon:
+      src: /icons/globe.svg
+    title: Speaks Your Language
+    details: 10 languages out of the box — English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Español, Français, Italiano, Português (Brasil). Auto-detects your OS locale on first launch. Menus, dialogs, errors — all translated.
 ---
 
 <script setup>

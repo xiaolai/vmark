@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: 强大而不复杂
     details: 165 个键盘快捷键。三种编辑模式 —— 所见即所得、源码预览和源码模式。多光标编辑、专注模式、打字机模式、文档历史。需要时随时可用，不需要时悄然隐身。
+
+  - icon:
+      src: /icons/globe.svg
+    title: 说你的语言
+    details: 开箱即用，支持 10 种语言 —— English、简体中文、繁體中文、日本語、한국어、Deutsch、Español、Français、Italiano、Português (Brasil)。首次启动时自动识别系统语言。菜单、对话框、错误提示，全部翻译到位。
 ---
 
 <script setup>

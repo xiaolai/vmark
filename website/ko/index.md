@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: 복잡함 없는 파워
     details: 165개의 키보드 단축키. 세 가지 에디터 모드 — WYSIWYG, 소스 미리보기, 소스. 멀티 커서 편집, 포커스 모드, 타이프라이터 모드, 문서 히스토리. 필요할 때 항상 거기 있고, 필요 없을 때는 보이지 않습니다.
+
+  - icon:
+      src: /icons/globe.svg
+    title: 당신의 언어로
+    details: 기본 10개 언어 지원 —— English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Español, Français, Italiano, Português (Brasil). 첫 실행 시 OS 로케일을 자동 감지합니다. 메뉴, 대화상자, 오류 메시지까지 모두 번역되어 있습니다.
 ---
 
 <script setup>

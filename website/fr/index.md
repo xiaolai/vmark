@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: Puissance sans complexité
     details: 165 raccourcis clavier. Trois modes d'édition — WYSIWYG, Aperçu source et Source. Édition multi-curseur, mode focus, mode machine à écrire, historique du document. Toujours disponibles quand vous en avez besoin. Invisibles quand vous n'en avez pas besoin.
+
+  - icon:
+      src: /icons/globe.svg
+    title: Parle votre langue
+    details: 10 langues prêtes à l'emploi — English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Español, Français, Italiano, Português (Brasil). Détection automatique de la langue du système au premier lancement. Menus, dialogues, erreurs — tout est traduit.
 ---
 
 <script setup>

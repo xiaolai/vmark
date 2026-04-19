@@ -36,6 +36,11 @@ features:
       src: /icons/keyboard.svg
     title: Potenza Senza Complessità
     details: 165 scorciatoie da tastiera. Tre modalità di editor — WYSIWYG, Anteprima Sorgente e Sorgente. Modifica multi-cursore, modalità focus, modalità macchina da scrivere, cronologia documenti. Sempre a disposizione quando ne hai bisogno. Invisibile quando non ne hai bisogno.
+
+  - icon:
+      src: /icons/globe.svg
+    title: Parla la tua lingua
+    details: 10 lingue pronte all'uso — English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Español, Français, Italiano, Português (Brasil). Rileva automaticamente la lingua del sistema al primo avvio. Menu, finestre di dialogo, messaggi di errore — tutto tradotto.
 ---
 
 <script setup>
