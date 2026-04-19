@@ -29,50 +29,50 @@ flowchart TB
 
 ## Three Processes
 
-| Process | Runtime | Entry Point | Role |
-|---------|---------|-------------|------|
-| Tauri Shell | Rust | `src-tauri/src/lib.rs` | Window management, file I/O, menus, AI provider routing, MCP bridge |
-| React Webview | Browser (WebView2/WebKit) | `src/main.tsx` → `src/App.tsx` | Editor UI, stores, plugins, keyboard shortcuts |
-| MCP Sidecar | Node.js (bundled) | `vmark-mcp-server/src/cli.ts` | MCP protocol handler, tool registration, AI client communication |
+| Process       | Runtime                   | Entry Point                    | Role                                                                |
+| ------------- | ------------------------- | ------------------------------ | ------------------------------------------------------------------- |
+| Tauri Shell   | Rust                      | `src-tauri/src/lib.rs`         | Window management, file I/O, menus, AI provider routing, MCP bridge |
+| React Webview | Browser (WebView2/WebKit) | `src/main.tsx` → `src/App.tsx` | Editor UI, stores, plugins, keyboard shortcuts                      |
+| MCP Sidecar   | Node.js (bundled)         | `vmark-mcp-server/src/cli.ts`  | MCP protocol handler, tool registration, AI client communication    |
 
 ## Entry Points
 
 ### Rust Backend (`src-tauri/src/`)
 
-| File | Role |
-|------|------|
-| `lib.rs` | App bootstrap — plugin registration, command handlers, window setup |
-| `menu.rs` | Menu construction (TWO builders: `create_menu` + `create_menu_with_shortcuts`) |
-| `menu_events.rs` | Generic menu dispatcher — emits `menu:{id}` to focused window |
-| `window_manager.rs` | Window lifecycle — create, close, focus, tab transfer |
-| `mcp_bridge.rs` | WebSocket server for MCP sidecar communication |
-| `mcp_server.rs` | Sidecar process management — start, health check, restart |
-| `ai_provider.rs` | CLI-based AI provider detection and prompt execution |
-| `hot_exit/` | Capture and restore full app state across restarts |
-| `watcher.rs` | Filesystem watcher for external file changes |
-| `file_tree.rs` | Workspace file tree scanning |
-| `genies.rs` | AI Genie prompt management |
+| File                | Role                                                                           |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `lib.rs`            | App bootstrap — plugin registration, command handlers, window setup            |
+| `menu.rs`           | Menu construction (TWO builders: `create_menu` + `create_menu_with_shortcuts`) |
+| `menu_events.rs`    | Generic menu dispatcher — emits `menu:{id}` to focused window                  |
+| `window_manager.rs` | Window lifecycle — create, close, focus, tab transfer                          |
+| `mcp_bridge.rs`     | WebSocket server for MCP sidecar communication                                 |
+| `mcp_server.rs`     | Sidecar process management — start, health check, restart                      |
+| `ai_provider.rs`    | CLI-based AI provider detection and prompt execution                           |
+| `hot_exit/`         | Capture and restore full app state across restarts                             |
+| `watcher.rs`        | Filesystem watcher for external file changes                                   |
+| `file_tree.rs`      | Workspace file tree scanning                                                   |
+| `genies.rs`         | AI Genie prompt management                                                     |
 
 ### React Frontend (`src/`)
 
-| Directory | Count | Role |
-|-----------|-------|------|
-| `stores/` | 39 stores | Zustand state — documents, tabs, settings, editor, UI |
-| `hooks/` | 67 hooks | Side effects — file ops, menu events, auto-save, shortcuts |
-| `plugins/` | 70 plugins | ProseMirror/Tiptap/CodeMirror editor plugins |
-| `components/` | 8 top-level | Editor, Sidebar, Tabs, StatusBar, TitleBar, FindBar, Terminal, GeniePicker |
-| `utils/` | ~77 files | Helpers, markdown pipeline, cursor sync, hot exit |
-| `hooks/mcpBridge/` | (subdir) | Frontend handlers for MCP tool calls |
+| Directory          | Count       | Role                                                                       |
+| ------------------ | ----------- | -------------------------------------------------------------------------- |
+| `stores/`          | 39 stores   | Zustand state — documents, tabs, settings, editor, UI                      |
+| `hooks/`           | 67 hooks    | Side effects — file ops, menu events, auto-save, shortcuts                 |
+| `plugins/`         | 70 plugins  | ProseMirror/Tiptap/CodeMirror editor plugins                               |
+| `components/`      | 8 top-level | Editor, Sidebar, Tabs, StatusBar, TitleBar, FindBar, Terminal, GeniePicker |
+| `utils/`           | \~77 files  | Helpers, markdown pipeline, cursor sync, hot exit                          |
+| `hooks/mcpBridge/` | (subdir)    | Frontend handlers for MCP tool calls                                       |
 
 ### MCP Sidecar (`vmark-mcp-server/src/`)
 
-| File / Dir | Role |
-|------------|------|
-| `cli.ts` | CLI entry — `--stdio`, `--version`, `--health-check` flags |
-| `server.ts` | MCP server setup — tool/resource registration |
-| `tools/` | 19 tool modules (editor, formatting, blocks, tables, genies, etc.) |
-| `bridge/` | WebSocket client + message types for Tauri communication |
-| `types.ts` | Shared type definitions |
+| File / Dir  | Role                                                               |
+| ----------- | ------------------------------------------------------------------ |
+| `cli.ts`    | CLI entry — `--stdio`, `--version`, `--health-check` flags         |
+| `server.ts` | MCP server setup — tool/resource registration                      |
+| `tools/`    | 19 tool modules (editor, formatting, blocks, tables, genies, etc.) |
+| `bridge/`   | WebSocket client + message types for Tauri communication           |
+| `types.ts`  | Shared type definitions                                            |
 
 ## Key Data Flows
 
@@ -133,17 +133,17 @@ User triggers Genie (Cmd+G or menu)
 
 ## Module Map
 
-| Directory | Files | Role | Imports From |
-|-----------|-------|------|-------------|
-| `src/stores/` | 39 | State management | (leaf — nothing from components/plugins) |
-| `src/hooks/` | 67 | Side effects, event handling | stores, utils, Tauri API |
-| `src/plugins/` | 70 | Editor extensions | stores, utils, shared plugins |
-| `src/components/` | 8 dirs | React UI | stores, hooks, plugins, utils |
-| `src/utils/` | ~77 | Helpers + services | stores (service utils), pure logic (core utils) |
-| `src/lib/` | 1 dir | CJK formatter | stores (settings) |
-| `src/types/` | ~5 | Type definitions | plugins (format types) |
-| `src-tauri/src/` | 24 | Rust backend | (self-contained) |
-| `vmark-mcp-server/src/` | ~25 | MCP sidecar | (self-contained) |
+| Directory               | Files  | Role                         | Imports From                                    |
+| ----------------------- | ------ | ---------------------------- | ----------------------------------------------- |
+| `src/stores/`           | 39     | State management             | (leaf — nothing from components/plugins)        |
+| `src/hooks/`            | 67     | Side effects, event handling | stores, utils, Tauri API                        |
+| `src/plugins/`          | 70     | Editor extensions            | stores, utils, shared plugins                   |
+| `src/components/`       | 8 dirs | React UI                     | stores, hooks, plugins, utils                   |
+| `src/utils/`            | \~77   | Helpers + services           | stores (service utils), pure logic (core utils) |
+| `src/lib/`              | 1 dir  | CJK formatter                | stores (settings)                               |
+| `src/types/`            | \~5    | Type definitions             | plugins (format types)                          |
+| `src-tauri/src/`        | 24     | Rust backend                 | (self-contained)                                |
+| `vmark-mcp-server/src/` | \~25   | MCP sidecar                  | (self-contained)                                |
 
 ## Dependency Flow
 
@@ -171,10 +171,11 @@ See `.dependency-cruiser-known-violations.json` for baselined exceptions.
 
 ## Key Design Decisions
 
-| ADR | Decision | Rationale |
-|-----|----------|-----------|
-| [ADR-001](decisions/ADR-001-markdown-as-source-of-truth.md) | Markdown as source of truth | Engine-agnostic document format |
-| [ADR-002](decisions/ADR-002-mcp-sidecar-architecture.md) | MCP sidecar architecture | Separation of concerns, MCP ecosystem compatibility |
-| [ADR-003](decisions/ADR-003-tiptap-over-milkdown.md) | Tiptap over Milkdown | Thinner ProseMirror wrapper, better debugging |
-| [ADR-004](decisions/ADR-004-human-oriented-mcp-tools.md) | Human-oriented MCP tools | Backward compatibility + AI introspection |
-| [ADR-005](decisions/ADR-005-cli-based-ai-provider-routing.md) | CLI-based AI provider routing | Zero key management, subscription pricing |
+| ADR                                                           | Decision                      | Rationale                                           |
+| ------------------------------------------------------------- | ----------------------------- | --------------------------------------------------- |
+| [ADR-001](decisions/ADR-001-markdown-as-source-of-truth.md)   | Markdown as source of truth   | Engine-agnostic document format                     |
+| [ADR-002](decisions/ADR-002-mcp-sidecar-architecture.md)      | MCP sidecar architecture      | Separation of concerns, MCP ecosystem compatibility |
+| [ADR-003](decisions/ADR-003-tiptap-over-milkdown.md)          | Tiptap over Milkdown          | Thinner ProseMirror wrapper, better debugging       |
+| [ADR-004](decisions/ADR-004-human-oriented-mcp-tools.md)      | Human-oriented MCP tools      | Backward compatibility + AI introspection           |
+| [ADR-005](decisions/ADR-005-cli-based-ai-provider-routing.md) | CLI-based AI provider routing | Zero key management, subscription pricing           |
+

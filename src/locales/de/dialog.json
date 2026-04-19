@@ -49,7 +49,10 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "Bitte speichern Sie das Dokument, bevor Sie Mediendateien hinzufügen.",
+    "messageOrphanCheck": "Bitte speichern Sie das Dokument, bevor Sie nach ungenutzten Bildern suchen.",
+    "messageOrphanCheckUnsaved": "Bitte speichern Sie Ihre Änderungen, bevor Sie nach ungenutzten Bildern suchen.\n\nDadurch wird anhand des gespeicherten Inhalts geprüft."
   },
   "saveVersionAs": {
     "title": "Ihre Version speichern unter..."
@@ -120,6 +123,28 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "Speicher voll — Änderungen an \"{{key}}\" werden nicht gespeichert, bis Speicherplatz freigegeben wird."
+    "localStorageQuotaExceeded": "Speicher voll — Änderungen an \"{{key}}\" werden nicht gespeichert, bis Speicherplatz freigegeben wird.",
+    "tableFormatted": "Tabelle formatiert",
+    "unpinBeforeClosing": "Vor dem Schließen lösen",
+    "failedToInsertDroppedImage": "Einfügen des abgelegten Bildes fehlgeschlagen."
+  },
+  "saveRequired": {
+    "title": "Speichern erforderlich"
+  },
+  "fileTooLarge": {
+    "title": "Datei zu groß",
+    "message": "Datei ist zu groß ({{size}} MB). Maximum ist {{max}} MB."
+  },
+  "errorBoundary": {
+    "title": "Etwas ist schiefgelaufen"
+  },
+  "pdfExport": {
+    "title": "PDF exportieren",
+    "missingPath": "Kein HTML-Pfad angegeben",
+    "loadFailed": "HTML konnte nicht geladen werden: {{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "MCP-Brücke läuft nicht",
+    "healthCheckFailed": "Sidecar-Integritätsprüfung fehlgeschlagen"
   }
 }

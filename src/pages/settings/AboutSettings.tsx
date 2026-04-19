@@ -30,12 +30,12 @@ const WEBSITE_URL = "https://vmark.app";
 const GITHUB_URL = "https://github.com/xiaolai/vmark";
 
 function VersionInfo() {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation(["settings", "common"]);
   const [version, setVersion] = useState<string>("");
 
   useEffect(() => {
-    getVersion().then(setVersion).catch(() => setVersion("Unknown"));
-  }, []);
+    getVersion().then(setVersion).catch(() => setVersion(t("common:unknown")));
+  }, [t]);
 
   return (
     <div className="flex items-center gap-3">

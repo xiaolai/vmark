@@ -49,7 +49,10 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "Salve o documento antes de adicionar arquivos de mídia.",
+    "messageOrphanCheck": "Salve o documento antes de verificar imagens não utilizadas.",
+    "messageOrphanCheckUnsaved": "Salve suas alterações antes de verificar imagens não utilizadas.\n\nIsso garante que a verificação analise o conteúdo salvo."
   },
   "saveVersionAs": {
     "title": "Salvar sua versão como..."
@@ -120,6 +123,28 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "Armazenamento cheio — as alterações em \"{{key}}\" não serão salvas até que espaço seja liberado."
+    "localStorageQuotaExceeded": "Armazenamento cheio — as alterações em \"{{key}}\" não serão salvas até que espaço seja liberado.",
+    "tableFormatted": "Tabela formatada",
+    "unpinBeforeClosing": "Desafixe antes de fechar",
+    "failedToInsertDroppedImage": "Falha ao inserir a imagem solta."
+  },
+  "saveRequired": {
+    "title": "Salvamento necessário"
+  },
+  "fileTooLarge": {
+    "title": "Arquivo muito grande",
+    "message": "Arquivo muito grande ({{size}} MB). O máximo é {{max}} MB."
+  },
+  "errorBoundary": {
+    "title": "Algo deu errado"
+  },
+  "pdfExport": {
+    "title": "Exportar PDF",
+    "missingPath": "Nenhum caminho HTML fornecido",
+    "loadFailed": "Falha ao carregar HTML: {{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "A ponte MCP não está em execução",
+    "healthCheckFailed": "Falha na verificação de integridade do sidecar"
   }
 }

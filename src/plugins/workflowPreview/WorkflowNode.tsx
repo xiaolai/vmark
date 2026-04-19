@@ -10,6 +10,7 @@
  */
 
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps, Node } from "@xyflow/react";
 import type { WorkflowNodeData } from "@/lib/workflow/layout";
@@ -18,6 +19,7 @@ import "./workflow-node.css";
 export type WorkflowNodeType = Node<WorkflowNodeData, "workflow">;
 
 function WorkflowNodeInner({ data, selected }: NodeProps<WorkflowNodeType>) {
+  const { t } = useTranslation("common");
   const statusClass = data.status ? `workflow-node--${data.status}` : "";
   const selectedClass = selected ? "workflow-node--selected" : "";
 
@@ -32,7 +34,7 @@ function WorkflowNodeInner({ data, selected }: NodeProps<WorkflowNodeType>) {
         <span className="workflow-node__icon">{data.icon}</span>
         <span className="workflow-node__label">{data.label}</span>
         {data.status === "running" && (
-          <span className="workflow-node__spinner" aria-label="Running" />
+          <span className="workflow-node__spinner" aria-label={t("running")} />
         )}
         {data.status === "success" && (
           <span className="workflow-node__status-icon">✓</span>

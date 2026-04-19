@@ -49,7 +49,10 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "Guarde el documento antes de agregar archivos multimedia.",
+    "messageOrphanCheck": "Guarde el documento antes de buscar imágenes no utilizadas.",
+    "messageOrphanCheckUnsaved": "Guarde sus cambios antes de buscar imágenes no utilizadas.\n\nAsí se analizará el contenido guardado."
   },
   "saveVersionAs": {
     "title": "Guardar tu versión como..."
@@ -120,6 +123,28 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "Almacenamiento lleno — los cambios en \"{{key}}\" no se guardarán hasta que se libere espacio."
+    "localStorageQuotaExceeded": "Almacenamiento lleno — los cambios en \"{{key}}\" no se guardarán hasta que se libere espacio.",
+    "tableFormatted": "Tabla formateada",
+    "unpinBeforeClosing": "Desancla antes de cerrar",
+    "failedToInsertDroppedImage": "Error al insertar la imagen soltada."
+  },
+  "saveRequired": {
+    "title": "Guardado requerido"
+  },
+  "fileTooLarge": {
+    "title": "Archivo demasiado grande",
+    "message": "El archivo es demasiado grande ({{size}} MB). El máximo es {{max}} MB."
+  },
+  "errorBoundary": {
+    "title": "Algo salió mal"
+  },
+  "pdfExport": {
+    "title": "Exportar PDF",
+    "missingPath": "No se proporcionó una ruta HTML",
+    "loadFailed": "Error al cargar HTML: {{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "El puente MCP no está en ejecución",
+    "healthCheckFailed": "Error en la comprobación de estado del sidecar"
   }
 }

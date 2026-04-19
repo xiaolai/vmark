@@ -49,7 +49,10 @@
     "messageInsertImages": "Please save the document first before inserting images. Images are stored relative to the document location.",
     "messageLocalImages": "Please save the document first to use local images.",
     "messageLocalMedia": "Please save the document first to use local media files.",
-    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location."
+    "messageInsertImagesLocal": "Please save the document first before inserting images from local paths. Images are stored relative to the document location.",
+    "messageAddMedia": "请先保存文档再添加媒体文件。",
+    "messageOrphanCheck": "请先保存文档再检查未使用的图片。",
+    "messageOrphanCheckUnsaved": "请先保存您的更改再检查未使用的图片。\n\n这样才能基于已保存的内容进行检查。"
   },
   "saveVersionAs": {
     "title": "另存为..."
@@ -120,6 +123,28 @@
     "failedToSaveClipboardImage": "Failed to save image from clipboard.",
     "failedToResolveHomePath": "Failed to resolve home directory path.",
     "failedToCopyToAssets": "Failed to copy image to assets folder.",
-    "localStorageQuotaExceeded": "存储空间已满 — 在释放空间之前，对\"{{key}}\"的更改将不会被保存。"
+    "localStorageQuotaExceeded": "存储空间已满 — 在释放空间之前，对\"{{key}}\"的更改将不会被保存。",
+    "tableFormatted": "表格已格式化",
+    "unpinBeforeClosing": "关闭前请先取消固定",
+    "failedToInsertDroppedImage": "插入拖放的图片失败。"
+  },
+  "saveRequired": {
+    "title": "需要保存"
+  },
+  "fileTooLarge": {
+    "title": "文件过大",
+    "message": "文件过大（{{size}} MB）。最大为 {{max}} MB。"
+  },
+  "errorBoundary": {
+    "title": "出错了"
+  },
+  "pdfExport": {
+    "title": "导出 PDF",
+    "missingPath": "未提供 HTML 路径",
+    "loadFailed": "加载 HTML 失败：{{error}}"
+  },
+  "mcp": {
+    "bridgeNotRunning": "MCP 桥接未运行",
+    "healthCheckFailed": "侧载健康检查失败"
   }
 }

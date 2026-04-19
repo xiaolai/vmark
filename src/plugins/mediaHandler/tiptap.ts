@@ -18,6 +18,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
+import i18n from "@/i18n";
 import { copyMediaToAssets, saveMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -63,8 +64,8 @@ function getMediaType(file: File): "video" | "audio" {
 async function handleDroppedMediaFile(view: EditorView, file: File): Promise<void> {
   const documentPath = getDocumentPath();
   if (!documentPath) {
-    await message("Please save the document before adding media files.", {
-      title: "Save Required",
+    await message(i18n.t("dialog:unsavedDocument.messageAddMedia"), {
+      title: i18n.t("dialog:saveRequired.title"),
       kind: "info",
     });
     return;
@@ -73,8 +74,11 @@ async function handleDroppedMediaFile(view: EditorView, file: File): Promise<voi
   try {
     if (file.size > MAX_DROP_FILE_SIZE) {
       await message(
-        `File is too large (${(file.size / (1024 * 1024)).toFixed(0)} MB). Maximum is ${MAX_DROP_FILE_SIZE / (1024 * 1024)} MB.`,
-        { title: "File Too Large", kind: "warning" }
+        i18n.t("dialog:fileTooLarge.message", {
+          size: (file.size / (1024 * 1024)).toFixed(0),
+          max: MAX_DROP_FILE_SIZE / (1024 * 1024),
+        }),
+        { title: i18n.t("dialog:fileTooLarge.title"), kind: "warning" }
       );
       return;
     }

@@ -32,5 +32,8 @@
   "tabActions": "탭 작업",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize"
+  "resize": "Resize",
+  "unknown": "알 수 없음",
+  "running": "실행 중",
+  "dropToOpen": "놓아서 열기"
 }

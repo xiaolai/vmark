@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, withTranslation, type WithTranslation } from "react-i18next";
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
@@ -26,7 +26,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+class ErrorBoundaryInner extends Component<
+  { children: ReactNode } & WithTranslation<"dialog">,
+  ErrorBoundaryState
+> {
   state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -40,9 +43,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
 
   render() {
     if (this.state.hasError) {
+      const { t } = this.props;
       return (
         <div style={{ padding: 40, fontFamily: "system-ui, sans-serif" }}>
-          <h1 style={{ color: "#dc2626", marginBottom: 16 }}>Something went wrong</h1>
+          <h1 style={{ color: "#dc2626", marginBottom: 16 }}>{t("errorBoundary.title")}</h1>
           <pre style={{
             padding: 16,
             background: "#fef2f2",
@@ -60,6 +64,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
     return this.props.children;
   }
 }
+
+const ErrorBoundary = withTranslation("dialog")(ErrorBoundaryInner);
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSearchStore } from "@/stores/searchStore";
@@ -114,6 +120,7 @@ const TITLEBAR_HEIGHT = 40;
 
 /** Drop zone indicator when dragging markdown files */
 function DropOverlay() {
+  const { t } = useTranslation();
   const isDragging = useUIStore((state) => state.isDraggingFiles);
   if (!isDragging) return null;
 
@@ -144,7 +151,7 @@ function DropOverlay() {
           fontWeight: 500,
         }}
       >
-        Drop to open
+        {t("dropToOpen")}
       </div>
     </div>
   );

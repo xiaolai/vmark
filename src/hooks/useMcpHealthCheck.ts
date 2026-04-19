@@ -11,6 +11,7 @@
  */
 
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useMcpHealthStore } from "@/stores/mcpHealthStore";
 import { useMcpServer } from "./useMcpServer";
@@ -41,6 +42,7 @@ export interface HealthCheckResult {
  * Uses the sidecar --health-check command to get real data.
  */
 export function useMcpHealthCheck() {
+  const { t } = useTranslation("dialog");
   // Use individual selectors for reactive values
   const isChecking = useMcpHealthStore((state) => state.isChecking);
   const health = useMcpHealthStore((state) => state.health);
@@ -70,7 +72,7 @@ export function useMcpHealthCheck() {
           resourceCount: sidecarHealth.resourceCount,
           bridgeRunning,
           bridgePort,
-          error: bridgeRunning ? undefined : "MCP bridge is not running",
+          error: bridgeRunning ? undefined : t("mcp.bridgeNotRunning"),
         };
 
         setHealth({
@@ -79,13 +81,13 @@ export function useMcpHealthCheck() {
           resourceCount: sidecarHealth.resourceCount,
           tools: sidecarHealth.tools,
           lastChecked: new Date(),
-          checkError: bridgeRunning ? null : "MCP bridge is not running",
+          checkError: bridgeRunning ? null : t("mcp.bridgeNotRunning"),
         });
 
         return result;
       } else {
         // Sidecar reported an error
-        const error = sidecarHealth.error || "Sidecar health check failed";
+        const error = sidecarHealth.error || t("mcp.healthCheckFailed");
         const result: HealthCheckResult = {
           success: false,
           version: sidecarHealth.version,
@@ -130,7 +132,7 @@ export function useMcpHealthCheck() {
     } finally {
       setIsChecking(false);
     }
-  }, [running, port, refresh]);
+  }, [running, port, refresh, t]);
 
   return {
     runHealthCheck,
