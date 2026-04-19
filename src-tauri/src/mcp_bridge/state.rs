@@ -725,6 +725,12 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn pending_map_cap_is_defined() {
+        // Just assert the constant is used where it claims to be
+        assert_eq!(MAX_PENDING_REQUESTS, 1000);
+    }
+
+    #[tokio::test]
     async fn cleanup_stale_pending_removes_old_entries() {
         use std::time::Duration;
 

@@ -7,6 +7,7 @@ use super::state::{
     cleanup_stale_pending, generate_auth_token, get_bridge_state, get_shutdown_holder,
     get_write_lock, is_read_only_operation, is_webview_alive, remove_port_file,
     set_webview_alive, write_port_file, ClientConnection, PendingRequest,
+    MAX_PENDING_REQUESTS,
 };
 use super::types::{
     ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage,
@@ -516,6 +517,12 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
         let state = get_bridge_state();
         let mut guard = state.lock().await;
         cleanup_stale_pending(&mut guard);
+        if guard.pending.len() >= MAX_PENDING_REQUESTS {
+            return Err(format!(
+                "MCP bridge pending request queue full ({} in flight)",
+                MAX_PENDING_REQUESTS
+            ));
+        }
         guard.pending.insert(
             request_id.clone(),
             PendingRequest {
