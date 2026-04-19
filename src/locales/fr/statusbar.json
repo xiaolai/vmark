@@ -30,6 +30,8 @@
   "aiRetry": "Réessayer",
   "words": "{{count}} mots",
   "chars": "{{count}} caractères",
+  "wordsSelected": "{{selected}} / {{total}} mots",
+  "charsSelected": "{{selected}} / {{total}} caractères",
   "pressAgainToQuit": "Appuyez à nouveau sur {{key}} pour quitter",
   "updateChecking": "Recherche de mises à jour...",
   "updateDownloading": "Téléchargement de la mise à jour...",

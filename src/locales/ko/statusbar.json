@@ -30,6 +30,8 @@
   "aiRetry": "다시 시도",
   "words": "{{count}}개 단어",
   "chars": "{{count}}개 문자",
+  "wordsSelected": "{{selected}} / {{total}}개 단어",
+  "charsSelected": "{{selected}} / {{total}}개 문자",
   "pressAgainToQuit": "{{key}}를 다시 눌러 종료",
   "updateChecking": "업데이트 확인 중...",
   "updateDownloading": "업데이트 다운로드 중...",

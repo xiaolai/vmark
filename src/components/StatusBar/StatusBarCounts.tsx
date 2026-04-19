@@ -1,14 +1,17 @@
 /**
  * StatusBarCounts
  *
- * Purpose: Isolated component that subscribes to document content and computes
- * word/character counts, preventing the parent StatusBar from re-rendering
- * on every keystroke.
+ * Purpose: Isolated component that subscribes to document content + selection
+ * and computes word/character counts. Shows "selected / total" when a
+ * selection exists, total-only otherwise. Isolated so the parent StatusBar
+ * doesn't re-render on every keystroke or selection change.
  *
  * Key decisions:
- *   - Owns the useDocumentContent() subscription so StatusBar doesn't re-render
- *   - Uses memo + useMemo pipeline: content → stripMarkdown → count
- *   - Renders two <span> elements inline within StatusBarRight
+ *   - Owns useDocumentContent() and useDocumentSelectedText() subscriptions
+ *   - Selection counts are computed via stripMarkdown so a selection in
+ *     Source mode (raw markdown) yields the same count as in WYSIWYG.
+ *   - useDeferredValue keeps typing responsive when content is large.
+ *   - Renders two <span> elements inline within StatusBarRight.
  *
  * @coordinates-with StatusBar.tsx — no longer subscribes to document content
  * @coordinates-with StatusBarRight.tsx — renders this component for counts
@@ -17,22 +20,48 @@
 
 import { memo, useDeferredValue, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useDocumentContent } from "@/hooks/useDocumentState";
+import { useDocumentContent, useDocumentSelectedText } from "@/hooks/useDocumentState";
 import { countCharsFromPlain, countWordsFromPlain, stripMarkdown } from "./statusTextMetrics";
 
-/** Isolated component computing and displaying word/character counts to avoid parent re-renders. */
+/** Isolated component displaying word/char counts; switches to "selected / total" when text is selected. */
 export const StatusBarCounts = memo(function StatusBarCounts() {
   const { t } = useTranslation("statusbar");
   const content = useDocumentContent();
+  const selectedText = useDocumentSelectedText();
   const deferredContent = useDeferredValue(content);
+  const deferredSelected = useDeferredValue(selectedText);
+
   const strippedContent = useMemo(() => stripMarkdown(deferredContent), [deferredContent]);
-  const wordCount = useMemo(() => countWordsFromPlain(strippedContent), [strippedContent]);
-  const charCount = useMemo(() => countCharsFromPlain(strippedContent), [strippedContent]);
+  const totalWords = useMemo(() => countWordsFromPlain(strippedContent), [strippedContent]);
+  const totalChars = useMemo(() => countCharsFromPlain(strippedContent), [strippedContent]);
+
+  const strippedSelected = useMemo(
+    () => stripMarkdown(deferredSelected),
+    [deferredSelected]
+  );
+  const selectedWords = useMemo(
+    () => countWordsFromPlain(strippedSelected),
+    [strippedSelected]
+  );
+  const selectedChars = useMemo(
+    () => countCharsFromPlain(strippedSelected),
+    [strippedSelected]
+  );
+
+  const hasSelection = strippedSelected.length > 0;
 
   return (
     <>
-      <span className="status-item">{t("words", { count: wordCount })}</span>
-      <span className="status-item">{t("chars", { count: charCount })}</span>
+      <span className="status-item">
+        {hasSelection
+          ? t("wordsSelected", { selected: selectedWords, total: totalWords })
+          : t("words", { count: totalWords })}
+      </span>
+      <span className="status-item">
+        {hasSelection
+          ? t("charsSelected", { selected: selectedChars, total: totalChars })
+          : t("chars", { count: totalChars })}
+      </span>
     </>
   );
 });

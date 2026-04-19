@@ -30,6 +30,8 @@
   "aiRetry": "Reintentar",
   "words": "{{count}} palabras",
   "chars": "{{count}} caracteres",
+  "wordsSelected": "{{selected}} / {{total}} palabras",
+  "charsSelected": "{{selected}} / {{total}} caracteres",
   "pressAgainToQuit": "Presiona {{key}} de nuevo para salir",
   "updateChecking": "Buscando actualizaciones...",
   "updateDownloading": "Descargando actualización...",

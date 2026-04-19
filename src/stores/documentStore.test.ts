@@ -394,6 +394,44 @@ describe("documentStore", () => {
     });
   });
 
+  describe("setSelectedText", () => {
+    it("defaults to empty string after initDocument", () => {
+      const { initDocument, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL);
+      expect(getDocument(WINDOW_LABEL)?.selectedText).toBe("");
+    });
+
+    it("updates selectedText", () => {
+      const { initDocument, setSelectedText, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL);
+      setSelectedText(WINDOW_LABEL, "hello world");
+      expect(getDocument(WINDOW_LABEL)?.selectedText).toBe("hello world");
+    });
+
+    it("can clear selectedText", () => {
+      const { initDocument, setSelectedText, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL);
+      setSelectedText(WINDOW_LABEL, "abc");
+      setSelectedText(WINDOW_LABEL, "");
+      expect(getDocument(WINDOW_LABEL)?.selectedText).toBe("");
+    });
+
+    it("no-ops when tab does not exist", () => {
+      const { setSelectedText, getDocument } = useDocumentStore.getState();
+      setSelectedText("missing-tab", "x");
+      expect(getDocument("missing-tab")).toBeUndefined();
+    });
+
+    it("loadContent clears selectedText", () => {
+      const { initDocument, setSelectedText, loadContent, getDocument } =
+        useDocumentStore.getState();
+      initDocument(WINDOW_LABEL);
+      setSelectedText(WINDOW_LABEL, "previous");
+      loadContent(WINDOW_LABEL, "new content");
+      expect(getDocument(WINDOW_LABEL)?.selectedText).toBe("");
+    });
+  });
+
   describe("removeDocument", () => {
     it("removes the document from the store", () => {
       const { initDocument, removeDocument, getDocument } = useDocumentStore.getState();

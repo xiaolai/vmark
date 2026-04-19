@@ -46,6 +46,8 @@ export interface DocumentState {
   isDirty: boolean;
   documentId: number;
   cursorInfo: CursorInfo | null;
+  /** Currently selected text in the active editor; empty when no selection. */
+  selectedText: string;
   lastAutoSave: number | null;
   /** True when the file was deleted externally - show warning UI */
   isMissing: boolean;
@@ -82,6 +84,7 @@ interface DocumentStore {
   markSaved: (tabId: string, lastDiskContent?: string) => void;
   markAutoSaved: (tabId: string, lastDiskContent?: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
+  setSelectedText: (tabId: string, text: string) => void;
   setLineMetadata: (
     tabId: string,
     meta: { lineEnding?: LineEnding; hardBreakStyle?: HardBreakStyle }
@@ -101,6 +104,7 @@ const createInitialDocument = (content = "", filePath: string | null = null): Do
   isDirty: false,
   documentId: 0,
   cursorInfo: null,
+  selectedText: "",
   lastAutoSave: null,
   isMissing: false,
   isDivergent: false,
@@ -176,6 +180,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
         isDirty: false,
         isDivergent: false, // Reload from disk clears divergent state
         documentId: doc.documentId + 1,
+        selectedText: "",
         lineEnding: meta?.lineEnding ?? doc.lineEnding,
         hardBreakStyle: meta?.hardBreakStyle ?? doc.hardBreakStyle,
       }))
@@ -219,6 +224,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 
   setCursorInfo: (tabId, info) =>
     set((state) => updateDoc(state, tabId, () => ({ cursorInfo: info }))),
+
+  setSelectedText: (tabId, text) =>
+    set((state) => updateDoc(state, tabId, () => ({ selectedText: text }))),
 
   setLineMetadata: (tabId, meta) =>
     set((state) =>

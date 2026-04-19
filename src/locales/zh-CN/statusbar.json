@@ -30,6 +30,8 @@
   "aiRetry": "重试",
   "words": "{{count}} 词",
   "chars": "{{count}} 字符",
+  "wordsSelected": "{{selected}} / {{total}} 词",
+  "charsSelected": "{{selected}} / {{total}} 字符",
   "pressAgainToQuit": "再次按 {{key}} 退出",
   "updateChecking": "正在检查更新...",
   "updateDownloading": "正在下载更新...",

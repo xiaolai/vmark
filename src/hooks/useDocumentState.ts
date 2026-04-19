@@ -68,6 +68,12 @@ export function useDocumentCursorInfo(): CursorInfo | null {
   return useDocumentStore((state) => (tabId ? state.documents[tabId]?.cursorInfo : null) ?? null);
 }
 
+/** Hook that returns the currently selected text of the active tab's editor (empty when no selection). */
+export function useDocumentSelectedText(): string {
+  const tabId = useActiveTabId();
+  return useDocumentStore((state) => (tabId ? state.documents[tabId]?.selectedText : "") ?? "");
+}
+
 /** Hook that returns the timestamp of the last auto-save for the active tab. */
 export function useDocumentLastAutoSave(): number | null {
   const tabId = useActiveTabId();
@@ -149,6 +155,16 @@ export function useDocumentActions() {
     [getActiveTabId]
   );
 
+  const setSelectedText = useCallback(
+    (text: string) => {
+      const tabId = getActiveTabId();
+      if (tabId) {
+        useDocumentStore.getState().setSelectedText(tabId, text);
+      }
+    },
+    [getActiveTabId]
+  );
+
   return {
     getContent,
     setContent,
@@ -157,5 +173,6 @@ export function useDocumentActions() {
     markSaved,
     markAutoSaved,
     setCursorInfo,
+    setSelectedText,
   };
 }

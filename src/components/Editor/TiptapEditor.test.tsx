@@ -31,7 +31,12 @@ const mocks = vi.hoisted(() => ({
   useDocumentCursorInfo: vi.fn(() => null),
   setContent: vi.fn(),
   setCursorInfo: vi.fn(),
-  useDocumentActions: vi.fn(() => ({ setContent: mocks.setContent, setCursorInfo: mocks.setCursorInfo })),
+  setSelectedText: vi.fn(),
+  useDocumentActions: vi.fn(() => ({
+    setContent: mocks.setContent,
+    setCursorInfo: mocks.setCursorInfo,
+    setSelectedText: mocks.setSelectedText,
+  })),
   useWindowLabel: vi.fn(() => "main"),
   // Mock editor returned by useEditor
   mockEditor: null as ReturnType<typeof createMockEditor> | null,
@@ -39,11 +44,21 @@ const mocks = vi.hoisted(() => ({
   EditorContent: vi.fn(() => null),
 }));
 
-function createMockEditor() {
+function createMockEditor(opts?: { selectedText?: string; from?: number; to?: number }) {
+  const text = opts?.selectedText ?? "";
+  const from = opts?.from ?? 0;
+  const to = opts?.to ?? 0;
   return {
     commands: { setContent: vi.fn() },
     schema: {},
-    state: { doc: { content: { size: 100 } }, tr: { setMeta: vi.fn().mockReturnThis(), replaceWith: vi.fn().mockReturnThis() } },
+    state: {
+      doc: {
+        content: { size: 100 },
+        textBetween: vi.fn(() => text),
+      },
+      tr: { setMeta: vi.fn().mockReturnThis(), replaceWith: vi.fn().mockReturnThis() },
+      selection: { from, to, empty: from === to },
+    },
     destroy: vi.fn(),
     setEditable: vi.fn(),
   };
@@ -433,7 +448,9 @@ describe("TiptapEditorInner — onSelectionUpdate", () => {
 
     config.onSelectionUpdate({ editor });
     expect(mocks.getCursorInfoFromTiptap).not.toHaveBeenCalled();
+    expect(mocks.setSelectedText).not.toHaveBeenCalled();
   });
+
 });
 
 describe("TiptapEditorInner — onUpdate debouncing", () => {
@@ -1199,6 +1216,58 @@ describe("TiptapEditorInner — cursor update scheduling", () => {
     expect(rafCount - rafBefore).toBe(1);
 
     vi.restoreAllMocks();
+  });
+
+  it("pushes selected text to store after tracking is enabled", async () => {
+    const mockView = {
+      state: {
+        tr: { replaceWith: vi.fn().mockReturnThis(), setMeta: vi.fn().mockReturnThis() },
+        doc: { content: { size: 10 } },
+      },
+      dispatch: vi.fn(),
+    };
+
+    const editor = createMockEditor({ selectedText: "selected words", from: 1, to: 14 });
+    mocks.useEditor.mockReturnValue(editor);
+    mocks.getTiptapEditorView.mockReturnValue(mockView);
+    mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
+    mocks.getCursorInfoFromTiptap.mockReturnValue({ line: 1, col: 0 });
+
+    render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[0][0];
+    config.onCreate({ editor });
+
+    await new Promise((r) => setTimeout(r, 250));
+
+    mocks.setSelectedText.mockClear();
+    config.onSelectionUpdate({ editor });
+    expect(mocks.setSelectedText).toHaveBeenCalledWith("selected words");
+  });
+
+  it("pushes empty string when selection is collapsed", async () => {
+    const mockView = {
+      state: {
+        tr: { replaceWith: vi.fn().mockReturnThis(), setMeta: vi.fn().mockReturnThis() },
+        doc: { content: { size: 10 } },
+      },
+      dispatch: vi.fn(),
+    };
+
+    const editor = createMockEditor({ selectedText: "ignored", from: 4, to: 4 });
+    mocks.useEditor.mockReturnValue(editor);
+    mocks.getTiptapEditorView.mockReturnValue(mockView);
+    mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
+    mocks.getCursorInfoFromTiptap.mockReturnValue({ line: 1, col: 0 });
+
+    render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[0][0];
+    config.onCreate({ editor });
+
+    await new Promise((r) => setTimeout(r, 250));
+
+    mocks.setSelectedText.mockClear();
+    config.onSelectionUpdate({ editor });
+    expect(mocks.setSelectedText).toHaveBeenCalledWith("");
   });
 });
 

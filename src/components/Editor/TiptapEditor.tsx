@@ -122,7 +122,7 @@ interface TiptapEditorInnerProps {
 export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEditorInnerProps) {
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
-  const { setContent, setCursorInfo } = useDocumentActions();
+  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
   const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
   const hardBreakStyleOnSave = useSettingsStore((state) => state.markdown.hardBreakStyleOnSave);
   const showLineNumbers = useEditorStore((state) => state.showLineNumbers);
@@ -308,6 +308,8 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       if (!view) return;
       scheduleCursorUpdate(getCursorInfoFromTiptap(view));
       useTiptapEditorStore.getState().setContext(extractTiptapContext(editor.state), view);
+      const { from, to, empty } = editor.state.selection;
+      setSelectedText(empty ? "" : editor.state.doc.textBetween(from, to, "\n", " "));
     },
   });
 

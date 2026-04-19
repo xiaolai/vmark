@@ -30,6 +30,8 @@
   "aiRetry": "重試",
   "words": "{{count}} 個字詞",
   "chars": "{{count}} 個字元",
+  "wordsSelected": "{{selected}} / {{total}} 個字詞",
+  "charsSelected": "{{selected}} / {{total}} 個字元",
   "pressAgainToQuit": "再按一次 {{key}} 以結束",
   "updateChecking": "檢查更新中...",
   "updateDownloading": "下載更新中...",

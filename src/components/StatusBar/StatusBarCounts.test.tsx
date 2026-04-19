@@ -1,10 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-// Mock useDocumentContent hook
+// Mock document state hooks
 let mockContent = "";
+let mockSelectedText = "";
 vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentContent: () => mockContent,
+  useDocumentSelectedText: () => mockSelectedText,
 }));
 
 // Mock alfaaz to avoid native module issues in test
@@ -20,6 +22,7 @@ import { StatusBarCounts } from "./StatusBarCounts";
 
 beforeEach(() => {
   mockContent = "";
+  mockSelectedText = "";
 });
 
 describe("StatusBarCounts", () => {
@@ -88,5 +91,40 @@ describe("StatusBarCounts", () => {
     expect(screen.getByText("2 words")).toBeInTheDocument();
     // "clickhere" = 9 chars
     expect(screen.getByText("9 chars")).toBeInTheDocument();
+  });
+
+  describe("with selection", () => {
+    it("shows selected/total when selection is non-empty", () => {
+      mockContent = "alpha beta gamma delta";
+      mockSelectedText = "alpha beta";
+      render(<StatusBarCounts />);
+      expect(screen.getByText("2 / 4 words")).toBeInTheDocument();
+      expect(screen.getByText("9 / 19 chars")).toBeInTheDocument();
+    });
+
+    it("falls back to total-only when selection is empty", () => {
+      mockContent = "alpha beta gamma";
+      mockSelectedText = "";
+      render(<StatusBarCounts />);
+      expect(screen.getByText("3 words")).toBeInTheDocument();
+      expect(screen.getByText("14 chars")).toBeInTheDocument();
+    });
+
+    it("falls back to total-only when selection is whitespace", () => {
+      mockContent = "alpha beta";
+      mockSelectedText = "   \n\n  ";
+      render(<StatusBarCounts />);
+      expect(screen.getByText("2 words")).toBeInTheDocument();
+    });
+
+    it("strips markdown from selected text before counting", () => {
+      mockContent = "intro **bold word** outro";
+      mockSelectedText = "**bold word**";
+      render(<StatusBarCounts />);
+      // selection: "bold word" -> 2 words, 8 non-ws chars;
+      // total: "intro bold word outro" -> 4 words, 18 non-ws chars
+      expect(screen.getByText("2 / 4 words")).toBeInTheDocument();
+      expect(screen.getByText("8 / 18 chars")).toBeInTheDocument();
+    });
   });
 });

@@ -74,6 +74,7 @@ const { EditorView } = await import("@codemirror/view");
 // Mock hooks that SourceEditor uses
 const mockSetContent = vi.fn();
 const mockSetCursorInfo = vi.fn();
+const mockSetSelectedText = vi.fn();
 
 vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentContent: vi.fn(() => "# Hello"),
@@ -81,8 +82,19 @@ vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentActions: vi.fn(() => ({
     setContent: mockSetContent,
     setCursorInfo: mockSetCursorInfo,
+    setSelectedText: mockSetSelectedText,
   })),
 }));
+
+/** Build a CodeMirror-like update state with a default empty selection for tests. */
+function makeUpdateState(doc: string, extra?: { selection?: { from: number; to: number } }) {
+  const sel = extra?.selection ?? { from: 0, to: 0 };
+  return {
+    doc: { toString: () => doc },
+    selection: { main: { from: sel.from, to: sel.to, empty: sel.from === sel.to } },
+    sliceDoc: (from: number, to: number) => doc.slice(from, to),
+  };
+}
 
 vi.mock("@/hooks/useSourceEditorSearch", () => ({
   useSourceEditorSearch: vi.fn(),
@@ -469,7 +481,7 @@ describe("SourceEditor", () => {
       capturedUpdateListener!({
         docChanged: true,
         selectionSet: false,
-        state: { doc: { toString: () => "new content" } },
+        state: makeUpdateState("new content"),
         view: mockEditorViewInstance,
       });
 
@@ -483,7 +495,7 @@ describe("SourceEditor", () => {
       capturedUpdateListener!({
         docChanged: true,
         selectionSet: false,
-        state: { doc: { toString: () => "new content" } },
+        state: makeUpdateState("new content"),
         view: mockEditorViewInstance,
       });
 
@@ -496,7 +508,7 @@ describe("SourceEditor", () => {
       capturedUpdateListener!({
         docChanged: true,
         selectionSet: false,
-        state: { doc: { toString: () => "new" } },
+        state: makeUpdateState("new"),
         view: mockEditorViewInstance,
       });
 
@@ -511,7 +523,7 @@ describe("SourceEditor", () => {
       capturedUpdateListener!({
         docChanged: false,
         selectionSet: true,
-        state: { doc: { toString: () => "# Hello" } },
+        state: makeUpdateState("# Hello"),
         view: mockEditorViewInstance,
       });
 
@@ -525,12 +537,38 @@ describe("SourceEditor", () => {
       capturedUpdateListener!({
         docChanged: true,
         selectionSet: false,
-        state: { doc: { toString: () => "modified" } },
+        state: makeUpdateState("modified"),
         view: mockEditorViewInstance,
       });
 
       expect(mockGetCursorInfo).toHaveBeenCalled();
       expect(mockSetCursorInfo).toHaveBeenCalled();
+    });
+
+    it("pushes selected text to store on selection change", () => {
+      render(<SourceEditor />);
+
+      capturedUpdateListener!({
+        docChanged: false,
+        selectionSet: true,
+        state: makeUpdateState("hello world", { selection: { from: 0, to: 5 } }),
+        view: mockEditorViewInstance,
+      });
+
+      expect(mockSetSelectedText).toHaveBeenCalledWith("hello");
+    });
+
+    it("clears selected text when selection is empty", () => {
+      render(<SourceEditor />);
+
+      capturedUpdateListener!({
+        docChanged: false,
+        selectionSet: true,
+        state: makeUpdateState("hello world", { selection: { from: 3, to: 3 } }),
+        view: mockEditorViewInstance,
+      });
+
+      expect(mockSetSelectedText).toHaveBeenCalledWith("");
     });
 
     it("does not track cursor when no doc or selection change", () => {
@@ -539,7 +577,7 @@ describe("SourceEditor", () => {
       capturedUpdateListener!({
         docChanged: false,
         selectionSet: false,
-        state: { doc: { toString: () => "# Hello" } },
+        state: makeUpdateState("# Hello"),
         view: mockEditorViewInstance,
       });
 
@@ -561,7 +599,7 @@ describe("SourceEditor", () => {
         capturedUpdateListener!({
           docChanged: true,
           selectionSet: false,
-          state: { doc: { toString: () => "# Hello World" } },
+          state: makeUpdateState("# Hello World"),
           view: mockEditorViewInstance,
         });
 
@@ -591,7 +629,7 @@ describe("SourceEditor", () => {
         capturedUpdateListener!({
           docChanged: true,
           selectionSet: false,
-          state: { doc: { toString: () => "# Hello" } },
+          state: makeUpdateState("# Hello"),
           view: mockEditorViewInstance,
         });
 
@@ -614,7 +652,7 @@ describe("SourceEditor", () => {
         capturedUpdateListener!({
           docChanged: true,
           selectionSet: false,
-          state: { doc: { toString: () => "# HH" } },
+          state: makeUpdateState("# HH"),
           view: mockEditorViewInstance,
         });
 
@@ -637,7 +675,7 @@ describe("SourceEditor", () => {
         capturedUpdateListener!({
           docChanged: true,
           selectionSet: false,
-          state: { doc: { toString: () => "# HHH" } },
+          state: makeUpdateState("# HHH"),
           view: mockEditorViewInstance,
         });
 
@@ -658,7 +696,7 @@ describe("SourceEditor", () => {
         capturedUpdateListener!({
           docChanged: true,
           selectionSet: false,
-          state: { doc: { toString: () => "# Hello" } },
+          state: makeUpdateState("# Hello"),
           view: mockEditorViewInstance,
         });
 
@@ -677,7 +715,7 @@ describe("SourceEditor", () => {
         capturedUpdateListener!({
           docChanged: true,
           selectionSet: false,
-          state: { doc: { toString: () => "# Hello" } },
+          state: makeUpdateState("# Hello"),
           view: mockEditorViewInstance,
         });
 
@@ -795,7 +833,7 @@ describe("SourceEditor", () => {
       capturedUpdateListener!({
         docChanged: true,
         selectionSet: false,
-        state: { doc: { toString: () => "changed content" } },
+        state: makeUpdateState("changed content"),
         view: mockEditorViewInstance,
       });
 

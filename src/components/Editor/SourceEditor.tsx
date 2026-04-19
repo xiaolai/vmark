@@ -75,14 +75,16 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   // Use document store for content (per-window state)
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
-  const { setContent, setCursorInfo } = useDocumentActions();
+  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
 
   // Refs to capture callbacks for use in CodeMirror listener
   const setContentRef = useRef(setContent);
   const setCursorInfoRef = useRef(setCursorInfo);
+  const setSelectedTextRef = useRef(setSelectedText);
   const cursorInfoRef = useRef(cursorInfo);
   setContentRef.current = setContent;
   setCursorInfoRef.current = setCursorInfo;
+  setSelectedTextRef.current = setSelectedText;
   cursorInfoRef.current = cursorInfo;
 
   // Use editor store for global settings
@@ -161,6 +163,10 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       if (update.selectionSet || update.docChanged) {
         const info = getCursorInfoFromCodeMirror(update.view);
         setCursorInfoRef.current(info);
+        const sel = update.state.selection.main;
+        setSelectedTextRef.current(
+          sel.empty ? "" : update.state.sliceDoc(sel.from, sel.to)
+        );
       }
     });
 

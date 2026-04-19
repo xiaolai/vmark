@@ -30,6 +30,8 @@
   "aiRetry": "再試行",
   "words": "{{count}}語",
   "chars": "{{count}}文字",
+  "wordsSelected": "{{selected}} / {{total}} 語",
+  "charsSelected": "{{selected}} / {{total}} 文字",
   "pressAgainToQuit": "もう一度 {{key}} を押して終了",
   "updateChecking": "アップデートを確認中...",
   "updateDownloading": "アップデートをダウンロード中...",
