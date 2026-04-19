@@ -44,15 +44,11 @@ export function TitleBar() {
   const { renameFile, isRenaming } = useTitleBarRename();
   const showFilename = useSettingsStore((state) => state.appearance.showFilenameInTitlebar ?? false);
 
-  // Get active tab's title for unsaved documents
-  const tabTitle = useTabStore((state) => {
-    if (!activeTabId) return null;
-    for (const tabs of Object.values(state.tabs)) {
-      const tab = tabs.find((t) => t.id === activeTabId);
-      if (tab) return tab.title;
-    }
-    return null;
-  });
+  // Get active tab's title for unsaved documents.
+  // Selector returns a primitive (string | null) so React only re-renders on title change.
+  const tabTitle = useTabStore((state) =>
+    activeTabId ? state.findTabById(activeTabId)?.title ?? null : null
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");

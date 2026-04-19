@@ -73,6 +73,33 @@ describe("tabStore", () => {
       expect(store.getTabsByWindow("window2")).toHaveLength(1);
     });
 
+    it("findTabById locates a tab across windows", () => {
+      const store = useTabStore.getState();
+      const idA = store.createTab("win1", "/a.md");
+      const idB = store.createTab("win2", "/b.md");
+
+      expect(useTabStore.getState().findTabById(idA)?.filePath).toBe("/a.md");
+      expect(useTabStore.getState().findTabById(idB)?.filePath).toBe("/b.md");
+      expect(useTabStore.getState().findTabById("missing")).toBeNull();
+    });
+
+    it("findTabById returns first-inserted-window match on duplicate ids", () => {
+      // Documenting the invariant: generated IDs are globally unique, so this
+      // collision path is only reachable via direct setState abuse. The test
+      // pins "first insertion-order match wins" — Object.values follows
+      // insertion order for string keys, so win1 (set first) is returned.
+      // Any future refactor that reorders iteration must update this test.
+      useTabStore.setState(() => ({
+        tabs: {
+          win1: [{ id: "shared-id", filePath: "/win1.md", title: "from-win1", isPinned: false }],
+          win2: [{ id: "shared-id", filePath: "/win2.md", title: "from-win2", isPinned: false }],
+        },
+      }));
+
+      const found = useTabStore.getState().findTabById("shared-id");
+      expect(found?.filePath).toBe("/win1.md");
+    });
+
     it("sets active tab to newly created tab", () => {
       const store = useTabStore.getState();
 

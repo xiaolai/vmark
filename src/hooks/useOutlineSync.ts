@@ -35,50 +35,53 @@ const EDITOR_POLL_INTERVAL_MS = 100;
 const EDITOR_POLL_MAX_ATTEMPTS = 50; // 5 seconds max
 
 /**
- * Find the position of the nth heading in a ProseMirror document.
- * Returns -1 if not found.
+ * Heading position cache keyed by doc node. PM docs are immutable, so each
+ * transaction produces a new doc reference; WeakMap lets old entries be GC'd
+ * when docs are no longer referenced. The cache turns each cursor-move lookup
+ * from a full tree walk into an O(log N) binary search on cached positions.
  */
-function findHeadingPosition(doc: Node, targetIndex: number): number {
-  let pos = -1;
-  let currentIndex = 0;
+const headingCache: WeakMap<Node, number[]> = new WeakMap();
 
+function getHeadingPositions(doc: Node): number[] {
+  const cached = headingCache.get(doc);
+  if (cached) return cached;
+  const positions: number[] = [];
   doc.descendants((node, nodePos) => {
-    if (pos !== -1) return false; // Already found
-
-    if (node.type.name === "heading") {
-      if (currentIndex === targetIndex) {
-        pos = nodePos;
-        return false;
-      }
-      currentIndex++;
-    }
+    if (node.type.name === "heading") positions.push(nodePos);
     return true;
   });
+  headingCache.set(doc, positions);
+  return positions;
+}
 
-  return pos;
+/** Find the position of the nth heading; -1 if out of range. */
+function findHeadingPosition(doc: Node, targetIndex: number): number {
+  const positions = getHeadingPositions(doc);
+  return targetIndex >= 0 && targetIndex < positions.length
+    ? positions[targetIndex]
+    : -1;
 }
 
 /**
- * Find the heading index at or before a given position.
- * Returns -1 if cursor is before all headings.
+ * Find the heading index at or before a cursor position using binary search.
+ * Returns -1 if the cursor is before every heading.
  */
 function findHeadingIndexAtPosition(doc: Node, cursorPos: number): number {
-  let headingIndex = -1;
-  let currentIndex = 0;
-
-  doc.descendants((node, nodePos) => {
-    if (node.type.name === "heading") {
-      if (nodePos < cursorPos) {
-        headingIndex = currentIndex;
-        currentIndex++;
-      } else {
-        return false; // Stop when we pass cursor
-      }
+  const positions = getHeadingPositions(doc);
+  // Find the largest index where positions[i] < cursorPos.
+  let lo = 0;
+  let hi = positions.length - 1;
+  let result = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (positions[mid] < cursorPos) {
+      result = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
     }
-    return true;
-  });
-
-  return headingIndex;
+  }
+  return result;
 }
 
 /**

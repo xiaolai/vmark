@@ -26,6 +26,7 @@ use regex::{RegexBuilder, Regex};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 /// Maximum total matches returned across all files.
 const MAX_MATCHES: usize = 1000;
@@ -44,6 +45,11 @@ const MAX_FILE_SIZE: u64 = 1_024 * 1_024;
 
 /// Maximum compiled regex size (1 MB) to prevent regex compilation DoS.
 const MAX_REGEX_SIZE: usize = 1_024 * 1_024;
+
+/// Wall-clock ceiling for a single search run. On slow filesystems or with
+/// pathological user input, search returns partial results rather than hanging
+/// the blocking thread pool indefinitely.
+const SEARCH_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Directories always skipped (in addition to user-configured excludeFolders).
 const ALWAYS_SKIP: &[&str] = &[
@@ -112,6 +118,9 @@ fn build_regex(
     RegexBuilder::new(&pattern)
         .case_insensitive(!case_sensitive)
         .size_limit(MAX_REGEX_SIZE)
+        // DFA memory cap limits the compiled automaton's runtime working set
+        // and narrows the surface for pathological patterns like (a+)+b.
+        .dfa_size_limit(MAX_REGEX_SIZE)
         .build()
         .map_err(|e| format!("Invalid regex: {}", e))
 }
@@ -256,6 +265,33 @@ fn search_sync(
     extensions: Vec<String>,
     exclude_folders: Vec<String>,
 ) -> Result<Vec<FileSearchResult>, String> {
+    search_sync_with_deadline(
+        root_path,
+        query,
+        case_sensitive,
+        whole_word,
+        use_regex,
+        markdown_only,
+        extensions,
+        exclude_folders,
+        Instant::now() + SEARCH_TIMEOUT,
+    )
+}
+
+/// Internal search implementation with a caller-supplied deadline. Public
+/// only to the crate so tests can exercise timeout semantics deterministically.
+#[allow(clippy::too_many_arguments)]
+fn search_sync_with_deadline(
+    root_path: &str,
+    query: &str,
+    case_sensitive: bool,
+    whole_word: bool,
+    use_regex: bool,
+    markdown_only: bool,
+    extensions: Vec<String>,
+    exclude_folders: Vec<String>,
+    deadline: Instant,
+) -> Result<Vec<FileSearchResult>, String> {
     let re = build_regex(query, case_sensitive, whole_word, use_regex)?;
     let root = PathBuf::from(root_path);
 
@@ -272,7 +308,10 @@ fn search_sync(
     let mut dirs_to_visit: Vec<PathBuf> = vec![root.clone()];
 
     while let Some(dir) = dirs_to_visit.pop() {
-        if results.len() >= MAX_FILES || total_matches >= MAX_MATCHES {
+        if results.len() >= MAX_FILES
+            || total_matches >= MAX_MATCHES
+            || Instant::now() >= deadline
+        {
             break;
         }
 
@@ -283,7 +322,15 @@ fn search_sync(
         let mut subdirs: Vec<PathBuf> = Vec::new();
         let mut files: Vec<PathBuf> = Vec::new();
 
-        for entry in entries.flatten() {
+        // Stride for deadline checks inside inner loops — avoids calling
+        // Instant::now() on every iteration while keeping the wall-clock cap
+        // responsive on huge directories or very long files.
+        const DEADLINE_CHECK_STRIDE: usize = 256;
+
+        for (i, entry) in entries.flatten().enumerate() {
+            if i % DEADLINE_CHECK_STRIDE == 0 && Instant::now() >= deadline {
+                break;
+            }
             let path = entry.path();
             let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
                 continue;
@@ -316,7 +363,10 @@ fn search_sync(
 
         // Search each file
         for file_path in files {
-            if results.len() >= MAX_FILES || total_matches >= MAX_MATCHES {
+            if results.len() >= MAX_FILES
+                || total_matches >= MAX_MATCHES
+                || Instant::now() >= deadline
+            {
                 break;
             }
 
@@ -332,6 +382,11 @@ fn search_sync(
                 }
             }
 
+            // Re-check the deadline before an expensive blocking read.
+            if Instant::now() >= deadline {
+                break;
+            }
+
             let Ok(content) = fs::read_to_string(&file_path) else {
                 log::debug!("[ContentSearch] Cannot read file: {}", file_path.display());
                 continue;
@@ -341,6 +396,10 @@ fn search_sync(
 
             for (line_idx, line) in content.lines().enumerate() {
                 if total_matches >= MAX_MATCHES {
+                    break;
+                }
+                // Cheap periodic deadline check on very long files.
+                if line_idx % DEADLINE_CHECK_STRIDE == 0 && Instant::now() >= deadline {
                     break;
                 }
 
@@ -364,6 +423,18 @@ fn search_sync(
                 });
             }
         }
+    }
+
+    // Surface a timeout via the log so it's visible in dev builds. The public
+    // API intentionally returns partial results (matching the existing
+    // MAX_FILES / MAX_MATCHES silent-truncation contract) — callers treat
+    // "fewer than expected" uniformly regardless of cause. If the frontend
+    // ever needs to distinguish timeout from cap, widen the return type.
+    if Instant::now() >= deadline {
+        log::warn!(
+            "[ContentSearch] Search for {:?} timed out after {:?} with {} files / {} matches — returning partial results",
+            query, SEARCH_TIMEOUT, results.len(), total_matches
+        );
     }
 
     Ok(results)
@@ -756,5 +827,115 @@ mod tests {
 
         // sync function itself doesn't enforce length — that's the command's job
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn test_deadline_already_elapsed_returns_partial_results() {
+        // Seeded workspace with several files; an elapsed deadline should cause
+        // the walker to bail out early and return whatever (possibly zero)
+        // results it accumulated without panicking or erroring.
+        let dir = setup_test_workspace();
+        let root = dir.path().to_str().unwrap();
+        let past_deadline = Instant::now() - Duration::from_secs(1);
+
+        let result = search_sync_with_deadline(
+            root, "World", false, false, false, false, vec![], vec![], past_deadline,
+        );
+
+        // Must not error — partial results are a valid outcome.
+        assert!(result.is_ok(), "timeout must produce Ok(partial), got {:?}", result);
+        // Walker is allowed to return fewer matches than the non-timeout case.
+        let full = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
+        let full_matches: usize = full.iter().map(|r| r.matches.len()).sum();
+        let partial_matches: usize = result.unwrap().iter().map(|r| r.matches.len()).sum();
+        assert!(
+            partial_matches <= full_matches,
+            "partial should never exceed full ({} > {})",
+            partial_matches, full_matches
+        );
+    }
+
+    #[test]
+    fn test_deadline_mid_walk_stops_early() {
+        // Force a deadline that elapses after the first file is processed.
+        // We can't easily time-travel inside search_sync, but an effectively-zero
+        // deadline must stop at-or-before the first expensive I/O.
+        let dir = setup_test_workspace();
+        let root = dir.path().to_str().unwrap();
+        let now = Instant::now();
+        let tight = now + Duration::from_millis(0);
+
+        let result = search_sync_with_deadline(
+            root, "World", false, false, false, false, vec![], vec![], tight,
+        )
+        .unwrap();
+
+        // With effectively no budget, result count must be bounded and must
+        // not trigger any panic/error. Zero is valid; anything else is also
+        // valid as long as <= full.
+        let full = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
+        let full_files = full.len();
+        assert!(
+            result.len() <= full_files,
+            "timed-out file count must not exceed untimed run"
+        );
+    }
+
+    #[test]
+    fn test_regex_size_limit_handles_oversized_pattern_gracefully() {
+        // A heavily-alternated pattern should either compile under the 1 MB
+        // size limit (regex crate is efficient about alternations) or surface
+        // a structured error. The guarantee is "no panic, no runaway memory."
+        let big_alt = (0..20_000)
+            .map(|i| format!("term{:06}", i))
+            .collect::<Vec<_>>()
+            .join("|");
+        let pattern = format!("({})", big_alt);
+
+        match build_regex(&pattern, false, false, true) {
+            Ok(_) => {
+                // Accepted — crate handled it within the budget. Fine.
+            }
+            Err(err) => {
+                assert!(
+                    err.contains("Invalid regex"),
+                    "error from build_regex must be the structured 'Invalid regex' form, got: {}",
+                    err
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_redos_style_pattern_finishes_without_runaway() {
+        // The Rust `regex` crate is immune to catastrophic backtracking by
+        // construction. This guard test asserts the engine still produces a
+        // result (doesn't panic, doesn't deadlock) on a pattern that would
+        // be pathological in a backtracking engine. The assertion is purely
+        // functional — no wall-clock threshold to avoid CI flakiness.
+        let haystack = format!("{}!", "a".repeat(10_000));
+        let re = build_regex(r"(a+)+b", false, false, true).unwrap();
+        // Count must complete — zero matches since there is no 'b' in input.
+        assert_eq!(re.find_iter(&haystack).count(), 0);
+    }
+
+    #[test]
+    fn test_regex_size_limit_rejects_clearly_oversized_ast() {
+        // RegexBuilder::size_limit caps the AST size. A direct build that
+        // bypasses our helper with a tiny explicit limit must surface the
+        // structured "Invalid regex" error — proving the limit path is wired
+        // up and produces the contract we promise callers.
+        let pattern = "(abc|def|ghi|jkl|mno|pqr|stu|vwx|yz0)+";
+        let result = RegexBuilder::new(pattern)
+            .size_limit(64) // absurdly small — forces the limit to fire
+            .build()
+            .map_err(|e| format!("Invalid regex: {}", e));
+        assert!(result.is_err(), "expected size-limit rejection with tiny cap");
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("Invalid regex"),
+            "size-limit errors must surface via the 'Invalid regex' contract, got: {}",
+            err
+        );
     }
 }

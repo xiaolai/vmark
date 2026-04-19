@@ -356,4 +356,59 @@ $$`;
       expect(output.trim()).toBe(input);
     });
   });
+
+  describe("code range lookup (O(log N) binary search)", () => {
+    it("preserves escapes inside many inline code spans", () => {
+      // Document with many inline code spans interleaved with text containing
+      // characters that would normally be unescaped. Exercises the merged-range
+      // binary search against the old O(N·M) Array.some() lookup.
+      const segments: string[] = [];
+      for (let i = 0; i < 200; i++) {
+        segments.push(`Text ${i} with \\* star and \`code_${i}\` span.`);
+      }
+      const input = segments.join("\n\n");
+      const mdast = parseMarkdownToMdast(input);
+      const output = serializeMdastToMarkdown(mdast);
+
+      // Every inline code span must survive (inside code, nothing is unescaped).
+      for (let i = 0; i < 200; i++) {
+        expect(output).toContain(`\`code_${i}\``);
+      }
+      // Mid-line \* is safe to unescape outside code.
+      expect(output).toContain("with * star");
+      expect(output).not.toContain("with \\* star");
+    });
+
+    it("handles hardBreakStyle=twoSpaces on post-strip string", () => {
+      // Regression: buildCodeRanges must be rebuilt after stripUnnecessaryEscapes
+      // because position offsets shift. An earlier refactor reused stale ranges
+      // and produced wrong hard-break replacements near stripped escapes.
+      const input = "line one\\\nline two \\* marker\\\nline three";
+      const mdast = parseMarkdownToMdast(input);
+      const output = serializeMdastToMarkdown(mdast, { hardBreakStyle: "twoSpaces" });
+      // Hard break `\\\n` should become "  \n".
+      expect(output).toContain("  \n");
+      // And the mid-line \* should still be unescaped.
+      expect(output).toContain("* marker");
+    });
+
+    it("does not unescape inside fenced code blocks with unusual content", () => {
+      const input = [
+        "text with \\* mid-line",
+        "",
+        "```",
+        "code line with \\[ and \\* and \\_",
+        "```",
+        "",
+        "more text with \\[bracket",
+      ].join("\n");
+      const mdast = parseMarkdownToMdast(input);
+      const output = serializeMdastToMarkdown(mdast);
+      // Inside fence — escapes preserved.
+      expect(output).toContain("code line with \\[ and \\* and \\_");
+      // Outside fence — escapes stripped.
+      expect(output).toContain("text with * mid-line");
+      expect(output).toContain("more text with [bracket");
+    });
+  });
 });

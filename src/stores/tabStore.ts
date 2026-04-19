@@ -74,6 +74,7 @@ interface TabActions {
   getTabsByWindow: (windowLabel: string) => Tab[];
   getActiveTab: (windowLabel: string) => Tab | null;
   findTabByPath: (windowLabel: string, filePath: string) => Tab | null;
+  findTabById: (tabId: string) => Tab | null;
   getAllOpenFilePaths: () => string[];
 
   // Cleanup
@@ -336,6 +337,19 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     const windowTabs = get().tabs[windowLabel] || [];
     const normalized = normalizePath(filePath);
     return windowTabs.find((t) => t.filePath && normalizePath(t.filePath) === normalized) || null;
+  },
+
+  // Tab IDs are globally unique by construction (generateTabId uses
+  // timestamp + random suffix), so scanning all windows and returning the
+  // first match is safe. If invariant ever breaks, ambiguity would surface
+  // as incorrect title-bar text, not as a crash.
+  findTabById: (tabId) => {
+    const state = get();
+    for (const windowTabs of Object.values(state.tabs)) {
+      const tab = windowTabs.find((t) => t.id === tabId);
+      if (tab) return tab;
+    }
+    return null;
   },
 
   getAllOpenFilePaths: () => {

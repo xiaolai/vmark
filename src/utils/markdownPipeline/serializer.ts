@@ -142,41 +142,81 @@ const SAFE_UNESCAPE_RE = /\\([[\]$`_*!])/g;
 /** Characters that create block-level syntax at start of line. */
 const BLOCK_START_CHARS = new Set(["#", "-", "*", ">", "+"]);
 
-/** Build character ranges for fenced code blocks and inline code spans. */
+/**
+ * Build sorted, merged character ranges for fenced code blocks and inline
+ * code spans. Ranges are non-overlapping and sorted by start, enabling
+ * O(log N) `isInsideCode` lookups during escape processing.
+ */
 function buildCodeRanges(markdown: string): Array<[number, number]> {
-  const ranges: Array<[number, number]> = [];
+  const raw: Array<[number, number]> = [];
   const fenceRe = /^(`{3,}|~{3,}).*\n([\s\S]*?\n)\1\s*$/gm;
   let fm: RegExpExecArray | null;
   while ((fm = fenceRe.exec(markdown))) {
-    ranges.push([fm.index, fm.index + fm[0].length]);
+    raw.push([fm.index, fm.index + fm[0].length]);
   }
   const inlineRe = /`[^`]+`/g;
   let im: RegExpExecArray | null;
   while ((im = inlineRe.exec(markdown))) {
-    ranges.push([im.index, im.index + im[0].length]);
+    raw.push([im.index, im.index + im[0].length]);
   }
-  return ranges;
+  if (raw.length <= 1) return raw;
+  raw.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [raw[0]];
+  for (let i = 1; i < raw.length; i++) {
+    const last = merged[merged.length - 1];
+    const [s, e] = raw[i];
+    if (s <= last[1]) {
+      if (e > last[1]) last[1] = e;
+    } else {
+      merged.push([s, e]);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Binary-search a sorted, non-overlapping ranges array for whether `offset`
+ * falls inside any range. O(log N) vs the previous O(N) `Array.some`.
+ */
+function isInsideCodeRange(
+  ranges: Array<[number, number]>,
+  offset: number
+): boolean {
+  let lo = 0;
+  let hi = ranges.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const [s, e] = ranges[mid];
+    if (s <= offset) {
+      if (offset < e) return true;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return false;
 }
 
 /** Apply a regex replacement only outside code blocks and inline code. */
-function replaceOutsideCode(markdown: string, re: RegExp, replacement: string): string {
-  const ranges = buildCodeRanges(markdown);
-  const isInsideCode = (offset: number) =>
-    ranges.some(([start, end]) => offset >= start && offset < end);
+function replaceOutsideCode(
+  markdown: string,
+  re: RegExp,
+  replacement: string,
+  ranges: Array<[number, number]>
+): string {
   return markdown.replace(re, (match, ...args) => {
     const offset = args[args.length - 2] as number;
-    if (isInsideCode(offset)) return match;
+    if (isInsideCodeRange(ranges, offset)) return match;
     return match.replace(re, replacement);
   });
 }
 
-function stripUnnecessaryEscapes(markdown: string): string {
-  const ranges = buildCodeRanges(markdown);
-  const isInsideCode = (offset: number) =>
-    ranges.some(([start, end]) => offset >= start && offset < end);
-
+function stripUnnecessaryEscapes(
+  markdown: string,
+  ranges: Array<[number, number]>
+): string {
   return markdown.replace(SAFE_UNESCAPE_RE, (match, char: string, offset: number) => {
-    if (isInsideCode(offset)) return match;
+    if (isInsideCodeRange(ranges, offset)) return match;
 
     const lineStart = markdown.lastIndexOf("\n", offset - 1) + 1;
     const beforeOnLine = markdown.slice(lineStart, offset).trimStart();
@@ -211,12 +251,15 @@ export function serializeMdastToMarkdown(
   // before/after line breaks, but this is unnecessary for our use case.
   result = result.replace(/&#x20;/g, " ");
 
-  // Strip unnecessary backslash escapes added by remark-stringify
-  result = stripUnnecessaryEscapes(result);
+  // Strip unnecessary backslash escapes added by remark-stringify.
+  // Ranges are computed once and reused by the binary-search lookup inside
+  // stripUnnecessaryEscapes — avoids the previous O(N·M) some() scan.
+  result = stripUnnecessaryEscapes(result, buildCodeRanges(result));
 
   if (options.hardBreakStyle === "twoSpaces") {
-    // Replace backslash line breaks with two-space breaks, but skip code fences.
-    result = replaceOutsideCode(result, /\\(\r?\n)/g, "  $1");
+    // Escape stripping may have shortened the string, shifting offsets —
+    // rebuild ranges for the post-strip string before the hard-break pass.
+    result = replaceOutsideCode(result, /\\(\r?\n)/g, "  $1", buildCodeRanges(result));
   }
   return result;
 }

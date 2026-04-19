@@ -618,4 +618,81 @@ describe("useOutlineSync — cursor tracking", () => {
     rafSpy.mockRestore();
     cancelSpy.mockRestore();
   });
+
+  // --- Binary-search boundary coverage for the cached heading index ---
+  // These assert the exact semantics of findHeadingIndexAtPosition, which was
+  // rewritten to use a WeakMap cache + binary search.
+
+  it("cursor exactly at heading position maps to previous heading (strict-less-than)", () => {
+    const dom = document.createElement("div");
+    mockDom = dom;
+
+    // Three headings at positions 10, 50, 100. Cursor at exactly 50 should
+    // report the heading BEFORE 50 (index 0), not the heading AT 50. This
+    // matches the prior `nodePos < cursorPos` behavior preserved by the
+    // binary-search rewrite.
+    const view = createMockView([10, 50, 100], 50);
+    const getView = () => view as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+
+    renderHook(() => useOutlineSync(getView));
+
+    expect(useUIStore.getState().activeHeadingLine).toBe(0);
+  });
+
+  it("cursor one past heading position maps to that heading", () => {
+    const dom = document.createElement("div");
+    mockDom = dom;
+
+    // Cursor at 51 (one past heading at 50) — heading 50 is the active one.
+    const view = createMockView([10, 50, 100], 51);
+    const getView = () => view as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+
+    renderHook(() => useOutlineSync(getView));
+
+    expect(useUIStore.getState().activeHeadingLine).toBe(1);
+  });
+
+  it("cursor well past all headings maps to the last heading", () => {
+    const dom = document.createElement("div");
+    mockDom = dom;
+
+    const view = createMockView([10, 50, 100], 9999);
+    const getView = () => view as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+
+    renderHook(() => useOutlineSync(getView));
+
+    expect(useUIStore.getState().activeHeadingLine).toBe(2);
+  });
+
+  it("doc with no headings yields -1", () => {
+    const dom = document.createElement("div");
+    mockDom = dom;
+
+    const view = createMockView([], 42);
+    const getView = () => view as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+
+    renderHook(() => useOutlineSync(getView));
+
+    expect(useUIStore.getState().activeHeadingLine).toBe(-1);
+  });
+
+  it("new doc object produces updated heading positions (cache keyed by doc)", () => {
+    const dom = document.createElement("div");
+    mockDom = dom;
+
+    // First render with one doc — cursor after heading at 50 → index 0.
+    const viewA = createMockView([50], 60);
+    const getViewA = () => viewA as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+    const first = renderHook(() => useOutlineSync(getViewA));
+    expect(useUIStore.getState().activeHeadingLine).toBe(0);
+    first.unmount();
+
+    // Brand new doc reference with MORE headings — cache must not reuse the
+    // old positions. Cursor at 60 must now see heading at 20 (index 0) AND
+    // heading at 50 (index 1), picking index 1.
+    const viewB = createMockView([20, 50], 60);
+    const getViewB = () => viewB as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+    renderHook(() => useOutlineSync(getViewB));
+    expect(useUIStore.getState().activeHeadingLine).toBe(1);
+  });
 });
