@@ -54,7 +54,7 @@ menu:
   edit.findNext: "Weitersuchen"
   edit.findPrev: "Rückwärts suchen"
   edit.useSelectionFind: "Auswahl für Suche verwenden"
-  edit.findInFiles: "Find in Files..."
+  edit.findInFiles: "In Dateien suchen..."
   edit.selection: "Auswahl"
   edit.selection.word: "Wort auswählen"
   edit.selection.line: "Zeile auswählen"
@@ -175,10 +175,9 @@ menu:
   view.fileExplorer: "Datei-Explorer umschalten"
   view.history: "Verlauf umschalten"
   view.terminal: "Terminal umschalten"
-  view.checkMarkdown: "Check Markdown"
-  view.lintNext: "Next Issue"
-  view.lintPrev: "Previous Issue"
-
+  view.checkMarkdown: "Markdown prüfen"
+  view.lintNext: "Nächstes Problem"
+  view.lintPrev: "Vorheriges Problem"
   # === Window menu ===
   window: "Fenster"
   window.bringAllToFront: "Alle nach vorne bringen"

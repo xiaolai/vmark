@@ -178,5 +178,64 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "headingPicker": {
+    "ariaLabel": "标题选择器"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "未定义的引用：[{{ref}}]",
+    "E02": "表格行有 {{actual}} 个单元格，但表头有 {{expected}} 个",
+    "E03": "链接方向反了 —— 是否想写 [text](url)？",
+    "E04": "ATX 标题在 # 后需要一个空格",
+    "E05": "强调标记内含有空格",
+    "E06": "链接文本为空",
+    "E07": "重复的链接定义：[{{ref}}]",
+    "E08": "围栏代码块未闭合",
+    "W01": "跳过了标题级别（期望 h{{expected}}，实际为 h{{actual}}）",
+    "W02": "图片缺少替代文本",
+    "W03": "未使用的链接定义：[{{ref}}]",
+    "W04": "片段 #{{anchor}} 未匹配任何标题",
+    "W05": "链接 href 为空"
+  },
+  "plugin": {
+    "exportPng": "导出为 PNG",
+    "zoomOut": "缩小",
+    "zoomIn": "放大",
+    "resetZoom": "重置缩放",
+    "fitToView": "适应视图",
+    "copySource": "复制源代码",
+    "cancel": "取消 (Esc)",
+    "save": "保存",
+    "toggleLivePreview": "切换实时预览",
+    "saveCmdEnter": "保存 (⌘+Enter)",
+    "insertAsImage": "作为图片插入",
+    "pasteAsText": "作为文本粘贴",
+    "imageDetected": "检测到图片",
+    "acceptSuggestion": "接受 (Enter)",
+    "rejectSuggestion": "拒绝 (Escape)"
+  },
+  "preview": {
+    "loading": "加载中…",
+    "noMediaPath": "无媒体路径",
+    "pathResolutionFailed": "路径解析失败",
+    "failedToLoad": "加载失败"
+  },
+  "frontmatter": {
+    "label": "前置元数据"
+  },
+  "workflow": {
+    "noPreview": "无可用的工作流预览"
+  }
 }

@@ -546,5 +546,120 @@
   "advanced.hotExit.sessionCleared": "Sitzung gelöscht",
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
-  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)"
+  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "nav": {
+    "editor": "Editor",
+    "terminal": "Terminal"
+  },
+  "appearance": {
+    "theme": {
+      "mint": "Mint",
+      "sepia": "Sepia"
+    }
+  },
+  "editor": {
+    "lineHeight": {
+      "normal": "1.6 (Normal)",
+      "extra": "2.2 (Extra)"
+    },
+    "blockSpacing": {
+      "normal": "1× (Normal)"
+    },
+    "cjkBrackets": {
+      "auto": "Auto"
+    },
+    "lineEndings": {
+      "lf": "LF (\\n)",
+      "crlf": "CRLF (\\r\\n)"
+    },
+    "hardBreakStyle": {
+      "backslash": "Backslash (\\)"
+    }
+  },
+  "language": {
+    "currencySpacing": {
+      "description": "$ 100 -> $100"
+    },
+    "quoteStyle": {
+      "guillemets": "Guillemets «» ‹›"
+    }
+  },
+  "markdown": {
+    "group": {
+      "layout": "Layout",
+      "lint": "Markdown Lint"
+    },
+    "lintEnabled": {
+      "label": "Markdown-Lint aktivieren",
+      "description": "Auf häufige Markdown-Probleme prüfen (defekte Links, fehlender Alternativtext, Überschriftsinkremente usw.)"
+    }
+  },
+  "files": {
+    "maxFileSize": {
+      "256kb": "256 KB",
+      "512kb": "512 KB",
+      "1mb": "1 MB",
+      "5mb": "5 MB"
+    }
+  },
+  "integrations": {
+    "mcpInfo": {
+      "version": "Version"
+    },
+    "installMcp": {
+      "previewAriaLabel": "MCP-Konfigurationsvorschau",
+      "previewTitle": "MCP-Konfiguration für {{provider}} installieren",
+      "configFile": "Konfigurationsdatei",
+      "binaryPath": "Binärpfad",
+      "backup": "Sicherung",
+      "proposedConfig": "Vorgeschlagene Konfiguration",
+      "currentConfig": "Aktuelle Konfiguration",
+      "safetyBackup": "Vor dem Ändern der bestehenden Konfiguration wird eine Sicherung erstellt.",
+      "safetyNew": "Eine neue Konfigurationsdatei wird erstellt.",
+      "cancel": "Abbrechen",
+      "installing": "Wird installiert...",
+      "installButton": "Installieren",
+      "devBadge": "Entwicklung"
+    }
+  },
+  "terminal": {
+    "group": {
+      "terminal": "Terminal"
+    },
+    "shell": {
+      "label": "Shell"
+    },
+    "lineHeight": {
+      "normal": "1.4 (Normal)",
+      "extra": "2.0 (Extra)"
+    },
+    "cursorStyle": {
+      "block": "Block █"
+    }
+  },
+  "about": {
+    "version": "Version {{version}}",
+    "group": {
+      "updates": "Updates"
+    },
+    "website": "Website",
+    "github": "GitHub"
+  },
+  "shortcuts": {
+    "category": {
+      "navigation": "Navigation"
+    },
+    "label": {
+      "link": "Link"
+    }
+  },
+  "advanced": {
+    "group": {
+      "experimental": "Experimentelle Funktionen"
+    },
+    "workflowEngine": {
+      "label": "Workflow-Engine",
+      "description": "YAML-Workflow-Dateien mit React-Flow-Visualisierung aktivieren (experimentell)"
+    }
+  }
 }

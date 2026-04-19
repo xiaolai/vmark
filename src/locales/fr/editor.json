@@ -178,5 +178,70 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "toolbar": {
+    "insert": {
+      "image": "Image",
+      "audio": "Audio"
+    }
+  },
+  "headingPicker": {
+    "ariaLabel": "Sélecteur de titres"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "Référence non définie : [{{ref}}]",
+    "E02": "La ligne du tableau contient {{actual}} cellules mais l'en-tête en attend {{expected}}",
+    "E03": "Lien inversé — vouliez-vous dire [texte](url) ?",
+    "E04": "Un titre ATX requiert un espace après #",
+    "E05": "Espace à l'intérieur des marqueurs d'emphase",
+    "E06": "Texte de lien vide",
+    "E07": "Définition de lien dupliquée : [{{ref}}]",
+    "E08": "Bloc de code délimité non fermé",
+    "W01": "Niveau de titre ignoré (h{{expected}} attendu, h{{actual}} trouvé)",
+    "W02": "Image sans texte alternatif",
+    "W03": "Définition de lien inutilisée : [{{ref}}]",
+    "W04": "Le fragment #{{anchor}} ne correspond à aucun titre",
+    "W05": "Href de lien vide"
+  },
+  "plugin": {
+    "exportPng": "Exporter en PNG",
+    "zoomOut": "Zoom arrière",
+    "zoomIn": "Zoom avant",
+    "resetZoom": "Réinitialiser le zoom",
+    "fitToView": "Ajuster à la vue",
+    "copySource": "Copier le code source",
+    "cancel": "Annuler (Échap)",
+    "save": "Enregistrer",
+    "toggleLivePreview": "Activer/désactiver l'aperçu en direct",
+    "saveCmdEnter": "Enregistrer (⌘+Entrée)",
+    "insertAsImage": "Insérer comme image",
+    "pasteAsText": "Coller comme texte",
+    "imageDetected": "Image détectée",
+    "acceptSuggestion": "Accepter (Entrée)",
+    "rejectSuggestion": "Rejeter (Échap)"
+  },
+  "preview": {
+    "loading": "Chargement…",
+    "noMediaPath": "Aucun chemin multimédia",
+    "pathResolutionFailed": "Échec de la résolution du chemin",
+    "failedToLoad": "Échec du chargement"
+  },
+  "frontmatter": {
+    "label": "Frontmatter"
+  },
+  "workflow": {
+    "noPreview": "Aucun aperçu de workflow disponible"
+  }
 }

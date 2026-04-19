@@ -4,7 +4,6 @@
   "pdf.preset.compact": "Compatto",
   "pdf.preset.elegant": "Elegante",
   "pdf.preset.custom": "Personalizzato",
-
   "pdf.pageSetup.size": "Dimensione",
   "pdf.pageSetup.orientation": "Orientamento",
   "pdf.pageSetup.orientation.portrait": "Verticale",
@@ -15,7 +14,6 @@
   "pdf.pageSetup.margins.wide": "Ampi",
   "pdf.pageSetup.margins.custom": "Personalizzati",
   "pdf.pageSetup.marginUnit": "mm",
-
   "pdf.typography": "Tipografia",
   "pdf.typography.fontSize": "Dimensione carattere",
   "pdf.typography.lineHeight": "Interlinea",
@@ -24,30 +22,29 @@
   "pdf.typography.latinFont": "Font latino",
   "pdf.typography.cjkFont": "Font CJK",
   "pdf.typography.font.systemDefault": "Predefinito di sistema",
-
   "pdf.appearance": "Aspetto",
-  "pdf.appearance.useEditorTheme": "Usa il tema dell\u2019editor",
-
-  "pdf.headersFooters": "Intestazioni e pi\u00e8 di pagina (solo anteprima)",
+  "pdf.appearance.useEditorTheme": "Usa il tema dell’editor",
+  "pdf.headersFooters": "Intestazioni e piè di pagina (solo anteprima)",
   "pdf.headersFooters.title": "Titolo",
   "pdf.headersFooters.header": "Intestazione",
   "pdf.headersFooters.pageNumbers": "Numeri di pagina",
   "pdf.headersFooters.date": "Data",
-
   "pdf.exportButton": "Esporta PDF",
-  "pdf.exporting": "Esportazione\u2026",
-
-  "pdf.preview.rendering": "Generazione anteprima\u2026",
-  "pdf.preview.failed": "Impossibile generare l\u2019anteprima. Puoi comunque esportare.",
+  "pdf.exporting": "Esportazione…",
+  "pdf.preview.rendering": "Generazione anteprima…",
+  "pdf.preview.failed": "Impossibile generare l’anteprima. Puoi comunque esportare.",
   "pdf.preview.iframeTitle": "Anteprima PDF",
   "pdf.preview.pageCount": "{{count}} pagina",
   "pdf.preview.pageCount_other": "{{count}} pagine",
-
-  "pdf.progress.preparing": "Preparazione\u2026",
-  "pdf.progress.loading": "Caricamento contenuto\u2026",
-  "pdf.progress.rendering": "Generazione PDF\u2026",
+  "pdf.progress.preparing": "Preparazione…",
+  "pdf.progress.loading": "Caricamento contenuto…",
+  "pdf.progress.rendering": "Generazione PDF…",
   "pdf.progress.done": "Fatto",
-
   "pdf.saveDialog.title": "Esporta PDF",
-  "pdf.defaultTitle": "Documento"
+  "pdf.defaultTitle": "Documento",
+  "pdf": {
+    "pageSetup": {
+      "marginUnit": "mm"
+    }
+  }
 }

@@ -32,8 +32,12 @@
   "tabActions": "标签页操作",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize",
+  "resize": "调整大小",
   "unknown": "未知",
   "running": "运行中",
-  "dropToOpen": "拖放以打开"
+  "dropToOpen": "拖放以打开",
+  "aria": {
+    "sidebar": "侧边栏",
+    "mainContent": "主内容区"
+  }
 }

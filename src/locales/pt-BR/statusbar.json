@@ -53,5 +53,17 @@
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
   "lint.clean.toast": "No markdown issues found",
-  "terminal.ariaLabel": "Terminal"
+  "terminal.ariaLabel": "Terminal",
+  "terminal": {
+    "ariaLabel": "Terminal"
+  },
+  "lint": {
+    "badge": {
+      "tooltip": "{{count}} problema(s) — clique para ir ao próximo",
+      "tooltipSingle": "1 problema — clique para ir ao próximo"
+    },
+    "clean": {
+      "toast": "Nenhum problema de Markdown encontrado"
+    }
+  }
 }

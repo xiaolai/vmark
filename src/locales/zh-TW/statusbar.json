@@ -53,5 +53,17 @@
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
   "lint.clean.toast": "No markdown issues found",
-  "terminal.ariaLabel": "Terminal"
+  "terminal.ariaLabel": "Terminal",
+  "terminal": {
+    "ariaLabel": "終端機"
+  },
+  "lint": {
+    "badge": {
+      "tooltip": "{{count}} 個問題 —— 點擊跳至下一個",
+      "tooltipSingle": "1 個問題 —— 點擊跳至下一個"
+    },
+    "clean": {
+      "toast": "未發現 markdown 問題"
+    }
+  }
 }

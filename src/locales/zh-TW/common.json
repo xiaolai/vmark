@@ -32,8 +32,12 @@
   "tabActions": "標籤頁操作",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize",
+  "resize": "調整大小",
   "unknown": "未知",
   "running": "執行中",
-  "dropToOpen": "拖放以開啟"
+  "dropToOpen": "拖放以開啟",
+  "aria": {
+    "sidebar": "側邊欄",
+    "mainContent": "主要內容"
+  }
 }

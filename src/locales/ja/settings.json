@@ -546,5 +546,62 @@
   "advanced.hotExit.sessionCleared": "セッションを消去しました",
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
-  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)"
+  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "editor": {
+    "lineEndings": {
+      "lf": "LF (\\n)",
+      "crlf": "CRLF (\\r\\n)"
+    }
+  },
+  "language": {
+    "currencySpacing": {
+      "description": "$ 100 -> $100"
+    }
+  },
+  "markdown": {
+    "group": {
+      "lint": "Markdown Lint"
+    },
+    "lintEnabled": {
+      "label": "Markdown Lint を有効にする",
+      "description": "一般的な Markdown の問題（リンク切れ、代替テキストの欠落、見出しレベルの段階など）をチェックします"
+    }
+  },
+  "files": {
+    "maxFileSize": {
+      "256kb": "256 KB",
+      "512kb": "512 KB",
+      "1mb": "1 MB",
+      "5mb": "5 MB"
+    }
+  },
+  "integrations": {
+    "installMcp": {
+      "previewAriaLabel": "MCP 設定のプレビュー",
+      "previewTitle": "{{provider}} の MCP 設定をインストール",
+      "configFile": "設定ファイル",
+      "binaryPath": "バイナリパス",
+      "backup": "バックアップ",
+      "proposedConfig": "提案される設定",
+      "currentConfig": "現在の設定",
+      "safetyBackup": "既存の設定を変更する前にバックアップが作成されます。",
+      "safetyNew": "新しい設定ファイルが作成されます。",
+      "cancel": "キャンセル",
+      "installing": "インストール中...",
+      "installButton": "インストール",
+      "devBadge": "開発版"
+    }
+  },
+  "about": {
+    "github": "GitHub"
+  },
+  "advanced": {
+    "group": {
+      "experimental": "実験的機能"
+    },
+    "workflowEngine": {
+      "label": "ワークフローエンジン",
+      "description": "React Flow による可視化を備えた YAML ワークフローファイルを有効にします（実験的）"
+    }
+  }
 }

@@ -32,8 +32,12 @@
   "tabActions": "Azioni scheda",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize",
+  "resize": "Ridimensiona",
   "unknown": "Sconosciuto",
   "running": "In esecuzione",
-  "dropToOpen": "Rilascia per aprire"
+  "dropToOpen": "Rilascia per aprire",
+  "aria": {
+    "sidebar": "Sidebar",
+    "mainContent": "Contenuto principale"
+  }
 }

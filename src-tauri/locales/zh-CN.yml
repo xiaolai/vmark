@@ -54,7 +54,7 @@ menu:
   edit.findNext: "查找下一个"
   edit.findPrev: "查找上一个"
   edit.useSelectionFind: "将选中内容用于查找"
-  edit.findInFiles: "Find in Files..."
+  edit.findInFiles: "在文件中查找..."
   edit.selection: "选择"
   edit.selection.word: "选择单词"
   edit.selection.line: "选择行"
@@ -175,10 +175,9 @@ menu:
   view.fileExplorer: "切换文件浏览器"
   view.history: "切换历史记录"
   view.terminal: "切换终端"
-  view.checkMarkdown: "Check Markdown"
-  view.lintNext: "Next Issue"
-  view.lintPrev: "Previous Issue"
-
+  view.checkMarkdown: "检查 Markdown"
+  view.lintNext: "下一个问题"
+  view.lintPrev: "上一个问题"
   # === 窗口菜单 ===
   window: "窗口"
   window.bringAllToFront: "将全部窗口置于前方"

@@ -54,7 +54,7 @@ menu:
   edit.findNext: "次を検索"
   edit.findPrev: "前を検索"
   edit.useSelectionFind: "選択範囲で検索"
-  edit.findInFiles: "Find in Files..."
+  edit.findInFiles: "ファイル内を検索..."
   edit.selection: "選択"
   edit.selection.word: "単語を選択"
   edit.selection.line: "行を選択"
@@ -175,10 +175,9 @@ menu:
   view.fileExplorer: "ファイルエクスプローラーの表示切替"
   view.history: "履歴の表示切替"
   view.terminal: "ターミナルの表示切替"
-  view.checkMarkdown: "Check Markdown"
-  view.lintNext: "Next Issue"
-  view.lintPrev: "Previous Issue"
-
+  view.checkMarkdown: "Markdown をチェック"
+  view.lintNext: "次の問題"
+  view.lintPrev: "前の問題"
   # === ウィンドウメニュー ===
   window: "ウィンドウ"
   window.bringAllToFront: "すべてのウィンドウを前面へ"

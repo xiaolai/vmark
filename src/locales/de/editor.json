@@ -178,5 +178,79 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "toolbar": {
+    "group": {
+      "inline": "Inline",
+      "link": "Link"
+    },
+    "insert": {
+      "video": "Video",
+      "audio": "Audio",
+      "mindmap": "Mindmap",
+      "details": "Details"
+    },
+    "link": {
+      "hyperlink": "Hyperlink"
+    }
+  },
+  "headingPicker": {
+    "ariaLabel": "Überschriftsauswahl"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "Undefinierte Referenz: [{{ref}}]",
+    "E02": "Tabellenzeile hat {{actual}} Zellen, aber die Kopfzeile hat {{expected}}",
+    "E03": "Umgekehrter Link — meinten Sie [text](url)?",
+    "E04": "ATX-Überschrift erfordert ein Leerzeichen nach #",
+    "E05": "Leerzeichen innerhalb der Hervorhebungszeichen",
+    "E06": "Leerer Linktext",
+    "E07": "Doppelte Linkdefinition: [{{ref}}]",
+    "E08": "Nicht geschlossener abgegrenzter Codeblock",
+    "W01": "Überschriftsebene übersprungen (h{{expected}} erwartet, h{{actual}} erhalten)",
+    "W02": "Bild ohne Alternativtext",
+    "W03": "Unbenutzte Linkdefinition: [{{ref}}]",
+    "W04": "Fragment #{{anchor}} entspricht keiner Überschrift",
+    "W05": "Leerer Link-href"
+  },
+  "plugin": {
+    "exportPng": "Als PNG exportieren",
+    "zoomOut": "Verkleinern",
+    "zoomIn": "Vergrößern",
+    "resetZoom": "Zoom zurücksetzen",
+    "fitToView": "An Ansicht anpassen",
+    "copySource": "Quellcode kopieren",
+    "cancel": "Abbrechen (Esc)",
+    "save": "Speichern",
+    "toggleLivePreview": "Live-Vorschau umschalten",
+    "saveCmdEnter": "Speichern (⌘+Enter)",
+    "insertAsImage": "Als Bild einfügen",
+    "pasteAsText": "Als Text einfügen",
+    "imageDetected": "Bild erkannt",
+    "acceptSuggestion": "Übernehmen (Enter)",
+    "rejectSuggestion": "Ablehnen (Escape)"
+  },
+  "preview": {
+    "loading": "Wird geladen…",
+    "noMediaPath": "Kein Medienpfad",
+    "pathResolutionFailed": "Pfadauflösung fehlgeschlagen",
+    "failedToLoad": "Laden fehlgeschlagen"
+  },
+  "frontmatter": {
+    "label": "Frontmatter"
+  },
+  "workflow": {
+    "noPreview": "Keine Workflow-Vorschau verfügbar"
+  }
 }

@@ -54,7 +54,7 @@ menu:
   edit.findNext: "Trova successivo"
   edit.findPrev: "Trova precedente"
   edit.useSelectionFind: "Usa la selezione per la ricerca"
-  edit.findInFiles: "Find in Files..."
+  edit.findInFiles: "Trova nei file..."
   edit.selection: "Selezione"
   edit.selection.word: "Seleziona parola"
   edit.selection.line: "Seleziona riga"
@@ -175,10 +175,9 @@ menu:
   view.fileExplorer: "Mostra/Nascondi file explorer"
   view.history: "Mostra/Nascondi cronologia"
   view.terminal: "Mostra/Nascondi terminale"
-  view.checkMarkdown: "Check Markdown"
-  view.lintNext: "Next Issue"
-  view.lintPrev: "Previous Issue"
-
+  view.checkMarkdown: "Controlla Markdown"
+  view.lintNext: "Problema successivo"
+  view.lintPrev: "Problema precedente"
   # === Window menu ===
   window: "Finestra"
   window.bringAllToFront: "Porta tutto in primo piano"

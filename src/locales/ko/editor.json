@@ -178,5 +178,64 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "headingPicker": {
+    "ariaLabel": "제목 선택기"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "정의되지 않은 참조: [{{ref}}]",
+    "E02": "표 행에 {{actual}}개 셀이 있지만 헤더에는 {{expected}}개가 있습니다",
+    "E03": "링크가 뒤집혔습니다 — [text](url)을(를) 의도하셨나요?",
+    "E04": "ATX 제목은 # 뒤에 공백이 필요합니다",
+    "E05": "강조 마커 안에 공백이 있습니다",
+    "E06": "링크 텍스트가 비어 있습니다",
+    "E07": "중복된 링크 정의: [{{ref}}]",
+    "E08": "닫히지 않은 펜스 코드 블록",
+    "W01": "제목 수준이 건너뛰어졌습니다 (h{{expected}} 예상, h{{actual}} 사용됨)",
+    "W02": "이미지에 대체 텍스트가 없습니다",
+    "W03": "사용되지 않은 링크 정의: [{{ref}}]",
+    "W04": "조각 #{{anchor}}이(가) 어떤 제목과도 일치하지 않습니다",
+    "W05": "링크 href가 비어 있습니다"
+  },
+  "plugin": {
+    "exportPng": "PNG로 내보내기",
+    "zoomOut": "축소",
+    "zoomIn": "확대",
+    "resetZoom": "확대/축소 초기화",
+    "fitToView": "화면에 맞추기",
+    "copySource": "소스 코드 복사",
+    "cancel": "취소 (Esc)",
+    "save": "저장",
+    "toggleLivePreview": "실시간 미리 보기 전환",
+    "saveCmdEnter": "저장 (⌘+Enter)",
+    "insertAsImage": "이미지로 삽입",
+    "pasteAsText": "텍스트로 붙여넣기",
+    "imageDetected": "이미지 감지됨",
+    "acceptSuggestion": "수락 (Enter)",
+    "rejectSuggestion": "거부 (Escape)"
+  },
+  "preview": {
+    "loading": "불러오는 중…",
+    "noMediaPath": "미디어 경로 없음",
+    "pathResolutionFailed": "경로 확인 실패",
+    "failedToLoad": "불러오기 실패"
+  },
+  "frontmatter": {
+    "label": "Frontmatter"
+  },
+  "workflow": {
+    "noPreview": "사용 가능한 워크플로 미리 보기가 없습니다"
+  }
 }

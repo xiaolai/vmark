@@ -178,5 +178,64 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "headingPicker": {
+    "ariaLabel": "標題選擇器"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "未定義的參照：[{{ref}}]",
+    "E02": "表格列有 {{actual}} 個儲存格，但標頭有 {{expected}} 個",
+    "E03": "連結順序相反 —— 您是否想輸入 [文字](網址)？",
+    "E04": "ATX 標題在 # 之後必須有一個空格",
+    "E05": "強調標記內含有空格",
+    "E06": "連結文字為空",
+    "E07": "重複的連結定義：[{{ref}}]",
+    "E08": "未關閉的圍欄程式碼區塊",
+    "W01": "跳過了標題層級（預期為 h{{expected}}，實際為 h{{actual}}）",
+    "W02": "圖片缺少替代文字",
+    "W03": "未使用的連結定義：[{{ref}}]",
+    "W04": "片段 #{{anchor}} 與任何標題皆不符",
+    "W05": "連結 href 為空"
+  },
+  "plugin": {
+    "exportPng": "匯出為 PNG",
+    "zoomOut": "縮小",
+    "zoomIn": "放大",
+    "resetZoom": "重設縮放",
+    "fitToView": "符合檢視",
+    "copySource": "複製原始碼",
+    "cancel": "取消（Esc）",
+    "save": "儲存",
+    "toggleLivePreview": "切換即時預覽",
+    "saveCmdEnter": "儲存（⌘+Enter）",
+    "insertAsImage": "以圖片方式插入",
+    "pasteAsText": "以文字方式貼上",
+    "imageDetected": "偵測到圖片",
+    "acceptSuggestion": "接受（Enter）",
+    "rejectSuggestion": "拒絕（Escape）"
+  },
+  "preview": {
+    "loading": "載入中…",
+    "noMediaPath": "無媒體路徑",
+    "pathResolutionFailed": "路徑解析失敗",
+    "failedToLoad": "載入失敗"
+  },
+  "frontmatter": {
+    "label": "Frontmatter"
+  },
+  "workflow": {
+    "noPreview": "無可用的工作流程預覽"
+  }
 }

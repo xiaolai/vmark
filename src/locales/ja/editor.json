@@ -178,5 +178,64 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "headingPicker": {
+    "ariaLabel": "見出しピッカー"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "未定義の参照: [{{ref}}]",
+    "E02": "表の行に {{actual}} 個のセルがありますが、ヘッダーは {{expected}} 個です",
+    "E03": "リンクが逆になっています — [text](url) のつもりでしたか？",
+    "E04": "ATX 見出しでは # のあとにスペースが必要です",
+    "E05": "強調マーカーの内側にスペースがあります",
+    "E06": "リンクテキストが空です",
+    "E07": "リンク定義が重複しています: [{{ref}}]",
+    "E08": "閉じられていないフェンスドコードブロック",
+    "W01": "見出しレベルがスキップされました（h{{expected}} が期待されましたが h{{actual}} でした）",
+    "W02": "画像に代替テキストがありません",
+    "W03": "使用されていないリンク定義: [{{ref}}]",
+    "W04": "フラグメント #{{anchor}} はどの見出しにも一致しません",
+    "W05": "リンクの href が空です"
+  },
+  "plugin": {
+    "exportPng": "PNG としてエクスポート",
+    "zoomOut": "縮小",
+    "zoomIn": "拡大",
+    "resetZoom": "ズームをリセット",
+    "fitToView": "ビューに合わせる",
+    "copySource": "ソースコードをコピー",
+    "cancel": "キャンセル (Esc)",
+    "save": "保存",
+    "toggleLivePreview": "ライブプレビューを切り替え",
+    "saveCmdEnter": "保存 (⌘+Enter)",
+    "insertAsImage": "画像として挿入",
+    "pasteAsText": "テキストとして貼り付け",
+    "imageDetected": "画像を検出しました",
+    "acceptSuggestion": "承認 (Enter)",
+    "rejectSuggestion": "却下 (Escape)"
+  },
+  "preview": {
+    "loading": "読み込み中…",
+    "noMediaPath": "メディアパスがありません",
+    "pathResolutionFailed": "パスの解決に失敗しました",
+    "failedToLoad": "読み込みに失敗しました"
+  },
+  "frontmatter": {
+    "label": "フロントマター"
+  },
+  "workflow": {
+    "noPreview": "ワークフローのプレビューは利用できません"
+  }
 }

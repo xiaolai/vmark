@@ -12,12 +12,10 @@
   "picker.via": "via {{name}}",
   "picker.footerCycleScope": "changer de portée",
   "picker.footerNavigate": "naviguer",
-
   "chips.polish": "Peaufiner",
   "chips.condense": "Condenser",
   "chips.grammar": "Grammaire",
   "chips.rephrase": "Reformuler",
-
   "response.thinking": "Réflexion... {{seconds}}s",
   "response.accept": "Accepter",
   "response.reject": "Rejeter",
@@ -25,11 +23,12 @@
   "response.cancel": "Annuler",
   "response.dismiss": "Ignorer",
   "response.unknownError": "Erreur inconnue",
-
   "history.title": "Historique des invites",
   "history.empty": "Aucun historique",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "Paramètres..."
+  "provider.settings": "Paramètres...",
+  "picker": {
+    "via": "via {{name}}"
+  }
 }

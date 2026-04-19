@@ -12,12 +12,10 @@
   "picker.via": "via {{name}}",
   "picker.footerCycleScope": "alternar escopo",
   "picker.footerNavigate": "navegar",
-
   "chips.polish": "Polir",
   "chips.condense": "Condensar",
   "chips.grammar": "Gramática",
   "chips.rephrase": "Reformular",
-
   "response.thinking": "Pensando... {{seconds}}s",
   "response.accept": "Aceitar",
   "response.reject": "Rejeitar",
@@ -25,11 +23,12 @@
   "response.cancel": "Cancelar",
   "response.dismiss": "Dispensar",
   "response.unknownError": "Erro desconhecido",
-
   "history.title": "Histórico de prompts",
   "history.empty": "Sem histórico",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "Configurações..."
+  "provider.settings": "Configurações...",
+  "picker": {
+    "via": "via {{name}}"
+  }
 }

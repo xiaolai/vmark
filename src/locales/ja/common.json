@@ -32,8 +32,12 @@
   "tabActions": "タブの操作",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize",
+  "resize": "サイズ変更",
   "unknown": "不明",
   "running": "実行中",
-  "dropToOpen": "ドロップして開く"
+  "dropToOpen": "ドロップして開く",
+  "aria": {
+    "sidebar": "サイドバー",
+    "mainContent": "メインコンテンツ"
+  }
 }

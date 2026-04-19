@@ -27,7 +27,7 @@
     "revealInFinder": "Im Finder anzeigen",
     "showInExplorer": "Im Explorer anzeigen",
     "showInFileManager": "Im Dateimanager anzeigen",
-    "ariaLabel": "File actions"
+    "ariaLabel": "Dateiaktionen"
   },
   "outline": {
     "documentOutline": "Dokumentgliederung",

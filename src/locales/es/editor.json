@@ -178,5 +178,69 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "toolbar": {
+    "insert": {
+      "audio": "Audio"
+    }
+  },
+  "headingPicker": {
+    "ariaLabel": "Selector de encabezado"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "Referencia no definida: [{{ref}}]",
+    "E02": "La fila de la tabla tiene {{actual}} celdas, pero el encabezado tiene {{expected}}",
+    "E03": "Enlace invertido — ¿quiso decir [texto](url)?",
+    "E04": "El encabezado ATX requiere un espacio después de #",
+    "E05": "Espacio dentro de los marcadores de énfasis",
+    "E06": "Texto de enlace vacío",
+    "E07": "Definición de enlace duplicada: [{{ref}}]",
+    "E08": "Bloque de código cercado sin cerrar",
+    "W01": "Nivel de encabezado omitido (se esperaba h{{expected}}, se obtuvo h{{actual}})",
+    "W02": "La imagen no tiene texto alternativo",
+    "W03": "Definición de enlace sin usar: [{{ref}}]",
+    "W04": "El fragmento #{{anchor}} no coincide con ningún encabezado",
+    "W05": "href de enlace vacío"
+  },
+  "plugin": {
+    "exportPng": "Exportar como PNG",
+    "zoomOut": "Alejar",
+    "zoomIn": "Acercar",
+    "resetZoom": "Restablecer zoom",
+    "fitToView": "Ajustar a la vista",
+    "copySource": "Copiar código fuente",
+    "cancel": "Cancelar (Esc)",
+    "save": "Guardar",
+    "toggleLivePreview": "Alternar vista previa en vivo",
+    "saveCmdEnter": "Guardar (⌘+Enter)",
+    "insertAsImage": "Insertar como imagen",
+    "pasteAsText": "Pegar como texto",
+    "imageDetected": "Imagen detectada",
+    "acceptSuggestion": "Aceptar (Enter)",
+    "rejectSuggestion": "Rechazar (Escape)"
+  },
+  "preview": {
+    "loading": "Cargando…",
+    "noMediaPath": "Sin ruta multimedia",
+    "pathResolutionFailed": "Error al resolver la ruta",
+    "failedToLoad": "Error al cargar"
+  },
+  "frontmatter": {
+    "label": "Frontmatter"
+  },
+  "workflow": {
+    "noPreview": "No hay vista previa de flujo de trabajo disponible"
+  }
 }

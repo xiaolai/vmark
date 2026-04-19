@@ -32,8 +32,12 @@
   "tabActions": "Tab-Aktionen",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize",
+  "resize": "Größe ändern",
   "unknown": "Unbekannt",
   "running": "Läuft",
-  "dropToOpen": "Zum Öffnen fallen lassen"
+  "dropToOpen": "Zum Öffnen fallen lassen",
+  "aria": {
+    "sidebar": "Seitenleiste",
+    "mainContent": "Hauptinhalt"
+  }
 }

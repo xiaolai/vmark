@@ -546,5 +546,67 @@
   "advanced.hotExit.sessionCleared": "工作階段已清除",
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
-  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)"
+  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "editor": {
+    "lineEndings": {
+      "lf": "LF (\\n)",
+      "crlf": "CRLF (\\r\\n)"
+    }
+  },
+  "language": {
+    "currencySpacing": {
+      "description": "$ 100 -> $100"
+    }
+  },
+  "markdown": {
+    "group": {
+      "lint": "Markdown Lint"
+    },
+    "lintEnabled": {
+      "label": "啟用 markdown lint",
+      "description": "檢查常見的 markdown 問題（失效連結、缺少替代文字、標題層級等）"
+    }
+  },
+  "files": {
+    "maxFileSize": {
+      "256kb": "256 KB",
+      "512kb": "512 KB",
+      "1mb": "1 MB",
+      "5mb": "5 MB"
+    }
+  },
+  "integrations": {
+    "installMcp": {
+      "previewAriaLabel": "MCP 設定預覽",
+      "previewTitle": "為 {{provider}} 安裝 MCP 設定",
+      "configFile": "設定檔案",
+      "binaryPath": "執行檔路徑",
+      "backup": "備份",
+      "proposedConfig": "建議的設定",
+      "currentConfig": "目前的設定",
+      "safetyBackup": "修改現有設定之前會先建立備份。",
+      "safetyNew": "將會建立新的設定檔案。",
+      "cancel": "取消",
+      "installing": "安裝中...",
+      "installButton": "安裝",
+      "devBadge": "開發"
+    }
+  },
+  "terminal": {
+    "shell": {
+      "label": "Shell"
+    }
+  },
+  "about": {
+    "github": "GitHub"
+  },
+  "advanced": {
+    "group": {
+      "experimental": "實驗性功能"
+    },
+    "workflowEngine": {
+      "label": "工作流程引擎",
+      "description": "啟用搭配 React Flow 視覺化的 YAML 工作流程檔案（實驗性）"
+    }
+  }
 }

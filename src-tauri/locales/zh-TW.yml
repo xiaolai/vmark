@@ -54,7 +54,7 @@ menu:
   edit.findNext: "尋找下一個"
   edit.findPrev: "尋找上一個"
   edit.useSelectionFind: "以選取範圍搜尋"
-  edit.findInFiles: "Find in Files..."
+  edit.findInFiles: "在檔案中尋找..."
   edit.selection: "選取"
   edit.selection.word: "選取字詞"
   edit.selection.line: "選取行"
@@ -175,10 +175,9 @@ menu:
   view.fileExplorer: "切換檔案總管"
   view.history: "切換歷史紀錄"
   view.terminal: "切換終端機"
-  view.checkMarkdown: "Check Markdown"
-  view.lintNext: "Next Issue"
-  view.lintPrev: "Previous Issue"
-
+  view.checkMarkdown: "檢查 Markdown"
+  view.lintNext: "下一個問題"
+  view.lintPrev: "上一個問題"
   # === 視窗選單 ===
   window: "視窗"
   window.bringAllToFront: "將全部移至最前"

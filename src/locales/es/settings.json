@@ -546,5 +546,87 @@
   "advanced.hotExit.sessionCleared": "Sesión borrada",
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
-  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)"
+  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "nav": {
+    "editor": "Editor",
+    "terminal": "Terminal"
+  },
+  "appearance": {
+    "theme": {
+      "sepia": "Sepia"
+    }
+  },
+  "editor": {
+    "lineHeight": {
+      "normal": "1.6 (Normal)",
+      "extra": "2.2 (Extra)"
+    },
+    "blockSpacing": {
+      "normal": "1× (Normal)"
+    },
+    "lineEndings": {
+      "lf": "LF (\\n)",
+      "crlf": "CRLF (\\r\\n)"
+    }
+  },
+  "language": {
+    "currencySpacing": {
+      "description": "$ 100 -> $100"
+    }
+  },
+  "markdown": {
+    "group": {
+      "lint": "Markdown Lint"
+    },
+    "lintEnabled": {
+      "label": "Activar Markdown lint",
+      "description": "Buscar problemas comunes de Markdown (enlaces rotos, texto alternativo faltante, saltos de encabezado, etc.)"
+    }
+  },
+  "files": {
+    "maxFileSize": {
+      "256kb": "256 KB",
+      "512kb": "512 KB",
+      "1mb": "1 MB",
+      "5mb": "5 MB"
+    }
+  },
+  "integrations": {
+    "installMcp": {
+      "previewAriaLabel": "Vista previa de configuración MCP",
+      "previewTitle": "Instalar configuración MCP para {{provider}}",
+      "configFile": "Archivo de configuración",
+      "binaryPath": "Ruta del binario",
+      "backup": "Copia de seguridad",
+      "proposedConfig": "Configuración propuesta",
+      "currentConfig": "Configuración actual",
+      "safetyBackup": "Se creará una copia de seguridad antes de modificar la configuración existente.",
+      "safetyNew": "Se creará un nuevo archivo de configuración.",
+      "cancel": "Cancelar",
+      "installing": "Instalando...",
+      "installButton": "Instalar",
+      "devBadge": "Desarrollo"
+    }
+  },
+  "terminal": {
+    "group": {
+      "terminal": "Terminal"
+    },
+    "lineHeight": {
+      "normal": "1.4 (Normal)",
+      "extra": "2.0 (Extra)"
+    }
+  },
+  "about": {
+    "github": "GitHub"
+  },
+  "advanced": {
+    "group": {
+      "experimental": "Funciones experimentales"
+    },
+    "workflowEngine": {
+      "label": "Motor de flujo de trabajo",
+      "description": "Activar archivos YAML de flujo de trabajo con visualización de React Flow (experimental)"
+    }
+  }
 }

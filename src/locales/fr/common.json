@@ -32,8 +32,12 @@
   "tabActions": "Actions de l'onglet",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize",
+  "resize": "Redimensionner",
   "unknown": "Inconnu",
   "running": "En cours",
-  "dropToOpen": "Déposer pour ouvrir"
+  "dropToOpen": "Déposer pour ouvrir",
+  "aria": {
+    "sidebar": "Barre latérale",
+    "mainContent": "Contenu principal"
+  }
 }

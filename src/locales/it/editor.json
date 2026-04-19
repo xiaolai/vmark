@@ -178,5 +178,74 @@
   "preview.pathResolutionFailed": "Path resolution failed",
   "preview.failedToLoad": "Failed to load",
   "frontmatter.label": "Frontmatter",
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+  "toolbar": {
+    "group": {
+      "inline": "In linea",
+      "link": "Link"
+    },
+    "insert": {
+      "video": "Video",
+      "audio": "Audio"
+    }
+  },
+  "headingPicker": {
+    "ariaLabel": "Selettore intestazione"
+  },
+  "popup": {
+    "link": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    },
+    "linkCreate": {
+      "url": {
+        "placeholder": "URL..."
+      }
+    }
+  },
+  "lint": {
+    "E01": "Riferimento non definito: [{{ref}}]",
+    "E02": "La riga della tabella ha {{actual}} celle ma l'intestazione ne ha {{expected}}",
+    "E03": "Link invertito — intendevi [testo](url)?",
+    "E04": "L'intestazione ATX richiede uno spazio dopo #",
+    "E05": "Spazio all'interno dei marcatori di enfasi",
+    "E06": "Testo del link vuoto",
+    "E07": "Definizione del link duplicata: [{{ref}}]",
+    "E08": "Blocco di codice fenced non chiuso",
+    "W01": "Livello di intestazione saltato (atteso h{{expected}}, ricevuto h{{actual}})",
+    "W02": "Immagine senza testo alternativo",
+    "W03": "Definizione del link non utilizzata: [{{ref}}]",
+    "W04": "Il frammento #{{anchor}} non corrisponde ad alcuna intestazione",
+    "W05": "Href del link vuoto"
+  },
+  "plugin": {
+    "exportPng": "Esporta come PNG",
+    "zoomOut": "Riduci zoom",
+    "zoomIn": "Aumenta zoom",
+    "resetZoom": "Reimposta zoom",
+    "fitToView": "Adatta alla vista",
+    "copySource": "Copia codice sorgente",
+    "cancel": "Annulla (Esc)",
+    "save": "Salva",
+    "toggleLivePreview": "Attiva/disattiva anteprima live",
+    "saveCmdEnter": "Salva (⌘+Enter)",
+    "insertAsImage": "Inserisci come immagine",
+    "pasteAsText": "Incolla come testo",
+    "imageDetected": "Immagine rilevata",
+    "acceptSuggestion": "Accetta (Invio)",
+    "rejectSuggestion": "Rifiuta (Esc)"
+  },
+  "preview": {
+    "loading": "Caricamento…",
+    "noMediaPath": "Nessun percorso multimediale",
+    "pathResolutionFailed": "Risoluzione del percorso fallita",
+    "failedToLoad": "Caricamento fallito"
+  },
+  "frontmatter": {
+    "label": "Frontmatter"
+  },
+  "workflow": {
+    "noPreview": "Nessuna anteprima del workflow disponibile"
+  }
 }

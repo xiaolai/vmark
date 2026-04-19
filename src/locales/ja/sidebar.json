@@ -27,7 +27,7 @@
     "revealInFinder": "Finderで表示",
     "showInExplorer": "エクスプローラーで表示",
     "showInFileManager": "ファイルマネージャーで表示",
-    "ariaLabel": "File actions"
+    "ariaLabel": "ファイル操作"
   },
   "outline": {
     "documentOutline": "ドキュメントアウトライン",

@@ -546,5 +546,62 @@
   "advanced.hotExit.sessionCleared": "세션이 지워졌습니다",
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
-  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)"
+  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "editor": {
+    "lineEndings": {
+      "lf": "LF (\\n)",
+      "crlf": "CRLF (\\r\\n)"
+    }
+  },
+  "language": {
+    "currencySpacing": {
+      "description": "$ 100 -> $100"
+    }
+  },
+  "markdown": {
+    "group": {
+      "lint": "Markdown 린트"
+    },
+    "lintEnabled": {
+      "label": "Markdown 린트 사용",
+      "description": "일반적인 Markdown 문제(깨진 링크, 누락된 대체 텍스트, 제목 증분 등)를 검사합니다"
+    }
+  },
+  "files": {
+    "maxFileSize": {
+      "256kb": "256 KB",
+      "512kb": "512 KB",
+      "1mb": "1 MB",
+      "5mb": "5 MB"
+    }
+  },
+  "integrations": {
+    "installMcp": {
+      "previewAriaLabel": "MCP 설정 미리 보기",
+      "previewTitle": "{{provider}}용 MCP 설정 설치",
+      "configFile": "설정 파일",
+      "binaryPath": "바이너리 경로",
+      "backup": "백업",
+      "proposedConfig": "제안된 설정",
+      "currentConfig": "현재 설정",
+      "safetyBackup": "기존 설정을 수정하기 전에 백업이 생성됩니다.",
+      "safetyNew": "새 설정 파일이 생성됩니다.",
+      "cancel": "취소",
+      "installing": "설치 중...",
+      "installButton": "설치",
+      "devBadge": "개발"
+    }
+  },
+  "about": {
+    "github": "GitHub"
+  },
+  "advanced": {
+    "group": {
+      "experimental": "실험적 기능"
+    },
+    "workflowEngine": {
+      "label": "워크플로 엔진",
+      "description": "React Flow 시각화로 YAML 워크플로 파일 사용 (실험적)"
+    }
+  }
 }

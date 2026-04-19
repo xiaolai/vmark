@@ -32,8 +32,12 @@
   "tabActions": "Ações da aba",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
-  "resize": "Resize",
+  "resize": "Redimensionar",
   "unknown": "Desconhecido",
   "running": "Em execução",
-  "dropToOpen": "Soltar para abrir"
+  "dropToOpen": "Soltar para abrir",
+  "aria": {
+    "sidebar": "Barra lateral",
+    "mainContent": "Conteúdo principal"
+  }
 }

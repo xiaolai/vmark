@@ -27,7 +27,7 @@
     "revealInFinder": "Afficher dans le Finder",
     "showInExplorer": "Afficher dans l'Explorateur",
     "showInFileManager": "Afficher dans le gestionnaire de fichiers",
-    "ariaLabel": "File actions"
+    "ariaLabel": "Actions du fichier"
   },
   "outline": {
     "documentOutline": "Plan du document",

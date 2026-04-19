@@ -546,5 +546,67 @@
   "advanced.hotExit.sessionCleared": "会话已清除",
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
-  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)"
+  "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "editor": {
+    "lineEndings": {
+      "lf": "LF (\\n)",
+      "crlf": "CRLF (\\r\\n)"
+    }
+  },
+  "language": {
+    "currencySpacing": {
+      "description": "$ 100 -> $100"
+    }
+  },
+  "markdown": {
+    "group": {
+      "lint": "Markdown 检查"
+    },
+    "lintEnabled": {
+      "label": "启用 Markdown 检查",
+      "description": "检查常见的 Markdown 问题（链接损坏、缺少替代文本、标题层级等）"
+    }
+  },
+  "files": {
+    "maxFileSize": {
+      "256kb": "256 KB",
+      "512kb": "512 KB",
+      "1mb": "1 MB",
+      "5mb": "5 MB"
+    }
+  },
+  "integrations": {
+    "installMcp": {
+      "previewAriaLabel": "MCP 配置预览",
+      "previewTitle": "为 {{provider}} 安装 MCP 配置",
+      "configFile": "配置文件",
+      "binaryPath": "可执行文件路径",
+      "backup": "备份",
+      "proposedConfig": "建议配置",
+      "currentConfig": "当前配置",
+      "safetyBackup": "修改现有配置前将创建备份。",
+      "safetyNew": "将创建新的配置文件。",
+      "cancel": "取消",
+      "installing": "安装中...",
+      "installButton": "安装",
+      "devBadge": "开发版"
+    }
+  },
+  "terminal": {
+    "shell": {
+      "label": "Shell"
+    }
+  },
+  "about": {
+    "github": "GitHub"
+  },
+  "advanced": {
+    "group": {
+      "experimental": "实验性功能"
+    },
+    "workflowEngine": {
+      "label": "工作流引擎",
+      "description": "启用带有 React Flow 可视化的 YAML 工作流文件（实验性）"
+    }
+  }
 }
