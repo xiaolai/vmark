@@ -17,7 +17,15 @@
 //!   - Binary files are skipped via a simple NUL-byte check on the first 8KB.
 //!   - Symlinks are skipped to prevent directory traversal outside workspace.
 //!   - Invalid regex returns a structured error string (never panics).
-//!   - Regex compilation has an explicit 1MB size limit to prevent DoS.
+//!   - Regex compilation has an explicit 1MB size limit and matching DFA size
+//!     limit to prevent memory-based DoS. The `regex` crate itself guarantees
+//!     linear-time matching, so catastrophic backtracking is not a concern.
+//!   - A 5-second wall-clock deadline applies to every search. Deadline checks
+//!     fire at directory and file boundaries, inside entry enumeration (strided
+//!     every 256 entries), before each `read_to_string`, and inside per-line
+//!     scanning. On timeout the walker returns partial results and emits a
+//!     `log::warn!` — matching the same silent-truncation contract as
+//!     MAX_FILES / MAX_MATCHES.
 //!
 //! @coordinates-with contentSearchStore.ts — frontend consumer
 //! @coordinates-with workspaceStore.ts — provides rootPath and excludeFolders
