@@ -61,6 +61,7 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }:
             className={`terminal-tab ${s.id === activeId ? "terminal-tab-active" : ""} ${!s.isAlive ? "terminal-tab-dead" : ""}`}
             onClick={() => handleSwitch(s.id)}
             title={s.label}
+            aria-label={s.label}
           >
             {getTabDisplay(s.label)}
           </button>
