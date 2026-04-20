@@ -28,6 +28,13 @@ describe("TerminalTabBar", () => {
     expect(screen.getByTitle("Terminal 1")).toBeInTheDocument();
   });
 
+  it("exposes session tab to assistive tech via aria-label", () => {
+    renderWithSession();
+    expect(
+      screen.getByRole("button", { name: /Terminal 1/i }),
+    ).toBeInTheDocument();
+  });
+
   it("creates a new session on + click", () => {
     renderWithSession();
     const addBtn = screen.getByTitle("New Terminal");
