@@ -17,57 +17,10 @@
  *
  * @coordinates-with mermaid/index.ts — uses sanitizeSvg for Mermaid diagram output
  * @coordinates-with latex/katexLoader.ts — uses sanitizeKatex for math rendering
- * @coordinates-with htmlPaste/tiptap.ts — uses sanitizeHtml for pasted HTML
  * @module utils/sanitize
  */
 
 import DOMPurify from "dompurify";
-
-/**
- * Sanitize HTML content, removing potentially dangerous elements.
- * Safe for general HTML content.
- */
-export function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      "div",
-      "span",
-      "p",
-      "br",
-      "strong",
-      "em",
-      "b",
-      "i",
-      "u",
-      "s",
-      "code",
-      "pre",
-      "blockquote",
-      "ul",
-      "ol",
-      "li",
-      "a",
-      "img",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "table",
-      "thead",
-      "tbody",
-      "tr",
-      "th",
-      "td",
-      "hr",
-      "sub",
-      "sup",
-    ],
-    ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "id", "target", "rel"],
-    ALLOW_DATA_ATTR: false,
-  });
-}
 
 const HTML_PREVIEW_TAGS_INLINE = [
   "span",

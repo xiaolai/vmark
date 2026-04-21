@@ -85,30 +85,6 @@ describe("Security: Image Path Traversal", () => {
 });
 
 describe("Security: HTML Sanitization", () => {
-  it("should export sanitizeHtml function from utils", async () => {
-    const { sanitizeHtml } = await import("@/utils/sanitize");
-    expect(typeof sanitizeHtml).toBe("function");
-  });
-
-  it("should remove script tags from HTML", async () => {
-    const { sanitizeHtml } = await import("@/utils/sanitize");
-
-    const maliciousHtml = '<div><script>alert("xss")</script>Hello</div>';
-    const result = sanitizeHtml(maliciousHtml);
-
-    expect(result).not.toContain("<script>");
-    expect(result).toContain("Hello");
-  });
-
-  it("should remove event handlers from HTML", async () => {
-    const { sanitizeHtml } = await import("@/utils/sanitize");
-
-    const maliciousHtml = '<img src="x" onerror="alert(1)">';
-    const result = sanitizeHtml(maliciousHtml);
-
-    expect(result).not.toContain("onerror");
-  });
-
   it("should hide styles when HTML preview styles are disabled", async () => {
     const { sanitizeHtmlPreview } = await import("@/utils/sanitize");
 
