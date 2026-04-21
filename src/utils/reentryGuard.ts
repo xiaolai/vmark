@@ -35,7 +35,7 @@ export function isOperationInProgress(windowLabel: string, operation: string): b
 /**
  * Try to acquire a lock for an operation. Returns true if acquired, false if already locked.
  */
-export function tryAcquireLock(windowLabel: string, operation: string): boolean {
+function tryAcquireLock(windowLabel: string, operation: string): boolean {
   const key = getGuardKey(windowLabel, operation);
   if (guards.has(key)) {
     return false;
@@ -47,7 +47,7 @@ export function tryAcquireLock(windowLabel: string, operation: string): boolean 
 /**
  * Release a lock for an operation.
  */
-export function releaseLock(windowLabel: string, operation: string): void {
+function releaseLock(windowLabel: string, operation: string): void {
   const key = getGuardKey(windowLabel, operation);
   guards.delete(key);
 }

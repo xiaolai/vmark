@@ -1,105 +1,59 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  isOperationInProgress,
-  tryAcquireLock,
-  releaseLock,
-  withReentryGuard,
-} from "./reentryGuard";
+import { describe, it, expect, vi } from "vitest";
+import { isOperationInProgress, withReentryGuard } from "./reentryGuard";
+
+function createBlocker() {
+  let resolveFn: () => void;
+  const promise = new Promise<void>((r) => {
+    resolveFn = r;
+  });
+  return { promise, resolve: () => resolveFn() };
+}
 
 describe("reentryGuard", () => {
-  beforeEach(() => {
-    // Clean up any existing locks by releasing known test operations
-    releaseLock("window1", "save");
-    releaseLock("window1", "open");
-    releaseLock("window2", "save");
-    releaseLock("window2", "open");
-    releaseLock("test-window", "test-op");
-  });
-
   describe("isOperationInProgress", () => {
     it("returns false when no operation is in progress", () => {
       expect(isOperationInProgress("window1", "save")).toBe(false);
     });
 
-    it("returns true when operation is in progress", () => {
-      tryAcquireLock("window1", "save");
+    it("returns true while an operation is running", async () => {
+      const blocker = createBlocker();
+      const op = withReentryGuard("window1", "save", async () => {
+        await blocker.promise;
+      });
+
       expect(isOperationInProgress("window1", "save")).toBe(true);
+
+      blocker.resolve();
+      await op;
     });
 
-    it("returns false for different window with same operation", () => {
-      tryAcquireLock("window1", "save");
+    it("returns false for different window with same operation", async () => {
+      const blocker = createBlocker();
+      const op = withReentryGuard("window1", "save", async () => {
+        await blocker.promise;
+      });
+
       expect(isOperationInProgress("window2", "save")).toBe(false);
+
+      blocker.resolve();
+      await op;
     });
 
-    it("returns false for same window with different operation", () => {
-      tryAcquireLock("window1", "save");
+    it("returns false for same window with different operation", async () => {
+      const blocker = createBlocker();
+      const op = withReentryGuard("window1", "save", async () => {
+        await blocker.promise;
+      });
+
       expect(isOperationInProgress("window1", "open")).toBe(false);
+
+      blocker.resolve();
+      await op;
     });
 
-    it("returns false after lock is released", () => {
-      tryAcquireLock("window1", "save");
-      releaseLock("window1", "save");
+    it("returns false after the operation completes", async () => {
+      await withReentryGuard("window1", "save", async () => "done");
       expect(isOperationInProgress("window1", "save")).toBe(false);
-    });
-  });
-
-  describe("tryAcquireLock", () => {
-    it("returns true when acquiring new lock", () => {
-      expect(tryAcquireLock("window1", "save")).toBe(true);
-    });
-
-    it("returns false when lock already exists", () => {
-      tryAcquireLock("window1", "save");
-      expect(tryAcquireLock("window1", "save")).toBe(false);
-    });
-
-    it("allows acquiring different locks for same window", () => {
-      expect(tryAcquireLock("window1", "save")).toBe(true);
-      expect(tryAcquireLock("window1", "open")).toBe(true);
-    });
-
-    it("allows acquiring same lock for different windows", () => {
-      expect(tryAcquireLock("window1", "save")).toBe(true);
-      expect(tryAcquireLock("window2", "save")).toBe(true);
-    });
-
-    it("returns true after releasing and re-acquiring", () => {
-      tryAcquireLock("window1", "save");
-      releaseLock("window1", "save");
-      expect(tryAcquireLock("window1", "save")).toBe(true);
-    });
-  });
-
-  describe("releaseLock", () => {
-    it("releases an existing lock", () => {
-      tryAcquireLock("window1", "save");
-      releaseLock("window1", "save");
-      expect(isOperationInProgress("window1", "save")).toBe(false);
-    });
-
-    it("does nothing when releasing non-existent lock", () => {
-      // Should not throw
-      expect(() => releaseLock("window1", "nonexistent")).not.toThrow();
-    });
-
-    it("only releases the specified lock", () => {
-      tryAcquireLock("window1", "save");
-      tryAcquireLock("window1", "open");
-
-      releaseLock("window1", "save");
-
-      expect(isOperationInProgress("window1", "save")).toBe(false);
-      expect(isOperationInProgress("window1", "open")).toBe(true);
-    });
-
-    it("does not affect locks for other windows", () => {
-      tryAcquireLock("window1", "save");
-      tryAcquireLock("window2", "save");
-
-      releaseLock("window1", "save");
-
-      expect(isOperationInProgress("window1", "save")).toBe(false);
-      expect(isOperationInProgress("window2", "save")).toBe(true);
     });
   });
 
@@ -119,16 +73,24 @@ describe("reentryGuard", () => {
     });
 
     it("returns undefined when operation is already in progress", async () => {
-      tryAcquireLock("window1", "save");
-
+      const blocker = createBlocker();
       const fn = vi.fn().mockResolvedValue("should not run");
+
+      const first = withReentryGuard("window1", "save", async () => {
+        await blocker.promise;
+        return "first";
+      });
+
       const result = await withReentryGuard("window1", "save", fn);
 
       expect(result).toBeUndefined();
       expect(fn).not.toHaveBeenCalled();
+
+      blocker.resolve();
+      await first;
     });
 
-    it("releases lock even when function throws", async () => {
+    it("releases lock even when function throws (cleanup does not throw)", async () => {
       await expect(
         withReentryGuard("window1", "save", async () => {
           throw new Error("test error");
@@ -136,6 +98,10 @@ describe("reentryGuard", () => {
       ).rejects.toThrow("test error");
 
       expect(isOperationInProgress("window1", "save")).toBe(false);
+
+      // Lock is fully released — a subsequent call can acquire it again.
+      const result = await withReentryGuard("window1", "save", async () => "ok");
+      expect(result).toBe("ok");
     });
 
     it("allows concurrent operations on different windows", async () => {
@@ -188,15 +154,12 @@ describe("reentryGuard", () => {
 
     it("prevents re-entry during async operation", async () => {
       const callCount = { value: 0 };
-      let resolveFirst: () => void;
-      const firstBlocking = new Promise<void>((r) => {
-        resolveFirst = r;
-      });
+      const blocker = createBlocker();
 
       // Start first operation (will block)
       const p1 = withReentryGuard("window1", "save", async () => {
         callCount.value++;
-        await firstBlocking;
+        await blocker.promise;
         return "first";
       });
 
@@ -212,7 +175,7 @@ describe("reentryGuard", () => {
       expect(callCount.value).toBe(1);
 
       // Complete first operation
-      resolveFirst!();
+      blocker.resolve();
       const result1 = await p1;
       expect(result1).toBe("first");
       expect(callCount.value).toBe(1);
@@ -238,20 +201,42 @@ describe("reentryGuard", () => {
   });
 
   describe("guard key composition", () => {
-    it("uses window:operation format for uniqueness", () => {
-      // These should all be independent locks
-      tryAcquireLock("a", "b");
-      tryAcquireLock("a:b", ""); // Different key pattern
+    it("uses window:operation format for uniqueness", async () => {
+      const b1 = createBlocker();
+      const b2 = createBlocker();
+
+      const p1 = withReentryGuard("a", "b", async () => {
+        await b1.promise;
+      });
+      const p2 = withReentryGuard("a:b", "", async () => {
+        await b2.promise;
+      });
 
       expect(isOperationInProgress("a", "b")).toBe(true);
       expect(isOperationInProgress("a:b", "")).toBe(true);
+
+      b1.resolve();
+      b2.resolve();
+      await Promise.all([p1, p2]);
     });
 
-    it("handles special characters in window labels", () => {
-      expect(tryAcquireLock("window-1", "save")).toBe(true);
-      expect(tryAcquireLock("window_2", "save")).toBe(true);
+    it("handles special characters in window labels", async () => {
+      const b1 = createBlocker();
+      const b2 = createBlocker();
+
+      const p1 = withReentryGuard("window-1", "save", async () => {
+        await b1.promise;
+      });
+      const p2 = withReentryGuard("window_2", "save", async () => {
+        await b2.promise;
+      });
+
       expect(isOperationInProgress("window-1", "save")).toBe(true);
       expect(isOperationInProgress("window_2", "save")).toBe(true);
+
+      b1.resolve();
+      b2.resolve();
+      await Promise.all([p1, p2]);
     });
   });
 });
