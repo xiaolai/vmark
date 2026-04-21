@@ -7,8 +7,10 @@
  * Key decisions:
  *   - Initial content loaded via setContentWithoutHistory to avoid polluting the undo stack
  *     with the initial parse.
- *   - Adaptive debounce (100ms for small docs, 500ms for 50KB+) balances responsiveness
- *     with serialization cost on large documents.
+ *   - Adaptive debounce (100ms–5s) scales with document size: larger docs get longer
+ *     delays to reduce serialization frequency without losing keystrokes on unmount.
+ *   - Initial parse is deferred via setTimeout(0) so the editor shell renders before the
+ *     heavy markdown→PM conversion runs, keeping the UI responsive on large documents.
  *   - Cursor tracking is delayed 200ms after creation to prevent spurious sync during
  *     initial render/focus.
  *   - Flusher registration moved to useEffect (not onCreate) to handle React Strict Mode
@@ -85,9 +87,12 @@ function setContentWithoutHistory(editor: TiptapEditor, doc: PMNode): void {
  * @returns Delay in milliseconds
  */
 function getAdaptiveDebounceDelay(docSize: number): number {
-  if (docSize > 50000) return 500;  // 50KB+: 500ms
-  if (docSize > 20000) return 300;  // 20KB+: 300ms
-  return 100;                        // Default: 100ms (using RAF for small docs)
+  if (docSize > 1000000) return 5000; // 1M+: 5s (~1MB+ markdown)
+  if (docSize > 500000) return 2000;  // 500K+: 2s
+  if (docSize > 100000) return 1000;  // 100K+: 1s
+  if (docSize > 50000) return 500;    // 50K+: 500ms
+  if (docSize > 20000) return 300;    // 20K+: 300ms
+  return 100;                          // Default: 100ms (using RAF for small docs)
 }
 
 /**
@@ -231,18 +236,44 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       // Reset for this new editor instance (handles React Strict Mode double-mount)
       editorInitialized.current = false;
 
-      try {
-        const doc = parseMarkdown(editor.schema, content, {
-          preserveLineBreaks: preserveLineBreaksRef.current,
-        });
-        lastExternalContent.current = content;
-        // Use helper to avoid polluting undo history with initial content load
-        setContentWithoutHistory(editor, doc);
-        editorInitialized.current = true;
-      } catch (error) {
-        tiptapError(" Failed to parse initial markdown:", error);
-      }
+      // Capture content at mount time — the closure value is stable for this editor instance.
+      const contentSnapshot = content;
 
+      // Defer the heavy markdown→PM parse so the editor shell renders before the parse
+      // blocks the main thread. For large documents this keeps the UI responsive.
+      setTimeout(() => {
+        if (editor.isDestroyed) return;
+        try {
+          const doc = parseMarkdown(editor.schema, contentSnapshot, {
+            preserveLineBreaks: preserveLineBreaksRef.current,
+          });
+          // Use helper to avoid polluting undo history with initial content load
+          setContentWithoutHistory(editor, doc);
+          lastExternalContent.current = contentSnapshot;
+          editorInitialized.current = true;
+        } catch (error) {
+          tiptapError(" Failed to parse initial markdown:", error);
+          editorInitialized.current = true; // Unblock external sync even on parse error
+        }
+
+        // Focus and cursor restore run after content is set so saved cursor
+        // positions can be resolved against the actual document.
+        if (!hiddenRef.current) {
+          scheduleTiptapFocusAndRestore(
+            editor,
+            () => cursorInfoRef.current,
+            restoreCursorInTiptap
+          );
+        }
+
+        const view = getTiptapEditorView(editor);
+        if (view) {
+          useTiptapEditorStore.getState().setContext(extractTiptapContext(editor.state), view);
+        }
+      }, 0);
+
+      // Cursor tracking setup is immediate — it starts the delay timer independently
+      // of the parse, since it gates selection events not content loading.
       cursorTrackingEnabled.current = false;
       if (trackingTimeoutId.current !== null) {
         window.clearTimeout(trackingTimeoutId.current);
@@ -253,22 +284,12 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
 
       // NOTE: Flusher registration moved to useEffect to avoid dual registration issues
       // with React Strict Mode. The useEffect ensures proper cleanup on unmount.
-
-      // Only focus/restore cursor when not hidden
-      if (!hiddenRef.current) {
-        scheduleTiptapFocusAndRestore(
-          editor,
-          () => cursorInfoRef.current,
-          restoreCursorInTiptap
-        );
-      }
-
-      const view = getTiptapEditorView(editor);
-      if (view) {
-        useTiptapEditorStore.getState().setContext(extractTiptapContext(editor.state), view);
-      }
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
+      // Skip programmatic content loads (reload, external sync) — they set
+      // preventUpdate on the transaction to avoid a round-trip serialization
+      // that would dirty the document immediately after it was cleaned (#806).
+      if (transaction?.getMeta("preventUpdate")) return;
       // Skip updates when hidden — prevents polluting document store
       /* v8 ignore next -- @preserve reason: hidden path skips update; hidden mode not exercised in WYSIWYG update tests */
       if (hiddenRef.current) return;

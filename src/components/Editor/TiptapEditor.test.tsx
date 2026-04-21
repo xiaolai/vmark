@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 
 /**
@@ -399,7 +399,7 @@ describe("getAdaptiveDebounceDelay (tested via onUpdate behavior)", () => {
 
 describe("TiptapEditorInner — onCreate behavior", () => {
   it("calls parseMarkdown with initial content during onCreate", () => {
-    mocks.useDocumentContent.mockReturnValue("# Test Content");
+    mocks.useDocumentContent.mockReturnValueOnce("# Test Content");
     const editor = createMockEditor();
     mocks.useEditor.mockReturnValue(editor);
 
@@ -408,8 +408,11 @@ describe("TiptapEditorInner — onCreate behavior", () => {
     const config = mocks.useEditor.mock.calls[0][0];
     expect(config.onCreate).toBeInstanceOf(Function);
 
-    // Simulate calling onCreate
+    // Parse is deferred — use fake timers to let the setTimeout(0) fire
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
     expect(mocks.parseMarkdown).toHaveBeenCalled();
   });
 
@@ -424,7 +427,7 @@ describe("TiptapEditorInner — onCreate behavior", () => {
     render(<TiptapEditorInner />);
     const config = mocks.useEditor.mock.calls[0][0];
 
-    // Should not throw
+    // onCreate schedules the parse asynchronously — should not throw synchronously
     expect(() => config.onCreate({ editor })).not.toThrow();
     errorSpy.mockRestore();
   });
@@ -436,7 +439,11 @@ describe("TiptapEditorInner — onCreate behavior", () => {
     render(<TiptapEditorInner hidden={false} />);
     const config = mocks.useEditor.mock.calls[0][0];
 
+    // Focus is scheduled inside the deferred parse setTimeout
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
     expect(mocks.scheduleTiptapFocusAndRestore).toHaveBeenCalled();
   });
 
@@ -461,9 +468,31 @@ describe("TiptapEditorInner — onUpdate behavior", () => {
     const config = mocks.useEditor.mock.calls[0][0];
 
     // Should return early without scheduling
-    config.onUpdate({ editor });
+    const mockTr = { getMeta: () => false };
+    config.onUpdate({ editor, transaction: mockTr });
     // serializeMarkdown should not be called since hidden skips flush
     expect(mocks.serializeMarkdown).not.toHaveBeenCalled();
+  });
+
+  it("skips flush when transaction has preventUpdate meta — regression #806", () => {
+    // Programmatic content loads (reload_document, external sync) set preventUpdate
+    // on the transaction to prevent a round-trip serialize that would dirty the doc.
+    const editor = createMockEditor();
+    mocks.useEditor.mockReturnValue(editor);
+
+    const rafSpy = vi.spyOn(window, "requestAnimationFrame");
+
+    render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[0][0];
+
+    const mockTr = { getMeta: (key: string) => key === "preventUpdate" };
+    config.onUpdate({ editor, transaction: mockTr });
+
+    // RAF must NOT be scheduled — no flush should happen
+    expect(rafSpy).not.toHaveBeenCalled();
+    expect(mocks.serializeMarkdown).not.toHaveBeenCalled();
+
+    rafSpy.mockRestore();
   });
 });
 
@@ -588,6 +617,8 @@ describe("TiptapEditorInner — cleanup on unmount", () => {
 });
 
 describe("TiptapEditorInner — visibility transitions", () => {
+  // NO beforeEach/afterEach — outer describes share mock.calls state from main describe
+
   it("calls scheduleTiptapFocusAndRestore during onCreate when not hidden", () => {
     const editor = createMockEditor();
     mocks.useEditor.mockReturnValue(editor);
@@ -596,7 +627,11 @@ describe("TiptapEditorInner — visibility transitions", () => {
     render(<TiptapEditorInner hidden={false} />);
 
     const config = mocks.useEditor.mock.calls[0][0];
+    // Focus is scheduled inside the deferred parse setTimeout — advance timers
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     // scheduleTiptapFocusAndRestore should be called during onCreate when not hidden
     expect(mocks.scheduleTiptapFocusAndRestore).toHaveBeenCalled();
@@ -609,22 +644,16 @@ describe("TiptapEditorInner — visibility transitions", () => {
 
     render(<TiptapEditorInner hidden={true} />);
 
-    // When hidden=true, the component uses hiddenRef.current in onCreate.
-    // However, useEditor's config is captured at render time, and the
-    // mock useEditor simply stores the config without actually calling onCreate.
-    // We manually invoke onCreate — but by the time we call it, React has
-    // already rendered the component with hidden=true.
     const config = mocks.useEditor.mock.calls[0][0];
 
     // Verify the onCreate callback is defined
     expect(config.onCreate).toBeInstanceOf(Function);
 
-    // The component's hiddenRef.current is set during render to hidden=true.
-    // But since we mock useEditor, the onCreate callback captures a closure
-    // over hiddenRef which reads true. The test verifies the guard exists.
-    // Note: In our mock setup, useEditor doesn't actually call the callbacks,
-    // so we can only test that the callback is provided correctly.
+    // Parse is deferred — advance timers so the deferred work runs
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
     // parseMarkdown should still be called regardless of hidden state during onCreate
     expect(mocks.parseMarkdown).toHaveBeenCalled();
   });
@@ -667,11 +696,64 @@ describe("getAdaptiveDebounceDelay — via onUpdate", () => {
     expect(call500).toBeDefined();
     timeoutSpy.mockRestore();
   });
+
+  it("uses setTimeout(1000) for documents >100000", () => {
+    const editor = createMockEditor();
+    editor.state.doc.content.size = 150000;
+    mocks.useEditor.mockReturnValue(editor);
+
+    const timeoutSpy = vi.spyOn(window, "setTimeout");
+    render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[0][0];
+
+    config.onUpdate({ editor });
+    const call1000 = timeoutSpy.mock.calls.find(
+      (c) => typeof c[1] === "number" && c[1] === 1000
+    );
+    expect(call1000).toBeDefined();
+    timeoutSpy.mockRestore();
+  });
+
+  it("uses setTimeout(2000) for documents >500000", () => {
+    const editor = createMockEditor();
+    editor.state.doc.content.size = 600000;
+    mocks.useEditor.mockReturnValue(editor);
+
+    const timeoutSpy = vi.spyOn(window, "setTimeout");
+    render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[0][0];
+
+    config.onUpdate({ editor });
+    const call2000 = timeoutSpy.mock.calls.find(
+      (c) => typeof c[1] === "number" && c[1] === 2000
+    );
+    expect(call2000).toBeDefined();
+    timeoutSpy.mockRestore();
+  });
+
+  it("uses setTimeout(5000) for documents >1000000 (~1MB+)", () => {
+    const editor = createMockEditor();
+    editor.state.doc.content.size = 1500000;
+    mocks.useEditor.mockReturnValue(editor);
+
+    const timeoutSpy = vi.spyOn(window, "setTimeout");
+    render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[0][0];
+
+    config.onUpdate({ editor });
+    const call5000 = timeoutSpy.mock.calls.find(
+      (c) => typeof c[1] === "number" && c[1] === 5000
+    );
+    expect(call5000).toBeDefined();
+    timeoutSpy.mockRestore();
+  });
 });
 
 // ── setContentWithoutHistory — view path ────────────────────────────
 
 describe("setContentWithoutHistory — via onCreate with view", () => {
+  // NO beforeEach/afterEach — outer describes share mock.calls state from main describe
+
   it("uses direct ProseMirror transaction when view is available", () => {
     const mockDispatch = vi.fn();
     const mockTr = {
@@ -694,7 +776,11 @@ describe("setContentWithoutHistory — via onCreate with view", () => {
     render(<TiptapEditorInner hidden={false} />);
     const config = mocks.useEditor.mock.calls[0][0];
 
+    // PM dispatch happens inside the deferred parse setTimeout
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     // Should dispatch a PM transaction via the view
     expect(mockDispatch).toHaveBeenCalled();
@@ -712,7 +798,11 @@ describe("setContentWithoutHistory — via onCreate with view", () => {
     render(<TiptapEditorInner hidden={false} />);
     const config = mocks.useEditor.mock.calls[0][0];
 
+    // setContent happens inside the deferred parse setTimeout
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     expect(editor.commands.setContent).toHaveBeenCalled();
   });
@@ -726,6 +816,8 @@ describe("setContentWithoutHistory — via onCreate with view", () => {
 // the onCreate callback which also calls syncMarkdownToEditor's underlying logic.
 
 describe("syncMarkdownToEditor — via onCreate", () => {
+  // NO beforeEach/afterEach — outer describes share mock.calls state from main describe
+
   it("syncs initial content successfully via ProseMirror transaction", () => {
     const mockDispatch = vi.fn();
     const mockTr = {
@@ -744,7 +836,11 @@ describe("syncMarkdownToEditor — via onCreate", () => {
     render(<TiptapEditorInner hidden={false} />);
     const config = mocks.useEditor.mock.calls[0][0];
 
+    // Parse is deferred — advance timers so the deferred work runs
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     // parseMarkdown is called with the content from useDocumentContent (default "# hello")
     expect(mocks.parseMarkdown).toHaveBeenCalledWith(
@@ -769,8 +865,11 @@ describe("syncMarkdownToEditor — via onCreate", () => {
     render(<TiptapEditorInner hidden={false} />);
     const config = mocks.useEditor.mock.calls[0][0];
 
-    // onCreate should catch the error
+    // onCreate schedules deferred work — should not throw synchronously
+    vi.useFakeTimers();
     expect(() => config.onCreate({ editor })).not.toThrow();
+    vi.runAllTimers(); // flush pending timers to prevent bleed into next test
+    vi.useRealTimers();
     errorSpy.mockRestore();
   });
 });
@@ -1013,7 +1112,11 @@ describe("TiptapEditorInner — external content sync effect", () => {
     );
   });
 
-  it("handles parse error in syncMarkdownToEditor", async () => {
+  it("handles parse error in syncMarkdownToEditor", () => {
+    // Avoid setupUseEditorWithCallbacks here: its Promise.resolve().then() fires
+    // onCreate as a microtask which competes with act() effect flushing and
+    // can reset editorInitialized.current before the sync effect runs.
+    // Instead, manually drive onCreate with fake timers to reach known state.
     const mockView = {
       state: {
         tr: { replaceWith: vi.fn().mockReturnThis(), setMeta: vi.fn().mockReturnThis() },
@@ -1021,28 +1124,32 @@ describe("TiptapEditorInner — external content sync effect", () => {
       },
       dispatch: vi.fn(),
     };
-
-    setupUseEditorWithCallbacks();
+    const editor = createMockEditor();
+    mocks.useEditor.mockReturnValue(editor);
     mocks.getTiptapEditorView.mockReturnValue(mockView);
     mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
     mocks.useDocumentContent.mockReturnValue("# initial");
 
+    // Track call index to find exactly this render's config
+    const callsBefore = mocks.useEditor.mock.calls.length;
     const { rerender } = render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[callsBefore][0];
 
-    await vi.waitFor(() => {
-      expect(mocks.parseMarkdown).toHaveBeenCalled();
-    });
+    // Fire onCreate via fake timers: sets editorInitialized=true, lastExternalContent="# initial"
+    vi.useFakeTimers();
+    config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
 
+    // Set up error scenario (mockImplementationOnce prevents leaking into next test)
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.clearAllMocks();
-    mocks.getTiptapEditorView.mockReturnValue(mockView);
-    mocks.parseMarkdown.mockImplementation(() => { throw new Error("sync fail"); });
+    mocks.parseMarkdown.mockImplementationOnce(() => { throw new Error("sync fail"); });
     mocks.useDocumentContent.mockReturnValue("# broken");
 
     rerender(<TiptapEditorInner hidden={false} />);
 
-    // Should log error but not throw
-    // tiptapError logs as: ("[Tiptap]", "Failed to sync markdown:", error)
+    // Content sync effect fires synchronously (content "# broken" != "# initial", initialized=true)
+    // tiptapError logs as: ("[Tiptap]", " Failed to sync markdown:", error)
     expect(errorSpy).toHaveBeenCalledWith(
       "[Tiptap]",
       expect.stringContaining("Failed to sync markdown"),
@@ -1051,7 +1158,7 @@ describe("TiptapEditorInner — external content sync effect", () => {
     errorSpy.mockRestore();
   });
 
-  it("sets cursor to start when synced without cursor info", async () => {
+  it("sets cursor to start when synced without cursor info", () => {
     const mockSetSelection = vi.fn().mockReturnThis();
     const mockView = {
       state: {
@@ -1066,17 +1173,22 @@ describe("TiptapEditorInner — external content sync effect", () => {
       dispatch: vi.fn(),
     };
 
-    setupUseEditorWithCallbacks();
+    // Avoid setupUseEditorWithCallbacks: its microtask re-fires onCreate on every
+    // rerender, resetting editorInitialized.current = false before the sync effect runs.
     mocks.getTiptapEditorView.mockReturnValue(mockView);
     mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
     mocks.useDocumentContent.mockReturnValue("# initial");
     mocks.useDocumentCursorInfo.mockReturnValue(null);
 
+    const callsBefore = mocks.useEditor.mock.calls.length;
     const { rerender } = render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[callsBefore][0];
 
-    await vi.waitFor(() => {
-      expect(mocks.parseMarkdown).toHaveBeenCalled();
-    });
+    // Drive onCreate via fake timers to set editorInitialized=true and lastExternalContent="# initial"
+    vi.useFakeTimers();
+    config.onCreate({ editor: mocks.mockEditor });
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     vi.clearAllMocks();
     mocks.getTiptapEditorView.mockReturnValue(mockView);
@@ -1643,8 +1755,11 @@ describe("TiptapEditorInner — onCreate cursorInfoRef lambda invocation (line 2
     render(<TiptapEditorInner hidden={false} />);
     const config = mocks.useEditor.mock.calls[0][0];
 
-    // onCreate when not hidden → captures the getCursor lambda (line 245)
+    // scheduleTiptapFocusAndRestore is deferred inside setTimeout(0) in onCreate
+    vi.useFakeTimers();
     config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     expect(capturedGetCursor).not.toBeNull();
     // Invoke the lambda to exercise line 245: () => cursorInfoRef.current
