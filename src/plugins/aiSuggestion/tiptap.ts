@@ -72,18 +72,21 @@ function createGhostText(text: string, isFocused: boolean): HTMLSpanElement {
 /**
  * Apply a suggestion's document change on a transaction.
  * Shared by button handler, handleAccept, and handleAcceptAll.
+ * Exported for unit testing only.
  */
-function applySuggestionToTr(
+export function applySuggestionToTr(
   state: EditorState,
   tr: Transaction,
   suggestion: AiSuggestion,
 ): Transaction {
   const docSize = tr.doc.content.size;
 
-  // Whole-document replace (from=0): clamp `to` to current doc size.
-  // The doc may have changed since the suggestion was created, but the
-  // intent is to replace the entire content — so we use the live size.
-  if (suggestion.from === 0 && suggestion.to > docSize) {
+  // Whole-document replace (from=0): always clamp `to` to current doc size.
+  // The doc may have grown or shrunk since the suggestion was created, but
+  // the intent is to replace the entire content — so we use the live size.
+  // Without this, a doc that grew after creation leaves uncovered trailing
+  // content intact, duplicating it alongside the replacement (issue #805).
+  if (suggestion.from === 0) {
     suggestion = { ...suggestion, to: docSize };
   }
 

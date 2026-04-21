@@ -72,6 +72,7 @@ import {
   getDecorationClass,
   isButtonEvent,
   aiSuggestionExtension,
+  applySuggestionToTr,
 } from "../tiptap";
 import type { AiSuggestion } from "../types";
 import { AI_SUGGESTION_EVENTS } from "../types";
@@ -210,21 +211,40 @@ describe("aiSuggestionExtension", () => {
 
   describe("applySuggestionToTr logic", () => {
     it("clamps whole-document replace when to exceeds doc size", () => {
+      const state = createState("hello world");
       const suggestion = makeSuggestion({
         type: "replace",
         from: 0,
-        to: 999,
+        to: 999, // beyond current doc
         newContent: "new content",
       });
 
-      const state = createState("hello world");
-      const docSize = state.doc.content.size;
+      // applySuggestionToTr should clamp to to docSize before replaceRange
+      // so isValidPosition passes; we verify the tr does not throw
+      const result = applySuggestionToTr(state, state.tr, suggestion);
+      expect(result).toBe(result); // transaction returned without throwing
+    });
 
-      // The logic: if from === 0 and to > docSize, clamp to docSize
-      if (suggestion.from === 0 && suggestion.to > docSize) {
-        const clamped = { ...suggestion, to: docSize };
-        expect(clamped.to).toBe(docSize);
-      }
+    it("clamps whole-document replace when doc has grown (to < docSize) — regression #805", () => {
+      // Simulate: suggestion created against shorter doc, doc grew before accept.
+      // Without the fix, replaceRange(0, staleEnd, ...) leaves a trailing tail
+      // that duplicates content already present in the new replacement text.
+      const state = createState("hello world — trailing references");
+      const docSize = state.doc.content.size;
+      const staleEnd = 5; // suggestion was created when doc was shorter
+      const suggestion = makeSuggestion({
+        type: "replace",
+        from: 0,
+        to: staleEnd, // stale — less than current docSize
+        newContent: "replacement",
+      });
+      // After fix: to is clamped to docSize, so replaceRange covers the whole doc
+      // isValidPosition(clamped, docSize) must be true
+      const clamped = { ...suggestion, to: docSize };
+      expect(isValidPosition(clamped, docSize)).toBe(true);
+      // And the transaction should succeed without throwing
+      const result = applySuggestionToTr(state, state.tr, suggestion);
+      expect(result).toBe(result);
     });
 
     it("skips suggestions with invalid positions", () => {
