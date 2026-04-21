@@ -225,6 +225,7 @@ export function StatusBar() {
                 type="button"
                 className="status-sidebar-toggle"
                 onClick={() => useUIStore.getState().toggleSidebar()}
+                aria-expanded={false}
                 aria-label={t("openSidebar")}
                 title={t("openSidebar")}
               >
