@@ -11,7 +11,7 @@ Compare shortcut definitions in code against documentation and report gaps or co
 ## Workflow
 1) Read docs:
    - `website/guide/shortcuts.md` (primary, in repo)
-   - `dev-docs/shortcuts.md` (local, not in repo — if available)
+   - `dev-docs/shortcuts.md` (if present — not always created)
 2) Scan code for shortcut sources (see `references/paths.md`).
 3) Extract current shortcuts from code and map them to doc entries.
 4) Report:

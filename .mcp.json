@@ -3,10 +3,6 @@
     "tauri": {
       "command": "npx",
       "args": ["-y", "@hypothesi/tauri-mcp-server"]
-    },
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest"]
     }
   }
 }

@@ -30,8 +30,8 @@ Update website docs when:
 | Source Code Area | Website Page |
 |------------------|--------------|
 | `src/stores/shortcutsStore.ts` | `website/guide/shortcuts.md` |
-| `src-tauri/src/menu.rs` | `website/guide/shortcuts.md` |
-| `src-tauri/src/mcp/` | `website/guide/mcp-tools.md` |
+| `src-tauri/src/menu/` | `website/guide/shortcuts.md` |
+| `src-tauri/src/mcp_bridge/`, `mcp_config/`, `mcp_server.rs` | `website/guide/mcp-tools.md` |
 | Popup components | `website/guide/popups.md` |
 | Multi-cursor hooks | `website/guide/multi-cursor.md` |
 | `src/components/Tabs/` | `website/guide/tab-navigation.md` |
@@ -40,7 +40,7 @@ Update website docs when:
 | `src/components/Genie/` | `website/guide/ai-genies.md` |
 | `src/components/Terminal/` | `website/guide/terminal.md` |
 | `src/plugins/mermaid*/` | `website/guide/mermaid.md` |
-| CJK formatting hooks | `website/guide/cjk-formatting.md` |
+| `src/lib/cjkFormatter/`, `src/plugins/toolbarActions/*Cjk*` | `website/guide/cjk-formatting.md` |
 
 ## Timestamp Handling
 

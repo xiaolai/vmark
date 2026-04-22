@@ -2,7 +2,8 @@
 
 ## Rust side
 - `src-tauri/src/` (commands, menu, platform integration)
-- `src-tauri/src/menu.rs`
+- `src-tauri/src/menu/` (mod.rs, localized.rs, commands.rs, dynamic.rs)
+- `src-tauri/src/menu_events.rs`
 
 ## Frontend side
 - `src/hooks/` (menu events, file ops, workspace)

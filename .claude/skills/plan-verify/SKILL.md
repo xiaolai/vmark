@@ -12,7 +12,7 @@ Runs the plan’s required tests/gates and validates acceptance criteria, produc
 ## Workflow (Verify)
 
 1) **Locate the plan**
-   - Prefer `docs/codex-plans/<plan>.md` (local, not in repo).
+   - Prefer `dev-docs/plans/<plan>.md`.
    - If unclear, ask for the plan path.
 
 2) **Extract verification checklist**

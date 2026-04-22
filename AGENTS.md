@@ -124,7 +124,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **Menu icons**: Every menu item MUST have an SF Symbol icon mapped in `macos_menu.rs` (`MENU_ICONS` array). Use real SF Symbol names only — verify names exist in the SF Symbols app before adding. Never invent symbol names.
 
-  - **Keyboard shortcuts**: Three files must stay in sync — `menu.rs` (Rust accelerators: `CmdOrCtrl+Shift+N`), `shortcutsStore.ts` (frontend defaults: `Mod-Shift-n`), `website/guide/shortcuts.md` (docs: `Mod + Shift + N`).
+  - **Keyboard shortcuts**: Three files must stay in sync — `menu/localized.rs` (Rust accelerators: `CmdOrCtrl+Shift+N`), `shortcutsStore.ts` (frontend defaults: `Mod-Shift-n`), `website/guide/shortcuts.md` (docs: `Mod + Shift + N`).
 
   - **Settings store**: Uses plain `.subscribe()` with manual prev-value tracking — NOT `subscribeWithSelector`.
 

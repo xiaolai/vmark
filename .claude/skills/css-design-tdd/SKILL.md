@@ -228,4 +228,4 @@ The CSS check scripts above are inline examples — run them directly in your te
 - Token definitions: `src/styles/index.css`
 - Design system rules: `.claude/rules/31-design-tokens.md`
 - Component patterns: `.claude/rules/32-component-patterns.md`
-- Container audit: `dev-docs/audit-reports/` (local, not in repo)
+- Container audit: `dev-docs/audit/` (in repo)

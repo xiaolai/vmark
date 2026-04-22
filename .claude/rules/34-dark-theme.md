@@ -157,11 +157,11 @@ Alert blocks use centralized dark tokens (defined in `index.css`):
 ## Testing Requirements
 
 1. **Visual check in both themes** before committing CSS changes
-2. **Use reference document** - open `dev-docs/css-reference.md` to verify all elements (local, not in repo)
+2. **Use reference document** - open `dev-docs/css-reference.md` to verify all elements
 3. **Contrast ratio** - text must be readable (WCAG AA: 4.5:1)
 4. **Focus indicators** - must be visible in dark theme
 5. **Shadows** - verify depth perception works in dark
-6. **Compare screenshots** - check against `dev-docs/archive/screenshots/` baselines (local)
+6. **Compare screenshots** - check against `dev-docs/archive/screenshots/` baselines (gitignored)
 
 ## Avoiding Common Mistakes
 

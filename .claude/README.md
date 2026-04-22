@@ -82,6 +82,8 @@ Plugins are managed via `settings.json` (`enabledPlugins`). Currently enabled:
 | Plugin | Source | Purpose |
 |--------|--------|---------|
 | `codex-toolkit` | `@xiaolai` | Codex MCP audit/verify/implement commands |
+| `tdd-guardian` | `@xiaolai` | Strict TDD orchestration and coverage gates |
+| `claude-english-buddy` | `@xiaolai` | English review/correction and prompt refinement |
 | `frontend-design` | `@claude-code-plugins` | Frontend UI design assistance |
 | `rust-analyzer-lsp` | `@claude-plugins-official` | Rust language server integration |
 
@@ -98,6 +100,7 @@ Project-specific commands (not provided by plugins):
 | `/fix` | Root-cause bug fixing with TDD |
 | `/fix-issue` | End-to-end GitHub issue resolver (fetch, branch, fix, audit, PR) |
 | `/merge-prs` | Review and merge open PRs sequentially |
+| `/repo-clean-up` | Remove failed GitHub Actions runs and stale remote branches |
 | `/test-guide` | Generate manual testing guide |
 
 ### Skills (`skills/`)
@@ -118,6 +121,8 @@ Extended capabilities that Claude Code loads on demand:
 | `tauri-mcp-test-runner` / `tauri-mcp-testing` | E2E testing via Tauri MCP |
 | `tauri-v2-integration` | Frontend-backend IPC bridges |
 | `tiptap-dev` / `tiptap-editor` | Rich text editor work |
+| `translate-docs` | Translate VMark docs/strings to all 9 locales |
+| `workflow-audit` | Audit GitHub Actions workflows |
 
 ### Agents (`agents/`)
 
@@ -152,5 +157,5 @@ Composite action: `.github/actions/claude-report/action.yml`
 | `AGENTS.md` | Single source of truth for all AI tool instructions |
 | `CLAUDE.md` | Claude Code entry point — `@AGENTS.md` directive |
 | `CLAUDE.local.md` | Personal instructions (gitignored) |
-| `.mcp.json` | MCP server registrations (Tauri, Chrome DevTools) |
+| `.mcp.json` | MCP server registrations (Tauri only — **never** add Chrome DevTools; VMark is a Tauri app, see AGENTS.md) |
 | `.codex-toolkit.md` | Codex toolkit project-specific settings |

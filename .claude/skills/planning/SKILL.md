@@ -75,7 +75,7 @@ Output:
 
 5. **Write the plan file**
    - Use the template at `templates/TEMPLATE.md` (bundled with this skill) if available, otherwise follow the structure above.
-   - Write plans to a local directory (e.g. `dev-docs/plans/YYYYMMDD-HHMM-<topic>.md` — local, not in repo).
+   - Write plans to `dev-docs/plans/YYYYMMDD-HHMM-<topic>.md`.
    - Always report the saved plan path.
 
 ## Testing Requirements

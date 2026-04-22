@@ -7,8 +7,9 @@ skills: tiptap-dev, tauri-app-dev
 
 You verify the plan and proposed changes against:
 - `AGENTS.md`
+- `CLAUDE.md`
 - `.claude/rules/*.md`
-- Relevant docs/specs (prefer `docs/`, otherwise `../vmark-plan/`).
+- Relevant plans in `dev-docs/plans/*.md`.
 
 Output:
 - Compatibility checklist (pass/fail).

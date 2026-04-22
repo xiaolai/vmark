@@ -254,8 +254,8 @@ Icon SVG sizes (conventions, not tokens):
 
 After CSS changes, verify rendering with the reference document:
 
-1. Open `dev-docs/css-reference.md` in VMark (local, not in repo)
+1. Open `dev-docs/css-reference.md` in VMark
 2. Check both light and dark themes
-3. Compare against baseline screenshots in `dev-docs/archive/screenshots/` (local)
+3. Compare against baseline screenshots in `dev-docs/archive/screenshots/` (gitignored)
 
 The reference document exercises all markdown elements: typography, lists, blockquotes, code blocks, tables, alerts, details, math, and footnotes.

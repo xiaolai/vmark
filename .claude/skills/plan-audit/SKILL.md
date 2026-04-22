@@ -1,6 +1,6 @@
 ---
 name: plan-audit
-description: Audit an implementation against a plan (docs/codex-plans/*). Use when a user asks to check for gaps, logic errors, or missing tests relative to a plan or Work Items.
+description: Audit an implementation against a plan (dev-docs/plans/*). Use when a user asks to check for gaps, logic errors, or missing tests relative to a plan or Work Items.
 ---
 
 # Plan Audit
@@ -12,7 +12,7 @@ Audits completed work against a plan (WIs + acceptance + tests) and reports gaps
 ## Workflow (Audit)
 
 1) **Locate the plan**
-   - Prefer `docs/codex-plans/<plan>.md` (local, not in repo).
+   - Prefer `dev-docs/plans/<plan>.md`.
    - If unclear, ask for the plan path or the WI list.
 
 2) **Extract audit checklist**

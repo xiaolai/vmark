@@ -14,8 +14,8 @@ You are responsible for manual testing documentation.
 
 ## Where to write
 
-- Primary: `docs/testing/comprehensive-testing-guide.md` (local, not in repo)
-- If needed, add a focused guide: `docs/testing/{work-name}-manual-testing.md` (local)
+- Primary: `dev-docs/testing/comprehensive-testing-guide.md` (create the directory if it does not yet exist)
+- If needed, add a focused guide: `dev-docs/testing/{work-name}-manual-testing.md`
 
 ## What to include (required)
 

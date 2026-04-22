@@ -1,6 +1,6 @@
-# 30 - UI Consistency (Local)
+# 30 - UI Consistency
 
-> See detailed specs in `dev-docs/design-system.md` (local, not in repo).
+> See detailed specs in `dev-docs/design-system.md`.
 
 ## Core Principles
 

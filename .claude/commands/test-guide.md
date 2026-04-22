@@ -4,7 +4,7 @@ Open the comprehensive testing guide and help the user test VMark features.
 
 ## Instructions
 
-1. Read the testing guide at `docs/testing/comprehensive-testing-guide.md` (local, not in repo)
+1. Read the testing guide at `dev-docs/testing/comprehensive-testing-guide.md` (create the directory if it does not yet exist)
 2. Present a summary of test categories to the user
 3. If the user specifies a category, show those specific tests
 4. Help track test results if requested
@@ -36,7 +36,7 @@ Ask the user which category they want to test, then:
 
 ## Files
 
-- Main guide: `docs/testing/comprehensive-testing-guide.md` (local, not in repo)
-- Cursor sync details: `docs/testing/cursor-sync-manual-testing.md` (local)
-- Atomic node details: `docs/testing/atomic-node-selection-testing.md` (local)
-- Auto-save details: `docs/testing/auto-save-history-testing.md` (local)
+- Main guide: `dev-docs/testing/comprehensive-testing-guide.md`
+- Cursor sync details: `dev-docs/testing/cursor-sync-manual-testing.md`
+- Atomic node details: `dev-docs/testing/atomic-node-selection-testing.md`
+- Auto-save details: `dev-docs/testing/auto-save-history-testing.md`

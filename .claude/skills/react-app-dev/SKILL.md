@@ -17,4 +17,4 @@ Apply VMark frontend conventions for React 19 + Zustand v5 + Tailwind v4 + shadc
 
 ## References
 - `references/paths.md` for common source locations and scans.
-- Docs map: `dev-docs/README.md` (local, not in repo — if available).
+- Docs map: `dev-docs/README.md`.
