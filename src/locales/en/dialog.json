@@ -61,6 +61,14 @@
     "title": "File Too Large",
     "message": "File is too large ({{size}} MB). Maximum is {{max}} MB."
   },
+  "largeFile": {
+    "warnTitle": "Open {{filename}}?",
+    "warnBody": "This file is {{size}}. It will open in Source mode — WYSIWYG is disabled for files this large.",
+    "warnOk": "Open",
+    "warnCancel": "Cancel",
+    "refuseTitle": "File too large to open",
+    "refuseBody": "\"{{filename}}\" is {{size}}. VMark cannot safely open files above {{limit}}. Use a line-oriented tool such as less, bat, or grep."
+  },
   "errorBoundary": {
     "title": "Something went wrong"
   },

@@ -135,6 +135,14 @@
     "title": "Datei zu groß",
     "message": "Datei ist zu groß ({{size}} MB). Maximum ist {{max}} MB."
   },
+  "largeFile": {
+    "warnTitle": "{{filename}} öffnen?",
+    "warnBody": "Diese Datei ist {{size}}. Sie wird im Quelltextmodus geöffnet — WYSIWYG ist für Dateien dieser Größe deaktiviert.",
+    "warnOk": "Öffnen",
+    "warnCancel": "Abbrechen",
+    "refuseTitle": "Datei zu groß zum Öffnen",
+    "refuseBody": "„{{filename}}“ ist {{size}}. VMark kann Dateien über {{limit}} nicht sicher öffnen. Verwenden Sie ein zeilenorientiertes Werkzeug wie less, bat oder grep."
+  },
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen"
   },

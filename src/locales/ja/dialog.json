@@ -135,6 +135,14 @@
     "title": "ファイルが大きすぎます",
     "message": "ファイルが大きすぎます（{{size}} MB）。最大は {{max}} MB です。"
   },
+  "largeFile": {
+    "warnTitle": "{{filename}} を開きますか？",
+    "warnBody": "このファイルは {{size}} です。ソースモードで開きます — この大きさではWYSIWYGは無効です。",
+    "warnOk": "開く",
+    "warnCancel": "キャンセル",
+    "refuseTitle": "ファイルが大きすぎて開けません",
+    "refuseBody": "「{{filename}}」は {{size}} です。VMark は {{limit}} を超えるファイルを安全に開けません。less、bat、grep などの行指向ツールをご利用ください。"
+  },
   "errorBoundary": {
     "title": "問題が発生しました"
   },
