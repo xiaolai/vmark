@@ -6,6 +6,7 @@
 - `dev-docs/design-system.md`: design tokens, components, patterns (single source of truth).
 - `dev-docs/css-reference.md`: visual QA reference document for CSS changes.
 - `dev-docs/cjk-gotchas.md`: CJK formatter pitfalls — things that will bite you if you're not careful.
+- `dev-docs/large-file-open-pipeline.md`: end-to-end pipeline for the large-file open UX — tiers, routing, forced Source mode, indeterminate indicator, and the perf tricks in TiptapEditor.
 - `dev-docs/decisions/`: architecture decision records (ADRs).
   - `heading-ime-composition-fix.md`: How we fixed the WebKit heading IME split-block bug — 5 attempts, root cause analysis, and why prevention beats repair.
 
