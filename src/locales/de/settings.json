@@ -85,6 +85,13 @@
   "editor.hardBreakStyle.backslash": "Backslash (\\)",
   "editor.showBrTags.label": "<br>-Tags anzeigen",
   "editor.showBrTags.description": "HTML-Zeilenumbruch-Tags im Editor sichtbar darstellen",
+
+  "editor.group.largeFiles": "Große Dateien",
+  "editor.largeFile.autoSourceMode.label": "Dateien über 1 MB im Quelltextmodus öffnen",
+  "editor.largeFile.autoSourceMode.description": "Öffnet sofort im Quelltextmodus. Wechseln Sie jederzeit über die Statusleiste zu WYSIWYG.",
+  "editor.largeFile.warnAbove5MB.label": "Vor dem Öffnen von Dateien über 5 MB warnen",
+  "editor.largeFile.warnAbove5MB.description": "Zeigt vor dem Öffnen sehr großer Dateien einen Bestätigungsdialog. Dateien über 50 MB werden stets abgelehnt.",
+
   "language.group.language": "Sprache",
   "language.interfaceLanguage.label": "Oberflächensprache",
   "language.interfaceLanguage.description": "Sprache für Menüs und UI-Text",

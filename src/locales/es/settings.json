@@ -85,6 +85,13 @@
   "editor.hardBreakStyle.backslash": "Barra invertida (\\)",
   "editor.showBrTags.label": "Mostrar etiquetas <br>",
   "editor.showBrTags.description": "Mostrar las etiquetas de salto de línea HTML visiblemente en el editor",
+
+  "editor.group.largeFiles": "Archivos grandes",
+  "editor.largeFile.autoSourceMode.label": "Abrir archivos de más de 1 MB en modo Fuente",
+  "editor.largeFile.autoSourceMode.description": "Se abre al instante en modo Fuente. Cambia a WYSIWYG en cualquier momento desde la barra de estado.",
+  "editor.largeFile.warnAbove5MB.label": "Confirmar antes de abrir archivos de más de 5 MB",
+  "editor.largeFile.warnAbove5MB.description": "Muestra un diálogo de confirmación antes de abrir archivos muy grandes. Los archivos de más de 50 MB siempre se rechazan.",
+
   "language.group.language": "Idioma",
   "language.interfaceLanguage.label": "Idioma de la interfaz",
   "language.interfaceLanguage.description": "Idioma utilizado para los menús y el texto de la interfaz",

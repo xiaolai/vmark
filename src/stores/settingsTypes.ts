@@ -227,6 +227,21 @@ export interface AdvancedSettingsState {
 }
 
 /** General settings — auto-save, document history, tab size, line endings, and quit behavior. */
+// ---------------------------------------------------------------------------
+// Large file open behavior
+// ---------------------------------------------------------------------------
+
+/** User-togglable behavior for opening large files.
+ *
+ * @see `src/utils/fileSizeThresholds.ts` for the threshold byte values.
+ */
+export interface LargeFileSettings {
+  /** When true, files ≥ 1 MB open in Source mode by default (sub-second open). */
+  autoSourceMode: boolean;
+  /** When true, a pre-open confirmation dialog appears for files ≥ 5 MB. */
+  warnAbove5MB: boolean;
+}
+
 export interface GeneralSettings {
   // Auto-save
   autoSaveEnabled: boolean;
@@ -276,6 +291,7 @@ export interface SettingsState {
   terminal: TerminalSettings;
   advanced: AdvancedSettingsState;
   update: UpdateSettings;
+  largeFile: LargeFileSettings;
   // UI state
   showDevSection: boolean;
 }
@@ -313,6 +329,10 @@ export interface SettingsActions {
   updateUpdateSetting: <K extends keyof UpdateSettings>(
     key: K,
     value: UpdateSettings[K]
+  ) => void;
+  updateLargeFileSetting: <K extends keyof LargeFileSettings>(
+    key: K,
+    value: LargeFileSettings[K]
   ) => void;
   toggleDevSection: () => void;
   resetSettings: () => void;

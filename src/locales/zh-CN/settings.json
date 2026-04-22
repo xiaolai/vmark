@@ -85,6 +85,13 @@
   "editor.hardBreakStyle.backslash": "反斜杠 (\\)",
   "editor.showBrTags.label": "显示 <br> 标签",
   "editor.showBrTags.description": "在编辑器中可见地显示 HTML 换行标签",
+
+  "editor.group.largeFiles": "大文件",
+  "editor.largeFile.autoSourceMode.label": "超过 1 MB 的文件自动以源码模式打开",
+  "editor.largeFile.autoSourceMode.description": "源码模式下立即打开。随时可从状态栏切换到富文本模式。",
+  "editor.largeFile.warnAbove5MB.label": "打开超过 5 MB 的文件前提示确认",
+  "editor.largeFile.warnAbove5MB.description": "在打开超大文件前显示确认对话框。超过 50 MB 的文件始终被拒绝。",
+
   "language.group.language": "语言",
   "language.interfaceLanguage.label": "界面语言",
   "language.interfaceLanguage.description": "用于菜单和 UI 文本的语言",

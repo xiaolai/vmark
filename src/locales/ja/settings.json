@@ -85,6 +85,13 @@
   "editor.hardBreakStyle.backslash": "バックスラッシュ（\\）",
   "editor.showBrTags.label": "<br>タグを表示",
   "editor.showBrTags.description": "エディターでHTMLの改行タグを視覚的に表示する",
+
+  "editor.group.largeFiles": "大きなファイル",
+  "editor.largeFile.autoSourceMode.label": "1 MB を超えるファイルをソースモードで開く",
+  "editor.largeFile.autoSourceMode.description": "ソースモードで即座に開きます。ステータスバーからいつでもWYSIWYGに切り替えられます。",
+  "editor.largeFile.warnAbove5MB.label": "5 MB を超えるファイルを開く前に確認",
+  "editor.largeFile.warnAbove5MB.description": "非常に大きなファイルを開く前に確認ダイアログを表示します。50 MB を超えるファイルは常に拒否されます。",
+
   "language.group.language": "言語",
   "language.interfaceLanguage.label": "インターフェース言語",
   "language.interfaceLanguage.description": "メニューとUIテキストに使用する言語",

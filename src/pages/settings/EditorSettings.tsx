@@ -71,9 +71,11 @@ export function EditorSettings() {
   const appearance = useSettingsStore((state) => state.appearance);
   const general = useSettingsStore((state) => state.general);
   const markdown = useSettingsStore((state) => state.markdown);
+  const largeFile = useSettingsStore((state) => state.largeFile);
   const updateAppearanceSetting = useSettingsStore((state) => state.updateAppearanceSetting);
   const updateGeneralSetting = useSettingsStore((state) => state.updateGeneralSetting);
   const updateMarkdownSetting = useSettingsStore((state) => state.updateMarkdownSetting);
+  const updateLargeFileSetting = useSettingsStore((state) => state.updateLargeFileSetting);
 
   // Normalize optional settings
   const autoPairEnabled = markdown.autoPairEnabled ?? true;
@@ -297,6 +299,28 @@ export function EditorSettings() {
           <Toggle
             checked={markdown.showBrTags}
             onChange={(v) => updateMarkdownSetting("showBrTags", v)}
+          />
+        </SettingRow>
+      </SettingsGroup>
+
+      {/* Large files */}
+      <SettingsGroup title={t("editor.group.largeFiles")}>
+        <SettingRow
+          label={t("editor.largeFile.autoSourceMode.label")}
+          description={t("editor.largeFile.autoSourceMode.description")}
+        >
+          <Toggle
+            checked={largeFile.autoSourceMode}
+            onChange={(v) => updateLargeFileSetting("autoSourceMode", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("editor.largeFile.warnAbove5MB.label")}
+          description={t("editor.largeFile.warnAbove5MB.description")}
+        >
+          <Toggle
+            checked={largeFile.warnAbove5MB}
+            onChange={(v) => updateLargeFileSetting("warnAbove5MB", v)}
           />
         </SettingRow>
       </SettingsGroup>

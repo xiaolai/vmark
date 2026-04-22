@@ -85,6 +85,13 @@
   "editor.hardBreakStyle.backslash": "Barre oblique inversée (\\)",
   "editor.showBrTags.label": "Afficher les balises <br>",
   "editor.showBrTags.description": "Afficher visiblement les balises HTML de saut de ligne dans l'éditeur",
+
+  "editor.group.largeFiles": "Fichiers volumineux",
+  "editor.largeFile.autoSourceMode.label": "Ouvrir les fichiers de plus de 1 Mo en mode Source",
+  "editor.largeFile.autoSourceMode.description": "Ouverture instantanée en mode Source. Basculez vers WYSIWYG à tout moment depuis la barre d'état.",
+  "editor.largeFile.warnAbove5MB.label": "Demander confirmation pour les fichiers de plus de 5 Mo",
+  "editor.largeFile.warnAbove5MB.description": "Affiche une boîte de dialogue de confirmation avant d'ouvrir de très gros fichiers. Les fichiers de plus de 50 Mo sont toujours refusés.",
+
   "language.group.language": "Langue",
   "language.interfaceLanguage.label": "Langue de l'interface",
   "language.interfaceLanguage.description": "Langue utilisée pour les menus et le texte de l'interface",

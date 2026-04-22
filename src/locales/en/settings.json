@@ -89,6 +89,12 @@
   "editor.showBrTags.label": "Show <br> tags",
   "editor.showBrTags.description": "Display HTML line break tags visibly in editor",
 
+  "editor.group.largeFiles": "Large files",
+  "editor.largeFile.autoSourceMode.label": "Open files over 1 MB in Source mode",
+  "editor.largeFile.autoSourceMode.description": "Opens instantly in Source mode. Switch to WYSIWYG from the status bar any time.",
+  "editor.largeFile.warnAbove5MB.label": "Warn before opening files over 5 MB",
+  "editor.largeFile.warnAbove5MB.description": "Show a confirmation dialog before opening very large files. Files above 50 MB are always refused.",
+
   "language.group.language": "Language",
   "language.interfaceLanguage.label": "Interface language",
   "language.interfaceLanguage.description": "Language used for menus and UI text",
