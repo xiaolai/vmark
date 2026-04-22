@@ -1,7 +1,7 @@
 {
   "name": "vmark",
   "private": true,
-  "version": "0.6.48",
+  "version": "0.6.49",
   "license": "ISC",
   "type": "module",
   "scripts": {
