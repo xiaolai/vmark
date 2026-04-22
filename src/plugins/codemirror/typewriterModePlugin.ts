@@ -17,6 +17,7 @@
 
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { useEditorStore } from "@/stores/editorStore";
+import { isCodeMirrorComposing } from "@/utils/imeGuard";
 
 // Threshold for scrolling (pixels from target position)
 const SCROLL_THRESHOLD = 30;
@@ -40,6 +41,18 @@ export function createSourceTypewriterPlugin() {
 
         // Only scroll if selection changed
         if (!update.selectionSet) return;
+
+        // Never scroll while an IME is composing — each pinyin/kana/hangul
+        // keystroke moves the cursor, and smooth-scrolling on every step
+        // produces visible viewport jitter (issue #814). Cancel any rAF
+        // queued before composition started so it cannot fire mid-compose.
+        if (isCodeMirrorComposing(update.view)) {
+          if (this.rafId !== null) {
+            cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+          }
+          return;
+        }
 
         // Skip initial updates to avoid jarring scroll on load
         this.updateCount++;

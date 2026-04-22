@@ -54,6 +54,7 @@ import {
   createSourceFocusModePlugin,
   createSourceTypewriterPlugin,
   createImeGuardPlugin,
+  imeScrollGuard,
   createSourceCursorContextPlugin,
   createSourceMathPreviewPlugin,
   createSourceImagePreviewPlugin,
@@ -144,6 +145,9 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     createSourceCopyOnSelectPlugin(),
     // IME guard: flush queued work after composition ends
     createImeGuardPlugin(),
+    // Strip scrollIntoView from IME compose transactions so the viewport
+    // does not jitter on every pinyin/kana/hangul keystroke (issue #814)
+    imeScrollGuard,
     // Focus mode: dim non-current paragraph
     createSourceFocusModePlugin(),
     // Typewriter mode: keep cursor centered

@@ -25,6 +25,7 @@ export { createSmartPastePlugin } from "./smartPaste";
 export { createSourceFocusModePlugin } from "./focusModePlugin";
 export { createSourceTypewriterPlugin } from "./typewriterModePlugin";
 export { createImeGuardPlugin } from "./imeGuard";
+export { imeScrollGuard } from "./imeScrollGuard";
 export { createSourceCursorContextPlugin } from "./sourceCursorContext";
 export { createSourceMathPreviewPlugin } from "./sourceMathPreview";
 export { createSourceImagePreviewPlugin } from "./sourceImagePreview";

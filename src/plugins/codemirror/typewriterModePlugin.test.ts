@@ -20,6 +20,13 @@ vi.mock("@/stores/editorStore", () => ({
   },
 }));
 
+// Mock isCodeMirrorComposing so we can force the composing branch
+const mockIsComposing = vi.fn((_view?: unknown) => false);
+
+vi.mock("@/utils/imeGuard", () => ({
+  isCodeMirrorComposing: (view?: unknown) => mockIsComposing(view),
+}));
+
 import { createSourceTypewriterPlugin } from "./typewriterModePlugin";
 
 const views: EditorView[] = [];
@@ -41,6 +48,7 @@ function createView(content: string, cursorPos?: number): EditorView {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   mockEditorStore.typewriterModeEnabled = false;
+  mockIsComposing.mockReturnValue(false);
 });
 
 afterEach(() => {
@@ -104,6 +112,53 @@ describe("createSourceTypewriterPlugin", () => {
       expect(rafSpy).toHaveBeenCalledTimes(1);
 
       rafSpy.mockRestore();
+    });
+
+    it("does not schedule scroll while an IME is composing (issue #814)", () => {
+      const view = createView("Hello\nWorld\nTest\nMore lines");
+      const rafSpy = vi.spyOn(globalThis, "requestAnimationFrame");
+
+      // Skip initial updates
+      for (let i = 1; i <= 3; i++) {
+        view.dispatch({ selection: { anchor: i } });
+      }
+
+      rafSpy.mockClear();
+
+      // While composing, no scroll should be scheduled on selection change
+      mockIsComposing.mockReturnValue(true);
+      view.dispatch({ selection: { anchor: 10 } });
+      expect(rafSpy).not.toHaveBeenCalled();
+
+      // When composition ends, normal scrolling resumes
+      mockIsComposing.mockReturnValue(false);
+      view.dispatch({ selection: { anchor: 12 } });
+      expect(rafSpy).toHaveBeenCalledTimes(1);
+
+      rafSpy.mockRestore();
+    });
+
+    it("cancels an already-pending rAF when composition starts mid-flight (issue #814)", () => {
+      const view = createView("Hello\nWorld\nTest\nMore lines");
+      const cancelSpy = vi.spyOn(globalThis, "cancelAnimationFrame");
+
+      // Skip initial updates so the plugin is past SKIP_INITIAL_UPDATES.
+      for (let i = 1; i <= 3; i++) {
+        view.dispatch({ selection: { anchor: i } });
+      }
+      cancelSpy.mockClear();
+
+      // Trigger a real rAF schedule (not composing).
+      view.dispatch({ selection: { anchor: 6 } });
+
+      // Composition starts before the rAF fires — the pending rAF must be
+      // canceled so it cannot move the viewport mid-compose.
+      mockIsComposing.mockReturnValue(true);
+      view.dispatch({ selection: { anchor: 7 } });
+
+      expect(cancelSpy).toHaveBeenCalled();
+
+      cancelSpy.mockRestore();
     });
 
     it("cancels pending scroll on rapid cursor movement", () => {

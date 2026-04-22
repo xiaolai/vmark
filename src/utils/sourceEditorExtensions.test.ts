@@ -110,6 +110,7 @@ vi.mock("@/plugins/codemirror", () => ({
   createSourceFocusModePlugin: vi.fn(() => "focusMode"),
   createSourceTypewriterPlugin: vi.fn(() => "typewriter"),
   createImeGuardPlugin: vi.fn(() => "imeGuard"),
+  imeScrollGuard: "imeScrollGuard",
   createSourceCursorContextPlugin: vi.fn(() => "cursorContext"),
   createSourceMathPreviewPlugin: vi.fn(() => "mathPreview"),
   createSourceImagePreviewPlugin: vi.fn(() => "imagePreview"),
@@ -207,6 +208,17 @@ describe("createSourceEditorExtensions", () => {
       updateListener: listener as any,
     });
     expect(exts).toContain(listener);
+  });
+
+  it("wires imeScrollGuard into the extension stack (issue #814 regression guard)", () => {
+    const exts = createSourceEditorExtensions({
+      initialWordWrap: false,
+      initialShowBrTags: false,
+      initialAutoPair: false,
+      initialShowLineNumbers: false,
+      updateListener: "listener" as any,
+    });
+    expect(exts).toContain("imeScrollGuard");
   });
 
   it("includes spread plugin arrays (multi-cursor, table, etc.)", () => {
