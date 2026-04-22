@@ -42,6 +42,8 @@ module.exports = {
           "src/utils/newFile",
           "src/utils/reloadFromDisk",
           "src/utils/workspaceBootstrap",
+          // Large-file routing — reads settingsStore for autoSourceMode / warnAbove5MB
+          "src/utils/largeFileRouting",
           // Media path resolution (needs tab/document store for relative path resolution)
           "src/utils/resolveMediaSrc",
           // Startup wiring (rebuilds native menu with saved locale on boot)

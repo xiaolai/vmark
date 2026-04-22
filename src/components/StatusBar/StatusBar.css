@@ -723,3 +723,94 @@
     transform: scale(0.9);
   }
 }
+
+/* Source mode upgrade offer (shown when a large file was auto-routed to Source). */
+.status-source-upgrade {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  height: 22px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--accent-bg);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.status-source-upgrade__label {
+  color: var(--text-secondary);
+}
+
+.status-source-upgrade__action {
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.status-source-upgrade__action:hover {
+  color: var(--primary-color);
+}
+
+.status-source-upgrade__action:focus-visible {
+  outline: none;
+  position: relative;
+}
+
+.status-source-upgrade__action:focus-visible::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 1px;
+}
+
+/* File-load indeterminate indicator (large WYSIWYG opens). */
+.status-file-load {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 22px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0;
+  animation: status-file-load-fade-in 150ms ease-out 150ms forwards;
+}
+
+.status-file-load__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent-primary);
+  border-right-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: status-file-load-spin 1s linear infinite;
+}
+
+.status-file-load__label {
+  color: var(--text-secondary);
+}
+
+@keyframes status-file-load-fade-in {
+  to { opacity: 1; }
+}
+
+@keyframes status-file-load-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-file-load__spinner {
+    animation: none;
+    border-top-color: var(--accent-primary);
+  }
+}

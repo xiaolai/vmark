@@ -27,6 +27,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 /**
  * Toggle source mode with checkpoint creation.
  * Use this instead of direct toggleSourceMode() to maintain history.
@@ -38,6 +39,7 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
   const documentStore = useDocumentStore.getState();
   const tabStore = useTabStore.getState();
   const historyStore = useUnifiedHistoryStore.getState();
+  const largeFile = useLargeFileSessionStore.getState();
 
   const tabId = tabStore.activeTabId[windowLabel];
   if (!tabId) {
@@ -52,7 +54,10 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
     return;
   }
 
-  const currentMode = editorStore.sourceMode ? "source" : "wysiwyg";
+  // Effective mode respects the per-tab forced-source override.
+  const isForcedSource = largeFile.isForcedSource(tabId);
+  const effectiveSource = editorStore.sourceMode || isForcedSource;
+  const currentMode = effectiveSource ? "source" : "wysiwyg";
   const cursorInfo = doc.cursorInfo ?? null;
 
   // Create checkpoint with current state before switching (per-document)
@@ -62,7 +67,23 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
     cursorInfo,
   });
 
-  // Now toggle the mode
+  // If this tab is forced-source, the user explicitly toggling mode means
+  // "I want to leave the forced-source state". Clear the marker; the global
+  // toggle below then takes effect normally.
+  if (isForcedSource) {
+    largeFile.clearForcedSource(tabId);
+    // If the global is already Source, clearing the marker alone does not
+    // change effective mode — we must flip global too. If the global is
+    // WYSIWYG, clearing the marker IS the toggle (effective: source → wysiwyg).
+    if (!editorStore.sourceMode) {
+      // Global is WYSIWYG, effective was forced Source; clearing marker
+      // gives effective WYSIWYG. No global toggle needed.
+      return;
+    }
+    // Global is Source; clearing marker leaves effective Source. Fall through
+    // to toggle global off.
+  }
+
   editorStore.toggleSourceMode();
 }
 

@@ -41,6 +41,7 @@ mod watcher;
 mod window_manager;
 mod workspace;
 mod content_search;
+mod file_ops;
 mod file_tree;
 mod pty;
 mod hot_exit;
@@ -572,6 +573,7 @@ pub fn run() {
             watcher::start_watching,
             watcher::stop_watching,
             file_tree::list_directory_entries,
+            file_ops::get_file_size_bytes,
             workspace::open_folder_dialog,
             workspace::read_workspace_config,
             workspace::write_workspace_config,

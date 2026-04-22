@@ -85,6 +85,13 @@
   "editor.hardBreakStyle.backslash": "백슬래시 (\\)",
   "editor.showBrTags.label": "<br> 태그 표시",
   "editor.showBrTags.description": "편집기에서 HTML 줄 바꿈 태그를 시각적으로 표시합니다",
+
+  "editor.group.largeFiles": "큰 파일",
+  "editor.largeFile.autoSourceMode.label": "1 MB 이상 파일을 소스 모드로 열기",
+  "editor.largeFile.autoSourceMode.description": "소스 모드에서 즉시 열립니다. 상태 표시줄에서 언제든 WYSIWYG로 전환할 수 있습니다.",
+  "editor.largeFile.warnAbove5MB.label": "5 MB 이상 파일을 열기 전 확인",
+  "editor.largeFile.warnAbove5MB.description": "매우 큰 파일을 열기 전에 확인 대화 상자를 표시합니다. 50 MB 이상 파일은 항상 거부됩니다.",
+
   "language.group.language": "언어",
   "language.interfaceLanguage.label": "인터페이스 언어",
   "language.interfaceLanguage.description": "메뉴 및 UI 텍스트에 사용되는 언어",

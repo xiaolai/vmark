@@ -135,6 +135,14 @@
     "title": "文件过大",
     "message": "文件过大（{{size}} MB）。最大为 {{max}} MB。"
   },
+  "largeFile": {
+    "warnTitle": "打开 {{filename}}？",
+    "warnBody": "该文件大小为 {{size}}，将以源码模式打开——富文本模式在此类大文件上已禁用。",
+    "warnOk": "打开",
+    "warnCancel": "取消",
+    "refuseTitle": "文件过大，无法打开",
+    "refuseBody": "“{{filename}}” 大小为 {{size}}。VMark 无法安全打开超过 {{limit}} 的文件，请使用 less、bat 或 grep 等命令行工具。"
+  },
   "errorBoundary": {
     "title": "出错了"
   },

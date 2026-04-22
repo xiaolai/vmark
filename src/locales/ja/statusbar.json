@@ -53,6 +53,10 @@
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
   "lint.clean.toast": "No markdown issues found",
+  "largeFile.opening": "大きなファイルを開いています（{{size}}）…",
+  "largeFile.openedInSourceMode": "ソースモードで開きました（大きなファイル）。",
+  "largeFile.switchToWysiwyg": "WYSIWYG に切り替え",
+  "largeFile.switchToWysiwygAria": "このドキュメントをソースモードから WYSIWYG に切り替える",
   "terminal.ariaLabel": "Terminal",
   "terminal": {
     "ariaLabel": "ターミナル"

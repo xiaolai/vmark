@@ -27,6 +27,10 @@ Switch to raw Markdown editing with full syntax highlighting:
 
 Toggle between modes with `F6`.
 
+### Large Files
+
+VMark auto-opens files over 1 MB in Source mode for a sub-second open, warns before touching files above 5 MB, and refuses files over 50 MB. See the [Large Files](./large-files.md) guide for thresholds and settings.
+
 ### Source Peek
 
 Edit the raw Markdown of a single block without leaving WYSIWYG mode. Press `F5` to open Source Peek for the block at cursor.

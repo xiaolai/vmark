@@ -9,6 +9,8 @@
  *
  * Key decisions:
  *   - Hover has a delay (150ms open, 100ms close) to avoid flickering on mouse movement
+ *   - Hover state is per-EditorView (WeakMap-keyed) so multi-window / tear-off editors
+ *     do not race on shared module timers.
  *   - Popup uses FootnotePopupView (DOM-based, not React) for performance
  *   - appendTransaction handles footnote deletion + renumbering in a single atomic step
  *   - appendTransaction skips during IME composition to avoid disrupting CJK input
@@ -24,6 +26,7 @@
 
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type Transaction, type EditorState, NodeSelection } from "@tiptap/pm/state";
+import type { Node as PMNode, NodeType, Slice } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { FootnotePopupView } from "./FootnotePopupView";
@@ -36,43 +39,108 @@ export const footnotePopupPluginKey = new PluginKey("footnotePopup");
 const HOVER_OPEN_DELAY_MS = 150;
 const HOVER_CLOSE_DELAY_MS = 100;
 
-let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
-let closeTimeout: ReturnType<typeof setTimeout> | null = null;
-let currentRefElement: HTMLElement | null = null;
+type HoverState = {
+  hoverTimeout: ReturnType<typeof setTimeout> | null;
+  closeTimeout: ReturnType<typeof setTimeout> | null;
+  currentRefElement: HTMLElement | null;
+};
 
-function clearHoverTimeout() {
-  if (hoverTimeout) {
-    clearTimeout(hoverTimeout);
-    hoverTimeout = null;
+// Per-view hover state so multiple editor instances (e.g. main window and
+// tear-off windows, or side-by-side editors) do not interfere with each
+// other's hover timers. Previously these were module-scoped.
+const hoverStates = new WeakMap<EditorView, HoverState>();
+
+function getHoverState(view: EditorView): HoverState {
+  let state = hoverStates.get(view);
+  if (!state) {
+    state = { hoverTimeout: null, closeTimeout: null, currentRefElement: null };
+    hoverStates.set(view, state);
+  }
+  return state;
+}
+
+function clearHoverTimeout(state: HoverState) {
+  if (state.hoverTimeout) {
+    clearTimeout(state.hoverTimeout);
+    state.hoverTimeout = null;
   }
 }
 
-function clearCloseTimeout() {
-  if (closeTimeout) {
-    clearTimeout(closeTimeout);
-    closeTimeout = null;
+function clearCloseTimeout(state: HoverState) {
+  if (state.closeTimeout) {
+    clearTimeout(state.closeTimeout);
+    state.closeTimeout = null;
   }
 }
 
-function resetHoverState() {
-  clearHoverTimeout();
-  clearCloseTimeout();
-  currentRefElement = null;
+function resetHoverState(view: EditorView) {
+  const state = getHoverState(view);
+  clearHoverTimeout(state);
+  clearCloseTimeout(state);
+  state.currentRefElement = null;
+}
+
+/**
+ * Fast path: scan a transaction's inserted slices for a node of `refType`
+ * or `defType`. Used to short-circuit when the cached doc state says there
+ * are no footnotes — we only need to rewalk the whole doc if an insert
+ * could have introduced one.
+ */
+function transactionsInsertFootnote(
+  transactions: readonly Transaction[],
+  refType: NodeType,
+  defType: NodeType,
+): boolean {
+  for (const tr of transactions) {
+    for (const step of tr.steps) {
+      // ReplaceStep/ReplaceAroundStep expose `slice`; other step types don't.
+      const slice = (step as { slice?: Slice }).slice;
+      if (!slice) continue;
+      let found = false;
+      slice.content.descendants((node) => {
+        if (node.type === refType || node.type === defType) {
+          found = true;
+          return false;
+        }
+        return true;
+      });
+      if (found) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Short-circuit scan: stops on the first footnote reference or definition.
+ * Cheaper than `collectFootnoteNodes` for the common "doc has no footnotes"
+ * case, since it exits early rather than walking the entire document.
+ */
+function docContainsFootnotes(doc: PMNode): boolean {
+  let hasFootnotes = false;
+  doc.descendants((node) => {
+    if (node.type.name === "footnote_reference" || node.type.name === "footnote_definition") {
+      hasFootnotes = true;
+      return false;
+    }
+    return true;
+  });
+  return hasFootnotes;
 }
 
 function handleMouseOver(view: EditorView, event: MouseEvent): boolean {
   const refElement = getFootnoteRefFromTarget(event.target);
   if (!refElement) return false;
-  if (currentRefElement === refElement) return false;
+  const state = getHoverState(view);
+  if (state.currentRefElement === refElement) return false;
 
-  clearCloseTimeout();
-  clearHoverTimeout();
+  clearCloseTimeout(state);
+  clearHoverTimeout(state);
 
-  hoverTimeout = setTimeout(() => {
+  state.hoverTimeout = setTimeout(() => {
     const label = refElement.getAttribute("data-label");
     if (!label) return;
 
-    currentRefElement = refElement;
+    state.currentRefElement = refElement;
 
     const definition = findFootnoteDefinition(view, label);
     const content = definition?.content ?? "Footnote not found";
@@ -90,17 +158,18 @@ function handleMouseOver(view: EditorView, event: MouseEvent): boolean {
   return false;
 }
 
-function handleMouseOut(_view: EditorView, event: MouseEvent): boolean {
+function handleMouseOut(view: EditorView, event: MouseEvent): boolean {
   const relatedTarget = event.relatedTarget as HTMLElement | null;
 
   if (relatedTarget?.closest(".footnote-popup")) return false;
   if (relatedTarget && getFootnoteRefFromTarget(relatedTarget)) return false;
 
-  clearHoverTimeout();
-  currentRefElement = null;
+  const state = getHoverState(view);
+  clearHoverTimeout(state);
+  state.currentRefElement = null;
 
-  clearCloseTimeout();
-  closeTimeout = setTimeout(() => {
+  clearCloseTimeout(state);
+  state.closeTimeout = setTimeout(() => {
     const popup = document.querySelector(".footnote-popup");
     if (!popup?.matches(":hover")) {
       useFootnotePopupStore.getState().closePopup();
@@ -218,7 +287,7 @@ class FootnotePopupPluginView {
   }
 
   destroy() {
-    resetHoverState();
+    resetHoverState(this.view);
     this.popupView.destroy();
   }
 }
@@ -251,6 +320,10 @@ export const footnotePopupExtension = Extension.create({
           // can't run mid-composition (would disrupt CJK input), so we mark
           // it pending and run on the first non-composition doc change.
           let cleanupPending = false;
+          // Cached result of the last full-doc "has footnotes" scan. null = not yet
+          // determined (scan on first transaction). For large footnote-free docs,
+          // this avoids walking the entire document on every keystroke.
+          let hasFootnotesCache: boolean | null = null;
 
           return (transactions: readonly Transaction[], oldState: EditorState, newState: EditorState) => {
           const refType = newState.schema.nodes.footnote_reference;
@@ -280,15 +353,17 @@ export const footnotePopupExtension = Extension.create({
           const wasDeferred = cleanupPending;
           cleanupPending = false;
 
+          // Fast path: if we already know the doc has no footnotes, inspect only
+          // the transaction's inserted slices. If none contain footnote nodes,
+          // skip entirely — no need to rewalk the whole doc.
+          if (hasFootnotesCache === false) {
+            if (!transactionsInsertFootnote(transactions, refType, defType)) return null;
+            // A footnote slice was inserted — fall through to full scan and refresh cache.
+          }
+
           // Fast check: if new doc has no footnote refs AND no definitions, skip full scan
-          let hasFootnotes = false;
-          newState.doc.descendants((node) => {
-            if (node.type.name === "footnote_reference" || node.type.name === "footnote_definition") {
-              hasFootnotes = true;
-              return false; // Stop traversal on first match
-            }
-            return true;
-          });
+          const hasFootnotes = docContainsFootnotes(newState.doc);
+          hasFootnotesCache = hasFootnotes;
           if (!hasFootnotes) return null;
 
           const newCollected = collectFootnoteNodes(newState.doc);

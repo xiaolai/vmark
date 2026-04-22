@@ -135,6 +135,14 @@
     "title": "Fichier trop volumineux",
     "message": "Le fichier est trop volumineux ({{size}} Mo). Maximum : {{max}} Mo."
   },
+  "largeFile": {
+    "warnTitle": "Ouvrir {{filename}} ?",
+    "warnBody": "Ce fichier fait {{size}}. Il s'ouvrira en mode Source — le mode WYSIWYG est désactivé pour les fichiers de cette taille.",
+    "warnOk": "Ouvrir",
+    "warnCancel": "Annuler",
+    "refuseTitle": "Fichier trop volumineux pour être ouvert",
+    "refuseBody": "« {{filename}} » fait {{size}}. VMark ne peut pas ouvrir de fichiers de plus de {{limit}} en toute sécurité. Utilisez un outil orienté ligne comme less, bat ou grep."
+  },
   "errorBoundary": {
     "title": "Un problème est survenu"
   },

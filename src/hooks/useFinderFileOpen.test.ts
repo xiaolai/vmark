@@ -54,6 +54,7 @@ const mockSetActiveTab = vi.fn();
 const mockCreateTab = vi.fn(() => "new-tab");
 const mockUpdateTabPath = vi.fn();
 const mockDetachTab = vi.fn();
+const mockGetActiveTab = vi.fn(() => null);
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
@@ -61,6 +62,7 @@ vi.mock("@/stores/tabStore", () => ({
       createTab: mockCreateTab,
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
+      getActiveTab: mockGetActiveTab,
     }),
   },
 }));
@@ -397,6 +399,10 @@ describe("useFinderFileOpen", () => {
           { path: "/other/workspace/file.md", workspace_root: "/other/workspace" },
         ]);
       }
+      // Size-check must not reject — falling through on error is the
+      // intentional contract of routeOpenBySize, but treating this file
+      // as "small" keeps the test focused on the new-window invoke error.
+      if (cmd === "get_file_size_bytes") return Promise.resolve(0);
       // Throw on the invoke for open_workspace_in_new_window
       return Promise.reject(new Error("window open failed"));
     });
@@ -504,6 +510,183 @@ describe("useFinderFileOpen", () => {
 
     await vi.waitFor(() => {
       expect(mockCreateTab).toHaveBeenCalledWith("main", "/ok.md");
+    });
+  });
+});
+
+describe("useFinderFileOpen — size-tier routing", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockUseWindowLabel.mockReturnValue("main");
+    mockWaitForRestoreComplete.mockResolvedValue(true);
+    mockReadTextFile.mockResolvedValue("file content");
+    mockFindExistingTabForPath.mockReturnValue(null);
+    mockGetReplaceableTab.mockReturnValue(null);
+    mockWorkspaceRootPath = null;
+    mockIsWithinRoot.mockReturnValue(false);
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.getState().resetSettings();
+    const { useLargeFileSessionStore } = await import(
+      "@/stores/largeFileSessionStore"
+    );
+    useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("small files proceed to createTab as usual", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pending_file_opens") {
+        return Promise.resolve([{ path: "/docs/small.md", workspace_root: null }]);
+      }
+      if (cmd === "get_file_size_bytes") return Promise.resolve(50_000);
+      return Promise.resolve(null);
+    });
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/docs/small.md");
+    });
+  });
+
+  it("refused files (≥ 50 MB) never call createTab", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pending_file_opens") {
+        return Promise.resolve([{ path: "/docs/huge.md", workspace_root: null }]);
+      }
+      if (cmd === "get_file_size_bytes") return Promise.resolve(60 * 1024 * 1024);
+      return Promise.resolve(null);
+    });
+
+    renderHook(() => useFinderFileOpen());
+
+    // Wait long enough for the refusal dialog to resolve and bail.
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith("get_file_size_bytes", {
+        path: "/docs/huge.md",
+      });
+    });
+
+    expect(mockCreateTab).not.toHaveBeenCalled();
+  });
+
+  it("huge files (≥ 5 MB) confirm before reading; cancel aborts the open without createTab", async () => {
+    // Mock the plugin-dialog ask to decline the confirmation.
+    const { ask } = await import("@tauri-apps/plugin-dialog");
+    (ask as unknown as { mockResolvedValueOnce: (v: unknown) => void })
+      .mockResolvedValueOnce(false);
+
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pending_file_opens") {
+        return Promise.resolve([{ path: "/docs/huge.md", workspace_root: null }]);
+      }
+      if (cmd === "get_file_size_bytes") return Promise.resolve(10 * 1024 * 1024);
+      return Promise.resolve(null);
+    });
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith("get_file_size_bytes", {
+        path: "/docs/huge.md",
+      });
+    });
+    // The warn dialog should resolve false and the flow should NOT createTab.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockCreateTab).not.toHaveBeenCalled();
+  });
+
+  it("huge files proceed to Source mode when user confirms", async () => {
+    const { ask } = await import("@tauri-apps/plugin-dialog");
+    (ask as unknown as { mockResolvedValueOnce: (v: unknown) => void })
+      .mockResolvedValueOnce(true);
+
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pending_file_opens") {
+        return Promise.resolve([{ path: "/docs/confirm-huge.md", workspace_root: null }]);
+      }
+      if (cmd === "get_file_size_bytes") return Promise.resolve(10 * 1024 * 1024);
+      return Promise.resolve(null);
+    });
+    mockCreateTab.mockReturnValue("tab-confirm-huge");
+    mockGetActiveTab
+      .mockReturnValueOnce(null)
+      .mockReturnValue({ id: "tab-confirm-huge" } as never);
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/docs/confirm-huge.md");
+    });
+
+    const { useLargeFileSessionStore } = await import(
+      "@/stores/largeFileSessionStore"
+    );
+    await vi.waitFor(() => {
+      expect(
+        useLargeFileSessionStore.getState().isForcedSource("tab-confirm-huge")
+      ).toBe(true);
+    });
+  });
+
+  it("replaceable-tab branch activates the indicator for medium WYSIWYG files (300 KB–1 MB)", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pending_file_opens") {
+        return Promise.resolve([{ path: "/docs/medium.md", workspace_root: null }]);
+      }
+      if (cmd === "get_file_size_bytes") return Promise.resolve(400 * 1024);
+      return Promise.resolve(null);
+    });
+    mockGetReplaceableTab.mockReturnValue({ tabId: "empty-tab" });
+    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    useFileLoadStore.getState().endLoad();
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockLoadContent).toHaveBeenCalled();
+    });
+    // Indicator was started for the ≥ 300 KB WYSIWYG open. The replaceable-tab
+    // branch successfully loaded, so the document path is set — no failure
+    // clear. Indicator remains active until the editor's onCreate clears it
+    // (not mounted in this unit test), proving the activateIndicator branch
+    // ran without the failure path being taken.
+    expect(useFileLoadStore.getState().active).toBe(true);
+  });
+
+  it("large files (≥ 1 MB) route through createTab and mark the tab as forced-source", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_pending_file_opens") {
+        return Promise.resolve([{ path: "/docs/large.md", workspace_root: null }]);
+      }
+      if (cmd === "get_file_size_bytes") return Promise.resolve(2 * 1024 * 1024);
+      return Promise.resolve(null);
+    });
+    mockCreateTab.mockReturnValue("tab-for-large");
+    // After createNewTabForFile, the hook reads getActiveTab to identify
+    // the new tab. The finder flow expects the tab ID to change between
+    // before/after the createNewTabForFile call — so the mock returns
+    // null initially, then the created tab.
+    mockGetActiveTab
+      .mockReturnValueOnce(null)
+      .mockReturnValue({ id: "tab-for-large" } as never);
+
+    renderHook(() => useFinderFileOpen());
+
+    await vi.waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledWith("main", "/docs/large.md");
+    });
+
+    const { useLargeFileSessionStore } = await import(
+      "@/stores/largeFileSessionStore"
+    );
+    await vi.waitFor(() => {
+      expect(
+        Object.keys(useLargeFileSessionStore.getState().forcedSourceTabs).length
+      ).toBeGreaterThan(0);
     });
   });
 });

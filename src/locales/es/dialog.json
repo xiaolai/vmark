@@ -135,6 +135,14 @@
     "title": "Archivo demasiado grande",
     "message": "El archivo es demasiado grande ({{size}} MB). El máximo es {{max}} MB."
   },
+  "largeFile": {
+    "warnTitle": "¿Abrir {{filename}}?",
+    "warnBody": "Este archivo pesa {{size}}. Se abrirá en modo Fuente — WYSIWYG está desactivado para archivos de este tamaño.",
+    "warnOk": "Abrir",
+    "warnCancel": "Cancelar",
+    "refuseTitle": "Archivo demasiado grande para abrirse",
+    "refuseBody": "«{{filename}}» pesa {{size}}. VMark no puede abrir archivos de más de {{limit}} con seguridad. Usa una herramienta orientada a líneas como less, bat o grep."
+  },
   "errorBoundary": {
     "title": "Algo salió mal"
   },

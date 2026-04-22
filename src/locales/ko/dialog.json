@@ -135,6 +135,14 @@
     "title": "파일이 너무 큼",
     "message": "파일이 너무 큽니다({{size}} MB). 최대 {{max}} MB입니다."
   },
+  "largeFile": {
+    "warnTitle": "{{filename}} 를 여시겠습니까?",
+    "warnBody": "이 파일의 크기는 {{size}} 입니다. 소스 모드로 열립니다 — 이 크기에서는 WYSIWYG가 비활성화됩니다.",
+    "warnOk": "열기",
+    "warnCancel": "취소",
+    "refuseTitle": "파일이 너무 커서 열 수 없음",
+    "refuseBody": "\"{{filename}}\" 의 크기는 {{size}} 입니다. VMark는 {{limit}} 이상의 파일을 안전하게 열 수 없습니다. less, bat, grep 같은 행 기반 도구를 사용하세요."
+  },
   "errorBoundary": {
     "title": "문제가 발생했습니다"
   },

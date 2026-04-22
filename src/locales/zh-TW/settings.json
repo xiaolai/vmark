@@ -85,6 +85,13 @@
   "editor.hardBreakStyle.backslash": "反斜線（\\）",
   "editor.showBrTags.label": "顯示 <br> 標籤",
   "editor.showBrTags.description": "在編輯器中以可見方式顯示 HTML 換行標籤",
+
+  "editor.group.largeFiles": "大型檔案",
+  "editor.largeFile.autoSourceMode.label": "超過 1 MB 的檔案以原始碼模式開啟",
+  "editor.largeFile.autoSourceMode.description": "原始碼模式下瞬間開啟。隨時可從狀態列切換為所見即所得模式。",
+  "editor.largeFile.warnAbove5MB.label": "開啟超過 5 MB 的檔案前提示確認",
+  "editor.largeFile.warnAbove5MB.description": "開啟特大型檔案前顯示確認對話框。超過 50 MB 的檔案一律拒絕開啟。",
+
   "language.group.language": "語言",
   "language.interfaceLanguage.label": "介面語言",
   "language.interfaceLanguage.description": "選單和 UI 文字所使用的語言",

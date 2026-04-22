@@ -509,6 +509,44 @@ describe("TiptapEditorInner — onSelectionUpdate", () => {
   });
 });
 
+describe("TiptapEditorInner — content-visibility toggle", () => {
+  it("mounts with cv-idle class so content-visibility is active at rest", () => {
+    const { container } = render(<TiptapEditorInner />);
+    expect(container.querySelector(".tiptap-editor")?.classList.contains("cv-idle")).toBe(true);
+  });
+
+  it("strips cv-idle on onUpdate and re-adds it after the idle timeout", () => {
+    vi.useFakeTimers();
+    try {
+      const editor = createMockEditor();
+      mocks.useEditor.mockReturnValue(editor);
+
+      const { container } = render(<TiptapEditorInner hidden={false} />);
+      const el = container.querySelector(".tiptap-editor") as HTMLElement;
+      expect(el.classList.contains("cv-idle")).toBe(true);
+
+      // Use the LAST recorded useEditor config — React Strict Mode causes an
+      // extra non-committing render during tests, whose captured closure holds
+      // a ref that never attaches to a committed DOM node.
+      const calls = mocks.useEditor.mock.calls;
+      const config = calls[calls.length - 1][0];
+      const mockTr = { getMeta: () => false };
+      config.onUpdate({ editor, transaction: mockTr });
+
+      // Immediately after an edit the optimization must be off so PM's
+      // DOM diff doesn't pay the content-visibility reflow cost.
+      expect(el.classList.contains("cv-idle")).toBe(false);
+
+      // After the idle debounce elapses, the class returns so scroll and
+      // initial paint keep the optimization.
+      vi.advanceTimersByTime(500);
+      expect(el.classList.contains("cv-idle")).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("TiptapEditorInner — onUpdate debouncing", () => {
   it("uses RAF for small documents (docSize <= 100)", () => {
     const editor = createMockEditor();

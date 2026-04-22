@@ -135,6 +135,14 @@
     "title": "檔案過大",
     "message": "檔案過大（{{size}} MB）。最大為 {{max}} MB。"
   },
+  "largeFile": {
+    "warnTitle": "開啟 {{filename}}？",
+    "warnBody": "此檔案大小為 {{size}}，將以原始碼模式開啟——所見即所得模式在此類大檔案上已停用。",
+    "warnOk": "開啟",
+    "warnCancel": "取消",
+    "refuseTitle": "檔案過大，無法開啟",
+    "refuseBody": "「{{filename}}」大小為 {{size}}。VMark 無法安全開啟超過 {{limit}} 的檔案，請改用 less、bat 或 grep 等命令列工具。"
+  },
   "errorBoundary": {
     "title": "發生錯誤"
   },

@@ -50,6 +50,10 @@ import type { ReplaceableTabInfo } from "@/utils/openPolicy";
 import { isWithinRoot } from "@/utils/paths";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/utils/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
+import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
 interface OpenFilePayload {
   path: string;
@@ -251,18 +255,70 @@ export function useFinderFileOpen(): void {
         return;
       }
 
+      // Pre-read size check: applies to every non-existing-tab branch below.
+      // Refused files never create a tab or open a window; huge files confirm first.
+      const route = await routeOpenBySize(path);
+      if (!route.proceed) return;
+
+      // Indeterminate StatusBar indicator — only for local WYSIWYG opens past
+      // the progress threshold. Cleared by TiptapEditor's onCreate on success.
+      // Started later (only for replace/create-tab branches) so the new-window
+      // branch does not stick the indicator on this window while a remote
+      // window actually loads.
+      const shouldShowIndicator =
+        !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+      let indicatorLoadId: number | null = null;
+      const activateIndicator = () => {
+        if (!shouldShowIndicator) return;
+        const filename = path.split("/").pop() ?? path;
+        indicatorLoadId = useFileLoadStore
+          .getState()
+          .startLoad(filename, route.sizeBytes);
+      };
+      const clearIndicatorOnFailure = () => {
+        if (indicatorLoadId !== null) {
+          useFileLoadStore.getState().endLoad(indicatorLoadId);
+        }
+      };
+
+      const applyForcedSource = (tabId: string) => {
+        if (!route.forceSourceMode) return;
+        useLargeFileSessionStore.getState().markForcedSource(tabId);
+      };
+
       const replaceableTab = getReplaceableTab(windowLabel);
       if (replaceableTab) {
+        activateIndicator();
         await replaceTabWithFile(replaceableTab, path, workspaceRoot);
+        applyForcedSource(replaceableTab.tabId);
+        // Indicator clears on TiptapEditor.onCreate (success) or here if the
+        // read failed silently (replaceTabWithFile handles its own toast).
+        if (!useDocumentStore.getState().documents[replaceableTab.tabId]?.filePath) {
+          clearIndicatorOnFailure();
+        }
         return;
       }
 
       const { rootPath } = useWorkspaceStore.getState();
       if (isSameWorkspace(path, rootPath, workspaceRoot)) {
+        const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+        activateIndicator();
         await createNewTabForFile(path, workspaceRoot, !rootPath);
+        const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+        if (tabIdAfter && tabIdAfter !== tabIdBefore) {
+          applyForcedSource(tabIdAfter);
+        } else {
+          // Tab did not change — createNewTabForFile hit its error path and
+          // detached the orphan. Clear the indicator to avoid a stuck spinner.
+          clearIndicatorOnFailure();
+        }
         return;
       }
 
+      // New window: the remote window will run its own routeOpenBySize when
+      // the cold-start queue drains, so we do NOT mark a tab here (there is
+      // no tab in this window). The refusal / warning dialog above already
+      // applied.
       await openFileInNewWindow(path, workspaceRoot);
     };
 

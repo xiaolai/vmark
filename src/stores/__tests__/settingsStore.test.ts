@@ -45,3 +45,34 @@ describe("settingsStore — lintEnabled", () => {
     expect(useSettingsStore.getState().markdown.lintEnabled).toBe(true);
   });
 });
+
+describe("settingsStore — largeFile section", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetSettings();
+  });
+
+  it("defaults autoSourceMode to true so large files open in Source mode", () => {
+    expect(useSettingsStore.getState().largeFile.autoSourceMode).toBe(true);
+  });
+
+  it("defaults warnAbove5MB to true so users get a confirmation on huge files", () => {
+    expect(useSettingsStore.getState().largeFile.warnAbove5MB).toBe(true);
+  });
+
+  it("updateLargeFileSetting toggles autoSourceMode without affecting other keys", () => {
+    const before = useSettingsStore.getState().largeFile.warnAbove5MB;
+    useSettingsStore.getState().updateLargeFileSetting("autoSourceMode", false);
+    expect(useSettingsStore.getState().largeFile.autoSourceMode).toBe(false);
+    expect(useSettingsStore.getState().largeFile.warnAbove5MB).toBe(before);
+  });
+
+  it("resetSettings restores large-file defaults", () => {
+    useSettingsStore.getState().updateLargeFileSetting("autoSourceMode", false);
+    useSettingsStore.getState().updateLargeFileSetting("warnAbove5MB", false);
+    useSettingsStore.getState().resetSettings();
+    expect(useSettingsStore.getState().largeFile).toEqual({
+      autoSourceMode: true,
+      warnAbove5MB: true,
+    });
+  });
+});

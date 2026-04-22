@@ -65,6 +65,7 @@ export type {
   ImageSettings,
   GeneralSettings,
   UpdateSettings,
+  LargeFileSettings,
   SettingsState,
   SettingsActions,
 } from "./settingsTypes";
@@ -246,11 +247,15 @@ const initialState: SettingsState = {
     lastCheckTimestamp: null,
     skipVersion: null,
   },
+  largeFile: {
+    autoSourceMode: true,
+    warnAbove5MB: true,
+  },
   showDevSection: false,
 };
 
 // Object sections that can be updated with createSectionUpdater
-type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced" | "update";
+type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced" | "update" | "largeFile";
 
 // Helper to create section updaters - reduces duplication
 const createSectionUpdater = <T extends ObjectSections>(
@@ -275,6 +280,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateTerminalSetting: createSectionUpdater(set, "terminal"),
       updateAdvancedSetting: createSectionUpdater(set, "advanced"),
       updateUpdateSetting: createSectionUpdater(set, "update"),
+      updateLargeFileSetting: createSectionUpdater(set, "largeFile"),
 
       toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
       resetSettings: () => set(structuredClone(initialState)),
