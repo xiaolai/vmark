@@ -53,6 +53,10 @@
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
   "lint.clean.toast": "No markdown issues found",
+  "largeFile.opening": "正在打开大文件（{{size}}）…",
+  "largeFile.openedInSourceMode": "已以源码模式打开（大文件）。",
+  "largeFile.switchToWysiwyg": "切换到富文本模式",
+  "largeFile.switchToWysiwygAria": "将当前文档从源码模式切换到富文本模式",
   "terminal.ariaLabel": "Terminal",
   "terminal": {
     "ariaLabel": "终端"

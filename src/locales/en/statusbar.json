@@ -56,5 +56,10 @@
 
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
-  "lint.clean.toast": "No markdown issues found"
+  "lint.clean.toast": "No markdown issues found",
+
+  "largeFile.opening": "Opening large file ({{size}})…",
+  "largeFile.openedInSourceMode": "Opened in Source mode (large file).",
+  "largeFile.switchToWysiwyg": "Switch to WYSIWYG",
+  "largeFile.switchToWysiwygAria": "Switch this document from Source mode to WYSIWYG"
 }
