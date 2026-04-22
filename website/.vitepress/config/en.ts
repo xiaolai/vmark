@@ -17,6 +17,7 @@ export const en = {
           items: [
             { text: "Getting Started", link: "/guide/" },
             { text: "Features", link: "/guide/features" },
+            { text: "Large Files", link: "/guide/large-files" },
             { text: "Export & Print", link: "/guide/export" },
             { text: "Keyboard Shortcuts", link: "/guide/shortcuts" },
             { text: "Smart Tab Navigation", link: "/guide/tab-navigation" },
