@@ -107,16 +107,20 @@
   font-size: var(--editor-font-size-block);
 }
 
-/* Performance optimization for large documents - DISABLED for testing
-   content-visibility: auto tells the browser to skip layout/paint for off-screen content
-   contain: layout style paint - enables optimization by isolating element's rendering
-   NOTE: This may cause issues during initial render, testing without it first.
-.tiptap-editor .ProseMirror > * {
+/* Performance optimization for large documents.
+   content-visibility: auto lets the browser skip layout/paint for off-screen blocks.
+   contain-intrinsic-size: auto <fallback> reserves a size estimate before first render
+   so the scrollbar doesn't jump. The `auto` keyword reuses the last-rendered size.
+
+   Gated on .cv-idle: content-visibility: auto has a pathological interaction with
+   DOM mutations that shift positions of off-screen blocks — edits near the top of
+   a long doc cost O(blocks-after-insertion), e.g. 378ms per keystroke on a 2250-block
+   doc. We apply it only when the editor is idle (initial load + between edits) and
+   strip it during active typing. The debounced toggle lives in TiptapEditor.tsx. */
+.tiptap-editor.cv-idle .ProseMirror > * {
   content-visibility: auto;
-  contain-intrinsic-size: auto 3em;
-  contain: layout style paint;
+  contain-intrinsic-size: auto 2.5em;
 }
-*/
 
 .tiptap-editor .ProseMirror .pm-selection-persist {
   background-color: var(--selection-color, rgba(0, 102, 204, 0.2));

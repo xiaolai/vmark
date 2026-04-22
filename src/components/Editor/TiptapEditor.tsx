@@ -11,6 +11,12 @@
  *     delays to reduce serialization frequency without losing keystrokes on unmount.
  *   - Initial parse is deferred via setTimeout(0) so the editor shell renders before the
  *     heavy markdown→PM conversion runs, keeping the UI responsive on large documents.
+ *   - shouldRerenderOnTransaction: false — Tiptap's default full-React-rerender per
+ *     transaction is wasted work here since state flows through Zustand selectors.
+ *   - content-visibility gated on .cv-idle (debounced off during typing) — the CSS
+ *     optimization is applied at rest but stripped during edits to avoid a
+ *     O(blocks-after-insertion) reflow on long docs.
+ *   - Native spellcheck disabled above 100K chars where rescans block the main thread.
  *   - Cursor tracking is delayed 200ms after creation to prevent spurious sync during
  *     initial render/focus.
  *   - Flusher registration moved to useEffect (not onCreate) to handle React Strict Mode
@@ -31,7 +37,7 @@ import { useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
-import { registerActiveWysiwygFlusher, flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
+import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/utils/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/utils/tiptapFocus";
@@ -152,10 +158,16 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   const preserveLineBreaksRef = useRef(preserveLineBreaks);
   const hardBreakStyleOnSaveRef = useRef(hardBreakStyleOnSave);
   const hiddenRef = useRef(hidden);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const cvIdleTimeoutRef = useRef<number | null>(null);
+  const contentRef = useRef(content);
+  const editorRef = useRef<TiptapEditor | null>(null);
+  const flushToStoreRef = useRef<((editor: TiptapEditor) => void) | null>(null);
   cursorInfoRef.current = cursorInfo;
   preserveLineBreaksRef.current = preserveLineBreaks;
   hardBreakStyleOnSaveRef.current = hardBreakStyleOnSave;
   hiddenRef.current = hidden;
+  contentRef.current = content;
 
   const extensions = useMemo(
     () => createTiptapExtensions({ tabId: activeTabId, lintEnabled }),
@@ -198,6 +210,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     },
     [setContent, windowLabel]
   );
+  flushToStoreRef.current = flushToStore;
 
   const flushCursorInfo = useCallback(() => {
     pendingCursorRaf.current = null;
@@ -220,11 +233,18 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   const editor = useEditor({
     editable: !readOnly,
     extensions,
+    // Tiptap re-renders the React tree on every transaction by default. VMark's
+    // editor state flows through Zustand selectors and explicit onUpdate/onSelectionUpdate
+    // hooks, so the blanket re-render is wasted work — especially on large docs where
+    // typing produces dozens of transactions per second.
+    shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: {
         class: "ProseMirror",
-        // Enable native browser spellcheck for system-level spell checking
-        spellcheck: "true",
+        // Disable native browser spellcheck on large documents — on 100K+ char docs
+        // the spellchecker holds the main thread while rescanning after every edit,
+        // causing visible typing lag. 100K threshold mirrors the debounce tier.
+        spellcheck: content.length > 100000 ? "false" : "true",
       },
       // Suppress ProseMirror's default scrollRectIntoView when cursor is in a table
       // to prevent horizontal scroll jumps on .table-scroll-wrapper
@@ -251,6 +271,16 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
           setContentWithoutHistory(editor, doc);
           lastExternalContent.current = contentSnapshot;
           editorInitialized.current = true;
+
+          // If content drifted while the deferred parse was pending, sync the
+          // fresh value now — otherwise the external-sync effect (gated on
+          // editorInitialized) already skipped it and would not refire until
+          // the next content change.
+          if (contentRef.current !== contentSnapshot) {
+            syncMarkdownToEditor(
+              editor, contentRef.current, lastExternalContent, preserveLineBreaksRef.current,
+            );
+          }
         } catch (error) {
           tiptapError(" Failed to parse initial markdown:", error);
           editorInitialized.current = true; // Unblock external sync even on parse error
@@ -293,6 +323,22 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       // Skip updates when hidden — prevents polluting document store
       /* v8 ignore next -- @preserve reason: hidden path skips update; hidden mode not exercised in WYSIWYG update tests */
       if (hiddenRef.current) return;
+
+      // Suppress content-visibility during active typing. Keeping cv on during
+      // edits costs O(blocks-after-insertion) per keystroke in Chromium — e.g.
+      // 378ms on a 2250-block doc. Re-enable after idle so scroll and repaint
+      // keep the optimization.
+      const container = editorContainerRef.current;
+      if (container) {
+        container.classList.remove("cv-idle");
+        if (cvIdleTimeoutRef.current !== null) {
+          window.clearTimeout(cvIdleTimeoutRef.current);
+        }
+        cvIdleTimeoutRef.current = window.setTimeout(() => {
+          cvIdleTimeoutRef.current = null;
+          editorContainerRef.current?.classList.add("cv-idle");
+        }, 500);
+      }
 
       // Cancel any pending flush
       if (pendingRaf.current) {
@@ -337,6 +383,12 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     },
   });
 
+  // Keep editorRef aligned with the live editor so unmount cleanup can flush
+  // directly without depending on the global flusher registry — which may be
+  // nulled by this component's own registration cleanup before the flush
+  // cleanup runs (React runs effect cleanups in reverse registration order).
+  editorRef.current = editor ?? null;
+
   // Return null from getEditorView when hidden to prevent outline sync from stale editor
   const getEditorView = useCallback(
     () => (hidden ? null : getTiptapEditorView(editor)),
@@ -357,9 +409,13 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   // keystrokes within the debounce window exist only in PM's in-memory doc (#755).
   useEffect(() => {
     return () => {
-      // Flush pending content via the registered flusher (avoids stale closure)
-      if (pendingRaf.current || pendingDebounceTimeout.current) {
-        try { flushActiveWysiwygNow(); } catch { /* flusher may not be registered */ }
+      // Flush pending content directly via this instance's editor — relying on
+      // the global flushActiveWysiwygNow() registry was racy: React cleans up
+      // effects in reverse registration order, so the flusher deregistration
+      // (useEffect below) runs before this cleanup and the flush becomes a
+      // no-op, losing keystrokes within the debounce window (#755).
+      if ((pendingRaf.current || pendingDebounceTimeout.current) && editorRef.current && flushToStoreRef.current) {
+        try { flushToStoreRef.current(editorRef.current); } catch { /* defensive */ }
       }
       if (pendingRaf.current) {
         cancelAnimationFrame(pendingRaf.current);
@@ -380,6 +436,10 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       if (trackingTimeoutId.current !== null) {
         window.clearTimeout(trackingTimeoutId.current);
         trackingTimeoutId.current = null;
+      }
+      if (cvIdleTimeoutRef.current !== null) {
+        window.clearTimeout(cvIdleTimeoutRef.current);
+        cvIdleTimeoutRef.current = null;
       }
     };
   }, []);
@@ -531,12 +591,12 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
 
   /* v8 ignore next -- @preserve reason: show-line-numbers CSS class branch not exercised in current TiptapEditor render tests */
   const editorClassName = showLineNumbers
-    ? "tiptap-editor show-line-numbers"
-    : "tiptap-editor";
+    ? "tiptap-editor cv-idle show-line-numbers"
+    : "tiptap-editor cv-idle";
 
   return (
     <>
-      <div className={editorClassName} style={hidden ? { display: "none" } : undefined}>
+      <div ref={editorContainerRef} className={editorClassName} style={hidden ? { display: "none" } : undefined}>
         <EditorContent editor={editor} />
       </div>
       {!hidden && <ImageContextMenu onAction={handleImageContextMenuAction} />}
