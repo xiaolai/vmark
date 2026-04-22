@@ -22,6 +22,7 @@
  */
 import { lazy, Suspense } from "react";
 import { useEditorStore } from "@/stores/editorStore";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useActiveTabId, useDocumentId } from "@/hooks/useDocumentState";
@@ -45,8 +46,16 @@ import "@/styles/popup-shared.css";
 
 /** Top-level editor container that switches between WYSIWYG and Source editing modes. */
 export function Editor() {
-  const sourceMode = useEditorStore((state) => state.sourceMode);
+  const globalSourceMode = useEditorStore((state) => state.sourceMode);
   const tabId = useActiveTabId();
+  // Per-tab Source-mode override: a large file opened in forced Source mode
+  // stays in Source even if the window-global sourceMode is WYSIWYG. Lets
+  // "Switch to WYSIWYG" affect only the upgraded tab.
+  /* v8 ignore next 3 -- @preserve tabId is always truthy inside the Editor surface; defensive fallback for null isn't exercised in tests */
+  const forcedSource = useLargeFileSessionStore((s) =>
+    tabId ? Boolean(s.forcedSourceTabs[tabId]) : false
+  );
+  const sourceMode = globalSourceMode || forcedSource;
   const documentId = useDocumentId();
   const mediaBorderStyle = useSettingsStore((s) => s.markdown.mediaBorderStyle);
   const mediaAlignment = useSettingsStore((s) => s.markdown.mediaAlignment);

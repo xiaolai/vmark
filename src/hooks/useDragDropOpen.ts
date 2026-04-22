@@ -44,6 +44,9 @@ import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 /**
  * Opens a file in a new tab (or activates existing tab if already open).
  *
+ * Exported via `__testing__` below so drag-drop size-tier routing can be
+ * exercised without simulating the full Tauri drag event.
+ *
  * @param windowLabel - The window to open the file in
  * @param path - The file path to open
  */
@@ -61,8 +64,9 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
 
   const showIndicator =
     !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+  let loadId: number | null = null;
   if (showIndicator) {
-    useFileLoadStore
+    loadId = useFileLoadStore
       .getState()
       .startLoad(getFileName(path) || path, route.sizeBytes);
   }
@@ -75,17 +79,13 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
     useRecentFilesStore.getState().addFile(path);
 
     if (route.forceSourceMode) {
-      const { useEditorStore } = await import("@/stores/editorStore");
-      if (!useEditorStore.getState().sourceMode) {
-        useEditorStore.getState().setSourceMode(true);
-      }
       useLargeFileSessionStore.getState().markForcedSource(tabId);
     }
   } catch (error) {
     dragDropError("Failed to open file:", path, error);
     const filename = getFileName(path) || path;
     toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-    if (showIndicator) useFileLoadStore.getState().endLoad();
+    if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
   }
 }
 
@@ -219,6 +219,21 @@ export function useDragDropOpen(): void {
 
             for (const path of markdownPaths) {
               if (!replaceableTabUsed && initialReplaceableTab) {
+                const route = await routeOpenBySize(path);
+                if (!route.proceed) {
+                  // Refused / cancelled — skip this file, continue batch.
+                  continue;
+                }
+
+                const showIndicator =
+                  !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+                let batchLoadId: number | null = null;
+                if (showIndicator) {
+                  batchLoadId = useFileLoadStore
+                    .getState()
+                    .startLoad(getFileName(path) || path, route.sizeBytes);
+                }
+
                 try {
                   const content = await readTextFile(path);
                   useTabStore.getState().updateTabPath(initialReplaceableTab.tabId, path);
@@ -229,12 +244,20 @@ export function useDragDropOpen(): void {
                     detectLinebreaks(content)
                   );
                   useRecentFilesStore.getState().addFile(path);
+                  if (route.forceSourceMode) {
+                    useLargeFileSessionStore
+                      .getState()
+                      .markForcedSource(initialReplaceableTab.tabId);
+                  }
                   replaceableTabUsed = true;
                   continue;
                 } catch (error) {
                   dragDropError("Failed to replace tab with file:", path, error);
                   const filename = getFileName(path) || path;
                   toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
+                  if (batchLoadId !== null) {
+                    useFileLoadStore.getState().endLoad(batchLoadId);
+                  }
                 }
               }
 
@@ -263,8 +286,20 @@ export function useDragDropOpen(): void {
             case "create_tab":
               await openFileInNewTab(windowLabel, path);
               break;
-            case "replace_tab":
-              // Replace the clean untitled tab with the file content (only once)
+            case "replace_tab": {
+              // Replace the clean untitled tab with the file content (only once).
+              const route = await routeOpenBySize(path);
+              if (!route.proceed) break;
+
+              const showIndicator =
+                !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+              let decisionLoadId: number | null = null;
+              if (showIndicator) {
+                decisionLoadId = useFileLoadStore
+                  .getState()
+                  .startLoad(getFileName(path) || path, route.sizeBytes);
+              }
+
               try {
                 const content = await readTextFile(path);
                 useTabStore.getState().updateTabPath(decision.tabId, decision.filePath);
@@ -276,13 +311,20 @@ export function useDragDropOpen(): void {
                 );
                 await openWorkspaceWithConfig(decision.workspaceRoot);
                 useRecentFilesStore.getState().addFile(path);
+                if (route.forceSourceMode) {
+                  useLargeFileSessionStore.getState().markForcedSource(decision.tabId);
+                }
                 replaceableTabUsed = true;
               } catch (error) {
                 dragDropError("Failed to replace tab with file:", path, error);
                 const filename = getFileName(path) || path;
                 toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
+                if (decisionLoadId !== null) {
+                  useFileLoadStore.getState().endLoad(decisionLoadId);
+                }
               }
               break;
+            }
             case "open_workspace_in_new_window":
               try {
                 await invoke("open_workspace_in_new_window", {
@@ -320,3 +362,8 @@ export function useDragDropOpen(): void {
     };
   }, [windowLabel]);
 }
+
+/** Test-only exports — do NOT import in production code. */
+export const __testing__ = {
+  openFileInNewTab,
+};

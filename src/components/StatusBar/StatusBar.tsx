@@ -38,6 +38,7 @@ import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import {
   useDocumentLastAutoSave,
   useDocumentIsMissing,
@@ -50,6 +51,7 @@ import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
 import { FileLoadIndicator } from "./FileLoadIndicator";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
@@ -96,7 +98,7 @@ export function StatusBar() {
   const isMissing = useDocumentIsMissing();
   const isDivergent = useDocumentIsDivergent();
   const autoSaveEnabled = useSettingsStore((state) => state.general.autoSaveEnabled);
-  const sourceMode = useEditorStore((state) => state.sourceMode);
+  const globalSourceMode = useEditorStore((state) => state.sourceMode);
   const statusBarVisible = useUIStore((state) => state.statusBarVisible);
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);
   const terminalVisible = useUIStore((state) => state.terminalVisible);
@@ -121,6 +123,14 @@ export function StatusBar() {
 
   const tabs = useTabStore((state) => (isDocumentWindow ? state.tabs[windowLabel] ?? EMPTY_TABS : EMPTY_TABS));
   const activeTabId = useTabStore((state) => (isDocumentWindow ? state.activeTabId[windowLabel] : null));
+  /* v8 ignore next 3 -- @preserve defensive `!activeTabId` fallback is not exercised — the StatusBar always has an active tab in tests */
+  const activeTabForcedSource = useLargeFileSessionStore((s) =>
+    activeTabId ? Boolean(s.forcedSourceTabs[activeTabId]) : false
+  );
+  // Effective mode mirrors Editor.tsx: a forced-source tab shows as Source
+  // even when the window-global mode is WYSIWYG. So the mode indicator and
+  // the menu/click-to-toggle flow respect the per-tab override.
+  const sourceMode = globalSourceMode || activeTabForcedSource;
   const readOnly = useDocumentStore((state) => activeTabId ? state.documents[activeTabId]?.readOnly ?? false : false);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -309,7 +319,7 @@ export function StatusBar() {
             saveShortcut={saveShortcut}
             sourceMode={sourceMode}
             sourceModeShortcut={sourceModeShortcut}
-            onToggleSourceMode={() => useEditorStore.getState().toggleSourceMode()}
+            onToggleSourceMode={() => toggleSourceModeWithCheckpoint(windowLabel)}
             readOnly={readOnly}
             readOnlyShortcut={readOnlyShortcut}
             onToggleReadOnly={() => {

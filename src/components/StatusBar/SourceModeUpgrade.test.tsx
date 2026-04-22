@@ -37,17 +37,9 @@ describe("SourceModeUpgrade", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing when the tab is forced-source but editor is WYSIWYG", () => {
+  it("renders the offer when active tab is forced-source (independent of global sourceMode)", () => {
     setActiveTab("tab-1");
     useLargeFileSessionStore.getState().markForcedSource("tab-1");
-    const { container } = render(<SourceModeUpgrade />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("renders the offer when active tab is forced-source and editor is Source mode", () => {
-    setActiveTab("tab-1");
-    useLargeFileSessionStore.getState().markForcedSource("tab-1");
-    useEditorStore.getState().setSourceMode(true);
 
     render(<SourceModeUpgrade />);
 
@@ -57,7 +49,7 @@ describe("SourceModeUpgrade", () => {
     ).toBeInTheDocument();
   });
 
-  it("clicking the action flips sourceMode and clears the marker", async () => {
+  it("clicking the action clears the marker but does NOT touch global sourceMode", async () => {
     const user = userEvent.setup();
     setActiveTab("tab-1");
     useLargeFileSessionStore.getState().markForcedSource("tab-1");
@@ -68,14 +60,14 @@ describe("SourceModeUpgrade", () => {
       screen.getByRole("button", { name: /largeFile\.switchToWysiwygAria/i })
     );
 
-    expect(useEditorStore.getState().sourceMode).toBe(false);
+    // Global sourceMode is preserved — only the tab's override is lifted.
+    expect(useEditorStore.getState().sourceMode).toBe(true);
     expect(useLargeFileSessionStore.getState().isForcedSource("tab-1")).toBe(false);
   });
 
   it("does not render for an unrelated active tab", () => {
     setActiveTab("tab-1");
     useLargeFileSessionStore.getState().markForcedSource("tab-9");
-    useEditorStore.getState().setSourceMode(true);
 
     const { container } = render(<SourceModeUpgrade />);
     expect(container).toBeEmptyDOMElement();

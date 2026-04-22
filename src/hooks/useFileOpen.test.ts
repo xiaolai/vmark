@@ -14,8 +14,12 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 }));
 
 const mockOpen = vi.fn();
+const mockAsk = vi.fn(() => Promise.resolve(true));
+const mockMessage = vi.fn(() => Promise.resolve(undefined));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: (...args: unknown[]) => mockOpen(...args),
+  ask: (...args: unknown[]) => mockAsk(...args),
+  message: (...args: unknown[]) => mockMessage(...args),
 }));
 
 const mockInvoke = vi.fn();
@@ -335,6 +339,104 @@ describe("handleOpen — dialog and routing", () => {
     errorSpy.mockRestore();
   });
 
+  it("replace_tab route refuses huge files and never reads", async () => {
+    mockOpen.mockResolvedValue("/docs/huge.md");
+    mockResolveOpenAction.mockReturnValue({
+      action: "replace_tab",
+      tabId: "empty-tab",
+      filePath: "/docs/huge.md",
+      workspaceRoot: "/docs",
+    });
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(60 * 1024 * 1024);
+      return Promise.resolve();
+    });
+
+    const { handleOpen } = await import("./useFileOpen");
+    await handleOpen(WINDOW);
+
+    expect(mockReadTextFile).not.toHaveBeenCalled();
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+  });
+
+  it("replace_tab route sets the indeterminate indicator for ≥ 300 KB WYSIWYG opens", async () => {
+    mockOpen.mockResolvedValue("/docs/medium.md");
+    mockResolveOpenAction.mockReturnValue({
+      action: "replace_tab",
+      tabId: "empty-tab-medium",
+      filePath: "/docs/medium.md",
+      workspaceRoot: "/docs",
+    });
+    mockInvoke.mockImplementation((cmd: string) => {
+      // 400 KB: above progress threshold (300 KB) but below source-mode (1 MB).
+      if (cmd === "get_file_size_bytes") return Promise.resolve(400 * 1024);
+      return Promise.resolve();
+    });
+    mockReadTextFile.mockResolvedValue("# medium");
+    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    useFileLoadStore.getState().endLoad();
+
+    const { handleOpen } = await import("./useFileOpen");
+    await handleOpen(WINDOW);
+
+    // No editor mount in the unit test, so the indicator stays active
+    // until a caller (test or editor) invokes endLoad.
+    expect(useFileLoadStore.getState().active).toBe(true);
+  });
+
+  it("replace_tab read failure clears the indicator (≥ 300 KB file)", async () => {
+    mockOpen.mockResolvedValue("/docs/medium-fail.md");
+    mockResolveOpenAction.mockReturnValue({
+      action: "replace_tab",
+      tabId: "empty-tab-mf",
+      filePath: "/docs/medium-fail.md",
+      workspaceRoot: "/docs",
+    });
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(400 * 1024);
+      return Promise.resolve();
+    });
+    mockReadTextFile.mockRejectedValue(new Error("ENOENT"));
+    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    useFileLoadStore.getState().endLoad();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { handleOpen } = await import("./useFileOpen");
+    await handleOpen(WINDOW);
+
+    // The indicator was set at the start of replace_tab, and the error path
+    // clears it via endLoad(replaceLoadId).
+    expect(useFileLoadStore.getState().active).toBe(false);
+    errorSpy.mockRestore();
+  });
+
+  it("replace_tab route marks large files as forced-source", async () => {
+    mockOpen.mockResolvedValue("/docs/large.md");
+    mockResolveOpenAction.mockReturnValue({
+      action: "replace_tab",
+      tabId: "empty-tab-large",
+      filePath: "/docs/large.md",
+      workspaceRoot: "/docs",
+    });
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(2 * 1024 * 1024);
+      return Promise.resolve();
+    });
+    mockReadTextFile.mockResolvedValue("# large");
+    const { useLargeFileSessionStore } = await import(
+      "@/stores/largeFileSessionStore"
+    );
+    useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
+
+    const { handleOpen } = await import("./useFileOpen");
+    await handleOpen(WINDOW);
+
+    expect(mockReadTextFile).toHaveBeenCalledWith("/docs/large.md");
+    expect(
+      useLargeFileSessionStore.getState().isForcedSource("empty-tab-large")
+    ).toBe(true);
+  });
+
   it("opens workspace in new window when action is open_workspace_in_new_window", async () => {
     mockOpen.mockResolvedValue("/other/file.md");
     mockResolveOpenAction.mockReturnValue({
@@ -378,5 +480,80 @@ describe("handleOpen — dialog and routing", () => {
 
     expect(mockReadTextFile).not.toHaveBeenCalled();
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+});
+
+describe("openFileInNewTabCore — size-tier routing", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    useTabStore.getState().removeWindow(WINDOW);
+    Object.keys(useDocumentStore.getState().documents).forEach((id) =>
+      useDocumentStore.getState().removeDocument(id)
+    );
+    // Reset largeFile settings to defaults
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.getState().resetSettings();
+    const { useLargeFileSessionStore } = await import(
+      "@/stores/largeFileSessionStore"
+    );
+    useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
+  });
+
+  it("small files still open normally through WYSIWYG", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(10_000);
+      return Promise.resolve();
+    });
+    mockReadTextFile.mockResolvedValue("# small");
+
+    await openFileInNewTabCore(WINDOW, "/docs/small.md");
+    expect(mockReadTextFile).toHaveBeenCalledWith("/docs/small.md");
+  });
+
+  it("medium WYSIWYG files (≥ 300 KB, < 1 MB) set the load indicator", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(400 * 1024);
+      return Promise.resolve();
+    });
+    mockReadTextFile.mockResolvedValue("# medium");
+    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    useFileLoadStore.getState().endLoad();
+
+    await openFileInNewTabCore(WINDOW, "/docs/medium.md");
+
+    expect(useFileLoadStore.getState().active).toBe(true);
+  });
+
+  it("refused files (≥ 50 MB) never read or create a document", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(60 * 1024 * 1024);
+      return Promise.resolve();
+    });
+    const initDocSpy = vi.spyOn(useDocumentStore.getState(), "initDocument");
+
+    await openFileInNewTabCore(WINDOW, "/docs/huge.md");
+
+    expect(mockReadTextFile).not.toHaveBeenCalled();
+    expect(initDocSpy).not.toHaveBeenCalled();
+  });
+
+  it("large files (≥ 1 MB) still read and open in force-source mode", async () => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(2 * 1024 * 1024);
+      return Promise.resolve();
+    });
+    mockReadTextFile.mockResolvedValue("# large");
+    const initDocSpy = vi.spyOn(useDocumentStore.getState(), "initDocument");
+
+    await openFileInNewTabCore(WINDOW, "/docs/large.md");
+
+    expect(mockReadTextFile).toHaveBeenCalled();
+    expect(initDocSpy).toHaveBeenCalled();
+    // Force-source is asserted via the session store being non-empty.
+    const { useLargeFileSessionStore } = await import(
+      "@/stores/largeFileSessionStore"
+    );
+    const marks = Object.keys(useLargeFileSessionStore.getState().forcedSourceTabs);
+    expect(marks.length).toBeGreaterThan(0);
   });
 });

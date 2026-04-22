@@ -55,6 +55,13 @@ describe("confirmOpenHugeFile", () => {
     const [, options] = askMock.mock.calls[0];
     expect((options as { title?: string }).title).toContain("filename=big.md");
   });
+
+  it("falls back to the raw input when the path has no separator", async () => {
+    askMock.mockResolvedValueOnce(true);
+    await confirmOpenHugeFile("bare-name.md", 6 * 1024 * 1024);
+    const [, options] = askMock.mock.calls[0];
+    expect((options as { title?: string }).title).toContain("filename=bare-name.md");
+  });
 });
 
 describe("showHugeFileRefusal", () => {

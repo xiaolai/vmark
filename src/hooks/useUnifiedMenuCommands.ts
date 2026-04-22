@@ -23,6 +23,8 @@ import { useEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useEditorStore } from "@/stores/editorStore";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useTabStore } from "@/stores/tabStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import {
@@ -316,8 +318,17 @@ export function useUnifiedMenuCommands(): void {
             return;
           }
 
-          // Route to appropriate adapter based on mode
-          const isSourceMode = useEditorStore.getState().sourceMode;
+          // Route to appropriate adapter based on mode. The effective mode is
+          // the window-global sourceMode OR-ed with the active tab's
+          // forced-source marker (large files opened in Source mode even when
+          // the window is otherwise in WYSIWYG).
+          const activeTabIdForMode =
+            useTabStore.getState().activeTabId[windowLabel] ?? null;
+          const forcedTabSource = activeTabIdForMode
+            ? useLargeFileSessionStore.getState().isForcedSource(activeTabIdForMode)
+            : false;
+          const isSourceMode =
+            useEditorStore.getState().sourceMode || forcedTabSource;
 
           // Capability check
           if (isSourceMode && !actionDef.supports.source) {

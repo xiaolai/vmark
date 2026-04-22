@@ -260,6 +260,12 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       // Capture content at mount time — the closure value is stable for this editor instance.
       const contentSnapshot = content;
 
+      // Capture the in-flight load id (if any) so a stale completion from a
+      // previous tab cannot clear a newer load indicator.
+      const loadIdAtMount = useFileLoadStore.getState().active
+        ? useFileLoadStore.getState().loadId
+        : null;
+
       // Defer the heavy markdown→PM parse so the editor shell renders before the parse
       // blocks the main thread. For large documents this keeps the UI responsive.
       setTimeout(() => {
@@ -286,10 +292,12 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
           tiptapError(" Failed to parse initial markdown:", error);
           editorInitialized.current = true; // Unblock external sync even on parse error
         } finally {
-          // Clear the "Opening large file…" StatusBar indicator once the editor
-          // has a doc and is interactive (or we've given up on parsing).
-          if (useFileLoadStore.getState().active) {
-            useFileLoadStore.getState().endLoad();
+          // Clear the "Opening large file…" StatusBar indicator once this
+          // editor has a doc and is interactive. Scope the clear to the
+          // loadId we captured at mount so a stale completion from a prior
+          // tab cannot wipe a newer indicator.
+          if (loadIdAtMount !== null) {
+            useFileLoadStore.getState().endLoad(loadIdAtMount);
           }
         }
 

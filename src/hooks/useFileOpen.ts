@@ -73,9 +73,10 @@ export async function openFileInNewTabCore(
   // opens are sub-second — the indicator would flash and confuse).
   const showIndicator =
     !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+  let loadId: number | null = null;
   if (showIndicator) {
     const filename = path.split("/").pop() ?? path;
-    useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
+    loadId = useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
   }
 
   try {
@@ -102,12 +103,10 @@ export async function openFileInNewTabCore(
         useEditorStore.getState().setSourceMode(true);
       }
     } else if (route.forceSourceMode) {
-      // Large / huge file: honor the route decision by switching to Source mode
-      // and marking the tab so the StatusBar can offer an explicit upgrade back.
-      const { useEditorStore } = await import("@/stores/editorStore");
-      if (!useEditorStore.getState().sourceMode) {
-        useEditorStore.getState().setSourceMode(true);
-      }
+      // Large / huge file: mark the tab as forced-source. The Editor reads
+      // this marker as a per-tab override on top of the window-global
+      // sourceMode, so other tabs in the same window are unaffected and the
+      // StatusBar can offer an explicit upgrade back to WYSIWYG.
       useLargeFileSessionStore.getState().markForcedSource(tabId);
     }
 
@@ -122,7 +121,7 @@ export async function openFileInNewTabCore(
     const msg = error instanceof Error ? error.message : String(error);
     toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }));
     // Clear the indicator immediately on error so no stale spinner lingers.
-    if (showIndicator) useFileLoadStore.getState().endLoad();
+    if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
   }
 }
 
@@ -191,8 +190,26 @@ export async function handleOpen(windowLabel: string): Promise<void> {
         await openFileInNewTab(windowLabel, path);
         perfMark("handleOpen:createdTab");
         break;
-      case "replace_tab":
-        // Replace the clean untitled tab with the file content
+      case "replace_tab": {
+        // Replace the clean untitled tab with the file content.
+        // Pre-read size gate so refused / cancelled / huge files honor the
+        // large-file UX even on this branch.
+        const route = await routeOpenBySize(path);
+        if (!route.proceed) {
+          perfMark("handleOpen:replaceTabRefusedOrCancelled");
+          break;
+        }
+
+        const showIndicator =
+          !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+        let replaceLoadId: number | null = null;
+        if (showIndicator) {
+          const filename = path.split("/").pop() ?? path;
+          replaceLoadId = useFileLoadStore
+            .getState()
+            .startLoad(filename, route.sizeBytes);
+        }
+
         try {
           perfStart("replace_tab:readTextFile");
           const content = await readTextFile(path);
@@ -220,11 +237,20 @@ export async function handleOpen(windowLabel: string): Promise<void> {
           perfEnd("replace_tab:openWorkspaceWithConfig");
 
           useRecentFilesStore.getState().addFile(path);
+
+          if (route.forceSourceMode) {
+            useLargeFileSessionStore.getState().markForcedSource(decision.tabId);
+          }
+
           perfMark("handleOpen:replacedTab");
         } catch (error) {
           fileOpsError("Failed to replace tab with file:", error);
+          if (replaceLoadId !== null) {
+            useFileLoadStore.getState().endLoad(replaceLoadId);
+          }
         }
         break;
+      }
       case "open_workspace_in_new_window":
         try {
           await invoke("open_workspace_in_new_window", {

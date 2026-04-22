@@ -19,7 +19,6 @@
 
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useEditorStore } from "@/stores/editorStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
@@ -27,19 +26,22 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 export function SourceModeUpgrade() {
   const { t } = useTranslation("statusbar");
   const windowLabel = useWindowLabel();
-  const sourceMode = useEditorStore((s) => s.sourceMode);
   const activeTabId = useTabStore((s) => s.activeTabId[windowLabel] ?? null);
+  /* v8 ignore next 3 -- @preserve defensive `!activeTabId` fallback is not exercised — the StatusBar always has an active tab in tests */
   const isForcedSource = useLargeFileSessionStore((s) =>
     activeTabId ? Boolean(s.forcedSourceTabs[activeTabId]) : false
   );
 
+  // The "Switch to WYSIWYG" action clears only this tab's forced-source
+  // marker. The Editor treats the marker as a per-tab override layered on
+  // top of the window-global sourceMode, so other tabs in the same window
+  // keep their mode. Global sourceMode is not flipped.
   const handleUpgrade = useCallback(() => {
     if (!activeTabId) return;
-    useEditorStore.getState().setSourceMode(false);
     useLargeFileSessionStore.getState().clearForcedSource(activeTabId);
   }, [activeTabId]);
 
-  if (!isForcedSource || !sourceMode) return null;
+  if (!isForcedSource) return null;
 
   return (
     <div className="status-source-upgrade" role="status" aria-live="polite">

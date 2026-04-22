@@ -52,7 +52,6 @@ import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/utils/hotExit
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
-import { useEditorStore } from "@/stores/editorStore";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
@@ -268,20 +267,22 @@ export function useFinderFileOpen(): void {
       // window actually loads.
       const shouldShowIndicator =
         !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+      let indicatorLoadId: number | null = null;
       const activateIndicator = () => {
         if (!shouldShowIndicator) return;
         const filename = path.split("/").pop() ?? path;
-        useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
+        indicatorLoadId = useFileLoadStore
+          .getState()
+          .startLoad(filename, route.sizeBytes);
       };
       const clearIndicatorOnFailure = () => {
-        if (shouldShowIndicator) useFileLoadStore.getState().endLoad();
+        if (indicatorLoadId !== null) {
+          useFileLoadStore.getState().endLoad(indicatorLoadId);
+        }
       };
 
       const applyForcedSource = (tabId: string) => {
         if (!route.forceSourceMode) return;
-        if (!useEditorStore.getState().sourceMode) {
-          useEditorStore.getState().setSourceMode(true);
-        }
         useLargeFileSessionStore.getState().markForcedSource(tabId);
       };
 

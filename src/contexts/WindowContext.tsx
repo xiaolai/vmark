@@ -45,6 +45,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 import { useRecentFilesStore } from "../stores/recentFilesStore";
@@ -66,7 +67,6 @@ import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
-import { useEditorStore } from "@/stores/editorStore";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 
 async function applyTabTransferData(label: string, data: TabTransferPayload): Promise<void> {
@@ -281,8 +281,9 @@ export function WindowProvider({ children }: WindowProviderProps) {
 
               const showIndicator =
                 !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+              let indicatorLoadId: number | null = null;
               if (showIndicator) {
-                useFileLoadStore
+                indicatorLoadId = useFileLoadStore
                   .getState()
                   .startLoad(getFileName(pathToOpen) || pathToOpen, route.sizeBytes);
               }
@@ -294,9 +295,6 @@ export function WindowProvider({ children }: WindowProviderProps) {
                 useRecentFilesStore.getState().addFile(pathToOpen);
 
                 if (route.forceSourceMode) {
-                  if (!useEditorStore.getState().sourceMode) {
-                    useEditorStore.getState().setSourceMode(true);
-                  }
                   useLargeFileSessionStore.getState().markForcedSource(tabId);
                 }
               } catch (error) {
@@ -304,8 +302,10 @@ export function WindowProvider({ children }: WindowProviderProps) {
                 useDocumentStore.getState().initDocument(tabId, "", null);
                 /* v8 ignore next -- @preserve reason: getFileName always returns a value for valid paths; || path is a defensive fallback */
                 const filename = getFileName(pathToOpen) || pathToOpen;
-                toast.error(`Failed to open ${filename}`);
-                if (showIndicator) useFileLoadStore.getState().endLoad();
+                toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
+                if (indicatorLoadId !== null) {
+                  useFileLoadStore.getState().endLoad(indicatorLoadId);
+                }
               }
             };
 
