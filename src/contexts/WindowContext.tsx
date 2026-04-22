@@ -62,6 +62,11 @@ import { isWithinRoot } from "../utils/paths";
 import type { TabTransferPayload } from "@/types/tabTransfer";
 import { windowCloseWarn, windowContextError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
+import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
+import { useEditorStore } from "@/stores/editorStore";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 
 async function applyTabTransferData(label: string, data: TabTransferPayload): Promise<void> {
@@ -258,45 +263,62 @@ export function WindowProvider({ children }: WindowProviderProps) {
             if (!filePath && !workspaceRootParam && label === "main") {
               useWorkspaceStore.getState().closeWorkspace();
             }
+            // Shared per-file routing: applies the large-file UX to every
+            // launch-arg file before we read it (so 60 MB files are refused
+            // and 1 MB+ files open in Source mode with the indicator).
+            const loadPathIntoNewTab = async (pathToOpen: string) => {
+              const route = await routeOpenBySize(pathToOpen);
+              if (!route.proceed) {
+                // Refused / cancelled: still create an empty tab so the window
+                // has a live document — otherwise a user who cancelled a huge
+                // file would see a blank, tabless window.
+                const tabId = useTabStore.getState().createTab(label, null);
+                useDocumentStore.getState().initDocument(tabId, "", null);
+                return;
+              }
+
+              const tabId = useTabStore.getState().createTab(label, pathToOpen);
+
+              const showIndicator =
+                !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+              if (showIndicator) {
+                useFileLoadStore
+                  .getState()
+                  .startLoad(getFileName(pathToOpen) || pathToOpen, route.sizeBytes);
+              }
+
+              try {
+                const content = await readTextFile(pathToOpen);
+                useDocumentStore.getState().initDocument(tabId, content, pathToOpen);
+                useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
+                useRecentFilesStore.getState().addFile(pathToOpen);
+
+                if (route.forceSourceMode) {
+                  if (!useEditorStore.getState().sourceMode) {
+                    useEditorStore.getState().setSourceMode(true);
+                  }
+                  useLargeFileSessionStore.getState().markForcedSource(tabId);
+                }
+              } catch (error) {
+                windowContextError("Failed to load file:", pathToOpen, error);
+                useDocumentStore.getState().initDocument(tabId, "", null);
+                /* v8 ignore next -- @preserve reason: getFileName always returns a value for valid paths; || path is a defensive fallback */
+                const filename = getFileName(pathToOpen) || pathToOpen;
+                toast.error(`Failed to open ${filename}`);
+                if (showIndicator) useFileLoadStore.getState().endLoad();
+              }
+            };
+
             if (filePaths && filePaths.length > 0) {
               for (const path of filePaths) {
-                const tabId = useTabStore.getState().createTab(label, path);
-                try {
-                  const content = await readTextFile(path);
-                  useDocumentStore.getState().initDocument(tabId, content, path);
-                  useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
-                  useRecentFilesStore.getState().addFile(path);
-                } catch (error) {
-                  windowContextError("Failed to load file:", path, error);
-                  useDocumentStore.getState().initDocument(tabId, "", null);
-                  /* v8 ignore next -- @preserve reason: getFileName always returns a value for valid paths; || path is a defensive fallback */
-                  const filename = getFileName(path) || path;
-                  toast.error(`Failed to open ${filename}`);
-                }
+                await loadPathIntoNewTab(path);
               }
+            } else if (filePath) {
+              await loadPathIntoNewTab(filePath);
             } else {
-              // Create the initial tab
-              const tabId = useTabStore.getState().createTab(label, filePath);
-
-              if (filePath) {
-                // Load file content from disk
-                try {
-                  const content = await readTextFile(filePath);
-                  useDocumentStore.getState().initDocument(tabId, content, filePath);
-                  useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
-                  useRecentFilesStore.getState().addFile(filePath);
-                } catch (error) {
-                  windowContextError("Failed to load file:", filePath, error);
-                  // Initialize with empty content if file can't be read
-                  useDocumentStore.getState().initDocument(tabId, "", null);
-                  /* v8 ignore next -- @preserve reason: getFileName always returns a value for valid paths; || filePath is a defensive fallback */
-                  const filename = getFileName(filePath) || filePath;
-                  toast.error(`Failed to open ${filename}`);
-                }
-              } else {
-                // No file path - initialize empty document
-                useDocumentStore.getState().initDocument(tabId, "", null);
-              }
+              // No file path - initialize empty document
+              const tabId = useTabStore.getState().createTab(label, null);
+              useDocumentStore.getState().initDocument(tabId, "", null);
             }
           }
         }
