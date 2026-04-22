@@ -23,6 +23,11 @@ export const fileOpsWarn = isDev
   ? (...args: unknown[]) => console.warn("[FileOps]", ...args)
   : (...args: unknown[]) => prodWarn("[FileOps]", ...args);
 
+/** Warn logger for Large File open routing. */
+export const largeFileWarn = isDev
+  ? (...args: unknown[]) => console.warn("[LargeFile]", ...args)
+  : (...args: unknown[]) => prodWarn("[LargeFile]", ...args);
+
 /** Warn logger for AI Provider operations. */
 export const aiProviderWarn = isDev
   ? (...args: unknown[]) => console.warn("[AIProvider]", ...args)

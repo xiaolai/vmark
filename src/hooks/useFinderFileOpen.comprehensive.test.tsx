@@ -58,6 +58,7 @@ const mockSetActiveTab = vi.fn();
 const mockCreateTab = vi.fn(() => "new-tab-id");
 const mockUpdateTabPath = vi.fn();
 const mockDetachTab = vi.fn();
+const mockGetActiveTab = vi.fn(() => null);
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
@@ -66,6 +67,7 @@ vi.mock("@/stores/tabStore", () => ({
       createTab: mockCreateTab,
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
+      getActiveTab: mockGetActiveTab,
     }),
   },
 }));

@@ -54,6 +54,7 @@ const mockSetActiveTab = vi.fn();
 const mockCreateTab = vi.fn(() => "new-tab");
 const mockUpdateTabPath = vi.fn();
 const mockDetachTab = vi.fn();
+const mockGetActiveTab = vi.fn(() => null);
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
@@ -61,6 +62,7 @@ vi.mock("@/stores/tabStore", () => ({
       createTab: mockCreateTab,
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
+      getActiveTab: mockGetActiveTab,
     }),
   },
 }));
@@ -397,6 +399,10 @@ describe("useFinderFileOpen", () => {
           { path: "/other/workspace/file.md", workspace_root: "/other/workspace" },
         ]);
       }
+      // Size-check must not reject — falling through on error is the
+      // intentional contract of routeOpenBySize, but treating this file
+      // as "small" keeps the test focused on the new-window invoke error.
+      if (cmd === "get_file_size_bytes") return Promise.resolve(0);
       // Throw on the invoke for open_workspace_in_new_window
       return Promise.reject(new Error("window open failed"));
     });

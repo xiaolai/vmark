@@ -29,6 +29,8 @@ import { createUntitledTab } from "@/utils/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
+import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 
 /**
  * Open a file in a new tab (core logic).
@@ -40,6 +42,14 @@ export async function openFileInNewTabCore(
   windowLabel: string,
   path: string
 ): Promise<void> {
+  // Pre-read size check: refused files never create a tab; huge files
+  // confirm before going further; routeOpenBySize is a no-op for small files.
+  const route = await routeOpenBySize(path);
+  if (!route.proceed) {
+    perfMark("openFileInNewTab:refusedOrCancelled");
+    return;
+  }
+
   perfStart("createTab");
   // Detect dedup by comparing tab count before/after createTab.
   // Ideally createTab would return { tabId, created } but changing its
@@ -79,6 +89,14 @@ export async function openFileInNewTabCore(
       if (!useEditorStore.getState().sourceMode) {
         useEditorStore.getState().setSourceMode(true);
       }
+    } else if (route.forceSourceMode) {
+      // Large / huge file: honor the route decision by switching to Source mode
+      // and marking the tab so the StatusBar can offer an explicit upgrade back.
+      const { useEditorStore } = await import("@/stores/editorStore");
+      if (!useEditorStore.getState().sourceMode) {
+        useEditorStore.getState().setSourceMode(true);
+      }
+      useLargeFileSessionStore.getState().markForcedSource(tabId);
     }
 
     perfMark("openFileInNewTab:complete");

@@ -50,6 +50,9 @@ import type { ReplaceableTabInfo } from "@/utils/openPolicy";
 import { isWithinRoot } from "@/utils/paths";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/utils/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
+import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useEditorStore } from "@/stores/editorStore";
 
 interface OpenFilePayload {
   path: string;
@@ -251,18 +254,39 @@ export function useFinderFileOpen(): void {
         return;
       }
 
+      // Pre-read size check: applies to every non-existing-tab branch below.
+      // Refused files never create a tab or open a window; huge files confirm first.
+      const route = await routeOpenBySize(path);
+      if (!route.proceed) return;
+
+      const applyForcedSource = (tabId: string) => {
+        if (!route.forceSourceMode) return;
+        if (!useEditorStore.getState().sourceMode) {
+          useEditorStore.getState().setSourceMode(true);
+        }
+        useLargeFileSessionStore.getState().markForcedSource(tabId);
+      };
+
       const replaceableTab = getReplaceableTab(windowLabel);
       if (replaceableTab) {
         await replaceTabWithFile(replaceableTab, path, workspaceRoot);
+        applyForcedSource(replaceableTab.tabId);
         return;
       }
 
       const { rootPath } = useWorkspaceStore.getState();
       if (isSameWorkspace(path, rootPath, workspaceRoot)) {
+        const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
         await createNewTabForFile(path, workspaceRoot, !rootPath);
+        const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+        if (tabIdAfter && tabIdAfter !== tabIdBefore) applyForcedSource(tabIdAfter);
         return;
       }
 
+      // New window: the remote window will run its own routeOpenBySize when
+      // the cold-start queue drains, so we do NOT mark a tab here (there is
+      // no tab in this window). The refusal / warning dialog above already
+      // applied.
       await openFileInNewWindow(path, workspaceRoot);
     };
 

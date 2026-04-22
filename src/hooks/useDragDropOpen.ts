@@ -36,6 +36,8 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
+import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 
 /**
  * Opens a file in a new tab (or activates existing tab if already open).
@@ -51,12 +53,24 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
     return;
   }
 
+  // Pre-read size check: refused files never create a tab; huge files confirm first.
+  const route = await routeOpenBySize(path);
+  if (!route.proceed) return;
+
   try {
     const content = await readTextFile(path);
     const tabId = useTabStore.getState().createTab(windowLabel, path);
     useDocumentStore.getState().initDocument(tabId, content, path);
     useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
     useRecentFilesStore.getState().addFile(path);
+
+    if (route.forceSourceMode) {
+      const { useEditorStore } = await import("@/stores/editorStore");
+      if (!useEditorStore.getState().sourceMode) {
+        useEditorStore.getState().setSourceMode(true);
+      }
+      useLargeFileSessionStore.getState().markForcedSource(tabId);
+    }
   } catch (error) {
     dragDropError("Failed to open file:", path, error);
     const filename = getFileName(path) || path;
