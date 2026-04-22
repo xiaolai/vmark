@@ -38,6 +38,7 @@ import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
 import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
+import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/utils/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/utils/tiptapFocus";
@@ -284,6 +285,12 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
         } catch (error) {
           tiptapError(" Failed to parse initial markdown:", error);
           editorInitialized.current = true; // Unblock external sync even on parse error
+        } finally {
+          // Clear the "Opening large file…" StatusBar indicator once the editor
+          // has a doc and is interactive (or we've given up on parsing).
+          if (useFileLoadStore.getState().active) {
+            useFileLoadStore.getState().endLoad();
+          }
         }
 
         // Focus and cursor restore run after content is set so saved cursor

@@ -772,3 +772,45 @@
   background: var(--accent-primary);
   border-radius: 1px;
 }
+
+/* File-load indeterminate indicator (large WYSIWYG opens). */
+.status-file-load {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 22px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0;
+  animation: status-file-load-fade-in 150ms ease-out 150ms forwards;
+}
+
+.status-file-load__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent-primary);
+  border-right-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: status-file-load-spin 1s linear infinite;
+}
+
+.status-file-load__label {
+  color: var(--text-secondary);
+}
+
+@keyframes status-file-load-fade-in {
+  to { opacity: 1; }
+}
+
+@keyframes status-file-load-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-file-load__spinner {
+    animation: none;
+    border-top-color: var(--accent-primary);
+  }
+}

@@ -49,6 +49,7 @@ import { formatRelativeTime } from "@/utils/dateUtils";
 import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
+import { FileLoadIndicator } from "./FileLoadIndicator";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
@@ -233,6 +234,7 @@ export function StatusBar() {
                 <PanelLeft size={14} />
               </button>
             )}
+            <FileLoadIndicator />
             <SourceModeUpgrade />
             {showNewTabButton && (
               <button

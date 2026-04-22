@@ -53,6 +53,8 @@ import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useEditorStore } from "@/stores/editorStore";
+import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
 interface OpenFilePayload {
   path: string;
@@ -259,6 +261,22 @@ export function useFinderFileOpen(): void {
       const route = await routeOpenBySize(path);
       if (!route.proceed) return;
 
+      // Indeterminate StatusBar indicator — only for local WYSIWYG opens past
+      // the progress threshold. Cleared by TiptapEditor's onCreate on success.
+      // Started later (only for replace/create-tab branches) so the new-window
+      // branch does not stick the indicator on this window while a remote
+      // window actually loads.
+      const shouldShowIndicator =
+        !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+      const activateIndicator = () => {
+        if (!shouldShowIndicator) return;
+        const filename = path.split("/").pop() ?? path;
+        useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
+      };
+      const clearIndicatorOnFailure = () => {
+        if (shouldShowIndicator) useFileLoadStore.getState().endLoad();
+      };
+
       const applyForcedSource = (tabId: string) => {
         if (!route.forceSourceMode) return;
         if (!useEditorStore.getState().sourceMode) {
@@ -269,17 +287,30 @@ export function useFinderFileOpen(): void {
 
       const replaceableTab = getReplaceableTab(windowLabel);
       if (replaceableTab) {
+        activateIndicator();
         await replaceTabWithFile(replaceableTab, path, workspaceRoot);
         applyForcedSource(replaceableTab.tabId);
+        // Indicator clears on TiptapEditor.onCreate (success) or here if the
+        // read failed silently (replaceTabWithFile handles its own toast).
+        if (!useDocumentStore.getState().documents[replaceableTab.tabId]?.filePath) {
+          clearIndicatorOnFailure();
+        }
         return;
       }
 
       const { rootPath } = useWorkspaceStore.getState();
       if (isSameWorkspace(path, rootPath, workspaceRoot)) {
         const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
+        activateIndicator();
         await createNewTabForFile(path, workspaceRoot, !rootPath);
         const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
-        if (tabIdAfter && tabIdAfter !== tabIdBefore) applyForcedSource(tabIdAfter);
+        if (tabIdAfter && tabIdAfter !== tabIdBefore) {
+          applyForcedSource(tabIdAfter);
+        } else {
+          // Tab did not change — createNewTabForFile hit its error path and
+          // detached the orphan. Clear the indicator to avoid a stuck spinner.
+          clearIndicatorOnFailure();
+        }
         return;
       }
 

@@ -31,6 +31,8 @@ import { isYamlFileName } from "@/utils/dropPaths";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
 /**
  * Open a file in a new tab (core logic).
@@ -64,6 +66,16 @@ export async function openFileInNewTabCore(
   if (isExistingTab) {
     perfMark("openFileInNewTab:deduped");
     return;
+  }
+
+  // Show the indeterminate "Opening large file…" indicator when the file is
+  // past the progress threshold AND the open is going to WYSIWYG (Source mode
+  // opens are sub-second — the indicator would flash and confuse).
+  const showIndicator =
+    !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+  if (showIndicator) {
+    const filename = path.split("/").pop() ?? path;
+    useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
   }
 
   try {
@@ -100,6 +112,8 @@ export async function openFileInNewTabCore(
     }
 
     perfMark("openFileInNewTab:complete");
+    // On success, the indicator stays on until TiptapEditor's onCreate fires
+    // endLoad() — that is the moment the editor is actually interactive.
   } catch (error) {
     fileOpsError("Failed to open file:", path, error);
     // Clean up the orphaned tab — without initDocument, it renders blank.
@@ -107,6 +121,8 @@ export async function openFileInNewTabCore(
     useTabStore.getState().detachTab(windowLabel, tabId);
     const msg = error instanceof Error ? error.message : String(error);
     toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }));
+    // Clear the indicator immediately on error so no stale spinner lingers.
+    if (showIndicator) useFileLoadStore.getState().endLoad();
   }
 }
 

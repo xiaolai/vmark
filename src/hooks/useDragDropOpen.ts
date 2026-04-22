@@ -38,6 +38,8 @@ import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
 /**
  * Opens a file in a new tab (or activates existing tab if already open).
@@ -57,6 +59,14 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
   const route = await routeOpenBySize(path);
   if (!route.proceed) return;
 
+  const showIndicator =
+    !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
+  if (showIndicator) {
+    useFileLoadStore
+      .getState()
+      .startLoad(getFileName(path) || path, route.sizeBytes);
+  }
+
   try {
     const content = await readTextFile(path);
     const tabId = useTabStore.getState().createTab(windowLabel, path);
@@ -75,6 +85,7 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
     dragDropError("Failed to open file:", path, error);
     const filename = getFileName(path) || path;
     toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
+    if (showIndicator) useFileLoadStore.getState().endLoad();
   }
 }
 
