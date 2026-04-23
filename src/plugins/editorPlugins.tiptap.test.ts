@@ -861,6 +861,53 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     }
   });
 
+  it("Escape collapses a non-empty TextSelection to a cursor at head (Issue #816)", async () => {
+    const { useUIStore } = await import("@/stores/uiStore");
+    const { useSourcePeekStore } = await import("@/stores/sourcePeekStore");
+    useSourcePeekStore.setState({ isOpen: false });
+    useUIStore.getState().setUniversalToolbarVisible(false);
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Schema } = require("@tiptap/pm/model");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EditorState, TextSelection } = require("@tiptap/pm/state");
+
+    const schema = new Schema({
+      nodes: {
+        doc: { content: "paragraph+" },
+        paragraph: { content: "text*" },
+        text: { inline: true },
+      },
+    });
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("hello world")]),
+    ]);
+    const baseState = EditorState.create({ doc, schema });
+    const stateWithRange = baseState.apply(
+      baseState.tr.setSelection(TextSelection.create(baseState.doc, 1, 6))
+    );
+    expect(stateWithRange.selection.empty).toBe(false);
+
+    const dispatched: unknown[] = [];
+    const mockView = {
+      state: stateWithRange,
+      dispatch: (tr: unknown) => dispatched.push(tr),
+      focus: vi.fn(),
+      composing: false,
+      dom: document.createElement("div"),
+      hasFocus: () => true,
+    };
+
+    const bindings = buildEditorKeymapBindings();
+    const result = bindings.Escape(stateWithRange as never, vi.fn(), mockView as never);
+
+    expect(result).toBe(true);
+    expect(dispatched).toHaveLength(1);
+    const tr = dispatched[0] as { selection: { empty: boolean; from: number; to: number } };
+    expect(tr.selection.empty).toBe(true);
+    expect(tr.selection.from).toBe(6);
+  });
+
   it("Escape binding reaches escapeMarkBoundary when no peek and no toolbar open", async () => {
     // Covers line 269: return escapeMarkBoundary(view)
     const { useUIStore } = await import("@/stores/uiStore");

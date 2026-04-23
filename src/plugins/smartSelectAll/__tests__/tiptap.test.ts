@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import { Schema } from "@tiptap/pm/model";
-import { EditorState, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { AllSelection, EditorState, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { getNextContainerBounds } from "../blockBounds";
 import { smartSelectAllExtension } from "../tiptap";
 
@@ -524,6 +524,10 @@ describe("handleSmartSelectAll dispatch paths", () => {
     // Final state should select entire document
     expect(currentState.selection.from).toBe(0);
     expect(currentState.selection.to).toBe(d.content.size);
+    // And the selection must be an AllSelection so rendering highlights the
+    // whole doc uniformly (Issue #816) — a TextSelection spanning 0..docSize
+    // can silently snap endpoints to inline boundaries, leaving visual gaps.
+    expect(currentState.selection).toBeInstanceOf(AllSelection);
   });
 
   it("handleSelectionUndo dispatches restored selection when stack matches", () => {

@@ -33,7 +33,12 @@ import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistor
 import { handleRemoveBlockquote } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-import { escapeMarkBoundary, bindIfKey, wrapWithMultiSelectionGuard } from "./editorPlugins/keymapUtils";
+import {
+  escapeMarkBoundary,
+  collapseNonEmptySelection,
+  bindIfKey,
+  wrapWithMultiSelectionGuard,
+} from "./editorPlugins/keymapUtils";
 import { handleSmartLinkShortcut, handleUnlinkShortcut, handleWikiLinkShortcut } from "./editorPlugins/linkCommands";
 import { handleBookmarkLinkShortcut } from "./editorPlugins/bookmarkLinkCommand";
 import { handleInlineMathShortcut } from "./editorPlugins/inlineMathCommand";
@@ -279,6 +284,11 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
       uiStore.setUniversalToolbarVisible(false);
       return true;
     }
+    // Collapse a non-empty range (e.g. whole-doc after Cmd+A) to a cursor
+    // so users can dismiss a selection without typing or clicking.
+    // Skipped for multi-cursor selections — the multi-cursor keymap's own
+    // Escape handler reduces them to the primary range first.
+    if (collapseNonEmptySelection(view)) return true;
     return escapeMarkBoundary(view);
   });
 

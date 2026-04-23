@@ -10,7 +10,7 @@
  */
 
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { AllSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { getNextContainerBounds } from "./blockBounds";
 
@@ -73,10 +73,12 @@ function handleSmartSelectAll(state: EditorState, dispatch?: (tr: Transaction) =
       return false;
     }
 
-    // Select entire document
+    // Select entire document — AllSelection highlights the doc uniformly;
+    // TextSelection(0, docSize) silently snaps endpoints to inline positions
+    // and can leave visual gaps at block boundaries (Issue #816).
     /* v8 ignore next -- @preserve dispatch is always provided by ProseMirror keyboard handlers; the no-dispatch path is a dry-run check that Tiptap never uses for this command */
     if (dispatch) {
-      const tr = state.tr.setSelection(TextSelection.create(state.doc, 0, docSize));
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
       tr.setMeta("addToHistory", false);
       tr.setMeta(smartSelectPluginKey, {
         stack: [...pluginState.stack, { from, to }],

@@ -3,6 +3,7 @@
  *
  * Exports:
  * - escapeMarkBoundary: Escape out of inline marks at boundaries
+ * - collapseNonEmptySelection: Collapse non-empty selection to cursor at head
  * - toProseMirrorKey: Convert shortcut store format to ProseMirror key format
  * - bindIfKey: Conditionally bind a shortcut key to a command
  * - wrapWithMultiSelectionGuard: Guard a command with multi-selection policy
@@ -12,7 +13,7 @@
  * @coordinates-with multiSelectionPolicy.ts (multi-selection guard)
  */
 
-import { Selection, type Command } from "@tiptap/pm/state";
+import { Selection, TextSelection, type Command } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
@@ -60,6 +61,34 @@ export function escapeMarkBoundary(view: EditorView): boolean {
 
   const tr = state.tr.setSelection(Selection.near(state.doc.resolve(markTo)));
   tr.setStoredMarks([]);
+  dispatch(tr);
+  return true;
+}
+
+/**
+ * Collapse a non-empty selection to a single cursor at the selection head.
+ * Used by the Escape handler so a user can clear a range (e.g. the whole
+ * document after Cmd+A) without typing or clicking.
+ *
+ * Returns false and leaves state untouched when:
+ * - The selection is already empty (nothing to collapse).
+ * - The selection has multiple ranges (multi-cursor), so the multi-cursor
+ *   keymap's own Escape handler can reduce to the primary range first.
+ */
+export function collapseNonEmptySelection(view: EditorView): boolean {
+  const { state, dispatch } = view;
+  const { selection } = state;
+
+  if (selection.empty) return false;
+  if (selection.ranges.length > 1) return false;
+
+  // Selection.near() adjusts if `head` lands on a non-inline boundary (e.g.,
+  // between atom blocks) so the resulting cursor always sits at a valid
+  // text position.
+  const collapsed = Selection.near(state.doc.resolve(selection.head));
+  const tr = state.tr.setSelection(
+    collapsed instanceof TextSelection ? collapsed : TextSelection.create(state.doc, selection.head)
+  );
   dispatch(tr);
   return true;
 }

@@ -22,7 +22,13 @@ vi.mock("@/plugins/syntaxReveal/marks", () => ({
   findAnyMarkRangeAtCursor: vi.fn(() => null),
 }));
 
-import { toProseMirrorKey, bindIfKey, wrapWithMultiSelectionGuard, escapeMarkBoundary } from "./keymapUtils";
+import {
+  toProseMirrorKey,
+  bindIfKey,
+  wrapWithMultiSelectionGuard,
+  escapeMarkBoundary,
+  collapseNonEmptySelection,
+} from "./keymapUtils";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import { findAnyMarkRangeAtCursor } from "@/plugins/syntaxReveal/marks";
 import type { Command } from "@tiptap/pm/state";
@@ -331,5 +337,120 @@ describe("escapeMarkBoundary", () => {
     const result = escapeMarkBoundary(view);
     expect(result).toBe(true);
     expect(dispatchFn).toHaveBeenCalled();
+  });
+});
+
+describe("collapseNonEmptySelection", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Schema } = require("@tiptap/pm/model");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { EditorState, TextSelection, AllSelection, NodeSelection } = require("@tiptap/pm/state");
+
+  const testSchema = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: { content: "inline*", group: "block" },
+      text: { inline: true, group: "inline" },
+      horizontal_rule: { group: "block", atom: true },
+    },
+  });
+
+  function makeState(pos: number, head?: number) {
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("paragraph", null, [testSchema.text("hello world")]),
+      testSchema.node("paragraph", null, [testSchema.text("second line")]),
+    ]);
+    const base = EditorState.create({ doc, schema: testSchema });
+    return base.apply(
+      base.tr.setSelection(TextSelection.create(base.doc, pos, head ?? pos))
+    );
+  }
+
+  it("returns false when selection is already collapsed", () => {
+    const view = { state: makeState(3), dispatch: vi.fn() } as never;
+    expect(collapseNonEmptySelection(view)).toBe(false);
+    expect((view as { dispatch: ReturnType<typeof vi.fn> }).dispatch).not.toHaveBeenCalled();
+  });
+
+  it("collapses a TextSelection spanning multiple positions to head", () => {
+    const state = makeState(2, 8);
+    const dispatchFn = vi.fn();
+    const view = { state, dispatch: dispatchFn } as never;
+
+    const result = collapseNonEmptySelection(view);
+    expect(result).toBe(true);
+    expect(dispatchFn).toHaveBeenCalledTimes(1);
+    const tr = dispatchFn.mock.calls[0][0];
+    const newSel = tr.selection;
+    expect(newSel.empty).toBe(true);
+    // Head is the "to" endpoint when anchor < head; cursor lands at head.
+    expect(newSel.from).toBe(8);
+    expect(newSel.to).toBe(8);
+  });
+
+  it("collapses backwards selection to head (anchor > head)", () => {
+    const state = makeState(8, 2);
+    const dispatchFn = vi.fn();
+    const view = { state, dispatch: dispatchFn } as never;
+
+    const result = collapseNonEmptySelection(view);
+    expect(result).toBe(true);
+    const tr = dispatchFn.mock.calls[0][0];
+    expect(tr.selection.empty).toBe(true);
+    expect(tr.selection.from).toBe(2);
+  });
+
+  it("collapses an AllSelection to its head", () => {
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("paragraph", null, [testSchema.text("abc")]),
+    ]);
+    const base = EditorState.create({ doc, schema: testSchema });
+    const state = base.apply(base.tr.setSelection(new AllSelection(base.doc)));
+    const dispatchFn = vi.fn();
+    const view = { state, dispatch: dispatchFn } as never;
+
+    const result = collapseNonEmptySelection(view);
+    expect(result).toBe(true);
+    const tr = dispatchFn.mock.calls[0][0];
+    expect(tr.selection.empty).toBe(true);
+  });
+
+  it("collapses a NodeSelection (atom block) to a cursor position", () => {
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("paragraph", null, [testSchema.text("a")]),
+      testSchema.node("horizontal_rule"),
+      testSchema.node("paragraph", null, [testSchema.text("b")]),
+    ]);
+    const base = EditorState.create({ doc, schema: testSchema });
+    // The horizontal_rule node starts at position 3 in this doc structure
+    const state = base.apply(base.tr.setSelection(NodeSelection.create(base.doc, 3)));
+    expect(state.selection.empty).toBe(false);
+    const dispatchFn = vi.fn();
+    const view = { state, dispatch: dispatchFn } as never;
+
+    const result = collapseNonEmptySelection(view);
+    expect(result).toBe(true);
+    const tr = dispatchFn.mock.calls[0][0];
+    expect(tr.selection.empty).toBe(true);
+  });
+
+  it("returns false when selection has multiple ranges (multi-cursor)", () => {
+    // Simulate a MultiSelection-shaped selection: ranges.length > 1 and empty === false
+    const state = makeState(2, 5);
+    const fakeMultiSelection = {
+      ...state.selection,
+      empty: false,
+      ranges: [
+        { $from: state.doc.resolve(2), $to: state.doc.resolve(5) },
+        { $from: state.doc.resolve(6), $to: state.doc.resolve(8) },
+      ],
+    };
+    const view = {
+      state: { ...state, selection: fakeMultiSelection },
+      dispatch: vi.fn(),
+    } as never;
+
+    expect(collapseNonEmptySelection(view)).toBe(false);
+    expect((view as { dispatch: ReturnType<typeof vi.fn> }).dispatch).not.toHaveBeenCalled();
   });
 });
