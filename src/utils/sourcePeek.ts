@@ -66,33 +66,6 @@ export const COMPOUND_BLOCK_TYPES = new Set([
 ]);
 
 /**
- * Get the range for Source Peek editing.
- * Returns the boundaries of the topmost block at cursor position.
- *
- * IMPORTANT: Uses before/after (not start/end) to include wrapper nodes.
- * - start/end: positions inside the node content
- * - before/after: positions including the node itself
- */
-export function getSourcePeekRange(state: EditorState): SourcePeekRange {
-  const { selection } = state;
-
-  if (selection instanceof NodeSelection && selection.node.isBlock) {
-    return { from: selection.from, to: selection.to };
-  }
-
-  const { $from, $to } = selection;
-  if ($from.depth >= 1 && $to.depth >= 1) {
-    // Use before/after to include the wrapper node (not start/end)
-    return {
-      from: $from.before(1),
-      to: $to.after(1),
-    };
-  }
-
-  return { from: selection.from, to: selection.to };
-}
-
-/**
  * Get expanded range for Source Peek that includes compound blocks.
  * When cursor is inside a table, list, blockquote, etc., returns the
  * entire structure rather than just the immediate block.

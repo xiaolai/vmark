@@ -1,13 +1,13 @@
 /**
  * Source Peek Tests
  *
- * Tests for getSourcePeekRange, getExpandedSourcePeekRange, and store behavior.
+ * Tests for getExpandedSourcePeekRange, and store behavior.
  */
 
 import { describe, expect, it, beforeEach } from "vitest";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { Schema, DOMParser } from "@tiptap/pm/model";
-import { getSourcePeekRange, getExpandedSourcePeekRange } from "@/utils/sourcePeek";
+import { getExpandedSourcePeekRange } from "@/utils/sourcePeek";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { canUseSourcePeek } from "../tiptap";
 
@@ -104,38 +104,6 @@ function createState(html: string, cursorPos?: number): EditorState {
   }
   return state;
 }
-
-describe("getSourcePeekRange", () => {
-  it("returns correct range for paragraph at cursor", () => {
-    // <p>Hello world</p>
-    const state = createState("<p>Hello world</p>", 3);
-    const range = getSourcePeekRange(state);
-
-    // Range should include the entire paragraph node
-    // Doc: 0, Para start: 0, content: 1-12, Para end: 13
-    expect(range.from).toBe(0);
-    expect(range.to).toBe(13);
-  });
-
-  it("returns correct range for heading at cursor", () => {
-    const state = createState("<h1>Title</h1><p>Body</p>", 3);
-    const range = getSourcePeekRange(state);
-
-    // Should only include the heading, not the paragraph
-    expect(range.from).toBe(0);
-    expect(range.to).toBe(7); // Heading end
-  });
-
-  it("uses before/after to include wrapper nodes", () => {
-    // When inside a list item, the range should include the list wrapper
-    const state = createState("<ul><li><p>Item</p></li></ul>", 4);
-    const range = getSourcePeekRange(state);
-
-    // At depth 1, we should get the bulletList boundaries
-    expect(range.from).toBe(0); // Start of bulletList
-    expect(range.to).toBeGreaterThan(range.from);
-  });
-});
 
 describe("getExpandedSourcePeekRange", () => {
   it("expands to include entire table when cursor inside cell", () => {
