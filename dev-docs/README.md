@@ -31,6 +31,7 @@
 Records of significant codebase-wide changes — process, decisions, and lessons learned.
 
 - `important-history/20260214-codebase-documentation.md`: How we added AI-maintenance comments to ~400 files using parallel git worktrees.
+- `important-history/20260423-smart-cmd-a-hidden-cost.md`: What Issue #816 taught us about replacing universal keyboard conventions — a retrospective + checklist for future "nice features".
 
 ## Archive
 
