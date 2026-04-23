@@ -1,7 +1,7 @@
 /**
  * Workspace Identity Logic
  *
- * Purpose: Pure helpers for generating and validating workspace identities.
+ * Purpose: Pure helpers for generating workspace identities and managing their trust level.
  * Each workspace gets a unique UUID persisted in its .vmark/config.json file.
  *
  * Key decisions:
@@ -64,17 +64,6 @@ export function generateUUID(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
-}
-
-/**
- * Validate that a string looks like a UUID v4.
- *
- * @param value - String to validate
- * @returns true if valid UUID format
- */
-export function isValidUUID(value: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(value);
 }
 
 /**
