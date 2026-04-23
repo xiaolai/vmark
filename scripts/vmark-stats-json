@@ -1,116 +1,255 @@
-#!/bin/bash
+#!/usr/bin/env python3
 # vmark-stats-json — Aggregate update-check logs into stats.json
 #
-# Runs every 10 minutes via cron. Parses Caddy JSON access logs for
-# update-check pings and produces a JSON summary with unique IPs,
-# unique devices (from X-Machine-Id header), platforms, and versions.
+# Runs every 10 minutes via cron. Reads ALL currently-available Caddy update
+# logs (current + rotated .gz archives), merges them into a persistent state
+# file, and produces a JSON summary with unique IPs, unique devices (from
+# X-Machine-Id header), platforms, and versions.
 #
-# Input:  /var/log/caddy/vmark-updates.log (Caddy structured JSON logs)
-# Output: /var/www/vmark-stats/stats.json   (served at log.vmark.app/api/stats)
+# The state file preserves counts across Caddy archive deletions. Merge is
+# idempotent (union of sets, max of counters) — safe under cron overlap and
+# safe if logs are partially rotated mid-run.
+#
+# Input:   /var/log/caddy/vmark-updates*.log*   (current + .gz archives)
+# State:   /var/lib/vmark-stats/state.json      (persistent accumulator)
+# Output:  /var/www/vmark-stats/stats.json      (served at log.vmark.app/api/stats)
 #
 # See website/guide/privacy.md for what data is collected and why.
 
-LOG=/var/log/caddy/vmark-updates.log
-OUT=/var/www/vmark-stats/stats.json
-
-grep '"uri":"/update/latest.json' "$LOG" 2>/dev/null | \
-grep -v 'l9scan\|bot\|crawler\|spider' | \
-python3 -c "
-import sys, json
-from datetime import datetime, timedelta
+import gzip
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
 from collections import defaultdict
-from urllib.parse import urlparse, parse_qs
+from datetime import datetime, timedelta, timezone
+from glob import glob
+from urllib.parse import parse_qs, urlparse
 
-daily_ips = defaultdict(set)
-daily_pings = defaultdict(int)
-daily_devices = defaultdict(set)
-all_ips = set()
-all_devices = set()
-total_pings = 0
-platforms = defaultdict(int)
-versions = defaultdict(int)
+LOG_GLOB = "/var/log/caddy/vmark-updates*.log*"
+STATE_PATH = "/var/lib/vmark-stats/state.json"
+OUT_PATH = "/var/www/vmark-stats/stats.json"
+BOT_RE = re.compile(r"l9scan|bot|crawler|spider", re.IGNORECASE)
+STATE_VERSION = 1
 
-for line in sys.stdin:
+
+def hash_ip(ip: str) -> str:
+    return hashlib.sha256(ip.encode("utf-8")).hexdigest()[:16]
+
+
+def open_log(path: str):
+    if path.endswith(".gz"):
+        return gzip.open(path, "rt", errors="replace")
+    return open(path, "r", errors="replace")
+
+
+def parse_logs() -> dict:
+    """Return {day: {ip_hashes: set, device_ids: set, pings: int,
+                     platforms: {k: int}, versions: {k: int}}}."""
+    days = defaultdict(lambda: {
+        "ip_hashes": set(),
+        "device_ids": set(),
+        "pings": 0,
+        "platforms": defaultdict(int),
+        "versions": defaultdict(int),
+    })
+    for path in sorted(glob(LOG_GLOB)):
+        try:
+            with open_log(path) as f:
+                for line in f:
+                    if '"uri":"/update/latest.json' not in line:
+                        continue
+                    if BOT_RE.search(line):
+                        continue
+                    try:
+                        d = json.loads(line)
+                        ts = datetime.fromtimestamp(d["ts"], tz=timezone.utc)
+                        day = ts.strftime("%Y-%m-%d")
+                        bucket = days[day]
+                        bucket["ip_hashes"].add(hash_ip(d["request"]["remote_ip"]))
+                        bucket["pings"] += 1
+                        headers = d["request"].get("headers", {})
+                        mid_list = (
+                            headers.get("X-Machine-Id")
+                            or headers.get("x-machine-id")
+                            or []
+                        )
+                        if mid_list:
+                            bucket["device_ids"].add(mid_list[0])
+                        qs = parse_qs(urlparse(d["request"]["uri"]).query)
+                        target = qs.get("target", ["unknown"])[0]
+                        arch = qs.get("arch", ["unknown"])[0]
+                        version = qs.get("version", ["unknown"])[0]
+                        if target != "unknown":
+                            bucket["platforms"][f"{target}-{arch}"] += 1
+                        if version != "unknown":
+                            bucket["versions"][version] += 1
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"WARN reading {path}: {e}", file=sys.stderr)
+    return days
+
+
+def load_state() -> dict:
+    if not os.path.exists(STATE_PATH):
+        return {"version": STATE_VERSION, "days": {}}
     try:
-        d = json.loads(line)
-        ts = datetime.fromtimestamp(d['ts'])
-        ip = d['request']['remote_ip']
-        uri = d['request']['uri']
-        day = ts.strftime('%Y-%m-%d')
-        daily_ips[day].add(ip)
-        daily_pings[day] += 1
-        all_ips.add(ip)
-        total_pings += 1
+        with open(STATE_PATH, "r") as f:
+            state = json.load(f)
+        if state.get("version") != STATE_VERSION:
+            print(f"WARN: state version mismatch, starting fresh", file=sys.stderr)
+            return {"version": STATE_VERSION, "days": {}}
+        return state
+    except Exception as e:
+        print(f"WARN loading state: {e}", file=sys.stderr)
+        return {"version": STATE_VERSION, "days": {}}
 
-        # Extract X-Machine-Id header (case-insensitive key in Caddy JSON)
-        headers = d['request'].get('headers', {})
-        mid_list = headers.get('X-Machine-Id') or headers.get('x-machine-id') or []
-        if mid_list:
-            mid = mid_list[0]
-            daily_devices[day].add(mid)
-            all_devices.add(mid)
 
-        # Parse query params: ?target=darwin&arch=aarch64&version=0.5.10
-        qs = parse_qs(urlparse(uri).query)
-        target = qs.get('target', ['unknown'])[0]
-        arch = qs.get('arch', ['unknown'])[0]
-        version = qs.get('version', ['unknown'])[0]
-        if target != 'unknown':
-            platforms[f'{target}-{arch}'] += 1
-        if version != 'unknown':
-            versions[version] += 1
-    except:
-        pass
-
-now = datetime.utcnow()
-today = now.strftime('%Y-%m-%d')
-last_7_ips = set()
-last_7_pings = 0
-last_7_devices = set()
-last_30_ips = set()
-last_30_pings = 0
-last_30_devices = set()
-for i in range(7):
-    d = (now - timedelta(days=i)).strftime('%Y-%m-%d')
-    last_7_ips |= daily_ips.get(d, set())
-    last_7_pings += daily_pings.get(d, 0)
-    last_7_devices |= daily_devices.get(d, set())
-for i in range(30):
-    d = (now - timedelta(days=i)).strftime('%Y-%m-%d')
-    last_30_ips |= daily_ips.get(d, set())
-    last_30_pings += daily_pings.get(d, 0)
-    last_30_devices |= daily_devices.get(d, set())
-
-history = []
-for day in sorted(daily_ips)[-30:]:
-    entry = {
-        'date': day,
-        'ips': len(daily_ips[day]),
-        'pings': daily_pings[day],
+def merge_day(existing: dict | None, fresh: dict) -> dict:
+    """Union sets, max counters. Safe against partial log availability."""
+    if not existing:
+        return {
+            "ip_hashes": sorted(fresh["ip_hashes"]),
+            "device_ids": sorted(fresh["device_ids"]),
+            "pings": fresh["pings"],
+            "platforms": dict(fresh["platforms"]),
+            "versions": dict(fresh["versions"]),
+        }
+    merged_ips = set(existing.get("ip_hashes", [])) | fresh["ip_hashes"]
+    merged_devs = set(existing.get("device_ids", [])) | fresh["device_ids"]
+    merged_plats = dict(existing.get("platforms", {}))
+    for k, v in fresh["platforms"].items():
+        merged_plats[k] = max(merged_plats.get(k, 0), v)
+    merged_vers = dict(existing.get("versions", {}))
+    for k, v in fresh["versions"].items():
+        merged_vers[k] = max(merged_vers.get(k, 0), v)
+    return {
+        "ip_hashes": sorted(merged_ips),
+        "device_ids": sorted(merged_devs),
+        "pings": max(existing.get("pings", 0), fresh["pings"]),
+        "platforms": merged_plats,
+        "versions": merged_vers,
     }
-    if daily_devices.get(day):
-        entry['devices'] = len(daily_devices[day])
-    history.append(entry)
 
-today_devices = daily_devices.get(today, set())
 
-result = {
-    'updated': now.isoformat() + 'Z',
-    'today': {'ips': len(daily_ips.get(today, set())), 'pings': daily_pings.get(today, 0)},
-    'week':  {'ips': len(last_7_ips),  'pings': last_7_pings},
-    'month': {'ips': len(last_30_ips), 'pings': last_30_pings},
-    'total': {'ips': len(all_ips),     'pings': total_pings},
-    'platforms': dict(sorted(platforms.items(), key=lambda x: -x[1])),
-    'versions': dict(sorted(versions.items(), key=lambda x: -x[1])),
-    'history': history,
-}
+def atomic_write(path: str, data: str, mode: int = 0o644) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(data)
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+    except Exception:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
 
-# Only add devices fields if any machine IDs were seen
-if all_devices:
-    result['today']['devices'] = len(today_devices)
-    result['week']['devices'] = len(last_7_devices)
-    result['month']['devices'] = len(last_30_devices)
-    result['total']['devices'] = len(all_devices)
 
-print(json.dumps(result))
-" > "$OUT" 2>/dev/null || echo '{"today":{"ips":0,"pings":0},"week":{"ips":0,"pings":0},"month":{"ips":0,"pings":0},"total":{"ips":0,"pings":0},"platforms":{},"versions":{},"history":[]}' > "$OUT"
+def compute_public_stats(state: dict) -> dict:
+    days = state["days"]
+    now = datetime.now(tz=timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+
+    all_ips, all_devs, total_pings = set(), set(), 0
+    platforms: dict[str, int] = defaultdict(int)
+    versions: dict[str, int] = defaultdict(int)
+    for day, bucket in days.items():
+        all_ips.update(bucket.get("ip_hashes", []))
+        all_devs.update(bucket.get("device_ids", []))
+        total_pings += bucket.get("pings", 0)
+        for k, v in bucket.get("platforms", {}).items():
+            platforms[k] += v
+        for k, v in bucket.get("versions", {}).items():
+            versions[k] += v
+
+    def window(days_back: int) -> tuple[set, set, int]:
+        ips, devs, pings = set(), set(), 0
+        for i in range(days_back):
+            day = (now - timedelta(days=i)).strftime("%Y-%m-%d")
+            bucket = days.get(day)
+            if not bucket:
+                continue
+            ips.update(bucket.get("ip_hashes", []))
+            devs.update(bucket.get("device_ids", []))
+            pings += bucket.get("pings", 0)
+        return ips, devs, pings
+
+    w_ips, w_devs, w_pings = window(7)
+    m_ips, m_devs, m_pings = window(30)
+    today_bucket = days.get(today, {})
+    today_ips = set(today_bucket.get("ip_hashes", []))
+    today_devs = set(today_bucket.get("device_ids", []))
+    today_pings = today_bucket.get("pings", 0)
+
+    history = []
+    for day in sorted(days)[-30:]:
+        bucket = days[day]
+        entry = {
+            "date": day,
+            "ips": len(bucket.get("ip_hashes", [])),
+            "pings": bucket.get("pings", 0),
+        }
+        if bucket.get("device_ids"):
+            entry["devices"] = len(bucket["device_ids"])
+        history.append(entry)
+
+    result = {
+        "updated": now.isoformat().replace("+00:00", "Z"),
+        "today": {"ips": len(today_ips), "pings": today_pings},
+        "week": {"ips": len(w_ips), "pings": w_pings},
+        "month": {"ips": len(m_ips), "pings": m_pings},
+        "total": {"ips": len(all_ips), "pings": total_pings},
+        "platforms": dict(sorted(platforms.items(), key=lambda x: -x[1])),
+        "versions": dict(sorted(versions.items(), key=lambda x: -x[1])),
+        "history": history,
+    }
+    if all_devs:
+        result["today"]["devices"] = len(today_devs)
+        result["week"]["devices"] = len(w_devs)
+        result["month"]["devices"] = len(m_devs)
+        result["total"]["devices"] = len(all_devs)
+    return result
+
+
+def main() -> int:
+    state = load_state()
+    fresh = parse_logs()
+    for day, bucket in fresh.items():
+        state["days"][day] = merge_day(state["days"].get(day), bucket)
+    state["last_updated"] = datetime.now(tz=timezone.utc).isoformat().replace(
+        "+00:00", "Z"
+    )
+    # State file: restrictive — not served, contains IP/device hashes
+    atomic_write(STATE_PATH, json.dumps(state, separators=(",", ":")), mode=0o600)
+    public = compute_public_stats(state)
+    # Public stats: world-readable for Caddy to serve
+    atomic_write(OUT_PATH, json.dumps(public), mode=0o644)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as e:
+        print(f"FATAL: {e}", file=sys.stderr)
+        # Fallback: never leave OUT_PATH missing if a previous version existed
+        if not os.path.exists(OUT_PATH):
+            atomic_write(
+                OUT_PATH,
+                json.dumps(
+                    {
+                        "today": {"ips": 0, "pings": 0},
+                        "week": {"ips": 0, "pings": 0},
+                        "month": {"ips": 0, "pings": 0},
+                        "total": {"ips": 0, "pings": 0},
+                        "platforms": {},
+                        "versions": {},
+                        "history": [],
+                    }
+                ),
+            )
+        sys.exit(1)
