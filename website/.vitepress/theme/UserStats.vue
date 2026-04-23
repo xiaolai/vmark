@@ -16,6 +16,10 @@ function label(key) {
   return platformLabels[key] || key
 }
 
+function fmt(n) {
+  return typeof n === 'number' ? n.toLocaleString('en-US') : n
+}
+
 const hasPlatforms = computed(() => {
   return stats.value && stats.value.platforms && Object.keys(stats.value.platforms).length > 0
 })
@@ -86,24 +90,24 @@ onMounted(async () => {
         </div>
         <div class="stat-row" v-if="stats.today.devices != null">
           <span class="row-label">Unique Devices</span>
-          <span class="stat-number">{{ stats.today.devices }}</span>
-          <span class="stat-number">{{ stats.week.devices }}</span>
-          <span class="stat-number">{{ stats.month.devices }}</span>
-          <span class="stat-number">{{ stats.total.devices }}</span>
+          <span class="stat-number">{{ fmt(stats.today.devices) }}</span>
+          <span class="stat-number">{{ fmt(stats.week.devices) }}</span>
+          <span class="stat-number">{{ fmt(stats.month.devices) }}</span>
+          <span class="stat-number">{{ fmt(stats.total.devices) }}</span>
         </div>
         <div class="stat-row">
           <span class="row-label">Unique IPs</span>
-          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ stats.today.ips }}</span>
-          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ stats.week.ips }}</span>
-          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ stats.month.ips }}</span>
-          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ stats.total.ips }}</span>
+          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ fmt(stats.today.ips) }}</span>
+          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ fmt(stats.week.ips) }}</span>
+          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ fmt(stats.month.ips) }}</span>
+          <span :class="stats.today.devices != null ? 'stat-sub' : 'stat-number'">{{ fmt(stats.total.ips) }}</span>
         </div>
         <div class="stat-row">
           <span class="row-label">Update Pings</span>
-          <span class="stat-sub">{{ stats.today.pings }}</span>
-          <span class="stat-sub">{{ stats.week.pings }}</span>
-          <span class="stat-sub">{{ stats.month.pings }}</span>
-          <span class="stat-sub">{{ stats.total.pings }}</span>
+          <span class="stat-sub">{{ fmt(stats.today.pings) }}</span>
+          <span class="stat-sub">{{ fmt(stats.week.pings) }}</span>
+          <span class="stat-sub">{{ fmt(stats.month.pings) }}</span>
+          <span class="stat-sub">{{ fmt(stats.total.pings) }}</span>
         </div>
       </div>
     </div>
@@ -115,11 +119,11 @@ onMounted(async () => {
         <template v-for="(row, i) in detailRows" :key="i">
           <template v-if="hasPlatforms">
             <span class="details-label">{{ row.platform?.label ?? '' }}</span>
-            <span class="details-value">{{ row.platform?.count ?? '' }}</span>
+            <span class="details-value">{{ row.platform ? fmt(row.platform.count) : '' }}</span>
           </template>
           <template v-if="hasVersions">
             <span class="details-label">{{ row.version?.label ?? '' }}</span>
-            <span class="details-value">{{ row.version?.count ?? '' }}</span>
+            <span class="details-value">{{ row.version ? fmt(row.version.count) : '' }}</span>
           </template>
         </template>
       </div>
