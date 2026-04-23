@@ -1,24 +1,27 @@
 /**
  * PDF HTML Template Builder
  *
- * Builds self-contained HTML pages for PDF preview (Paged.js) and export (native printOperationWithPrintInfo).
- * Both templates include @page CSS rules and typography overrides. Light theme is forced by default
- * but can be skipped via `useEditorTheme` to preserve the editor's current theme (including dark mode).
+ * Builds self-contained HTML for the WKWebView PDF renderer. Inlines KaTeX CSS
+ * (with base64-embedded woff2 math fonts), captured theme tokens, typography,
+ * and @page rules so the off-screen WKWebView renders identically offline.
+ * Light theme is forced by default but can be skipped via `useEditorTheme` to
+ * preserve the editor's current theme (including dark mode).
+ *
+ * WebKit's native print pipeline (printOperationWithPrintInfo) respects @page
+ * size/margin rules but does NOT implement @page margin boxes (@top-center etc.),
+ * so headers/footers/page-number settings are intentionally absent from PdfOptions.
  *
  * @module export/pdfHtmlTemplate
- * @coordinates-with pdf_export/renderer.rs — WKWebView loads export HTML, generates PDF via printOperationWithPrintInfo
+ * @coordinates-with pdf_export/renderer.rs — WKWebView loads this HTML and prints to PDF
  * @coordinates-with PdfExportDialog.tsx — passes options from the dialog UI
+ * @coordinates-with katexFontEmbed.ts — rewrites KaTeX @font-face URLs to data URIs
  */
 
-import pagedPolyfillRaw from "./assets/paged.polyfill.js?raw";
 import _katexCSSRaw from "katex/dist/katex.min.css?raw";
+import { embedKatexFonts } from "./katexFontEmbed";
 
-// Rewrite relative font URLs to absolute CDN paths so they resolve in srcdoc iframes
-const KATEX_FONT_BASE = "https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/";
-const katexCSS = _katexCSSRaw.replace(
-  /url\(fonts\//g,
-  `url(${KATEX_FONT_BASE}fonts/`,
-);
+// Embed KaTeX woff2 fonts as data URIs so math renders offline, without CDN access.
+const katexCSS = embedKatexFonts(_katexCSSRaw);
 
 /** Get bundled KaTeX CSS with CDN font URLs (for use in print/export iframes). */
 export function getKatexCSS(): string {
@@ -35,7 +38,7 @@ export function getSharedContentCSS(): string {
   return sharedContentCSS();
 }
 
-/** Configuration for PDF page layout, typography, and header/footer options. */
+/** Configuration for PDF page layout and typography. */
 export interface PdfOptions {
   pageSize: "a4" | "letter" | "a3" | "legal";
   orientation: "portrait" | "landscape";
@@ -43,10 +46,6 @@ export interface PdfOptions {
   marginRight: number;
   marginBottom: number;
   marginLeft: number;
-  showPageNumbers: boolean;
-  showHeader: boolean;
-  showDate: boolean;
-  title?: string;
   fontSize: number;
   lineHeight: number;
   cjkLetterSpacing: string;
@@ -63,80 +62,39 @@ export const MARGIN_PRESETS: Record<string, { top: number; right: number; bottom
   wide:   { top: 25.4, right: 38.1, bottom: 25.4, left: 38.1 },
 };
 
-const PAGE_SIZES: Record<string, string> = {
-  a4: "210mm 297mm",
-  letter: "8.5in 11in",
-  a3: "297mm 420mm",
-  legal: "8.5in 14in",
+// CSS Paged Media `@page size` accepts a named page-size keyword followed by an
+// orientation keyword (e.g. `A4 landscape`). Mixing explicit <length> pairs with
+// an orientation keyword (`210mm 297mm landscape`) is invalid and silently
+// ignored by WebKit, which is why the previous landscape mode produced portrait PDFs.
+const PAGE_SIZE_KEYWORDS: Record<string, string> = {
+  a4: "A4",
+  letter: "letter",
+  a3: "A3",
+  legal: "legal",
 };
-
-
-/** Escape a string for use in CSS `content: "..."` property. */
-function escapeCSSString(str: string): string {
-  return str
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, "\\a ")
-    .replace(/\r/g, "")
-    .replace(/\t/g, " ");
-}
 
 /** Resolve font name to a CSS font-family value. */
 function resolveFontFamily(font: string, fallback: string): string {
   if (!font || font === "system" || font === "System Default") {
     return fallback;
   }
-  // Wrap in quotes if it contains spaces
   return font.includes(" ") ? `"${font}"` : font;
 }
 
-/** Build @page CSS rules from options. */
+/** Build @page CSS rules (size + margins only — WebKit print ignores margin boxes). */
 function buildPageCSS(options: PdfOptions): string {
-  const sizeSpec = PAGE_SIZES[options.pageSize] ?? PAGE_SIZES.a4;
-  const size =
-    options.orientation === "landscape"
-      ? `${sizeSpec} landscape`
-      : sizeSpec;
+  const sizeKeyword = PAGE_SIZE_KEYWORDS[options.pageSize] ?? PAGE_SIZE_KEYWORDS.a4;
+  const size = `${sizeKeyword} ${options.orientation}`;
   const margin = `${options.marginTop}mm ${options.marginRight}mm ${options.marginBottom}mm ${options.marginLeft}mm`;
-
-  const marginBoxes: string[] = [];
-
-  if (options.showHeader && options.title) {
-    marginBoxes.push(`
-    @top-center {
-      content: "${escapeCSSString(options.title)}";
-      font-size: 9pt;
-      color: #999;
-    }`);
-  }
-
-  if (options.showPageNumbers) {
-    marginBoxes.push(`
-    @bottom-center {
-      content: counter(page) " / " counter(pages);
-      font-size: 9pt;
-      color: #999;
-    }`);
-  }
-
-  if (options.showDate) {
-    marginBoxes.push(`
-    @bottom-right {
-      content: "${new Date().toLocaleDateString()}";
-      font-size: 8pt;
-      color: #bbb;
-    }`);
-  }
 
   return `
 @page {
   size: ${size};
   margin: ${margin};
-  ${marginBoxes.join("\n  ")}
 }`;
 }
 
-/** Shared CSS for table layout, page breaks, and content surface — used by both preview and export. */
+/** Shared CSS for table layout, page breaks, and content surface. */
 function sharedContentCSS(): string {
   return `
 .export-surface {
@@ -194,7 +152,7 @@ function buildTypographyCSS(options: PdfOptions): string {
 
 /**
  * Force light theme CSS variables for PDF output.
- * This ensures readable output even when the app is in dark theme,
+ * Ensures readable output even when the app is in dark theme,
  * because captureThemeCSS() captures the current (possibly dark) computed values.
  */
 function forceLightThemeCSS(): string {
@@ -233,16 +191,11 @@ function forceLightThemeCSS(): string {
 }
 
 /**
- * Build lightweight HTML for the Rust WKWebView PDF renderer.
+ * Build HTML for the Rust WKWebView PDF renderer.
  *
- * No Paged.js — relies on WebKit's native print pipeline
- * (printOperationWithPrintInfo) which respects @page CSS rules
- * for page size, margins, and pagination. All CSS (including KaTeX)
- * is inlined so the off-screen WKWebView needs no network access.
- *
- * Note: @page margin boxes (@top-center, @bottom-center) are NOT
- * supported by WebKit's native print — headers/footers/page numbers
- * are only rendered in the Paged.js preview template.
+ * All CSS (including KaTeX) is inlined so the off-screen WKWebView needs no
+ * network access. WebKit's native print pipeline respects @page size/margin
+ * rules for pagination.
  *
  * @coordinates-with renderer.rs — loads HTML via WKWebView, uses printOperationWithPrintInfo
  */
@@ -289,137 +242,6 @@ ${sharedContentCSS()}
 ${content}
     </div>
   </div>
-</body>
-</html>`;
-}
-
-/**
- * Build a complete HTML document for PDF preview via Paged.js.
- *
- * @param content - Rendered HTML content (from ExportSurface)
- * @param themeCSS - Captured theme CSS variables (may include dark values if useEditorTheme is on)
- * @param contentCSS - Editor content CSS styles
- * @param options - PDF configuration options
- * @param isDark - Whether the editor is currently in dark mode
- * @returns Complete HTML string ready for iframe preview
- */
-export function buildPdfHtml(
-  content: string,
-  themeCSS: string,
-  contentCSS: string,
-  options: PdfOptions,
-  isDark?: boolean,
-): string {
-  const pageCSS = buildPageCSS(options);
-  const typographyCSS = buildTypographyCSS(options);
-  const lightOverrides = options.useEditorTheme ? "" : forceLightThemeCSS();
-  const htmlClass = options.useEditorTheme && isDark ? "dark-theme" : "";
-
-  return `<!DOCTYPE html>
-<html lang="en" class="${htmlClass}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rendering...</title>
-  <style>
-/* KaTeX (bundled) */
-${katexCSS}
-  </style>
-  <style>
-/* Theme Variables (captured from app) */
-${themeCSS}
-
-/* Light theme overrides (skipped when "Use Editor Theme" is on) */
-${lightOverrides}
-
-/* Typography Overrides */
-${typographyCSS}
-
-/* Page Rules */
-${pageCSS}
-
-/* Content Styles */
-${contentCSS}
-
-/* PDF-specific overrides */
-body {
-  background: transparent;
-  color: var(--text-color);
-  margin: 0;
-  padding: 0;
-}
-/* No horizontal scroll; hide vertical scrollbar but keep programmatic scroll */
-html, body {
-  overflow-x: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none;
-}
-
-/* Separate pages visually in preview (does not affect exported PDF) */
-.pagedjs_page {
-  background: white;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-}
-${sharedContentCSS()}
-  </style>
-</head>
-<body>
-  <div class="export-surface">
-    <div class="export-surface-editor tiptap-editor">
-${content}
-    </div>
-  </div>
-  <script>
-${pagedPolyfillRaw}
-  </script>
-  <script>
-// Sandboxed iframes (allow-scripts without allow-same-origin) have origin "null" (string).
-// "null" is truthy so origin || "*" would send to literal "null" — use "*" in that case.
-var msgTarget = (window.origin && window.origin !== "null") ? window.origin : "*";
-
-// Completion signal — notifies parent iframe that Paged.js rendering is done
-class CompletionHandler extends Paged.Handler {
-  afterRendered(pages) {
-    document.title = "PDF Preview (" + pages.length + " pages)";
-    // Notify parent iframe (for live preview in dialog)
-    try {
-      if (window.parent !== window) {
-        window.parent.postMessage(
-          {
-            type: "pagedjs-complete",
-            pageCount: pages.length,
-            contentHeight: document.body.scrollHeight,
-          },
-          msgTarget
-        );
-      }
-    } catch (e) {
-      // Cross-origin restriction — ignore
-    }
-  }
-}
-Paged.registerHandlers(CompletionHandler);
-
-// Error handler — notify parent if Paged.js fails to render
-// Only fires for uncaught runtime errors (not resource load errors which use "error" on elements)
-window.addEventListener("error", function(e) {
-  // Skip resource load errors (images, scripts) — only catch runtime JS errors
-  if (e.target !== window) return;
-  try {
-    if (window.parent !== window) {
-      window.parent.postMessage(
-        { type: "pagedjs-error", message: e.message || "Paged.js rendering failed" },
-        msgTarget
-      );
-    }
-  } catch (_e) { console.error("[pdfExport] Failed to notify parent:", _e); }
-});
-  </script>
 </body>
 </html>`;
 }

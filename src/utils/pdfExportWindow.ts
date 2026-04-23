@@ -19,8 +19,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 
-const PDF_EXPORT_WIDTH = 900;
-const PDF_EXPORT_HEIGHT = 700;
+const PDF_EXPORT_WIDTH = 440;
+const PDF_EXPORT_HEIGHT = 640;
 
 /**
  * Calculate position to center PDF Export window over the current window.
@@ -78,8 +78,8 @@ export async function openPdfExportWindow(data: {
     title: "Export PDF",
     width: PDF_EXPORT_WIDTH,
     height: PDF_EXPORT_HEIGHT,
-    minWidth: 700,
-    minHeight: 500,
+    minWidth: 380,
+    minHeight: 480,
     x: pos?.x,
     y: pos?.y,
     center: !pos,

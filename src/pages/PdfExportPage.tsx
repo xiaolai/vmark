@@ -100,11 +100,10 @@ export function PdfExportPage() {
         onClose={handleClose}
       />
 
-      {/* Title centered over the preview pane (excludes 18rem sidebar on right) */}
+      {/* Title centered across the full window */}
       <div
         data-tauri-drag-region
-        className="absolute top-0 left-0 h-12 flex items-center justify-center pointer-events-none"
-        style={{ right: "18rem" }}
+        className="absolute top-0 left-0 right-0 h-12 flex items-center justify-center pointer-events-none"
       >
         <span className="text-sm font-medium text-[var(--text-primary)]">
           {t("dialog:pdfExport.title")}

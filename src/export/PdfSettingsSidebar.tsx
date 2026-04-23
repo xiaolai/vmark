@@ -1,11 +1,11 @@
 /**
  * PDF Export Settings Sidebar
  *
- * Right panel of the PDF export dialog. Features:
+ * Settings panel for PDF export. Features:
  * - Style presets (Default/Academic/Compact/Elegant) at the top
  * - Page Setup section (always open)
  * - Typography section (collapsible)
- * - Headers & Footers section (collapsible) with title input
+ * - Appearance section (collapsible, "Use Editor Theme" toggle)
  * - Export button at the bottom
  *
  * @module export/PdfSettingsSidebar
@@ -26,7 +26,7 @@ import {
   FONT_SIZE_OPTIONS, LINE_HEIGHT_OPTIONS,
   buildCjkSpacingOptions, buildLatinFontOptions, buildCjkFontOptions,
 } from "./pdfPresets";
-import { ChevronRight, FileText, Type, Layers, Palette } from "lucide-react";
+import { ChevronRight, FileText, Type, Palette } from "lucide-react";
 import {
   SettingRow,
   Select,
@@ -325,38 +325,6 @@ export function PdfSettingsSidebar({ options, onOptionChange: set, onExport, exp
               <Toggle
                 checked={options.useEditorTheme}
                 onChange={(v) => set("useEditorTheme", v)}
-              />
-            </SettingRow>
-          </PdfSettingsGroup>
-        </CollapsibleSection>
-
-        {/* Headers & Footers — collapsible (preview only: WebKit native print ignores @page margin boxes) */}
-        <CollapsibleSection title={t("pdf.headersFooters")}>
-          <PdfSettingsGroup icon={<Layers className="w-3.5 h-3.5" />}>
-            <SettingRow label={t("pdf.headersFooters.title")}>
-              <input
-                type="text"
-                className="pdf-title-input"
-                value={options.title ?? ""}
-                onChange={(e) => set("title", e.target.value)}
-              />
-            </SettingRow>
-            <SettingRow label={t("pdf.headersFooters.header")}>
-              <Toggle
-                checked={options.showHeader}
-                onChange={(v) => set("showHeader", v)}
-              />
-            </SettingRow>
-            <SettingRow label={t("pdf.headersFooters.pageNumbers")}>
-              <Toggle
-                checked={options.showPageNumbers}
-                onChange={(v) => set("showPageNumbers", v)}
-              />
-            </SettingRow>
-            <SettingRow label={t("pdf.headersFooters.date")}>
-              <Toggle
-                checked={options.showDate}
-                onChange={(v) => set("showDate", v)}
               />
             </SettingRow>
           </PdfSettingsGroup>

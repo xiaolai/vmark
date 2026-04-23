@@ -21,10 +21,6 @@ function createDefaultOptions(): PdfOptions {
     marginRight: 25.4,
     marginBottom: 25.4,
     marginLeft: 25.4,
-    showPageNumbers: true,
-    showHeader: true,
-    showDate: false,
-    title: "Test Document",
     fontSize: 11,
     lineHeight: 1.6,
     cjkLetterSpacing: "0.05em",
@@ -118,6 +114,8 @@ describe("PdfSettingsSidebar i18n", () => {
     // These buttons hold the section titles
     expect(screen.getByText("Typography")).toBeInTheDocument();
     expect(screen.getByText("Appearance")).toBeInTheDocument();
-    expect(screen.getByText("Headers & Footers (Preview Only)")).toBeInTheDocument();
+    // Headers & Footers section was removed — WebKit native print ignores
+    // @page margin boxes, so those settings never reached the exported PDF.
+    expect(screen.queryByText(/Headers/)).not.toBeInTheDocument();
   });
 });
