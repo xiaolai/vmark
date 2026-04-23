@@ -5,17 +5,18 @@ import { describe, it, expect } from "vitest";
 import {
   createWorkspaceIdentity,
   generateUUID,
-  isValidUUID,
   grantTrust,
   revokeTrust,
   isTrusted,
 } from "./workspaceIdentity";
 
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 describe("workspaceIdentity", () => {
   describe("generateUUID", () => {
     it("generates valid UUID format", () => {
       const uuid = generateUUID();
-      expect(isValidUUID(uuid)).toBe(true);
+      expect(uuid).toMatch(UUID_V4_REGEX);
     });
 
     it("generates unique UUIDs", () => {
@@ -53,24 +54,10 @@ describe("workspaceIdentity", () => {
     });
   });
 
-  describe("isValidUUID", () => {
-    it("accepts valid UUID v4", () => {
-      expect(isValidUUID("550e8400-e29b-41d4-a716-446655440000")).toBe(true);
-      expect(isValidUUID("6ba7b810-9dad-41d4-80b4-00c04fd430c8")).toBe(true);
-    });
-
-    it("rejects invalid UUIDs", () => {
-      expect(isValidUUID("not-a-uuid")).toBe(false);
-      expect(isValidUUID("550e8400-e29b-11d4-a716-446655440000")).toBe(false); // v1
-      expect(isValidUUID("")).toBe(false);
-      expect(isValidUUID("550e8400-e29b-41d4-c716-446655440000")).toBe(false); // wrong variant
-    });
-  });
-
   describe("createWorkspaceIdentity", () => {
     it("creates identity with valid UUID", () => {
       const identity = createWorkspaceIdentity();
-      expect(isValidUUID(identity.id)).toBe(true);
+      expect(identity.id).toMatch(UUID_V4_REGEX);
     });
 
     it("creates identity as untrusted", () => {
