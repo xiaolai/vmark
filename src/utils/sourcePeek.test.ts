@@ -21,7 +21,6 @@ import { mathInlineExtension } from "@/plugins/latex/tiptapInlineMath";
 import { AlignedTableCell, AlignedTableHeader } from "@/components/Editor/alignedTableNodes";
 import {
   createSourcePeekSlice,
-  getSourcePeekRange,
   getExpandedSourcePeekRange,
   serializeSourcePeekRange,
   applySourcePeekMarkdown,
@@ -50,26 +49,13 @@ function createSchema() {
 }
 
 describe("sourcePeek helpers", () => {
-  it("builds a top-level block range for the selection", () => {
-    const schema = createSchema();
-    const doc = parseMarkdown(schema, "Alpha\n\nBeta");
-    const selection = TextSelection.create(doc, 1);
-    const state = EditorState.create({ doc, selection });
-
-    const range = getSourcePeekRange(state);
-    const slice = doc.slice(range.from, range.to);
-
-    expect(slice.content.childCount).toBe(1);
-    expect(slice.content.firstChild?.textContent).toBe("Alpha");
-  });
-
   it("serializes the selection range to markdown", () => {
     const schema = createSchema();
     const doc = parseMarkdown(schema, "Alpha\n\nBeta");
     const selection = TextSelection.create(doc, 1);
     const state = EditorState.create({ doc, selection });
 
-    const range = getSourcePeekRange(state);
+    const range = getExpandedSourcePeekRange(state);
     const markdown = serializeSourcePeekRange(state, range).trim();
 
     expect(markdown).toBe("Alpha");
@@ -81,18 +67,6 @@ describe("sourcePeek helpers", () => {
 
     expect(slice.content.childCount).toBe(1);
     expect(slice.content.firstChild?.type.name).toBe("paragraph");
-  });
-
-  it("uses node selection bounds for block selections", () => {
-    const schema = createSchema();
-    const blockImage = schema.nodes.block_image.create({ src: "image.png", alt: "", title: "" });
-    const doc = schema.nodes.doc.create(null, [blockImage]);
-    const selection = NodeSelection.create(doc, 0);
-    const state = EditorState.create({ doc, selection });
-
-    const range = getSourcePeekRange(state);
-
-    expect(range).toEqual({ from: selection.from, to: selection.to });
   });
 
   it("creates a slice with inline content wrapped in paragraph", () => {
@@ -122,27 +96,11 @@ describe("sourcePeek helpers", () => {
     const selection = TextSelection.create(doc, 1, doc.content.size - 1);
     const state = EditorState.create({ doc, selection });
 
-    const range = getSourcePeekRange(state);
+    const range = getExpandedSourcePeekRange(state);
     const markdown = serializeSourcePeekRange(state, range).trim();
 
     expect(markdown).toContain("First paragraph");
     expect(markdown).toContain("Second paragraph");
-  });
-
-  it("handles shallow selection (depth < 1)", () => {
-    const schema = createSchema();
-    const doc = parseMarkdown(schema, "Test");
-    // Create a selection at document level (depth 0)
-    const state = EditorState.create({
-      doc,
-      selection: TextSelection.create(doc, 0, doc.content.size),
-    });
-
-    const range = getSourcePeekRange(state);
-
-    // Should fall back to selection from/to
-    expect(range.from).toBe(0);
-    expect(range.to).toBe(doc.content.size);
   });
 });
 
