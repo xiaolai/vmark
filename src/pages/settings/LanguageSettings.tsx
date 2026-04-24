@@ -9,11 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { useSettingsStore, type QuoteStyle } from "@/stores/settingsStore";
-import {
-  useShortcutsStore,
-  DEFAULT_SHORTCUTS,
-  prosemirrorToTauri,
-} from "@/stores/shortcutsStore";
+import { rebuildNativeMenu } from "@/utils/rebuildNativeMenu";
 import { SettingRow, Toggle, SettingsGroup, Select } from "./components";
 import { i18nWarn } from "@/utils/debug";
 
@@ -67,27 +63,9 @@ export function LanguageSettings() {
       await i18n.changeLanguage(value);
       // Set the Rust-side locale so t!() returns translated strings
       await invoke("set_locale", { locale: value });
-      // Rebuild the native menu with translated labels + current shortcut bindings
-      const allShortcuts = useShortcutsStore.getState().getAllShortcuts();
-      const menuShortcuts: Record<string, string> = {};
-      for (const def of DEFAULT_SHORTCUTS) {
-        if (def.menuId) {
-          menuShortcuts[def.menuId] = prosemirrorToTauri(
-            allShortcuts[def.id] ?? ""
-          );
-        }
-      }
-      await invoke("rebuild_menu", { shortcuts: menuShortcuts });
-      // Rebuild resets the Genies submenu — re-populate it
-      const geniesAccel = menuShortcuts["search-genies"]
-        ? { "search-genies": menuShortcuts["search-genies"] }
-        : null;
-      await invoke("refresh_genies_menu", { shortcuts: geniesAccel });
-      // Rebuild wipes recent files/workspaces — re-push from stores
-      const { useRecentFilesStore } = await import("@/stores/recentFilesStore");
-      const { useRecentWorkspacesStore } = await import("@/stores/recentWorkspacesStore");
-      useRecentFilesStore.getState().syncToNativeMenu();
-      useRecentWorkspacesStore.getState().syncToNativeMenu();
+      // Rebuild the native menu with translated labels + current shortcut
+      // bindings, and re-populate genies / recent files / recent workspaces.
+      await rebuildNativeMenu();
       // Only persist after everything succeeds
       updateGeneralSetting("language", value);
     } catch (e) {
@@ -95,13 +73,7 @@ export function LanguageSettings() {
       // Revert JS + Rust locale, then rebuild menu with previous language labels
       await i18n.changeLanguage(previousLang);
       invoke("set_locale", { locale: previousLang }).catch((e2) => { i18nWarn("revert locale failed:", e2); });
-      const revertShortcuts: Record<string, string> = {};
-      for (const def of DEFAULT_SHORTCUTS) {
-        if (def.menuId) {
-          revertShortcuts[def.menuId] = prosemirrorToTauri(useShortcutsStore.getState().getAllShortcuts()[def.id] ?? "");
-        }
-      }
-      invoke("rebuild_menu", { shortcuts: revertShortcuts }).catch((e2) => { i18nWarn("revert menu failed:", e2); });
+      rebuildNativeMenu().catch((e2) => { i18nWarn("revert menu failed:", e2); });
     } finally {
       changingRef.current = false;
     }

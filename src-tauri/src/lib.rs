@@ -560,6 +560,7 @@ pub fn run() {
             menu::refresh_genies_menu,
             menu::hide_genies_menu,
             menu::rebuild_menu,
+            menu::update_menu_accelerators,
             menu::set_locale,
             window_manager::new_window,
             window_manager::open_file_in_new_window,

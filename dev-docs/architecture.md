@@ -42,7 +42,7 @@ flowchart TB
 | File                | Role                                                                           |
 | ------------------- | ------------------------------------------------------------------------------ |
 | `lib.rs`            | App bootstrap — plugin registration, command handlers, window setup            |
-| `menu.rs`           | Menu construction (TWO builders: `create_menu` + `create_menu_with_shortcuts`) |
+| `menu/`             | Menu construction. `localized.rs` builds the tree (single `create_localized_menu`); `accelerators.rs` diffs and patches accelerators without a full rebuild; `dynamic.rs` updates Recent / Genies submenus. |
 | `menu_events.rs`    | Generic menu dispatcher — emits `menu:{id}` to focused window                  |
 | `window_manager.rs` | Window lifecycle — create, close, focus, tab transfer                          |
 | `mcp_bridge.rs`     | WebSocket server for MCP sidecar communication                                 |

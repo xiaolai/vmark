@@ -473,20 +473,151 @@ describe("shortcutsStore", () => {
     });
   });
 
-  describe("syncMenuShortcuts — search-genies absent (null branch)", () => {
-    it("passes null for geniesShortcuts when search-genies menuId is not present", async () => {
-      // The syncMenuShortcuts function passes null when menuShortcuts["search-genies"] is falsy.
-      // This triggers when no shortcut has menuId === "search-genies".
-      // Verify by calling setShortcut (which calls syncMenuShortcuts internally).
+  describe("syncMenuShortcuts — differential path (Issue #825)", () => {
+    it("invokes update_menu_accelerators, never rebuild_menu or refresh_genies_menu", async () => {
       const { invoke } = await import("@tauri-apps/api/core");
-      vi.mocked(invoke).mockResolvedValue(undefined);
+      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      vi.mocked(invoke).mockClear();
 
-      // resetAllShortcuts triggers syncMenuShortcuts internally
-      useShortcutsStore.getState().resetAllShortcuts();
+      useShortcutsStore.getState().setShortcut("bold", "Mod-Shift-Alt-b");
+      await flushMenuShortcutsSync();
 
-      // If search-genies has a menuId, the non-null branch fires — either is fine
-      // as long as no error is thrown. Just verify invoke was called.
-      expect(invoke).toHaveBeenCalled();
+      const calls = vi.mocked(invoke).mock.calls.map((c) => c[0]);
+      expect(calls).toContain("update_menu_accelerators");
+      expect(calls).not.toContain("rebuild_menu");
+      expect(calls).not.toContain("refresh_genies_menu");
+    });
+
+    it("coalesces rapid edits into a single native-menu update", async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      vi.mocked(invoke).mockClear();
+
+      const { setShortcut } = useShortcutsStore.getState();
+      setShortcut("bold", "Mod-Alt-b");
+      setShortcut("italic", "Mod-Alt-i");
+      setShortcut("code", "Mod-Alt-c");
+      await flushMenuShortcutsSync();
+
+      const accelCalls = vi
+        .mocked(invoke)
+        .mock.calls.filter((c) => c[0] === "update_menu_accelerators");
+      // One trailing-debounced flush, not three
+      expect(accelCalls).toHaveLength(1);
+    });
+
+    it("sends the final shortcut set after coalescing (last write wins)", async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      vi.mocked(invoke).mockClear();
+
+      const { setShortcut } = useShortcutsStore.getState();
+      setShortcut("bold", "Mod-Alt-b");
+      setShortcut("bold", "Mod-Shift-b"); // supersedes the first edit
+      await flushMenuShortcutsSync();
+
+      const accelCall = vi
+        .mocked(invoke)
+        .mock.calls.find((c) => c[0] === "update_menu_accelerators");
+      expect(accelCall).toBeDefined();
+      const shortcuts = (accelCall![1] as { shortcuts: Record<string, string> })
+        .shortcuts;
+      expect(shortcuts.bold).toBe("CmdOrCtrl+Shift+B");
+    });
+
+    it("converts ProseMirror keys to Tauri accelerator format before sending", async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      vi.mocked(invoke).mockClear();
+
+      useShortcutsStore.getState().setShortcut("bold", "Mod-b");
+      await flushMenuShortcutsSync();
+
+      const accelCall = vi
+        .mocked(invoke)
+        .mock.calls.find((c) => c[0] === "update_menu_accelerators");
+      const shortcuts = (accelCall![1] as { shortcuts: Record<string, string> })
+        .shortcuts;
+      expect(shortcuts.bold).toBe("CmdOrCtrl+B");
+    });
+
+    it("fires the trailing debounce on its own after the window elapses", async () => {
+      // Exercises the natural setTimeout callback (not the flush helper)
+      // so coverage reflects the real production path.
+      vi.useFakeTimers();
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        vi.mocked(invoke).mockClear();
+
+        useShortcutsStore.getState().setShortcut("bold", "Mod-Shift-Alt-b");
+        vi.advanceTimersByTime(150);
+        await vi.runAllTimersAsync();
+
+        const calls = vi
+          .mocked(invoke)
+          .mock.calls.filter((c) => c[0] === "update_menu_accelerators");
+        expect(calls).toHaveLength(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("serializes overlapping invokes so older snapshots cannot overtake newer ones", async () => {
+      // Regression: if two debounced flushes race on slow IPC, the older
+      // payload could reach Rust last and revert the user's newer edit.
+      // The in-flight chain must make the second invoke wait for the first.
+      const { invoke } = await import("@tauri-apps/api/core");
+      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+
+      const order: string[] = [];
+      let firstCalled = false;
+      let resolveFirst: (() => void) | null = null;
+
+      vi.mocked(invoke).mockImplementation((async (cmd: string) => {
+        if (cmd !== "update_menu_accelerators") return undefined;
+        if (!firstCalled) {
+          firstCalled = true;
+          order.push("first:start");
+          await new Promise<void>((res) => {
+            resolveFirst = res;
+          });
+          order.push("first:done");
+          return undefined;
+        }
+        order.push("second:start");
+        order.push("second:done");
+        return undefined;
+      }) as never);
+
+      // Drain pending microtasks between test steps. `setTimeout(..., 0)`
+      // is enough because queueSyncMenuShortcuts chains through two
+      // microtask ticks before the invoke actually fires.
+      const drain = () => new Promise<void>((r) => setTimeout(r, 0));
+
+      // First edit + flush starts an invoke that we'll deliberately block.
+      useShortcutsStore.getState().setShortcut("bold", "Mod-Alt-b");
+      const firstFlush = flushMenuShortcutsSync();
+      await drain();
+      expect(order).toEqual(["first:start"]);
+
+      // Second edit arrives while first is still pending.
+      useShortcutsStore.getState().setShortcut("italic", "Mod-Alt-i");
+      const secondFlush = flushMenuShortcutsSync();
+      await drain();
+      // The chain must block — second invoke has NOT started yet.
+      expect(order).toEqual(["first:start"]);
+
+      // Releasing the first unblocks the chain.
+      resolveFirst!();
+      await firstFlush;
+      await secondFlush;
+
+      expect(order).toEqual([
+        "first:start",
+        "first:done",
+        "second:start",
+        "second:done",
+      ]);
     });
   });
 });

@@ -6,7 +6,8 @@
  *   import/export, and live sync to Tauri native menu accelerators.
  *
  * Pipeline: User edits shortcut in Settings → setShortcut() → customBindings
- *   persisted to localStorage → syncMenuShortcuts() invokes Rust rebuild_menu
+ *   persisted to localStorage → syncMenuShortcuts() debounces for 100 ms →
+ *   invokes Rust `update_menu_accelerators` (differential, not a full rebuild)
  *   → native menu accelerators update live.
  *
  * Key decisions:
@@ -16,9 +17,18 @@
  *     based on runtime platform detection (isMacPlatform).
  *   - Conflict detection normalizes key strings (case-insensitive, sorted modifiers)
  *     to catch duplicates like "Mod-Shift-N" vs "Shift-Mod-n".
- *   - After menu rebuild, refreshes genies submenu (rebuild resets it to placeholder).
+ *   - Menu sync uses the differential `update_menu_accelerators` command
+ *     (Issue #825) — a full rebuild would freeze the Settings window on
+ *     Windows because each shortcut edit forced ~150 main-thread hops
+ *     (recreating every MenuItem + Submenu in the tree).
+ *   - Trailing-debounced (100 ms) so Reset-All / Import coalesce into one
+ *     native-menu update instead of firing per binding.
+ *   - Debounced flushes chain through a module-scoped in-flight promise so
+ *     two overlapping invokes can't complete out of order and silently
+ *     revert the user's most recent edit.
  *
- * @coordinates-with menu.rs — Rust menu accelerators must match (see rule 41)
+ * @coordinates-with src-tauri/src/menu/localized.rs — Rust default accelerators must match (see rule 41)
+ * @coordinates-with src-tauri/src/menu/accelerators.rs — differential update path
  * @coordinates-with useViewShortcuts.ts — frontend shortcut interception
  * @coordinates-with website/guide/shortcuts.md — documentation (must stay in sync)
  * @module stores/shortcutsStore
@@ -390,34 +400,82 @@ function normalizeKey(key: string): string {
   return [...modifiers, mainKey].join("-");
 }
 
+/** Trailing-debounce window for shortcut edits. Batches rapid changes
+ *  (e.g. Reset All, Import) into one native menu update. */
+const SYNC_DEBOUNCE_MS = 100;
+
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingShortcuts: Record<string, string> | null = null;
+// In-flight invoke chain. New sends chain after the previous promise so older
+// snapshots can't overtake newer ones if Tauri completes invokes out of order.
+let inFlightSync: Promise<void> = Promise.resolve();
+
 /**
- * Sync shortcuts with Tauri menu.
+ * Schedule a trailing-debounced sync to the native menu. Successive calls
+ * replace the pending payload so the final state always wins.
  */
-async function syncMenuShortcuts(shortcuts: Record<string, string>) {
+function syncMenuShortcuts(shortcuts: Record<string, string>) {
+  pendingShortcuts = shortcuts;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    const next = pendingShortcuts;
+    pendingShortcuts = null;
+    if (next) queueSyncMenuShortcuts(next);
+  }, SYNC_DEBOUNCE_MS);
+}
+
+/**
+ * Flush any pending debounced sync immediately. Exported for tests.
+ * Resolves once the native-menu invoke for the pending payload (if any) has
+ * completed, so assertions see the final state.
+ * @internal
+ */
+export function flushMenuShortcutsSync(): Promise<void> {
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+    const next = pendingShortcuts;
+    pendingShortcuts = null;
+    if (next) queueSyncMenuShortcuts(next);
+  }
+  return inFlightSync;
+}
+
+/**
+ * Append a sync to the in-flight chain so invokes complete in FIFO order.
+ * Without this, two debounced flushes whose Tauri invokes race could apply
+ * snapshots out of order — the older snapshot would overwrite the newer on
+ * the Rust side, silently reverting the user's most recent edit.
+ */
+function queueSyncMenuShortcuts(shortcuts: Record<string, string>) {
+  inFlightSync = inFlightSync
+    .catch(() => {})
+    .then(() => syncMenuShortcutsNow(shortcuts));
+}
+
+/**
+ * Invoke the differential menu-accelerator update with the current shortcut
+ * set. This uses `update_menu_accelerators` (Rust diff) rather than
+ * `rebuild_menu`, which avoids reconstructing the menu tree — the cost that
+ * froze the Settings window on Windows (Issue #825).
+ *
+ * Genies, recent files, and recent workspaces are untouched by this path
+ * because the menu tree is preserved, so no resync of those is required.
+ */
+async function syncMenuShortcutsNow(shortcuts: Record<string, string>) {
   try {
-    // Build menu ID -> shortcut mapping
     const menuShortcuts: Record<string, string> = {};
     for (const def of DEFAULT_SHORTCUTS) {
       if (def.menuId) {
         /* v8 ignore start -- shortcuts from getAllShortcuts() always has all keys; ?? fallback is defensive */
         const key = shortcuts[def.id] ?? resolveDefaultKey(def);
         /* v8 ignore stop */
-        // Convert from ProseMirror format to Tauri format
         menuShortcuts[def.menuId] = prosemirrorToTauri(key);
       }
     }
-    await invoke("rebuild_menu", { shortcuts: menuShortcuts });
-
-    // rebuild_menu resets the Genies submenu to a placeholder — re-populate it
-    // Pass only the search-genies accelerator to avoid unnecessary IPC overhead
-    /* v8 ignore start -- "search-genies" is always in menuShortcuts since searchGenies has that menuId; null branch is defensive */
-    const geniesShortcuts = menuShortcuts["search-genies"]
-      ? { "search-genies": menuShortcuts["search-genies"] }
-      : null;
-    /* v8 ignore stop */
-    await invoke("refresh_genies_menu", { shortcuts: geniesShortcuts });
+    await invoke("update_menu_accelerators", { shortcuts: menuShortcuts });
   } catch (e) {
-    // Menu rebuild may fail if command not yet implemented
     /* v8 ignore start -- @preserve invoke failure only occurs if Tauri command is unavailable; mocked in tests */
     shortcutsWarn("Failed to sync menu shortcuts:", e);
     /* v8 ignore stop */

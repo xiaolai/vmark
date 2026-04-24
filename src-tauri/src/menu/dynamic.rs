@@ -3,7 +3,13 @@
 //! Purpose: Dynamically updates submenu contents without rebuilding the entire menu bar.
 //! Called by Tauri commands when the frontend notifies of list changes.
 //!
+//! Any path that recreates a `MenuItem` whose ID appears in `ACCEL_CACHE`
+//! (currently only `search-genies`) must call `accelerators::invalidate_item_cache()`
+//! so the differential update re-walks the menu and binds new Arc handles —
+//! otherwise `set_accelerator` silently operates on orphaned items.
+//!
 //! @coordinates-with `mod.rs` (snapshot Mutexes and submenu ID constants)
+//! @coordinates-with `accelerators.rs` (item-cache invalidation on genies rebuild)
 //! @coordinates-with `menu_events.rs` (resolves snapshot paths on click)
 
 use std::collections::HashMap;
@@ -272,6 +278,11 @@ pub fn refresh_genies_menu(
         *s = snapshot;
     }
 
+    // The newly created `search-genies` MenuItem is a different Arc than the
+    // one (if any) currently in ITEM_CACHE — drop the cache so the next
+    // differential update re-walks and binds the live handle.
+    super::accelerators::invalidate_item_cache();
+
     // Re-apply SF Symbol icons to cover newly added genie items
     #[cfg(target_os = "macos")]
     crate::macos_menu::apply_menu_icons(&app);
@@ -311,6 +322,9 @@ pub fn hide_genies_menu(app: AppHandle) -> Result<(), String> {
     if let Ok(mut s) = GENIES_SNAPSHOT.lock() {
         s.clear();
     }
+
+    // The cached `search-genies` MenuItem (if present) is now orphaned.
+    super::accelerators::invalidate_item_cache();
 
     Ok(())
 }

@@ -4,8 +4,13 @@
 //! keyboard accelerators, using `rust-i18n` for translation.
 //!
 //! Pipeline: `lib.rs` setup -> `localized::create_localized_menu()` -> Tauri `app.set_menu()`.
-//! When user customizes shortcuts or changes locale: frontend `rebuild_menu` invoke
+//! When user changes locale (label change): frontend invokes `rebuild_menu`
 //!   -> `localized::create_localized_menu()` with custom shortcuts.
+//! When user edits a keyboard shortcut (accelerator-only change): frontend
+//!   invokes `update_menu_accelerators` -> `accelerators::apply_accelerator_diff()`
+//!   which mutates only the items whose accelerator changed. This avoids the
+//!   full rebuild's ~150 main-thread hops that stalled the Settings window on
+//!   Windows (Issue #825).
 //!
 //! Key decisions:
 //!   - A single `create_localized_menu()` function handles both default and custom
@@ -15,6 +20,9 @@
 //!     handlers always resolve the correct path even if the store changed.
 //!   - Genies submenu is created dynamically inside Edit (not at build time)
 //!     so it can be toggled on/off without rebuilding the entire menu.
+//!   - The accelerator cache is seeded automatically inside `create_localized_menu`
+//!     via the `accel()` closure, so every rebuild leaves a correct baseline
+//!     for the next differential update — callers don't need to seed explicitly.
 //!
 //! Known limitations:
 //!   - Menu structure is duplicated across macOS and non-macOS variants
@@ -25,6 +33,7 @@
 //! @coordinates-with `lib.rs` (registers Tauri commands and builds initial menu)
 //! @coordinates-with `locales/en.yml` (English locale strings)
 
+pub mod accelerators;
 mod commands;
 mod dynamic;
 pub mod localized;

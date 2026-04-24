@@ -27,12 +27,22 @@ pub fn create_localized_menu(
     app: &tauri::AppHandle,
     custom_shortcuts: Option<&HashMap<String, String>>,
 ) -> tauri::Result<Menu<tauri::Wry>> {
+    // Clear the diff caches so the accel() closure below can repopulate the
+    // accelerator baseline as it builds the tree. This makes both startup
+    // (custom_shortcuts = None) and rebuild paths leave a correct baseline
+    // for the next differential update.
+    super::accelerators::begin_rebuild();
+
     // Helper: resolve accelerator from custom map or use default.
     // Returns `Some(accel)` or `None` if the resolved string is empty.
+    // Also records the resolved value in the accelerator cache so
+    // `update_menu_accelerators` can diff against reality without a separate
+    // accounting pass.
     let accel = |id: &str, default: &str| -> Option<String> {
         let value = custom_shortcuts
             .and_then(|map| map.get(id).map(|s| s.as_str()))
             .unwrap_or(default);
+        super::accelerators::record_applied(id, value);
         if value.is_empty() {
             None
         } else {
