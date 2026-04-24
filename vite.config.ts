@@ -86,15 +86,19 @@ export default defineConfig(async () => ({
           // "Cannot access 'kn' before initialization" in production builds
           if (pkgName.startsWith("@codemirror/")) return "vendor-codemirror";
           if (pkgName.startsWith("@tiptap/") || pkgName.startsWith("prosemirror")) return "vendor-tiptap";
-          // Keep all mermaid-related packages together to avoid circular dependency issues
-          // Previously splitting mermaid, @mermaid-js/*, d3-*, dagre caused
-          // "this.clear is not a function" error in production builds
+          // Plain `dagre` is used only by workflow layout (lib/workflow/layout.ts) which
+          // is reached lazily through WorkflowSidePanel. Mermaid uses its own bundled
+          // fork (`dagre-d3-es`), so isolating plain `dagre` is safe and removes ~150 KB
+          // from the eagerly-loaded vendor-mermaid chunk.
+          if (pkgName === "dagre") return "vendor-dagre";
+          // Keep all mermaid-related packages together to avoid circular dependency issues.
+          // Previously splitting mermaid, @mermaid-js/*, d3-*, dagre-d3-es caused
+          // "this.clear is not a function" error in production builds.
           if (
             pkgName === "mermaid" ||
             pkgName.startsWith("@mermaid-js/") ||
             pkgName.startsWith("d3-") ||
             pkgName === "d3" ||
-            pkgName === "dagre" ||
             pkgName === "dagre-d3-es" ||
             pkgName === "khroma"
           ) {
