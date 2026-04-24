@@ -70,3 +70,14 @@ tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
 # tauri::test are cfg-gated accordingly in tests.
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 tauri = { version = "2", features = ["protocol-asset", "test"] }
+
+# Release profile tuned for distribution.
+# - lto = "thin": ~5–8% smaller binary, ~25% slower link, retains good per-fn opt.
+# - codegen-units = 1: aggressive optimization across the crate; slower builds.
+# - strip = "symbols": drop symbol tables; macOS keeps a separate .dSYM if produced.
+# - panic = "abort": ~2–3% smaller; safe because the codebase has no `catch_unwind`.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"

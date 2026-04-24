@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use tauri::Manager;
 use tempfile::NamedTempFile;
+use super::dedup;
 use super::session::SessionData;
 use super::validation::validate_and_repair;
 
@@ -44,6 +45,32 @@ pub async fn write_session_atomic(
     // Serialize to JSON
     let json = serde_json::to_string_pretty(session)
         .map_err(|e| format!("JSON serialization failed: {}", e))?;
+
+    // Skip the entire write (tmp file + fsync + rename + parent fsync) when
+    // the captured payload is byte-identical to the last successful write.
+    // Hot-exit captures fire frequently during editing; deduping cuts SSD
+    // wear and avoids a periodic I/O spike when nothing actually changed.
+    //
+    // Defensive: also verify the session file still exists before skipping.
+    // Otherwise an external `rm` (or a manual `delete_session` from another
+    // process) would leave the cache valid but the file missing, and the
+    // next identical capture would silently never recreate the file.
+    let payload_hash = dedup::hash_payload(&json);
+    if !dedup::payload_differs_from_last(&payload_hash) {
+        match tokio::fs::try_exists(&session_path).await {
+            Ok(true) => return Ok(()),
+            Ok(false) => {
+                log::debug!(
+                    "[HotExit] Session file missing despite cached hash — forcing rewrite"
+                );
+                dedup::reset();
+            }
+            Err(e) => {
+                log::warn!("[HotExit] try_exists check failed ({}); proceeding to write", e);
+                dedup::reset();
+            }
+        }
+    }
 
     // Perform all blocking I/O in spawn_blocking to avoid blocking async executor
     tokio::task::spawn_blocking(move || {
@@ -114,7 +141,13 @@ pub async fn write_session_atomic(
         Ok(())
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Task join error: {}", e))??;
+
+    // Record only after the spawn_blocking write succeeded — otherwise a real
+    // change could be silently lost if the next call sees the same content
+    // as a partially-failed earlier attempt.
+    dedup::record_written(payload_hash);
+    Ok(())
 }
 
 /// Try to read and parse a session file at the given path.
@@ -212,6 +245,10 @@ pub async fn delete_session(app: &tauri::AppHandle) -> Result<(), String> {
             log::error!("[HotExit] Failed to delete backup session: {}", e);
         }
     }
+
+    // Drop the cached payload hash so the next capture writes the file even
+    // if its serialized payload is identical to the one we just deleted.
+    dedup::reset();
 
     Ok(())
 }

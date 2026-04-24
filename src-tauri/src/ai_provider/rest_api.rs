@@ -4,18 +4,23 @@
 //! enumerate available models, and confirm that a specific model is
 //! usable -- all without streaming a full prompt response.
 
+use std::time::Duration;
 use tauri::command;
+
+use super::http_client;
 
 // ============================================================================
 // Shared Helpers
 // ============================================================================
 
-fn make_client(timeout_secs: u64) -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .timeout(std::time::Duration::from_secs(timeout_secs))
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))
+/// Per-request timeout (in seconds) for short REST checks (key test, model list).
+const SHORT_REQUEST_TIMEOUT_SECS: u64 = 10;
+/// Per-request timeout (in seconds) for model validation (sends a tiny prompt).
+const VALIDATE_REQUEST_TIMEOUT_SECS: u64 = 15;
+
+/// Returns the per-request timeout duration for the given seconds.
+fn timeout_secs(secs: u64) -> Duration {
+    Duration::from_secs(secs)
 }
 
 fn resolve_endpoint(endpoint: Option<String>, default: &str) -> String {
@@ -52,7 +57,8 @@ pub async fn test_api_key(
     api_key: Option<String>,
     endpoint: Option<String>,
 ) -> Result<String, String> {
-    let client = make_client(10)?;
+    let client = http_client::shared()?;
+    let req_timeout = timeout_secs(SHORT_REQUEST_TIMEOUT_SECS);
 
     match provider.as_str() {
         "openai" => {
@@ -60,6 +66,7 @@ pub async fn test_api_key(
             let base = resolve_endpoint(endpoint, "https://api.openai.com");
             let resp = client
                 .get(format!("{}/v1/models", base))
+                .timeout(req_timeout)
                 .header("Authorization", format!("Bearer {}", key))
                 .send()
                 .await
@@ -72,6 +79,7 @@ pub async fn test_api_key(
             let key = require_key(api_key)?;
             let resp = client
                 .get("https://generativelanguage.googleapis.com/v1beta/models")
+                .timeout(req_timeout)
                 .header("x-goog-api-key", &key)
                 .send()
                 .await
@@ -84,6 +92,7 @@ pub async fn test_api_key(
             let base = resolve_endpoint(endpoint, "http://localhost:11434");
             let resp = client
                 .get(format!("{}/api/tags", base))
+                .timeout(req_timeout)
                 .send()
                 .await
                 .map_err(|e| format!("Request failed: {}", e))?;
@@ -101,6 +110,7 @@ pub async fn test_api_key(
             });
             let resp = client
                 .post(format!("{}/v1/messages", base))
+                .timeout(req_timeout)
                 .header("x-api-key", &key)
                 .header("anthropic-version", "2023-06-01")
                 .header("content-type", "application/json")
@@ -132,13 +142,15 @@ pub async fn list_models(
     api_key: Option<String>,
     endpoint: Option<String>,
 ) -> Result<Vec<String>, String> {
-    let client = make_client(10)?;
+    let client = http_client::shared()?;
+    let req_timeout = timeout_secs(SHORT_REQUEST_TIMEOUT_SECS);
 
     match provider.as_str() {
         "ollama-api" => {
             let base = resolve_endpoint(endpoint, "http://localhost:11434");
             let resp = client
                 .get(format!("{}/api/tags", base))
+                .timeout(req_timeout)
                 .send()
                 .await
                 .map_err(|e| format!("Request failed: {}", e))?;
@@ -167,6 +179,7 @@ pub async fn list_models(
             let base = resolve_endpoint(endpoint, "https://api.openai.com");
             let resp = client
                 .get(format!("{}/v1/models", base))
+                .timeout(req_timeout)
                 .header("Authorization", format!("Bearer {}", key))
                 .send()
                 .await
@@ -203,6 +216,7 @@ pub async fn list_models(
             let key = require_key(api_key)?;
             let resp = client
                 .get("https://generativelanguage.googleapis.com/v1beta/models")
+                .timeout(req_timeout)
                 .header("x-goog-api-key", &key)
                 .send()
                 .await
@@ -264,7 +278,8 @@ pub async fn validate_model(
     api_key: Option<String>,
     endpoint: Option<String>,
 ) -> Result<String, String> {
-    let client = make_client(15)?;
+    let client = http_client::shared()?;
+    let req_timeout = timeout_secs(VALIDATE_REQUEST_TIMEOUT_SECS);
 
     match provider.as_str() {
         "openai" => {
@@ -277,6 +292,7 @@ pub async fn validate_model(
             });
             let resp = client
                 .post(format!("{}/v1/chat/completions", base))
+                .timeout(req_timeout)
                 .header("Authorization", format!("Bearer {}", key))
                 .header("content-type", "application/json")
                 .json(&body)
@@ -297,6 +313,7 @@ pub async fn validate_model(
             });
             let resp = client
                 .post(format!("{}/v1/messages", base))
+                .timeout(req_timeout)
                 .header("x-api-key", &key)
                 .header("anthropic-version", "2023-06-01")
                 .header("content-type", "application/json")
@@ -320,6 +337,7 @@ pub async fn validate_model(
             );
             let resp = client
                 .post(&url)
+                .timeout(req_timeout)
                 .header("x-goog-api-key", &key)
                 .header("content-type", "application/json")
                 .json(&body)
@@ -335,6 +353,7 @@ pub async fn validate_model(
             let body = serde_json::json!({ "name": model });
             let resp = client
                 .post(format!("{}/api/show", base))
+                .timeout(req_timeout)
                 .header("content-type", "application/json")
                 .json(&body)
                 .send()

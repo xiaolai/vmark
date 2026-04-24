@@ -13,6 +13,7 @@
 
 mod cli;
 mod detection;
+mod http_client;
 mod rest_api;
 mod rest_providers;
 mod types;

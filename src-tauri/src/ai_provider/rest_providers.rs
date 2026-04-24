@@ -9,19 +9,11 @@ use std::time::Duration;
 
 use tauri::WebviewWindow;
 
+use super::http_client;
 use super::types::{emit_chunk, emit_done, emit_error};
 
-/// Build an HTTP client with standard timeouts.
-///
-/// * `connect_timeout` — 10 s (TCP handshake).
-/// * `timeout` — 120 s (entire request, including body read).
-fn make_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(Duration::from_secs(120))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {e}"))
-}
+/// Per-request timeout (entire request, including body read) for prompt calls.
+const PROMPT_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
 // ============================================================================
 // Anthropic
@@ -35,7 +27,7 @@ pub(super) async fn run_rest_anthropic(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = make_client()?;
+    let client = http_client::shared()?;
     let body = serde_json::json!({
         "model": model,
         "max_tokens": 4096,
@@ -44,6 +36,7 @@ pub(super) async fn run_rest_anthropic(
 
     let resp = client
         .post(format!("{}/v1/messages", endpoint))
+        .timeout(PROMPT_REQUEST_TIMEOUT)
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
         .header("content-type", "application/json")
@@ -107,7 +100,7 @@ pub(super) async fn run_rest_openai(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = make_client()?;
+    let client = http_client::shared()?;
     let body = serde_json::json!({
         "model": model,
         "messages": [{"role": "user", "content": prompt}]
@@ -115,6 +108,7 @@ pub(super) async fn run_rest_openai(
 
     let resp = client
         .post(format!("{}/v1/chat/completions", endpoint))
+        .timeout(PROMPT_REQUEST_TIMEOUT)
         .header("Authorization", format!("Bearer {}", api_key))
         .header("content-type", "application/json")
         .json(&body)
@@ -174,7 +168,7 @@ pub(super) async fn run_rest_google(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = make_client()?;
+    let client = http_client::shared()?;
     let body = serde_json::json!({
         "contents": [{"parts": [{"text": prompt}]}]
     });
@@ -187,6 +181,7 @@ pub(super) async fn run_rest_google(
 
     let resp = client
         .post(&url)
+        .timeout(PROMPT_REQUEST_TIMEOUT)
         .header("x-goog-api-key", api_key)
         .header("content-type", "application/json")
         .json(&body)
@@ -249,7 +244,7 @@ pub(super) async fn run_rest_ollama(
     model: &str,
     prompt: &str,
 ) -> Result<(), String> {
-    let client = make_client()?;
+    let client = http_client::shared()?;
     let body = serde_json::json!({
         "model": model,
         "prompt": prompt,
@@ -258,6 +253,7 @@ pub(super) async fn run_rest_ollama(
 
     let resp = client
         .post(format!("{}/api/generate", endpoint))
+        .timeout(PROMPT_REQUEST_TIMEOUT)
         .header("content-type", "application/json")
         .json(&body)
         .send()

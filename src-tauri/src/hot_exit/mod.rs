@@ -7,6 +7,7 @@ pub mod session;
 pub mod storage;
 pub mod coordinator;
 pub mod commands;
+pub mod dedup;
 pub mod migration;
 pub mod validation;
 
