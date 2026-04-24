@@ -284,33 +284,36 @@ export const codePreviewExtension = Extension.create({
 
             // Fast path: if doc changed but the change doesn't touch any code block
             // AND the number of code blocks hasn't changed, skip the full scan.
-            // We count code blocks in the new doc to catch insertions/deletions.
-            let newCodeBlockCount = 0;
-            if (tr.docChanged && !editingChanged && !settingsChanged && state.decorations !== DecorationSet.empty) {
+            //
+            // Cheap check first (changesIntersectRanges is O(steps × ranges)). Only
+            // pay the O(top-level-blocks) doc walk to verify no insertions/deletions
+            // when changes don't touch code blocks — otherwise the fast path would
+            // fail anyway and the count was wasted.
+            if (
+              tr.docChanged &&
+              !editingChanged &&
+              !settingsChanged &&
+              state.decorations !== DecorationSet.empty &&
+              !changesIntersectRanges(tr, state.codeBlockRanges)
+            ) {
+              let newCodeBlockCount = 0;
               newState.doc.forEach((node) => {
                 if ((node.type.name === "codeBlock" || node.type.name === "code_block") &&
                     PREVIEW_ONLY_LANGUAGES.has((node.attrs.language ?? "").toLowerCase())) {
                   newCodeBlockCount++;
                 }
               });
-            }
 
-            if (
-              tr.docChanged &&
-              !editingChanged &&
-              !settingsChanged &&
-              state.decorations !== DecorationSet.empty &&
-              newCodeBlockCount === state.codeBlockRanges.length &&
-              !changesIntersectRanges(tr, state.codeBlockRanges)
-            ) {
-              return {
-                decorations: state.decorations.map(tr.mapping, tr.doc),
-                editingPos: state.editingPos,
-                codeBlockRanges: state.codeBlockRanges.map((r) => ({
-                  from: tr.mapping.map(r.from),
-                  to: tr.mapping.map(r.to),
-                })),
-              };
+              if (newCodeBlockCount === state.codeBlockRanges.length) {
+                return {
+                  decorations: state.decorations.map(tr.mapping, tr.doc),
+                  editingPos: state.editingPos,
+                  codeBlockRanges: state.codeBlockRanges.map((r) => ({
+                    from: tr.mapping.map(r.from),
+                    to: tr.mapping.map(r.to),
+                  })),
+                };
+              }
             }
 
             // Sweep diagram instances whose DOM was removed by ProseMirror

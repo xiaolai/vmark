@@ -51,7 +51,11 @@ vi.mock("@/stores/searchStore", () => ({
   },
 }));
 
-import { searchExtension } from "./tiptap";
+import {
+  searchExtension,
+  SEARCH_DOC_CHANGE_DEBOUNCE_MS,
+  SEARCH_QUERY_CHANGE_DEBOUNCE_MS,
+} from "./tiptap";
 
 /** Flush pending microtasks (used because setMatches is deferred via queueMicrotask) */
 const flushMicrotasks = () => new Promise<void>((r) => queueMicrotask(r));
@@ -91,6 +95,25 @@ describe("searchExtension", () => {
   describe("extension creation", () => {
     it("has name 'search'", () => {
       expect(searchExtension.name).toBe("search");
+    });
+  });
+
+  describe("debounce constants", () => {
+    it("query/options debounce is shorter than the doc-change debounce", () => {
+      // Query input feels stale when too long; doc-change can wait a bit longer
+      // because the user already sees the typed character. Keeping query <= doc
+      // also means rapid typing in the find input never out-races a paused doc.
+      expect(SEARCH_QUERY_CHANGE_DEBOUNCE_MS).toBeLessThanOrEqual(SEARCH_DOC_CHANGE_DEBOUNCE_MS);
+    });
+
+    it("query/options debounce is at least one frame so single keystrokes still coalesce", () => {
+      // Anything below ~16ms is effectively undebounced on a 60Hz display.
+      expect(SEARCH_QUERY_CHANGE_DEBOUNCE_MS).toBeGreaterThanOrEqual(50);
+    });
+
+    it("query/options debounce stays under 250ms so the FindBar feels responsive", () => {
+      // VS Code uses ~150ms; over 250ms users perceive lag.
+      expect(SEARCH_QUERY_CHANGE_DEBOUNCE_MS).toBeLessThanOrEqual(250);
     });
   });
 

@@ -29,6 +29,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useSearchStore } from "@/stores/searchStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
+import { createQueryDebounce } from "./queryDebounce";
 import "./search.css";
 
 const searchPluginKey = new PluginKey("search");
@@ -38,9 +39,18 @@ const SEARCH_DEBOUNCED_REBUILD_META = "searchDebouncedRebuild";
 
 /**
  * Milliseconds to wait after a doc change before performing a full match re-scan.
- * Query/option changes bypass this debounce and rebuild immediately.
+ * Query/option changes use SEARCH_QUERY_CHANGE_DEBOUNCE_MS (smaller).
  */
 export const SEARCH_DOC_CHANGE_DEBOUNCE_MS = 200;
+
+/**
+ * Milliseconds to wait after the query (or options) changes before triggering
+ * a full rebuild. Coalesces rapid keystrokes in the FindBar input so we don't
+ * pay an O(doc) regex scan per character. Navigation (Enter, prev/next) and
+ * open/close still take effect immediately and flush any pending rebuild so
+ * the user always navigates against fresh matches.
+ */
+export const SEARCH_QUERY_CHANGE_DEBOUNCE_MS = 150;
 
 interface Match {
   from: number;
@@ -334,6 +344,19 @@ export const searchExtension = Extension.create({
             isOpen: useSearchStore.getState().isOpen,
           };
 
+          // Single debounce slot for query/options changes. Nav/open changes
+          // bypass it so user input feels instant; nav also flushes any
+          // pending rebuild first so it never operates on stale matches.
+          const queryDebounce = createQueryDebounce(SEARCH_QUERY_CHANGE_DEBOUNCE_MS);
+
+          const dispatchEmptyTransaction = () => {
+            if (editorView.isDestroyed) return;
+            runOrQueueProseMirrorAction(editorView, () =>
+              editorView.dispatch(editorView.state.tr),
+            );
+            requestAnimationFrame(scrollToMatch);
+          };
+
           const unsubscribe = useSearchStore.subscribe((state) => {
             const currentState = {
               query: state.query,
@@ -344,18 +367,34 @@ export const searchExtension = Extension.create({
               isOpen: state.isOpen,
             };
 
-            if (
+            const queryOptionsChanged =
               currentState.query !== prevState.query ||
               currentState.caseSensitive !== prevState.caseSensitive ||
               currentState.wholeWord !== prevState.wholeWord ||
-              currentState.useRegex !== prevState.useRegex ||
+              currentState.useRegex !== prevState.useRegex;
+
+            const navOrOpenChanged =
               currentState.currentIndex !== prevState.currentIndex ||
-              currentState.isOpen !== prevState.isOpen
-            ) {
-              prevState = currentState;
-              runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(editorView.state.tr));
-              requestAnimationFrame(scrollToMatch);
+              currentState.isOpen !== prevState.isOpen;
+
+            if (!queryOptionsChanged && !navOrOpenChanged) return;
+
+            prevState = currentState;
+
+            if (navOrOpenChanged) {
+              // Force any pending query rebuild to fire first so navigation
+              // operates on fresh matches. The flush itself runs the same
+              // dispatchEmptyTransaction we'd otherwise call, so we only
+              // dispatch when nothing was pending — otherwise we'd double-
+              // dispatch and double-scroll for one user action.
+              if (!queryDebounce.flushIfPending()) {
+                dispatchEmptyTransaction();
+              }
+              return;
             }
+
+            // Query/options change only: coalesce rapid keystrokes.
+            queryDebounce.schedule(dispatchEmptyTransaction);
           });
 
           window.addEventListener("search:replace-current", handleReplaceCurrent);
@@ -363,11 +402,12 @@ export const searchExtension = Extension.create({
 
           return {
             destroy() {
-              // Clear any pending debounce timer so it won't dispatch into a destroyed view
+              // Clear pending debounce timers so they won't dispatch into a destroyed view
               if (debounceTimer !== null) {
                 clearTimeout(debounceTimer);
                 debounceTimer = null;
               }
+              queryDebounce.cancel();
               viewRef.current = null;
               unsubscribe();
               window.removeEventListener("search:replace-current", handleReplaceCurrent);
