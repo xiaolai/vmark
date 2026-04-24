@@ -9,21 +9,10 @@ import { bench, describe } from "vitest";
 import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline/adapter";
+import { generateMarkdown } from "./helpers";
 
 function createTestSchema() {
   return getSchema([StarterKit]);
-}
-
-function generateMarkdown(lines: number): string {
-  const blocks: string[] = [];
-  for (let i = 0; i < lines; i++) {
-    if (i % 30 === 0) blocks.push("```\ncode block\n```");
-    else if (i % 20 === 0) blocks.push(`## Heading ${i}`);
-    else if (i % 15 === 0) blocks.push(`> Blockquote line ${i}`);
-    else if (i % 10 === 0) blocks.push(`- List item ${i}`);
-    else blocks.push(`Paragraph ${i} with some text content that represents a typical line.`);
-  }
-  return blocks.join("\n\n");
 }
 
 const schema = createTestSchema();

@@ -14,6 +14,10 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "bench": "vitest bench src/bench/",
+    "bench:editor": "vitest bench src/bench/editor.bench.ts",
+    "bench:markdown": "vitest bench src/bench/markdown.bench.ts",
+    "size": "size-limit",
+    "size:why": "size-limit --why",
     "lint": "eslint src",
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",
     "lint:design-tokens": "node scripts/check-design-tokens.mjs",
@@ -22,7 +26,7 @@
     "lint:console": "bash scripts/lint-console.sh",
     "lint:i18n": "tsx scripts/check-i18n-keys.ts",
     "extract-menu-ids": "tsx scripts/extract-menu-ids.ts",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm test:coverage && pnpm build"
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm test:coverage && pnpm build && pnpm size"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
@@ -125,6 +129,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@hypothesi/tauri-mcp-server": "^0.7.0",
+    "@size-limit/file": "^12.1.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/cli": "^2.9.6",
     "@testing-library/jest-dom": "^6.9.1",
@@ -147,6 +152,7 @@
     "jsdom": "^26.1.0",
     "markdownlint-cli2": "^0.21.0",
     "mdast-util-math": "^3.0.0",
+    "size-limit": "^12.1.0",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
     "typescript": "~5.8.3",
