@@ -36,6 +36,7 @@ import { useShortcutsStore, formatKeyForDisplay } from "@/stores/shortcutsStore"
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { getRevealInFileManagerLabel } from "@/utils/pathUtils";
 import { useTabContextMenuActions } from "./useTabContextMenuActions";
 import "./TabContextMenu.css";
@@ -151,28 +152,8 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
     };
   }, [applyMenuPosition]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (isImeKeyEvent(event)) return;
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside, true);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside, true);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
+  // Close on click outside or Escape (Escape ignored during IME composition).
+  useDismissOnOutsideOrEscape(true, menuRef, onClose);
 
   useEffect(() => {
     /* v8 ignore next -- @preserve reason: ?? -1 fallback only when focusableIndices is empty; menu always has enabled items in tests */

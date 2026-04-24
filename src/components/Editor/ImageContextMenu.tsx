@@ -10,7 +10,7 @@ import { ImagePlus, Trash2, Copy, FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import "@/components/Sidebar/FileExplorer/ContextMenu.css";
-import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { getRevealInFileManagerLabel } from "@/utils/pathUtils";
 
 interface MenuItem {
@@ -67,32 +67,8 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
     [revealLabel, t]
   );
 
-  // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        closeMenu();
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (isImeKeyEvent(e)) return;
-      if (e.key === "Escape") {
-        closeMenu();
-      }
-    };
-
-    // Use capture phase to catch clicks before other handlers
-    document.addEventListener("mousedown", handleClickOutside, true);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside, true);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [isOpen, closeMenu]);
+  // Close on click outside or Escape (Escape ignored during IME composition).
+  useDismissOnOutsideOrEscape(isOpen, menuRef, closeMenu);
 
   // Position adjustment to keep menu in viewport
   useEffect(() => {

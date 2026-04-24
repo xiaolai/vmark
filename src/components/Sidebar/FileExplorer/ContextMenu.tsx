@@ -35,6 +35,7 @@ import {
   FolderInput,
 } from "lucide-react";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import "./ContextMenu.css";
 
 /** Determines which menu items are shown: file actions, folder actions, or empty-area actions. */
@@ -139,30 +140,8 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
 
   const items = getMenuItems(type, menuLabels);
 
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (isImeKeyEvent(e)) return;
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-
-    // Use capture phase to catch clicks before other handlers
-    document.addEventListener("mousedown", handleClickOutside, true);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside, true);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
+  // Close on click outside or Escape (Escape ignored during IME composition).
+  useDismissOnOutsideOrEscape(true, menuRef, onClose);
 
   // Position adjustment to keep menu in viewport
   useEffect(() => {
