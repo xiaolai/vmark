@@ -97,18 +97,20 @@ pub fn create_localized_menu(
             &MenuItem::with_id(app, "export-html", &t!("menu.file.export.html").to_string(), true, accel("export-html", ""))?,
             &MenuItem::with_id(app, "export-pdf-native", &t!("menu.file.export.pdf").to_string(), true, accel("export-pdf-native", ""))?,
             &{
-                let mut items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = vec![
-                    Box::new(MenuItem::with_id(app, "export-pandoc-docx", &t!("menu.file.export.pandocDocx").to_string(), true, accel("export-pandoc-docx", ""))?),
-                    Box::new(MenuItem::with_id(app, "export-pandoc-epub", &t!("menu.file.export.pandocEpub").to_string(), true, accel("export-pandoc-epub", ""))?),
-                    Box::new(MenuItem::with_id(app, "export-pandoc-latex", &t!("menu.file.export.pandocLatex").to_string(), true, accel("export-pandoc-latex", ""))?),
-                    Box::new(MenuItem::with_id(app, "export-pandoc-odt", &t!("menu.file.export.pandocOdt").to_string(), true, accel("export-pandoc-odt", ""))?),
-                    Box::new(MenuItem::with_id(app, "export-pandoc-rtf", &t!("menu.file.export.pandocRtf").to_string(), true, accel("export-pandoc-rtf", ""))?),
-                    Box::new(MenuItem::with_id(app, "export-pandoc-txt", &t!("menu.file.export.pandocTxt").to_string(), true, accel("export-pandoc-txt", ""))?),
-                ];
-                if crate::pandoc::commands::resolve_pandoc_path().is_none() {
-                    items.push(Box::new(PredefinedMenuItem::separator(app)?));
-                    items.push(Box::new(MenuItem::with_id(app, "export-pandoc-hint", &t!("menu.file.export.pandocHint").to_string(), true, None::<&str>)?));
-                }
+                let items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = if crate::pandoc::commands::resolve_pandoc_path().is_some() {
+                    vec![
+                        Box::new(MenuItem::with_id(app, "export-pandoc-docx", &t!("menu.file.export.pandocDocx").to_string(), true, accel("export-pandoc-docx", ""))?),
+                        Box::new(MenuItem::with_id(app, "export-pandoc-epub", &t!("menu.file.export.pandocEpub").to_string(), true, accel("export-pandoc-epub", ""))?),
+                        Box::new(MenuItem::with_id(app, "export-pandoc-latex", &t!("menu.file.export.pandocLatex").to_string(), true, accel("export-pandoc-latex", ""))?),
+                        Box::new(MenuItem::with_id(app, "export-pandoc-odt", &t!("menu.file.export.pandocOdt").to_string(), true, accel("export-pandoc-odt", ""))?),
+                        Box::new(MenuItem::with_id(app, "export-pandoc-rtf", &t!("menu.file.export.pandocRtf").to_string(), true, accel("export-pandoc-rtf", ""))?),
+                        Box::new(MenuItem::with_id(app, "export-pandoc-txt", &t!("menu.file.export.pandocTxt").to_string(), true, accel("export-pandoc-txt", ""))?),
+                    ]
+                } else {
+                    vec![
+                        Box::new(MenuItem::with_id(app, "export-pandoc-hint", &t!("menu.file.export.pandocHint").to_string(), true, None::<&str>)?),
+                    ]
+                };
                 let refs: Vec<&dyn IsMenuItem<tauri::Wry>> = items.iter().map(|i| &**i).collect();
                 Submenu::with_id_and_items(app, "other-formats-submenu", &t!("menu.file.export.otherFormats").to_string(), true, &refs)?
             },
