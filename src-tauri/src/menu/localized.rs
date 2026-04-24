@@ -6,9 +6,15 @@
 //! 6 format items when installed, 1 install-CTA item otherwise. A `#[cfg(test)]`
 //! module guards the Pandoc menu-ID contract and locale-key coverage.
 //!
+//! Also seeds the differential-update baseline: the function calls
+//! `accelerators::begin_rebuild()` up-front, and the `accel()` closure records
+//! every resolved accelerator into `ACCEL_CACHE` so the next
+//! `update_menu_accelerators` call diffs against a correct snapshot.
+//!
 //! @coordinates-with `en.yml` (locale strings)
 //! @coordinates-with `macos_menu.rs` (applies SF Symbol icons post-build)
 //! @coordinates-with `commands.rs` (calls this on rebuild)
+//! @coordinates-with `accelerators.rs` (consumes the seeded ACCEL_CACHE)
 //! @coordinates-with `src/hooks/useExportMenuEvents.ts` (consumes `menu:export-pandoc-*` events)
 //! @coordinates-with `src/pages/settings/FilesImagesSettings.tsx` (triggers menu rebuild on Pandoc detect)
 

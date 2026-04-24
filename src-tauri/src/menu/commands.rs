@@ -1,7 +1,9 @@
 //! Tauri command wrappers for menu operations.
 //!
-//! Purpose: Thin `#[tauri::command]` shims that delegate to the real implementations
-//! in `dynamic.rs` and `localized.rs`. Keeps command registration in `lib.rs` simple.
+//! Purpose: Thin `#[tauri::command]` shims that delegate to the real
+//! implementations in `dynamic.rs`, `localized.rs`, and `accelerators.rs`
+//! (differential accelerator updates for Issue #825). Keeps command
+//! registration in `lib.rs` simple.
 //!
 //! @coordinates-with `lib.rs` (registers these commands in `generate_handler!`)
 
