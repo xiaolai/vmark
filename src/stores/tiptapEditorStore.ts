@@ -39,6 +39,23 @@ const initialState: TiptapEditorState = {
   context: null,
 };
 
+/** Shape of the dev-only debug surface published on window for perf tooling. */
+type VMarkDebug = { editorView: EditorView | null };
+
+/**
+ * Publish (or clear) the active EditorView on `window.__VMARK_DEBUG__` so
+ * Tauri MCP perf scenarios (`scripts/perf/measure-webview.js`) can find the
+ * live editor without ProseMirror internals. No-op in production (the
+ * `import.meta.env.DEV` check makes the entire body dead code at build
+ * time) and in non-DOM environments.
+ */
+function publishDebugEditorView(view: EditorView | null): void {
+  if (!import.meta.env.DEV || typeof window === "undefined") return;
+  (window as unknown as { __VMARK_DEBUG__?: VMarkDebug }).__VMARK_DEBUG__ = {
+    editorView: view,
+  };
+}
+
 /** Manages current Tiptap editor instance and cursor formatting context for toolbar display. Use selectors, not destructuring. */
 export const useTiptapEditorStore = create<TiptapEditorState & TiptapEditorActions>((set) => ({
   ...initialState,
@@ -46,11 +63,17 @@ export const useTiptapEditorStore = create<TiptapEditorState & TiptapEditorActio
   setEditor: (editor) => {
     /* v8 ignore next -- @preserve null path for editor cleared on unmount */
     set({ editor, editorView: editor ? editor.view : null });
+    publishDebugEditorView(editor ? editor.view : null);
   },
 
   setContext: (context, view) => {
     set({ context, editorView: view });
   },
 
-  clear: () => set(initialState),
+  clear: () => {
+    set(initialState);
+    // Always reset the debug hook so perf tooling can't observe a stale
+    // (potentially destroyed) view after unmount.
+    publishDebugEditorView(null);
+  },
 }));
