@@ -83,6 +83,13 @@ interface DocumentStore {
 
   markSaved: (tabId: string, lastDiskContent?: string) => void;
   markAutoSaved: (tabId: string, lastDiskContent?: string) => void;
+  /**
+   * Silently refresh the stored disk snapshot without touching content, dirty
+   * state, or any UI flags. Used when a cloud sync engine rewrote the file with
+   * a benign change (line endings/BOM/trailing newline) so that subsequent
+   * byte-for-byte comparisons match.
+   */
+  updateLastDiskContent: (tabId: string, diskContent: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
   setSelectedText: (tabId: string, text: string) => void;
   setLineMetadata: (
@@ -221,6 +228,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
         lastAutoSave: Date.now(),
       }))
     ),
+
+  updateLastDiskContent: (tabId, diskContent) =>
+    set((state) => updateDoc(state, tabId, () => ({ lastDiskContent: diskContent }))),
 
   setCursorInfo: (tabId, info) =>
     set((state) => updateDoc(state, tabId, () => ({ cursorInfo: info }))),

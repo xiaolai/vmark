@@ -36,6 +36,7 @@ import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { normalizePath } from "@/utils/paths";
 import { saveToPath } from "@/utils/saveToPath";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { softContentEquals } from "@/utils/linebreaks";
 import { reloadTabFromDisk } from "@/utils/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
 import { getFileName } from "@/utils/paths";
@@ -272,14 +273,22 @@ export function useExternalFileChanges(): void {
         return;
       }
 
-      // Disk matches what we last wrote — no actual external change
-      if (diskContent === doc.lastDiskContent) {
+      // Disk matches what we last wrote — no actual external change.
+      // Use soft equality so cloud sync rewrites that only touch line endings,
+      // BOM, or the trailing newline (OneDrive/iCloud/Dropbox are frequent
+      // offenders) don't trigger spurious reloads or dialogs.
+      if (softContentEquals(diskContent, doc.lastDiskContent)) {
+        // Refresh the stored disk content so subsequent byte-for-byte compares
+        // match; otherwise the next sync rewrite would slip through again.
+        if (diskContent !== doc.lastDiskContent) {
+          useDocumentStore.getState().updateLastDiskContent(tabId, diskContent);
+        }
         return;
       }
 
       // Divergent doc: disk now matches editor — auto-clear divergent state so auto-save resumes.
       // This happens when e.g. git checkout restores the same content that's in the editor.
-      if (doc.isDivergent && diskContent === doc.content) {
+      if (doc.isDivergent && softContentEquals(diskContent, doc.content)) {
         useDocumentStore.getState().loadContent(tabId, diskContent, changedPath, detectLinebreaks(diskContent));
         return;
       }

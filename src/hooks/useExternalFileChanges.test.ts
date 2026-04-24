@@ -435,6 +435,64 @@ describe("useExternalFileChanges — event filtering", () => {
     expect(doc?.isMissing).toBe(false);
   });
 
+  it("silently updates lastDiskContent on cloud-sync rewrite (CRLF+BOM+trailing newline, clean doc)", async () => {
+    // OneDrive / iCloud scenario: sync daemon rewrites the file with BOM, CRLF,
+    // and a trailing newline. Content is semantically identical. User expects no
+    // toast, no dialog, no reload — but lastDiskContent should refresh so the
+    // next byte-for-byte comparison still matches.
+    seedStores({ lastDiskContent: "# old content" });
+    mocks.readTextFile.mockResolvedValue("﻿# old content\r\n");
+    mocks.matchesPendingSave.mockReturnValue(false);
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/test.md"],
+        kind: "modify",
+      },
+    });
+
+    const doc = useDocumentStore.getState().documents["tab-1"];
+    // No toast, no dialog, no content reload
+    expect(mocks.toastInfo).not.toHaveBeenCalled();
+    expect(mocks.dialogMessage).not.toHaveBeenCalled();
+    expect(doc?.content).toBe("# old content"); // editor content unchanged
+    // lastDiskContent refreshed to current disk bytes so next identical
+    // rewrite matches byte-for-byte and skips even the soft comparison
+    expect(doc?.lastDiskContent).toBe("﻿# old content\r\n");
+  });
+
+  it("does NOT silently update lastDiskContent when dirty doc sees cloud-sync rewrite", async () => {
+    // Same OneDrive-style rewrite but user has unsaved edits. Since the disk
+    // content is semantically equal to the last saved version, we still skip —
+    // no prompt, no dialog. The user's dirty edits remain untouched.
+    seedStores({ isDirty: true, lastDiskContent: "# old content" });
+    mocks.readTextFile.mockResolvedValue("﻿# old content\r\n");
+    mocks.matchesPendingSave.mockReturnValue(false);
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/test.md"],
+        kind: "modify",
+      },
+    });
+
+    // No prompt should appear — the rewrite was semantically identical
+    await vi.waitFor(() => {
+      expect(mocks.dialogMessage).not.toHaveBeenCalled();
+    });
+    const doc = useDocumentStore.getState().documents["tab-1"];
+    expect(doc?.isDirty).toBe(true); // dirty state preserved
+    expect(doc?.isDivergent).toBe(false);
+  });
+
   it("auto-reloads clean document on external modify", async () => {
     seedStores({ lastDiskContent: "# old content" });
     mocks.readTextFile.mockResolvedValue("# updated by external tool");

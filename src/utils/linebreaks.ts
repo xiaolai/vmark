@@ -112,3 +112,36 @@ export function normalizeLineEndings(text: string, target: "lf" | "crlf"): strin
   }
   return normalized;
 }
+
+/**
+ * Strip a leading UTF-8 BOM (U+FEFF), if present.
+ * Cloud sync engines (OneDrive, iCloud, Dropbox) sometimes add or remove BOM
+ * during background normalization without changing the semantic content.
+ */
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/**
+ * Compare two strings for "soft" content equality, ignoring differences that
+ * cloud sync engines (OneDrive, iCloud, Dropbox, Syncthing) routinely introduce
+ * during background rewrites:
+ *
+ *  - line endings (CRLF ↔ LF ↔ CR)
+ *  - leading BOM (U+FEFF)
+ *  - a single trailing newline (added or stripped)
+ *
+ * Returns `true` when both strings carry the same semantic content. Use this
+ * in watcher paths to suppress spurious "file changed externally" prompts
+ * caused by sync-daemon rewrites that don't alter what the user sees.
+ *
+ * Anything beyond these benign transforms (e.g. trailing-space trimming,
+ * Unicode normalization) is *not* folded — those are real edits the user
+ * deserves to know about.
+ */
+export function softContentEquals(a: string, b: string): boolean {
+  if (a === b) return true;
+  const normA = stripBom(a).replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n$/, "");
+  const normB = stripBom(b).replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n$/, "");
+  return normA === normB;
+}
