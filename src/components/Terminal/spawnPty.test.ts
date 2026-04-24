@@ -363,6 +363,17 @@ describe("spawnPty shell selection", () => {
     expect(spawnCallEnv.env.VMARK_WORKSPACE).toBe("/my/workspace");
   });
 
+  it("sets TERM_PROGRAM env to vmark so CLI tools identify the host correctly", async () => {
+    vi.mocked(useSettingsStore.getState).mockReturnValue({
+      terminal: { shell: "" },
+    } as ReturnType<typeof useSettingsStore.getState>);
+
+    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+
+    const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
+    expect(spawnCallEnv.env.TERM_PROGRAM).toBe("vmark");
+  });
+
   it("throws original error when spawn fails and no configured shell", async () => {
     vi.mocked(useSettingsStore.getState).mockReturnValue({
       terminal: { shell: "" },
