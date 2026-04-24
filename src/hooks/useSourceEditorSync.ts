@@ -54,6 +54,11 @@ export function useSourceEditorContentSync(
   // Track the latest external content to apply after internal changes settle
   const pendingContentRef = useRef<string | null>(null);
   const lastAppliedContentRef = useRef<string | null>(null);
+  // Track the editor's doc identity that lastAppliedContentRef was paired with.
+  // CodeMirror docs are immutable — same reference ⇒ contents have not changed.
+  // Pairing both refs catches out-of-band doc mutations (plugin transforms,
+  // unrelated dispatches) where lastApplied alone would lie.
+  const lastSyncedDocRef = useRef<unknown>(null);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -69,14 +74,26 @@ export function useSourceEditorContentSync(
       return;
     }
 
-    const currentContent = view.state.doc.toString();
-
     // Check if we have pending content that differs from current
     const targetContent = pendingContentRef.current ?? content;
     pendingContentRef.current = null;
 
-    // Skip if content matches what's already in the editor or what we last applied
-    if (currentContent === targetContent || lastAppliedContentRef.current === targetContent) {
+    // Cheap short-circuit: same content reference AND same doc identity since
+    // we last looked. The doc-identity check guards against out-of-band edits
+    // that would invalidate the lastApplied content cache.
+    if (
+      lastAppliedContentRef.current === targetContent &&
+      lastSyncedDocRef.current === view.state.doc
+    ) {
+      return;
+    }
+
+    // Fall back to comparing actual document content (expensive on large docs).
+    const currentContent = view.state.doc.toString();
+    if (currentContent === targetContent) {
+      // Remember both so the next call short-circuits via the cheap path.
+      lastAppliedContentRef.current = targetContent;
+      lastSyncedDocRef.current = view.state.doc;
       return;
     }
 
@@ -100,6 +117,10 @@ export function useSourceEditorContentSync(
           scrollIntoView: true,
         });
       }
+      // Record the post-dispatch doc identity so future short-circuits know
+      // they are still in sync. Done inside the queued action so it runs
+      // after dispatch (which is sync in CM6) regardless of IME queueing.
+      lastSyncedDocRef.current = view.state.doc;
     });
   }, [viewRef, isInternalChange, content, getCursorInfo, hiddenRef]);
 

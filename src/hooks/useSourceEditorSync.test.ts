@@ -185,6 +185,105 @@ describe("useSourceEditorContentSync", () => {
     // Only the content dispatch, no cursor reset
     expect(dispatch).toHaveBeenCalledTimes(1);
   });
+
+  it("skips view.state.doc.toString() when re-applying the same content reference", () => {
+    // After first apply, lastAppliedContentRef caches the string. A second
+    // render with the same reference must short-circuit without paying for
+    // the O(N) view.state.doc.toString() — the hot path during WYSIWYG typing.
+    const mockView = createMockView("hello");
+    viewRef.current = mockView;
+    const toStringSpy = vi.fn(() => "hello");
+    (mockView as { state: { doc: { toString: () => string } } }).state.doc.toString = toStringSpy;
+
+    const { rerender } = renderHook(
+      ({ content }: { content: string }) =>
+        useSourceEditorContentSync(viewRef as never, isInternalChange, content),
+      { initialProps: { content: "hello" } },
+    );
+
+    // First render: toString is called once to compare against currentContent.
+    expect(toStringSpy).toHaveBeenCalledTimes(1);
+
+    // Second render with the SAME string reference: must short-circuit before toString.
+    rerender({ content: "hello" });
+    expect(toStringSpy).toHaveBeenCalledTimes(1);
+
+    // Third render with a NEW string (still equal value): falls through to toString
+    // because reference differs — but since values match, no dispatch fires.
+    rerender({ content: "hello".repeat(1) }); // new string instance via concat-like op
+    // toString may or may not be called depending on JS string interning; the key
+    // contract is no extra dispatch.
+    expect((mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch).not.toHaveBeenCalled();
+  });
+
+  it("re-applies when content reference changes to a different value", () => {
+    const mockView = createMockView("hello");
+    viewRef.current = mockView;
+    const toStringSpy = vi.fn(() => "hello");
+    (mockView as { state: { doc: { toString: () => string } } }).state.doc.toString = toStringSpy;
+
+    const { rerender } = renderHook(
+      ({ content }: { content: string }) =>
+        useSourceEditorContentSync(viewRef as never, isInternalChange, content),
+      { initialProps: { content: "hello" } },
+    );
+
+    // First render: equal, no dispatch
+    const dispatch = (mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch;
+    expect(dispatch).not.toHaveBeenCalled();
+
+    // Update to different content — must dispatch
+    toStringSpy.mockReturnValue("hello"); // doc still says "hello" until dispatch is applied
+    rerender({ content: "world" });
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({ insert: "world" }),
+      }),
+    );
+  });
+
+  it("re-checks the doc when an out-of-band edit replaces view.state.doc", () => {
+    // Real out-of-band scenario: a plugin transaction or unrelated dispatch
+    // mutates the doc. The hook's effect re-runs whenever ANY dep changes —
+    // most commonly via a fresh `getCursorInfo` closure on parent re-render.
+    // When that happens with the same content prop, the optimization MUST
+    // notice the doc identity changed and re-sync; checking only the content
+    // cache would silently skip and leave the editor out of sync.
+    const mockView = createMockView("hello");
+    viewRef.current = mockView;
+
+    const cursor1 = vi.fn(() => null);
+    const cursor2 = vi.fn(() => null);
+
+    const { rerender } = renderHook(
+      ({ content, getCursorInfo }: { content: string; getCursorInfo: () => null }) =>
+        useSourceEditorContentSync(
+          viewRef as never,
+          isInternalChange,
+          content,
+          getCursorInfo,
+        ),
+      { initialProps: { content: "hello", getCursorInfo: cursor1 } },
+    );
+
+    const dispatch = (mockView as { dispatch: ReturnType<typeof vi.fn> }).dispatch;
+    expect(dispatch).not.toHaveBeenCalled();
+
+    // Out-of-band: doc identity flipped, contents differ.
+    (mockView as { state: { doc: { toString: () => string; length: number } } }).state.doc = {
+      toString: () => "OUT-OF-BAND",
+      length: "OUT-OF-BAND".length,
+    };
+
+    // Trigger effect re-run via the cursor dep while keeping content the same.
+    rerender({ content: "hello", getCursorInfo: cursor2 });
+
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({ insert: "hello" }),
+      }),
+    );
+  });
 });
 
 describe("useSourceEditorWordWrapSync", () => {
