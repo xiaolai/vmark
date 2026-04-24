@@ -510,15 +510,51 @@ describe("TiptapEditorInner — onSelectionUpdate", () => {
 });
 
 describe("TiptapEditorInner — content-visibility toggle", () => {
-  it("mounts with cv-idle class so content-visibility is active at rest", () => {
+  it("skips cv-idle on small docs so the idle toggle does not shake the layout (#823)", () => {
+    // Default useDocumentContent mock returns "# hello" — well below the
+    // 50K-char threshold. Small docs don't need the optimization and the
+    // toggle would otherwise cause visible layout shift during typing.
+    const { container } = render(<TiptapEditorInner />);
+    expect(container.querySelector(".tiptap-editor")?.classList.contains("cv-idle")).toBe(false);
+  });
+
+  it("applies cv-idle at mount when initial content is large enough to benefit", () => {
+    // Stuff the initial content with >50K chars so the optimization engages.
+    mocks.useDocumentContent.mockReturnValueOnce("a".repeat(60_000));
     const { container } = render(<TiptapEditorInner />);
     expect(container.querySelector(".tiptap-editor")?.classList.contains("cv-idle")).toBe(true);
   });
 
-  it("strips cv-idle on onUpdate and re-adds it after the idle timeout", () => {
+  it("does NOT re-engage cv-idle after onUpdate for small docs (#823)", () => {
     vi.useFakeTimers();
     try {
       const editor = createMockEditor();
+      // docSize below threshold (default 100)
+      mocks.useEditor.mockReturnValue(editor);
+
+      const { container } = render(<TiptapEditorInner hidden={false} />);
+      const el = container.querySelector(".tiptap-editor") as HTMLElement;
+      expect(el.classList.contains("cv-idle")).toBe(false);
+
+      const calls = mocks.useEditor.mock.calls;
+      const config = calls[calls.length - 1][0];
+      const mockTr = { getMeta: () => false };
+      config.onUpdate({ editor, transaction: mockTr });
+
+      // After any debounce window — still no cv-idle on small docs.
+      vi.advanceTimersByTime(2000);
+      expect(el.classList.contains("cv-idle")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("strips cv-idle on onUpdate and re-adds it after the idle timeout for large docs", () => {
+    vi.useFakeTimers();
+    try {
+      mocks.useDocumentContent.mockReturnValue("a".repeat(60_000));
+      const editor = createMockEditor();
+      editor.state.doc.content.size = 60_000; // Above threshold
       mocks.useEditor.mockReturnValue(editor);
 
       const { container } = render(<TiptapEditorInner hidden={false} />);

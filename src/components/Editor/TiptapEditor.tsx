@@ -103,6 +103,17 @@ function getAdaptiveDebounceDelay(docSize: number): number {
 }
 
 /**
+ * Document-size threshold (in characters) above which content-visibility
+ * optimization is enabled. Below this, the cv-idle toggle causes visible
+ * layout shift on every keystroke-to-idle transition because `auto`
+ * intrinsic-size estimates diverge from real block heights when off-screen
+ * blocks have never been rendered. For small docs the optimization delivers
+ * no measurable win and the toggle produces a "shaking" / rippling effect
+ * as the total document height changes on each idle interval (#823).
+ */
+const CV_IDLE_CHAR_THRESHOLD = 50_000;
+
+/**
  * Parse markdown and sync it into the editor without touching undo history.
  * Updates lastExternalContent tracking ref on success.
  * Returns true if content was synced, false if already current or on error.
@@ -343,16 +354,25 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       // edits costs O(blocks-after-insertion) per keystroke in Chromium — e.g.
       // 378ms on a 2250-block doc. Re-enable after idle so scroll and repaint
       // keep the optimization.
+      //
+      // Small documents (<CV_IDLE_CHAR_THRESHOLD) skip the re-enable entirely:
+      // the toggle causes visible shaking because `contain-intrinsic-size: auto`
+      // fallbacks don't match real block heights when off-screen blocks have
+      // never been rendered, and small docs don't need the optimization anyway (#823).
       const container = editorContainerRef.current;
       if (container) {
+        const docSizeNow = editor.state.doc.content.size;
         container.classList.remove("cv-idle");
         if (cvIdleTimeoutRef.current !== null) {
           window.clearTimeout(cvIdleTimeoutRef.current);
-        }
-        cvIdleTimeoutRef.current = window.setTimeout(() => {
           cvIdleTimeoutRef.current = null;
-          editorContainerRef.current?.classList.add("cv-idle");
-        }, 500);
+        }
+        if (docSizeNow >= CV_IDLE_CHAR_THRESHOLD) {
+          cvIdleTimeoutRef.current = window.setTimeout(() => {
+            cvIdleTimeoutRef.current = null;
+            editorContainerRef.current?.classList.add("cv-idle");
+          }, 500);
+        }
       }
 
       // Cancel any pending flush
@@ -604,10 +624,20 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden]);
 
+  // Initial cv-idle application is gated on document size — small docs skip the
+  // optimization entirely to avoid the layout-shift / shaking pattern described
+  // above CV_IDLE_CHAR_THRESHOLD. `content.length` is a cheap proxy for the PM
+  // doc size (close enough for the threshold check; the exact post-parse size
+  // governs onUpdate toggling).
+  const shouldUseCvIdle = content.length >= CV_IDLE_CHAR_THRESHOLD;
   /* v8 ignore next -- @preserve reason: show-line-numbers CSS class branch not exercised in current TiptapEditor render tests */
-  const editorClassName = showLineNumbers
-    ? "tiptap-editor cv-idle show-line-numbers"
-    : "tiptap-editor cv-idle";
+  const editorClassName = [
+    "tiptap-editor",
+    shouldUseCvIdle ? "cv-idle" : null,
+    showLineNumbers ? "show-line-numbers" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <>
