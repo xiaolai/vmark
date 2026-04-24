@@ -48,6 +48,8 @@ module.exports = {
           "src/utils/resolveMediaSrc",
           // Startup wiring (rebuilds native menu with saved locale on boot)
           "src/utils/startupMenuSync",
+          // Native menu rebuild pipeline (reads shortcuts, re-syncs recent files/workspaces)
+          "src/utils/rebuildNativeMenu",
           // Editor services (bridge between editor internals and stores)
           "src/utils/tiptapFocus",
           "src/utils/sourcePeek",

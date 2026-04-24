@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore, type ImageAutoResizeOption } from "@/stores/settingsStore";
+import { rebuildNativeMenu } from "@/utils/rebuildNativeMenu";
 import { updateWorkspaceConfig } from "@/hooks/workspaceConfig";
 import { RefreshCw, ExternalLink } from "lucide-react";
 
@@ -257,25 +258,36 @@ function DocumentToolsSettings() {
   const [detectError, setDetectError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  const detect = useCallback(async () => {
+  const detect = useCallback(async (refreshMenu: boolean) => {
     setDetecting(true);
     setDetectError(null);
     try {
       const info = await invoke<PandocInfo>("detect_pandoc");
-      if (mountedRef.current) setPandoc(info);
-    } catch (err) {
-      if (mountedRef.current) {
-        setPandoc(null);
-        setDetectError(err instanceof Error ? err.message : String(err));
+      if (!mountedRef.current) return;
+      setPandoc(info);
+      if (refreshMenu) {
+        // Menu rebuild is a side effect of detection — surface any failure
+        // but keep the just-detected pandoc state.
+        try {
+          await rebuildNativeMenu();
+        } catch (err) {
+          if (mountedRef.current) {
+            setDetectError(err instanceof Error ? err.message : String(err));
+          }
+        }
       }
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setPandoc(null);
+      setDetectError(err instanceof Error ? err.message : String(err));
     } finally {
       if (mountedRef.current) setDetecting(false);
     }
   }, []);
 
-  // Auto-detect on mount
+  // Auto-detect on mount (no menu refresh — menu was built with correct state at startup).
   useEffect(() => {
-    detect();
+    void detect(false);
     return () => { mountedRef.current = false; };
   }, [detect]);
 
@@ -300,7 +312,7 @@ function DocumentToolsSettings() {
             </span>
           )}
           <button
-            onClick={detect}
+            onClick={() => { void detect(true); }}
             disabled={detecting}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
               bg-[var(--bg-tertiary)] text-[var(--text-secondary)]

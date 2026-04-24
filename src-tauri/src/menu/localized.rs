@@ -623,3 +623,56 @@ pub fn set_locale(_app: tauri::AppHandle, locale: String) -> Result<(), String> 
     rust_i18n::set_locale(&locale);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    /// Menu IDs consumed by the Pandoc submenu.
+    ///
+    /// The call site in `create_localized_menu` must use exactly these IDs.
+    /// The frontend listens on `menu:{id}` in `src/hooks/useExportMenuEvents.ts`.
+    const PANDOC_MENU_IDS: &[&str] = &[
+        "export-pandoc-docx",
+        "export-pandoc-epub",
+        "export-pandoc-latex",
+        "export-pandoc-odt",
+        "export-pandoc-rtf",
+        "export-pandoc-txt",
+        "export-pandoc-hint",
+    ];
+
+    /// Locale keys for each Pandoc menu item (parallel to `PANDOC_MENU_IDS`).
+    const PANDOC_LOCALE_KEYS: &[&str] = &[
+        "file.export.pandocDocx",
+        "file.export.pandocEpub",
+        "file.export.pandocLatex",
+        "file.export.pandocOdt",
+        "file.export.pandocRtf",
+        "file.export.pandocTxt",
+        "file.export.pandocHint",
+    ];
+
+    /// Catches typos in locale keys used by the Pandoc submenu.
+    #[test]
+    fn pandoc_locale_keys_exist_in_english_yaml() {
+        let en_yaml = include_str!("../../locales/en.yml");
+        for key in PANDOC_LOCALE_KEYS {
+            assert!(
+                en_yaml.contains(&format!("{key}:")),
+                "missing locale key in en.yml: `{key}`"
+            );
+        }
+    }
+
+    /// Catches drift between the call site's menu IDs and the contract consumed by the frontend.
+    #[test]
+    fn pandoc_menu_ids_present_in_call_site() {
+        let source = include_str!("localized.rs");
+        for id in PANDOC_MENU_IDS {
+            let needle = format!("\"{id}\"");
+            assert!(
+                source.contains(&needle),
+                "expected menu ID `{id}` not found in localized.rs — frontend listener at useExportMenuEvents.ts will break"
+            );
+        }
+    }
+}
