@@ -13,9 +13,11 @@
  *     heavy markdown→PM conversion runs, keeping the UI responsive on large documents.
  *   - shouldRerenderOnTransaction: false — Tiptap's default full-React-rerender per
  *     transaction is wasted work here since state flows through Zustand selectors.
- *   - content-visibility gated on .cv-idle (debounced off during typing) — the CSS
- *     optimization is applied at rest but stripped during edits to avoid a
- *     O(blocks-after-insertion) reflow on long docs.
+ *   - content-visibility gated on .cv-idle (debounced off during typing) AND
+ *     only applied above CV_IDLE_CHAR_THRESHOLD — the CSS optimization is
+ *     applied at rest but stripped during edits to avoid a
+ *     O(blocks-after-insertion) reflow on long docs, and skipped entirely on
+ *     small docs where the idle toggle would shake the viewport (#823).
  *   - Native spellcheck disabled above 100K chars where rescans block the main thread.
  *   - Cursor tracking is delayed 200ms after creation to prevent spurious sync during
  *     initial render/focus.
