@@ -2,11 +2,15 @@
 //!
 //! Purpose: Creates the application menu with localized labels and optional custom
 //! keyboard shortcuts. Replaces both `default_menu.rs` and `custom_menu.rs` with
-//! a single code path.
+//! a single code path. The Pandoc submenu branches on Pandoc availability:
+//! 6 format items when installed, 1 install-CTA item otherwise. A `#[cfg(test)]`
+//! module guards the Pandoc menu-ID contract and locale-key coverage.
 //!
 //! @coordinates-with `en.yml` (locale strings)
 //! @coordinates-with `macos_menu.rs` (applies SF Symbol icons post-build)
 //! @coordinates-with `commands.rs` (calls this on rebuild)
+//! @coordinates-with `src/hooks/useExportMenuEvents.ts` (consumes `menu:export-pandoc-*` events)
+//! @coordinates-with `src/pages/settings/FilesImagesSettings.tsx` (triggers menu rebuild on Pandoc detect)
 
 use std::collections::HashMap;
 
