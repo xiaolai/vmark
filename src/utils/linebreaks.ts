@@ -1,7 +1,8 @@
 /**
  * Linebreak Normalization
  *
- * Purpose: Normalize line endings and hard break styles before saving.
+ * Purpose: Normalize line endings and hard break styles before saving, and
+ * expose a soft-equality comparison that tolerates cloud-sync rewrites.
  * Resolves user preference vs detected document convention, then transforms
  * the markdown content accordingly.
  *
@@ -9,8 +10,12 @@
  *   - "preserve" preference defers to the document's detected style
  *   - New/unknown documents default to LF and two-spaces (widest compatibility)
  *   - Conversion skips fenced code blocks to avoid corrupting code content
+ *   - softContentEquals folds benign differences that cloud-sync daemons
+ *     (OneDrive/iCloud/Dropbox) introduce without changing semantic content
  *
  * @coordinates-with utils/linebreakDetection.ts — provides the detection inputs
+ * @coordinates-with hooks/useExternalFileChanges.ts — uses softContentEquals to
+ *   suppress spurious external-change prompts from sync-daemon rewrites
  * @module utils/linebreaks
  */
 
