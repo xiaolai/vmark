@@ -6,25 +6,23 @@
 //! ~150 hops a full rebuild requires. On Windows the difference is the
 //! ~150 ms UI-thread stall that made the Settings window freeze (Issue #825).
 //!
-//! Two caches back the diff:
-//!   - `ACCEL_CACHE`: last-applied accelerator per menu-id. Seeded automatically
-//!     by the `accel()` closure inside `create_localized_menu` — every call to
-//!     the closure records the resolved value here, so both startup and
-//!     rebuild paths leave the cache in a correct state. Call
-//!     `begin_rebuild()` before constructing the menu to clear stale entries.
-//!   - `ITEM_CACHE`: menu-id -> `MenuItem<Wry>` index, built lazily by walking
-//!     the menu tree on the first differential call after a rebuild. `MenuItem`
-//!     is an `Arc` wrapper, so cloning is cheap; reusing the cache across diff
-//!     calls avoids the ~20 main-thread hops a fresh walk costs.
+//! Backed by one cache: `ACCEL_CACHE` — the last-applied accelerator per
+//! menu-id. Seeded automatically by the `accel()` closure inside
+//! `create_localized_menu`, so both startup and rebuild paths leave the
+//! baseline in a correct state. Call `begin_rebuild()` before constructing
+//! the menu to clear stale entries.
 //!
-//!     Dynamic submenu rebuilds (genies, recent files/workspaces) that recreate
-//!     a cached `MenuItem` must call `invalidate_item_cache()` — the cached
-//!     Arc still exists but is no longer attached to the live muda menu, so
-//!     `set_accelerator` on the stale handle has no visible effect.
+//! `MenuItem<Wry>` handles are looked up by walking the live menu tree on
+//! every diff call. The walk is ~30 main-thread hops; combined with the
+//! frontend's 100 ms debounce that's still imperceptible. Caching the
+//! handles in a `static` was tried first but pulled muda's Windows menu
+//! drop-glue into the lib-test binary's import table, which the windows-
+//! latest runner couldn't resolve (STATUS_ENTRYPOINT_NOT_FOUND, same DLL-
+//! loader failure mode `tauri/test` was scoped out of Windows for in
+//! commit cd5f7669). Walking fresh keeps that surface out of the binary.
 //!
 //! @coordinates-with `commands.rs` (exposes `update_menu_accelerators`)
 //! @coordinates-with `localized.rs` (records each applied accelerator)
-//! @coordinates-with `dynamic.rs` (invalidates on genies rebuild)
 //! @coordinates-with `src/stores/shortcutsStore.ts` (calls the differential path)
 
 use std::collections::HashMap;
@@ -34,17 +32,12 @@ use tauri::menu::{Menu, MenuItem, MenuItemKind, Submenu};
 use tauri::{AppHandle, Wry};
 
 static ACCEL_CACHE: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
-static ITEM_CACHE: Mutex<Option<HashMap<String, MenuItem<Wry>>>> = Mutex::new(None);
 
-/// Reset both caches at the start of a full menu rebuild. `record_applied`
-/// will repopulate the accelerator cache as the menu is constructed; the item
-/// cache is left empty and rebuilt lazily on the next differential call.
+/// Reset the accelerator baseline at the start of a full menu rebuild.
+/// `record_applied` will repopulate it as the menu is constructed.
 pub fn begin_rebuild() {
     if let Ok(mut a) = ACCEL_CACHE.lock() {
         *a = Some(HashMap::new());
-    }
-    if let Ok(mut i) = ITEM_CACHE.lock() {
-        *i = None;
     }
 }
 
@@ -55,18 +48,6 @@ pub fn record_applied(id: &str, accel: &str) {
     if let Ok(mut guard) = ACCEL_CACHE.lock() {
         let map = guard.get_or_insert_with(HashMap::new);
         map.insert(id.to_string(), accel.to_string());
-    }
-}
-
-/// Drop the `MenuItem` lookup cache. Call this whenever a dynamic submenu
-/// rebuild (genies, recent files/workspaces) recreates items whose IDs appear
-/// in `ACCEL_CACHE` — the cached Arc is still alive but no longer attached to
-/// the live menu, so `set_accelerator` on it would silently have no effect.
-/// The accelerator baseline is intentionally preserved: the next diff re-walks
-/// and re-binds the new items to their current bindings.
-pub fn invalidate_item_cache() {
-    if let Ok(mut i) = ITEM_CACHE.lock() {
-        *i = None;
     }
 }
 
@@ -105,14 +86,9 @@ pub fn apply_accelerator_diff(
     app: &AppHandle,
     next: &HashMap<String, String>,
 ) -> Result<Vec<String>, String> {
-    let mut item_guard = ITEM_CACHE.lock().map_err(|e| e.to_string())?;
-    if item_guard.is_none() {
-        let menu = app.menu().ok_or_else(|| "No menu".to_string())?;
-        let mut index = HashMap::new();
-        collect_items_from_menu(&menu, &mut index)?;
-        *item_guard = Some(index);
-    }
-    let items = item_guard.as_ref().expect("ITEM_CACHE populated above");
+    let menu = app.menu().ok_or_else(|| "No menu".to_string())?;
+    let mut items: HashMap<String, MenuItem<Wry>> = HashMap::new();
+    collect_items_from_menu(&menu, &mut items)?;
 
     let mut accel_guard = ACCEL_CACHE.lock().map_err(|e| e.to_string())?;
     let baseline = accel_guard.get_or_insert_with(HashMap::new);
@@ -127,10 +103,8 @@ pub fn apply_accelerator_diff(
             applied.push(id);
         }
         // If the lookup missed, deliberately skip the baseline update so the
-        // next diff retries this id. A miss means either (a) the frontend
-        // tracks an id the menu doesn't expose on this platform (harmless), or
-        // (b) the ITEM_CACHE is stale; the next walk will pick up the new
-        // handle and bind it correctly.
+        // next diff retries this id. A miss means the frontend tracks an id
+        // the menu doesn't expose on this platform — harmless.
     }
     Ok(applied)
 }
@@ -178,17 +152,9 @@ pub(crate) fn accel_cache_snapshot_for_test() -> Option<HashMap<String, String>>
 }
 
 #[cfg(test)]
-pub(crate) fn item_cache_is_populated_for_test() -> bool {
-    ITEM_CACHE.lock().ok().map(|g| g.is_some()).unwrap_or(false)
-}
-
-#[cfg(test)]
 pub(crate) fn clear_state_for_test() {
     if let Ok(mut a) = ACCEL_CACHE.lock() {
         *a = None;
-    }
-    if let Ok(mut i) = ITEM_CACHE.lock() {
-        *i = None;
     }
 }
 
@@ -197,9 +163,9 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
 
-    /// Cache-lifecycle tests share the module-scoped static caches, so they
+    /// Cache-lifecycle tests share the module-scoped `ACCEL_CACHE`, so they
     /// must not run in parallel with each other. Acquire this lock at the
-    /// start of any test that mutates or observes `ACCEL_CACHE` / `ITEM_CACHE`.
+    /// start of any test that mutates or observes `ACCEL_CACHE`.
     static STATIC_CACHE_LOCK: Mutex<()> = Mutex::new(());
 
     fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
@@ -270,12 +236,12 @@ mod tests {
     }
 
     // --- Cache-lifecycle tests ------------------------------------------------
-    // These poke the module-scoped static caches. They must serialize via
+    // These poke the module-scoped `ACCEL_CACHE`. They must serialize via
     // STATIC_CACHE_LOCK and clear state before each run; otherwise parallel
     // `cargo test` scheduling would cross-contaminate them.
 
     #[test]
-    fn begin_rebuild_clears_accel_cache_and_item_cache() {
+    fn begin_rebuild_clears_accel_cache() {
         let _guard = STATIC_CACHE_LOCK.lock().unwrap();
         // Pre-populate to prove begin_rebuild actually clears.
         record_applied("bold", "CmdOrCtrl+B");
@@ -288,10 +254,6 @@ mod tests {
 
         let snap = accel_cache_snapshot_for_test().expect("ACCEL_CACHE is Some after begin_rebuild");
         assert!(snap.is_empty(), "begin_rebuild left stale entries: {:?}", snap);
-        assert!(
-            !item_cache_is_populated_for_test(),
-            "ITEM_CACHE should be None after begin_rebuild",
-        );
     }
 
     #[test]
@@ -307,31 +269,5 @@ mod tests {
         assert_eq!(snap.get("save").map(String::as_str), Some("CmdOrCtrl+Shift+S"));
         assert_eq!(snap.get("open").map(String::as_str), Some("CmdOrCtrl+O"));
         assert_eq!(snap.len(), 2);
-    }
-
-    #[test]
-    fn invalidate_item_cache_drops_item_index_but_preserves_accelerator_baseline() {
-        let _guard = STATIC_CACHE_LOCK.lock().unwrap();
-        clear_state_for_test();
-        record_applied("bold", "CmdOrCtrl+B");
-        // Directly seed ITEM_CACHE as if a diff had walked the menu.
-        if let Ok(mut i) = ITEM_CACHE.lock() {
-            *i = Some(HashMap::new());
-        }
-        assert!(item_cache_is_populated_for_test());
-
-        invalidate_item_cache();
-
-        assert!(
-            !item_cache_is_populated_for_test(),
-            "invalidate_item_cache must drop the item index",
-        );
-        let snap = accel_cache_snapshot_for_test().unwrap();
-        assert_eq!(
-            snap.get("bold").map(String::as_str),
-            Some("CmdOrCtrl+B"),
-            "invalidate_item_cache must not touch ACCEL_CACHE — the next diff \
-             needs the baseline to detect the post-rebuild drift",
-        );
     }
 }
