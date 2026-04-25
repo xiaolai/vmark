@@ -315,8 +315,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
           term.writeln(`\x1b[33m[File too large: ${Math.round(info.size / 1024 / 1024)}MB, max 10MB]\x1b[0m`);
           return;
         }
-      } catch {
-        // stat failed — proceed anyway, readTextFile will catch
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        terminalLog("stat failed for file link:", filePath, message);
+        term.writeln(`\x1b[33m[Cannot open file: ${message}]\x1b[0m`);
+        return;
       }
       readTextFile(filePath).then((content) => {
         const windowLabel = getCurrentWindowLabel();

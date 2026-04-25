@@ -1111,14 +1111,37 @@ describe("createTerminalInstance — file link callback", () => {
     expect(mockReadTextFile).not.toHaveBeenCalled();
   });
 
-  it("proceeds when stat fails (falls through to readTextFile)", async () => {
+  it("fails closed when stat rejects (no readTextFile, surfaces warning)", async () => {
     mockStat.mockRejectedValueOnce(new Error("stat failed"));
 
     fileLinkCallback("/path/to/file.md");
 
     await vi.waitFor(() => {
-      expect(mockReadTextFile).toHaveBeenCalledWith("/path/to/file.md");
+      expect(mockTerminalLog).toHaveBeenCalledWith(
+        "stat failed for file link:",
+        "/path/to/file.md",
+        "stat failed",
+      );
     });
+    expect(termInst.term.writeln).toHaveBeenCalledWith(
+      "\x1b[33m[Cannot open file: stat failed]\x1b[0m",
+    );
+    expect(mockReadTextFile).not.toHaveBeenCalled();
+  });
+
+  it("stringifies non-Error stat rejection", async () => {
+    mockStat.mockRejectedValueOnce("unknown stat error");
+
+    fileLinkCallback("/path/to/file.md");
+
+    await vi.waitFor(() => {
+      expect(mockTerminalLog).toHaveBeenCalledWith(
+        "stat failed for file link:",
+        "/path/to/file.md",
+        "unknown stat error",
+      );
+    });
+    expect(mockReadTextFile).not.toHaveBeenCalled();
   });
 });
 
