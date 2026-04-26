@@ -44,7 +44,7 @@ import { useWorkspaceSync } from "@/hooks/useWorkspaceSync";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { readTextFile } from "@tauri-apps/plugin-fs";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";

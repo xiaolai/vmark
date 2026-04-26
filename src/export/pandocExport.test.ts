@@ -89,11 +89,14 @@ describe("exportViaPandoc", () => {
 
     const result = await exportViaPandoc({ markdown: "# Hello", format: "docx" });
     expect(result).toBe(false);
+    // No filters — stripped per macOS Tahoe parity rule (E3)
     expect(mockSave).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Export Word Document",
-        filters: [{ name: "Word Document", extensions: ["docx"] }],
       })
+    );
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.not.objectContaining({ filters: expect.anything() })
     );
   });
 
@@ -126,12 +129,15 @@ describe("exportViaPandoc", () => {
     mockSave.mockResolvedValueOnce(null);
 
     await exportViaPandoc({ markdown: "content", format: "latex" });
+    // No filters — stripped per macOS Tahoe parity rule (E3)
     expect(mockSave).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Export LaTeX",
         defaultPath: "document.tex",
-        filters: [{ name: "LaTeX", extensions: ["tex"] }],
       })
+    );
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.not.objectContaining({ filters: expect.anything() })
     );
   });
 

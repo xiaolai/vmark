@@ -243,5 +243,19 @@
   },
   "workflow": {
     "noPreview": "Nenhuma visualização de workflow disponível"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "Inserir linha acima",
+  "sourceTable.menu.insertRowBelow": "Inserir linha abaixo",
+  "sourceTable.menu.insertColumnLeft": "Inserir coluna à esquerda",
+  "sourceTable.menu.insertColumnRight": "Inserir coluna à direita",
+  "sourceTable.menu.deleteRow": "Excluir linha",
+  "sourceTable.menu.deleteColumn": "Excluir coluna",
+  "sourceTable.menu.deleteTable": "Excluir tabela",
+  "sourceTable.menu.alignColumnLeft": "Alinhar coluna à esquerda",
+  "sourceTable.menu.alignColumnCenter": "Centralizar coluna",
+  "sourceTable.menu.alignColumnRight": "Alinhar coluna à direita",
+  "sourceTable.menu.alignAllLeft": "Alinhar tudo à esquerda",
+  "sourceTable.menu.alignAllCenter": "Centralizar tudo",
+  "sourceTable.menu.alignAllRight": "Alinhar tudo à direita",
+  "sourceTable.menu.formatTable": "Formatar tabela"
 }

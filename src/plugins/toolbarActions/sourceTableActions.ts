@@ -9,7 +9,7 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
 import {
@@ -72,6 +72,8 @@ export function handleTableAction(view: EditorView, action: string): boolean {
     case "formatTable":
       if (formatTable(view, info)) {
         toast.success(i18n.t("dialog:toast.tableFormatted"));
+      } else {
+        toast.info(i18n.t("dialog:toast.tableAlreadyFormatted"));
       }
       return true;
     default:

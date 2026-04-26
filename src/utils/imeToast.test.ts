@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   toastWarning: vi.fn(),
+  toastMessage: vi.fn(),
+  toastLoading: vi.fn(),
+  toastDismiss: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -13,6 +16,9 @@ vi.mock("sonner", () => ({
     success: mocks.toastSuccess,
     error: mocks.toastError,
     warning: mocks.toastWarning,
+    message: mocks.toastMessage,
+    loading: mocks.toastLoading,
+    dismiss: mocks.toastDismiss,
   },
 }));
 
@@ -135,6 +141,43 @@ describe("imeToast", () => {
 
     imeToast.warning("warn");
     expect(mocks.toastWarning).toHaveBeenCalledWith("warn");
+  });
+
+  it("defers message toast when composing and flushes after compositionend", () => {
+    setComposing(true);
+
+    imeToast.message("Moved tab", { action: { label: "Undo", onClick: () => {} } });
+    expect(mocks.toastMessage).not.toHaveBeenCalled();
+
+    setComposing(false);
+    fireCompositionEnd();
+    vi.advanceTimersByTime(60);
+    expect(mocks.toastMessage).toHaveBeenCalledWith(
+      "Moved tab",
+      expect.objectContaining({ action: expect.any(Object) }),
+    );
+  });
+
+  it("shows message toast immediately when not composing", () => {
+    imeToast.message("Moved tab");
+    expect(mocks.toastMessage).toHaveBeenCalledWith("Moved tab");
+  });
+
+  it("never defers loading toast (used for in-progress state)", () => {
+    setComposing(true);
+    mocks.toastLoading.mockReturnValueOnce("loading-id-123");
+
+    const id = imeToast.loading("Working…");
+    expect(mocks.toastLoading).toHaveBeenCalledWith("Working…");
+    // Returned id should match what sonner returned (we forward it)
+    expect(id).toBe("loading-id-123");
+  });
+
+  it("dismiss passes through to sonner immediately", () => {
+    setComposing(true);
+
+    imeToast.dismiss("toast-id");
+    expect(mocks.toastDismiss).toHaveBeenCalledWith("toast-id");
   });
 
   it("re-defers if composition restarts before flush", () => {

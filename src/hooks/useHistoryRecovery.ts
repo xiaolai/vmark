@@ -20,6 +20,8 @@ import {
   remove,
 } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
+import { imeToast as toast } from "@/utils/imeToast";
+import i18n from "@/i18n";
 import { historyLog, historyError } from "@/utils/debug";
 import {
   INDEX_FILE,
@@ -30,7 +32,9 @@ import { normalizePath, isWithinRoot } from "@/utils/paths/paths";
 import { getHistoryBaseDir } from "@/hooks/useHistoryOperations";
 
 /**
- * Permanently delete history for a document
+ * Permanently delete history for a document.
+ * Surfaces success/failure to the user — these are explicit user actions
+ * from Settings, so silent failure was misleading.
  */
 export async function deleteHistory(pathHash: string): Promise<void> {
   try {
@@ -41,14 +45,14 @@ export async function deleteHistory(pathHash: string): Promise<void> {
       await remove(historyDir, { recursive: true });
       historyLog("Deleted history for:", pathHash);
     }
+    toast.success(i18n.t("dialog:toast.historyDeleted"));
   } catch (error) {
     historyError("Failed to delete history:", error);
+    toast.error(i18n.t("dialog:toast.historyDeleteFailed"));
   }
 }
 
-/**
- * Clear all history
- */
+/** Clear all history */
 export async function clearAllHistory(): Promise<void> {
   try {
     const baseDir = await getHistoryBaseDir();
@@ -56,14 +60,14 @@ export async function clearAllHistory(): Promise<void> {
       await remove(baseDir, { recursive: true });
       historyLog("Cleared all history");
     }
+    toast.success(i18n.t("dialog:toast.historyClearedAll"));
   } catch (error) {
     historyError("Failed to clear all history:", error);
+    toast.error(i18n.t("dialog:toast.historyClearAllFailed"));
   }
 }
 
-/**
- * Delete all history for a specific document by its file path
- */
+/** Delete all history for a specific document by its file path. */
 export async function deleteDocumentHistory(
   documentPath: string
 ): Promise<void> {
@@ -72,6 +76,7 @@ export async function deleteDocumentHistory(
     await deleteHistory(hash);
   } catch (error) {
     historyError("Failed to delete document history:", error);
+    toast.error(i18n.t("dialog:toast.historyDeleteFailed"));
   }
 }
 
@@ -106,7 +111,18 @@ export async function clearWorkspaceHistory(
         const rootPath = normalizePath(workspaceRootPath);
 
         if (isWithinRoot(rootPath, docPath)) {
-          await deleteHistory(entry.name);
+          // Inline the removal so each file doesn't fire its own toast
+          // (deleteHistory toasts on success/failure). Wrap remove in its
+          // own try so a single bad file doesn't abort the batch — the
+          // outer summary toast below still surfaces failures.
+          const historyDir = await join(baseDir, entry.name);
+          try {
+            if (await exists(historyDir)) {
+              await remove(historyDir, { recursive: true });
+            }
+          } catch (e) {
+            historyError("Failed to remove history dir:", entry.name, e);
+          }
           count++;
         }
       } catch {
@@ -115,9 +131,15 @@ export async function clearWorkspaceHistory(
     }
 
     historyLog(`Cleared workspace history: ${count} document(s)`);
+    if (count > 0) {
+      toast.success(
+        i18n.t("dialog:toast.historyClearedWorkspace", { count }),
+      );
+    }
     return count;
   } catch (error) {
     historyError("Failed to clear workspace history:", error);
+    toast.error(i18n.t("dialog:toast.historyClearWorkspaceFailed"));
     return 0;
   }
 }

@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    message: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
 vi.mock("@/plugins/editorPlugins.tiptap", () => ({
   expandedToggleMarkTiptap: vi.fn(() => true),
 }));
@@ -577,14 +587,16 @@ describe("performWysiwygToolbarAction (with view)", () => {
     expect(result).toBe(true);
   });
 
-  it("returns false for formatTable when formatTable returns false", async () => {
+  it("formatTable no-op still returns true and shows info toast (E2)", async () => {
     const { formatTable } = await import("@/plugins/tableUI/tableActions.tiptap");
     vi.mocked(formatTable).mockReturnValueOnce(false);
     const result = performWysiwygToolbarAction("formatTable", {
       ...baseContext,
       view: mockView,
     });
-    expect(result).toBe(false);
+    // The action is dispatched (returns true) so the toolbar doesn't show a
+    // generic failure; the toast tells the user nothing was changed.
+    expect(result).toBe(true);
   });
 
   it("handles blockquote operations with view", () => {

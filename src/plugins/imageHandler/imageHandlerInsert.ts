@@ -14,6 +14,7 @@
 import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -161,6 +162,7 @@ export async function insertMultipleImages(
   const blockImageType = state.schema.nodes.block_image;
   if (!blockImageType) {
     imageHandlerWarn("block_image node type not found");
+    toast.error(i18n.t("dialog:toast.imageSchemaUnavailable"));
     return;
   }
 

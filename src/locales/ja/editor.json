@@ -237,5 +237,19 @@
   },
   "workflow": {
     "noPreview": "ワークフローのプレビューは利用できません"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "上に行を挿入",
+  "sourceTable.menu.insertRowBelow": "下に行を挿入",
+  "sourceTable.menu.insertColumnLeft": "左に列を挿入",
+  "sourceTable.menu.insertColumnRight": "右に列を挿入",
+  "sourceTable.menu.deleteRow": "行を削除",
+  "sourceTable.menu.deleteColumn": "列を削除",
+  "sourceTable.menu.deleteTable": "テーブルを削除",
+  "sourceTable.menu.alignColumnLeft": "列を左揃え",
+  "sourceTable.menu.alignColumnCenter": "列を中央揃え",
+  "sourceTable.menu.alignColumnRight": "列を右揃え",
+  "sourceTable.menu.alignAllLeft": "すべて左揃え",
+  "sourceTable.menu.alignAllCenter": "すべて中央揃え",
+  "sourceTable.menu.alignAllRight": "すべて右揃え",
+  "sourceTable.menu.formatTable": "テーブルを整形"
 }

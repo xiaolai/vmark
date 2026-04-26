@@ -44,6 +44,34 @@ vi.mock("@/utils/pendingSaves", () => ({
   clearPendingSave: vi.fn(),
 }));
 
+const toastMocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  warning: vi.fn(),
+}));
+vi.mock("@/utils/imeToast", () => ({
+  imeToast: {
+    info: vi.fn(),
+    success: vi.fn(),
+    message: vi.fn(),
+    error: toastMocks.error,
+    warning: toastMocks.warning,
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
+
+vi.mock("@/i18n", () => ({
+  default: {
+    t: (key: string, opts?: Record<string, unknown>) => {
+      // Echo back key + opts so tests assert on key, not English text
+      if (opts && Object.keys(opts).length) {
+        return `${key}|${JSON.stringify(opts)}`;
+      }
+      return key;
+    },
+  },
+}));
+
 import { invoke } from "@tauri-apps/api/core";
 import { createSnapshot } from "@/hooks/useHistoryOperations";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -83,10 +111,13 @@ describe("saveToPath", () => {
   const mockAddFile = vi.fn();
   const mockGetDocument = vi.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     nextMockToken = 1;
+    // Reset module-level snapshot-failure flag between tests
+    const mod = await import("./saveToPath");
+    if ("__resetSessionFlags" in mod) (mod as { __resetSessionFlags: () => void }).__resetSessionFlags();
     vi.mocked(useDocumentStore.getState).mockReturnValue({
       setFilePath: mockSetFilePath,
       markSaved: mockMarkSaved,
@@ -275,6 +306,43 @@ describe("saveToPath", () => {
 
       expect(result).toBe(true);
       expect(createSnapshot).toHaveBeenCalled();
+    });
+
+    it("warns once per session when snapshot creation fails (C8)", async () => {
+      vi.mocked(invoke).mockResolvedValue(undefined);
+      vi.mocked(createSnapshot).mockRejectedValue(new Error("snapshot failed"));
+
+      await saveToPath("tab-1", "/tmp/a.md", "content1", "manual");
+      expect(toastMocks.warning).toHaveBeenCalledWith("dialog:toast.historySnapshotFailed");
+      const firstCount = toastMocks.warning.mock.calls.length;
+
+      // Second snapshot failure in same session → no extra toast (rate-limited)
+      await saveToPath("tab-2", "/tmp/b.md", "content2", "manual");
+      expect(toastMocks.warning.mock.calls.length).toBe(firstCount);
+    });
+  });
+
+  describe("save failure toast behavior (B1, B2)", () => {
+    it("manual save shows localized toast.error (not raw English) on write failure", async () => {
+      vi.mocked(invoke).mockRejectedValue(new Error("disk error"));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/tmp/doc.md", "content", "manual");
+
+      expect(toastMocks.error).toHaveBeenCalledWith(
+        expect.stringContaining("dialog:toast.failedToSaveGeneric"),
+      );
+      consoleError.mockRestore();
+    });
+
+    it("auto-save does NOT show toast on write failure (avoids spam)", async () => {
+      vi.mocked(invoke).mockRejectedValue(new Error("disk error"));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/tmp/doc.md", "content", "auto");
+
+      expect(toastMocks.error).not.toHaveBeenCalled();
+      consoleError.mockRestore();
     });
   });
 

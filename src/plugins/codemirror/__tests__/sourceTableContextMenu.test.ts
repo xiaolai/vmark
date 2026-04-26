@@ -53,7 +53,15 @@ vi.mock("@/utils/icons", () => ({
 
 const mockToastSuccess = vi.fn();
 vi.mock("sonner", () => ({
-  toast: { success: (...args: unknown[]) => mockToastSuccess(...args), error: vi.fn() },
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    message: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
 }));
 
 let mockPopupHost: HTMLElement | null = null;

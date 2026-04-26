@@ -30,7 +30,15 @@ vi.mock("@/plugins/sourceContextDetection/tableActions", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    message: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
 }));
 
 import { EditorSelection, EditorState } from "@codemirror/state";
@@ -184,12 +192,15 @@ describe("handleTableAction", () => {
     view.destroy();
   });
 
-  it("handles formatTable action without toast when no changes", () => {
+  it("handles formatTable no-op with info toast (E2)", () => {
     mockFormatTable.mockReturnValue(false);
     const view = createView("| a | b |", 5);
     const result = handleTableAction(view, "formatTable");
     expect(result).toBe(true);
+    // Success toast is NOT shown when no changes were made
     expect(toast.success).not.toHaveBeenCalled();
+    // Info toast IS shown so the user knows the action was processed
+    expect(toast.info).toHaveBeenCalledWith("Table is already formatted");
     view.destroy();
   });
 

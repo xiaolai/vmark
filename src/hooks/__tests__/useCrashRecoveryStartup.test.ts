@@ -20,10 +20,30 @@ vi.mock("@/utils/hotExit/hotExitCoordination", () => ({
   waitForRestoreComplete: () => mockWaitForRestoreComplete(),
 }));
 
-// Mock sonner toast
+// Mock sonner toast (imeToast forwards info to sonner.info, warning/error are passthrough)
 const mockToastInfo = vi.fn();
+const mockToastWarning = vi.fn();
+const mockToastError = vi.fn();
 vi.mock("sonner", () => ({
-  toast: { info: (...args: unknown[]) => mockToastInfo(...args) },
+  toast: {
+    info: (...args: unknown[]) => mockToastInfo(...args),
+    success: vi.fn(),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    message: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
+
+// i18n returns the key for assertable test output
+vi.mock("@/i18n", () => ({
+  default: {
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (opts && Object.keys(opts).length) return `${key}|${JSON.stringify(opts)}`;
+      return key;
+    },
+  },
 }));
 
 // Mock WindowContext
@@ -244,9 +264,7 @@ describe("useCrashRecoveryStartup", () => {
     expect(tabs.length).toBe(1);
   });
 
-  it("continues restoring other snapshots when one fails", async () => {
-    // Create a snapshot that will cause restoreSnapshot to throw
-    // by manipulating the tab store to throw on createTab
+  it("continues restoring other snapshots when one fails — partial recovery shows warning (B3)", async () => {
     const snapshot1 = makeSnapshot({ tabId: "t1", content: "Doc 1" });
     const snapshot2 = makeSnapshot({ tabId: "t2", content: "Doc 2" });
     mockReadRecoverySnapshots.mockResolvedValue([snapshot1, snapshot2]);
@@ -255,7 +273,7 @@ describe("useCrashRecoveryStartup", () => {
     const origCreateTab = useTabStore.getState().createTab;
     let callCount = 0;
     vi.spyOn(useTabStore.getState(), "createTab").mockImplementation(
-      (...args) => {
+      (...args: Parameters<typeof origCreateTab>) => {
         callCount++;
         if (callCount === 1) throw new Error("createTab failed");
         return origCreateTab(...args);
@@ -271,10 +289,14 @@ describe("useCrashRecoveryStartup", () => {
     // Should have restored at least the second snapshot
     const tabs = useTabStore.getState().getTabsByWindow("main");
     expect(tabs.length).toBe(1);
-    // Toast should show 1 recovered (the one that succeeded)
-    expect(mockToastInfo).toHaveBeenCalledWith(
-      expect.stringContaining("1")
-    );
+    // Partial recovery → warning toast with recovered/total/failed numbers,
+    // NOT the success info toast.
+    await vi.waitFor(() => {
+      expect(mockToastWarning).toHaveBeenCalledWith(
+        expect.stringContaining("dialog:toast.crashRecoveredPartial"),
+      );
+    });
+    expect(mockToastInfo).not.toHaveBeenCalled();
   });
 
   it("only runs once even if re-rendered", async () => {
@@ -292,11 +314,11 @@ describe("useCrashRecoveryStartup", () => {
     expect(mockReadRecoverySnapshots).toHaveBeenCalledTimes(1);
   });
 
-  it("logs non-Error thrown objects as strings in restoreSnapshot catch", async () => {
+  it("when ALL snapshots fail to restore, shows error toast (C5)", async () => {
     const snapshot = makeSnapshot({ tabId: "t-fail" });
     mockReadRecoverySnapshots.mockResolvedValue([snapshot]);
 
-    // Make createTab throw a non-Error value (string) — must spy on the prototype
+    // Make createTab throw a non-Error value (string)
     const origCreateTab = useTabStore.getState().createTab;
     useTabStore.setState({
       createTab: () => {
@@ -306,29 +328,30 @@ describe("useCrashRecoveryStartup", () => {
 
     renderHook(() => useCrashRecoveryStartup());
 
-    // Should not crash; toast should NOT be called (0 restored)
     await vi.waitFor(() => {
-      expect(mockReadRecoverySnapshots).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalledWith(
+        expect.stringContaining("dialog:toast.crashRecoveryFailed"),
+      );
     });
-
-    // Wait a tick for async flow to complete
-    await new Promise((r) => setTimeout(r, 50));
+    // No success info toast when 0 recovered
     expect(mockToastInfo).not.toHaveBeenCalled();
 
     // Restore original
     useTabStore.setState({ createTab: origCreateTab } as never);
   });
 
-  it("handles outer catch with non-Error thrown value", async () => {
+  it("handles outer catch with non-Error thrown value — surfaces error toast (C5)", async () => {
     mockWaitForRestoreComplete.mockRejectedValue("network down");
     renderHook(() => useCrashRecoveryStartup());
 
     await vi.waitFor(() => {
       expect(mockWaitForRestoreComplete).toHaveBeenCalled();
     });
-    // Wait for async completion
-    await new Promise((r) => setTimeout(r, 50));
-    // Should not throw or crash
+    await vi.waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith(
+        expect.stringContaining("dialog:toast.crashRecoveryFailed"),
+      );
+    });
     expect(mockToastInfo).not.toHaveBeenCalled();
   });
 

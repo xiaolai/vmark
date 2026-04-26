@@ -24,7 +24,7 @@
  * @coordinates-with UniversalToolbar.tsx — calls runToolbarAction on button click
  * @module plugins/toolbarActions/wysiwygAdapter
  */
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveBlockquote, handleListIndent, handleListOutdent, handleRemoveList, handleToBulletList, handleToOrderedList } from "@/plugins/formatToolbar/nodeActions.tiptap";
@@ -167,11 +167,13 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
     case "alignAllRight":
       return view ? alignColumn(view, "right", true) : false;
     case "formatTable":
-      if (view && formatTable(view)) {
+      if (!view) return false;
+      if (formatTable(view)) {
         toast.success(i18n.t("dialog:toast.tableFormatted"));
-        return true;
+      } else {
+        toast.info(i18n.t("dialog:toast.tableAlreadyFormatted"));
       }
-      return false;
+      return true;
 
     // Blockquote
     case "nestBlockquote":

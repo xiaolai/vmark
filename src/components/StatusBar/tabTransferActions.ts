@@ -22,7 +22,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -81,7 +81,7 @@ export async function transferTabFromDragOut({
 
   if (windowLabel === "main" && windowTabs.length <= 1) {
     triggerSnapback(tabId);
-    announce("Cannot move the last tab in the main window.");
+    announce(i18n.t("dialog:toast.cannotMoveLastTab"));
     return;
   }
 
@@ -112,30 +112,32 @@ export async function transferTabFromDragOut({
       });
       toast.message(i18n.t("dialog:toast.tabMovedToWindow", { title: tab.title }), {
         action: {
-          label: "Undo",
+          label: i18n.t("dialog:common.undo"),
           onClick: () => {
             void restoreTransferredTab(windowLabel, targetWindowLabel, transferData).catch((error) => {
               tabContextError("Undo cross-window move failed:", error);
+              toast.error(i18n.t("dialog:toast.tabUndoFailed"));
             });
           },
         },
       });
-      announce(`Moved tab ${tab.title} to another window.`);
+      announce(i18n.t("dialog:toast.tabMovedAnnounce", { title: tab.title }));
     } else {
       const createdWindowLabel = await invoke<string>("detach_tab_to_new_window", {
         data: transferData,
       });
       toast.message(i18n.t("dialog:toast.tabDetached", { title: tab.title }), {
         action: {
-          label: "Undo",
+          label: i18n.t("dialog:common.undo"),
           onClick: () => {
             void restoreTransferredTab(windowLabel, createdWindowLabel, transferData).catch((error) => {
               tabContextError("Undo detach failed:", error);
+              toast.error(i18n.t("dialog:toast.tabUndoFailed"));
             });
           },
         },
       });
-      announce(`Detached tab ${tab.title} into a new window.`);
+      announce(i18n.t("dialog:toast.tabDetachedAnnounce", { title: tab.title }));
     }
 
     tabState.detachTab(windowLabel, tabId);
@@ -151,6 +153,6 @@ export async function transferTabFromDragOut({
   } catch (error) {
     tabContextError("drag-out failed:", error);
     triggerSnapback(tabId);
-    announce(`Failed to move tab ${tab.title}.`);
+    announce(i18n.t("dialog:toast.failedToMoveTabToNewWindow"));
   }
 }

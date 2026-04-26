@@ -7,7 +7,7 @@
 
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import { createRoot } from "react-dom/client";
 import React from "react";
 
@@ -121,7 +121,7 @@ async function renderMarkdownToHtml(
       if (html) {
         complete(html);
       } else {
-        fail(new Error("Export rendering timed out — the editor failed to initialize"));
+        fail(new Error(i18n.t("dialog:toast.exportRenderTimedOut")));
       }
     }, RENDER_TIMEOUT);
   });
@@ -173,10 +173,11 @@ export async function exportToHtml(
       ? joinPath(defaultDirectory, safeName)
       : safeName;
 
+    // Strip filters per macOS Tahoe parity rule (saveDialogWithFallback).
+    // The default filename already carries .html, and the user can edit it.
     const selectedPath = await save({
       defaultPath,
-      title: "Export HTML",
-      filters: [{ name: "HTML Export", extensions: ["html"] }],
+      title: i18n.t("dialog:toast.exportHtmlDialogTitle"),
     });
 
     if (!selectedPath) return false;
@@ -309,25 +310,34 @@ export async function exportToPdfNative(options: ExportToPdfOptions): Promise<vo
  * loads the rendered HTML, and shows the native print dialog — same
  * approach as PDF export but with the print panel visible.
  *
- * Note: This reads HTML directly from the live editor DOM (`.ProseMirror`)
- * for speed, rather than re-rendering via ExportSurface like Export PDF does.
- * The `_markdown` param is unused — kept for interface consistency with
- * `exportToPdf`. The trade-off is slightly different output between Print
- * and Export PDF (live DOM may include editor UI artifacts).
+ * Note: In WYSIWYG mode this reads HTML directly from the live editor DOM
+ * (`.ProseMirror`) for speed rather than re-rendering via ExportSurface
+ * (which Export PDF uses). The trade-off is slightly different output
+ * between Print and Export PDF (live DOM may include editor UI artifacts).
+ *
+ * In Source mode there is no `.ProseMirror` element, so we fall back to
+ * rendering the markdown via ExportSurface — slower but correct, instead of
+ * showing a misleading "no content to print" error.
  */
-async function exportToPdfBrowser(_markdown: string): Promise<void> {
+async function exportToPdfBrowser(markdown: string): Promise<void> {
   try {
     // Read HTML directly from the live editor DOM for instant print.
     // This bypasses ExportSurface (used by Export PDF) for speed — trade-off
     // is that local images use asset:// URLs which the off-screen WKWebView
     // can resolve via file URL access. For visual-parity export, use Export PDF.
     const editorEl = document.querySelector(".ProseMirror");
-    if (!editorEl) {
+    let html: string;
+    if (editorEl) {
+      html = editorEl.innerHTML;
+    } else if (markdown.trim()) {
+      // Source mode (or any mode without a live ProseMirror) — render via
+      // ExportSurface so the user can still print their content.
+      html = await renderMarkdownToHtml(markdown, true);
+    } else {
       toast.error(i18n.t("dialog:toast.noEditorContentToPrint"));
       return;
     }
 
-    const html = editorEl.innerHTML;
     const themeCSS = captureThemeCSS();
     const { getEditorContentCSS } = await import("./htmlExportStyles");
     const contentCSS = getEditorContentCSS();

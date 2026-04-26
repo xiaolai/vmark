@@ -237,5 +237,19 @@
   },
   "workflow": {
     "noPreview": "사용 가능한 워크플로 미리 보기가 없습니다"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "위에 행 삽입",
+  "sourceTable.menu.insertRowBelow": "아래에 행 삽입",
+  "sourceTable.menu.insertColumnLeft": "왼쪽에 열 삽입",
+  "sourceTable.menu.insertColumnRight": "오른쪽에 열 삽입",
+  "sourceTable.menu.deleteRow": "행 삭제",
+  "sourceTable.menu.deleteColumn": "열 삭제",
+  "sourceTable.menu.deleteTable": "표 삭제",
+  "sourceTable.menu.alignColumnLeft": "열을 왼쪽 정렬",
+  "sourceTable.menu.alignColumnCenter": "열을 가운데 정렬",
+  "sourceTable.menu.alignColumnRight": "열을 오른쪽 정렬",
+  "sourceTable.menu.alignAllLeft": "모두 왼쪽 정렬",
+  "sourceTable.menu.alignAllCenter": "모두 가운데 정렬",
+  "sourceTable.menu.alignAllRight": "모두 오른쪽 정렬",
+  "sourceTable.menu.formatTable": "표 정렬"
 }

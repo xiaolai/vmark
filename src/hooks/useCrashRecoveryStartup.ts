@@ -9,13 +9,16 @@
  *   - Recovery tabs are created in the background — the active tab is
  *     snapshotted before the loop and restored after, so createTab()
  *     auto-activation never steals focus from hot-exit or Finder-opened files.
+ *   - Toast escalation reflects user impact: full success → info,
+ *     partial → warning with counts, total failure → error so the user knows
+ *     unsaved work could not be restored.
  *
  * @module hooks/useCrashRecoveryStartup
  * @coordinates-with crashRecovery.ts, hotExitCoordination.ts
  */
 
 import { useEffect, useRef } from "react";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -76,6 +79,7 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
     const prevActiveTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
 
     let restoredCount = 0;
+    let failedCount = 0;
 
     for (const snapshot of deduped) {
       try {
@@ -85,6 +89,7 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
         // Delete the recovery file after successful restore
         await deleteRecoverySnapshot(snapshot.tabId);
       } catch (error) {
+        failedCount++;
         crashRecoveryLog(
           "Failed to restore snapshot:",
           snapshot.tabId,
@@ -109,9 +114,22 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
       }
     }
 
-    if (restoredCount > 0) {
+    const totalAttempted = deduped.length;
+    if (failedCount > 0 && restoredCount > 0) {
+      toast.warning(
+        i18n.t("dialog:toast.crashRecoveredPartial", {
+          recovered: restoredCount,
+          total: totalAttempted,
+          failed: failedCount,
+        })
+      );
+      crashRecoveryLog(`Partial recovery: ${restoredCount}/${totalAttempted} (${failedCount} failed)`);
+    } else if (failedCount > 0 && restoredCount === 0) {
+      toast.error(i18n.t("dialog:toast.crashRecoveryFailed"));
+      crashRecoveryLog(`Recovery failed: 0/${totalAttempted} restored`);
+    } else if (restoredCount > 0) {
       toast.info(
-        i18n.t("dialog:toast.recoveredDocuments", { count: restoredCount })
+        i18n.t("dialog:toast.crashRecoveredAll", { count: restoredCount })
       );
       crashRecoveryLog(`Restored ${restoredCount} document(s)`);
     }
@@ -120,6 +138,7 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
       "Crash recovery failed:",
       error instanceof Error ? error.message : String(error)
     );
+    toast.error(i18n.t("dialog:toast.crashRecoveryFailed"));
   }
 }
 

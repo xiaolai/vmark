@@ -29,7 +29,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import type { GenieDefinition, GenieScope, GenieAction, AiResponseChunk } from "@/types/aiGenies";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
@@ -289,8 +289,9 @@ export function useGenieInvocation() {
                 useGeniePickerStore.getState().closePicker();
                 useAiInvocationStore.getState().finish();
               } else {
-                useGeniePickerStore.getState().setPickerError("Editor unavailable — cannot apply changes");
-                useAiInvocationStore.getState().setError("Editor unavailable");
+                const msg = i18n.t("dialog:toast.genieEditorUnavailable");
+                useGeniePickerStore.getState().setPickerError(msg);
+                useAiInvocationStore.getState().setError(msg);
               }
             } else {
               // Show preview in picker (don't close)
@@ -308,8 +309,9 @@ export function useGenieInvocation() {
             }
           } else {
             // Empty result
-            useGeniePickerStore.getState().setPickerError("AI returned empty response");
-            useAiInvocationStore.getState().setError("Empty response");
+            const msg = i18n.t("dialog:toast.genieEmptyResponse");
+            useGeniePickerStore.getState().setPickerError(msg);
+            useAiInvocationStore.getState().setError(msg);
           }
           /* v8 ignore start -- ref cleanup timing depends on async listen resolution */
           if (unlistenRef.current) {
@@ -370,6 +372,7 @@ export function useGenieInvocation() {
       const extracted = extractContent(scope, contextRadius);
       if (!extracted) {
         genieWarn("No content to extract for scope:", scope);
+        toast.info(i18n.t("dialog:toast.genieNoContent"));
         return;
       }
 
@@ -414,6 +417,7 @@ export function useGenieInvocation() {
       const extracted = extractContent(scope, contextRadius);
       if (!extracted) {
         genieWarn("No content to extract for scope:", scope);
+        toast.info(i18n.t("dialog:toast.genieNoContent"));
         return;
       }
 

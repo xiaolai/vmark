@@ -12,6 +12,8 @@
  */
 
 import type { EditorView } from "@tiptap/pm/view";
+import { imeToast as toast } from "@/utils/imeToast";
+import i18n from "@/i18n";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { detectMultipleImagePaths, type ImagePathResult } from "@/utils/imagePathDetection";
 import { parseMultiplePaths } from "@/utils/multiImageParsing";
@@ -92,9 +94,10 @@ async function validateAndShowToast(
   if (detection.type === "homePath") {
     const expanded = await expandHomePath(detection.path);
     if (!expanded) {
-      // Home expansion failed - just paste as text
+      // Home expansion failed - just paste as text + tell the user why
       if (isViewConnected(view)) {
         pasteAsText(view, originalText, capturedFrom, capturedTo);
+        toast.info(i18n.t("dialog:toast.imagePathFallbackPasted"));
       }
       return;
     }
@@ -105,9 +108,10 @@ async function validateAndShowToast(
   if (detection.type === "absolutePath" || detection.type === "homePath") {
     const exists = await validateLocalPath(pathToCheck);
     if (!exists) {
-      // File doesn't exist - just paste as text
+      // File doesn't exist - paste as text + tell the user why
       if (isViewConnected(view)) {
         pasteAsText(view, originalText, capturedFrom, capturedTo);
+        toast.info(i18n.t("dialog:toast.imagePathFallbackPasted"));
       }
       return;
     }
@@ -149,6 +153,7 @@ function showImagePasteToast(
       }
       insertImageFromPath(view, detection, capturedFrom, capturedTo, capturedAltText).catch((error) => {
         imageHandlerError("Failed to insert image:", error);
+        toast.error(i18n.t("dialog:toast.failedToInsertImage"));
       });
     },
     /* v8 ignore stop */
@@ -201,10 +206,11 @@ async function validateAndShowMultiToast(
 
   const validations = await Promise.all(validationPromises);
 
-  // If any path is invalid, paste as text
+  // If any path is invalid, paste as text + tell the user why
   if (validations.some((v) => !v.valid)) {
     if (isViewConnected(view)) {
       pasteAsText(view, originalText, capturedFrom, capturedTo);
+      toast.info(i18n.t("dialog:toast.imagePathFallbackPasted"));
     }
     return;
   }
@@ -242,6 +248,9 @@ function showMultiImagePasteToast(
       }
       insertMultipleImages(view, results, capturedFrom, capturedTo).catch((error) => {
         imageHandlerError("Failed to insert images:", error);
+        toast.error(
+          i18n.t("dialog:toast.failedToInsertImages", { count: results.length }),
+        );
       });
     },
     /* v8 ignore stop */

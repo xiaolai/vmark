@@ -16,7 +16,7 @@
  */
 
 import { EditorView, ViewPlugin } from "@codemirror/view";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { icons } from "@/utils/icons";
 import { getPopupHost, toHostCoords } from "@/plugins/sourcePopup";
@@ -83,90 +83,92 @@ class SourceTableContextMenuView {
 
     const actions: MenuAction[] = [
       {
-        label: "Insert Row Above",
+        label: i18n.t("editor:sourceTable.menu.insertRowAbove"),
         icon: icons.rowAbove,
         action: (v, i) => insertRowAbove(v, i),
       },
       {
-        label: "Insert Row Below",
+        label: i18n.t("editor:sourceTable.menu.insertRowBelow"),
         icon: icons.rowBelow,
         action: (v, i) => insertRowBelow(v, i),
       },
       {
-        label: "Insert Column Left",
+        label: i18n.t("editor:sourceTable.menu.insertColumnLeft"),
         icon: icons.colLeft,
         action: (v, i) => insertColumnLeft(v, i),
       },
       {
-        label: "Insert Column Right",
+        label: i18n.t("editor:sourceTable.menu.insertColumnRight"),
         icon: icons.colRight,
         action: (v, i) => insertColumnRight(v, i),
         dividerAfter: true,
       },
       {
-        label: "Delete Row",
+        label: i18n.t("editor:sourceTable.menu.deleteRow"),
         icon: icons.deleteRow,
         action: (v, i) => deleteRow(v, i),
         danger: true,
         disabled: onSeparator,
       },
       {
-        label: "Delete Column",
+        label: i18n.t("editor:sourceTable.menu.deleteColumn"),
         icon: icons.deleteCol,
         action: (v, i) => deleteColumn(v, i),
         danger: true,
       },
       {
-        label: "Delete Table",
+        label: i18n.t("editor:sourceTable.menu.deleteTable"),
         icon: icons.deleteTable,
         action: (v, i) => deleteTable(v, i),
         danger: true,
         dividerAfter: true,
       },
       {
-        label: "Align Column Left",
+        label: i18n.t("editor:sourceTable.menu.alignColumnLeft"),
         icon: icons.alignLeft,
         action: alignCol("left"),
         disabled: onSeparator,
       },
       {
-        label: "Align Column Center",
+        label: i18n.t("editor:sourceTable.menu.alignColumnCenter"),
         icon: icons.alignCenter,
         action: alignCol("center"),
         disabled: onSeparator,
       },
       {
-        label: "Align Column Right",
+        label: i18n.t("editor:sourceTable.menu.alignColumnRight"),
         icon: icons.alignRight,
         action: alignCol("right"),
         dividerAfter: true,
         disabled: onSeparator,
       },
       {
-        label: "Align All Left",
+        label: i18n.t("editor:sourceTable.menu.alignAllLeft"),
         icon: icons.alignAllLeft,
         action: alignAll("left"),
         disabled: onSeparator,
       },
       {
-        label: "Align All Center",
+        label: i18n.t("editor:sourceTable.menu.alignAllCenter"),
         icon: icons.alignAllCenter,
         action: alignAll("center"),
         disabled: onSeparator,
       },
       {
-        label: "Align All Right",
+        label: i18n.t("editor:sourceTable.menu.alignAllRight"),
         icon: icons.alignAllRight,
         action: alignAll("right"),
         dividerAfter: true,
         disabled: onSeparator,
       },
       {
-        label: "Format Table",
+        label: i18n.t("editor:sourceTable.menu.formatTable"),
         icon: icons.formatTable,
         action: (v, i) => {
           if (formatTable(v, i)) {
             toast.success(i18n.t("dialog:toast.tableFormatted"));
+          } else {
+            toast.info(i18n.t("dialog:toast.tableAlreadyFormatted"));
           }
         },
       },

@@ -28,7 +28,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
+import i18n from "@/i18n";
 import { statusBarWarn } from "@/utils/debug";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useTabDragOut, type DragOutPoint } from "@/hooks/useTabDragOut";
@@ -124,15 +125,15 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
       if (!plan.allowed || fromIndex === plan.toIndex) {
         if (!plan.allowed && plan.blockedReason === "pinned-zone") {
           triggerSnapback(tabId);
-          announce("Pinned tabs stay at the left. Drop blocked.");
+          announce(i18n.t("dialog:toast.tabDropPinnedZone"));
         }
         return;
       }
 
       useTabStore.getState().reorderTabs(windowLabel, fromIndex, plan.toIndex);
-      toast.message(`Moved "${tab.title}"`, {
+      toast.message(i18n.t("dialog:toast.tabReordered", { title: tab.title }), {
         action: {
-          label: "Undo",
+          label: i18n.t("dialog:common.undo"),
           onClick: () => {
             const currentTabs = useTabStore.getState().tabs[windowLabel] ?? [];
             const currentIndex = currentTabs.findIndex((t) => t.id === tab.id);
@@ -142,7 +143,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
           },
         },
       });
-      announce(`Reordered tab ${tab.title}.`);
+      announce(i18n.t("dialog:toast.tabReorderedAnnounce", { title: tab.title }));
     },
     [announce, triggerSnapback, windowLabel]
   );

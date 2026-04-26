@@ -252,5 +252,19 @@
   },
   "workflow": {
     "noPreview": "Keine Workflow-Vorschau verfügbar"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "Zeile oberhalb einfügen",
+  "sourceTable.menu.insertRowBelow": "Zeile unterhalb einfügen",
+  "sourceTable.menu.insertColumnLeft": "Spalte links einfügen",
+  "sourceTable.menu.insertColumnRight": "Spalte rechts einfügen",
+  "sourceTable.menu.deleteRow": "Zeile löschen",
+  "sourceTable.menu.deleteColumn": "Spalte löschen",
+  "sourceTable.menu.deleteTable": "Tabelle löschen",
+  "sourceTable.menu.alignColumnLeft": "Spalte links ausrichten",
+  "sourceTable.menu.alignColumnCenter": "Spalte zentrieren",
+  "sourceTable.menu.alignColumnRight": "Spalte rechts ausrichten",
+  "sourceTable.menu.alignAllLeft": "Alle links ausrichten",
+  "sourceTable.menu.alignAllCenter": "Alle zentrieren",
+  "sourceTable.menu.alignAllRight": "Alle rechts ausrichten",
+  "sourceTable.menu.formatTable": "Tabelle formatieren"
 }

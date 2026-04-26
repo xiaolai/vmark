@@ -242,5 +242,19 @@
   },
   "workflow": {
     "noPreview": "No hay vista previa de flujo de trabajo disponible"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "Insertar fila arriba",
+  "sourceTable.menu.insertRowBelow": "Insertar fila abajo",
+  "sourceTable.menu.insertColumnLeft": "Insertar columna a la izquierda",
+  "sourceTable.menu.insertColumnRight": "Insertar columna a la derecha",
+  "sourceTable.menu.deleteRow": "Eliminar fila",
+  "sourceTable.menu.deleteColumn": "Eliminar columna",
+  "sourceTable.menu.deleteTable": "Eliminar tabla",
+  "sourceTable.menu.alignColumnLeft": "Alinear columna a la izquierda",
+  "sourceTable.menu.alignColumnCenter": "Centrar columna",
+  "sourceTable.menu.alignColumnRight": "Alinear columna a la derecha",
+  "sourceTable.menu.alignAllLeft": "Alinear todo a la izquierda",
+  "sourceTable.menu.alignAllCenter": "Centrar todo",
+  "sourceTable.menu.alignAllRight": "Alinear todo a la derecha",
+  "sourceTable.menu.formatTable": "Formatear tabla"
 }

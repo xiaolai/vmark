@@ -24,7 +24,7 @@
 import { useEffect, useRef } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateStore, type UpdateStatus } from "@/stores/updateStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -112,9 +112,13 @@ export function useUpdateChecker() {
     }
   }, [autoCheckEnabled, checkFrequency, lastCheckTimestamp, doCheckForUpdates]);
 
-  // Show toast notifications on status changes
-  // Only show toasts for actionable states or manual check feedback
-  // "available", "downloading", "error" are handled silently via StatusBar
+  // Show toast notifications on status changes.
+  // Only show toasts for actionable states or manual check feedback.
+  // "available" / "downloading" stay silent (StatusBar shows them);
+  // "error" toasts only when the user manually triggered the check —
+  // background-retry errors stay quiet so a flapping network doesn't pop a
+  // notification every few seconds. The "retries exhausted" branch below
+  // surfaces a final toast if auto-retry truly gave up.
   useEffect(() => {
     const prevStatus = prevStatusRef.current;
     prevStatusRef.current = status;
@@ -139,6 +143,18 @@ export function useUpdateChecker() {
           });
         }
         isManualCheck.current = false;
+        break;
+      case "error":
+        if (prevStatus === "checking" && isManualCheck.current) {
+          const errMsg = useUpdateStore.getState().error;
+          toast.error(
+            i18n.t("dialog:toast.updateCheckFailed", {
+              error: errMsg ?? i18n.t("dialog:toast.updateCheckFailedGeneric"),
+            }),
+            { duration: 5000 },
+          );
+          isManualCheck.current = false;
+        }
         break;
     }
   }, [status, updateInfo]);
@@ -171,6 +187,9 @@ export function useUpdateChecker() {
         }, delay);
       } else {
         updateCheckerLog("Max retries reached, giving up");
+        // Surface a final toast so the user knows updates aren't reaching the
+        // server — otherwise auto-retry exhaustion is invisible.
+        toast.error(i18n.t("dialog:toast.updateRetriesExhausted"), { duration: 6000 });
       }
     }
 
@@ -291,8 +310,8 @@ export function useUpdateChecker() {
             {
               title: i18n.t("dialog:unsavedChanges.title"),
               kind: "info",
-              okLabel: "Restart",
-              cancelLabel: "Cancel",
+              okLabel: i18n.t("dialog:common.restart"),
+              cancelLabel: i18n.t("dialog:common.cancel"),
             }
           );
 

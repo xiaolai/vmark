@@ -237,5 +237,19 @@
   },
   "workflow": {
     "noPreview": "无可用的工作流预览"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "在上方插入行",
+  "sourceTable.menu.insertRowBelow": "在下方插入行",
+  "sourceTable.menu.insertColumnLeft": "在左侧插入列",
+  "sourceTable.menu.insertColumnRight": "在右侧插入列",
+  "sourceTable.menu.deleteRow": "删除行",
+  "sourceTable.menu.deleteColumn": "删除列",
+  "sourceTable.menu.deleteTable": "删除表格",
+  "sourceTable.menu.alignColumnLeft": "列左对齐",
+  "sourceTable.menu.alignColumnCenter": "列居中对齐",
+  "sourceTable.menu.alignColumnRight": "列右对齐",
+  "sourceTable.menu.alignAllLeft": "全部左对齐",
+  "sourceTable.menu.alignAllCenter": "全部居中对齐",
+  "sourceTable.menu.alignAllRight": "全部右对齐",
+  "sourceTable.menu.formatTable": "格式化表格"
 }

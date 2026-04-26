@@ -3,10 +3,26 @@ import { invoke } from "@tauri-apps/api/core";
 import { restoreTransferredTab, transferTabFromDragOut } from "./tabTransferActions";
 import type { TabTransferPayload } from "@/types/tabTransfer";
 
-// Mock sonner toast
+// Mock sonner toast (imeToast forwards message to sonner.message when not composing)
 vi.mock("sonner", () => ({
   toast: {
     message: vi.fn(),
+    info: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+    error: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
+
+// i18n returns the key (or key|opts) so tests assert on stable identifiers
+vi.mock("@/i18n", () => ({
+  default: {
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (opts && Object.keys(opts).length) return `${key}|${JSON.stringify(opts)}`;
+      return key;
+    },
   },
 }));
 
@@ -152,7 +168,7 @@ describe("transferTabFromDragOut", () => {
     await transferTabFromDragOut(defaultOptions);
     expect(defaultOptions.triggerSnapback).toHaveBeenCalledWith("tab-1");
     expect(defaultOptions.announce).toHaveBeenCalledWith(
-      "Cannot move the last tab in the main window."
+      "dialog:toast.cannotMoveLastTab"
     );
     expect(mockInvoke).not.toHaveBeenCalled();
   });
@@ -202,7 +218,7 @@ describe("transferTabFromDragOut", () => {
       data: expect.objectContaining({ tabId: "tab-1", title: "Doc 1" }),
     });
     expect(defaultOptions.announce).toHaveBeenCalledWith(
-      "Moved tab Doc 1 to another window."
+      `dialog:toast.tabMovedAnnounce|${JSON.stringify({ title: "Doc 1" })}`
     );
     expect(mockDetachTab).toHaveBeenCalledWith("main", "tab-1");
     expect(mockRemoveDocument).toHaveBeenCalledWith("tab-1");
@@ -219,7 +235,7 @@ describe("transferTabFromDragOut", () => {
       data: expect.objectContaining({ tabId: "tab-1" }),
     });
     expect(defaultOptions.announce).toHaveBeenCalledWith(
-      "Detached tab Doc 1 into a new window."
+      `dialog:toast.tabDetachedAnnounce|${JSON.stringify({ title: "Doc 1" })}`
     );
     expect(mockDetachTab).toHaveBeenCalledWith("main", "tab-1");
     expect(mockRemoveDocument).toHaveBeenCalledWith("tab-1");
@@ -233,7 +249,7 @@ describe("transferTabFromDragOut", () => {
 
     expect(defaultOptions.triggerSnapback).toHaveBeenCalledWith("tab-1");
     expect(defaultOptions.announce).toHaveBeenCalledWith(
-      "Failed to move tab Doc 1."
+      "dialog:toast.failedToMoveTabToNewWindow"
     );
     expect(mockDetachTab).not.toHaveBeenCalled();
   });

@@ -205,5 +205,20 @@
 
   "frontmatter.label": "Frontmatter",
 
-  "workflow.noPreview": "No workflow preview available"
+  "workflow.noPreview": "No workflow preview available",
+
+  "sourceTable.menu.insertRowAbove": "Insert Row Above",
+  "sourceTable.menu.insertRowBelow": "Insert Row Below",
+  "sourceTable.menu.insertColumnLeft": "Insert Column Left",
+  "sourceTable.menu.insertColumnRight": "Insert Column Right",
+  "sourceTable.menu.deleteRow": "Delete Row",
+  "sourceTable.menu.deleteColumn": "Delete Column",
+  "sourceTable.menu.deleteTable": "Delete Table",
+  "sourceTable.menu.alignColumnLeft": "Align Column Left",
+  "sourceTable.menu.alignColumnCenter": "Align Column Center",
+  "sourceTable.menu.alignColumnRight": "Align Column Right",
+  "sourceTable.menu.alignAllLeft": "Align All Left",
+  "sourceTable.menu.alignAllCenter": "Align All Center",
+  "sourceTable.menu.alignAllRight": "Align All Right",
+  "sourceTable.menu.formatTable": "Format Table"
 }

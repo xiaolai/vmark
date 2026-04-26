@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { restartWithHotExit } from "@/utils/hotExit/restartWithHotExit";

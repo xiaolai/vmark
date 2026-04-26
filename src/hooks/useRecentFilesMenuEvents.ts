@@ -20,7 +20,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";

@@ -237,5 +237,19 @@
   },
   "workflow": {
     "noPreview": "無可用的工作流程預覽"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "在上方插入列",
+  "sourceTable.menu.insertRowBelow": "在下方插入列",
+  "sourceTable.menu.insertColumnLeft": "在左側插入欄",
+  "sourceTable.menu.insertColumnRight": "在右側插入欄",
+  "sourceTable.menu.deleteRow": "刪除列",
+  "sourceTable.menu.deleteColumn": "刪除欄",
+  "sourceTable.menu.deleteTable": "刪除表格",
+  "sourceTable.menu.alignColumnLeft": "欄靠左對齊",
+  "sourceTable.menu.alignColumnCenter": "欄置中對齊",
+  "sourceTable.menu.alignColumnRight": "欄靠右對齊",
+  "sourceTable.menu.alignAllLeft": "全部靠左對齊",
+  "sourceTable.menu.alignAllCenter": "全部置中對齊",
+  "sourceTable.menu.alignAllRight": "全部靠右對齊",
+  "sourceTable.menu.formatTable": "格式化表格"
 }

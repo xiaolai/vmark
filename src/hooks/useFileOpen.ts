@@ -10,7 +10,7 @@
  * @module hooks/useFileOpen
  */
 
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -248,6 +248,8 @@ export async function handleOpen(windowLabel: string): Promise<void> {
           if (replaceLoadId !== null) {
             useFileLoadStore.getState().endLoad(replaceLoadId);
           }
+          const msg = error instanceof Error ? error.message : String(error);
+          toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }));
         }
         break;
       }
@@ -259,6 +261,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
           });
         } catch (error) {
           fileOpsError("Failed to open workspace in new window:", error);
+          toast.error(i18n.t("dialog:toast.openWorkspaceInNewWindowFailed"));
         }
         break;
       case "no_op":

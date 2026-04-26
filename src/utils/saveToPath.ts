@@ -11,8 +11,11 @@
  *     exceed 500ms under heavy I/O: Rust debounce + emit + JS event loop + readFile)
  *   - Line ending and hard break normalization applied on save (not in-memory)
  *     to preserve the original editing experience while writing clean files
- *   - History snapshots are fire-and-forget — failures don't block save success
- *   - Auto-save skips recent files list to avoid noise
+ *   - History snapshots are fire-and-forget — failures don't block save success,
+ *     but the first failure per session warns the user so silent breakage is visible
+ *   - Auto-save skips recent files list AND skips error toasts to avoid spam on
+ *     a flaky disk; the user didn't initiate the action and the next manual save
+ *     will surface the error
  *
  * @coordinates-with pendingSaves.ts — content-based save tracking for watcher coordination
  * @coordinates-with linebreaks.ts — line ending and hard break normalization
@@ -21,7 +24,8 @@
  * @module utils/saveToPath
  */
 import { invoke } from "@tauri-apps/api/core";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
+import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
@@ -36,6 +40,16 @@ import {
 } from "@/utils/linebreaks";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { historyWarn, saveError } from "@/utils/debug";
+
+// Tracks whether we've already warned the user about snapshot failures
+// in this session — without this, every save during a broken history backend
+// would spam toasts.
+let snapshotWarningShown = false;
+
+/** Test-only: reset module-level session flags. */
+export function __resetSessionFlags(): void {
+  snapshotWarningShown = false;
+}
 
 export async function saveToPath(
   tabId: string,
@@ -66,8 +80,13 @@ export async function saveToPath(
     // Token ensures we only clear our own registration, not a newer save's.
     clearPendingSave(path, saveToken);
     saveError("Failed to save file:", error);
-    const message = error instanceof Error ? error.message : String(error);
-    toast.error(`Failed to save: ${message}`);
+    // Manual saves toast; auto-saves stay quiet so a flaky disk doesn't pop
+    // a notification every interval. The next manual save (or an external
+    // signal like the file becoming missing) will surface the problem.
+    if (saveType === "manual") {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }));
+    }
     return false;
   }
 
@@ -103,7 +122,13 @@ export async function saveToPath(
       await createSnapshot(path, output, saveType, buildHistorySettings(general));
     } catch (historyError) {
       historyWarn("Failed to create snapshot:", historyError);
-      // Don't fail the save operation if history fails
+      // Don't fail the save operation if history fails — but warn the user
+      // once per session so silent breakage is visible (e.g., history dir
+      // permissions changed). Subsequent failures stay silent to avoid spam.
+      if (!snapshotWarningShown) {
+        snapshotWarningShown = true;
+        toast.warning(i18n.t("dialog:toast.historySnapshotFailed"));
+      }
     }
   }
 

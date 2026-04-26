@@ -11,7 +11,8 @@
  *   - When composing, queues the toast and flushes on the next
  *     `compositionend` event (event-driven, not fixed delay)
  *   - Falls through to immediate toast when no editor is composing
- *   - Only wraps info/success — error/warning are never deferred (urgent)
+ *   - Only info/success/message are deferred — error/warning/loading/dismiss
+ *     pass through immediately (urgent or carry a return id callers depend on)
  *   - Re-checks composition state before flushing — if a new composition
  *     started quickly, re-defers instead of interrupting
  *   - Fallback timeout (5s) prevents indefinite queuing if compositionend
@@ -115,12 +116,19 @@ function deferIfComposing(fn: (...args: ToastArgs) => void, args: ToastArgs): vo
 }
 
 /**
- * IME-safe toast — defers info/success when the editor is composing.
- * Error and warning are passed through immediately (urgent notifications).
+ * IME-safe toast — defers info/success/message when the editor is composing.
+ * Error/warning are urgent (always immediate).
+ * Loading/dismiss return values or take ids — must be synchronous, so they
+ * also pass through. (Loading toasts during composition is an edge case;
+ * deferring them would mean the user sees no spinner while their op runs.)
  */
 export const imeToast = {
   info: (...args: ToastArgs) => deferIfComposing(toast.info, args),
   success: (...args: ToastArgs) => deferIfComposing(toast.success, args),
+  message: (...args: Parameters<typeof toast.message>) =>
+    deferIfComposing(toast.message as (...a: ToastArgs) => void, args as ToastArgs),
   error: toast.error,
   warning: toast.warning,
+  loading: toast.loading,
+  dismiss: toast.dismiss,
 };

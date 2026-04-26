@@ -27,7 +27,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
@@ -146,7 +146,7 @@ export function useTabContextMenuActions({
 
       toast.message(i18n.t("dialog:toast.tabMoved", { title: tab.title }), {
         action: {
-          label: "Undo",
+          label: i18n.t("dialog:common.undo"),
           onClick: () => {
             void restoreTransferredTab(windowLabel, createdWindowLabel, transferData).catch((error) => {
               tabContextError(" Undo move-to-new-window failed:", error);

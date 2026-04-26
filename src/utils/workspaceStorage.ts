@@ -17,11 +17,21 @@
  * @module utils/workspaceStorage
  */
 import type { StateStorage } from "zustand/middleware";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import { workspaceStorageWarn } from "@/utils/debug";
 
 /** Tracks which workspace keys have already shown a quota warning. */
 const quotaWarnedKeys = new Set<string>();
+
+/** Callback to resolve the i18n quota message — set by the app after i18n initialises. */
+let resolveQuotaMessage: (() => string) | null = null;
+
+/** Register an i18n-aware message resolver (called once from app init). */
+export function setWorkspaceStorageMessageResolver(
+  resolver: () => string,
+): void {
+  resolveQuotaMessage = resolver;
+}
 
 /** Base key prefix for workspace storage */
 const STORAGE_KEY_PREFIX = "vmark-workspace";
@@ -172,9 +182,12 @@ export const windowScopedStorage: StateStorage = {
         workspaceStorageWarn(`QuotaExceededError for key "${key}" — localStorage is full`);
         if (!quotaWarnedKeys.has(key)) {
           quotaWarnedKeys.add(key);
-          toast.warning(
-            `Storage full — workspace changes won't be saved until space is freed.`,
-          );
+          // Use i18n resolver if registered (after app boot); fall back to a
+          // pre-i18n English string for any quota event during early init.
+          const msg = resolveQuotaMessage
+            ? resolveQuotaMessage()
+            : "Storage full — workspace changes won't be saved until space is freed.";
+          toast.warning(msg);
         }
       } else {
         throw error;

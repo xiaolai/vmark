@@ -30,7 +30,7 @@ import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/lintStore";
 import { getActiveDocument, getActiveTabId } from "@/utils/activeDocument";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
@@ -235,6 +235,10 @@ export function useViewShortcuts() {
           triggerLintRefresh();
           if (diagnostics.length === 0) {
             toast.success(i18n.t("statusbar:lint.clean.toast"));
+          } else {
+            toast.info(
+              i18n.t("dialog:toast.lintFoundIssues", { count: diagnostics.length }),
+            );
           }
         }
         return;

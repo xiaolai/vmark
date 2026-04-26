@@ -27,6 +27,7 @@ import { emit } from "@tauri-apps/api/event";
 import { useUpdateStore } from "@/stores/updateStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getVersion } from "@tauri-apps/api/app";
+import i18n from "@/i18n";
 
 // Event names for cross-window communication
 const EVENTS = {
@@ -140,7 +141,9 @@ export function useUpdateOperationHandler() {
         return false;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to check for updates";
+      const message = err instanceof Error
+        ? err.message
+        : i18n.t("dialog:toast.updateCheckFailedGeneric");
       setError(message);
       // Don't update lastCheckTimestamp on error - the check didn't complete successfully
       return false;
@@ -153,7 +156,7 @@ export function useUpdateOperationHandler() {
   const doDownloadAndInstall = useCallback(async () => {
     const pendingUpdate = useUpdateStore.getState().pendingUpdate;
     if (!pendingUpdate) {
-      setError("No update available to download");
+      setError(i18n.t("dialog:toast.updateNoneToDownload"));
       return;
     }
 
@@ -184,7 +187,9 @@ export function useUpdateOperationHandler() {
 
       setStatus("ready");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to download update";
+      const message = err instanceof Error
+        ? err.message
+        : i18n.t("dialog:toast.updateDownloadFailedGeneric");
       setError(message);
     }
   }, [setStatus, setDownloadProgress, setError]);

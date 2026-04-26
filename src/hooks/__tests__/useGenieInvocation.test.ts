@@ -362,8 +362,9 @@ describe("useGenieInvocation — picker store wiring", () => {
     });
 
     expect(useGeniePickerStore.getState().mode).toBe("error");
-    expect(useGeniePickerStore.getState().pickerError).toBe("AI returned empty response");
-    expect(useAiInvocationStore.getState().error).toBe("Empty response");
+    // Both messages now share a single i18n key so they match.
+    expect(useGeniePickerStore.getState().pickerError).toBe("AI returned an empty response");
+    expect(useAiInvocationStore.getState().error).toBe("AI returned an empty response");
   });
 
   // =========================================================================
@@ -1186,7 +1187,8 @@ describe("useGenieInvocation — picker store wiring", () => {
       });
     });
 
+    // Both messages now share a single i18n key so they match.
     expect(useGeniePickerStore.getState().pickerError).toBe("Editor unavailable — cannot apply changes");
-    expect(useAiInvocationStore.getState().error).toBe("Editor unavailable");
+    expect(useAiInvocationStore.getState().error).toBe("Editor unavailable — cannot apply changes");
   });
 });

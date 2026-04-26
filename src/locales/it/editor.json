@@ -247,5 +247,19 @@
   },
   "workflow": {
     "noPreview": "Nessuna anteprima del workflow disponibile"
-  }
+  },
+  "sourceTable.menu.insertRowAbove": "Inserisci riga sopra",
+  "sourceTable.menu.insertRowBelow": "Inserisci riga sotto",
+  "sourceTable.menu.insertColumnLeft": "Inserisci colonna a sinistra",
+  "sourceTable.menu.insertColumnRight": "Inserisci colonna a destra",
+  "sourceTable.menu.deleteRow": "Elimina riga",
+  "sourceTable.menu.deleteColumn": "Elimina colonna",
+  "sourceTable.menu.deleteTable": "Elimina tabella",
+  "sourceTable.menu.alignColumnLeft": "Allinea colonna a sinistra",
+  "sourceTable.menu.alignColumnCenter": "Centra colonna",
+  "sourceTable.menu.alignColumnRight": "Allinea colonna a destra",
+  "sourceTable.menu.alignAllLeft": "Allinea tutto a sinistra",
+  "sourceTable.menu.alignAllCenter": "Centra tutto",
+  "sourceTable.menu.alignAllRight": "Allinea tutto a destra",
+  "sourceTable.menu.formatTable": "Formatta tabella"
 }

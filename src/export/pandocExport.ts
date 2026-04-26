@@ -13,7 +13,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { toast } from "sonner";
+import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { joinPath } from "@/utils/pathUtils";
 import { exportError } from "@/utils/debug";
@@ -81,10 +81,11 @@ export async function exportViaPandoc(options: {
       ? joinPath(defaultDirectory, fileName)
       : fileName;
 
+    // Strip filters per macOS Tahoe parity rule (saveDialogWithFallback).
+    // The default filename already carries the right extension.
     const selectedPath = await save({
       defaultPath,
-      title: `Export ${meta.name}`,
-      filters: [{ name: meta.name, extensions: [meta.ext] }],
+      title: i18n.t("dialog:toast.exportFormatDialogTitle", { name: meta.name }),
     });
 
     if (!selectedPath) return false;
