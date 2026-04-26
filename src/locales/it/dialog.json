@@ -129,6 +129,7 @@
     "workspaceStorageQuotaExceeded": "Spazio di archiviazione esaurito — le modifiche allo spazio di lavoro non verranno salvate finché non si libera spazio.",
     "tableAlreadyFormatted": "La tabella è già formattata",
     "failedToSaveGeneric": "Salvataggio non riuscito: {{error}}",
+    "failedToSaveParentMissing": "La cartella non esiste più: {{dir}} — scegli una nuova posizione.",
     "failedToInsertImage": "Inserimento immagine non riuscito",
     "failedToInsertImages": "Inserimento di {{count}} immagini non riuscito",
     "imageSchemaUnavailable": "Impossibile inserire l'immagine — schema dell'editor non disponibile",

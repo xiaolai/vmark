@@ -110,6 +110,7 @@ describe("saveToPath", () => {
   const mockUpdateTabPath = vi.fn();
   const mockAddFile = vi.fn();
   const mockGetDocument = vi.fn();
+  const mockMarkMissing = vi.fn();
 
   beforeEach(async () => {
     vi.useFakeTimers();
@@ -124,6 +125,7 @@ describe("saveToPath", () => {
       markAutoSaved: mockMarkAutoSaved,
       setLineMetadata: mockSetLineMetadata,
       getDocument: mockGetDocument,
+      markMissing: mockMarkMissing,
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
     vi.mocked(useTabStore.getState).mockReturnValue({
       updateTabPath: mockUpdateTabPath,
@@ -354,6 +356,76 @@ describe("saveToPath", () => {
       await saveToPath("tab-1", "/tmp/doc.md", "content", "auto");
 
       expect(toastMocks.error).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+  });
+
+  describe("parent directory missing (PARENT_MISSING sentinel)", () => {
+    // Regression test for the case where the file's parent directory was
+    // renamed/deleted externally between open and save. The Rust backend
+    // returns "PARENT_MISSING:<dir>" so the frontend can route into Save As
+    // instead of leaking a raw "No such file or directory (os error 2)".
+    it("marks document as missing on PARENT_MISSING error (manual save)", async () => {
+      vi.mocked(invoke).mockRejectedValue(
+        new Error("PARENT_MISSING:/Users/joker/gone-folder"),
+      );
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
+      expect(mockSetFilePath).not.toHaveBeenCalled();
+      expect(mockMarkSaved).not.toHaveBeenCalled();
+
+      // Toast should use the parent-missing key (not the generic key) and
+      // include the missing directory so the user knows which folder vanished.
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveParentMissing");
+      expect(toastMocks.error.mock.calls[0][0]).toContain("/Users/joker/gone-folder");
+      expect(toastMocks.error.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ pin: true }),
+      );
+      consoleError.mockRestore();
+    });
+
+    it("still marks missing on auto-save but skips toast (no spam)", async () => {
+      vi.mocked(invoke).mockRejectedValue(
+        new Error("PARENT_MISSING:/Users/joker/gone-folder"),
+      );
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "auto");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
+      expect(toastMocks.error).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+
+    it("does not match the sentinel inside an unrelated message", async () => {
+      // Defensive: a generic OS error that happens to contain "PARENT_MISSING:"
+      // mid-string should NOT trigger the recovery branch.
+      vi.mocked(invoke).mockRejectedValue(
+        new Error("Failed to write: not a PARENT_MISSING:/foo problem"),
+      );
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).not.toHaveBeenCalled();
+      // Falls through to the generic toast
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveGeneric");
+      consoleError.mockRestore();
+    });
+
+    it("clears pending save on PARENT_MISSING error", async () => {
+      vi.mocked(invoke).mockRejectedValue(new Error("PARENT_MISSING:/x"));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/x/note.md", "x", "manual");
+
+      expect(clearPendingSave).toHaveBeenCalledWith("/x/note.md", expect.any(Number));
       consoleError.mockRestore();
     });
   });

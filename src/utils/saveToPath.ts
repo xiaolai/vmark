@@ -51,6 +51,20 @@ export function __resetSessionFlags(): void {
   snapshotWarningShown = false;
 }
 
+/**
+ * Sentinel prefix returned by the Rust `atomic_write_file` command when the
+ * parent directory of the target path no longer exists (renamed/deleted
+ * externally). Must stay in sync with `src-tauri/src/lib.rs`.
+ */
+const PARENT_MISSING_PREFIX = "PARENT_MISSING:";
+
+function parseParentMissingError(error: unknown): string | null {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : null;
+  if (!message || !message.startsWith(PARENT_MISSING_PREFIX)) return null;
+  return message.slice(PARENT_MISSING_PREFIX.length);
+}
+
 export async function saveToPath(
   tabId: string,
   path: string,
@@ -80,6 +94,23 @@ export async function saveToPath(
     // Token ensures we only clear our own registration, not a newer save's.
     clearPendingSave(path, saveToken);
     saveError("Failed to save file:", error);
+
+    // Parent directory vanished (renamed/deleted externally). Mark the doc
+    // as missing so the calling Save handler routes through Save As — the
+    // user can pick a new location in one click instead of staring at a
+    // raw "No such file or directory" error.
+    const missingDir = parseParentMissingError(error);
+    if (missingDir !== null) {
+      useDocumentStore.getState().markMissing(tabId);
+      if (saveType === "manual") {
+        toast.error(
+          i18n.t("dialog:toast.failedToSaveParentMissing", { dir: missingDir }),
+          { pin: true },
+        );
+      }
+      return false;
+    }
+
     // Manual saves toast; auto-saves stay quiet so a flaky disk doesn't pop
     // a notification every interval. The next manual save (or an external
     // signal like the file becoming missing) will surface the problem.

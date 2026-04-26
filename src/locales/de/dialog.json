@@ -129,6 +129,7 @@
     "workspaceStorageQuotaExceeded": "Speicher voll – Workspace-Änderungen werden nicht gespeichert, bis Platz freigegeben wird.",
     "tableAlreadyFormatted": "Tabelle ist bereits formatiert",
     "failedToSaveGeneric": "Speichern fehlgeschlagen: {{error}}",
+    "failedToSaveParentMissing": "Ordner existiert nicht mehr: {{dir}} — wähle einen neuen Speicherort.",
     "failedToInsertImage": "Bild konnte nicht eingefügt werden",
     "failedToInsertImages": "{{count}} Bilder konnten nicht eingefügt werden",
     "imageSchemaUnavailable": "Bild kann nicht eingefügt werden — Editor-Schema nicht verfügbar",

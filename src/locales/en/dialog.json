@@ -156,6 +156,7 @@
     "unpinBeforeClosing": "Unpin tab before closing",
     "failedToInsertDroppedImage": "Failed to insert dropped image.",
     "failedToSaveGeneric": "Failed to save: {{error}}",
+    "failedToSaveParentMissing": "Folder no longer exists: {{dir}} — choose a new location to save.",
     "failedToInsertImage": "Failed to insert image",
     "failedToInsertImages": "Failed to insert {{count}} images",
     "imageSchemaUnavailable": "Cannot insert image — editor schema unavailable",

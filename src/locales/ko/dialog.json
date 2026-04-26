@@ -129,6 +129,7 @@
     "workspaceStorageQuotaExceeded": "저장 공간이 가득 찼습니다 — 공간을 확보할 때까지 작업 공간 변경 사항이 저장되지 않습니다。",
     "tableAlreadyFormatted": "표가 이미 정렬되어 있습니다",
     "failedToSaveGeneric": "저장 실패: {{error}}",
+    "failedToSaveParentMissing": "폴더를 찾을 수 없습니다: {{dir}} — 다른 위치를 선택하세요.",
     "failedToInsertImage": "이미지를 삽입할 수 없습니다",
     "failedToInsertImages": "이미지 {{count}}개를 삽입할 수 없습니다",
     "imageSchemaUnavailable": "이미지를 삽입할 수 없습니다 — 에디터 스키마를 사용할 수 없습니다",

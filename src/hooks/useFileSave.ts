@@ -140,9 +140,27 @@ export async function handleSave(windowLabel: string): Promise<void> {
     // Track whether file was untitled before save (for auto-workspace logic)
     const hadPathBeforeSave = Boolean(doc.filePath);
     let savedPath: string | null = null;
+    let needsSaveAs = saveAction === "save_as_required" || !doc.filePath;
 
-    // If file is missing, force Save As flow instead of normal save
-    if (saveAction === "save_as_required" || !doc.filePath) {
+    // Try the normal save path first if we have a file on disk
+    if (!needsSaveAs && doc.filePath) {
+      const success = await saveToPath(tabId, doc.filePath, doc.content, "manual");
+      if (success) {
+        savedPath = doc.filePath;
+      } else {
+        // saveToPath flips isMissing when the parent directory has vanished
+        // (renamed/deleted externally). Re-check and fall through to Save As
+        // so the user can recover in one click instead of having to retry.
+        const refreshed = useDocumentStore.getState().getDocument(tabId);
+        if (refreshed?.isMissing) {
+          fileOpsLog("Parent directory missing after save attempt — routing to Save As");
+          needsSaveAs = true;
+        }
+      }
+    }
+
+    // Save As: untitled, missing-on-open, or parent-missing recovery
+    if (needsSaveAs && !savedPath) {
       fileOpsLog("Entering Save As flow (untitled or missing file)");
       const defaultPath = await buildDefaultSavePath(windowLabel, tabId, doc.content, null);
       fileOpsLog("Opening save dialog with defaultPath:", defaultPath);
@@ -165,17 +183,14 @@ export async function handleSave(windowLabel: string): Promise<void> {
         /* v8 ignore start -- @preserve saveToPath failure and isMissing paths not exercised in tests */
         if (success) {
           savedPath = path;
-          // Clear missing state if file was missing
-          if (doc.isMissing) {
+          // Clear missing state — pre-existing or just set during recovery
+          const currentDoc = useDocumentStore.getState().getDocument(tabId);
+          if (currentDoc?.isMissing) {
             useDocumentStore.getState().clearMissing(tabId);
           }
         }
         /* v8 ignore stop */
       }
-    } else {
-      // Normal save - file exists
-      const success = await saveToPath(tabId, doc.filePath, doc.content, "manual");
-      if (success) savedPath = doc.filePath;
     }
 
     // Auto-open workspace after first save of untitled file (if not already in workspace)

@@ -129,6 +129,7 @@
     "workspaceStorageQuotaExceeded": "ストレージが満杯です — 空き容量ができるまでワークスペースの変更は保存されません。",
     "tableAlreadyFormatted": "テーブルはすでに整形されています",
     "failedToSaveGeneric": "保存に失敗しました: {{error}}",
+    "failedToSaveParentMissing": "フォルダが見つかりません: {{dir}} — 別の保存場所を選んでください。",
     "failedToInsertImage": "画像を挿入できませんでした",
     "failedToInsertImages": "{{count}}枚の画像を挿入できませんでした",
     "imageSchemaUnavailable": "画像を挿入できません — エディタースキーマが利用できません",

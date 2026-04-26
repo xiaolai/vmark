@@ -129,6 +129,7 @@
     "workspaceStorageQuotaExceeded": "Armazenamento cheio — as alterações da área de trabalho não serão salvas até que haja espaço livre.",
     "tableAlreadyFormatted": "A tabela já está formatada",
     "failedToSaveGeneric": "Falha ao salvar: {{error}}",
+    "failedToSaveParentMissing": "A pasta não existe mais: {{dir}} — escolha um novo local para salvar.",
     "failedToInsertImage": "Falha ao inserir imagem",
     "failedToInsertImages": "Falha ao inserir {{count}} imagens",
     "imageSchemaUnavailable": "Não é possível inserir a imagem — esquema do editor indisponível",

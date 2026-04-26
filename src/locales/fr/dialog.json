@@ -129,6 +129,7 @@
     "workspaceStorageQuotaExceeded": "Stockage plein — les modifications de l'espace de travail ne seront pas enregistrées tant qu'il n'est pas libéré.",
     "tableAlreadyFormatted": "Le tableau est déjà formaté",
     "failedToSaveGeneric": "Échec de l'enregistrement : {{error}}",
+    "failedToSaveParentMissing": "Le dossier n'existe plus : {{dir}} — choisissez un nouvel emplacement.",
     "failedToInsertImage": "Échec de l'insertion de l'image",
     "failedToInsertImages": "Échec de l'insertion de {{count}} images",
     "imageSchemaUnavailable": "Impossible d'insérer l'image — schéma de l'éditeur indisponible",

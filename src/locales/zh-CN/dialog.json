@@ -129,6 +129,7 @@
     "workspaceStorageQuotaExceeded": "存储空间已满 — 在腾出空间之前,工作区更改将不会被保存。",
     "tableAlreadyFormatted": "表格已经是规范格式",
     "failedToSaveGeneric": "保存失败:{{error}}",
+    "failedToSaveParentMissing": "文件夹不存在:{{dir}} — 请选择新的保存位置。",
     "failedToInsertImage": "插入图片失败",
     "failedToInsertImages": "插入 {{count}} 张图片失败",
     "imageSchemaUnavailable": "无法插入图片 — 编辑器架构不可用",
