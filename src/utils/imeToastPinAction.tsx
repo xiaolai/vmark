@@ -9,6 +9,13 @@
  * `label` is JSX (the Pin lucide icon). Splitting JSX into a .tsx keeps the
  * core wrapper free of React imports.
  *
+ * Why we import i18next directly instead of `@/i18n`: our `src/i18n.ts`
+ * wrapper imports `safeStorage` / `workspaceStorage` / `settingsStore` to
+ * register translation resolvers, and those modules toast via `imeToast` →
+ * `imeToastPinAction`. Routing this file through `@/i18n` closed that loop
+ * into a circular dep flagged by depcruise. The `i18next` singleton is the
+ * same instance, just imported without forming the cycle.
+ *
  * @coordinates-with utils/imeToast.ts — invokes this builder when callers
  *   pass `{ pin: true }` and no explicit action of their own.
  * @module utils/imeToastPinAction
@@ -17,7 +24,7 @@
 import type React from "react";
 import { Pin } from "lucide-react";
 import { toast } from "sonner";
-import i18n from "@/i18n";
+import i18next from "i18next";
 
 type ToastFn = typeof toast.error;
 type ToastMessage = Parameters<ToastFn>[0];
@@ -42,7 +49,7 @@ export function buildPinAction(
     label: (
       <Pin
         size={14}
-        aria-label={i18n.t("dialog:common.pin")}
+        aria-label={i18next.t("dialog:common.pin")}
         // Title gives a hover tooltip — discoverable for first-time users.
         // The icon button itself is sonner's; we just decorate the label.
       />
