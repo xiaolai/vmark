@@ -109,6 +109,12 @@
   color: var(--success-color-dark);
 }
 
+/* Error state when clipboard write fails or clipboard API is unavailable */
+.tiptap-editor .code-block-wrapper .code-copy-btn.code-copy-btn--error {
+  opacity: 1;
+  color: var(--error-color);
+}
+
 /* Focus indicator — U-shaped underline (matches code-lang-selector pattern) */
 .tiptap-editor .code-copy-btn:focus-visible {
   opacity: 1;

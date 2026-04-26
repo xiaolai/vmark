@@ -163,6 +163,7 @@
   "plugin.resetZoom": "Reset zoom",
   "plugin.fitToView": "Fit to view",
   "plugin.copySource": "Copy source code",
+  "plugin.searchLanguages": "Rechercher des langages...",
   "plugin.cancel": "Cancel (Esc)",
   "plugin.save": "Save",
   "plugin.toggleLivePreview": "Toggle live preview",
