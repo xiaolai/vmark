@@ -5,20 +5,56 @@
  *   1. The list of language ids exposed in the dropdown (`LANGUAGES`).
  *   2. The lowlight instance used by `CodeBlockLowlight`.
  *
- * Why `all` and not `common`:
- *   `lowlight/lib/common` only ships ~37 grammars — Scala, PowerShell,
- *   Dockerfile, Haskell, Elixir, Clojure, Erlang, OCaml, F#, Dart, MATLAB and
- *   LaTeX are all absent. With those ids exposed in the dropdown, picking one
- *   would silently fall through to `lowlight.highlightAuto()`, which
- *   frequently mis-detects English prose as VB.NET and italicizes apostrophe
- *   contractions via the `hljs-comment` rule. Using `all` registers every
- *   grammar shipped by highlight.js so every dropdown id has a real grammar.
+ * Why `common` + selective imports (not `all`):
+ *   `lowlight/lib/common` ships ~37 grammars covering the 80% case while
+ *   keeping the bundle small. The dropdown also exposes 12 less-common ids
+ *   (Scala, PowerShell, Dockerfile, Haskell, Elixir, Clojure, Erlang, OCaml,
+ *   F#, Dart, MATLAB, LaTeX); we register those individually from
+ *   `highlight.js/lib/languages/*` so every dropdown id resolves to a real
+ *   grammar without dragging in the full ~195-grammar `all` set (~+730 kB on
+ *   the EAGER:App chunk). This protects the cold-start budget pinned in
+ *   `.size-limit.cjs` while keeping the dropdown fully functional.
+ *
+ * Why `defaultLanguage: "plaintext"` matters:
+ *   Without a default, `@tiptap/extension-code-block-lowlight` calls
+ *   `lowlight.highlightAuto()` on empty-language blocks. Auto-detect
+ *   frequently picks VB.NET on English prose; VB.NET's `'` line-comment rule
+ *   wraps the rest of each paragraph in `<span class="hljs-comment">`, which
+ *   `hljs-syntax.css` styles `font-style: italic`. Routing empty-language
+ *   blocks to `plaintext` makes them inert.
  *
  * @module plugins/codeBlockLineNumbers/languages
  */
-import { all, createLowlight } from "lowlight";
+import { common, createLowlight } from "lowlight";
+import clojure from "highlight.js/lib/languages/clojure";
+import dart from "highlight.js/lib/languages/dart";
+import dockerfile from "highlight.js/lib/languages/dockerfile";
+import elixir from "highlight.js/lib/languages/elixir";
+import erlang from "highlight.js/lib/languages/erlang";
+import fsharp from "highlight.js/lib/languages/fsharp";
+import haskell from "highlight.js/lib/languages/haskell";
+import latex from "highlight.js/lib/languages/latex";
+import matlab from "highlight.js/lib/languages/matlab";
+import ocaml from "highlight.js/lib/languages/ocaml";
+import powershell from "highlight.js/lib/languages/powershell";
+import scala from "highlight.js/lib/languages/scala";
 
-export const lowlight = createLowlight(all);
+export const lowlight = createLowlight(common);
+
+lowlight.register({
+  clojure,
+  dart,
+  dockerfile,
+  elixir,
+  erlang,
+  fsharp,
+  haskell,
+  latex,
+  matlab,
+  ocaml,
+  powershell,
+  scala,
+});
 
 export interface LanguageEntry {
   /** lowlight/highlight.js language id (or alias) */
