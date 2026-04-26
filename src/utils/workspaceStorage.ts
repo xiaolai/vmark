@@ -26,11 +26,19 @@ const quotaWarnedKeys = new Set<string>();
 /** Callback to resolve the i18n quota message — set by the app after i18n initialises. */
 let resolveQuotaMessage: (() => string) | null = null;
 
-/** Register an i18n-aware message resolver (called once from app init). */
+/**
+ * Register an i18n-aware message resolver (called once from app init).
+ * Pass `null` to clear (test only — production code never unregisters).
+ */
 export function setWorkspaceStorageMessageResolver(
-  resolver: () => string,
+  resolver: (() => string) | null,
 ): void {
   resolveQuotaMessage = resolver;
+}
+
+/** Test-only: clear the per-key warned-keys cache between tests. */
+export function __resetQuotaWarnedKeys(): void {
+  quotaWarnedKeys.clear();
 }
 
 /** Base key prefix for workspace storage */
@@ -181,13 +189,14 @@ export const windowScopedStorage: StateStorage = {
       ) {
         workspaceStorageWarn(`QuotaExceededError for key "${key}" — localStorage is full`);
         if (!quotaWarnedKeys.has(key)) {
-          quotaWarnedKeys.add(key);
-          // Use i18n resolver if registered (after app boot); fall back to a
-          // pre-i18n English string for any quota event during early init.
-          const msg = resolveQuotaMessage
-            ? resolveQuotaMessage()
-            : "Storage full — workspace changes won't be saved until space is freed.";
-          toast.warning(msg);
+          // Only mark this key as "already warned" when we actually showed a
+          // toast. A quota event during the bootstrap window (before i18n
+          // registers the resolver) would otherwise permanently suppress
+          // future warnings for that key.
+          if (resolveQuotaMessage) {
+            quotaWarnedKeys.add(key);
+            toast.warning(resolveQuotaMessage());
+          }
         }
       } else {
         throw error;

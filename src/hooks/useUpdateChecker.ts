@@ -94,6 +94,11 @@ export function useUpdateChecker() {
 
   // Track previous status for toast notifications
   const prevStatusRef = useRef<UpdateStatus | null>(null);
+  // Separate prev-status tracker for the retry effect — both effects depend
+  // on `status`, so React runs them in declaration order. If they shared one
+  // ref, the toast effect (declared first) would overwrite it before the
+  // retry effect reads it, making retry/exhaustion logic dead code.
+  const prevStatusForRetryRef = useRef<UpdateStatus | null>(null);
 
   // Check for updates on startup if needed
   useEffect(() => {
@@ -163,7 +168,8 @@ export function useUpdateChecker() {
 
   // Auto-retry on error with exponential backoff
   useEffect(() => {
-    const prevStatus = prevStatusRef.current;
+    const prevStatus = prevStatusForRetryRef.current;
+    prevStatusForRetryRef.current = status;
 
     // Reset retry count on successful check
     if (status === "up-to-date" || status === "available") {
@@ -171,7 +177,6 @@ export function useUpdateChecker() {
     }
 
     // Retry on error if we haven't exceeded max retries
-    /* v8 ignore next -- @preserve prevStatusRef is updated by the toast effect (declared first) before this effect reads it, so prevStatus === "checking" is unreachable when status === "error" */
     if (status === "error" && prevStatus === "checking" && autoCheckEnabled) {
       if (retryCount.current < MAX_RETRIES) {
         // Exponential backoff: 5s, 10s, 20s

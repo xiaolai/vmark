@@ -22,16 +22,21 @@ import i18n from "@/i18n";
 type ToastFn = typeof toast.error;
 type ToastMessage = Parameters<ToastFn>[0];
 type ExternalToast = NonNullable<Parameters<ToastFn>[1]>;
+type ToastId = string | number;
 
 /**
  * Build a sonner Action that, when clicked, replaces the toast with an
  * infinite-duration version (sonner uses the `id` to update in place).
+ *
+ * Note: `toastId` is forwarded with its original type. Sonner treats string
+ * and number ids as distinct namespaces — coercing here would create a new
+ * toast on pin click instead of replacing the original.
  */
 export function buildPinAction(
   fn: ToastFn,
   message: ToastMessage,
   passthroughOpts: ExternalToast,
-  toastId: string,
+  toastId: ToastId,
 ): { label: React.ReactNode; onClick: (event: React.MouseEvent<HTMLButtonElement>) => void } {
   return {
     label: (

@@ -241,6 +241,22 @@ describe("imeToast", () => {
       const [, opts] = mocks.toastError.mock.calls[0];
       expect(opts.id).toBe("my-fixed-id");
     });
+
+    it("preserves numeric ids on pin click — does not coerce to string", () => {
+      // Sonner treats string/number ids as distinct namespaces; coercing
+      // would create a new toast instead of replacing the pinned one.
+      imeToast.error("err", { pin: true, id: 42 });
+      const [, opts] = mocks.toastError.mock.calls[0];
+      expect(opts.id).toBe(42);
+
+      const fakeEvent = { preventDefault: vi.fn() } as unknown as React.MouseEvent;
+      mocks.toastError.mockClear();
+      opts.action.onClick(fakeEvent);
+
+      const [, newOpts] = mocks.toastError.mock.calls[0];
+      expect(newOpts.id).toBe(42);
+      expect(typeof newOpts.id).toBe("number");
+    });
   });
 
   it("re-defers if composition restarts before flush", () => {

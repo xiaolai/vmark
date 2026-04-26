@@ -93,10 +93,12 @@ function applyPin(fn: ToastFn, args: ToastArgs): SonnerArgs {
   }
 
   // Stable id so the pin click can replace this exact toast in place.
-  // Respect a user-supplied id if present.
+  // Respect a user-supplied id if present — and preserve its type (sonner
+  // treats string/number ids as distinct namespaces; coercing would create
+  // a new toast on pin click instead of replacing the original).
   const id =
     passthrough.id ?? `pinnable-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const action = buildPinAction(fn, message, passthrough, String(id));
+  const action = buildPinAction(fn, message, passthrough, id);
   return [message, { ...passthrough, id, action }] as SonnerArgs;
 }
 

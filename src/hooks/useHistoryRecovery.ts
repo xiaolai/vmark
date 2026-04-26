@@ -95,6 +95,7 @@ export async function clearWorkspaceHistory(
 
     const entries = await readDir(baseDir);
     let count = 0;
+    let failedCount = 0;
 
     for (const entry of entries) {
       if (!entry.isDirectory) continue;
@@ -120,21 +121,31 @@ export async function clearWorkspaceHistory(
             if (await exists(historyDir)) {
               await remove(historyDir, { recursive: true });
             }
+            // Only count entries we actually removed (or that were already
+            // gone). Failed removes do not contribute to the success count.
+            count++;
           } catch (e) {
+            failedCount++;
             historyError("Failed to remove history dir:", entry.name, e);
           }
-          count++;
         }
       } catch {
         // Skip invalid entries
       }
     }
 
-    historyLog(`Cleared workspace history: ${count} document(s)`);
+    historyLog(
+      `Cleared workspace history: ${count} document(s) succeeded, ${failedCount} failed`,
+    );
     if (count > 0) {
       toast.success(
         i18n.t("dialog:toast.historyClearedWorkspace", { count }),
       );
+    }
+    if (failedCount > 0) {
+      // Surface the partial failure so the user knows not everything was
+      // cleared (e.g., permission errors on a subset).
+      toast.warning(i18n.t("dialog:toast.historyClearWorkspaceFailed"));
     }
     return count;
   } catch (error) {

@@ -173,6 +173,10 @@ describe("clearWorkspaceHistory", () => {
 
   it("deletes history for documents within workspace", async () => {
     mockExists.mockResolvedValue(true);
+    // Reset remove mock — earlier `clearAllHistory` describe leaves
+    // a mockRejectedValue that would otherwise leak in here.
+    mockRemove.mockReset();
+    mockRemove.mockResolvedValue(undefined);
     mockReadDir.mockResolvedValue([
       { name: "hash1", isDirectory: true },
       { name: "hash2", isDirectory: true },
@@ -197,6 +201,39 @@ describe("clearWorkspaceHistory", () => {
 
     expect(count).toBe(1); // Only file1.md is within workspace
     expect(mockRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT count failed removes — partial failure surfaces a warning toast", async () => {
+    mockExists.mockResolvedValue(true);
+    mockReadDir.mockResolvedValue([
+      { name: "hash1", isDirectory: true },
+      { name: "hash2", isDirectory: true },
+    ]);
+    mockReadTextFile
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          pathHash: "hash1",
+          documentPath: "/workspace/docs/file1.md",
+          snapshots: [{ id: "s1" }],
+        })
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          pathHash: "hash2",
+          documentPath: "/workspace/docs/file2.md",
+          snapshots: [{ id: "s2" }],
+        })
+      );
+    // First remove succeeds, second fails — count must reflect the truth.
+    mockRemove.mockReset();
+    mockRemove
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("permission denied"));
+
+    const count = await clearWorkspaceHistory("/workspace");
+
+    expect(count).toBe(1);
+    expect(mockRemove).toHaveBeenCalledTimes(2);
   });
 
   it("skips entries with invalid index", async () => {

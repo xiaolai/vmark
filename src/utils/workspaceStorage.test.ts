@@ -97,9 +97,17 @@ describe("setCurrentWindowLabel / getCurrentWindowLabel", () => {
 });
 
 describe("windowScopedStorage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
     setCurrentWindowLabel("main");
+    // Reset module-level resolver and warned-keys state so each test starts
+    // from a clean slate — quota tests register a resolver that would
+    // otherwise leak across tests.
+    const mod = await import("./workspaceStorage");
+    mod.setWorkspaceStorageMessageResolver(null);
+    if ("__resetQuotaWarnedKeys" in mod) {
+      (mod as { __resetQuotaWarnedKeys: () => void }).__resetQuotaWarnedKeys();
+    }
   });
 
   it("reads from window-specific key", () => {
@@ -146,18 +154,74 @@ describe("windowScopedStorage", () => {
       throw error;
     };
 
-    // Should not throw
-    expect(() => windowScopedStorage.setItem("ignored", "data")).not.toThrow();
-    // Should show toast warning
-    expect(mockToastWarning).toHaveBeenCalledTimes(1);
-    expect(mockToastWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Storage full"),
-    );
-
-    Storage.prototype.setItem = originalSetItem;
+    try {
+      // Should not throw
+      expect(() => windowScopedStorage.setItem("ignored", "data")).not.toThrow();
+      // Should NOT toast when no i18n resolver is registered (boot window).
+      expect(mockToastWarning).not.toHaveBeenCalled();
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
   });
 
-  it("shows toast only once per key on repeated QuotaExceededError", () => {
+  it("shows toast warning when i18n resolver is registered", async () => {
+    const { setWorkspaceStorageMessageResolver, windowScopedStorage } =
+      await import("./workspaceStorage");
+    setWorkspaceStorageMessageResolver(() => "Storage full — workspace");
+    mockToastWarning.mockClear();
+    setCurrentWindowLabel("doc-resolver");
+
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException("quota exceeded", "QuotaExceededError");
+    };
+
+    try {
+      expect(() => windowScopedStorage.setItem("ignored", "data")).not.toThrow();
+      expect(mockToastWarning).toHaveBeenCalledTimes(1);
+      expect(mockToastWarning).toHaveBeenCalledWith(
+        expect.stringContaining("Storage full"),
+      );
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
+  });
+
+  it("recovers and shows toast once resolver registers, even if first event preceded it", async () => {
+    // Regression: the warned-keys set must NOT be marked on a no-toast
+    // event, otherwise a quota event during boot (no resolver yet) would
+    // permanently suppress future warnings for that key.
+    const { setWorkspaceStorageMessageResolver, windowScopedStorage } =
+      await import("./workspaceStorage");
+    // Resolver should already be cleared by beforeEach, but be explicit.
+    setWorkspaceStorageMessageResolver(null);
+    mockToastWarning.mockClear();
+    setCurrentWindowLabel("doc-late-resolver");
+
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException("quota exceeded", "QuotaExceededError");
+    };
+
+    try {
+      // First quota event hits before resolver registers → no toast.
+      windowScopedStorage.setItem("ignored", "data");
+      expect(mockToastWarning).not.toHaveBeenCalled();
+
+      // Resolver registers; subsequent quota events for the same key DO toast.
+      setWorkspaceStorageMessageResolver(() => "Storage full — workspace");
+      windowScopedStorage.setItem("ignored", "data");
+      expect(mockToastWarning).toHaveBeenCalledTimes(1);
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
+  });
+
+  it("shows toast only once per key on repeated QuotaExceededError", async () => {
+    // Resolver must be present for any toast to fire (per the bootstrap-safe
+    // behavior). Register before triggering the quota events.
+    const { setWorkspaceStorageMessageResolver } = await import("./workspaceStorage");
+    setWorkspaceStorageMessageResolver(() => "Storage full — workspace");
     mockToastWarning.mockClear();
     setCurrentWindowLabel("doc-repeat");
 
@@ -167,12 +231,16 @@ describe("windowScopedStorage", () => {
       throw error;
     };
 
-    windowScopedStorage.setItem("ignored", "data");
-    windowScopedStorage.setItem("ignored", "data");
-    // Toast should fire only once for the same key
-    expect(mockToastWarning).toHaveBeenCalledTimes(1);
-
-    Storage.prototype.setItem = originalSetItem;
+    try {
+      windowScopedStorage.setItem("ignored", "data");
+      windowScopedStorage.setItem("ignored", "data");
+      // Toast should fire only once for the same key
+      expect(mockToastWarning).toHaveBeenCalledTimes(1);
+    } finally {
+      // Restore in `finally` so an assertion failure doesn't leak the
+      // patched setItem into later describe blocks.
+      Storage.prototype.setItem = originalSetItem;
+    }
   });
 
   it("rethrows non-quota errors on setItem", () => {

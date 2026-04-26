@@ -319,20 +319,44 @@ export async function exportToPdfNative(options: ExportToPdfOptions): Promise<vo
  * rendering the markdown via ExportSurface — slower but correct, instead of
  * showing a misleading "no content to print" error.
  */
+/**
+ * Decide where to source the HTML for printing.
+ * Exposed for tests; production callers use `exportToPdfBrowser`.
+ *
+ * @internal
+ */
+export type PrintHtmlSource =
+  | { kind: "live"; html: string }
+  | { kind: "render"; markdown: string }
+  | { kind: "empty" };
+
+export function pickPrintHtmlSource(
+  editorEl: Element | null,
+  markdown: string,
+): PrintHtmlSource {
+  if (editorEl) return { kind: "live", html: editorEl.innerHTML };
+  if (markdown.trim()) return { kind: "render", markdown };
+  return { kind: "empty" };
+}
+
 async function exportToPdfBrowser(markdown: string): Promise<void> {
   try {
-    // Read HTML directly from the live editor DOM for instant print.
-    // This bypasses ExportSurface (used by Export PDF) for speed — trade-off
-    // is that local images use asset:// URLs which the off-screen WKWebView
-    // can resolve via file URL access. For visual-parity export, use Export PDF.
-    const editorEl = document.querySelector(".ProseMirror");
+    // Read HTML directly from the live editor DOM for instant print in
+    // WYSIWYG mode. This bypasses ExportSurface (used by Export PDF) for
+    // speed — trade-off is that local images use asset:// URLs which the
+    // off-screen WKWebView can resolve via file URL access. For
+    // visual-parity export, use Export PDF.
+    //
+    // In Source mode there is no `.ProseMirror` element, so the source
+    // resolver returns a "render" decision and we fall back to
+    // ExportSurface — slower but correct, instead of showing a misleading
+    // "no content to print" error.
+    const source = pickPrintHtmlSource(document.querySelector(".ProseMirror"), markdown);
     let html: string;
-    if (editorEl) {
-      html = editorEl.innerHTML;
-    } else if (markdown.trim()) {
-      // Source mode (or any mode without a live ProseMirror) — render via
-      // ExportSurface so the user can still print their content.
-      html = await renderMarkdownToHtml(markdown, true);
+    if (source.kind === "live") {
+      html = source.html;
+    } else if (source.kind === "render") {
+      html = await renderMarkdownToHtml(source.markdown, true);
     } else {
       toast.error(i18n.t("dialog:toast.noEditorContentToPrint"));
       return;
