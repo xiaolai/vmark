@@ -27,11 +27,14 @@ vi.mock("@/plugins/sourcePopup", () => ({
 
 // Mock lowlight (heavy dependency)
 vi.mock("lowlight", () => ({
+  all: {},
   common: {},
   createLowlight: vi.fn(() => ({
     highlight: vi.fn(),
     highlightAuto: vi.fn(),
     listLanguages: vi.fn(() => []),
+    register: vi.fn(),
+    registered: vi.fn(() => false),
   })),
 }));
 
