@@ -5,12 +5,15 @@
  * to MDAST phrasing content for markdown serialization.
  *
  * Key decisions:
- *   - Marks are converted by wrapping: innermost mark wraps text first,
- *     then outer marks wrap that result — producing nested MDAST nodes
+ *   - Marks are converted by wrapping the text node from innermost to
+ *     outermost — producing nested MDAST nodes
+ *   - The `code` mark is always applied innermost, regardless of its
+ *     position in the PM marks array. MDAST `inlineCode` is a leaf
+ *     (no children), so applying it later against an already-wrapped
+ *     node would discard the wrapper. Required for `[`text`](url)`
+ *     where PM stores both `link` and `code` marks on the same text.
  *   - URLs are passed through unchanged; the serializer's custom handlers
  *     add angle brackets for URLs with spaces
- *   - Inline code mark collapses children to a single string value
- *     (MDAST inlineCode has no children, just a value)
  *
  * @coordinates-with mdastInlineConverters.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmBlockConverters.ts — handles block-level nodes

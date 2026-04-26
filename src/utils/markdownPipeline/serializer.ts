@@ -12,8 +12,10 @@
  *   - tocToMarkdown handler serializes `toc` MDAST nodes back to `[TOC]` text
  *   - Post-processes &#x20; entities back to spaces (remark-stringify adds these
  *     near line breaks but they are unnecessary for our use case)
- *   - Strips unnecessary backslash escapes ($, [, ], *, _, `, !) that
- *     remark-stringify adds defensively in plain text nodes
+ *   - Strips unnecessary backslash escapes ($, [, ], *, _, `, !, (, ))
+ *     that remark-stringify adds defensively in plain text nodes;
+ *     buildCodeRanges treats only unescaped backticks as code-span
+ *     boundaries so `\`` inside text doesn't shield other escapes
  *   - hardBreakStyle option converts `\` breaks to two-space breaks
  *
  * @coordinates-with parser.ts — plugins must match between parser and serializer
