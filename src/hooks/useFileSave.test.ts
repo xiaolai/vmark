@@ -382,6 +382,74 @@ describe("handleSave", () => {
     );
   });
 
+  it("falls through to Save As when saveToPath fails and parent dir vanishes", async () => {
+    // Regression: saveToPath flips isMissing when the file's parent
+    // directory was renamed/deleted externally (PARENT_MISSING sentinel).
+    // handleSave should detect that transition and immediately route into
+    // Save As — no second click required.
+    let getDocCallCount = 0;
+    const getDocumentMock = vi.fn(() => {
+      getDocCallCount += 1;
+      // First call (initial fetch) returns a normal on-disk doc.
+      // Second call (post-save refresh) returns isMissing=true to simulate
+      // saveToPath having flagged it after the parent dir disappeared.
+      return {
+        content: "# Hello",
+        filePath: "/workspace/test.md",
+        isDirty: true,
+        isMissing: getDocCallCount >= 2,
+      };
+    });
+    const clearMissingMock = vi.fn();
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: getDocumentMock,
+      clearMissing: clearMissingMock,
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    // First saveToPath call (normal save path) fails; second (recovery via
+    // Save As) succeeds.
+    mockSaveToPath
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mockSaveDialog.mockResolvedValueOnce("/workspace/restored.md");
+
+    await handleSave("main");
+
+    // Save dialog opened as recovery
+    expect(mockSaveDialog).toHaveBeenCalled();
+    // saveToPath called twice: original target then user-chosen recovery path
+    expect(mockSaveToPath).toHaveBeenCalledTimes(2);
+    expect(mockSaveToPath).toHaveBeenNthCalledWith(
+      1, "tab-1", "/workspace/test.md", "# Hello", "manual",
+    );
+    expect(mockSaveToPath).toHaveBeenNthCalledWith(
+      2, "tab-1", "/workspace/restored.md", "# Hello", "manual",
+    );
+  });
+
+  it("does not enter Save As when saveToPath fails for non-missing reason", async () => {
+    // Defensive: if saveToPath returns false but isMissing was NOT flipped
+    // (e.g., disk full, permission denied), we should NOT auto-route to
+    // Save As — the user's intent was a normal save, and a confusing
+    // dialog would not help.
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: vi.fn(() => ({
+        content: "# Hello",
+        filePath: "/workspace/test.md",
+        isDirty: true,
+        isMissing: false,  // Stays false even after failure
+      })),
+      clearMissing: vi.fn(),
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    mockSaveToPath.mockResolvedValueOnce(false);
+
+    await handleSave("main");
+
+    expect(mockSaveToPath).toHaveBeenCalledTimes(1);
+    expect(mockSaveDialog).not.toHaveBeenCalled();
+  });
+
   it("forces Save As when file is missing", async () => {
     vi.mocked(resolveMissingFileSaveAction).mockReturnValue("save_as_required" as never);
     vi.mocked(useDocumentStore.getState).mockReturnValue({
