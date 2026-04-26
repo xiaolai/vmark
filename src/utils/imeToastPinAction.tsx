@@ -1,0 +1,58 @@
+/**
+ * Pin Action Builder
+ *
+ * Purpose: Builds the sonner action object that turns a toast into a "pin"
+ * button — clicking it re-fires the toast with duration: Infinity so the
+ * user can read long messages at their own pace before dismissing.
+ *
+ * Why a separate file: imeToast.ts is logic-only (.ts), but the action's
+ * `label` is JSX (the Pin lucide icon). Splitting JSX into a .tsx keeps the
+ * core wrapper free of React imports.
+ *
+ * @coordinates-with utils/imeToast.ts — invokes this builder when callers
+ *   pass `{ pin: true }` and no explicit action of their own.
+ * @module utils/imeToastPinAction
+ */
+
+import type React from "react";
+import { Pin } from "lucide-react";
+import { toast } from "sonner";
+import i18n from "@/i18n";
+
+type ToastFn = typeof toast.error;
+type ToastMessage = Parameters<ToastFn>[0];
+type ExternalToast = NonNullable<Parameters<ToastFn>[1]>;
+
+/**
+ * Build a sonner Action that, when clicked, replaces the toast with an
+ * infinite-duration version (sonner uses the `id` to update in place).
+ */
+export function buildPinAction(
+  fn: ToastFn,
+  message: ToastMessage,
+  passthroughOpts: ExternalToast,
+  toastId: string,
+): { label: React.ReactNode; onClick: (event: React.MouseEvent<HTMLButtonElement>) => void } {
+  return {
+    label: (
+      <Pin
+        size={14}
+        aria-label={i18n.t("dialog:common.pin")}
+        // Title gives a hover tooltip — discoverable for first-time users.
+        // The icon button itself is sonner's; we just decorate the label.
+      />
+    ),
+    onClick: (event) => {
+      // Action buttons in sonner v2 do not auto-dismiss, but stop propagation
+      // anyway in case future versions or wrappers behave differently.
+      event.preventDefault();
+      // Re-fire the same toast id with infinity → sonner replaces in place.
+      // We forward the original options so type/icon/styling is preserved.
+      fn(message, {
+        ...passthroughOpts,
+        id: toastId,
+        duration: Number.POSITIVE_INFINITY,
+      });
+    },
+  };
+}

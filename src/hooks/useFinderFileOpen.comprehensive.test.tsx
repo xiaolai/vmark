@@ -304,7 +304,8 @@ describe("useFinderFileOpen", () => {
     expect(mockInitDocument).not.toHaveBeenCalled();
     expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab-id");
     expect(mockToastError).toHaveBeenCalledWith(
-      expect.stringContaining("forbidden path")
+      expect.stringContaining("forbidden path"),
+      expect.objectContaining({ action: expect.any(Object) }),
     );
     expect(mockSetActiveTab).not.toHaveBeenCalled();
     errorSpy.mockRestore();
@@ -337,7 +338,8 @@ describe("useFinderFileOpen", () => {
       expect.any(Error)
     );
     expect(mockToastError).toHaveBeenCalledWith(
-      expect.stringContaining("forbidden path")
+      expect.stringContaining("forbidden path"),
+      expect.objectContaining({ action: expect.any(Object) }),
     );
     // Tab path must NOT be rewritten to the failed file — the untitled
     // tab stays untitled, ready for the next attempt.

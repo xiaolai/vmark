@@ -116,16 +116,19 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
 
     const totalAttempted = deduped.length;
     if (failedCount > 0 && restoredCount > 0) {
+      // Partial recovery — pin so the user can read the count breakdown
+      // before deciding what to do about the unrecovered docs.
       toast.warning(
         i18n.t("dialog:toast.crashRecoveredPartial", {
           recovered: restoredCount,
           total: totalAttempted,
           failed: failedCount,
-        })
+        }),
+        { pin: true },
       );
       crashRecoveryLog(`Partial recovery: ${restoredCount}/${totalAttempted} (${failedCount} failed)`);
     } else if (failedCount > 0 && restoredCount === 0) {
-      toast.error(i18n.t("dialog:toast.crashRecoveryFailed"));
+      toast.error(i18n.t("dialog:toast.crashRecoveryFailed"), { pin: true });
       crashRecoveryLog(`Recovery failed: 0/${totalAttempted} restored`);
     } else if (restoredCount > 0) {
       toast.info(
@@ -138,7 +141,7 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
       "Crash recovery failed:",
       error instanceof Error ? error.message : String(error)
     );
-    toast.error(i18n.t("dialog:toast.crashRecoveryFailed"));
+    toast.error(i18n.t("dialog:toast.crashRecoveryFailed"), { pin: true });
   }
 }
 

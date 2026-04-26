@@ -199,6 +199,9 @@
   "common": {
     "undo": "元に戻す",
     "restart": "再起動",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "pin": "ピン留め",
+    "pinTooltip": "この通知を開いたままにする",
+    "unpinTooltip": "ピン留め中 — 手動で閉じる"
   }
 }

@@ -119,7 +119,10 @@ export async function openFileInNewTabCore(
     // Use detachTab (not closeTab) to avoid polluting the "reopen closed tab" history.
     useTabStore.getState().detachTab(windowLabel, tabId);
     const msg = error instanceof Error ? error.message : String(error);
-    toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }));
+    // Pin: system errors include paths/codes worth reading carefully.
+    toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
+      pin: true,
+    });
     // Clear the indicator immediately on error so no stale spinner lingers.
     if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
   }
@@ -249,7 +252,11 @@ export async function handleOpen(windowLabel: string): Promise<void> {
             useFileLoadStore.getState().endLoad(replaceLoadId);
           }
           const msg = error instanceof Error ? error.message : String(error);
-          toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }));
+          // Pin: system error includes paths and codes the user may want
+          // to copy to investigate (permission denied, missing file, etc.)
+          toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }), {
+            pin: true,
+          });
         }
         break;
       }

@@ -5,6 +5,10 @@
  * in an IME composition session. Without this, DOM insertion by sonner can
  * interrupt CJK input and cause the composition to commit prematurely.
  *
+ * Also adds opt-in `{ pin: true }` support — long-form toasts get a pin
+ * button that, when clicked, replaces the toast with an infinite-duration
+ * version so the user can read the message at their own pace.
+ *
  * Key decisions:
  *   - Checks both WYSIWYG (Tiptap view.composing) and Source (CodeMirror
  *     view.composing) editors via activeEditorStore
@@ -17,14 +21,18 @@
  *     started quickly, re-defers instead of interrupting
  *   - Fallback timeout (5s) prevents indefinite queuing if compositionend
  *     never fires (e.g. editor unmounted during composition)
+ *   - Pin support is opt-in per call site — keeps existing call-site/test
+ *     signatures stable; only sites that pass `{ pin: true }` get the action
  *
  * @coordinates-with utils/imeGuard.ts — shares the composition detection approach
+ * @coordinates-with utils/imeToastPinAction.tsx — builds the pin action JSX
  * @coordinates-with stores/activeEditorStore.ts — reads active editor instances
  * @module utils/imeToast
  */
 
 import { toast } from "sonner";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { buildPinAction } from "./imeToastPinAction";
 
 /** Small delay after compositionend before flushing (ms).
  * Matches IME_GRACE_PERIOD_MS — lets the browser finish processing. */
@@ -43,7 +51,54 @@ function isEditorComposing(): boolean {
   return false;
 }
 
-type ToastArgs = Parameters<typeof toast.info>;
+/**
+ * Extended toast options — adds opt-in `pin` flag.
+ * When `pin: true` and no `action` is supplied by the caller, we inject a
+ * Pin action that re-fires the toast with `duration: Infinity`. If the
+ * caller already provides an `action` (e.g. Undo on tab move), we respect
+ * it — pin is skipped because we never display two action buttons.
+ */
+export type PinnableToastOpts = NonNullable<Parameters<typeof toast.info>[1]> & {
+  pin?: boolean;
+};
+
+/** Args accepted by imeToast emit methods (message + optional pinnable options). */
+type ToastArgs = [Parameters<typeof toast.info>[0], PinnableToastOpts?];
+
+/** Args accepted by sonner internally (message + sonner-native options). */
+type SonnerArgs = Parameters<typeof toast.info>;
+
+type ToastFn = (...args: SonnerArgs) => string | number;
+
+/**
+ * Strip our custom `pin` field, optionally inject a Pin action, and return
+ * sonner-compatible args. Caller invokes sonner with the result.
+ */
+function applyPin(fn: ToastFn, args: ToastArgs): SonnerArgs {
+  const [message, rawOpts] = args;
+  // No options at all → pass through with just the message so existing
+  // tests that assert toHaveBeenCalledWith("msg") (single arg) keep matching.
+  if (rawOpts === undefined) return [message] as SonnerArgs;
+  const opts = rawOpts as PinnableToastOpts;
+  if (!opts.pin) return [message, opts] as SonnerArgs;
+
+  // `pin` is consumed here — never forwarded to sonner.
+  const { pin: _pin, ...passthrough } = opts;
+
+  // Existing user-supplied action wins; we never replace it. The user gets
+  // their action button (Undo, etc.) without a pin — usually short-lived
+  // toasts that need pin less anyway.
+  if (passthrough.action) {
+    return [message, passthrough] as SonnerArgs;
+  }
+
+  // Stable id so the pin click can replace this exact toast in place.
+  // Respect a user-supplied id if present.
+  const id =
+    passthrough.id ?? `pinnable-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const action = buildPinAction(fn, message, passthrough, String(id));
+  return [message, { ...passthrough, id, action }] as SonnerArgs;
+}
 
 /** Pending toasts queued during composition */
 const pendingToasts: Array<{ fn: (...args: ToastArgs) => void; args: ToastArgs }> = [];
@@ -121,14 +176,28 @@ function deferIfComposing(fn: (...args: ToastArgs) => void, args: ToastArgs): vo
  * Loading/dismiss return values or take ids — must be synchronous, so they
  * also pass through. (Loading toasts during composition is an edge case;
  * deferring them would mean the user sees no spinner while their op runs.)
+ *
+ * All emit-style methods (info/success/message/error/warning) accept an
+ * optional `{ pin: true }` flag in their second arg. When set, a pin
+ * button is added; clicking it re-fires the toast with `duration: Infinity`
+ * so the user can read it at their own pace before manually closing.
  */
 export const imeToast = {
-  info: (...args: ToastArgs) => deferIfComposing(toast.info, args),
-  success: (...args: ToastArgs) => deferIfComposing(toast.success, args),
-  message: (...args: Parameters<typeof toast.message>) =>
-    deferIfComposing(toast.message as (...a: ToastArgs) => void, args as ToastArgs),
-  error: toast.error,
-  warning: toast.warning,
+  info: (...args: ToastArgs) => deferIfComposing(toast.info, applyPin(toast.info as ToastFn, args)),
+  success: (...args: ToastArgs) =>
+    deferIfComposing(toast.success, applyPin(toast.success as ToastFn, args)),
+  message: (...args: Parameters<typeof toast.message>) => {
+    const piped = applyPin(toast.message as unknown as ToastFn, args as ToastArgs);
+    deferIfComposing(toast.message as (...a: ToastArgs) => void, piped);
+  },
+  error: (...args: ToastArgs) => {
+    const piped = applyPin(toast.error as ToastFn, args);
+    return toast.error(...piped);
+  },
+  warning: (...args: ToastArgs) => {
+    const piped = applyPin(toast.warning as ToastFn, args);
+    return toast.warning(...piped);
+  },
   loading: toast.loading,
   dismiss: toast.dismiss,
 };

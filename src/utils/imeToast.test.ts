@@ -180,6 +180,69 @@ describe("imeToast", () => {
     expect(mocks.toastDismiss).toHaveBeenCalledWith("toast-id");
   });
 
+  // ── Pin support ────────────────────────────────────────────────────────────
+  describe("pin option", () => {
+    it("error without { pin } passes through unchanged (preserves existing call signature)", () => {
+      imeToast.error("plain error");
+      expect(mocks.toastError).toHaveBeenCalledTimes(1);
+      expect(mocks.toastError).toHaveBeenCalledWith("plain error");
+    });
+
+    it("error with { pin: true } adds an action with pin label and stable id", () => {
+      imeToast.error("long error", { pin: true });
+      expect(mocks.toastError).toHaveBeenCalledTimes(1);
+      const [msg, opts] = mocks.toastError.mock.calls[0];
+      expect(msg).toBe("long error");
+      expect(opts).toBeDefined();
+      expect(opts.id).toEqual(expect.any(String));
+      expect(opts.action).toBeDefined();
+      expect(opts.action.onClick).toEqual(expect.any(Function));
+      // Pin field is consumed — never leaked to sonner.
+      expect(opts.pin).toBeUndefined();
+    });
+
+    it("warning with { pin: true } also gets a pin action", () => {
+      imeToast.warning("long warning", { pin: true });
+      const [, opts] = mocks.toastWarning.mock.calls[0];
+      expect(opts?.action?.onClick).toEqual(expect.any(Function));
+    });
+
+    it("respects user-provided action — does not override with pin", () => {
+      const userAction = { label: "Undo", onClick: vi.fn() };
+      imeToast.error("err", { pin: true, action: userAction });
+      const [, opts] = mocks.toastError.mock.calls[0];
+      expect(opts.action).toBe(userAction);
+    });
+
+    it("clicking the pin action re-fires the toast with duration: Infinity and same id", () => {
+      imeToast.error("pinnable", { pin: true });
+      const [, firstOpts] = mocks.toastError.mock.calls[0];
+      const firstId = firstOpts.id;
+      const fakeEvent = { preventDefault: vi.fn() } as unknown as React.MouseEvent;
+
+      mocks.toastError.mockClear();
+      firstOpts.action.onClick(fakeEvent);
+
+      expect(mocks.toastError).toHaveBeenCalledTimes(1);
+      const [msg, opts] = mocks.toastError.mock.calls[0];
+      expect(msg).toBe("pinnable");
+      expect(opts.id).toBe(firstId); // sonner replaces the toast in place
+      expect(opts.duration).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it("info also supports { pin: true }", () => {
+      imeToast.info("info with pin", { pin: true });
+      const [, opts] = mocks.toastInfo.mock.calls[0];
+      expect(opts?.action?.onClick).toEqual(expect.any(Function));
+    });
+
+    it("preserves user-supplied id when pinning", () => {
+      imeToast.error("err", { pin: true, id: "my-fixed-id" });
+      const [, opts] = mocks.toastError.mock.calls[0];
+      expect(opts.id).toBe("my-fixed-id");
+    });
+  });
+
   it("re-defers if composition restarts before flush", () => {
     setComposing(true);
 

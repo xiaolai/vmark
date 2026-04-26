@@ -199,6 +199,9 @@
   "common": {
     "undo": "Undo",
     "restart": "Restart",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "pin": "Pin",
+    "pinTooltip": "Keep this toast open",
+    "unpinTooltip": "Pinned — close manually"
   }
 }

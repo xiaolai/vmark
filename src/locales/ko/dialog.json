@@ -199,6 +199,9 @@
   "common": {
     "undo": "실행 취소",
     "restart": "다시 시작",
-    "cancel": "취소"
+    "cancel": "취소",
+    "pin": "고정",
+    "pinTooltip": "이 알림을 계속 표시",
+    "unpinTooltip": "고정됨 — 수동으로 닫기"
   }
 }

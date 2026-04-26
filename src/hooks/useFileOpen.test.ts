@@ -217,8 +217,10 @@ describe("openFileInNewTabCore — edge cases", () => {
     await openFileInNewTabCore(WINDOW, "/protected/secret.md");
 
     const { toast } = await import("sonner");
+    // Pin: file-open errors carry system messages users may want to read.
     expect(toast.error).toHaveBeenCalledWith(
-      expect.stringContaining("Permission denied")
+      expect.stringContaining("Permission denied"),
+      expect.objectContaining({ action: expect.any(Object) }),
     );
     errorSpy.mockRestore();
   });
@@ -231,7 +233,8 @@ describe("openFileInNewTabCore — edge cases", () => {
 
     const { toast } = await import("sonner");
     expect(toast.error).toHaveBeenCalledWith(
-      expect.stringContaining("string error")
+      expect.stringContaining("string error"),
+      expect.objectContaining({ action: expect.any(Object) }),
     );
     errorSpy.mockRestore();
   });

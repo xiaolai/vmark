@@ -147,11 +147,13 @@ export function useUpdateChecker() {
       case "error":
         if (prevStatus === "checking" && isManualCheck.current) {
           const errMsg = useUpdateStore.getState().error;
+          // Pin: error messages from the updater can be long (URLs,
+          // network details). Users may want to copy them.
           toast.error(
             i18n.t("dialog:toast.updateCheckFailed", {
               error: errMsg ?? i18n.t("dialog:toast.updateCheckFailedGeneric"),
             }),
-            { duration: 5000 },
+            { duration: 5000, pin: true },
           );
           isManualCheck.current = false;
         }
@@ -188,8 +190,12 @@ export function useUpdateChecker() {
       } else {
         updateCheckerLog("Max retries reached, giving up");
         // Surface a final toast so the user knows updates aren't reaching the
-        // server — otherwise auto-retry exhaustion is invisible.
-        toast.error(i18n.t("dialog:toast.updateRetriesExhausted"), { duration: 6000 });
+        // server — otherwise auto-retry exhaustion is invisible. Pin so the
+        // user can read it before dismissing (likely AFK during retries).
+        toast.error(i18n.t("dialog:toast.updateRetriesExhausted"), {
+          duration: 6000,
+          pin: true,
+        });
       }
     }
 

@@ -127,7 +127,10 @@ export function useFinderFileOpen(): void {
      */
     const toastOpenFailure = (error: unknown) => {
       const msg = error instanceof Error ? error.message : String(error);
-      toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }));
+      // Pin: error message embeds a system error the user may want to read.
+      toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
+        pin: true,
+      });
     };
 
     /**

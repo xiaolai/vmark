@@ -199,6 +199,9 @@
   "common": {
     "undo": "撤销",
     "restart": "重启",
-    "cancel": "取消"
+    "cancel": "取消",
+    "pin": "钉住",
+    "pinTooltip": "保持此通知打开",
+    "unpinTooltip": "已钉住 — 手动关闭"
   }
 }

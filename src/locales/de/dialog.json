@@ -199,6 +199,9 @@
   "common": {
     "undo": "Rückgängig",
     "restart": "Neu starten",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "pin": "Anheften",
+    "pinTooltip": "Diese Benachrichtigung offen halten",
+    "unpinTooltip": "Angeheftet — manuell schließen"
   }
 }

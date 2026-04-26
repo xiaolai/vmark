@@ -154,7 +154,8 @@ export async function handleSave(windowLabel: string): Promise<void> {
       } catch (error) {
         fileOpsError("Save dialog threw:", error);
         toast.error(
-          i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) })
+          i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) }),
+          { pin: true },
         );
         return;
       }
@@ -223,7 +224,8 @@ export async function handleSaveAs(windowLabel: string): Promise<void> {
     } catch (error) {
       fileOpsError("Save As dialog threw:", error);
       toast.error(
-        i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) })
+        i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) }),
+        { pin: true },
       );
       return;
     }
@@ -259,7 +261,8 @@ export async function handleMoveTo(windowLabel: string): Promise<void> {
     } catch (error) {
       fileOpsError("Move To dialog threw:", error);
       toast.error(
-        i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) })
+        i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) }),
+        { pin: true },
       );
       return;
     }

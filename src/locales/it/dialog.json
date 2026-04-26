@@ -199,6 +199,9 @@
   "common": {
     "undo": "Annulla",
     "restart": "Riavvia",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "pin": "Appunta",
+    "pinTooltip": "Mantieni aperto questo avviso",
+    "unpinTooltip": "Appuntato — chiudi manualmente"
   }
 }

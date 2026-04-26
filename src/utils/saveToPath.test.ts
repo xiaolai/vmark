@@ -313,7 +313,14 @@ describe("saveToPath", () => {
       vi.mocked(createSnapshot).mockRejectedValue(new Error("snapshot failed"));
 
       await saveToPath("tab-1", "/tmp/a.md", "content1", "manual");
-      expect(toastMocks.warning).toHaveBeenCalledWith("dialog:toast.historySnapshotFailed");
+      // Snapshot failure is pinnable so users can read the explanation —
+      // imeToast is mocked here, so we see the raw `pin: true` flag rather
+      // than the resolved sonner action (the resolution is covered by
+      // imeToast's own tests).
+      expect(toastMocks.warning.mock.calls[0][0]).toBe("dialog:toast.historySnapshotFailed");
+      expect(toastMocks.warning.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ pin: true }),
+      );
       const firstCount = toastMocks.warning.mock.calls.length;
 
       // Second snapshot failure in same session → no extra toast (rate-limited)
@@ -329,8 +336,13 @@ describe("saveToPath", () => {
 
       await saveToPath("tab-1", "/tmp/doc.md", "content", "manual");
 
-      expect(toastMocks.error).toHaveBeenCalledWith(
+      // Pinnable so users can read the system error before dismissing —
+      // imeToast is mocked, so we see the raw `pin: true` flag.
+      expect(toastMocks.error.mock.calls[0][0]).toEqual(
         expect.stringContaining("dialog:toast.failedToSaveGeneric"),
+      );
+      expect(toastMocks.error.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ pin: true }),
       );
       consoleError.mockRestore();
     });

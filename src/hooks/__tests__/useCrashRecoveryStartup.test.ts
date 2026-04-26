@@ -290,12 +290,16 @@ describe("useCrashRecoveryStartup", () => {
     const tabs = useTabStore.getState().getTabsByWindow("main");
     expect(tabs.length).toBe(1);
     // Partial recovery → warning toast with recovered/total/failed numbers,
-    // NOT the success info toast.
+    // pinnable so the user can read the breakdown carefully.
     await vi.waitFor(() => {
-      expect(mockToastWarning).toHaveBeenCalledWith(
-        expect.stringContaining("dialog:toast.crashRecoveredPartial"),
-      );
+      expect(mockToastWarning).toHaveBeenCalled();
     });
+    const [msg, opts] = mockToastWarning.mock.calls[0];
+    expect(msg).toEqual(expect.stringContaining("dialog:toast.crashRecoveredPartial"));
+    // The real imeToast wrapper resolves { pin: true } into a sonner
+    // action+id before forwarding to the mocked sonner — so we see the
+    // resolved shape here. (imeToast's own tests cover the transformation.)
+    expect(opts).toEqual(expect.objectContaining({ action: expect.any(Object) }));
     expect(mockToastInfo).not.toHaveBeenCalled();
   });
 
@@ -329,10 +333,15 @@ describe("useCrashRecoveryStartup", () => {
     renderHook(() => useCrashRecoveryStartup());
 
     await vi.waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith(
-        expect.stringContaining("dialog:toast.crashRecoveryFailed"),
-      );
+      expect(mockToastError).toHaveBeenCalled();
     });
+    // Pinnable error so the user can read why nothing was recovered.
+    const [msg, opts] = mockToastError.mock.calls[0];
+    expect(msg).toEqual(expect.stringContaining("dialog:toast.crashRecoveryFailed"));
+    // The real imeToast wrapper resolves { pin: true } into a sonner
+    // action+id before forwarding to the mocked sonner — so we see the
+    // resolved shape here. (imeToast's own tests cover the transformation.)
+    expect(opts).toEqual(expect.objectContaining({ action: expect.any(Object) }));
     // No success info toast when 0 recovered
     expect(mockToastInfo).not.toHaveBeenCalled();
 
@@ -348,10 +357,14 @@ describe("useCrashRecoveryStartup", () => {
       expect(mockWaitForRestoreComplete).toHaveBeenCalled();
     });
     await vi.waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith(
-        expect.stringContaining("dialog:toast.crashRecoveryFailed"),
-      );
+      expect(mockToastError).toHaveBeenCalled();
     });
+    const [msg, opts] = mockToastError.mock.calls[0];
+    expect(msg).toEqual(expect.stringContaining("dialog:toast.crashRecoveryFailed"));
+    // The real imeToast wrapper resolves { pin: true } into a sonner
+    // action+id before forwarding to the mocked sonner — so we see the
+    // resolved shape here. (imeToast's own tests cover the transformation.)
+    expect(opts).toEqual(expect.objectContaining({ action: expect.any(Object) }));
     expect(mockToastInfo).not.toHaveBeenCalled();
   });
 

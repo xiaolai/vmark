@@ -199,6 +199,9 @@
   "common": {
     "undo": "Desfazer",
     "restart": "Reiniciar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "pin": "Fixar",
+    "pinTooltip": "Manter este aviso aberto",
+    "unpinTooltip": "Fixado — fechar manualmente"
   }
 }

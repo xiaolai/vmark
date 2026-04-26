@@ -138,7 +138,9 @@ export function PdfExportContent({
       onClose();
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      toast.error(tDialog("toast.pdfExportFailed", { error: msg }));
+      // Pin: PDF export errors (Paged.js / WKWebView) include details users
+      // want to read carefully (asset paths, render failures).
+      toast.error(tDialog("toast.pdfExportFailed", { error: msg }), { pin: true });
       setExporting(false);
       setExportStage("");
     }

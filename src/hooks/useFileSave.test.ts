@@ -375,7 +375,11 @@ describe("handleSave", () => {
 
     await handleSave("main");
 
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("Dialog crashed"));
+    // Pin: dialog errors include system details worth reading carefully
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("Dialog crashed"),
+      expect.objectContaining({ action: expect.any(Object) }),
+    );
   });
 
   it("forces Save As when file is missing", async () => {
@@ -855,7 +859,10 @@ describe("handleSave — additional branches", () => {
 
     await handleSave("main");
 
-    expect(toast.error).toHaveBeenCalledWith("Save dialog failed: non-error rejection");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Save dialog failed: non-error rejection",
+      expect.objectContaining({ action: expect.any(Object) }),
+    );
     errorSpy.mockRestore();
   });
 
@@ -932,7 +939,10 @@ describe("handleSaveAs — additional branches", () => {
 
     await handleSaveAs("main");
 
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("Save As dialog crashed"));
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("Save As dialog crashed"),
+      expect.objectContaining({ action: expect.any(Object) }),
+    );
     errorSpy.mockRestore();
   });
 
@@ -956,7 +966,10 @@ describe("handleSaveAs — additional branches", () => {
 
     await handleSaveAs("main");
 
-    expect(toast.error).toHaveBeenCalledWith("Save dialog failed: 42");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Save dialog failed: 42",
+      expect.objectContaining({ action: expect.any(Object) }),
+    );
     errorSpy.mockRestore();
   });
 
@@ -1040,7 +1053,10 @@ describe("handleMoveTo — additional branches", () => {
 
     await handleMoveTo("main");
 
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("Move dialog error"));
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("Move dialog error"),
+      expect.objectContaining({ action: expect.any(Object) }),
+    );
     errorSpy.mockRestore();
   });
 
@@ -1084,7 +1100,10 @@ describe("handleMoveTo — additional branches", () => {
 
     await handleMoveTo("main");
 
-    expect(toast.error).toHaveBeenCalledWith("Save dialog failed: string rejection");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Save dialog failed: string rejection",
+      expect.objectContaining({ action: expect.any(Object) }),
+    );
     errorSpy.mockRestore();
   });
 });

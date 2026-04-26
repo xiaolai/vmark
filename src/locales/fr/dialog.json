@@ -199,6 +199,9 @@
   "common": {
     "undo": "Annuler",
     "restart": "Redémarrer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "pin": "Épingler",
+    "pinTooltip": "Garder cette notification ouverte",
+    "unpinTooltip": "Épinglé — fermer manuellement"
   }
 }

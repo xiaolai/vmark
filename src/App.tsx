@@ -350,6 +350,7 @@ function App() {
         </Routes>
         <Toaster
           position="top-center"
+          closeButton
           icons={{
             success: <CheckCircle size={16} />,
             error: <XCircle size={16} />,

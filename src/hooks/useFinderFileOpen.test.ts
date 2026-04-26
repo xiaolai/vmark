@@ -229,7 +229,8 @@ describe("useFinderFileOpen", () => {
       // silent empty tab, no initDocument zeroing the path.
       expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab");
       expect(mockToastError).toHaveBeenCalledWith(
-        expect.stringContaining("forbidden path")
+        expect.stringContaining("forbidden path"),
+        expect.objectContaining({ action: expect.any(Object) }),
       );
     });
     expect(mockInitDocument).not.toHaveBeenCalled();

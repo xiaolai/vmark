@@ -101,7 +101,10 @@ export async function exportViaPandoc(options: {
   } catch (error) {
     exportError("Pandoc export failed:", error);
     const detail = error instanceof Error ? error.message : String(error);
-    toast.error(i18n.t("dialog:toast.pandocExportError", { error: detail }));
+    // Pin: pandoc errors are typically multi-line stderr output worth reading.
+    toast.error(i18n.t("dialog:toast.pandocExportError", { error: detail }), {
+      pin: true,
+    });
     return false;
   }
 }

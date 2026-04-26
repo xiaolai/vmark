@@ -154,7 +154,8 @@ describe("exportViaPandoc", () => {
     const result = await exportViaPandoc({ markdown: "# Hello", format: "docx" });
     expect(result).toBe(false);
     expect(mockToast.error).toHaveBeenCalledWith(
-      expect.stringContaining("Pandoc export failed")
+      expect.stringContaining("Pandoc export failed"),
+      expect.objectContaining({ action: expect.any(Object) }),
     );
   });
 
@@ -164,7 +165,8 @@ describe("exportViaPandoc", () => {
     const result = await exportViaPandoc({ markdown: "# Hello", format: "docx" });
     expect(result).toBe(false);
     expect(mockToast.error).toHaveBeenCalledWith(
-      expect.stringContaining("Pandoc export failed")
+      expect.stringContaining("Pandoc export failed"),
+      expect.objectContaining({ action: expect.any(Object) }),
     );
   });
 

@@ -85,7 +85,11 @@ export async function saveToPath(
     // signal like the file becoming missing) will surface the problem.
     if (saveType === "manual") {
       const message = error instanceof Error ? error.message : String(error);
-      toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }));
+      // Pin: failure messages can be long (system errors include paths and
+      // permission details). Users may want to copy them down.
+      toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }), {
+        pin: true,
+      });
     }
     return false;
   }
@@ -127,7 +131,7 @@ export async function saveToPath(
       // permissions changed). Subsequent failures stay silent to avoid spam.
       if (!snapshotWarningShown) {
         snapshotWarningShown = true;
-        toast.warning(i18n.t("dialog:toast.historySnapshotFailed"));
+        toast.warning(i18n.t("dialog:toast.historySnapshotFailed"), { pin: true });
       }
     }
   }
