@@ -52,11 +52,18 @@ export function convertTextWithMarks(node: PMNode): PhrasingContent[] {
     return [{ type: "text", value: text } as Text];
   }
 
-  // Build nested structure from marks
-  // Start with text node, wrap with marks from innermost to outermost
-  let content: PhrasingContent[] = [{ type: "text", value: text } as Text];
+  // MDAST `inlineCode` is a leaf node (no children), so the `code` mark must be
+  // the innermost wrapper. Apply it first to produce `inlineCode`, then wrap
+  // with the remaining marks. Without this, a text with both `link` and `code`
+  // marks (which arises from `[`text`](url)` markdown) would lose its content
+  // when `wrapWithMark("code")` runs against an already-wrapped link node.
+  const codeMark = marks.find((m) => m.type.name === "code");
+  let content: PhrasingContent[] = codeMark
+    ? [{ type: "inlineCode", value: text } as InlineCode]
+    : [{ type: "text", value: text } as Text];
 
   for (const mark of marks) {
+    if (mark.type.name === "code") continue;
     content = wrapWithMark(content, mark);
   }
 

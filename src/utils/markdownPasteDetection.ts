@@ -6,8 +6,10 @@
  *
  * Key decisions:
  *   - Code fences and tables are "instant yes" — always treated as markdown
- *   - Strong signals (headings, lists, HRs) need just 1 occurrence
- *   - Weak signals (emphasis, links) need 2+ to avoid false positives
+ *   - Strong signals (headings, lists, HRs, links with URL-like targets)
+ *     need just 1 occurrence
+ *   - Weak signals (emphasis, links with non-URL-like targets) need 2+
+ *     to avoid false positives
  *   - Single-line pastes have a higher threshold to avoid treating
  *     normal text like "use *caution*" as markdown
  *
@@ -22,6 +24,14 @@ const BLOCKQUOTE_RE = /^\s*>\s+/;
 const LIST_RE = /^\s*(?:[-*+]|\d+\.)\s+/;
 const HR_RE = /^\s*(?:-{3,}|_{3,}|\*{3,})\s*$/;
 const LINK_RE = /!?\[[^\]]+\]\([^)]+\)/;
+// A "strict" link has a URL that looks like a real URL or path: scheme,
+// leading `/`, leading `./`/`../`, `mailto:`/`tel:`, an in-page anchor `#`,
+// or a domain-like dotted token (`foo.com/...`). This avoids false positives
+// like "see [first](primary list)" while catching `[text](./path)`,
+// `[text](https://...)`, `[text](#anchor)`, etc. URLs may be wrapped in
+// angle brackets per CommonMark.
+const STRICT_LINK_RE =
+  /!?\[[^\]]+\]\(<?(?:[a-z][a-z0-9+.-]*:|\/|\.\.?\/|#|[\w-]+\.[\w.-]+\/)/i;
 const STRONG_EMPHASIS_RE = /(?:^|\s)(\*\*|__)\S[^\n]*?\S\1/;
 const EMPHASIS_RE = /(?:^|\s)(\*|_)\S[^\n]*?\S\1/;
 
@@ -70,7 +80,14 @@ export function isMarkdownPasteCandidate(text: string): boolean {
     if (LIST_RE.test(stripped)) strongSignals += 1;
     if (HR_RE.test(stripped)) strongSignals += 1;
     if (LINK_RE.test(stripped)) {
-      weakSignals += 1;
+      // A link with a URL-like target is unambiguous markdown intent —
+      // promote it to a strong signal so single-line `[text](./path)` pastes
+      // are parsed as markdown rather than escaped as plain text.
+      if (STRICT_LINK_RE.test(stripped)) {
+        strongSignals += 1;
+      } else {
+        weakSignals += 1;
+      }
       hasLink = true;
     }
     if (STRONG_EMPHASIS_RE.test(stripped) || EMPHASIS_RE.test(stripped)) {

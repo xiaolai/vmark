@@ -230,6 +230,42 @@ describe("proseMirrorToMdast inline", () => {
     expect(md).toMatch(/\*{3}both\*{3}|\*\*\*both\*\*\*/);
   });
 
+  it("serializes text carrying both link and code marks as `[\\`code\\`](url)`", () => {
+    // Regression: PM text with both code and link marks — produced by
+    // mdastToProseMirror for `[\`text\`](url)` markdown — must round-trip,
+    // not collapse to empty backticks.
+    const link = testSchema.mark("link", { href: "./LICENSE" });
+    const code = testSchema.mark("code");
+    const md = pmToMarkdown([
+      testSchema.node("paragraph", null, [
+        testSchema.text("ISC License. See "),
+        testSchema.text("LICENSE", [link, code]),
+        testSchema.text("."),
+      ]),
+    ]);
+
+    expect(md).toContain("[`LICENSE`](./LICENSE)");
+    expect(md).not.toContain("``");
+  });
+
+  it("serializes text with code and link marks regardless of mark order", () => {
+    // ProseMirror canonicalizes mark order based on schema rank, so the
+    // PM-stored order may put link first or code first. Both must serialize
+    // correctly: code mark must always become the innermost MDAST node.
+    const link = testSchema.mark("link", { href: "https://example.com" });
+    const code = testSchema.mark("code");
+
+    const codeFirst = pmToMarkdown([
+      testSchema.node("paragraph", null, [testSchema.text("ref", [code, link])]),
+    ]);
+    const linkFirst = pmToMarkdown([
+      testSchema.node("paragraph", null, [testSchema.text("ref", [link, code])]),
+    ]);
+
+    expect(codeFirst).toContain("[`ref`](https://example.com)");
+    expect(linkFirst).toContain("[`ref`](https://example.com)");
+  });
+
   it("serializes footnote_definition with null label — falls back to '1' (L225/226)", () => {
     // L225/226: identifier/label uses `node.attrs.label ?? "1"` when label is null
     const doc = testSchema.node("doc", null, [

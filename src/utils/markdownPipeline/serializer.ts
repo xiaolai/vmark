@@ -129,7 +129,7 @@ function createSerializer(_options: MarkdownPipelineOptions = {}) {
 /**
  * Strip unnecessary backslash escapes added by remark-stringify.
  *
- * remark-stringify defensively escapes characters like $, [, *, _, `
+ * remark-stringify defensively escapes characters like $, [, *, _, `, (, )
  * in text nodes to prevent them from being parsed as markdown syntax.
  * Since these characters were already in plain text (not markup) in the
  * MDAST, the escapes are redundant and visually noisy.
@@ -137,7 +137,7 @@ function createSerializer(_options: MarkdownPipelineOptions = {}) {
  * We only strip escapes that are safe — block-level triggers at line
  * start (#, -, *, >, +) are preserved to avoid creating headings/lists.
  */
-const SAFE_UNESCAPE_RE = /\\([[\]$`_*!])/g;
+const SAFE_UNESCAPE_RE = /\\([[\]$`_*!()])/g;
 
 /** Characters that create block-level syntax at start of line. */
 const BLOCK_START_CHARS = new Set(["#", "-", "*", ">", "+"]);
@@ -154,7 +154,11 @@ function buildCodeRanges(markdown: string): Array<[number, number]> {
   while ((fm = fenceRe.exec(markdown))) {
     raw.push([fm.index, fm.index + fm[0].length]);
   }
-  const inlineRe = /`[^`]+`/g;
+  // Only treat unescaped backticks as code-span boundaries. Without this,
+  // serialized plain text such as `[\`LICENSE\`]\(./LICENSE).` would falsely
+  // register `\`LICENSE\`` as an inline code range, blocking later escape
+  // stripping on the contained `\``.
+  const inlineRe = /(?<!\\)`[^`]+?(?<!\\)`/g;
   let im: RegExpExecArray | null;
   while ((im = inlineRe.exec(markdown))) {
     raw.push([im.index, im.index + im[0].length]);

@@ -339,6 +339,38 @@ $$`;
       // Mid-line * should be unescaped
       expect(output).toBe("text * more");
     });
+
+    it("does not escape parentheses in plain text", () => {
+      // remark-stringify defensively escapes `(` near link-like tokens.
+      // SAFE_UNESCAPE_RE must strip these so source view shows clean text.
+      const input = "Use (parens) here";
+      const mdast = parseMarkdownToMdast(input);
+      const output = serializeMdastToMarkdown(mdast).trim();
+      expect(output).toBe(input);
+    });
+
+    it("strips spurious escapes from plain text resembling a link with code", () => {
+      // Regression for scenario 3: when a paste falls through as plain text,
+      // remark-stringify defensively escapes `[`, `` ` ``, `]`, `(`, `)`.
+      // After SAFE_UNESCAPE_RE plus escape-aware buildCodeRanges, the output
+      // must equal the original text — no stray `\(` or trapped `\``.
+      const mdast = {
+        type: "root" as const,
+        children: [
+          {
+            type: "paragraph" as const,
+            children: [
+              {
+                type: "text" as const,
+                value: "ISC License. See [`LICENSE`](./LICENSE).",
+              },
+            ],
+          },
+        ],
+      };
+      const output = serializeMdastToMarkdown(mdast).trim();
+      expect(output).toBe("ISC License. See [`LICENSE`](./LICENSE).");
+    });
   });
 
   describe("nested structures round-trip", () => {

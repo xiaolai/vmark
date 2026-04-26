@@ -103,4 +103,52 @@ describe("markdownPasteDetection", () => {
   it("rejects whitespace-only string", () => {
     expect(isMarkdownPasteCandidate("   \n\t  ")).toBe(false);
   });
+
+  describe("single-line links with URL-like targets", () => {
+    it("detects single-line link with relative path", () => {
+      const text = "ISC License. See [`LICENSE`](./LICENSE).";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("detects single-line link with http URL", () => {
+      const text = "Visit [our site](https://example.com) today.";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("detects single-line link with absolute path", () => {
+      const text = "Open [the file](/home/user/notes.md).";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("detects single-line link with parent-dir path", () => {
+      const text = "See [README](../README.md).";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("detects single-line link with anchor target", () => {
+      const text = "Jump to [section](#intro).";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("detects single-line link with mailto target", () => {
+      const text = "Email [the team](mailto:team@example.com).";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("detects single-line link with bare-domain target", () => {
+      const text = "Read [the docs](example.com/guide).";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("detects single-line link with angle-bracket URL", () => {
+      const text = "See [the file](<./my notes.md>).";
+      expect(isMarkdownPasteCandidate(text)).toBe(true);
+    });
+
+    it("rejects single-line `[text](non-url)` to avoid false positives", () => {
+      // A bracketed phrase followed by a parenthetical — not a real link.
+      const text = "Pick the [first one](in the list).";
+      expect(isMarkdownPasteCandidate(text)).toBe(false);
+    });
+  });
 });
