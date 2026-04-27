@@ -44,6 +44,8 @@ module.exports = {
           "src/utils/workspaceBootstrap",
           // Large-file routing — reads settingsStore for autoSourceMode / warnAbove5MB
           "src/utils/largeFileRouting",
+          // macOS quarantine auto-strip — reads settingsStore for clearMacQuarantineOnOpen toggle
+          "src/utils/macQuarantineNotice",
           // Media path resolution (needs tab/document store for relative path resolution)
           "src/utils/resolveMediaSrc",
           // Startup wiring (rebuilds native menu with saved locale on boot)
