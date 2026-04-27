@@ -212,6 +212,15 @@ describe("Structural Character Protection", () => {
       const pipePos = getCellStartPipePos(view);
       expect(pipePos).toBe(-1);
     });
+
+    it("returns pipe position when preceded by literal `\\\\` (even backslashes)", () => {
+      // Text: "| cell \\| next |" — `\\` is a literal backslash, so `|` is a real delimiter.
+      // Cursor is right after the delimiter.
+      const view = createView("| cell \\\\|^ next |");
+      const pipePos = getCellStartPipePos(view);
+      // Positions: 0=|, 1= , 2=c, 3=e, 4=l, 5=l, 6= , 7=\, 8=\, 9=|, 10= , ...
+      expect(pipePos).toBe(9);
+    });
   });
 
   describe("getListMarkerRange", () => {
@@ -681,6 +690,14 @@ describe("Structural Character Protection", () => {
       const view = createView("| cell \\^| with pipe | next |");
       const handled = smartDelete(view);
       expect(handled).toBe(false);
+    });
+
+    it("protects pipe preceded by literal `\\\\` (even backslashes)", () => {
+      // Text: "| cell \\| next |" — `\\` is a literal backslash, `|` is a real delimiter.
+      // Cursor is right before that delimiter, so it should be protected.
+      const view = createView("| cell \\\\^| next |");
+      const handled = smartDelete(view);
+      expect(handled).toBe(true);
     });
 
     it("protects pipes with multiple cursors", () => {

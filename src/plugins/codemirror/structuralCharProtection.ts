@@ -37,6 +37,20 @@ export const TASK_ITEM_PATTERN = /^(\s*)([-*+])\s\[([ xX])\]\s/;
 export const BLOCKQUOTE_PATTERN = /^(\s*)(>+)\s?/;
 
 /**
+ * Check if a pipe is escaped — preceded by an odd number of backslashes.
+ * `\|` is escaped (cell content); `\\|` is a literal backslash + delimiter.
+ */
+function isPipeEscaped(text: string, pipeIndex: number): boolean {
+  let n = 0;
+  let i = pipeIndex - 1;
+  while (i >= 0 && text[i] === "\\") {
+    n++;
+    i--;
+  }
+  return n % 2 === 1;
+}
+
+/**
  * Check if a position is right after a table pipe at cell start.
  * Returns the pipe position if true, or -1 if not.
  */
@@ -50,11 +64,12 @@ function getCellStartPipePosAt(state: EditorState, head: number): number {
   const offsetInLine = head - line.from;
   const textBefore = line.text.slice(0, offsetInLine);
 
-  // Check if we're right after a pipe (with only whitespace between).
-  // Negative lookbehind excludes escaped pipes (\|) which are cell content, not delimiters.
-  const match = textBefore.match(/(?<!\\)\|\s*$/);
-  if (match) {
-    return line.from + textBefore.length - match[0].length;
+  // Walk back through trailing whitespace, find nearest `|`, and check if it's
+  // escaped by an odd number of leading backslashes.
+  let i = textBefore.length - 1;
+  while (i >= 0 && /\s/.test(textBefore[i])) i--;
+  if (i >= 0 && textBefore[i] === "|" && !isPipeEscaped(textBefore, i)) {
+    return line.from + i;
   }
 
   return -1;
@@ -314,7 +329,7 @@ function deleteSpecForCursor(
   const charAfter = line.text[offsetInLine];
   if (charAfter === "|" && TABLE_ROW_PATTERN.test(line.text)) {
     // Don't protect escaped pipes (\|) — they are cell content, not delimiters
-    if (offsetInLine > 0 && line.text[offsetInLine - 1] === "\\") return null;
+    if (isPipeEscaped(line.text, offsetInLine)) return null;
     return { changes: [], range: EditorSelection.cursor(head + 1) };
   }
 
