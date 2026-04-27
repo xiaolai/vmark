@@ -344,10 +344,14 @@ jobs:
           # Base URL for downloads
           BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
 
-          # Generate latest.json
+          # Generate latest.json — Tauri's updater parses the version field
+          # with `semver`, which strictly rejects a leading `v`. The git tag
+          # is `v0.6.56`, so we must strip the `v` here or the in-app updater
+          # silently fails to parse and reports "no update available".
+          # (Asset URLs below already use ${VERSION#v} for the same reason.)
           cat > latest.json << EOF
           {
-            "version": "$VERSION",
+            "version": "${VERSION#v}",
             "notes": "See release notes at https://github.com/$REPO/releases/tag/$VERSION",
             "pub_date": "$PUB_DATE",
             "platforms": {
