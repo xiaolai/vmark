@@ -8,6 +8,10 @@ on:
       - 'website/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/deploy-website.yml'
+      # Version bumps need a redeploy too — the website bakes pkg.version
+      # into BetaBadge and DownloadButton at build time. Without this, vmark.app
+      # silently kept showing 0.6.54 after 0.6.55 and 0.6.56 shipped.
+      - 'package.json'
 
   # Allow manual trigger
   workflow_dispatch:
