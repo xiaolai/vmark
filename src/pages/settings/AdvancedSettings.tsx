@@ -12,6 +12,7 @@ import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { restartWithHotExit } from "@/utils/hotExit/restartWithHotExit";
 import type { SessionData } from "@/utils/hotExit/types";
+import { isMacPlatform } from "@/utils/shortcutMatch";
 
 /**
  * Helper to wrap async operations with error handling
@@ -37,7 +38,11 @@ export function AdvancedSettings() {
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const keepBothEditorsAlive = useSettingsStore((state) => state.advanced.keepBothEditorsAlive);
   const workflowEngine = useSettingsStore((state) => state.advanced.workflowEngine);
+  const clearMacQuarantineOnOpen = useSettingsStore(
+    (state) => state.advanced.clearMacQuarantineOnOpen
+  );
   const updateAdvancedSetting = useSettingsStore((state) => state.updateAdvancedSetting);
+  const isMac = isMacPlatform();
 
   return (
     <div>
@@ -74,6 +79,20 @@ export function AdvancedSettings() {
           />
         </SettingRow>
       </SettingsGroup>
+
+      {isMac && (
+        <SettingsGroup title={t("advanced.group.macos")}>
+          <SettingRow
+            label={t("advanced.clearMacQuarantine.label")}
+            description={t("advanced.clearMacQuarantine.description")}
+          >
+            <Toggle
+              checked={clearMacQuarantineOnOpen}
+              onChange={(v) => updateAdvancedSetting("clearMacQuarantineOnOpen", v)}
+            />
+          </SettingRow>
+        </SettingsGroup>
+      )}
 
       {/* Developer features - only visible when developer mode is enabled */}
       {devTools && (

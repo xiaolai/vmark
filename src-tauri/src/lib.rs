@@ -48,6 +48,7 @@ mod hot_exit;
 mod pandoc;
 mod tab_transfer;
 mod workflow;
+mod quarantine;
 
 #[cfg(target_os = "macos")]
 mod app_nap;
@@ -599,6 +600,7 @@ pub fn run() {
             workspace::open_folder_dialog,
             workspace::read_workspace_config,
             workspace::write_workspace_config,
+            quarantine::strip_workspace_quarantine_cmd,
             mcp_server::mcp_bridge_start,
             mcp_server::mcp_bridge_stop,
             mcp_server::mcp_server_start,

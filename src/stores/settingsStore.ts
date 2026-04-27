@@ -239,6 +239,7 @@ const initialState: SettingsState = {
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
     keepBothEditorsAlive: false,
     workflowEngine: false,
+    clearMacQuarantineOnOpen: true,
   },
   update: {
     autoCheckEnabled: true,

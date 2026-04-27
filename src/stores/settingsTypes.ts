@@ -224,6 +224,12 @@ export interface AdvancedSettingsState {
   customLinkProtocols: string[]; // Custom URL protocols to recognize (e.g., "obsidian", "vscode")
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
   workflowEngine: boolean; // Enable YAML workflow engine (developer feature, default: false)
+  // macOS only: clear `com.apple.quarantine` on the workspace root and its
+  // direct .md children when opening a workspace. Without this, files marked
+  // by apps like Mixin Messenger fail to open in a running VMark via Finder
+  // double-click (Launch Services routes them through CSUI which silently
+  // drops the openURLs delivery). Default: true.
+  clearMacQuarantineOnOpen: boolean;
 }
 
 /** General settings — auto-save, document history, tab size, line endings, and quit behavior. */
