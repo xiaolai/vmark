@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 
 import { EditorContent, useEditor } from "@tiptap/react";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { createExportExtensions } from "./createExportExtensions";
+import { isImageSettled } from "./waitForAssets";
 import { exportWarn, exportError } from "@/utils/debug";
 import "./exportStyles.css";
 
@@ -103,11 +104,15 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
       /* v8 ignore next -- @preserve reason: mermaid-loading class only set during live mermaid render cycle, not available in jsdom */
       if (mermaidLoading.length > 0) return false;
 
-      // Check for images still loading
+      // Defer image readiness to the shared `isImageSettled` predicate so
+      // both stability paths (this internal check + waitForAssets) agree on
+      // when an `<img>` is actually done — including the terminal error case
+      // (empty src + .image-error) that would otherwise force the full
+      // timeout. See issue #837.
       const images = containerRef.current.querySelectorAll("img");
       for (const img of images) {
-        /* v8 ignore next -- @preserve reason: img.complete is always true in jsdom; testing real async image load requires a browser */
-        if (!img.complete) return false;
+        /* v8 ignore next -- @preserve reason: NodeView lifecycle states require real Tiptap rendering, not exercisable in jsdom; predicate itself is unit-tested in waitForAssets.test.ts */
+        if (!isImageSettled(img)) return false;
       }
 
       // Wait for fonts

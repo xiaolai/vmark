@@ -44,14 +44,46 @@ async function waitForFonts(): Promise<boolean> {
 }
 
 /**
- * Check if all images in a container have loaded.
+ * Class set by ImageNodeView (and BlockImageNodeView) on the underlying `<img>`
+ * once async path resolution has terminally failed. Treated as a final state by
+ * the stability poller so we don't burn the full timeout waiting on something
+ * that will never finish (issue #837 follow-up).
+ */
+const IMAGE_ERROR_CLASS = "image-error";
+
+/**
+ * Decide whether a single image counts as "settled" for export readiness.
+ *
+ * Three states matter:
+ *   - **Loaded**: non-empty `src` AND `img.complete === true` → settled.
+ *   - **Errored**: NodeView marked the element with `image-error` after a
+ *     failed resolve → settled (further waiting won't change anything).
+ *   - **Pending**: empty `src` (NodeView still resolving the path) OR the
+ *     browser is still fetching the asset → not settled.
+ *
+ * Empty `src` alone is NOT settled because `img.complete` returns `true` for
+ * empty src, which would cause the poller to extract HTML before ImageNodeView
+ * finished setting the real `asset://` URL — the original bug from #837.
+ *
+ * Exported for unit tests so the predicate stays in lockstep with the
+ * NodeView lifecycle even when the rest of the pipeline can't be exercised.
+ */
+export function isImageSettled(img: HTMLImageElement): boolean {
+  if (img.classList.contains(IMAGE_ERROR_CLASS)) return true;
+  const src = img.getAttribute("src") ?? "";
+  if (!src) return false;
+  return img.complete;
+}
+
+/**
+ * Check if all images in a container have loaded or errored.
  */
 function checkImages(container: HTMLElement): { ready: boolean; pending: number } {
   const images = container.querySelectorAll("img");
   let pending = 0;
 
   for (const img of images) {
-    if (!img.complete) {
+    if (!isImageSettled(img)) {
       pending++;
     }
   }
@@ -83,7 +115,10 @@ function waitForImages(container: HTMLElement, timeout: number): Promise<boolean
     };
 
     for (const img of images) {
-      if (img.complete) {
+      // Use the same settled predicate as the poller so a NodeView that has
+      // already errored out (or finished loading) is recognised immediately
+      // — otherwise we'd attach listeners that never fire and time out.
+      if (isImageSettled(img)) {
         checkDone();
       } else {
         img.addEventListener("load", checkDone, { once: true });

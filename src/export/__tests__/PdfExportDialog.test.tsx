@@ -116,14 +116,14 @@ describe("PdfExportContent", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("seeds the save dialog with the source filename (sans extension)", async () => {
+  it("seeds the save dialog with the document title verbatim (already extension-free)", async () => {
     const user = userEvent.setup();
     saveMock.mockResolvedValue(null); // cancel — we only assert the defaultPath
 
     render(
       <PdfExportContent
         renderedHtml="<p>Test</p>"
-        defaultName="report.v2.md"
+        defaultName="report.v2"
         onClose={vi.fn()}
       />,
     );
@@ -133,6 +133,140 @@ describe("PdfExportContent", () => {
     expect(saveMock).toHaveBeenCalledWith(
       expect.objectContaining({ defaultPath: "report.v2.pdf" }),
     );
+  });
+
+  it("preserves dot-containing titles (e.g. dated headings) in the save dialog", async () => {
+    // Regression test for #837: a title like "# 2026.04.27 测试问题" was
+    // being truncated to "2026.04" because the dialog stripped everything
+    // after the last dot, mistaking the title for a filename with extension.
+    const user = userEvent.setup();
+    saveMock.mockResolvedValue(null);
+
+    render(
+      <PdfExportContent
+        renderedHtml="<p>Test</p>"
+        defaultName="2026.04.27 测试问题"
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(saveMock).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultPath: "2026.04.27 测试问题.pdf" }),
+    );
+  });
+
+  it("does not double the .pdf extension when the title already ends in .pdf", async () => {
+    // Edge case: an H1 like "# report.pdf" would otherwise seed
+    // "report.pdf.pdf" in the save panel. Idempotent suffix handling keeps
+    // it as a single ".pdf".
+    const user = userEvent.setup();
+    saveMock.mockResolvedValue(null);
+
+    render(
+      <PdfExportContent
+        renderedHtml="<p>Test</p>"
+        defaultName="report.pdf"
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(saveMock).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultPath: "report.pdf" }),
+    );
+  });
+
+  it("matches the .pdf suffix case-insensitively", async () => {
+    const user = userEvent.setup();
+    saveMock.mockResolvedValue(null);
+
+    render(
+      <PdfExportContent
+        renderedHtml="<p>Test</p>"
+        defaultName="REPORT.PDF"
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(saveMock).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultPath: "REPORT.PDF" }),
+    );
+  });
+
+  it("appends .pdf to the user's chosen path when missing (no filters auto-suffix)", async () => {
+    // Without `filters`, the macOS Tahoe save panel does NOT auto-append
+    // the extension if the user typed a bare name. The dialog must add it
+    // before invoking export_pdf, otherwise Preview can't open the file.
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    saveMock.mockResolvedValue("/tmp/notes");
+    invokeMock.mockResolvedValue(undefined);
+    openPathMock.mockResolvedValue(undefined);
+
+    render(
+      <PdfExportContent
+        renderedHtml="<p>Test</p>"
+        defaultName="notes"
+        onClose={onClose}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "export_pdf",
+      expect.objectContaining({ outputPath: "/tmp/notes.pdf" }),
+    );
+    expect(openPathMock).toHaveBeenCalledWith("/tmp/notes.pdf");
+  });
+
+  it("preserves the user's chosen path when it already ends in .pdf", async () => {
+    const user = userEvent.setup();
+    saveMock.mockResolvedValue("/tmp/notes.pdf");
+    invokeMock.mockResolvedValue(undefined);
+    openPathMock.mockResolvedValue(undefined);
+
+    render(
+      <PdfExportContent
+        renderedHtml="<p>Test</p>"
+        defaultName="notes"
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "export_pdf",
+      expect.objectContaining({ outputPath: "/tmp/notes.pdf" }),
+    );
+  });
+
+  it("does not pass filters to the save dialog (macOS Tahoe parity)", async () => {
+    // Regression test for #837: filters trigger setAllowedFileTypes which
+    // macOS 26 (Tahoe) deprecated, breaking paste and silently deleting
+    // typed input in the save panel. Match the same convention as HTML and
+    // Pandoc exports: no filters.
+    const user = userEvent.setup();
+    saveMock.mockResolvedValue(null);
+
+    render(
+      <PdfExportContent
+        renderedHtml="<p>Test</p>"
+        defaultName="doc"
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    const callArgs = saveMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(callArgs).not.toHaveProperty("filters");
   });
 
   it("falls back to the i18n default title when no defaultName is provided", async () => {

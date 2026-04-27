@@ -48,9 +48,17 @@ export function PdfExportContent({
   const { t } = useTranslation("export");
   const { t: tDialog } = useTranslation("dialog");
 
-  // Strip any extension from the source filename; fall back to the i18n default.
-  const baseName =
-    defaultName?.replace(/\.[^.]+$/, "") || t("pdf.defaultTitle");
+  // defaultName already comes from getExportFolderName, which returns the H1
+  // heading or the file basename (extension stripped). Stripping here again
+  // would clobber dot-containing titles like "2026.04.27 Notes" → "2026.04".
+  const baseName = defaultName || t("pdf.defaultTitle");
+
+  // Idempotent ".pdf" suffix: avoid `report.pdf.pdf` when the title already
+  // ends in `.pdf`, and guarantee the saved file is `.pdf` even when the
+  // user typed a name without an extension (the save panel no longer
+  // appends one because we dropped `filters` for macOS Tahoe parity).
+  const ensurePdfExtension = (path: string): string =>
+    /\.pdf$/i.test(path) ? path : `${path}.pdf`;
 
   const [options, setOptions] = useState<PdfOptions>({
     pageSize: "a4",
@@ -106,16 +114,22 @@ export function PdfExportContent({
     try {
       setExporting(true);
       setExportStage(t("pdf.progress.preparing"));
-      const outputPath = await save({
-        defaultPath: `${baseName}.pdf`,
+      // Strip filters per macOS Tahoe parity rule (see saveDialogWithFallback).
+      // setAllowedFileTypes was deprecated in macOS 26; keeping the filter
+      // makes the save panel reject pasted text and silently delete typed
+      // input on Tahoe. The default filename already carries .pdf.
+      const chosenPath = await save({
+        defaultPath: ensurePdfExtension(baseName),
         title: t("pdf.saveDialog.title"),
-        filters: [{ name: "PDF", extensions: ["pdf"] }],
       });
-      if (!outputPath) {
+      if (!chosenPath) {
         setExporting(false);
         setExportStage("");
         return;
       }
+      // Without `filters`, the macOS save panel won't auto-append `.pdf` if
+      // the user typed a bare name. Guarantee the suffix server-side.
+      const outputPath = ensurePdfExtension(chosenPath);
 
       const html = buildPdfExportHtml(
         renderedHtml,
