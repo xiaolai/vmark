@@ -378,6 +378,30 @@ jobs:
           echo "Generated latest.json:"
           cat latest.json
 
+          # Guard against the bug we just fixed: Tauri's updater parses the
+          # version field with `semver`, which strictly rejects a leading 'v'
+          # and any other non-SemVer shape. If someone reverts the heredoc
+          # back to "$VERSION" — or any future change produces a malformed
+          # version field — fail the release here instead of silently shipping
+          # a manifest that every Tauri client rejects as "no update".
+          echo ""
+          echo "Validating latest.json..."
+          MANIFEST_VERSION=$(jq -er '.version' latest.json)
+          if [[ "$MANIFEST_VERSION" =~ ^v ]]; then
+            echo "::error::latest.json version field has a leading 'v' ('$MANIFEST_VERSION'). Tauri's updater will reject this. Use \${VERSION#v} in the heredoc."
+            exit 1
+          fi
+          if ! [[ "$MANIFEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].+)?$ ]]; then
+            echo "::error::latest.json version field is not SemVer-compliant: '$MANIFEST_VERSION'"
+            exit 1
+          fi
+          # Every per-platform url must be the actual asset filename, not a placeholder
+          if jq -er '.platforms[] | select(.url | test("\\$|\\{|VERSION"))' latest.json > /dev/null 2>&1; then
+            echo "::error::latest.json contains an unexpanded shell variable in a platform URL"
+            exit 1
+          fi
+          echo "✅ latest.json validates: version=$MANIFEST_VERSION"
+
           # Upload latest.json to release
           gh release upload "$VERSION" latest.json --repo "$REPO" --clobber
           echo "✅ Uploaded latest.json"
