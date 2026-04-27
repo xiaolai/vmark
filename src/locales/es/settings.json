@@ -85,13 +85,11 @@
   "editor.hardBreakStyle.backslash": "Barra invertida (\\)",
   "editor.showBrTags.label": "Mostrar etiquetas <br>",
   "editor.showBrTags.description": "Mostrar las etiquetas de salto de línea HTML visiblemente en el editor",
-
   "editor.group.largeFiles": "Archivos grandes",
   "editor.largeFile.autoSourceMode.label": "Abrir archivos de más de 1 MB en modo Fuente",
   "editor.largeFile.autoSourceMode.description": "Se abre al instante en modo Fuente. Cambia a WYSIWYG en cualquier momento desde la barra de estado.",
   "editor.largeFile.warnAbove5MB.label": "Confirmar antes de abrir archivos de más de 5 MB",
   "editor.largeFile.warnAbove5MB.description": "Muestra un diálogo de confirmación antes de abrir archivos muy grandes. Los archivos de más de 50 MB siempre se rechazan.",
-
   "language.group.language": "Idioma",
   "language.interfaceLanguage.label": "Idioma de la interfaz",
   "language.interfaceLanguage.description": "Idioma utilizado para los menús y el texto de la interfaz",
@@ -532,6 +530,9 @@
   "advanced.group.performance": "Rendimiento",
   "advanced.keepBothEditors.label": "Mantener ambos editores activos",
   "advanced.keepBothEditors.description": "Cambio de modo más rápido a costa de mayor uso de memoria",
+  "advanced.group.macos": "macOS",
+  "advanced.clearMacQuarantine.label": "Eliminar la cuarentena de descargas al abrir el espacio de trabajo",
+  "advanced.clearMacQuarantine.description": "Elimina el atributo \"com.apple.quarantine\" de macOS de los archivos Markdown en la raíz del espacio de trabajo para que se abran con doble clic en el Finder mientras VMark está en ejecución. Recomendado.",
   "advanced.group.hotExitDevTools": "Herramientas de desarrollo de salida en caliente",
   "advanced.hotExit.hint": "Probar la captura y restauración de sesión de salida en caliente sin actualizaciones reales.",
   "advanced.hotExit.testCapture": "Probar captura",

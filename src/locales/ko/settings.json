@@ -85,13 +85,11 @@
   "editor.hardBreakStyle.backslash": "백슬래시 (\\)",
   "editor.showBrTags.label": "<br> 태그 표시",
   "editor.showBrTags.description": "편집기에서 HTML 줄 바꿈 태그를 시각적으로 표시합니다",
-
   "editor.group.largeFiles": "큰 파일",
   "editor.largeFile.autoSourceMode.label": "1 MB 이상 파일을 소스 모드로 열기",
   "editor.largeFile.autoSourceMode.description": "소스 모드에서 즉시 열립니다. 상태 표시줄에서 언제든 WYSIWYG로 전환할 수 있습니다.",
   "editor.largeFile.warnAbove5MB.label": "5 MB 이상 파일을 열기 전 확인",
   "editor.largeFile.warnAbove5MB.description": "매우 큰 파일을 열기 전에 확인 대화 상자를 표시합니다. 50 MB 이상 파일은 항상 거부됩니다.",
-
   "language.group.language": "언어",
   "language.interfaceLanguage.label": "인터페이스 언어",
   "language.interfaceLanguage.description": "메뉴 및 UI 텍스트에 사용되는 언어",
@@ -532,6 +530,9 @@
   "advanced.group.performance": "성능",
   "advanced.keepBothEditors.label": "두 편집기 모두 활성 상태 유지",
   "advanced.keepBothEditors.description": "메모리 사용량이 높아지는 대신 모드 전환이 빨라집니다",
+  "advanced.group.macos": "macOS",
+  "advanced.clearMacQuarantine.label": "작업 공간을 열 때 다운로드 격리 해제",
+  "advanced.clearMacQuarantine.description": "작업 공간 루트의 Markdown 파일에서 macOS \"com.apple.quarantine\" 속성을 제거하여 VMark 실행 중에도 Finder 더블클릭으로 열 수 있게 합니다. 권장.",
   "advanced.group.hotExitDevTools": "핫 종료 개발자 도구",
   "advanced.hotExit.hint": "실제 업데이트 없이 핫 종료 세션 캡처 및 복원을 테스트합니다.",
   "advanced.hotExit.testCapture": "캡처 테스트",

@@ -85,13 +85,11 @@
   "editor.hardBreakStyle.backslash": "バックスラッシュ（\\）",
   "editor.showBrTags.label": "<br>タグを表示",
   "editor.showBrTags.description": "エディターでHTMLの改行タグを視覚的に表示する",
-
   "editor.group.largeFiles": "大きなファイル",
   "editor.largeFile.autoSourceMode.label": "1 MB を超えるファイルをソースモードで開く",
   "editor.largeFile.autoSourceMode.description": "ソースモードで即座に開きます。ステータスバーからいつでもWYSIWYGに切り替えられます。",
   "editor.largeFile.warnAbove5MB.label": "5 MB を超えるファイルを開く前に確認",
   "editor.largeFile.warnAbove5MB.description": "非常に大きなファイルを開く前に確認ダイアログを表示します。50 MB を超えるファイルは常に拒否されます。",
-
   "language.group.language": "言語",
   "language.interfaceLanguage.label": "インターフェース言語",
   "language.interfaceLanguage.description": "メニューとUIテキストに使用する言語",
@@ -532,6 +530,9 @@
   "advanced.group.performance": "パフォーマンス",
   "advanced.keepBothEditors.label": "両方のエディターを維持",
   "advanced.keepBothEditors.description": "メモリ使用量を増やす代わりに、モード切り替えを高速化する",
+  "advanced.group.macos": "macOS",
+  "advanced.clearMacQuarantine.label": "ワークスペースを開く際にダウンロードの隔離を解除",
+  "advanced.clearMacQuarantine.description": "ワークスペースのルートにある Markdown ファイルから macOS の「com.apple.quarantine」属性を削除し、VMark の実行中でも Finder のダブルクリックで開けるようにします。推奨。",
   "advanced.group.hotExitDevTools": "ホットイグジット開発ツール",
   "advanced.hotExit.hint": "実際のアップデートなしで、ホットイグジットのセッションキャプチャと復元をテストします。",
   "advanced.hotExit.testCapture": "キャプチャテスト",

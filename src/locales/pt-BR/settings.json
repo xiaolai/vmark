@@ -85,13 +85,11 @@
   "editor.hardBreakStyle.backslash": "Barra invertida (\\)",
   "editor.showBrTags.label": "Mostrar tags <br>",
   "editor.showBrTags.description": "Exibir tags de quebra de linha HTML visivelmente no editor",
-
   "editor.group.largeFiles": "Arquivos grandes",
   "editor.largeFile.autoSourceMode.label": "Abrir arquivos acima de 1 MB no modo Fonte",
   "editor.largeFile.autoSourceMode.description": "Abre instantaneamente no modo Fonte. Mude para WYSIWYG a qualquer momento pela barra de status.",
   "editor.largeFile.warnAbove5MB.label": "Confirmar antes de abrir arquivos acima de 5 MB",
   "editor.largeFile.warnAbove5MB.description": "Mostra uma caixa de confirmação antes de abrir arquivos muito grandes. Arquivos acima de 50 MB são sempre recusados.",
-
   "language.group.language": "Idioma",
   "language.interfaceLanguage.label": "Idioma da interface",
   "language.interfaceLanguage.description": "Idioma usado nos menus e textos da interface",
@@ -532,6 +530,9 @@
   "advanced.group.performance": "Desempenho",
   "advanced.keepBothEditors.label": "Manter ambos os editores ativos",
   "advanced.keepBothEditors.description": "Troca de modo mais rápida ao custo de maior uso de memória",
+  "advanced.group.macos": "macOS",
+  "advanced.clearMacQuarantine.label": "Remover quarentena de downloads ao abrir o espaço de trabalho",
+  "advanced.clearMacQuarantine.description": "Remove o atributo \"com.apple.quarantine\" do macOS dos arquivos Markdown na raiz do espaço de trabalho para que sejam abertos por duplo clique no Finder enquanto o VMark está em execução. Recomendado.",
   "advanced.group.hotExitDevTools": "Ferramentas de dev Hot Exit",
   "advanced.hotExit.hint": "Testar captura e restauração de sessão de hot exit sem atualizações reais.",
   "advanced.hotExit.testCapture": "Testar captura",
