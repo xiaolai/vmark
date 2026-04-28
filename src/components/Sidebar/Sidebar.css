@@ -6,7 +6,7 @@
   background-color: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
-  padding-left: 8px;
+  padding-left: var(--spacing-2);
   padding-right: 0;
 }
 
@@ -32,8 +32,8 @@
 .sidebar-header {
   display: flex;
   align-items: center;
-  padding: 8px 12px 8px 0;
-  gap: 8px;
+  padding: var(--spacing-2) var(--spacing-3) var(--spacing-2) 0;
+  gap: var(--spacing-2);
 }
 
 .sidebar-btn {
@@ -41,8 +41,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -96,7 +96,7 @@
 .sidebar-footer {
   display: flex;
   justify-content: flex-start;
-  padding: 4px 12px 6px 0;
+  padding: var(--spacing-1) var(--spacing-3) 6px 0;
   flex-shrink: 0;
 }
 
@@ -118,7 +118,7 @@
 }
 
 .sidebar-view {
-  padding: 8px;
+  padding: var(--spacing-2);
 }
 
 .sidebar-empty {
@@ -130,7 +130,7 @@
 
 /* Files view */
 .files-view {
-  padding: 0 8px 8px;
+  padding: 0 var(--spacing-2) var(--spacing-2);
 }
 
 .files-section {
@@ -143,14 +143,14 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 8px 8px 4px;
+  padding: var(--spacing-2) var(--spacing-2) var(--spacing-1);
 }
 
 .sidebar-file {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: var(--spacing-2);
+  padding: 6px var(--spacing-2);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -173,7 +173,7 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   font-size: 13px;
   color: var(--text-color);
   overflow: hidden;
@@ -215,16 +215,16 @@
 
 /* Outline view */
 .outline-view {
-  padding: 0 8px 8px 0;
+  padding: 0 var(--spacing-2) var(--spacing-2) 0;
 }
 
 /* Outline filter input */
 .outline-filter {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  margin-bottom: 4px;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) 6px;
+  margin-bottom: var(--spacing-1);
   border-radius: var(--radius-sm);
   background-color: var(--subtle-bg);
   transition: background-color 0.15s ease;
@@ -290,7 +290,7 @@
 }
 
 .outline-children {
-  padding-left: 12px;
+  padding-left: var(--spacing-3);
 }
 
 .outline-tree-item {
@@ -301,12 +301,12 @@
   display: flex;
   /* Long titles wrap to 2 lines (see .outline-text); align toggle with the first line. */
   align-items: flex-start;
-  padding: 4px 8px;
+  padding: var(--spacing-1) var(--spacing-2);
   font-size: 13px;
   color: var(--text-color);
   cursor: pointer;
   border-radius: var(--radius-md);
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 .outline-item:hover {
@@ -405,11 +405,11 @@
 
 /* History view */
 .history-view {
-  padding: 0 8px 8px 0;
+  padding: 0 var(--spacing-2) var(--spacing-2) 0;
 }
 
 .history-group {
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-3);
 }
 
 .history-day {
@@ -418,14 +418,14 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 8px 8px 4px;
+  padding: var(--spacing-2) var(--spacing-2) var(--spacing-1);
 }
 
 .history-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px;
+  padding: 6px var(--spacing-2);
   border-radius: var(--radius-md);
   cursor: default;
 }
@@ -455,8 +455,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -485,8 +485,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
