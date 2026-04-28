@@ -4,7 +4,7 @@ import { EditorState, SelectionRange } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
 import { multiCursorPlugin } from "../multiCursorPlugin";
 import { MultiSelection } from "../MultiSelection";
-import { createMultiCursorDecorations, mapDecorations } from "../decorations";
+import { createMultiCursorDecorations } from "../decorations";
 
 // Simple schema for testing
 const schema = new Schema({
@@ -185,41 +185,4 @@ describe("decorations", () => {
     });
   });
 
-  describe("mapDecorations", () => {
-    it("recreates decorations for MultiSelection", () => {
-      const state = createState("hello world");
-      const doc = state.doc;
-      const $pos1 = doc.resolve(1);
-      const $pos2 = doc.resolve(7);
-
-      const ranges = [
-        new SelectionRange($pos1, $pos1),
-        new SelectionRange($pos2, $pos2),
-      ];
-      const multiSel = new MultiSelection(ranges, 0);
-      const tr = state.tr.setSelection(multiSel);
-      const newState = state.apply(tr);
-
-      const result = mapDecorations(
-        DecorationSet.empty,
-        { mapping: { map: (pos: number) => pos } },
-        newState
-      );
-
-      const found = result.find();
-      expect(found).toHaveLength(2);
-    });
-
-    it("returns empty for non-MultiSelection", () => {
-      const state = createState("hello world");
-
-      const result = mapDecorations(
-        DecorationSet.empty,
-        { mapping: { map: (pos: number) => pos } },
-        state
-      );
-
-      expect(result).toBe(DecorationSet.empty);
-    });
-  });
 });
