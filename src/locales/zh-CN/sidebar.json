@@ -34,7 +34,10 @@
     "expandSection": "展开章节",
     "collapseSection": "折叠章节",
     "noHeadings": "无标题",
-    "tooLarge": "文档过大，无法显示大纲"
+    "tooLarge": "文档过大，无法显示大纲",
+    "filterPlaceholder": "筛选标题…",
+    "clearFilter": "清除筛选",
+    "noMatches": "无匹配标题"
   },
   "history": {
     "saveToEnable": "保存文档以启用历史记录",

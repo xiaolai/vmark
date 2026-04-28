@@ -34,7 +34,10 @@
     "expandSection": "Expandir sección",
     "collapseSection": "Contraer sección",
     "noHeadings": "Sin encabezados",
-    "tooLarge": "Documento demasiado grande para el esquema"
+    "tooLarge": "Documento demasiado grande para el esquema",
+    "filterPlaceholder": "Filtrar encabezados…",
+    "clearFilter": "Borrar filtro",
+    "noMatches": "Sin encabezados coincidentes"
   },
   "history": {
     "saveToEnable": "Guarda el documento para activar el historial",

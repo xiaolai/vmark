@@ -123,6 +123,38 @@ export function buildHeadingTree(headings: HeadingItem[]): HeadingNode[] {
 }
 
 /**
+ * Filter a heading tree by case-insensitive substring match.
+ *
+ * Behavior:
+ * - Empty/whitespace query returns the original tree (referentially equal).
+ * - When a node's text matches, the node and all its descendants are kept verbatim.
+ * - When only a descendant matches, ancestors are kept so the path stays visible
+ *   (children pruned to the matching subtree).
+ * - The input tree is never mutated.
+ */
+export function filterHeadingTree(tree: HeadingNode[], query: string): HeadingNode[] {
+  const q = query.trim().toLowerCase();
+  if (q === "") return tree;
+
+  function visit(nodes: HeadingNode[]): HeadingNode[] {
+    const out: HeadingNode[] = [];
+    for (const node of nodes) {
+      if (node.text.toLowerCase().includes(q)) {
+        out.push(node);
+        continue;
+      }
+      const filteredChildren = visit(node.children);
+      if (filteredChildren.length > 0) {
+        out.push({ ...node, children: filteredChildren });
+      }
+    }
+    return out;
+  }
+
+  return visit(tree);
+}
+
+/**
  * Extract only heading lines from content for comparison.
  * Used to avoid re-extracting headings when non-heading content changes.
  * Must use same code block detection as extractHeadings for consistency.

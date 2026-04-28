@@ -34,7 +34,10 @@
     "expandSection": "Abschnitt erweitern",
     "collapseSection": "Abschnitt reduzieren",
     "noHeadings": "Keine Überschriften",
-    "tooLarge": "Dokument zu groß für Gliederung"
+    "tooLarge": "Dokument zu groß für Gliederung",
+    "filterPlaceholder": "Überschriften filtern…",
+    "clearFilter": "Filter löschen",
+    "noMatches": "Keine passenden Überschriften"
   },
   "history": {
     "saveToEnable": "Dokument speichern, um Verlauf zu aktivieren",

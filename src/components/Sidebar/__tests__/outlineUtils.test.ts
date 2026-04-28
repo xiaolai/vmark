@@ -6,8 +6,10 @@ import { describe, expect, it } from "vitest";
 import {
   extractHeadings,
   buildHeadingTree,
+  filterHeadingTree,
   getHeadingLinesKey,
   type HeadingItem,
+  type HeadingNode,
 } from "../outlineUtils";
 
 describe("extractHeadings", () => {
@@ -385,6 +387,113 @@ describe("large document handling (issue #523)", () => {
     expect(headings[0]).toMatchObject({ level: 1, text: "Title" });
     expect(headings[1]).toMatchObject({ level: 2, text: "Section 1" });
     expect(headings[50]).toMatchObject({ level: 2, text: "Section 50" });
+  });
+});
+
+describe("filterHeadingTree", () => {
+  // Build a small fixture once so each test reads naturally.
+  // Tree shape:
+  //   Introduction (H1, idx 0)
+  //     Background (H2, idx 1)
+  //     Goals (H2, idx 2)
+  //       Performance (H3, idx 3)
+  //   Implementation (H1, idx 4)
+  //     Architecture (H2, idx 5)
+  //     Testing (H2, idx 6)
+  function fixture(): HeadingNode[] {
+    return buildHeadingTree([
+      { level: 1, text: "Introduction", line: 0 },
+      { level: 2, text: "Background", line: 1 },
+      { level: 2, text: "Goals", line: 2 },
+      { level: 3, text: "Performance", line: 3 },
+      { level: 1, text: "Implementation", line: 4 },
+      { level: 2, text: "Architecture", line: 5 },
+      { level: 2, text: "Testing", line: 6 },
+    ]);
+  }
+
+  it("returns the original tree when query is empty", () => {
+    const tree = fixture();
+    expect(filterHeadingTree(tree, "")).toBe(tree);
+  });
+
+  it("returns the original tree when query is whitespace only", () => {
+    const tree = fixture();
+    expect(filterHeadingTree(tree, "   \t  ")).toBe(tree);
+  });
+
+  it("returns an empty array when nothing matches", () => {
+    expect(filterHeadingTree(fixture(), "nonexistent")).toEqual([]);
+  });
+
+  it("matches a leaf and keeps its ancestors as a path", () => {
+    const result = filterHeadingTree(fixture(), "performance");
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe("Introduction");
+    expect(result[0].children).toHaveLength(1);
+    expect(result[0].children[0].text).toBe("Goals");
+    expect(result[0].children[0].children).toHaveLength(1);
+    expect(result[0].children[0].children[0].text).toBe("Performance");
+  });
+
+  it("when a parent matches, keeps all of its descendants", () => {
+    const result = filterHeadingTree(fixture(), "introduction");
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe("Introduction");
+    // All descendants kept verbatim, even though their text doesn't contain the query.
+    expect(result[0].children).toHaveLength(2);
+    expect(result[0].children.map((n: HeadingNode) => n.text)).toEqual(["Background", "Goals"]);
+    expect(result[0].children[1].children[0].text).toBe("Performance");
+  });
+
+  it("is case-insensitive", () => {
+    const lower = filterHeadingTree(fixture(), "testing");
+    const upper = filterHeadingTree(fixture(), "TESTING");
+    const mixed = filterHeadingTree(fixture(), "TeStInG");
+    expect(lower).toEqual(upper);
+    expect(lower).toEqual(mixed);
+    expect(lower[0].text).toBe("Implementation");
+    expect(lower[0].children[0].text).toBe("Testing");
+  });
+
+  it("matches substrings, not just whole words", () => {
+    const result = filterHeadingTree(fixture(), "round"); // matches "Background"
+    expect(result).toHaveLength(1);
+    expect(result[0].children[0].text).toBe("Background");
+  });
+
+  it("trims surrounding whitespace from the query", () => {
+    const result = filterHeadingTree(fixture(), "   testing   ");
+    expect(result).toHaveLength(1);
+    expect(result[0].children[0].text).toBe("Testing");
+  });
+
+  it("preserves index, line, and level on filtered nodes", () => {
+    const result = filterHeadingTree(fixture(), "performance");
+    const intro = result[0];
+    const goals = intro.children[0];
+    const perf = goals.children[0];
+    expect(intro).toMatchObject({ index: 0, line: 0, level: 1 });
+    expect(goals).toMatchObject({ index: 2, line: 2, level: 2 });
+    expect(perf).toMatchObject({ index: 3, line: 3, level: 3 });
+  });
+
+  it("returns a new tree (does not mutate the input)", () => {
+    const tree = fixture();
+    const before = JSON.stringify(tree);
+    filterHeadingTree(tree, "testing");
+    expect(JSON.stringify(tree)).toBe(before);
+  });
+
+  it("matches multiple sibling subtrees in one pass", () => {
+    // Both "Architecture" (under Implementation) and "Background" (under Introduction)
+    // contain "ack"... actually "Background" contains "ack". Use a query that hits both
+    // top-level branches: "i" appears in both — pick something cleaner.
+    const result = filterHeadingTree(fixture(), "ground"); // only Background
+    expect(result).toHaveLength(1);
+    const result2 = filterHeadingTree(fixture(), "i"); // matches everything containing 'i'
+    // 'i' is in Introduction, Implementation, Architecture, Testing
+    expect(result2.map((n: HeadingNode) => n.text)).toEqual(["Introduction", "Implementation"]);
   });
 });
 

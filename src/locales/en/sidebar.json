@@ -34,7 +34,10 @@
     "expandSection": "Expand section",
     "collapseSection": "Collapse section",
     "noHeadings": "No headings",
-    "tooLarge": "Document too large for outline"
+    "tooLarge": "Document too large for outline",
+    "filterPlaceholder": "Filter headings…",
+    "clearFilter": "Clear filter",
+    "noMatches": "No matching headings"
   },
   "history": {
     "saveToEnable": "Save document to enable history",

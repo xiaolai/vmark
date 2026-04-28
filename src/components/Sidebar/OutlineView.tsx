@@ -1,12 +1,12 @@
 /**
  * Outline View Component
  *
- * Displays document heading structure as a tree.
+ * Displays document heading structure as a tree with a substring filter.
  */
 
-import { useState, useDeferredValue, useMemo, useRef } from "react";
+import { useState, useDeferredValue, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, Search, X } from "lucide-react";
 import { emitTo } from "@tauri-apps/api/event";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { useUIStore } from "@/stores/uiStore";
@@ -15,6 +15,7 @@ import { perfStart, perfEnd } from "@/utils/perfLog";
 import {
   extractHeadings,
   buildHeadingTree,
+  filterHeadingTree,
   getHeadingLinesKey,
   type HeadingItem,
   type HeadingNode,
@@ -24,18 +25,21 @@ function OutlineItem({
   node,
   activeIndex,
   collapsedSet,
+  forceExpand,
   onToggle,
   onClick,
 }: {
   node: HeadingNode;
   activeIndex: number;
   collapsedSet: Set<number>;
+  forceExpand: boolean;
   onToggle: (index: number) => void;
   onClick: (headingIndex: number) => void;
 }) {
   const { t } = useTranslation("sidebar");
   const hasChildren = node.children.length > 0;
-  const isCollapsed = collapsedSet.has(node.index);
+  // Filter results override collapsed state so matches stay visible.
+  const isCollapsed = !forceExpand && collapsedSet.has(node.index);
   const isActive = node.index === activeIndex;
 
   return (
@@ -68,7 +72,9 @@ function OutlineItem({
         ) : (
           <span className="outline-toggle-spacer" />
         )}
-        <span className="outline-text">{node.text}</span>
+        <span className="outline-text" title={node.text}>
+          {node.text}
+        </span>
       </div>
       {hasChildren && !isCollapsed && (
         <ul className="outline-children" role="group">
@@ -78,6 +84,7 @@ function OutlineItem({
               node={child}
               activeIndex={activeIndex}
               collapsedSet={collapsedSet}
+              forceExpand={forceExpand}
               onToggle={onToggle}
               onClick={onClick}
             />
@@ -136,6 +143,16 @@ export function OutlineView() {
     return result;
   }, [headings, isTooLarge]);
 
+  // Filter state — defer to keep typing responsive on large outlines.
+  const [filterQuery, setFilterQuery] = useState("");
+  const deferredFilterQuery = useDeferredValue(filterQuery);
+  const isFilterActive = deferredFilterQuery.trim().length > 0;
+
+  const visibleTree = useMemo(
+    () => filterHeadingTree(tree, deferredFilterQuery),
+    [tree, deferredFilterQuery]
+  );
+
   const activeIndex = activeHeadingIndex ?? -1;
 
   // Track collapsed state by heading identity (level:line:text).
@@ -175,6 +192,13 @@ export function OutlineView() {
     useUIStore.getState().setActiveHeadingLine(headingIndex);
   };
 
+  const handleFilterKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape" && filterQuery.length > 0) {
+      e.preventDefault();
+      setFilterQuery("");
+    }
+  }, [filterQuery]);
+
   // Skip outline for very large documents to prevent performance issues
   if (isTooLarge) {
     return (
@@ -184,23 +208,55 @@ export function OutlineView() {
     );
   }
 
+  // No headings at all → don't show the filter input.
+  if (headings.length === 0) {
+    return (
+      <div className="sidebar-view outline-view">
+        <div className="sidebar-empty">{t("outline.noHeadings")}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="sidebar-view outline-view">
-      {headings.length > 0 ? (
+      <div className="outline-filter">
+        <Search size={12} className="outline-filter-icon" aria-hidden="true" />
+        <input
+          type="text"
+          className="outline-filter-input"
+          placeholder={t("outline.filterPlaceholder")}
+          aria-label={t("outline.filterPlaceholder")}
+          value={filterQuery}
+          onChange={(e) => setFilterQuery(e.target.value)}
+          onKeyDown={handleFilterKeyDown}
+        />
+        {filterQuery.length > 0 && (
+          <button
+            type="button"
+            className="outline-filter-clear"
+            aria-label={t("outline.clearFilter")}
+            onClick={() => setFilterQuery("")}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+      {visibleTree.length > 0 ? (
         <ul className="outline-tree" role="tree" aria-label={t("outline.documentOutline")}>
-          {tree.map((node) => (
+          {visibleTree.map((node) => (
             <OutlineItem
               key={node.index}
               node={node}
               activeIndex={activeIndex}
               collapsedSet={collapsedSet}
+              forceExpand={isFilterActive}
               onToggle={handleToggle}
               onClick={handleClick}
             />
           ))}
         </ul>
       ) : (
-        <div className="sidebar-empty">{t("outline.noHeadings")}</div>
+        <div className="sidebar-empty">{t("outline.noMatches")}</div>
       )}
     </div>
   );

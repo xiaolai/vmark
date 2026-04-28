@@ -34,7 +34,10 @@
     "expandSection": "Espandi sezione",
     "collapseSection": "Comprimi sezione",
     "noHeadings": "Nessun titolo",
-    "tooLarge": "Documento troppo grande per la struttura"
+    "tooLarge": "Documento troppo grande per la struttura",
+    "filterPlaceholder": "Filtra titoli…",
+    "clearFilter": "Cancella filtro",
+    "noMatches": "Nessun titolo corrispondente"
   },
   "history": {
     "saveToEnable": "Salva il documento per abilitare la cronologia",

@@ -424,6 +424,8 @@ The Outline panel displays your document's heading structure as a collapsible tr
 - Collapse and expand heading groups to focus on specific parts of your document
 - The currently active heading is highlighted as you scroll or type
 - Updates live as you add, remove, or rename headings
+- Long titles wrap to two lines and reveal in full on hover
+- A filter input at the top of the panel narrows the tree to headings whose text matches your query (case-insensitive, ancestors are kept so the path stays visible). Press `Esc` to clear.
 
 ### Zoom
 

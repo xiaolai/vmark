@@ -34,7 +34,10 @@
     "expandSection": "섹션 펼치기",
     "collapseSection": "섹션 접기",
     "noHeadings": "제목 없음",
-    "tooLarge": "개요를 표시하기에 문서가 너무 큽니다"
+    "tooLarge": "개요를 표시하기에 문서가 너무 큽니다",
+    "filterPlaceholder": "제목 필터링…",
+    "clearFilter": "필터 지우기",
+    "noMatches": "일치하는 제목 없음"
   },
   "history": {
     "saveToEnable": "기록을 활성화하려면 문서를 저장하세요",

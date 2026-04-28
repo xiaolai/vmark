@@ -34,7 +34,10 @@
     "expandSection": "Développer la section",
     "collapseSection": "Réduire la section",
     "noHeadings": "Aucun titre",
-    "tooLarge": "Document trop volumineux pour le plan"
+    "tooLarge": "Document trop volumineux pour le plan",
+    "filterPlaceholder": "Filtrer les titres…",
+    "clearFilter": "Effacer le filtre",
+    "noMatches": "Aucun titre correspondant"
   },
   "history": {
     "saveToEnable": "Enregistrez le document pour activer l'historique",

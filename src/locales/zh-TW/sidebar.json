@@ -34,7 +34,10 @@
     "expandSection": "展開區段",
     "collapseSection": "收合區段",
     "noHeadings": "無標題",
-    "tooLarge": "文件過大，無法顯示大綱"
+    "tooLarge": "文件過大，無法顯示大綱",
+    "filterPlaceholder": "篩選標題…",
+    "clearFilter": "清除篩選",
+    "noMatches": "無相符標題"
   },
   "history": {
     "saveToEnable": "請先儲存文件以啟用歷史紀錄",

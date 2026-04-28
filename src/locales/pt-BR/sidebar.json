@@ -34,7 +34,10 @@
     "expandSection": "Expandir seção",
     "collapseSection": "Recolher seção",
     "noHeadings": "Sem títulos",
-    "tooLarge": "Documento muito grande para exibir estrutura"
+    "tooLarge": "Documento muito grande para exibir estrutura",
+    "filterPlaceholder": "Filtrar títulos…",
+    "clearFilter": "Limpar filtro",
+    "noMatches": "Nenhum título correspondente"
   },
   "history": {
     "saveToEnable": "Salve o documento para ativar o histórico",

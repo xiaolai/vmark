@@ -34,7 +34,10 @@
     "expandSection": "セクションを展開",
     "collapseSection": "セクションを折りたたむ",
     "noHeadings": "見出しなし",
-    "tooLarge": "ドキュメントが大きすぎてアウトラインを表示できません"
+    "tooLarge": "ドキュメントが大きすぎてアウトラインを表示できません",
+    "filterPlaceholder": "見出しを絞り込み…",
+    "clearFilter": "絞り込みをクリア",
+    "noMatches": "一致する見出しはありません"
   },
   "history": {
     "saveToEnable": "履歴を有効にするにはドキュメントを保存してください",
