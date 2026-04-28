@@ -254,6 +254,10 @@
   --z-mcp-overlay: 1200;
   --z-popup: 9999;
   --z-table-context: 10000;
+
+  /* Bar heights (status-bar, universal-toolbar; find-bar is 38px because
+     of its smaller padding/row arithmetic). Editor padding-bottom matches. */
+  --bar-height: 40px;
 }
 
 /* Dark theme token overrides */

@@ -16,7 +16,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden; /* Prevent horizontal overflow */
-  padding-bottom: 40px; /* statusbar/findbar height */
+  padding-bottom: var(--bar-height); /* clearance for status-bar/find-bar */
   /* No horizontal padding - applied per-element so tables can span full width */
   transition: padding-bottom 0.15s ease-out;
   /* Flexbox centering for narrow editor width settings */
@@ -171,7 +171,7 @@
   position: absolute;
   top: -2px;
   width: 20px;
-  border-top: 1px solid var(--text-color);
+  border-top: var(--border-thin) solid var(--text-color);
   animation: gapcursor-blink 1.1s steps(2, start) infinite;
 }
 
@@ -212,7 +212,7 @@
 .tiptap-editor h1 {
   font-size: 1.8em;
   padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-thin) solid var(--border-color);
 }
 
 .tiptap-editor h2 {
@@ -375,7 +375,7 @@
 
 /* Blockquotes - subtle border with radius like alert blocks */
 .tiptap-editor blockquote {
-  border-left: 4px solid var(--border-color);
+  border-left: var(--border-thick) solid var(--border-color);
   border-radius: var(--radius-md);
   margin: 0 0 var(--editor-block-spacing, 1em) 0;
   padding: 0 1em;
@@ -431,14 +431,14 @@
 }
 
 .tiptap-editor table tr {
-  border: 1px solid var(--table-border-color);
+  border: var(--border-thin) solid var(--table-border-color);
   margin: 0;
   padding: 0;
 }
 
 .tiptap-editor th {
   font-weight: bold;
-  border: 1px solid var(--table-border-color);
+  border: var(--border-thin) solid var(--table-border-color);
   border-bottom: 0;
   margin: 0;
   padding: 4px 10px;
@@ -448,7 +448,7 @@
 }
 
 .tiptap-editor td {
-  border: 1px solid var(--table-border-color);
+  border: var(--border-thin) solid var(--table-border-color);
   margin: 0;
   padding: 4px 10px;
   min-width: 3em;
@@ -539,7 +539,7 @@
   max-width: 100%;
   height: auto;
   border-radius: var(--radius-sm);
-  border: 1px solid transparent;
+  border: var(--border-thin) solid transparent;
   transition: border-color 0.15s ease;
   /* Prevent macOS Live Text from selecting text within images */
   user-select: none;
@@ -554,7 +554,7 @@
 
 /* Selected inline image styling */
 .tiptap-editor img.inline-image.ProseMirror-selectednode {
-  border-bottom: 2px solid var(--primary-color);
+  border-bottom: var(--border-medium) solid var(--primary-color);
 }
 
 /* Inline image loading state */
@@ -571,17 +571,17 @@
   min-width: 40px;
   min-height: 20px;
   background: var(--bg-secondary);
-  border: 1px dashed var(--error-color);
+  border: var(--border-thin) dashed var(--error-color);
   cursor: help;
 }
 
 /* Media border styles - applied to editor container (images only; mermaid/math borders in their plugin CSS) */
 .media-border-always .tiptap-editor img {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 .media-border-hover .tiptap-editor img:hover {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 /* Strong and emphasis */
@@ -688,7 +688,7 @@
 .source-editor .cm-gutters {
   display: none;
   background: transparent;
-  border-right: 1px solid var(--border-color);
+  border-right: var(--border-thin) solid var(--border-color);
   color: var(--text-tertiary);
 }
 

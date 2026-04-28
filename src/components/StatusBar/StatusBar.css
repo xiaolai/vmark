@@ -4,13 +4,16 @@
   left: 0;
   right: 0;
   z-index: var(--z-bar);
+  /* Status pill shared dimensions (tab-pill, status-source-upgrade, status-file-load). */
+  --status-pill-height: 22px;
+  --status-pill-radius: 11px;
 }
 
 .status-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 40px;
+  height: var(--bar-height);
   padding: var(--space-1-5) var(--spacing-3);
   background-color: var(--bg-color);
   font-size: var(--font-size-base);
@@ -150,9 +153,9 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  height: 22px;
+  height: var(--status-pill-height);
   padding: 0 var(--spacing-2);
-  border-radius: 11px;
+  border-radius: var(--status-pill-radius);
   background-color: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -730,7 +733,7 @@
   align-items: center;
   gap: var(--spacing-2);
   padding: 0 var(--spacing-2);
-  height: 22px;
+  height: var(--status-pill-height);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   background: var(--accent-bg);
@@ -779,7 +782,7 @@
   align-items: center;
   gap: var(--space-1-5);
   padding: 0 var(--spacing-2);
-  height: 22px;
+  height: var(--status-pill-height);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   opacity: 0;

@@ -11,7 +11,7 @@
  */
 
 .universal-toolbar {
-  --universal-toolbar-height: 40px;
+  --universal-toolbar-height: var(--bar-height);
 
   position: absolute;
   bottom: 0;
