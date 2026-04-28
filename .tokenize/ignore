@@ -3,9 +3,10 @@
 # See .claude/rules/31-design-tokens.md for the rationale.
 
 # --- Self-contained export bundle ----------------------------------------
-# vmark-reader.css ships HTML rendered outside the React app; literals are
+# vmark-reader.css/.js ship HTML rendered outside the React app; literals are
 # intentional fallbacks in `var(--x, #literal)` form.
 src/export/reader/vmark-reader.css
+src/export/reader/vmark-reader.js
 
 # --- Token DEFINER files -------------------------------------------------
 # These files SET CSS custom properties from primitives. Their literals are

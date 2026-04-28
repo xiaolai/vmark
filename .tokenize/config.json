@@ -1,3 +1,4 @@
 {
-  "mode": "consumer"
+  "mode": "consumer",
+  "disabled": true
 }

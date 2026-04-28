@@ -261,6 +261,39 @@ Icon SVG sizes (conventions, not tokens):
 10. **Dark alert tokens** - Use `--alert-*-dark` tokens in `.dark-theme` selectors with `color-mix()` for backgrounds.
 11. **Use hover tokens** - Use `--hover-bg` and `--hover-bg-strong`, never `--bg-hover` or `--bg-active` (those don't exist).
 
+## Two layers: semantic tokens above primitives
+
+VMark's token system has **two layers**, both defined in `src/styles/index.css`:
+
+1. **Semantic tokens** — named for their role (`--popup-padding`, `--icon-size-lg`, `--radius-sm`, `--spacing-2`, `--accent-bg`). **Always prefer these when one fits.**
+2. **Primitives** — named for their value position on a scale (`--space-1-5: 6px`, `--font-size-sm: 12px`, `--duration-fast: 0.1s`, `--opacity-disabled: 0.4`, `--z-popup: 9999`). Reach for these **only when no semantic token covers the case**.
+
+### Primitive scales
+
+| Family | Tokens | Use when |
+|---|---|---|
+| Spacing (px) | `--space-px`, `--space-half` (2), `--space-1` (4), `--space-1-5` (6), `--space-2` (8), `--space-2-5` (10), `--space-3` (12), `--space-3-5` (14), `--space-4` (16), `--space-5` (20), `--space-6` (24), `--space-7` (28), `--space-8` (32), `--space-10` (40), `--space-12` (48), `--space-15` (60) | A semantic spacing token (`--spacing-1/2/3`, `--popup-padding`) doesn't match the value |
+| Border widths | `--border-hairline` (0.5px), `--border-thin` (1px), `--border-medium` (2px), `--border-thick` (4px) | Setting `border-width`, `border-{top,right,bottom,left}-width` |
+| UI font sizes | `--font-size-2xs` (10), `--font-size-xs` (11), `--font-size-sm` (12), `--font-size-base` (13), `--font-size-md` (14), `--font-size-lg` (16) | UI labels and metadata. **Not** for editor body text — that uses runtime `--editor-font-size*`. |
+| Component dimensions | `--size-icon-xs` (14), `--size-icon-medium` (18), `--size-btn-xs` (20), `--size-btn-sm` (24) | Width/height of small icons or buttons not covered by `--icon-size-*` |
+| Line heights | `--line-height-tight` (1.25), `--line-height-snug` (1.35), `--line-height-base` (1.4), `--line-height-normal` (1.5), `--line-height-relaxed` (1.6) | `line-height` on UI text |
+| Letter spacing | `--letter-spacing-tight` (0.3px), `--letter-spacing-loose` (0.5px) | UI labels (uppercase, semibold) |
+| Opacity | `--opacity-disabled` (0.4), `--opacity-muted` (0.5), `--opacity-subtle` (0.6), `--opacity-half-faded` (0.7), `--opacity-mostly-opaque` (0.85) | Visual de-emphasis. **Not** for `0` or `1` — those stay literal. |
+| Durations | `--duration-instant` (0.05s), `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slow` (0.3s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-2s`, `--duration-5s` | `transition`, `animation` durations |
+| Z-index | `--z-resize-handle` (10), `--z-bar` (100), `--z-toolbar` (102), `--z-toolbar-dropdown` (103), `--z-context-menu` (1000), `--z-mcp-overlay` (1200), `--z-popup` (9999), `--z-table-context` (10000) | Stacking context. Mirrors hierarchy in `32-component-patterns.md`. |
+
+### What stays literal even with primitives
+
+- **Animation keyframe percentages** (`0%`, `50%`, `100%`)
+- **Transform scale/translate values** (`scale(0.78)` — optical adjustment, not a design knob)
+- **`calc()` arithmetic with mixed units**
+- **`var(--xyz, #fallback)` defensive fallbacks** (the fallback is intentionally a literal)
+- **`rgba()` lines that precede `color-mix()` lines** (browser-fallback pattern)
+- **CSS pseudo-element generated content** (`content: "✓"`)
+- **`opacity: 0` / `opacity: 1`** (visibility flags, not design opacity)
+- **`50%` for circles** (`border-radius: 50%`)
+- **`100%` and `auto` keywords** (semantic CSS, not values)
+
 ## Tokenize value vs. tokenize intent
 
 Before replacing a literal with a token, the question is **not** "does a token with this value exist?" — it's "does the CSS *property* match the token's purpose?"

@@ -169,6 +169,91 @@
   --media-youtube-dark: #f87171;
   --media-vimeo-dark: #4ac3f0;
   --media-bilibili-dark: #fc9cb5;
+
+  /* ========================================
+     PRIMITIVES LAYER
+     Use semantic tokens above when they cover the case (--popup-padding,
+     --icon-size-lg, --radius-sm, --spacing-2). Reach for primitives only when
+     no semantic name exists. See .claude/rules/31-design-tokens.md.
+     ======================================== */
+
+  /* Spacing scale (4px-based, with half-steps for common 6/10/14px) */
+  --space-px: 1px;
+  --space-half: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-5: 14px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-15: 60px;
+
+  /* Border widths */
+  --border-hairline: 0.5px;
+  --border-thin: 1px;
+  --border-medium: 2px;
+  --border-thick: 4px;
+
+  /* UI font sizes (separate from runtime --editor-font-size-*) */
+  --font-size-2xs: 10px;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+
+  /* Component dimensions not covered by --icon-size-* */
+  --size-icon-xs: 14px;     /* small inline icons (popup buttons, dropdown items) */
+  --size-icon-medium: 18px; /* standard SVG icon */
+  --size-btn-xs: 20px;      /* mermaid zoom button, file-remove button */
+  --size-btn-sm: 24px;      /* find-bar nav/close button */
+
+  /* Line heights */
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.35;
+  --line-height-base: 1.4;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+
+  /* Letter spacing (UI labels, uppercase headings) */
+  --letter-spacing-tight: 0.3px;
+  --letter-spacing-loose: 0.5px;
+
+  /* Opacity scale */
+  --opacity-disabled: 0.4;
+  --opacity-muted: 0.5;
+  --opacity-subtle: 0.6;
+  --opacity-half-faded: 0.7;
+  --opacity-mostly-opaque: 0.85;
+
+  /* Animation durations */
+  --duration-instant: 0.05s;
+  --duration-fast: 0.1s;
+  --duration-base: 0.15s;
+  --duration-medium: 0.2s;
+  --duration-slow: 0.3s;
+  --duration-slower: 0.6s;
+  --duration-1s: 1s;
+  --duration-1-5s: 1.5s;
+  --duration-2s: 2s;
+  --duration-5s: 5s;
+
+  /* Z-index stack (mirrors 32-component-patterns.md hierarchy) */
+  --z-resize-handle: 10;
+  --z-bar: 100;
+  --z-toolbar: 102;
+  --z-toolbar-dropdown: 103;
+  --z-context-menu: 1000;
+  --z-mcp-overlay: 1200;
+  --z-popup: 9999;
+  --z-table-context: 10000;
 }
 
 /* Dark theme token overrides */
