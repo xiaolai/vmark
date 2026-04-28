@@ -113,6 +113,8 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 | `--spacing-2` | `8px` | Standard gaps |
 | `--spacing-3` | `12px` | Larger spacing |
 
+**Use `--spacing-*` for `padding`, `margin`, and `gap` only.** A `4px` border-radius is `--radius-sm`, not `--spacing-1`. The numeric value coincidence does not imply semantic equivalence — see "Tokenize value vs. tokenize intent" below.
+
 ## Icon Size Tokens
 
 | Token | Value | Use For |
@@ -145,10 +147,19 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 | `--radius-pill` | `100px` | Pill shapes, tags |
 | `--popup-radius` | `8px` | Alias for popup containers |
 
-**Acceptable hardcoded values:**
-- `1px` or `2px` for inline elements (code spans, cursor indicators)
-- Focus indicator corners (e.g., `0 0 4px 4px` for U-shape)
-- @media print blocks (color-mix() may not render in all print pipelines)
+**Acceptable hardcoded values** (do not tokenize):
+- `0.5px` for retina sub-pixel borders
+- `1px` or `2px` for borders, dividers, and inline elements (code spans, cursor indicators, focus underlines)
+- `3px` for fine positioning offsets (e.g., `top: 3px` on a dot indicator)
+- Focus indicator geometry (e.g., `0 0 4px 4px` for the U-shape underline)
+- `@media print` blocks (color-mix() may not render in all print pipelines)
+- Component-internal one-off dimensions — define a **local** CSS var on the component class instead of adding a global token. Example pattern from `universal-toolbar.css`:
+  ```css
+  .universal-toolbar {
+    --universal-toolbar-height: 40px;
+    height: var(--universal-toolbar-height);
+  }
+  ```
 
 ### Shadows
 
@@ -249,6 +260,28 @@ Icon SVG sizes (conventions, not tokens):
 9. **Scrollbars use tokens** - Scrollbar colors should use `--border-color` and `--md-char-color`, not hardcoded rgba.
 10. **Dark alert tokens** - Use `--alert-*-dark` tokens in `.dark-theme` selectors with `color-mix()` for backgrounds.
 11. **Use hover tokens** - Use `--hover-bg` and `--hover-bg-strong`, never `--bg-hover` or `--bg-active` (those don't exist).
+
+## Tokenize value vs. tokenize intent
+
+Before replacing a literal with a token, the question is **not** "does a token with this value exist?" — it's "does the CSS *property* match the token's purpose?"
+
+The `ui-tokenize` plugin (`/ui-tokenize:audit`, `/ui-tokenize:fix`) matches on **value coincidence**, not property semantics. Empirically, ≥0.85-confidence suggestions from the audit are wrong about **58% of the time**: it suggests `--radius-sm` for any `4px`, `--list-indent` for any `16px`, `--cjk-letter-spacing` for any `1px`, etc. — regardless of whether the property is `border-radius`, `padding`, `gap`, `top`, or anything else.
+
+**Operating rules:**
+- **Never run `/ui-tokenize:fix` on this repo.** It will silently insert wrong tokens.
+- **Treat audit suggestions as candidates, not answers.** Verify property → token mapping for every change.
+- **Property-token mapping** (use this, not the audit's first suggestion):
+  | CSS property | Use |
+  |---|---|
+  | `border-radius` | `--radius-*` |
+  | `padding`, `margin`, `gap` | `--spacing-*` (or `--popup-padding` in popups) |
+  | `width`/`height` of icon buttons | `--icon-size-*` |
+  | `font-size` (UI text) | currently no static token; either keep literal or define a new one |
+  | `top`/`left`/`right`/`bottom` (positioning) | usually keep literal (focus offsets, dot indicators) |
+- **TS/TSX has no token consumer system.** Suggestions like `tokens.media.youtube` refer to a system that doesn't exist. Components consume tokens via CSS classes only.
+- **The audit's `#NNN` regex matches GitHub issue references** in code comments (e.g. `// fix for (#823)`). Treat short pure-numeric hex matches in `.ts`/`.tsx` as noise.
+
+The `.tokenize/ignore` file in the project root encodes the structural exclusions (export bundle, token-definer files, syntax-highlight palettes, fixtures).
 
 ## Visual QA
 
