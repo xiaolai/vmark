@@ -11,7 +11,7 @@
   justify-content: space-between;
   align-items: center;
   height: 40px;
-  padding: 6px 12px;
+  padding: 6px var(--spacing-3);
   background-color: var(--bg-color);
   font-size: 13px;
   color: var(--text-secondary);
@@ -25,7 +25,7 @@
 .status-bar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-2);
 }
 
 .status-bar-left {
@@ -43,7 +43,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 4px;
+  padding: 2px var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -64,7 +64,7 @@
 .status-autosave {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background-color: var(--hover-bg);
@@ -88,7 +88,7 @@
 .status-autosave-paused {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background-color: var(--warning-bg);
@@ -100,7 +100,7 @@
 .status-divergent {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background-color: var(--accent-bg);
@@ -120,7 +120,7 @@
 .status-quit-message {
   color: var(--text-secondary);
   font-size: 11px;
-  padding: 0 8px;
+  padding: 0 var(--spacing-2);
   white-space: nowrap;
   animation: popup-fade-in 0.1s ease-out;
 }
@@ -132,7 +132,7 @@
 .status-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   padding: 2px 0;
   max-width: 60%;
   overflow-x: auto;
@@ -149,9 +149,9 @@
 .tab-pill {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   height: 22px;
-  padding: 0 8px;
+  padding: 0 var(--spacing-2);
   border-radius: 11px;
   background-color: transparent;
   color: var(--text-secondary);
@@ -296,8 +296,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -319,8 +319,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -343,7 +343,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 10px;
+  padding: var(--spacing-2) 10px;
   border-radius: var(--radius-md);
   background: var(--bg-color);
   color: var(--text-color);
@@ -375,8 +375,8 @@
 
   .status-sidebar-toggle,
   .status-new-tab {
-    width: 28px;
-    height: 28px;
+    width: var(--icon-size-lg);
+    height: var(--icon-size-lg);
   }
 }
 
@@ -398,7 +398,7 @@
 .status-ai-indicator {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 11px;
@@ -458,7 +458,7 @@
   border: none;
   color: var(--primary-color);
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 var(--spacing-1);
   font-size: 11px;
   text-decoration: underline;
 }
@@ -490,8 +490,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: var(--spacing-1);
+  padding: 2px var(--spacing-2);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -547,7 +547,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 4px;
+  padding: 2px var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -578,7 +578,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 4px;
+  padding: 2px var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -633,8 +633,8 @@
 .status-update {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px;
+  gap: var(--spacing-1);
+  padding: 2px var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -728,8 +728,8 @@
 .status-source-upgrade {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px;
+  gap: var(--spacing-2);
+  padding: 0 var(--spacing-2);
   height: 22px;
   font-size: 12px;
   color: var(--text-secondary);
@@ -778,7 +778,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px;
+  padding: 0 var(--spacing-2);
   height: 22px;
   font-size: 12px;
   color: var(--text-secondary);
