@@ -11,7 +11,13 @@ src/export/reader/vmark-reader.js
 # --- Token DEFINER files -------------------------------------------------
 # These files SET CSS custom properties from primitives. Their literals are
 # the source of truth, not values to be tokenized.
-src/styles/index.css
+#
+# NOTE: src/styles/index.css is intentionally NOT excluded here. The plugin
+# uses this ignore list for BOTH the audit AND token discovery; if we
+# exclude index.css the catalog comes back empty and the PreToolUse hook
+# blocks all edits ("No design-token catalog found"). Audit findings inside
+# its :root block are known false positives — the values are the source of
+# truth, not migrations to apply.
 src/hooks/useTheme.ts
 src/hooks/useTheme.test.ts
 src/stores/settingsStore.ts
