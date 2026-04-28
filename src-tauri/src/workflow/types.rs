@@ -4,7 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Raw YAML workflow parsed from a .yml file.
+///
+/// Some fields are deserialized for round-tripping but not yet consumed by
+/// the executor. They're preserved so re-serialization keeps the user's YAML
+/// intact.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct RawWorkflow {
     pub name: String,
     #[serde(default)]
@@ -16,6 +21,7 @@ pub struct RawWorkflow {
 
 /// A single step in a raw workflow.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct RawStep {
     pub id: Option<String>,
     pub uses: String,
@@ -51,7 +57,10 @@ impl NeedsDef {
 }
 
 /// Budget limits for a step.
+///
+/// Parsed but not yet enforced by the executor; preserved for forward-compat.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct RawLimits {
     pub timeout: Option<String>,
     pub max_tokens: Option<u64>,

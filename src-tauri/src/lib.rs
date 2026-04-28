@@ -145,6 +145,11 @@ pub(crate) fn is_openable_markdown(path: &std::path::Path) -> bool {
 /// Extracted so the filter's acceptance policy can be unit-tested
 /// exhaustively — the real call site in `run()` only differs by where
 /// the input `Vec<String>` comes from (`std::env::args().skip(1)`).
+///
+/// On macOS this function is only reached from the test module; CLI args
+/// aren't used (Finder dispatches via `RunEvent::Opened`). Suppress the
+/// unused-warning there.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub(crate) fn filter_markdown_args(args: impl IntoIterator<Item = String>) -> Vec<String> {
     args.into_iter()
         .filter(|arg| is_openable_markdown(std::path::Path::new(arg)))

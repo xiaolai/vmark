@@ -94,6 +94,9 @@ pub async fn create_snapshot(
 }
 
 /// Restore all files from a snapshot.
+///
+/// Reserved for the workflow-undo feature; not yet wired to a Tauri command.
+#[allow(dead_code)]
 pub async fn restore_snapshot(
     app_data_dir: &Path,
     snapshot_id: &str,
@@ -166,6 +169,9 @@ pub async fn restore_snapshot(
 }
 
 /// List recent snapshots, sorted by timestamp descending.
+///
+/// Reserved for the workflow-undo UI; not yet wired to a Tauri command.
+#[allow(dead_code)]
 pub async fn list_snapshots(app_data_dir: &Path) -> Result<Vec<SnapshotInfo>, String> {
     let snapshots_dir = app_data_dir.join("workflow-snapshots");
     if !snapshots_dir.exists() {
