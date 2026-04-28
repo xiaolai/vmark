@@ -7,7 +7,7 @@
   min-height: var(--find-bar-height);
   z-index: 100; /* Same level as StatusBar */
   background: var(--bg-color);
-  padding: 5px 12px;
+  padding: 5px var(--spacing-3);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -16,7 +16,7 @@
 .find-bar-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-2);
   row-gap: 6px;
   flex-wrap: wrap;
   min-height: 28px;
@@ -32,7 +32,7 @@
   border: none;
   border-bottom: 1px solid var(--border-color, #e0e0e0);
   border-radius: 0;
-  padding: 0 4px;
+  padding: 0 var(--spacing-1);
 }
 
 .find-bar-input-group:focus-within {
@@ -50,7 +50,7 @@
   flex: 1;
   border: none;
   background: transparent;
-  padding: 4px 6px;
+  padding: var(--spacing-1) 6px;
   font-size: 13px;
   color: var(--text-primary, #333);
   outline: none;
@@ -78,7 +78,7 @@
 
 .find-bar-toggle {
   position: relative;
-  padding: 4px 6px;
+  padding: var(--spacing-1) 6px;
   font-size: 11px;
   font-weight: 500;
   font-family: var(--font-mono, monospace);
@@ -114,7 +114,7 @@
 .find-bar-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 .find-bar-nav-btn {
@@ -184,20 +184,20 @@
 
 .find-bar-replace-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 .find-bar-icon-btn {
   position: relative;
-  width: 26px;
-  height: 26px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-primary, #333);
   cursor: pointer;
   transition: all 0.1s ease;
