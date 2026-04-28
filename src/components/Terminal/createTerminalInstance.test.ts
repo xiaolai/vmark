@@ -328,7 +328,6 @@ describe("createTerminalInstance with WebGL", () => {
 describe("createTerminalInstance — minimumContrastRatio", () => {
   it("enables WCAG AA contrast auto-correction (bgCyan+black on light themes)", () => {
     const inst = makeInstance();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((inst.term as any)._constructorOptions.minimumContrastRatio).toBe(4.5);
     inst.dispose();
   });
@@ -337,7 +336,6 @@ describe("createTerminalInstance — minimumContrastRatio", () => {
 describe("createTerminalInstance — macOptionIsMeta (#660)", () => {
   it("passes macOptionIsMeta: true from settings by default", () => {
     const inst = makeInstance();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((inst.term as any)._constructorOptions.macOptionIsMeta).toBe(true);
     inst.dispose();
   });
@@ -357,7 +355,6 @@ describe("createTerminalInstance — macOptionIsMeta (#660)", () => {
       ptyRef: { current: null },
       onSearch: vi.fn(),
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((inst.term as any)._constructorOptions.macOptionIsMeta).toBe(false);
     inst.dispose();
   });

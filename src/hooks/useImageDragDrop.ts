@@ -272,5 +272,13 @@ export function useImageDragDrop({
       safeUnlisten(unlistenRef.current);
       unlistenRef.current = null;
     };
-  }, [enabled, isSourceMode, getFilePath, insertImagesInTiptap, insertImagesInCodeMirror]);
+  }, [
+    enabled,
+    isSourceMode,
+    getFilePath,
+    insertImagesInTiptap,
+    insertImagesInCodeMirror,
+    tiptapEditor,
+    cmViewRef,
+  ]);
 }
