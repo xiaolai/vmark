@@ -1,0 +1,34 @@
+# ui-tokenize ignore rules for vmark.
+# Excludes audit noise that is structurally not actionable.
+# See .claude/rules/31-design-tokens.md for the rationale.
+
+# --- Self-contained export bundle ----------------------------------------
+# vmark-reader.css ships HTML rendered outside the React app; literals are
+# intentional fallbacks in `var(--x, #literal)` form.
+src/export/reader/vmark-reader.css
+
+# --- Token DEFINER files -------------------------------------------------
+# These files SET CSS custom properties from primitives. Their literals are
+# the source of truth, not values to be tokenized.
+src/styles/index.css
+src/hooks/useTheme.ts
+src/hooks/useTheme.test.ts
+src/stores/settingsStore.ts
+src/components/Terminal/terminalTheme.ts
+src/components/Terminal/terminalTheme.test.ts
+
+# --- Domain-specific palettes (not UI tokens) ----------------------------
+# Code-syntax highlight palettes — separate concern from the design system.
+src/plugins/codemirror/source-syntax.css
+src/plugins/codeBlockLineNumbers/hljs-syntax.css
+
+# --- Brand assets / test fixtures ----------------------------------------
+public/*.svg
+src/assets/*.svg
+dev-docs/archive/
+**/fixtures/
+
+# --- Known tool limitations ---------------------------------------------
+# The audit's `#NNN` regex matches GitHub issue references in comments
+# (e.g. "// fix for (#823)"). There's no path-level fix; reviewers should
+# treat short pure-numeric hex matches in .ts/.tsx as noise.
