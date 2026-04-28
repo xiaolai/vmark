@@ -8,6 +8,8 @@
     "codex-toolkit@xiaolai": true,
     "tdd-guardian@xiaolai": true,
     "claude-english-buddy@xiaolai": true,
-    "docs-guardian@xiaolai": true
+    "docs-guardian@xiaolai": true,
+    "ui-tokenize@xiaolai": true,
+    "ui-responsive@xiaolai": true
   }
 }
