@@ -74,25 +74,3 @@ function createCursorElement(): HTMLElement {
   cursor.setAttribute("aria-hidden", "true");
   return cursor;
 }
-
-/**
- * Maps existing decorations through document changes.
- *
- * @param decorations - Previous decoration set
- * @param tr - Transaction with document changes
- * @param newState - New editor state
- * @returns Updated decoration set
- */
-export function mapDecorations(
-  _decorations: DecorationSet,
-  _tr: { mapping: { map: (pos: number) => number } },
-  newState: EditorState
-): DecorationSet {
-  // If selection changed, recreate decorations from scratch
-  // This ensures decorations always match the current selection
-  if (newState.selection instanceof MultiSelection) {
-    return createMultiCursorDecorations(newState);
-  }
-
-  return DecorationSet.empty;
-}
