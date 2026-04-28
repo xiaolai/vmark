@@ -9,5 +9,5 @@
   background-color: var(--highlight-bg);
   color: var(--highlight-text);
   border-radius: 2px;
-  padding: 0 2px;
+  padding: 0 var(--space-half);
 }

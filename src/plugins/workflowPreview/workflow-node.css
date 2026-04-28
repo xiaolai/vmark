@@ -7,13 +7,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 12px;
+  padding: var(--spacing-2) var(--spacing-3);
   min-width: 120px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--duration-base), border-color var(--duration-base);
 }
 
 .workflow-node:hover {
@@ -27,13 +27,13 @@
 
 /* Status states */
 .workflow-node--pending {
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
   border-style: dashed;
 }
 
 .workflow-node--running {
   border-color: var(--warning-color);
-  animation: workflow-node-pulse 1.5s ease-in-out infinite;
+  animation: workflow-node-pulse var(--duration-1-5s) ease-in-out infinite;
 }
 
 .workflow-node--success {
@@ -45,7 +45,7 @@
 }
 
 .workflow-node--skipped {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   border-style: dashed;
 }
 
@@ -62,12 +62,12 @@
 }
 
 .workflow-node__icon {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   line-height: 1;
 }
 
 .workflow-node__label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-color);
   white-space: nowrap;
@@ -79,10 +79,10 @@
 .workflow-node__spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid var(--border-color);
+  border: var(--border-medium) solid var(--border-color);
   border-top-color: var(--warning-color);
   border-radius: 50%;
-  animation: workflow-spinner 0.6s linear infinite;
+  animation: workflow-spinner var(--duration-slower) linear infinite;
 }
 
 @keyframes workflow-spinner {
@@ -90,7 +90,7 @@
 }
 
 .workflow-node__status-icon {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--success-color);
 }
 
@@ -99,9 +99,9 @@
 }
 
 .workflow-node__duration {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--text-tertiary);
-  margin-top: 2px;
+  margin-top: var(--space-half);
   font-variant-numeric: tabular-nums;
 }
 

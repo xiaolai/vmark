@@ -12,10 +12,10 @@
 
 .block-audio.media-loading audio {
   min-width: 200px;
-  min-height: 40px;
+  min-height: var(--space-10);
 }
 
 .block-audio.media-error audio {
   min-width: 200px;
-  min-height: 40px;
+  min-height: var(--space-10);
 }

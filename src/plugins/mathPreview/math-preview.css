@@ -6,19 +6,19 @@
 
 .math-preview-popup {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-color);
+  gap: var(--space-half);
+  padding: var(--space-1-5) var(--space-2-5);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--shadow-md);
-  animation: math-preview-fade-in 0.1s ease-out;
+  animation: math-preview-fade-in var(--duration-fast) ease-out;
   max-width: 300px;
-  min-width: 60px;
+  min-width: var(--space-15);
 }
 
 @keyframes math-preview-fade-in {
@@ -33,7 +33,7 @@
 }
 
 .math-preview-content {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   color: var(--text-color);
   white-space: nowrap;
   overflow: hidden;
@@ -52,13 +52,13 @@
 .math-preview-content.math-preview-error-state {
   color: var(--text-color);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .math-preview-error {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--error-color);
-  min-height: 12px;
+  min-height: var(--spacing-3);
 }
 
 .math-preview-error:empty {

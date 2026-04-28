@@ -47,7 +47,7 @@
   background: transparent;
   cursor: pointer;
   position: relative;
-  transition: all 0.15s ease;
+  transition: all var(--duration-base) ease;
 }
 
 .tiptap-editor .task-list-item input[type="checkbox"]:hover {

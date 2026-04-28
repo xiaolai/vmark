@@ -11,7 +11,7 @@
   font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
   opacity: 0;
-  animation: syntax-fade-in 0.15s ease-out forwards;
+  animation: syntax-fade-in var(--duration-base) ease-out forwards;
   user-select: none;
   pointer-events: none;
 }

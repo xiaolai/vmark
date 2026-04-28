@@ -7,8 +7,8 @@
 
 .toc-block {
   margin: 1em 0;
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
+  padding: var(--spacing-3) var(--space-4);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--subtle-bg);
 }
@@ -16,7 +16,7 @@
 .toc-block::before {
   content: "Table of Contents";
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-2);
   font-size: 0.85em;
   font-weight: 600;
   color: var(--text-secondary);
@@ -30,14 +30,14 @@
 }
 
 .toc-item {
-  line-height: 1.6;
+  line-height: var(--line-height-relaxed);
 }
 
 .toc-item a {
   color: var(--primary-color);
   text-decoration: none;
   font-size: 0.9em;
-  transition: color 0.15s;
+  transition: color var(--duration-base);
 }
 
 .toc-item a:hover {

@@ -36,7 +36,7 @@
   text-align: right;
   user-select: none;
   pointer-events: none;
-  border-right: 1px solid var(--border-color);
+  border-right: var(--border-thin) solid var(--border-color);
   background: var(--code-bg-color);
 }
 
@@ -67,8 +67,8 @@
   right: 8px;
   display: flex;
   align-items: center;
-  gap: 2px;
-  z-index: 10;
+  gap: var(--space-half);
+  z-index: var(--z-resize-handle);
   user-select: none;
 }
 
@@ -77,8 +77,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -86,11 +86,11 @@
   color: var(--md-char-color);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  transition: opacity var(--duration-base), color var(--duration-base), background var(--duration-base);
 }
 
 .tiptap-editor .code-block-wrapper:hover .code-copy-btn {
-  opacity: 0.7;
+  opacity: var(--opacity-half-faded);
 }
 
 .tiptap-editor .code-copy-btn:hover {
@@ -136,15 +136,15 @@
 /* Language selector chip */
 .tiptap-editor .code-lang-selector {
   position: relative;
-  padding: 2px 6px;
+  padding: var(--space-half) var(--space-1-5);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--md-char-color);
   background: transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: color 0.15s, opacity 0.15s;
-  opacity: 0.7;
+  transition: color var(--duration-base), opacity var(--duration-base);
+  opacity: var(--opacity-half-faded);
 }
 
 .tiptap-editor .code-lang-selector:hover {
@@ -173,22 +173,22 @@
 .code-lang-dropdown {
   width: 180px;
   background: var(--bg-color);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--popup-shadow);
-  z-index: 9999;
+  z-index: var(--z-popup);
   overflow: hidden;
 }
 
 /* Search input */
 .code-lang-dropdown .code-lang-search {
   width: 100%;
-  padding: 8px 10px;
+  padding: var(--spacing-2) var(--space-2-5);
   border: none;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-thin) solid var(--border-color);
   background: transparent;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-color);
   outline: none;
   box-sizing: border-box;
@@ -206,7 +206,7 @@
 .code-lang-dropdown .code-lang-list {
   max-height: 200px;
   overflow-y: auto;
-  padding: 4px;
+  padding: var(--spacing-1);
 }
 
 /* Scrollbar for language list */
@@ -225,13 +225,13 @@
 
 /* Language item */
 .code-lang-dropdown .code-lang-item {
-  padding: 6px 8px;
+  padding: var(--space-1-5) var(--spacing-2);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-color);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background var(--duration-fast);
   outline: none;
 }
 

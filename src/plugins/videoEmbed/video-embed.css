@@ -19,8 +19,8 @@
   height: 0;
   overflow: hidden;
   border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  transition: border-color 0.15s ease;
+  border: var(--border-thin) solid transparent;
+  transition: border-color var(--duration-base) ease;
 }
 
 .video-embed-wrapper iframe {
@@ -46,5 +46,5 @@
 /* Selected state */
 .ProseMirror-selectednode.video-embed .video-embed-wrapper,
 .video-embed.ProseMirror-selectednode .video-embed-wrapper {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }

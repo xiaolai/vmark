@@ -28,7 +28,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-half);
 }
 
 .terminal-tab-bar--horizontal .terminal-tab-bar-tabs {
@@ -53,7 +53,7 @@
   cursor: pointer;
   border-radius: var(--radius-sm);
   background: transparent;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .terminal-tab:hover {
@@ -68,7 +68,7 @@
 
 .terminal-tab-dead {
   color: var(--error-color);
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
 }
 
 .terminal-tab-dead.terminal-tab-active {
@@ -79,7 +79,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-half);
 }
 
 .terminal-tab-bar-btn {
@@ -94,7 +94,7 @@
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .terminal-tab-bar-btn:hover:not(:disabled) {
@@ -103,7 +103,7 @@
 }
 
 .terminal-tab-bar-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 

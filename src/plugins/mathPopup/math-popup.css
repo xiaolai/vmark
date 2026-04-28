@@ -4,12 +4,12 @@
 
 .math-popup {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--border-color);
+  gap: var(--space-1-5);
+  padding: var(--spacing-2);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-color);
   box-shadow: var(--shadow-md);
@@ -20,12 +20,12 @@
   width: 100%;
   min-height: 64px;
   resize: vertical;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
+  padding: var(--space-1-5) var(--spacing-2);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-family: var(--font-mono);
   outline: none;
 }
@@ -39,34 +39,34 @@
 }
 
 .math-popup-preview {
-  min-height: 32px;
-  padding: 6px 8px;
+  min-height: var(--space-8);
+  padding: var(--space-1-5) var(--spacing-2);
   border-radius: var(--radius-md);
   background: var(--hover-bg);
   color: var(--text-color);
-  font-size: 14px;
+  font-size: var(--font-size-md);
   overflow: hidden;
 }
 
 .math-popup-error {
-  min-height: 14px;
+  min-height: var(--space-3-5);
   color: var(--error-color);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .math-popup-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--spacing-2);
 }
 
 .math-popup-btn {
-  padding: 4px 10px;
-  border: 1px solid var(--border-color);
+  padding: var(--spacing-1) var(--space-2-5);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: default;
 }
 
@@ -92,7 +92,7 @@
   right: 4px;
   height: 4px;
   background: transparent;
-  border-bottom: 2px solid var(--primary-color);
+  border-bottom: var(--border-medium) solid var(--primary-color);
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 

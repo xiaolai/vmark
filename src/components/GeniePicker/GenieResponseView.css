@@ -5,7 +5,7 @@
 .genie-response-view {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--border-color);
+  border-top: var(--border-thin) solid var(--border-color);
   max-height: 50vh;
   overflow-y: auto;
 }
@@ -13,8 +13,8 @@
 /* ---- Submitted prompt (dimmed) ---- */
 
 .genie-response-prompt {
-  padding: var(--spacing-2) 14px var(--spacing-1);
-  font-size: 12px;
+  padding: var(--spacing-2) var(--space-3-5) var(--spacing-1);
+  font-size: var(--font-size-sm);
   font-style: italic;
   color: var(--text-tertiary);
 }
@@ -24,14 +24,14 @@
 .genie-response-thinking {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: var(--spacing-2) 14px;
-  font-size: 13px;
+  gap: var(--space-1-5);
+  padding: var(--spacing-2) var(--space-3-5);
+  font-size: var(--font-size-base);
   color: var(--primary-color);
 }
 
 .genie-response-spinner {
-  animation: genie-bounce 0.6s ease-in-out infinite;
+  animation: genie-bounce var(--duration-slower) ease-in-out infinite;
 }
 
 @keyframes genie-bounce {
@@ -46,12 +46,12 @@
 /* ---- Response text ---- */
 
 .genie-response-text {
-  padding: var(--spacing-2) 14px;
-  font-size: 13px;
+  padding: var(--spacing-2) var(--space-3-5);
+  font-size: var(--font-size-base);
   color: var(--text-color);
   white-space: pre-wrap;
   word-wrap: break-word;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 /* ---- Streaming cursor ---- */
@@ -61,7 +61,7 @@
   width: 2px;
   height: 1em;
   background: var(--primary-color);
-  margin-left: 1px;
+  margin-left: var(--space-px);
   vertical-align: text-bottom;
   animation: genie-cursor-blink 0.8s step-end infinite;
 }
@@ -79,24 +79,24 @@
 
 .genie-response-actions {
   display: flex;
-  gap: 6px;
-  padding: 6px 14px;
-  border-top: 1px solid var(--border-color);
+  gap: var(--space-1-5);
+  padding: var(--space-1-5) var(--space-3-5);
+  border-top: var(--border-thin) solid var(--border-color);
 }
 
 .genie-response-btn {
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 3px 10px;
-  border: 1px solid var(--border-color);
+  padding: 3px var(--space-2-5);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-family: var(--font-sans);
   cursor: pointer;
   position: relative;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background var(--duration-base), color var(--duration-base), border-color var(--duration-base);
 }
 
 .genie-response-btn--accept {
@@ -149,9 +149,9 @@
 .genie-response-error {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  padding: var(--spacing-2) 14px;
-  font-size: 13px;
+  gap: var(--space-1-5);
+  padding: var(--spacing-2) var(--space-3-5);
+  font-size: var(--font-size-base);
   color: var(--error-color);
   background: var(--error-bg);
   border-left: 3px solid var(--error-color);
@@ -159,7 +159,7 @@
 
 .genie-response-error svg {
   flex-shrink: 0;
-  margin-top: 1px;
+  margin-top: var(--space-px);
 }
 
 /* ---- Dark theme ---- */

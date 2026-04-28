@@ -5,16 +5,16 @@
 
 .source-footnote-popup {
   position: absolute;
-  z-index: 9999;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px;
-  border: 1px solid var(--border-color);
+  gap: var(--spacing-1);
+  padding: var(--space-1-5);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
-  animation: source-footnote-popup-fade-in 0.1s ease-out;
+  animation: source-footnote-popup-fade-in var(--duration-fast) ease-out;
   min-width: 280px;
 }
 
@@ -33,15 +33,15 @@
 .source-footnote-popup-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 /* Label display */
 .source-footnote-popup-label {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  padding: 2px 6px;
+  padding: var(--space-half) var(--space-1-5);
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
 }
@@ -49,15 +49,15 @@
 /* Textarea for content */
 .source-footnote-popup-textarea {
   width: 100%;
-  min-height: 40px;
-  padding: 6px 8px;
+  min-height: var(--space-10);
+  padding: var(--space-1-5) var(--spacing-2);
   border: none;
   border-radius: var(--radius-sm);
   background: var(--subtle-bg);
   color: var(--text-color);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-family: var(--font-sans);
-  line-height: 1.4;
+  line-height: var(--line-height-base);
   resize: none;
   outline: none;
 }
@@ -72,7 +72,7 @@
 
 .source-footnote-popup-textarea::placeholder {
   color: var(--text-secondary);
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
 }
 
 /* Icon-only buttons */
@@ -80,8 +80,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -102,7 +102,7 @@
 }
 
 .source-footnote-popup-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -120,13 +120,13 @@
   right: 4px;
   height: 4px;
   background: transparent;
-  border-bottom: 2px solid var(--primary-color);
+  border-bottom: var(--border-medium) solid var(--primary-color);
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .source-footnote-popup-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
   stroke: currentColor;
   stroke-width: 1.5;
   stroke-linecap: round;

@@ -5,21 +5,21 @@
   left: 0;
   right: 0;
   min-height: var(--find-bar-height);
-  z-index: 100; /* Same level as StatusBar */
+  z-index: var(--z-bar); /* Same level as StatusBar */
   background: var(--bg-color);
   padding: 5px var(--spacing-3);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1-5);
 }
 
 .find-bar-row {
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
-  row-gap: 6px;
+  row-gap: var(--space-1-5);
   flex-wrap: wrap;
-  min-height: 28px;
+  min-height: var(--space-7);
 }
 
 .find-bar-input-group {
@@ -30,7 +30,7 @@
   max-width: none;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  border-bottom: var(--border-thin) solid var(--border-color, #e0e0e0);
   border-radius: 0;
   padding: 0 var(--spacing-1);
 }
@@ -40,8 +40,8 @@
 }
 
 .find-bar-icon {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
   color: var(--text-tertiary, #999);
   flex-shrink: 0;
 }
@@ -50,8 +50,8 @@
   flex: 1;
   border: none;
   background: transparent;
-  padding: var(--spacing-1) 6px;
-  font-size: 13px;
+  padding: var(--spacing-1) var(--space-1-5);
+  font-size: var(--font-size-base);
   color: var(--text-primary, #333);
   outline: none;
   box-shadow: none;
@@ -73,21 +73,21 @@
 
 .find-bar-toggles {
   display: flex;
-  gap: 2px;
+  gap: var(--space-half);
 }
 
 .find-bar-toggle {
   position: relative;
-  padding: var(--spacing-1) 6px;
-  font-size: 11px;
+  padding: var(--spacing-1) var(--space-1-5);
+  font-size: var(--font-size-xs);
   font-weight: 500;
   font-family: var(--font-mono, monospace);
   background: transparent;
-  border: 1px solid transparent;
+  border: var(--border-thin) solid transparent;
   border-radius: var(--radius-sm);
   color: var(--text-secondary, #666);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .find-bar-toggle:hover {
@@ -107,7 +107,7 @@
   right: 4px;
   height: 4px;
   background: transparent;
-  border-bottom: 2px solid var(--accent-primary, #007aff);
+  border-bottom: var(--border-medium) solid var(--accent-primary, #007aff);
   border-radius: 0 0 4px 4px;
 }
 
@@ -119,8 +119,8 @@
 
 .find-bar-nav-btn {
   position: relative;
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
   padding: 0;
   display: flex;
   align-items: center;
@@ -130,7 +130,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-secondary, #666);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .find-bar-nav-btn:hover:not(:disabled) {
@@ -138,7 +138,7 @@
 }
 
 .find-bar-nav-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -148,17 +148,17 @@
 }
 
 .find-bar-count {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary, #666);
-  min-width: 60px;
+  min-width: var(--space-15);
   text-align: center;
   white-space: nowrap;
 }
 
 .find-bar-close {
   position: relative;
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
   padding: 0;
   display: flex;
   align-items: center;
@@ -168,7 +168,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-tertiary, #999);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all var(--duration-fast) ease;
   margin-left: auto;
 }
 
@@ -178,8 +178,8 @@
 }
 
 .find-bar-close svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
 }
 
 .find-bar-replace-actions {
@@ -196,11 +196,11 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid var(--border-color, #e0e0e0);
+  border: var(--border-thin) solid var(--border-color, #e0e0e0);
   border-radius: var(--radius-sm);
   color: var(--text-primary, #333);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all var(--duration-fast) ease;
 }
 
 .find-bar-icon-btn:hover:not(:disabled) {
@@ -208,7 +208,7 @@
 }
 
 .find-bar-icon-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 

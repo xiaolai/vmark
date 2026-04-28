@@ -10,8 +10,8 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -22,8 +22,8 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-  z-index: 10;
+  transition: opacity var(--duration-base), background var(--duration-base), color var(--duration-base);
+  z-index: var(--z-resize-handle);
 }
 
 .panzoom-enabled:hover .mermaid-panzoom-reset {
@@ -53,8 +53,8 @@
 }
 
 .mermaid-panzoom-reset svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
 }
 
 /* Export button — to the left of reset */
@@ -62,8 +62,8 @@
   position: absolute;
   top: 8px;
   right: 40px; /* 8 + 24 (reset) + 8 gap */
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -74,8 +74,8 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-  z-index: 10;
+  transition: opacity var(--duration-base), background var(--duration-base), color var(--duration-base);
+  z-index: var(--z-resize-handle);
 }
 
 .panzoom-enabled:hover .mermaid-export-btn {
@@ -104,37 +104,37 @@
 }
 
 .mermaid-export-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
 }
 
 /* Theme picker menu — fixed to escape overflow:hidden container */
 .mermaid-export-menu {
   position: fixed;
-  z-index: 9999;
-  padding: 4px;
-  border: 1px solid var(--border-color);
+  z-index: var(--z-popup);
+  padding: var(--spacing-1);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-half);
   min-width: 100px;
 }
 
 .mermaid-export-menu-item {
-  padding: 4px 8px;
+  padding: var(--spacing-1) var(--spacing-2);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-family: var(--font-sans);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   white-space: nowrap;
 }
 
@@ -152,5 +152,5 @@
   width: 12px;
   height: 12px;
   border-radius: 2px;
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }

@@ -6,16 +6,16 @@
 
 .link-create-popup {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1-5);
   padding: var(--popup-padding);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
-  animation: popup-fade-in 0.1s ease-out;
+  animation: popup-fade-in var(--duration-fast) ease-out;
 }
 
 .dark-theme .link-create-popup {
@@ -25,19 +25,19 @@
 .link-create-popup-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 .link-create-popup-input {
   flex: 1;
   min-width: 200px;
   height: 24px;
-  padding: 0 8px;
+  padding: 0 var(--spacing-2);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-family: var(--font-sans);
   outline: none;
 }
@@ -53,18 +53,18 @@
 
 .link-create-popup-input::placeholder {
   color: var(--text-secondary);
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
 }
 
 .link-create-popup-url {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .link-create-popup-btn {
   position: relative;
-  width: 26px;
-  height: 26px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -75,7 +75,7 @@
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--duration-base), color var(--duration-base);
 }
 
 .link-create-popup-btn:hover:not(:disabled) {
@@ -84,13 +84,13 @@
 }
 
 .link-create-popup-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
 .link-create-popup-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;

@@ -8,12 +8,12 @@
  */
 
 .katex .frac-line {
-  border-bottom-width: 1px;
+  border-bottom-width: var(--border-thin);
 }
 
 .katex .overline .overline-line,
 .katex .underline .underline-line {
-  border-bottom-width: 1px;
+  border-bottom-width: var(--border-thin);
 }
 
 .katex .sqrt > .root {
@@ -22,5 +22,5 @@
 
 .katex .hdashline,
 .katex .hline {
-  border-bottom-width: 1px;
+  border-bottom-width: var(--border-thin);
 }

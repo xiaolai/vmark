@@ -6,9 +6,9 @@
 
 .mermaid-preview-popup {
   position: absolute;
-  z-index: 1000;
+  z-index: var(--z-context-menu);
   background: var(--bg-color);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--popup-shadow);
   overflow: hidden;
@@ -26,8 +26,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px var(--spacing-2) 6px var(--spacing-3);
-  border-bottom: 1px solid var(--border-color);
+  padding: var(--space-1-5) var(--spacing-2) var(--space-1-5) var(--spacing-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
   cursor: grab;
   flex-shrink: 0;
 }
@@ -37,7 +37,7 @@
 }
 
 .mermaid-preview-title {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -46,24 +46,24 @@
 .mermaid-preview-zoom {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-half);
 }
 
 .mermaid-preview-zoom-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--size-btn-xs);
+  height: var(--size-btn-xs);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--duration-base);
 }
 
 .mermaid-preview-zoom-btn:hover {
@@ -92,9 +92,9 @@
 }
 
 .mermaid-preview-zoom-value {
-  min-width: 40px;
+  min-width: var(--space-10);
   text-align: center;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
@@ -195,28 +195,28 @@
 .mermaid-preview-empty {
   color: var(--text-tertiary);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .mermaid-preview-loading {
   color: var(--text-secondary);
-  font-size: 13px;
-  padding: 20px;
+  font-size: var(--font-size-base);
+  padding: var(--space-5);
 }
 
 .mermaid-preview-error {
   color: var(--error-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   margin-top: var(--spacing-2);
   text-align: center;
 }
 
 .mermaid-preview-error-state {
-  border: 1px dashed var(--error-color);
+  border: var(--border-thin) dashed var(--error-color);
   border-radius: var(--radius-sm);
   padding: var(--spacing-3);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   background: var(--error-bg);
 }
 

@@ -44,12 +44,12 @@
 .math-inline-loading {
   color: var(--text-secondary);
   font-style: italic;
-  animation: math-loading-pulse 1s ease-in-out infinite;
+  animation: math-loading-pulse var(--duration-1s) ease-in-out infinite;
 }
 
 @keyframes math-loading-pulse {
   0%, 100% {
-    opacity: 0.5;
+    opacity: var(--opacity-muted);
   }
   50% {
     opacity: 1;
@@ -116,7 +116,7 @@
   border-radius: var(--radius-md);
   text-align: center;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--duration-base) ease;
 }
 
 .math-block:hover {
@@ -125,11 +125,11 @@
 
 /* Media border feature (setting-driven) */
 .media-border-always .math-block {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 .media-border-hover .math-block:hover {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 .math-block.editing {
@@ -142,7 +142,7 @@
 }
 
 .math-block-preview {
-  min-height: 40px;
+  min-height: var(--space-10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -161,11 +161,11 @@
 .math-block-editor {
   display: none;
   width: 100%;
-  min-height: 60px;
+  min-height: var(--space-15);
   padding: 0.75rem;
   font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
   border: none;
   background: transparent;
   color: var(--text-color);

@@ -7,17 +7,17 @@
 
 .wiki-link-popup {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 2px;
-  padding: 4px 6px;
-  border: 1px solid var(--border-color);
+  gap: var(--space-half);
+  padding: var(--spacing-1) var(--space-1-5);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
-  animation: wiki-link-popup-fade-in 0.1s ease-out;
+  animation: wiki-link-popup-fade-in var(--duration-fast) ease-out;
 }
 
 @keyframes wiki-link-popup-fade-in {

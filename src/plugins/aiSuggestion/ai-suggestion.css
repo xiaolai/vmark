@@ -13,7 +13,7 @@
 /* Ghost text - preview of content to be inserted */
 .ai-suggestion-ghost {
   color: var(--primary-color);
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
   font-style: italic;
 }
 
@@ -37,7 +37,7 @@
   text-decoration: line-through wavy;
   text-decoration-color: var(--error-color);
   text-decoration-thickness: 1px;
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
 }
 
 /* Delete suggestion - red wavy strikethrough */
@@ -45,7 +45,7 @@
   text-decoration: line-through wavy;
   text-decoration-color: var(--error-color);
   text-decoration-thickness: 1px;
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
 }
 
 /* Focused state - no visual change, buttons indicate focus */
@@ -56,8 +56,8 @@
 /* Accept/Reject buttons container */
 .ai-suggestion-buttons {
   display: inline-flex;
-  gap: 4px;
-  margin-left: 6px;
+  gap: var(--spacing-1);
+  margin-left: var(--space-1-5);
   vertical-align: middle;
 }
 
@@ -67,16 +67,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--size-btn-xs);
+  height: var(--size-btn-xs);
   padding: 0;
   border: none;
   border-radius: 0;
   background: transparent;
   cursor: pointer;
-  transition: transform 0.1s, opacity 0.15s;
+  transition: transform var(--duration-fast), opacity var(--duration-base);
   vertical-align: middle;
-  opacity: 0.7;
+  opacity: var(--opacity-half-faded);
 }
 
 .ai-suggestion-btn:hover {
@@ -102,7 +102,7 @@
   right: 1px;
   height: 2px;
   background: transparent;
-  border-bottom: 2px solid currentColor;
+  border-bottom: var(--border-medium) solid currentColor;
   border-radius: 0 0 2px 2px;
 }
 

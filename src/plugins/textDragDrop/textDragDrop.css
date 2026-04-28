@@ -4,7 +4,7 @@
   width: 2px;
   background: var(--primary-color);
   pointer-events: none;
-  z-index: 100;
+  z-index: var(--z-bar);
   display: none;
   border-radius: 1px;
 }

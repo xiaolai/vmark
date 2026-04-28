@@ -11,7 +11,7 @@
   border-radius: var(--radius-md);
   background-color: var(--subtle-bg);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--duration-base) ease;
 }
 
 .code-block-preview:hover {
@@ -20,7 +20,7 @@
 
 /* LaTeX preview - match .math-block-preview layout */
 .code-block-preview.latex-preview {
-  min-height: 40px;
+  min-height: var(--space-10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -51,7 +51,7 @@
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
 }
 
 .code-block-preview.mermaid-error svg {
@@ -97,16 +97,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
+  padding: var(--space-1-5) var(--spacing-3);
   margin: 1rem 0 0 0;
   background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-bottom: none;
   border-radius: var(--radius-md) var(--radius-md, 6px) 0 0;
 }
 
 .code-block-edit-title {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -114,22 +114,22 @@
 .code-block-edit-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 .code-block-edit-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color var(--duration-base), color var(--duration-base);
 }
 
 .code-block-edit-btn:hover {
@@ -172,8 +172,8 @@
 
 .code-block-wrapper.code-block-editing pre {
   margin: 0;
-  padding: 12px;
-  border: 1px solid var(--border-color);
+  padding: var(--spacing-3);
+  border: var(--border-thin) solid var(--border-color);
   border-top: none;
   border-bottom: none;
   border-radius: 0;
@@ -192,13 +192,13 @@
 
 /* Live preview during editing */
 .code-block-live-preview {
-  padding: 12px;
+  padding: var(--spacing-3);
   margin: 0 0 1rem 0;
   background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-top: 1px dashed var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-top: var(--border-thin) dashed var(--border-color);
   border-radius: 0 0 var(--radius-md, 6px) var(--radius-md, 6px);
-  min-height: 60px;
+  min-height: var(--space-15);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -224,13 +224,13 @@
 .code-block-live-preview-empty {
   color: var(--text-tertiary);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .code-block-live-preview-error {
   color: var(--error-color);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 /* Hide language selector for preview-only blocks (mermaid, latex) */

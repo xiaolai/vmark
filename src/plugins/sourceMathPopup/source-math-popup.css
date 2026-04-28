@@ -9,14 +9,14 @@
   display: flex;
   flex-direction: column;
   width: 360px;
-  gap: 4px;
+  gap: var(--spacing-1);
   padding: var(--popup-padding);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
-  animation: popup-fade-in 0.1s ease-out;
-  z-index: 9999;
+  animation: popup-fade-in var(--duration-fast) ease-out;
+  z-index: var(--z-popup);
 }
 
 .dark-theme .source-math-popup {
@@ -25,16 +25,16 @@
 
 .source-math-popup-input {
   width: 100%;
-  min-height: 60px;
+  min-height: var(--space-15);
   max-height: 120px;
   resize: vertical;
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-color);
   font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 6px 8px;
+  font-size: var(--font-size-sm);
+  padding: var(--space-1-5) var(--spacing-2);
   outline: none;
 }
 
@@ -44,7 +44,7 @@
 
 .source-math-popup-preview {
   min-height: 30px;
-  padding: 6px 8px;
+  padding: var(--space-1-5) var(--spacing-2);
   overflow: auto;
   text-align: center;
   color: var(--text-color);
@@ -55,9 +55,9 @@
 }
 
 .source-math-popup-error {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--error-color);
-  padding: 0 8px;
+  padding: 0 var(--spacing-2);
 }
 
 .source-math-popup-error:empty {
@@ -67,15 +67,15 @@
 .source-math-popup-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
-  padding-top: 4px;
+  gap: var(--space-1-5);
+  padding-top: var(--spacing-1);
 }
 
 .source-math-popup-btn {
-  padding: 3px 10px;
+  padding: 3px var(--space-2-5);
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   background: transparent;
   color: var(--text-secondary);

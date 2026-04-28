@@ -5,8 +5,8 @@
  */
 
 .frontmatter-panel {
-  margin-bottom: 8px;
-  border: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-2);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   overflow: hidden;
   user-select: none;
@@ -15,11 +15,11 @@
 .frontmatter-panel-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: var(--space-1-5);
+  padding: var(--spacing-1) var(--space-2-5);
   background: var(--bg-secondary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   font-family: var(--font-mono);
 }
@@ -47,7 +47,7 @@
 .frontmatter-panel-chevron {
   width: 12px;
   height: 12px;
-  transition: transform 0.15s;
+  transition: transform var(--duration-base);
 }
 
 .frontmatter-panel.expanded .frontmatter-panel-chevron {
@@ -65,17 +65,17 @@
 
 .frontmatter-panel-textarea {
   width: 100%;
-  min-height: 60px;
+  min-height: var(--space-15);
   max-height: 300px;
   resize: vertical;
   border: none;
-  border-top: 1px solid var(--border-color);
+  border-top: var(--border-thin) solid var(--border-color);
   background: var(--subtle-bg);
   color: var(--text-color);
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  padding: 8px 10px;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  padding: var(--spacing-2) var(--space-2-5);
   outline: none;
 }
 

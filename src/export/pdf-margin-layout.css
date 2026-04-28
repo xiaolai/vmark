@@ -10,8 +10,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px 4px;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-1) var(--spacing-1);
 }
 
 .margin-layout-top,
@@ -23,17 +23,17 @@
 .margin-layout-middle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 /* The page rectangle — represents the content area */
 .margin-layout-page {
   width: 72px;
   height: 96px;
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: 2px;
   background: var(--bg-color);
-  transition: width 0.15s, height 0.15s;
+  transition: width var(--duration-base), height var(--duration-base);
 }
 
 .margin-layout-page--landscape {
@@ -45,12 +45,12 @@
 .margin-layout-input {
   width: 44px;
   height: 22px;
-  padding: 0 2px;
-  border: 1px solid var(--border-color);
+  padding: 0 var(--space-half);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-color);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   text-align: center;
   outline: none;

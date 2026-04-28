@@ -5,16 +5,16 @@
 
 .source-wiki-link-popup {
   position: absolute;
-  z-index: 9999;
+  z-index: var(--z-popup);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--border-color);
+  gap: var(--spacing-1);
+  padding: var(--spacing-1);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
-  animation: source-wiki-link-popup-fade-in 0.1s ease-out;
+  animation: source-wiki-link-popup-fade-in var(--duration-fast) ease-out;
 }
 
 @keyframes source-wiki-link-popup-fade-in {
@@ -32,17 +32,17 @@
 .source-wiki-link-popup-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-half);
 }
 
 /* Target Input - borderless */
 .source-wiki-link-popup-target {
   width: 200px;
-  padding: 4px 8px;
+  padding: var(--spacing-1) var(--spacing-2);
   border: none;
   background: transparent;
   color: var(--text-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   outline: none;
 }
 
@@ -61,7 +61,7 @@
 
 .source-wiki-link-popup-target::placeholder {
   color: var(--text-secondary);
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
 }
 
 /* Icon-only buttons */
@@ -69,8 +69,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -91,7 +91,7 @@
 }
 
 .source-wiki-link-popup-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -109,13 +109,13 @@
   right: 4px;
   height: 4px;
   background: transparent;
-  border-bottom: 2px solid var(--primary-color);
+  border-bottom: var(--border-medium) solid var(--primary-color);
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .source-wiki-link-popup-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
   stroke: currentColor;
   stroke-width: 1.5;
   stroke-linecap: round;

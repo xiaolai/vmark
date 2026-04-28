@@ -3,7 +3,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: var(--z-bar);
 }
 
 .status-bar {
@@ -11,9 +11,9 @@
   justify-content: space-between;
   align-items: center;
   height: 40px;
-  padding: 6px var(--spacing-3);
+  padding: var(--space-1-5) var(--spacing-3);
   background-color: var(--bg-color);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
 }
 
@@ -43,13 +43,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px var(--spacing-1);
+  padding: var(--space-half) var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .status-mode:hover {
@@ -65,12 +65,12 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 2px 6px;
+  padding: var(--space-half) var(--space-1-5);
   border-radius: var(--radius-sm);
   background-color: var(--hover-bg);
   color: var(--text-secondary);
-  font-size: 11px;
-  animation: autosave-fade 5s ease-out forwards;
+  font-size: var(--font-size-xs);
+  animation: autosave-fade var(--duration-5s) ease-out forwards;
 }
 
 @keyframes autosave-fade {
@@ -81,7 +81,7 @@
     opacity: 1;
   }
   100% {
-    opacity: 0.5;
+    opacity: var(--opacity-muted);
   }
 }
 
@@ -89,24 +89,24 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 2px 6px;
+  padding: var(--space-half) var(--space-1-5);
   border-radius: var(--radius-sm);
   background-color: var(--warning-bg);
   color: var(--warning-color);
-  font-size: 11px;
-  border: 1px solid var(--warning-border);
+  font-size: var(--font-size-xs);
+  border: var(--border-thin) solid var(--warning-border);
 }
 
 .status-divergent {
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 2px 6px;
+  padding: var(--space-half) var(--space-1-5);
   border-radius: var(--radius-sm);
   background-color: var(--accent-bg);
   color: var(--accent-primary);
-  font-size: 11px;
-  border: 1px solid var(--selection-color);
+  font-size: var(--font-size-xs);
+  border: var(--border-thin) solid var(--selection-color);
 }
 
 .dark-theme .status-divergent {
@@ -119,10 +119,10 @@
 
 .status-quit-message {
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   padding: 0 var(--spacing-2);
   white-space: nowrap;
-  animation: popup-fade-in 0.1s ease-out;
+  animation: popup-fade-in var(--duration-fast) ease-out;
 }
 
 /* ========================================
@@ -133,7 +133,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 2px 0;
+  padding: var(--space-half) 0;
   max-width: 60%;
   overflow-x: auto;
   scrollbar-width: none;
@@ -155,10 +155,10 @@
   border-radius: 11px;
   background-color: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
   flex-shrink: 0;
   /* Opt out of window drag region so pointer events reach tab handlers */
   -webkit-app-region: no-drag;
@@ -200,15 +200,15 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
   padding: 0;
   border: none;
   border-radius: 50%;
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background-color 0.1s ease, color 0.1s ease;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
   flex-shrink: 0;
 }
 
@@ -224,7 +224,7 @@
 /* Missing file indicator (file deleted from disk) */
 .tab-pill.tab-missing {
   background-color: var(--warning-bg);
-  border: 1px solid var(--warning-border);
+  border: var(--border-thin) solid var(--warning-border);
 }
 
 .tab-pill.tab-missing:hover {
@@ -239,7 +239,7 @@
 
 /* Divergent file indicator (local differs from disk) */
 .tab-pill.tab-divergent {
-  border: 1px solid var(--selection-color);
+  border: var(--border-thin) solid var(--selection-color);
 }
 
 .dark-theme .tab-pill.tab-divergent {
@@ -248,13 +248,13 @@
 
 /* Tab being dragged out of the bar */
 .tab-pill.tab--dragging {
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
   pointer-events: none;
 }
 
 /* Tab being reordered (dragged horizontally) */
 .tab-pill.tab--reordering {
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
 }
 
 .tab-pill.tab--invalid-drop {
@@ -304,7 +304,7 @@
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
   flex-shrink: 0;
 }
 
@@ -327,7 +327,7 @@
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
   flex-shrink: 0;
 }
 
@@ -338,27 +338,27 @@
 
 .tab-drag-ghost {
   position: fixed;
-  z-index: 1200;
+  z-index: var(--z-mcp-overlay);
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--spacing-2) 10px;
+  gap: var(--space-half);
+  padding: var(--spacing-2) var(--space-2-5);
   border-radius: var(--radius-md);
   background: var(--bg-color);
   color: var(--text-color);
   box-shadow: var(--popup-shadow);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   transform: translate3d(-1000px, -1000px, 0);
 }
 
 .tab-drag-ghost-title {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
 }
 
 .tab-drag-ghost-hint {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
 
@@ -369,7 +369,7 @@
 @media (pointer: coarse) {
   .tab-pill {
     height: 28px;
-    padding: 0 10px;
+    padding: 0 var(--space-2-5);
     border-radius: 14px;
   }
 
@@ -399,11 +399,11 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 2px 6px;
+  padding: var(--space-half) var(--space-1-5);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   white-space: nowrap;
-  animation: popup-fade-in 0.15s ease-out;
+  animation: popup-fade-in var(--duration-base) ease-out;
 }
 
 .status-ai-indicator--running {
@@ -411,7 +411,7 @@
 }
 
 .status-ai-indicator--running .status-ai-spinner {
-  animation: ai-bounce 0.6s ease-in-out infinite;
+  animation: ai-bounce var(--duration-slower) ease-in-out infinite;
 }
 
 .status-ai-indicator--error {
@@ -437,10 +437,10 @@
   border: none;
   color: inherit;
   cursor: pointer;
-  padding: 0 2px;
-  font-size: 14px;
+  padding: 0 var(--space-half);
+  font-size: var(--font-size-md);
   line-height: 1;
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
 }
 
 .status-ai-cancel:hover {
@@ -459,7 +459,7 @@
   color: var(--primary-color);
   cursor: pointer;
   padding: 0 var(--spacing-1);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   text-decoration: underline;
 }
 
@@ -491,14 +491,14 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 2px var(--spacing-2);
+  padding: var(--space-half) var(--spacing-2);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .status-mcp:hover {
@@ -518,7 +518,7 @@
 }
 
 .status-mcp.loading svg {
-  animation: mcp-pulse 1.5s ease-in-out infinite;
+  animation: mcp-pulse var(--duration-1-5s) ease-in-out infinite;
 }
 
 .status-mcp.error {
@@ -530,7 +530,7 @@
     opacity: 1;
   }
   50% {
-    opacity: 0.4;
+    opacity: var(--opacity-disabled);
   }
 }
 
@@ -547,13 +547,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px var(--spacing-1);
+  padding: var(--space-half) var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .status-terminal:hover {
@@ -578,13 +578,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px var(--spacing-1);
+  padding: var(--space-half) var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
 }
 
 .status-lock:hover {
@@ -634,13 +634,13 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-1);
-  padding: 2px var(--spacing-1);
+  padding: var(--space-half) var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-tertiary);
   cursor: default;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color var(--duration-base) ease, background-color var(--duration-base) ease;
 }
 
 /* Only show hover effect for clickable states (ready, error) */
@@ -655,7 +655,7 @@
 }
 
 .status-update.checking svg {
-  animation: update-spin 1s linear infinite;
+  animation: update-spin var(--duration-1s) linear infinite;
 }
 
 @keyframes update-spin {
@@ -673,7 +673,7 @@
 }
 
 .status-update.downloading svg {
-  animation: update-pulse 1.5s ease-in-out infinite;
+  animation: update-pulse var(--duration-1-5s) ease-in-out infinite;
 }
 
 @keyframes update-pulse {
@@ -681,7 +681,7 @@
     opacity: 1;
   }
   50% {
-    opacity: 0.4;
+    opacity: var(--opacity-disabled);
   }
 }
 
@@ -710,7 +710,7 @@
   height: 6px;
   border-radius: 50%;
   background-color: currentColor;
-  animation: update-dot-pulse 2s ease-in-out infinite;
+  animation: update-dot-pulse var(--duration-2s) ease-in-out infinite;
 }
 
 @keyframes update-dot-pulse {
@@ -719,7 +719,7 @@
     transform: scale(1);
   }
   50% {
-    opacity: 0.6;
+    opacity: var(--opacity-subtle);
     transform: scale(0.9);
   }
 }
@@ -731,7 +731,7 @@
   gap: var(--spacing-2);
   padding: 0 var(--spacing-2);
   height: 22px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   background: var(--accent-bg);
   border-radius: var(--radius-sm);
@@ -777,23 +777,23 @@
 .status-file-load {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   padding: 0 var(--spacing-2);
   height: 22px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   opacity: 0;
   animation: status-file-load-fade-in 150ms ease-out 150ms forwards;
 }
 
 .status-file-load__spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid transparent;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  border: var(--border-medium) solid transparent;
   border-top-color: var(--accent-primary);
   border-right-color: var(--accent-primary);
   border-radius: 50%;
-  animation: status-file-load-spin 1s linear infinite;
+  animation: status-file-load-spin var(--duration-1s) linear infinite;
 }
 
 .status-file-load__label {

@@ -7,9 +7,9 @@
 .file-explorer-workspace-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 18px;
-  font-size: 12px;
+  gap: var(--space-1-5);
+  padding: var(--space-1-5) 18px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -26,9 +26,9 @@
 .file-explorer-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border-color);
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
 }
 
 .file-explorer-btn {
@@ -36,8 +36,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -68,21 +68,21 @@
 .file-explorer-tree {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 8px 4px 0;
+  padding: var(--spacing-1) var(--spacing-2) var(--spacing-1) 0;
 }
 
 .file-explorer-empty {
-  padding: 24px 16px;
+  padding: var(--space-6) var(--space-4);
   text-align: center;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 /* Tree node styles */
 .file-node {
   display: flex;
   align-items: center;
-  padding: 2px 28px;
+  padding: var(--space-half) var(--space-7);
   cursor: pointer;
   border-radius: var(--radius-md);
   user-select: none;
@@ -126,13 +126,13 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-right: 6px;
+  margin-right: var(--space-1-5);
   color: var(--text-secondary);
 }
 
 .file-node-name {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -140,8 +140,8 @@
 
 .file-node-input {
   flex: 1;
-  font-size: 13px;
-  padding: 1px 4px;
+  font-size: var(--font-size-base);
+  padding: var(--space-px) var(--spacing-1);
   border: none;
   border-radius: var(--radius-sm);
   background-color: var(--bg-color);

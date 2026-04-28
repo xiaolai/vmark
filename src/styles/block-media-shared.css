@@ -23,8 +23,8 @@
 .block-audio audio,
 .block-video video {
   border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  transition: border-color 0.15s ease;
+  border: var(--border-thin) solid transparent;
+  transition: border-color var(--duration-base) ease;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -36,27 +36,27 @@
 .block-audio.ProseMirror-selectednode audio,
 .ProseMirror-selectednode.block-video video,
 .block-video.ProseMirror-selectednode video {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 /* --- Media border preferences (applied via container class) --- */
 .media-border-always .block-image img,
 .media-border-always .block-audio audio,
 .media-border-always .block-video video {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 .media-border-hover .block-image img:hover,
 .media-border-hover .block-audio audio:hover,
 .media-border-hover .block-video video:hover {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 /* --- Loading state --- */
 .block-image.image-loading img,
 .block-audio.media-loading audio,
 .block-video.media-loading video {
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
   background: var(--bg-secondary);
 }
 
@@ -72,7 +72,7 @@
 .block-video.media-error video {
   opacity: 0.3;
   background: var(--bg-secondary);
-  border: 1px dashed var(--error-color);
+  border: var(--border-thin) dashed var(--error-color);
 }
 
 /* --- Error overlay icon --- */

@@ -58,7 +58,7 @@
 /* Compact overrides for shared SettingRow inside PDF sidebar */
 .pdf-export-sidebar-content .text-sm {
   font-size: 0.8125rem;
-  line-height: 1.4;
+  line-height: var(--line-height-base);
 }
 
 .pdf-export-sidebar-content .py-2\.5 {
@@ -71,9 +71,9 @@
 .pdf-collapsible-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-  margin-bottom: 2px;
+  gap: var(--spacing-1);
+  padding: var(--space-half) 0;
+  margin-bottom: var(--space-half);
   border: none;
   background: none;
   color: var(--text-secondary);
@@ -91,7 +91,7 @@
 .pdf-collapsible-header svg {
   width: 10px;
   height: 10px;
-  transition: transform 0.15s;
+  transition: transform var(--duration-base);
 }
 
 .pdf-collapsible-header[data-open="true"] svg {

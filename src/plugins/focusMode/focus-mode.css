@@ -6,7 +6,7 @@
 
 /* Transition for smooth dimming effect */
 .focus-mode .tiptap-editor .ProseMirror > * {
-  transition: color 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+  transition: color var(--duration-medium) ease, opacity var(--duration-medium) ease, border-color var(--duration-medium) ease;
 }
 
 /* Dim all top-level blocks that don't have focus */
@@ -22,12 +22,12 @@
 
 /* Dim code blocks */
 .focus-mode .tiptap-editor .ProseMirror > pre:not(.md-focus) {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
 }
 
 /* Nested code blocks in non-focused parents */
 .focus-mode .tiptap-editor .ProseMirror > *:not(.md-focus) pre {
-  opacity: 0.6;
+  opacity: var(--opacity-subtle);
 }
 
 /* Dim blockquote borders */
@@ -43,17 +43,17 @@
 /* Dim tables */
 .focus-mode .tiptap-editor .ProseMirror > *:not(.md-focus) table,
 .focus-mode .tiptap-editor .ProseMirror > table:not(.md-focus) {
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
 }
 
 /* Dim alert blocks */
 .focus-mode .tiptap-editor .ProseMirror > .alert-block:not(.md-focus) {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
 }
 
 /* Dim details blocks */
 .focus-mode .tiptap-editor .ProseMirror > .details-block:not(.md-focus) {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
 }
 
 /* Focused block stays fully visible */
@@ -78,7 +78,7 @@
 
 /* Transition for smooth dimming effect */
 .focus-mode .source-editor .cm-line {
-  transition: color 0.2s ease, opacity 0.2s ease;
+  transition: color var(--duration-medium) ease, opacity var(--duration-medium) ease;
 }
 
 /* Dim all blurred lines */

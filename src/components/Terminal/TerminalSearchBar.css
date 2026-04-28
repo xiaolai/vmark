@@ -4,13 +4,13 @@
   right: var(--spacing-3);
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-half);
   padding: var(--spacing-1) var(--popup-padding);
   background: var(--bg-color);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--popup-shadow);
-  z-index: 10;
+  z-index: var(--z-resize-handle);
   /* Intentionally fixed for compact terminal search UI. */
   --terminal-search-font-size: 12px;
 }
@@ -23,12 +23,12 @@
   outline: none;
   font-size: var(--terminal-search-font-size);
   font-family: var(--font-sans);
-  padding: 2px var(--spacing-1);
+  padding: var(--space-half) var(--spacing-1);
 }
 
 .terminal-search-input::placeholder {
   color: var(--text-secondary);
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
 }
 
 .terminal-search-btn {
@@ -51,7 +51,7 @@
 }
 
 .terminal-search-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 

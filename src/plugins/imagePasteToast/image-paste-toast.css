@@ -5,16 +5,16 @@
 
 .image-paste-toast {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-popup);
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
-  border: 1px solid var(--border-color);
+  gap: var(--space-half);
+  padding: var(--spacing-1);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--shadow-md);
-  animation: image-paste-toast-fade-in 0.1s ease-out;
+  animation: image-paste-toast-fade-in var(--duration-fast) ease-out;
 }
 
 @keyframes image-paste-toast-fade-in {
@@ -29,8 +29,8 @@
 }
 
 .image-paste-toast-message {
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 var(--spacing-2);
+  font-size: var(--font-size-sm);
   color: var(--text-color);
   white-space: nowrap;
 }
@@ -41,8 +41,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -75,13 +75,13 @@
   right: 4px;
   height: 4px;
   background: transparent;
-  border-bottom: 2px solid var(--accent-primary);
+  border-bottom: var(--border-medium) solid var(--accent-primary);
   border-radius: 0 0 4px 4px;
 }
 
 .image-paste-toast-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
   stroke: currentColor;
   stroke-width: 1.5;
   stroke-linecap: round;

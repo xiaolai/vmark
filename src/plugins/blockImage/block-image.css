@@ -12,10 +12,10 @@
 
 .block-image.image-loading img {
   min-width: 100px;
-  min-height: 60px;
+  min-height: var(--space-15);
 }
 
 .block-image.image-error img {
   min-width: 100px;
-  min-height: 60px;
+  min-height: var(--space-15);
 }

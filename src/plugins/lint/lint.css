@@ -59,13 +59,13 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 0 4px;
+  padding: 0 var(--spacing-1);
   height: 20px;
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--duration-base), color var(--duration-base);
   white-space: nowrap;
   background: transparent;
   border: none;

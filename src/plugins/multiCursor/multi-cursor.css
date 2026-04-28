@@ -25,7 +25,7 @@
   width: 2px;
   height: 1.2em;
   background-color: var(--multi-cursor-color);
-  animation: multi-cursor-blink 1s step-end infinite;
+  animation: multi-cursor-blink var(--duration-1s) step-end infinite;
 }
 
 /* Cursor blink animation */

@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   margin: 0.5em 0;
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
   box-shadow: var(--shadow-sm);
@@ -28,27 +28,27 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border-color);
+  gap: var(--spacing-3);
+  padding: var(--space-1-5) var(--space-2-5);
+  border-bottom: var(--border-thin) solid var(--border-color);
   background: var(--bg-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .source-peek-inline-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .source-peek-inline-block-type {
-  padding: 2px 6px;
+  padding: var(--space-half) var(--space-1-5);
   background: var(--hover-bg);
   border-radius: var(--radius-sm);
   font-weight: 500;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   text-transform: capitalize;
   color: var(--text-secondary);
 }
@@ -56,7 +56,7 @@
 .source-peek-inline-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
 }
 
 /* Header action buttons */
@@ -64,15 +64,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--duration-base), color var(--duration-base);
 }
 
 .source-peek-inline-btn:hover {
@@ -81,8 +81,8 @@
 }
 
 .source-peek-inline-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
 }
 
 /* Cancel button */
@@ -137,16 +137,16 @@
 /* Hint text (keyboard shortcuts) */
 .source-peek-inline-hint {
   color: var(--text-tertiary);
-  font-size: 10px;
-  margin-right: 4px;
+  font-size: var(--font-size-2xs);
+  margin-right: var(--spacing-1);
 }
 
 /* CodeMirror editor container */
 .source-peek-inline-editor {
-  padding: 8px 10px;
+  padding: var(--spacing-2) var(--space-2-5);
   background: var(--source-mode-bg);
-  border-bottom: 1px solid var(--border-color);
-  min-height: 60px;
+  border-bottom: var(--border-thin) solid var(--border-color);
+  min-height: var(--space-15);
   max-height: 300px;
   overflow-y: auto;
 }
@@ -158,8 +158,8 @@
 
 .source-peek-inline-editor .cm-content {
   font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
   padding: 0;
 }
 
@@ -183,19 +183,19 @@
 
 /* Error state */
 .source-peek-inline-error {
-  padding: 6px 10px;
+  padding: var(--space-1-5) var(--space-2-5);
   background: var(--error-bg);
   color: var(--error-color);
-  font-size: 12px;
-  border-top: 1px solid rgba(207, 34, 46, 0.3);
-  border-top: 1px solid color-mix(in srgb, var(--error-color) 30%, transparent);
+  font-size: var(--font-size-sm);
+  border-top: var(--border-thin) solid rgba(207, 34, 46, 0.3);
+  border-top: var(--border-thin) solid color-mix(in srgb, var(--error-color) 30%, transparent);
 }
 
 /* Unsaved changes indicator */
 .source-peek-inline-header.has-changes .source-peek-inline-title::after {
   content: '•';
   color: var(--warning-color);
-  margin-left: 4px;
+  margin-left: var(--spacing-1);
 }
 
 /* Dark theme adjustments */
@@ -221,7 +221,7 @@
 }
 
 .source-peek-inline {
-  animation: source-peek-inline-fade-in 0.15s ease-out;
+  animation: source-peek-inline-fade-in var(--duration-base) ease-out;
 }
 
 /* Block being edited - hidden by default (live preview OFF) */
@@ -232,7 +232,7 @@
 /* Show dimmed preview when live preview is ON */
 .source-peek-editing.source-peek-live {
   display: block;
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
   pointer-events: none;
 }
 

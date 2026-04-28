@@ -4,35 +4,35 @@
 
 .tab-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-context-menu);
   min-width: 220px;
   max-width: 280px;
   background: var(--bg-color);
   background: color-mix(in srgb, var(--bg-color) 97%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 0.5px solid var(--border-color);
+  border: var(--border-hairline) solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--popup-shadow);
   padding: 5px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .tab-context-menu-separator {
   height: 1px;
   background: var(--border-color);
-  opacity: 0.6;
-  margin: 5px 10px;
+  opacity: var(--opacity-subtle);
+  margin: 5px var(--space-2-5);
 }
 
 .tab-context-menu-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-2-5);
   width: 100%;
-  padding: 5px 10px;
+  padding: 5px var(--space-2-5);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -55,7 +55,7 @@
 }
 
 .tab-context-menu-item:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -66,9 +66,9 @@
 }
 
 .tab-context-menu-item-shortcut {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  opacity: 0.7;
+  opacity: var(--opacity-half-faded);
   flex-shrink: 0;
 }
 

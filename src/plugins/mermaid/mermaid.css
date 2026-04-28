@@ -72,7 +72,7 @@
   background-color: var(--subtle-bg);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--duration-base) ease;
 }
 
 .mermaid-block:hover {
@@ -81,11 +81,11 @@
 
 /* Media border feature (setting-driven) */
 .media-border-always .mermaid-block {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 .media-border-hover .mermaid-block:hover {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
 }
 
 .mermaid-block.editing {
@@ -129,7 +129,7 @@
   padding: 0.75rem;
   font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
   border: none;
   background: transparent;
   color: var(--text-color);

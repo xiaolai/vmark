@@ -7,10 +7,10 @@
 
 /* Dimensions display — inline image only */
 .media-popup-dimensions {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   white-space: nowrap;
-  padding-right: 4px;
+  padding-right: var(--spacing-1);
   flex-shrink: 0;
   user-select: none;
 }
@@ -19,11 +19,11 @@
 .media-popup-poster {
   flex: 1;
   min-width: 0;
-  padding: 4px 8px;
+  padding: var(--spacing-1) var(--spacing-2);
   border: none;
   background: transparent;
   color: var(--text-color);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-family: var(--font-mono, monospace);
   outline: none;
 }

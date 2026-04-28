@@ -5,16 +5,16 @@
 
 .drop-zone-indicator {
   position: absolute;
-  inset: 8px;
-  z-index: 100;
+  inset: var(--spacing-2);
+  z-index: var(--z-bar);
   pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(var(--accent-rgb, 66, 133, 244), 0.08);
-  border: 2px dashed var(--accent-primary, #4285f4);
+  border: var(--border-medium) dashed var(--accent-primary, #4285f4);
   border-radius: var(--radius-lg);
-  animation: dropZoneFadeIn 0.15s ease-out;
+  animation: dropZoneFadeIn var(--duration-base) ease-out;
 }
 
 @keyframes dropZoneFadeIn {
@@ -32,7 +32,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-3);
   color: var(--accent-primary, #4285f4);
 }
 

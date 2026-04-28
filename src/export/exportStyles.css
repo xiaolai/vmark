@@ -97,15 +97,15 @@
 .export-warning-banner {
   position: sticky;
   top: 0;
-  z-index: 100;
-  padding: 8px 16px;
+  z-index: var(--z-bar);
+  padding: var(--spacing-2) var(--space-4);
   background: var(--warning-bg, rgba(245, 158, 11, 0.1));
-  border-bottom: 1px solid var(--warning-border, rgba(245, 158, 11, 0.3));
+  border-bottom: var(--border-thin) solid var(--warning-border, rgba(245, 158, 11, 0.3));
   color: var(--warning-color, #9a6700);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-2);
 }
 
 .export-warning-banner svg {

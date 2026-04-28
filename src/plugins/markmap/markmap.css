@@ -44,8 +44,8 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -56,13 +56,13 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-  z-index: 10;
+  transition: opacity var(--duration-base), background var(--duration-base), color var(--duration-base);
+  z-index: var(--z-resize-handle);
 }
 
 .markmap-fit-btn svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
 }
 
 .code-block-preview.markmap-preview:hover .markmap-fit-btn,

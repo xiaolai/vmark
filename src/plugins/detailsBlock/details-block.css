@@ -6,7 +6,7 @@
 
 /* Details container */
 .details-block {
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   margin: 0 0 var(--editor-block-spacing, 1em) 0;
   overflow: hidden;
@@ -20,7 +20,7 @@
   cursor: pointer;
   font-weight: 600;
   background-color: var(--details-header-bg, var(--bg-secondary));
-  border-bottom: 1px solid transparent;
+  border-bottom: var(--border-thin) solid transparent;
   display: flex;
   align-items: center;
   gap: 0.5em;
@@ -48,7 +48,7 @@
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   flex-shrink: 0;
-  transition: transform 0.15s ease-out;
+  transition: transform var(--duration-base) ease-out;
 }
 
 /* Hover state */

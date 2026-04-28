@@ -17,7 +17,7 @@
 .workflow-preview-canvas .react-flow__controls {
   box-shadow: var(--shadow-sm);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   background: var(--bg-color);
 }
 
@@ -25,8 +25,8 @@
   background: var(--bg-color);
   border-bottom-color: var(--border-color);
   color: var(--text-secondary);
-  width: 24px;
-  height: 24px;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
 }
 
 .workflow-preview-canvas .react-flow__controls-button:hover {
