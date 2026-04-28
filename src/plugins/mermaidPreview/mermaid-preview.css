@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px 6px 12px;
+  padding: 6px var(--spacing-2) 6px var(--spacing-3);
   border-bottom: 1px solid var(--border-color);
   cursor: grab;
   flex-shrink: 0;
@@ -177,7 +177,7 @@
 .mermaid-preview-content {
   min-width: 200px;
   min-height: 100px;
-  padding: 12px;
+  padding: var(--spacing-3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -207,14 +207,14 @@
 .mermaid-preview-error {
   color: var(--error-color);
   font-size: 12px;
-  margin-top: 8px;
+  margin-top: var(--spacing-2);
   text-align: center;
 }
 
 .mermaid-preview-error-state {
   border: 1px dashed var(--error-color);
   border-radius: var(--radius-sm);
-  padding: 12px;
+  padding: var(--spacing-3);
   color: var(--text-secondary);
   font-size: 13px;
   background: var(--error-bg);
