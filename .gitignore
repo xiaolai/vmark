@@ -128,6 +128,8 @@ logs/
 .eslintcache
 .stylelintcache
 *.tsbuildinfo
+.tokenize/
+.responsive/
 
 # =============================================================================
 # VitePress (website)
