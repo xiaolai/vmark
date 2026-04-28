@@ -13,7 +13,7 @@
 /* ---- Submitted prompt (dimmed) ---- */
 
 .genie-response-prompt {
-  padding: 8px 14px 4px;
+  padding: var(--spacing-2) 14px var(--spacing-1);
   font-size: 12px;
   font-style: italic;
   color: var(--text-tertiary);
@@ -25,7 +25,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: var(--spacing-2) 14px;
   font-size: 13px;
   color: var(--primary-color);
 }
@@ -46,7 +46,7 @@
 /* ---- Response text ---- */
 
 .genie-response-text {
-  padding: 8px 14px;
+  padding: var(--spacing-2) 14px;
   font-size: 13px;
   color: var(--text-color);
   white-space: pre-wrap;
@@ -87,7 +87,7 @@
 .genie-response-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-1);
   padding: 3px 10px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -150,7 +150,7 @@
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  padding: 8px 14px;
+  padding: var(--spacing-2) 14px;
   font-size: 13px;
   color: var(--error-color);
   background: var(--error-bg);
