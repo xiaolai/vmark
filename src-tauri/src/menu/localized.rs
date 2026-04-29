@@ -76,7 +76,7 @@ pub fn create_localized_menu(
             &PredefinedMenuItem::hide_others(app, None)?,
             &PredefinedMenuItem::show_all(app, None)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "save-all-quit", &t!("menu.app.saveAllQuit").to_string(), true, accel("save-all-quit", "Alt+Shift+CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(app, "save-all-quit", &t!("menu.app.saveAllQuit").to_string(), true, accel("save-all-quit", "Alt+CmdOrCtrl+Shift+Q"))?,
             &MenuItem::with_id(app, "quit", &t!("menu.app.quit").to_string(), true, accel("quit", "CmdOrCtrl+Q"))?,
         ],
     )?;
@@ -210,7 +210,7 @@ pub fn create_localized_menu(
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "preferences", &t!("menu.app.settings").to_string(), true, accel("preferences", "CmdOrCtrl+,"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "save-all-quit", &t!("menu.file.saveAllExit").to_string(), true, accel("save-all-quit", "Alt+Shift+CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(app, "save-all-quit", &t!("menu.file.saveAllExit").to_string(), true, accel("save-all-quit", "Alt+CmdOrCtrl+Shift+Q"))?,
             &MenuItem::with_id(app, "quit", &t!("menu.file.exit").to_string(), true, accel("quit", "CmdOrCtrl+Q"))?,
         ],
     )?;
@@ -317,8 +317,8 @@ pub fn create_localized_menu(
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "paragraph", &t!("menu.format.headings.paragraph").to_string(), true, accel("paragraph", "CmdOrCtrl+Shift+0"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "increase-heading", &t!("menu.format.headings.increase").to_string(), true, accel("increase-heading", "Alt+CmdOrCtrl+]"))?,
-            &MenuItem::with_id(app, "decrease-heading", &t!("menu.format.headings.decrease").to_string(), true, accel("decrease-heading", "Alt+CmdOrCtrl+["))?,
+            &MenuItem::with_id(app, "increase-heading", &t!("menu.format.headings.increase").to_string(), true, accel("increase-heading", "CmdOrCtrl+Alt+]"))?,
+            &MenuItem::with_id(app, "decrease-heading", &t!("menu.format.headings.decrease").to_string(), true, accel("decrease-heading", "CmdOrCtrl+Alt+["))?,
         ],
     )?;
 
@@ -361,7 +361,7 @@ pub fn create_localized_menu(
             &MenuItem::with_id(app, "transform-title-case", &t!("menu.format.transform.titleCase").to_string(), true, accel("transform-title-case", if cfg!(target_os = "macos") { "Ctrl+Shift+T" } else { "Alt+Shift+T" }))?,
             &MenuItem::with_id(app, "transform-toggle-case", &t!("menu.format.transform.toggleCase").to_string(), true, accel("transform-toggle-case", ""))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "toggle-quote-style", &t!("menu.format.transform.toggleQuoteStyle").to_string(), true, accel("toggle-quote-style", "CmdOrCtrl+Shift+'"))?,
+            &MenuItem::with_id(app, "toggle-quote-style", &t!("menu.format.transform.toggleQuoteStyle").to_string(), true, accel("toggle-quote-style", "Shift+CmdOrCtrl+'"))?,
         ],
     )?;
 
@@ -469,8 +469,8 @@ pub fn create_localized_menu(
         true,
         &[
             &MenuItem::with_id(app, "info-note", &t!("menu.insert.infoBox.note").to_string(), true, accel("info-note", "Alt+CmdOrCtrl+N"))?,
-            &MenuItem::with_id(app, "info-tip", &t!("menu.insert.infoBox.tip").to_string(), true, accel("info-tip", "Alt+Shift+CmdOrCtrl+T"))?,
-            &MenuItem::with_id(app, "info-important", &t!("menu.insert.infoBox.important").to_string(), true, accel("info-important", "Alt+Shift+CmdOrCtrl+I"))?,
+            &MenuItem::with_id(app, "info-tip", &t!("menu.insert.infoBox.tip").to_string(), true, accel("info-tip", "CmdOrCtrl+Alt+Shift+T"))?,
+            &MenuItem::with_id(app, "info-important", &t!("menu.insert.infoBox.important").to_string(), true, accel("info-important", "CmdOrCtrl+Alt+Shift+I"))?,
             &MenuItem::with_id(app, "info-warning", &t!("menu.insert.infoBox.warning").to_string(), true, accel("info-warning", "CmdOrCtrl+Shift+W"))?,
             &MenuItem::with_id(app, "info-caution", &t!("menu.insert.infoBox.caution").to_string(), true, accel("info-caution", "CmdOrCtrl+Shift+U"))?,
         ],
@@ -490,8 +490,8 @@ pub fn create_localized_menu(
             &table_submenu,
             &MenuItem::with_id(app, "code-fences", &t!("menu.insert.codeBlock").to_string(), true, accel("code-fences", "Alt+CmdOrCtrl+C"))?,
             &MenuItem::with_id(app, "math-block", &t!("menu.insert.mathBlock").to_string(), true, accel("math-block", "Alt+CmdOrCtrl+Shift+M"))?,
-            &MenuItem::with_id(app, "diagram", &t!("menu.insert.diagram").to_string(), true, accel("diagram", "Alt+Shift+CmdOrCtrl+D"))?,
-            &MenuItem::with_id(app, "mindmap", &t!("menu.insert.mindmap").to_string(), true, accel("mindmap", "Alt+Shift+CmdOrCtrl+K"))?,
+            &MenuItem::with_id(app, "diagram", &t!("menu.insert.diagram").to_string(), true, accel("diagram", "Alt+CmdOrCtrl+Shift+D"))?,
+            &MenuItem::with_id(app, "mindmap", &t!("menu.insert.mindmap").to_string(), true, accel("mindmap", "Alt+CmdOrCtrl+Shift+K"))?,
             &MenuItem::with_id(app, "horizontal-line", &t!("menu.insert.horizontalLine").to_string(), true, accel("horizontal-line", "Alt+CmdOrCtrl+-"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "footnote", &t!("menu.insert.footnote").to_string(), true, None::<&str>)?,
