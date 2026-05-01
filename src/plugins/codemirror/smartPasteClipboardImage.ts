@@ -20,6 +20,7 @@ import { generateClipboardImageFilename } from "@/plugins/imageHandler/imageHand
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { smartPasteWarn } from "@/utils/debug";
+import { isViewConnected } from "./smartPasteUtils";
 
 /**
  * Check if the clipboard event contains binary image data and handle it.
@@ -80,6 +81,11 @@ async function saveAndInsertImages(view: EditorView, files: File[], capturedFrom
   }
 
   if (insertParts.length === 0) return;
+
+  if (!isViewConnected(view)) {
+    smartPasteWarn("View disconnected after async save, aborting clipboard image insert");
+    return;
+  }
 
   const markdown = insertParts.join("\n") + "\n";
 
