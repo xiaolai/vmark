@@ -39,9 +39,12 @@ jobs:
             desktop Markdown editor with a ProseMirror/Tiptap WYSIWYG mode, a CodeMirror
             source mode, and a Node.js MCP sidecar. The entire codebase is written by AI.
 
-            Use the run ID (${{ github.run_id }}) as a seed to **randomly pick 5–6 dimensions**
-            from the list below. Also rotate the target directories so successive runs cover
-            different parts of the codebase.
+            Use the run ID (${{ github.run_id }}) as a seed to **randomly pick exactly 3
+            dimensions** from the list below. Also rotate the target directories so
+            successive runs cover different parts of the codebase. The codebase is large
+            enough that auditing more than 3 dimensions per run exhausts the agent's
+            turn budget; 3 dims/day × daily cron still gives full 19-dimension coverage
+            within a week.
 
             ---
 
