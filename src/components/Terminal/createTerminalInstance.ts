@@ -9,64 +9,47 @@
  *   - Each instance gets its own child div inside the parent container,
  *     initially hidden; the caller (useTerminalSessions) toggles visibility
  *     when switching sessions.
- *   - IME composition tracking via compositionstart/end on the hidden
- *     textarea — used to suppress copy-on-select and data forwarding
- *     during CJK input to avoid garbled text. Includes an 80ms grace
- *     period after compositionend during which ALL onData is blocked
- *     (#59, #454, #525, #608, #619). Fires onCompositionCommit with
- *     clean committed text for direct PTY write, bypassing xterm's
- *     onData entirely. Rapid back-to-back compositions flush pending
- *     text immediately. Single non-ASCII chars (CJK brackets/punctuation)
- *     flush immediately without the grace period (#525). Tracks
- *     lastCommittedText/lastCommitTime for dedup against late onData
- *     events that arrive after the grace period ends (#525). Spurious
- *     compositionend events (without preceding compositionstart, seen
- *     with fcitx5+rime on Linux) are dropped to prevent duplicate PTY
- *     writes (#659). Orphaned grace timers from back-to-back
- *     compositionend events are cancelled before scheduling new ones.
  *   - macOptionIsMeta is enabled so macOS Option+Arrow keys generate
  *     proper Alt-modifier escape sequences for word movement (#660).
- *   - WebGL renderer is optional (settings-driven); falls back silently
- *     to canvas on GPU-incompatible systems.
- *   - Web links only open safe URL schemes (http, https, mailto);
- *     opener import is cached across clicks.
- *   - File link provider detects file paths in output and opens them as
- *     new editor tabs on click, with a 10 MB size guard.
- *   - Copy-on-select is debounced (150ms), gated by a settings flag,
- *     and respects composition state.
- *   - Theme colors are resolved via buildXtermTheme() from terminalTheme.ts;
- *     runtime theme changes are handled by useTerminalSessions.
  *   - minimumContrastRatio is set to 4.5 (WCAG AA) so xterm dynamically
  *     lifts foreground per-cell when an app paints low-contrast bg+fg
  *     (e.g. Claude Code's chalk.bgCyan.black tag on a light theme).
+ *   - Theme colors are resolved via buildXtermTheme() from terminalTheme.ts;
+ *     runtime theme changes are handled by useTerminalSessions.
+ *   - Lifecycle concerns are split into focused helpers, each returning a
+ *     cleanup hook the factory calls in dispose():
+ *       * setupImeComposition  — IME compositionstart/end handling (#59,
+ *         #454, #525, #608, #619, #659)
+ *       * setupWebglRenderer   — WebGL addon, atlas bounding (#856),
+ *         dual-layer context-loss recovery, MutationObserver, resetDisplay
+ *       * setupWebLinks        — sandboxed web-link click handler
+ *       * setupFileLinks       — file-link click handler with size guard
+ *       * setupCopyOnSelect    — debounced clipboard write on selection
  *
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
  * @coordinates-with terminalTheme.ts — per-theme ANSI color palettes for xterm.js
- * @coordinates-with fileLinkProvider.ts — file path detection in terminal output
  * @coordinates-with terminalKeyHandler.ts — custom Cmd+C/V/K/F handling
+ * @coordinates-with TerminalContextMenu.tsx — exposes resetDisplay() as a menu action
  * @module components/Terminal/createTerminalInstance
  */
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
-import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
-import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
-import { createFileLinkProvider } from "./fileLinkProvider";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
 import { buildXtermTheme } from "./terminalTheme";
-import { clipboardWarn, terminalLog } from "@/utils/debug";
+import { setupWebglRenderer } from "./setupWebglRenderer";
+import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
+import { setupWebLinks } from "./setupWebLinks";
+import { setupFileLinks } from "./setupFileLinks";
+import { setupCopyOnSelect } from "./setupCopyOnSelect";
 
 import "@xterm/xterm/css/xterm.css";
 
-/** Milliseconds to keep composing=true after compositionend to block xterm's onData re-emission. */
-export const IME_COMPOSITION_GRACE_MS = 80;
+// Re-exports kept for compatibility with existing imports/tests.
+export { ATLAS_PAGE_LIMIT } from "./setupWebglRenderer";
+export { IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
 /** Milliseconds after onCompositionCommit during which duplicate onData is suppressed. */
 export const IME_DEDUP_WINDOW_MS = 150;
 
@@ -76,8 +59,6 @@ function resolveMonoFont(): string {
   const mono = style.getPropertyValue("--font-mono").trim();
   return mono || "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
 }
-
-// buildXtermTheme is imported from ./terminalTheme
 
 /** A fully-configured xterm.js terminal with its addons and container element. */
 export interface TerminalInstance {
@@ -100,6 +81,13 @@ export interface TerminalInstance {
   lastCommittedText: string | null;
   /** Timestamp (Date.now()) of the last onCompositionCommit — dedup window check (#525). */
   lastCommitTime: number;
+  /**
+   * User-triggered "redraw the terminal" action (#856). Clears the WebGL
+   * texture atlas (if WebGL is active) and re-paints the viewport. Safe to
+   * call when the WebGL addon is absent or already disposed — it then
+   * just refreshes the viewport via the DOM renderer.
+   */
+  resetDisplay: () => void;
   dispose: () => void;
 }
 
@@ -119,6 +107,10 @@ interface CreateOptions {
   ptyRef: React.RefObject<import("@/lib/pty").IPty | null>;
   onSearch: () => void;
 }
+
+// Suppress the "unused" lint when nothing in this file references the
+// re-exported constant directly — consumers import it from this module path.
+void IME_COMPOSITION_GRACE_MS;
 
 /**
  * Create a terminal instance with all addons loaded.
@@ -153,247 +145,69 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     scrollback: 5000,
   });
 
-  // Load addons
+  // Built-in addons
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
-
   const searchAddon = new SearchAddon();
   term.loadAddon(searchAddon);
-
   const serializeAddon = new SerializeAddon();
   term.loadAddon(serializeAddon);
 
-  // Open terminal
+  // Open terminal — must come before the helpers that query DOM children
+  // (IME textarea, WebGL canvases).
   term.open(container);
 
-  // IME composition tracking with grace period.
-  // macOS Chinese IME: xterm fires onData with spaces injected between syllable
-  // segments (e.g., "claude" → "cl au de"). We capture the clean committed text
-  // from compositionend.data and write it directly to PTY via onCompositionCommit,
-  // keeping composing=true during a grace period to block xterm's garbled onData.
-  let composing = false;
-  let inGracePeriod = false;
-  let compositionGraceTimer: ReturnType<typeof setTimeout> | null = null;
-  let pendingCommitText: string | null = null;
-  let onCompositionCommit: ((text: string) => void) | null = null;
-  let lastCommittedText: string | null = null;
-  let lastCommitTime = 0;
-  const textarea = container.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
-  const onCompositionStart = () => {
-    // Flush any pending committed text from a previous compositionend before
-    // starting a new composition — prevents input loss in rapid back-to-back
-    // IME commits (e.g., typing fast in Chinese pinyin).
-    if (compositionGraceTimer) {
-      clearTimeout(compositionGraceTimer);
-      compositionGraceTimer = null;
-      if (pendingCommitText && onCompositionCommit) {
-        lastCommittedText = pendingCommitText;
-        lastCommitTime = Date.now();
-        onCompositionCommit(pendingCommitText);
-      }
-      pendingCommitText = null;
-    }
-    composing = true;
-    inGracePeriod = false;
-    terminalLog("compositionstart");
-  };
-  const onCompositionEnd = (e: CompositionEvent) => {
-    const committedText = e.data;
-    terminalLog("compositionend", committedText);
+  // Lifecycle helpers (each returns its own cleanup or exposes a cleanup()).
+  const ime = setupImeComposition({ container });
 
-    // Guard: if composing is already false, this is a spurious compositionend
-    // fired without a preceding compositionstart (seen with fcitx5+rime on
-    // Linux: #659). Skip to prevent duplicate PTY writes.
-    if (!composing && !inGracePeriod) return;
-
-    // Single non-ASCII character (CJK punctuation/bracket) — flush immediately.
-    // These don't trigger xterm's garbled space injection, so no grace period needed.
-    // Fixes CJK brackets not inputting with WeChat IME (#525).
-    // eslint-disable-next-line no-control-regex
-    if (committedText && committedText.length === 1 && !/^[\x00-\x7F]$/.test(committedText)) {
-      composing = false;
-      inGracePeriod = false;
-      if (compositionGraceTimer) {
-        clearTimeout(compositionGraceTimer);
-        compositionGraceTimer = null;
-      }
-      pendingCommitText = null;
-      lastCommittedText = committedText;
-      lastCommitTime = Date.now();
-      if (onCompositionCommit) {
-        onCompositionCommit(committedText);
-      }
-      return;
-    }
-
-    // Multi-char (or ASCII): use grace period to block ALL xterm onData.
-    // Clean committed text is written directly via onCompositionCommit.
-    // Cancel any orphaned timer from a previous compositionend that fired
-    // without a compositionstart in between (fcitx5+rime on Linux: #659).
-    if (compositionGraceTimer) {
-      clearTimeout(compositionGraceTimer);
-      compositionGraceTimer = null;
-    }
-    pendingCommitText = committedText;
-    inGracePeriod = true;
-    compositionGraceTimer = setTimeout(() => {
-      compositionGraceTimer = null;
-      composing = false;
-      inGracePeriod = false;
-      // Send clean committed text directly to PTY
-      if (pendingCommitText && onCompositionCommit) {
-        lastCommittedText = pendingCommitText;
-        lastCommitTime = Date.now();
-        onCompositionCommit(pendingCommitText);
-      }
-      pendingCommitText = null;
-    }, IME_COMPOSITION_GRACE_MS);
-  };
-  if (textarea) {
-    textarea.addEventListener("compositionstart", onCompositionStart);
-    textarea.addEventListener("compositionend", onCompositionEnd);
-  } else {
-    terminalLog("xterm-helper-textarea not found — IME composition tracking disabled");
-  }
-
-  // Unicode 11
+  // Unicode 11 must be loaded before any heavy text rendering.
   const unicode11 = new Unicode11Addon();
   term.loadAddon(unicode11);
   term.unicode.activeVersion = "11";
 
-  // WebGL renderer (conditional — primarily for GPU compatibility; IME is usually unrelated)
-  if (settings.useWebGL) {
-    try {
-      const webglAddon = new WebglAddon();
-      /* v8 ignore next -- @preserve reason: onContextLoss callback only fires on GPU context loss; not reproducible in jsdom */
-      webglAddon.onContextLoss(() => webglAddon.dispose());
-      term.loadAddon(webglAddon);
-    } catch {
-      /* v8 ignore start -- @preserve reason: WebGL catch block only fires on GPU context loss; not reproducible in jsdom */
-      // Fallback to canvas
-      /* v8 ignore stop */
-    }
-  }
+  const webgl = setupWebglRenderer({
+    term,
+    container,
+    enabled: !!settings.useWebGL,
+  });
 
-  // Web links — only open safe URL schemes; cache import to avoid repeated module resolution
-  const SAFE_LINK_SCHEMES = ["http:", "https:", "mailto:"];
-  let openerPromise: Promise<{ openUrl: (url: string) => Promise<void> }> | null = null;
-  term.loadAddon(new WebLinksAddon((_event, uri) => {
-    try {
-      const parsed = new URL(uri);
-      if (!SAFE_LINK_SCHEMES.includes(parsed.protocol)) {
-        terminalLog("Blocked unsafe URL scheme:", parsed.protocol, uri);
-        return;
-      }
-    } catch {
-      // Not a valid absolute URL — skip
-      return;
-    }
-    if (!openerPromise) {
-      openerPromise = import("@tauri-apps/plugin-opener");
-    }
-    openerPromise.then(({ openUrl }) => {
-      openUrl(uri).catch((error: unknown) => {
-        terminalLog("Failed to open URL:", error instanceof Error ? error.message : String(error));
-      });
-    /* v8 ignore start -- @preserve reason: dynamic import of a vi.mock'd module always resolves in tests; the import-failure catch is only reachable in production when the plugin binary is missing */
-    }).catch((error: unknown) => {
-      openerPromise = null; // Reset on failure so next click retries
-      terminalLog("Failed to load opener plugin:", error instanceof Error ? error.message : String(error));
-    });
-    /* v8 ignore stop */
-  }));
+  setupWebLinks(term);
+  setupFileLinks(term);
 
-  // File links — with size guard to prevent freezing on large files
-  const MAX_FILE_LINK_SIZE = 10 * 1024 * 1024; // 10 MB
-  term.registerLinkProvider(createFileLinkProvider(term, (filePath) => {
-    import("@tauri-apps/plugin-fs").then(async ({ readTextFile, stat }) => {
-      try {
-        const info = await stat(filePath);
-        if (info.size > MAX_FILE_LINK_SIZE) {
-          terminalLog("File too large to open in editor:", filePath, `(${Math.round(info.size / 1024 / 1024)}MB)`);
-          term.writeln(`\x1b[33m[File too large: ${Math.round(info.size / 1024 / 1024)}MB, max 10MB]\x1b[0m`);
-          return;
-        }
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        terminalLog("stat failed for file link:", filePath, message);
-        term.writeln(`\x1b[33m[Cannot open file: ${message}]\x1b[0m`);
-        return;
-      }
-      readTextFile(filePath).then((content) => {
-        const windowLabel = getCurrentWindowLabel();
-        const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-        useDocumentStore.getState().initDocument(tabId, content, filePath);
-      }).catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        terminalLog("File not readable:", message);
-        term.writeln(`\x1b[33m[Cannot open file: ${message}]\x1b[0m`);
-      });
-    /* v8 ignore start -- @preserve reason: dynamic import of a vi.mock'd module always resolves in tests; the import-failure catch is only reachable in production when the plugin binary is missing */
-    }).catch((error: unknown) => {
-      terminalLog("Failed to load fs plugin:", error instanceof Error ? error.message : String(error));
-    });
-    /* v8 ignore stop */
-  }));
-
-  // Custom key handler
   term.attachCustomKeyEventHandler(
     createTerminalKeyHandler(term, ptyRef, { onSearch }),
   );
 
-  // Copy on select — debounced to avoid repeated clipboard writes during drag
-  let copyOnSelectTimer: ReturnType<typeof setTimeout> | null = null;
-  term.onSelectionChange(() => {
-    if (copyOnSelectTimer) { clearTimeout(copyOnSelectTimer); copyOnSelectTimer = null; }
-    if (!composing && term.hasSelection() && useSettingsStore.getState().terminal.copyOnSelect) {
-      copyOnSelectTimer = setTimeout(() => {
-        copyOnSelectTimer = null;
-        if (!term.hasSelection()) return;
-        const text = term.getSelection().trimEnd();
-        if (text) writeText(text).catch((error: unknown) => {
-          clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
-        });
-      }, 150);
-    }
+  const cleanupCopyOnSelect = setupCopyOnSelect({
+    term,
+    isComposing: () => ime.composing,
   });
 
   const dispose = () => {
-    if (compositionGraceTimer) {
-      clearTimeout(compositionGraceTimer);
-      compositionGraceTimer = null;
-      if (pendingCommitText && onCompositionCommit) {
-        try {
-          onCompositionCommit(pendingCommitText);
-        } catch {
-          // best-effort: PTY may already be closing
-        }
-      }
-      pendingCommitText = null;
-    }
-    if (copyOnSelectTimer) {
-      clearTimeout(copyOnSelectTimer);
-      copyOnSelectTimer = null;
-    }
-    if (textarea) {
-      textarea.removeEventListener("compositionstart", onCompositionStart);
-      textarea.removeEventListener("compositionend", onCompositionEnd);
-    }
+    cleanupCopyOnSelect();
+    ime.cleanup();
+    webgl.cleanup();
     term.dispose();
     if (container.parentElement) {
       container.parentElement.removeChild(container);
     }
   };
 
-  const instance: TerminalInstance = {
-    term, fitAddon, searchAddon, serializeAddon, container, dispose,
-    get composing() { return composing; },
-    get inGracePeriod() { return inGracePeriod; },
-    get onCompositionCommit() { return onCompositionCommit; },
-    set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
-    get lastCommittedText() { return lastCommittedText; },
-    get lastCommitTime() { return lastCommitTime; },
+  return {
+    term,
+    fitAddon,
+    searchAddon,
+    serializeAddon,
+    container,
+    dispose,
+    resetDisplay: webgl.resetDisplay,
+    get composing() { return ime.composing; },
+    get inGracePeriod() { return ime.inGracePeriod; },
+    get onCompositionCommit() { return ime.onCompositionCommit; },
+    set onCompositionCommit(cb: ((text: string) => void) | null) {
+      ime.onCompositionCommit = cb;
+    },
+    get lastCommittedText() { return ime.lastCommittedText; },
+    get lastCommitTime() { return ime.lastCommitTime; },
   };
-
-  return instance;
 }

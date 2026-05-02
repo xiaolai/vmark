@@ -38,32 +38,18 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import {
   createTerminalInstance,
-  IME_DEDUP_WINDOW_MS,
   type TerminalInstance,
 } from "./createTerminalInstance";
-import { buildXtermThemeForId } from "./terminalTheme";
 import { spawnPty, resolveTerminalCwd } from "./spawnPty";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import {
+  buildCdCommand,
+  useTerminalSessionStoreSync,
+} from "./terminalSessionStoreSync";
+import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
 
 const PTY_RESIZE_DEBOUNCE_MS = 100;
-
-/**
- * Escape a path for shell `cd` command.
- * POSIX: wraps in single quotes with proper escaping.
- * Note: VMark is macOS-primary; Windows best-effort.
- */
-function escapePathForCd(path: string): string {
-  const sanitized = path.replace(/[\n\r]/g, "");
-  return sanitized.replace(/'/g, "'\\''");
-}
-
-/** Build a cd command string for the given path. */
-function buildCdCommand(path: string): string {
-  const escaped = escapePathForCd(path);
-  // Ctrl+U clears any partial input, then cd
-  return `\x15cd '${escaped}'\n`;
-}
 
 interface SessionEntry {
   instance: TerminalInstance;
@@ -153,7 +139,11 @@ export function useTerminalSessions(
     if (!activeId) return null;
     const entry = sessionsRef.current.get(activeId);
     if (!entry) return null;
-    return { term: entry.instance.term, ptyRef: entry.ptyRefForKeys };
+    return {
+      term: entry.instance.term,
+      ptyRef: entry.ptyRefForKeys,
+      resetDisplay: entry.instance.resetDisplay,
+    };
   }, []);
 
   /** Spawn shell for a session entry. Guarded against re-entrance. */
@@ -284,73 +274,16 @@ export function useTerminalSessions(
       };
       sessionsRef.current.set(sessionId, entry);
 
-      // IME composition commit: write clean committed text directly to PTY,
-      // bypassing xterm's onData which may inject spaces (macOS Chinese IME).
-      instance.onCompositionCommit = (text: string) => {
-        const e = sessionsRef.current.get(sessionId);
-        if (!e) return;
-        if (e.pty) {
-          e.pty.write(text);
-        } else if (e.shellExited) {
-          // "Press any key to restart" — treat IME commit as that key.
-          // The committed text is intentionally not replayed after restart;
-          // the user retypes once a fresh prompt appears.
-          e.shellExited = false;
-          e.instance.term.clear();
-          startShell(sessionId);
-        }
-        // During shell spawn or before first start: text is dropped.
-        // No prompt is visible yet, so buffering would be confusing.
-      };
-
-      // xterm → PTY (or restart on key press after exit)
-      instance.term.onData((data) => {
-        const e = sessionsRef.current.get(sessionId);
-        if (!e) return;
-        // Block ALL onData during IME composition and the post-composition
-        // grace period (#59, #454, #525, #608, #619). The clean committed text
-        // is written directly to PTY via onCompositionCommit — nothing from
-        // onData is needed during this window. Previous approaches tried to
-        // selectively block (ASCII-only, exact-match) but different IMEs
-        // re-emit text in unpredictable ways, causing recurring duplication.
-        if (instance.composing) return;
-        // Safety net: some IMEs (WeChat) may emit onData with the committed
-        // text AFTER the grace period ends. Deduplicate within 150ms (#525).
-        // Tracks a consumed-prefix pointer so chunked re-emissions — e.g.
-        // xterm splitting "你好世界" into "你好" + "世界" — match against
-        // the remainder of the committed text, not the full string. Without
-        // this, the suffix chunk ("世界") would slip through and duplicate.
-        if (
-          instance.lastCommittedText &&
-          Date.now() - instance.lastCommitTime < IME_DEDUP_WINDOW_MS
-        ) {
-          // Reset consumed pointer when a new commit lands (lastCommitTime
-          // changes), so prior-chunk bookkeeping doesn't leak across commits.
-          if (e.lastSeenCommitTime !== instance.lastCommitTime) {
-            e.lastSeenCommitTime = instance.lastCommitTime;
-            e.lastCommittedConsumed = 0;
-          }
-          const remainder = instance.lastCommittedText.slice(e.lastCommittedConsumed);
-          if (data.length > 0 && (remainder === data || remainder.startsWith(data))) {
-            e.lastCommittedConsumed += data.length;
-            return;
-          }
-        }
-        if (e.shellExited && !e.pty) {
-          e.shellExited = false;
-          e.instance.term.clear();
-          startShell(sessionId);
-          return;
-        }
-        if (e.pty) {
-          e.pty.write(data);
-        }
-      });
-
+      // Wire IME composition commit + onData → PTY forwarding (with the
+      // composition-grace block and chunked-re-emission dedup). See
+      // terminalSessionInputWiring.ts for the design notes.
       // Shell is spawned lazily by switchVisibility after the container
       // is visible and fitAddon has measured the real dimensions.
-      // This avoids spawning at 80×24 defaults while hidden, which
-      // causes blank lines when the terminal is later resized.
+      wireSessionInput({
+        sessionId,
+        getEntry: (id) => sessionsRef.current.get(id),
+        startShell,
+      });
     },
     [containerRef, startShell],
   );
@@ -490,72 +423,9 @@ export function useTerminalSessions(
     };
   }, [containerRef, createSession, removeSessionEntry, switchVisibility]);
 
-  // Sync theme across all sessions when settings change
-  useEffect(() => {
-    let prevTheme = useSettingsStore.getState().appearance.theme;
-    return useSettingsStore.subscribe((state) => {
-      const themeId = state.appearance.theme;
-      if (themeId === prevTheme) return;
-      prevTheme = themeId;
-      const newTheme = buildXtermThemeForId(themeId);
-      for (const [, entry] of sessionsRef.current) {
-        entry.instance.term.options.theme = newTheme;
-      }
-    });
-  }, []);
-
-  // cd running sessions when workspace root changes
-  useEffect(() => {
-    let prevRoot = useWorkspaceStore.getState().rootPath;
-    return useWorkspaceStore.subscribe((state) => {
-      const newRoot = state.rootPath;
-      if (!newRoot || newRoot === prevRoot) {
-        prevRoot = newRoot;
-        return;
-      }
-      prevRoot = newRoot;
-
-      const cdCommand = buildCdCommand(newRoot);
-      for (const [, entry] of sessionsRef.current) {
-        if (entry.pty && !entry.shellExited && entry.spawnedCwd !== newRoot) {
-          entry.pty.write(cdCommand);
-          entry.spawnedCwd = newRoot;
-        }
-      }
-    });
-  }, []);
-
-  // Sync terminal settings (font, cursor) across all sessions when changed
-  useEffect(() => {
-    const getTermSettings = () => useSettingsStore.getState().terminal;
-    let prev = getTermSettings();
-    return useSettingsStore.subscribe((state) => {
-      const curr = state.terminal;
-      if (!curr || !prev) { prev = curr; return; }
-      const fontChanged = curr.fontSize !== prev.fontSize || curr.lineHeight !== prev.lineHeight;
-      const cursorChanged = curr.cursorStyle !== prev.cursorStyle || curr.cursorBlink !== prev.cursorBlink;
-      const metaChanged = curr.macOptionIsMeta !== prev.macOptionIsMeta;
-      if (!fontChanged && !cursorChanged && !metaChanged) return;
-      prev = curr;
-      for (const [, entry] of sessionsRef.current) {
-        const opts = entry.instance.term.options;
-        if (fontChanged) {
-          opts.fontSize = curr.fontSize;
-          opts.lineHeight = curr.lineHeight;
-        }
-        if (cursorChanged) {
-          opts.cursorStyle = curr.cursorStyle;
-          opts.cursorBlink = curr.cursorBlink;
-        }
-        if (metaChanged) {
-          opts.macOptionIsMeta = curr.macOptionIsMeta;
-        }
-        if (fontChanged) {
-          try { entry.instance.fitAddon.fit(); } catch { /* ignore */ }
-        }
-      }
-    });
-  }, []);
+  // Theme + workspace-root + terminal-settings sync, all in one call.
+  // See terminalSessionStoreSync.ts for the per-effect design notes.
+  useTerminalSessionStoreSync(sessionsRef);
 
   return {
     fit,

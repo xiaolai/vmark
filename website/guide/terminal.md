@@ -51,6 +51,7 @@ Right-click inside the terminal to access:
 - **Paste** — paste from clipboard into the shell
 - **Select All** — select the entire terminal buffer
 - **Clear** — clear visible output
+- **Reset Display** — re-paint the terminal and reset its rendering cache. Use this if characters start to overlap, mix cases, or render garbled after a long session — most often seen when running heavily styled CLIs (e.g. Claude Code) for hours.
 
 ## Clickable Links
 

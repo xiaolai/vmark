@@ -50,6 +50,12 @@
   "terminal.maxSessions": "Máximo de 5 sessões",
   "terminal.closeSession": "Fechar",
   "terminal.restartSession": "Reiniciar",
+
+  "terminal.contextMenu.copy": "Copiar",
+  "terminal.contextMenu.paste": "Colar",
+  "terminal.contextMenu.selectAll": "Selecionar tudo",
+  "terminal.contextMenu.clear": "Limpar",
+  "terminal.contextMenu.resetDisplay": "Redefinir exibição",
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
   "lint.clean.toast": "No markdown issues found",

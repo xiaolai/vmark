@@ -50,6 +50,12 @@
   "terminal.maxSessions": "最大5セッション",
   "terminal.closeSession": "閉じる",
   "terminal.restartSession": "再起動",
+
+  "terminal.contextMenu.copy": "コピー",
+  "terminal.contextMenu.paste": "貼り付け",
+  "terminal.contextMenu.selectAll": "すべて選択",
+  "terminal.contextMenu.clear": "クリア",
+  "terminal.contextMenu.resetDisplay": "表示をリセット",
   "lint.badge.tooltip": "{{count}} issue(s) — click to go to next",
   "lint.badge.tooltipSingle": "1 issue — click to go to next",
   "lint.clean.toast": "No markdown issues found",

@@ -275,6 +275,80 @@ describe("TerminalContextMenu", () => {
       expect(onClose).toHaveBeenCalled();
       expect(term.focus).toHaveBeenCalled();
     });
+
+    it("invokes onResetDisplay on Reset Display click and closes", () => {
+      const term = makeTerm();
+      const onResetDisplay = vi.fn();
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onResetDisplay={onResetDisplay}
+          onClose={onClose}
+        />,
+      );
+
+      fireEvent.click(screen.getByText("Reset Display"));
+      expect(onResetDisplay).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalled();
+      expect(term.focus).toHaveBeenCalled();
+    });
+  });
+
+  describe("Reset Display visibility (#856)", () => {
+    it("renders Reset Display item when onResetDisplay is provided", () => {
+      const term = makeTerm();
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onResetDisplay={vi.fn()}
+          onClose={onClose}
+        />,
+      );
+
+      expect(screen.getByText("Reset Display")).toBeInTheDocument();
+    });
+
+    it("hides Reset Display item when onResetDisplay is not provided", () => {
+      const term = makeTerm();
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onClose={onClose}
+        />,
+      );
+
+      expect(screen.queryByText("Reset Display")).not.toBeInTheDocument();
+    });
+
+    it("renders separator before Clear regardless of Reset Display presence", () => {
+      const term = makeTerm();
+      const { container, rerender } = render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onClose={onClose}
+        />,
+      );
+      expect(container.querySelectorAll(".context-menu-separator")).toHaveLength(1);
+
+      rerender(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onResetDisplay={vi.fn()}
+          onClose={onClose}
+        />,
+      );
+      expect(container.querySelectorAll(".context-menu-separator")).toHaveLength(1);
+    });
   });
 
   it("does not close on non-Escape key", () => {

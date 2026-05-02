@@ -302,6 +302,9 @@ describe("createTerminalInstance with WebGL", () => {
     vi.mock("@xterm/addon-webgl", () => ({
       WebglAddon: class {
         onContextLoss = vi.fn((cb: () => void) => cb);
+        onAddTextureAtlasCanvas = vi.fn();
+        onRemoveTextureAtlasCanvas = vi.fn();
+        clearTextureAtlas = vi.fn();
         dispose = vi.fn();
       },
     }));

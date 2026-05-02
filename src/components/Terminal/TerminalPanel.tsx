@@ -203,6 +203,7 @@ export function TerminalPanel() {
           position={contextMenu}
           term={active.term}
           ptyRef={active.ptyRef}
+          onResetDisplay={active.resetDisplay}
           onClose={closeContextMenu}
         />
       )}
