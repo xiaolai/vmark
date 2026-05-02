@@ -1,9 +1,10 @@
 /**
  * useTerminalSessions
  *
- * Purpose: Manages the lifecycle of multiple terminal sessions — each with its own
- * xterm instance and PTY process. Subscribes to terminalSessionStore for create,
- * remove, and switch operations.
+ * Purpose: Orchestrates the lifecycle of multiple terminal sessions — each
+ * with its own xterm instance and PTY process. Subscribes to
+ * terminalSessionStore for create, remove, and switch operations. Concerns
+ * that don't depend on the hook's closure state are extracted into helpers.
  *
  * Key decisions:
  *   - Shell spawn is deferred: the PTY is not started until the session's container
@@ -11,23 +12,23 @@
  *     80x24 defaults while hidden, which causes blank-line artifacts on resize.
  *   - After a shell exits, pressing any key respawns it — no manual restart needed.
  *     The "dead session" state is visually indicated in the tab bar.
- *   - IME composition guard: ALL onData is blocked during both active composition
- *     and the 80ms post-composition grace period (#59, #454, #525, #608, #619).
- *     Clean committed text is written directly via onCompositionCommit, bypassing
- *     xterm entirely. Late onData matching recently committed text is deduplicated
- *     within 150ms as a safety net (#525).
- *   - Theme sync uses buildXtermThemeForId() from terminalTheme.ts for
- *     per-theme ANSI color palettes. Font size and workspace root changes
- *     are also synced across all sessions via store subscriptions.
- *   - Workspace root change auto-cd's running sessions via buildCdCommand(),
- *     which escapes paths for shell safety (Ctrl+U clears partial input first).
+ *   - IME forwarding (composition commit + onData → PTY with grace-period
+ *     block and chunked re-emission dedup) is implemented in
+ *     terminalSessionInputWiring.ts (#59, #454, #525, #608, #619).
+ *   - Theme / workspace-root / terminal-settings sync is implemented in
+ *     terminalSessionStoreSync.ts. Theme uses buildXtermThemeForId();
+ *     workspace-root change auto-cd's running sessions via buildCdCommand()
+ *     which Ctrl+U-clears partial input and POSIX-quotes the path.
  *   - Spawn failures are reflected in the UI via markSessionDead().
  *   - Session map (sessionsRef) is imperative (not React state) because xterm
  *     instances must be managed outside React's render cycle.
+ *   - resetDisplay is exposed via getActiveTerminal() so the context menu's
+ *     "Reset Display" action can clear the WebGL atlas and re-paint (#856).
  *
  * @coordinates-with TerminalPanel.tsx — provides fit(), getActiveTerminal, getActiveSearchAddon
  * @coordinates-with createTerminalInstance.ts — factory for xterm + addons
- * @coordinates-with terminalTheme.ts — per-theme ANSI color palettes for xterm.js
+ * @coordinates-with terminalSessionStoreSync.ts — theme / workspace / settings sync effects
+ * @coordinates-with terminalSessionInputWiring.ts — IME and onData → PTY wiring
  * @coordinates-with spawnPty.ts — shell process creation
  * @coordinates-with terminalSessionStore — store driving session list and active ID
  * @module components/Terminal/useTerminalSessions

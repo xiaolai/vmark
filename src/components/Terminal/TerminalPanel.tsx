@@ -9,7 +9,7 @@
  *
  * User interactions:
  *   - Drag the resize handle to adjust panel height (bottom) or width (right)
- *   - Right-click for copy/paste/clear context menu
+ *   - Right-click for copy / paste / select-all / clear / reset-display menu
  *   - Use the tab bar to create/switch/close terminal sessions
  *   - Cmd+F within terminal opens the inline search bar
  *
@@ -30,7 +30,7 @@
  * @coordinates-with useTerminalPosition.ts — auto-repositioning algorithm
  * @coordinates-with TerminalTabBar.tsx — session switching and management
  * @coordinates-with TerminalSearchBar.tsx — inline search within terminal output
- * @coordinates-with TerminalContextMenu.tsx — right-click copy/paste/clear menu
+ * @coordinates-with TerminalContextMenu.tsx — right-click copy/paste/clear/reset-display menu
  * @module components/Terminal/TerminalPanel
  */
 import { useRef, useEffect, useState, useCallback, type RefObject, type MutableRefObject } from "react";
