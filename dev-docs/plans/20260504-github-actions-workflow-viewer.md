@@ -6,7 +6,8 @@
 > Updated: 2026-05-04 (Phase 1 complete — 141 tests across 11 modules, all 22 fixtures parse cleanly, scripts/check-gha-phase.sh 1 passes 12/12, scripts/check-wi-linkage.sh --phase=1 passes 6/6, pnpm check:all green)
 > Updated: 2026-05-04 (Phase 4 complete — Mermaid + SVG/PNG export; 16 tests including fixture-corpus integration; html-to-image dep added)
 > Updated: 2026-05-04 (Phase 5 complete — schema lint via @actions/languageservice (WI-5.1) + optional actionlint via Rust Tauri command (WI-5.3/5.4); 28 tests across frontend + Rust; WI-5.2 deferred as Phase 9 polish — provider configuration required for richer expression linting)
-> Status: Phases 0/1/4/5 complete; Phases 2/3/7 (UI) and 6 (action discovery) and 8 (CST round-trip) and 9 (polish) deferred to subsequent runs per governance rule .claude/rules/60-ai-governance.md clause 8 — UI requires interactive verification; CST round-trip requires dedicated focus.
+> Updated: 2026-05-04 (Phase 2 partial — WI-2.1..2.4 code-complete: toGraph + layout + workflowViewStore + JobNode + WorkflowPanelShell + WorkflowCanvas + GhaWorkflowPanel. 47 tests across 7 modules. WI-2.5 implicit in JobNode click handler. WI-2.6 file-open pipeline integration deferred — high blast-radius edit to VMark's routing layer. Interactive verification of mount/render in the Tauri webview pending user-driven session.)
+> Status: Phases 0/1/4/5 complete; Phase 2 code-complete (interactive verification + WI-2.6 pending); Phase 3/7 (more UI), Phase 6 (action discovery), Phase 8 (CST round-trip), Phase 9 (polish) deferred to subsequent runs per .claude/rules/60-ai-governance.md clause 8.
 > Branch: `feature/gh-actions-workflow-viewer`
 > Related: `20260331-workflow-engine.md` (VMark Genie workflows — distinct feature, see §1.4)
 
