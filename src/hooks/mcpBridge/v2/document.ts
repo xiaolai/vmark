@@ -45,6 +45,9 @@ import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error } from "./types";
 import { HALF_TO_FULL } from "./cjkMaps";
+import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
+import type { CheckpointTool } from "@/stores/mcpCheckpointStore";
 
 interface ResolvedTab {
   tabId: string;
@@ -99,6 +102,33 @@ function resolveTab(tabIdArg: string | undefined): ResolvedTab | null {
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
+}
+
+/**
+ * Capture a checkpoint for the just-completed MCP write. Push the
+ * snapshot synchronously so callers can read it back immediately, then
+ * fire the disk append asynchronously (errors are logged, never
+ * surfaced — a failed history write must not break the MCP path).
+ */
+function recordCheckpoint(args: {
+  resolved: ResolvedTab;
+  tool: CheckpointTool;
+  description: string;
+  contentBefore: string;
+  revisionBefore: string;
+  revisionAfter: string;
+}): void {
+  const id = useMcpCheckpointStore.getState().push({
+    tabId: args.resolved.tabId,
+    filePath: args.resolved.filePath,
+    tool: args.tool,
+    description: args.description,
+    contentBefore: args.contentBefore,
+    revisionBefore: args.revisionBefore,
+    revisionAfter: args.revisionAfter,
+  });
+  const cp = useMcpCheckpointStore.getState().get(id);
+  if (cp) void appendCheckpoint(cp);
 }
 
 /**
@@ -229,10 +259,22 @@ export async function handleDocumentWrite(
       return;
     }
 
+    const contentBefore = resolved.content;
+    const revisionBefore = revisionStore.getRevision();
     const result = writeContent(resolved.tabId, args.content, resolved.kind);
     if ("error" in result) {
       await structuredError(id, result);
       return;
+    }
+    if (contentBefore !== args.content) {
+      recordCheckpoint({
+        resolved,
+        tool: "document.write",
+        description: describeWrite(args.content, contentBefore),
+        contentBefore,
+        revisionBefore,
+        revisionAfter: result.revision,
+      });
     }
     await respond({ id, success: true, data: result });
   } catch (error) {
@@ -242,6 +284,16 @@ export async function handleDocumentWrite(
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/** One-line summary of a `document.write` for the checkpoint panel. */
+function describeWrite(after: string, before: string): string {
+  const beforeBytes = before.length;
+  const afterBytes = after.length;
+  const delta = afterBytes - beforeBytes;
+  const sign = delta >= 0 ? "+" : "−";
+  const magnitude = Math.abs(delta);
+  return `Wrote document (${sign}${magnitude} chars, was ${beforeBytes}, now ${afterBytes})`;
 }
 
 const TRANSFORM_KINDS = [
@@ -346,11 +398,21 @@ export async function handleDocumentTransform(
       return;
     }
 
+    const contentBefore = resolved.content;
+    const revisionBefore = revisionStore.getRevision();
     const result = writeContent(resolved.tabId, transformed, resolved.kind);
     if ("error" in result) {
       await structuredError(id, result);
       return;
     }
+    recordCheckpoint({
+      resolved,
+      tool: "document.transform",
+      description: `Transform: ${args.kind}`,
+      contentBefore,
+      revisionBefore,
+      revisionAfter: result.revision,
+    });
     await respond({ id, success: true, data: result });
   } catch (error) {
     await respond({

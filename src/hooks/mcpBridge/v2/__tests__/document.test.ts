@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
+import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
 import {
   handleDocumentRead,
   handleDocumentWrite,
@@ -17,6 +18,10 @@ vi.mock("../../utils", () => ({
 
 vi.mock("@/utils/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
+}));
+
+vi.mock("@/stores/mcpCheckpointPersistence", () => ({
+  appendCheckpoint: vi.fn(async () => undefined),
 }));
 
 // No editor available in tests — writeContent's fallback path runs.
@@ -36,6 +41,7 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
+  useMcpCheckpointStore.setState({ checkpoints: [], hydrated: false });
 }
 
 function seedTab(tabId: string, content: string, filePath: string | null) {
@@ -175,6 +181,34 @@ describe("vmark.document.write — STALE concurrency", () => {
       error: "INTERNAL",
     });
   });
+
+  it("pushes a checkpoint after a successful write", async () => {
+    seedTab("t-cp", "before", "/notes.md");
+    await handleDocumentWrite("req-cp", {
+      tabId: "t-cp",
+      content: "after",
+    });
+    const cps = useMcpCheckpointStore.getState().list({
+      filePath: "/notes.md",
+    });
+    expect(cps).toHaveLength(1);
+    expect(cps[0]).toMatchObject({
+      tabId: "t-cp",
+      filePath: "/notes.md",
+      tool: "document.write",
+      contentBefore: "before",
+    });
+    expect(cps[0].byteSize).toBe("before".length);
+  });
+
+  it("does not push a checkpoint when content is unchanged", async () => {
+    seedTab("t-noop", "same", null);
+    await handleDocumentWrite("req-noop", {
+      tabId: "t-noop",
+      content: "same",
+    });
+    expect(useMcpCheckpointStore.getState().checkpoints).toHaveLength(0);
+  });
 });
 
 describe("vmark.document.transform — CJK rewriter", () => {
@@ -233,5 +267,24 @@ describe("vmark.document.transform — CJK rewriter", () => {
     expect(r.success).toBe(true);
     // No content change → revision should not bump.
     expect(useRevisionStore.getState().getRevision()).toBe(before);
+    // No checkpoint either.
+    expect(useMcpCheckpointStore.getState().checkpoints).toHaveLength(0);
+  });
+
+  it("pushes a checkpoint after a successful transform", async () => {
+    seedTab("t-cp-tf", "测试ABC", "/cjk.md");
+    await handleDocumentTransform("req-cp-tf", {
+      tabId: "t-cp-tf",
+      kind: "cjk-spacing",
+    });
+    const cps = useMcpCheckpointStore.getState().list({
+      filePath: "/cjk.md",
+    });
+    expect(cps).toHaveLength(1);
+    expect(cps[0]).toMatchObject({
+      tool: "document.transform",
+      contentBefore: "测试ABC",
+    });
+    expect(cps[0].description).toContain("cjk-spacing");
   });
 });

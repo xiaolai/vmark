@@ -32,6 +32,7 @@ import type { McpRequestEvent, McpRequestEventRaw } from "./types";
 import { respond } from "./utils";
 import { mcpBridgeLog, mcpBridgeError } from "@/utils/debug";
 import { handleRequest } from "./handleRequest";
+import { hydrateCheckpoints } from "@/stores/mcpCheckpointPersistence";
 
 /**
  * Hook to enable MCP bridge request handling.
@@ -42,6 +43,10 @@ import { handleRequest } from "./handleRequest";
  */
 export function useMcpBridge(): void {
   useEffect(() => {
+    // Load persisted checkpoint history. Fire-and-forget — failures
+    // are logged inside the persistence module and never block.
+    void hydrateCheckpoints();
+
     let unlisten: (() => void) | undefined;
     let mounted = true;
 

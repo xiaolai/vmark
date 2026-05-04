@@ -28,6 +28,7 @@ import { formatExactTime } from "@/utils/dateUtils";
 import { formatKeyForDisplay } from "@/stores/shortcutsStore";
 import { UpdateIndicator } from "./UpdateIndicator";
 import { StatusBarCounts } from "./StatusBarCounts";
+import { McpHistoryButton } from "@/components/McpHistory";
 import { LintBadge } from "./LintBadge";
 import type { McpClient } from "@/hooks/useMcpClients";
 
@@ -211,6 +212,8 @@ export function StatusBarRight({
       >
         <Satellite size={12} />
       </button>
+
+      <McpHistoryButton />
 
       <button
         className={`status-terminal ${terminalVisible ? "active" : ""}`}

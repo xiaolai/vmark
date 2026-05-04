@@ -1,0 +1,216 @@
+/* ┌─────────────────────────────────────────────────────────────┐ */
+/* │ MCP History — StatusBar button + popover                    │ */
+/* │ Surfaces the per-tab MCP write checkpoint list with a       │ */
+/* │ one-click restore. Reuses popup-shared.css conventions for  │ */
+/* │ the popover surface; the button mirrors `.status-mcp`.      │ */
+/* └─────────────────────────────────────────────────────────────┘ */
+
+.status-mcp-history {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-base), color var(--duration-base);
+}
+
+.status-mcp-history:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.status-mcp-history.has-history {
+  color: var(--accent-primary);
+}
+
+.status-mcp-history:focus-visible {
+  outline: none;
+}
+
+.status-mcp-history:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: var(--space-1);
+  right: var(--space-1);
+  height: var(--border-medium);
+  border-bottom: var(--border-medium) solid var(--accent-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.status-mcp-history__badge {
+  position: absolute;
+  /* Nudge the pill out so it overhangs the icon button corner. The
+     offset is -1 × the smallest space token. */
+  top: calc(var(--space-half) * -1);
+  right: calc(var(--space-half) * -1);
+  min-width: var(--space-3-5);
+  height: var(--space-3-5);
+  padding: 0 var(--space-1);
+  background: var(--accent-primary);
+  color: var(--contrast-text);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ───── Popover ───── */
+
+.mcp-history-popover {
+  position: fixed;
+  z-index: var(--z-popup);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popup-fade-in var(--duration-fast) ease-out;
+}
+
+.dark-theme .mcp-history-popover {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.mcp-history-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  font-size: var(--font-size-sm);
+}
+
+.mcp-history-popover__title {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.mcp-history-popover__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-btn-sm);
+  height: var(--size-btn-sm);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-base), color var(--duration-base);
+}
+
+.mcp-history-popover__clear:not(:disabled):hover {
+  background: var(--hover-bg);
+  color: var(--error-color);
+}
+
+.mcp-history-popover__clear:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.mcp-history-popover__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.mcp-history-popover__empty {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.mcp-history-popover__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-base);
+}
+
+.mcp-history-popover__row:hover {
+  background: var(--hover-bg);
+}
+
+.mcp-history-popover__row-meta {
+  grid-column: 1;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mcp-history-popover__time {
+  color: var(--text-tertiary);
+}
+
+.mcp-history-popover__tool {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  background: var(--subtle-bg);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.mcp-history-popover__description {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mcp-history-popover__restore {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-base), color var(--duration-base);
+}
+
+.mcp-history-popover__restore:hover {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
+.mcp-history-popover__restore:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--border-medium) var(--accent-primary);
+}

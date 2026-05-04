@@ -54,11 +54,19 @@ Reduce VMark's MCP surface from **12 tools / 76 actions** to **4 tools / 14 acti
 
 **Decision:** `vmark.workflow.apply_patch({patches: IRPatch[], expected_revision?})` accepts the existing discriminated union from `src/lib/ghaWorkflow/save/mutators.ts` (8 patch kinds: `workflow.set`, `job.set`, `step.set`, `with.set`, `with.remove`, `needs.add`, `needs.remove`, `trigger.setFilters`).
 
-**Mechanism:** Raw text write of YAML loses comments, anchors, and key order — VMark's CST mutators preserve them. Treat the discriminated union as `apply_patch_v1`; future breaking shape changes bump to `_v2`.
+**Mechanism:** When the AI changes one field of an existing YAML, naive raw rewrite risks losing comments and anchors that the AI didn't bother to preserve in its output. The CST mutator path makes that loss structurally impossible — the server only touches the bytes that correspond to the patched key. Treat the discriminated union as `apply_patch_v1`; future breaking shape changes bump to `_v2`.
 
 **Trade-off acknowledged:** Internal type becomes external contract. Mitigation: flag `IRPatch` in `src/lib/ghaWorkflow/save/mutators.ts` with an `@public` JSDoc so future renames trigger review.
 
 **Confidence:** Medium-high. The patch shape has been stable through Phase 7+8+9 of the GHA viewer plan.
+
+**What `apply_patch` does NOT replace:** `document.read` and `document.write` work on workflow YAML tabs (and every other tab kind). The pruned spine is universal:
+
+- `document.read` returns raw YAML text + revision.
+- `document.write` does a verbatim string replace; whatever the AI sends, that's what gets stored. Comments survive iff the AI's output preserves them.
+- `apply_patch` is for the case where the AI is making a *targeted* change and the server should guarantee zero collateral edits to surrounding content.
+
+There is deliberately no `workflow.read` (would duplicate `document.read` returning IR — AI parses YAML trivially) and no `workflow.write` (would be strictly worse than `document.write`, because IR-level serialization can't reconstruct comments that aren't in the IR).
 
 ### ADR-6: One-shot `session.get_state` replaces five discovery tools
 

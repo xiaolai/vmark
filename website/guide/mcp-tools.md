@@ -191,7 +191,17 @@ Returns `{revision}`.
 
 ## `workflow`
 
-CST-safe edits and `actionlint` validation for GitHub Actions workflow YAML. Available only for tabs whose `kind` is `"yaml-workflow"`. For Markdown, use `document.write` instead.
+`actionlint` validation and **CST-safe surgical edits** for GitHub Actions workflow YAML. Available only for tabs whose `kind` is `"yaml-workflow"`.
+
+::: info `document.read` / `document.write` work on every tab — including workflow YAML
+The `workflow` tool is **not** a substitute for the read/write spine. For a workflow tab, you can:
+
+- `document.read` to get the raw YAML text (with all comments)
+- `document.write` to replace it wholesale (whatever string you send is stored verbatim — comments preserved if you include them)
+- `workflow.apply_patch` when you want **the server itself to guarantee** that comments, anchors, and key order survive a partial edit
+
+Use `apply_patch` when changing one field and leaving everything else untouched (the server can't drop comments it doesn't change). Use `document.write` when you're rewriting wholesale or generating a new workflow from scratch.
+:::
 
 ### `apply_patch`
 

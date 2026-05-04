@@ -44,6 +44,8 @@ import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
 import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
+import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 
 const VALID_PATCH_KINDS: ReadonlySet<string> = new Set([
   "workflow.set",
@@ -58,6 +60,34 @@ const VALID_PATCH_KINDS: ReadonlySet<string> = new Set([
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
+}
+
+/** Compose a one-line summary of a patch batch for the checkpoint panel. */
+function describePatchBatch(patches: IRPatch[]): string {
+  if (patches.length === 0) return "Apply 0 patches";
+  if (patches.length === 1) {
+    const p = patches[0];
+    switch (p.kind) {
+      case "workflow.set":
+        return `Set workflow ${p.path}`;
+      case "job.set":
+        return `Set ${p.jobId}.${p.path}`;
+      case "step.set":
+        return `Set ${p.jobId}.steps[${p.stepIndex}].${p.path}`;
+      case "with.set":
+        return `Set ${p.jobId}.steps[${p.stepIndex}].with.${p.key}`;
+      case "with.remove":
+        return `Remove ${p.jobId}.steps[${p.stepIndex}].with.${p.key}`;
+      case "needs.add":
+        return `Add ${p.ref} to ${p.jobId}.needs`;
+      case "needs.remove":
+        return `Remove ${p.ref} from ${p.jobId}.needs`;
+      case "trigger.setFilters":
+        return `Set on.${p.event}.${p.filter}`;
+    }
+  }
+  const kinds = new Set(patches.map((p) => p.kind));
+  return `Apply ${patches.length} patches (${[...kinds].join(", ")})`;
 }
 
 /**
@@ -197,7 +227,7 @@ export async function handleWorkflowApplyPatch(
     }
 
     if (nextContent === tabOrError.content) {
-      // No-op patch batch — don't bump revision.
+      // No-op patch batch — don't bump revision, don't checkpoint.
       await respond({
         id,
         success: true,
@@ -206,13 +236,28 @@ export async function handleWorkflowApplyPatch(
       return;
     }
 
+    const contentBefore = tabOrError.content;
+    const revisionBefore = revisionStore.getRevision();
     useDocumentStore.getState().setContent(tabOrError.tabId, nextContent);
     revisionStore.updateRevision();
+    const revisionAfter = revisionStore.getRevision();
+
+    const cpId = useMcpCheckpointStore.getState().push({
+      tabId: tabOrError.tabId,
+      filePath: tabOrError.filePath,
+      tool: "workflow.apply_patch",
+      description: describePatchBatch(patches),
+      contentBefore,
+      revisionBefore,
+      revisionAfter,
+    });
+    const cp = useMcpCheckpointStore.getState().get(cpId);
+    if (cp) void appendCheckpoint(cp);
 
     await respond({
       id,
       success: true,
-      data: { revision: revisionStore.getRevision() },
+      data: { revision: revisionAfter },
     });
   } catch (error) {
     await respond({
