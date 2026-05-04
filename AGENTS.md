@@ -116,6 +116,20 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **Cost reports**: Daily cost reports use a single rolling issue (close previous, open new) with data archived to `.github/cost-reports/ledger.json`. Do not keep old cost-report issues open — the workflow handles the lifecycle automatically.
 
+- AI governance (long-running plans):
+
+  - See `.claude/rules/60-ai-governance.md` for the full rule set; background research in `dev-docs/grills/ai-governance-2026-05.md`.
+
+  - Plans live in `dev-docs/plans/YYYYMMDD-name.md` with WI-IDs (`WI-1.2`). Every WI in a "complete" phase must be linked via commit message or test-file header — checked by `scripts/check-wi-linkage.sh`.
+
+  - Each phase has machine-checkable DoD. For the GHA workflow viewer plan: `bash scripts/check-gha-phase.sh <N>`.
+
+  - New dependencies are reviewed for hallucination/slopsquatting on every PR via `scripts/check-new-deps.sh` (CI-enforced).
+
+  - High-risk paths are TDD-hook-enforced via `.claude/hooks/gha-tdd-guard.mjs` (PreToolUse: blocks Write/Edit on production source without sibling test).
+
+  - Cross-model review (Codex) is mandatory for plans >500 lines or >3 phases before Phase 1 commits.
+
 - Key architectural patterns:
 
   - **Menu events**: Generic dispatcher in `menu_events.rs` emits `menu:{id}` to the focused window — no per-item handling needed for simple events.

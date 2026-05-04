@@ -20,6 +20,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Fetch enough history for the new-deps slopsquatting gate to diff
+          # against origin/main.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
         with:
@@ -37,6 +41,12 @@ jobs:
         # Track: https://github.com/pnpm/pnpm/issues/11265
         continue-on-error: true
         run: pnpm audit --audit-level=critical
+
+      - name: Slopsquatting gate (new-dep review)
+        # Flags newly-added packages that look hallucinated or freshly-published.
+        # Background: USENIX Sec 2025 — LLM package hallucination 5-22%, with
+        # active "slopsquat" supply-chain attacks. See scripts/check-new-deps.sh.
+        run: bash scripts/check-new-deps.sh
 
       - run: pnpm check:all
 
