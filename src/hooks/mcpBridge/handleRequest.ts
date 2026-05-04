@@ -33,6 +33,7 @@ import { dispatchEditor } from "./dispatchers/editorDispatch";
 import { dispatchWorkspace } from "./dispatchers/workspaceDispatch";
 import { dispatchInsert } from "./dispatchers/insertDispatch";
 import { dispatchAiMcp } from "./dispatchers/aiMcpDispatch";
+import { dispatchV2 } from "./v2/dispatch";
 
 /** Route an MCP request through the guard chain and category dispatchers. */
 export async function handleRequest(event: McpRequestEvent): Promise<void> {
@@ -62,6 +63,9 @@ export async function handleRequest(event: McpRequestEvent): Promise<void> {
   }
 
   try {
+    // Pruned 4-tool surface (vmark.session/workspace/document/workflow)
+    // matches first; legacy dispatchers stay until WI-1.5 deletes them.
+    if (await dispatchV2(event)) return;
     if (await dispatchDocument(event)) return;
     if (await dispatchEditor(event)) return;
     if (await dispatchWorkspace(event)) return;
