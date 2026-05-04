@@ -43,5 +43,45 @@
   "settings.actionlint.label": "Use actionlint when available",
   "settings.actionlint.description": "If the `actionlint` binary is on your PATH, run it on workflow files for richer diagnostics. No effect if the binary is not installed.",
   "settings.preserveYamlFormatting.label": "Preserve YAML formatting on save",
-  "settings.preserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting where possible. Disable to reformat on every save."
+  "settings.preserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting where possible. Disable to reformat on every save.",
+
+  "form.job.kind": "Job",
+  "form.job.name.label": "Name",
+  "form.job.name.placeholder": "Display name",
+  "form.job.runsOn.label": "Runs on",
+  "form.job.runsOn.placeholder": "ubuntu-latest / self-hosted / linux / x64",
+  "form.job.if.label": "Condition (if)",
+  "form.job.steps.count": "{{count}} steps",
+  "form.job.needs.label": "Needs",
+  "form.job.uses.label": "Uses",
+
+  "form.step.kind": "Step",
+  "form.step.name.label": "Name",
+  "form.step.run.label": "Run",
+  "form.step.workingDirectory.label": "Working directory",
+  "form.step.if.label": "Condition (if)",
+  "form.step.with.label": "With",
+  "form.step.with.addRow": "Add input",
+  "form.step.with.removeRow": "Remove",
+  "form.step.with.keyPlaceholder": "key",
+  "form.step.with.valuePlaceholder": "value",
+  "form.step.uses.label": "Uses",
+
+  "form.trigger.kind": "Triggers",
+  "form.trigger.empty": "No triggers configured",
+  "form.trigger.branches": "Branches: {{value}}",
+  "form.trigger.branchesIgnore": "Branches ignored: {{value}}",
+  "form.trigger.tags": "Tags: {{value}}",
+  "form.trigger.paths": "Paths: {{value}}",
+  "form.trigger.cron": "Cron: {{value}}",
+  "form.trigger.types": "Types: {{value}}",
+
+  "form.empty.selectJob": "Select a job in the diagram to edit it.",
+
+  "save.button": "Save",
+  "save.discardButton": "Discard",
+  "save.dirtyHint": "{{count}} unsaved",
+  "save.cleanHint": "No pending edits",
+  "save.errorTitle": "Save failed",
+  "save.savedToast": "Workflow saved"
 }

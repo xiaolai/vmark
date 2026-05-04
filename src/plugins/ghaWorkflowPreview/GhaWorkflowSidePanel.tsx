@@ -21,11 +21,35 @@
  * @module plugins/ghaWorkflowPreview/GhaWorkflowSidePanel
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
 import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useTabStore } from "@/stores/tabStore";
+import { WindowContext } from "@/contexts/WindowContext";
 import { useTranslation } from "react-i18next";
+import { imeToast as toast } from "@/utils/imeToast";
 import "./gha-workflow-side-panel.css";
+
+// Lazy-loaded so the yaml package + mutators + workflowEditStore
+// don't land in the eager App bundle. The forms editor + save
+// pipeline only matters once a workflow file is being viewed; the
+// canvas itself doesn't need them. Suspense fallback is null because
+// the panel above it (the canvas) renders synchronously.
+const WorkflowEditorPanel = lazy(() =>
+  import("@/components/Editor/WorkflowEditor/WorkflowEditorPanel").then(
+    (m) => ({ default: m.WorkflowEditorPanel }),
+  ),
+);
 
 const MIN_PANEL_WIDTH = 240;
 const MAX_PANEL_WIDTH_RATIO = 0.8;
@@ -100,6 +124,50 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     [panelWidth, cleanup],
   );
 
+  // Look up the active tab inside the callback (and optionally) so the
+  // panel renders even when no WindowProvider is present (e.g. in
+  // standalone unit tests). The panel works the same in production —
+  // it sits inside an Editor whose WindowContext is established.
+  const windowCtx = useContext(WindowContext);
+
+  const handleSave = useCallback(async (): Promise<void> => {
+    const windowLabel = windowCtx?.windowLabel;
+    if (!windowLabel) return;
+    const tabId = useTabStore.getState().activeTabId[windowLabel];
+    if (!tabId) return;
+    const docState = useDocumentStore.getState();
+    const tabDoc = docState.documents[tabId];
+    if (!tabDoc) return;
+    // Lazy-import the edit store so it's bundled with the lazy forms
+    // chunk rather than eager-loaded for users who only read workflows.
+    const { useWorkflowEditStore } = await import(
+      "@/stores/workflowEditStore"
+    );
+    const editStore = useWorkflowEditStore.getState();
+    if (editStore.pendingPatches.length === 0) return;
+    try {
+      const next = editStore.applyAndSerialize(tabDoc.content);
+      docState.setContent(tabId, next);
+      editStore.clearPatches();
+      toast.success(t("workflowEditor:save.savedToast", "Workflow saved"));
+    } catch (error) {
+      toast.error(
+        `${t("workflowEditor:save.errorTitle", "Save failed")}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }, [windowCtx, t]);
+
+  const handleDiscard = useCallback((): void => {
+    // Patch queue is cleared inside SaveControls before this fires;
+    // there's no source-of-truth reload to do because the editor's
+    // YAML content is unchanged (forms only buffer patches). Once
+    // clearPatches() runs, the next render rebuilds form state from
+    // the IR — which is regenerated from the unchanged source by the
+    // CodeMirror plugin.
+  }, []);
+
   if (!panelOpen) return null;
 
   return (
@@ -125,9 +193,18 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
             </span>
           </div>
         ) : workflow ? (
-          <div className="gha-workflow-side-panel__canvas">
-            <WorkflowCanvas workflow={workflow} />
-          </div>
+          <>
+            <div className="gha-workflow-side-panel__canvas">
+              <WorkflowCanvas workflow={workflow} />
+            </div>
+            <Suspense fallback={null}>
+              <WorkflowEditorPanel
+                workflow={workflow}
+                onSave={handleSave}
+                onDiscard={handleDiscard}
+              />
+            </Suspense>
+          </>
         ) : (
           <div className="gha-workflow-side-panel__empty">
             {t("workflowEditor:panel.noWorkflow", "No workflow detected")}

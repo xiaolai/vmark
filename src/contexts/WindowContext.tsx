@@ -144,7 +144,7 @@ interface WindowContextValue {
   isDocumentWindow: boolean;
 }
 
-const WindowContext = createContext<WindowContextValue | null>(null);
+export const WindowContext = createContext<WindowContextValue | null>(null);
 
 interface WindowProviderProps {
   children: ReactNode;
