@@ -79,6 +79,7 @@
     "dagre": "^0.8.5",
     "dompurify": "^3.3.1",
     "highlight.js": "^11.11.1",
+    "html-to-image": "1.11.13",
     "i18next": "^25.8.18",
     "i18next-resources-to-backend": "^1.2.1",
     "js-yaml": "^4.1.1",
