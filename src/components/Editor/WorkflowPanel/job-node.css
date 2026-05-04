@@ -1,0 +1,111 @@
+/* WI-2.3 — JobNode visual styles. Uses VMark design tokens; never hardcode. */
+
+.gha-job-node {
+  /* Reset button styling */
+  appearance: none;
+  border: var(--space-px) solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  cursor: pointer;
+  width: var(--space-15);
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+
+.gha-job-node:hover {
+  background: var(--bg-tertiary);
+}
+
+.gha-job-node[data-selected="true"] {
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+}
+
+.gha-job-node:focus-visible {
+  outline: none;
+  position: relative;
+}
+
+.gha-job-node:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: var(--radius-sm);
+  right: var(--radius-sm);
+  height: var(--radius-sm);
+  border-bottom: var(--space-half) solid var(--accent-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.gha-job-node__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.gha-job-node__title {
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.gha-job-node__if-dot {
+  width: var(--radius-lg);
+  height: var(--radius-lg);
+  border-radius: 50%;
+  background: var(--warning-color);
+  flex-shrink: 0;
+}
+
+.gha-job-node__runner {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gha-job-node__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  margin-top: auto;
+  font-size: var(--font-size-2xs);
+}
+
+.gha-job-node__badge {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: var(--space-px) var(--space-1);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.gha-job-node__badge--reusable {
+  border: var(--space-px) dashed var(--border-color);
+  background: transparent;
+}
+
+.gha-job-node__badge--matrix {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
+.gha-job-node__steps {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}

@@ -169,7 +169,7 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       '@xyflow/react':
-        specifier: ^12.10.2
+        specifier: 12.10.2
         version: 12.10.2(@types/react@19.2.9)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       alfaaz:
         specifier: ^1.1.0

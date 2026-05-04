@@ -1,0 +1,37 @@
+/* WI-2.4 — canvas chrome. Inherits xyflow's bundled style.css. */
+
+.gha-workflow-canvas {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-color);
+  position: relative;
+}
+
+.gha-workflow-canvas .react-flow__background {
+  background: var(--bg-color);
+}
+
+.gha-workflow-canvas .react-flow__controls {
+  border: var(--space-px) solid var(--border-color);
+  background: var(--bg-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.gha-workflow-canvas .react-flow__controls-button {
+  background: var(--bg-color);
+  color: var(--text-color);
+  border-bottom: var(--space-px) solid var(--border-color);
+}
+
+.gha-workflow-canvas .react-flow__controls-button:hover {
+  background: var(--bg-tertiary);
+}
+
+.gha-workflow-canvas .react-flow__edge-path {
+  stroke: var(--border-color);
+  stroke-width: 2;
+}
+
+.gha-workflow-canvas .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--accent-primary);
+}
