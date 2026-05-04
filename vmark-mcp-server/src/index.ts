@@ -40,9 +40,6 @@ export { registerWorkspaceTool } from './tools/workspace.js';
 export { registerDocumentTool } from './tools/document.js';
 export { registerWorkflowTool } from './tools/workflow.js';
 
-// Resource registrations
-export { registerDocumentResources } from './resources/document.js';
-
 export type {
   Bridge,
   BridgeRequest,
@@ -65,7 +62,6 @@ import { registerSessionTool } from './tools/session.js';
 import { registerWorkspaceTool } from './tools/workspace.js';
 import { registerDocumentTool } from './tools/document.js';
 import { registerWorkflowTool } from './tools/workflow.js';
-import { registerDocumentResources } from './resources/document.js';
 import type { Bridge } from './bridge/types.js';
 
 /**
@@ -79,8 +75,6 @@ export function createVMarkMcpServer(bridge: Bridge): VMarkMcpServer {
   registerWorkspaceTool(server); // workspace (7 actions)
   registerDocumentTool(server);  // document (3 actions)
   registerWorkflowTool(server);  // workflow (2 actions)
-
-  registerDocumentResources(server);
 
   return server;
 }
@@ -125,27 +119,9 @@ export const EXPECTED_TOOL_COUNT = TOOL_CATEGORIES.reduce(
 );
 
 /**
- * List of all resources for documentation.
+ * No resources are exposed in the pruned surface. All discovery flows
+ * through `vmark.session.get_state`, which gives the AI everything the
+ * deleted vmark://document/* and vmark://windows/* resources used to
+ * provide — in a single round-trip.
  */
-export const RESOURCES = [
-  {
-    uri: 'vmark://document/outline',
-    name: 'Document Outline',
-    description: 'Get the document heading hierarchy',
-  },
-  {
-    uri: 'vmark://document/metadata',
-    name: 'Document Metadata',
-    description: 'Get document metadata (path, title, word count, etc.)',
-  },
-  {
-    uri: 'vmark://windows/list',
-    name: 'Window List',
-    description: 'Get list of open AI-exposed windows',
-  },
-  {
-    uri: 'vmark://windows/focused',
-    name: 'Focused Window',
-    description: 'Get the currently focused window label',
-  },
-] as const;
+export const RESOURCES = [] as const;

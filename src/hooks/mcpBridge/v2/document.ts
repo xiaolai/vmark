@@ -44,7 +44,7 @@ import {
 import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error } from "./types";
-import { HALF_TO_FULL } from "../cjkHandlers";
+import { HALF_TO_FULL } from "./cjkMaps";
 
 interface ResolvedTab {
   tabId: string;
