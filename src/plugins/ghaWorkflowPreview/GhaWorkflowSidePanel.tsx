@@ -138,18 +138,36 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     const docState = useDocumentStore.getState();
     const tabDoc = docState.documents[tabId];
     if (!tabDoc) return;
-    // Lazy-import the edit store so it's bundled with the lazy forms
-    // chunk rather than eager-loaded for users who only read workflows.
-    const { useWorkflowEditStore } = await import(
-      "@/stores/workflowEditStore"
-    );
+    // Lazy-imports keep the yaml package + mutators + saveToPath out of
+    // the eager App bundle. Forms-editor users pay the cost; viewers
+    // never load these modules.
+    const [{ useWorkflowEditStore }, { saveToPath }] = await Promise.all([
+      import("@/stores/workflowEditStore"),
+      import("@/utils/saveToPath"),
+    ]);
     const editStore = useWorkflowEditStore.getState();
     if (editStore.pendingPatches.length === 0) return;
     try {
       const next = editStore.applyAndSerialize(tabDoc.content);
+      // Update the editor first so the reflected state matches what is
+      // about to land on disk (and so the source CodeMirror reparses).
       docState.setContent(tabId, next);
       editStore.clearPatches();
-      toast.success(t("workflowEditor:save.savedToast", "Workflow saved"));
+      // Untitled workflows have no path yet — leave the file dirty and
+      // let the user route through Save As via Cmd+Shift+S. Toast is
+      // honest in both branches.
+      if (tabDoc.filePath) {
+        const ok = await saveToPath(tabId, tabDoc.filePath, next, "manual");
+        if (ok) {
+          toast.success(t("workflowEditor:save.savedToast", "Workflow saved"));
+        }
+        // saveToPath surfaces its own error toast on failure; no need
+        // to double-report.
+      } else {
+        toast.success(
+          t("workflowEditor:save.updatedNoPathToast", "Workflow updated — Cmd+Shift+S to save"),
+        );
+      }
     } catch (error) {
       toast.error(
         `${t("workflowEditor:save.errorTitle", "Save failed")}: ${

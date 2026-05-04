@@ -52,6 +52,8 @@
   "form.job.runsOn.placeholder": "ubuntu-latest / self-hosted / linux / x64",
   "form.job.if.label": "Condition (if)",
   "form.job.steps.count": "{{count}} steps",
+  "form.job.steps.label": "Steps",
+  "form.job.steps.navigation": "Job steps",
   "form.job.needs.label": "Needs",
   "form.job.uses.label": "Uses",
 
@@ -83,5 +85,6 @@
   "save.dirtyHint": "{{count}} unsaved",
   "save.cleanHint": "No pending edits",
   "save.errorTitle": "Save failed",
-  "save.savedToast": "Workflow saved"
+  "save.savedToast": "Workflow saved",
+  "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save"
 }

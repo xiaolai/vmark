@@ -128,4 +128,45 @@ describe("WorkflowEditorPanel", () => {
     );
     expect(container.firstChild).toBeNull();
   });
+
+  it("clears form-local edit state when selection switches to another job", () => {
+    // Two-job workflow: select first, type into name, switch selection,
+    // then verify the new job's name shows (not the typed value).
+    const wf: WorkflowIR = {
+      ...makeWorkflow(),
+      jobs: [
+        ...makeWorkflow().jobs,
+        {
+          id: "deploy",
+          name: "Deploy",
+          runsOn: ["macos-latest"],
+          needs: [],
+          steps: [],
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+      ],
+    };
+    useWorkflowViewStore.getState().selectJob("build");
+    const view = render(
+      <WorkflowEditorPanel
+        workflow={wf}
+        onSave={async () => {}}
+        onDiscard={() => {}}
+      />,
+    );
+    let nameInput = screen.getByLabelText(/^name/i) as HTMLInputElement;
+    nameInput.value = "TYPED-BUT-UNCOMMITTED";
+    // Now switch selection. The form must remount and show "Deploy", not
+    // the typed value, and not "Build".
+    useWorkflowViewStore.getState().selectJob("deploy");
+    view.rerender(
+      <WorkflowEditorPanel
+        workflow={wf}
+        onSave={async () => {}}
+        onDiscard={() => {}}
+      />,
+    );
+    nameInput = screen.getByLabelText(/^name/i) as HTMLInputElement;
+    expect(nameInput.value).toBe("Deploy");
+  });
 });

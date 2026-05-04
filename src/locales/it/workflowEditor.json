@@ -73,5 +73,8 @@
   "save.dirtyHint": "{{count}} unsaved",
   "save.cleanHint": "No pending edits",
   "save.errorTitle": "Save failed",
-  "save.savedToast": "Workflow saved"
+  "save.savedToast": "Workflow saved",
+  "form.job.steps.label": "Steps",
+  "form.job.steps.navigation": "Job steps",
+  "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save"
 }

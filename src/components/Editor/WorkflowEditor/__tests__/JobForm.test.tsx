@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { JobForm } from "../JobForm";
 
 function makeJob(overrides: Partial<JobIR> = {}): JobIR {
@@ -31,6 +32,7 @@ beforeEach(() => {
     pendingPatches: [],
     preserveYamlFormatting: true,
   });
+  useWorkflowViewStore.getState().reset();
 });
 
 afterEach(() => {
@@ -146,5 +148,61 @@ describe("JobForm — edits emit IRPatches", () => {
     const input = screen.getByLabelText(/name/i) as HTMLInputElement;
     fireEvent.blur(input); // No change before blur.
     expect(useWorkflowEditStore.getState().pendingPatches.length).toBe(0);
+  });
+});
+
+describe("JobForm — step navigation", () => {
+  it("renders each step as a clickable row when steps exist", () => {
+    render(
+      <JobForm
+        job={makeJob({
+          steps: [
+            {
+              id: "checkout",
+              idSynthesized: false,
+              uses: "actions/checkout@v4",
+              name: "Checkout",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+            {
+              id: "test",
+              idSynthesized: false,
+              run: "pnpm test",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /checkout/i })).toBeDefined();
+    // run-step shows the id since name is missing
+    expect(screen.getByRole("button", { name: /\btest\b/i })).toBeDefined();
+  });
+
+  it("clicking a step row calls selectStep on the workflow view store", () => {
+    render(
+      <JobForm
+        job={makeJob({
+          steps: [
+            {
+              id: "checkout",
+              idSynthesized: false,
+              uses: "actions/checkout@v4",
+              name: "Checkout",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+          ],
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /checkout/i }));
+    const view = useWorkflowViewStore.getState();
+    expect(view.selectedJobId).toBe("build");
+    expect(view.selectedStepId).toBe("checkout");
+  });
+
+  it("does not render the step-list section when there are no steps", () => {
+    render(<JobForm job={makeJob({ steps: [] })} />);
+    expect(screen.queryByText(/step navigation/i)).toBeNull();
   });
 });

@@ -187,6 +187,68 @@
   padding: 0 var(--space-1);
 }
 
+/* Step list inside JobForm — clickable rows that select a step. */
+
+.workflow-form__step-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  padding-top: var(--space-1);
+  border-top: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-form__step-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__step-row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1-5);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__step-row:hover {
+  background: var(--hover-bg);
+}
+
+.workflow-form__step-row:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thin) var(--accent-bg);
+}
+
+.workflow-form__step-row-label {
+  flex: 0 1 auto;
+  font-weight: 600;
+}
+
+.workflow-form__step-row-uses {
+  flex: 1 1 auto;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Step "with:" key/value rows */
 
 .workflow-form__with-rows {

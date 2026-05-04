@@ -27,6 +27,7 @@ import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import "./workflow-editor.css";
 
 interface JobFormProps {
@@ -128,6 +129,42 @@ export function JobForm({ job }: JobFormProps): ReactElement {
           </span>
         )}
       </section>
+
+      {job.steps.length > 0 && (
+        <section
+          className="workflow-form__step-list"
+          aria-label={t("form.job.steps.navigation")}
+        >
+          <span className="workflow-form__label">
+            {t("form.job.steps.label")}
+          </span>
+          <ul className="workflow-form__step-rows">
+            {job.steps.map((step) => {
+              const label = step.name ?? step.uses ?? step.id;
+              return (
+                <li key={step.id}>
+                  <button
+                    type="button"
+                    className="workflow-form__step-row"
+                    onClick={() =>
+                      useWorkflowViewStore.getState().selectStep(job.id, step.id)
+                    }
+                  >
+                    <span className="workflow-form__step-row-label">
+                      {label}
+                    </span>
+                    {step.uses && step.name && (
+                      <code className="workflow-form__step-row-uses">
+                        {step.uses}
+                      </code>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </form>
   );
 }

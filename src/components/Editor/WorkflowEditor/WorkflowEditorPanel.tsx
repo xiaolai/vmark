@@ -62,13 +62,17 @@ export function WorkflowEditorPanel({
       <SaveControls onSave={onSave} onDiscard={onDiscard} />
       <TriggerForm triggers={workflow.triggers} />
       {selectedStep && selectedJob ? (
+        // key forces remount when selection switches so useState seeded
+        // from the IR resets cleanly. Without this, switching jobs/steps
+        // shows stale field values from the previously-selected entity.
         <StepForm
+          key={`${selectedJob.id}::${selectedStep.id}`}
           jobId={selectedJob.id}
           stepIndex={selectedStepIndex}
           step={selectedStep}
         />
       ) : selectedJob ? (
-        <JobForm job={selectedJob} />
+        <JobForm key={selectedJob.id} job={selectedJob} />
       ) : (
         <div className="workflow-editor-panel__empty">
           {t("form.empty.selectJob")}
