@@ -138,9 +138,11 @@ export function getStringArray(
 }
 
 /**
- * Read a `Record<string, string>` at `key`. Skips keys whose values aren't
- * strings (numbers, booleans get stringified; mappings/sequences are
- * dropped). Returns undefined if the key is missing or not a mapping.
+ * Read a `Record<string, string>` at `key`. Numbers and booleans get
+ * stringified; expression tokens (`${{ ... }}`) are preserved as their
+ * source text — important for outputs.<name>.value etc. that are usually
+ * expressions rather than literal strings. Mapping/sequence values are
+ * dropped (caller wanted a flat record).
  */
 export function getRecord(
   map: MappingToken,
@@ -153,10 +155,22 @@ export function getRecord(
   for (let i = 0; i < inner.count; i++) {
     const pair = inner.get(i);
     const k = readScalar(pair.key);
-    const v = readScalar(pair.value);
     if (typeof k !== "string") continue;
-    if (typeof v === "string") out[k] = v;
-    else if (typeof v === "number" || typeof v === "boolean") out[k] = String(v);
+
+    const v = readScalar(pair.value);
+    if (typeof v === "string") {
+      out[k] = v;
+      continue;
+    }
+    if (typeof v === "number" || typeof v === "boolean") {
+      out[k] = String(v);
+      continue;
+    }
+    // Expression token? Preserve the source as ${{ expression }}.
+    const expr = (pair.value as { expression?: unknown }).expression;
+    if (typeof expr === "string") {
+      out[k] = `\${{ ${expr} }}`;
+    }
   }
   return out;
 }
