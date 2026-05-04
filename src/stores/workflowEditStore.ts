@@ -47,7 +47,11 @@ import { applyPatch, type IRPatch } from "@/lib/ghaWorkflow/save/mutators";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 interface WorkflowEditState {
-  /** Pending patches in queue order. Empty = clean. */
+  /**
+   * Pending patches for the currently-bound document. Mirror of
+   * `patchesByDocument[boundDocumentId]` so existing consumers
+   * (selectors, save flow) keep working without API change.
+   */
   pendingPatches: IRPatch[];
   /**
    * Per-session override. When non-null, takes precedence over the
@@ -55,11 +59,40 @@ interface WorkflowEditState {
    * `null` = follow the persistent setting (the default).
    */
   preserveYamlFormatting: boolean | null;
+  /**
+   * Stable identity of the workflow document the queue is bound to
+   * (typically the file path; `null` for untitled). Switching the
+   * binding swaps `pendingPatches` to that document's stash —
+   * unsaved work is preserved per document, NOT silently dropped.
+   */
+  boundDocumentId: string | null;
+  /**
+   * Per-document patch stash. Bounded by the number of workflow tabs
+   * the user has open in a session — small in practice. Cleared by
+   * `clearPatches()` for the active document only; full reset on app
+   * exit since this state is in-memory only.
+   */
+  patchesByDocument: Record<string, IRPatch[]>;
 }
 
 interface WorkflowEditActions {
   queuePatch: (patch: IRPatch) => void;
+  /**
+   * Drop the queued patch (if any) that targets the same node + path
+   * as `target`. Used by the form layer when a field is reverted to
+   * its original IR value: the form returns early instead of queueing,
+   * so an earlier stale patch would survive without this call
+   * (cross-validator audit round 2 finding).
+   */
+  cancelPatchForTarget: (target: IRPatch) => void;
   clearPatches: () => void;
+  /**
+   * Bind the queue to a specific document (path / untitled-tab id).
+   * If the new id differs from the current binding, any pending
+   * patches are dropped — they were authored against the previous
+   * document. Idempotent: rebinding to the same id is a no-op.
+   */
+  bindToDocument: (documentId: string | null) => void;
   /**
    * Set the per-session override. Pass `null` to revert to the
    * persistent setting (the default).
@@ -84,6 +117,8 @@ const initialState: WorkflowEditState = {
   // setting (default true). Tests that need a deterministic value override
   // this directly via `useWorkflowEditStore.setState({...})`.
   preserveYamlFormatting: null,
+  boundDocumentId: null,
+  patchesByDocument: {},
 };
 
 /**
@@ -100,15 +135,112 @@ function resolvePreserve(override: boolean | null): boolean {
   );
 }
 
+/**
+ * Stable string identity for "what does this patch target". Two
+ * patches with the same target are considered redundant: the latest
+ * one wins. Used by `queuePatch` to keep the queue from accumulating
+ * stale entries when the user reverts a field to its original value.
+ */
+function patchTarget(patch: IRPatch): string {
+  switch (patch.kind) {
+    case "workflow.set":
+      return `workflow.set:${patch.path}`;
+    case "job.set":
+      return `job.set:${patch.jobId}:${patch.path}`;
+    case "step.set":
+      return `step.set:${patch.jobId}:${patch.stepIndex}:${patch.path}`;
+    case "with.set":
+    case "with.remove":
+      return `with:${patch.jobId}:${patch.stepIndex}:${patch.key}`;
+    case "needs.add":
+    case "needs.remove":
+      return `needs:${patch.jobId}:${patch.ref}`;
+    case "trigger.setFilters":
+      return `trigger.setFilters:${patch.event}:${patch.filter}`;
+  }
+}
+
+/**
+ * Replace any earlier patch with the same target before appending the
+ * new one. Preserves order for unrelated patches.
+ */
+function dedupQueue(queue: IRPatch[], next: IRPatch): IRPatch[] {
+  const target = patchTarget(next);
+  const filtered = queue.filter((p) => patchTarget(p) !== target);
+  filtered.push(next);
+  return filtered;
+}
+
+/**
+ * Update both the live `pendingPatches` slice and the keyed stash
+ * entry for the active document. Bound-null documents (untitled tabs)
+ * still get their queue tracked but never persist into the stash.
+ */
+function mirrorActiveQueue(
+  s: WorkflowEditState,
+  next: IRPatch[],
+): Partial<WorkflowEditState> {
+  if (s.boundDocumentId === null) {
+    return { pendingPatches: next };
+  }
+  const stashed = { ...s.patchesByDocument };
+  if (next.length === 0) {
+    delete stashed[s.boundDocumentId];
+  } else {
+    stashed[s.boundDocumentId] = next;
+  }
+  return { pendingPatches: next, patchesByDocument: stashed };
+}
+
 export const useWorkflowEditStore = create<
   WorkflowEditState & WorkflowEditActions
 >((set, get) => ({
   ...initialState,
 
   queuePatch: (patch) =>
-    set((s) => ({ pendingPatches: [...s.pendingPatches, patch] })),
+    set((s) => {
+      // Dedup patches that target the same node + path / key. Without
+      // this, queueing patch A → B → A leaves the original A→B patch
+      // in the queue, so Save persists the stale B even though the
+      // user reverted to A in the UI (cross-validator audit: append-
+      // only queue defeats revert). Replace any earlier patch with the
+      // same target rather than appending another one.
+      const next = dedupQueue(s.pendingPatches, patch);
+      return mirrorActiveQueue(s, next);
+    }),
 
-  clearPatches: () => set({ pendingPatches: [] }),
+  cancelPatchForTarget: (target) =>
+    set((s) => {
+      const t = patchTarget(target);
+      const next = s.pendingPatches.filter((p) => patchTarget(p) !== t);
+      if (next.length === s.pendingPatches.length) return {};
+      return mirrorActiveQueue(s, next);
+    }),
+
+  clearPatches: () => set((s) => mirrorActiveQueue(s, [])),
+
+  bindToDocument: (documentId) =>
+    set((s) => {
+      if (s.boundDocumentId === documentId) return {};
+      // Stash the previous document's queue so the user's unsaved work
+      // is preserved across tab switches. Restore the target document's
+      // queue if we've seen it before; otherwise start fresh.
+      const stashed: Record<string, IRPatch[]> = { ...s.patchesByDocument };
+      if (s.boundDocumentId !== null) {
+        if (s.pendingPatches.length === 0) {
+          delete stashed[s.boundDocumentId];
+        } else {
+          stashed[s.boundDocumentId] = s.pendingPatches;
+        }
+      }
+      const restored =
+        documentId !== null ? stashed[documentId] ?? [] : [];
+      return {
+        boundDocumentId: documentId,
+        pendingPatches: restored,
+        patchesByDocument: stashed,
+      };
+    }),
 
   setPreserveYamlFormatting: (preserve) =>
     set({ preserveYamlFormatting: preserve }),

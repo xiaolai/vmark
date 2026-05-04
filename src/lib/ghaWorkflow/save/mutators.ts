@@ -33,7 +33,7 @@ export interface WorkflowSetPatch {
   kind: "workflow.set";
   /** Dotted path, e.g., "name" or "env.NODE_VERSION". */
   path: string;
-  value: string | number | boolean | null;
+  value: string | number | boolean | null | string[];
 }
 
 /** Set a field on a specific job. path is dotted from the job's mapping. */
@@ -41,7 +41,7 @@ export interface JobSetPatch {
   kind: "job.set";
   jobId: string;
   path: string;
-  value: string | number | boolean | null;
+  value: string | number | boolean | null | string[];
 }
 
 /** Set a field on a specific step (by index in the job's steps[]). */
@@ -50,7 +50,7 @@ export interface StepSetPatch {
   jobId: string;
   stepIndex: number;
   path: string;
-  value: string | number | boolean | null;
+  value: string | number | boolean | null | string[];
 }
 
 /** Set a key in a step's `with:` block. */
@@ -204,10 +204,27 @@ function withStep(
 
 // ─── Helpers — path-based set ────────────────────────────────────────
 
+/**
+ * Convert array values into a YAMLSeq so they round-trip as
+ * `[a, b, c]` / block-form sequences instead of being stringified into
+ * a single scalar. Without this the runs-on multi-label form
+ * (`["self-hosted", "linux", "x64"]`) was being collapsed into one
+ * unmatched runner label string on save (cross-validator audit).
+ */
+function valueToYamlNode(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const seq = new YAMLSeq();
+    for (const v of value) seq.add(v);
+    return seq;
+  }
+  return value;
+}
+
 function setByPath(doc: Document, path: string, value: unknown): void {
   const parts = path.split(".");
+  const yamlValue = valueToYamlNode(value);
   if (parts.length === 1) {
-    doc.set(parts[0], value);
+    doc.set(parts[0], yamlValue);
     return;
   }
   // Walk into nested mappings, creating intermediates if missing.
@@ -223,13 +240,14 @@ function setByPath(doc: Document, path: string, value: unknown): void {
       cur = newMap;
     }
   }
-  if (isMap(cur)) cur.set(parts[parts.length - 1], value);
+  if (isMap(cur)) cur.set(parts[parts.length - 1], yamlValue);
 }
 
 function setMapByPath(map: YAMLMap, path: string, value: unknown): void {
   const parts = path.split(".");
+  const yamlValue = valueToYamlNode(value);
   if (parts.length === 1) {
-    map.set(parts[0], value);
+    map.set(parts[0], yamlValue);
     return;
   }
   let cur: unknown = map;
@@ -237,7 +255,7 @@ function setMapByPath(map: YAMLMap, path: string, value: unknown): void {
     if (!isMap(cur)) return;
     cur = cur.get(parts[i], true);
   }
-  if (isMap(cur)) cur.set(parts[parts.length - 1], value);
+  if (isMap(cur)) cur.set(parts[parts.length - 1], yamlValue);
 }
 
 function setNestedMapKey(

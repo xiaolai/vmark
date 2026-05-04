@@ -30,15 +30,21 @@ import {
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  type Node,
+  type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
-import { toGraph } from "@/lib/ghaWorkflow/render/toGraph";
+import { toGraph, type JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { applyLayout } from "@/lib/ghaWorkflow/render/layout";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { JobNode } from "./JobNode";
 
-const NODE_TYPES = { job: JobNode } as const;
+// Cross-validator audit round 2 fix: with JobNode now typed as
+// `NodeProps<Node<JobNodeData>>` instead of `Node<JobNodeData>`, the
+// node-types registry no longer needs an `as` cast. Drift in
+// JobNodeData or the node-type contract is now a compile error.
+const NODE_TYPES: NodeTypes = { job: JobNode };
 const PRO_OPTIONS = { hideAttribution: true } as const;
 
 interface WorkflowCanvasInnerProps {
@@ -58,10 +64,10 @@ function CanvasInner({ workflow }: WorkflowCanvasInnerProps): ReactElement {
   }, []);
 
   return (
-    <ReactFlow
-      nodes={nodes as never}
+    <ReactFlow<Node<JobNodeData>>
+      nodes={nodes}
       edges={edges}
-      nodeTypes={NODE_TYPES as never}
+      nodeTypes={NODE_TYPES}
       fitView
       minZoom={0.2}
       maxZoom={2}

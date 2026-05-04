@@ -6,19 +6,21 @@
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { Node } from "@xyflow/react";
+import type { NodeProps, Node } from "@xyflow/react";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { JobNode } from "../JobNode";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 
+// JobNode now accepts xyflow's NodeProps shape rather than the full
+// Node<JobNodeData>. The test factory produces props matching what
+// xyflow itself would pass to the inner component.
 function makeNode(
   overrides: Partial<JobNodeData> = {},
   jobOverrides: Partial<JobNodeData["job"]> = {},
-): Node<JobNodeData> {
+): NodeProps<Node<JobNodeData>> {
   return {
     id: "build",
     type: "job",
-    position: { x: 0, y: 0 },
     data: {
       job: {
         id: "build",
@@ -29,6 +31,15 @@ function makeNode(
       },
       ...overrides,
     },
+    selected: false,
+    dragging: false,
+    selectable: true,
+    deletable: true,
+    draggable: true,
+    zIndex: 0,
+    isConnectable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
   };
 }
 

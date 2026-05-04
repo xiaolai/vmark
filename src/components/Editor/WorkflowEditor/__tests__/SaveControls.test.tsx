@@ -41,9 +41,10 @@ describe("SaveControls — dirty state", () => {
       path: "name",
       value: "x",
     });
+    // Distinct target so dedup doesn't collapse them.
     useWorkflowEditStore.getState().queuePatch({
       kind: "workflow.set",
-      path: "name",
+      path: "run-name",
       value: "y",
     });
     render(<SaveControls onSave={async () => {}} onDiscard={() => {}} />);

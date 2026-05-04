@@ -44,6 +44,8 @@ export function SaveControls({
   const dirty = selectWorkflowEditDirty({
     pendingPatches: patches,
     preserveYamlFormatting: true,
+    boundDocumentId: null,
+    patchesByDocument: {},
   });
   const [saving, setSaving] = useState(false);
 

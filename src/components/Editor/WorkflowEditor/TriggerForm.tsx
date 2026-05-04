@@ -73,10 +73,16 @@ function FilterField({
 }: FilterFieldProps): ReactElement {
   const [value, setValue] = useState(current.join(", "));
   const queue = useWorkflowEditStore((s) => s.queuePatch);
+  const cancel = useWorkflowEditStore((s) => s.cancelPatchForTarget);
 
   const commit = (): void => {
     const next = parseList(value);
-    if (arraysEqual(next, current)) return;
+    if (arraysEqual(next, current)) {
+      // Revert to original: drop any queued setFilters patch for this
+      // (event, filter) target.
+      cancel({ kind: "trigger.setFilters", event, filter, value: [] });
+      return;
+    }
     queue({
       kind: "trigger.setFilters",
       event,

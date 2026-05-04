@@ -42,13 +42,38 @@ export function JobForm({ job }: JobFormProps): ReactElement {
   const [ifCond, setIfCond] = useState(job.if ?? "");
 
   const queue = useWorkflowEditStore((s) => s.queuePatch);
+  const cancel = useWorkflowEditStore((s) => s.cancelPatchForTarget);
 
   const commitIfChanged = (
     path: string,
     next: string,
     original: string,
   ): void => {
-    if (next === original) return;
+    if (next === original) {
+      // Revert to original IR value: drop any earlier patch for this
+      // target. Without this, typing A → B → A leaves the A→B patch
+      // queued, persisting B on Save (cross-validator audit finding).
+      cancel({ kind: "job.set", jobId: job.id, path, value: "" });
+      return;
+    }
+    // runs-on must round-trip as an array when the user provided
+    // multiple labels (e.g., self-hosted runner selectors:
+    // ["self-hosted", "linux", "x64"]). Without the split, the save
+    // path would write a single scalar string with the " / " separator
+    // baked in, corrupting the runner selector (cross-validator audit
+    // finding).
+    if (path === "runs-on") {
+      const labels = next.split("/").map((s) => s.trim()).filter(Boolean);
+      const value: string | string[] =
+        labels.length > 1 ? labels : labels[0] ?? "";
+      queue({
+        kind: "job.set",
+        jobId: job.id,
+        path,
+        value,
+      });
+      return;
+    }
     queue({
       kind: "job.set",
       jobId: job.id,

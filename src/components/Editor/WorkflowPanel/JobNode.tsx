@@ -18,7 +18,7 @@
  * @module components/Editor/WorkflowPanel/JobNode
  */
 
-import type { Node } from "@xyflow/react";
+import type { NodeProps, Node } from "@xyflow/react";
 import type { ReactElement } from "react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
@@ -26,7 +26,13 @@ import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { useTranslation } from "react-i18next";
 import "./job-node.css";
 
-type JobNodeProps = Node<JobNodeData>;
+// xyflow's NodeProps narrows to the data + minimal id/selected props
+// the inner node component receives. The earlier `Node<JobNodeData>`
+// shape required `position`, which xyflow doesn't pass through to the
+// inner component — that mismatch forced the type-erasure cast in the
+// node-types registry. Using NodeProps now makes that cast safe at the
+// integration boundary (cross-validator audit round 2 finding).
+type JobNodeProps = NodeProps<Node<JobNodeData>>;
 
 /**
  * Build a screen-reader summary of one job. Phase 9 a11y per the plan:

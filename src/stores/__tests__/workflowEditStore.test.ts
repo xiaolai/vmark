@@ -49,6 +49,7 @@ beforeEach(() => {
   useWorkflowEditStore.setState({
     pendingPatches: [],
     preserveYamlFormatting: true,
+    boundDocumentId: null,
   });
   // Reset settings store to a known default so the per-session override
   // resolution is deterministic. The store-level override of
@@ -62,10 +63,10 @@ describe("workflowEditStore — queue mechanics", () => {
     expect(selectWorkflowEditDirty(useWorkflowEditStore.getState())).toBe(false);
   });
 
-  it("queues patches in order", () => {
+  it("queues patches with distinct targets in order", () => {
     const s = useWorkflowEditStore.getState();
     s.queuePatch({ kind: "workflow.set", path: "name", value: "a" });
-    s.queuePatch({ kind: "workflow.set", path: "name", value: "b" });
+    s.queuePatch({ kind: "workflow.set", path: "run-name", value: "b" });
     expect(useWorkflowEditStore.getState().pendingPatches.length).toBe(2);
     expect(selectWorkflowEditDirty(useWorkflowEditStore.getState())).toBe(true);
   });
@@ -178,6 +179,122 @@ describe("workflowEditStore — preserveYamlFormatting toggle", () => {
     const out = s.applyAndSerialize(SAMPLE);
     // Default settings.workflowEditorPreserveYamlFormatting is true.
     expect(commentSet(out).size).toBeGreaterThan(0);
+  });
+});
+
+describe("workflowEditStore — cancelPatchForTarget (revert support)", () => {
+  it("removes a previously-queued patch for the same target", () => {
+    const s = useWorkflowEditStore.getState();
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "B" });
+    expect(useWorkflowEditStore.getState().pendingPatches).toHaveLength(1);
+    s.cancelPatchForTarget({
+      kind: "workflow.set",
+      path: "name",
+      value: "anything",
+    });
+    expect(useWorkflowEditStore.getState().pendingPatches).toHaveLength(0);
+  });
+
+  it("noop when no patch matches", () => {
+    const s = useWorkflowEditStore.getState();
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "B" });
+    s.cancelPatchForTarget({
+      kind: "workflow.set",
+      path: "run-name",
+      value: "x",
+    });
+    expect(useWorkflowEditStore.getState().pendingPatches).toHaveLength(1);
+  });
+});
+
+describe("workflowEditStore — bindToDocument (per-document stash)", () => {
+  it("stashes the previous document's queue when switching to a new doc", () => {
+    const s = useWorkflowEditStore.getState();
+    s.bindToDocument("/path/to/a.yml");
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "A" });
+    s.bindToDocument("/path/to/b.yml");
+    // pendingPatches now reflects the (empty) queue for b.yml.
+    expect(useWorkflowEditStore.getState().pendingPatches).toHaveLength(0);
+    // a.yml's queue lives in the stash for later restoration.
+    expect(
+      useWorkflowEditStore.getState().patchesByDocument["/path/to/a.yml"],
+    ).toHaveLength(1);
+  });
+
+  it("restores the stashed queue when binding back to a previously-edited doc", () => {
+    const s = useWorkflowEditStore.getState();
+    s.bindToDocument("/path/to/a.yml");
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "A" });
+    s.bindToDocument("/path/to/b.yml");
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "B" });
+    s.bindToDocument("/path/to/a.yml");
+    // a.yml's queue is restored verbatim.
+    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+      { kind: "workflow.set", path: "name", value: "A" },
+    ]);
+  });
+
+  it("preserves the queue when re-binding to the same document", () => {
+    const s = useWorkflowEditStore.getState();
+    s.bindToDocument("/path/to/a.yml");
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "x" });
+    s.bindToDocument("/path/to/a.yml");
+    expect(useWorkflowEditStore.getState().pendingPatches).toHaveLength(1);
+  });
+});
+
+describe("workflowEditStore — patch dedup (audit fix)", () => {
+  // Cross-validator finding: append-only queue meant typing A → B → A
+  // (revert) left the original A→B patch in the queue, persisting B
+  // on Save. queuePatch now replaces same-target patches.
+
+  it("replaces an earlier patch with the same target rather than appending", () => {
+    const s = useWorkflowEditStore.getState();
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "first" });
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "second" });
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "third" });
+    const patches = useWorkflowEditStore.getState().pendingPatches;
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toMatchObject({ value: "third" });
+  });
+
+  it("keeps separate patches for distinct targets", () => {
+    const s = useWorkflowEditStore.getState();
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "x" });
+    s.queuePatch({
+      kind: "job.set",
+      jobId: "build",
+      path: "runs-on",
+      value: "macos-latest",
+    });
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "y" });
+    const patches = useWorkflowEditStore.getState().pendingPatches;
+    expect(patches).toHaveLength(2);
+    // workflow.set was deduped to the latest; job.set kept.
+    expect(patches.find((p) => p.kind === "workflow.set")).toMatchObject({
+      value: "y",
+    });
+    expect(patches.find((p) => p.kind === "job.set")).toBeDefined();
+  });
+
+  it("with.set + with.remove on the same key are treated as the same target (latest wins)", () => {
+    const s = useWorkflowEditStore.getState();
+    s.queuePatch({
+      kind: "with.set",
+      jobId: "build",
+      stepIndex: 0,
+      key: "node-version",
+      value: "22",
+    });
+    s.queuePatch({
+      kind: "with.remove",
+      jobId: "build",
+      stepIndex: 0,
+      key: "node-version",
+    });
+    const patches = useWorkflowEditStore.getState().pendingPatches;
+    expect(patches).toHaveLength(1);
+    expect(patches[0].kind).toBe("with.remove");
   });
 });
 

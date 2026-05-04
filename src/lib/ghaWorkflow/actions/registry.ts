@@ -126,7 +126,10 @@ export async function getActionMetadata(
     try {
       result = await invoke<FetchResult>("gha_fetch_action_yml", { uses });
     } catch {
-      sessionCache.set(uses, null);
+      // Don't cache transient invoke failures — the next call should
+      // be free to retry once Tauri is available again. This avoids
+      // permanently disabling action-input metadata after a single
+      // network or Tauri error (cross-validator audit finding).
       return null;
     }
 
@@ -140,7 +143,16 @@ export async function getActionMetadata(
       return metadata;
     }
 
-    sessionCache.set(uses, null);
+    // Cache stable absences (NotFound, ParseError, InvalidUses) but
+    // NOT transient failures (NetworkError) — those should retry.
+    if (
+      result &&
+      (result.kind === "not_found" ||
+        result.kind === "parse_error" ||
+        result.kind === "invalid_uses")
+    ) {
+      sessionCache.set(uses, null);
+    }
     return null;
   })();
 

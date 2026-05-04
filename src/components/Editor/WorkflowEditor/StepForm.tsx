@@ -70,6 +70,7 @@ export function StepForm({
   const [expand, setExpand] = useState<ExpandTarget>(null);
 
   const queue = useWorkflowEditStore((s) => s.queuePatch);
+  const cancel = useWorkflowEditStore((s) => s.cancelPatchForTarget);
 
   const handleExpandSave = (value: string): void => {
     if (!expand) return;
@@ -77,11 +78,20 @@ export function StepForm({
       setIfCond(value);
       if (value !== (step.if ?? "")) {
         queue({ kind: "step.set", jobId, stepIndex, path: "if", value });
+      } else {
+        // Modal-saved value matches the IR original — drop any stale
+        // queued patch for this field. Without this, opening the
+        // modal on a previously-edited field and saving the original
+        // value back leaves the prior patch in the queue
+        // (cross-validator audit round 2 finding).
+        cancel({ kind: "step.set", jobId, stepIndex, path: "if", value: "" });
       }
     } else {
       setRun(value);
       if (value !== (step.run ?? "")) {
         queue({ kind: "step.set", jobId, stepIndex, path: "run", value });
+      } else {
+        cancel({ kind: "step.set", jobId, stepIndex, path: "run", value: "" });
       }
     }
     setExpand(null);
@@ -111,7 +121,11 @@ export function StepForm({
   };
 
   const commitField = (path: string, next: string, original: string): void => {
-    if (next === original) return;
+    if (next === original) {
+      // Revert to original: drop any queued patch for this target.
+      cancel({ kind: "step.set", jobId, stepIndex, path, value: "" });
+      return;
+    }
     queue({ kind: "step.set", jobId, stepIndex, path, value: next });
   };
 
@@ -127,7 +141,17 @@ export function StepForm({
         ? String(step.with[row.originalKey] ?? "")
         : null;
     const valueChanged = originalValue === null || row.value !== originalValue;
-    if (!renamed && !valueChanged) return;
+    if (!renamed && !valueChanged) {
+      // Revert to original: drop any queued with.set for this key.
+      cancel({
+        kind: "with.set",
+        jobId,
+        stepIndex,
+        key: row.originalKey ?? row.key,
+        value: "",
+      });
+      return;
+    }
     if (renamed) {
       queue({
         kind: "with.remove",

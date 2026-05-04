@@ -236,6 +236,46 @@ jobs:
   });
 });
 
+describe("applyPatch — array values for job.set / step.set", () => {
+  // Audit fix: runs-on array values used to be coerced into a single
+  // scalar string by the YAML stringifier. The mutator now wraps array
+  // values in a YAMLSeq so they round-trip as proper sequences.
+  const yaml = `name: ci
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps: []
+`;
+
+  it("writes runs-on as a YAML sequence when given an array value", () => {
+    const out = applyAndSave(yaml, {
+      kind: "job.set",
+      jobId: "build",
+      path: "runs-on",
+      value: ["self-hosted", "linux", "x64"],
+    });
+    // Re-parse and confirm it round-trips as an array.
+    const reparsed = parseAsCst(out).toJS();
+    expect(reparsed.jobs.build["runs-on"]).toEqual([
+      "self-hosted",
+      "linux",
+      "x64",
+    ]);
+  });
+
+  it("writes runs-on as a scalar when given a single string", () => {
+    const out = applyAndSave(yaml, {
+      kind: "job.set",
+      jobId: "build",
+      path: "runs-on",
+      value: "macos-latest",
+    });
+    const reparsed = parseAsCst(out).toJS();
+    expect(reparsed.jobs.build["runs-on"]).toBe("macos-latest");
+  });
+});
+
 describe("applyPatch — trigger.setFilters", () => {
   const yamlMapping = `name: ci
 on:

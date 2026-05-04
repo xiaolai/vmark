@@ -113,7 +113,7 @@ describe("JobForm — edits emit IRPatches", () => {
     });
   });
 
-  it("queues a job.set patch when runs-on changes (array form)", () => {
+  it("queues a job.set patch with a single string when runs-on is one label", () => {
     render(<JobForm job={makeJob()} />);
     const input = screen.getByLabelText(/runs.?on/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "macos-latest" } });
@@ -125,6 +125,23 @@ describe("JobForm — edits emit IRPatches", () => {
       jobId: "build",
       path: "runs-on",
       value: "macos-latest",
+    });
+  });
+
+  it("queues a job.set patch with an array when runs-on is multi-label (audit fix)", () => {
+    render(<JobForm job={makeJob()} />);
+    const input = screen.getByLabelText(/runs.?on/i) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { value: "self-hosted / linux / x64" },
+    });
+    fireEvent.blur(input);
+    const patches = useWorkflowEditStore.getState().pendingPatches;
+    expect(patches.length).toBe(1);
+    expect(patches[0]).toMatchObject({
+      kind: "job.set",
+      jobId: "build",
+      path: "runs-on",
+      value: ["self-hosted", "linux", "x64"],
     });
   });
 

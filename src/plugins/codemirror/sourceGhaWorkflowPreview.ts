@@ -93,6 +93,12 @@ class SourceGhaWorkflowPreviewPlugin {
       );
       store.setWorkflow(ir);
       this.ownsStoreState = true;
+      // Bind the edit queue to this workflow's identity. Workflows
+      // hashed by content shape: ir.name + first job id is enough to
+      // distinguish two open workflows, and stable across edits to
+      // the same file. The host plugin can override with a real path
+      // when one is available.
+      this.bindEditStore(ir);
       // Forward to actionlint asynchronously and merge its diagnostics
       // when the binary is available. Fire-and-forget — the parser-side
       // diagnostics already populated the panel; actionlint enriches.
@@ -108,6 +114,24 @@ class SourceGhaWorkflowPreviewPlugin {
       store.setWorkflow(null, e instanceof Error ? e.message : String(e));
       this.ownsStoreState = true;
     }
+  }
+
+  /**
+   * Bind the workflowEditStore queue to this workflow's identity so
+   * patches authored against it can't replay against a different
+   * workflow opened later. Drops the queue if the binding changes —
+   * the panel chrome is responsible for warning the user before this
+   * happens (Discard / Save prompt).
+   */
+  private bindEditStore(
+    ir: import("@/lib/ghaWorkflow/types").WorkflowIR,
+  ): void {
+    const id = `${ir.name ?? "(unnamed)"}::${ir.jobs[0]?.id ?? ""}`;
+    void import("@/stores/workflowEditStore").then(
+      ({ useWorkflowEditStore }) => {
+        useWorkflowEditStore.getState().bindToDocument(id);
+      },
+    );
   }
 
   /**
@@ -142,6 +166,13 @@ class SourceGhaWorkflowPreviewPlugin {
     // Only reset the panel store if THIS view's content was its source.
     // Tab-switch destroys the view that's leaving — which would clear
     // panel state for whichever tab is now active (auditor finding).
+    //
+    // Note: we deliberately do NOT clear pendingPatches here. Doing so
+    // turns "switch tabs while editing" into silent data loss for the
+    // user's unsaved work in the previous tab. Cross-document patch
+    // pollution is prevented at the workflowEditStore layer instead —
+    // the store binds the queue to a `boundDocumentId` and rejects
+    // patches that don't match (cross-validator round 2 finding).
     if (this.ownsStoreState) {
       useGhaWorkflowPanelStore.getState().reset();
     }

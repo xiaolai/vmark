@@ -128,4 +128,44 @@ describe("getActionMetadata", () => {
     const result = await getActionMetadata("actions/checkout@v4");
     expect(result).toBeNull();
   });
+
+  it("retries on transient NetworkError (does not poison the cache)", async () => {
+    // Audit fix: a single network blip used to disable metadata for
+    // the rest of the session. Now NetworkError is not cached.
+    invokeMock.mockResolvedValueOnce({ kind: "network_error", message: "x" });
+    const first = await getActionMetadata("actions/checkout@v4");
+    expect(first).toBeNull();
+    invokeMock.mockResolvedValueOnce({
+      kind: "ok",
+      from_cache: false,
+      metadata: { name: "Checkout", inputs: {}, outputs: {} },
+    });
+    const second = await getActionMetadata("actions/checkout@v4");
+    expect(second).not.toBeNull();
+    expect(second?.name).toBe("Checkout");
+    expect(invokeMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches stable NotFound across calls (no re-invoke)", async () => {
+    invokeMock.mockResolvedValueOnce({
+      kind: "not_found",
+      message: "no action.yml",
+    });
+    await getActionMetadata("nobody/nope@v1");
+    await getActionMetadata("nobody/nope@v1");
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries on Tauri invoke rejection (does not poison the cache)", async () => {
+    invokeMock.mockRejectedValueOnce(new Error("Tauri command unregistered"));
+    const first = await getActionMetadata("actions/checkout@v4");
+    expect(first).toBeNull();
+    invokeMock.mockResolvedValueOnce({
+      kind: "ok",
+      from_cache: false,
+      metadata: { name: "Checkout", inputs: {}, outputs: {} },
+    });
+    const second = await getActionMetadata("actions/checkout@v4");
+    expect(second).not.toBeNull();
+  });
 });
