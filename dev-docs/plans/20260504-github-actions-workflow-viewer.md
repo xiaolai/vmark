@@ -7,7 +7,8 @@
 > Updated: 2026-05-04 (Phase 4 complete — Mermaid + SVG/PNG export; 16 tests including fixture-corpus integration; html-to-image dep added)
 > Updated: 2026-05-04 (Phase 5 complete — schema lint via @actions/languageservice (WI-5.1) + optional actionlint via Rust Tauri command (WI-5.3/5.4); 28 tests across frontend + Rust; WI-5.2 deferred as Phase 9 polish — provider configuration required for richer expression linting)
 > Updated: 2026-05-04 (Phase 2 partial — WI-2.1..2.4 code-complete: toGraph + layout + workflowViewStore + JobNode + WorkflowPanelShell + WorkflowCanvas + GhaWorkflowPanel. 47 tests across 7 modules. WI-2.5 implicit in JobNode click handler. WI-2.6 file-open pipeline integration deferred — high blast-radius edit to VMark's routing layer. Interactive verification of mount/render in the Tauri webview pending user-driven session.)
-> Status: Phases 0/1/4/5 complete; Phase 2 code-complete (interactive verification + WI-2.6 pending); Phase 3/7 (more UI), Phase 6 (action discovery), Phase 8 (CST round-trip), Phase 9 (polish) deferred to subsequent runs per .claude/rules/60-ai-governance.md clause 8.
+> Updated: 2026-05-04 (Phase 3 complete via codePreview integration — reality-revision of ADR-9 since VMark moved on from per-feature NodeViews to the shared codePreview decoration plugin. Inline preview renders Mermaid via existing pipeline; @actions/workflow-parser lazy-loaded so eager App bundle stays in budget. UI is truly available: paste a workflow YAML in any markdown code fence, see the diagram inline. 7 new tests; zero regressions in the 244-test codePreview suite.)
+> Status: Phases 0/1/3/4/5 complete; Phase 2 code-complete (interactive verification + WI-2.6 pending); Phase 7 (forms UI), Phase 6 (action discovery), Phase 8 (CST round-trip), Phase 9 (polish) deferred to subsequent runs.
 > Branch: `feature/gh-actions-workflow-viewer`
 > Related: `20260331-workflow-engine.md` (VMark Genie workflows — distinct feature, see §1.4)
 
