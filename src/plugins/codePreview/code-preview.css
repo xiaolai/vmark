@@ -259,7 +259,24 @@
 /* GitHub Actions workflow preview — reuses Mermaid SVG so inherits most
    styling from mermaid.css; these rules cover the loading/error states. */
 .code-block-preview.workflow-preview {
+  --workflow-preview-max-height: 480px;
   text-align: center;
+}
+
+/* Mermaid emits the SVG with a hardcoded `max-width` matching the
+   intrinsic render size (e.g. 144px for a tight vertical flowchart)
+   alongside `width="100%"` as an attribute. The first squeezes the
+   graph; lifting only the max-width lets a tall portrait graph
+   blow up vertically (a 3-job stack at 800px wide is ~1500px tall).
+   Override both axes with reasonable bounds so the graph scales to
+   fit a viewport-friendly box while preserving its aspect ratio. */
+.code-block-preview.workflow-preview svg {
+  max-width: 100% !important;
+  max-height: var(--workflow-preview-max-height);
+  width: auto;
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 .code-block-preview.workflow-preview--loading {
