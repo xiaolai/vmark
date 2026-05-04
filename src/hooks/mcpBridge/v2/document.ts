@@ -58,6 +58,19 @@ interface ResolvedTab {
   kind: DocumentKind;
 }
 
+/**
+ * Decide a tab's kind from its filePath + content. Pure helper so
+ * callers can re-evaluate against incoming content (e.g. on write).
+ */
+function resolveKind(
+  filePath: string | null,
+  content: string,
+): DocumentKind {
+  if (looksLikeWorkflowPath(filePath ?? undefined)) return "yaml-workflow";
+  if (isWorkflowYaml(content)) return "yaml-workflow";
+  return "markdown";
+}
+
 function resolveTab(tabIdArg: string | undefined): ResolvedTab | null {
   const tabState = useTabStore.getState();
   const docState = useDocumentStore.getState();
@@ -84,11 +97,7 @@ function resolveTab(tabIdArg: string | undefined): ResolvedTab | null {
 
   const content = doc.content;
   const filePath = doc.filePath;
-  const kind: DocumentKind = looksLikeWorkflowPath(filePath ?? undefined)
-    ? "yaml-workflow"
-    : isWorkflowYaml(content)
-      ? "yaml-workflow"
-      : "markdown";
+  const kind = resolveKind(filePath, content);
 
   return {
     tabId,
@@ -261,14 +270,20 @@ export async function handleDocumentWrite(
 
     const contentBefore = resolved.content;
     const revisionBefore = revisionStore.getRevision();
-    const result = writeContent(resolved.tabId, args.content, resolved.kind);
+    // Re-detect kind against the INCOMING content. resolveTab read the
+    // current content, which is empty for fresh untitled tabs — that
+    // would default kind=markdown and run YAML writes through Tiptap's
+    // markdown parser, garbling the document. The new content is the
+    // authoritative source of truth at write time.
+    const writeKind = resolveKind(resolved.filePath, args.content);
+    const result = writeContent(resolved.tabId, args.content, writeKind);
     if ("error" in result) {
       await structuredError(id, result);
       return;
     }
     if (contentBefore !== args.content) {
       recordCheckpoint({
-        resolved,
+        resolved: { ...resolved, kind: writeKind },
         tool: "document.write",
         description: describeWrite(args.content, contentBefore),
         contentBefore,

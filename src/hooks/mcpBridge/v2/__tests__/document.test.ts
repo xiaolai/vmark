@@ -209,6 +209,25 @@ describe("vmark.document.write — STALE concurrency", () => {
     });
     expect(useMcpCheckpointStore.getState().checkpoints).toHaveLength(0);
   });
+
+  it("re-detects kind from the INCOMING content (empty-tab YAML write)", async () => {
+    // Empty untitled tab. Pre-write kind is markdown (no path, empty
+    // content). Writing workflow-shaped YAML must NOT route through
+    // Tiptap's markdown parser — the bridge should detect kind from
+    // the new content and store it verbatim.
+    seedTab("t-yaml-write", "", null);
+    const yaml =
+      "name: ci\non:\n  push:\n    branches: [main]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n";
+    await handleDocumentWrite("req-yaml", {
+      tabId: "t-yaml-write",
+      content: yaml,
+    });
+    // The doc store must hold the YAML verbatim, including newlines
+    // and indentation that the markdown parser would otherwise mangle.
+    const stored =
+      useDocumentStore.getState().documents["t-yaml-write"].content;
+    expect(stored).toBe(yaml);
+  });
 });
 
 describe("vmark.document.transform — CJK rewriter", () => {

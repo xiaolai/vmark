@@ -154,6 +154,52 @@ Coverage target: no regression vs. the current `vitest.config.ts` thresholds (st
 | Rust capabilities accidentally over-permissive | Low | Audit `src-tauri/capabilities/default.json` in WI-1.5. |
 | `.claude/hooks/gha-tdd-guard.mjs` blocks edits to GHA mutator code | Low | Test-first for any changes touching `src/lib/ghaWorkflow/`. |
 
+## Operational caveats
+
+### Sidecar binary needs rebuilding
+
+The MCP server runs as a packaged native binary at
+`src-tauri/binaries/vmark-mcp-server-aarch64-apple-darwin`, built via
+`pnpm build:sidecar` in `vmark-mcp-server/`. `pnpm tauri dev` spawns
+whatever binary is present; it does **not** rebuild the sidecar
+automatically.
+
+Workflow after a sidecar source change:
+
+```bash
+cd vmark-mcp-server && pnpm build:sidecar
+# then restart `pnpm tauri dev` so the parent picks up the new binary
+```
+
+Otherwise external MCP clients still see the previous tool surface
+even though the frontend bridge is up-to-date via Vite HMR.
+
+### Live-smoke verified
+
+A live smoke against `pnpm tauri dev` (2026-05-04) confirmed:
+
+- Bridge routes `vmark.session/workspace/document/workflow.*` correctly.
+- Legacy types (`document.getContent` etc.) reject with `success:false`.
+- `document.write` end-to-end: content updates, revision bumps,
+  checkpoint pushes, JSONL persistence fires.
+- STALE rejection works (write with bad `expected_revision` leaves
+  content unchanged, returns false).
+- `document.transform` `cjk-spacing` and `cjk-punctuation` produce the
+  expected text rewrites.
+- Per-tab checkpoint filtering works in the popover (badge count
+  scopes to the focused tab's filePath).
+- Restore via popover button rolls back to `contentBefore` and is
+  non-destructive of history.
+- `workflow.apply_patch` on a path-detected workflow file (.yml under
+  `.github/workflows/`) lands the patch and preserves comments.
+
+One bug uncovered and fixed during smoke (commit follows): kind
+detection in `document.write` was reading the *current* (often empty)
+tab content rather than the *new* content, causing YAML writes to a
+fresh untitled tab to route through Tiptap's markdown parser and
+garble the structure. Fix: re-evaluate `kind` against `args.content`
+at write time. New unit test guards against regression.
+
 ## What's not in scope
 
 - Selection-aware tools (`vmark.selection.get`) — defer until evidence of "fix this selection" flows.
