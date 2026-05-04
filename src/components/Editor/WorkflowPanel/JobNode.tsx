@@ -102,7 +102,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
         {job.if && (
           <span
             className="gha-job-node__if-dot"
-            aria-label={t("panel.conditional", "conditional")}
+            aria-label={t("panel.conditional")}
             title={`if: ${job.if}`}
           />
         )}
@@ -115,12 +115,12 @@ export function JobNode(props: JobNodeProps): ReactElement {
       <footer className="gha-job-node__footer">
         {data.reusable && (
           <span className="gha-job-node__badge gha-job-node__badge--reusable">
-            {t("panel.reusableWorkflow.badge", "reusable")}
+            {t("panel.reusableWorkflow.badge")}
           </span>
         )}
         {data.matrixDynamic && (
           <span className="gha-job-node__badge gha-job-node__badge--matrix">
-            {t("panel.matrix.dynamic", "dynamic")}
+            {t("panel.matrix.dynamic")}
           </span>
         )}
         {data.matrixCount && data.matrixCount > 1 && (
@@ -130,7 +130,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
         )}
         {job.steps.length > 0 && (
           <span className="gha-job-node__steps">
-            {job.steps.length} step{job.steps.length === 1 ? "" : "s"}
+            {t("panel.aria.stepCount", { count: job.steps.length })}
           </span>
         )}
       </footer>

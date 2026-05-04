@@ -60,9 +60,18 @@ export function stringifyCst(doc: Document): string {
  * that a single IRPatch produced the expected IR-level outcome.
  */
 export function semanticEqual(a: string, b: string): boolean {
-  const aJs = parseDocument(a).toJS({ maxAliasCount: -1 });
-  const bJs = parseDocument(b).toJS({ maxAliasCount: -1 });
-  return deepEqual(aJs, bJs);
+  // Guard against malformed input on either side. parseDocument can
+  // throw on hostile YAML (anchor cycles, ridiculous depth, etc.) and
+  // a function named "semanticEqual" should not propagate that —
+  // callers (round-trip gate, banner click handlers) treat it as a
+  // pure boolean check (auditor finding).
+  try {
+    const aJs = parseDocument(a).toJS({ maxAliasCount: -1 });
+    const bJs = parseDocument(b).toJS({ maxAliasCount: -1 });
+    return deepEqual(aJs, bJs);
+  } catch {
+    return false;
+  }
 }
 
 function deepEqual(a: unknown, b: unknown): boolean {

@@ -6,7 +6,7 @@
 // so a missing layout call still produces a non-overlapping render.
 
 import type { Edge, Node } from "@xyflow/react";
-import type { JobIR, MatrixIR, WorkflowIR } from "../types";
+import type { JobIR, WorkflowIR } from "../types";
 import { expandMatrix } from "../parser/matrix";
 
 /** Node `data` payload for the custom 'job' node type. */
@@ -83,6 +83,3 @@ function buildData(job: JobIR): JobNodeData {
   }
   return data;
 }
-
-// Suppress unused-import lint (kept for type narrowing convenience).
-void ((_m: MatrixIR) => 0) as never;

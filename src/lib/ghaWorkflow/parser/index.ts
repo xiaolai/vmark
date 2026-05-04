@@ -12,7 +12,7 @@ import { parsePermissions } from "./permissions";
 import { parseTriggers } from "./triggers";
 import {
   asMapping,
-  getBoolean,
+  getBooleanOrExpression,
   getMapping,
   getRecord,
   getString,
@@ -214,7 +214,11 @@ function parseWorkflowLevelConcurrency(
   if (!inner) return undefined;
   const group = getString(inner, "group");
   if (!group) return undefined;
-  const cancelInProgress = getBoolean(inner, "cancel-in-progress");
+  // ConcurrencyIR.cancelInProgress is `boolean | string` so workflows
+  // can express the expression form (`${{ github.event_name == 'pr' }}`)
+  // that GitHub Actions accepts. Reading via the Boolean-only helper
+  // silently dropped that case (auditor finding).
+  const cancelInProgress = getBooleanOrExpression(inner, "cancel-in-progress");
   return cancelInProgress !== undefined
     ? { group, cancelInProgress }
     : { group };

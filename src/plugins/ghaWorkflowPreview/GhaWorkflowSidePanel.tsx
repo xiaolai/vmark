@@ -149,28 +149,28 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     if (editStore.pendingPatches.length === 0) return;
     try {
       const next = editStore.applyAndSerialize(tabDoc.content);
-      // Update the editor first so the reflected state matches what is
-      // about to land on disk (and so the source CodeMirror reparses).
-      docState.setContent(tabId, next);
-      editStore.clearPatches();
-      // Untitled workflows have no path yet — leave the file dirty and
-      // let the user route through Save As via Cmd+Shift+S. Toast is
-      // honest in both branches.
       if (tabDoc.filePath) {
+        // Disk write FIRST. If saveToPath fails, the patch queue stays
+        // intact so the user can retry — clearing the queue and
+        // mutating the doc state pre-write loses the user's work on a
+        // disk-full / permission-denied / parent-missing failure
+        // (auditor finding: data-loss risk).
         const ok = await saveToPath(tabId, tabDoc.filePath, next, "manual");
-        if (ok) {
-          toast.success(t("workflowEditor:save.savedToast", "Workflow saved"));
-        }
-        // saveToPath surfaces its own error toast on failure; no need
-        // to double-report.
+        if (!ok) return;
+        docState.setContent(tabId, next);
+        editStore.clearPatches();
+        toast.success(t("workflowEditor:save.savedToast"));
       } else {
-        toast.success(
-          t("workflowEditor:save.updatedNoPathToast", "Workflow updated — Cmd+Shift+S to save"),
-        );
+        // Untitled workflows have no path. Reflect the change in the
+        // editor so the user can Cmd+Shift+S to save; the queue clears
+        // because the IR-side change is already applied to the doc.
+        docState.setContent(tabId, next);
+        editStore.clearPatches();
+        toast.success(t("workflowEditor:save.updatedNoPathToast"));
       }
     } catch (error) {
       toast.error(
-        `${t("workflowEditor:save.errorTitle", "Save failed")}: ${
+        `${t("workflowEditor:save.errorTitle")}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -193,14 +193,14 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
       className="gha-workflow-side-panel"
       style={{ width: panelWidth }}
       ref={panelRef}
-      aria-label={t("workflowEditor:panel.title", "Workflow")}
+      aria-label={t("workflowEditor:panel.title")}
     >
       <div
         className="gha-workflow-side-panel__resize-handle"
         onMouseDown={handleResizeStart}
         role="separator"
         aria-orientation="vertical"
-        aria-label={t("common:resize", "Resize")}
+        aria-label={t("common:resize")}
       />
       <div className="gha-workflow-side-panel__content">
         {parseError ? (
@@ -225,7 +225,7 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
           </>
         ) : (
           <div className="gha-workflow-side-panel__empty">
-            {t("workflowEditor:panel.noWorkflow", "No workflow detected")}
+            {t("workflowEditor:panel.noWorkflow")}
           </div>
         )}
       </div>

@@ -49,15 +49,27 @@ describe("WorkflowPanelShell", () => {
     expect(left?.style.flexBasis).toBe("30%");
   });
 
-  it("clamps split to [0.15, 0.85] range (verified by initial render not throwing for extreme values)", () => {
-    expect(() =>
-      render(
-        <WorkflowPanelShell
-          left={<span>l</span>}
-          right={<span>r</span>}
-          initialSplit={2}
-        />,
-      ),
-    ).not.toThrow();
+  it("clamps a too-large initialSplit to 0.85", () => {
+    render(
+      <WorkflowPanelShell
+        left={<div data-testid="left">l</div>}
+        right={<span>r</span>}
+        initialSplit={2}
+      />,
+    );
+    const left = screen.getByTestId("left").parentElement;
+    expect(left?.style.flexBasis).toBe("85%");
+  });
+
+  it("clamps a too-small initialSplit to 0.15", () => {
+    render(
+      <WorkflowPanelShell
+        left={<div data-testid="left">l</div>}
+        right={<span>r</span>}
+        initialSplit={-0.5}
+      />,
+    );
+    const left = screen.getByTestId("left").parentElement;
+    expect(left?.style.flexBasis).toBe("15%");
   });
 });

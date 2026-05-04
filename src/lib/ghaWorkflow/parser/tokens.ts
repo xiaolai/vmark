@@ -95,6 +95,27 @@ export function getBoolean(map: MappingToken, key: string): boolean | undefined 
   return typeof v === "boolean" ? v : undefined;
 }
 
+/**
+ * Like `getBoolean` but also accepts the GitHub-Actions expression form
+ * (e.g. `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`).
+ * Returns the boolean when the value is a literal, the original
+ * `${{ … }}` string when it's an expression, or undefined.
+ */
+export function getBooleanOrExpression(
+  map: MappingToken,
+  key: string,
+): boolean | string | undefined {
+  const tok = map.find(key);
+  if (!tok) return undefined;
+  const direct = readScalar(tok);
+  if (typeof direct === "boolean") return direct;
+  const expr = (tok as TemplateToken & { expression?: unknown }).expression;
+  if (typeof expr === "string") return `\${{ ${expr} }}`;
+  const src = (tok as TemplateToken & { source?: unknown }).source;
+  if (typeof src === "string") return src;
+  return undefined;
+}
+
 /** Get a mapping at `key`, or undefined if absent or wrong shape. */
 export function getMapping(
   map: MappingToken,

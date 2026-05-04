@@ -31,6 +31,8 @@ const DEBOUNCE_MS = 300;
 class SourceGhaWorkflowPreviewPlugin {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private lastContent = "";
+  /** True once this view has actually written workflow state to the store. */
+  private ownsStoreState = false;
 
   constructor(view: EditorView) {
     // Parse the initial doc state. Without this, opening an existing
@@ -62,8 +64,14 @@ class SourceGhaWorkflowPreviewPlugin {
     const store = useGhaWorkflowPanelStore.getState();
 
     if (!isWorkflowYaml(content)) {
-      store.setWorkflow(null);
-      store.closePanel();
+      // Only clear if THIS view owned the panel state — otherwise we'd
+      // erase another tab's workflow when this tab transitioned out of
+      // workflow shape (auditor finding: cross-tab pollution bug).
+      if (this.ownsStoreState) {
+        store.setWorkflow(null);
+        store.closePanel();
+        this.ownsStoreState = false;
+      }
       return;
     }
 
@@ -74,6 +82,7 @@ class SourceGhaWorkflowPreviewPlugin {
       );
       if (fatal) {
         store.setWorkflow(null, fatal.message);
+        this.ownsStoreState = true;
         return;
       }
       workflowLog(
@@ -82,6 +91,7 @@ class SourceGhaWorkflowPreviewPlugin {
         `(${ir.jobs.length} jobs, ${ir.diagnostics.length} diagnostics)`,
       );
       store.setWorkflow(ir);
+      this.ownsStoreState = true;
       if (!useGhaWorkflowPanelStore.getState().panelOpen) {
         useGhaWorkflowPanelStore.getState().openPanel();
       }
@@ -91,12 +101,18 @@ class SourceGhaWorkflowPreviewPlugin {
         e instanceof Error ? e.message : String(e),
       );
       store.setWorkflow(null, e instanceof Error ? e.message : String(e));
+      this.ownsStoreState = true;
     }
   }
 
   destroy() {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    useGhaWorkflowPanelStore.getState().reset();
+    // Only reset the panel store if THIS view's content was its source.
+    // Tab-switch destroys the view that's leaving — which would clear
+    // panel state for whichever tab is now active (auditor finding).
+    if (this.ownsStoreState) {
+      useGhaWorkflowPanelStore.getState().reset();
+    }
   }
 }
 

@@ -55,14 +55,22 @@ export function useActionMetadata(
     setResult({ state: "loading" });
 
     let mounted = true;
-    getActionMetadata(uses).then((metadata) => {
-      if (!mounted) return;
-      if (metadata) {
-        setResult({ state: "success", metadata });
-      } else {
-        setResult({ state: "unavailable" });
-      }
-    });
+    getActionMetadata(uses)
+      .then((metadata) => {
+        if (!mounted) return;
+        if (metadata) {
+          setResult({ state: "success", metadata });
+        } else {
+          setResult({ state: "unavailable" });
+        }
+      })
+      .catch(() => {
+        // The registry already swallows errors and returns null in
+        // every documented failure mode, but a future refactor that
+        // forgets the try/catch would surface as an unhandled rejection
+        // here. Belt-and-braces: collapse to "unavailable".
+        if (mounted) setResult({ state: "unavailable" });
+      });
     return () => {
       mounted = false;
     };

@@ -19,6 +19,7 @@
  */
 
 import type { ReactElement, ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { WorkflowPanelShell } from "./WorkflowPanelShell";
@@ -32,9 +33,10 @@ interface GhaWorkflowPanelProps {
 export function GhaWorkflowPanel(
   props: GhaWorkflowPanelProps,
 ): ReactElement {
+  const { t } = useTranslation("workflowEditor");
   return (
     <WorkflowPanelShell
-      ariaLabel="GitHub Actions workflow viewer"
+      ariaLabel={t("panel.viewerAriaLabel")}
       left={props.sourceEditor}
       right={
         <div className="gha-workflow-canvas">

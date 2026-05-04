@@ -117,13 +117,23 @@ export function StepForm({
 
   const commitWithRow = (row: WithRow): void => {
     if (!row.key) return;
-    if (row.originalKey && row.originalKey !== row.key) {
-      // Renamed: remove the old key, set the new one.
+    const renamed = !!row.originalKey && row.originalKey !== row.key;
+    // Look up the original value via the IR (not via stale local state).
+    // This dedupes blur events that fire without an actual edit — tabbing
+    // through rows previously dirtied the queue with a no-op patch every
+    // time. (auditor finding: real bug.)
+    const originalValue =
+      row.originalKey && step.with
+        ? String(step.with[row.originalKey] ?? "")
+        : null;
+    const valueChanged = originalValue === null || row.value !== originalValue;
+    if (!renamed && !valueChanged) return;
+    if (renamed) {
       queue({
         kind: "with.remove",
         jobId,
         stepIndex,
-        key: row.originalKey,
+        key: row.originalKey!,
       });
     }
     queue({

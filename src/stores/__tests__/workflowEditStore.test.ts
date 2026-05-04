@@ -180,3 +180,39 @@ describe("workflowEditStore — preserveYamlFormatting toggle", () => {
     expect(commentSet(out).size).toBeGreaterThan(0);
   });
 });
+
+describe("workflowEditStore — error paths", () => {
+  // Audit follow-up: applyAndSerialize with malformed input must not
+  // crash the save handler. parseDocument tolerates most YAML and
+  // surfaces errors via doc.errors[]; mutators are no-ops on
+  // non-mapping shapes; semanticEqual is now guarded. The pipeline
+  // should produce SOMETHING (best-effort serialize) without throwing.
+
+  it("does not throw on syntactically broken input", () => {
+    const s = useWorkflowEditStore.getState();
+    s.queuePatch({
+      kind: "workflow.set",
+      path: "name",
+      value: "renamed",
+    });
+    const broken = "name: ::: bad\n  jobs:\n    - oops\n";
+    expect(() => s.applyAndSerialize(broken)).not.toThrow();
+  });
+
+  it("does not throw on empty input", () => {
+    const s = useWorkflowEditStore.getState();
+    s.queuePatch({
+      kind: "workflow.set",
+      path: "name",
+      value: "renamed",
+    });
+    expect(() => s.applyAndSerialize("")).not.toThrow();
+  });
+
+  it("noop when called with no pending patches even on broken input", () => {
+    const s = useWorkflowEditStore.getState();
+    const broken = "::: definitely not yaml";
+    // No patches queued → returns input verbatim, never parses.
+    expect(s.applyAndSerialize(broken)).toBe(broken);
+  });
+});

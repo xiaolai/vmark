@@ -99,5 +99,9 @@
   "expression.expand.if": "Expand if",
   "expression.expand.run": "Expand run",
   "expression.title.if": "Edit if",
-  "expression.title.run": "Edit run"
+  "expression.title.run": "Edit run",
+  "panel.noWorkflow": "No workflow detected",
+  "panel.conditional": "conditional",
+  "panel.shell.resize": "Resize panes",
+  "panel.viewerAriaLabel": "GitHub Actions workflow viewer"
 }

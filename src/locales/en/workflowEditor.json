@@ -19,6 +19,10 @@
   "diagnostics.GHA-SCHEMA-001": "Schema warning: {message}",
 
   "panel.title": "Workflow",
+  "panel.noWorkflow": "No workflow detected",
+  "panel.conditional": "conditional",
+  "panel.shell.resize": "Resize panes",
+  "panel.viewerAriaLabel": "GitHub Actions workflow viewer",
   "panel.openInPanel": "Open in side panel",
   "panel.exportSvg": "Export as SVG",
   "panel.exportPng": "Export as PNG",

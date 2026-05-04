@@ -20,7 +20,6 @@ import {
   asSequence,
   getBoolean,
   getMapping,
-  getSequence,
   getString,
   getStringArray,
   getStringOrExpression,
@@ -243,7 +242,3 @@ function parseCallOutputs(
   }
   return out;
 }
-
-// Suppress unused-import lint when neither getSequence nor mappingEntries
-// is used directly in this file's hot path (kept for future extensions).
-void getSequence;

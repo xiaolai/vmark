@@ -117,17 +117,28 @@ export const useWorkflowEditStore = create<
     const { pendingPatches, preserveYamlFormatting } = get();
     if (pendingPatches.length === 0) return originalYaml;
 
-    const doc = parseAsCst(originalYaml);
-    for (const patch of pendingPatches) applyPatch(doc, patch);
+    // Defensive against malformed input: parseDocument tolerates most
+    // YAML and surfaces problems via doc.errors[], but doc.toString()
+    // throws on a doc with parse errors. The save path is user-facing —
+    // surface the original verbatim instead of crashing the panel
+    // (audit follow-up). Mutator no-ops on non-mapping shapes already
+    // handle the next layer of robustness.
+    try {
+      const doc = parseAsCst(originalYaml);
+      if (doc.errors.length > 0) return originalYaml;
+      for (const patch of pendingPatches) applyPatch(doc, patch);
 
-    if (resolvePreserve(preserveYamlFormatting)) return stringifyCst(doc);
+      if (resolvePreserve(preserveYamlFormatting)) return stringifyCst(doc);
 
-    // "Reformat" path — round-trip through plain yaml.stringify. Loses
-    // comments + custom formatting; intended for users who explicitly
-    // want canonical output.
-    return yamlStringify(doc.toJS({ maxAliasCount: -1 }), {
-      ...WORKFLOW_YAML_STRINGIFY_OPTIONS,
-    });
+      // "Reformat" path — round-trip through plain yaml.stringify. Loses
+      // comments + custom formatting; intended for users who explicitly
+      // want canonical output.
+      return yamlStringify(doc.toJS({ maxAliasCount: -1 }), {
+        ...WORKFLOW_YAML_STRINGIFY_OPTIONS,
+      });
+    } catch {
+      return originalYaml;
+    }
   },
 }));
 

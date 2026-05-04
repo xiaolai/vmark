@@ -18,6 +18,7 @@ import {
   asMapping,
   asSequence,
   getBoolean,
+  getBooleanOrExpression,
   getMapping,
   getNumber,
   getRecord,
@@ -213,7 +214,12 @@ function parseConcurrency(map: MappingToken): ConcurrencyIR | undefined {
   if (!inner) return undefined;
   const group = getString(inner, "group");
   if (!group) return undefined;
-  const cancelInProgress = getBoolean(inner, "cancel-in-progress");
+  // Expression form (`${{ … }}`) is valid per GitHub Actions and the
+  // ConcurrencyIR allows it; getBoolean dropped it silently (auditor).
+  const cancelInProgress = getBooleanOrExpression(
+    inner,
+    "cancel-in-progress",
+  );
   return cancelInProgress !== undefined
     ? { group, cancelInProgress }
     : { group };

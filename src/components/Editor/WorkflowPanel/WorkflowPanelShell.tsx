@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import "./workflow-panel-shell.css";
 
 interface WorkflowPanelShellProps {
@@ -36,6 +37,7 @@ export function WorkflowPanelShell(
   props: WorkflowPanelShellProps,
 ): ReactElement {
   const { left, right, initialSplit = 0.45, ariaLabel } = props;
+  const { t } = useTranslation("workflowEditor");
   const [split, setSplit] = useState(() => clamp(initialSplit));
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
@@ -74,7 +76,7 @@ export function WorkflowPanelShell(
         className="gha-panel-shell__handle"
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize panes"
+        aria-label={t("panel.shell.resize")}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

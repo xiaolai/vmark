@@ -65,9 +65,26 @@ describe("WorkflowCanvas", () => {
     expect(() => render(<WorkflowCanvas workflow={emptyIR()} />)).not.toThrow();
   });
 
-  it("mounts without throwing for a small IR", () => {
-    expect(() =>
-      render(<WorkflowCanvas workflow={ir(["a", "b", "c"])} />),
-    ).not.toThrow();
+  it("renders one xyflow node per job in the IR", () => {
+    const { container } = render(
+      <WorkflowCanvas workflow={ir(["a", "b", "c"])} />,
+    );
+    // xyflow renders nodes as elements with data-id matching the node id.
+    // We don't depend on specific xyflow class names — only that the
+    // node ids the IR emitted reach the rendered output.
+    const a = container.querySelector('[data-id="a"]');
+    const b = container.querySelector('[data-id="b"]');
+    const c = container.querySelector('[data-id="c"]');
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(c).not.toBeNull();
+  });
+
+  it("registers the custom JobNode type — node text contains the job id label", () => {
+    const { container } = render(<WorkflowCanvas workflow={ir(["build"])} />);
+    // The JobNode renders the job id as a label; its presence proves the
+    // custom node type registered (default xyflow nodes don't render
+    // job id text).
+    expect(container.textContent).toContain("build");
   });
 });
