@@ -26,6 +26,7 @@ import { yaml } from "@codemirror/lang-yaml";
 import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
+import { sourceGhaWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceGhaWorkflowPreview";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
@@ -264,6 +265,8 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     isYaml ? yaml() : markdown({ codeLanguages: languages }),
     // Workflow preview plugin for YAML files (parses YAML → workflowPreviewStore)
     ...(isYaml ? sourceWorkflowPreviewExtensions : []),
+    // GHA workflow preview plugin for YAML files (parses YAML → ghaWorkflowPanelStore)
+    ...(isYaml ? sourceGhaWorkflowPreviewExtensions : []),
     // Syntax highlighting for code blocks
     syntaxHighlighting(codeHighlightStyle, { fallback: true }),
     // Listen for changes

@@ -17,7 +17,8 @@
  *
  * @coordinates-with SourceEditor.tsx, TiptapEditor.tsx — mounts one or both based on mode
  * @coordinates-with stores/editorStore.ts — reads sourceMode for mode switching
- * @coordinates-with plugins/workflowPreview/WorkflowSidePanel.tsx — renders workflow panel for .yml files
+ * @coordinates-with plugins/workflowPreview/WorkflowSidePanel.tsx — renders Genie workflow panel for .yml files
+ * @coordinates-with plugins/ghaWorkflowPreview/GhaWorkflowSidePanel.tsx — renders GitHub Actions workflow panel
  * @module components/Editor/Editor
  */
 import { lazy, Suspense } from "react";
@@ -38,6 +39,10 @@ import { DropZoneIndicator } from "./DropZoneIndicator";
 /* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
 const WorkflowSidePanel = lazy(() =>
   import("@/plugins/workflowPreview/WorkflowSidePanel").then((m) => ({ default: m.WorkflowSidePanel }))
+);
+/* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
+const GhaWorkflowSidePanel = lazy(() =>
+  import("@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel").then((m) => ({ default: m.GhaWorkflowSidePanel }))
 );
 import "./editor.css";
 import "./heading-picker.css";
@@ -102,6 +107,7 @@ export function Editor() {
         {editorContent}
       </div>
       {workflowEnabled && <Suspense fallback={null}><WorkflowSidePanel /></Suspense>}
+      <Suspense fallback={null}><GhaWorkflowSidePanel /></Suspense>
       <HeadingPicker />
       <DropZoneIndicator />
     </div>
