@@ -23,6 +23,7 @@ import { type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { DiagnosticsBanner } from "./DiagnosticsBanner";
 import { JobForm } from "./JobForm";
 import { StepForm } from "./StepForm";
 import { TriggerForm } from "./TriggerForm";
@@ -60,6 +61,7 @@ export function WorkflowEditorPanel({
   return (
     <div className="workflow-editor-panel">
       <SaveControls onSave={onSave} onDiscard={onDiscard} />
+      <DiagnosticsBanner diagnostics={workflow.diagnostics} />
       <TriggerForm triggers={workflow.triggers} />
       {selectedStep && selectedJob ? (
         // key forces remount when selection switches so useState seeded

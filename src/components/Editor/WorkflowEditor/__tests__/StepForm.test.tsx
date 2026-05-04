@@ -1,9 +1,14 @@
 // Phase 7 WI-7.1 — StepForm tests.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, cleanup } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, cleanup, waitFor } from "@testing-library/react";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { __resetRegistryForTests } from "@/lib/ghaWorkflow/actions/registry";
+
+const invokeMock = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+
 import { StepForm } from "../StepForm";
 
 function makeStep(overrides: Partial<StepIR> = {}): StepIR {
@@ -22,6 +27,8 @@ beforeEach(() => {
     pendingPatches: [],
     preserveYamlFormatting: true,
   });
+  __resetRegistryForTests();
+  invokeMock.mockReset();
 });
 
 afterEach(() => {
@@ -231,5 +238,113 @@ describe("StepForm — emits patches", () => {
         value: "https://npm.example.com",
       },
     ]);
+  });
+});
+
+describe("StepForm — action metadata threading", () => {
+  it("renders input descriptions next to existing with: rows on success", async () => {
+    invokeMock.mockResolvedValue({
+      kind: "ok",
+      from_cache: false,
+      metadata: {
+        name: "Setup Node",
+        inputs: {
+          "node-version": {
+            description: "Version of Node.js to use (eg. 20)",
+            required: false,
+            default: "lts/*",
+          },
+          cache: {
+            description: "Used to specify a package manager for caching",
+            required: false,
+          },
+        },
+        outputs: {},
+      },
+    });
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({
+          uses: "actions/setup-node@v4",
+          with: { "node-version": "20" },
+        })}
+      />,
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Version of Node\.js to use/),
+      ).toBeDefined();
+    });
+  });
+
+  it("marks required inputs with an asterisk + lists missing required keys", async () => {
+    invokeMock.mockResolvedValue({
+      kind: "ok",
+      from_cache: false,
+      metadata: {
+        inputs: {
+          "fetch-depth": {
+            description: "How many commits to fetch",
+            required: true,
+          },
+        },
+        outputs: {},
+      },
+    });
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ uses: "actions/checkout@v4", with: {} })}
+      />,
+    );
+    await waitFor(() => {
+      // Required input not set → surfaced as a missing required key.
+      expect(screen.getByText(/fetch-depth/i)).toBeDefined();
+    });
+    // Required indicator on the missing key suggestion.
+    expect(screen.getByText("*")).toBeDefined();
+  });
+
+  it("falls back to free-form rows when metadata fetch fails (NotFound)", async () => {
+    invokeMock.mockResolvedValueOnce({
+      kind: "not_found",
+      message: "no action.yml",
+    });
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({
+          uses: "private/internal-action@v1",
+          with: { foo: "bar" },
+        })}
+      />,
+    );
+    await waitFor(() => {
+      // Existing with row still renders.
+      expect(screen.getByDisplayValue("foo")).toBeDefined();
+      expect(screen.getByDisplayValue("bar")).toBeDefined();
+    });
+    // No input description from metadata.
+    expect(screen.queryByText(/Version of Node\.js/)).toBeNull();
+  });
+
+  it("does not invoke for run-steps (no uses ref)", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({
+          id: "test",
+          uses: undefined,
+          run: "pnpm test",
+          name: "Test",
+        })}
+      />,
+    );
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

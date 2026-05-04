@@ -27,6 +27,7 @@ import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useActionMetadata } from "./useActionMetadata";
 import "./workflow-editor.css";
 
 interface StepFormProps {
@@ -65,6 +66,29 @@ export function StepForm({
   const [withRows, setWithRows] = useState<WithRow[]>(withRowsFromStep(step));
 
   const queue = useWorkflowEditStore((s) => s.queuePatch);
+
+  // Action metadata for the structured `with:` UI. Idle for run-steps;
+  // unavailable falls back to the existing free-form rows so the form
+  // stays usable even when the registry can't reach GitHub.
+  const metadataResult = useActionMetadata(step.uses);
+  const inputs =
+    metadataResult.state === "success"
+      ? metadataResult.metadata.inputs
+      : null;
+  const setKeys = new Set(withRows.map((r) => r.key));
+  const missingRequired = inputs
+    ? Object.entries(inputs).filter(
+        ([key, schema]) => schema.required && !setKeys.has(key),
+      )
+    : [];
+
+  const addSuggestedKey = (key: string): void => {
+    setWithRows((rows) =>
+      rows.some((r) => r.key === key)
+        ? rows
+        : [...rows, { key, value: "", originalKey: null }],
+    );
+  };
 
   const commitField = (path: string, next: string, original: string): void => {
     if (next === original) return;
@@ -187,35 +211,76 @@ export function StepForm({
           <span className="workflow-form__label">
             {t("form.step.with.label")}
           </span>
+          {metadataResult.state === "loading" && (
+            <span className="workflow-form__metadata-loading">
+              {t("panel.metadata.fetching")}
+            </span>
+          )}
+          {metadataResult.state === "unavailable" && (
+            <span className="workflow-form__metadata-loading">
+              {t("panel.metadata.unavailable")}
+            </span>
+          )}
           <div className="workflow-form__with-rows">
-            {withRows.map((row, idx) => (
-              <div key={idx} className="workflow-form__with-row">
-                <input
-                  className="workflow-form__input workflow-form__input--mono"
-                  type="text"
-                  value={row.key}
-                  placeholder={t("form.step.with.keyPlaceholder")}
-                  onChange={(e) => updateRow(idx, { key: e.target.value })}
-                  onBlur={() => commitWithRow(withRows[idx])}
-                />
-                <input
-                  className="workflow-form__input workflow-form__input--mono"
-                  type="text"
-                  value={row.value}
-                  placeholder={t("form.step.with.valuePlaceholder")}
-                  onChange={(e) => updateRow(idx, { value: e.target.value })}
-                  onBlur={() => commitWithRow(withRows[idx])}
-                />
-                <button
-                  type="button"
-                  className="workflow-form__with-remove"
-                  aria-label={t("form.step.with.removeRow")}
-                  onClick={() => removeRow(idx)}
-                >
-                  ×
-                </button>
+            {withRows.map((row, idx) => {
+              const schema = inputs?.[row.key];
+              return (
+                <div key={idx} className="workflow-form__with-row-group">
+                  <div className="workflow-form__with-row">
+                    <input
+                      className="workflow-form__input workflow-form__input--mono"
+                      type="text"
+                      value={row.key}
+                      placeholder={t("form.step.with.keyPlaceholder")}
+                      onChange={(e) => updateRow(idx, { key: e.target.value })}
+                      onBlur={() => commitWithRow(withRows[idx])}
+                    />
+                    <input
+                      className="workflow-form__input workflow-form__input--mono"
+                      type="text"
+                      value={row.value}
+                      placeholder={
+                        schema?.default ?? t("form.step.with.valuePlaceholder")
+                      }
+                      onChange={(e) => updateRow(idx, { value: e.target.value })}
+                      onBlur={() => commitWithRow(withRows[idx])}
+                    />
+                    <button
+                      type="button"
+                      className="workflow-form__with-remove"
+                      aria-label={t("form.step.with.removeRow")}
+                      onClick={() => removeRow(idx)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {schema?.description && (
+                    <span className="workflow-form__metadata-desc">
+                      {schema.description}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+            {missingRequired.length > 0 && (
+              <div className="workflow-form__missing-required">
+                <span className="workflow-form__label">
+                  {t("form.step.with.missingRequired")}
+                </span>
+                {missingRequired.map(([key, schema]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="workflow-form__missing-required-key"
+                    onClick={() => addSuggestedKey(key)}
+                    title={schema.description ?? ""}
+                  >
+                    <code>{key}</code>
+                    <span aria-label="required">*</span>
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
             <button
               type="button"
               className="workflow-form__with-add"

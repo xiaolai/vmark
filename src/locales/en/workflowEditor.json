@@ -67,6 +67,7 @@
   "form.step.with.removeRow": "Remove",
   "form.step.with.keyPlaceholder": "key",
   "form.step.with.valuePlaceholder": "value",
+  "form.step.with.missingRequired": "Required inputs not set:",
   "form.step.uses.label": "Uses",
 
   "form.trigger.kind": "Triggers",
@@ -86,5 +87,8 @@
   "save.cleanHint": "No pending edits",
   "save.errorTitle": "Save failed",
   "save.savedToast": "Workflow saved",
-  "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save"
+  "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save",
+
+  "diagnosticsBanner.title": "Workflow diagnostics",
+  "diagnosticsBanner.showAll": "Show all {{count}}"
 }

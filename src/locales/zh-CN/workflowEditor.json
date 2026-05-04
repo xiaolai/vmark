@@ -76,5 +76,8 @@
   "save.savedToast": "Workflow saved",
   "form.job.steps.label": "Steps",
   "form.job.steps.navigation": "Job steps",
-  "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save"
+  "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save",
+  "form.step.with.missingRequired": "Required inputs not set:",
+  "diagnosticsBanner.title": "Workflow diagnostics",
+  "diagnosticsBanner.showAll": "Show all {{count}}"
 }

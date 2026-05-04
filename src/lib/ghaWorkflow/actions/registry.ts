@@ -122,7 +122,7 @@ export async function getActionMetadata(
   if (existing) return existing;
 
   const promise = (async () => {
-    let result: FetchResult;
+    let result: FetchResult | undefined;
     try {
       result = await invoke<FetchResult>("gha_fetch_action_yml", { uses });
     } catch {
@@ -130,7 +130,11 @@ export async function getActionMetadata(
       return null;
     }
 
-    if (result.kind === "ok") {
+    // Defensive: vi.fn() / unmocked invoke returns undefined; in production
+    // the Tauri command always returns a FetchResult, but treating
+    // undefined as "unavailable" keeps the form layer crash-free during
+    // tests that exercise unrelated code paths.
+    if (result && result.kind === "ok") {
       const metadata = normalizeMetadata(result.metadata);
       sessionCache.set(uses, metadata);
       return metadata;

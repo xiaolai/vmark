@@ -293,6 +293,154 @@
   color: var(--error-color);
 }
 
+.workflow-form__with-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__metadata-loading {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.workflow-form__metadata-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  padding-left: var(--space-2);
+  line-height: var(--line-height-snug);
+}
+
+.workflow-form__missing-required {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-top: var(--border-thin) dashed var(--border-color);
+}
+
+.workflow-form__missing-required-key {
+  background: var(--warning-bg);
+  border: var(--border-thin) solid var(--warning-border);
+  color: var(--text-color);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-half);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+
+.workflow-form__missing-required-key:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+}
+
+.workflow-form__missing-required-key span[aria-label="required"] {
+  color: var(--error-color);
+}
+
+/* Diagnostics banner — appears above the canvas when workflow.diagnostics
+   has any entries. Click-to-select wires through workflowViewStore. */
+
+.workflow-diagnostics-banner {
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-diagnostics-banner__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-diagnostics-banner__row {
+  display: flex;
+}
+
+.workflow-diagnostics-banner__row-button,
+.workflow-diagnostics-banner__row-static {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-half) var(--space-1);
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+}
+
+.workflow-diagnostics-banner__row-button {
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.workflow-diagnostics-banner__row-button:hover {
+  background: var(--hover-bg);
+}
+
+.workflow-diagnostics-banner__row-button:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+}
+
+.workflow-diagnostics-banner__icon {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.workflow-diagnostics-banner__icon--error {
+  color: var(--error-color);
+}
+
+.workflow-diagnostics-banner__icon--warning {
+  color: var(--warning-color);
+}
+
+.workflow-diagnostics-banner__icon--info {
+  color: var(--accent-primary);
+}
+
+.workflow-diagnostics-banner__code {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  background: var(--bg-color);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-half);
+}
+
+.workflow-diagnostics-banner__message {
+  flex: 1 1 auto;
+  word-break: break-word;
+}
+
+.workflow-diagnostics-banner__toggle {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  padding: 0;
+  text-decoration: underline;
+}
+
 /* Trigger summary list */
 
 .workflow-form__trigger-list {
