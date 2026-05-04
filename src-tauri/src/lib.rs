@@ -48,6 +48,7 @@ mod hot_exit;
 mod pandoc;
 mod tab_transfer;
 mod workflow;
+mod gha_workflow;
 mod quarantine;
 
 #[cfg(target_os = "macos")]
@@ -642,6 +643,7 @@ pub fn run() {
             genies::commands::read_genie,
             workflow::commands::run_workflow,
             workflow::commands::cancel_workflow,
+            gha_workflow::commands::gha_lint,
             ai_provider::detect_ai_providers,
             ai_provider::run_ai_prompt,
             ai_provider::read_env_api_keys,
