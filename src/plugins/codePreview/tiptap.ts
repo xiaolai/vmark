@@ -2,8 +2,8 @@
  * Code Preview Tiptap Extension
  *
  * Purpose: Renders live previews below code blocks for special languages (LaTeX/math,
- * Mermaid diagrams, Markmap mindmaps, SVG) in WYSIWYG mode. Also handles click-to-edit
- * for block math ($$...$$ code blocks).
+ * Mermaid diagrams, Markmap mindmaps, SVG, GitHub Actions workflow YAML) in WYSIWYG mode.
+ * Also handles click-to-edit for block math ($$...$$ code blocks).
  *
  * Pipeline: code_block node -> detect language -> render preview widget decoration
  *         -> debounced re-render on content change -> click to edit -> Cmd+Enter to commit
@@ -15,6 +15,8 @@
  *   - Each preview type has its own renderer (in renderers/ directory)
  *   - Block math uses a special "$$math$$" sentinel language to distinguish from regular latex
  *   - Export buttons (copy SVG, download PNG) are injected into diagram previews
+ *   - YAML code fences are previewed only when content has workflow shape
+ *     (isWorkflowYaml). Plain YAML blocks (docker-compose, etc.) stay as text.
  *   - Plugin state tracks `codeBlockRanges` so the apply() fast path can skip the full
  *     doc.descendants() scan when a transaction doesn't touch any code block
  *
