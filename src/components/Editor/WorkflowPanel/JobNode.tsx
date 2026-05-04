@@ -20,12 +20,41 @@
 
 import type { Node } from "@xyflow/react";
 import type { ReactElement } from "react";
+import type { JobIR } from "@/lib/ghaWorkflow/types";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { useTranslation } from "react-i18next";
 import "./job-node.css";
 
 type JobNodeProps = Node<JobNodeData>;
+
+/**
+ * Build a screen-reader summary of one job. Phase 9 a11y per the plan:
+ * "aria-label on every JobNode summarizing job name + needs". Composes
+ * the parts that exist; degrades to just the id when nothing else is set.
+ */
+function buildJobAriaLabel(
+  job: JobIR,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const parts: string[] = [];
+  parts.push(t("panel.aria.jobPrefix", { name: job.name ?? job.id }));
+  if (job.runsOn && job.runsOn.length > 0) {
+    parts.push(
+      t("panel.aria.runsOn", { runner: job.runsOn.join(", ") }),
+    );
+  }
+  if (job.steps.length > 0) {
+    parts.push(t("panel.aria.stepCount", { count: job.steps.length }));
+  }
+  if (job.needs.length > 0) {
+    parts.push(t("panel.aria.needs", { refs: job.needs.join(", ") }));
+  }
+  if (job.if) {
+    parts.push(t("panel.aria.conditional"));
+  }
+  return parts.join(". ");
+}
 
 export function JobNode(props: JobNodeProps): ReactElement {
   const { t } = useTranslation("workflowEditor");
@@ -36,6 +65,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
 
   const label = job.name ?? job.id;
   const runner = job.runsOn?.join(" / ");
+  const ariaLabel = buildJobAriaLabel(job, t);
 
   const onActivate = () => {
     useWorkflowViewStore.getState().selectJob(job.id);
@@ -45,6 +75,15 @@ export function JobNode(props: JobNodeProps): ReactElement {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       onActivate();
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      useWorkflowViewStore.getState().clearSelection();
+      // Hand focus back to the source editor so the user can keep
+      // editing without picking up the mouse.
+      const cm = document.querySelector<HTMLElement>(".cm-editor .cm-content");
+      cm?.focus();
     }
   };
 
@@ -54,6 +93,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
       className="gha-job-node"
       data-selected={isSelected}
       aria-pressed={isSelected}
+      aria-label={ariaLabel}
       onClick={onActivate}
       onKeyDown={onKeyDown}
     >

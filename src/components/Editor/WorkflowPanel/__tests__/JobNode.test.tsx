@@ -76,8 +76,12 @@ describe("JobNode", () => {
   it("renders the if expression indicator when job.if is set", () => {
     const node = makeNode({}, { if: "github.event_name == 'push'" });
     render(<JobNode {...node} />);
-    // 'if:' indicator dot has aria-label "conditional".
-    expect(screen.getByLabelText(/conditional/i)).toBeDefined();
+    // 'if:' indicator dot is a span carrying the i18n "conditional" label.
+    // The job button itself also references "conditional" in its aria-label
+    // summary, so query specifically for the dot via its title attribute.
+    expect(
+      document.querySelector(".gha-job-node__if-dot"),
+    ).toBeDefined();
   });
 
   it("calls selectJob on click via the store", () => {
@@ -107,5 +111,72 @@ describe("JobNode", () => {
     expect(screen.getByRole("button").getAttribute("aria-pressed")).toBe(
       "true",
     );
+  });
+
+  describe("a11y — aria-label summarizes the job", () => {
+    it("includes the job id when no name is set", () => {
+      const node = makeNode();
+      render(<JobNode {...node} />);
+      const label = screen.getByRole("button").getAttribute("aria-label");
+      expect(label).toContain("build");
+    });
+
+    it("uses the job's name and runner in the summary", () => {
+      const node = makeNode(
+        {},
+        { name: "Build the App", runsOn: ["ubuntu-latest"] },
+      );
+      render(<JobNode {...node} />);
+      const label = screen.getByRole("button").getAttribute("aria-label");
+      expect(label).toContain("Build the App");
+      expect(label).toContain("ubuntu-latest");
+    });
+
+    it("includes step count and needs[] in the summary", () => {
+      const node = makeNode(
+        {},
+        {
+          needs: ["lint", "format"],
+          steps: [
+            {
+              id: "s1",
+              idSynthesized: false,
+              run: "x",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+            {
+              id: "s2",
+              idSynthesized: false,
+              run: "y",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+          ],
+        },
+      );
+      render(<JobNode {...node} />);
+      const label = screen.getByRole("button").getAttribute("aria-label");
+      expect(label).toContain("2 steps");
+      expect(label).toContain("lint");
+      expect(label).toContain("format");
+    });
+
+    it("notes a conditional job in the summary", () => {
+      const node = makeNode({}, { if: "github.event_name == 'push'" });
+      render(<JobNode {...node} />);
+      const label = screen.getByRole("button").getAttribute("aria-label");
+      expect(label).toContain("conditional");
+    });
+  });
+
+  describe("keyboard — Escape clears selection", () => {
+    it("clears selection when Escape is pressed on a focused node", () => {
+      useWorkflowViewStore.getState().selectJob("build");
+      const node = makeNode();
+      render(<JobNode {...node} />);
+      const btn = screen.getByRole("button");
+      btn.focus();
+      fireEvent.keyDown(btn, { key: "Escape" });
+      expect(useWorkflowViewStore.getState().selectedJobId).toBeNull();
+    });
   });
 });

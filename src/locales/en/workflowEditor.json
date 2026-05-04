@@ -26,6 +26,12 @@
   "panel.exportMermaidLossy": "Mermaid export omits run status, action icons, custom badges, and matrix expansion details.",
   "panel.exportSvgLossy": "SVG export uses foreignObject; for native vector primitives, export as PNG instead.",
 
+  "panel.aria.jobPrefix": "Job {{name}}",
+  "panel.aria.runsOn": "runs on {{runner}}",
+  "panel.aria.stepCount": "{{count}} steps",
+  "panel.aria.needs": "depends on {{refs}}",
+  "panel.aria.conditional": "conditional",
+
   "panel.matrix.expand": "Expand matrix ({count} combinations)",
   "panel.matrix.collapse": "Collapse matrix",
   "panel.matrix.dynamic": "Dynamic matrix",

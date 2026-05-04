@@ -280,6 +280,14 @@
   color: var(--text-color);
 }
 
+.workflow-form__with-add:focus-visible {
+  outline: none;
+  border-style: solid;
+  border-color: var(--accent-primary);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
 .workflow-form__with-remove {
   background: transparent;
   border: none;
@@ -291,6 +299,13 @@
 
 .workflow-form__with-remove:hover {
   color: var(--error-color);
+}
+
+.workflow-form__with-remove:focus-visible {
+  outline: none;
+  color: var(--error-color);
+  background: var(--accent-bg);
+  border-radius: var(--radius-sm);
 }
 
 .workflow-form__with-row-group {
@@ -337,6 +352,13 @@
 .workflow-form__missing-required-key:hover {
   background: var(--accent-bg);
   border-color: var(--accent-primary);
+}
+
+.workflow-form__missing-required-key:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thin) var(--accent-bg);
 }
 
 .workflow-form__missing-required-key span[aria-label="required"] {
@@ -439,6 +461,12 @@
   font-size: var(--font-size-xs);
   padding: 0;
   text-decoration: underline;
+}
+
+.workflow-diagnostics-banner__toggle:focus-visible {
+  outline: var(--border-medium) solid var(--accent-primary);
+  outline-offset: var(--border-medium);
+  border-radius: var(--radius-sm);
 }
 
 /* Trigger summary list */

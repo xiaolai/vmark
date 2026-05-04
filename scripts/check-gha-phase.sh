@@ -232,10 +232,54 @@ phase_9() {
   echo "Phase 9 — Polish"
 
   # Locale completion (en authoritative)
-  assert_file "src/locales/en/workflowEditor.json"     "Phase 9 en workflowEditor locale"
+  assert_file "src/locales/en/workflowEditor.json"      "Phase 9 en workflowEditor locale"
 
   # Documentation
-  assert_file "website/guide/workflow-viewer.md"       "Phase 9 user-facing docs"
+  assert_file "website/guide/workflow-viewer.md"        "Phase 9 user-facing docs"
+  if grep -q "workflow-viewer\|github-actions-workflow-viewer" "dev-docs/README.md" 2>/dev/null; then
+    ok "dev-docs/README.md links the workflow viewer plan or guide"
+  else
+    fail "dev-docs/README.md is missing a topical entry for the workflow viewer"
+  fi
+
+  # Performance benchmark with 100-job fixture
+  assert_file "src/bench/workflow.bench.ts"             "100-job perf benchmark"
+  assert_grep "100" "src/bench/workflow.bench.ts"       "perf bench targets a 100-job fixture"
+
+  # Accessibility — JobNode has an aria-label summary helper
+  assert_grep "buildJobAriaLabel\|aria-label" \
+    "src/components/Editor/WorkflowPanel/JobNode.tsx" "JobNode exposes an aria-label"
+  # Accessibility — Escape on JobNode clears selection (per plan: Esc returns focus)
+  assert_grep "Escape" \
+    "src/components/Editor/WorkflowPanel/JobNode.tsx" "JobNode handles Escape"
+  # Accessibility — Enter / Space activates the node (already in place; lock it)
+  assert_grep "Enter" \
+    "src/components/Editor/WorkflowPanel/JobNode.tsx" "JobNode handles Enter"
+  # Accessibility — JobNode has a focus-visible style
+  assert_grep "focus-visible" \
+    "src/components/Editor/WorkflowPanel/job-node.css" "JobNode has focus-visible style"
+  # Accessibility — every interactive control in the editor forms has a focus-visible style
+  for cls in workflow-editor-panel__btn workflow-form__step-row workflow-form__with-add \
+             workflow-form__with-remove workflow-form__missing-required-key \
+             workflow-diagnostics-banner__row-button workflow-diagnostics-banner__toggle; do
+    if grep -q "${cls}:focus-visible\|${cls}:focus" \
+        "src/components/Editor/WorkflowEditor/workflow-editor.css" 2>/dev/null; then
+      ok "${cls} has a focus style"
+    else
+      fail "${cls} missing focus style — see .claude/rules/33-focus-indicators.md"
+    fi
+  done
+
+  # Dark theme — canvas chrome must style the side-panel canvas (the
+  # bug Phase 9 dark-theme QA found was that styles only matched
+  # .gha-workflow-canvas, not .gha-workflow-side-panel__canvas).
+  assert_grep "gha-workflow-side-panel__canvas" \
+    "src/components/Editor/WorkflowPanel/workflow-canvas.css" \
+    "canvas chrome covers the side-panel surface (dark-theme parity)"
+
+  # Manual a11y / VoiceOver checklist documented for the human pass
+  assert_file "dev-docs/plans/gha-workflow-viewer-a11y-checklist.md" \
+    "VoiceOver / keyboard-nav manual checklist"
 
   echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
 }

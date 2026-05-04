@@ -79,5 +79,10 @@
   "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save",
   "form.step.with.missingRequired": "Required inputs not set:",
   "diagnosticsBanner.title": "Workflow diagnostics",
-  "diagnosticsBanner.showAll": "Show all {{count}}"
+  "diagnosticsBanner.showAll": "Show all {{count}}",
+  "panel.aria.jobPrefix": "Job {{name}}",
+  "panel.aria.runsOn": "runs on {{runner}}",
+  "panel.aria.stepCount": "{{count}} steps",
+  "panel.aria.needs": "depends on {{refs}}",
+  "panel.aria.conditional": "conditional"
 }
