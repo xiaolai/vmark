@@ -54,7 +54,9 @@ const WorkflowEditorPanel = lazy(() =>
 
 const MIN_PANEL_WIDTH = 240;
 const MAX_PANEL_WIDTH_RATIO = 0.8;
-const DEFAULT_PANEL_WIDTH = 480;
+const DEFAULT_PANEL_WIDTH_RATIO = 0.5;
+/** Fallback for SSR / pre-mount when the editor container hasn't measured. */
+const FALLBACK_PANEL_WIDTH = 480;
 
 export function GhaWorkflowSidePanel(): ReactElement | null {
   const { t } = useTranslation();
@@ -62,9 +64,30 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
   const workflow = useGhaWorkflowPanelStore((s) => s.workflow);
   const parseError = useGhaWorkflowPanelStore((s) => s.parseError);
 
-  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const [panelWidth, setPanelWidth] = useState(FALLBACK_PANEL_WIDTH);
+  /**
+   * Tracks whether the user has manually resized the panel. Once they
+   * have, we never auto-resize again — even on container width changes
+   * — so their preference sticks until the next session.
+   */
+  const userResizedRef = useRef(false);
   const panelRef = useRef<HTMLElement>(null);
 
+  // On first open, set the panel width to half of the editor container,
+  // bounded by MIN_PANEL_WIDTH. Yields a sensible split-view default for
+  // YAML workflow files where the source + diagram are equally important.
+  useEffect(() => {
+    if (!panelOpen) return;
+    if (userResizedRef.current) return;
+    const container = panelRef.current?.parentElement;
+    if (!container) return;
+    const containerWidth = container.clientWidth || window.innerWidth;
+    const next = Math.max(
+      MIN_PANEL_WIDTH,
+      Math.round(containerWidth * DEFAULT_PANEL_WIDTH_RATIO),
+    );
+    setPanelWidth(next);
+  }, [panelOpen]);
 
   // Publish the current panel width as a CSS variable on the editor
   // container so .editor-content can shrink itself via calc() and
@@ -111,6 +134,9 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
       const maxWidth = containerWidth * MAX_PANEL_WIDTH_RATIO;
 
       const onMove = (moveEvent: MouseEvent) => {
+        // Mark as user-resized on the first delta — locks out the
+        // auto-50% default for the rest of the session.
+        userResizedRef.current = true;
         const delta = startX - moveEvent.clientX;
         setPanelWidth(
           Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, startWidth + delta)),
