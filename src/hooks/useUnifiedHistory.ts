@@ -28,6 +28,9 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
+import { imeToast } from "@/utils/imeToast";
+import i18n from "@/i18n";
 /**
  * Toggle source mode with checkpoint creation.
  * Use this instead of direct toggleSourceMode() to maintain history.
@@ -51,6 +54,21 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
   const doc = documentStore.getDocument(tabId);
   if (!doc) {
     editorStore.toggleSourceMode();
+    return;
+  }
+
+  // Refuse the toggle when the active tab is a `.yml`/`.yaml` workflow
+  // file. WYSIWYG would round-trip the YAML through Tiptap's markdown
+  // pipeline, which silently corrupts indentation and quoting. The
+  // keyboard shortcut and the StatusBar button both flow through here,
+  // so this single guard covers every entry point.
+  if (looksLikeWorkflowPath(doc.filePath ?? undefined)) {
+    imeToast.error(
+      i18n.t("statusbar:yamlWysiwygBlocked", {
+        defaultValue:
+          "WYSIWYG mode would corrupt YAML indentation. Edit YAML in source mode.",
+      }),
+    );
     return;
   }
 

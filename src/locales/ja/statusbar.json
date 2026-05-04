@@ -19,6 +19,7 @@
   "mcpHistoryRestored": "Restored to before {{tool}}",
   "mcpHistoryRestoreNoop": "Document already matches checkpoint",
   "mcpHistoryCleared": "Cleared MCP history for this tab",
+  "yamlWysiwygBlocked": "WYSIWYG mode would corrupt YAML indentation. Edit YAML in source mode.",
   "toggleTerminal": "ターミナルの表示切替 ({{shortcut}})",
   "readOnlyTitle": "読み取り専用モード ({{shortcut}})",
   "editableTitle": "編集可能 ({{shortcut}})",
