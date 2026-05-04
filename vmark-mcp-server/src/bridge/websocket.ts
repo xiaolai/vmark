@@ -129,6 +129,7 @@ export class WebSocketBridge implements Bridge {
   private readonly authTokenResolver: (() => string | undefined) | undefined;
   private _authResolve: (() => void) | null = null;
   private _authReject: ((reason: string) => void) | null = null;
+  private _authTimer: ReturnType<typeof setTimeout> | null = null;
 
   private ws: WebSocket | null = null;
   private connected = false;
@@ -277,6 +278,10 @@ export class WebSocketBridge implements Bridge {
     }
 
     // Reject and clear stale auth callbacks from a previous connection attempt
+    if (this._authTimer) {
+      clearTimeout(this._authTimer);
+      this._authTimer = null;
+    }
     if (this._authReject) {
       this._authReject('Connection superseded by new attempt');
     }
@@ -356,9 +361,26 @@ export class WebSocketBridge implements Bridge {
               return;
             }
 
+            // Bound the wait for auth_result so a missing reply (serialization
+            // failure on Rust side, sender-task hang, etc.) cannot wedge the
+            // connect() Promise — and therefore the reconnect loop — forever.
+            const authTimeoutTimer = setTimeout(() => {
+              if (this._authReject) {
+                const onReject = this._authReject;
+                this._authResolve = null;
+                this._authReject = null;
+                this._authTimer = null;
+                this.ws?.close();
+                onReject('Auth handshake timeout');
+              }
+            }, this.timeout);
+            this._authTimer = authTimeoutTimer;
+
             // Wait for auth_result before marking connected.
             // The message handler will call the stored callback.
             this._authResolve = () => {
+              clearTimeout(authTimeoutTimer);
+              this._authTimer = null;
               this.connected = true;
               this.connecting = false;
               this.reconnectAttempts = 0;
@@ -372,6 +394,8 @@ export class WebSocketBridge implements Bridge {
               resolve();
             };
             this._authReject = (reason: string) => {
+              clearTimeout(authTimeoutTimer);
+              this._authTimer = null;
               this.connecting = false;
               reject(new Error(`Auth failed: ${reason}`));
             };
