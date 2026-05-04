@@ -616,5 +616,7 @@
       "label": "工作流程引擎",
       "description": "啟用搭配 React Flow 視覺化的 YAML 工作流程檔案（實驗性）"
     }
-  }
+  },
+  "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",
+  "advanced.workflowEditorPreserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting through a CST round-trip. Disable to reformat through plain yaml.stringify on every save (drops comments)."
 }

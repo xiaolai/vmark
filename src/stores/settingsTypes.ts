@@ -224,6 +224,13 @@ export interface AdvancedSettingsState {
   customLinkProtocols: string[]; // Custom URL protocols to recognize (e.g., "obsidian", "vscode")
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
   workflowEngine: boolean; // Enable YAML workflow engine (developer feature, default: false)
+  /**
+   * When the structured workflow editor saves changes, preserve comments,
+   * anchors, and existing formatting where possible (CST round-trip).
+   * Disable to reformat through `yaml.stringify` on every save.
+   * Default: true.
+   */
+  workflowEditorPreserveYamlFormatting: boolean;
   // macOS only: clear `com.apple.quarantine` on the workspace root and its
   // direct .md children when opening a workspace. Without this, files marked
   // by apps like Mixin Messenger fail to open in a running VMark via Finder

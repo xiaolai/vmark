@@ -554,6 +554,8 @@
   "advanced.group.experimental": "Experimental Features",
   "advanced.workflowEngine.label": "Workflow Engine",
   "advanced.workflowEngine.description": "Enable YAML workflow files with React Flow visualization (experimental)",
+  "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",
+  "advanced.workflowEditorPreserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting through a CST round-trip. Disable to reformat through plain yaml.stringify on every save (drops comments).",
   "advanced.group.hotExitDevTools": "Hot Exit Dev Tools",
   "advanced.hotExit.hint": "Test hot exit session capture and restore without actual updates.",
   "advanced.hotExit.testCapture": "Test Capture",

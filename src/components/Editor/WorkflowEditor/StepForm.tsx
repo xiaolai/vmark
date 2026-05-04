@@ -28,7 +28,10 @@ import { useTranslation } from "react-i18next";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
 import { useActionMetadata } from "./useActionMetadata";
+import { ExpressionEditor } from "./ExpressionEditor";
 import "./workflow-editor.css";
+
+type ExpandTarget = null | { field: "if" | "run"; value: string };
 
 interface StepFormProps {
   jobId: string;
@@ -64,8 +67,25 @@ export function StepForm({
   const [workingDir, setWorkingDir] = useState(step.workingDirectory ?? "");
   const [ifCond, setIfCond] = useState(step.if ?? "");
   const [withRows, setWithRows] = useState<WithRow[]>(withRowsFromStep(step));
+  const [expand, setExpand] = useState<ExpandTarget>(null);
 
   const queue = useWorkflowEditStore((s) => s.queuePatch);
+
+  const handleExpandSave = (value: string): void => {
+    if (!expand) return;
+    if (expand.field === "if") {
+      setIfCond(value);
+      if (value !== (step.if ?? "")) {
+        queue({ kind: "step.set", jobId, stepIndex, path: "if", value });
+      }
+    } else {
+      setRun(value);
+      if (value !== (step.run ?? "")) {
+        queue({ kind: "step.set", jobId, stepIndex, path: "run", value });
+      }
+    }
+    setExpand(null);
+  };
 
   // Action metadata for the structured `with:` UI. Idle for run-steps;
   // unavailable falls back to the existing free-form rows so the form
@@ -173,6 +193,13 @@ export function StepForm({
             onChange={(e) => setRun(e.target.value)}
             onBlur={() => commitField("run", run, step.run ?? "")}
           />
+          <button
+            type="button"
+            className="workflow-form__expand-btn"
+            onClick={() => setExpand({ field: "run", value: run })}
+          >
+            {t("expression.expand.run")}
+          </button>
         </label>
       )}
 
@@ -204,6 +231,13 @@ export function StepForm({
           onChange={(e) => setIfCond(e.target.value)}
           onBlur={() => commitField("if", ifCond, step.if ?? "")}
         />
+        <button
+          type="button"
+          className="workflow-form__expand-btn"
+          onClick={() => setExpand({ field: "if", value: ifCond })}
+        >
+          {t("expression.expand.if")}
+        </button>
       </label>
 
       {(step.uses || withRows.length > 0) && (
@@ -290,6 +324,19 @@ export function StepForm({
             </button>
           </div>
         </div>
+      )}
+      {expand && (
+        <ExpressionEditor
+          initialValue={expand.value}
+          language={expand.field === "if" ? "yaml" : "plain"}
+          title={t(
+            expand.field === "if"
+              ? "expression.title.if"
+              : "expression.title.run",
+          )}
+          onSave={handleExpandSave}
+          onCancel={() => setExpand(null)}
+        />
       )}
     </form>
   );

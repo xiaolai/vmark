@@ -502,3 +502,121 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
+
+.workflow-form__trigger-fields {
+  --workflow-form-inline-label-width: 8em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__field--inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.workflow-form__field--inline .workflow-form__label {
+  flex: 0 0 auto;
+  min-width: var(--workflow-form-inline-label-width);
+}
+
+.workflow-form__trigger-readonly-hint {
+  font-style: italic;
+  color: var(--text-tertiary);
+}
+
+/* Expression-editor modal */
+
+.workflow-expression-editor__backdrop {
+  /* Local one-off dim overlay — see .claude/rules/31-design-tokens.md
+     "Component-internal one-off dimensions". 40% black is a standard
+     modal backdrop; --source-mode-bg (5%) is too transparent to dim. */
+  --workflow-expression-editor-backdrop: rgba(0, 0, 0, 0.4);
+  --workflow-expression-editor-max-vw: 90vw;
+  --workflow-expression-editor-max-vh: 80vh;
+  position: fixed;
+  inset: 0;
+  background: var(--workflow-expression-editor-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-popup);
+}
+
+.workflow-expression-editor {
+  --workflow-expression-editor-width: 60ch;
+  --workflow-expression-editor-height: 50vh;
+  width: var(--workflow-expression-editor-width);
+  max-width: var(--workflow-expression-editor-max-vw);
+  height: var(--workflow-expression-editor-height);
+  max-height: var(--workflow-expression-editor-max-vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  overflow: hidden;
+}
+
+.workflow-expression-editor__header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.workflow-expression-editor__title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.workflow-expression-editor__host {
+  flex: 1 1 auto;
+  overflow: auto;
+  background: var(--bg-color);
+}
+
+.workflow-expression-editor__host .cm-editor {
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.workflow-expression-editor__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+/* Expand button rendered next to expression-heavy fields */
+
+.workflow-form__expand-btn {
+  align-self: flex-start;
+  font-size: var(--font-size-xs);
+  background: transparent;
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: var(--space-half) var(--space-1);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__expand-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__expand-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}

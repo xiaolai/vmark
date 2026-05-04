@@ -25,8 +25,16 @@ export interface ParseStepsResult {
  *   - GHA-STEP-002 (error) — step has both uses and run
  *   - GHA-STEP-003 (warning) — step id was synthesized; consider adding
  *     an explicit `id:` for clarity
+ *
+ * Every diagnostic emitted here carries `context.jobId` (when provided
+ * by the caller) so the diagnostics banner can offer click-to-select-
+ * parent-job. Without the jobId, banner rows degrade to source-position
+ * jump only.
  */
-export function parseSteps(stepsToken: TemplateToken | undefined): ParseStepsResult {
+export function parseSteps(
+  stepsToken: TemplateToken | undefined,
+  jobId?: string,
+): ParseStepsResult {
   const out: StepIR[] = [];
   const diagnostics: Diagnostic[] = [];
 
@@ -69,13 +77,18 @@ export function parseSteps(stepsToken: TemplateToken | undefined): ParseStepsRes
     if (continueOnError !== undefined) step.continueOnError = continueOnError;
     if (timeoutMinutes !== undefined) step.timeoutMinutes = timeoutMinutes;
 
+    const stepCtx: Record<string, string | number | boolean> = {
+      stepIndex: i,
+    };
+    if (jobId) stepCtx.jobId = jobId;
+
     if (uses && run) {
       diagnostics.push({
         severity: "error",
         code: "GHA-STEP-002",
         message: "Step has both uses: and run: (mutually exclusive).",
         position: rangeOrZero(stepTok),
-        context: { stepIndex: i },
+        context: stepCtx,
       });
     } else if (!uses && !run) {
       diagnostics.push({
@@ -83,7 +96,7 @@ export function parseSteps(stepsToken: TemplateToken | undefined): ParseStepsRes
         code: "GHA-STEP-001",
         message: "Step has neither uses: nor run:.",
         position: rangeOrZero(stepTok),
-        context: { stepIndex: i },
+        context: stepCtx,
       });
     }
 
@@ -93,7 +106,7 @@ export function parseSteps(stepsToken: TemplateToken | undefined): ParseStepsRes
         code: "GHA-STEP-003",
         message: `Step ${i} has no explicit id; synthesized "${id}". Add an id: for clarity.`,
         position: rangeOrZero(stepTok),
-        context: { synthesizedId: id },
+        context: { ...stepCtx, synthesizedId: id },
       });
     }
 

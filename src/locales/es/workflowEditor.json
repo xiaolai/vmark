@@ -84,5 +84,20 @@
   "panel.aria.runsOn": "runs on {{runner}}",
   "panel.aria.stepCount": "{{count}} steps",
   "panel.aria.needs": "depends on {{refs}}",
-  "panel.aria.conditional": "conditional"
+  "panel.aria.conditional": "conditional",
+  "diagnosticsBanner.jumpToLine": "Jump to line {{line}}",
+  "form.trigger.branchesEdit": "branches",
+  "form.trigger.branchesIgnoreEdit": "branches-ignore",
+  "form.trigger.tagsEdit": "tags",
+  "form.trigger.tagsIgnoreEdit": "tags-ignore",
+  "form.trigger.pathsEdit": "paths",
+  "form.trigger.pathsIgnoreEdit": "paths-ignore",
+  "form.trigger.typesEdit": "types",
+  "form.trigger.readonlyHint": "Edit in source",
+  "expression.save": "Save",
+  "expression.cancel": "Cancel",
+  "expression.expand.if": "Expand if",
+  "expression.expand.run": "Expand run",
+  "expression.title.if": "Edit if",
+  "expression.title.run": "Edit run"
 }

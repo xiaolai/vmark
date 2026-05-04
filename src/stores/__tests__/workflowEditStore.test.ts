@@ -50,6 +50,10 @@ beforeEach(() => {
     pendingPatches: [],
     preserveYamlFormatting: true,
   });
+  // Reset settings store to a known default so the per-session override
+  // resolution is deterministic. The store-level override of
+  // `true` above already wins, but tests that flip to null exercise the
+  // fall-through to settings.
 });
 
 describe("workflowEditStore — queue mechanics", () => {
@@ -135,13 +139,18 @@ describe("workflowEditStore — applyAndSerialize", () => {
 });
 
 describe("workflowEditStore — preserveYamlFormatting toggle", () => {
-  it("defaults to preserveYamlFormatting=true", () => {
+  it("session-level override defaults to true (set by beforeEach)", () => {
     expect(useWorkflowEditStore.getState().preserveYamlFormatting).toBe(true);
   });
 
-  it("setPreserveYamlFormatting flips the flag", () => {
+  it("setPreserveYamlFormatting flips the override (boolean)", () => {
     useWorkflowEditStore.getState().setPreserveYamlFormatting(false);
     expect(useWorkflowEditStore.getState().preserveYamlFormatting).toBe(false);
+  });
+
+  it("setPreserveYamlFormatting(null) drops the override → falls through to settings", () => {
+    useWorkflowEditStore.getState().setPreserveYamlFormatting(null);
+    expect(useWorkflowEditStore.getState().preserveYamlFormatting).toBeNull();
   });
 
   it("with preserve=false, comments are dropped (reformat path)", () => {
@@ -159,6 +168,15 @@ describe("workflowEditStore — preserveYamlFormatting toggle", () => {
     const s = useWorkflowEditStore.getState();
     s.queuePatch({ kind: "workflow.set", path: "name", value: "renamed" });
     const out = s.applyAndSerialize(SAMPLE);
+    expect(commentSet(out).size).toBeGreaterThan(0);
+  });
+
+  it("with override=null, falls through to settings store (default true)", () => {
+    const s = useWorkflowEditStore.getState();
+    s.setPreserveYamlFormatting(null);
+    s.queuePatch({ kind: "workflow.set", path: "name", value: "renamed" });
+    const out = s.applyAndSerialize(SAMPLE);
+    // Default settings.workflowEditorPreserveYamlFormatting is true.
     expect(commentSet(out).size).toBeGreaterThan(0);
   });
 });

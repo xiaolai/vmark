@@ -75,7 +75,7 @@ function buildJob(
   diagnostics: Diagnostic[],
 ): JobIR {
   const uses = getString(jobMap, "uses");
-  const stepsResult = parseSteps(jobMap.find("steps"));
+  const stepsResult = parseSteps(jobMap.find("steps"), jobId);
   diagnostics.push(...stepsResult.diagnostics);
 
   if (uses && stepsResult.steps.length > 0) {

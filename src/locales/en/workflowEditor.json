@@ -84,6 +84,14 @@
   "form.trigger.paths": "Paths: {{value}}",
   "form.trigger.cron": "Cron: {{value}}",
   "form.trigger.types": "Types: {{value}}",
+  "form.trigger.branchesEdit": "branches",
+  "form.trigger.branchesIgnoreEdit": "branches-ignore",
+  "form.trigger.tagsEdit": "tags",
+  "form.trigger.tagsIgnoreEdit": "tags-ignore",
+  "form.trigger.pathsEdit": "paths",
+  "form.trigger.pathsIgnoreEdit": "paths-ignore",
+  "form.trigger.typesEdit": "types",
+  "form.trigger.readonlyHint": "Edit in source",
 
   "form.empty.selectJob": "Select a job in the diagram to edit it.",
 
@@ -95,6 +103,14 @@
   "save.savedToast": "Workflow saved",
   "save.updatedNoPathToast": "Workflow updated — Cmd+Shift+S to save",
 
+  "expression.save": "Save",
+  "expression.cancel": "Cancel",
+  "expression.expand.if": "Expand if",
+  "expression.expand.run": "Expand run",
+  "expression.title.if": "Edit if",
+  "expression.title.run": "Edit run",
+
   "diagnosticsBanner.title": "Workflow diagnostics",
-  "diagnosticsBanner.showAll": "Show all {{count}}"
+  "diagnosticsBanner.showAll": "Show all {{count}}",
+  "diagnosticsBanner.jumpToLine": "Jump to line {{line}}"
 }

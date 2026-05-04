@@ -1,13 +1,22 @@
 /**
  * Purpose: Renders the workflow IR's diagnostic list above the canvas.
- *   Currently the lint pipeline (Phase 5 + actionlint forwarding) writes
- *   into `workflow.diagnostics[]` but nothing surfaces them, so users
+ *   The lint pipeline (Phase 5 + actionlint forwarding) writes into
+ *   `workflow.diagnostics[]` but nothing else surfaces them, so users
  *   never see why a workflow flagged. This banner makes them visible.
  *
  *   Each row shows the severity icon, the GHA-* stable code, and the
- *   message. Diagnostics that carry a jobId in their context are
- *   click-able — clicking selects that job in the workflow view store
- *   so the form below the canvas opens to the offending entity.
+ *   message. Click handling routes by what context the diagnostic
+ *   carries (priority order):
+ *
+ *     1. `position` → scroll the active CodeMirror Source view to the
+ *        offending line, place the caret at the start of that line.
+ *     2. `context.jobId` → select that job in `workflowViewStore` so
+ *        the form below the canvas opens to the offending entity.
+ *     3. Neither → render as a static row (no button).
+ *
+ *   Position-based jumps win because they're more precise; selection
+ *   surfaces only the job, but position drops the caret on the exact
+ *   failing line. Diagnostics often carry both — the jump still wins.
  *
  *   When there are >5 diagnostics, the banner collapses to the first 5
  *   plus a "show all N" toggle. This keeps the panel compact when a
@@ -17,26 +26,18 @@
  * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6
  *   Phase 9 follow-up.
  *
- * Key decisions:
- *   - No "jump to source position" yet. That requires plumbing into the
- *     CodeMirror view (see SourceEditor.tsx scrollIntoView pattern); the
- *     selection-side action via workflowViewStore is the load-bearing
- *     piece — making diagnostics visible at all — and it does not
- *     require a global view handle.
- *   - Severity ordering is fixed (error → warning → info) since users
- *     scan errors first. Within a severity group we preserve the
- *     parser's emission order — re-sorting by code would scramble
- *     "first failure point" debugging.
- *
  * @coordinates-with src/lib/ghaWorkflow/types.ts — Diagnostic shape
  * @coordinates-with src/stores/workflowViewStore.ts — selectJob target
+ * @coordinates-with src/stores/activeEditorStore.ts — activeSourceView (CodeMirror)
  * @module components/Editor/WorkflowEditor/DiagnosticsBanner
  */
 
 import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
+import { EditorView as CMEditorView } from "@codemirror/view";
 import type { Diagnostic, Severity } from "@/lib/ghaWorkflow/types";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import "./workflow-editor.css";
 
 interface DiagnosticsBannerProps {
@@ -56,6 +57,35 @@ const SEVERITY_ICON: Record<Severity, string> = {
   warning: "⚠",
   info: "ⓘ",
 };
+
+/**
+ * Scroll the active source-mode CodeMirror view to a 1-based (line, col)
+ * position. Drops the caret at the start of the targeted line so the
+ * user lands precisely on the offending row even if the column is off.
+ *
+ * Returns true when a scroll dispatched, false when no source view is
+ * active (caller can fall back to selection-based navigation).
+ */
+function scrollSourceToPosition(line: number, col: number): boolean {
+  const { activeSourceView } = useActiveEditorStore.getState();
+  if (!activeSourceView || !activeSourceView.dom?.isConnected) return false;
+  const doc = activeSourceView.state.doc;
+  const targetLine = Math.max(1, Math.min(line, doc.lines));
+  const lineInfo = doc.line(targetLine);
+  // Column is informational; place the caret at line start so the user
+  // sees the whole line in context. Clamping to lineInfo.to handles
+  // CRLF / unusually short lines without throwing.
+  const caretOffset = Math.min(
+    lineInfo.from + Math.max(0, col - 1),
+    lineInfo.to,
+  );
+  activeSourceView.dispatch({
+    selection: { anchor: caretOffset },
+    effects: CMEditorView.scrollIntoView(lineInfo.from),
+  });
+  activeSourceView.focus();
+  return true;
+}
 
 export function DiagnosticsBanner({
   diagnostics,
@@ -85,6 +115,8 @@ export function DiagnosticsBanner({
             typeof diag.context?.jobId === "string"
               ? diag.context.jobId
               : null;
+          const hasPosition = !!diag.position;
+          const isInteractive = hasPosition || jobId !== null;
           const content = (
             <>
               <span
@@ -101,17 +133,41 @@ export function DiagnosticsBanner({
               </span>
             </>
           );
+
+          const onClick = (): void => {
+            // Position takes priority — it's more precise than job-level
+            // selection. Falls through to selection if no source view
+            // is active (e.g. WYSIWYG mode with the panel open).
+            if (
+              diag.position &&
+              scrollSourceToPosition(
+                diag.position.startLine,
+                diag.position.startCol,
+              )
+            ) {
+              return;
+            }
+            if (jobId) {
+              useWorkflowViewStore.getState().selectJob(jobId);
+            }
+          };
+
           return (
             <li
               key={idx}
               className={`workflow-diagnostics-banner__row workflow-diagnostics-banner__row--${diag.severity}`}
             >
-              {jobId ? (
+              {isInteractive ? (
                 <button
                   type="button"
                   className="workflow-diagnostics-banner__row-button"
-                  onClick={() =>
-                    useWorkflowViewStore.getState().selectJob(jobId)
+                  onClick={onClick}
+                  title={
+                    hasPosition
+                      ? t("diagnosticsBanner.jumpToLine", {
+                          line: diag.position!.startLine,
+                        })
+                      : undefined
                   }
                 >
                   {content}

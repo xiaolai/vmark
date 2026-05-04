@@ -241,6 +241,43 @@ describe("StepForm — emits patches", () => {
   });
 });
 
+describe("StepForm — expression expand", () => {
+  it("renders an Expand if button next to the if textarea", () => {
+    render(<StepForm jobId="build" stepIndex={0} step={makeStep()} />);
+    expect(screen.getByRole("button", { name: /expand if/i })).toBeDefined();
+  });
+
+  it("opens the modal editor and saves a new value (queues step.set)", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({ id: "x", uses: undefined, run: "echo hi", name: "X" })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /expand run/i }));
+    // Modal mounted.
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toBeDefined();
+    // Save the (unchanged) value — covers the no-op-when-equal branch.
+    fireEvent.click(
+      // The first Save in the modal footer (matching name="Save").
+      screen.getAllByRole("button", { name: /^save$/i })[0],
+    );
+    // Modal closes; no patch queued because value didn't change.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(useWorkflowEditStore.getState().pendingPatches.length).toBe(0);
+  });
+
+  it("Cancel closes the modal without queueing", () => {
+    render(<StepForm jobId="build" stepIndex={0} step={makeStep()} />);
+    fireEvent.click(screen.getByRole("button", { name: /expand if/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(useWorkflowEditStore.getState().pendingPatches.length).toBe(0);
+  });
+});
+
 describe("StepForm — action metadata threading", () => {
   it("renders input descriptions next to existing with: rows on success", async () => {
     invokeMock.mockResolvedValue({

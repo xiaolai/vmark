@@ -67,8 +67,30 @@ Switch theme in Settings → Appearance → Night.
 - [ ] Diagnostic severity icons (✗/⚠/ⓘ) remain readable
 - [ ] Save / Discard buttons in clean and dirty states are both legible
 
-## Sign-off
+## Status — what's verified in code vs what needs a human
 
-When all sections check out, append a dated entry to the plan's Status
-header noting the human a11y pass is complete, and the feature is ready
-to graduate from `advanced.workflowEngine` (default off) to default-on.
+**Verified by unit tests + earlier live Tauri-MCP smoke** (no human pass needed):
+
+- aria-label composition on JobNode (4 unit tests)
+- Enter / Space activates JobNode (existing test)
+- Escape on JobNode clears selection + focuses source (unit test)
+- Focus-visible styles defined for all 8 interactive surfaces (gate-checked)
+- Dark theme parity: React Flow controls + edges follow tokens (live screenshot diff before/after)
+- Light theme parity: same surfaces clean (live screenshot)
+- aria-pressed on selected JobNode (existing test)
+- aria-modal + aria-label on the ExpressionEditor backdrop dialog
+- Save button disabled when no patches; enabled with count when dirty (unit tests)
+
+**Genuinely human-required** (cannot be driven from Tauri MCP):
+
+- VoiceOver narration of every surface (Cmd+F5 + VO+→ across all rows)
+- Visual rendering of focus rings at 1× and 2× zoom in both themes
+- Keyboard-only Tab order through xyflow canvas (jsdom can't simulate
+  the focus-traversal loop xyflow's CSS transforms create)
+- Real screen-reader announcements for live region updates (toast,
+  diagnostic-banner expansion)
+
+When the four manual items above check out, append a dated entry to the
+plan's Status header noting the human a11y pass is complete. After that
+the feature is ready to graduate from `advanced.workflowEngine` (default
+off) to default-on.

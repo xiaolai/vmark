@@ -1,13 +1,18 @@
 // Phase 9 follow-up — DiagnosticsBanner tests.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { Diagnostic } from "@/lib/ghaWorkflow/types";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { DiagnosticsBanner } from "../DiagnosticsBanner";
 
 beforeEach(() => {
   useWorkflowViewStore.getState().reset();
+  useActiveEditorStore.setState({
+    activeWysiwygEditor: null,
+    activeSourceView: null,
+  });
 });
 
 afterEach(() => {
@@ -85,7 +90,7 @@ describe("DiagnosticsBanner — interaction", () => {
     expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
   });
 
-  it("renders non-clickable for diagnostics without a jobId", () => {
+  it("renders non-clickable for diagnostics without a jobId or position", () => {
     render(
       <DiagnosticsBanner
         diagnostics={[
@@ -100,6 +105,97 @@ describe("DiagnosticsBanner — interaction", () => {
     expect(
       screen.queryByRole("button", { name: /no context/i }),
     ).toBeNull();
+  });
+
+  it("clicking a diagnostic with position dispatches a CodeMirror scrollIntoView at that line", () => {
+    // Stub a CodeMirror view so the banner can target it.
+    const dispatch = vi.fn();
+    const focus = vi.fn();
+    const fakeView = {
+      dom: { isConnected: true },
+      state: {
+        doc: {
+          lines: 50,
+          line: (n: number) => ({ from: (n - 1) * 10, to: n * 10 - 1 }),
+        },
+      },
+      dispatch,
+      focus,
+    };
+    useActiveEditorStore.setState({
+      activeWysiwygEditor: null,
+       
+      activeSourceView: fakeView as any,
+    });
+    render(
+      <DiagnosticsBanner
+        diagnostics={[
+          makeDiag({
+            severity: "error",
+            code: "GHA-PARSE-001",
+            message: "missing jobs key",
+            position: { startLine: 7, startCol: 3, endLine: 7, endCol: 8 },
+          }),
+        ]}
+      />,
+    );
+    const button = screen.getByRole("button", { name: /missing jobs key/i });
+    fireEvent.click(button);
+    expect(dispatch).toHaveBeenCalled();
+    expect(focus).toHaveBeenCalled();
+    // Caret offset is line.from + (col - 1) = 60 + 2 = 62.
+    const call = dispatch.mock.calls[0][0];
+    expect(call.selection.anchor).toBe(62);
+  });
+
+  it("position takes priority over jobId when both are present", () => {
+    const dispatch = vi.fn();
+    useActiveEditorStore.setState({
+      activeWysiwygEditor: null,
+       
+      activeSourceView: {
+        dom: { isConnected: true },
+        state: { doc: { lines: 100, line: () => ({ from: 0, to: 10 }) } },
+        dispatch,
+        focus: vi.fn(),
+      } as any,
+    });
+    render(
+      <DiagnosticsBanner
+        diagnostics={[
+          makeDiag({
+            severity: "error",
+            code: "GHA-NEEDS-001",
+            message: "ref unknown",
+            context: { jobId: "build" },
+            position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+          }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /ref unknown/i }));
+    // Source jump dispatched, job NOT selected because position won.
+    expect(dispatch).toHaveBeenCalled();
+    expect(useWorkflowViewStore.getState().selectedJobId).toBeNull();
+  });
+
+  it("falls back to jobId when no source view is active", () => {
+    // No source view set in beforeEach.
+    render(
+      <DiagnosticsBanner
+        diagnostics={[
+          makeDiag({
+            severity: "error",
+            code: "GHA-NEEDS-001",
+            message: "ref unknown",
+            context: { jobId: "build" },
+            position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+          }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /ref unknown/i }));
+    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
   });
 
   it("collapses to a count chip when there are >5 diagnostics", () => {

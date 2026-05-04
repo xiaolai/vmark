@@ -317,9 +317,15 @@ jobs:
     // Both should have different synthesized ids.
     expect(steps[0].id).not.toBe(steps[1].id);
     // GHA-STEP-003 is informational; expect at least one occurrence.
-    expect(
-      result.diagnostics.filter((d) => d.code === "GHA-STEP-003").length,
-    ).toBeGreaterThanOrEqual(2);
+    const synthesizedDiags = result.diagnostics.filter(
+      (d) => d.code === "GHA-STEP-003",
+    );
+    expect(synthesizedDiags.length).toBeGreaterThanOrEqual(2);
+    // Each step diagnostic must carry the parent jobId so the
+    // diagnostics banner can offer click-to-select-parent-job.
+    for (const d of synthesizedDiags) {
+      expect(d.context?.jobId).toBe("build");
+    }
   });
 
   it("preserves explicit step id without synthesis", () => {

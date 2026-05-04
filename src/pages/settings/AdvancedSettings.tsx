@@ -38,6 +38,9 @@ export function AdvancedSettings() {
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const keepBothEditorsAlive = useSettingsStore((state) => state.advanced.keepBothEditorsAlive);
   const workflowEngine = useSettingsStore((state) => state.advanced.workflowEngine);
+  const workflowEditorPreserveYamlFormatting = useSettingsStore(
+    (state) => state.advanced.workflowEditorPreserveYamlFormatting,
+  );
   const clearMacQuarantineOnOpen = useSettingsStore(
     (state) => state.advanced.clearMacQuarantineOnOpen
   );
@@ -106,6 +109,24 @@ export function AdvancedSettings() {
               onChange={(v) => updateAdvancedSetting("workflowEngine", v)}
             />
           </SettingRow>
+          {workflowEngine && (
+            <SettingRow
+              label={t("advanced.workflowEditorPreserveYamlFormatting.label")}
+              description={t(
+                "advanced.workflowEditorPreserveYamlFormatting.description",
+              )}
+            >
+              <Toggle
+                checked={workflowEditorPreserveYamlFormatting}
+                onChange={(v) =>
+                  updateAdvancedSetting(
+                    "workflowEditorPreserveYamlFormatting",
+                    v,
+                  )
+                }
+              />
+            </SettingRow>
+          )}
         </SettingsGroup>
       )}
 

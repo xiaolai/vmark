@@ -84,6 +84,33 @@ export interface NeedsRemovePatch {
   ref: string;
 }
 
+/**
+ * Replace a trigger's filter array (branches / paths / types etc.).
+ *
+ * Empty `value` removes the filter key entirely so the YAML stays clean.
+ * Only supported when the YAML already encodes the trigger as a mapping
+ * (i.e. `on: { push: { branches: [...] } }`), since reshaping
+ * `on: push` (scalar) into a mapping changes the document's structural
+ * shape and is better expressed in source. The mutator no-ops silently
+ * for the scalar/array forms — the form layer hides the editable fields
+ * in that case.
+ */
+export type TriggerFilter =
+  | "branches"
+  | "branches-ignore"
+  | "tags"
+  | "tags-ignore"
+  | "paths"
+  | "paths-ignore"
+  | "types";
+
+export interface TriggerSetFiltersPatch {
+  kind: "trigger.setFilters";
+  event: string;
+  filter: TriggerFilter;
+  value: string[];
+}
+
 export type IRPatch =
   | WorkflowSetPatch
   | JobSetPatch
@@ -91,7 +118,8 @@ export type IRPatch =
   | WithSetPatch
   | WithRemovePatch
   | NeedsAddPatch
-  | NeedsRemovePatch;
+  | NeedsRemovePatch
+  | TriggerSetFiltersPatch;
 
 // ─── Dispatcher ──────────────────────────────────────────────────────
 
@@ -132,6 +160,9 @@ export function applyPatch(doc: Document, patch: IRPatch): void {
       withJob(doc, patch.jobId, (jobMap) =>
         removeNeeds(jobMap, patch.ref),
       );
+      return;
+    case "trigger.setFilters":
+      setTriggerFilters(doc, patch.event, patch.filter, patch.value);
       return;
     default: {
       // Exhaustiveness check.
@@ -264,6 +295,34 @@ function addNeeds(jobMap: YAMLMap, ref: string): void {
     if (!has) seq.add(ref);
     return;
   }
+}
+
+// ─── Helpers — trigger filters ───────────────────────────────────────
+
+/**
+ * Set or clear a filter array on a trigger event. Only operates when
+ * `on:` is a mapping AND `on.<event>` is a mapping — the only shape
+ * where filters can attach. Other shapes (scalar, sequence, sequence
+ * of strings) are out-of-scope for this mutator since reshaping them
+ * would surprise users. Empty `value` removes the filter key.
+ */
+function setTriggerFilters(
+  doc: Document,
+  event: string,
+  filter: TriggerFilter,
+  value: string[],
+): void {
+  const onNode = doc.get("on", true);
+  if (!isMap(onNode)) return;
+  const eventNode = onNode.get(event, true);
+  if (!isMap(eventNode)) return;
+  if (value.length === 0) {
+    eventNode.delete(filter);
+    return;
+  }
+  const seq = new YAMLSeq();
+  for (const v of value) seq.add(v);
+  eventNode.set(filter, seq);
 }
 
 function removeNeeds(jobMap: YAMLMap, ref: string): void {

@@ -236,6 +236,87 @@ jobs:
   });
 });
 
+describe("applyPatch — trigger.setFilters", () => {
+  const yamlMapping = `name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    runs-on: x
+    steps: []
+`;
+
+  it("replaces the branches filter on a mapping-form trigger", () => {
+    const out = applyAndSave(yamlMapping, {
+      kind: "trigger.setFilters",
+      event: "push",
+      filter: "branches",
+      value: ["main", "develop"],
+    });
+    expect(out).toMatch(/branches:\s*\n?\s*- main\s*\n?\s*- develop/);
+  });
+
+  it("removes the filter when value is empty", () => {
+    const out = applyAndSave(yamlMapping, {
+      kind: "trigger.setFilters",
+      event: "push",
+      filter: "branches",
+      value: [],
+    });
+    // push: should be followed by {} or no branches filter inside its block
+    // (pull_request's branches stays intact, so we can't grep globally).
+    // Capture push's own block and verify it's empty (re-parsing is the
+    // most reliable check).
+    const reparsed = parseAsCst(out).toJS();
+    expect(reparsed.on.push.branches).toBeUndefined();
+    // pull_request branches still intact.
+    expect(reparsed.on.pull_request.branches).toEqual(["main"]);
+  });
+
+  it("adds a paths filter to an existing event mapping", () => {
+    const out = applyAndSave(yamlMapping, {
+      kind: "trigger.setFilters",
+      event: "push",
+      filter: "paths",
+      value: ["src/**", "package.json"],
+    });
+    expect(out).toMatch(/paths:/);
+    expect(out).toMatch(/src\/\*\*/);
+    expect(out).toMatch(/package\.json/);
+  });
+
+  it("noop when the trigger is not in mapping form (on: push as scalar)", () => {
+    const yamlScalar = `name: ci
+on: push
+jobs:
+  build:
+    runs-on: x
+    steps: []
+`;
+    const out = applyAndSave(yamlScalar, {
+      kind: "trigger.setFilters",
+      event: "push",
+      filter: "branches",
+      value: ["main"],
+    });
+    // YAML structure unchanged because reshaping is out-of-scope.
+    expect(semanticEqual(yamlScalar, out)).toBe(true);
+  });
+
+  it("noop when the event does not exist in the mapping", () => {
+    const out = applyAndSave(yamlMapping, {
+      kind: "trigger.setFilters",
+      event: "release",
+      filter: "types",
+      value: ["published"],
+    });
+    expect(semanticEqual(yamlMapping, out)).toBe(true);
+  });
+});
+
 describe("applyPatch — gate compliance over a representative fixture", () => {
   // Read a real fixture, apply 3 unrelated mutations, verify the
   // ADR-11 gate still holds: comments preserved (set-equality),

@@ -44,18 +44,27 @@ import {
   WORKFLOW_YAML_STRINGIFY_OPTIONS,
 } from "@/lib/ghaWorkflow/save/cstParser";
 import { applyPatch, type IRPatch } from "@/lib/ghaWorkflow/save/mutators";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 interface WorkflowEditState {
   /** Pending patches in queue order. Empty = clean. */
   pendingPatches: IRPatch[];
-  /** When true, save path runs through the CST mutator (ADR-11 gate). */
-  preserveYamlFormatting: boolean;
+  /**
+   * Per-session override. When non-null, takes precedence over the
+   * persisted `advanced.workflowEditorPreserveYamlFormatting` setting.
+   * `null` = follow the persistent setting (the default).
+   */
+  preserveYamlFormatting: boolean | null;
 }
 
 interface WorkflowEditActions {
   queuePatch: (patch: IRPatch) => void;
   clearPatches: () => void;
-  setPreserveYamlFormatting: (preserve: boolean) => void;
+  /**
+   * Set the per-session override. Pass `null` to revert to the
+   * persistent setting (the default).
+   */
+  setPreserveYamlFormatting: (preserve: boolean | null) => void;
   /**
    * Apply all pending patches to `originalYaml` and serialize. Pure —
    * does not mutate the queue and does not touch disk. The caller is
@@ -71,8 +80,25 @@ interface WorkflowEditActions {
 
 const initialState: WorkflowEditState = {
   pendingPatches: [],
-  preserveYamlFormatting: true,
+  // null = follow the persistent advanced.workflowEditorPreserveYamlFormatting
+  // setting (default true). Tests that need a deterministic value override
+  // this directly via `useWorkflowEditStore.setState({...})`.
+  preserveYamlFormatting: null,
 };
+
+/**
+ * Resolve the effective preserve-formatting flag. Per-session override
+ * (workflowEditStore.preserveYamlFormatting) takes precedence; when null,
+ * fall through to the persistent settings store. Default is true if
+ * neither source has spoken.
+ */
+function resolvePreserve(override: boolean | null): boolean {
+  if (override !== null) return override;
+  return (
+    useSettingsStore.getState().advanced
+      .workflowEditorPreserveYamlFormatting ?? true
+  );
+}
 
 export const useWorkflowEditStore = create<
   WorkflowEditState & WorkflowEditActions
@@ -94,7 +120,7 @@ export const useWorkflowEditStore = create<
     const doc = parseAsCst(originalYaml);
     for (const patch of pendingPatches) applyPatch(doc, patch);
 
-    if (preserveYamlFormatting) return stringifyCst(doc);
+    if (resolvePreserve(preserveYamlFormatting)) return stringifyCst(doc);
 
     // "Reformat" path — round-trip through plain yaml.stringify. Loses
     // comments + custom formatting; intended for users who explicitly
