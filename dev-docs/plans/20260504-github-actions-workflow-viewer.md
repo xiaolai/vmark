@@ -4,7 +4,9 @@
 > Revised: 2026-05-04 (post-Codex review — corrected package names, dropped `js-yaml`, added Phase 0 spikes, redefined round-trip gate, lifted i18n into per-WI DoD, added shared panel shell)
 > Updated: 2026-05-04 (Phase 0 spikes complete — all 4 PASS; ADRs 3/4/8/11 validated; see `dev-docs/grills/gha-workflow/`)
 > Updated: 2026-05-04 (Phase 1 complete — 141 tests across 11 modules, all 22 fixtures parse cleanly, scripts/check-gha-phase.sh 1 passes 12/12, scripts/check-wi-linkage.sh --phase=1 passes 6/6, pnpm check:all green)
-> Status: Phase 1 complete; ready to start Phase 2 (subsequent autonomous run per governance rule .claude/rules/60-ai-governance.md clause 8)
+> Updated: 2026-05-04 (Phase 4 complete — Mermaid + SVG/PNG export; 16 tests including fixture-corpus integration; html-to-image dep added)
+> Updated: 2026-05-04 (Phase 5 complete — schema lint via @actions/languageservice (WI-5.1) + optional actionlint via Rust Tauri command (WI-5.3/5.4); 28 tests across frontend + Rust; WI-5.2 deferred as Phase 9 polish — provider configuration required for richer expression linting)
+> Status: Phases 0/1/4/5 complete; Phases 2/3/7 (UI) and 6 (action discovery) and 8 (CST round-trip) and 9 (polish) deferred to subsequent runs per governance rule .claude/rules/60-ai-governance.md clause 8 — UI requires interactive verification; CST round-trip requires dedicated focus.
 > Branch: `feature/gh-actions-workflow-viewer`
 > Related: `20260331-workflow-engine.md` (VMark Genie workflows — distinct feature, see §1.4)
 
