@@ -39,15 +39,32 @@
 }
 
 .gha-workflow-side-panel__content {
+  /* Component-internal one-off dimensions per
+     .claude/rules/31-design-tokens.md ("define a local CSS var on
+     the component class instead of adding a global token"). */
+  --gha-canvas-baseline: 360px;
+  --gha-canvas-min-height: 240px;
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Required so the flex-column children can shrink and scroll
+     internally rather than push past the parent. Without this the
+     canvas + WorkflowEditorPanel grow to natural content height and
+     overflow-y:hidden on the panel clips the form area unreachably
+     (reported live: a 7-job workflow's TRIGGERS section sat below
+     the visible viewport with no way to scroll to it). */
+  min-height: 0;
 }
 
 .gha-workflow-side-panel__canvas {
-  flex: 1 1 0;
-  height: 100%;
+  /* Canvas claims a baseline portion of the panel. The min-height
+     keeps small workflows readable; the max-height cap leaves room
+     for the form area below and prevents a tall canvas from pushing
+     the editor forms out of reach. */
+  flex: 1 1 var(--gha-canvas-baseline);
+  min-height: var(--gha-canvas-min-height);
+  max-height: 60%;
   background: var(--bg-color);
   overflow: hidden;
 }
