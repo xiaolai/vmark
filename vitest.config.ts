@@ -11,12 +11,16 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     server: {
       deps: {
-        // @actions/workflow-parser ships JSON imports without
+        // The @actions/* packages ship JSON imports without
         // `with { type: "json" }` import attributes; Node's strict ESM
         // (≥22) rejects them. Inlining forces Vite to transform the
-        // module, which handles JSON natively. See
+        // modules, which handles JSON natively. See
         // dev-docs/grills/gha-workflow/spike-a-parser.md.
-        inline: ["@actions/workflow-parser"],
+        inline: [
+          "@actions/workflow-parser",
+          "@actions/languageservice",
+          "@actions/expressions",
+        ],
       },
     },
     coverage: {

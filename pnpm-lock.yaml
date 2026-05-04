@@ -27,6 +27,12 @@ importers:
 
   .:
     dependencies:
+      '@actions/expressions':
+        specifier: 0.3.55
+        version: 0.3.55
+      '@actions/languageservice':
+        specifier: 0.3.55
+        version: 0.3.55
       '@actions/workflow-parser':
         specifier: 0.3.55
         version: 0.3.55
@@ -258,6 +264,12 @@ importers:
       unist-util-visit:
         specifier: ^5.1.0
         version: 5.1.0
+      vscode-languageserver-textdocument:
+        specifier: ^1.0.12
+        version: 1.0.12
+      vscode-languageserver-types:
+        specifier: ^3.17.5
+        version: 3.17.5
       zustand:
         specifier: ^5.0.10
         version: 5.0.10(@types/react@19.2.9)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
@@ -397,6 +409,10 @@ packages:
 
   '@actions/expressions@0.3.55':
     resolution: {integrity: sha512-7r2S5SqHKdF53k9X2r+Nux8FOi/i9F3xZ/oPR5kHhHmM4hGqYHX6aq6O0dZCMLfo4Z4qT2zflMdfvaA+Qzt0YQ==}
+    engines: {node: '>= 20'}
+
+  '@actions/languageservice@0.3.55':
+    resolution: {integrity: sha512-/u3ojpKcrTkHSA8eIWp/MHfbtTIiaDMC4ScPmULvWrICOMpHwLNNzT9PeYVxS8vYbY+73QfPijNOIx9UF7Wtgg==}
     engines: {node: '>= 20'}
 
   '@actions/workflow-parser@0.3.55':
@@ -5004,6 +5020,15 @@ packages:
 snapshots:
 
   '@actions/expressions@0.3.55': {}
+
+  '@actions/languageservice@0.3.55':
+    dependencies:
+      '@actions/expressions': 0.3.55
+      '@actions/workflow-parser': 0.3.55
+      vscode-languageserver-textdocument: 1.0.12
+      vscode-languageserver-types: 3.17.5
+      vscode-uri: 3.0.8
+      yaml: 2.8.2
 
   '@actions/workflow-parser@0.3.55':
     dependencies:

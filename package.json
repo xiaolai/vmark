@@ -29,6 +29,8 @@
     "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm test:coverage && pnpm build && pnpm size"
   },
   "dependencies": {
+    "@actions/expressions": "0.3.55",
+    "@actions/languageservice": "0.3.55",
     "@actions/workflow-parser": "0.3.55",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
@@ -106,6 +108,8 @@
     "turndown": "^7.2.2",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-languageserver-types": "^3.17.5",
     "zustand": "^5.0.10"
   },
   "pnpm": {
