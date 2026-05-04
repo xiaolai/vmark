@@ -154,12 +154,12 @@ phase_1() {
   fi
 
   # Diagnostic taxonomy: every code in §4.4 must have an i18n key (post-WI-DoD).
+  # Locale keys use a `diagnostics.<CODE>` namespace, so substring match.
   local plan="dev-docs/plans/20260504-github-actions-workflow-viewer.md"
   if [[ -f "$plan" ]] && [[ -f "src/locales/en/workflowEditor.json" ]]; then
-    # Pull GHA-* codes from the plan, check each in the locale file.
     local missing=0
     for code in $(grep -E -o "GHA-[A-Z]+-[0-9]+" "$plan" | sort -u); do
-      if ! grep -q "\"$code\"" "src/locales/en/workflowEditor.json"; then
+      if ! grep -q "$code" "src/locales/en/workflowEditor.json"; then
         missing=$((missing+1))
       fi
     done

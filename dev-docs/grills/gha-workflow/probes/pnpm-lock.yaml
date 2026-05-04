@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@actions/languageservice':
+        specifier: 0.3.55
+        version: 0.3.55
       '@actions/workflow-parser':
         specifier: 0.3.55
         version: 0.3.55
+      vscode-languageserver-textdocument:
+        specifier: ^1.0.12
+        version: 1.0.12
       yaml:
         specifier: 2.8.4
         version: 2.8.4
@@ -59,6 +65,10 @@ packages:
 
   '@actions/expressions@0.3.55':
     resolution: {integrity: sha512-7r2S5SqHKdF53k9X2r+Nux8FOi/i9F3xZ/oPR5kHhHmM4hGqYHX6aq6O0dZCMLfo4Z4qT2zflMdfvaA+Qzt0YQ==}
+    engines: {node: '>= 20'}
+
+  '@actions/languageservice@0.3.55':
+    resolution: {integrity: sha512-/u3ojpKcrTkHSA8eIWp/MHfbtTIiaDMC4ScPmULvWrICOMpHwLNNzT9PeYVxS8vYbY+73QfPijNOIx9UF7Wtgg==}
     engines: {node: '>= 20'}
 
   '@actions/workflow-parser@0.3.55':
@@ -498,6 +508,15 @@ packages:
       yaml:
         optional: true
 
+  vscode-languageserver-textdocument@1.0.12:
+    resolution: {integrity: sha512-cxWNPesCnQCcMPeenjKKsOCKQZ/L6Tv19DTRIGuLWe32lyzWhihGVJ/rcckZXJxfdKCFvRLS3fpBIsV/ZGX4zA==}
+
+  vscode-languageserver-types@3.17.5:
+    resolution: {integrity: sha512-Ld1VelNuX9pdF39h2Hgaeb5hEZM2Z3jUrrMgWQAu82jMtZp7p3vJT3BzToKtZI7NgQssZje5o0zryOrhQvzQAg==}
+
+  vscode-uri@3.1.0:
+    resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
+
   w3c-keyname@2.2.8:
     resolution: {integrity: sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==}
 
@@ -524,6 +543,15 @@ packages:
 snapshots:
 
   '@actions/expressions@0.3.55': {}
+
+  '@actions/languageservice@0.3.55':
+    dependencies:
+      '@actions/expressions': 0.3.55
+      '@actions/workflow-parser': 0.3.55
+      vscode-languageserver-textdocument: 1.0.12
+      vscode-languageserver-types: 3.17.5
+      vscode-uri: 3.1.0
+      yaml: 2.8.4
 
   '@actions/workflow-parser@0.3.55':
     dependencies:
@@ -877,6 +905,12 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
       yaml: 2.8.4
+
+  vscode-languageserver-textdocument@1.0.12: {}
+
+  vscode-languageserver-types@3.17.5: {}
+
+  vscode-uri@3.1.0: {}
 
   w3c-keyname@2.2.8: {}
 
