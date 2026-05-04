@@ -255,3 +255,22 @@
   background-color: var(--bg-color);
   border-color: var(--border-color);
 }
+
+/* GitHub Actions workflow preview — reuses Mermaid SVG so inherits most
+   styling from mermaid.css; these rules cover the loading/error states. */
+.code-block-preview.workflow-preview {
+  text-align: center;
+}
+
+.code-block-preview.workflow-preview--loading {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+.code-block-preview.workflow-preview--error {
+  color: var(--error-color);
+  background: var(--error-bg);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+}
