@@ -44,7 +44,6 @@ VMark uses CSS custom properties with five themes (white, paper, mint, sepia, ni
 | ------------------ | -------------------------- | --------------------- |
 | `--accent-primary` | Active icon/text color     | `#0066cc`             |
 | `--accent-bg`      | Selected/active background | `rgba(0,102,204,0.1)` |
-| `--accent-text`    | Accent text alias          | `#0066cc`             |
 
 ### Semantic Tokens
 
@@ -95,7 +94,6 @@ VMark uses CSS custom properties with five themes (white, paper, mint, sepia, ni
 | `--radius-md`    | `6px`   | Input fields, medium containers |
 | `--radius-lg`    | `8px`   | Popups, dialogs, context menus  |
 | `--radius-pill`  | `100px` | Pills, tags, badges             |
-| `--popup-radius` | `8px`   | Alias for popup containers      |
 
 ### Shadows
 
@@ -136,7 +134,7 @@ Icon SVG sizes (conventions, not tokens):
 | Token             | Value |
 | ----------------- | ----- |
 | `--popup-padding` | `6px` |
-| `--popup-radius`  | `8px` |
+| `--radius-lg`     | `8px` (use directly for popup border-radius) |
 
 ---
 

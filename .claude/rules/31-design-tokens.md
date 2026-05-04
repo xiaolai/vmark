@@ -33,7 +33,6 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 |-------|---------|---------------|
 | `--accent-primary` | Active icon/text color | `#0066cc` |
 | `--accent-bg` | Active/selected background | `rgba(0,102,204,0.1)` |
-| `--accent-text` | Accent text (alias) | `#0066cc` |
 
 **Rule**: Use `--accent-bg` for all selected/active backgrounds, `--accent-primary` for active text/icons.
 
@@ -145,7 +144,6 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 | `--radius-md` | `6px` | Inputs, medium containers |
 | `--radius-lg` | `8px` | Popups, dialogs, menus |
 | `--radius-pill` | `100px` | Pill shapes, tags |
-| `--popup-radius` | `8px` | Alias for popup containers |
 
 **Acceptable hardcoded values** (do not tokenize):
 - `0.5px` for retina sub-pixel borders
@@ -175,7 +173,7 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 | Token | Value | Use For |
 |-------|-------|---------|
 | `--popup-padding` | `6px` | Standard popup padding |
-| `--popup-radius` | `8px` | Popup border radius |
+| `--radius-lg` | `8px` | Popup border radius |
 
 ### Button/Icon Sizes
 
@@ -272,14 +270,14 @@ VMark's token system has **two layers**, both defined in `src/styles/index.css`:
 
 | Family | Tokens | Use when |
 |---|---|---|
-| Spacing (px) | `--space-px`, `--space-half` (2), `--space-1` (4), `--space-1-5` (6), `--space-2` (8), `--space-2-5` (10), `--space-3` (12), `--space-3-5` (14), `--space-4` (16), `--space-5` (20), `--space-6` (24), `--space-7` (28), `--space-8` (32), `--space-10` (40), `--space-12` (48), `--space-15` (60) | A semantic spacing token (`--spacing-1/2/3`, `--popup-padding`) doesn't match the value |
+| Spacing (px) | `--space-px`, `--space-half` (2), `--space-1` (4), `--space-1-5` (6), `--space-2` (8), `--space-2-5` (10), `--space-3` (12), `--space-3-5` (14), `--space-4` (16), `--space-5` (20), `--space-6` (24), `--space-7` (28), `--space-8` (32), `--space-10` (40), `--space-15` (60) | A semantic spacing token (`--spacing-1/2/3`, `--popup-padding`) doesn't match the value |
 | Border widths | `--border-hairline` (0.5px), `--border-thin` (1px), `--border-medium` (2px), `--border-thick` (4px) | Setting `border-width`, `border-{top,right,bottom,left}-width` |
 | UI font sizes | `--font-size-2xs` (10), `--font-size-xs` (11), `--font-size-sm` (12), `--font-size-base` (13), `--font-size-md` (14), `--font-size-lg` (16) | UI labels and metadata. **Not** for editor body text — that uses runtime `--editor-font-size*`. |
 | Component dimensions | `--size-icon-xs` (14), `--size-icon-medium` (18), `--size-btn-xs` (20), `--size-btn-sm` (24) | Width/height of small icons or buttons not covered by `--icon-size-*` |
 | Line heights | `--line-height-tight` (1.25), `--line-height-snug` (1.35), `--line-height-base` (1.4), `--line-height-normal` (1.5), `--line-height-relaxed` (1.6) | `line-height` on UI text |
 | Letter spacing | `--letter-spacing-tight` (0.3px), `--letter-spacing-loose` (0.5px) | UI labels (uppercase, semibold) |
 | Opacity | `--opacity-disabled` (0.4), `--opacity-muted` (0.5), `--opacity-subtle` (0.6), `--opacity-half-faded` (0.7), `--opacity-mostly-opaque` (0.85) | Visual de-emphasis. **Not** for `0` or `1` — those stay literal. |
-| Durations | `--duration-instant` (0.05s), `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slow` (0.3s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-2s`, `--duration-5s` | `transition`, `animation` durations |
+| Durations | `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slow` (0.3s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-2s`, `--duration-5s` | `transition`, `animation` durations |
 | Z-index | `--z-resize-handle` (10), `--z-bar` (100), `--z-toolbar` (102), `--z-toolbar-dropdown` (103), `--z-context-menu` (1000), `--z-mcp-overlay` (1200), `--z-popup` (9999), `--z-table-context` (10000) | Stacking context. Mirrors hierarchy in `32-component-patterns.md`. |
 
 ### What stays literal even with primitives

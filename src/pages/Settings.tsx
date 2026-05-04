@@ -102,7 +102,7 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
                  text-sm font-medium transition-colors
                  text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]
                  data-[active=true]:bg-[var(--accent-bg)]
-                 data-[active=true]:text-[var(--accent-text)]"
+                 data-[active=true]:text-[var(--accent-primary)]"
     >
       {icon}
       {label}
