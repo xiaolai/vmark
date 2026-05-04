@@ -40,6 +40,20 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const panelRef = useRef<HTMLElement>(null);
 
+  // Publish the current panel width as a CSS variable on the editor
+  // container so .editor-content can shrink itself via calc() and
+  // CodeMirror reflows correctly. Without this, the source editor
+  // draws under the absolute-positioned panel.
+  useEffect(() => {
+    if (!panelOpen) return;
+    const container = panelRef.current?.parentElement;
+    if (!container) return;
+    container.style.setProperty("--gha-panel-width", `${panelWidth}px`);
+    return () => {
+      container.style.removeProperty("--gha-panel-width");
+    };
+  }, [panelOpen, panelWidth]);
+
   // Resize handler refs (project convention: rules/50 §2 — always store
   // listener references so cleanup can remove the exact functions).
   const handlersRef = useRef<{

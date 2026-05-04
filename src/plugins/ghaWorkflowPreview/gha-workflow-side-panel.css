@@ -16,10 +16,14 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* When the panel is open, indent the editor-content so the source
-   editor doesn't render underneath the panel. */
+/* When the panel is open, shrink editor-content's width so CodeMirror
+   reflows and doesn't draw under the panel. The panel publishes its
+   current width as --gha-panel-width on the .editor-container element
+   (see GhaWorkflowSidePanel.tsx). The fallback covers the brief render
+   window between panel mount and the useEffect setting the variable. */
 .editor-container:has(.gha-workflow-side-panel) .editor-content {
-  margin-right: 480px;
+  width: calc(100% - var(--gha-panel-width, 480px));
+  max-width: calc(100% - var(--gha-panel-width, 480px));
 }
 
 .gha-workflow-side-panel__resize-handle {

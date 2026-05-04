@@ -10,7 +10,10 @@
   padding: var(--space-2) var(--space-3);
   text-align: left;
   cursor: pointer;
-  width: var(--space-15);
+  /* Wide enough for the typical job-name length (~16-22 chars) without
+     truncating to "fro..." or "ch...". Matches dagre layout's default
+     node-width of 220 in render/layout.ts. */
+  width: var(--outline-width);
   min-height: 80px;
   display: flex;
   flex-direction: column;

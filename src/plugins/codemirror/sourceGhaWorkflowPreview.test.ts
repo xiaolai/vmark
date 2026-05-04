@@ -53,6 +53,22 @@ describe("sourceGhaWorkflowPreview", () => {
     view.destroy();
   });
 
+  it("populates the store on initial mount when content is already a workflow", () => {
+    const view = makeView(VALID_WORKFLOW);
+    // Initial parse is synchronous — no debounce on first mount.
+    const s = useGhaWorkflowPanelStore.getState();
+    expect(s.workflow).not.toBeNull();
+    expect(s.panelOpen).toBe(true);
+    view.destroy();
+  });
+
+  it("leaves the store unchanged on initial mount when content is non-workflow YAML", () => {
+    const view = makeView(NON_WORKFLOW_YAML);
+    const s = useGhaWorkflowPanelStore.getState();
+    expect(s.workflow).toBeNull();
+    view.destroy();
+  });
+
   it("clears the store when content stops being a workflow", () => {
     const view = makeView(VALID_WORKFLOW);
     // Append a trailing newline to trigger the docChanged listener

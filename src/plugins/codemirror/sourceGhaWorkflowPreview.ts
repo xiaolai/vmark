@@ -20,7 +20,7 @@
  * @module plugins/codemirror/sourceGhaWorkflowPreview
  */
 
-import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
+import { ViewPlugin, type EditorView, type ViewUpdate } from "@codemirror/view";
 import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
 import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
 import { parse } from "@/lib/ghaWorkflow/parser";
@@ -31,6 +31,19 @@ const DEBOUNCE_MS = 300;
 class SourceGhaWorkflowPreviewPlugin {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private lastContent = "";
+
+  constructor(view: EditorView) {
+    // Parse the initial doc state. Without this, opening an existing
+    // workflow file leaves the panel empty until the user makes a
+    // change, since update() only fires on docChanged.
+    const content = view.state.doc.toString();
+    if (content) {
+      this.lastContent = content;
+      // Synchronous on initial mount — no debounce so the panel opens
+      // immediately on file load.
+      this.parseAndUpdate(content);
+    }
+  }
 
   update(update: ViewUpdate) {
     if (!update.docChanged) return;
