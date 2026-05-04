@@ -3,8 +3,9 @@
 > Created: 2026-05-04
 > Revised: 2026-05-04 (post-Codex review — corrected package names, dropped `js-yaml`, added Phase 0 spikes, redefined round-trip gate, lifted i18n into per-WI DoD, added shared panel shell)
 > Updated: 2026-05-04 (Phase 0 spikes complete — all 4 PASS; ADRs 3/4/8/11 validated; see `dev-docs/grills/gha-workflow/`)
-> Status: Phase 0 complete; ready to start Phase 1
-> Branch: `feature/gh-actions-workflow-viewer` (proposed)
+> Updated: 2026-05-04 (Phase 1 complete — 141 tests across 11 modules, all 22 fixtures parse cleanly, scripts/check-gha-phase.sh 1 passes 12/12, scripts/check-wi-linkage.sh --phase=1 passes 6/6, pnpm check:all green)
+> Status: Phase 1 complete; ready to start Phase 2 (subsequent autonomous run per governance rule .claude/rules/60-ai-governance.md clause 8)
+> Branch: `feature/gh-actions-workflow-viewer`
 > Related: `20260331-workflow-engine.md` (VMark Genie workflows — distinct feature, see §1.4)
 
 ## 1. Executive summary
