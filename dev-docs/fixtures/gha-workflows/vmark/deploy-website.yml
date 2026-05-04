@@ -1,0 +1,81 @@
+name: Deploy Website
+
+on:
+  # Trigger on push to main when website files change
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-website.yml'
+      # Version bumps need a redeploy too — the website bakes pkg.version
+      # into BetaBadge and DownloadButton at build time. Without this, vmark.app
+      # silently kept showing 0.6.54 after 0.6.55 and 0.6.56 shipped.
+      - 'package.json'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Install root dependencies (lint tools)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install website dependencies
+        working-directory: website
+        run: pnpm install --ignore-workspace
+
+      - name: Lint website markdown
+        working-directory: website
+        run: npx markdownlint-cli2 '**/*.md'
+
+      - name: Build VitePress site
+        working-directory: website
+        run: pnpm build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

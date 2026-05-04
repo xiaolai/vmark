@@ -1,0 +1,200 @@
+name: Claude Daily Cost Report
+
+on:
+  schedule:
+    # Daily at noon UTC (3h after audit at 9am)
+    - cron: "0 12 * * *"
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: cost-report
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout data branch (ledger lives here)
+        uses: actions/checkout@v6
+        with:
+          ref: data
+
+      - name: Collect runs and generate report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # --- Phase 1: Collect today's runs ---
+
+          SINCE=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
+          TODAY=$(date -u '+%Y-%m-%d')
+
+          echo "## Claude Cost Report — $TODAY" > report.md
+          echo "" >> report.md
+          echo "| Workflow | Run | Duration | Turns | Input Tokens | Output Tokens | Cache Created | Cache Read | Cost (USD) |" >> report.md
+          echo "|----------|-----|----------|-------|-------------|--------------|--------------|------------|------------|" >> report.md
+
+          TOTAL_COST=0
+          TOTAL_RUNS=0
+          TOTAL_INPUT=0
+          TOTAL_OUTPUT=0
+          TOTAL_CACHE_CREATE=0
+          TOTAL_CACHE_READ=0
+
+          for WORKFLOW in claude.yml claude-audit.yml; do
+            RUN_IDS=$(gh run list --workflow="$WORKFLOW" --created ">=$SINCE" --json databaseId,conclusion --jq '.[].databaseId' 2>/dev/null || echo "")
+
+            for RUN_ID in $RUN_IDS; do
+              RESULT_LINE=$(gh run view "$RUN_ID" --log 2>&1 | grep '"total_cost_usd"' | head -1 || echo "")
+              if [ -z "$RESULT_LINE" ]; then
+                continue
+              fi
+
+              LOG=$(gh run view "$RUN_ID" --log 2>&1)
+              COST=$(echo "$LOG" | grep -o '"total_cost_usd": [0-9.]*' | head -1 | grep -o '[0-9.]*$' || echo "0")
+              TURNS=$(echo "$LOG" | grep -o '"num_turns": [0-9]*' | tail -1 | grep -o '[0-9]*$' || echo "0")
+              DURATION_MS=$(echo "$LOG" | grep -o '"duration_ms": [0-9]*' | tail -1 | grep -o '[0-9]*$' || echo "0")
+              INPUT=$(echo "$LOG" | grep '"type": "result"' -A 30 | grep -o '"input_tokens": [0-9]*' | head -1 | grep -o '[0-9]*$' || echo "0")
+              OUTPUT=$(echo "$LOG" | grep '"type": "result"' -A 30 | grep -o '"output_tokens": [0-9]*' | head -1 | grep -o '[0-9]*$' || echo "0")
+              CACHE_CREATE=$(echo "$LOG" | grep '"type": "result"' -A 30 | grep -o '"cache_creation_input_tokens": [0-9]*' | head -1 | grep -o '[0-9]*$' || echo "0")
+              CACHE_READ=$(echo "$LOG" | grep '"type": "result"' -A 30 | grep -o '"cache_read_input_tokens": [0-9]*' | head -1 | grep -o '[0-9]*$' || echo "0")
+
+              DURATION_MIN=$(echo "scale=1; ${DURATION_MS:-0} / 60000" | bc 2>/dev/null || echo "?")
+              COST_FMT=$(printf '%.2f' "$COST" 2>/dev/null || echo "$COST")
+
+              WORKFLOW_SHORT="${WORKFLOW%.yml}"
+              echo "| $WORKFLOW_SHORT | [#${RUN_ID}](https://github.com/${GH_REPO}/actions/runs/${RUN_ID}) | ${DURATION_MIN}m | $TURNS | $INPUT | $OUTPUT | $CACHE_CREATE | $CACHE_READ | \$${COST_FMT} |" >> report.md
+
+              TOTAL_COST=$(echo "$TOTAL_COST + $COST" | bc 2>/dev/null || echo "$TOTAL_COST")
+              TOTAL_INPUT=$(echo "$TOTAL_INPUT + $INPUT" | bc 2>/dev/null || echo "$TOTAL_INPUT")
+              TOTAL_OUTPUT=$(echo "$TOTAL_OUTPUT + $OUTPUT" | bc 2>/dev/null || echo "$TOTAL_OUTPUT")
+              TOTAL_CACHE_CREATE=$(echo "$TOTAL_CACHE_CREATE + $CACHE_CREATE" | bc 2>/dev/null || echo "$TOTAL_CACHE_CREATE")
+              TOTAL_CACHE_READ=$(echo "$TOTAL_CACHE_READ + $CACHE_READ" | bc 2>/dev/null || echo "$TOTAL_CACHE_READ")
+              TOTAL_RUNS=$((TOTAL_RUNS + 1))
+            done
+          done
+
+          TOTAL_COST_FMT=$(printf '%.2f' "$TOTAL_COST" 2>/dev/null || echo "$TOTAL_COST")
+
+          if [ "$TOTAL_RUNS" -eq 0 ]; then
+            echo "No Claude runs in the last 24h, skipping report."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "" >> report.md
+          echo "**Today: ${TOTAL_RUNS} runs, \$${TOTAL_COST_FMT}**" >> report.md
+
+          # --- Phase 2: Update ledger and compute cumulative stats ---
+
+          LEDGER=".github/cost-reports/ledger.json"
+          mkdir -p .github/cost-reports
+
+          STATS=$(python3 - "$LEDGER" "$TODAY" "$TOTAL_RUNS" "$TOTAL_COST" "$TOTAL_INPUT" "$TOTAL_OUTPUT" "$TOTAL_CACHE_CREATE" "$TOTAL_CACHE_READ" <<'PYEOF'
+          import json, sys
+          ledger_path = sys.argv[1]
+          new_entry = {
+              "date": sys.argv[2],
+              "runs": int(sys.argv[3]),
+              "cost_usd": float(sys.argv[4]),
+              "input_tokens": int(sys.argv[5]),
+              "output_tokens": int(sys.argv[6]),
+              "cache_creation_tokens": int(sys.argv[7]),
+              "cache_read_tokens": int(sys.argv[8]),
+          }
+          try:
+              with open(ledger_path) as f:
+                  ledger = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              ledger = []
+          ledger = [e for e in ledger if e["date"] != new_entry["date"]]
+          ledger.append(new_entry)
+          ledger.sort(key=lambda e: e["date"])
+          with open(ledger_path, "w") as f:
+              json.dump(ledger, f, indent=2)
+              f.write("\n")
+          total_cost = sum(e["cost_usd"] for e in ledger)
+          total_days = len(ledger)
+          recent_7 = ledger[-7:]
+          recent_30 = ledger[-30:]
+          avg_7d = sum(e["cost_usd"] for e in recent_7) / len(recent_7)
+          avg_30d = sum(e["cost_usd"] for e in recent_30) / len(recent_30)
+          print(f"{total_cost:.2f} {total_days} {avg_7d:.2f} {avg_30d:.2f}")
+          PYEOF
+          )
+          read CUMULATIVE_COST CUMULATIVE_DAYS AVG_7D AVG_30D <<< "$STATS"
+
+          # --- Phase 3: Build cumulative summary ---
+
+          echo "" >> report.md
+          echo "### Cumulative" >> report.md
+          echo "" >> report.md
+          echo "| Metric | Value |" >> report.md
+          echo "|--------|-------|" >> report.md
+          echo "| All-time total ($CUMULATIVE_DAYS days) | \$${CUMULATIVE_COST} |" >> report.md
+          echo "| 7-day daily average | \$${AVG_7D} |" >> report.md
+          echo "| 30-day daily average | \$${AVG_30D} |" >> report.md
+          echo "" >> report.md
+
+          echo "### Today's Breakdown" >> report.md
+          echo "" >> report.md
+          echo "| Metric | Value |" >> report.md
+          echo "|--------|-------|" >> report.md
+          echo "| Input tokens | $TOTAL_INPUT |" >> report.md
+          echo "| Output tokens | $TOTAL_OUTPUT |" >> report.md
+          echo "| Cache creation tokens | $TOTAL_CACHE_CREATE |" >> report.md
+          echo "| Cache read tokens | $TOTAL_CACHE_READ |" >> report.md
+          echo "" >> report.md
+          echo "*Costs are API-equivalent pricing even on subscription plans.*" >> report.md
+
+          cat report.md
+
+          # Save for next steps (all values are workflow-generated, not user input)
+          {
+            echo "TODAY=$TODAY"
+            echo "TOTAL_COST_FMT=$TOTAL_COST_FMT"
+            echo "CUMULATIVE_COST=$CUMULATIVE_COST"
+          } >> "$GITHUB_ENV"
+
+      - name: Commit ledger to data branch
+        if: env.SKIP != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/cost-reports/ledger.json
+          git diff --cached --quiet && echo "No ledger changes" && exit 0
+          git commit -m "chore: update cost ledger (${{ env.TODAY }})"
+          git push
+
+      - name: Close previous cost-report issues
+        if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ISSUE_IDS=$(gh issue list --state open --label cost-report --json number --jq '.[].number' 2>/dev/null || echo "")
+          for ID in $ISSUE_IDS; do
+            gh issue close "$ID" --comment "Superseded by today's rolling report." 2>/dev/null || true
+          done
+
+      - name: Create today's report issue
+        if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REPORT_TITLE: "Claude cost — ${{ env.TODAY }} ($${{ env.TOTAL_COST_FMT }} today, $${{ env.CUMULATIVE_COST }} total)"
+        run: |
+          gh issue create \
+            --title "$REPORT_TITLE" \
+            --body "$(cat report.md)" \
+            --label "cost-report"
