@@ -145,7 +145,24 @@ export type BridgeRequest =
   // Genie commands
   | { type: 'genies.list'; windowId?: WindowId }
   | { type: 'genies.read'; path: string; windowId?: WindowId }
-  | { type: 'genies.invoke'; geniePath: string; scope: string; windowId?: WindowId };
+  | { type: 'genies.invoke'; geniePath: string; scope: string; windowId?: WindowId }
+  // Pruned 4-tool surface — see dev-docs/plans/20260504-mcp-pruning.md.
+  // The legacy entries above stay until WI-1.5 deletes them. Args are
+  // top-level (flat) to match the wire shape the Rust bridge parser
+  // expects: every key except `type` is forwarded as args.
+  | { type: 'vmark.session.get_state' }
+  | { type: 'vmark.workspace.new'; kind?: string; windowLabel?: string }
+  | { type: 'vmark.workspace.open'; filePath: string; windowLabel?: string }
+  | { type: 'vmark.workspace.save'; tabId?: string }
+  | { type: 'vmark.workspace.save_as'; tabId?: string; filePath: string }
+  | { type: 'vmark.workspace.close'; tabId: string; force?: boolean }
+  | { type: 'vmark.workspace.switch_tab'; tabId: string }
+  | { type: 'vmark.workspace.focus_window'; windowLabel: string }
+  | { type: 'vmark.document.read'; tabId?: string }
+  | { type: 'vmark.document.write'; tabId?: string; content: string; expected_revision?: string }
+  | { type: 'vmark.document.transform'; tabId?: string; kind: string; expected_revision?: string }
+  | { type: 'vmark.workflow.apply_patch'; tabId?: string; patches: unknown[]; expected_revision?: string }
+  | { type: 'vmark.workflow.validate'; tabId?: string };
 
 /**
  * Bridge response types — responses from VMark.
