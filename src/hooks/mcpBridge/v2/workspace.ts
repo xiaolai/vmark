@@ -32,6 +32,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
 import { getFileName } from "@/utils/paths";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
@@ -101,6 +102,11 @@ export async function handleWorkspaceOpen(
     const docStore = useDocumentStore.getState();
     const windowLabel = getWindowLabel(args);
     const tabId = tabStore.createTab(windowLabel, filePath);
+    // Mark `.yml`/`.yaml` workflow files as forced-source BEFORE
+    // initDocument so the WYSIWYG editor never mounts against the
+    // YAML — Tiptap's markdown round-trip corrupts indentation. See
+    // utils/yamlOpenRouting.ts for the full rationale.
+    maybeForceSourceForYaml(tabId, filePath);
     docStore.initDocument(tabId, content, filePath);
     await respond({ id, success: true, data: { tabId } });
   } catch (error) {

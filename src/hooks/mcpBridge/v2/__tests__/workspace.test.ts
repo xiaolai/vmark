@@ -24,12 +24,21 @@ vi.mock("@/utils/workspaceStorage", () => ({
 const writeMock = vi.fn<(path: string, content: string) => Promise<void>>(
   async () => undefined,
 );
+const readMock = vi.fn<(path: string) => Promise<string>>(async () => "");
 vi.mock("@tauri-apps/plugin-fs", () => ({
-  readTextFile: vi.fn(),
+  readTextFile: (path: string) => readMock(path),
   writeTextFile: (path: string, content: string) => writeMock(path, content),
 }));
 
+const forceSourceMock = vi.hoisted(() => vi.fn());
+vi.mock("@/utils/yamlOpenRouting", () => ({
+  maybeForceSourceForYaml: forceSourceMock,
+}));
+
 import { respond } from "../../utils";
+import {
+  handleWorkspaceOpen,
+} from "../workspace";
 
 function resetStores() {
   useTabStore.setState({
@@ -68,6 +77,44 @@ describe("vmark.workspace.new", () => {
     const tabId = (r.data as { tabId: string }).tabId;
     expect(tabId).toBeTruthy();
     expect(useTabStore.getState().tabs.main[0].id).toBe(tabId);
+  });
+});
+
+describe("vmark.workspace.open — YAML routing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+    readMock.mockResolvedValue("name: ci\non: push\njobs: {}\n");
+  });
+
+  it("marks .yml workflow files as forced-source BEFORE initDocument", async () => {
+    await handleWorkspaceOpen("req-yaml", {
+      filePath: "/repo/.github/workflows/ci.yml",
+    });
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    const tabId = (r.data as { tabId: string }).tabId;
+    // The forced-source mark must reference the just-created tabId.
+    expect(forceSourceMock).toHaveBeenCalledWith(
+      tabId,
+      "/repo/.github/workflows/ci.yml",
+    );
+    // Critical ordering: forced-source must fire BEFORE the doc store
+    // gets the content (otherwise WYSIWYG mounts and corrupts YAML).
+    const doc = useDocumentStore.getState().documents[tabId];
+    expect(doc).toBeDefined();
+    expect(doc.filePath).toBe("/repo/.github/workflows/ci.yml");
+  });
+
+  it("calls maybeForceSourceForYaml for non-YAML too — the helper itself filters", async () => {
+    readMock.mockResolvedValue("# hi\n");
+    await handleWorkspaceOpen("req-md", {
+      filePath: "/repo/notes.md",
+    });
+    expect(forceSourceMock).toHaveBeenCalledWith(
+      expect.any(String),
+      "/repo/notes.md",
+    );
   });
 });
 
