@@ -9,6 +9,16 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    server: {
+      deps: {
+        // @actions/workflow-parser ships JSON imports without
+        // `with { type: "json" }` import attributes; Node's strict ESM
+        // (≥22) rejects them. Inlining forces Vite to transform the
+        // module, which handles JSON natively. See
+        // dev-docs/grills/gha-workflow/spike-a-parser.md.
+        inline: ["@actions/workflow-parser"],
+      },
+    },
     coverage: {
       provider: "v8",
       clean: false,
