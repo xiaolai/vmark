@@ -65,6 +65,9 @@ module.exports = {
           "src/types/cursorContext",
           // Read-only guard (reads document store for read-only state)
           "src/utils/readOnlyGuard",
+          // YAML/workflow open routing — reads settings for the workflow flag
+          // and writes largeFileSessionStore to mark the tab as forced-source
+          "src/utils/yamlOpenRouting",
           // CJK formatter (reads settings for formatting rules)
           "src/lib/cjkFormatter/",
         ],

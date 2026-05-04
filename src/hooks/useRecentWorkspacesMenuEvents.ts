@@ -27,6 +27,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import i18n from "@/i18n";
 import { workspaceWarn } from "@/utils/debug";
@@ -130,6 +131,7 @@ export function useRecentWorkspacesMenuEvents(): void {
                 try {
                   const content = await readTextFile(filePath);
                   const tabId = useTabStore.getState().createTab(windowLabel, filePath);
+                  maybeForceSourceForYaml(tabId, filePath);
                   useDocumentStore.getState().initDocument(tabId, content, filePath);
                   useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
                 } catch {

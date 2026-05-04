@@ -23,6 +23,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { needsBootstrap } from "@/utils/workspaceBootstrap";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/utils/hotExit/hotExitCoordination";
 import { findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { workspaceWarn } from "@/utils/debug";
@@ -78,6 +79,7 @@ export function useWorkspaceBootstrap() {
             try {
               const content = await readTextFile(filePath);
               const tabId = useTabStore.getState().createTab(windowLabel, filePath);
+              maybeForceSourceForYaml(tabId, filePath);
               useDocumentStore.getState().initDocument(tabId, content, filePath);
               useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
             } catch {

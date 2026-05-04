@@ -27,8 +27,7 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { createUntitledTab } from "@/utils/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { isYamlFileName } from "@/utils/dropPaths";
-import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
@@ -84,6 +83,10 @@ export async function openFileInNewTabCore(
     const content = await readTextFile(path);
     perfEnd("readTextFile", { size: content.length });
 
+    // YAML/workflow files must enter source mode BEFORE initDocument so the
+    // WYSIWYG editor never parses them as markdown. See utils/yamlOpenRouting.
+    maybeForceSourceForYaml(tabId, path);
+
     perfStart("initDocument");
     useDocumentStore.getState().initDocument(tabId, content, path);
     perfEnd("initDocument");
@@ -95,14 +98,7 @@ export async function openFileInNewTabCore(
 
     useRecentFilesStore.getState().addFile(path);
 
-    // Auto-switch to source mode for YAML workflow files (feature-flagged)
-    const fileName = path.split("/").pop() ?? "";
-    if (isWorkflowEnabled() && isYamlFileName(fileName)) {
-      const { useEditorStore } = await import("@/stores/editorStore");
-      if (!useEditorStore.getState().sourceMode) {
-        useEditorStore.getState().setSourceMode(true);
-      }
-    } else if (route.forceSourceMode) {
+    if (route.forceSourceMode) {
       // Large / huge file: mark the tab as forced-source. The Editor reads
       // this marker as a per-tab override on top of the window-global
       // sourceMode, so other tabs in the same window are unaffected and the

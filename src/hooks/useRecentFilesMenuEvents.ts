@@ -30,6 +30,7 @@ import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
 import { getReplaceableTab } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import { menuError } from "@/utils/debug";
@@ -104,6 +105,7 @@ export function useRecentFilesMenuEvents(): void {
               try {
                 const content = await readTextFile(file.path);
                 const tabId = useTabStore.getState().createTab(windowLabel, file.path);
+                maybeForceSourceForYaml(tabId, file.path);
                 useDocumentStore.getState().initDocument(tabId, content, file.path);
                 useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
                 useRecentFilesStore.getState().addFile(file.path);
@@ -123,6 +125,7 @@ export function useRecentFilesMenuEvents(): void {
               try {
                 const content = await readTextFile(file.path);
                 useTabStore.getState().updateTabPath(result.tabId, result.filePath);
+                maybeForceSourceForYaml(result.tabId, result.filePath);
                 useDocumentStore.getState().loadContent(
                   result.tabId,
                   content,
