@@ -60,13 +60,24 @@ export function createPreviewElement(
   sourceContent?: string,
 ): HTMLElement {
   const wrapper = document.createElement("div");
-  // Use "latex" class for both "latex" and "$$math$$" languages
-  // Use "mermaid" class for SVG too (reuses same pan+zoom styles)
+  // Class & sanitizer dispatch:
+  //   - latex / $$math$$  → latex-preview, sanitizeKatex
+  //   - svg               → mermaid-preview (reuses Mermaid's pan/zoom), sanitizeSvg
+  //   - mermaid           → mermaid-preview, sanitizeSvg
+  //   - yaml / yml        → workflow-preview, sanitizeSvg (Phase 3 GHA workflow
+  //                          previews — the cached rendering is a Mermaid SVG;
+  //                          without this branch the cache-hit path falls through
+  //                          to "yaml-preview" + sanitizeKatex, which strips the
+  //                          SVG and bypasses .workflow-preview CSS sizing).
+  const isWorkflowYamlLang = language === "yaml" || language === "yml";
   const previewClass = isLatexLanguage(language) ? "latex"
-    : language === "svg" ? "mermaid" : language;
+    : language === "svg" ? "mermaid"
+    : isWorkflowYamlLang ? "workflow"
+    : language;
   wrapper.className = `code-block-preview ${previewClass}-preview`;
-  const sanitized = (language === "mermaid" || language === "svg")
-    ? sanitizeSvg(rendered) : sanitizeKatex(rendered);
+  const isSvgOutput =
+    language === "mermaid" || language === "svg" || isWorkflowYamlLang;
+  const sanitized = isSvgOutput ? sanitizeSvg(rendered) : sanitizeKatex(rendered);
   wrapper.innerHTML = sanitized;
   if (language === "mermaid" || language === "svg") {
     // Defer panzoom/export setup — Panzoom requires DOM-attached elements,
