@@ -40,10 +40,11 @@ import { DropZoneIndicator } from "./DropZoneIndicator";
 const WorkflowSidePanel = lazy(() =>
   import("@/plugins/workflowPreview/WorkflowSidePanel").then((m) => ({ default: m.WorkflowSidePanel }))
 );
-/* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
-const GhaWorkflowSidePanel = lazy(() =>
-  import("@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel").then((m) => ({ default: m.GhaWorkflowSidePanel }))
-);
+// Eager-loaded — placing GhaWorkflowSidePanel inside a Suspense boundary
+// triggered "Maximum update depth exceeded" loops in React 19 due to
+// xyflow's internal store firing setState from disappearLayoutEffects
+// during Suspense transitions. Eager mount avoids the transition entirely.
+import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
 import "./editor.css";
 import "./heading-picker.css";
 import "@/styles/popup-shared.css";
@@ -107,7 +108,7 @@ export function Editor() {
         {editorContent}
       </div>
       {workflowEnabled && <Suspense fallback={null}><WorkflowSidePanel /></Suspense>}
-      <Suspense fallback={null}><GhaWorkflowSidePanel /></Suspense>
+      <GhaWorkflowSidePanel />
       <HeadingPicker />
       <DropZoneIndicator />
     </div>

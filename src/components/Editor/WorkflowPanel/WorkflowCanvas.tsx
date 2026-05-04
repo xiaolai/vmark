@@ -19,7 +19,7 @@
  * @module components/Editor/WorkflowPanel/WorkflowCanvas
  */
 
-import { useMemo, type ReactElement } from "react";
+import { useCallback, useMemo, type ReactElement } from "react";
 import {
   Background,
   Controls,
@@ -34,7 +34,11 @@ import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { JobNode } from "./JobNode";
 import "./workflow-canvas.css";
 
-const nodeTypes = { job: JobNode };
+// Module-scope stable references so xyflow's internal store doesn't see
+// "new prop identity" on every render and feedback into its setState
+// during React 19's effect-unmount path.
+const NODE_TYPES = { job: JobNode } as const;
+const PRO_OPTIONS = { hideAttribution: true } as const;
 
 interface WorkflowCanvasProps {
   workflow: WorkflowIR;
@@ -48,16 +52,24 @@ function CanvasInner({ workflow }: WorkflowCanvasProps): ReactElement {
     return applyLayout(graph.nodes, graph.edges, { direction });
   }, [workflow, direction]);
 
+  // Stable handler so ReactFlow's store doesn't see a new function ref
+  // every render — that drives an internal setState which under React
+  // 19 + Suspense produced "Maximum update depth exceeded" loops on
+  // first mount. (Reproduces only at runtime; jsdom mount tests miss it.)
+  const onPaneClick = useCallback(() => {
+    useWorkflowViewStore.getState().clearSelection();
+  }, []);
+
   return (
     <ReactFlow
       nodes={nodes as never}
       edges={edges}
-      nodeTypes={nodeTypes as never}
+      nodeTypes={NODE_TYPES as never}
       fitView
       minZoom={0.2}
       maxZoom={2}
-      proOptions={{ hideAttribution: true }}
-      onPaneClick={() => useWorkflowViewStore.getState().clearSelection()}
+      proOptions={PRO_OPTIONS}
+      onPaneClick={onPaneClick}
     >
       <Background />
       <Controls />

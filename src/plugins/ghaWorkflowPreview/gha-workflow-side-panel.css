@@ -1,14 +1,25 @@
 /* GHA workflow side panel — mirrors workflow-side-panel.css with GHA-prefixed classes. */
 
 .gha-workflow-side-panel {
-  position: relative;
-  flex: 0 0 auto;
-  height: 100%;
+  /* Editor container is flex-direction: column. Anchor absolutely on
+     the right so the source editor stays visible to the left. */
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   background: var(--bg-color);
   border-left: var(--space-px) solid var(--border-color);
   display: flex;
   flex-direction: row;
   overflow: hidden;
+  z-index: var(--z-bar);
+  box-shadow: var(--shadow-sm);
+}
+
+/* When the panel is open, indent the editor-content so the source
+   editor doesn't render underneath the panel. */
+.editor-container:has(.gha-workflow-side-panel) .editor-content {
+  margin-right: 480px;
 }
 
 .gha-workflow-side-panel__resize-handle {
