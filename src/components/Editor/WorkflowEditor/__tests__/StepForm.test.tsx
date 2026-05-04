@@ -385,3 +385,113 @@ describe("StepForm — action metadata threading", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 });
+
+describe("StepForm — step navigation", () => {
+  it("renders Step N of M position label", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={2}
+        step={makeStep()}
+        stepCount={5}
+        prevStepId="step-2"
+        nextStepId="step-4"
+      />,
+    );
+    expect(screen.getByText(/Step 3 of 5/)).toBeTruthy();
+  });
+
+  it("disables Prev when prevStepId is null and Next when nextStepId is null", () => {
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={1}
+        prevStepId={null}
+        nextStepId={null}
+      />,
+    );
+    const buttons = screen.getAllByRole("button");
+    const prev = buttons.find((b) => b.getAttribute("aria-label")?.includes("Previous"));
+    const next = buttons.find((b) => b.getAttribute("aria-label")?.includes("Next"));
+    expect(prev?.hasAttribute("disabled")).toBe(true);
+    expect(next?.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("Next button calls selectStep with the next step id", async () => {
+    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
+    useWorkflowViewStore.getState().reset();
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={3}
+        prevStepId={null}
+        nextStepId="step-2"
+      />,
+    );
+    const next = screen
+      .getAllByRole("button")
+      .find((b) => b.getAttribute("aria-label")?.includes("Next"))!;
+    fireEvent.click(next);
+    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
+    expect(useWorkflowViewStore.getState().selectedStepId).toBe("step-2");
+  });
+
+  it("Back-to-job button clears selectedStepId but keeps the job", async () => {
+    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
+    useWorkflowViewStore.getState().selectStep("build", "step-1");
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={3}
+        prevStepId={null}
+        nextStepId="step-2"
+      />,
+    );
+    const back = screen
+      .getAllByRole("button")
+      .find((b) => b.getAttribute("aria-label")?.includes("Back to job"))!;
+    fireEvent.click(back);
+    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
+    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+  });
+
+  it("Alt+ArrowRight on window navigates to the next step", async () => {
+    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
+    useWorkflowViewStore.getState().reset();
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={3}
+        prevStepId={null}
+        nextStepId="step-2"
+      />,
+    );
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    expect(useWorkflowViewStore.getState().selectedStepId).toBe("step-2");
+  });
+
+  it("Alt+ArrowLeft does nothing when prevStepId is null", async () => {
+    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
+    useWorkflowViewStore.getState().selectStep("build", "step-1");
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={3}
+        prevStepId={null}
+        nextStepId="step-2"
+      />,
+    );
+    fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
+    expect(useWorkflowViewStore.getState().selectedStepId).toBe("step-1");
+  });
+});

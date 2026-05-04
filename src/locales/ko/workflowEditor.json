@@ -118,5 +118,9 @@
   "save.dirtyHint_one": "1 unsaved",
   "save.dirtyHint_other": "{{count}} unsaved",
   "diagnosticsBanner.showAll_one": "Show 1",
-  "diagnosticsBanner.showAll_other": "Show all {{count}}"
+  "diagnosticsBanner.showAll_other": "Show all {{count}}",
+  "form.step.nav.position": "Step {{current}} of {{total}}",
+  "form.step.nav.prev": "Previous step (Alt+Left)",
+  "form.step.nav.next": "Next step (Alt+Right)",
+  "form.step.nav.backToJob": "Back to job"
 }

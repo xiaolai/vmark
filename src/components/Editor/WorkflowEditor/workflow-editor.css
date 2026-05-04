@@ -125,9 +125,63 @@
 }
 
 .workflow-form__id {
+  /* Component-internal one-off dimension per
+     .claude/rules/31-design-tokens.md ("define a local CSS var on
+     the component class instead of adding a global token"). 12em
+     fits ~12 monospace chars — typical synthesized step ids. */
+  --workflow-form-id-max-width: 12em;
   font-family: var(--font-mono);
   color: var(--text-color);
   font-size: var(--font-size-sm);
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: var(--workflow-form-id-max-width);
+}
+
+/* Step header: back-to-job + prev/next + position pill + step id.
+   Aligned center so the chevrons sit next to the position label. */
+.workflow-form__header--step {
+  align-items: center;
+}
+
+.workflow-form__nav-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__nav-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__nav-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-form__nav-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
+}
+
+.workflow-form__step-position {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .workflow-form__field {

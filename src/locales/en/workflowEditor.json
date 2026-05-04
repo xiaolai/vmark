@@ -132,5 +132,10 @@
   "diagnosticsBanner.expandRow": "Show details",
   "diagnosticsBanner.collapseRow": "Hide details",
   "diagnosticsBanner.expandAll": "Expand all",
-  "diagnosticsBanner.collapseAll": "Collapse all"
+  "diagnosticsBanner.collapseAll": "Collapse all",
+
+  "form.step.nav.position": "Step {{current}} of {{total}}",
+  "form.step.nav.prev": "Previous step (Alt+Left)",
+  "form.step.nav.next": "Next step (Alt+Right)",
+  "form.step.nav.backToJob": "Back to job"
 }

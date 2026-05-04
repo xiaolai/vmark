@@ -69,6 +69,15 @@ export function WorkflowEditorPanel({
       : -1;
   const selectedStep =
     selectedStepIndex >= 0 ? selectedJob!.steps[selectedStepIndex] : null;
+  const stepCount = selectedJob ? selectedJob.steps.length : 0;
+  const prevStepId =
+    selectedJob && selectedStepIndex > 0
+      ? selectedJob.steps[selectedStepIndex - 1].id
+      : null;
+  const nextStepId =
+    selectedJob && selectedStepIndex >= 0 && selectedStepIndex < stepCount - 1
+      ? selectedJob.steps[selectedStepIndex + 1].id
+      : null;
 
   return (
     <div className="workflow-editor-panel">
@@ -86,6 +95,9 @@ export function WorkflowEditorPanel({
           jobId={selectedJob.id}
           stepIndex={selectedStepIndex}
           step={selectedStep}
+          stepCount={stepCount}
+          prevStepId={prevStepId}
+          nextStepId={nextStepId}
         />
       ) : selectedJob ? (
         <JobForm

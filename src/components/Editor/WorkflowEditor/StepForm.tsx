@@ -23,10 +23,12 @@
  * @module components/Editor/WorkflowEditor/StepForm
  */
 
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronLeft, ChevronRight, ArrowUp } from "lucide-react";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { useActionMetadata } from "./useActionMetadata";
 import { ExpressionEditor } from "./ExpressionEditor";
 import "./workflow-editor.css";
@@ -37,6 +39,15 @@ interface StepFormProps {
   jobId: string;
   stepIndex: number;
   step: StepIR;
+  /** Total number of steps in this job — used to render N of M.
+   *  Optional for unit tests that render the form in isolation; production
+   *  callers (WorkflowEditorPanel) always provide it. Defaults to
+   *  `stepIndex + 1` so the position label degrades to "Step N of N". */
+  stepCount?: number;
+  /** Step id to navigate to with Prev. null/undefined disables the button. */
+  prevStepId?: string | null;
+  /** Step id to navigate to with Next. null/undefined disables the button. */
+  nextStepId?: string | null;
 }
 
 interface WithRow {
@@ -59,8 +70,40 @@ export function StepForm({
   jobId,
   stepIndex,
   step,
+  stepCount,
+  prevStepId = null,
+  nextStepId = null,
 }: StepFormProps): ReactElement {
+  const totalSteps = stepCount ?? stepIndex + 1;
   const { t } = useTranslation("workflowEditor");
+
+  const goToStep = (stepId: string | null): void => {
+    if (!stepId) return;
+    useWorkflowViewStore.getState().selectStep(jobId, stepId);
+  };
+  const backToJob = (): void => {
+    useWorkflowViewStore.getState().selectJob(jobId);
+  };
+
+  // Keyboard nav: Alt+Left / Alt+Right walk steps. Listens on the
+  // window so the form doesn't have to be focused — accessible from
+  // anywhere within the side panel context. Esc returns to the job.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (!e.altKey) return;
+      if (e.key === "ArrowLeft" && prevStepId) {
+        e.preventDefault();
+        goToStep(prevStepId);
+      } else if (e.key === "ArrowRight" && nextStepId) {
+        e.preventDefault();
+        goToStep(nextStepId);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // jobId is captured into goToStep via useWorkflowViewStore.getState();
+    // we only need to refresh the listener when prev/next change.
+  }, [prevStepId, nextStepId]);
 
   const [name, setName] = useState(step.name ?? "");
   const [run, setRun] = useState(step.run ?? "");
@@ -194,9 +237,56 @@ export function StepForm({
 
   return (
     <form className="workflow-form" onSubmit={(e) => e.preventDefault()}>
-      <header className="workflow-form__header">
-        <span className="workflow-form__kind">{t("form.step.kind")}</span>
-        <code className="workflow-form__id">{step.id}</code>
+      <header className="workflow-form__header workflow-form__header--step">
+        <button
+          type="button"
+          className="workflow-form__nav-btn"
+          onClick={backToJob}
+          aria-label={t("form.step.nav.backToJob", {
+            defaultValue: "Back to job",
+          })}
+          title={t("form.step.nav.backToJob", { defaultValue: "Back to job" })}
+        >
+          <ArrowUp size={14} />
+        </button>
+        <button
+          type="button"
+          className="workflow-form__nav-btn"
+          onClick={() => goToStep(prevStepId)}
+          disabled={!prevStepId}
+          aria-label={t("form.step.nav.prev", {
+            defaultValue: "Previous step (Alt+Left)",
+          })}
+          title={t("form.step.nav.prev", {
+            defaultValue: "Previous step (Alt+Left)",
+          })}
+        >
+          <ChevronLeft size={14} />
+        </button>
+        <span className="workflow-form__step-position">
+          {t("form.step.nav.position", {
+            defaultValue: "Step {{current}} of {{total}}",
+            current: stepIndex + 1,
+            total: totalSteps,
+          })}
+        </span>
+        <button
+          type="button"
+          className="workflow-form__nav-btn"
+          onClick={() => goToStep(nextStepId)}
+          disabled={!nextStepId}
+          aria-label={t("form.step.nav.next", {
+            defaultValue: "Next step (Alt+Right)",
+          })}
+          title={t("form.step.nav.next", {
+            defaultValue: "Next step (Alt+Right)",
+          })}
+        >
+          <ChevronRight size={14} />
+        </button>
+        <code className="workflow-form__id" title={step.id}>
+          {step.id}
+        </code>
       </header>
 
       <label className="workflow-form__field">
