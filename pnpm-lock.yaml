@@ -27,6 +27,9 @@ importers:
 
   .:
     dependencies:
+      '@actions/workflow-parser':
+        specifier: 0.3.55
+        version: 0.3.55
       '@codemirror/autocomplete':
         specifier: ^6.20.0
         version: 6.20.0
@@ -388,6 +391,14 @@ importers:
         version: 4.0.16(@types/node@22.19.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.98.0)(tsx@4.21.0)(yaml@2.8.2)
 
 packages:
+
+  '@actions/expressions@0.3.55':
+    resolution: {integrity: sha512-7r2S5SqHKdF53k9X2r+Nux8FOi/i9F3xZ/oPR5kHhHmM4hGqYHX6aq6O0dZCMLfo4Z4qT2zflMdfvaA+Qzt0YQ==}
+    engines: {node: '>= 20'}
+
+  '@actions/workflow-parser@0.3.55':
+    resolution: {integrity: sha512-2TH6h9XBJ30YXJNt4sc/kpvl1JgG3mvrYGj6ZTy1l8whBN8LPCKg9BRZNQREmRUfHimfwdeCg/W8DRmB7kunVg==}
+    engines: {node: '>= 20'}
 
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
@@ -2510,6 +2521,10 @@ packages:
 
   crelt@1.0.6:
     resolution: {integrity: sha512-VQ2MBenTq1fWZUH9DJNGti7kKv6EeAuYr3cLwxUWhIu1baTaXh4Ib5W2CqHVqib4/MqbYGJqiL3Zb8GJZr3l4g==}
+
+  cronstrue@2.59.0:
+    resolution: {integrity: sha512-YKGmAy84hKH+hHIIER07VCAHf9u0Ldelx1uU6EBxsRPDXIA1m5fsKmJfyC3xBhw6cVC/1i83VdbL4PvepTrt8A==}
+    hasBin: true
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -4982,6 +4997,14 @@ packages:
 
 snapshots:
 
+  '@actions/expressions@0.3.55': {}
+
+  '@actions/workflow-parser@0.3.55':
+    dependencies:
+      '@actions/expressions': 0.3.55
+      cronstrue: 2.59.0
+      yaml: 2.8.2
+
   '@adobe/css-tools@4.4.4': {}
 
   '@antfu/install-pkg@1.1.0':
@@ -7230,6 +7253,8 @@ snapshots:
       layout-base: 2.0.1
 
   crelt@1.0.6: {}
+
+  cronstrue@2.59.0: {}
 
   cross-spawn@7.0.6:
     dependencies:
