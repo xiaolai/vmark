@@ -73,10 +73,24 @@ describe("expandMatrix", () => {
     expect(r.combinations).toHaveLength(4);
   });
 
-  it("returns dynamic flag when matrix is dynamic", () => {
+  it("returns dynamic flag when matrix is fully dynamic (no static dims)", () => {
     const r = expandMatrix(mat({ dimensions: {}, dynamic: true }));
     expect(r.dynamic).toBe(true);
     expect(r.combinations).toEqual([]);
+  });
+
+  it("expands static dimensions on a partially-dynamic matrix (audit fix)", () => {
+    // Cross-validator finding: a matrix with one dynamic dim AND one
+    // static dim used to short-circuit and return zero combinations.
+    // We now expand the static portion and carry dynamic=true forward.
+    const r = expandMatrix(
+      mat({
+        dimensions: { os: ["ubuntu", "macos"] },
+        dynamic: true,
+      }),
+    );
+    expect(r.dynamic).toBe(true);
+    expect(r.combinations).toEqual([{ os: "ubuntu" }, { os: "macos" }]);
   });
 
   it("appends include entries when they don't match existing combos", () => {

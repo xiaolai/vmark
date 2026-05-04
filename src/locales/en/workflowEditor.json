@@ -33,6 +33,8 @@
   "panel.aria.jobPrefix": "Job {{name}}",
   "panel.aria.runsOn": "runs on {{runner}}",
   "panel.aria.stepCount": "{{count}} steps",
+  "panel.aria.stepCount_one": "1 step",
+  "panel.aria.stepCount_other": "{{count}} steps",
   "panel.aria.needs": "depends on {{refs}}",
   "panel.aria.conditional": "conditional",
 
@@ -102,6 +104,8 @@
   "save.button": "Save",
   "save.discardButton": "Discard",
   "save.dirtyHint": "{{count}} unsaved",
+  "save.dirtyHint_one": "1 unsaved",
+  "save.dirtyHint_other": "{{count}} unsaved",
   "save.cleanHint": "No pending edits",
   "save.errorTitle": "Save failed",
   "save.savedToast": "Workflow saved",
@@ -116,5 +120,7 @@
 
   "diagnosticsBanner.title": "Workflow diagnostics",
   "diagnosticsBanner.showAll": "Show all {{count}}",
+  "diagnosticsBanner.showAll_one": "Show 1",
+  "diagnosticsBanner.showAll_other": "Show all {{count}}",
   "diagnosticsBanner.jumpToLine": "Jump to line {{line}}"
 }

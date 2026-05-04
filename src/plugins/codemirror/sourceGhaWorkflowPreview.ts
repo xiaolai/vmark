@@ -24,6 +24,7 @@ import { ViewPlugin, type EditorView, type ViewUpdate } from "@codemirror/view";
 import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
 import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
 import { parse } from "@/lib/ghaWorkflow/parser";
+import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
 import { workflowLog, workflowWarn } from "@/utils/debug";
 
 const DEBOUNCE_MS = 300;
@@ -92,6 +93,10 @@ class SourceGhaWorkflowPreviewPlugin {
       );
       store.setWorkflow(ir);
       this.ownsStoreState = true;
+      // Forward to actionlint asynchronously and merge its diagnostics
+      // when the binary is available. Fire-and-forget — the parser-side
+      // diagnostics already populated the panel; actionlint enriches.
+      void this.maybeLintWithActionlint(content, ir);
       if (!useGhaWorkflowPanelStore.getState().panelOpen) {
         useGhaWorkflowPanelStore.getState().openPanel();
       }
@@ -102,6 +107,33 @@ class SourceGhaWorkflowPreviewPlugin {
       );
       store.setWorkflow(null, e instanceof Error ? e.message : String(e));
       this.ownsStoreState = true;
+    }
+  }
+
+  /**
+   * Run actionlint asynchronously over the same YAML and merge its
+   * diagnostics into the panel store. No-op when the binary isn't
+   * available (the wrapper handles the silent-fallback case). Stale
+   * results are dropped: if the lastContent has changed by the time
+   * actionlint resolves, we discard its output rather than overwrite a
+   * fresher parse.
+   */
+  private async maybeLintWithActionlint(
+    content: string,
+    ir: import("@/lib/ghaWorkflow/types").WorkflowIR,
+  ): Promise<void> {
+    try {
+      const out = await lintWithActionlint(content);
+      if (this.lastContent !== content) return;
+      if (!this.ownsStoreState) return;
+      if (out.diagnostics.length === 0) return;
+      const merged = {
+        ...ir,
+        diagnostics: [...ir.diagnostics, ...out.diagnostics],
+      };
+      useGhaWorkflowPanelStore.getState().setWorkflow(merged);
+    } catch {
+      // Silent — actionlint is optional.
     }
   }
 

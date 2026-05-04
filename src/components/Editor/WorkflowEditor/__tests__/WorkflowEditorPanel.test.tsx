@@ -7,7 +7,7 @@
 //   - Renders StepForm when a step is selected.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
@@ -127,6 +127,47 @@ describe("WorkflowEditorPanel", () => {
       />,
     );
     expect(container.firstChild).toBeNull();
+  });
+
+  it("Discard remounts the active form so mid-edit useState values reset (audit fix for WI-7.2)", () => {
+    useWorkflowViewStore.getState().selectJob("build");
+    let discardCalled = false;
+    const view = render(
+      <WorkflowEditorPanel
+        workflow={makeWorkflow()}
+        onSave={async () => {}}
+        onDiscard={() => {
+          discardCalled = true;
+        }}
+      />,
+    );
+    // Type into the name input without blurring (no patch queued).
+    let nameInput = screen.getByLabelText(/^name/i) as HTMLInputElement;
+    fireEvent.change(nameInput, {
+      target: { value: "TYPED-BUT-UNCOMMITTED" },
+    });
+    expect(nameInput.value).toBe("TYPED-BUT-UNCOMMITTED");
+    // Queue a patch so the Discard button is enabled.
+    useWorkflowEditStore.getState().queuePatch({
+      kind: "workflow.set",
+      path: "name",
+      value: "x",
+    });
+    view.rerender(
+      <WorkflowEditorPanel
+        workflow={makeWorkflow()}
+        onSave={async () => {}}
+        onDiscard={() => {
+          discardCalled = true;
+        }}
+      />,
+    );
+    // Click Discard.
+    fireEvent.click(screen.getByRole("button", { name: /discard/i }));
+    // The form has remounted from the IR; the typed value is gone.
+    nameInput = screen.getByLabelText(/^name/i) as HTMLInputElement;
+    expect(nameInput.value).toBe("Build");
+    expect(discardCalled).toBe(true);
   });
 
   it("clears form-local edit state when selection switches to another job", () => {

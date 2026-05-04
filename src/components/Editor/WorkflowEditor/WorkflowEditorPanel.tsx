@@ -19,7 +19,7 @@
  * @module components/Editor/WorkflowEditor/WorkflowEditorPanel
  */
 
-import { type ReactElement } from "react";
+import { useCallback, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
@@ -44,6 +44,18 @@ export function WorkflowEditorPanel({
   const { t } = useTranslation("workflowEditor");
   const selectedJobId = useWorkflowViewStore((s) => s.selectedJobId);
   const selectedStepId = useWorkflowViewStore((s) => s.selectedStepId);
+  // Form-generation counter — bumped on Discard so the JobForm /
+  // StepForm remount, dropping any locally-typed-but-uncommitted
+  // `useState` values. Without this, "Discard" cleared the patch queue
+  // (via SaveControls.handleDiscard → clearPatches) but the visible
+  // form fields still showed the user's mid-edit text (impact-analyst
+  // audit finding for WI-7.2).
+  const [formGen, setFormGen] = useState(0);
+
+  const handleDiscard = useCallback((): void => {
+    setFormGen((n) => n + 1);
+    onDiscard();
+  }, [onDiscard]);
 
   if (!workflow) return null;
 
@@ -60,21 +72,26 @@ export function WorkflowEditorPanel({
 
   return (
     <div className="workflow-editor-panel">
-      <SaveControls onSave={onSave} onDiscard={onDiscard} />
+      <SaveControls onSave={onSave} onDiscard={handleDiscard} />
       <DiagnosticsBanner diagnostics={workflow.diagnostics} />
       <TriggerForm triggers={workflow.triggers} />
       {selectedStep && selectedJob ? (
         // key forces remount when selection switches so useState seeded
         // from the IR resets cleanly. Without this, switching jobs/steps
         // shows stale field values from the previously-selected entity.
+        // The formGen suffix bumps on Discard for the same reason
+        // applied to mid-edit fields.
         <StepForm
-          key={`${selectedJob.id}::${selectedStep.id}`}
+          key={`${selectedJob.id}::${selectedStep.id}::${formGen}`}
           jobId={selectedJob.id}
           stepIndex={selectedStepIndex}
           step={selectedStep}
         />
       ) : selectedJob ? (
-        <JobForm key={selectedJob.id} job={selectedJob} />
+        <JobForm
+          key={`${selectedJob.id}::${formGen}`}
+          job={selectedJob}
+        />
       ) : (
         <div className="workflow-editor-panel__empty">
           {t("form.empty.selectJob")}

@@ -55,6 +55,14 @@ export function ExpressionEditor({
   const { t } = useTranslation("workflowEditor");
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // Capture initialValue + language as refs so the mount effect doesn't
+  // depend on them and rebuild the editor on parent re-renders. Without
+  // this, every re-render of the parent (e.g., when the form's blur
+  // commits a patch and the workflowEditStore notifies subscribers)
+  // tore down the CodeMirror instance, losing cursor position and undo
+  // history (cross-validator audit finding).
+  const initialValueRef = useRef(initialValue);
+  const languageRef = useRef(language);
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -64,10 +72,10 @@ export function ExpressionEditor({
       keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorView.lineWrapping,
     ];
-    if (language === "yaml") extensions.push(yaml());
+    if (languageRef.current === "yaml") extensions.push(yaml());
     const view = new EditorView({
       state: EditorState.create({
-        doc: initialValue,
+        doc: initialValueRef.current,
         extensions,
       }),
       parent: hostRef.current,
@@ -78,7 +86,13 @@ export function ExpressionEditor({
       view.destroy();
       viewRef.current = null;
     };
-  }, [language, initialValue]);
+    // Mount-once: deliberately exclude initialValue + language so the
+    // editor is not rebuilt on prop reference churn. The modal lifecycle
+    // (open → edit → save/cancel → unmount) means a new modal mount
+    // means a new component instance, which is the correct re-init
+    // signal.
+     
+  }, []);
 
   const handleSave = (): void => {
     const view = viewRef.current;

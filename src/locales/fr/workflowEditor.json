@@ -103,5 +103,11 @@
   "panel.noWorkflow": "No workflow detected",
   "panel.conditional": "conditional",
   "panel.shell.resize": "Resize panes",
-  "panel.viewerAriaLabel": "GitHub Actions workflow viewer"
+  "panel.viewerAriaLabel": "GitHub Actions workflow viewer",
+  "panel.aria.stepCount_one": "1 step",
+  "panel.aria.stepCount_other": "{{count}} steps",
+  "save.dirtyHint_one": "1 unsaved",
+  "save.dirtyHint_other": "{{count}} unsaved",
+  "diagnosticsBanner.showAll_one": "Show 1",
+  "diagnosticsBanner.showAll_other": "Show all {{count}}"
 }

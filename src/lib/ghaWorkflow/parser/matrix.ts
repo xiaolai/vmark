@@ -101,19 +101,28 @@ export interface ExpandMatrixResult {
 
 /**
  * Expand a MatrixIR into the concrete combination list per plan §4.3:
- *   1. Cartesian product of `dimensions` axes.
+ *   1. Cartesian product of `dimensions` axes (including partially-
+ *      dynamic matrices: any statically-known dimensions still expand,
+ *      with `dynamic=true` flagged so the UI shows the badge).
  *   2. `include` entries: extend matching combo OR append as new.
  *   3. `exclude` entries: remove matching combos (applied AFTER include).
  *   4. Hard cap at 256 combinations with GHA-MATRIX-001.
- *   5. Dynamic matrices return empty combinations + dynamic=true.
+ *   5. Fully-dynamic matrices (zero static dims and dynamic flag set)
+ *      return empty combinations + dynamic=true.
+ *
+ * Audit note: partially-dynamic matrices used to short-circuit the
+ * cartesian product entirely whenever the `dynamic` flag was set,
+ * losing information about the static axes. Now we expand whatever
+ * static dimensions exist and report `dynamic=true` so the JobNode
+ * badge shows "×N (dynamic)" rather than just "dynamic".
  */
 export function expandMatrix(matrix: MatrixIR): ExpandMatrixResult {
   const diagnostics: Diagnostic[] = [];
-  if (matrix.dynamic) {
-    return { combinations: [], dynamic: true, diagnostics };
-  }
 
   const dims = Object.entries(matrix.dimensions);
+  if (matrix.dynamic && dims.length === 0) {
+    return { combinations: [], dynamic: true, diagnostics };
+  }
   if (dims.length === 0 && !matrix.include?.length) {
     return { combinations: [], dynamic: false, diagnostics };
   }
@@ -160,7 +169,13 @@ export function expandMatrix(matrix: MatrixIR): ExpandMatrixResult {
     combos = combos.slice(0, MAX_COMBINATIONS);
   }
 
-  return { combinations: combos, dynamic: false, diagnostics };
+  // Carry the partial-dynamic flag through. The UI uses this to render
+  // "×N dynamic" rather than dropping to the bare "dynamic" badge.
+  return {
+    combinations: combos,
+    dynamic: matrix.dynamic === true,
+    diagnostics,
+  };
 }
 
 /**
