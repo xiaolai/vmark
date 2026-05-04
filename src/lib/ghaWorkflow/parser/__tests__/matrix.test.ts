@@ -153,4 +153,63 @@ describe("expandMatrix", () => {
     expect(r.combinations).toEqual([]);
     expect(r.diagnostics).toEqual([]);
   });
+
+  it("handles object-shaped matrix dimension values (deepEqual paths)", () => {
+    const r = expandMatrix(
+      mat({
+        dimensions: {
+          config: [
+            { name: "small", cpu: 1 },
+            { name: "large", cpu: 4 },
+          ] as never,
+        },
+        exclude: [{ config: { name: "large", cpu: 4 } } as never],
+      }),
+    );
+    expect(r.combinations).toHaveLength(1);
+  });
+
+  it("handles array-shaped matrix dimension values", () => {
+    const r = expandMatrix(
+      mat({
+        dimensions: { tags: [["a", "b"], ["c", "d"]] as never },
+        exclude: [{ tags: ["a", "b"] } as never],
+      }),
+    );
+    expect(r.combinations).toHaveLength(1);
+  });
+
+  it("handles deepEqual mismatch on object key sets", () => {
+    // Different number of keys → not equal.
+    const r = expandMatrix(
+      mat({
+        dimensions: { config: [{ a: 1, b: 2 }] as never },
+        exclude: [{ config: { a: 1 } } as never],
+      }),
+    );
+    expect(r.combinations).toHaveLength(1);
+  });
+});
+
+describe("parseMatrix edge cases", () => {
+  it("returns empty for null/undefined raw", () => {
+    expect(parseMatrix(undefined).value).toBeUndefined();
+    expect(parseMatrix(null).value).toBeUndefined();
+  });
+
+  it("returns empty for non-object non-string raw", () => {
+    expect(parseMatrix(42).value).toBeUndefined();
+    expect(parseMatrix(true).value).toBeUndefined();
+    expect(parseMatrix(["a", "b"]).value).toBeUndefined();
+  });
+
+  it("ignores non-array include/exclude values", () => {
+    const r = parseMatrix({
+      os: ["a"],
+      include: "not-an-array",
+      exclude: { also: "wrong" },
+    });
+    expect(r.value?.include).toBeUndefined();
+    expect(r.value?.exclude).toBeUndefined();
+  });
 });
