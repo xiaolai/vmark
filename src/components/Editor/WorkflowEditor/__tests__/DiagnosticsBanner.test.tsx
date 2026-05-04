@@ -221,3 +221,87 @@ describe("DiagnosticsBanner — interaction", () => {
     expect(screen.getAllByRole("listitem").length).toBe(8);
   });
 });
+
+describe("DiagnosticsBanner — per-row collapse", () => {
+  it("clicking a row's chevron hides that row's message but keeps the code", () => {
+    render(
+      <DiagnosticsBanner
+        diagnostics={[
+          makeDiag({ message: "first message" }),
+          makeDiag({ message: "second message" }),
+        ]}
+      />,
+    );
+    expect(screen.getByText("first message")).toBeTruthy();
+    expect(screen.getByText("second message")).toBeTruthy();
+
+    // Click the first row's chevron only.
+    const chevrons = screen
+      .getAllByRole("button")
+      .filter((b) =>
+        b.className.includes("workflow-diagnostics-banner__chevron"),
+      );
+    expect(chevrons.length).toBeGreaterThan(0);
+    fireEvent.click(chevrons[0]);
+
+    // First row's message gone; the code stays.
+    expect(screen.queryByText("first message")).toBeNull();
+    expect(screen.getByText("second message")).toBeTruthy();
+    expect(screen.getAllByText(/GHA-STEP-003/).length).toBeGreaterThan(0);
+
+    // Click again to expand.
+    fireEvent.click(chevrons[0]);
+    expect(screen.getByText("first message")).toBeTruthy();
+  });
+
+  it("Collapse all / Expand all toggles every visible row", () => {
+    render(
+      <DiagnosticsBanner
+        diagnostics={[
+          makeDiag({ message: "alpha" }),
+          makeDiag({ message: "beta" }),
+          makeDiag({ message: "gamma" }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /collapse all/i }));
+    expect(screen.queryByText("alpha")).toBeNull();
+    expect(screen.queryByText("beta")).toBeNull();
+    expect(screen.queryByText("gamma")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /expand all/i }));
+    expect(screen.getByText("alpha")).toBeTruthy();
+    expect(screen.getByText("beta")).toBeTruthy();
+    expect(screen.getByText("gamma")).toBeTruthy();
+  });
+
+  it("chevron click does NOT trigger the row's jump action", () => {
+    const view = {
+      state: { doc: { lines: 5, line: () => ({ from: 10, to: 20 }) } },
+      dispatch: vi.fn(),
+      focus: vi.fn(),
+      dom: { isConnected: true },
+    };
+    useActiveEditorStore.setState({
+      activeWysiwygEditor: null,
+      activeSourceView: view as never,
+    });
+    render(
+      <DiagnosticsBanner
+        diagnostics={[
+          makeDiag({
+            position: { startLine: 3, startCol: 1, endLine: 3, endCol: 5 },
+          }),
+        ]}
+      />,
+    );
+    const chevron = screen
+      .getAllByRole("button")
+      .find((b) =>
+        b.className.includes("workflow-diagnostics-banner__chevron"),
+      )!;
+    fireEvent.click(chevron);
+    // Chevron click must NOT have dispatched the source-jump scroll.
+    expect(view.dispatch).not.toHaveBeenCalled();
+  });
+});

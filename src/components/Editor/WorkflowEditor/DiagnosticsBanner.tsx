@@ -4,15 +4,17 @@
  *   `workflow.diagnostics[]` but nothing else surfaces them, so users
  *   never see why a workflow flagged. This banner makes them visible.
  *
- *   Each row shows the severity icon, the GHA-* stable code, and the
- *   message. Click handling routes by what context the diagnostic
- *   carries (priority order):
+ *   Each row shows a collapse/expand chevron, the severity icon, the
+ *   GHA-* stable code, and the message. The chevron toggles the
+ *   message visibility per-row (default expanded). Click on the row
+ *   message routes by what context the diagnostic carries (priority
+ *   order):
  *
  *     1. `position` → scroll the active CodeMirror Source view to the
  *        offending line, place the caret at the start of that line.
  *     2. `context.jobId` → select that job in `workflowViewStore` so
  *        the form below the canvas opens to the offending entity.
- *     3. Neither → render as a static row (no button).
+ *     3. Neither → render as a static row (no jump action).
  *
  *   Position-based jumps win because they're more precise; selection
  *   surfaces only the job, but position drops the caret on the exact
@@ -32,8 +34,9 @@
  * @module components/Editor/WorkflowEditor/DiagnosticsBanner
  */
 
-import { useState, type ReactElement } from "react";
+import { useState, type MouseEvent, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import type { Diagnostic, Severity } from "@/lib/ghaWorkflow/types";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
@@ -92,6 +95,15 @@ export function DiagnosticsBanner({
 }: DiagnosticsBannerProps): ReactElement | null {
   const { t } = useTranslation("workflowEditor");
   const [expanded, setExpanded] = useState(false);
+  /**
+   * Per-row collapse state. Stored as the SET of collapsed row keys
+   * (default Set is empty → every row starts expanded). Keyed on
+   * `${code}::${index}` so re-orderings don't accidentally re-collapse
+   * an unrelated row.
+   */
+  const [collapsedRows, setCollapsedRows] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   if (diagnostics.length === 0) return null;
 
@@ -104,37 +116,71 @@ export function DiagnosticsBanner({
       ? sorted
       : sorted.slice(0, COLLAPSE_THRESHOLD);
 
+  const toggleRow = (key: string) => {
+    setCollapsedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const collapseAll = () => {
+    const all = new Set<string>();
+    visible.forEach((d, i) => all.add(`${d.code}::${i}`));
+    setCollapsedRows(all);
+  };
+  const expandAll = () => setCollapsedRows(new Set());
+
+  const allCollapsed =
+    visible.length > 0 &&
+    visible.every((d, i) => collapsedRows.has(`${d.code}::${i}`));
+
   return (
     <section
       className="workflow-diagnostics-banner"
       aria-label={t("diagnosticsBanner.title")}
     >
+      <header className="workflow-diagnostics-banner__header">
+        <span className="workflow-diagnostics-banner__title">
+          {t("diagnosticsBanner.title", { defaultValue: "Diagnostics" })}{" "}
+          <span className="workflow-diagnostics-banner__count">
+            ({sorted.length})
+          </span>
+        </span>
+        <button
+          type="button"
+          className="workflow-diagnostics-banner__bulk"
+          onClick={allCollapsed ? expandAll : collapseAll}
+          aria-label={
+            allCollapsed
+              ? t("diagnosticsBanner.expandAll", {
+                  defaultValue: "Expand all",
+                })
+              : t("diagnosticsBanner.collapseAll", {
+                  defaultValue: "Collapse all",
+                })
+          }
+        >
+          {allCollapsed
+            ? t("diagnosticsBanner.expandAll", { defaultValue: "Expand all" })
+            : t("diagnosticsBanner.collapseAll", {
+                defaultValue: "Collapse all",
+              })}
+        </button>
+      </header>
       <ul className="workflow-diagnostics-banner__list">
         {visible.map((diag, idx) => {
+          const rowKey = `${diag.code}::${idx}`;
+          const rowCollapsed = collapsedRows.has(rowKey);
           const jobId =
             typeof diag.context?.jobId === "string"
               ? diag.context.jobId
               : null;
           const hasPosition = !!diag.position;
           const isInteractive = hasPosition || jobId !== null;
-          const content = (
-            <>
-              <span
-                className={`workflow-diagnostics-banner__icon workflow-diagnostics-banner__icon--${diag.severity}`}
-                aria-hidden
-              >
-                {SEVERITY_ICON[diag.severity]}
-              </span>
-              <code className="workflow-diagnostics-banner__code">
-                {diag.code}
-              </code>
-              <span className="workflow-diagnostics-banner__message">
-                {diag.message}
-              </span>
-            </>
-          );
 
-          const onClick = (): void => {
+          const onMessageClick = (): void => {
             // Position takes priority — it's more precise than job-level
             // selection. Falls through to selection if no source view
             // is active (e.g. WYSIWYG mode with the panel open).
@@ -152,31 +198,82 @@ export function DiagnosticsBanner({
             }
           };
 
+          const onChevronClick = (e: MouseEvent<HTMLButtonElement>): void => {
+            e.stopPropagation();
+            toggleRow(rowKey);
+          };
+
+          const messageNode = (
+            <span className="workflow-diagnostics-banner__message">
+              {diag.message}
+            </span>
+          );
+
           return (
             <li
-              key={idx}
+              key={rowKey}
               className={`workflow-diagnostics-banner__row workflow-diagnostics-banner__row--${diag.severity}`}
             >
-              {isInteractive ? (
-                <button
-                  type="button"
-                  className="workflow-diagnostics-banner__row-button"
-                  onClick={onClick}
-                  title={
-                    hasPosition
-                      ? t("diagnosticsBanner.jumpToLine", {
-                          line: diag.position!.startLine,
-                        })
-                      : undefined
-                  }
-                >
-                  {content}
-                </button>
-              ) : (
-                <span className="workflow-diagnostics-banner__row-static">
-                  {content}
-                </span>
-              )}
+              <button
+                type="button"
+                className="workflow-diagnostics-banner__chevron"
+                onClick={onChevronClick}
+                aria-expanded={!rowCollapsed}
+                aria-label={
+                  rowCollapsed
+                    ? t("diagnosticsBanner.expandRow", {
+                        defaultValue: "Show details",
+                      })
+                    : t("diagnosticsBanner.collapseRow", {
+                        defaultValue: "Hide details",
+                      })
+                }
+                title={
+                  rowCollapsed
+                    ? t("diagnosticsBanner.expandRow", {
+                        defaultValue: "Show details",
+                      })
+                    : t("diagnosticsBanner.collapseRow", {
+                        defaultValue: "Hide details",
+                      })
+                }
+              >
+                {rowCollapsed ? (
+                  <ChevronRight size={12} />
+                ) : (
+                  <ChevronDown size={12} />
+                )}
+              </button>
+              <span
+                className={`workflow-diagnostics-banner__icon workflow-diagnostics-banner__icon--${diag.severity}`}
+                aria-hidden
+              >
+                {SEVERITY_ICON[diag.severity]}
+              </span>
+              <code className="workflow-diagnostics-banner__code">
+                {diag.code}
+              </code>
+              {!rowCollapsed &&
+                (isInteractive ? (
+                  <button
+                    type="button"
+                    className="workflow-diagnostics-banner__row-button"
+                    onClick={onMessageClick}
+                    title={
+                      hasPosition
+                        ? t("diagnosticsBanner.jumpToLine", {
+                            line: diag.position!.startLine,
+                          })
+                        : undefined
+                    }
+                  >
+                    {messageNode}
+                  </button>
+                ) : (
+                  <span className="workflow-diagnostics-banner__row-static">
+                    {messageNode}
+                  </span>
+                ))}
             </li>
           );
         })}

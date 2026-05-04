@@ -396,6 +396,72 @@
 
 .workflow-diagnostics-banner__row {
   display: flex;
+  align-items: baseline;
+  gap: var(--space-half);
+}
+
+/* Header with title + collapse-all bulk action. */
+.workflow-diagnostics-banner__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0 var(--space-1);
+}
+
+.workflow-diagnostics-banner__title {
+  font-size: var(--font-size-xs);
+}
+
+.workflow-diagnostics-banner__count {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.workflow-diagnostics-banner__bulk {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  padding: var(--space-half) var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-diagnostics-banner__bulk:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+/* Per-row chevron — toggles message visibility for that row. */
+.workflow-diagnostics-banner__chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-diagnostics-banner__chevron:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-diagnostics-banner__chevron:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
 }
 
 .workflow-diagnostics-banner__row-button,

@@ -124,9 +124,13 @@
   "expression.title.if": "Edit if",
   "expression.title.run": "Edit run",
 
-  "diagnosticsBanner.title": "Workflow diagnostics",
+  "diagnosticsBanner.title": "Diagnostics",
   "diagnosticsBanner.showAll": "Show all {{count}}",
   "diagnosticsBanner.showAll_one": "Show 1",
   "diagnosticsBanner.showAll_other": "Show all {{count}}",
-  "diagnosticsBanner.jumpToLine": "Jump to line {{line}}"
+  "diagnosticsBanner.jumpToLine": "Jump to line {{line}}",
+  "diagnosticsBanner.expandRow": "Show details",
+  "diagnosticsBanner.collapseRow": "Hide details",
+  "diagnosticsBanner.expandAll": "Expand all",
+  "diagnosticsBanner.collapseAll": "Collapse all"
 }
