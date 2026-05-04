@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Frontend checks: lint, tests, build — platform-independent (jsdom + vite)
+  frontend-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Security audit
+        # pnpm 10 audit broken: npm retired legacy endpoint (410), bulk API lands in pnpm 11
+        # Track: https://github.com/pnpm/pnpm/issues/11265
+        continue-on-error: true
+        run: pnpm audit --audit-level=critical
+
+      - run: pnpm check:all
+
+  # Gate job: required by branch protection (exact name "frontend")
+  frontend:
+    if: always()
+    needs: [frontend-run]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check result
+        env:
+          RESULT: ${{ needs.frontend-run.result }}
+        run: |
+          if [ "$RESULT" != "success" ]; then
+            echo "frontend-run: $RESULT"
+            exit 1
+          fi
+
+  # Detect if Rust code changed — skip rust-test for frontend-only PRs
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'src-tauri/**'
+              - 'Cargo.lock'
+
+  rust-test:
+    needs: [changes]
+    if: needs.changes.outputs.rust == 'true' || github.event_name == 'push'
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-tauri-deps
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      - name: Create sidecar stub for Tauri build script
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            triple="x86_64-pc-windows-msvc"
+            ext=".exe"
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            triple="x86_64-unknown-linux-gnu"
+            ext=""
+          else
+            triple="aarch64-apple-darwin"
+            ext=""
+          fi
+          touch "src-tauri/binaries/vmark-mcp-server-${triple}${ext}"
+
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Security audit (Rust)
+        run: |
+          cargo install cargo-audit --quiet
+          cargo audit --file src-tauri/Cargo.lock

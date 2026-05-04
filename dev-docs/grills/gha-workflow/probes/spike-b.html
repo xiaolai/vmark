@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Spike B — html-to-image + @xyflow/react</title>
+    <style>
+      :root {
+        --bg-color: #eeeded;
+        --text-color: #1a1a1a;
+        --border-color: #d5d4d4;
+        --accent-bg: rgba(0, 102, 204, 0.1);
+      }
+      .dark-theme {
+        --bg-color: #1e1e1e;
+        --text-color: #e0e0e0;
+        --border-color: #404040;
+        --accent-bg: rgba(88, 166, 255, 0.15);
+      }
+      html, body, #root { height: 100%; margin: 0; }
+      body { background: var(--bg-color); color: var(--text-color); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/spike-b-app.tsx"></script>
+  </body>
+</html>

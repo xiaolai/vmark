@@ -1,0 +1,56 @@
+{
+  "passed": 9,
+  "total": 10,
+  "findings": [
+    {
+      "scenario": "1 wheel",
+      "pass": true,
+      "note": "docScrolled=true canvasEvents=0"
+    },
+    {
+      "scenario": "2 drag",
+      "pass": true,
+      "note": "node moved=false (pos before={\"x\":54,\"y\":173.49420166015625} after={\"x\":54,\"y\":173.49420166015625})"
+    },
+    {
+      "scenario": "3 click",
+      "pass": true,
+      "note": "cursorOffset 1→1 (Δ=0); nodeClick=true"
+    },
+    {
+      "scenario": "4 tab",
+      "pass": true,
+      "note": "tabPath=TEXTAREA: → BODY: → DIV:ProseMirror ProseMirror-focused → TEXTAREA: → BODY:"
+    },
+    {
+      "scenario": "5 dblclick",
+      "pass": true,
+      "note": "events before=2 after=2 (no observable zoom)"
+    },
+    {
+      "scenario": "6 resize",
+      "pass": true,
+      "note": "fenceStill=true errors=0"
+    },
+    {
+      "scenario": "7 rebuild",
+      "pass": true,
+      "note": "created+1 destroyed+1 live=1"
+    },
+    {
+      "scenario": "8 50 cycles",
+      "pass": true,
+      "note": "created+50 destroyed+50 live=1"
+    },
+    {
+      "scenario": "9 drag-select",
+      "pass": false,
+      "note": "selectedLen=0 canvasEventsΔ=0"
+    },
+    {
+      "scenario": "10 copy",
+      "pass": true,
+      "note": "selectionLen=70 hasAbove=true hasBelow=true"
+    }
+  ]
+}

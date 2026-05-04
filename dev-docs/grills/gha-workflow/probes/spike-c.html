@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Spike C — ProseMirror + static @xyflow/react</title>
+    <style>
+      :root {
+        --bg-color: #fff;
+        --text-color: #1a1a1a;
+        --border-color: #d5d4d4;
+      }
+      body {
+        font-family: -apple-system, sans-serif;
+        max-width: var(--editor-width);
+        margin: var(--space-6) auto;
+        padding: var(--list-indent);
+      }
+      .ProseMirror {
+        outline: var(--space-px) dashed #888;
+        padding: var(--spacing-3);
+        min-height: 600px;
+        font-size: var(--space-3-5);
+        line-height: 1.6;
+      }
+      .ProseMirror p { margin: var(--radius-lg) 0; }
+      .workflow-fence {
+        height: 360px;
+        margin: var(--list-indent) 0;
+        border: var(--space-px) solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-color);
+        position: relative;
+      }
+      .workflow-fence-fallback {
+        white-space: pre;
+        padding: var(--spacing-3);
+        font-family: monospace;
+      }
+      input, button { font: inherit; padding: var(--radius-sm) var(--radius-lg); margin: 0 var(--radius-sm); }
+    </style>
+  </head>
+  <body>
+    <h1>Spike C harness</h1>
+    <p id="status" style="font-family: monospace; color: #555;">idle</p>
+    <div id="editor"></div>
+    <div style="height: 1500px; background: linear-gradient(#fafafa, #efefef); margin-top: var(--space-6); padding: var(--radius-lg); color: var(--text-secondary);">filler — ensures the page is scrollable for the wheel test</div>
+    <textarea id="log" style="width: 100%; height: var(--outline-width); font-family: monospace; font-size: var(--font-size-xs);"></textarea>
+    <script type="module" src="/spike-c-app.tsx"></script>
+  </body>
+</html>

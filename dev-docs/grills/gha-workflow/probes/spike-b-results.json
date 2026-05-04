@@ -1,0 +1,35 @@
+{
+  "done": true,
+  "results": {
+    "light": {
+      "svg": {
+        "ms": 47.7,
+        "bytes": 860635,
+        "head": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%221200%22%20height%3D%22800%22%20viewBox%3D%220%200%201200%20800%22%3E%3CforeignObject%20width%3",
+        "valid": true
+      },
+      "png": {
+        "ms": 74.3,
+        "bytes": 196414,
+        "head": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAACWAAAAZACAYAAAD9qXmxAAAQAElEQVR4AezdB5wkRb048FoyCIIoT1EyPAQJCggKCuJTomQQAQUBQQEREAT1yIIoKBIkKEnCI4PEh4iSfYLA34Q8RfAECYpwgXzHhf1X9d0se3e7tzO7E7prvvfZ7unprq",
+        "valid": true
+      }
+    },
+    "dark": {
+      "svg": {
+        "ms": 44.5,
+        "bytes": 863419,
+        "head": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%221200%22%20height%3D%22800%22%20viewBox%3D%220%200%201200%20800%22%3E%3CforeignObject%20width%3",
+        "valid": true
+      },
+      "png": {
+        "ms": 59.3,
+        "bytes": 197026,
+        "head": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAACWAAAAZACAYAAAD9qXmxAAAQAElEQVR4AezdB5wkRb048NrjDg4kiohkENSnyDOAPARFBASJkpNKEgUUxACIgAJKFhWeRIkSBEQkigQJ/lXMPCQJEiVnSXLEu39V382yd7d7O7M7obv6e5/tmZ6e6ur6fW",
+        "valid": true
+      }
+    },
+    "cssVarsResolved": true,
+    "nodeCount": 20
+  }
+}
