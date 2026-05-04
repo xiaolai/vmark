@@ -644,6 +644,7 @@ pub fn run() {
             workflow::commands::run_workflow,
             workflow::commands::cancel_workflow,
             gha_workflow::commands::gha_lint,
+            gha_workflow::commands::gha_fetch_action_yml,
             ai_provider::detect_ai_providers,
             ai_provider::run_ai_prompt,
             ai_provider::read_env_api_keys,
