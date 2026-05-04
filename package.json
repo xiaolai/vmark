@@ -110,6 +110,7 @@
     "unist-util-visit": "^5.1.0",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-languageserver-types": "^3.17.5",
+    "yaml": "2.8.4",
     "zustand": "^5.0.10"
   },
   "pnpm": {
