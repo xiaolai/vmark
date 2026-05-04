@@ -176,7 +176,71 @@ phase_1() {
   echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
 }
 
-# ─── Phases 2-9: stubs (each phase fills in its own assertions) ──────────
+# ─── Phase 8 ─────────────────────────────────────────────────────────────
+phase_8() {
+  echo "Phase 8 — CST round-trip"
+
+  # WI-8.1 — CST parser
+  assert_file "src/lib/ghaWorkflow/save/cstParser.ts"                  "WI-8.1 CST parser"
+  assert_file "src/lib/ghaWorkflow/save/__tests__/cstParser.test.ts"   "WI-8.1 CST parser tests"
+  assert_grep "WORKFLOW_YAML_STRINGIFY_OPTIONS" \
+    "src/lib/ghaWorkflow/save/cstParser.ts" "WI-8.1 stringify options exported"
+  assert_grep "semanticEqual" \
+    "src/lib/ghaWorkflow/save/cstParser.ts" "WI-8.1 semanticEqual exported"
+
+  # WI-8.2 — Mutators
+  assert_file "src/lib/ghaWorkflow/save/mutators.ts"                   "WI-8.2 mutators"
+  assert_file "src/lib/ghaWorkflow/save/__tests__/mutators.test.ts"    "WI-8.2 mutator tests"
+  for kind in workflow.set job.set step.set with.set with.remove needs.add needs.remove; do
+    if grep -q "\"$kind\"" "src/lib/ghaWorkflow/save/mutators.ts" 2>/dev/null; then
+      ok "WI-8.2 patch kind '$kind' wired"
+    else
+      fail "WI-8.2 patch kind '$kind' not in mutators.ts"
+    fi
+  done
+
+  # WI-8.3 — workflowEditStore + save pipeline
+  assert_file "src/stores/workflowEditStore.ts"                        "WI-8.3 edit store"
+  assert_file "src/stores/__tests__/workflowEditStore.test.ts"         "WI-8.3 edit store tests"
+  assert_grep "applyAndSerialize" \
+    "src/stores/workflowEditStore.ts" "WI-8.3 save pipeline exposed"
+  assert_grep "preserveYamlFormatting" \
+    "src/stores/workflowEditStore.ts" "WI-8.3 preserve-formatting toggle"
+
+  echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
+}
+
+# ─── Phase 7 ─────────────────────────────────────────────────────────────
+phase_7() {
+  echo "Phase 7 — Structured editor (forms)"
+
+  # WI-7.1 — JobForm, StepForm, TriggerForm
+  assert_dir "src/components/Editor/WorkflowEditor"                    "WI-7.1 forms directory"
+  assert_file "src/components/Editor/WorkflowEditor/JobForm.tsx"       "WI-7.1 JobForm"
+  assert_file "src/components/Editor/WorkflowEditor/StepForm.tsx"      "WI-7.1 StepForm"
+  assert_file "src/components/Editor/WorkflowEditor/TriggerForm.tsx"   "WI-7.1 TriggerForm"
+
+  # WI-7.2 — Edit pipeline (forms emit IRPatch via workflowEditStore)
+  assert_grep "useWorkflowEditStore" \
+    "src/components/Editor/WorkflowEditor/JobForm.tsx" "WI-7.2 JobForm uses edit store"
+
+  echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
+}
+
+# ─── Phase 9 ─────────────────────────────────────────────────────────────
+phase_9() {
+  echo "Phase 9 — Polish"
+
+  # Locale completion (en authoritative)
+  assert_file "src/locales/en/workflowEditor.json"     "Phase 9 en workflowEditor locale"
+
+  # Documentation
+  assert_file "website/guide/workflow-viewer.md"       "Phase 9 user-facing docs"
+
+  echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
+}
+
+# ─── Phases 2-6: stubs (each phase fills in its own assertions) ──────────
 phase_stub() {
   local n="$1"
   echo "Phase $n — stub (assertions will be added when Phase $n begins)"
@@ -187,7 +251,10 @@ phase_stub() {
 case "$PHASE" in
   0) phase_0 ;;
   1) phase_1 ;;
-  2|3|4|5|6|7|8|9) phase_stub "$PHASE" ;;
+  7) phase_7 ;;
+  8) phase_8 ;;
+  9) phase_9 ;;
+  2|3|4|5|6) phase_stub "$PHASE" ;;
   *) echo "unknown phase: $PHASE"; exit 64 ;;
 esac
 
