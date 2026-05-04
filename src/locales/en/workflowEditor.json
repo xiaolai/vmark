@@ -42,6 +42,12 @@
   "panel.matrix.collapse": "Collapse matrix",
   "panel.matrix.dynamic": "Dynamic matrix",
 
+  "panel.steps.expand": "Show {{count}} steps",
+  "panel.steps.expand_one": "Show 1 step",
+  "panel.steps.expand_other": "Show {{count}} steps",
+  "panel.steps.collapse": "Hide steps",
+  "panel.steps.listLabel": "Steps",
+
   "panel.reusableWorkflow.badge": "Reusable workflow",
   "panel.reusableWorkflow.viewSource": "View called workflow",
   "panel.reusableWorkflow.crossRepo": "View on GitHub",

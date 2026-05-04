@@ -112,7 +112,7 @@ describe("JobNode", () => {
     const node = makeNode();
     const spy = vi.spyOn(useWorkflowViewStore.getState(), "selectJob");
     render(<JobNode {...node} />);
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getAllByRole("button")[0]);
     // Note: spy may not capture if the store action is destructured
     // from a frozen snapshot — verify via state instead.
     expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
@@ -122,7 +122,7 @@ describe("JobNode", () => {
   it("activates the keyboard Enter handler", () => {
     const node = makeNode();
     render(<JobNode {...node} />);
-    const btn = screen.getByRole("button");
+    const btn = screen.getAllByRole("button")[0];
     btn.focus();
     fireEvent.keyDown(btn, { key: "Enter" });
     expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
@@ -132,7 +132,7 @@ describe("JobNode", () => {
     useWorkflowViewStore.getState().selectJob("build");
     const node = makeNode();
     render(<JobNode {...node} />);
-    expect(screen.getByRole("button").getAttribute("aria-pressed")).toBe(
+    expect(screen.getAllByRole("button")[0].getAttribute("aria-pressed")).toBe(
       "true",
     );
   });
@@ -141,7 +141,7 @@ describe("JobNode", () => {
     it("includes the job id when no name is set", () => {
       const node = makeNode();
       render(<JobNode {...node} />);
-      const label = screen.getByRole("button").getAttribute("aria-label");
+      const label = screen.getAllByRole("button")[0].getAttribute("aria-label");
       expect(label).toContain("build");
     });
 
@@ -151,7 +151,7 @@ describe("JobNode", () => {
         { name: "Build the App", runsOn: ["ubuntu-latest"] },
       );
       render(<JobNode {...node} />);
-      const label = screen.getByRole("button").getAttribute("aria-label");
+      const label = screen.getAllByRole("button")[0].getAttribute("aria-label");
       expect(label).toContain("Build the App");
       expect(label).toContain("ubuntu-latest");
     });
@@ -178,7 +178,7 @@ describe("JobNode", () => {
         },
       );
       render(<JobNode {...node} />);
-      const label = screen.getByRole("button").getAttribute("aria-label");
+      const label = screen.getAllByRole("button")[0].getAttribute("aria-label");
       expect(label).toContain("2 steps");
       expect(label).toContain("lint");
       expect(label).toContain("format");
@@ -187,8 +187,106 @@ describe("JobNode", () => {
     it("notes a conditional job in the summary", () => {
       const node = makeNode({}, { if: "github.event_name == 'push'" });
       render(<JobNode {...node} />);
-      const label = screen.getByRole("button").getAttribute("aria-label");
+      const label = screen.getAllByRole("button")[0].getAttribute("aria-label");
       expect(label).toContain("conditional");
+    });
+
+    it("expand chevron toggles the inline step list", () => {
+      const node = makeNode(
+        {},
+        {
+          steps: [
+            {
+              id: "checkout",
+              idSynthesized: false,
+              uses: "actions/checkout@v4",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+            {
+              id: "test",
+              idSynthesized: false,
+              run: "pnpm test",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+          ],
+        },
+      );
+      render(<JobNode {...node} />);
+      // Step list NOT shown by default.
+      expect(screen.queryByText(/actions\/checkout@v4/)).toBeNull();
+
+      const expandBtn = screen
+        .getAllByRole("button")
+        .find((b) => b.className.includes("gha-job-node__expand"));
+      expect(expandBtn).toBeTruthy();
+      fireEvent.click(expandBtn!);
+
+      expect(screen.getByText(/actions\/checkout@v4/)).toBeTruthy();
+      expect(screen.getByText(/pnpm test/)).toBeTruthy();
+
+      fireEvent.click(expandBtn!);
+      expect(screen.queryByText(/actions\/checkout@v4/)).toBeNull();
+    });
+
+    it("expand chevron does not select the job (stops propagation)", () => {
+      useWorkflowViewStore.setState({ selectedJobId: null });
+      const node = makeNode(
+        {},
+        {
+          steps: [
+            {
+              id: "x",
+              idSynthesized: false,
+              run: "echo",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+          ],
+        },
+      );
+      render(<JobNode {...node} />);
+      const expandBtn = screen
+        .getAllByRole("button")
+        .find((b) => b.className.includes("gha-job-node__expand"))!;
+      fireEvent.click(expandBtn);
+      expect(useWorkflowViewStore.getState().selectedJobId).toBeNull();
+    });
+
+    it("step preview prefers name, then uses, then run", () => {
+      const node = makeNode(
+        {},
+        {
+          steps: [
+            {
+              id: "s1",
+              idSynthesized: false,
+              name: "Install dependencies",
+              run: "pnpm install --frozen-lockfile",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+            {
+              id: "s2",
+              idSynthesized: false,
+              uses: "actions/setup-node@v4",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+            {
+              id: "s3",
+              idSynthesized: false,
+              run: "pnpm test",
+              position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+            },
+          ],
+        },
+      );
+      render(<JobNode {...node} />);
+      const expandBtn = screen
+        .getAllByRole("button")
+        .find((b) => b.className.includes("gha-job-node__expand"))!;
+      fireEvent.click(expandBtn);
+
+      expect(screen.getByText("Install dependencies")).toBeTruthy();
+      expect(screen.getByText(/actions\/setup-node@v4/)).toBeTruthy();
+      expect(screen.getByText(/pnpm test/)).toBeTruthy();
     });
   });
 
@@ -197,7 +295,7 @@ describe("JobNode", () => {
       useWorkflowViewStore.getState().selectJob("build");
       const node = makeNode();
       render(<JobNode {...node} />);
-      const btn = screen.getByRole("button");
+      const btn = screen.getAllByRole("button")[0];
       btn.focus();
       fireEvent.keyDown(btn, { key: "Escape" });
       expect(useWorkflowViewStore.getState().selectedJobId).toBeNull();

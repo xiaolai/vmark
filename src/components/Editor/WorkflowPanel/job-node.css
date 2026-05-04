@@ -121,6 +121,88 @@
 }
 
 .gha-job-node__steps {
-  margin-left: auto;
   color: var(--text-tertiary);
+}
+
+/* Expand chevron + count. Sits on the right of the footer; clicking
+   toggles the inline step list below. The chevron + label form one
+   button so users can hit either. */
+.gha-job-node__expand {
+  appearance: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-half);
+  padding: 0 var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.gha-job-node__expand:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.gha-job-node__expand:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
+}
+
+/* Inline step list shown when expanded. Compact monospace rows with
+   a small numeric prefix. Indent lines up with the runner text above. */
+.gha-job-node__steps-list {
+  list-style: none;
+  margin: var(--space-1) 0 0 0;
+  padding: var(--space-1) 0 0 0;
+  border-top: var(--space-px) solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  font-size: var(--font-size-xs);
+}
+
+.gha-job-node__step {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.gha-job-node__step-index {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  min-width: var(--space-3);
+  text-align: right;
+  font-size: var(--font-size-2xs);
+  flex-shrink: 0;
+}
+
+.gha-job-node__step-text {
+  color: var(--text-color);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.gha-job-node__step-text--uses {
+  color: var(--accent-primary);
+}
+
+.gha-job-node__step-text--run {
+  color: var(--text-color);
+}
+
+.gha-job-node__step-if {
+  width: var(--space-1-5);
+  height: var(--space-1-5);
+  border-radius: 50%;
+  background: var(--warning-color);
+  flex-shrink: 0;
 }

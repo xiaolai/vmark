@@ -1,8 +1,8 @@
 /**
  * Purpose: Custom @xyflow/react node for one GitHub Actions job.
- *   Renders job id/name, runner label, matrix badge, reusable badge,
- *   and an if-condition indicator dot. Click selects via the
- *   workflowViewStore (drives click-to-jump in the host panel).
+ *   Renders job id/name, runner label, matrix/reusable badges, an
+ *   if-condition indicator dot, and a step count + optional expand
+ *   toggle that reveals the per-step list inline.
  *
  * Key decisions:
  *   - Uses VMark CSS tokens — see .claude/rules/31-design-tokens.md.
@@ -12,15 +12,21 @@
  *   - Click handler routes through useWorkflowViewStore.getState() per
  *     AGENTS.md ("prefer useXStore.getState() inside callbacks") so
  *     this component doesn't re-render on every store change.
- *   - keyboard nav: Enter / Space activate selection so the canvas is
- *     reachable without a mouse (a11y per .claude/rules/33-focus-indicators.md).
+ *   - Outer container is `<div role="button">` rather than `<button>`
+ *     so the expand chevron (a real `<button>`) can nest legally.
+ *   - Step expand state is local. The xyflow snapshot captures the
+ *     collapsed view (state default false) — visual parity preserved.
+ *   - keyboard nav: Enter / Space activate selection; the chevron has
+ *     its own focus stop and Enter/Space toggles expand. Escape clears
+ *     selection (a11y per .claude/rules/33-focus-indicators.md).
  *
  * @module components/Editor/WorkflowPanel/JobNode
  */
 
+import { useState, type KeyboardEvent, type MouseEvent, type ReactElement } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
-import type { ReactElement } from "react";
-import type { JobIR } from "@/lib/ghaWorkflow/types";
+import { ChevronRight, ChevronDown } from "lucide-react";
+import type { JobIR, StepIR } from "@/lib/ghaWorkflow/types";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
@@ -34,6 +40,27 @@ import "./job-node.css";
 // node-types registry. Using NodeProps now makes that cast safe at the
 // integration boundary (cross-validator audit round 2 finding).
 type JobNodeProps = NodeProps<Node<JobNodeData>>;
+
+const STEP_PREVIEW_MAX_CHARS = 48;
+
+/**
+ * Compose a one-line preview for a step. Order: name > uses > run.
+ * Truncates long shell scripts to keep the node bounded.
+ */
+function stepPreview(step: StepIR): string {
+  if (step.name) return truncate(step.name);
+  if (step.uses) return `uses: ${truncate(step.uses)}`;
+  if (step.run) {
+    const firstLine = step.run.split("\n", 1)[0]?.trim() ?? "";
+    return `run: ${truncate(firstLine)}`;
+  }
+  return step.id;
+}
+
+function truncate(s: string): string {
+  if (s.length <= STEP_PREVIEW_MAX_CHARS) return s;
+  return s.slice(0, STEP_PREVIEW_MAX_CHARS - 1) + "…";
+}
 
 /**
  * Build a screen-reader summary of one job. Phase 9 a11y per the plan:
@@ -70,15 +97,18 @@ export function JobNode(props: JobNodeProps): ReactElement {
   const isSelected =
     useWorkflowViewStore((s) => s.selectedJobId) === job.id;
 
+  const [expanded, setExpanded] = useState(false);
+
   const label = job.name ?? job.id;
   const runner = job.runsOn?.join(" / ");
   const ariaLabel = buildJobAriaLabel(job, t);
+  const hasSteps = job.steps.length > 0;
 
   const onActivate = () => {
     useWorkflowViewStore.getState().selectJob(job.id);
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       onActivate();
@@ -99,10 +129,17 @@ export function JobNode(props: JobNodeProps): ReactElement {
     }
   };
 
+  const onToggleExpand = (e: MouseEvent<HTMLButtonElement>) => {
+    // Don't trigger the card's selection click.
+    e.stopPropagation();
+    setExpanded((v) => !v);
+  };
+
   return (
-    <button
-      type="button"
+    <div
       className="gha-job-node"
+      role="button"
+      tabIndex={0}
       data-selected={isSelected}
       aria-pressed={isSelected}
       aria-label={ariaLabel}
@@ -152,18 +189,70 @@ export function JobNode(props: JobNodeProps): ReactElement {
             ×{data.matrixCount}
           </span>
         )}
-        {job.steps.length > 0 && (
-          <span className="gha-job-node__steps">
-            {t("panel.aria.stepCount", { count: job.steps.length })}
-          </span>
+        {hasSteps && (
+          <button
+            type="button"
+            className="gha-job-node__expand"
+            onClick={onToggleExpand}
+            aria-expanded={expanded}
+            aria-label={
+              expanded
+                ? t("panel.steps.collapse", { defaultValue: "Hide steps" })
+                : t("panel.steps.expand", {
+                    defaultValue: "Show {{count}} steps",
+                    count: job.steps.length,
+                  })
+            }
+            title={
+              expanded
+                ? t("panel.steps.collapse", { defaultValue: "Hide steps" })
+                : t("panel.steps.expand", {
+                    defaultValue: "Show {{count}} steps",
+                    count: job.steps.length,
+                  })
+            }
+          >
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            <span className="gha-job-node__steps">
+              {t("panel.aria.stepCount", { count: job.steps.length })}
+            </span>
+          </button>
         )}
       </footer>
+      {expanded && hasSteps && (
+        <ol className="gha-job-node__steps-list" aria-label={t("panel.steps.listLabel", { defaultValue: "Steps" })}>
+          {job.steps.map((step, i) => (
+            <li key={step.id || `step-${i}`} className="gha-job-node__step">
+              <span className="gha-job-node__step-index">{i + 1}</span>
+              <span
+                className={
+                  step.uses
+                    ? "gha-job-node__step-text gha-job-node__step-text--uses"
+                    : step.run
+                      ? "gha-job-node__step-text gha-job-node__step-text--run"
+                      : "gha-job-node__step-text"
+                }
+                title={step.name ?? step.uses ?? step.run ?? step.id}
+              >
+                {stepPreview(step)}
+              </span>
+              {step.if && (
+                <span
+                  className="gha-job-node__step-if"
+                  title={`if: ${step.if}`}
+                  aria-label={t("panel.conditional")}
+                />
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
       <Handle
         type="source"
         position={Position.Bottom}
         isConnectable={false}
         className="gha-job-node__handle"
       />
-    </button>
+    </div>
   );
 }
