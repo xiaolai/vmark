@@ -1,95 +1,51 @@
-// WI-3.x — workflow inline preview tests.
-//
-// Tests the Mermaid-via-IR pipeline: parse YAML → IR → toMermaid →
-// renderMermaid (mocked). Pure logic; no DOM mounting.
+// WI-1.3 — workflow inline preview now uses renderXyflowSnapshot
+// (xyflow + html-to-image) instead of the legacy Mermaid pipeline.
+// Visual parity with the side-panel canvas is structural; this test
+// guards the wiring (renderXyflowSnapshot is called, sanitizeSvg is
+// applied to its output, the placeholder element gets the SVG).
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 
-const renderMermaidMock = vi.hoisted(() => vi.fn());
-vi.mock("@/plugins/mermaid", () => ({ renderMermaid: renderMermaidMock }));
+const snapshotMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/ghaWorkflow/render/renderXyflowSnapshot", () => ({
+  renderXyflowSnapshot: snapshotMock,
+}));
 
-import { workflowYamlToMermaid, updateWorkflowLivePreview } from "./renderWorkflowPreview";
-
-describe("workflowYamlToMermaid", () => {
-  it("returns a Mermaid flowchart string for a valid workflow", async () => {
-    const yaml = `name: ci
-on: push
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps: []
-  test:
-    runs-on: ubuntu-latest
-    needs: build
-    steps: []
-`;
-    const out = await workflowYamlToMermaid(yaml);
-    expect(out).toMatch(/^flowchart TD/m);
-    expect(out).toMatch(/build/);
-    expect(out).toMatch(/test/);
-    expect(out).toMatch(/build\s*-->\s*test/);
-  });
-
-  it("returns a placeholder Mermaid for empty/invalid yaml", async () => {
-    const out = await workflowYamlToMermaid("");
-    expect(out).toMatch(/^flowchart TD/m);
-    expect(out).toMatch(/empty|no jobs/i);
-  });
-
-  it("does not throw on malformed YAML", async () => {
-    await expect(workflowYamlToMermaid("not: ::: bad")).resolves.toBeDefined();
-  });
-});
+import { updateWorkflowLivePreview } from "./renderWorkflowPreview";
 
 describe("updateWorkflowLivePreview", () => {
   beforeEach(() => {
-    renderMermaidMock.mockReset();
+    snapshotMock.mockReset();
   });
 
-  it("invokes renderMermaid with the IR-derived Mermaid string", async () => {
-    renderMermaidMock.mockResolvedValue("<svg/>");
+  it("calls renderXyflowSnapshot with the workflow YAML", async () => {
+    snapshotMock.mockResolvedValue("<svg viewBox='0 0 100 100'/>");
+    const el = document.createElement("div");
+    const yaml =
+      "on: push\njobs:\n  a:\n    runs-on: x\n    steps: []";
+    await updateWorkflowLivePreview(el, yaml, 1, () => 1);
+    expect(snapshotMock).toHaveBeenCalledTimes(1);
+    expect(snapshotMock).toHaveBeenCalledWith(yaml);
+  });
+
+  it("renders the SVG into the element on success", async () => {
+    snapshotMock.mockResolvedValue("<svg id='ok'/>");
     const el = document.createElement("div");
     await updateWorkflowLivePreview(
       el,
-      `on: push
-jobs:
-  a:
-    runs-on: x
-    steps: []`,
-      1,
-      () => 1,
-    );
-    expect(renderMermaidMock).toHaveBeenCalledTimes(1);
-    const arg = renderMermaidMock.mock.calls[0][0];
-    expect(arg).toMatch(/flowchart/);
-  });
-
-  it("renders the SVG into the element", async () => {
-    renderMermaidMock.mockResolvedValue("<svg id='x'/>");
-    const el = document.createElement("div");
-    await updateWorkflowLivePreview(
-      el,
-      `on: push
-jobs:
-  a:
-    runs-on: x
-    steps: []`,
+      "on: push\njobs:\n  a:\n    runs-on: x\n    steps: []",
       1,
       () => 1,
     );
     expect(el.innerHTML).toContain("svg");
   });
 
-  it("renders an error placeholder when renderMermaid returns null", async () => {
-    renderMermaidMock.mockResolvedValue(null);
+  it("renders an error placeholder when the snapshot fails", async () => {
+    snapshotMock.mockResolvedValue(null);
     const el = document.createElement("div");
     await updateWorkflowLivePreview(
       el,
-      `on: push
-jobs:
-  a:
-    runs-on: x
-    steps: []`,
+      "on: push\njobs:\n  a:\n    runs-on: x\n    steps: []",
       1,
       () => 1,
     );
@@ -97,26 +53,34 @@ jobs:
   });
 
   it("aborts if the token has been bumped (stale render guard)", async () => {
-    renderMermaidMock.mockResolvedValue("<svg/>");
+    snapshotMock.mockResolvedValue("<svg/>");
     const el = document.createElement("div");
     let token = 1;
     await updateWorkflowLivePreview(
       el,
-      `on: push
-jobs:
-  a:
-    runs-on: x
-    steps: []`,
+      "on: push\njobs:\n  a:\n    runs-on: x\n    steps: []",
       1,
       () => {
         token = 2;
         return token;
       },
     );
-    // Stale guard ran AFTER renderMermaid resolved; element should NOT
+    // Stale guard ran AFTER snapshotMock resolved; element should NOT
     // have been updated.
     expect(el.innerHTML).toBe("");
   });
-});
 
-import { beforeEach } from "vitest";
+  it("returns null on snapshot exceptions without throwing into ProseMirror", async () => {
+    snapshotMock.mockRejectedValue(new Error("boom"));
+    const el = document.createElement("div");
+    await expect(
+      updateWorkflowLivePreview(
+        el,
+        "on: push\njobs:\n  a:\n    runs-on: x\n    steps: []",
+        1,
+        () => 1,
+      ),
+    ).resolves.toBeUndefined();
+    expect(el.innerHTML).toMatch(/invalid|failed|error/i);
+  });
+});

@@ -70,6 +70,10 @@ module.exports = {
           "src/utils/yamlOpenRouting",
           // CJK formatter (reads settings for formatting rules)
           "src/lib/cjkFormatter/",
+          // Workflow snapshot renderer (mounts the same JobNode the
+          // side panel uses — visual parity is the WHOLE point per
+          // dev-docs/plans/20260504-workflow-fence-snapshot.md ADR-1)
+          "src/lib/ghaWorkflow/render/snapshotRoot",
         ],
       },
       to: { path: "^src/(plugins|components|stores)/" },

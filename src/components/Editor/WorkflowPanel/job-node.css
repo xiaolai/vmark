@@ -1,5 +1,13 @@
 /* WI-2.3 — JobNode visual styles. Uses VMark design tokens; never hardcode. */
 
+/* xyflow Handle dots — kept for structural edge routing but hidden
+   visually. Without Handles xyflow can't render edges between jobs;
+   showing the default blue dots would clash with the JobNode look. */
+.gha-job-node__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .gha-job-node {
   /* Component-internal one-off dimensions per
      .claude/rules/31-design-tokens.md ("define a local CSS var on the

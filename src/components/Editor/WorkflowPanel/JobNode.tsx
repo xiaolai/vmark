@@ -18,7 +18,7 @@
  * @module components/Editor/WorkflowPanel/JobNode
  */
 
-import type { NodeProps, Node } from "@xyflow/react";
+import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import type { ReactElement } from "react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
@@ -109,6 +109,18 @@ export function JobNode(props: JobNodeProps): ReactElement {
       onClick={onActivate}
       onKeyDown={onKeyDown}
     >
+      {/* Edge attachment points. Without these, xyflow has nowhere to
+          route edges from the toGraph IR, and the dependency arrows
+          between jobs disappear. Hidden visually via CSS — they're
+          structural only. Layout direction is TD so target is top,
+          source is bottom; LR mode re-uses these and just rotates
+          edges, which xyflow handles internally. */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        isConnectable={false}
+        className="gha-job-node__handle"
+      />
       <header className="gha-job-node__header">
         <span className="gha-job-node__title">{label}</span>
         {job.if && (
@@ -146,6 +158,12 @@ export function JobNode(props: JobNodeProps): ReactElement {
           </span>
         )}
       </footer>
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        isConnectable={false}
+        className="gha-job-node__handle"
+      />
     </button>
   );
 }

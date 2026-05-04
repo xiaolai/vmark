@@ -5,11 +5,24 @@
 // click-to-select, keyboard accessibility.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import type { NodeProps, Node } from "@xyflow/react";
+import {
+  fireEvent,
+  render as rtlRender,
+  screen,
+  type RenderResult,
+} from "@testing-library/react";
+import { ReactFlowProvider, type NodeProps, type Node } from "@xyflow/react";
+import type { ReactElement } from "react";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { JobNode } from "../JobNode";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+
+// JobNode now uses @xyflow/react's <Handle> for edge attachment, which
+// requires a ReactFlowProvider ancestor (xyflow's internal zustand
+// store). Wrap every render so isolated component tests still work.
+function render(ui: ReactElement): RenderResult {
+  return rtlRender(<ReactFlowProvider>{ui}</ReactFlowProvider>);
+}
 
 // JobNode now accepts xyflow's NodeProps shape rather than the full
 // Node<JobNodeData>. The test factory produces props matching what

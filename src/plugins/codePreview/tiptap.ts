@@ -504,8 +504,12 @@ export const codePreviewExtension = Extension.create({
                 return;
               }
 
-              // GitHub Actions workflow YAML (async via Mermaid pipeline).
-              // Pipes IR → toMermaid() → existing renderMermaid for the SVG.
+              // GitHub Actions workflow YAML (async via xyflow snapshot
+              // pipeline). Pipes IR → toGraph + applyLayout → hidden
+              // ReactFlow root → html-to-image.toSvg → cached SVG.
+              // Visual parity with the side-panel JobNode by sharing
+              // the same React subtree. See
+              // dev-docs/plans/20260504-workflow-fence-snapshot.md.
               if (language === "yaml" || language === "yml") {
                 newDecorations.push(
                   createWorkflowPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
