@@ -23,6 +23,7 @@ import type { ReactElement } from "react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTranslation } from "react-i18next";
 import "./job-node.css";
 
@@ -86,10 +87,15 @@ export function JobNode(props: JobNodeProps): ReactElement {
     if (e.key === "Escape") {
       e.preventDefault();
       useWorkflowViewStore.getState().clearSelection();
-      // Hand focus back to the source editor so the user can keep
-      // editing without picking up the mouse.
-      const cm = document.querySelector<HTMLElement>(".cm-editor .cm-content");
-      cm?.focus();
+      // Hand focus back to the active source CodeMirror via the
+      // activeEditorStore — using a global querySelector picked up
+      // the first .cm-editor in the DOM, which in multi-window /
+      // multi-editor layouts could be the wrong editor (Codex audit
+      // round 5 finding).
+      const view = useActiveEditorStore.getState().activeSourceView;
+      if (view?.dom?.isConnected) {
+        view.focus();
+      }
     }
   };
 

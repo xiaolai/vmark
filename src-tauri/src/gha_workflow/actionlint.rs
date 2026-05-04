@@ -111,7 +111,48 @@ pub fn run_actionlint(yaml: &str, extra_path: Option<&str>) -> LintResult {
     };
 
     if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(yaml.as_bytes());
+        if let Err(e) = stdin.write_all(yaml.as_bytes()) {
+            // Pipe closed early — actionlint likely panicked or aborted.
+            // Logging avoids the silent-hang debugging trail (Rust audit
+            // round 5 finding).
+            log::warn!("actionlint stdin write failed: {}", e);
+        }
+    }
+
+    // Bound the wait so a hung / runaway actionlint process can't pin
+    // the calling thread indefinitely (Codex audit: stale run lifecycle).
+    // Polling is sufficient at this scale — the actionlint binary
+    // typically returns in <100 ms over a workflow file.
+    const ACTIONLINT_TIMEOUT_MS: u64 = 5_000;
+    const POLL_INTERVAL_MS: u64 = 25;
+    let deadline =
+        std::time::Instant::now() + std::time::Duration::from_millis(ACTIONLINT_TIMEOUT_MS);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_status)) => break,
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return LintResult::Failed {
+                        message: format!(
+                            "actionlint timed out after {} ms",
+                            ACTIONLINT_TIMEOUT_MS
+                        ),
+                    };
+                }
+                std::thread::sleep(std::time::Duration::from_millis(
+                    POLL_INTERVAL_MS,
+                ));
+            }
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return LintResult::Failed {
+                    message: format!("actionlint poll failed: {}", e),
+                };
+            }
+        }
     }
 
     let output = match child.wait_with_output() {

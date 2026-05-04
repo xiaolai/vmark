@@ -35,6 +35,7 @@ import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
 import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { WindowContext } from "@/contexts/WindowContext";
 import { useTranslation } from "react-i18next";
 import { imeToast as toast } from "@/utils/imeToast";
@@ -63,6 +64,7 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
 
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const panelRef = useRef<HTMLElement>(null);
+
 
   // Publish the current panel width as a CSS variable on the editor
   // container so .editor-content can shrink itself via calc() and
@@ -129,6 +131,38 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
   // standalone unit tests). The panel works the same in production —
   // it sits inside an Editor whose WindowContext is established.
   const windowCtx = useContext(WindowContext);
+
+  // Bind the workflowEditStore patch queue to the active document's
+  // real filePath (or untitled tab id). Without this the source plugin
+  // used a content-derived id that collided on common shapes like
+  // "(unnamed)::build" (Codex round 5: cross-document corruption).
+  useEffect(() => {
+    if (!panelOpen) return;
+    const windowLabel = windowCtx?.windowLabel;
+    if (!windowLabel) return;
+    const tabId = useTabStore.getState().activeTabId[windowLabel];
+    if (!tabId) return;
+    const doc = useDocumentStore.getState().documents[tabId];
+    const docId = doc?.filePath ?? `untitled:${tabId}`;
+    void import("@/stores/workflowEditStore")
+      .then(({ useWorkflowEditStore }) => {
+        const editStore = useWorkflowEditStore.getState();
+        const previousId = editStore.boundDocumentId;
+        editStore.bindToDocument(docId);
+        // When the bound document changes, reset the view-store
+        // selection too so common ids like "build"/"test" don't carry
+        // selection from the previous workflow into the new one
+        // (Codex round 5: workflowViewStore globals leak across docs).
+        if (previousId !== docId) {
+          useWorkflowViewStore.getState().reset();
+        }
+      })
+      .catch(() => {
+        // Chunk load failed (offline cache eviction, hash drift after
+        // deploy). The panel still works for read; bind retries on
+        // next render (footgun audit: unhandled rejection risk).
+      });
+  }, [panelOpen, workflow, windowCtx]);
 
   const handleSave = useCallback(async (): Promise<void> => {
     const windowLabel = windowCtx?.windowLabel;

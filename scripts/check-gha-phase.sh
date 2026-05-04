@@ -133,8 +133,17 @@ phase_1() {
   # WI-1.4 — detection heuristic
   assert_file "src/lib/ghaWorkflow/detection.ts"        "WI-1.4 detection heuristic"
 
-  # WI-1.5 — workflow router
-  assert_file "src/lib/workflowRouting/router.ts"       "WI-1.5 workflow router"
+  # WI-1.5 — workflow router. Originally a separate module under
+  # src/lib/workflowRouting/, but production never imported it: the
+  # routing decision is made directly by sourceEditorExtensions
+  # (.yml extension) + sourceGhaWorkflowPreview (workflow shape).
+  # Removed as dead code in the Codex audit round 5; the gate now
+  # checks the actual decision points instead.
+  assert_grep "isYamlFileName" \
+    "src/utils/sourceEditorExtensions.ts" "WI-1.5 routing — yaml extension gate"
+  assert_grep "isWorkflowYaml" \
+    "src/plugins/codemirror/sourceGhaWorkflowPreview.ts" \
+    "WI-1.5 routing — workflow-shape gate"
 
   # WI-1.6 — fixture corpus (≥20 per plan)
   if [[ -d "dev-docs/fixtures/gha-workflows" ]]; then

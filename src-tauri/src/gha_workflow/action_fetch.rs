@@ -97,6 +97,31 @@ pub struct ActionRef {
     pub git_ref: String,
 }
 
+/// True when every char in `s` is one of the GitHub-allowed characters
+/// for a repo / owner / ref / path component. GitHub usernames + repos
+/// are restricted to `[A-Za-z0-9_.-]`; refs additionally allow `/`
+/// (for `refs/heads/main`) and `+` (for tag escapes); paths similarly
+/// allow `/`. Anything else (control chars, percent-encoding, `..`)
+/// is rejected to prevent URL coercion / traversal once the value is
+/// formatted into a raw.githubusercontent.com URL (Rust audit round 5).
+fn is_valid_segment(s: &str, allow_slash: bool) -> bool {
+    if s.is_empty() {
+        return false;
+    }
+    // Reject `..` anywhere in the segment.
+    if s.contains("..") {
+        return false;
+    }
+    s.chars().all(|c| {
+        c.is_ascii_alphanumeric()
+            || c == '_'
+            || c == '-'
+            || c == '.'
+            || c == '+'
+            || (allow_slash && c == '/')
+    })
+}
+
 pub fn parse_uses(uses: &str) -> Option<ActionRef> {
     // Reject local refs and docker URIs early — they don't have an
     // action.yml on raw.githubusercontent.com.
@@ -115,6 +140,17 @@ pub fn parse_uses(uses: &str) -> Option<ActionRef> {
     let path = parts.next().unwrap_or("").to_string();
 
     if owner.is_empty() || repo.is_empty() {
+        return None;
+    }
+
+    // Validate every component so a hostile uses string like
+    // "owner/repo/..%2F..%2Fevil@main" can't probe arbitrary paths
+    // under raw.githubusercontent.com.
+    if !is_valid_segment(&owner, false)
+        || !is_valid_segment(&repo, false)
+        || (!path.is_empty() && !is_valid_segment(&path, true))
+        || !is_valid_segment(git_ref, true)
+    {
         return None;
     }
 
@@ -194,7 +230,15 @@ fn build_url(action: &ActionRef, filename: &str) -> String {
     }
 }
 
-/// Network fetch with action.yml → action.yaml fallback.
+/// Hard cap on action.yml body size. Real action.yml files are well
+/// under 100 KB (the largest in actions/ org is ~30 KB); 1 MiB leaves
+/// generous headroom while preventing untrusted-or-MITM responses
+/// from forcing a deeply-nested YAML parse that could exhaust the
+/// stack (Rust audit round 5 finding).
+const MAX_ACTION_YML_BYTES: u64 = 1_048_576;
+
+/// Network fetch with action.yml → action.yaml fallback. Caps response
+/// body size before serde_yaml ever sees it.
 pub async fn fetch_action_yml(action: &ActionRef) -> Result<String, FetchResult> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
@@ -224,8 +268,41 @@ pub async fn fetch_action_yml(action: &ActionRef) -> Result<String, FetchResult>
                 message: format!("GET {} returned HTTP {}", url, status),
             });
         }
-        return resp.text().await.map_err(|e| FetchResult::NetworkError {
-            message: format!("read body: {}", e),
+        // Trust the server-reported Content-Length when present;
+        // bytes_stream() with a manual accumulator enforces the cap
+        // even when Content-Length is missing or lies.
+        if let Some(len) = resp.content_length() {
+            if len > MAX_ACTION_YML_BYTES {
+                return Err(FetchResult::NetworkError {
+                    message: format!(
+                        "{} reported {} bytes (cap: {})",
+                        url, len, MAX_ACTION_YML_BYTES
+                    ),
+                });
+            }
+        }
+        let bytes = match resp.bytes().await {
+            Ok(b) => b,
+            Err(e) => {
+                return Err(FetchResult::NetworkError {
+                    message: format!("read body: {}", e),
+                });
+            }
+        };
+        if (bytes.len() as u64) > MAX_ACTION_YML_BYTES {
+            return Err(FetchResult::NetworkError {
+                message: format!(
+                    "{} delivered {} bytes (cap: {})",
+                    url,
+                    bytes.len(),
+                    MAX_ACTION_YML_BYTES
+                ),
+            });
+        }
+        return String::from_utf8(bytes.to_vec()).map_err(|e| {
+            FetchResult::NetworkError {
+                message: format!("non-UTF-8 response body: {}", e),
+            }
         });
     }
 
@@ -347,6 +424,39 @@ mod tests {
     #[test]
     fn parse_uses_rejects_empty_ref() {
         assert!(parse_uses("actions/checkout@").is_none());
+    }
+
+    #[test]
+    fn parse_uses_rejects_traversal_attempts() {
+        // Audit round 5: input validation hardens against owner/repo/
+        // ref/path values that would coerce build_url into probing
+        // arbitrary paths under raw.githubusercontent.com.
+        assert!(parse_uses("..//evil@main").is_none());
+        assert!(parse_uses("owner/..%2F..%2Fevil@main").is_none());
+        assert!(parse_uses("owner/repo/..@main").is_none());
+        assert!(parse_uses("owner/repo@..").is_none());
+        // Control chars + spaces.
+        assert!(parse_uses("owner/repo@ma in").is_none());
+        assert!(parse_uses("owner/repo@\nmain").is_none());
+        // Percent encoding (shouldn't appear in honest uses strings).
+        assert!(parse_uses("owner/re%70o@main").is_none());
+    }
+
+    #[test]
+    fn parse_uses_accepts_legitimate_ref_shapes() {
+        assert!(parse_uses("actions/checkout@v4").is_some());
+        assert!(parse_uses("actions/checkout@v4.1.7").is_some());
+        // 40-char SHA.
+        assert!(
+            parse_uses("actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332")
+                .is_some()
+        );
+        // Branch with slash (`refs/heads/main` shape — uncommon but valid).
+        assert!(parse_uses("actions/checkout@refs/heads/main").is_some());
+        // Subpath action.
+        assert!(
+            parse_uses("github/super-linter/super-linter@v5.0.0").is_some()
+        );
     }
 
     #[test]

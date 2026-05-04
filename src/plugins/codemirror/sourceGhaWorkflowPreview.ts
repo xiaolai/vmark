@@ -34,6 +34,15 @@ class SourceGhaWorkflowPreviewPlugin {
   private lastContent = "";
   /** True once this view has actually written workflow state to the store. */
   private ownsStoreState = false;
+  /**
+   * Bumped on every parse so a stale actionlint result that resolves
+   * after a newer parse can be detected and discarded. Without this,
+   * concurrent actionlint invocations on slower machines would each
+   * race to write into the panel store as they finished — typing
+   * fast through a workflow would oscillate the diagnostic banner
+   * (Codex round 5 finding: stale run accumulation).
+   */
+  private lintGeneration = 0;
 
   constructor(view: EditorView) {
     // Parse the initial doc state. Without this, opening an existing
@@ -93,12 +102,10 @@ class SourceGhaWorkflowPreviewPlugin {
       );
       store.setWorkflow(ir);
       this.ownsStoreState = true;
-      // Bind the edit queue to this workflow's identity. Workflows
-      // hashed by content shape: ir.name + first job id is enough to
-      // distinguish two open workflows, and stable across edits to
-      // the same file. The host plugin can override with a real path
-      // when one is available.
-      this.bindEditStore(ir);
+      // Edit-queue binding lives in the GhaWorkflowSidePanel, which has
+      // access to the real active tab's filePath via the documentStore.
+      // Content-derived ids collide on common shapes like
+      // "(unnamed)::build" (Codex audit round 5 finding).
       // Forward to actionlint asynchronously and merge its diagnostics
       // when the binary is available. Fire-and-forget — the parser-side
       // diagnostics already populated the panel; actionlint enriches.
@@ -117,24 +124,6 @@ class SourceGhaWorkflowPreviewPlugin {
   }
 
   /**
-   * Bind the workflowEditStore queue to this workflow's identity so
-   * patches authored against it can't replay against a different
-   * workflow opened later. Drops the queue if the binding changes —
-   * the panel chrome is responsible for warning the user before this
-   * happens (Discard / Save prompt).
-   */
-  private bindEditStore(
-    ir: import("@/lib/ghaWorkflow/types").WorkflowIR,
-  ): void {
-    const id = `${ir.name ?? "(unnamed)"}::${ir.jobs[0]?.id ?? ""}`;
-    void import("@/stores/workflowEditStore").then(
-      ({ useWorkflowEditStore }) => {
-        useWorkflowEditStore.getState().bindToDocument(id);
-      },
-    );
-  }
-
-  /**
    * Run actionlint asynchronously over the same YAML and merge its
    * diagnostics into the panel store. No-op when the binary isn't
    * available (the wrapper handles the silent-fallback case). Stale
@@ -146,8 +135,14 @@ class SourceGhaWorkflowPreviewPlugin {
     content: string,
     ir: import("@/lib/ghaWorkflow/types").WorkflowIR,
   ): Promise<void> {
+    const generation = ++this.lintGeneration;
     try {
       const out = await lintWithActionlint(content);
+      // Drop the result if a newer parse has fired in the interim.
+      // Both the content + generation guards close two windows: the
+      // content guard catches simultaneous typing, the generation
+      // guard catches concurrent invocations of this method itself.
+      if (generation !== this.lintGeneration) return;
       if (this.lastContent !== content) return;
       if (!this.ownsStoreState) return;
       if (out.diagnostics.length === 0) return;
