@@ -8,12 +8,17 @@
  *
  * Visible only when:
  *   - The active tab is in `useLargeFileSessionStore.forcedSourceTabs`.
+ *   - The active tab's file is NOT YAML — switching a YAML workflow to
+ *     WYSIWYG would corrupt indentation through Tiptap's markdown round-
+ *     trip, and the toggle handler refuses for YAML anyway. Showing the
+ *     offer for YAML would be misleading.
  *   - The editor is currently in Source mode (sanity gate — if the user
  *     already toggled back to WYSIWYG manually, suppress the offer).
  *
  * @coordinates-with stores/largeFileSessionStore.ts — reads the marker set.
  * @coordinates-with stores/editorStore.ts — flips sourceMode on click.
  * @coordinates-with stores/tabStore.ts — reads activeTabId via useTabStore.
+ * @coordinates-with stores/documentStore.ts — reads filePath for YAML check.
  * @module components/StatusBar/SourceModeUpgrade
  */
 
@@ -21,6 +26,8 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useTabStore } from "@/stores/tabStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useDocumentStore } from "@/stores/documentStore";
+import { isYamlFileName } from "@/utils/dropPaths";
 import { useWindowLabel } from "@/contexts/WindowContext";
 
 export function SourceModeUpgrade() {
@@ -31,6 +38,12 @@ export function SourceModeUpgrade() {
   const isForcedSource = useLargeFileSessionStore((s) =>
     activeTabId ? Boolean(s.forcedSourceTabs[activeTabId]) : false
   );
+  const activeFilePath = useDocumentStore((s) =>
+    activeTabId ? s.documents[activeTabId]?.filePath ?? null : null,
+  );
+  const isYamlFile = activeFilePath
+    ? isYamlFileName(activeFilePath.split("/").pop() ?? "")
+    : false;
 
   // The "Switch to WYSIWYG" action clears only this tab's forced-source
   // marker. The Editor treats the marker as a per-tab override layered on
@@ -42,6 +55,11 @@ export function SourceModeUpgrade() {
   }, [activeTabId]);
 
   if (!isForcedSource) return null;
+  // YAML files are forced-source for correctness, not size. Switching
+  // to WYSIWYG would route through Tiptap's markdown pipeline and
+  // corrupt YAML indentation. Hide the offer; the toggle handler in
+  // useUnifiedHistory.ts refuses for YAML anyway.
+  if (isYamlFile) return null;
 
   return (
     <div className="status-source-upgrade" role="status" aria-live="polite">
