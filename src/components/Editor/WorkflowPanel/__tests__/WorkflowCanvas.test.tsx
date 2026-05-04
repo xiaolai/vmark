@@ -7,7 +7,7 @@
 // Tauri webview.
 
 import { describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { WorkflowCanvas } from "../WorkflowCanvas";
 
@@ -65,26 +65,27 @@ describe("WorkflowCanvas", () => {
     expect(() => render(<WorkflowCanvas workflow={emptyIR()} />)).not.toThrow();
   });
 
-  it("renders one xyflow node per job in the IR", () => {
+  it("renders one xyflow node per job in the IR", async () => {
     const { container } = render(
       <WorkflowCanvas workflow={ir(["a", "b", "c"])} />,
     );
-    // xyflow renders nodes as elements with data-id matching the node id.
-    // We don't depend on specific xyflow class names — only that the
-    // node ids the IR emitted reach the rendered output.
-    const a = container.querySelector('[data-id="a"]');
-    const b = container.querySelector('[data-id="b"]');
-    const c = container.querySelector('[data-id="c"]');
-    expect(a).not.toBeNull();
-    expect(b).not.toBeNull();
-    expect(c).not.toBeNull();
+    // The xyflow subtree is lazy-loaded; wait for the chunk to resolve
+    // and the nodes to mount. xyflow renders each node with
+    // data-id=<id> so the IR's job ids reach the DOM as data attributes.
+    await waitFor(() => {
+      expect(container.querySelector('[data-id="a"]')).not.toBeNull();
+    });
+    expect(container.querySelector('[data-id="b"]')).not.toBeNull();
+    expect(container.querySelector('[data-id="c"]')).not.toBeNull();
   });
 
-  it("registers the custom JobNode type — node text contains the job id label", () => {
+  it("registers the custom JobNode type — node text contains the job id label", async () => {
     const { container } = render(<WorkflowCanvas workflow={ir(["build"])} />);
-    // The JobNode renders the job id as a label; its presence proves the
-    // custom node type registered (default xyflow nodes don't render
-    // job id text).
-    expect(container.textContent).toContain("build");
+    // The JobNode renders the job id as a label; its presence proves
+    // the custom node type registered (default xyflow nodes don't
+    // render job id text).
+    await waitFor(() => {
+      expect(container.textContent).toContain("build");
+    });
   });
 });
