@@ -25,6 +25,7 @@ export const en = {
             { text: "Inline Popups", link: "/guide/popups" },
             { text: "Mermaid Diagrams", link: "/guide/mermaid" },
             { text: "Markmap Mindmaps", link: "/guide/markmap" },
+            { text: "GitHub Actions Workflow Viewer", link: "/guide/workflow-viewer" },
             { text: "SVG Graphics", link: "/guide/svg" },
             { text: "Media (Video/Audio)", link: "/guide/media-support" },
             { text: "Integrated Terminal", link: "/guide/terminal" },

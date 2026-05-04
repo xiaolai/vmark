@@ -140,7 +140,7 @@ User triggers Genie (Cmd+G or menu)
 | `src/plugins/`          | 70     | Editor extensions            | stores, utils, shared plugins                   |
 | `src/components/`       | 8 dirs | React UI                     | stores, hooks, plugins, utils                   |
 | `src/utils/`            | \~77   | Helpers + services           | stores (service utils), pure logic (core utils) |
-| `src/lib/`              | 1 dir  | CJK formatter                | stores (settings)                               |
+| `src/lib/`              | 3 dirs | CJK formatter, GHA workflow IR + parser + save pipeline, workflow routing | stores (settings)                               |
 | `src/types/`            | \~5    | Type definitions             | plugins (format types)                          |
 | `src-tauri/src/`        | 24     | Rust backend                 | (self-contained)                                |
 | `vmark-mcp-server/src/` | \~25   | MCP sidecar                  | (self-contained)                                |
