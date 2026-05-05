@@ -3,12 +3,26 @@
 use serde::Serialize;
 
 /// A discovered genie file with name, path, source, and optional category.
+///
+/// `kind` distinguishes one-shot markdown genies (`"markdown"`) from YAML
+/// workflow genies (`"workflow"`), which the picker dispatches differently:
+/// markdown genies invoke `run_ai_prompt` directly, workflow genies run
+/// through `run_workflow` (WI-7.1).
 #[derive(Debug, Serialize, Clone)]
 pub struct GenieEntry {
     pub name: String,
     pub path: String,
     pub source: String, // "global"
     pub category: Option<String>,
+    pub kind: GenieKind,
+}
+
+/// Whether a genie is a one-shot markdown prompt or a multi-step YAML workflow.
+#[derive(Debug, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GenieKind {
+    Markdown,
+    Workflow,
 }
 
 /// Parsed genie file: metadata from frontmatter and prompt template body.

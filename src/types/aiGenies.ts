@@ -25,11 +25,18 @@ export interface GenieMetadata {
   context?: number;
 }
 
+/** Whether a genie is a one-shot markdown prompt or a multi-step YAML workflow.
+ *  Mirrors the Rust enum `genies::types::GenieKind` (WI-7.1). */
+export type GenieKind = "markdown" | "workflow";
+
 export interface GenieDefinition {
   metadata: GenieMetadata;
   template: string;
   filePath: string;
   source: "global";
+  /** Defaults to "markdown" for backward compatibility — Rust always
+   *  populates this for newly listed entries. */
+  kind?: GenieKind;
 }
 
 // ============================================================================

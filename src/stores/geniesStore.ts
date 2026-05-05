@@ -38,6 +38,8 @@ interface GenieEntry {
   path: string;
   source: string;
   category: string | null;
+  /** WI-7.1: discriminator for picker dispatch. */
+  kind?: "markdown" | "workflow";
 }
 
 interface GenieContent {
@@ -104,6 +106,7 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
                 template: content.template,
                 filePath: entry.path,
                 source: "global",
+                kind: entry.kind ?? "markdown",
               });
             } catch (e) {
               geniesWarn(`Failed to read genie ${entry.path}:`, e);
