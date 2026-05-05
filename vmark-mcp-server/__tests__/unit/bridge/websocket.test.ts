@@ -454,6 +454,30 @@ describe('WebSocketBridge', () => {
         'Connection closed during authentication'
       );
     });
+
+    it('should reject connect() if auth_result never arrives within timeout', async () => {
+      // Simulates the wedge scenario described in audit #862: VMark accepts the
+      // WebSocket and the auth message but never replies with auth_result
+      // (e.g., serialization failure, sender-task hang). Without a bounded wait,
+      // connect() would hang forever and block the reconnect loop.
+      const authBridge = new WebSocketBridge({
+        port: TEST_PORT,
+        timeout: 200,
+        autoReconnect: false,
+        authTokenResolver: () => 'test-token',
+      });
+
+      // Server accepts connection but never responds to the auth message.
+      // beforeEach already registers a listener that just tracks connections;
+      // we don't add any message handler, so auth goes unanswered.
+
+      const start = Date.now();
+      await expect(authBridge.connect()).rejects.toThrow('Auth handshake timeout');
+      const elapsed = Date.now() - start;
+      // Should reject around `timeout` ms — allow generous slack for timer jitter.
+      expect(elapsed).toBeGreaterThanOrEqual(150);
+      expect(elapsed).toBeLessThan(700);
+    });
   });
 
   describe('connection lost during request', () => {
