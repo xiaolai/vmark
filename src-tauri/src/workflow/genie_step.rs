@@ -30,11 +30,25 @@ use crate::genies::types::GenieMetadata;
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderConfig {
+    /// Provider type identifier: `"claude"`, `"codex"`, `"gemini"` (CLI),
+    /// `"anthropic"`, `"openai"`, `"google-ai"`, `"ollama-api"` (REST).
+    /// Anything else lands in the dispatcher's `_` arm and produces an
+    /// `Unknown provider` error through the sink.
     pub provider: String,
+    /// REST API key. Required for `anthropic`, `openai`, `google-ai`;
+    /// optional for `ollama-api`; ignored for CLI providers.
     #[serde(default)]
     pub api_key: Option<String>,
+    /// REST API base URL. Defaults are baked into the dispatcher
+    /// (`https://api.anthropic.com`, `https://api.openai.com`,
+    /// `http://localhost:11434`). `google-ai` ignores this — the URL is
+    /// fixed to the public Google API host.
     #[serde(default)]
     pub endpoint: Option<String>,
+    /// Resolved absolute path to a CLI binary. Used by `cli::build_command`
+    /// to honor Windows `.cmd` / `.bat` shim resolution and to bypass PATH
+    /// hijack (the dispatcher trusts this path verbatim, having received it
+    /// from the frontend's earlier `detect_ai_providers` round trip).
     #[serde(default)]
     pub cli_path: Option<String>,
 }
@@ -45,7 +59,12 @@ pub struct ProviderConfig {
 /// `crate::genies::commands::read_genie` directly, so unit tests can inject
 /// fixtures without touching the filesystem.
 pub struct LoadedGenie {
+    /// Parsed frontmatter — `metadata.version` distinguishes v0 from v1
+    /// genies; v1 metadata's `input` / `output` shapes drive
+    /// `validate_input` and `process_output`.
     pub metadata: GenieMetadata,
+    /// Raw prompt body with `{{placeholder}}` tokens. Filled per ADR-2 by
+    /// `template::fill` before the provider call.
     pub template: String,
 }
 

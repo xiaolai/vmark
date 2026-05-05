@@ -51,6 +51,9 @@ pub struct WindowSink {
 }
 
 impl WindowSink {
+    /// Construct a sink bound to a specific webview window + request id.
+    /// Every `ai:response` event the sink emits carries the `request_id` so
+    /// the frontend listener can demultiplex concurrent invocations.
     pub fn new(window: WebviewWindow, request_id: String) -> Self {
         Self { window, request_id }
     }
@@ -95,10 +98,19 @@ impl AiSink for WindowSink {
 }
 
 /// Event sent from a `ChannelSink` to its receiver.
+///
+/// Each variant maps 1:1 to an `AiSink` trait method. The receiver
+/// (`run_ai_prompt_collect`) drains in order and treats the first `Done` /
+/// `Error` it sees as terminal.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChannelEvent {
+    /// Partial output, produced by zero-or-more `AiSink::chunk` calls.
     Chunk(String),
+    /// Successful completion. Exactly one of `Done` / `Error` is sent per
+    /// provider run (via the corresponding `AiSink::done` / `AiSink::error`
+    /// terminal call).
     Done,
+    /// Failure. Carries the error message originally passed to `AiSink::error`.
     Error(String),
 }
 
@@ -112,6 +124,11 @@ pub struct ChannelSink {
 }
 
 impl ChannelSink {
+    /// Construct a sink that forwards events to `sender`. The receiver end
+    /// is owned by `run_ai_prompt_collect` (or any other Rust caller that
+    /// needs the full response). Send failures are logged at trace level
+    /// and swallowed — providers don't need to react when the consumer
+    /// has already moved on.
     pub fn new(sender: UnboundedSender<ChannelEvent>) -> Self {
         Self { sender }
     }

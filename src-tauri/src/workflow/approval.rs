@@ -22,6 +22,9 @@ pub struct ApprovalRegistry {
 }
 
 impl ApprovalRegistry {
+    /// Create an empty registry. Equivalent to `Default::default()`; the
+    /// explicit constructor reads better at the `WorkflowRunnerState`
+    /// initialization site in `lib.rs`.
     pub fn new() -> Self {
         Self::default()
     }

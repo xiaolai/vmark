@@ -20,10 +20,22 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
-/// Shared state for workflow execution.
+/// Shared state for workflow execution. Held by the Tauri app via `.manage()`
+/// at startup; outlives any individual execution.
 pub struct WorkflowRunnerState {
+    /// Concurrency guard — only one workflow runs at a time per window.
+    /// `run_workflow` flips this from `false` → `true` via `compare_exchange`
+    /// and the spawned runner task flips it back when done. The CAS makes
+    /// double-start attempts return `errors.workflow.alreadyRunning`.
     pub running: AtomicBool,
+    /// Soft cancel flag observed by the runner before each step. The bridge
+    /// task in `runner::spawn_cancel_bridge` polls this and forwards the
+    /// signal to a tokio `CancellationToken` so the AI provider stack
+    /// (CLI children, REST requests) reacts without polling.
     pub cancel_requested: Arc<AtomicBool>,
+    /// Outstanding approval senders keyed by `(execution_id, step_id)`.
+    /// `respond_workflow_approval` looks the entry up and delivers the user's
+    /// verdict; the runner awaits the matching receiver.
     pub approvals: Arc<ApprovalRegistry>,
 }
 

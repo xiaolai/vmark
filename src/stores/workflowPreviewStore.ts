@@ -15,6 +15,13 @@
 import { create } from "zustand";
 import type { WorkflowGraph } from "@/lib/workflow/types";
 
+/**
+ * Live status of a workflow step.
+ *
+ * Mirrors the value space of `StepStatusEvent.status` emitted by the Rust
+ * runner via `workflow:step-update`, plus a frontend-only `"pending"` for
+ * steps that the runner hasn't reported on yet.
+ */
 export type StepStatus =
   | "pending"
   | "running"
@@ -22,10 +29,25 @@ export type StepStatus =
   | "error"
   | "skipped";
 
+/**
+ * Per-step execution status as held by `workflowPreviewStore`.
+ *
+ * Populated from `workflow:step-update` events in `useWorkflowExecution`.
+ * `output` is the runner-truncated primary text (5 MB UTF-8-safe cap from
+ * `runner::MAX_OUTPUT_SIZE_BYTES`); `duration` is wall-clock milliseconds
+ * set on terminal transitions only.
+ */
 export interface StepStatusEntry {
+  /** Current status; see `StepStatus`. */
   status: StepStatus;
+  /** Truncated primary output text. Only `text` field crosses IPC; full
+   *  multi-field genie outputs stay Rust-side for `${{ steps.X.outputs.* }}`
+   *  resolution. */
   output?: string;
+  /** Human-readable error message; set when `status === "error" | "skipped"`. */
   error?: string;
+  /** Wall-clock duration in milliseconds for terminal transitions
+   *  (success / error / approval-timeout). */
   duration?: number;
 }
 

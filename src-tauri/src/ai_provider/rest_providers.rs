@@ -40,6 +40,20 @@ async fn read_body_capped(resp: reqwest::Response) -> Result<Vec<u8>, String> {
 // Anthropic
 // ============================================================================
 
+/// POST `/v1/messages` against the Anthropic API and forward the response.
+///
+/// Body fields:
+///   - `model` — caller-resolved (no defaulting here).
+///   - `max_tokens` — REQUIRED by the Anthropic API; defaults to 4096 when
+///     `max_tokens` arg is `None`. Anthropic is the only provider where
+///     `max_tokens` is mandatory; the other three treat it as optional.
+///   - `messages` — single user message with `prompt` as content.
+///
+/// On non-2xx response: drains the body for the error message, calls
+/// `sink.error(...)`, returns `Ok(())`. On parse failure: same shape.
+/// On success: emits one `sink.chunk(...)` per text block in `content`,
+/// then `sink.done()`. Bodies above `MAX_REST_BODY_BYTES` are rejected
+/// before parse via `read_body_capped`.
 pub(super) async fn run_rest_anthropic(
     sink: &dyn AiSink,
     endpoint: &str,
@@ -111,6 +125,17 @@ pub(super) async fn run_rest_anthropic(
 // OpenAI
 // ============================================================================
 
+/// POST `/v1/chat/completions` against the OpenAI API and forward the response.
+///
+/// Body fields:
+///   - `model` — caller-resolved.
+///   - `messages` — single user message with `prompt` as content.
+///   - `max_tokens` — OPTIONAL. Only inserted when the arg is `Some`. (Newer
+///     OpenAI models prefer `max_completion_tokens`; for compatibility with
+///     OpenAI-API-compatible endpoints we use the legacy field name.)
+///
+/// Sink contract identical to `run_rest_anthropic`: error event on non-2xx /
+/// parse failure / missing choices, otherwise one chunk + `done()`.
 pub(super) async fn run_rest_openai(
     sink: &dyn AiSink,
     endpoint: &str,
@@ -185,6 +210,21 @@ pub(super) async fn run_rest_openai(
 // Google AI
 // ============================================================================
 
+/// POST `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
+/// against the Google AI Gemini API and forward the response.
+///
+/// Asymmetry vs. the other REST providers: there is no `endpoint`
+/// parameter — the URL is hard-coded to the public Google API host. Custom
+/// endpoints (e.g. Vertex AI proxies) are out of scope; users with that
+/// requirement should fall back to a CLI provider.
+///
+/// Body fields:
+///   - `contents` — single-turn user message wrapping `prompt`.
+///   - `generationConfig.maxOutputTokens` — Google's name for `max_tokens`.
+///     Only inserted when the arg is `Some`.
+///
+/// Model strings prefixed with `models/` are stripped; the URL's `:generateContent`
+/// suffix expects a bare model id. Sink contract identical to the others.
 pub(super) async fn run_rest_google(
     sink: &dyn AiSink,
     api_key: &str,
@@ -268,6 +308,23 @@ pub(super) async fn run_rest_google(
 // Ollama
 // ============================================================================
 
+/// POST `/api/generate` against an Ollama-compatible endpoint (default
+/// `http://localhost:11434`) and forward the response.
+///
+/// Asymmetry vs. the other REST providers: there is no `api_key` — Ollama
+/// runs locally by convention.
+///
+/// Body fields:
+///   - `model` — caller-resolved.
+///   - `prompt` — raw text (Ollama uses a flat `prompt` field rather than
+///     a chat `messages` array).
+///   - `stream: false` — VMark always pulls the whole response and
+///     forwards it as a single chunk; live token streaming is not wired
+///     through the sink layer for any provider.
+///   - `options.num_predict` — Ollama's name for `max_tokens`. Only
+///     inserted when the arg is `Some`.
+///
+/// Sink contract identical to the other REST providers.
 pub(super) async fn run_rest_ollama(
     sink: &dyn AiSink,
     endpoint: &str,
