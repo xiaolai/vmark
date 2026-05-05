@@ -6,21 +6,21 @@ VMark bringt eine integrierte Lint-Engine mit, die **Korrektheitsprobleme** erke
 
 VMarks Lint ist ein **Korrektheits**-Prüfer:
 
-- ✅ Defekte Querverweise
-- ✅ Undefinierte Link-/Fußnotenreferenzen
-- ✅ Nicht geschlossene Code-Blöcke
-- ✅ Tabellen mit nicht übereinstimmender Spaltenanzahl
-- ✅ Übersprungene Überschriftsebenen (h1 → h3)
-- ✅ Bilder ohne Alt-Text
-- ✅ Leerer Linktext oder leeres `href`
+- Defekte Querverweise
+- Undefinierte Link-/Fußnotenreferenzen
+- Nicht geschlossene Code-Blöcke
+- Tabellen mit nicht übereinstimmender Spaltenanzahl
+- Übersprungene Überschriftsebenen (h1 → h3)
+- Bilder ohne Alt-Text
+- Leerer Linktext oder leeres `href`
 
 VMarks Lint ist **kein** Stil-Erzwinger. Es markiert nicht:
 
-- ❌ Zeilenlänge
-- ❌ Listenmarkierungs-Stil (`-` vs. `*`)
-- ❌ Hervorhebungs-Stil (`_` vs. `*`)
-- ❌ Überschriftenstil (`#` vs. Unterstreichung)
-- ❌ Nachgestellte Leerzeichen
+- Zeilenlänge
+- Listenmarkierungs-Stil (`-` vs. `*`)
+- Hervorhebungs-Stil (`_` vs. `*`)
+- Überschriftenstil (`#` vs. Unterstreichung)
+- Nachgestellte Leerzeichen
 
 Verwenden Sie für Stil-Erzwingung ein separates Werkzeug wie `prettier --check` außerhalb von VMark.
 

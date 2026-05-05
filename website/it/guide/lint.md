@@ -6,21 +6,21 @@ VMark include un motore di lint integrato che intercetta **problemi di correttez
 
 Il lint di VMark è un controllo di **correttezza**:
 
-- ✅ Riferimenti incrociati interrotti
-- ✅ Riferimenti non definiti a collegamenti / note a piè di pagina
-- ✅ Blocchi di codice non chiusi
-- ✅ Tabelle con conteggio colonne non corrispondente
-- ✅ Livelli di intestazione che saltano (h1 → h3)
-- ✅ Immagini senza testo alt
-- ✅ Testo del collegamento vuoto o `href` vuoto
+- Riferimenti incrociati interrotti
+- Riferimenti non definiti a collegamenti / note a piè di pagina
+- Blocchi di codice non chiusi
+- Tabelle con conteggio colonne non corrispondente
+- Livelli di intestazione che saltano (h1 → h3)
+- Immagini senza testo alt
+- Testo del collegamento vuoto o `href` vuoto
 
 Il lint di VMark **non** è un controllore di stile. Non segnala:
 
-- ❌ Lunghezza delle righe
-- ❌ Stile dei marcatori di elenco (`-` vs `*`)
-- ❌ Stile dei marcatori di enfasi (`_` vs `*`)
-- ❌ Stile delle intestazioni (`#` vs sottolineatura)
-- ❌ Spazi bianchi finali
+- Lunghezza delle righe
+- Stile dei marcatori di elenco (`-` vs `*`)
+- Stile dei marcatori di enfasi (`_` vs `*`)
+- Stile delle intestazioni (`#` vs sottolineatura)
+- Spazi bianchi finali
 
 Per l'imposizione dello stile, usa uno strumento separato come `prettier --check` al di fuori di VMark.
 

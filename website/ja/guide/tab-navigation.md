@@ -42,14 +42,14 @@ VMark の Tab キーと Shift+Tab キーはコンテキストを認識します 
 
 ### 仕組み
 
-```
+```text
 function hello(world|)
                     ↑ )の前にカーソル
 ```
 
 **Tab** を押す:
 
-```
+```text
 function hello(world)|
                      ↑ )の後にカーソル
 ```
@@ -58,28 +58,28 @@ function hello(world)|
 
 **Shift+Tab** は逆の動作をします — カーソルが開き文字の直後にある場合:
 
-```
+```text
 function hello(|world)
                ↑ (の後にカーソル
 ```
 
 **Shift+Tab** を押す:
 
-```
+```text
 function hello|(world)
               ↑ (の前にカーソル
 ```
 
 ### CJK の例
 
-```
+```text
 これは「測試|」文字
          ↑ 」の前にカーソル
 ```
 
 **Tab** を押す:
 
-```
+```text
 これは「測試」|文字
           ↑ 」の後にカーソル
 ```
@@ -100,28 +100,28 @@ WYSIWYG モードでは、Tab と Shift+Tab はインラインの書式設定マ
 
 カーソルが書式設定されたテキストのどこかにある場合:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ 太字の内側にカーソル
 ```
 
 **Tab** を押す:
 
-```
+```text
 This is **bold text**| here
                      ↑ 太字の後にカーソル
 ```
 
 Shift+Tab は逆方向に機能します — 書式設定の先頭にジャンプします:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ 太字の内側にカーソル
 ```
 
 **Shift+Tab** を押す:
 
-```
+```text
 This is |**bold text** here
         ↑ 太字の前にカーソル
 ```
@@ -130,21 +130,21 @@ This is |**bold text** here
 
 Tab と Shift+Tab はリンクからも脱出できます:
 
-```
+```text
 Check out [VMark|](https://vmark.app)
                ↑ リンクテキストの内側にカーソル
 ```
 
 **Tab** を押す:
 
-```
+```text
 Check out [VMark](https://vmark.app)| and...
                                     ↑ リンクの後にカーソル
 ```
 
 リンクの内側で **Shift+Tab** を押すと先頭に移動します:
 
-```
+```text
 Check out |[VMark](https://vmark.app) and...
           ↑ リンクの前にカーソル
 ```
@@ -311,14 +311,14 @@ This is **bold**| text
 
 ### 例
 
-```
+```text
 **bold|** and [link|](url) and plain|
      ^1          ^2            ^3
 ```
 
 **Tab** を押す:
 
-```
+```text
 **bold**| and [link](url)| and plain|
         ^1               ^2         ^3
 ```
@@ -335,14 +335,14 @@ This is **bold**| text
 
 複数のエスケープターゲットが重なる場合、Tab は **最も内側から** 処理します:
 
-```
+```text
 **bold text(|)** here
                ↑ まずTabが)にジャンプ（括弧が最も内側）
 ```
 
 **Tab** を再度押す:
 
-```
+```text
 **bold text()**| here
                ↑ Tabが太字マークを脱出
 ```
@@ -353,7 +353,7 @@ This is **bold**| text
 
 タブと Shift+Tab の括弧ジャンプはコードブロック内では **無効** — `code_block`ノードとインラインコードスパンの両方。これにより、コードで括弧がリテラルな構文であるため、Tab がコード内の括弧を飛び越えることを防ぎます:
 
-```
+```text
 `array[index|]`
               ↑ インラインコード内でTabは]をジャンプしない — 代わりにスペースを挿入
 ```

@@ -17,6 +17,7 @@ export const zhCN = {
           items: [
             { text: "快速上手", link: "/zh-CN/guide/" },
             { text: "功能特性", link: "/zh-CN/guide/features" },
+            { text: "大文件", link: "/zh-CN/guide/large-files" },
             { text: "导出与打印", link: "/zh-CN/guide/export" },
             { text: "键盘快捷键", link: "/zh-CN/guide/shortcuts" },
             {
@@ -35,6 +36,10 @@ export const zhCN = {
             {
               text: "Markmap 思维导图",
               link: "/zh-CN/guide/markmap",
+            },
+            {
+              text: "GitHub Actions 工作流查看器",
+              link: "/zh-CN/guide/workflow-viewer",
             },
             { text: "SVG 图形", link: "/zh-CN/guide/svg" },
             {

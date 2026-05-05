@@ -18,6 +18,10 @@ export const it = {
             { text: "Per iniziare", link: "/it/guide/" },
             { text: "Funzionalità", link: "/it/guide/features" },
             {
+              text: "File di grandi dimensioni",
+              link: "/it/guide/large-files",
+            },
+            {
               text: "Esportazione e stampa",
               link: "/it/guide/export",
             },
@@ -44,6 +48,10 @@ export const it = {
             {
               text: "Mappe mentali Markmap",
               link: "/it/guide/markmap",
+            },
+            {
+              text: "Visualizzatore workflow GitHub Actions",
+              link: "/it/guide/workflow-viewer",
             },
             { text: "Grafica SVG", link: "/it/guide/svg" },
             {

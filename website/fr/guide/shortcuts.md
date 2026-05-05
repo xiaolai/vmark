@@ -76,7 +76,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Liste à puces | `Alt + Mod + U` |
 | Liste ordonnée | `Alt + Mod + O` |
 | Liste de tâches | `Alt + Mod + X` |
-| Basculer la case à cocher de tâche | `Mod + Shift + Entrée` _(sensible au contexte&nbsp;; non personnalisable)_ |
+| Basculer la case à cocher de tâche | `Mod + Shift + Enter` _(sensible au contexte&nbsp;; non personnalisable)_ |
 | Changer le type de liste | _(personnalisable)_ |
 | Indenter | `Mod + ]` |
 | Désindenter | `Mod + [` |
@@ -204,11 +204,11 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Action | Raccourci |
 |--------|----------|
 | Ouvrir les Génies IA | `Mod + Y` |
-| Accepter la suggestion | `Entrée` |
+| Accepter la suggestion | `Enter` |
 | Rejeter la suggestion | `Échap` |
 | Suggestion suivante | `Tab` |
 | Suggestion précédente | `Shift + Tab` |
-| Accepter toutes les suggestions | `Mod + Shift + Entrée` |
+| Accepter toutes les suggestions | `Mod + Shift + Enter` |
 | Rejeter toutes les suggestions | `Mod + Shift + Échap` |
 
 ## Mise en forme CJK
@@ -272,11 +272,11 @@ Quand le curseur est à l'intérieur d'un tableau :
 |--------|----------|
 | Cellule suivante | `Tab` |
 | Cellule précédente | `Shift + Tab` |
-| Ajouter une ligne en-dessous | `Mod + Entrée` |
-| Ajouter une ligne au-dessus | `Mod + Shift + Entrée` |
+| Ajouter une ligne en-dessous | `Mod + Enter` |
+| Ajouter une ligne au-dessus | `Mod + Shift + Enter` |
 | Supprimer la ligne | `Mod + Retour arrière` |
-| Ajouter une colonne à gauche | `Alt + Mod + Gauche` |
-| Ajouter une colonne à droite | `Alt + Mod + Droite` |
+| Ajouter une colonne à gauche | `Alt + Mod + Left` |
+| Ajouter une colonne à droite | `Alt + Mod + Right` |
 | Supprimer la colonne | `Alt + Mod + Retour arrière` |
 | Aligner la colonne à gauche | `Mod + Alt + Shift + L` |
 | Aligner la colonne à droite | `Mod + Shift + R` |
@@ -291,7 +291,7 @@ Quand un popup est ouvert (lien, image, mathématiques, etc.) :
 | Action | Raccourci |
 |--------|----------|
 | Fermer le popup | `Échap` |
-| Confirmer/Enregistrer | `Entrée` |
+| Confirmer/Enregistrer | `Enter` |
 | Naviguer entre les champs | `Tab` / `Shift + Tab` |
 
 ## Édition des blocs mathématiques
@@ -300,7 +300,7 @@ Quand vous modifiez un bloc mathématique :
 
 | Action | Raccourci |
 |--------|----------|
-| Valider et quitter | `Mod + Entrée` |
+| Valider et quitter | `Mod + Enter` |
 | Annuler et quitter | `Échap` |
 
 ## Terminal
@@ -319,8 +319,8 @@ Quand la barre de recherche du terminal est ouverte :
 
 | Action | Raccourci |
 |--------|----------|
-| Occurrence suivante | `Entrée` |
-| Occurrence précédente | `Shift + Entrée` |
+| Occurrence suivante | `Enter` |
+| Occurrence précédente | `Shift + Enter` |
 | Fermer la recherche | `Échap` |
 
 ::: tip

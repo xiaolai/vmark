@@ -42,14 +42,14 @@ Quando il cursore è subito prima di una parentesi o virgoletta di chiusura, pre
 
 ### Come Funziona
 
-```
+```text
 function hello(world|)
                     ↑ cursore prima di )
 ```
 
 Premi **Tab**:
 
-```
+```text
 function hello(world)|
                      ↑ cursore dopo )
 ```
@@ -58,28 +58,28 @@ Funziona anche con le parentesi annidate — Tab salta oltre il carattere di chi
 
 Premi **Shift+Tab** per invertire l'azione — se il cursore è subito dopo un carattere di apertura:
 
-```
+```text
 function hello(|world)
                ↑ cursore dopo (
 ```
 
 Premi **Shift+Tab**:
 
-```
+```text
 function hello|(world)
               ↑ cursore prima di (
 ```
 
 ### Esempio CJK
 
-```
+```text
 这是「测试|」文字
          ↑ cursore prima di 」
 ```
 
 Premi **Tab**:
 
-```
+```text
 这是「测试」|文字
           ↑ cursore dopo 」
 ```
@@ -100,28 +100,28 @@ In modalità WYSIWYG, Tab e Shift+Tab possono uscire dai segni di formattazione 
 
 Quando il cursore è all'interno del testo formattato:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ cursore all'interno del grassetto
 ```
 
 Premi **Tab**:
 
-```
+```text
 This is **bold text**| here
                      ↑ cursore dopo il grassetto
 ```
 
 Shift+Tab funziona al contrario — salta all'inizio della formattazione:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ cursore all'interno del grassetto
 ```
 
 Premi **Shift+Tab**:
 
-```
+```text
 This is |**bold text** here
         ↑ cursore prima del grassetto
 ```
@@ -130,21 +130,21 @@ This is |**bold text** here
 
 Tab e Shift+Tab escono anche dai collegamenti:
 
-```
+```text
 Check out [VMark|](https://vmark.app)
                ↑ cursore all'interno del testo del collegamento
 ```
 
 Premi **Tab**:
 
-```
+```text
 Check out [VMark](https://vmark.app)| and...
                                     ↑ cursore dopo il collegamento
 ```
 
 Premi **Shift+Tab** all'interno di un collegamento per andare all'inizio:
 
-```
+```text
 Check out |[VMark](https://vmark.app) and...
           ↑ cursore prima del collegamento
 ```
@@ -311,14 +311,14 @@ Quando hai più cursori e premi Tab o Shift+Tab:
 
 ### Esempio
 
-```
+```text
 **bold|** and [link|](url) and plain|
      ^1          ^2            ^3
 ```
 
 Premi **Tab**:
 
-```
+```text
 **bold**| and [link](url)| and plain|
         ^1               ^2         ^3
 ```
@@ -335,14 +335,14 @@ Questo è particolarmente potente per le modifiche in blocco — seleziona più 
 
 Quando più destinazioni di escape si sovrappongono, Tab le elabora **dalla più interna**:
 
-```
+```text
 **bold text(|)** here
                ↑ Tab salta ) prima (la parentesi è la più interna)
 ```
 
 Premi **Tab** di nuovo:
 
-```
+```text
 **bold text()**| here
                ↑ Tab esce dal segno grassetto
 ```
@@ -353,7 +353,7 @@ Ciò significa che il salto della parentesi si attiva sempre prima dell'escape d
 
 I salti con Tab e Shift+Tab sono **disabilitati all'interno dei blocchi di codice** — sia i nodi `code_block` che gli span di codice inline. Questo impedisce a Tab di saltare oltre le parentesi nel codice, dove le parentesi sono sintassi letterale:
 
-```
+```text
 `array[index|]`
               ↑ Tab NON salta ] nel codice inline — inserisce spazi
 ```

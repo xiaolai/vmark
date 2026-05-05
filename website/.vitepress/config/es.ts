@@ -59,6 +59,14 @@ export const es = {
               link: "/es/guide/workspace-management",
             },
             {
+              text: "Archivos grandes",
+              link: "/es/guide/large-files",
+            },
+            {
+              text: "Visor de flujos de trabajo",
+              link: "/es/guide/workflow-viewer",
+            },
+            {
               text: "Formato CJK",
               link: "/es/guide/cjk-formatting",
             },

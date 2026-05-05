@@ -52,7 +52,7 @@ Cada proveedor muestra un indicador de estado:
 | Icono | Estado | Significado |
 |-------|--------|-------------|
 | ✓ Verde | Válido | La configuración es correcta y funciona |
-| ⚠️ Ámbar | Ruta no coincide | VMark fue movido — haz clic en **Reparar** |
+| ⚠ Ámbar | Ruta no coincide | VMark fue movido — haz clic en **Reparar** |
 | ✗ Rojo | Binario no encontrado | Binario MCP no encontrado — reinstala VMark |
 | ○ Gris | No configurado | No instalado — haz clic en **Instalar** |
 
@@ -157,7 +157,7 @@ El puerto se detecta automáticamente — no se necesitan `args`.
 
 ## Cómo Funciona
 
-```
+```text
 AI Assistant <--stdio--> MCP Server <--WebSocket--> VMark Editor
 ```
 
@@ -236,7 +236,7 @@ En **Configuración → Integraciones**, cuando el servidor está en ejecución 
 Si moviste VMark.app a una ubicación diferente (por ejemplo, de Descargas a Aplicaciones), la configuración apuntará a la ruta anterior:
 
 1. Abre **Configuración → Integraciones**
-2. Busca el icono de advertencia ámbar ⚠️ junto a los proveedores afectados
+2. Busca el icono de advertencia ámbar ⚠ junto a los proveedores afectados
 3. Haz clic en **Reparar** para actualizar la ruta
 4. Reinicia tu asistente de IA
 

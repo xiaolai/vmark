@@ -52,7 +52,7 @@ Cada provedor mostra um indicador de status:
 | Ícone | Status | Significado |
 |-------|--------|-------------|
 | ✓ Verde | Válido | Configuração correta e funcionando |
-| ⚠️ Âmbar | Caminho Incorreto | VMark foi movido — clique em **Reparar** |
+| ⚠ Âmbar | Caminho Incorreto | VMark foi movido — clique em **Reparar** |
 | ✗ Vermelho | Binário Ausente | Binário MCP não encontrado — reinstale o VMark |
 | ○ Cinza | Não Configurado | Não instalado — clique em **Instalar** |
 
@@ -157,7 +157,7 @@ A porta é descoberta automaticamente — nenhum argumento `args` é necessário
 
 ## Como Funciona
 
-```
+```text
 Assistente de IA <--stdio--> Servidor MCP <--WebSocket--> Editor VMark
 ```
 
@@ -236,7 +236,7 @@ Em **Configurações → Integrações**, quando o servidor estiver em execuçã
 Se você moveu o VMark.app para um local diferente (por exemplo, de Downloads para Aplicativos), a configuração apontará para o caminho antigo:
 
 1. Abra **Configurações → Integrações**
-2. Procure o ícone de aviso âmbar ⚠️ ao lado dos provedores afetados
+2. Procure o ícone de aviso âmbar ⚠ ao lado dos provedores afetados
 3. Clique em **Reparar** para atualizar o caminho
 4. Reinicie seu assistente de IA
 

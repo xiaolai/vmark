@@ -42,14 +42,14 @@ Cuando el cursor está justo antes de un corchete o comilla de cierre, presionar
 
 ### Cómo Funciona
 
-```
+```text
 function hello(world|)
                     ↑ cursor antes de )
 ```
 
 Presiona **Tab**:
 
-```
+```text
 function hello(world)|
                      ↑ cursor después de )
 ```
@@ -58,28 +58,28 @@ Esto también funciona con corchetes anidados — Tab salta sobre el carácter d
 
 Presionar **Shift+Tab** invierte la acción — si el cursor está justo después de un carácter de apertura:
 
-```
+```text
 function hello(|world)
                ↑ cursor después de (
 ```
 
 Presiona **Shift+Tab**:
 
-```
+```text
 function hello|(world)
               ↑ cursor antes de (
 ```
 
 ### Ejemplo CJK
 
-```
+```text
 这是「测试|」文字
          ↑ cursor antes de 」
 ```
 
 Presiona **Tab**:
 
-```
+```text
 这是「测试」|文字
           ↑ cursor después de 」
 ```
@@ -100,28 +100,28 @@ En el modo WYSIWYG, Tab y Shift+Tab pueden escapar de las marcas de formato en l
 
 Cuando el cursor está en cualquier lugar dentro del texto formateado:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ cursor dentro de la negrita
 ```
 
 Presiona **Tab**:
 
-```
+```text
 This is **bold text**| here
                      ↑ cursor después de la negrita
 ```
 
 Shift+Tab funciona al revés — salta al inicio del formato:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ cursor dentro de la negrita
 ```
 
 Presiona **Shift+Tab**:
 
-```
+```text
 This is |**bold text** here
         ↑ cursor antes de la negrita
 ```
@@ -130,21 +130,21 @@ This is |**bold text** here
 
 Tab y Shift+Tab también escapan de los enlaces:
 
-```
+```text
 Check out [VMark|](https://vmark.app)
                ↑ cursor dentro del texto del enlace
 ```
 
 Presiona **Tab**:
 
-```
+```text
 Check out [VMark](https://vmark.app)| and...
                                     ↑ cursor después del enlace
 ```
 
 Presionar **Shift+Tab** dentro de un enlace mueve al inicio:
 
-```
+```text
 Check out |[VMark](https://vmark.app) and...
           ↑ cursor antes del enlace
 ```
@@ -311,14 +311,14 @@ Cuando tienes múltiples cursores y presionas Tab o Shift+Tab:
 
 ### Ejemplo
 
-```
+```text
 **bold|** and [link|](url) and plain|
      ^1          ^2            ^3
 ```
 
 Presiona **Tab**:
 
-```
+```text
 **bold**| and [link](url)| and plain|
         ^1               ^2         ^3
 ```
@@ -335,14 +335,14 @@ Esto es particularmente poderoso para ediciones en lote — selecciona múltiple
 
 Cuando múltiples objetivos de escape se superponen, Tab los procesa **del más interno al más externo**:
 
-```
+```text
 **bold text(|)** here
                ↑ Tab salta ) primero (el corchete es el más interno)
 ```
 
 Presiona **Tab** de nuevo:
 
-```
+```text
 **bold text()**| here
                ↑ Tab escapa la marca de negrita
 ```
@@ -353,7 +353,7 @@ Esto significa que el salto de corchetes siempre se ejecuta antes que el escape 
 
 Los saltos de corchetes con Tab y Shift+Tab están **deshabilitados dentro de los bloques de código** — tanto en los nodos `code_block` como en los fragmentos de código en línea. Esto evita que Tab salte sobre los corchetes en el código, donde los corchetes son sintaxis literal:
 
-```
+```text
 `array[index|]`
               ↑ Tab NO salta ] en código en línea — inserta espacios en su lugar
 ```

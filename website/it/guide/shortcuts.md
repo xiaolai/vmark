@@ -275,8 +275,8 @@ Quando il cursore è all'interno di una tabella:
 | Aggiungi riga sotto | `Mod + Enter` |
 | Aggiungi riga sopra | `Mod + Shift + Enter` |
 | Elimina riga | `Mod + Backspace` |
-| Aggiungi colonna a sinistra | `Alt + Mod + Sinistra` |
-| Aggiungi colonna a destra | `Alt + Mod + Destra` |
+| Aggiungi colonna a sinistra | `Alt + Mod + Left` |
+| Aggiungi colonna a destra | `Alt + Mod + Right` |
 | Elimina colonna | `Alt + Mod + Backspace` |
 | Allinea colonna a sinistra | `Mod + Alt + Shift + L` |
 | Allinea colonna a destra | `Mod + Shift + R` |

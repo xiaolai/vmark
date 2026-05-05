@@ -25,7 +25,7 @@ Tapez un bloc de code délimité avec l'identifiant de langage `markmap` :
 ## Branche B
 ### Sujet 3
 ### Sujet 4
-```
+```text
 ````
 
 ### Utiliser l'outil MCP
@@ -80,7 +80,7 @@ Les nœuds peuvent contenir du Markdown en ligne :
 ## Documentation
 ### Référence API
 ### Guide utilisateur
-```
+```text
 ````
 
 Les éléments de liste sous un titre deviennent des nœuds enfants de ce titre.

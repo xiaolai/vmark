@@ -17,6 +17,7 @@ export const fr = {
           items: [
             { text: "Démarrage rapide", link: "/fr/guide/" },
             { text: "Fonctionnalités", link: "/fr/guide/features" },
+            { text: "Fichiers volumineux", link: "/fr/guide/large-files" },
             {
               text: "Exportation et impression",
               link: "/fr/guide/export",
@@ -44,6 +45,10 @@ export const fr = {
             {
               text: "Cartes mentales Markmap",
               link: "/fr/guide/markmap",
+            },
+            {
+              text: "Visualiseur de workflows GitHub Actions",
+              link: "/fr/guide/workflow-viewer",
             },
             { text: "Graphiques SVG", link: "/fr/guide/svg" },
             {

@@ -170,7 +170,7 @@ Ces paramètres s'appliquent uniquement lorsqu'un espace de travail (dossier) es
 | Avertir au-dessus de la taille | Afficher une invite de confirmation lors de l'ouverture de fichiers au-dessus de cette taille | 5 Mo | Activé / Désactivé |
 | Mode Source automatique | Ouvrir automatiquement les fichiers au-dessus du seuil en mode Source (saute le WYSIWYG pour préserver la fluidité des performances) | Activé | Activé / Désactivé |
 
-Voir [Fichiers volumineux](/guide/large-files) pour la ventilation complète de la façon dont les fichiers volumineux sont gérés.
+Voir [Fichiers volumineux](/fr/guide/large-files) pour la ventilation complète de la façon dont les fichiers volumineux sont gérés.
 
 ### Mises à jour
 
@@ -204,8 +204,8 @@ Le serveur MCP (Model Context Protocol) permet aux assistants IA externes comme 
 | Démarrer au lancement | Démarrer automatiquement le serveur MCP à l'ouverture de VMark | Activé |
 | Approuver automatiquement les modifications | Appliquer les changements de document initiés par IA sans afficher d'aperçu pour approbation. Utilisez avec prudence | Désactivé |
 
-Lorsque le serveur est en cours d'exécution, le panneau affiche également :
-- **Port** — assigné automatiquement ; les clients IA le découvrent via le fichier de configuration
+Lorsque le serveur est en cours d'exécution, le panneau affiche également&nbsp;:
+- **Port** — assigné automatiquement&nbsp;; les clients IA le découvrent via le fichier de configuration
 - **Version** — version du sidecar du serveur MCP
 - **Outils / Ressources** — nombre d'outils et de ressources MCP disponibles
 - **Clients connectés** — nombre de clients IA actuellement connectés
@@ -344,7 +344,7 @@ Cela vous permet de créer des liens comme `obsidian://open?vault=...` ou `vscod
 | Moteur de workflow | Activer le visualiseur/éditeur de workflow GitHub Actions pour les fichiers `.yml`/`.yaml` sous `.github/workflows/`. Lorsqu'il est désactivé, ces fichiers s'ouvrent comme du YAML brut | Désactivé | Activé / Désactivé |
 | Préserver le formatage YAML | Lors de l'enregistrement des modifications de workflow effectuées via le panneau de formulaire, préserver les commentaires, ancres, ordre des clés et lignes vides du YAML d'origine via le pipeline d'aller-retour CST. Lorsqu'il est désactivé, l'enregistrement utilise un sérialiseur compact (plus rapide mais avec perte) | Activé | Activé / Désactivé |
 
-Voir [Visualiseur de workflow](/guide/workflow-viewer) pour la surface complète des fonctionnalités.
+Voir [Visualiseur de workflows](/fr/guide/workflow-viewer) pour la surface complète des fonctionnalités.
 
 ### Spécifique à la plateforme
 

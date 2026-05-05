@@ -25,7 +25,7 @@ Escribe un bloque de código delimitado con el identificador de lenguaje `markma
 ## Branch B
 ### Topic 3
 ### Topic 4
-```
+```text
 ````
 
 ### Usando la Herramienta MCP
@@ -80,7 +80,7 @@ Los nodos pueden contener Markdown en línea:
 ## Documentation
 ### API reference
 ### User guide
-```
+```text
 ````
 
 Los elementos de lista bajo un encabezado se convierten en nodos hijos de ese encabezado.

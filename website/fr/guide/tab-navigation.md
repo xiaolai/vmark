@@ -42,14 +42,14 @@ Lorsque votre curseur est juste avant un crochet ou guillemet fermant, appuyer s
 
 ### Fonctionnement
 
-```
+```text
 function hello(world|)
                     ↑ curseur avant )
 ```
 
 Appuyez sur **Tab** :
 
-```
+```text
 function hello(world)|
                      ↑ curseur après )
 ```
@@ -58,28 +58,28 @@ Cela fonctionne également avec les crochets imbriqués — Tab saute par-dessus
 
 Appuyez sur **Shift+Tab** inverse l'action — si le curseur est juste après un caractère ouvrant :
 
-```
+```text
 function hello(|world)
                ↑ curseur après (
 ```
 
 Appuyez sur **Shift+Tab** :
 
-```
+```text
 function hello|(world)
               ↑ curseur avant (
 ```
 
 ### Exemple CJK
 
-```
+```text
 这是「测试|」文字
          ↑ curseur avant 」
 ```
 
 Appuyez sur **Tab** :
 
-```
+```text
 这是「测试」|文字
           ↑ curseur après 」
 ```
@@ -100,28 +100,28 @@ En mode WYSIWYG, Tab et Shift+Tab peuvent s'échapper des marques de formatage e
 
 Lorsque votre curseur est n'importe où à l'intérieur du texte formaté :
 
-```
+```text
 This is **bold te|xt** here
                  ↑ curseur à l'intérieur du gras
 ```
 
 Appuyez sur **Tab** :
 
-```
+```text
 This is **bold text**| here
                      ↑ curseur après le gras
 ```
 
 Shift+Tab fonctionne en sens inverse — il saute au début du formatage :
 
-```
+```text
 This is **bold te|xt** here
                  ↑ curseur à l'intérieur du gras
 ```
 
 Appuyez sur **Shift+Tab** :
 
-```
+```text
 This is |**bold text** here
         ↑ curseur avant le gras
 ```
@@ -130,21 +130,21 @@ This is |**bold text** here
 
 Tab et Shift+Tab s'échappent également des liens :
 
-```
+```text
 Check out [VMark|](https://vmark.app)
                ↑ curseur à l'intérieur du texte du lien
 ```
 
 Appuyez sur **Tab** :
 
-```
+```text
 Check out [VMark](https://vmark.app)| and...
                                     ↑ curseur après le lien
 ```
 
 Appuyez sur **Shift+Tab** à l'intérieur d'un lien déplace vers le début :
 
-```
+```text
 Check out |[VMark](https://vmark.app) and...
           ↑ curseur avant le lien
 ```
@@ -311,14 +311,14 @@ Lorsque vous avez plusieurs curseurs et appuyez sur Tab ou Shift+Tab :
 
 ### Exemple
 
-```
+```text
 **gras|** and [lien|](url) and brut|
      ^1         ^2             ^3
 ```
 
 Appuyez sur **Tab** :
 
-```
+```text
 **gras**| and [lien](url)| and brut|
         ^1               ^2        ^3
 ```
@@ -335,14 +335,14 @@ C'est particulièrement puissant pour les modifications en masse — sélectionn
 
 Lorsque plusieurs cibles d'échappement se chevauchent, Tab les traite **du plus intérieur vers l'extérieur** :
 
-```
+```text
 **texte gras(|)** ici
                ↑ Tab saute ) en premier (le crochet est le plus intérieur)
 ```
 
 Appuyez à nouveau sur **Tab** :
 
-```
+```text
 **texte gras()**| ici
                 ↑ Tab s'échappe de la marque gras
 ```
@@ -353,7 +353,7 @@ Cela signifie que le saut de crochet se déclenche toujours avant l'échappement
 
 Les sauts de crochets Tab et Shift+Tab sont **désactivés à l'intérieur des blocs de code** — à la fois les nœuds `code_block` et les spans de code en ligne. Cela empêche Tab de sauter par-dessus les crochets dans le code, où les crochets sont une syntaxe littérale :
 
-```
+```text
 `tableau[index|]`
                ↑ Tab ne saute PAS ] dans le code en ligne — insère des espaces à la place
 ```

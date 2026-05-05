@@ -25,7 +25,7 @@ Digita un blocco di codice delimitato con l'identificatore di linguaggio `markma
 ## Ramo B
 ### Argomento 3
 ### Argomento 4
-```
+```text
 ````
 
 ### Usando lo Strumento MCP
@@ -80,7 +80,7 @@ I nodi possono contenere Markdown inline:
 ## Documentazione
 ### Riferimento API
 ### Guida utente
-```
+```text
 ````
 
 Gli elementi di elenco sotto un'intestazione diventano nodi figli di quell'intestazione.

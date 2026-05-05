@@ -6,21 +6,21 @@ VMark ships a built-in lint engine that catches **correctness issues**, not styl
 
 VMark's lint is a **correctness** checker:
 
-- ✅ Broken cross-references
-- ✅ Undefined link / footnote references
-- ✅ Unclosed code fences
-- ✅ Tables with mismatched column counts
-- ✅ Heading levels that skip (h1 → h3)
-- ✅ Images without alt text
-- ✅ Empty link text or empty `href`
+- Broken cross-references
+- Undefined link / footnote references
+- Unclosed code fences
+- Tables with mismatched column counts
+- Heading levels that skip (h1 → h3)
+- Images without alt text
+- Empty link text or empty `href`
 
 VMark's lint is **not** a style enforcer. It will not flag:
 
-- ❌ Line length
-- ❌ List marker style (`-` vs `*`)
-- ❌ Emphasis marker style (`_` vs `*`)
-- ❌ Heading style (`#` vs underline)
-- ❌ Trailing whitespace
+- Line length
+- List marker style (`-` vs `*`)
+- Emphasis marker style (`_` vs `*`)
+- Heading style (`#` vs underline)
+- Trailing whitespace
 
 For style enforcement, use a separate tool like `prettier --check` outside VMark.
 

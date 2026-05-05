@@ -32,7 +32,7 @@ Racchiudi il markup SVG grezzo in un blocco di codice delimitato con l'identific
   <text x="100" y="55" text-anchor="middle" fill="white"
         font-size="18" font-family="system-ui">Hello SVG</text>
 </svg>
-```
+```text
 ````
 
 L'SVG viene renderizzato inline — proprio come i diagrammi Mermaid — con controlli interattivi.

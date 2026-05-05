@@ -19,6 +19,11 @@ export const zhTW = {
             { text: "功能特性", link: "/zh-TW/guide/features" },
             { text: "匯出與列印", link: "/zh-TW/guide/export" },
             { text: "鍵盤快捷鍵", link: "/zh-TW/guide/shortcuts" },
+            { text: "大型檔案", link: "/zh-TW/guide/large-files" },
+            {
+              text: "GitHub Actions 工作流程檢視器",
+              link: "/zh-TW/guide/workflow-viewer",
+            },
             {
               text: "智慧分頁導覽",
               link: "/zh-TW/guide/tab-navigation",

@@ -165,7 +165,7 @@ Lorsque le [serveur MCP](/fr/guide/mcp-setup) est connecté, les assistants IA p
 
 Chaque transformation fait passer le document actif par un aller-retour sérialisation-formatage-analyse afin de préserver les marques en ligne (gras, liens, maths, etc.) et de respecter vos règles de mise en forme configurées.
 
-Consultez la [Référence des outils MCP](/fr/guide/mcp-tools#document) pour la forme complète de la requête — `document.transform` prend `tabId`, `kind` et un `expected_revision` pour la concurrence optimiste.
+Consultez la [Référence des outils MCP](/fr/guide/mcp-tools#document-tool) pour la forme complète de la requête — `document.transform` prend `tabId`, `kind` et un `expected_revision` pour la concurrence optimiste.
 
 ## Configuration
 

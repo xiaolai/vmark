@@ -8,7 +8,7 @@ O VMark oferece várias formas de exportar e compartilhar seus documentos.
 
 Cria uma pasta autocontida com estrutura limpa:
 
-```
+```text
 MeuDocumento/
 ├── index.html
 └── assets/
@@ -27,7 +27,7 @@ MeuDocumento/
 
 Cria um único arquivo HTML autocontido:
 
-```
+```text
 MeuDocumento.html
 ```
 

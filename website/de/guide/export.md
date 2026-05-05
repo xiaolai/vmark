@@ -8,7 +8,7 @@ VMark bietet mehrere Möglichkeiten, Ihre Dokumente zu exportieren und zu teilen
 
 Erstellt einen eigenständigen Ordner mit übersichtlicher Struktur:
 
-```
+```text
 MyDocument/
 ├── index.html
 └── assets/
@@ -27,7 +27,7 @@ MyDocument/
 
 Erstellt eine einzelne, eigenständige HTML-Datei:
 
-```
+```text
 MyDocument.html
 ```
 

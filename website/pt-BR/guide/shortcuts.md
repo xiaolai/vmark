@@ -275,8 +275,8 @@ Quando o cursor estiver dentro de uma tabela:
 | Adicionar Linha Abaixo | `Mod + Enter` |
 | Adicionar Linha Acima | `Mod + Shift + Enter` |
 | Excluir Linha | `Mod + Backspace` |
-| Adicionar Coluna à Esquerda | `Alt + Mod + Esquerda` |
-| Adicionar Coluna à Direita | `Alt + Mod + Direita` |
+| Adicionar Coluna à Esquerda | `Alt + Mod + Left` |
+| Adicionar Coluna à Direita | `Alt + Mod + Right` |
 | Excluir Coluna | `Alt + Mod + Backspace` |
 | Alinhar Coluna à Esquerda | `Mod + Alt + Shift + L` |
 | Alinhar Coluna à Direita | `Mod + Shift + R` |

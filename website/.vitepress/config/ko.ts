@@ -17,6 +17,7 @@ export const ko = {
           items: [
             { text: "시작하기", link: "/ko/guide/" },
             { text: "기능", link: "/ko/guide/features" },
+            { text: "대용량 파일", link: "/ko/guide/large-files" },
             { text: "내보내기 및 인쇄", link: "/ko/guide/export" },
             {
               text: "키보드 단축키",
@@ -41,6 +42,10 @@ export const ko = {
             {
               text: "Markmap 마인드맵",
               link: "/ko/guide/markmap",
+            },
+            {
+              text: "GitHub Actions 워크플로 뷰어",
+              link: "/ko/guide/workflow-viewer",
             },
             { text: "SVG 그래픽", link: "/ko/guide/svg" },
             {

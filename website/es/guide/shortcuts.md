@@ -272,10 +272,10 @@ Cuando el cursor está dentro de una tabla:
 | Celda Anterior | `Shift + Tab` |
 | Añadir Fila Abajo | `Mod + Enter` |
 | Añadir Fila Arriba | `Mod + Shift + Enter` |
-| Eliminar Fila | `Mod + Retroceso` |
-| Añadir Columna a la Izquierda | `Alt + Mod + Izquierda` |
-| Añadir Columna a la Derecha | `Alt + Mod + Derecha` |
-| Eliminar Columna | `Alt + Mod + Retroceso` |
+| Eliminar Fila | `Mod + Backspace` |
+| Añadir Columna a la Izquierda | `Alt + Mod + Left` |
+| Añadir Columna a la Derecha | `Alt + Mod + Right` |
+| Eliminar Columna | `Alt + Mod + Backspace` |
 | Alinear Columna a la Izquierda | `Mod + Alt + Shift + L` |
 | Alinear Columna a la Derecha | `Mod + Shift + R` |
 | Alinear Columna al Centro | _(personalizable)_ |

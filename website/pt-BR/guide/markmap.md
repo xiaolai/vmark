@@ -25,7 +25,7 @@ Digite um bloco de código delimitado com o identificador de linguagem `markmap`
 ## Ramo B
 ### Tópico 3
 ### Tópico 4
-```
+```text
 ````
 
 ### Usando a Ferramenta MCP
@@ -80,7 +80,7 @@ Os nós podem conter Markdown inline:
 ## Documentação
 ### Referência de API
 ### Guia do usuário
-```
+```text
 ````
 
 Itens de lista sob um título se tornam nós filhos desse título.

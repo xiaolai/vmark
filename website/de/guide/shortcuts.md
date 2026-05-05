@@ -272,8 +272,8 @@ Wenn der Cursor sich in einer Tabelle befindet:
 | Zeile darunter hinzufügen | `Mod + Eingabe` |
 | Zeile darüber hinzufügen | `Mod + Umschalt + Eingabe` |
 | Zeile löschen | `Mod + Rücktaste` |
-| Spalte links hinzufügen | `Alt + Mod + Links` |
-| Spalte rechts hinzufügen | `Alt + Mod + Rechts` |
+| Spalte links hinzufügen | `Alt + Mod + Left` |
+| Spalte rechts hinzufügen | `Alt + Mod + Right` |
 | Spalte löschen | `Alt + Mod + Rücktaste` |
 | Spalte linksbündig ausrichten | `Mod + Alt + Umschalt + L` |
 | Spalte rechtsbündig ausrichten | `Mod + Umschalt + R` |

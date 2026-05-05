@@ -6,21 +6,21 @@ VMark embarque un moteur de lint intégré qui détecte les **problèmes de corr
 
 Le lint de VMark est un vérificateur de **correction**&nbsp;:
 
-- ✅ Références croisées cassées
-- ✅ Références de lien / note de bas de page non définies
-- ✅ Blocs de code délimités non fermés
-- ✅ Tableaux avec un nombre de colonnes incohérent
-- ✅ Niveaux de titre qui sautent (h1 → h3)
-- ✅ Images sans texte alternatif
-- ✅ Texte de lien vide ou `href` vide
+- Références croisées cassées
+- Références de lien / note de bas de page non définies
+- Blocs de code délimités non fermés
+- Tableaux avec un nombre de colonnes incohérent
+- Niveaux de titre qui sautent (h1 → h3)
+- Images sans texte alternatif
+- Texte de lien vide ou `href` vide
 
 Le lint de VMark n'est **pas** un applicateur de style. Il ne signalera pas&nbsp;:
 
-- ❌ Longueur de ligne
-- ❌ Style de marqueur de liste (`-` vs `*`)
-- ❌ Style de marqueur d'emphase (`_` vs `*`)
-- ❌ Style de titre (`#` vs souligné)
-- ❌ Espaces de fin de ligne
+- Longueur de ligne
+- Style de marqueur de liste (`-` vs `*`)
+- Style de marqueur d'emphase (`_` vs `*`)
+- Style de titre (`#` vs souligné)
+- Espaces de fin de ligne
 
 Pour l'application du style, utilisez un outil distinct comme `prettier --check` en dehors de VMark.
 

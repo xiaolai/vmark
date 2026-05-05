@@ -32,7 +32,7 @@ VMark 为 SVG（可缩放矢量图形）提供一流支持。在文档中使用 
   <text x="100" y="55" text-anchor="middle" fill="white"
         font-size="18" font-family="system-ui">Hello SVG</text>
 </svg>
-```
+```text
 ````
 
 SVG 会内联渲染——就像 Mermaid 图表一样——并带有交互控件。

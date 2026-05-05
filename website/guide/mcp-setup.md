@@ -52,7 +52,7 @@ Each provider shows a status indicator:
 | Icon | Status | Meaning |
 |------|--------|---------|
 | ✓ Green | Valid | Configuration is correct and working |
-| ⚠️ Amber | Path Mismatch | VMark was moved — click **Repair** |
+| ⚠ Amber | Path Mismatch | VMark was moved — click **Repair** |
 | ✗ Red | Binary Missing | MCP binary not found — reinstall VMark |
 | ○ Gray | Not Configured | Not installed — click **Install** |
 
@@ -236,7 +236,7 @@ In **Settings → Integrations**, when the server is running you'll see:
 If you moved VMark.app to a different location (e.g., from Downloads to Applications), the configuration will point to the old path:
 
 1. Open **Settings → Integrations**
-2. Look for the amber ⚠️ warning icon next to affected providers
+2. Look for the amber ⚠ warning icon next to affected providers
 3. Click **Repair** to update the path
 4. Restart your AI assistant
 

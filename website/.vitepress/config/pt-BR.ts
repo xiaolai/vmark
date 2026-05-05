@@ -59,6 +59,14 @@ export const ptBR = {
               link: "/pt-BR/guide/workspace-management",
             },
             {
+              text: "Arquivos grandes",
+              link: "/pt-BR/guide/large-files",
+            },
+            {
+              text: "Visualizador de Workflows",
+              link: "/pt-BR/guide/workflow-viewer",
+            },
+            {
               text: "Formatação CJK",
               link: "/pt-BR/guide/cjk-formatting",
             },

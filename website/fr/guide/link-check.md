@@ -6,9 +6,9 @@ VMark vérifie que les cibles locales de liens et d'images dans votre markdown e
 
 Pour chaque lien et image local dans le document&nbsp;:
 
-- `[texte](./autre.md)` — le fichier `./autre.md` se résout et existe
+- `[texte](./other.md)` — le fichier `./other.md` se résout et existe
 - `![alt](./image.png)` — le fichier image existe
-- `[texte](./autre.md#section)` — le fichier existe (la vérification d'ancre est gérée par la [règle `linkFragments`](/fr/guide/lint#r%C3%A9f%C3%A9rence-des-r%C3%A8gles))
+- `[texte](./other.md#section)` — le fichier existe (la vérification d'ancre est gérée par la [règle `linkFragments`](/fr/guide/lint#r%C3%A9f%C3%A9rence-des-r%C3%A8gles))
 
 Lorsqu'une cible est manquante, le texte du lien est souligné par un trait rouge et une entrée apparaît dans le badge de lint / la navigation F2.
 
@@ -22,14 +22,14 @@ Lorsqu'une cible est manquante, le texte du lien est souligné par un trait roug
 
 La vérification des liens résout les chemins par rapport au répertoire du fichier source&nbsp;:
 
-| Lien dans `/depot/docs/intro.md` | Se résout en |
+| Lien dans `/repo/docs/intro.md` | Se résout en |
 |---|---|
-| `[a](./autre.md)` | `/depot/docs/autre.md` |
-| `[a](../partage.md)` | `/depot/partage.md` |
-| `[a](images/logo.png)` | `/depot/docs/images/logo.png` |
-| `[a](/docs/intro.md)` | `/depot/docs/docs/intro.md` (enraciné comme relatif dans le répertoire du fichier) |
+| `[a](./other.md)` | `/repo/docs/other.md` |
+| `[a](../shared.md)` | `/repo/shared.md` |
+| `[a](images/logo.png)` | `/repo/docs/images/logo.png` |
+| `[a](/docs/intro.md)` | `/repo/docs/docs/intro.md` (enraciné comme relatif dans le répertoire du fichier) |
 
-Les fragments sont supprimés avant la recherche du fichier — `[a](./autre.md#section)` vérifie uniquement `./autre.md`.
+Les fragments sont supprimés avant la recherche du fichier — `[a](./other.md#section)` vérifie uniquement `./other.md`.
 
 ## Performance
 

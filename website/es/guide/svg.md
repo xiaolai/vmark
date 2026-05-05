@@ -32,7 +32,7 @@ Envuelve el marcado SVG sin procesar en un bloque de código delimitado con el i
   <text x="100" y="55" text-anchor="middle" fill="white"
         font-size="18" font-family="system-ui">Hello SVG</text>
 </svg>
-```
+```text
 ````
 
 El SVG se renderiza en línea — igual que los diagramas Mermaid — con controles interactivos.

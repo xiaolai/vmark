@@ -18,7 +18,7 @@ Ogni controllo invia esattamente questi campi — niente di più:
 
 L'URL completo appare così:
 
-```
+```text
 GET https://log.vmark.app/update/latest.json?target=darwin&arch=aarch64&version=0.5.10
 X-Machine-Id: a3f8c2b1d4e5f6078a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1
 ```

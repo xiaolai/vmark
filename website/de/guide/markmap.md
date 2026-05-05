@@ -25,7 +25,7 @@ Geben Sie einen umzäunten Code-Block mit der `markmap`-Sprachkennung ein:
 ## Zweig B
 ### Thema 3
 ### Thema 4
-```
+```text
 ````
 
 ### Über das MCP-Tool
@@ -80,7 +80,7 @@ Knoten können Inline-Markdown enthalten:
 ## Dokumentation
 ### API-Referenz
 ### Benutzerhandbuch
-```
+```text
 ````
 
 Listenelemente unter einer Überschrift werden zu Kindknoten dieser Überschrift.

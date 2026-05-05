@@ -8,7 +8,7 @@ VMark 提供多种方式导出和分享你的文档。
 
 创建具有清晰结构的自包含文件夹：
 
-```
+```text
 MyDocument/
 ├── index.html
 └── assets/
@@ -27,7 +27,7 @@ MyDocument/
 
 创建单个自包含 HTML 文件：
 
-```
+```text
 MyDocument.html
 ```
 

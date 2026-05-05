@@ -17,6 +17,7 @@ export const ja = {
           items: [
             { text: "はじめに", link: "/ja/guide/" },
             { text: "機能", link: "/ja/guide/features" },
+            { text: "大きなファイル", link: "/ja/guide/large-files" },
             { text: "エクスポートと印刷", link: "/ja/guide/export" },
             {
               text: "キーボードショートカット",
@@ -41,6 +42,10 @@ export const ja = {
             {
               text: "Markmap マインドマップ",
               link: "/ja/guide/markmap",
+            },
+            {
+              text: "GitHub Actions ワークフロービューア",
+              link: "/ja/guide/workflow-viewer",
             },
             { text: "SVG グラフィックス", link: "/ja/guide/svg" },
             {

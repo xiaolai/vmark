@@ -1,6 +1,6 @@
 # 链接检查
 
-VMark 会验证 markdown 中的本地链接和图片目标是否真实存在于磁盘上。它与 [markdown lint 引擎](/zh-CN/guide/lint)一起在 `Cmd-Shift-L` 或 **工具 → 检查 Markdown** 时运行。
+VMark 会验证 markdown 中的本地链接和图片目标是否真实存在于磁盘上。它与 [Markdown 检查](/zh-CN/guide/lint) 一起在 `Cmd-Shift-L` 或 **工具 → 检查 Markdown** 时运行。
 
 ## 它检查什么
 
