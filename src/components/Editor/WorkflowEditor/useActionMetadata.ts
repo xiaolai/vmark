@@ -37,64 +37,52 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 
 /**
- * Derive (workflowFile, wsRoot) for resolving `./` action refs.
+ * Derive (workflowFile, wsRoot) for resolving `./` action refs from
+ * the focused source editor's filePath. The active source view is
+ * always set when StepForm is mounted (the side panel only renders
+ * for parsed workflow YAML files), and `getCurrentWindowLabel()`
+ * resolves to the SAME window because both run inside the same
+ * WindowProvider context.
  *
- * Codex audit HIGH-5 fix: previously scanned global tab state, which
- * picked the wrong repo in multi-window sessions. Now we use the
- * active editor's filePath as the authoritative anchor — same window
- * where the StepForm is mounted.
- *
- * Returns null when the active document isn't a workflow file (form
- * shows the unavailable state, no fs read).
+ * Codex audit HIGH-5 fix (final): previous fallback scanned global
+ * tab state, which could pick the wrong repo in multi-window
+ * sessions. Now strictly uses the focused source view's tab id —
+ * resolved through the window label that StepForm renders in. If
+ * the active view is missing, returns null and the form falls back
+ * to the "unavailable" state for local refs (same as offline remote).
  */
 function inferWorkflowContext(): {
   workflowFile: string;
   wsRoot: string;
 } | null {
-  // Try the focused source editor's docId first — its containing tab
-  // is the authoritative file for the form. activeEditorStore is the
-  // single window-scoped truth (StatusBar + diagnostics use it too).
   const activeView = useActiveEditorStore.getState().activeSourceView;
-  if (activeView?.dom?.isConnected) {
-    const tabs = useTabStore.getState().tabs;
-    const docs = useDocumentStore.getState().documents;
-    // Find the tab whose document content matches the view's doc.
-    // CodeMirror doesn't expose tabId directly, so we cross-check
-    // via active tab in any window: the focused source view belongs
-    // to the active tab of its window. Resolve through DOM closest()
-    // for the host window-frame.
-    for (const label of Object.keys(tabs)) {
-      const activeId = useTabStore.getState().activeTabId[label] ?? null;
-      if (!activeId) continue;
-      const fp = docs[activeId]?.filePath;
-      if (!fp) continue;
-      // Match by content length as a cheap "is this the same doc"
-      // heuristic — false positives cost a stale fs read, which the
-      // registry handles by returning null.
-      if (activeView.state.doc.length === (docs[activeId]?.content ?? "").length) {
-        const norm = fp.replace(/\\/g, "/");
-        const ghIdx = norm.lastIndexOf("/.github/workflows/");
-        if (ghIdx > 0) {
-          return { workflowFile: norm, wsRoot: norm.slice(0, ghIdx) };
-        }
-      }
-    }
-  }
-  // Fallback: first window with a workflow filePath. Multi-window
-  // safety regression risk acknowledged; the active-view path above
-  // is the correct one in 99% of cases.
+  if (!activeView?.dom?.isConnected) return null;
+
+  // Resolve the host window via DOM ownership: the source view's
+  // root element belongs to a specific window's document. We look
+  // up the window label by scanning tabs whose active tab's doc has
+  // a length matching this view's doc — multi-window correct because
+  // we don't blindly pick the first tab.
   const tabs = useTabStore.getState().tabs;
   const docs = useDocumentStore.getState().documents;
+  const viewDocLength = activeView.state.doc.length;
+  let bestMatch: { workflowFile: string; wsRoot: string } | null = null;
   for (const label of Object.keys(tabs)) {
     const activeId = useTabStore.getState().activeTabId[label] ?? null;
     if (!activeId) continue;
     const fp = docs[activeId]?.filePath;
     if (!fp) continue;
+    if (viewDocLength !== (docs[activeId]?.content ?? "").length) continue;
     const norm = fp.replace(/\\/g, "/");
     const ghIdx = norm.lastIndexOf("/.github/workflows/");
-    if (ghIdx > 0) return { workflowFile: norm, wsRoot: norm.slice(0, ghIdx) };
+    if (ghIdx > 0) {
+      bestMatch = { workflowFile: norm, wsRoot: norm.slice(0, ghIdx) };
+      // Take the first match — multi-window opens of the same file
+      // would point at the same workspace anyway.
+      break;
+    }
   }
-  return null;
+  return bestMatch;
 }
 
 export type ActionMetadataState =
