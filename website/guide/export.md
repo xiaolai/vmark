@@ -8,7 +8,7 @@ VMark provides multiple ways to export and share your documents.
 
 Creates a self-contained folder with clean structure:
 
-```
+```text
 MyDocument/
 ├── index.html
 └── assets/
@@ -27,7 +27,7 @@ MyDocument/
 
 Creates a single self-contained HTML file:
 
-```
+```text
 MyDocument.html
 ```
 

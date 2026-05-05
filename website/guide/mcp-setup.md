@@ -157,7 +157,7 @@ The port is auto-discovered — no `args` needed.
 
 ## How It Works
 
-```
+```text
 AI Assistant <--stdio--> MCP Server <--WebSocket--> VMark Editor
 ```
 

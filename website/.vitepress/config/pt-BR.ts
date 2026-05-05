@@ -75,6 +75,8 @@ export const ptBR = {
               text: "Referência de ferramentas MCP",
               link: "/pt-BR/guide/mcp-tools",
             },
+            { text: "Lint do Markdown", link: "/pt-BR/guide/lint" },
+            { text: "Verificação de links", link: "/pt-BR/guide/link-check" },
             {
               text: "Configurações",
               link: "/pt-BR/guide/settings",

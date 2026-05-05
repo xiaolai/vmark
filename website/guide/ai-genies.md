@@ -136,7 +136,7 @@ Open this folder from menu **Tools > Open Genies Folder**.
 
 Subdirectories become **categories** in the picker. You can organize genies however you like:
 
-```
+```text
 genies/
 ├── editing/
 │   ├── polish.md
@@ -205,7 +205,7 @@ Translate the following text into French.
 
 If the user selects "Hello, how are you?", the AI receives:
 
-```
+```text
 Translate the following text into French.
 
 Hello, how are you?
@@ -235,7 +235,7 @@ The `{{context}}` placeholder gives the AI read-only surrounding text — so it 
 
 With `context: 1` and the cursor on the second paragraph of a three-paragraph document:
 
-```
+```text
 [Before]
 First paragraph content here.
 

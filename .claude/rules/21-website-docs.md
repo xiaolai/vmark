@@ -23,6 +23,11 @@ Update website docs when:
 | Change terminal feature | `website/guide/terminal.md` |
 | Change SVG handling | `website/guide/svg.md` |
 | Change Markmap support | `website/guide/markmap.md` |
+| Add/modify markdown lint rules | `website/guide/lint.md` |
+| Change broken-link checking | `website/guide/link-check.md` |
+| Change PTY / terminal pause | `website/guide/terminal.md` |
+| Change workspace content search | `website/guide/workspace-management.md` |
+| Add/modify AI suggestion UI | `website/guide/ai-genies.md` |
 | New major feature | Consider adding new guide page |
 
 ## File Mapping
@@ -38,9 +43,13 @@ Update website docs when:
 | `src/export/` | `website/guide/export.md` |
 | `src-tauri/src/ai_provider/` | `website/guide/ai-providers.md` |
 | `src/components/GeniePicker/` | `website/guide/ai-genies.md` |
-| `src/components/Terminal/` | `website/guide/terminal.md` |
+| `src/components/Terminal/`, `src-tauri/src/pty.rs` | `website/guide/terminal.md` |
 | `src/plugins/mermaid*/` | `website/guide/mermaid.md` |
 | `src/lib/cjkFormatter/`, `src/plugins/toolbarActions/*Cjk*` | `website/guide/cjk-formatting.md` |
+| `src/lib/lintEngine/`, `src/plugins/lint/` | `website/guide/lint.md` |
+| `src/lib/markdownLinkCheck/` | `website/guide/link-check.md` |
+| `src-tauri/src/content_search.rs` | `website/guide/workspace-management.md` (Workspace Content Search) |
+| `src/plugins/aiSuggestion/`, `src/stores/aiSuggestionStore.ts` | `website/guide/ai-genies.md` (AI Suggestions section) |
 
 ## Timestamp Handling
 

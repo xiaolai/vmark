@@ -2,7 +2,7 @@
 
 VMark's settings panel lets you customize every aspect of the editor. Open it with `Mod + ,` or via **VMark > Settings** in the menu bar.
 
-The settings window has a sidebar with sections listed alphabetically. Changes take effect immediately — there is no save button.
+The settings window has a sidebar with sections grouped by topic — the most-used sections appear first, with About and Advanced at the bottom. Changes take effect immediately — there is no save button.
 
 ## Appearance
 
@@ -226,7 +226,7 @@ See [AI Providers](/guide/ai-providers) for detailed setup instructions for each
 
 ## Language
 
-CJK (Chinese, Japanese, Korean) formatting rules. These rules are applied when you run **Format > Format CJK Text** (`Cmd+Shift+F`).
+CJK (Chinese, Japanese, Korean) formatting rules. These rules are applied when you run **Format → Format CJK Selection** (`Cmd+Shift+F`) on a selection, or **Format → Format CJK Document** (`Alt+Cmd+Shift+F`) on the whole file.
 
 ::: tip
 The Language section contains 20+ fine-grained formatting toggles. For a full explanation of each rule with examples, see [CJK Formatting](/guide/cjk-formatting).

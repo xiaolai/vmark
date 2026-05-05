@@ -42,14 +42,14 @@ When your cursor is right before a closing bracket or quote, pressing Tab jumps 
 
 ### How It Works
 
-```
+```text
 function hello(world|)
                     ↑ cursor before )
 ```
 
 Press **Tab**:
 
-```
+```text
 function hello(world)|
                      ↑ cursor after )
 ```
@@ -58,28 +58,28 @@ This works with nested brackets too — Tab jumps over the immediately adjacent 
 
 Press **Shift+Tab** reverses the action — if cursor is right after an opening character:
 
-```
+```text
 function hello(|world)
                ↑ cursor after (
 ```
 
 Press **Shift+Tab**:
 
-```
+```text
 function hello|(world)
               ↑ cursor before (
 ```
 
 ### CJK Example
 
-```
+```text
 这是「测试|」文字
          ↑ cursor before 」
 ```
 
 Press **Tab**:
 
-```
+```text
 这是「测试」|文字
           ↑ cursor after 」
 ```
@@ -100,28 +100,28 @@ In WYSIWYG mode, Tab and Shift+Tab can escape from inline formatting marks.
 
 When your cursor is anywhere inside formatted text:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ cursor inside bold
 ```
 
 Press **Tab**:
 
-```
+```text
 This is **bold text**| here
                      ↑ cursor after bold
 ```
 
 Shift+Tab works in reverse — it jumps to the start of the formatting:
 
-```
+```text
 This is **bold te|xt** here
                  ↑ cursor inside bold
 ```
 
 Press **Shift+Tab**:
 
-```
+```text
 This is |**bold text** here
         ↑ cursor before bold
 ```
@@ -130,21 +130,21 @@ This is |**bold text** here
 
 Tab and Shift+Tab also escape from links:
 
-```
+```text
 Check out [VMark|](https://vmark.app)
                ↑ cursor inside link text
 ```
 
 Press **Tab**:
 
-```
+```text
 Check out [VMark](https://vmark.app)| and...
                                     ↑ cursor after link
 ```
 
 Press **Shift+Tab** inside a link moves to the start:
 
-```
+```text
 Check out |[VMark](https://vmark.app) and...
           ↑ cursor before link
 ```
@@ -311,14 +311,14 @@ When you have multiple cursors and press Tab or Shift+Tab:
 
 ### Example
 
-```
+```text
 **bold|** and [link|](url) and plain|
      ^1          ^2            ^3
 ```
 
 Press **Tab**:
 
-```
+```text
 **bold**| and [link](url)| and plain|
         ^1               ^2         ^3
 ```
@@ -335,14 +335,14 @@ This is particularly powerful for bulk editing — select multiple occurrences w
 
 When multiple escape targets overlap, Tab processes them **innermost-first**:
 
-```
+```text
 **bold text(|)** here
                ↑ Tab jumps ) first (bracket is innermost)
 ```
 
 Press **Tab** again:
 
-```
+```text
 **bold text()**| here
                ↑ Tab escapes bold mark
 ```
@@ -353,7 +353,7 @@ This means bracket jump always fires before mark escape — you can rely on Tab 
 
 Tab and Shift+Tab bracket jumps are **disabled inside code blocks** — both `code_block` nodes and inline code spans. This prevents Tab from jumping over brackets in code, where brackets are literal syntax:
 
-```
+```text
 `array[index|]`
               ↑ Tab does NOT jump ] in inline code — inserts spaces instead
 ```

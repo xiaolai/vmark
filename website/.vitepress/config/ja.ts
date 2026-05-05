@@ -69,6 +69,8 @@ export const ja = {
               text: "MCP ツールリファレンス",
               link: "/ja/guide/mcp-tools",
             },
+            { text: "Markdown Lint", link: "/ja/guide/lint" },
+            { text: "リンクチェック", link: "/ja/guide/link-check" },
             { text: "設定", link: "/ja/guide/settings" },
             { text: "トラブルシューティング", link: "/ja/guide/troubleshooting" },
             { text: "プライバシー", link: "/ja/guide/privacy" },

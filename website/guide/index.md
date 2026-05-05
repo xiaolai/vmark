@@ -109,10 +109,10 @@ VMark includes built-in AI Genies — select text and press `Mod + Y` to polish,
 
 ## Tips for Getting Started
 
-1. **Navigate with outline**: Click outline items to jump to sections
-2. **Try AI Genies**: Select text and press `Mod + Y` to polish, rephrase, or expand
-3. **Try focus mode**: `F8` helps you concentrate on current paragraph
-4. **Learn shortcuts**: Check the [shortcuts guide](/guide/shortcuts) for efficiency
+1. **Navigate with outline**: Click outline items to jump between sections
+2. **Try focus mode**: `F8` dims everything except the current paragraph
+3. **Validate as you write**: `Cmd + Shift + L` runs the markdown lint engine and broken-link check
+4. **Learn shortcuts**: the full reference is in the [shortcuts guide](/guide/shortcuts)
 
 ## Next Steps
 

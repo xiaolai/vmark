@@ -1,5 +1,22 @@
 # Troubleshooting
 
+## Quick Lookup
+
+Common issues and where to look for the fix:
+
+| Symptom | Likely cause | Where to look |
+|---|---|---|
+| MCP client can't connect | Stale port file or VMark not running | [MCP Server Connection Issues](#mcp-server-connection-issues) |
+| File won't open or shows garbled text | Non-UTF-8 encoding or quarantine attribute | [File Won't Open](#file-won-t-open) |
+| AI Genie hangs or returns nothing | Provider misconfigured or CLI not on PATH | [AI Genie Not Responding](#ai-genie-not-responding) |
+| Keyboard shortcut does nothing | Reassigned in Settings or system override | [Keyboard Shortcut Not Working](#keyboard-shortcut-not-working) |
+| Slow editor on large files | Per-tab memory + 10K+ line input lag | [Editor Performance](#editor-performance) |
+| Menu still in English after language change | Menu rebuilds on launch | [Menu Bar Shows English](#menu-bar-shows-english-after-language-change) |
+| PDF export incomplete | Image paths or write permissions | [Export/Print Issues](#export-print-issues) |
+| Slow startup on Windows | WebView2 + antivirus scanning | [App Launches Slowly on Windows](#app-launches-slowly-on-windows) |
+
+For anything not listed above, see [Reporting Bugs](#reporting-bugs).
+
 ## Log Files
 
 VMark writes log files to help diagnose issues. Logs include warnings and errors from both the Rust backend and the frontend.

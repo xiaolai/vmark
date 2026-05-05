@@ -32,7 +32,7 @@ Wrap raw SVG markup in a fenced code block with the `svg` language identifier:
   <text x="100" y="55" text-anchor="middle" fill="white"
         font-size="18" font-family="system-ui">Hello SVG</text>
 </svg>
-```
+```text
 ````
 
 The SVG renders inline — just like Mermaid diagrams — with interactive controls.

@@ -75,6 +75,8 @@ export const it = {
               text: "Riferimento strumenti MCP",
               link: "/it/guide/mcp-tools",
             },
+            { text: "Lint Markdown", link: "/it/guide/lint" },
+            { text: "Controllo collegamenti", link: "/it/guide/link-check" },
             { text: "Impostazioni", link: "/it/guide/settings" },
             { text: "Risoluzione dei problemi", link: "/it/guide/troubleshooting" },
             { text: "Privacy", link: "/it/guide/privacy" },

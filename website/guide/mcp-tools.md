@@ -54,7 +54,7 @@ No arguments.
     }
   ],
   "capabilities": {
-    "version": "0.7.0",
+    "version": "<vmark-mcp-server version>",
     "supportedKinds": ["markdown", "yaml-workflow"],
     "mcpProtocol": "0.1.0"
   }
@@ -241,18 +241,23 @@ Returns `{ok, diagnostics, binaryAvailable}`. Each diagnostic carries `{line, co
 
 ## Errors
 
-Error responses set `success: false` and return a JSON-encoded envelope in `error`:
+Two error shapes appear:
+
+**Domain errors** — set `success: false` and return a JSON-encoded envelope in `error`:
 
 ```json
 { "error": "STALE", "message": "...", "current_revision": "rev-..." }
 ```
 
-| Code | Meaning |
-|---|---|
-| `STALE` | `expected_revision` did not match; re-read and retry |
-| `INVALID_PATCH` | `workflow.apply_patch` received a malformed `patches` array |
-| `INVALID_TAB` | `tabId` could not be resolved |
-| `INVALID_PATH` | `filePath` was missing or could not be read/written |
-| `NOT_WORKFLOW` | `workflow.*` was called on a non-YAML-workflow tab |
-| `READ_ONLY` | A mutation was attempted on a read-only document |
-| `INTERNAL` | Argument shape mismatch or unexpected handler error |
+**Argument-shape errors** — for missing/invalid required arguments (e.g., `document.write` without a `content` field), `error` is a plain string describing the problem. The structured envelope is reserved for domain-level conditions.
+
+| Code | Surfaced as | Meaning |
+|---|---|---|
+| `STALE` | envelope | `expected_revision` did not match; re-read and retry |
+| `INVALID_PATCH` | envelope | `workflow.apply_patch` received a malformed `patches` array |
+| `INVALID_TAB` | envelope | `tabId` could not be resolved |
+| `INVALID_PATH` | envelope | `workspace.open` received a `filePath` that could not be read |
+| `NOT_WORKFLOW` | envelope | `workflow.*` was called on a non-YAML-workflow tab |
+| `READ_ONLY` | envelope | A mutation was attempted on a read-only document |
+| `INTERNAL` | envelope | Unexpected handler error |
+| (plain string) | string | Required argument missing or wrong type |

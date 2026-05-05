@@ -63,6 +63,8 @@ export const zhTW = {
               text: "MCP 工具參考",
               link: "/zh-TW/guide/mcp-tools",
             },
+            { text: "Markdown 檢查", link: "/zh-TW/guide/lint" },
+            { text: "連結檢查", link: "/zh-TW/guide/link-check" },
             { text: "設定", link: "/zh-TW/guide/settings" },
             { text: "疑難排解", link: "/zh-TW/guide/troubleshooting" },
             { text: "隱私權政策", link: "/zh-TW/guide/privacy" },

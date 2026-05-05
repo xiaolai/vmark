@@ -18,7 +18,7 @@ graph TD
     A[Start] --> B{Decision}
     B -->|Yes| C[Do something]
     B -->|No| D[Do another thing]
-```
+```text
 ````
 
 ### Using Slash Command
@@ -69,7 +69,7 @@ graph LR
     B -->|Yes| C[Great!]
     B -->|No| D[Debug]
     D --> B
-```
+```text
 ````
 
 ### Sequence Diagram
@@ -87,7 +87,7 @@ sequenceDiagram
 sequenceDiagram
     Alice->>Bob: Hello Bob!
     Bob-->>Alice: Hi Alice!
-```
+```text
 ````
 
 ### Class Diagram
@@ -110,7 +110,7 @@ classDiagram
     Animal <|-- Fish
     Animal : +int age
     Animal : +swim()
-```
+```text
 ````
 
 ### State Diagram
@@ -131,7 +131,7 @@ stateDiagram-v2
     [*] --> Idle
     Idle --> Processing : Start
     Processing --> Complete : Done
-```
+```text
 ````
 
 ### Entity Relationship Diagram
@@ -148,7 +148,7 @@ erDiagram
 erDiagram
     CUSTOMER ||--o{ ORDER : places
     ORDER ||--|{ LINE-ITEM : contains
-```
+```text
 ````
 
 ### Gantt Chart
@@ -172,7 +172,7 @@ gantt
     dateFormat  YYYY-MM-DD
     section Phase 1
     Research    :a1, 2024-01-01, 30d
-```
+```text
 ````
 
 ### Pie Chart
@@ -190,7 +190,7 @@ pie title Distribution
 pie title Distribution
     "Category A" : 40
     "Category B" : 30
-```
+```text
 ````
 
 ### Git Graph
@@ -216,7 +216,7 @@ gitGraph
     commit
     checkout main
     merge develop
-```
+```text
 ````
 
 ## Tips
@@ -276,14 +276,14 @@ VMark uses **Mermaid v11**, which has a stricter parser (Langium) than older ver
 flowchart TD
     A[User's Dashboard] --> B[Step (optional)]
     C[Status: Active] --> D[Say "Hello"]
-```
+```text
 
 <!-- Works -->
 ```mermaid
 flowchart TD
     A["User's Dashboard"] --> B["Step (optional)"]
     C["Status: Active"] --> D["Say Hello"]
-```
+```text
 ````
 
 **Rule:** If a label contains any of these characters — `' ( ) : " ; # &` — wrap the entire label in double quotes: `["like this"]`.
@@ -298,14 +298,14 @@ AI models sometimes add semicolons at line ends. Mermaid v11 does not allow them
 flowchart TD
     A --> B;
     B --> C;
-```
+```text
 
 <!-- Works -->
 ```mermaid
 flowchart TD
     A --> B
     B --> C
-```
+```text
 ````
 
 ### 3. Using `graph` Instead of `flowchart`
@@ -317,13 +317,13 @@ The `graph` keyword is legacy syntax. Some newer features only work with `flowch
 ```mermaid
 graph TD
     A --> B
-```
+```text
 
 <!-- Preferred -->
 ```mermaid
 flowchart TD
     A --> B
-```
+```text
 ````
 
 ### 4. Subgraph Titles with Special Characters
@@ -337,7 +337,7 @@ flowchart TD
     subgraph Service Layer (Backend)
         A --> B
     end
-```
+```text
 
 <!-- Works -->
 ```mermaid
@@ -345,7 +345,7 @@ flowchart TD
     subgraph "Service Layer (Backend)"
         A --> B
     end
-```
+```text
 ````
 
 ### 5. Quick Fix Checklist

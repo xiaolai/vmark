@@ -69,6 +69,8 @@ export const ko = {
               text: "MCP 도구 참조",
               link: "/ko/guide/mcp-tools",
             },
+            { text: "Markdown 린트", link: "/ko/guide/lint" },
+            { text: "링크 검사", link: "/ko/guide/link-check" },
             { text: "설정", link: "/ko/guide/settings" },
             { text: "문제 해결", link: "/ko/guide/troubleshooting" },
             { text: "개인정보 보호", link: "/ko/guide/privacy" },
