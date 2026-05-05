@@ -1,0 +1,14 @@
+{
+  "approval": {
+    "title": "Aprovar etapa do workflow?",
+    "step": "Etapa",
+    "model": "Modelo",
+    "preview": "Pré-visualização do prompt",
+    "approve": "Aprovar",
+    "deny": "Negar"
+  },
+  "run": {
+    "start": "Executar workflow",
+    "cancel": "Cancelar workflow"
+  }
+}

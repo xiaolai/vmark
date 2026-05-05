@@ -60,6 +60,10 @@ export const zhTW = {
             },
             { text: "AI 精靈", link: "/zh-TW/guide/ai-genies" },
             {
+              text: "工作流程精靈",
+              link: "/zh-TW/guide/workflow-genies",
+            },
+            {
               text: "AI 服務商",
               link: "/zh-TW/guide/ai-providers",
             },

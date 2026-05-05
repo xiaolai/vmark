@@ -59,6 +59,7 @@ export const zhCN = {
               link: "/zh-CN/guide/cjk-formatting",
             },
             { text: "AI 精灵", link: "/zh-CN/guide/ai-genies" },
+            { text: "工作流精灵", link: "/zh-CN/guide/workflow-genies" },
             {
               text: "AI 服务商",
               link: "/zh-CN/guide/ai-providers",

@@ -66,6 +66,10 @@ export const ko = {
             },
             { text: "AI 지니", link: "/ko/guide/ai-genies" },
             {
+              text: "워크플로 지니",
+              link: "/ko/guide/workflow-genies",
+            },
+            {
               text: "AI 제공업체",
               link: "/ko/guide/ai-providers",
             },

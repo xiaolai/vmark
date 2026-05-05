@@ -69,6 +69,10 @@ export const fr = {
             },
             { text: "AI Genies", link: "/fr/guide/ai-genies" },
             {
+              text: "Genies de workflow",
+              link: "/fr/guide/workflow-genies",
+            },
+            {
               text: "Fournisseurs d'IA",
               link: "/fr/guide/ai-providers",
             },

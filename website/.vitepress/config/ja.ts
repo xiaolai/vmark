@@ -65,6 +65,7 @@ export const ja = {
               link: "/ja/guide/cjk-formatting",
             },
             { text: "AI ジーニー", link: "/ja/guide/ai-genies" },
+            { text: "ワークフロージーニー", link: "/ja/guide/workflow-genies" },
             {
               text: "AI プロバイダー",
               link: "/ja/guide/ai-providers",

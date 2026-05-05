@@ -72,6 +72,10 @@ export const ptBR = {
             },
             { text: "AI Genies", link: "/pt-BR/guide/ai-genies" },
             {
+              text: "Genies de Workflow",
+              link: "/pt-BR/guide/workflow-genies",
+            },
+            {
               text: "Provedores de IA",
               link: "/pt-BR/guide/ai-providers",
             },

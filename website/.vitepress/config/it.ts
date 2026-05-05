@@ -71,6 +71,7 @@ export const it = {
               link: "/it/guide/cjk-formatting",
             },
             { text: "AI Genies", link: "/it/guide/ai-genies" },
+            { text: "Genie del workflow", link: "/it/guide/workflow-genies" },
             {
               text: "Provider di IA",
               link: "/it/guide/ai-providers",

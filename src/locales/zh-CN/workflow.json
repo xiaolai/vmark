@@ -1,0 +1,14 @@
+{
+  "approval": {
+    "title": "批准工作流步骤？",
+    "step": "步骤",
+    "model": "模型",
+    "preview": "提示词预览",
+    "approve": "批准",
+    "deny": "拒绝"
+  },
+  "run": {
+    "start": "运行工作流",
+    "cancel": "取消工作流"
+  }
+}
