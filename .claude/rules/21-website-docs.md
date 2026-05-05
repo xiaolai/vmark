@@ -37,7 +37,7 @@ Update website docs when:
 | `src/components/Tabs/` | `website/guide/tab-navigation.md` |
 | `src/export/` | `website/guide/export.md` |
 | `src-tauri/src/ai_provider/` | `website/guide/ai-providers.md` |
-| `src/components/Genie/` | `website/guide/ai-genies.md` |
+| `src/components/GeniePicker/` | `website/guide/ai-genies.md` |
 | `src/components/Terminal/` | `website/guide/terminal.md` |
 | `src/plugins/mermaid*/` | `website/guide/mermaid.md` |
 | `src/lib/cjkFormatter/`, `src/plugins/toolbarActions/*Cjk*` | `website/guide/cjk-formatting.md` |

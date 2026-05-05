@@ -1,6 +1,6 @@
 # Keyboard Shortcuts
 
-VMark is designed for keyboard-first workflows. Most shortcuts can be customized in Settings. A few — such as multi-cursor shortcuts (Select Next Occurrence, Select All Occurrences), Undo, and Redo — are not yet customizable.
+VMark is designed for keyboard-first workflows. Most shortcuts can be customized in Settings. A small number of primitives are fixed: the multi-cursor selectors `Mod+D` (Select Next Occurrence) and `Mod+Shift+L` (Select All Occurrences), and the global Undo/Redo bindings. The other multi-cursor shortcuts (Skip Occurrence, Soft Undo Cursor, Add Cursor Above/Below) are configurable. Shortcuts marked _(context-aware)_ are handled inside the editor for specific structures (e.g., task list checkbox toggle) and are not exposed in the customization registry.
 
 ## Notation
 
@@ -76,7 +76,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Bullet List | `Alt + Mod + U` |
 | Ordered List | `Alt + Mod + O` |
 | Task List | `Alt + Mod + X` |
-| Toggle Task Checkbox | `Mod + Shift + Enter` |
+| Toggle Task Checkbox | `Mod + Shift + Enter` _(context-aware; not customizable)_ |
 | Cycle List Type | _(customizable)_ |
 | Indent | `Mod + ]` |
 | Outdent | `Mod + [` |
@@ -275,6 +275,12 @@ When cursor is inside a table:
 | Add Row Below | `Mod + Enter` |
 | Add Row Above | `Mod + Shift + Enter` |
 | Delete Row | `Mod + Backspace` |
+| Add Column Left | `Alt + Mod + Left` |
+| Add Column Right | `Alt + Mod + Right` |
+| Delete Column | `Alt + Mod + Backspace` |
+| Align Column Left | `Mod + Alt + Shift + L` |
+| Align Column Right | `Mod + Shift + R` |
+| Align Column Center | _(customizable)_ |
 | Format Table | `Alt + Mod + T` |
 | Exit Table | Arrow keys at table edge |
 

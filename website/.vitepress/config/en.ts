@@ -35,6 +35,8 @@ export const en = {
             { text: "AI Providers", link: "/guide/ai-providers" },
             { text: "MCP Setup", link: "/guide/mcp-setup" },
             { text: "MCP Tools Reference", link: "/guide/mcp-tools" },
+            { text: "Markdown Lint", link: "/guide/lint" },
+            { text: "Link Check", link: "/guide/link-check" },
             { text: "Settings", link: "/guide/settings" },
             { text: "Troubleshooting", link: "/guide/troubleshooting" },
             { text: "Privacy", link: "/guide/privacy" },

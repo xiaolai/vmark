@@ -157,15 +157,15 @@ Prefix any punctuation with `\` to prevent conversion:
 
 ## AI-Assisted Formatting
 
-When the [MCP server](/guide/mcp-setup) is connected, AI assistants can apply CJK formatting programmatically via the `cjk_format` action.
+When the [MCP server](/guide/mcp-setup) is connected, AI assistants can apply CJK formatting programmatically via the `document.transform` tool with one of three `kind` values:
 
-**Scope options:**
-- `"document"` (default) — formats the entire document using your CJK settings
-- `"selection"` — formats only the currently selected text
+- `"cjk-format"` — full CJK normalization (spacing + punctuation + smart quotes per your settings)
+- `"cjk-spacing"` — adjust whitespace around CJK ↔ Latin/digit boundaries only
+- `"cjk-punctuation"` — convert punctuation between full-width and half-width per the rules
 
-Both scopes use a serialize-format-parse roundtrip to preserve inline marks (bold, links, math, etc.) and respect your configured formatting rules.
+Each transform runs the active document through a serialize-format-parse roundtrip to preserve inline marks (bold, links, math, etc.) and respect your configured formatting rules.
 
-See the [MCP Tools Reference](/guide/mcp-tools) for the full list of CJK-related MCP actions, including `cjk_punctuation` and `cjk_spacing`.
+See the [MCP Tools Reference](/guide/mcp-tools#document-tool) for the full request shape — `document.transform` takes `tabId`, `kind`, and an `expected_revision` for optimistic concurrency.
 
 ## Configuration
 
@@ -183,6 +183,18 @@ When **Contextual Quotes** is enabled (default):
 - Quotes around pure Latin content → straight quotes `""`
 
 This preserves the natural appearance of English text while properly formatting CJK content.
+
+### CJK Corner Brackets *(off by default)*
+
+When **CJK Corner Quotes** is enabled, curly quotes around CJK content are converted to corner brackets (`「」` for primary, `『』` for nested) — the typographically traditional quotation form for vertical CJK typesetting. Latin content keeps standard curly quotes regardless of this setting.
+
+### Reference-Section Skip
+
+The CJK formatter detects "References" / "参考文献" / "参考资料" / "Bibliography" headings and skips reformatting in those sections — citation-formatted text often relies on specific punctuation that the CJK rules would otherwise normalize.
+
+### Integrity Verification
+
+After every CJK format pass, the formatter runs an integrity check that compares the visible text content (ignoring whitespace/punctuation transformations) before and after. If the check fails, the operation is rolled back and a diagnostic appears — guarantees that CJK formatting never silently loses content.
 
 ---
 

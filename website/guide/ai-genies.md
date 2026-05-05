@@ -496,6 +496,21 @@ Format as a bullet list. If everything looks solid, say
 {{content}}
 ```
 
+## AI Suggestions
+
+When a Genie returns text intended as a replacement for the selection (rather than a free-form chat reply), VMark surfaces it as a **suggestion** with an inline diff: red strikethrough for the original text, green underline for the proposed text. You review and approve before any change persists.
+
+| Action | Shortcut |
+|---|---|
+| Accept the focused suggestion | `Tab` |
+| Reject the focused suggestion | `Esc` |
+| Accept all suggestions in the document | `Mod + Shift + Enter` _(context-aware — also Add Row Above when inside a table)_ |
+| Cycle to next suggestion | `Tab` from a non-focused position |
+
+When a Genie rewrites multiple paragraphs, each replacement is its own independently-navigable suggestion. Accepting one doesn't auto-accept the others.
+
+The suggestion UI also has an MCP surface — external AI agents connected through the [MCP server](/guide/mcp-tools) can emit `suggestion.accept` / `suggestion.reject` actions to manipulate the same state.
+
 ## Limitations
 
 - Genies only work in **WYSIWYG mode**. In source mode, a toast notification explains this.

@@ -5,7 +5,7 @@ VMark renders GitHub Actions workflow YAML as an interactive directed-acyclic-gr
 The feature works in two surfaces:
 
 1. **Standalone `.yml` files** under `.github/workflows/` (or any file whose top-level shape matches a workflow): split view with the source on the left and the interactive canvas + forms editor on the right.
-2. **Markdown code fences**: when a `````yaml`` ` or `````yml`` ` block contains a recognizable workflow, VMark renders it as a Mermaid-style DAG inline, the same way `mermaid` blocks are rendered.
+2. **Markdown code fences**: when a triple-backtick `yaml` or `yml` fenced block contains a recognizable workflow, VMark renders it as a Mermaid-style DAG inline, the same way `mermaid` blocks are rendered.
 
 ## Standalone workflow files
 
