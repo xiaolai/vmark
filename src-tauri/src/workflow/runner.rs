@@ -14,15 +14,15 @@
 //!   - Cancellation checked before each step via shared AtomicBool
 //!   - Steps ordered by topological sort on `needs:` dependencies
 
+use super::expressions::{self, WorkflowOutputs};
 use super::genie_step::{self, LoadedGenie, ProviderConfig};
 use super::sandbox::validate_path;
 use super::step_config::resolve_step_config;
 use super::types::*;
-use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 use tokio_util::sync::CancellationToken;
@@ -32,9 +32,6 @@ const MAX_FILES_PER_FOLDER: usize = 1000;
 const MAX_FILE_SIZE_BYTES: u64 = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_READ_BYTES: u64 = 100 * 1024 * 1024; // 100MB
 const MAX_OUTPUT_SIZE_BYTES: usize = 5 * 1024 * 1024; // 5MB per step output in IPC
-
-static ENV_VAR_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\$\{(\w+)\}").expect("Invalid env var regex"));
 
 /// Emit a Tauri event, logging failures instead of silently dropping them.
 fn emit_event<S: serde::Serialize + Clone>(app: &AppHandle, event: &str, payload: S) {
@@ -186,7 +183,7 @@ pub async fn run_workflow_sequential(
     let _bridge = spawn_cancel_bridge(Arc::clone(cancel_token), cancel.clone());
 
     let defaults = workflow.defaults;
-    let mut outputs: HashMap<String, String> = HashMap::new();
+    let mut outputs: WorkflowOutputs = HashMap::new();
 
     // Merge workflow env with provided env (provided takes precedence)
     let mut merged_env = workflow.env.clone();
@@ -307,8 +304,14 @@ pub async fn run_workflow_sequential(
                 }
             };
 
-        // Execute step based on type
-        let result = execute_step(
+        // Resolve effective step timeout (ADR-6) so we can wrap execution.
+        let step_config = resolve_step_config(&step, None, &defaults);
+        let step_timeout = std::time::Duration::from_secs(step_config.timeout_secs);
+
+        // Execute step based on type, with a per-step timeout. On elapsed:
+        // fire the cancel token so any in-flight AI provider work (CLI child,
+        // REST request) is aborted, then surface a "Timed out" step error.
+        let exec_fut = execute_step(
             &step,
             &resolved_params,
             workspace_root,
@@ -316,14 +319,26 @@ pub async fn run_workflow_sequential(
             provider.as_ref(),
             genies_dir.as_deref(),
             &defaults,
-        )
-        .await;
+        );
+        let result = match tokio::time::timeout(step_timeout, exec_fut).await {
+            Ok(r) => r,
+            Err(_elapsed) => {
+                cancel.cancel();
+                Err(format!("Timed out after {}s", step_config.timeout_secs))
+            }
+        };
         let duration_ms = start.elapsed().as_millis() as u64;
 
         match result {
             Ok(output) => {
-                // Store full output for downstream step consumption
-                outputs.insert(step_id.clone(), output.clone());
+                // Store full output for downstream step consumption.
+                // Single-field "text" populated for action steps and v0/v1-text
+                // genies. JSON-output genies (WI-2.3 follow-up) will populate
+                // each top-level key into the same map.
+                outputs.insert(
+                    step_id.clone(),
+                    HashMap::from([("text".to_string(), output.clone())]),
+                );
                 completed_steps.insert(step_id.clone());
                 // Truncate only for IPC emission (char-safe, no byte-boundary panic)
                 let emitted_output = truncate_utf8_safe(&output, MAX_OUTPUT_SIZE_BYTES);
@@ -415,47 +430,24 @@ fn truncate_utf8_safe(s: &str, max_bytes: usize) -> String {
     )
 }
 
-/// Resolve step parameters: substitute ${VAR} env refs and step.output refs.
+/// Resolve step parameters via the expression module (WI-2.3).
+///
+/// Supports `${{ steps.X.outputs.Y }}`, `${{ steps.X.output }}`,
+/// `${{ env.NAME }}`, legacy `${VAR}`, and legacy whole-string
+/// `stepId.output` aliases.
 fn resolve_params(
     params: &HashMap<String, String>,
-    outputs: &HashMap<String, String>,
+    outputs: &WorkflowOutputs,
     env: &HashMap<String, String>,
     workspace_root: &Path,
 ) -> Result<HashMap<String, String>, String> {
     let mut resolved = HashMap::new();
 
     for (key, value) in params {
-        let mut val = value.clone();
+        let val = expressions::resolve(value, outputs, env)
+            .map_err(|e| e.to_string())?;
 
-        // 1. Env variable substitution (regex-based, handles embedded ${VAR})
-        val = ENV_VAR_RE
-            .replace_all(&val, |caps: &regex::Captures| {
-                let var_name = &caps[1];
-                env.get(var_name).cloned().unwrap_or_else(|| {
-                    log::warn!("Unresolved env variable '${{{}}}'", var_name);
-                    String::new()
-                })
-            })
-            .to_string();
-
-        // 2. Output reference resolution (stepId.output)
-        if val.ends_with(".output") {
-            let ref_id = val.trim_end_matches(".output");
-            if let Some(output) = outputs.get(ref_id) {
-                val = output.clone();
-            } else {
-                log::warn!(
-                    "Unresolved output reference '{}.output'",
-                    ref_id
-                );
-                return Err(format!(
-                    "Step output reference '{}.output' not found — the step may have failed or been skipped",
-                    ref_id
-                ));
-            }
-        }
-
-        // 3. Re-validate paths after substitution
+        // Re-validate paths after substitution.
         if key == "path" {
             validate_path(&val, workspace_root).map_err(|e| {
                 format!("Path validation failed after parameter resolution: {}", e)
@@ -907,6 +899,12 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // Per-step timeout enforcement (WI-2.5): see cli::tests::cancellation_kills_long_running_shim
+    // for the cancellation primitive proof. The runner wraps each step
+    // exec in tokio::time::timeout(step_config.timeout_secs, ...) and fires
+    // the shared CancellationToken on elapsed; both layers are exercised
+    // separately by the ai_provider tests and the standard tokio test suite.
+
     #[tokio::test]
     async fn test_genie_step_without_provider_returns_error() {
         // Without an active provider configured, a genie step fails fast
@@ -962,30 +960,23 @@ mod tests {
     }
 
     #[test]
-    fn test_env_substitution_regex() {
+    fn test_env_substitution_via_resolver() {
+        // Legacy ${VAR} syntax still works via the new expression resolver.
         let env: HashMap<String, String> = [("DIR".to_string(), "notes".to_string())].into();
-        let input = "output/${DIR}/file.md";
-        let result = ENV_VAR_RE
-            .replace_all(input, |caps: &regex::Captures| {
-                env.get(&caps[1]).cloned().unwrap_or_default()
-            })
-            .to_string();
+        let outputs = WorkflowOutputs::new();
+        let result = expressions::resolve("output/${DIR}/file.md", &outputs, &env).unwrap();
         assert_eq!(result, "output/notes/file.md");
     }
 
     #[test]
-    fn test_env_substitution_multiple_vars() {
+    fn test_env_substitution_multiple_vars_via_resolver() {
         let env: HashMap<String, String> = [
             ("A".to_string(), "hello".to_string()),
             ("B".to_string(), "world".to_string()),
         ]
         .into();
-        let input = "${A}/${B}";
-        let result = ENV_VAR_RE
-            .replace_all(input, |caps: &regex::Captures| {
-                env.get(&caps[1]).cloned().unwrap_or_default()
-            })
-            .to_string();
+        let outputs = WorkflowOutputs::new();
+        let result = expressions::resolve("${A}/${B}", &outputs, &env).unwrap();
         assert_eq!(result, "hello/world");
     }
 
@@ -993,10 +984,45 @@ mod tests {
     fn test_resolve_params_output_ref_missing() {
         let mut params = HashMap::new();
         params.insert("input".to_string(), "missing.output".to_string());
-        let outputs = HashMap::new();
+        let outputs = WorkflowOutputs::new();
         let env = HashMap::new();
         let root = std::path::Path::new("/tmp");
         let result = resolve_params(&params, &outputs, &env, root);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_params_steps_outputs_field() {
+        // WI-2.3: ${{ steps.X.outputs.Y }} resolves to outputs[X][Y].
+        let mut params = HashMap::new();
+        params.insert(
+            "input".to_string(),
+            "${{ steps.outline.outputs.text }}".to_string(),
+        );
+        let mut outputs = WorkflowOutputs::new();
+        outputs.insert(
+            "outline".to_string(),
+            HashMap::from([("text".to_string(), "section list".to_string())]),
+        );
+        let env = HashMap::new();
+        let root = std::path::Path::new("/tmp");
+        let resolved = resolve_params(&params, &outputs, &env, root).unwrap();
+        assert_eq!(resolved.get("input").unwrap(), "section list");
+    }
+
+    #[test]
+    fn test_resolve_params_bare_alias_still_works() {
+        // Backward compat: stepId.output reads outputs[id]["text"].
+        let mut params = HashMap::new();
+        params.insert("input".to_string(), "outline.output".to_string());
+        let mut outputs = WorkflowOutputs::new();
+        outputs.insert(
+            "outline".to_string(),
+            HashMap::from([("text".to_string(), "compat ok".to_string())]),
+        );
+        let env = HashMap::new();
+        let root = std::path::Path::new("/tmp");
+        let resolved = resolve_params(&params, &outputs, &env, root).unwrap();
+        assert_eq!(resolved.get("input").unwrap(), "compat ok");
     }
 }
