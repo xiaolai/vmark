@@ -28,6 +28,8 @@ import { isYamlFileName } from "@/utils/dropPaths";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
 import { sourceGhaWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceGhaWorkflowPreview";
 import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflowCompletion";
+import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
+import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
@@ -273,6 +275,12 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // mounting it for all YAML files is safe — it returns null for
     // non-workflow YAML and never fires.
     ...(isYaml ? [workflowCompletionExtension()] : []),
+    // Source cursor → canvas job selection (WI-B.3). Bidirectional
+    // counterpart of click-to-jump from the diagnostics banner.
+    ...(isYaml ? [workflowCursorSyncExtension()] : []),
+    // Cmd/Ctrl-Click on `uses:` opens local action / reusable
+    // workflow target (WI-B.2). Falls through for remote refs.
+    ...(isYaml ? [gotoExtension()] : []),
     // Syntax highlighting for code blocks
     syntaxHighlighting(codeHighlightStyle, { fallback: true }),
     // Listen for changes

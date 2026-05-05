@@ -25,11 +25,23 @@ afterEach(() => {
 });
 
 describe("useActionMetadata", () => {
-  it("idle for unparseable uses (no invoke)", async () => {
+  it("local refs (./...) are now resolvable — transitions to unavailable when no workspace context (WI-B.1)", async () => {
+    // Local action refs used to be 'idle' (registry returned null
+    // before any work). After WI-B.1 they transition through
+    // 'loading' to 'unavailable' (no workflow tab open in test).
     const { result } = renderHook(() => useActionMetadata("./local/action"));
-    await act(async () => {
-      // No async pending — stays idle synchronously.
-    });
+    await act(async () => {});
+    await act(async () => {});
+    expect(result.current.state).toBe("unavailable");
+    // Still no Rust invoke — local refs resolve via fs.readTextFile.
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("docker:// uses stays idle (no resolution path)", async () => {
+    const { result } = renderHook(() =>
+      useActionMetadata("docker://node:20"),
+    );
+    await act(async () => {});
     expect(result.current.state).toBe("idle");
     expect(invokeMock).not.toHaveBeenCalled();
   });

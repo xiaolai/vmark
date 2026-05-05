@@ -75,7 +75,7 @@ interface PendingFileOpen {
  * Load file content into a tab (new or existing).
  * Throws on read failure so callers can handle cleanup.
  */
-async function loadFileIntoTab(
+export async function loadFileIntoTab(
   tabId: string,
   path: string,
   isNewTab: boolean,

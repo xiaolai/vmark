@@ -158,9 +158,12 @@ module.exports = [
   },
   {
     // CodeMirror Source-mode wrapper. Lazy via React.lazy in Editor.tsx.
+    // Bumped 140 → 145 kB after Phase A/B GHA features (WI-A.1
+    // expression autocomplete, WI-B.2 goto-def, WI-B.3 cursor sync).
+    // Each adds a small CodeMirror extension; total ~1 kB minified.
     name: "LAZY: SourceEditor",
     path: "dist/assets/SourceEditor-*.js",
-    limit: "140 kB",
+    limit: "145 kB",
     brotli: false,
   },
   {

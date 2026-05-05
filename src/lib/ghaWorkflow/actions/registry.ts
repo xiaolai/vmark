@@ -22,6 +22,12 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { readTextFile } from "@tauri-apps/plugin-fs";
+import { parseDocument } from "yaml";
+import {
+  isLocalUsesRef,
+  resolveLocalUsesRef,
+} from "@/lib/ghaWorkflow/paths";
 
 export interface ActionRef {
   owner: string;
@@ -106,12 +112,102 @@ export function parseUsesRef(uses: string): ActionRef | null {
 }
 
 /**
+ * Read and parse a workspace-local action.yml. Pure-fs path — no
+ * caching since local files change with code edits and the user
+ * expects edits to action.yml to surface immediately. Returns null
+ * for any failure (missing, malformed YAML, escape attempt).
+ *
+ * `workflowFile` and `wsRoot` are required to resolve `./` refs.
+ * If either is missing the function returns null (no fallback to
+ * cwd to avoid leaking arbitrary file reads).
+ */
+export async function getLocalActionMetadata(
+  uses: string,
+  workflowFile: string,
+  wsRoot: string,
+): Promise<ActionMetadata | null> {
+  if (!isLocalUsesRef(uses)) return null;
+  const resolved = resolveLocalUsesRef(uses, workflowFile, wsRoot);
+  if (resolved.kind !== "action") return null;
+  let text: string;
+  try {
+    text = await readTextFile(resolved.absPath);
+  } catch {
+    // Missing action.yml — try action.yaml fallback.
+    if (resolved.absPath.endsWith(".yml")) {
+      try {
+        text = await readTextFile(
+          resolved.absPath.replace(/\.yml$/, ".yaml"),
+        );
+      } catch {
+        return null;
+      }
+    } else {
+      return null;
+    }
+  }
+  try {
+    const parsed = parseDocument(text).toJS() as
+      | {
+          name?: string;
+          description?: string;
+          author?: string;
+          runs?: { using?: string };
+          inputs?: Record<
+            string,
+            {
+              description?: string;
+              required?: boolean;
+              default?: string | number | boolean;
+              deprecationMessage?: string;
+            }
+          >;
+          outputs?: Record<string, { description?: string }>;
+        }
+      | null;
+    if (!parsed) return null;
+    const inputs: Record<string, ActionInputSchema> = {};
+    for (const [k, v] of Object.entries(parsed.inputs ?? {})) {
+      inputs[k] = {
+        description: v.description,
+        required: v.required ?? false,
+        default: v.default == null ? undefined : String(v.default),
+        deprecation_message: v.deprecationMessage,
+      };
+    }
+    const outputs: Record<string, ActionOutputSchema> = {};
+    for (const [k, v] of Object.entries(parsed.outputs ?? {})) {
+      outputs[k] = { description: v.description };
+    }
+    return normalizeMetadata({
+      name: parsed.name,
+      description: parsed.description,
+      author: parsed.author,
+      inputs,
+      outputs,
+      runs_using: parsed.runs?.using,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Resolve action metadata. Memoized per uses-string for the lifetime of
  * the session. Returns null in all failure modes; never throws.
+ *
+ * For local refs (./, ../), pass `workflowFile` + `wsRoot` to enable
+ * filesystem resolution (WI-B.1); without them local refs return null.
  */
 export async function getActionMetadata(
   uses: string,
+  context?: { workflowFile: string; wsRoot: string },
 ): Promise<ActionMetadata | null> {
+  // Local-action path (WI-B.1).
+  if (isLocalUsesRef(uses)) {
+    if (!context) return null;
+    return getLocalActionMetadata(uses, context.workflowFile, context.wsRoot);
+  }
   if (!parseUsesRef(uses)) return null;
 
   if (sessionCache.has(uses)) {
