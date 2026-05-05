@@ -68,7 +68,10 @@ export function PermissionsForm({
   const onModeChange = (next: PresetMode): void => {
     setMode(next);
     if (next === "default") {
-      queue({ kind: "workflow.set", path: "permissions", value: "" });
+      // Delete the permissions key to restore GitHub's default
+      // behavior. Codex audit HIGH-1 fix — empty string was getting
+      // serialized as `permissions: ""` which is invalid.
+      queue({ kind: "workflow.permissions.set", value: null });
       return;
     }
     if (next === "custom") {

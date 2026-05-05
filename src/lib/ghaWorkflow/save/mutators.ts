@@ -150,12 +150,13 @@ export interface StepMovePatch {
 /** Set workflow-level permissions. WI-C.3 */
 export interface PermissionsSetPatch {
   kind: "workflow.permissions.set";
-  /** "read-all" | "write-all" | "none" | record of scope→level. */
+  /** "read-all" | "write-all" | "none" | record of scope→level | null (delete to restore default). */
   value:
     | "read-all"
     | "write-all"
     | "none"
-    | Record<string, "read" | "write" | "none">;
+    | Record<string, "read" | "write" | "none">
+    | null;
 }
 
 /** Set workflow-level concurrency. WI-C.3 */
@@ -343,8 +344,13 @@ function setPermissions(
     | "read-all"
     | "write-all"
     | "none"
-    | Record<string, "read" | "write" | "none">,
+    | Record<string, "read" | "write" | "none">
+    | null,
 ): void {
+  if (value === null) {
+    doc.delete("permissions");
+    return;
+  }
   if (typeof value === "string") {
     doc.set("permissions", value);
     return;

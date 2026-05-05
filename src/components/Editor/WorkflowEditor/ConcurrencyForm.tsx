@@ -22,13 +22,19 @@ export function ConcurrencyForm({
   const queue = useWorkflowEditStore((s) => s.queuePatch);
   const [group, setGroup] = useState(concurrency?.group ?? "");
   // ConcurrencyIR.cancelInProgress can be boolean OR an expression
-  // string. The form models the literal boolean only — expression-based
-  // values stay editable in source.
+  // string (e.g., `${{ github.event_name == 'pull_request' }}`). The
+  // form models the literal boolean only; when an expression is
+  // present we DISABLE the checkbox so the user can't accidentally
+  // overwrite it. Codex audit HIGH-4 fix.
+  const isExpressionCancel = typeof concurrency?.cancelInProgress === "string";
   const [cancelInProgress, setCancelInProgress] = useState<boolean>(
     concurrency?.cancelInProgress === true,
   );
 
   const commit = (nextGroup: string, nextCancel: boolean): void => {
+    // Refuse to clobber an expression-valued cancel-in-progress —
+    // the user can edit it in source mode if they need to change it.
+    if (isExpressionCancel) return;
     if (!nextGroup) {
       queue({ kind: "workflow.concurrency.set", value: null });
       return;
@@ -67,7 +73,7 @@ export function ConcurrencyForm({
         <input
           type="checkbox"
           checked={cancelInProgress}
-          disabled={!group}
+          disabled={!group || isExpressionCancel}
           onChange={(e) => {
             const next = e.target.checked;
             setCancelInProgress(next);
@@ -78,6 +84,14 @@ export function ConcurrencyForm({
           {t("form.concurrency.cancelInProgress", {
             defaultValue: "Cancel in progress",
           })}
+          {isExpressionCancel && (
+            <em className="workflow-form__expression-hint">
+              {" "}
+              {t("form.concurrency.expressionLocked", {
+                defaultValue: "(expression — edit in source)",
+              })}
+            </em>
+          )}
         </span>
       </label>
     </section>

@@ -27,6 +27,11 @@ const ZERO_RANGE = {
   endCol: 0,
 } as const;
 
+/**
+ * Patches that change the SET of jobs/steps. These mutate the IR's
+ * `jobs[]` length or step ordering, so the form layer needs to see
+ * them in the preview.
+ */
 function isStructural(patch: IRPatch): boolean {
   return (
     patch.kind === "job.create" ||
@@ -37,14 +42,75 @@ function isStructural(patch: IRPatch): boolean {
   );
 }
 
+/**
+ * Patches that change a step's CONTENT (name, run, with, etc.).
+ * Codex audit HIGH-3: edits to freshly-created jobs/steps were lost
+ * on form remount because the form's local React state didn't survive
+ * the unmount and the IR didn't carry the value yet. Applying these
+ * to the preview IR fixes the persistence.
+ */
+function isContent(patch: IRPatch): boolean {
+  return (
+    patch.kind === "job.set" ||
+    patch.kind === "step.set" ||
+    patch.kind === "with.set" ||
+    patch.kind === "with.remove"
+  );
+}
+
 function cloneJob(job: JobIR): JobIR {
   return { ...job, steps: [...job.steps], needs: [...job.needs] };
 }
 
 function applyOne(ir: WorkflowIR, patch: IRPatch): WorkflowIR {
-  if (!isStructural(patch)) return ir;
+  if (!isStructural(patch) && !isContent(patch)) return ir;
 
   const jobs = ir.jobs.map(cloneJob);
+
+  // Content patches: apply scalar/value changes to the matching job/step.
+  if (patch.kind === "job.set") {
+    const job = jobs.find((j) => j.id === patch.jobId);
+    if (!job) return ir;
+    if (patch.value === null || typeof patch.value === "number" || typeof patch.value === "boolean") {
+      return ir;
+    }
+    applyJobScalar(job, patch.path, patch.value);
+    return { ...ir, jobs };
+  }
+  if (patch.kind === "step.set") {
+    const job = jobs.find((j) => j.id === patch.jobId);
+    if (!job) return ir;
+    if (patch.stepIndex < 0 || patch.stepIndex >= job.steps.length) return ir;
+    if (typeof patch.value !== "string") return ir;
+    job.steps[patch.stepIndex] = applyStepScalar(
+      job.steps[patch.stepIndex],
+      patch.path,
+      patch.value,
+    );
+    return { ...ir, jobs };
+  }
+  if (patch.kind === "with.set") {
+    const job = jobs.find((j) => j.id === patch.jobId);
+    if (!job) return ir;
+    if (patch.stepIndex < 0 || patch.stepIndex >= job.steps.length) return ir;
+    const step = job.steps[patch.stepIndex];
+    job.steps[patch.stepIndex] = {
+      ...step,
+      with: { ...(step.with ?? {}), [patch.key]: patch.value },
+    };
+    return { ...ir, jobs };
+  }
+  if (patch.kind === "with.remove") {
+    const job = jobs.find((j) => j.id === patch.jobId);
+    if (!job) return ir;
+    if (patch.stepIndex < 0 || patch.stepIndex >= job.steps.length) return ir;
+    const step = job.steps[patch.stepIndex];
+    if (!step.with) return ir;
+    const next = { ...step.with };
+    delete next[patch.key];
+    job.steps[patch.stepIndex] = { ...step, with: next };
+    return { ...ir, jobs };
+  }
 
   if (patch.kind === "job.create") {
     if (jobs.find((j) => j.id === patch.jobId)) return ir;
@@ -112,15 +178,45 @@ function applyOne(ir: WorkflowIR, patch: IRPatch): WorkflowIR {
   return ir;
 }
 
+function applyJobScalar(
+  job: JobIR,
+  path: string,
+  value: string | string[],
+): void {
+  // Map IR-level path strings to JobIR fields. Same shape the
+  // CST mutator uses; kept narrow so unsupported paths fall through
+  // safely (the save-side mutator handles the full surface).
+  if (path === "name") job.name = String(value);
+  else if (path === "runs-on") {
+    if (typeof value === "string") job.runsOn = [value];
+    else job.runsOn = value;
+  } else if (path === "if") {
+    job.if = String(value);
+  }
+}
+
+function applyStepScalar(
+  step: StepIR,
+  path: string,
+  value: string,
+): StepIR {
+  if (path === "name") return { ...step, name: value };
+  if (path === "run") return { ...step, run: value };
+  if (path === "if") return { ...step, if: value };
+  if (path === "working-directory")
+    return { ...step, workingDirectory: value };
+  return step;
+}
+
 /**
- * Apply structural patches in queue order. Returns the original IR
- * reference when no structural patch applies (preserves React equality).
+ * Apply structural + content patches in queue order. Returns the
+ * original IR reference when no patch applies (preserves React equality).
  */
 export function applyPreviewPatches(
   ir: WorkflowIR,
   patches: readonly IRPatch[],
 ): WorkflowIR {
   if (patches.length === 0) return ir;
-  if (!patches.some(isStructural)) return ir;
+  if (!patches.some((p) => isStructural(p) || isContent(p))) return ir;
   return patches.reduce((acc, p) => applyOne(acc, p), ir);
 }

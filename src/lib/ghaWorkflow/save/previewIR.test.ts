@@ -48,7 +48,7 @@ describe("applyPreviewPatches", () => {
     expect(applyPreviewPatches(ir, [])).toBe(ir);
   });
 
-  it("non-structural patches don't change IR (forms use local state)", () => {
+  it("content patches DO change IR (Codex audit HIGH-3 — fresh entities preserve user edits)", () => {
     const ir = makeIR();
     const patches: IRPatch[] = [
       { kind: "job.set", jobId: "build", path: "name", value: "Renamed" },
@@ -58,6 +58,21 @@ describe("applyPreviewPatches", () => {
         stepIndex: 0,
         key: "ref",
         value: "main",
+      },
+    ];
+    const out = applyPreviewPatches(ir, patches);
+    expect(out).not.toBe(ir);
+    const buildJob = out.jobs.find((j) => j.id === "build")!;
+    expect(buildJob.name).toBe("Renamed");
+    expect(buildJob.steps[0].with).toEqual({ ref: "main" });
+  });
+
+  it("trigger.setFilters / permissions.set / concurrency.set return ir reference (form-local state suffices)", () => {
+    const ir = makeIR();
+    const patches: IRPatch[] = [
+      {
+        kind: "workflow.permissions.set",
+        value: "read-all",
       },
     ];
     expect(applyPreviewPatches(ir, patches)).toBe(ir);
