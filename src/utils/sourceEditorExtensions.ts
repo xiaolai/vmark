@@ -27,6 +27,7 @@ import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
 import { sourceGhaWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceGhaWorkflowPreview";
+import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflowCompletion";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
@@ -267,6 +268,11 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     ...(isYaml ? sourceWorkflowPreviewExtensions : []),
     // GHA workflow preview plugin for YAML files (parses YAML → ghaWorkflowPanelStore)
     ...(isYaml ? sourceGhaWorkflowPreviewExtensions : []),
+    // Workflow expression autocomplete inside ${{ }} (WI-A.1).
+    // The completion source itself short-circuits on missing IR, so
+    // mounting it for all YAML files is safe — it returns null for
+    // non-workflow YAML and never fires.
+    ...(isYaml ? [workflowCompletionExtension()] : []),
     // Syntax highlighting for code blocks
     syntaxHighlighting(codeHighlightStyle, { fallback: true }),
     // Listen for changes
