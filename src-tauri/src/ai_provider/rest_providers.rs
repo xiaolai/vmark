@@ -1,16 +1,14 @@
 //! REST provider prompt execution.
 //!
-//! Each function sends a prompt to a specific REST API (Anthropic,
-//! OpenAI, Google AI, Ollama) and emits the response back to the
-//! frontend as `ai:response` events.  These are non-streaming
-//! implementations -- the full response is fetched and then emitted.
+//! Each function sends a prompt to a specific REST API (Anthropic, OpenAI,
+//! Google AI, Ollama) and forwards the response through a sink.  These are
+//! non-streaming implementations: the full response is fetched and then
+//! emitted as a single chunk.
 
 use std::time::Duration;
 
-use tauri::WebviewWindow;
-
 use super::http_client;
-use super::types::{emit_chunk, emit_done, emit_error};
+use super::sink::AiSink;
 
 /// Per-request timeout (entire request, including body read) for prompt calls.
 const PROMPT_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
@@ -20,8 +18,7 @@ const PROMPT_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 // ============================================================================
 
 pub(super) async fn run_rest_anthropic(
-    window: &WebviewWindow,
-    request_id: &str,
+    sink: &dyn AiSink,
     endpoint: &str,
     api_key: &str,
     model: &str,
@@ -47,23 +44,18 @@ pub(super) async fn run_rest_anthropic(
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let text = resp.text().await.unwrap_or_else(|e| format!("<failed to read body: {}>", e));
-        emit_error(
-            window,
-            request_id,
-            &format!("Anthropic API error {}: {}", status, text),
-        );
+        let text = resp
+            .text()
+            .await
+            .unwrap_or_else(|e| format!("<failed to read body: {}>", e));
+        sink.error(&format!("Anthropic API error {}: {}", status, text));
         return Ok(());
     }
 
     let json: serde_json::Value = match resp.json().await {
         Ok(v) => v,
         Err(e) => {
-            emit_error(
-                window,
-                request_id,
-                &format!("Failed to parse Anthropic response: {}", e),
-            );
+            sink.error(&format!("Failed to parse Anthropic response: {}", e));
             return Ok(());
         }
     };
@@ -72,19 +64,15 @@ pub(super) async fn run_rest_anthropic(
     if let Some(content) = json.get("content").and_then(|c| c.as_array()) {
         for block in content {
             if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
-                emit_chunk(window, request_id, text);
+                sink.chunk(text);
             }
         }
     } else {
-        emit_error(
-            window,
-            request_id,
-            "No content blocks in Anthropic response",
-        );
+        sink.error("No content blocks in Anthropic response");
         return Ok(());
     }
 
-    emit_done(window, request_id);
+    sink.done();
     Ok(())
 }
 
@@ -93,8 +81,7 @@ pub(super) async fn run_rest_anthropic(
 // ============================================================================
 
 pub(super) async fn run_rest_openai(
-    window: &WebviewWindow,
-    request_id: &str,
+    sink: &dyn AiSink,
     endpoint: &str,
     api_key: &str,
     model: &str,
@@ -118,23 +105,18 @@ pub(super) async fn run_rest_openai(
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let text = resp.text().await.unwrap_or_else(|e| format!("<failed to read body: {}>", e));
-        emit_error(
-            window,
-            request_id,
-            &format!("OpenAI API error {}: {}", status, text),
-        );
+        let text = resp
+            .text()
+            .await
+            .unwrap_or_else(|e| format!("<failed to read body: {}>", e));
+        sink.error(&format!("OpenAI API error {}: {}", status, text));
         return Ok(());
     }
 
     let json: serde_json::Value = match resp.json().await {
         Ok(v) => v,
         Err(e) => {
-            emit_error(
-                window,
-                request_id,
-                &format!("Failed to parse OpenAI response: {}", e),
-            );
+            sink.error(&format!("Failed to parse OpenAI response: {}", e));
             return Ok(());
         }
     };
@@ -147,13 +129,13 @@ pub(super) async fn run_rest_openai(
         .and_then(|m| m.get("content"))
         .and_then(|t| t.as_str())
     {
-        emit_chunk(window, request_id, text);
+        sink.chunk(text);
     } else {
-        emit_error(window, request_id, "No choices in OpenAI response");
+        sink.error("No choices in OpenAI response");
         return Ok(());
     }
 
-    emit_done(window, request_id);
+    sink.done();
     Ok(())
 }
 
@@ -162,8 +144,7 @@ pub(super) async fn run_rest_openai(
 // ============================================================================
 
 pub(super) async fn run_rest_google(
-    window: &WebviewWindow,
-    request_id: &str,
+    sink: &dyn AiSink,
     api_key: &str,
     model: &str,
     prompt: &str,
@@ -191,23 +172,18 @@ pub(super) async fn run_rest_google(
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let text = resp.text().await.unwrap_or_else(|e| format!("<failed to read body: {}>", e));
-        emit_error(
-            window,
-            request_id,
-            &format!("Google AI error {}: {}", status, text),
-        );
+        let text = resp
+            .text()
+            .await
+            .unwrap_or_else(|e| format!("<failed to read body: {}>", e));
+        sink.error(&format!("Google AI error {}: {}", status, text));
         return Ok(());
     }
 
     let json: serde_json::Value = match resp.json().await {
         Ok(v) => v,
         Err(e) => {
-            emit_error(
-                window,
-                request_id,
-                &format!("Failed to parse Google AI response: {}", e),
-            );
+            sink.error(&format!("Failed to parse Google AI response: {}", e));
             return Ok(());
         }
     };
@@ -223,13 +199,13 @@ pub(super) async fn run_rest_google(
         .and_then(|p| p.get("text"))
         .and_then(|t| t.as_str())
     {
-        emit_chunk(window, request_id, text);
+        sink.chunk(text);
     } else {
-        emit_error(window, request_id, "No candidates in Google AI response");
+        sink.error("No candidates in Google AI response");
         return Ok(());
     }
 
-    emit_done(window, request_id);
+    sink.done();
     Ok(())
 }
 
@@ -238,8 +214,7 @@ pub(super) async fn run_rest_google(
 // ============================================================================
 
 pub(super) async fn run_rest_ollama(
-    window: &WebviewWindow,
-    request_id: &str,
+    sink: &dyn AiSink,
     endpoint: &str,
     model: &str,
     prompt: &str,
@@ -262,38 +237,29 @@ pub(super) async fn run_rest_ollama(
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let text = resp.text().await.unwrap_or_else(|e| format!("<failed to read body: {}>", e));
-        emit_error(
-            window,
-            request_id,
-            &format!("Ollama API error {}: {}", status, text),
-        );
+        let text = resp
+            .text()
+            .await
+            .unwrap_or_else(|e| format!("<failed to read body: {}>", e));
+        sink.error(&format!("Ollama API error {}: {}", status, text));
         return Ok(());
     }
 
     let json: serde_json::Value = match resp.json().await {
         Ok(v) => v,
         Err(e) => {
-            emit_error(
-                window,
-                request_id,
-                &format!("Failed to parse Ollama response: {}", e),
-            );
+            sink.error(&format!("Failed to parse Ollama response: {}", e));
             return Ok(());
         }
     };
 
     if let Some(text) = json.get("response").and_then(|r| r.as_str()) {
-        emit_chunk(window, request_id, text);
+        sink.chunk(text);
     } else {
-        emit_error(
-            window,
-            request_id,
-            "No response field in Ollama response",
-        );
+        sink.error("No response field in Ollama response");
         return Ok(());
     }
 
-    emit_done(window, request_id);
+    sink.done();
     Ok(())
 }

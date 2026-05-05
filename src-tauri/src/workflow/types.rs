@@ -16,7 +16,20 @@ pub struct RawWorkflow {
     pub description: Option<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// Workflow-level defaults applied to every step that doesn't override.
+    /// Resolution per ADR-6 in `dev-docs/plans/20260418-genie-in-workflow.md`.
+    #[serde(default)]
+    pub defaults: RawDefaults,
     pub steps: Vec<RawStep>,
+}
+
+/// Workflow-level defaults — applied to every step unless that step overrides.
+#[derive(Debug, Default, Deserialize)]
+#[allow(dead_code)]
+pub struct RawDefaults {
+    pub model: Option<String>,
+    pub approval: Option<String>,
+    pub limits: Option<RawLimits>,
 }
 
 /// A single step in a raw workflow.

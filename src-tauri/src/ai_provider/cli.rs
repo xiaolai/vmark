@@ -1,17 +1,17 @@
 //! CLI provider execution.
 //!
 //! Spawns CLI AI tools (claude, codex, gemini) as child processes,
-//! optionally piping the prompt via stdin, and streams stdout back to
-//! the frontend as `ai:response` events.  The heavy I/O work runs on
-//! tokio's blocking thread pool to avoid starving the async runtime.
+//! optionally piping the prompt via stdin, and forwards stdout to a sink.
+//! The heavy I/O work runs on tokio's blocking thread pool to avoid starving
+//! the async runtime.
 
 use std::io::{BufRead, BufReader, Write as IoWrite};
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::time::Duration;
-use tauri::WebviewWindow;
 
 use super::detection::login_shell_path;
-use super::types::{emit_chunk, emit_done, emit_error};
+use super::sink::AiSink;
 
 /// Maximum time a CLI provider is allowed to run before being killed.
 const CLI_TIMEOUT: Duration = Duration::from_secs(300);
@@ -52,26 +52,23 @@ pub(crate) fn build_command(exe: &str, args: &[&str]) -> Command {
 
 /// Offload a CLI provider to the blocking thread pool so it doesn't starve tokio.
 ///
-/// On any error (join failure, spawn failure, etc.) emits a terminal `ai:response`
-/// event so the frontend never hangs waiting for a `done` signal.
+/// On any error (join failure, spawn failure, etc.) emits a terminal error
+/// through the sink so the caller never hangs waiting for `done`.
 pub(super) async fn run_cli_blocking(
-    window: &WebviewWindow,
-    request_id: &str,
+    sink: Arc<dyn AiSink>,
     provider: &str,
     args: Vec<String>,
     stdin_prompt: Option<String>,
     cli_path: Option<String>,
 ) -> Result<(), String> {
-    let w = window.clone();
-    let rid = request_id.to_string();
     let prov = provider.to_string();
+    let sink_for_task = Arc::clone(&sink);
     let result = tokio::time::timeout(
         CLI_TIMEOUT,
         tokio::task::spawn_blocking(move || {
             let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
             run_cli_provider(
-                &w,
-                &rid,
+                sink_for_task.as_ref(),
                 &prov,
                 &arg_refs,
                 stdin_prompt.as_deref(),
@@ -84,19 +81,20 @@ pub(super) async fn run_cli_blocking(
     match result {
         Ok(Ok(Ok(()))) => Ok(()),
         Ok(Ok(Err(e))) => {
-            // run_cli_provider already emits error/done events on most paths,
-            // but spawn and stdin-write failures return Err without emitting.
-            emit_error(window, request_id, &e);
+            // run_cli_provider already emits error/done through the sink on
+            // most paths, but spawn and stdin-write failures return Err
+            // without emitting.
+            sink.error(&e);
             Err(e)
         }
         Ok(Err(join_err)) => {
             let msg = format!("Task join error: {join_err}");
-            emit_error(window, request_id, &msg);
+            sink.error(&msg);
             Err(msg)
         }
         Err(_elapsed) => {
             let msg = format!("{provider} timed out after {}s", CLI_TIMEOUT.as_secs());
-            emit_error(window, request_id, &msg);
+            sink.error(&msg);
             Err(msg)
         }
     }
@@ -106,19 +104,18 @@ pub(super) async fn run_cli_blocking(
 // CLI Execution
 // ============================================================================
 
-/// Run a CLI AI provider and stream stdout back as `ai:response` events.
+/// Run a CLI AI provider and forward stdout to the sink.
 ///
-/// When `stdin_prompt` is `Some`, the prompt is piped to stdin (for
-/// providers like `claude --print` and `ollama run`).  When `None`,
-/// the prompt must already be embedded in `args` (for providers like
-/// `codex exec` and `gemini -p`).
+/// When `stdin_prompt` is `Some`, the prompt is piped to stdin (for providers
+/// like `claude --print` and `ollama run`).  When `None`, the prompt must
+/// already be embedded in `args` (for providers like `codex exec` and
+/// `gemini -p`).
 ///
 /// `cli_path` is the resolved path from detection.  When available it
 /// is used instead of the bare command name so that Windows `.cmd`
 /// shims are handled correctly.
 fn run_cli_provider(
-    window: &WebviewWindow,
-    request_id: &str,
+    sink: &dyn AiSink,
     cmd: &str,
     args: &[&str],
     stdin_prompt: Option<&str>,
@@ -155,10 +152,10 @@ fn run_cli_provider(
         for line in reader.lines() {
             match line {
                 Ok(text) => {
-                    emit_chunk(window, request_id, &(text + "\n"));
+                    sink.chunk(&(text + "\n"));
                 }
                 Err(e) => {
-                    emit_error(window, request_id, &format!("Read error: {}", e));
+                    sink.error(&format!("Read error: {}", e));
                     let _ = child.kill();
                     return Ok(());
                 }
@@ -181,9 +178,9 @@ fn run_cli_provider(
                 cmd, output.status, stderr_msg
             )
         };
-        emit_error(window, request_id, &msg);
+        sink.error(&msg);
     } else {
-        emit_done(window, request_id);
+        sink.done();
     }
 
     Ok(())

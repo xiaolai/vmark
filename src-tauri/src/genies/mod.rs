@@ -7,7 +7,7 @@ pub mod commands;
 mod install;
 mod parsing;
 mod scanning;
-mod types;
+pub mod types;
 
 // Re-export public API used by other modules (lib.rs, menu/dynamic.rs)
 pub use commands::global_genies_dir;
