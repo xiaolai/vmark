@@ -474,21 +474,34 @@
   font-weight: 400;
 }
 
-.workflow-diagnostics-banner__bulk {
-  background: transparent;
+/* Section-level collapse toggle (chevron icon button in the header).
+   Click hides/shows the entire diagnostics list, leaving only the
+   title + count visible. Replaces the prior text-based "Collapse all"
+   bulk action — the per-row chevrons still handle individual rows. */
+.workflow-diagnostics-banner__section-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
   border: none;
+  background: transparent;
   color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--font-size-2xs);
-  padding: var(--space-half) var(--space-1);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background var(--duration-fast), color var(--duration-fast);
 }
 
-.workflow-diagnostics-banner__bulk:hover {
+.workflow-diagnostics-banner__section-toggle:hover {
   background: var(--hover-bg);
   color: var(--text-color);
+}
+
+.workflow-diagnostics-banner__section-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
 }
 
 /* Per-row chevron — toggles message visibility for that row. */

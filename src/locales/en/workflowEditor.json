@@ -133,6 +133,8 @@
   "diagnosticsBanner.collapseRow": "Hide details",
   "diagnosticsBanner.expandAll": "Expand all",
   "diagnosticsBanner.collapseAll": "Collapse all",
+  "diagnosticsBanner.expandSection": "Expand diagnostics",
+  "diagnosticsBanner.collapseSection": "Collapse diagnostics",
 
   "form.step.nav.position": "Step {{current}} of {{total}}",
   "form.step.nav.prev": "Previous step (Alt+Left)",

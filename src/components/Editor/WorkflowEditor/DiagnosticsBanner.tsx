@@ -96,10 +96,17 @@ export function DiagnosticsBanner({
   const { t } = useTranslation("workflowEditor");
   const [expanded, setExpanded] = useState(false);
   /**
+   * Section-level collapse state. When true (default), the whole
+   * diagnostics list collapses to just the title row + count, freeing
+   * vertical space for the form area below. The header chevron
+   * toggles it.
+   */
+  const [sectionCollapsed, setSectionCollapsed] = useState(false);
+  /**
    * Per-row collapse state. Stored as the SET of collapsed row keys
-   * (default Set is empty → every row starts expanded). Keyed on
-   * `${code}::${index}` so re-orderings don't accidentally re-collapse
-   * an unrelated row.
+   * (default Set is empty → every row starts expanded). Per-row
+   * state survives a section collapse/expand cycle so the user's
+   * per-message preferences aren't lost.
    */
   const [collapsedRows, setCollapsedRows] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -141,20 +148,11 @@ export function DiagnosticsBanner({
     });
   };
 
-  // Bulk actions operate on the full sorted list, not just `visible`.
-  // With >5 diagnostics, `visible` is the first 5 until the user
-  // clicks "Show all" — collapsing only those 5 left the hidden
-  // rows expanded (Codex audit MED-2 finding).
-  const collapseAll = () => setCollapsedRows(new Set(rowKeys));
-  const expandAll = () => setCollapsedRows(new Set());
-
-  const allCollapsed =
-    rowKeys.length > 0 && rowKeys.every((k) => collapsedRows.has(k));
-
   return (
     <section
       className="workflow-diagnostics-banner"
       aria-label={t("diagnosticsBanner.title")}
+      data-collapsed={sectionCollapsed}
     >
       <header className="workflow-diagnostics-banner__header">
         <span className="workflow-diagnostics-banner__title">
@@ -165,26 +163,32 @@ export function DiagnosticsBanner({
         </span>
         <button
           type="button"
-          className="workflow-diagnostics-banner__bulk"
-          onClick={allCollapsed ? expandAll : collapseAll}
+          className="workflow-diagnostics-banner__section-toggle"
+          onClick={() => setSectionCollapsed((v) => !v)}
+          aria-expanded={!sectionCollapsed}
+          aria-controls="workflow-diagnostics-banner-list"
           aria-label={
-            allCollapsed
-              ? t("diagnosticsBanner.expandAll", {
-                  defaultValue: "Expand all",
+            sectionCollapsed
+              ? t("diagnosticsBanner.expandSection", {
+                  defaultValue: "Expand diagnostics",
                 })
-              : t("diagnosticsBanner.collapseAll", {
-                  defaultValue: "Collapse all",
+              : t("diagnosticsBanner.collapseSection", {
+                  defaultValue: "Collapse diagnostics",
                 })
           }
         >
-          {allCollapsed
-            ? t("diagnosticsBanner.expandAll", { defaultValue: "Expand all" })
-            : t("diagnosticsBanner.collapseAll", {
-                defaultValue: "Collapse all",
-              })}
+          {sectionCollapsed ? (
+            <ChevronRight size={14} />
+          ) : (
+            <ChevronDown size={14} />
+          )}
         </button>
       </header>
-      <ul className="workflow-diagnostics-banner__list">
+      {!sectionCollapsed && (
+      <ul
+        className="workflow-diagnostics-banner__list"
+        id="workflow-diagnostics-banner-list"
+      >
         {visible.map((diag, idx) => {
           const rowKey = rowKeys[idx];
           const rowCollapsed = collapsedRows.has(rowKey);
@@ -293,15 +297,18 @@ export function DiagnosticsBanner({
           );
         })}
       </ul>
-      {sorted.length > COLLAPSE_THRESHOLD && !expanded && (
-        <button
-          type="button"
-          className="workflow-diagnostics-banner__toggle"
-          onClick={() => setExpanded(true)}
-        >
-          {t("diagnosticsBanner.showAll", { count: sorted.length })}
-        </button>
       )}
+      {!sectionCollapsed &&
+        sorted.length > COLLAPSE_THRESHOLD &&
+        !expanded && (
+          <button
+            type="button"
+            className="workflow-diagnostics-banner__toggle"
+            onClick={() => setExpanded(true)}
+          >
+            {t("diagnosticsBanner.showAll", { count: sorted.length })}
+          </button>
+        )}
     </section>
   );
 }

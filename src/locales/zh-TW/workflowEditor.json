@@ -122,5 +122,7 @@
   "form.step.nav.position": "Step {{current}} of {{total}}",
   "form.step.nav.prev": "Previous step (Alt+Left)",
   "form.step.nav.next": "Next step (Alt+Right)",
-  "form.step.nav.backToJob": "Back to job"
+  "form.step.nav.backToJob": "Back to job",
+  "diagnosticsBanner.expandSection": "Expand diagnostics",
+  "diagnosticsBanner.collapseSection": "Collapse diagnostics"
 }
