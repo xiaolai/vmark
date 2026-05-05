@@ -28,7 +28,7 @@ import type { GenieDefinition, GenieMetadata, GenieScope } from "@/types/aiGenie
 import { genieWarn, genieError } from "@/utils/debug";
 
 /** Build menu-id → accelerator map for the genies menu. */
-function getMenuShortcuts(): Record<string, string> | null {
+export function getMenuShortcuts(): Record<string, string> | null {
   try {
     const all = useShortcutsStore.getState().getAllShortcuts();
     const key = all["aiPrompts"];
@@ -48,7 +48,7 @@ async function loadAndSyncMenu(): Promise<void> {
 }
 
 /** Detect scope from current editor selection state. */
-function detectScope(): GenieScope | undefined {
+export function detectScope(): GenieScope | undefined {
   if (useEditorStore.getState().sourceMode) return undefined;
   const editor = useTiptapEditorStore.getState().editor;
   if (!editor) return undefined;
