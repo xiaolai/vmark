@@ -79,18 +79,37 @@ Standard shell shortcuts like `Ctrl+R` (reverse history search in zsh/bash) work
 
 When you open a workspace or file after the terminal is already running, all sessions automatically `cd` to the new workspace root.
 
+## Pause / Resume
+
+For long-running processes producing verbose output, you can suspend the underlying shell process from VMark to free CPU without killing the session. Resuming continues the process from where it left off.
+
+| Action | How |
+|---|---|
+| Pause the active session | Right-click the session tab → **Pause** |
+| Resume the paused session | Right-click the paused tab → **Resume** |
+
+While paused:
+
+- The session tab shows a dimmed indicator
+- The shell receives `SIGSTOP` (POSIX); the OS suspends scheduling for the process
+- Buffered output that was already written to the terminal is preserved on screen, but no new output appears until you resume
+- The kill / clear / restart controls remain available
+
+Pause/Resume is a macOS/Linux feature only — Windows process control doesn't expose an equivalent suspend signal, so the menu items are hidden on Windows builds.
+
 ## Settings
 
 Open **Settings → Terminal** to configure:
 
-| Setting | Range | Default |
-|---------|-------|---------|
-| Font Size | 10 – 24 px | 13 px |
-| Line Height | 1.0 – 2.0 | 1.2 |
-| Copy on Select | On / Off | Off |
+| Setting | Range | Default | Platforms |
+|---------|-------|---------|-----------|
+| Font Size | 10 – 24 px | 13 px | All |
+| Line Height | 1.0 – 2.0 | 1.2 | All |
+| Copy on Select | On / Off | Off | All |
+| Mac Option as Meta | On / Off | Off | macOS |
 
-Changes apply immediately to all open sessions.
+Changes apply immediately to all open sessions. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts.
 
 ## Persistence
 
-Terminal panel visibility and height are saved and restored across hot-exit restarts. Shell processes themselves cannot be preserved — a fresh shell is spawned for each session on restart.
+Terminal panel visibility and height are saved and restored across hot-exit restarts. Shell processes themselves cannot be preserved — a fresh shell is spawned for each session on restart, and any paused session loses its `SIGSTOP` state along with the process itself.
