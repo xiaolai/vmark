@@ -2,6 +2,8 @@
 
 VMark 支持 [Mermaid](https://mermaid.js.org/) 图表，可在 Markdown 文档中直接创建流程图、时序图和其他可视化图形。
 
+[[toc]]
+
 ![所见即所得模式中渲染的 Mermaid 图表](/screenshots/mermaid-wysiwyg.png)
 
 ## 插入图表

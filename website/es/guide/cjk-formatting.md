@@ -157,15 +157,15 @@ Añade `\` antes de cualquier signo de puntuación para evitar la conversión:
 
 ## Formateo Asistido por IA
 
-Cuando el [servidor MCP](/guide/mcp-setup) está conectado, los asistentes de IA pueden aplicar el formateo CJK de forma programática a través de la acción `cjk_format`.
+Cuando el [servidor MCP](/es/guide/mcp-setup) está conectado, los asistentes de IA pueden aplicar el formateo CJK de forma programática a través de la herramienta `document.transform` con uno de tres valores de `kind`:
 
-**Opciones de alcance:**
-- `"document"` (predeterminado) — formatea el documento completo usando tu configuración CJK
-- `"selection"` — formatea solo el texto seleccionado actualmente
+- `"cjk-format"` — normalización CJK completa (espaciado + puntuación + comillas tipográficas según tu configuración)
+- `"cjk-spacing"` — ajusta solo el espaciado en blanco alrededor de los límites CJK ↔ Latín/dígitos
+- `"cjk-punctuation"` — convierte la puntuación entre ancho completo y medio ancho según las reglas
 
-Ambos alcances utilizan un viaje de ida y vuelta de serialización-formato-análisis para preservar las marcas en línea (negrita, enlaces, matemáticas, etc.) y respetar tus reglas de formato configuradas.
+Cada transformación ejecuta el documento activo a través de un viaje de ida y vuelta de serialización-formato-análisis para preservar las marcas en línea (negrita, enlaces, matemáticas, etc.) y respetar tus reglas de formato configuradas.
 
-Consulta la [Referencia de Herramientas MCP](/guide/mcp-tools) para la lista completa de acciones MCP relacionadas con CJK, incluyendo `cjk_punctuation` y `cjk_spacing`.
+Consulta la [Referencia de Herramientas MCP](/es/guide/mcp-tools#document-tool) para la forma completa de la solicitud — `document.transform` toma `tabId`, `kind` y un `expected_revision` para concurrencia optimista.
 
 ## Configuración
 
@@ -183,6 +183,18 @@ Cuando las **Comillas Contextuales** están activadas (predeterminado):
 - Las comillas alrededor de contenido puramente latino → comillas rectas `""`
 
 Esto preserva la apariencia natural del texto en inglés mientras formatea correctamente el contenido CJK.
+
+### Corchetes Angulares CJK *(desactivados por defecto)*
+
+Cuando los **Corchetes Angulares CJK** están activados, las comillas curvas alrededor de contenido CJK se convierten en corchetes angulares (`「」` para el primario, `『』` para el anidado) — la forma de comillas tradicional tipográficamente para la composición CJK vertical. El contenido latino mantiene las comillas curvas estándar independientemente de esta configuración.
+
+### Omisión de la Sección de Referencias
+
+El formateador CJK detecta los encabezados "References" / "参考文献" / "参考资料" / "Bibliography" y omite el reformateo en esas secciones — el texto con formato de citación a menudo depende de una puntuación específica que las reglas CJK normalizarían.
+
+### Verificación de Integridad
+
+Después de cada pasada de formato CJK, el formateador ejecuta una comprobación de integridad que compara el contenido visible del texto (ignorando las transformaciones de espacios en blanco/puntuación) antes y después. Si la comprobación falla, la operación se revierte y aparece un diagnóstico — garantiza que el formato CJK nunca pierda contenido en silencio.
 
 ---
 

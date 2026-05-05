@@ -51,6 +51,7 @@ Clique com o botão direito dentro do terminal para acessar:
 - **Colar** — colar da área de transferência no shell
 - **Selecionar Tudo** — selecionar todo o buffer do terminal
 - **Limpar** — limpar a saída visível
+- **Redefinir exibição** — repinta o terminal e reinicia seu cache de renderização. Use isso se os caracteres começarem a se sobrepor, misturar caixa, ou aparecer truncados após uma sessão longa — o que costuma acontecer ao rodar CLIs com muito estilo (ex.: Claude Code) por horas.
 
 ## Links Clicáveis
 
@@ -78,18 +79,37 @@ Os atalhos padrão do shell como `Ctrl+R` (pesquisa de histórico reverso no zsh
 
 Quando você abre uma área de trabalho ou arquivo enquanto o terminal já está em execução, todas as sessões fazem automaticamente `cd` para a nova raiz da área de trabalho.
 
+## Pausar / Retomar
+
+Para processos de longa duração que produzem muita saída, é possível suspender o processo de shell subjacente a partir do VMark para liberar CPU sem encerrar a sessão. Ao retomar, o processo continua de onde parou.
+
+| Ação | Como |
+|------|------|
+| Pausar a sessão ativa | Clique com o botão direito na aba da sessão → **Pausar** |
+| Retomar a sessão pausada | Clique com o botão direito na aba pausada → **Retomar** |
+
+Enquanto pausada:
+
+- A aba da sessão exibe um indicador esmaecido
+- O shell recebe `SIGSTOP` (POSIX); o sistema operacional suspende o agendamento do processo
+- A saída em buffer já escrita no terminal permanece na tela, mas nenhuma saída nova aparece até você retomar
+- Os controles de matar / limpar / reiniciar continuam disponíveis
+
+Pausar/Retomar é um recurso exclusivo de macOS/Linux — o controle de processos do Windows não expõe um sinal de suspensão equivalente, então os itens de menu ficam ocultos nas builds para Windows.
+
 ## Configurações
 
 Abra **Configurações → Terminal** para configurar:
 
-| Configuração | Intervalo | Padrão |
-|-------------|-----------|--------|
-| Tamanho da Fonte | 10 – 24 px | 13 px |
-| Altura de Linha | 1.0 – 2.0 | 1.2 |
-| Copiar ao Selecionar | Ligado / Desligado | Desligado |
+| Configuração | Intervalo | Padrão | Plataformas |
+|--------------|-----------|--------|-------------|
+| Tamanho da Fonte | 10 – 24 px | 13 px | Todas |
+| Altura de Linha | 1.0 – 2.0 | 1.2 | Todas |
+| Copiar ao Selecionar | Ligado / Desligado | Desligado | Todas |
+| Tecla Option do Mac como Meta | Ligado / Desligado | Desligado | macOS |
 
-As alterações se aplicam imediatamente a todas as sessões abertas.
+As alterações se aplicam imediatamente a todas as sessões abertas. **Tecla Option do Mac como Meta** roteia a tecla Option do macOS como Meta no terminal integrado para que emacs, tmux e ferramentas similares enxerguem atalhos prefixados com Alt.
 
 ## Persistência
 
-A visibilidade do painel do terminal e a altura são salvas e restauradas nas reinicializações de saída a quente. Os processos de shell em si não podem ser preservados — um novo shell é criado para cada sessão ao reiniciar.
+A visibilidade do painel do terminal e a altura são salvas e restauradas nas reinicializações de saída a quente. Os processos de shell em si não podem ser preservados — um novo shell é criado para cada sessão ao reiniciar, e qualquer sessão pausada perde seu estado de `SIGSTOP` junto com o próprio processo.

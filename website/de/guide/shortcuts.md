@@ -1,6 +1,6 @@
 # Tastaturkürzel
 
-VMark ist für tastaturorientierte Workflows konzipiert. Die meisten Tastaturkürzel können in den Einstellungen angepasst werden. Einige — wie Mehrcursor-Tastaturkürzel (Nächstes Vorkommen auswählen, Alle Vorkommen auswählen), Rückgängig und Wiederholen — sind noch nicht anpassbar.
+VMark ist für tastaturorientierte Workflows konzipiert. Die meisten Tastaturkürzel können in den Einstellungen angepasst werden. Eine kleine Anzahl von Primitiven ist fest belegt: die Mehrcursor-Selektoren `Mod+D` (Nächstes Vorkommen auswählen) und `Mod+Shift+L` (Alle Vorkommen auswählen) sowie die globalen Rückgängig-/Wiederholen-Tastaturkürzel. Die übrigen Mehrcursor-Tastaturkürzel (Vorkommen überspringen, Cursor-Rückgängig sanft, Cursor oben/unten hinzufügen) sind anpassbar. Mit _(kontextabhängig)_ markierte Tastaturkürzel werden im Editor für bestimmte Strukturen (z. B. Aufgaben-Checkbox-Umschalter) behandelt und sind nicht in der Anpassungs-Registratur sichtbar.
 
 ## Notation
 
@@ -52,7 +52,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Kursiv | `Mod + I` |
 | Unterstrichen | `Mod + U` |
 | Durchgestrichen | `Mod + Umschalt + X` |
-| Inline-Code | Mod + Umschalt + `` ` `` |
+| Inline-Code | `Mod + Umschalt` + `` ` `` |
 | Hervorhebung | `Mod + Umschalt + M` |
 | Tiefgestellt | `Alt + Mod + =` |
 | Hochgestellt | `Alt + Mod + Umschalt + =` |
@@ -76,7 +76,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Aufzählungsliste | `Alt + Mod + U` |
 | Geordnete Liste | `Alt + Mod + O` |
 | Aufgabenliste | `Alt + Mod + X` |
-| Aufgaben-Checkbox umschalten | `Mod + Umschalt + Eingabe` |
+| Aufgaben-Checkbox umschalten | `Mod + Umschalt + Eingabe` _(kontextabhängig; nicht anpassbar)_ |
 | Listentyp durchschalten | _(anpassbar)_ |
 | Einzug erhöhen | `Mod + ]` |
 | Einzug verringern | `Mod + [` |
@@ -272,6 +272,12 @@ Wenn der Cursor sich in einer Tabelle befindet:
 | Zeile darunter hinzufügen | `Mod + Eingabe` |
 | Zeile darüber hinzufügen | `Mod + Umschalt + Eingabe` |
 | Zeile löschen | `Mod + Rücktaste` |
+| Spalte links hinzufügen | `Alt + Mod + Links` |
+| Spalte rechts hinzufügen | `Alt + Mod + Rechts` |
+| Spalte löschen | `Alt + Mod + Rücktaste` |
+| Spalte linksbündig ausrichten | `Mod + Alt + Umschalt + L` |
+| Spalte rechtsbündig ausrichten | `Mod + Umschalt + R` |
+| Spalte zentriert ausrichten | _(anpassbar)_ |
 | Tabelle formatieren | `Alt + Mod + T` |
 | Tabelle verlassen | Pfeiltasten am Tabellenrand |
 

@@ -1,6 +1,6 @@
 # Raccourcis clavier
 
-VMark est conçu pour les flux de travail axés sur le clavier. La plupart des raccourcis peuvent être personnalisés dans les Paramètres. Quelques-uns — comme les raccourcis multi-curseur (Sélectionner l'occurrence suivante, Sélectionner toutes les occurrences), Annuler et Rétablir — ne sont pas encore personnalisables.
+VMark est conçu pour les flux de travail axés sur le clavier. La plupart des raccourcis peuvent être personnalisés dans les Paramètres. Un petit nombre de primitives sont fixes&nbsp;: les sélecteurs multi-curseur `Mod+D` (Sélectionner l'occurrence suivante) et `Mod+Shift+L` (Sélectionner toutes les occurrences), ainsi que les liaisons globales Annuler/Rétablir. Les autres raccourcis multi-curseur (Ignorer l'occurrence, Annuler doux du curseur, Ajouter un curseur au-dessus/en-dessous) sont configurables. Les raccourcis marqués _(sensibles au contexte)_ sont gérés à l'intérieur de l'éditeur pour des structures spécifiques (par ex. basculement de la case à cocher de tâche) et ne sont pas exposés dans le registre de personnalisation.
 
 ## Notation
 
@@ -52,7 +52,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Italique | `Mod + I` |
 | Souligné | `Mod + U` |
 | Barré | `Mod + Shift + X` |
-| Code en ligne | Mod + Shift + `` ` `` |
+| Code en ligne | `Mod + Shift +` `` ` `` |
 | Surligné | `Mod + Shift + M` |
 | Indice | `Alt + Mod + =` |
 | Exposant | `Alt + Mod + Shift + =` |
@@ -76,7 +76,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Liste à puces | `Alt + Mod + U` |
 | Liste ordonnée | `Alt + Mod + O` |
 | Liste de tâches | `Alt + Mod + X` |
-| Basculer la case à cocher de tâche | `Mod + Shift + Entrée` |
+| Basculer la case à cocher de tâche | `Mod + Shift + Entrée` _(sensible au contexte&nbsp;; non personnalisable)_ |
 | Changer le type de liste | _(personnalisable)_ |
 | Indenter | `Mod + ]` |
 | Désindenter | `Mod + [` |
@@ -101,6 +101,8 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | MAJUSCULES | `Ctrl + Shift + U` | `Alt + Shift + U` |
 | minuscules | `Ctrl + Shift + L` | `Alt + Shift + L` |
 | Titre | `Ctrl + Shift + T` | `Alt + Shift + T` |
+| Basculer la casse | _(personnalisable)_ | _(personnalisable)_ |
+| Supprimer les lignes vides | _(personnalisable)_ | _(personnalisable)_ |
 | Basculer le style de guillemets | `Shift + Mod + '` | `Shift + Mod + '` |
 
 ## Insérer
@@ -145,6 +147,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Trouver le suivant | `Mod + G` |
 | Trouver le précédent | `Mod + Shift + G` |
 | Utiliser la sélection pour la recherche | `Mod + E` |
+| Rechercher dans les fichiers | `Mod + Shift + H` |
 
 ## Affichage et mode
 
@@ -272,6 +275,12 @@ Quand le curseur est à l'intérieur d'un tableau :
 | Ajouter une ligne en-dessous | `Mod + Entrée` |
 | Ajouter une ligne au-dessus | `Mod + Shift + Entrée` |
 | Supprimer la ligne | `Mod + Retour arrière` |
+| Ajouter une colonne à gauche | `Alt + Mod + Gauche` |
+| Ajouter une colonne à droite | `Alt + Mod + Droite` |
+| Supprimer la colonne | `Alt + Mod + Retour arrière` |
+| Aligner la colonne à gauche | `Mod + Alt + Shift + L` |
+| Aligner la colonne à droite | `Mod + Shift + R` |
+| Centrer la colonne | _(personnalisable)_ |
 | Formater le tableau | `Alt + Mod + T` |
 | Quitter le tableau | Touches fléchées en bord de tableau |
 

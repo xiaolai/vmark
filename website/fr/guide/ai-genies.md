@@ -496,6 +496,21 @@ Formatez comme une liste à puces. Si tout semble solide, dites
 {{content}}
 ```
 
+## Suggestions IA
+
+Lorsqu'un Génie renvoie un texte destiné à remplacer la sélection (plutôt qu'une réponse de chat libre), VMark le présente comme une **suggestion** avec un diff en ligne&nbsp;: barré rouge pour le texte original, soulignement vert pour le texte proposé. Vous examinez et approuvez avant qu'aucun changement ne soit appliqué de manière persistante.
+
+| Action | Raccourci |
+|---|---|
+| Accepter la suggestion focalisée | `Tab` |
+| Rejeter la suggestion focalisée | `Échap` |
+| Accepter toutes les suggestions du document | `Mod + Shift + Entrée` _(sensible au contexte — aussi Ajouter une ligne au-dessus dans un tableau)_ |
+| Passer à la suggestion suivante | `Tab` depuis une position non focalisée |
+
+Lorsqu'un Génie réécrit plusieurs paragraphes, chaque remplacement est sa propre suggestion, navigable indépendamment. Accepter l'une n'accepte pas automatiquement les autres.
+
+L'interface des suggestions a également une surface MCP — les agents IA externes connectés via le [serveur MCP](/fr/guide/mcp-tools) peuvent émettre les actions `suggestion.accept` / `suggestion.reject` pour manipuler le même état.
+
 ## Limitations
 
 - Les génies fonctionnent uniquement en **mode WYSIWYG**. En mode source, une notification toast l'explique.

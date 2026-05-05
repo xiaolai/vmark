@@ -496,6 +496,21 @@ Formatea como una lista con viñetas. Si todo parece sólido, di
 {{content}}
 ```
 
+## Sugerencias de IA
+
+Cuando un Genio devuelve texto destinado a reemplazar la selección (en lugar de una respuesta de chat de forma libre), VMark lo presenta como una **sugerencia** con un diff en línea: tachado rojo para el texto original, subrayado verde para el texto propuesto. Tú revisas y apruebas antes de que cualquier cambio se persista.
+
+| Acción | Atajo |
+|---|---|
+| Aceptar la sugerencia enfocada | `Tab` |
+| Rechazar la sugerencia enfocada | `Esc` |
+| Aceptar todas las sugerencias del documento | `Mod + Shift + Enter` _(sensible al contexto — también Añadir Fila Arriba cuando se está dentro de una tabla)_ |
+| Pasar a la siguiente sugerencia | `Tab` desde una posición no enfocada |
+
+Cuando un Genio reescribe varios párrafos, cada reemplazo es una sugerencia navegable de forma independiente. Aceptar una no acepta automáticamente las demás.
+
+La interfaz de sugerencias también tiene una superficie MCP — los agentes de IA externos conectados a través del [servidor MCP](/es/guide/mcp-tools) pueden emitir las acciones `suggestion.accept` / `suggestion.reject` para manipular el mismo estado.
+
 ## Limitaciones
 
 - Los genios solo funcionan en **modo WYSIWYG**. En modo fuente, una notificación toast lo explica.

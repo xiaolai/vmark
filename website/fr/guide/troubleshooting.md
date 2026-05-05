@@ -1,5 +1,22 @@
 # Dépannage
 
+## Recherche rapide
+
+Problèmes courants et où chercher la solution&nbsp;:
+
+| Symptôme | Cause probable | Où regarder |
+|---|---|---|
+| Le client MCP ne se connecte pas | Fichier de port obsolète ou VMark non lancé | [Problèmes de connexion du serveur MCP](#problemes-de-connexion-du-serveur-mcp) |
+| Le fichier ne s'ouvre pas ou affiche du texte illisible | Encodage non UTF-8 ou attribut de quarantaine | [Le fichier ne s'ouvre pas](#le-fichier-ne-s-ouvre-pas) |
+| Le Génie IA se bloque ou ne renvoie rien | Fournisseur mal configuré ou CLI absent du PATH | [Le Génie IA ne répond pas](#le-genie-ia-ne-repond-pas) |
+| Le raccourci clavier ne fait rien | Réassigné dans les paramètres ou neutralisé par le système | [Le raccourci clavier ne fonctionne pas](#le-raccourci-clavier-ne-fonctionne-pas) |
+| Éditeur lent sur les fichiers volumineux | Mémoire par onglet + latence de saisie au-delà de 10 000 lignes | [Performance de l'éditeur](#performance-de-l-editeur) |
+| Le menu reste en anglais après changement de langue | Le menu se reconstruit au lancement | [La barre de menus reste en anglais](#la-barre-de-menus-reste-en-anglais-apres-un-changement-de-langue) |
+| Export PDF incomplet | Chemins d'images ou permissions d'écriture | [Problèmes d'export/impression](#problemes-d-export-impression) |
+| Démarrage lent sous Windows | WebView2 + analyse antivirus | [L'application démarre lentement sous Windows](#l-application-demarre-lentement-sous-windows) |
+
+Pour tout ce qui n'est pas listé ci-dessus, consultez [Signaler des bugs](#signaler-des-bugs).
+
 ## Fichiers journaux
 
 VMark génère des fichiers journaux pour faciliter le diagnostic des problèmes. Les journaux incluent les avertissements et les erreurs provenant du backend Rust et du frontend.

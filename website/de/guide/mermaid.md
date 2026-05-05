@@ -2,6 +2,8 @@
 
 VMark unterstützt [Mermaid](https://mermaid.js.org/)-Diagramme zum Erstellen von Flussdiagrammen, Sequenzdiagrammen und anderen Visualisierungen direkt in Ihren Markdown-Dokumenten.
 
+[[toc]]
+
 ![Mermaid-Diagramm im WYSIWYG-Modus gerendert](/screenshots/mermaid-wysiwyg.png)
 
 ## Ein Diagramm einfügen

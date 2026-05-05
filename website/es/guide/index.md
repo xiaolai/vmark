@@ -110,9 +110,9 @@ VMark incluye Genios de IA integrados — selecciona texto y pulsa `Mod + Y` par
 ## Consejos para Empezar
 
 1. **Navega con el esquema**: Haz clic en los elementos del esquema para saltar a secciones
-2. **Prueba los Genios de IA**: Selecciona texto y pulsa `Mod + Y` para pulir, reformular o expandir
-3. **Prueba el modo enfoque**: `F8` te ayuda a concentrarte en el párrafo actual
-4. **Aprende los atajos**: Consulta la [guía de atajos](/es/guide/shortcuts) para mayor eficiencia
+2. **Prueba el modo enfoque**: `F8` atenúa todo excepto el párrafo actual
+3. **Valida mientras escribes**: `Cmd + Shift + L` ejecuta el motor de lint de markdown y la comprobación de enlaces rotos
+4. **Aprende los atajos**: la referencia completa está en la [guía de atajos](/es/guide/shortcuts)
 
 ## Próximos Pasos
 

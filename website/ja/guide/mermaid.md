@@ -2,6 +2,8 @@
 
 VMark は Markdown ドキュメントに直接フローチャート、シーケンスダイアグラム、その他のビジュアライゼーションを作成するための[Mermaid](https://mermaid.js.org/)ダイアグラムをサポートしています。
 
+[[toc]]
+
 ![WYSIWYGモードでレンダリングされたMermaidダイアグラム](/screenshots/mermaid-wysiwyg.png)
 
 ## ダイアグラムの挿入

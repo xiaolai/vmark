@@ -157,15 +157,15 @@ Prefissa qualsiasi punteggiatura con `\` per impedirne la conversione:
 
 ## Formattazione Assistita dall'IA
 
-Quando il [server MCP](/guide/mcp-setup) è connesso, gli assistenti IA possono applicare la formattazione CJK in modo programmatico tramite l'azione `cjk_format`.
+Quando il [server MCP](/it/guide/mcp-setup) è connesso, gli assistenti IA possono applicare la formattazione CJK in modo programmatico tramite lo strumento `document.transform` con uno dei tre valori `kind`:
 
-**Opzioni di ambito:**
-- `"document"` (predefinito) — formatta l'intero documento usando le tue impostazioni CJK
-- `"selection"` — formatta solo il testo attualmente selezionato
+- `"cjk-format"` — normalizzazione CJK completa (spaziatura + punteggiatura + virgolette tipografiche secondo le tue impostazioni)
+- `"cjk-spacing"` — regola solo gli spazi bianchi attorno ai confini CJK ↔ Latino/cifre
+- `"cjk-punctuation"` — converte la punteggiatura tra larghezza intera e mezza larghezza secondo le regole
 
-Entrambi gli ambiti utilizzano un percorso di andata e ritorno serializzazione-formattazione-analisi per preservare le marcature inline (grassetto, collegamenti, matematica, ecc.) e rispettare le regole di formattazione configurate.
+Ogni trasformazione esegue il documento attivo attraverso un percorso di andata e ritorno serializzazione-formattazione-analisi per preservare le marcature inline (grassetto, collegamenti, matematica, ecc.) e rispettare le regole di formattazione configurate.
 
-Consulta il [Riferimento Strumenti MCP](/guide/mcp-tools) per l'elenco completo delle azioni MCP relative a CJK, incluse `cjk_punctuation` e `cjk_spacing`.
+Consulta il [Riferimento Strumenti MCP](/it/guide/mcp-tools#document-tool) per la forma completa della richiesta — `document.transform` accetta `tabId`, `kind` e un `expected_revision` per la concorrenza ottimistica.
 
 ## Configurazione
 
@@ -183,6 +183,18 @@ Quando le **Virgolette Contestuali** sono abilitate (predefinito):
 - Virgolette intorno al contenuto puramente latino → virgolette dritte `""`
 
 Questo preserva l'aspetto naturale del testo inglese formattando correttamente il contenuto CJK.
+
+### Parentesi a forcella CJK *(disattivato per impostazione predefinita)*
+
+Quando **Virgolette a forcella CJK** è abilitato, le virgolette curve attorno al contenuto CJK vengono convertite in parentesi a forcella (`「」` per primarie, `『』` per annidate) — la forma di citazione tipograficamente tradizionale per la composizione tipografica CJK verticale. Il contenuto latino mantiene le virgolette curve standard indipendentemente da questa impostazione.
+
+### Salto della sezione di riferimenti
+
+Il formattatore CJK rileva le intestazioni «References» / «参考文献» / «参考资料» / «Bibliography» e salta la riformattazione in quelle sezioni — il testo formattato per le citazioni si basa spesso su una punteggiatura specifica che le regole CJK normalizzerebbero altrimenti.
+
+### Verifica di integrità
+
+Dopo ogni passaggio di formattazione CJK, il formattatore esegue un controllo di integrità che confronta il contenuto del testo visibile (ignorando le trasformazioni di spazi bianchi/punteggiatura) prima e dopo. Se il controllo fallisce, l'operazione viene annullata e appare una diagnostica — garantisce che la formattazione CJK non perda mai silenziosamente contenuto.
 
 ---
 

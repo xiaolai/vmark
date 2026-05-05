@@ -2,7 +2,7 @@
 
 VMark's Einstellungsbereich ermöglicht die Anpassung aller Aspekte des Editors. Öffnen Sie ihn mit `Mod + ,` oder über **VMark > Einstellungen** in der Menüleiste.
 
-Das Einstellungsfenster hat eine Seitenleiste mit alphabetisch aufgelisteten Abschnitten. Änderungen werden sofort wirksam — es gibt keine Speichern-Schaltfläche.
+Das Einstellungsfenster hat eine Seitenleiste mit nach Themen gruppierten Abschnitten — die am häufigsten verwendeten Abschnitte stehen oben, „Über" und „Erweitert" am Ende. Änderungen werden sofort wirksam — es gibt keine Speichern-Schaltfläche.
 
 ## Erscheinungsbild
 
@@ -93,7 +93,8 @@ Einfüge-Verhalten, Layout und HTML-Rendering-Einstellungen.
 | Einstellung | Beschreibung | Standard | Optionen |
 |-------------|-------------|---------|---------|
 | Regex in Suche aktivieren | Zeigt eine Regex-Umschalter-Schaltfläche in der Suchen & Ersetzen-Leiste | Ein | Ein / Aus |
-| Intelligentes Einfügen von Markdown | Wenn Text, der wie Markdown aussieht, in den WYSIWYG-Editor eingefügt wird, automatisch in Rich-Content konvertieren | Auto (Markdown erkennen) | Auto (Markdown erkennen), Aus |
+| Einfügemodus | Wie VMark Inhalte aus der Zwischenablage weiterleitet | Smart | Smart, Plain |
+| Markdown-Einfügen in WYSIWYG | Wenn Text, der wie Markdown aussieht, in den WYSIWYG-Editor eingefügt wird, automatisch in Rich-Content konvertieren | Auto | Auto, Aus |
 
 ### Layout
 
@@ -109,6 +110,8 @@ Einfüge-Verhalten, Layout und HTML-Rendering-Einstellungen.
 | Einstellung | Beschreibung | Standard | Optionen |
 |-------------|-------------|---------|---------|
 | Markdown-Lint aktivieren | Auf häufige Markdown-Probleme prüfen (defekte Links, fehlender Alt-Text, Überschriftenhierarchie, nicht geschlossene Umzäunungen usw.) | Ein | Ein / Aus |
+
+Siehe [Markdown-Lint](/de/guide/lint) für die vollständige Regelliste und Schweregrade.
 
 ### HTML-Rendering
 
@@ -158,6 +161,24 @@ Diese Einstellungen gelten nur, wenn ein Arbeitsbereich (Ordner) geöffnet ist.
 | Beim Einfügen automatisch skalieren | Große Bilder vor dem Speichern im Asset-Ordner automatisch skalieren. Der Wert ist die maximale Dimension in Pixeln | Aus | Aus, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | In Asset-Ordner kopieren | Eingefügte oder gezogene Bilder in den Asset-Ordner des Dokuments kopieren, anstatt sie einzubetten | Ein | Ein / Aus |
 | Unbenutzte Bilder beim Schließen bereinigen | Bilder aus dem Asset-Ordner automatisch löschen, die beim Schließen nicht mehr im Dokument referenziert werden | Aus | Ein / Aus |
+| Schwelle für eingebettete Bilder | Maximale Größe (MB) für das Einbetten von Bildern als base64-Daten-URLs im HTML-/PDF-Export. Größere Dateien werden stattdessen verlinkt | 1,0 MB | 0,1 – 10 MB |
+
+### Große Dateien
+
+| Einstellung | Beschreibung | Standard | Optionen |
+|-------------|-------------|---------|---------|
+| Warnen ab Größe | Beim Öffnen von Dateien oberhalb dieser Größe einen Bestätigungsdialog anzeigen | 5 MB | Ein / Aus |
+| Auto-Quellmodus | Dateien oberhalb der Schwelle automatisch im Quellmodus öffnen (überspringt WYSIWYG für flüssige Performance) | Ein | Ein / Aus |
+
+Siehe [Große Dateien](/guide/large-files) für die vollständige Aufschlüsselung des Umgangs mit großen Dateien.
+
+### Updates
+
+| Einstellung | Beschreibung | Standard | Optionen |
+|-------------|-------------|---------|---------|
+| Prüfintervall | Wann nach neuen VMark-Veröffentlichungen gesucht wird | Beim Start | Beim Start, Täglich, Wöchentlich, Manuell |
+| Updates automatisch herunterladen | Release-Artefakte im Hintergrund herunterladen, sobald ein Update erkannt wird | Aus | Ein / Aus |
+| Version überspringen | Unterdrückt die Update-Aufforderung für eine bestimmte Version (wird pro Update aus der Aufforderung selbst gesetzt) | Keine | — |
 
 ::: tip
 Aktivieren Sie **Beim Einfügen automatisch skalieren**, wenn Sie häufig Screenshots oder Fotos einfügen — es hält Ihren Asset-Ordner ohne manuelles Skalieren leichtgewichtig.
@@ -205,7 +226,7 @@ Unter [KI-Anbieter](/de/guide/ai-providers) finden Sie detaillierte Setup-Anweis
 
 ## Sprache
 
-CJK (Chinesisch, Japanisch, Koreanisch) Formatierungsregeln. Diese Regeln werden angewendet, wenn Sie **Format > CJK-Text formatieren** (`Cmd+Umschalt+F`) ausführen.
+CJK (Chinesisch, Japanisch, Koreanisch) Formatierungsregeln. Diese Regeln werden angewendet, wenn Sie **Format → CJK-Auswahl formatieren** (`Cmd+Shift+F`) auf einer Auswahl oder **Format → CJK-Dokument formatieren** (`Alt+Cmd+Shift+F`) auf der gesamten Datei ausführen.
 
 ::: tip
 Der Sprach-Abschnitt enthält 20+ feinkörnige Formatierungs-Umschalter. Eine vollständige Erklärung jeder Regel mit Beispielen finden Sie unter [CJK-Formatierung](/de/guide/cjk-formatting).
@@ -316,9 +337,25 @@ Damit können Sie Links wie `obsidian://open?vault=...` oder `vscode://file/...`
 |-------------|-------------|---------|
 | Beide Editoren aktiv halten | Sowohl den WYSIWYG- als auch den Quellmodus-Editor gleichzeitig mounten, für schnelleres Moduswechseln. Erhöht den Speicherverbrauch | Aus |
 
+### Workflow-Engine
+
+| Einstellung | Beschreibung | Standard | Optionen |
+|-------------|-------------|---------|---------|
+| Workflow-Engine | Den GitHub-Actions-Workflow-Viewer/-Editor für `.yml`/`.yaml`-Dateien unter `.github/workflows/` aktivieren. Wenn aus, werden diese Dateien als reines YAML geöffnet | Aus | Ein / Aus |
+| YAML-Formatierung erhalten | Beim Speichern von Workflow-Bearbeitungen aus dem Formular-Panel die ursprünglichen YAML-Kommentare, Anker, Schlüsselreihenfolge und Leerzeilen über die CST-Roundtrip-Pipeline erhalten. Wenn aus, verwendet das Speichern einen kompakten Serialisierer (schneller, aber verlustbehaftet) | Ein | Ein / Aus |
+
+Siehe [Workflow-Viewer](/guide/workflow-viewer) für den vollständigen Funktionsumfang.
+
+### Plattformspezifisch
+
+| Einstellung | Beschreibung | Standard | Plattformen |
+|-------------|-------------|---------|-------------|
+| macOS-Quarantäne beim Öffnen entfernen | Beim Öffnen einer Datei mit dem macOS-Quarantäne-Attribut (`com.apple.quarantine`) dieses vor dem Lesen entfernen. Hilfreich für aus dem Web heruntergeladene Dateien, deren Öffnen VMark sonst blockiert würde | Ein | macOS |
+| Mac Option als Meta (Terminal) | Die macOS-Option-Taste im integrierten Terminal als Meta behandeln. Erforderlich für Werkzeuge wie emacs und tmux, die Alt-präfigierte Tastenkürzel erwarten | Aus | macOS |
+
 ### Entwicklerwerkzeuge
 
-Wenn **Entwicklerwerkzeuge** aktiviert ist, erscheint ein **Hot Exit Dev Tools**-Panel mit Schaltflächen zum Testen von Sitzungserfassung, Inspektion, Wiederherstellung, Löschen und Neustart.
+Wenn **Entwicklerwerkzeuge** aktiviert ist, erscheint ein **Hot Exit Dev Tools**-Panel mit Schaltflächen zum Testen von Sitzungserfassung, Inspektion, Wiederherstellung, Löschen und Neustart — nützlich zum Debuggen des Hot-Exit-Verhaltens während der Entwicklung.
 
 ## Siehe auch
 

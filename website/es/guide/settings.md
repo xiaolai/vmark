@@ -2,7 +2,7 @@
 
 El panel de configuración de VMark te permite personalizar todos los aspectos del editor. Ábrelo con `Mod + ,` o a través de **VMark > Configuración** en la barra de menú.
 
-La ventana de configuración tiene una barra lateral con secciones ordenadas alfabéticamente. Los cambios surten efecto inmediatamente — no hay botón de guardar.
+La ventana de configuración tiene una barra lateral con secciones agrupadas por tema — las secciones más utilizadas aparecen primero, con Acerca de y Avanzado al final. Los cambios surten efecto inmediatamente — no hay botón de guardar.
 
 ## Apariencia
 
@@ -93,7 +93,8 @@ Comportamiento de pegado, diseño y configuración de renderizado HTML.
 | Configuración | Descripción | Predeterminado | Opciones |
 |---------------|-------------|----------------|---------|
 | Habilitar regex en la búsqueda | Muestra un botón de alternancia de regex en la barra de Buscar y Reemplazar | Activado | Activado / Desactivado |
-| Pegar Markdown de forma inteligente | Al pegar texto que parece Markdown en el editor WYSIWYG, convertirlo automáticamente en contenido enriquecido | Auto (detectar Markdown) | Auto (detectar Markdown), Desactivado |
+| Modo de pegado | Cómo VMark enruta el contenido del portapapeles | Inteligente | Inteligente, Sin formato |
+| Pegado Markdown en WYSIWYG | Al pegar texto que parece Markdown en el editor WYSIWYG, convertirlo automáticamente en contenido enriquecido | Auto | Auto, Desactivado |
 
 ### Diseño
 
@@ -109,6 +110,8 @@ Comportamiento de pegado, diseño y configuración de renderizado HTML.
 | Configuración | Descripción | Predeterminado | Opciones |
 |---------------|-------------|----------------|---------|
 | Habilitar markdown lint | Verificar problemas comunes de markdown (enlaces rotos, texto alt faltante, incrementos de encabezados, bloques de código no cerrados, etc.) | Activado | Activado / Desactivado |
+
+Consulta [Lint de Markdown](/es/guide/lint) para la lista completa de reglas y niveles de severidad.
 
 ### Renderizado HTML
 
@@ -158,6 +161,24 @@ Estas configuraciones solo se aplican cuando hay un espacio de trabajo (carpeta)
 | Redimensionar automáticamente al pegar | Redimensiona automáticamente las imágenes grandes antes de guardarlas en la carpeta de recursos. El valor es la dimensión máxima en píxeles | Desactivado | Desactivado, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copiar a la carpeta de recursos | Copia las imágenes pegadas o arrastradas a la carpeta de recursos del documento en lugar de incrustarlas | Activado | Activado / Desactivado |
 | Limpiar imágenes no usadas al cerrar | Elimina automáticamente las imágenes de la carpeta de recursos que ya no están referenciadas en el documento cuando lo cierras | Desactivado | Activado / Desactivado |
+| Umbral de imagen en línea | Tamaño máximo (MB) para incrustar imágenes como URLs de datos base64 en la exportación HTML/PDF. Los archivos más grandes se enlazan en su lugar | 1.0 MB | 0.1 – 10 MB |
+
+### Archivos Grandes
+
+| Configuración | Descripción | Predeterminado | Opciones |
+|---------------|-------------|----------------|---------|
+| Avisar por encima del tamaño | Mostrar un aviso de confirmación al abrir archivos por encima de este tamaño | 5 MB | Activado / Desactivado |
+| Modo Fuente automático | Abre automáticamente los archivos por encima del umbral en modo Fuente (omite WYSIWYG para mantener un rendimiento fluido) | Activado | Activado / Desactivado |
+
+Consulta [Archivos Grandes](/guide/large-files) para el desglose completo de cómo se manejan los archivos grandes.
+
+### Actualizaciones
+
+| Configuración | Descripción | Predeterminado | Opciones |
+|---------------|-------------|----------------|---------|
+| Frecuencia de comprobación | Cuándo comprobar nuevas versiones de VMark | Al iniciar | Al iniciar, Diario, Semanal, Manual |
+| Descargar actualizaciones automáticamente | Descarga los artefactos de la versión en segundo plano una vez detectada una actualización | Desactivado | Activado / Desactivado |
+| Omitir una versión | Suprime el aviso de actualización para una versión específica (se establece por actualización desde el propio aviso) | Ninguna | — |
 
 ::: tip
 Habilita **Redimensionar automáticamente al pegar** si con frecuencia pegas capturas de pantalla o fotos — mantiene ligera tu carpeta de recursos sin necesidad de redimensionar manualmente.
@@ -205,7 +226,7 @@ Consulta [Proveedores de IA](/es/guide/ai-providers) para instrucciones de confi
 
 ## Idioma
 
-Reglas de formato CJK (chino, japonés, coreano). Estas reglas se aplican cuando ejecutas **Formato > Formatear Texto CJK** (`Cmd+Shift+F`).
+Reglas de formato CJK (chino, japonés, coreano). Estas reglas se aplican cuando ejecutas **Formato → Formatear Selección CJK** (`Cmd+Shift+F`) sobre una selección, o **Formato → Formatear Documento CJK** (`Alt+Cmd+Shift+F`) sobre todo el archivo.
 
 ::: tip
 La sección Idioma contiene más de 20 alternadores de formato detallados. Para una explicación completa de cada regla con ejemplos, consulta [Formato CJK](/es/guide/cjk-formatting).
@@ -315,6 +336,22 @@ Esto te permite crear enlaces como `obsidian://open?vault=...` o `vscode://file/
 | Configuración | Descripción | Predeterminado |
 |---------------|-------------|----------------|
 | Mantener ambos editores activos | Monta tanto el editor WYSIWYG como el modo Fuente simultáneamente para un cambio de modo más rápido. Aumenta el uso de memoria | Desactivado |
+
+### Motor de Workflow
+
+| Configuración | Descripción | Predeterminado | Opciones |
+|---------------|-------------|----------------|---------|
+| Motor de workflow | Habilita el visor/editor de workflows de GitHub Actions para los archivos `.yml`/`.yaml` bajo `.github/workflows/`. Cuando está desactivado, esos archivos se abren como YAML sin formato | Desactivado | Activado / Desactivado |
+| Conservar el formato YAML | Al guardar las ediciones de workflow realizadas a través del panel de formulario, conserva los comentarios, anclas, orden de claves y líneas en blanco del YAML original mediante el pipeline de ida y vuelta CST. Cuando está desactivado, guardar usa un serializador compacto (más rápido pero con pérdidas) | Activado | Activado / Desactivado |
+
+Consulta [Visor de Workflow](/guide/workflow-viewer) para la superficie completa de la función.
+
+### Específico de Plataforma
+
+| Configuración | Descripción | Predeterminado | Plataformas |
+|---------------|-------------|----------------|-------------|
+| Limpiar la cuarentena de macOS al abrir | Cuando abres un archivo que tiene el atributo de cuarentena de macOS (`com.apple.quarantine`), elimínalo antes de leerlo. Útil para archivos descargados de la web que VMark no podría abrir de otro modo | Activado | macOS |
+| Tecla Option de Mac como Meta (terminal) | Trata la tecla Option de macOS como Meta en el terminal integrado. Necesario para herramientas como emacs y tmux que esperan atajos con prefijo Alt | Desactivado | macOS |
 
 ### Herramientas de Desarrollador
 

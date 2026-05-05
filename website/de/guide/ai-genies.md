@@ -495,6 +495,21 @@ Formatieren Sie als Aufzählungsliste. Wenn alles solide aussieht, sagen Sie
 {{content}}
 ```
 
+## KI-Vorschläge
+
+Wenn ein Genie Text zurückgibt, der als Ersatz für die Auswahl gedacht ist (statt einer freien Chat-Antwort), zeigt VMark ihn als **Vorschlag** mit einem Inline-Diff an: roter durchgestrichener Text für das Original, grüne Unterstreichung für den vorgeschlagenen Text. Sie prüfen und bestätigen, bevor irgendeine Änderung dauerhaft wird.
+
+| Aktion | Kürzel |
+|---|---|
+| Fokussierten Vorschlag annehmen | `Tab` |
+| Fokussierten Vorschlag ablehnen | `Esc` |
+| Alle Vorschläge im Dokument annehmen | `Mod + Shift + Eingabe` _(kontextabhängig — innerhalb einer Tabelle bedeutet es zugleich „Zeile darüber hinzufügen")_ |
+| Zum nächsten Vorschlag wechseln | `Tab` von einer nicht fokussierten Position aus |
+
+Wenn ein Genie mehrere Absätze umschreibt, ist jede Ersetzung ein eigenständig navigierbarer Vorschlag. Das Annehmen eines Vorschlags akzeptiert die anderen nicht automatisch.
+
+Die Vorschlags-Oberfläche hat außerdem eine MCP-Schnittstelle — externe KI-Agenten, die über den [MCP-Server](/de/guide/mcp-tools) verbunden sind, können `suggestion.accept`-/`suggestion.reject`-Aktionen ausgeben, um denselben Zustand zu manipulieren.
+
 ## Einschränkungen
 
 - Genies funktionieren nur im **WYSIWYG-Modus**. Im Quellmodus erklärt eine Toast-Benachrichtigung dies.

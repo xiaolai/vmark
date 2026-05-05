@@ -88,6 +88,28 @@ Einige Zeichen eingeben, um zu filtern — die Übereinstimmung ist fuzzy, daher
 Ohne einen Arbeitsbereich funktioniert Quick Open weiterhin — es zeigt zuletzt geöffnete Dateien und geöffnete Tabs, kann aber nicht die Dateistruktur durchsuchen.
 :::
 
+## Inhaltssuche im Arbeitsbereich
+
+Wenn ein Arbeitsbereich geöffnet ist, kann VMark **Dateiinhalte** (nicht nur Dateinamen) nach Übereinstimmungen in Markdown- und Textdateien durchsuchen.
+
+| Aktion | Kürzel |
+|---|---|
+| Inhaltssuche-Panel öffnen | `Mod + Shift + F` |
+| Zum nächsten Treffer springen | `Eingabe` (oder Pfeiltasten zum Navigieren) |
+| Treffer in neuem Tab öffnen | Auf die Treffervorschau klicken |
+
+Jedes Ergebnis zeigt den Dateipfad, die Zeilennummer und einen Ausschnitt mit hervorgehobenem Treffertext. Die Treffer werden sortiert nach:
+
+1. Relevanz des Dateinamens (Dateien, die den Begriff im Namen tragen, zuerst)
+2. Nähe zur Überschrift (Treffer in Überschriften vor Treffern im Fließtext)
+3. Aktualität (kürzlich geänderte Dateien zuerst)
+
+**Standardmäßig ausgeschlossen**: `node_modules/`, `.git/`, `dist/`, `target/`, `coverage/` sowie alle Verzeichnisse, die Sie unter **Ausgeschlossene Ordner** in den Arbeitsbereichseinstellungen hinzugefügt haben.
+
+**Versteckte Dateien**: werden übersprungen, sofern **Versteckte Dateien anzeigen** im Datei-Explorer nicht aktiviert ist.
+
+Dies unterscheidet sich von [Quick Open](#quick-open), das nur *Dateinamen* durchsucht — die Inhaltssuche öffnet die getroffene Datei und platziert den Cursor an der Trefferstelle.
+
 ## Zuletzt geöffnete Arbeitsbereiche
 
 VMark merkt sich bis zu 10 zuletzt geöffnete Arbeitsbereiche. Diese sind über **Datei > Zuletzt geöffnete Arbeitsbereiche** in der Menüleiste zugänglich.

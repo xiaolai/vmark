@@ -88,6 +88,28 @@ Digita alcuni caratteri per filtrare — la corrispondenza è fuzzy, quindi `rdm
 Senza un workspace, Apertura Rapida funziona ancora — mostra i file recenti e le schede aperte ma non può cercare nell'albero dei file.
 :::
 
+## Ricerca nei contenuti del workspace
+
+Quando un workspace è aperto, VMark può cercare nei **contenuti dei file** (non solo nei nomi) corrispondenze nei file markdown e di testo.
+
+| Azione | Scorciatoia |
+|---|---|
+| Apri il pannello di ricerca nei contenuti | `Mod + Shift + F` |
+| Vai al risultato successivo | `Invio` (o tasti freccia per navigare) |
+| Apri il risultato in una nuova scheda | Clicca sull'anteprima della corrispondenza |
+
+Ogni risultato mostra il percorso del file, il numero di riga e un frammento con il testo corrispondente evidenziato. Le corrispondenze sono ordinate per:
+
+1. Rilevanza del nome file (file contenente il termine nel nome per primo)
+2. Prossimità all'intestazione (corrispondenze all'interno delle intestazioni prima del corpo del testo)
+3. Recenza (i file modificati di recente appaiono per primi)
+
+**Esclusi per impostazione predefinita**: `node_modules/`, `.git/`, `dist/`, `target/`, `coverage/`, oltre a tutte le directory che hai aggiunto a **Cartelle escluse** nelle Impostazioni del workspace.
+
+**File nascosti**: saltati a meno che **Mostra file nascosti** non sia abilitato nell'esplora file.
+
+Questa è distinta da [Apertura Rapida](#apertura-rapida) che cerca solo i *nomi dei file* — la ricerca nei contenuti apre il file corrispondente con il cursore posizionato sulla riga della corrispondenza.
+
 ## Workspace Recenti
 
 VMark ricorda fino a 10 workspace aperti di recente. Accedili da **File > Workspace Recenti** nella barra dei menu.

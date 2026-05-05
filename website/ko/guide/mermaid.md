@@ -2,6 +2,8 @@
 
 VMark는 마크다운 문서에서 직접 순서도, 시퀀스 다이어그램 및 기타 시각화를 만들기 위해 [Mermaid](https://mermaid.js.org/) 다이어그램을 지원합니다.
 
+[[toc]]
+
 ![Mermaid diagram rendered in WYSIWYG mode](/screenshots/mermaid-wysiwyg.png)
 
 ## 다이어그램 삽입

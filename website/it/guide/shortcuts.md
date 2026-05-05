@@ -1,6 +1,6 @@
 # Scorciatoie da Tastiera
 
-VMark è progettato per flussi di lavoro da tastiera. La maggior parte delle scorciatoie può essere personalizzata nelle Impostazioni. Alcune — come le scorciatoie multi-cursore (Seleziona occorrenza successiva, Seleziona tutte le occorrenze), Annulla e Ripristina — non sono ancora personalizzabili.
+VMark è progettato per flussi di lavoro da tastiera. La maggior parte delle scorciatoie può essere personalizzata nelle Impostazioni. Un piccolo numero di primitive è fisso: i selettori multi-cursore `Mod+D` (Seleziona occorrenza successiva) e `Mod+Shift+L` (Seleziona tutte le occorrenze) e le associazioni globali Annulla/Ripristina. Le altre scorciatoie multi-cursore (Salta occorrenza, Annulla cursore soft, Aggiungi cursore sopra/sotto) sono configurabili. Le scorciatoie contrassegnate _(contestuali)_ sono gestite all'interno dell'editor per strutture specifiche (ad es. attivazione casella elenco di attività) e non sono esposte nel registro di personalizzazione.
 
 ## Notazione
 
@@ -52,7 +52,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Corsivo | `Mod + I` |
 | Sottolineato | `Mod + U` |
 | Barrato | `Mod + Shift + X` |
-| Codice Inline | Mod + Shift + `` ` `` |
+| Codice inline | Mod + Shift + `` ` `` |
 | Evidenziato | `Mod + Shift + M` |
 | Pedice | `Alt + Mod + =` |
 | Apice | `Alt + Mod + Shift + =` |
@@ -76,7 +76,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Elenco puntato | `Alt + Mod + U` |
 | Elenco numerato | `Alt + Mod + O` |
 | Elenco di attività | `Alt + Mod + X` |
-| Attiva/disattiva casella attività | `Mod + Shift + Enter` |
+| Attiva/disattiva casella attività | `Mod + Shift + Enter` _(contestuale; non personalizzabile)_ |
 | Cambia tipo di elenco | _(personalizzabile)_ |
 | Rientra | `Mod + ]` |
 | Rientra a sinistra | `Mod + [` |
@@ -101,6 +101,8 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | MAIUSCOLO | `Ctrl + Shift + U` | `Alt + Shift + U` |
 | minuscolo | `Ctrl + Shift + L` | `Alt + Shift + L` |
 | Prima Lettera Maiuscola | `Ctrl + Shift + T` | `Alt + Shift + T` |
+| Alterna maiuscole/minuscole | _(personalizzabile)_ | _(personalizzabile)_ |
+| Rimuovi righe vuote | _(personalizzabile)_ | _(personalizzabile)_ |
 | Alterna stile virgolette | `Shift + Mod + '` | `Shift + Mod + '` |
 
 ## Inserimento
@@ -145,6 +147,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Trova successivo | `Mod + G` |
 | Trova precedente | `Mod + Shift + G` |
 | Usa selezione per la ricerca | `Mod + E` |
+| Trova nei file | `Mod + Shift + H` |
 
 ## Visualizzazione e Modalità
 
@@ -272,6 +275,12 @@ Quando il cursore è all'interno di una tabella:
 | Aggiungi riga sotto | `Mod + Enter` |
 | Aggiungi riga sopra | `Mod + Shift + Enter` |
 | Elimina riga | `Mod + Backspace` |
+| Aggiungi colonna a sinistra | `Alt + Mod + Sinistra` |
+| Aggiungi colonna a destra | `Alt + Mod + Destra` |
+| Elimina colonna | `Alt + Mod + Backspace` |
+| Allinea colonna a sinistra | `Mod + Alt + Shift + L` |
+| Allinea colonna a destra | `Mod + Shift + R` |
+| Allinea colonna al centro | _(personalizzabile)_ |
 | Formatta tabella | `Alt + Mod + T` |
 | Esci dalla tabella | Tasti freccia al bordo della tabella |
 

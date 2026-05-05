@@ -157,19 +157,19 @@ Préfixez n'importe quelle ponctuation avec `\` pour empêcher la conversion :
 
 ## Mise en forme assistée par l'IA
 
-Lorsque le [serveur MCP](/guide/mcp-setup) est connecté, les assistants IA peuvent appliquer la mise en forme CJK de manière programmatique via l'action `cjk_format`.
+Lorsque le [serveur MCP](/fr/guide/mcp-setup) est connecté, les assistants IA peuvent appliquer la mise en forme CJK de manière programmatique via l'outil `document.transform` avec l'une des trois valeurs `kind`&nbsp;:
 
-**Options de portée :**
-- `"document"` (par défaut) — formate l'intégralité du document en utilisant vos paramètres CJK
-- `"selection"` — formate uniquement le texte actuellement sélectionné
+- `"cjk-format"` — normalisation CJK complète (espacement + ponctuation + guillemets intelligents selon vos paramètres)
+- `"cjk-spacing"` — ajuste uniquement les espaces autour des frontières CJK ↔ Latin/chiffres
+- `"cjk-punctuation"` — convertit la ponctuation entre pleine largeur et demi-largeur selon les règles
 
-Les deux portées utilisent un aller-retour sérialisation-formatage-analyse pour préserver les marques en ligne (gras, liens, maths, etc.) et respecter vos règles de mise en forme configurées.
+Chaque transformation fait passer le document actif par un aller-retour sérialisation-formatage-analyse afin de préserver les marques en ligne (gras, liens, maths, etc.) et de respecter vos règles de mise en forme configurées.
 
-Consultez la [Référence des outils MCP](/guide/mcp-tools) pour la liste complète des actions MCP liées au CJK, y compris `cjk_punctuation` et `cjk_spacing`.
+Consultez la [Référence des outils MCP](/fr/guide/mcp-tools#document) pour la forme complète de la requête — `document.transform` prend `tabId`, `kind` et un `expected_revision` pour la concurrence optimiste.
 
 ## Configuration
 
-Les options de mise en forme CJK peuvent être configurées dans Paramètres → Langue :
+Les options de mise en forme CJK peuvent être configurées dans Paramètres → Langue&nbsp;:
 
 - Activer/désactiver des règles spécifiques
 - Définir la limite de répétition de ponctuation
@@ -177,12 +177,24 @@ Les options de mise en forme CJK peuvent être configurées dans Paramètres →
 
 ### Guillemets contextuels
 
-Lorsque les **Guillemets contextuels** sont activés (par défaut) :
+Lorsque les **Guillemets contextuels** sont activés (par défaut)&nbsp;:
 
 - Les guillemets autour du contenu CJK → guillemets courbes `""`
 - Les guillemets autour du contenu purement latin → guillemets droits `""`
 
 Cela préserve l'apparence naturelle du texte anglais tout en formatant correctement le contenu CJK.
+
+### Crochets d'angle CJK *(désactivé par défaut)*
+
+Lorsque les **Crochets d'angle CJK** sont activés, les guillemets courbes autour du contenu CJK sont convertis en crochets d'angle (`「」` pour le primaire, `『』` pour l'imbriqué) — la forme de citation typographiquement traditionnelle pour la composition CJK verticale. Le contenu latin conserve les guillemets courbes standard quel que soit ce paramètre.
+
+### Saut des sections de références
+
+Le formateur CJK détecte les titres «&nbsp;References&nbsp;» / «&nbsp;参考文献&nbsp;» / «&nbsp;参考资料&nbsp;» / «&nbsp;Bibliography&nbsp;» et saute la reformulation dans ces sections — le texte au format de citation s'appuie souvent sur une ponctuation spécifique que les règles CJK normaliseraient autrement.
+
+### Vérification d'intégrité
+
+Après chaque passage de mise en forme CJK, le formateur exécute une vérification d'intégrité qui compare le contenu textuel visible (en ignorant les transformations d'espaces/de ponctuation) avant et après. Si la vérification échoue, l'opération est annulée et un diagnostic apparaît — garantit que la mise en forme CJK ne perd jamais silencieusement de contenu.
 
 ---
 

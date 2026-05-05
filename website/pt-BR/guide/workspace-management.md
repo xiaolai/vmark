@@ -88,6 +88,28 @@ Digite alguns caracteres para filtrar — a correspondência é fuzzy, então `r
 Sem uma área de trabalho, a Abertura Rápida ainda funciona — ela mostra arquivos recentes e abas abertas, mas não consegue pesquisar a árvore de arquivos.
 :::
 
+## Pesquisa de conteúdo na área de trabalho
+
+Quando uma área de trabalho está aberta, o VMark pode pesquisar **dentro do conteúdo dos arquivos** (não apenas nos nomes) por correspondências em arquivos markdown e de texto.
+
+| Ação | Atalho |
+|------|--------|
+| Abrir o painel de pesquisa de conteúdo | `Mod + Shift + F` |
+| Pular para o próximo resultado | `Enter` (ou teclas de seta para navegar) |
+| Abrir resultado em uma nova aba | Clique na pré-visualização do trecho |
+
+Cada resultado mostra o caminho do arquivo, o número da linha e um trecho com o texto correspondente destacado. As correspondências são ranqueadas por:
+
+1. Relevância do nome do arquivo (arquivos que contêm o termo no nome aparecem primeiro)
+2. Proximidade com cabeçalhos (correspondências dentro de cabeçalhos antes do corpo do texto)
+3. Recência (arquivos modificados recentemente vêm antes)
+
+**Excluídos por padrão**: `node_modules/`, `.git/`, `dist/`, `target/`, `coverage/`, além de quaisquer diretórios adicionados em **Pastas excluídas** nas Configurações de área de trabalho.
+
+**Arquivos ocultos**: ignorados, a menos que **Mostrar arquivos ocultos** esteja habilitado no explorador de arquivos.
+
+Isso é distinto da [Abertura Rápida](#abertura-rapida), que pesquisa apenas *nomes de arquivos* — a pesquisa de conteúdo abre o arquivo correspondente com o cursor posicionado na linha da ocorrência.
+
 ## Áreas de Trabalho Recentes
 
 O VMark lembra até 10 áreas de trabalho abertas recentemente. Acesse-as em **Arquivo > Áreas de Trabalho Recentes** na barra de menus.

@@ -109,10 +109,10 @@ VMark inclut des Génies IA intégrés — sélectionnez du texte et appuyez sur
 
 ## Conseils pour commencer
 
-1. **Naviguez avec le plan** : Cliquez sur les éléments du plan pour accéder aux sections
-2. **Essayez les Génies IA** : Sélectionnez du texte et appuyez sur `Mod + Y` pour peaufiner, reformuler ou développer
-3. **Essayez le mode focus** : `F8` vous aide à vous concentrer sur le paragraphe actuel
-4. **Apprenez les raccourcis** : Consultez le [guide des raccourcis](/fr/guide/shortcuts) pour plus d'efficacité
+1. **Naviguez avec le plan** : cliquez sur les éléments du plan pour passer d'une section à l'autre
+2. **Essayez le mode focus** : `F8` atténue tout sauf le paragraphe actuel
+3. **Validez pendant que vous écrivez** : `Cmd + Shift + L` lance le moteur de lint markdown et la vérification des liens cassés
+4. **Apprenez les raccourcis** : la référence complète se trouve dans le [guide des raccourcis](/fr/guide/shortcuts)
 
 ## Prochaines étapes
 
