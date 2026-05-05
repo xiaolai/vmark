@@ -43,6 +43,11 @@ pub async fn run_workflow(
     env: HashMap<String, String>,
     workspace_root: String,
     provider: Option<ProviderConfig>,
+    // Optional caller-supplied execution ID. Frontends pre-generate this so
+    // they can subscribe to events with the right key before the runner
+    // emits its first event (closes the executionId race in
+    // useWorkflowExecution).
+    execution_id: Option<String>,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<String, String> {
     // Concurrency guard
@@ -110,8 +115,10 @@ pub async fn run_workflow(
         }
     }
 
-    // Generate execution ID and return immediately
-    let execution_id = Uuid::new_v4().to_string();
+    // Use the caller-supplied execution ID if present (avoids a race where the
+    // frontend can't filter events by ID until invoke() resolves). Otherwise
+    // generate a fresh one.
+    let execution_id = execution_id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let exec_id_clone = execution_id.clone();
     let cancel_token = Arc::clone(&state.cancel_requested);
     let app_clone = app.clone();

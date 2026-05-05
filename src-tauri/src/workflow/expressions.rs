@@ -89,16 +89,27 @@ pub fn resolve(
     }
     after_expr.push_str(&value[last_end..]);
 
-    // Step 2: ${VAR} env refs (legacy)
+    // Step 2: ${VAR} env refs (legacy). Strict: unknown name is fatal so
+    // author mistakes don't silently produce wrong prompts/paths. Same
+    // behavior as the modern ${{ env.X }} form.
+    let mut env_err: Option<String> = None;
     let after_env = ENV_VAR_RE
         .replace_all(&after_expr, |caps: &regex::Captures| {
             let name = &caps[1];
-            env.get(name).cloned().unwrap_or_else(|| {
-                log::warn!("Unresolved env variable '${{{}}}'", name);
-                String::new()
-            })
+            match env.get(name) {
+                Some(v) => v.clone(),
+                None => {
+                    if env_err.is_none() {
+                        env_err = Some(name.to_string());
+                    }
+                    String::new()
+                }
+            }
         })
         .to_string();
+    if let Some(name) = env_err {
+        return Err(ExprError::UnknownEnv(name));
+    }
 
     // Step 3: bare stepId.output alias (whole-string)
     if let Some(alias_caps) = BARE_ALIAS_RE.captures(after_env.trim()) {

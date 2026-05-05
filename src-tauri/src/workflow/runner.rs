@@ -138,6 +138,57 @@ fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
     Ok(ordered)
 }
 
+/// Outcome of the approval wait — explicit so the caller doesn't have to
+/// reason about which `Result` variant came from where.
+enum ApprovalOutcome {
+    Approved,
+    Denied,
+    /// Sender side dropped without delivering a value (window close, etc.).
+    ChannelClosed,
+    /// Approval window expired.
+    TimedOut,
+    /// Workflow was cancelled while the dialog was open.
+    Cancelled,
+}
+
+/// Build the preview the approval dialog shows.
+///
+/// For genie steps, attempts to load the genie and fill its template against
+/// `resolved_params` so the preview matches what the model will actually
+/// receive. Falls back to the raw `with.input` / `with.content` / `with.prompt`
+/// value if the genie can't be loaded (so non-genie steps and authoring-time
+/// errors still get a useful preview).
+async fn build_approval_preview(
+    step: &RawStep,
+    resolved_params: &HashMap<String, String>,
+    genies_dir: Option<&Path>,
+) -> String {
+    const PREVIEW_BYTES: usize = 500;
+
+    if let Some(name) = step.uses.strip_prefix("genie/") {
+        if let Some(dir) = genies_dir {
+            if let Ok(path) = genie_step::find_genie_file(dir, name) {
+                if let Ok(raw) = tokio::fs::read_to_string(&path).await {
+                    if let Ok(content) = parse_genie_content(&raw, &path) {
+                        if let Ok(filled) =
+                            super::template::fill(&content.template, resolved_params)
+                        {
+                            return filled.chars().take(PREVIEW_BYTES).collect();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    resolved_params
+        .get("input")
+        .or_else(|| resolved_params.get("content"))
+        .or_else(|| resolved_params.get("prompt"))
+        .map(|s| s.chars().take(PREVIEW_BYTES).collect())
+        .unwrap_or_default()
+}
+
 /// Convert the legacy `Arc<AtomicBool>` cancel flag into a polling task that
 /// flips a `CancellationToken`. Bridges the existing API to the new tokio
 /// cancellation primitive used by `run_ai_prompt_collect`.
@@ -311,17 +362,14 @@ pub async fn run_workflow_sequential(
         let step_timeout = std::time::Duration::from_secs(step_config.timeout_secs);
 
         // Approval gate: if step.approval == "ask", emit a request event and
-        // park on the registered oneshot until the dialog responds.
+        // park on the registered oneshot until the dialog responds OR the
+        // workflow is cancelled. Build the preview from the *resolved* prompt
+        // for genie steps so the user approves what the model actually sees.
         if step_config.approval == "ask" {
             let approval_key = (execution_id.to_string(), step_id.clone());
             let rx = approvals.register(approval_key.clone());
-            let preview: String = step
-                .with
-                .get("input")
-                .or_else(|| step.with.get("content"))
-                .or_else(|| step.with.get("prompt"))
-                .map(|s| s.chars().take(500).collect())
-                .unwrap_or_default();
+            let preview =
+                build_approval_preview(&step, &resolved_params, genies_dir.as_deref()).await;
             emit_event(
                 app,
                 "workflow:approval-request",
@@ -334,14 +382,36 @@ pub async fn run_workflow_sequential(
                 },
             );
             let approval_timeout = step_timeout.min(std::time::Duration::from_secs(600));
-            let outcome = tokio::time::timeout(approval_timeout, rx).await;
-            let approved = match outcome {
-                Ok(Ok(v)) => v,
-                Ok(Err(_)) => {
-                    // Sender dropped without a value (window close, etc.).
-                    false
+            let approval_outcome = tokio::select! {
+                _ = cancel.cancelled() => ApprovalOutcome::Cancelled,
+                res = tokio::time::timeout(approval_timeout, rx) => match res {
+                    Ok(Ok(true)) => ApprovalOutcome::Approved,
+                    Ok(Ok(false)) => ApprovalOutcome::Denied,
+                    Ok(Err(_)) => ApprovalOutcome::ChannelClosed,
+                    Err(_) => ApprovalOutcome::TimedOut,
+                },
+            };
+            match approval_outcome {
+                ApprovalOutcome::Approved => {}
+                ApprovalOutcome::Cancelled => {
+                    approvals.drop_pending(&approval_key);
+                    failed = true;
+                    failed_step = step_id.clone();
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id,
+                            status: "skipped".to_string(),
+                            output: None,
+                            error: Some("Workflow cancelled".to_string()),
+                            duration: Some(start.elapsed().as_millis() as u64),
+                        },
+                    );
+                    continue;
                 }
-                Err(_elapsed) => {
+                ApprovalOutcome::TimedOut => {
                     approvals.drop_pending(&approval_key);
                     failed = true;
                     failed_step = step_id.clone();
@@ -359,23 +429,28 @@ pub async fn run_workflow_sequential(
                     );
                     continue;
                 }
-            };
-            if !approved {
-                failed = true;
-                failed_step = step_id.clone();
-                emit_event(
-                    app,
-                    "workflow:step-update",
-                    StepStatusEvent {
-                        execution_id: execution_id.to_string(),
-                        step_id,
-                        status: "error".to_string(),
-                        output: None,
-                        error: Some("Approval denied by user".to_string()),
-                        duration: Some(start.elapsed().as_millis() as u64),
-                    },
-                );
-                continue;
+                ApprovalOutcome::Denied | ApprovalOutcome::ChannelClosed => {
+                    failed = true;
+                    failed_step = step_id.clone();
+                    let err_msg = if matches!(approval_outcome, ApprovalOutcome::ChannelClosed) {
+                        "Approval channel closed"
+                    } else {
+                        "Approval denied by user"
+                    };
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id,
+                            status: "error".to_string(),
+                            output: None,
+                            error: Some(err_msg.to_string()),
+                            duration: Some(start.elapsed().as_millis() as u64),
+                        },
+                    );
+                    continue;
+                }
             }
         }
 
@@ -401,18 +476,18 @@ pub async fn run_workflow_sequential(
         let duration_ms = start.elapsed().as_millis() as u64;
 
         match result {
-            Ok(output) => {
-                // Store full output for downstream step consumption.
-                // Single-field "text" populated for action steps and v0/v1-text
-                // genies. JSON-output genies (WI-2.3 follow-up) will populate
-                // each top-level key into the same map.
-                outputs.insert(
-                    step_id.clone(),
-                    HashMap::from([("text".to_string(), output.clone())]),
-                );
+            Ok(step_outputs) => {
+                // Store full structured output for downstream step consumption.
+                // Action steps + text genies have a single "text" entry; JSON
+                // genies populate one entry per top-level field.
+                let primary_text = step_outputs
+                    .get("text")
+                    .cloned()
+                    .unwrap_or_default();
+                outputs.insert(step_id.clone(), step_outputs);
                 completed_steps.insert(step_id.clone());
                 // Truncate only for IPC emission (char-safe, no byte-boundary panic)
-                let emitted_output = truncate_utf8_safe(&output, MAX_OUTPUT_SIZE_BYTES);
+                let emitted_output = truncate_utf8_safe(&primary_text, MAX_OUTPUT_SIZE_BYTES);
                 emit_event(
                     app,
                     "workflow:step-update",
@@ -533,6 +608,10 @@ fn resolve_params(
 
 /// Execute a single step based on its `uses:` prefix.
 ///
+/// Returns a `StepOutputs` map (step id → field → value). Action steps and
+/// v0/v1-text genies populate just `{"text": ...}`; v1-JSON genies populate
+/// each declared schema field as a sibling of `text`.
+///
 /// `genie/*` steps require `provider` and `genies_dir` — passing `None` for
 /// either causes the step to fail with a clear error rather than panic, so
 /// action-only workflows can run from contexts that haven't selected a
@@ -545,10 +624,11 @@ async fn execute_step(
     provider: Option<&ProviderConfig>,
     genies_dir: Option<&Path>,
     defaults: &RawDefaults,
-) -> Result<String, String> {
+) -> Result<HashMap<String, String>, String> {
     let uses = step.uses.as_str();
     if uses.starts_with("action/") {
-        execute_action(uses, params, workspace_root).await
+        let text = execute_action(uses, params, workspace_root).await?;
+        Ok(HashMap::from([("text".to_string(), text)]))
     } else if uses.starts_with("genie/") {
         execute_genie_step(step, params, cancel, provider, genies_dir, defaults).await
     } else if uses.starts_with("webhook/") {
@@ -574,7 +654,7 @@ async fn execute_genie_step(
     provider: Option<&ProviderConfig>,
     genies_dir: Option<&Path>,
     defaults: &RawDefaults,
-) -> Result<String, String> {
+) -> Result<HashMap<String, String>, String> {
     let name = genie_step::parse_genie_name(&step.uses)
         .map_err(|e| e.to_string())?;
     let provider = provider.ok_or_else(|| {
@@ -591,7 +671,9 @@ async fn execute_genie_step(
     })?;
 
     let genie_path = genie_step::find_genie_file(genies_dir, name).map_err(|e| e.to_string())?;
-    let raw = std::fs::read_to_string(&genie_path)
+    // Use tokio::fs to avoid blocking the runtime worker on slow disks.
+    let raw = tokio::fs::read_to_string(&genie_path)
+        .await
         .map_err(|e| format!("Failed to read genie file '{}': {}", genie_path.display(), e))?;
 
     // Parse via the same path the editor uses, so v0 + v1 frontmatter behave

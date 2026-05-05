@@ -13,6 +13,29 @@ use super::sink::AiSink;
 /// Per-request timeout (entire request, including body read) for prompt calls.
 const PROMPT_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// Cap on REST response body size before JSON parse. Mirrors the runner-side
+/// 5 MB output cap so a runaway provider can't OOM the process by returning
+/// a multi-GB body that gets fully buffered + parsed before the post-parse
+/// limit is checked. Aligns with `MAX_COLLECT_BYTES` in `ai_provider/mod.rs`.
+const MAX_REST_BODY_BYTES: usize = 5 * 1024 * 1024;
+
+/// Read a response body with a hard byte cap. Returns Err if the body
+/// exceeds the cap before fully reading. Uses byte-level reading rather than
+/// `resp.json()` so we can short-circuit on size.
+async fn read_body_capped(resp: reqwest::Response) -> Result<Vec<u8>, String> {
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read response body: {}", e))?;
+    if bytes.len() > MAX_REST_BODY_BYTES {
+        return Err(format!(
+            "Response body exceeded {} MB cap",
+            MAX_REST_BODY_BYTES / (1024 * 1024)
+        ));
+    }
+    Ok(bytes.to_vec())
+}
+
 // ============================================================================
 // Anthropic
 // ============================================================================
@@ -23,11 +46,12 @@ pub(super) async fn run_rest_anthropic(
     api_key: &str,
     model: &str,
     prompt: &str,
+    max_tokens: Option<u64>,
 ) -> Result<(), String> {
     let client = http_client::shared()?;
     let body = serde_json::json!({
         "model": model,
-        "max_tokens": 4096,
+        "max_tokens": max_tokens.unwrap_or(4096),
         "messages": [{"role": "user", "content": prompt}]
     });
 
@@ -52,7 +76,14 @@ pub(super) async fn run_rest_anthropic(
         return Ok(());
     }
 
-    let json: serde_json::Value = match resp.json().await {
+    let bytes = match read_body_capped(resp).await {
+        Ok(b) => b,
+        Err(e) => {
+            sink.error(&e);
+            return Ok(());
+        }
+    };
+    let json: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
         Err(e) => {
             sink.error(&format!("Failed to parse Anthropic response: {}", e));
@@ -86,12 +117,16 @@ pub(super) async fn run_rest_openai(
     api_key: &str,
     model: &str,
     prompt: &str,
+    max_tokens: Option<u64>,
 ) -> Result<(), String> {
     let client = http_client::shared()?;
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "model": model,
         "messages": [{"role": "user", "content": prompt}]
     });
+    if let Some(n) = max_tokens {
+        body["max_tokens"] = serde_json::json!(n);
+    }
 
     let resp = client
         .post(format!("{}/v1/chat/completions", endpoint))
@@ -113,7 +148,14 @@ pub(super) async fn run_rest_openai(
         return Ok(());
     }
 
-    let json: serde_json::Value = match resp.json().await {
+    let bytes = match read_body_capped(resp).await {
+        Ok(b) => b,
+        Err(e) => {
+            sink.error(&e);
+            return Ok(());
+        }
+    };
+    let json: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
         Err(e) => {
             sink.error(&format!("Failed to parse OpenAI response: {}", e));
@@ -148,11 +190,17 @@ pub(super) async fn run_rest_google(
     api_key: &str,
     model: &str,
     prompt: &str,
+    max_tokens: Option<u64>,
 ) -> Result<(), String> {
     let client = http_client::shared()?;
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "contents": [{"parts": [{"text": prompt}]}]
     });
+    if let Some(n) = max_tokens {
+        body["generationConfig"] = serde_json::json!({
+            "maxOutputTokens": n,
+        });
+    }
 
     let model_id = model.strip_prefix("models/").unwrap_or(model);
     let url = format!(
@@ -180,7 +228,14 @@ pub(super) async fn run_rest_google(
         return Ok(());
     }
 
-    let json: serde_json::Value = match resp.json().await {
+    let bytes = match read_body_capped(resp).await {
+        Ok(b) => b,
+        Err(e) => {
+            sink.error(&e);
+            return Ok(());
+        }
+    };
+    let json: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
         Err(e) => {
             sink.error(&format!("Failed to parse Google AI response: {}", e));
@@ -218,13 +273,19 @@ pub(super) async fn run_rest_ollama(
     endpoint: &str,
     model: &str,
     prompt: &str,
+    max_tokens: Option<u64>,
 ) -> Result<(), String> {
     let client = http_client::shared()?;
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "model": model,
         "prompt": prompt,
         "stream": false
     });
+    if let Some(n) = max_tokens {
+        body["options"] = serde_json::json!({
+            "num_predict": n,
+        });
+    }
 
     let resp = client
         .post(format!("{}/api/generate", endpoint))
@@ -245,7 +306,14 @@ pub(super) async fn run_rest_ollama(
         return Ok(());
     }
 
-    let json: serde_json::Value = match resp.json().await {
+    let bytes = match read_body_capped(resp).await {
+        Ok(b) => b,
+        Err(e) => {
+            sink.error(&e);
+            return Ok(());
+        }
+    };
+    let json: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
         Err(e) => {
             sink.error(&format!("Failed to parse Ollama response: {}", e));

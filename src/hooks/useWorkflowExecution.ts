@@ -80,6 +80,12 @@ export function useWorkflowExecution() {
         const current = previewStore.getState().executionId;
         if (current && e.payload.executionId !== current) return;
         previewStore.getState().setExecution(null);
+        // Dismiss any pending approval dialog — once the workflow is over
+        // the user shouldn't be prompted for a step that no longer matters.
+        const pending = approvalStore.getState().pending;
+        if (pending && pending.executionId === e.payload.executionId) {
+          approvalStore.getState().dismiss();
+        }
       },
     );
 
@@ -129,14 +135,32 @@ export function useWorkflowExecution() {
       };
     }
 
-    const id = await invoke<string>("run_workflow", {
-      yaml,
-      env: env ?? {},
-      workspaceRoot,
-      provider: providerPayload,
-    });
+    // Pre-generate the execution ID and register it with the store BEFORE
+    // invoking the runner. This closes the race where step-update / complete
+    // events for fast-finishing workflows arrive before invoke() resolves
+    // and get filtered out (or wipe valid status by clearing stepStatuses).
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     useWorkflowPreviewStore.getState().setExecution(id);
-    return id;
+
+    try {
+      const returnedId = await invoke<string>("run_workflow", {
+        yaml,
+        env: env ?? {},
+        workspaceRoot,
+        provider: providerPayload,
+        executionId: id,
+      });
+      return returnedId;
+    } catch (err) {
+      // invoke() rejected (concurrency guard, parse error, missing workspace).
+      // Roll the store back so the UI doesn't show a fake "running" state
+      // until the next workflow starts. Re-throw so the caller can surface it.
+      useWorkflowPreviewStore.getState().setExecution(null);
+      throw err;
+    }
   }, []);
 
   const cancel = useCallback(async () => {

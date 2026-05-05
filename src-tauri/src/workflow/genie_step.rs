@@ -150,30 +150,79 @@ pub fn validate_input(
 
 /// Process the AI provider response per the genie's v1 `output.type`.
 ///
-/// V0 genies (no output metadata) and v1 `text` output return the raw response
-/// unchanged. V1 `json` output validates the response as JSON. File / files /
-/// pipe output types are explicitly unsupported until a future plan lands them.
+/// Returns a `StepOutputs` map: each top-level field becomes one entry. The
+/// "text" field is always present and holds the raw response (so downstream
+/// `${{ steps.X.outputs.text }}` references and the legacy `stepId.output`
+/// alias keep working unchanged).
+///
+/// - V0 genies and v1 `text` output: `{"text": response}` only.
+/// - V1 `json` output: validates JSON, populates each top-level object key
+///   into the map alongside "text". Required schema keys are enforced if
+///   `output.schema.required` is present.
+/// - File / files / pipe output types: return `UnsupportedOutput`.
 pub fn process_output(
     metadata: &GenieMetadata,
     response: String,
-) -> Result<String, GenieStepError> {
+) -> Result<HashMap<String, String>, GenieStepError> {
+    let mut out = HashMap::new();
+
     let Some(output) = &metadata.output else {
-        return Ok(response); // v0
+        // v0
+        out.insert("text".to_string(), response);
+        return Ok(out);
     };
 
     match output.io_type.as_str() {
-        "text" => Ok(response),
+        "text" => {
+            out.insert("text".to_string(), response);
+            Ok(out)
+        }
         "json" => {
-            // Validate the response IS JSON. Schema-key validation lives in
-            // the runner where the parsed object can be picked into structured
-            // outputs (per WI-2.3).
-            serde_json::from_str::<serde_json::Value>(response.trim()).map_err(|e| {
-                GenieStepError::InvalidOutput(format!(
-                    "Output not valid JSON for genie '{}': {}",
-                    metadata.name, e
-                ))
-            })?;
-            Ok(response)
+            let parsed: serde_json::Value =
+                serde_json::from_str(response.trim()).map_err(|e| {
+                    GenieStepError::InvalidOutput(format!(
+                        "Output not valid JSON for genie '{}': {}",
+                        metadata.name, e
+                    ))
+                })?;
+
+            // Validate required schema keys if present.
+            if let Some(schema) = &output.schema {
+                if let Some(required) = schema
+                    .as_object()
+                    .and_then(|m| m.get("required"))
+                    .and_then(|r| r.as_array())
+                {
+                    if let Some(obj) = parsed.as_object() {
+                        for key in required {
+                            if let Some(name) = key.as_str() {
+                                if !obj.contains_key(name) {
+                                    return Err(GenieStepError::InvalidOutput(format!(
+                                        "Output missing required field '{}' for genie '{}'",
+                                        name, metadata.name
+                                    )));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Populate each top-level field. Stringify values so the downstream
+            // expression resolver (which works on String values) can consume
+            // them. Authors who need the raw structure should reference "text"
+            // and parse it themselves.
+            if let Some(obj) = parsed.as_object() {
+                for (k, v) in obj {
+                    let value_str = match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    out.insert(k.clone(), value_str);
+                }
+            }
+            out.insert("text".to_string(), response);
+            Ok(out)
         }
         other => Err(GenieStepError::UnsupportedOutput(other.to_string())),
     }
@@ -232,7 +281,7 @@ pub async fn execute_genie(
     with_map: &HashMap<String, String>,
     step_config: &StepConfig,
     provider: &ProviderConfig,
-) -> Result<String, GenieStepError> {
+) -> Result<HashMap<String, String>, GenieStepError> {
     // 1. Validate v1 input requirements.
     validate_input(&loaded.metadata, with_map)?;
 
@@ -251,6 +300,7 @@ pub async fn execute_genie(
         provider.api_key.as_deref(),
         provider.endpoint.as_deref(),
         provider.cli_path.as_deref(),
+        step_config.max_tokens,
     )
     .await
     .map_err(GenieStepError::Provider)?;
@@ -372,27 +422,61 @@ mod tests {
     #[test]
     fn process_v0_passes_through() {
         let r = process_output(&meta_v0(), "raw response".to_string()).unwrap();
-        assert_eq!(r, "raw response");
+        assert_eq!(r.get("text").map(String::as_str), Some("raw response"));
     }
 
     #[test]
     fn process_v1_text_passes_through() {
         let m = meta_v1("text", "text");
         let r = process_output(&m, "raw".to_string()).unwrap();
-        assert_eq!(r, "raw");
+        assert_eq!(r.get("text").map(String::as_str), Some("raw"));
     }
 
     #[test]
     fn process_v1_json_validates_shape() {
         let m = meta_v1("text", "json");
-        // Valid JSON
+        // Valid JSON: top-level fields populated alongside "text".
         let r = process_output(&m, r#"{"k": 1}"#.to_string()).unwrap();
-        assert!(r.contains("\"k\""));
+        assert!(r.contains_key("text"));
+        assert_eq!(r.get("k").map(String::as_str), Some("1"));
         // Invalid JSON
         assert!(matches!(
             process_output(&m, "not json {".to_string()),
             Err(GenieStepError::InvalidOutput(_))
         ));
+    }
+
+    #[test]
+    fn process_v1_json_string_field_unquoted() {
+        // String top-level fields lose their quotes so downstream `${{ steps.X.outputs.foo }}`
+        // gets the value, not the JSON-encoded value.
+        let m = meta_v1("text", "json");
+        let r = process_output(&m, r#"{"title": "Hello", "summary": "World"}"#.to_string()).unwrap();
+        assert_eq!(r.get("title").map(String::as_str), Some("Hello"));
+        assert_eq!(r.get("summary").map(String::as_str), Some("World"));
+    }
+
+    #[test]
+    fn process_v1_json_required_schema_keys_enforced() {
+        let mut m = meta_v1("text", "json");
+        if let Some(out) = m.output.as_mut() {
+            out.schema = Some(serde_json::json!({
+                "required": ["title", "summary"],
+            }));
+        }
+        // Missing required field
+        let r = process_output(&m, r#"{"title": "ok"}"#.to_string());
+        assert!(matches!(
+            r,
+            Err(GenieStepError::InvalidOutput(ref msg)) if msg.contains("summary")
+        ));
+        // All required present
+        let r = process_output(
+            &m,
+            r#"{"title": "ok", "summary": "fine"}"#.to_string(),
+        )
+        .unwrap();
+        assert_eq!(r.get("summary").map(String::as_str), Some("fine"));
     }
 
     #[test]
@@ -489,7 +573,9 @@ mod tests {
         assert!(res.is_ok(), "{:?}", res);
         // /bin/echo echoes the (filled) prompt back; the genie output should
         // contain the text we passed via with.input.
-        assert!(res.unwrap().contains("hello-text"));
+        let map = res.unwrap();
+        let text = map.get("text").cloned().unwrap_or_default();
+        assert!(text.contains("hello-text"), "expected echoed text in {}", text);
     }
 
     #[tokio::test]

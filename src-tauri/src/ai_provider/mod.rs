@@ -68,7 +68,16 @@ async fn dispatch_to_provider(
     api_key: Option<String>,
     endpoint: Option<String>,
     cli_path: Option<String>,
+    max_tokens: Option<u64>,
 ) -> Result<(), String> {
+    // CLI providers don't honor max_tokens — log once per call if set so
+    // authors aren't silently misled into thinking it's enforced (D8).
+    if max_tokens.is_some() && matches!(provider, "claude" | "codex" | "gemini") {
+        log::warn!(
+            "max_tokens={:?} is not enforced for CLI provider '{}'; the genie step will run unconstrained",
+            max_tokens, provider
+        );
+    }
     match provider {
         // CLI providers — run on tokio::process so kill() works from another task.
         "claude" => {
@@ -124,7 +133,7 @@ async fn dispatch_to_provider(
                 endpoint.unwrap_or_else(|| "https://api.anthropic.com".to_string());
             let model = model.unwrap_or_else(|| "claude-sonnet-4-5-20250929".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
-                rest_providers::run_rest_anthropic(s.as_ref(), &endpoint, key, &model, prompt).await
+                rest_providers::run_rest_anthropic(s.as_ref(), &endpoint, key, &model, prompt, max_tokens).await
             })
             .await
         }
@@ -135,7 +144,7 @@ async fn dispatch_to_provider(
             let endpoint = endpoint.unwrap_or_else(|| "https://api.openai.com".to_string());
             let model = model.unwrap_or_else(|| "gpt-4o".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
-                rest_providers::run_rest_openai(s.as_ref(), &endpoint, key, &model, prompt).await
+                rest_providers::run_rest_openai(s.as_ref(), &endpoint, key, &model, prompt, max_tokens).await
             })
             .await
         }
@@ -145,7 +154,7 @@ async fn dispatch_to_provider(
             };
             let model = model.unwrap_or_else(|| "gemini-2.0-flash".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
-                rest_providers::run_rest_google(s.as_ref(), key, &model, prompt).await
+                rest_providers::run_rest_google(s.as_ref(), key, &model, prompt, max_tokens).await
             })
             .await
         }
@@ -153,7 +162,7 @@ async fn dispatch_to_provider(
             let endpoint = endpoint.unwrap_or_else(|| "http://localhost:11434".to_string());
             let model = model.unwrap_or_else(|| "llama3.2".to_string());
             run_rest_with_cancel(sink, cancel, |s| async move {
-                rest_providers::run_rest_ollama(s.as_ref(), &endpoint, &model, prompt).await
+                rest_providers::run_rest_ollama(s.as_ref(), &endpoint, &model, prompt, max_tokens).await
             })
             .await
         }
@@ -216,7 +225,7 @@ pub async fn run_ai_prompt(
     // gains real cancellation, a token from the caller can replace this.)
     let cancel = CancellationToken::new();
     dispatch_to_provider(
-        sink, cancel, &provider, &prompt, model, api_key, endpoint, cli_path,
+        sink, cancel, &provider, &prompt, model, api_key, endpoint, cli_path, None,
     )
     .await
 }
@@ -248,6 +257,7 @@ pub async fn run_ai_prompt_collect(
     api_key: Option<&str>,
     endpoint: Option<&str>,
     cli_path: Option<&str>,
+    max_tokens: Option<u64>,
 ) -> Result<String, String> {
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ChannelEvent>();
     let sink: Arc<dyn AiSink> = Arc::new(ChannelSink::new(tx));
@@ -262,6 +272,7 @@ pub async fn run_ai_prompt_collect(
         api_key.map(String::from),
         endpoint.map(String::from),
         cli_path.map(String::from),
+        max_tokens,
     );
     tokio::pin!(dispatch_fut);
 
@@ -334,6 +345,7 @@ mod tests {
             // dispatch_to_provider for "claude" is not what `echo` expects,
             // but it WILL print them. We assert "ignored" appears.
             Some("/bin/echo"),
+            None,
         )
         .await;
 
@@ -358,6 +370,7 @@ mod tests {
                 None,
                 // /bin/sleep ignores claude args; sleeps for "30" (first arg).
                 Some("/bin/sleep"),
+                None,
             )
             .await
         });
@@ -384,6 +397,7 @@ mod tests {
             cancel,
             "no-such-provider",
             "anything",
+            None,
             None,
             None,
             None,

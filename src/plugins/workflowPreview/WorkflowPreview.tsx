@@ -45,17 +45,16 @@ function WorkflowPreviewInner({
 }: WorkflowPreviewProps) {
   const { fitView } = useReactFlow();
 
-  const { nodes, edges } = useMemo(() => {
-    const result = layoutWorkflow(graph);
+  // Heavy: dagre layout — only re-runs when the graph's topology changes.
+  // Status overlays / active highlighting happen in a cheaper second pass.
+  const layoutResult = useMemo(() => layoutWorkflow(graph), [graph]);
 
-    for (const node of result.nodes) {
-      // Highlight active step
+  const { nodes, edges } = useMemo(() => {
+    const layoutNodes = layoutResult.nodes.map((n) => ({ ...n }));
+    for (const node of layoutNodes) {
       if (activeStepId && node.id === activeStepId) {
         node.selected = true;
       }
-      // Overlay live execution status (WI-4.3) onto the node data so the
-      // existing WorkflowNode renderer picks up status/duration/error tooltip
-      // without a second props plumbing pass.
       if (stepStatuses) {
         const status = stepStatuses[node.id];
         if (status) {
@@ -69,9 +68,8 @@ function WorkflowPreviewInner({
         }
       }
     }
-
-    return result;
-  }, [graph, activeStepId, stepStatuses]);
+    return { nodes: layoutNodes, edges: layoutResult.edges };
+  }, [layoutResult, activeStepId, stepStatuses]);
 
   // Fit view only on graph topology change (not on activeStepId selection changes)
   useEffect(() => {
