@@ -135,6 +135,7 @@
   "diagnosticsBanner.collapseAll": "Collapse all",
   "diagnosticsBanner.expandSection": "Expand diagnostics",
   "diagnosticsBanner.collapseSection": "Collapse diagnostics",
+  "form.trigger.cronThrottled": "GitHub silently throttles schedules under 5-minute intervals",
 
   "form.step.nav.position": "Step {{current}} of {{total}}",
   "form.step.nav.prev": "Previous step (Alt+Left)",

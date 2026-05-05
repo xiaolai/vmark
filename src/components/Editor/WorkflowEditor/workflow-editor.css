@@ -643,6 +643,36 @@
   color: var(--text-secondary);
 }
 
+/* Cron cell — renders the raw expression as inline code, the human-
+   readable summary as muted text alongside, and a warning glyph when
+   GHA would throttle the schedule (interval < 5 min). */
+.workflow-form__trigger-cron {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.workflow-form__trigger-cron-raw {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  background: var(--bg-secondary);
+  padding: 0 var(--space-half);
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+}
+
+.workflow-form__trigger-cron-readable {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.workflow-form__trigger-cron-throttled {
+  color: var(--warning-color);
+  font-weight: 600;
+  cursor: help;
+}
+
 .workflow-form__trigger-fields {
   --workflow-form-inline-label-width: 8em;
   display: flex;

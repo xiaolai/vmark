@@ -24,6 +24,16 @@ import { useTranslation } from "react-i18next";
 import type { TriggerIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
 import type { TriggerFilter } from "@/lib/ghaWorkflow/save/mutators";
+import { cronToReadable } from "@/lib/ghaWorkflow/cron/readable";
+
+/** Wraps cronToReadable with try/catch — invalid cron returns null. */
+function safeCronReadable(cron: string): { text: string; throttled: boolean } | null {
+  try {
+    return cronToReadable(cron);
+  } catch {
+    return null;
+  }
+}
 import "./workflow-editor.css";
 
 interface TriggerFormProps {
@@ -186,16 +196,12 @@ export function TriggerForm({ triggers }: TriggerFormProps): ReactElement {
                     />
                   )}
                   {tr.cron && (
-                    <span className="workflow-form__trigger-meta">
-                      {t("form.trigger.cron", { value: tr.cron })}
-                    </span>
+                    <CronCell cron={tr.cron} />
                   )}
                 </div>
               ) : (
                 <div className="workflow-form__trigger-meta">
-                  {tr.cron && (
-                    <span>{t("form.trigger.cron", { value: tr.cron })}</span>
-                  )}
+                  {tr.cron && <CronCell cron={tr.cron} />}
                   {!tr.cron && (
                     <span className="workflow-form__trigger-readonly-hint">
                       {t("form.trigger.readonlyHint")}
@@ -208,5 +214,37 @@ export function TriggerForm({ triggers }: TriggerFormProps): ReactElement {
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Render a cron expression with the raw value followed by a human-
+ * readable summary (e.g., "every 5 minutes", "Mon-Fri at 02:00") and
+ * a throttle warning when GHA would silently rate-limit the schedule
+ * (interval < 5 min). Invalid cron renders the raw value only.
+ */
+function CronCell({ cron }: { cron: string }): ReactElement {
+  const { t } = useTranslation("workflowEditor");
+  const readable = safeCronReadable(cron);
+  return (
+    <span className="workflow-form__trigger-cron" title={cron}>
+      <code className="workflow-form__trigger-cron-raw">{cron}</code>
+      {readable && (
+        <span className="workflow-form__trigger-cron-readable">
+          {readable.text}
+        </span>
+      )}
+      {readable?.throttled && (
+        <span
+          className="workflow-form__trigger-cron-throttled"
+          title={t("form.trigger.cronThrottled", {
+            defaultValue:
+              "GitHub silently throttles schedules under 5-minute intervals",
+          })}
+        >
+          ⚠
+        </span>
+      )}
+    </span>
   );
 }
