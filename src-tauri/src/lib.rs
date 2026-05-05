@@ -580,6 +580,7 @@ pub fn run() {
         .manage(workflow::commands::WorkflowRunnerState {
             running: std::sync::atomic::AtomicBool::new(false),
             cancel_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            approvals: std::sync::Arc::new(workflow::approval::ApprovalRegistry::new()),
         })
         .invoke_handler(tauri::generate_handler![
             get_pending_file_opens,
@@ -643,6 +644,7 @@ pub fn run() {
             genies::commands::read_genie,
             workflow::commands::run_workflow,
             workflow::commands::cancel_workflow,
+            workflow::commands::respond_workflow_approval,
             gha_workflow::commands::gha_lint,
             gha_workflow::commands::gha_fetch_action_yml,
             ai_provider::detect_ai_providers,

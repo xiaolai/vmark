@@ -8,6 +8,7 @@
 //!   - Cancellation via shared CancellationToken (AtomicBool checked per step).
 //!   - Snapshots created before execution for file-modifying steps.
 
+use super::approval::ApprovalRegistry;
 use super::genie_step::ProviderConfig;
 use super::runner::run_workflow_sequential;
 use super::snapshots;
@@ -23,6 +24,7 @@ use uuid::Uuid;
 pub struct WorkflowRunnerState {
     pub running: AtomicBool,
     pub cancel_requested: Arc<AtomicBool>,
+    pub approvals: Arc<ApprovalRegistry>,
 }
 
 /// Execute a workflow from YAML string.
@@ -157,6 +159,9 @@ pub async fn run_workflow(
     // error and action-only workflows still run.
     let genies_dir = app.path().app_data_dir().ok().map(|d| d.join("genies"));
 
+    // Approval registry is per-app, shared across executions.
+    let approvals = Arc::clone(&state.approvals);
+
     // Spawn runner as background task — return ID immediately
     tokio::spawn(async move {
         let result = run_workflow_sequential(
@@ -168,6 +173,7 @@ pub async fn run_workflow(
             &cancel_token,
             provider,
             genies_dir,
+            approvals,
         )
         .await;
 
@@ -200,4 +206,20 @@ pub async fn cancel_workflow(
     state.cancel_requested.store(true, Ordering::SeqCst);
     log::info!("Workflow cancellation requested");
     Ok(())
+}
+
+/// Respond to an outstanding approval request from the frontend dialog.
+#[tauri::command]
+pub async fn respond_workflow_approval(
+    execution_id: String,
+    step_id: String,
+    approved: bool,
+    state: State<'_, WorkflowRunnerState>,
+) -> Result<(), String> {
+    let key = (execution_id, step_id);
+    if state.approvals.respond(&key, approved) {
+        Ok(())
+    } else {
+        Err("No outstanding approval request matched".to_string())
+    }
 }

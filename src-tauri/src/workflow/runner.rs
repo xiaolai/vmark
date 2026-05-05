@@ -14,6 +14,7 @@
 //!   - Cancellation checked before each step via shared AtomicBool
 //!   - Steps ordered by topological sort on `needs:` dependencies
 
+use super::approval::{ApprovalRegistry, ApprovalRequest};
 use super::expressions::{self, WorkflowOutputs};
 use super::genie_step::{self, LoadedGenie, ProviderConfig};
 use super::sandbox::validate_path;
@@ -176,6 +177,7 @@ pub async fn run_workflow_sequential(
     cancel_token: &Arc<AtomicBool>,
     provider: Option<ProviderConfig>,
     genies_dir: Option<PathBuf>,
+    approvals: Arc<ApprovalRegistry>,
 ) -> Result<String, String> {
     // Bridge the legacy AtomicBool cancel flag into a CancellationToken that
     // the AI provider stack can react to without polling.
@@ -307,6 +309,75 @@ pub async fn run_workflow_sequential(
         // Resolve effective step timeout (ADR-6) so we can wrap execution.
         let step_config = resolve_step_config(&step, None, &defaults);
         let step_timeout = std::time::Duration::from_secs(step_config.timeout_secs);
+
+        // Approval gate: if step.approval == "ask", emit a request event and
+        // park on the registered oneshot until the dialog responds.
+        if step_config.approval == "ask" {
+            let approval_key = (execution_id.to_string(), step_id.clone());
+            let rx = approvals.register(approval_key.clone());
+            let preview: String = step
+                .with
+                .get("input")
+                .or_else(|| step.with.get("content"))
+                .or_else(|| step.with.get("prompt"))
+                .map(|s| s.chars().take(500).collect())
+                .unwrap_or_default();
+            emit_event(
+                app,
+                "workflow:approval-request",
+                ApprovalRequest {
+                    execution_id: execution_id.to_string(),
+                    step_id: step_id.clone(),
+                    summary: step.uses.clone(),
+                    preview,
+                    model: step_config.model.clone(),
+                },
+            );
+            let approval_timeout = step_timeout.min(std::time::Duration::from_secs(600));
+            let outcome = tokio::time::timeout(approval_timeout, rx).await;
+            let approved = match outcome {
+                Ok(Ok(v)) => v,
+                Ok(Err(_)) => {
+                    // Sender dropped without a value (window close, etc.).
+                    false
+                }
+                Err(_elapsed) => {
+                    approvals.drop_pending(&approval_key);
+                    failed = true;
+                    failed_step = step_id.clone();
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id,
+                            status: "error".to_string(),
+                            output: None,
+                            error: Some("Approval timed out".to_string()),
+                            duration: Some(start.elapsed().as_millis() as u64),
+                        },
+                    );
+                    continue;
+                }
+            };
+            if !approved {
+                failed = true;
+                failed_step = step_id.clone();
+                emit_event(
+                    app,
+                    "workflow:step-update",
+                    StepStatusEvent {
+                        execution_id: execution_id.to_string(),
+                        step_id,
+                        status: "error".to_string(),
+                        output: None,
+                        error: Some("Approval denied by user".to_string()),
+                        duration: Some(start.elapsed().as_millis() as u64),
+                    },
+                );
+                continue;
+            }
+        }
 
         // Execute step based on type, with a per-step timeout. On elapsed:
         // fire the cancel token so any in-flight AI provider work (CLI child,
