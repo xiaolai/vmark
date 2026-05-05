@@ -187,6 +187,11 @@ export function StepForm({
         ([key, schema]) => schema.required && !setKeys.has(key),
       )
     : [];
+  // Stable id for the per-step datalist — keyed on jobId+stepIndex so
+  // multiple StepForms in the panel (which can't actually coexist, but
+  // unit tests render sequentially) get distinct ids.
+  const datalistId = `workflow-form-with-keys-${jobId}-${stepIndex}`;
+  const knownInputKeys = inputs ? Object.keys(inputs) : [];
 
   const addSuggestedKey = (key: string): void => {
     setWithRows((rows) =>
@@ -426,6 +431,7 @@ export function StepForm({
                       type="text"
                       value={row.key}
                       placeholder={t("form.step.with.keyPlaceholder")}
+                      list={knownInputKeys.length > 0 ? datalistId : undefined}
                       onChange={(e) => updateRow(idx, { key: e.target.value })}
                       onBlur={() => commitWithRow(withRows[idx])}
                     />
@@ -474,6 +480,49 @@ export function StepForm({
                   </button>
                 ))}
               </div>
+            )}
+            {knownInputKeys.length > 0 && (
+              <details className="workflow-form__known-inputs">
+                <summary className="workflow-form__known-inputs-summary">
+                  {t("form.step.with.knownInputs", {
+                    defaultValue: "Available inputs ({{count}})",
+                    count: knownInputKeys.length,
+                  })}
+                </summary>
+                <div className="workflow-form__known-inputs-list">
+                  {Object.entries(inputs!).map(([key, schema]) => {
+                    const used = setKeys.has(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className="workflow-form__known-input"
+                        data-used={used}
+                        disabled={used}
+                        onClick={() => addSuggestedKey(key)}
+                        title={schema.description ?? ""}
+                      >
+                        <code>{key}</code>
+                        {schema.required && (
+                          <span
+                            className="workflow-form__known-input-required"
+                            aria-label="required"
+                          >
+                            *
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </details>
+            )}
+            {knownInputKeys.length > 0 && (
+              <datalist id={datalistId}>
+                {knownInputKeys.map((k) => (
+                  <option key={k} value={k} />
+                ))}
+              </datalist>
             )}
             <button
               type="button"

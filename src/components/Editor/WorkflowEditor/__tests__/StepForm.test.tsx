@@ -278,6 +278,126 @@ describe("StepForm — expression expand", () => {
   });
 });
 
+describe("StepForm — action input completion (WI-A.2)", () => {
+  it("populates a datalist of known input names for the key field", async () => {
+    invokeMock.mockResolvedValue({
+      kind: "ok",
+      from_cache: false,
+      metadata: {
+        name: "Setup Node",
+        inputs: {
+          "node-version": { description: "version", required: false },
+          cache: { description: "cache", required: false },
+          "registry-url": { description: "registry", required: false },
+        },
+        outputs: {},
+      },
+    });
+    const { container } = render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({
+          uses: "actions/setup-node@v4",
+          with: { "node-version": "20" },
+        })}
+      />,
+    );
+    // datalist mounts after metadata resolves.
+    await waitFor(() => {
+      const datalist = container.querySelector("datalist");
+      expect(datalist).toBeTruthy();
+    });
+    const datalist = container.querySelector("datalist")!;
+    const options = [...datalist.querySelectorAll("option")].map((o) =>
+      o.getAttribute("value"),
+    );
+    expect(options).toEqual(
+      expect.arrayContaining(["node-version", "cache", "registry-url"]),
+    );
+  });
+
+  it("disables the chip for an input that's already set", async () => {
+    invokeMock.mockResolvedValue({
+      kind: "ok",
+      from_cache: false,
+      metadata: {
+        inputs: {
+          "node-version": { description: "version", required: false },
+          cache: { description: "cache", required: false },
+        },
+        outputs: {},
+      },
+    });
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({
+          uses: "actions/setup-node@v4",
+          with: { "node-version": "20" },
+        })}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/Available inputs/)).toBeTruthy();
+    });
+    // node-version is used → chip is disabled. cache is unused → enabled.
+    const chips = screen
+      .getAllByRole("button")
+      .filter((b) =>
+        b.className.includes("workflow-form__known-input"),
+      );
+    const nodeVersionChip = chips.find(
+      (c) => c.textContent?.includes("node-version"),
+    );
+    const cacheChip = chips.find((c) => c.textContent?.includes("cache"));
+    expect(nodeVersionChip?.hasAttribute("disabled")).toBe(true);
+    expect(cacheChip?.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("clicking an unused chip adds the key as a new with: row", async () => {
+    invokeMock.mockResolvedValue({
+      kind: "ok",
+      from_cache: false,
+      metadata: {
+        inputs: {
+          cache: { description: "cache", required: false },
+        },
+        outputs: {},
+      },
+    });
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep({
+          uses: "actions/setup-node@v4",
+          with: {},
+        })}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/Available inputs/)).toBeTruthy();
+    });
+    const cacheChip = screen
+      .getAllByRole("button")
+      .find(
+        (b) =>
+          b.className.includes("workflow-form__known-input") &&
+          b.textContent?.includes("cache"),
+      )!;
+    const beforeRows = document.querySelectorAll(
+      ".workflow-form__with-row",
+    ).length;
+    fireEvent.click(cacheChip);
+    const afterRows = document.querySelectorAll(
+      ".workflow-form__with-row",
+    ).length;
+    expect(afterRows).toBe(beforeRows + 1);
+  });
+});
+
 describe("StepForm — action metadata threading", () => {
   it("renders input descriptions next to existing with: rows on success", async () => {
     invokeMock.mockResolvedValue({
@@ -338,11 +458,15 @@ describe("StepForm — action metadata threading", () => {
       />,
     );
     await waitFor(() => {
-      // Required input not set → surfaced as a missing required key.
-      expect(screen.getByText(/fetch-depth/i)).toBeDefined();
+      // Required input not set → surfaced as a missing required key
+      // chip in the dedicated "missing required" row.
+      const missingRequiredPanel = document.querySelector(
+        ".workflow-form__missing-required",
+      );
+      expect(missingRequiredPanel?.textContent).toMatch(/fetch-depth/i);
     });
-    // Required indicator on the missing key suggestion.
-    expect(screen.getByText("*")).toBeDefined();
+    // Required indicator (asterisk) appears at least once.
+    expect(screen.getAllByText("*").length).toBeGreaterThan(0);
   });
 
   it("falls back to free-form rows when metadata fetch fails (NotFound)", async () => {

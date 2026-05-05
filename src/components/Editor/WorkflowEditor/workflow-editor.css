@@ -673,6 +673,66 @@
   cursor: help;
 }
 
+/* Available-inputs panel — renders as a collapsed <details>. Each
+   chip is clickable to add the input as a new with: row. Used chips
+   are dimmed and disabled. */
+.workflow-form__known-inputs {
+  margin-top: var(--space-1);
+}
+
+.workflow-form__known-inputs-summary {
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--space-half) 0;
+  user-select: none;
+}
+
+.workflow-form__known-inputs-summary:hover {
+  color: var(--text-color);
+}
+
+.workflow-form__known-inputs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-half);
+  margin-top: var(--space-half);
+}
+
+.workflow-form__known-input {
+  appearance: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-half);
+  padding: var(--space-half) var(--space-1);
+  border: var(--border-thin) solid var(--border-color);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__known-input code {
+  font-family: var(--font-mono);
+}
+
+.workflow-form__known-input:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.workflow-form__known-input[data-used="true"] {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-form__known-input-required {
+  color: var(--error-color);
+  font-weight: 600;
+}
+
 .workflow-form__trigger-fields {
   --workflow-form-inline-label-width: 8em;
   display: flex;

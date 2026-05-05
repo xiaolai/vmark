@@ -125,5 +125,6 @@
   "form.step.nav.backToJob": "Back to job",
   "diagnosticsBanner.expandSection": "Expand diagnostics",
   "diagnosticsBanner.collapseSection": "Collapse diagnostics",
-  "form.trigger.cronThrottled": "GitHub silently throttles schedules under 5-minute intervals"
+  "form.trigger.cronThrottled": "GitHub silently throttles schedules under 5-minute intervals",
+  "form.step.with.knownInputs": "Available inputs ({{count}})"
 }
