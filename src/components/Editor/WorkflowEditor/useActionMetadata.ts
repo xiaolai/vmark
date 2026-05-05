@@ -25,64 +25,52 @@
  * @module components/Editor/WorkflowEditor/useActionMetadata
  */
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
   getActionMetadata,
   parseUsesRef,
   type ActionMetadata,
 } from "@/lib/ghaWorkflow/actions/registry";
 import { isLocalUsesRef } from "@/lib/ghaWorkflow/paths";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useDocumentStore } from "@/stores/documentStore";
+import { WindowContext } from "@/contexts/WindowContext";
 
 /**
- * Derive (workflowFile, wsRoot) for resolving `./` action refs from
- * the focused source editor's filePath. The active source view is
- * always set when StepForm is mounted (the side panel only renders
- * for parsed workflow YAML files), and `getCurrentWindowLabel()`
- * resolves to the SAME window because both run inside the same
- * WindowProvider context.
+ * Derive (workflowFile, wsRoot) for resolving `./` action refs.
  *
- * Codex audit HIGH-5 fix (final): previous fallback scanned global
- * tab state, which could pick the wrong repo in multi-window
- * sessions. Now strictly uses the focused source view's tab id —
- * resolved through the window label that StepForm renders in. If
- * the active view is missing, returns null and the form falls back
- * to the "unavailable" state for local refs (same as offline remote).
+ * Codex audit HIGH-5 final fix: strictly window-scoped via
+ * `useWindowLabel()` from WindowContext. We read ONLY the active
+ * tab of the current window — no global scan, no doc-length
+ * heuristic. Multi-window safe by construction because the hook
+ * runs inside StepForm which is mounted inside the side panel of
+ * a specific window's WindowProvider.
+ *
+ * Returns null when the current window's active tab has no filePath
+ * under `.github/workflows/` (form shows the unavailable state).
  */
-function inferWorkflowContext(): {
+function useWorkflowContext(): {
   workflowFile: string;
   wsRoot: string;
 } | null {
-  const activeView = useActiveEditorStore.getState().activeSourceView;
-  if (!activeView?.dom?.isConnected) return null;
-
-  // Resolve the host window via DOM ownership: the source view's
-  // root element belongs to a specific window's document. We look
-  // up the window label by scanning tabs whose active tab's doc has
-  // a length matching this view's doc — multi-window correct because
-  // we don't blindly pick the first tab.
-  const tabs = useTabStore.getState().tabs;
-  const docs = useDocumentStore.getState().documents;
-  const viewDocLength = activeView.state.doc.length;
-  let bestMatch: { workflowFile: string; wsRoot: string } | null = null;
-  for (const label of Object.keys(tabs)) {
-    const activeId = useTabStore.getState().activeTabId[label] ?? null;
-    if (!activeId) continue;
-    const fp = docs[activeId]?.filePath;
-    if (!fp) continue;
-    if (viewDocLength !== (docs[activeId]?.content ?? "").length) continue;
-    const norm = fp.replace(/\\/g, "/");
-    const ghIdx = norm.lastIndexOf("/.github/workflows/");
-    if (ghIdx > 0) {
-      bestMatch = { workflowFile: norm, wsRoot: norm.slice(0, ghIdx) };
-      // Take the first match — multi-window opens of the same file
-      // would point at the same workspace anyway.
-      break;
-    }
-  }
-  return bestMatch;
+  // Use the safe variant of WindowContext lookup — useWindowLabel
+  // throws when no provider is present, which breaks unit tests of
+  // dependent components. Tests run without WindowProvider; in that
+  // case we return null (no metadata) which exactly matches the
+  // "no workflow context" branch the form already handles.
+  const context = useContext(WindowContext);
+  const windowLabel = context?.windowLabel ?? null;
+  const activeTabId = useTabStore((s) =>
+    windowLabel ? s.activeTabId[windowLabel] ?? null : null,
+  );
+  const filePath = useDocumentStore((s) =>
+    activeTabId ? s.documents[activeTabId]?.filePath ?? null : null,
+  );
+  if (!filePath) return null;
+  const norm = filePath.replace(/\\/g, "/");
+  const ghIdx = norm.lastIndexOf("/.github/workflows/");
+  if (ghIdx <= 0) return null;
+  return { workflowFile: norm, wsRoot: norm.slice(0, ghIdx) };
 }
 
 export type ActionMetadataState =
@@ -102,6 +90,11 @@ function isResolvableRef(uses: string): boolean {
 export function useActionMetadata(
   uses: string | undefined,
 ): ActionMetadataState {
+  // Window-scoped context — read at the hook's call site so it's
+  // bound to the StepForm's window, not a global.
+  const ctx = useWorkflowContext();
+  const isLocalCtx = uses && isLocalUsesRef(uses) ? ctx : null;
+
   const [result, setResult] = useState<ActionMetadataState>(() =>
     uses && isResolvableRef(uses)
       ? { state: "loading" }
@@ -116,9 +109,8 @@ export function useActionMetadata(
     setResult({ state: "loading" });
 
     let mounted = true;
-    const ctx = isLocalUsesRef(uses) ? inferWorkflowContext() : null;
-    const fetchPromise = ctx
-      ? getActionMetadata(uses, ctx)
+    const fetchPromise = isLocalCtx
+      ? getActionMetadata(uses, isLocalCtx)
       : getActionMetadata(uses);
     fetchPromise
       .then((metadata) => {

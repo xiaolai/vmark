@@ -1,7 +1,7 @@
 // Tests for GhaWorkflowSidePanel — side panel for standalone .yml workflow files.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { GhaWorkflowSidePanel } from "../GhaWorkflowSidePanel";
 import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
@@ -111,25 +111,42 @@ describe("GhaWorkflowSidePanel", () => {
     expect(cssVar).toMatch(/^\d+px$/);
   });
 
-  it("userResizedRef latch: programmatic re-open after manual resize keeps user width", () => {
-    // We can't simulate a real mouse drag in jsdom, but we can verify
-    // the contract: closing and reopening the panel does not reset
-    // the width if the user previously resized. Tested indirectly via
-    // the effect-skip-when-userResized branch — close + reopen, then
-    // re-render, and confirm width stays consistent. Stronger than
-    // no test at all (the existing live-Tauri smoke covers the drag).
+  it("userResizedRef latch: simulated drag flips the latch and re-mount preserves width", () => {
+    // Real mouse drag simulated via fireEvent on the resize handle:
+    // mousedown → mousemove (delta) → mouseup. The handler stamps
+    // userResizedRef.current = true on the first delta. After that,
+    // closing and reopening the panel must preserve the user's width
+    // (no auto-50% reset).
     useGhaWorkflowPanelStore.getState().openPanel();
     useGhaWorkflowPanelStore.getState().setWorkflow(sampleIr());
     const { container, rerender } = render(<GhaWorkflowSidePanel />);
-    const parent = container
-      .querySelector(".gha-workflow-side-panel")
-      ?.parentElement as HTMLElement | null;
-    const widthBefore = parent?.style.getPropertyValue("--gha-panel-width");
+    const handle = container.querySelector(
+      ".gha-workflow-side-panel__resize-handle",
+    ) as HTMLElement;
+    expect(handle).toBeTruthy();
+
+    // Trigger the drag start.
+    fireEvent.mouseDown(handle, { clientX: 800 });
+    // Move 100px to the left → +100px panel width.
+    fireEvent.mouseMove(window, { clientX: 700 });
+    fireEvent.mouseUp(window);
+
+    // After the drag, the userResizedRef.current is true. Now toggle
+    // panelOpen and re-render: the half-width effect must NOT
+    // overwrite the width.
+    const parent = handle.parentElement?.parentElement as HTMLElement | null;
+    const widthAfterDrag = parent?.style.getPropertyValue("--gha-panel-width");
+
     useGhaWorkflowPanelStore.getState().closePanel();
     rerender(<GhaWorkflowSidePanel />);
     useGhaWorkflowPanelStore.getState().openPanel();
     rerender(<GhaWorkflowSidePanel />);
-    const widthAfter = parent?.style.getPropertyValue("--gha-panel-width");
-    expect(widthAfter).toBe(widthBefore);
+
+    const widthAfterReopen = parent?.style.getPropertyValue(
+      "--gha-panel-width",
+    );
+    // Both should be defined (effect ran) and equal (latch held).
+    expect(widthAfterDrag).toMatch(/^\d+px$/);
+    expect(widthAfterReopen).toBe(widthAfterDrag);
   });
 });
