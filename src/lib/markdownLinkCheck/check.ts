@@ -144,16 +144,23 @@ export async function checkLocalLinks(
   const checks = await Promise.all(
     [...pathToRefs.keys()].map(async (abs) => {
       try {
-        return { abs, exists: await exists(abs) };
+        return { abs, status: (await exists(abs)) ? "ok" : "missing" } as const;
       } catch {
-        return { abs, exists: false };
+        // Codex audit MED-5: a thrown exists() call is an operational
+        // failure (permission denied, capability scope error, transient
+        // I/O), not proof that the file is missing. Distinguish so we
+        // don't surface false-positive "not found" diagnostics.
+        return { abs, status: "error" } as const;
       }
     }),
   );
 
   const diagnostics: LintDiagnostic[] = [];
-  for (const { abs, exists: ok } of checks) {
-    if (ok) continue;
+  for (const { abs, status } of checks) {
+    // Skip the diagnostic on operational error — better silent than
+    // a wrong claim. The error path is rare enough that surfacing
+    // it as a user-visible warning would create more noise than signal.
+    if (status === "ok" || status === "error") continue;
     const refs = pathToRefs.get(abs) ?? [];
     for (const r of refs) {
       diagnostics.push(

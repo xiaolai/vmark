@@ -230,27 +230,33 @@ export function useViewShortcuts() {
         }
 
         if (content !== undefined) {
-          const diagnostics = useLintStore.getState().runLint(tabId, content);
-          // Refresh CM linter so it picks up the new diagnostics immediately
-          triggerLintRefresh();
-          // Async link-existence check — fires alongside the sync rules
-          // and merges results when fs.exists comes back. Skipped for
-          // untitled documents (no filePath to resolve relative URLs).
-          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
-          void useLintStore
+          const syncDiagnostics = useLintStore
             .getState()
-            .runLinkCheck(tabId, content, filePath)
-            .then((merged) => {
-              if (merged.length !== diagnostics.length) {
-                triggerLintRefresh();
-              }
-            });
-          if (diagnostics.length === 0) {
-            toast.success(i18n.t("statusbar:lint.clean.toast"));
+            .runLint(tabId, content);
+          triggerLintRefresh();
+          // Codex audit MED-4 fix: toast reflects the COMBINED
+          // (sync + async link-check) result, not just the sync subset.
+          // Without this, a doc with broken links got "clean" toasted
+          // and then silently grew red squiggles a few hundred ms later.
+          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          const finalize = (totalCount: number) => {
+            triggerLintRefresh();
+            if (totalCount === 0) {
+              toast.success(i18n.t("statusbar:lint.clean.toast"));
+            } else {
+              toast.info(
+                i18n.t("dialog:toast.lintFoundIssues", { count: totalCount }),
+              );
+            }
+          };
+          if (filePath) {
+            void useLintStore
+              .getState()
+              .runLinkCheck(tabId, content, filePath)
+              .then((merged) => finalize(merged.length));
           } else {
-            toast.info(
-              i18n.t("dialog:toast.lintFoundIssues", { count: diagnostics.length }),
-            );
+            // No filePath → no link check possible → toast on sync only.
+            finalize(syncDiagnostics.length);
           }
         }
         return;

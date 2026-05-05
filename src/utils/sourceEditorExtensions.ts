@@ -128,7 +128,14 @@ interface ExtensionConfig {
  */
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, updateListener, tabId, lintEnabled, filePath } = config;
-  const isYaml = isWorkflowEnabled() && filePath ? isYamlFileName(filePath.split("/").pop() ?? "") : false;
+  // YAML detection is independent of the workflow feature flag — every
+  // YAML file gets `lang-yaml` highlighting and parse-error linting.
+  // Workflow-only extensions (preview, completion, goto, cursor sync)
+  // additionally gate on `isWorkflowEnabled()`. Codex audit MED-2 fix.
+  const isYaml = filePath
+    ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
+    : false;
+  const workflowFeatures = isYaml && isWorkflowEnabled();
 
   return [
     // Line wrapping (dynamic via compartment)
@@ -269,27 +276,19 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Language mode: YAML for .yml/.yaml files, markdown for everything else
     isYaml ? yaml() : markdown({ codeLanguages: languages }),
     // Workflow preview plugin for YAML files (parses YAML → workflowPreviewStore)
-    ...(isYaml ? sourceWorkflowPreviewExtensions : []),
+    ...(workflowFeatures ? sourceWorkflowPreviewExtensions : []),
     // GHA workflow preview plugin for YAML files (parses YAML → ghaWorkflowPanelStore)
-    ...(isYaml ? sourceGhaWorkflowPreviewExtensions : []),
-    // YAML parse-error linter (any YAML file). Surfaces duplicate
-    // keys, unterminated strings, indentation breaks via the
-    // CodeMirror gutter. No schema validation, no style rules.
+    ...(workflowFeatures ? sourceGhaWorkflowPreviewExtensions : []),
+    // YAML parse-error linter (every YAML file, regardless of workflow
+    // flag). Surfaces duplicate keys, unterminated strings, indentation
+    // breaks via the CodeMirror gutter.
     ...(isYaml ? [yamlLintExtension()] : []),
     // Workflow expression autocomplete inside ${{ }} (WI-A.1).
-    // The completion source itself short-circuits on missing IR, so
-    // mounting it for all YAML files is safe — it returns null for
-    // non-workflow YAML and never fires.
-    ...(isYaml ? [workflowCompletionExtension()] : []),
-    // Source cursor → canvas job selection (WI-B.3). Bidirectional
-    // counterpart of click-to-jump from the diagnostics banner.
-    ...(isYaml ? [workflowCursorSyncExtension()] : []),
-    // Cmd/Ctrl-Click on `uses:` opens local action / reusable
-    // workflow target (WI-B.2). Falls through for remote refs.
-    // Multi-window safety per Codex audit HIGH-5: the editor's own
-    // filePath + windowLabel are passed in, not derived from global
-    // tab state.
-    ...(isYaml && filePath
+    ...(workflowFeatures ? [workflowCompletionExtension()] : []),
+    // Source cursor → canvas job selection (WI-B.3).
+    ...(workflowFeatures ? [workflowCursorSyncExtension()] : []),
+    // Cmd/Ctrl-Click on `uses:` opens local target (WI-B.2).
+    ...(workflowFeatures && filePath
       ? [
           gotoExtension({
             filePath,

@@ -200,24 +200,30 @@ export function useViewMenuEvents(): void {
         }
 
         if (content !== undefined) {
-          const diagnostics = useLintStore.getState().runLint(tabId, content);
-          triggerLintRefresh();
-          // Async link-existence check (mirrors useViewShortcuts).
-          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
-          void useLintStore
+          const syncDiagnostics = useLintStore
             .getState()
-            .runLinkCheck(tabId, content, filePath)
-            .then((merged) => {
-              if (merged.length !== diagnostics.length) {
-                triggerLintRefresh();
-              }
-            });
-          if (diagnostics.length === 0) {
-            toast.success(i18n.t("statusbar:lint.clean.toast"));
+            .runLint(tabId, content);
+          triggerLintRefresh();
+          // Codex audit MED-4 fix: defer the toast until the async
+          // link-check resolves so the count is accurate.
+          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          const finalize = (totalCount: number) => {
+            triggerLintRefresh();
+            if (totalCount === 0) {
+              toast.success(i18n.t("statusbar:lint.clean.toast"));
+            } else {
+              toast.info(
+                i18n.t("dialog:toast.lintFoundIssues", { count: totalCount }),
+              );
+            }
+          };
+          if (filePath) {
+            void useLintStore
+              .getState()
+              .runLinkCheck(tabId, content, filePath)
+              .then((merged) => finalize(merged.length));
           } else {
-            toast.info(
-              i18n.t("dialog:toast.lintFoundIssues", { count: diagnostics.length }),
-            );
+            finalize(syncDiagnostics.length);
           }
         }
       });

@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useLintStore } from "../lintStore";
 import { useSettingsStore } from "../settingsStore";
+
+const existsMock = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/plugin-fs", () => ({ exists: existsMock }));
 
 describe("lintStore", () => {
   beforeEach(() => {
@@ -168,6 +171,82 @@ describe("lintStore", () => {
       });
 
       expect(Object.keys(useLintStore.getState().diagnosticsByTab).length).toBe(before);
+    });
+  });
+
+  describe("runLinkCheck race-condition guards (Codex audit HIGH-1)", () => {
+    beforeEach(() => {
+      existsMock.mockReset();
+    });
+
+    it("returns empty + no-ops when filePath is null", async () => {
+      const result = await useLintStore
+        .getState()
+        .runLinkCheck("tab-1", "[link](./missing.md)\n", null);
+      expect(result).toEqual([]);
+      expect(existsMock).not.toHaveBeenCalled();
+    });
+
+    it("REPLACES prior link-check diagnostics (M001/M002), preserves other rules", async () => {
+      // Seed with a non-link-check diagnostic.
+      useLintStore.setState({
+        diagnosticsByTab: {
+          "tab-1": [
+            {
+              id: "E01-1-1",
+              ruleId: "E01",
+              severity: "error",
+              messageKey: "lint.E01",
+              messageParams: { ref: "x" },
+              line: 1,
+              column: 1,
+              offset: 0,
+              uiHint: "exact",
+            },
+          ],
+        },
+      });
+      existsMock.mockResolvedValue(false);
+      await useLintStore
+        .getState()
+        .runLinkCheck("tab-1", "[link](./missing.md)\n", "/repo/x.md");
+      const after = useLintStore.getState().diagnosticsByTab["tab-1"];
+      // E01 preserved; M001/M002 added.
+      expect(after.find((d) => d.ruleId === "E01")).toBeTruthy();
+      expect(after.find((d) => d.ruleId === "M002")).toBeTruthy();
+    });
+
+    it("a stale runLinkCheck completion does not overwrite a fresher one", async () => {
+      // First call: slow to resolve. Second call: fast. The first must
+      // not overwrite the second's results when its fs.exists() finally
+      // settles.
+      let resolveSlow!: (v: boolean) => void;
+      existsMock.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            resolveSlow = resolve;
+          }),
+      );
+      existsMock.mockResolvedValueOnce(true); // fast: file exists
+
+      const slowPromise = useLintStore
+        .getState()
+        .runLinkCheck("tab-1", "[a](./old.md)\n", "/repo/x.md");
+      const fastPromise = useLintStore
+        .getState()
+        .runLinkCheck("tab-1", "[a](./new.md)\n", "/repo/x.md");
+
+      // Fast path resolves first — file "new.md" exists → no diagnostics.
+      const fast = await fastPromise;
+      expect(fast.filter((d) => d.ruleId === "M002").length).toBe(0);
+
+      // Now resolve the slow path with file-missing.
+      resolveSlow(false);
+      await slowPromise;
+
+      // Stale completion must NOT have overwritten the empty state.
+      const final = useLintStore.getState().diagnosticsByTab["tab-1"] ?? [];
+      expect(final.filter((d) => d.ruleId === "M002").length).toBe(0);
     });
   });
 });
