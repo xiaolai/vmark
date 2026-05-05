@@ -381,6 +381,38 @@ pub async fn run_ai_prompt_collect(
 - **Rollback:** revert; `run_ai_prompt` still works because WindowSink matches today's behavior exactly.
 - **Estimate:** M (~400 LOC incl. test harness + refactor sweep)
 
+#### WI-1.3 — Cancellation tokens + bounded collection (added post-Codex review)
+
+> Closes Codex C1 (critical) and M3 (medium). Land before WI-2.2.
+
+- **Goal:** Make `run_ai_prompt_collect` properly drop the dispatch future on
+  early termination and allow callers to kill in-flight CLI providers from
+  another task. Cap the collected text size so a runaway provider can't OOM
+  the runner.
+- **Acceptance:**
+  - CLI providers run on `tokio::process::Command`, not `std::process::Command` —
+    so the parent task can call `child.kill().await` without polling.
+  - `run_ai_prompt_collect` accepts `cancel: tokio_util::sync::CancellationToken`
+    and threads it through `dispatch_to_provider` → `cli::run_cli_blocking` →
+    the spawned process. On token cancel: child is killed, sink emits Error,
+    function returns `Err("Cancelled")`.
+  - `tokio::select!` (not `tokio::join!`) drives dispatch + collect: as soon
+    as collect resolves with terminal event (`Done`/`Error`/`recv None`), we
+    cancel the dispatch token and return.
+  - Hard cap on collected text size: `MAX_COLLECT_BYTES = 5 * 1024 * 1024`.
+    On exceed, function returns `Err("Provider output exceeded 5 MB cap")`.
+- **Tests (first):**
+  - `src-tauri/src/ai_provider/mod.rs` (cfg-test block) —
+    `run_collect_returns_text_on_done`, `run_collect_propagates_error`,
+    `run_collect_cancellation_returns_cancelled`,
+    `run_collect_size_cap_aborts`.
+  - `src-tauri/src/ai_provider/cli.rs` test — provider-cancellation kills
+    a sleep-shim child within a deadline.
+- **Touched:** `ai_provider/cli.rs` (tokio::process refactor),
+  `ai_provider/mod.rs` (select + cap), `Cargo.toml` (add `tokio-util` if not
+  already), `ai_provider/sink.rs` (no change expected).
+- **Estimate:** M (~250 LOC including the tokio::process port)
+
 ---
 
 ### Phase 2 — Genie step executor

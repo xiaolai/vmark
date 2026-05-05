@@ -5760,6 +5760,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]
@@ -6234,6 +6235,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-tungstenite",
+ "tokio-util",
  "toml 0.8.23",
  "urlencoding",
  "uuid",

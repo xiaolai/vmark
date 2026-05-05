@@ -32,8 +32,9 @@ uuid = { version = "1", features = ["v4"] }
 regex = "1"
 urlencoding = "2"
 notify = { version = "7", default-features = false, features = ["macos_fsevent"] }
-tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread", "process", "io-util", "time"] }
 tokio-tungstenite = "0.28"
+tokio-util = { version = "0.7", features = ["rt"] }
 futures-util = "0.3"
 portable-pty = "0.9"
 toml = "0.8"
