@@ -26,29 +26,50 @@ import "./workflow-preview.css";
 
 const nodeTypes = { workflow: WorkflowNode };
 
+import type { StepStatusEntry } from "@/stores/workflowPreviewStore";
+
 interface WorkflowPreviewProps {
   graph: WorkflowGraph;
   activeStepId?: string | null;
+  /** Live execution status keyed by step id (WI-4.3). Optional — when omitted,
+   * nodes show static layout-time data only. */
+  stepStatuses?: Record<string, StepStatusEntry>;
   onNodeClick?: (stepId: string, yamlLine?: number) => void;
 }
 
-function WorkflowPreviewInner({ graph, activeStepId, onNodeClick }: WorkflowPreviewProps) {
+function WorkflowPreviewInner({
+  graph,
+  activeStepId,
+  stepStatuses,
+  onNodeClick,
+}: WorkflowPreviewProps) {
   const { fitView } = useReactFlow();
 
-  const { nodes, edges } = useMemo(() => {
-    const result = layoutWorkflow(graph);
+  // Heavy: dagre layout — only re-runs when the graph's topology changes.
+  // Status overlays / active highlighting happen in a cheaper second pass.
+  const layoutResult = useMemo(() => layoutWorkflow(graph), [graph]);
 
-    // Highlight active step
-    if (activeStepId) {
-      for (const node of result.nodes) {
-        if (node.id === activeStepId) {
-          node.selected = true;
+  const { nodes, edges } = useMemo(() => {
+    const layoutNodes = layoutResult.nodes.map((n) => ({ ...n }));
+    for (const node of layoutNodes) {
+      if (activeStepId && node.id === activeStepId) {
+        node.selected = true;
+      }
+      if (stepStatuses) {
+        const status = stepStatuses[node.id];
+        if (status) {
+          const data = node.data as WorkflowNodeData;
+          node.data = {
+            ...data,
+            status: status.status,
+            duration: status.duration,
+            error: status.error,
+          };
         }
       }
     }
-
-    return result;
-  }, [graph, activeStepId]);
+    return { nodes: layoutNodes, edges: layoutResult.edges };
+  }, [layoutResult, activeStepId, stepStatuses]);
 
   // Fit view only on graph topology change (not on activeStepId selection changes)
   useEffect(() => {

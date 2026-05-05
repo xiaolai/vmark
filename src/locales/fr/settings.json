@@ -658,5 +658,7 @@
       "label": "Moteur de workflow",
       "description": "Activer les fichiers de workflow YAML avec visualisation React Flow (expérimental)"
     }
-  }
+  },
+  "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",
+  "advanced.workflowEditorPreserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting through a CST round-trip. Disable to reformat through plain yaml.stringify on every save (drops comments)."
 }

@@ -52,7 +52,7 @@ Chaque fournisseur affiche un indicateur de statut :
 | Icône | Statut | Signification |
 |-------|--------|---------------|
 | ✓ Vert | Valide | La configuration est correcte et fonctionnelle |
-| ⚠️ Ambre | Incompatibilité de chemin | VMark a été déplacé — cliquez sur **Réparer** |
+| ⚠ Ambre | Incompatibilité de chemin | VMark a été déplacé — cliquez sur **Réparer** |
 | ✗ Rouge | Binaire manquant | Binaire MCP introuvable — réinstallez VMark |
 | ○ Gris | Non configuré | Non installé — cliquez sur **Installer** |
 
@@ -157,7 +157,7 @@ Le port est découvert automatiquement — pas d'argument `args` nécessaire.
 
 ## Fonctionnement
 
-```
+```text
 Assistant IA <--stdio--> Serveur MCP <--WebSocket--> Éditeur VMark
 ```
 
@@ -236,7 +236,7 @@ Dans **Paramètres → Intégrations**, lorsque le serveur est en cours d'exécu
 Si vous avez déplacé VMark.app vers un autre emplacement (ex. de Téléchargements vers Applications), la configuration pointera vers l'ancien chemin :
 
 1. Ouvrez **Paramètres → Intégrations**
-2. Recherchez l'icône d'avertissement ambre ⚠️ à côté des fournisseurs concernés
+2. Recherchez l'icône d'avertissement ambre ⚠ à côté des fournisseurs concernés
 3. Cliquez sur **Réparer** pour mettre à jour le chemin
 4. Redémarrez votre assistant IA
 

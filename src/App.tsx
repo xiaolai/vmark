@@ -110,6 +110,7 @@ import { useCrashRecoveryWriter } from "@/hooks/useCrashRecoveryWriter";
 import { useCrashRecoveryStartup } from "@/hooks/useCrashRecoveryStartup";
 import { useCrashRecoveryCleanup } from "@/hooks/useCrashRecoveryCleanup";
 import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
+import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
@@ -274,6 +275,7 @@ function MainLayout() {
       <QuickOpen windowLabel={windowLabel} />
       <ContentSearch windowLabel={windowLabel} />
       <GeniePicker />
+      <ApprovalDialog />
 
       {/* Title bar with drag region and filename display */}
       <TitleBar />

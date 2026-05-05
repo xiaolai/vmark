@@ -96,6 +96,28 @@ Type a few characters to filter — matching is fuzzy, so `rme` finds `README.md
 Without a workspace, Quick Open still works — it shows recent files and open tabs but cannot search the file tree.
 :::
 
+## Workspace Content Search
+
+When a workspace is open, VMark can search across **file contents** (not just filenames) for matches in markdown and text files.
+
+| Action | Shortcut |
+|---|---|
+| Open content search panel | `Mod + Shift + F` |
+| Jump to next result | `Enter` (or arrow keys to navigate) |
+| Open result in new tab | Click the match preview |
+
+Each result shows the file path, line number, and a snippet with the matching text highlighted. Matches are ranked by:
+
+1. Filename relevance (file containing the term in its name first)
+2. Heading proximity (matches inside headings before body text)
+3. Recency (recently-modified files surface first)
+
+**Excluded by default**: `node_modules/`, `.git/`, `dist/`, `target/`, `coverage/`, plus any directories you've added to **Excluded folders** in Workspace Settings.
+
+**Hidden files**: skipped unless **Show hidden files** is enabled in the file explorer.
+
+This is distinct from [Quick Open](#quick-open) which searches *filenames* only — content search opens the matched file with the cursor placed at the matching line.
+
 ## Recent Workspaces
 
 VMark remembers up to 10 recently opened workspaces. Access them from **File > Recent Workspaces** in the menu bar.

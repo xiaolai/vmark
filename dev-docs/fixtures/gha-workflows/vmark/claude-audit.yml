@@ -1,0 +1,280 @@
+name: Claude Periodic Audit
+
+on:
+  schedule:
+    # Once daily at 9am UTC
+    - cron: "0 9 * * *"
+
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: claude-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        id: claude
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          claude_args: "--model opus --max-turns 120 --allowedTools Bash,Read,Glob,Grep,WebSearch,WebFetch"
+
+          prompt: |
+            You are a codebase auditor for **VMark** — a Tauri v2 + React 19 + Zustand v5
+            desktop Markdown editor with a ProseMirror/Tiptap WYSIWYG mode, a CodeMirror
+            source mode, and a Node.js MCP sidecar. The entire codebase is written by AI.
+
+            Use the run ID (${{ github.run_id }}) as a seed to **randomly pick exactly 3
+            dimensions** from the list below. Also rotate the target directories so
+            successive runs cover different parts of the codebase. The codebase is large
+            enough that auditing more than 3 dimensions per run exhausts the agent's
+            turn budget; 3 dims/day × daily cron still gives full 19-dimension coverage
+            within a week.
+
+            ---
+
+            ## Audit Dimensions
+
+            ### 1. Menu system sync
+            `src-tauri/src/menu/default_menu.rs` and `custom_menu.rs` MUST define identical
+            menu structures. Check that every item, accelerator, and SF Symbol icon in one
+            file has a matching entry in the other. Cross-check accelerator format against
+            `src/stores/shortcutsStore.ts` (frontend) and `website/guide/shortcuts.md` (docs).
+            Verify SF Symbol names in `macos_menu.rs` are real (no invented names).
+
+            ### 2. Zustand store safety
+            39 stores live in `src/stores/`. Check for:
+            - Missing key guards on keyed-state updates (bare `state.xxx[id] = ...` without null check)
+            - Incorrect persist middleware (missing extra `()` for `create<T>()(persist(...))`)
+            - `settingsStore` deep-merge migration gaps when new defaults are added
+            - Store destructuring in components (FORBIDDEN — must use selectors)
+            - Stale closures: inline callbacks reading store state directly instead of `getState()`
+
+            ### 3. Hot exit & session integrity
+            `src-tauri/src/hot_exit/` (coordinator, session, storage, migration). Check for:
+            - Race conditions in multi-window capture (timeout is 2s)
+            - Non-atomic file writes that could corrupt `session.json` on crash
+            - Orphaned tabs/documents after restore (IDs that no longer map to content)
+            - Migration gaps when session schema changes
+
+            ### 4. MCP bridge error handling
+            35+ handlers in `src/hooks/mcpBridge/`. Every handler MUST:
+            - Wrap body in try/catch
+            - Call `respond()` in both success and error paths
+            - Use `error instanceof Error ? error.message : String(error)` (never `as Error`)
+            - Respect `sourceModeGuard` for editor-dependent tools
+            Check `batchOpHandlers.ts` (660 LoC) and `sectionHandlers.ts` (564 LoC) especially.
+
+            ### 5. MCP sidecar reliability
+            `vmark-mcp-server/src/`. Check for:
+            - WebSocket reconnection handling in `bridge/websocket.ts` (648 LoC)
+            - Unhandled promise rejections in tool handlers
+            - Message protocol type mismatches between `protocol-types.ts` and Rust bridge
+            - Sidecar process lifecycle gaps in `src-tauri/src/mcp_server.rs`
+
+            ### 6. Plugin CSS isolation
+            70+ plugins in `src/plugins/`. Check that:
+            - Plugin styles live ONLY in `src/plugins/<name>/<name>.css`, never in `editor.css`
+            - No duplicate selectors across plugin CSS files and global styles
+            - All colors use design tokens (no hardcoded hex/rgb)
+            - `.dark-theme` selector used (not deprecated `[data-theme]`)
+            - Focus indicators are present and visible (WCAG)
+
+            ### 7. CodeMirror source mode edge cases
+            `src/plugins/codemirror/` (8K+ LoC, 50+ files). Check for:
+            - Tab escape logic gaps (IME composition, multi-cursor, tables)
+            - Structural char protection bypasses
+            - Known circular dep: `sourceContextDetection/tableDetection ↔ tableActions`
+            - Source ↔ WYSIWYG cursor sync drift
+
+            ### 8. Multi-cursor correctness
+            `src/plugins/multiCursor/`. Check for:
+            - Selection overlap after transformation
+            - Undo/redo state corruption with multiple cursors
+            - Edge cases: empty selections, overlapping ranges, cursor at doc boundaries
+
+            ### 9. Rust backend safety
+            `src-tauri/src/` (~10.4K LoC). Check for:
+            - `unwrap()` or `expect()` on user-controlled input (must use `map_err`)
+            - Missing error propagation (bare `?` without context)
+            - Panic paths reachable from Tauri commands
+            - Unsafe blocks without justification
+            - Command spawning not using `ai_provider::build_command()` (Windows .cmd shim)
+            - PATH not set via `ai_provider::login_shell_path()` (macOS GUI minimal PATH)
+
+            ### 10. Cross-platform regressions
+            macOS is primary. Check for:
+            - Windows/Linux fixes that break macOS behavior
+            - Hardcoded paths (e.g., `/` separator instead of `std::path`)
+            - Platform APIs used without `#[cfg(target_os = ...)]` guards
+            - Missing `.cmd` shim handling for Windows subprocess spawning
+
+            ### 11. Test coverage & quality
+            603 test files, thresholds: statements 99.89%, branches 99.6%, functions 99.97%, lines 99.92%.
+            Check for:
+            - Untested stores or hooks (every store/hook needs tests)
+            - `any` usage in test files hiding type errors
+            - Snapshot tests used for logic (should use explicit assertions)
+            - Missing edge cases: empty input, null/undefined, Unicode/CJK, concurrent access
+            - Tests that test implementation details instead of observable behavior
+
+            ### 12. Type safety & error handling (TypeScript)
+            Check across `src/` for:
+            - `as` type casts (unsafe, prefer type guards)
+            - `any` usage in non-test code
+            - Swallowed errors (empty catch blocks)
+            - Unhandled promise rejections (missing `.catch()` or try/catch on async)
+            - `error as Error` (must use `instanceof` check)
+
+            ### 13. Performance & re-renders
+            Check for:
+            - Zustand store subscriptions without selectors (causes full re-render)
+            - Missing `useCallback`/`useMemo` on expensive computations passed as props
+            - O(n²) loops in plugin decorations or document traversal
+            - Large imports that could be lazy-loaded (e.g., Mermaid, CodeMirror)
+
+            ### 14. Data integrity & persistence
+            Check for:
+            - Document content loss paths (dirty flag not set, auto-save gaps)
+            - localStorage quota handling (11 persisted stores)
+            - File watcher race conditions (rapid external saves, symlinks)
+            - `isDivergent` flag correctness when user keeps local changes over disk changes
+
+            ### 15. Dependency health
+            Check `package.json` and `src-tauri/Cargo.toml` for:
+            - Deprecated APIs still in use
+            - Known CVEs in current dependency versions
+            - Unnecessary dependencies (imported but unused)
+            - Version pinning issues (too loose or too strict)
+
+            ### 16. Dead code
+            Check for:
+            - Unused exports (exported but never imported elsewhere)
+            - Unreachable branches (conditions that can never be true)
+            - Orphaned files (not imported by anything)
+            - Stale feature flags or commented-out code blocks
+
+            ### 17. Export & network resilience
+            `src/export/` (4600+ LoC) + `src-tauri/src/ai_provider/`. Check for:
+            - Font downloads from CDN without retry/timeout (`fontEmbedder.ts`)
+            - REST API calls using `unwrap_or_default()` on response parsing
+            - Image/resource resolution without symlink or permission handling
+            - Partial failure recovery (1 of N assets fails — does export abort or corrupt?)
+            - Missing timeout handling on network requests
+
+            ### 18. Terminal subsystem correctness
+            `src/components/Terminal/` (6K+ LoC). Check for:
+            - PTY spawn fallback chains (configured shell → default → failure)
+            - IME composition grace period edge cases (80ms timer in `createTerminalInstance.ts`)
+            - Flow control watermark thresholds (HIGH=5, LOW=2 in `spawnPty.ts`)
+            - Shell detection failures on both primary and fallback shells
+            - File link provider size guard (10MB) and permission error handling
+            - ANSI color contrast regressions (all light theme colors must be ≥ 4.5:1 WCAG AA)
+
+            ### 19. Accessibility & link security
+            Check across `src/components/` and `src/plugins/` for:
+            - External links missing `rel="noopener noreferrer"` (window.opener hijack risk)
+            - Missing `aria-label` on icon-only buttons
+            - Missing `aria-live` regions for async status updates (file changes, AI responses)
+            - Missing `aria-expanded` on collapsible panels (sidebar, outline, terminal)
+            - Keyboard navigation gaps: roving tabindex in QuickOpen, file explorer, outline
+            - Focus trapping in modal dialogs (Tab should cycle within dialog)
+
+            ---
+
+            ## Rules
+
+            - **High confidence only** — do not report speculative or low-confidence findings
+            - **Skip cosmetics** — no style, formatting, or naming nitpicks
+            - **If nothing found, create no issues**
+
+            ## Issue Creation Rules (CRITICAL)
+
+            Each issue will be fixed by an AI agent with limited turns. The issue body
+            IS the agent's only context. Write issues that an agent can fix in one sitting.
+
+            ### Atomicity — one fix per issue
+
+            - **ONE file, ONE concern per issue.** Never combine multiple files or unrelated
+              findings. If you find 3 dead exports in 3 different files, create 3 issues.
+            - **If a finding spans 2+ files that must change together** (e.g., a type in
+              core-types.ts and its handler in index.ts), that's ONE issue — but explain
+              all files that need changing.
+            - **Test gaps**: one issue per hook/store/util. Never "20+ hooks need tests" —
+              that's unfixable. Instead: "[audit] test-gap: useTheme has no tests for
+              font stack building and CSS var computation".
+
+            ### Issue body — machine-readable fix spec
+
+            Every issue body MUST include ALL of these sections:
+
+            ```
+            ## Problem
+            [1-2 sentences: what's wrong and why it matters]
+
+            ## Location
+            - `src/path/to/file.ts:42` — [what's wrong at this line]
+            - `src/path/to/other.ts:18` — [related change needed, if any]
+
+            ## Suggested Fix
+            [Step-by-step instructions specific enough for an agent to follow blindly]
+            1. In `file.ts`, change X to Y
+            2. In `other.ts`, remove the Z import
+            3. Run `pnpm test src/path/to/file.test.ts` to verify
+
+            ## Scope Guard
+            Do NOT touch any files outside the ones listed above.
+            Do NOT refactor surrounding code.
+            Do NOT add features beyond the fix.
+
+            ## Verification
+            [How to confirm the fix works]
+            - `grep -r "oldPattern" src/` returns zero matches
+            - `pnpm test src/path/to/file.test.ts` passes
+            ```
+
+            ### Labels
+            - Always: `audit`
+            - Plus ONE of: `bug`, `security`, `dead-code`, `convention`,
+              `test-gap`, `performance`, `accessibility`, `type-safety`,
+              `error-handling`, `dependency`, `menu-sync`, `hot-exit`,
+              `mcp-bridge`, `cross-platform`, `export`, `terminal`
+
+            ### Title format
+            `[audit] <category>: <specific problem in one file>`
+
+            ### Examples of GOOD vs BAD issues
+
+            **BAD:** `[audit] dead-code: unused exports in themeSnapshot.ts and mcpAdapters.ts`
+            → Two unrelated files. Agent has to context-switch. May run out of turns.
+
+            **GOOD:** `[audit] dead-code: captureThemeSnapshot exported but never imported`
+            → One function, one file, verifiable with grep.
+
+            **BAD:** `[audit] test-gap: 20+ hooks with non-trivial logic lack tests`
+            → Impossible to fix in one PR. Agent will attempt everything and fail.
+
+            **GOOD:** `[audit] test-gap: useWindowTitle formatWindowTitle() has no unit tests`
+            → One function, clear scope, ~30 min of agent work.
+
+            **BAD:** `[audit] accessibility: missing ARIA attributes across settings page`
+            → Vague scope, multiple components.
+
+            **GOOD:** `[audit] accessibility: ModelComboBox missing aria-label on icon button`
+            → One component, one attribute, verifiable.
+

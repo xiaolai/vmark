@@ -52,7 +52,7 @@ Each provider shows a status indicator:
 | Icon | Status | Meaning |
 |------|--------|---------|
 | ✓ Green | Valid | Configuration is correct and working |
-| ⚠️ Amber | Path Mismatch | VMark was moved — click **Repair** |
+| ⚠ Amber | Path Mismatch | VMark was moved — click **Repair** |
 | ✗ Red | Binary Missing | MCP binary not found — reinstall VMark |
 | ○ Gray | Not Configured | Not installed — click **Install** |
 
@@ -157,7 +157,7 @@ The port is auto-discovered — no `args` needed.
 
 ## How It Works
 
-```
+```text
 AI Assistant <--stdio--> MCP Server <--WebSocket--> VMark Editor
 ```
 
@@ -236,7 +236,7 @@ In **Settings → Integrations**, when the server is running you'll see:
 If you moved VMark.app to a different location (e.g., from Downloads to Applications), the configuration will point to the old path:
 
 1. Open **Settings → Integrations**
-2. Look for the amber ⚠️ warning icon next to affected providers
+2. Look for the amber ⚠ warning icon next to affected providers
 3. Click **Repair** to update the path
 4. Restart your AI assistant
 
@@ -252,31 +252,13 @@ If you moved VMark.app to a different location (e.g., from Downloads to Applicat
 - Click in the editor area to focus it
 - Some commands require text to be selected first
 
-## Suggestion System & Auto-Approve
+## How Edits Work
 
-By default, when AI assistants modify your document (insert, replace, or delete content), VMark creates **suggestions** that require your approval:
+The pruned MCP surface follows the read-write spine: AI assistants call `document.read` to get the current content + a revision token, reason about it, then call `document.write` with the new full content. The revision token guards against silent overwrites: if you typed in VMark while the AI was thinking, the write returns `STALE` and the AI re-reads.
 
-- **Insert** - New text appears as ghost text preview
-- **Replace** - Original text has strikethrough, new text as ghost text
-- **Delete** - Text to remove appears with strikethrough
+For GitHub Actions workflow YAML files, the AI uses `workflow.apply_patch` instead — VMark's CST-aware mutators preserve comments, anchors, and key order that a raw text rewrite would lose.
 
-Press **Enter** to accept or **Escape** to reject. This preserves your undo/redo history and gives you full control.
-
-### Auto-Approve Mode
-
-::: warning Use With Caution
-Enabling **Auto-approve edits** bypasses the suggestion preview and applies AI changes immediately. Only enable this if you trust your AI assistant and want faster editing.
-:::
-
-When auto-approve is enabled:
-- Changes are applied directly without preview
-- Undo (Mod+Z) still works to reverse changes
-- Response messages include "(auto-approved)" for transparency
-
-This setting is useful for:
-- Rapid AI-assisted writing workflows
-- Trusted AI assistants with well-defined tasks
-- Batch operations where previewing each change is impractical
+There is no preview/approval step in the new surface. If you want to review every change, run an external git workflow (work on a branch, review the diff, commit when satisfied) — this gives you the same control with industry-standard tools.
 
 ## Security Notes
 
@@ -284,7 +266,6 @@ This setting is useful for:
 - No data is sent to external servers
 - All processing happens on your machine
 - The WebSocket bridge is only accessible locally
-- Auto-approve is disabled by default to prevent unintended changes
 
 ## Next Steps
 

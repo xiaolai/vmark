@@ -51,6 +51,7 @@ import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
 import { FileLoadIndicator } from "./FileLoadIndicator";
+import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
@@ -132,6 +133,16 @@ export function StatusBar() {
   // the menu/click-to-toggle flow respect the per-tab override.
   const sourceMode = globalSourceMode || activeTabForcedSource;
   const readOnly = useDocumentStore((state) => activeTabId ? state.documents[activeTabId]?.readOnly ?? false : false);
+  // Hide the WYSIWYG↔Source toggle for YAML workflow tabs — the
+  // markdown round-trip would silently corrupt YAML indentation. The
+  // toggle handler refuses for YAML paths anyway (defense in depth in
+  // useUnifiedHistory.ts), but hiding the button removes the foot gun.
+  const activeTabFilePath = useDocumentStore((s) =>
+    activeTabId ? s.documents[activeTabId]?.filePath ?? null : null,
+  );
+  const modeToggleHidden = looksLikeWorkflowPath(
+    activeTabFilePath ?? undefined,
+  );
 
   const [contextMenu, setContextMenu] = useState<{
     position: ContextMenuPosition;
@@ -320,6 +331,7 @@ export function StatusBar() {
             sourceMode={sourceMode}
             sourceModeShortcut={sourceModeShortcut}
             onToggleSourceMode={() => toggleSourceModeWithCheckpoint(windowLabel)}
+            modeToggleHidden={modeToggleHidden}
             readOnly={readOnly}
             readOnlyShortcut={readOnlyShortcut}
             onToggleReadOnly={() => {

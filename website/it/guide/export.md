@@ -8,7 +8,7 @@ VMark offre diversi modi per esportare e condividere i tuoi documenti.
 
 Crea una cartella autonoma con struttura pulita:
 
-```
+```text
 MyDocument/
 ├── index.html
 └── assets/
@@ -27,7 +27,7 @@ MyDocument/
 
 Crea un singolo file HTML autonomo:
 
-```
+```text
 MyDocument.html
 ```
 

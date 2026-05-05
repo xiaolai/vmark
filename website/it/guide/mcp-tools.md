@@ -1,19 +1,14 @@
 # Riferimento Strumenti MCP
 
-Questa pagina documenta tutti gli strumenti MCP disponibili quando Claude (o altri assistenti IA) si connette a VMark.
+VMark espone **quattro strumenti MCP compositi** agli assistenti IA: `session`, `workspace`, `document` e `workflow`. Insieme coprono **14 azioni** — la spina dorsale lettura/scrittura più il ciclo di vita di file/finestre più le modifiche CST-safe per lo YAML di GitHub Actions.
 
-VMark espone un insieme di **strumenti compositi**, **strumenti di protocollo** e **risorse** — tutti documentati di seguito. Gli strumenti compositi usano un parametro `action` per selezionare l'operazione — questo riduce il sovraccarico di token mantenendo accessibili tutte le capacità.
+La precedente superficie di 12 strumenti / 76 azioni è stata ridotta perché gli strumenti di formattazione interni al documento (grassetto, intestazioni, tabelle, ecc.) duplicano un lavoro che gli agenti IA fanno già banalmente tramite il round-trip Markdown. Vedi [il piano di riduzione MCP](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) per la motivazione completa.
 
 ::: tip Flusso di Lavoro Consigliato
-Per la maggior parte dei compiti di scrittura, bastano poche azioni:
-
-**Comprendi:** `structure` → `get_digest`, `document` → `search`
-**Leggi:** `structure` → `get_section`, `document` → `read_paragraph` / `get_content`
-**Scrivi:** `structure` → `update_section` / `insert_section`, `document` → `write_paragraph` / `smart_insert`
-**Controlla:** `editor` → `undo` / `redo`, `suggestions` → `accept` / `reject`
-**File:** `workspace` → `save`, `tabs` → `switch` / `list`
-
-Le azioni rimanenti forniscono controllo granulare per scenari di automazione avanzati.
+1. Chiama `session.get_state` una volta per vedere finestre aperte, schede e per ogni scheda `{filePath, dirty, revision, kind}`.
+2. Per Markdown: `document.read` → ragionare → `document.write` (passando `expected_revision` per concorrenza sicura).
+3. Per YAML di GitHub Actions (`kind: "yaml-workflow"`): `workflow.apply_patch` per modifiche CST-safe che preservano commenti e ancore; `workflow.validate` per la diagnostica actionlint.
+4. Le operazioni sui file (apri, salva, chiudi, cambia scheda) si trovano in `workspace`.
 :::
 
 ::: tip Diagrammi Mermaid
@@ -22,804 +17,247 @@ Quando si usa l'IA per generare diagrammi Mermaid tramite MCP, considera l'insta
 
 ---
 
-## `document`
-
-Leggi, scrivi, cerca e trasforma il contenuto del documento. 12 azioni.
-
-Tutte le azioni accettano un parametro opzionale `windowId` (stringa) per indirizzare una finestra specifica. Il valore predefinito è la finestra in primo piano.
-
-### `get_content`
-
-Ottieni il contenuto completo del documento come testo markdown.
-
-### `set_content`
-
-Sostituisci l'intero contenuto del documento.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `content` | stringa | Sì | Nuovo contenuto del documento (markdown supportato). |
-
-::: warning Solo Documenti Vuoti
-Per sicurezza, questa azione è consentita solo quando il documento di destinazione è **vuoto**. Per i documenti non vuoti, usa `insert_at_cursor`, `apply_diff`, o `selection` → `replace` — questi creano suggerimenti che richiedono l'approvazione dell'utente.
-:::
-
-### `insert_at_cursor`
-
-Inserisci testo nella posizione corrente del cursore.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `text` | stringa | Sì | Testo da inserire (markdown supportato). |
-
-**Restituisce:** `{ message, position, suggestionId?, applied }`
-
-::: tip Sistema di Suggerimenti
-Per impostazione predefinita, questa azione crea un **suggerimento** che richiede l'approvazione dell'utente. Il testo appare come anteprima fantasma. Gli utenti possono accettare (Invio) o rifiutare (Escape). Se **Approva automaticamente le modifiche** è abilitato in Impostazioni → Integrazioni, le modifiche vengono applicate immediatamente.
-:::
-
-### `insert_at_position`
-
-Inserisci testo in una posizione specifica del carattere.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `text` | stringa | Sì | Testo da inserire (markdown supportato). |
-| `position` | numero | Sì | Posizione del carattere (indice 0). |
-
-**Restituisce:** `{ message, position, suggestionId?, applied }`
-
-### `search`
-
-Cerca testo nel documento.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `query` | stringa | Sì | Testo da cercare. |
-| `caseSensitive` | booleano | No | Ricerca con distinzione maiuscole/minuscole. Predefinito: false. |
-
-**Restituisce:** Array di corrispondenze con posizioni e numeri di riga.
-
-### `replace_in_source`
-
-Sostituisci testo al livello sorgente markdown, bypassando i confini dei nodi ProseMirror.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `search` | stringa | Sì | Testo da trovare nel sorgente markdown. |
-| `replace` | stringa | Sì | Testo sostitutivo (markdown supportato). |
-| `all` | booleano | No | Sostituisci tutte le occorrenze. Predefinito: false. |
-
-**Restituisce:** `{ count, message, suggestionIds?, applied }`
-
-::: tip Quando usarlo
-Usa prima `apply_diff` — è più veloce e preciso. Ricorri a `replace_in_source` solo quando il testo cercato attraversa confini di formattazione (grassetto, corsivo, collegamenti, ecc.) e `apply_diff` non riesce a trovarlo.
-:::
-
-### `batch_edit`
-
-Applica più operazioni atomicamente.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `operations` | array | Sì | Array di operazioni (max 100). |
-| `baseRevision` | stringa | Sì | Revisione attesa per il rilevamento dei conflitti. |
-| `requestId` | stringa | No | Chiave di idempotenza. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-Ogni operazione richiede `type` (`update`, `insert`, `delete`, `format`, o `move`), `nodeId`, e opzionalmente `text`/`content`.
-
-**Restituisce:** `{ success, changedNodeIds[], suggestionIds[] }`
-
-### `apply_diff`
-
-Trova e sostituisci testo con controllo della politica di corrispondenza.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `original` | stringa | Sì | Testo da trovare. |
-| `replacement` | stringa | Sì | Testo con cui sostituire. |
-| `baseRevision` | stringa | Sì | Revisione attesa per il rilevamento dei conflitti. |
-| `matchPolicy` | stringa | No | `first`, `all`, `nth`, o `error_if_multiple`. Predefinito: `first`. |
-| `nth` | numero | No | Quale corrispondenza sostituire (indice 0, per politica `nth`). |
-| `scopeQuery` | oggetto | No | Filtro ambito per restringere la ricerca. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-**Restituisce:** `{ matchCount, appliedCount, matches[], suggestionIds[] }`
-
-### `replace_anchored`
-
-Sostituisci testo usando l'ancoraggio del contesto per un targeting preciso.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `anchor` | oggetto | Sì | `{ text, beforeContext, afterContext }` |
-| `replacement` | stringa | Sì | Testo sostitutivo. |
-| `baseRevision` | stringa | Sì | Revisione attesa per il rilevamento dei conflitti. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-### `read_paragraph`
-
-Leggi un paragrafo del documento per indice o corrispondenza di contenuto.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `target` | oggetto | Sì | `{ index: 0 }` o `{ containing: "testo" }` |
-| `includeContext` | booleano | No | Includi i paragrafi circostanti. Predefinito: false. |
-
-**Restituisce:** `{ index, content, wordCount, charCount, position, context? }`
-
-### `write_paragraph`
-
-Modifica un paragrafo nel documento.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `baseRevision` | stringa | Sì | Revisione del documento per il rilevamento dei conflitti. |
-| `target` | oggetto | Sì | `{ index: 0 }` o `{ containing: "testo" }` |
-| `operation` | stringa | Sì | `replace`, `append`, `prepend`, o `delete`. |
-| `content` | stringa | Condizionale | Nuovo contenuto (richiesto tranne per `delete`). |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-**Restituisce:** `{ success, message, suggestionId?, applied, newRevision? }`
-
-### `smart_insert`
-
-Inserisci contenuto in posizioni comuni del documento.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `baseRevision` | stringa | Sì | Revisione del documento per il rilevamento dei conflitti. |
-| `destination` | varia | Sì | Dove inserire (vedi sotto). |
-| `content` | stringa | Sì | Contenuto markdown da inserire. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-**Opzioni di destinazione:**
-- `"end_of_document"` — Inserisci alla fine
-- `"start_of_document"` — Inserisci all'inizio
-- `{ after_paragraph: 2 }` — Inserisci dopo il paragrafo all'indice 2
-- `{ after_paragraph_containing: "conclusione" }` — Inserisci dopo il paragrafo contenente testo
-- `{ after_section: "Introduzione" }` — Inserisci dopo l'intestazione di sezione
-
-**Restituisce:** `{ success, message, suggestionId?, applied, newRevision?, insertedAt? }`
-
-::: tip Quando Usarlo
-- **Documenti strutturati** (con intestazioni): Usa `structure` → `get_section`, `update_section`, `insert_section`
-- **Documenti piatti** (senza intestazioni): Usa `document` → `read_paragraph`, `write_paragraph`, `smart_insert`
-- **Fine del documento**: Usa `document` → `smart_insert` con `"end_of_document"`
-:::
-
----
-
-## `structure`
-
-Query sulla struttura del documento e operazioni sulle sezioni. 8 azioni.
-
-Tutte le azioni accettano un parametro opzionale `windowId`.
-
-### `get_ast`
-
-Ottieni l'albero sintattico astratto del documento.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `projection` | string[] | No | Campi da includere: `id`, `type`, `text`, `attrs`, `marks`, `children`. |
-| `filter` | oggetto | No | Filtra per `type`, `level`, `contains`, `hasMarks`. |
-| `limit` | numero | No | Risultati massimi. |
-| `offset` | numero | No | Numero da saltare. |
-| `afterCursor` | stringa | No | ID nodo per la paginazione con cursore. |
-
-**Restituisce:** AST completo con tipi di nodo, posizioni e contenuto.
-
-### `get_digest`
-
-Ottieni un digest compatto della struttura del documento.
-
-**Restituisce:** `{ revision, title, wordCount, charCount, outline[], sections[], blockCounts, hasImages, hasTables, hasCodeBlocks, languages[] }`
-
-### `list_blocks`
-
-Elenca tutti i blocchi nel documento con i loro ID nodo.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `query` | oggetto | No | Filtra per `type`, `level`, `contains`, `hasMarks`. |
-| `projection` | string[] | No | Campi da includere. |
-| `limit` | numero | No | Risultati massimi. |
-| `afterCursor` | stringa | No | ID nodo per la paginazione con cursore. |
-
-**Restituisce:** `{ revision, blocks[], hasMore, nextCursor? }`
-
-Gli ID nodo usano prefissi: `h-0` (intestazione), `p-0` (paragrafo), `code-0` (blocco di codice), ecc.
-
-### `resolve_targets`
-
-Controllo pre-flight per le mutazioni — trova nodi per query.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `query` | oggetto | Sì | Criteri di query: `type`, `level`, `contains`, `hasMarks`. |
-| `maxResults` | numero | No | Massimo candidati. |
-
-**Restituisce:** Posizioni e tipi di destinazione risolti.
-
-### `get_section`
-
-Ottieni il contenuto di una sezione del documento (intestazione e il suo contenuto fino alla prossima intestazione dello stesso livello o superiore).
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `heading` | stringa \| oggetto | Sì | Testo dell'intestazione (stringa) o `{ level, index }`. |
-| `includeNested` | booleano | No | Includi le sottosezioni. |
-
-**Restituisce:** Contenuto della sezione con intestazione, corpo e posizioni.
-
-### `update_section`
-
-Aggiorna il contenuto di una sezione.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `target` | oggetto | Sì | `{ heading, byIndex, o sectionId }` |
-| `newContent` | stringa | Sì | Nuovo contenuto della sezione (markdown). |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-### `insert_section`
-
-Inserisci una nuova sezione.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `after` | oggetto | No | Destinazione di sezione dopo cui inserire. |
-| `sectionHeading` | oggetto | Sì | `{ level, text }` — livello dell'intestazione (1-6) e testo. |
-| `content` | stringa | No | Contenuto del corpo della sezione. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-### `move_section`
-
-Sposta una sezione in una nuova posizione.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `section` | oggetto | Sì | Sezione da spostare: `{ heading, byIndex, o sectionId }`. |
-| `after` | oggetto | No | Destinazione di sezione dopo cui spostare. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
----
-
-## `selection`
-
-Leggi e manipola la selezione del testo e il cursore. 5 azioni.
-
-Tutte le azioni accettano un parametro opzionale `windowId`.
-
-### `get`
-
-Ottieni la selezione di testo corrente.
-
-**Restituisce:** `{ text, range: { from, to }, isEmpty }`
-
-### `set`
-
-Imposta l'intervallo di selezione.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `from` | numero | Sì | Posizione di inizio (inclusa). |
-| `to` | numero | Sì | Posizione di fine (esclusiva). |
-
-::: tip
-Usa lo stesso valore per `from` e `to` per posizionare il cursore senza selezionare testo.
-:::
-
-### `replace`
-
-Sostituisci il testo selezionato con nuovo testo.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `text` | stringa | Sì | Testo sostitutivo (markdown supportato). |
-
-**Restituisce:** `{ message, range, originalContent, suggestionId?, applied }`
-
-::: tip Sistema di Suggerimenti
-Per impostazione predefinita, questa azione crea un **suggerimento** che richiede l'approvazione dell'utente. Il testo originale appare con il barrato, e il nuovo testo appare come anteprima fantasma. Se **Approva automaticamente le modifiche** è abilitato in Impostazioni → Integrazioni, le modifiche vengono applicate immediatamente.
-:::
-
-### `get_context`
-
-Ottieni il testo che circonda il cursore per la comprensione del contesto.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `linesBefore` | numero | No | Righe prima del cursore. Predefinito: 3. |
-| `linesAfter` | numero | No | Righe dopo il cursore. Predefinito: 3. |
-
-**Restituisce:** `{ before, after, currentLine, currentParagraph, block }`
-
-L'oggetto `block` contiene:
-
-| Campo | Tipo | Descrizione |
-|-------|------|-------------|
-| `type` | stringa | Tipo di blocco: `paragraph`, `heading`, `codeBlock`, `blockquote`, ecc. |
-| `level` | numero | Livello intestazione 1-6 (solo per le intestazioni) |
-| `language` | stringa | Linguaggio del codice (solo per i blocchi di codice con linguaggio impostato) |
-| `inList` | stringa | Tipo di elenco se all'interno di un elenco: `bullet`, `ordered`, o `task` |
-| `inBlockquote` | booleano | `true` se all'interno di una citazione |
-| `inTable` | booleano | `true` se all'interno di una tabella |
-| `position` | numero | Posizione nel documento dove inizia il blocco |
-
-### `set_cursor`
-
-Imposta la posizione del cursore (deseleziona la selezione).
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `position` | numero | Sì | Posizione del carattere (indice 0). |
-
----
-
-## `format`
-
-Formattazione del testo, tipi di blocco, elenchi e operazioni batch sugli elenchi. 10 azioni.
-
-Tutte le azioni accettano un parametro opzionale `windowId`.
-
-### `toggle`
-
-Attiva/disattiva un segno di formattazione sulla selezione corrente.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `mark` | stringa | Sì | `bold`, `italic`, `code`, `strike`, `underline`, o `highlight` |
-
-### `set_link`
-
-Crea un collegamento ipertestuale sul testo selezionato.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `href` | stringa | Sì | URL del collegamento. |
-| `title` | stringa | No | Titolo del collegamento (tooltip). |
-
-### `remove_link`
-
-Rimuovi il collegamento ipertestuale dalla selezione. Nessun parametro aggiuntivo.
-
-### `clear`
-
-Rimuovi tutta la formattazione dalla selezione. Nessun parametro aggiuntivo.
-
-### `set_block_type`
-
-Converti il blocco corrente in un tipo specifico.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `blockType` | stringa | Sì | `paragraph`, `heading`, `codeBlock`, o `blockquote` |
-| `level` | numero | Condizionale | Livello intestazione 1-6 (richiesto per `heading`). |
-| `language` | stringa | No | Linguaggio del codice (per `codeBlock`). |
-
-### `insert_hr`
-
-Inserisci una riga orizzontale (`---`) al cursore. Nessun parametro aggiuntivo.
-
-### `toggle_list`
-
-Attiva/disattiva il tipo di elenco sul blocco corrente.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `listType` | stringa | Sì | `bullet`, `ordered`, o `task` |
-
-### `indent_list`
-
-Aumenta il rientro dell'elemento di elenco corrente. Nessun parametro aggiuntivo.
-
-### `outdent_list`
-
-Diminuisce il rientro dell'elemento di elenco corrente. Nessun parametro aggiuntivo.
-
-### `list_modify`
-
-Modifica in batch la struttura e il contenuto di un elenco.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `target` | oggetto | Sì | `{ listId }`, `{ selector }`, o `{ listIndex }` |
-| `operations` | array | Sì | Array di operazioni sull'elenco. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-Operazioni: `add_item`, `delete_item`, `update_item`, `toggle_check`, `reorder`, `set_indent`
-
----
-
-## `table`
-
-Operazioni sulle tabelle. 3 azioni.
-
-Tutte le azioni accettano un parametro opzionale `windowId`.
-
-### `insert`
-
-Inserisci una nuova tabella al cursore.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `rows` | numero | Sì | Numero di righe (almeno 1). |
-| `cols` | numero | Sì | Numero di colonne (almeno 1). |
-| `withHeaderRow` | booleano | No | Se includere una riga di intestazione. Predefinito: true. |
-
-### `delete`
-
-Elimina la tabella alla posizione del cursore. Nessun parametro aggiuntivo.
-
-### `modify`
-
-Modifica in batch la struttura e il contenuto di una tabella.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `target` | oggetto | Sì | `{ tableId }`, `{ afterHeading }`, o `{ tableIndex }` |
-| `operations` | array | Sì | Array di operazioni sulla tabella. |
-| `mode` | stringa | No | `dryRun` per visualizzare in anteprima senza applicare. Applica-vs-suggerisci è controllato dall'impostazione utente. |
-
-Operazioni: `add_row`, `delete_row`, `add_column`, `delete_column`, `update_cell`, `set_header`
-
----
-
-## `editor`
-
-Operazioni sullo stato dell'editor. 3 azioni.
-
-Tutte le azioni accettano un parametro opzionale `windowId`.
-
-### `undo`
-
-Annulla l'ultima azione di modifica.
-
-### `redo`
-
-Ripristina l'ultima azione annullata.
-
-### `focus`
-
-Metti il focus sull'editor (portalo in primo piano, pronto per l'input).
+## `session`
+
+Orientamento one-shot. Scopri ogni finestra, ogni scheda e le capacità del server in una singola chiamata.
+
+### `get_state`
+
+Nessun argomento.
+
+**Restituisce** `{windows, capabilities}`:
+
+```json
+{
+  "windows": [
+    {
+      "label": "main",
+      "focused": true,
+      "tabs": [
+        {
+          "id": "tab-1",
+          "filePath": "/path/to/notes.md",
+          "title": "notes",
+          "dirty": false,
+          "revision": "rev-x7Q3aB1F",
+          "kind": "markdown"
+        },
+        {
+          "id": "tab-2",
+          "filePath": "/repo/.github/workflows/ci.yml",
+          "title": "ci",
+          "dirty": true,
+          "revision": "rev-x7Q3aB1F",
+          "kind": "yaml-workflow"
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "version": "<vmark-mcp-server version>",
+    "supportedKinds": ["markdown", "yaml-workflow"],
+    "mcpProtocol": "0.1.0"
+  }
+}
+```
+
+Il discriminatore `kind` ti dice se usare `document.write` (per markdown) o `workflow.apply_patch` (per yaml-workflow) su quella scheda.
 
 ---
 
 ## `workspace`
 
-Gestisci documenti, finestre e stato del workspace. 12 azioni.
+Ciclo di vita di file e finestre. Niente all'interno del documento.
 
-Le azioni che operano su una finestra specifica accettano un parametro opzionale `windowId`.
+### `new`
 
-### `list_windows`
-
-Elenca tutte le finestre VMark aperte.
-
-**Restituisce:** Array di `{ label, title, filePath, isFocused, isAiExposed }`
-
-### `get_focused`
-
-Ottieni l'etichetta della finestra in primo piano.
-
-### `focus_window`
-
-Metti in primo piano una finestra specifica.
+Crea una nuova scheda senza titolo.
 
 | Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `windowId` | stringa | Sì | Etichetta della finestra da portare in primo piano. |
+|-----------|------|-----------|-------------|
+| `kind` | stringa | No | `"markdown"` (predefinito) o `"yaml-workflow"` |
+| `windowLabel` | stringa | No | Finestra di destinazione; predefinita su quella in primo piano |
 
-### `new_document`
+Restituisce `{tabId}`.
 
-Crea un nuovo documento vuoto.
+### `open`
 
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `title` | stringa | No | Titolo opzionale del documento. |
+Apri un file da disco.
 
-### `open_document`
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `filePath` | stringa | Sì |
+| `windowLabel` | stringa | No |
 
-Apri un documento dal filesystem.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `path` | stringa | Sì | Percorso del file da aprire. |
+Restituisce `{tabId}`.
 
 ### `save`
 
-Salva il documento corrente.
+Salva una scheda nel suo percorso esistente.
+
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `tabId` | stringa | No (predefinito su quella in primo piano) |
+
+Restituisce `{filePath, revision}`.
 
 ### `save_as`
 
-Salva il documento in un nuovo percorso.
+Salva una scheda in un nuovo percorso.
 
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `path` | stringa | Sì | Nuovo percorso del file. |
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `tabId` | stringa | No |
+| `filePath` | stringa | Sì |
 
-### `get_document_info`
-
-Ottieni i metadati del documento.
-
-**Restituisce:** `{ filePath, isDirty, title, wordCount, charCount }`
-
-### `close_window`
-
-Chiudi una finestra.
-
-### `list_recent_files`
-
-Elenca i file aperti di recente.
-
-**Restituisce:** Array di `{ path, name, timestamp }` (fino a 10 file, il più recente per primo).
-
-### `get_info`
-
-Ottieni informazioni sullo stato corrente del workspace.
-
-**Restituisce:** `{ isWorkspaceMode, rootPath, workspaceName }`
-
-### `reload_document`
-
-Ricarica il documento attivo dal disco.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `force` | booleano | No | Forza il ricaricamento anche se il documento ha modifiche non salvate. Predefinito: false. |
-
-Fallisce se il documento è senza titolo o ha modifiche non salvate senza `force: true`.
-
----
-
-## `tabs`
-
-Gestisci le schede editor all'interno delle finestre. 6 azioni.
-
-Tutte le azioni accettano un parametro opzionale `windowId`.
-
-### `list`
-
-Elenca tutte le schede in una finestra.
-
-**Restituisce:** Array di `{ id, title, filePath, isDirty, isActive }`
-
-### `switch`
-
-Passa a una scheda specifica.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `tabId` | stringa | Sì | ID della scheda a cui passare. |
+Restituisce `{revision}`.
 
 ### `close`
 
-Chiudi una scheda.
+Chiude una scheda. Rifiuta di scartare lavoro non salvato senza `force`.
 
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `tabId` | stringa | No | ID della scheda da chiudere. Il valore predefinito è la scheda attiva. |
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `tabId` | stringa | Sì |
+| `force` | booleano | No |
 
-### `create`
+Restituisce `{closed: true}` in caso di successo, `{closed: false, reason: "DIRTY"}` se la scheda è modificata e `force` non è stato fornito.
 
-Crea una nuova scheda vuota.
+### `switch_tab`
 
-**Restituisce:** `{ tabId }`
+Attiva una scheda.
 
-### `get_info`
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `tabId` | stringa | Sì |
 
-Ottieni informazioni dettagliate sulla scheda.
+### `focus_window`
 
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `tabId` | stringa | No | ID della scheda. Il valore predefinito è la scheda attiva. |
+Porta in primo piano una finestra.
 
-**Restituisce:** `{ id, title, filePath, isDirty, isActive }`
-
-### `reopen_closed`
-
-Riapri la scheda chiusa più di recente.
-
-**Restituisce:** `{ tabId, filePath, title }` o messaggio se nessuna è disponibile.
-
-VMark tiene traccia delle ultime 10 schede chiuse per finestra.
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `windowLabel` | stringa | Sì |
 
 ---
 
-## `media`
+## `document`
 
-Inserisci matematica, diagrammi, media, wiki link e formattazione CJK. 11 azioni.
+Leggere, scrivere, trasformare. La spina dorsale della superficie.
 
-Tutte le azioni accettano un parametro opzionale `windowId`.
+### `read`
 
-### `math_inline`
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `tabId` | stringa | No (predefinito su quella in primo piano) |
 
-Inserisci matematica LaTeX inline.
+Restituisce `{content, revision, filePath, kind, dirty}`. Leggi sempre prima di scrivere — il token `revision` deve accompagnare il prossimo `write`.
 
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `latex` | stringa | Sì | Espressione LaTeX (es. `E = mc^2`). |
+### `write`
 
-### `math_block`
-
-Inserisci un'equazione matematica a livello di blocco.
+Sostituisce il contenuto completo del documento.
 
 | Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `latex` | stringa | Sì | Espressione LaTeX. |
+|-----------|------|-----------|-------------|
+| `tabId` | stringa | No | Scheda di destinazione (predefinito su quella in primo piano) |
+| `content` | stringa | Sì | Nuovo contenuto completo |
+| `expected_revision` | stringa | No | Token di revisione dalla lettura più recente |
 
-### `mermaid`
+Se viene fornito `expected_revision` e il documento è cambiato dopo quella lettura, la risposta è una busta di errore strutturato `STALE` con la revisione corrente; rileggi e riprova.
 
-Inserisci un diagramma Mermaid.
+```json
+// successo
+{ "revision": "rev-newAfterWrite" }
 
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `code` | stringa | Sì | Codice del diagramma Mermaid. |
+// stale
+{ "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
+```
 
-### `markmap`
+### `transform`
 
-Inserisci una mappa mentale Markmap. Usa le intestazioni Markdown standard per definire l'albero.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `code` | stringa | Sì | Markdown con intestazioni che definiscono l'albero della mappa mentale. |
-
-### `svg`
-
-Inserisci un grafico SVG. L'SVG viene renderizzato inline con pan, zoom ed esportazione PNG.
+Applica una riscrittura deterministica. Attualmente supporta trasformazioni specifiche CJK (conversione punteggiatura larghezza intera ↔ ASCII, spaziatura CJK ↔ Latino).
 
 | Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `code` | stringa | Sì | Markup SVG (XML valido con radice `<svg>`). |
+|-----------|------|-----------|-------------|
+| `tabId` | stringa | No | Scheda di destinazione |
+| `kind` | stringa | Sì | `"cjk-format"`, `"cjk-spacing"` o `"cjk-punctuation"` |
+| `expected_revision` | stringa | No | Token di concorrenza |
 
-### `wiki_link`
+`cjk-format` applica le impostazioni di formattazione CJK dell'utente end-to-end. `cjk-spacing` inserisce singoli spazi tra caratteri CJK e Latini/cifre adiacenti. `cjk-punctuation` converte la punteggiatura ASCII che si trova accanto ai caratteri CJK nella sua forma a larghezza intera.
 
-Inserisci un collegamento in stile wiki.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `target` | stringa | Sì | Destinazione del collegamento (nome della pagina). |
-| `displayText` | stringa | No | Testo visualizzato (se diverso dalla destinazione). |
-
-**Risultato:** `[[target]]` o `[[target|displayText]]`
-
-### `video`
-
-Inserisci un elemento video HTML5.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `src` | stringa | Sì | Percorso del file video o URL. |
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `title` | stringa | No | Attributo titolo. |
-| `poster` | stringa | No | Percorso immagine poster o URL. |
-
-### `audio`
-
-Inserisci un elemento audio HTML5.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `src` | stringa | Sì | Percorso del file audio o URL. |
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `title` | stringa | No | Attributo titolo. |
-
-### `video_embed`
-
-Inserisci un embed video (iframe). Supporta YouTube (privacy migliorata), Vimeo e Bilibili.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `videoId` | stringa | Sì | ID video (YouTube: 11 caratteri, Vimeo: numerico, Bilibili: BV ID). |
-| `baseRevision` | stringa | Sì | Revisione del documento. |
-| `provider` | stringa | No | `youtube` (predefinito), `vimeo`, o `bilibili`. |
-
-### `cjk_punctuation`
-
-Converti la punteggiatura tra mezza larghezza e larghezza intera.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `direction` | stringa | Sì | `to-fullwidth` o `to-halfwidth`. |
-
-### `cjk_spacing`
-
-Aggiungi o rimuovi la spaziatura tra caratteri CJK e latini.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `spacingAction` | stringa | Sì | `add` o `remove`. |
+Restituisce `{revision}`.
 
 ---
 
-## `suggestions`
+## `workflow`
 
-Gestisci i suggerimenti di modifica generati dall'IA in attesa di approvazione dell'utente. 5 azioni.
+Validazione `actionlint` e **modifiche chirurgiche CST-safe** per lo YAML dei workflow GitHub Actions. Disponibile solo per le schede il cui `kind` è `"yaml-workflow"`.
 
-Quando l'IA usa `document` → `insert_at_cursor` / `insert_at_position` / `replace_in_source`, `selection` → `replace`, o `document` → `apply_diff` / `batch_edit`, le modifiche vengono messe in staging come suggerimenti che richiedono l'approvazione dell'utente.
+::: info `document.read` / `document.write` funzionano su ogni scheda — incluso lo YAML del workflow
+Lo strumento `workflow` **non** è un sostituto della spina dorsale lettura/scrittura. Per una scheda di workflow, puoi:
 
-Tutte le azioni accettano un parametro opzionale `windowId`.
+- `document.read` per ottenere il testo YAML grezzo (con tutti i commenti)
+- `document.write` per sostituirlo interamente (qualsiasi stringa invii viene memorizzata letteralmente — i commenti vengono preservati se li includi)
+- `workflow.apply_patch` quando vuoi che **il server stesso garantisca** che commenti, ancore e ordine delle chiavi sopravvivano a una modifica parziale
 
-::: info Sicurezza Annulla/Ripristina
-I suggerimenti non modificano il documento finché non vengono accettati. Questo preserva la piena funzionalità annulla/ripristina — gli utenti possono annullare dopo aver accettato, e il rifiuto non lascia tracce nella cronologia.
+Usa `apply_patch` quando cambi un campo lasciando tutto il resto intatto (il server non può eliminare i commenti che non modifica). Usa `document.write` quando stai riscrivendo interamente o generando un nuovo workflow da zero.
 :::
 
-::: tip Modalità Approvazione Automatica
-Se **Approva automaticamente le modifiche** è abilitato in Impostazioni → Integrazioni, le modifiche vengono applicate direttamente senza creare suggerimenti. Le azioni seguenti sono necessarie solo quando l'approvazione automatica è disabilitata (l'impostazione predefinita).
-:::
+### `apply_patch`
 
-### `list`
+Applica un array di oggetti `IRPatch`. Le patch sono inviate attraverso i mutatori CST-aware di VMark, che preservano commenti, ancore e ordine delle chiavi. Un `document.write` grezzo su un file YAML li perderebbe.
 
-Elenca tutti i suggerimenti in attesa.
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `tabId` | stringa | No |
+| `patches` | IRPatch[] | Sì |
+| `expected_revision` | stringa | No |
 
-**Restituisce:** `{ suggestions: [...], count, focusedId }`
+`IRPatch` è un'unione discriminata (campo `kind`). Tipi supportati:
 
-Ogni suggerimento include `id`, `type` (`insert`, `replace`, `delete`), `from`, `to`, `newContent`, `originalContent`, e `createdAt`.
+| `kind` | Effetto |
+|---|---|
+| `workflow.set` | Imposta i campi top-level (`{path, value}`) — `name`, `env.X`, ecc. |
+| `job.set` | Imposta un campo su un job (`{jobId, path, value}`) |
+| `step.set` | Imposta un campo su uno step (`{jobId, stepIndex, path, value}`) |
+| `with.set` | Imposta una chiave nel blocco `with:` di uno step (`{jobId, stepIndex, key, value}`) |
+| `with.remove` | Rimuove una chiave dal blocco `with:` di uno step |
+| `needs.add` / `needs.remove` | Aggiungi o rimuovi un ID job da `needs:` |
+| `trigger.setFilters` | Sostituisci un array di filtri trigger — branches, paths, types, ecc. (`{event, filter, value: string[]}`) |
 
-### `accept`
+Restituisce `{revision}` in caso di successo o una busta di errore strutturato `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW`.
 
-Accetta un suggerimento specifico, applicando le sue modifiche al documento.
+### `validate`
 
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `suggestionId` | stringa | Sì | ID del suggerimento da accettare. |
+Esegui `actionlint` sullo YAML del workflow.
 
-### `reject`
+| Parametro | Tipo | Richiesto |
+|-----------|------|-----------|
+| `tabId` | stringa | No |
 
-Rifiuta un suggerimento specifico, scartandolo senza modifiche.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `suggestionId` | stringa | Sì | ID del suggerimento da rifiutare. |
-
-### `accept_all`
-
-Accetta tutti i suggerimenti in attesa nell'ordine del documento.
-
-### `reject_all`
-
-Rifiuta tutti i suggerimenti in attesa.
+Restituisce `{ok, diagnostics, binaryAvailable}`. Ogni diagnostica trasporta `{line, col, message, severity}`. `binaryAvailable: false` significa che `actionlint` non è installato localmente; installa tramite Homebrew o le release upstream.
 
 ---
 
-## Strumenti di Protocollo
+## Errori
 
-Due strumenti standalone per interrogare le capacità del server e lo stato del documento. Questi non usano il pattern `action` composito.
+Compaiono due forme di errore:
 
-### `get_capabilities`
+**Errori di dominio** — impostano `success: false` e restituiscono una busta codificata in JSON in `error`:
 
-Ottieni le capacità del server MCP e gli strumenti disponibili.
+```json
+{ "error": "STALE", "message": "...", "current_revision": "rev-..." }
+```
 
-**Restituisce:** `{ version, supportedNodeTypes[], supportedQueryOperators[], limits, features }`
+**Errori sulla forma degli argomenti** — per argomenti richiesti mancanti/non validi (ad es. `document.write` senza un campo `content`), `error` è una stringa semplice che descrive il problema. La busta strutturata è riservata alle condizioni a livello di dominio.
 
-### `get_document_revision`
-
-Ottieni la revisione corrente del documento per il blocco ottimistico.
-
-| Parametro | Tipo | Richiesto | Descrizione |
-|-----------|------|----------|-------------|
-| `windowId` | stringa | No | Identificatore della finestra. |
-
-**Restituisce:** `{ revision, lastUpdated }`
-
-Usa la revisione nelle azioni di mutazione per rilevare le modifiche concorrenti.
-
----
-
-## Risorse MCP
-
-Oltre agli strumenti, VMark espone queste risorse di sola lettura:
-
-| URI Risorsa | Descrizione |
-|-------------|-------------|
-| `vmark://document/outline` | Gerarchia delle intestazioni del documento |
-| `vmark://document/metadata` | Metadati del documento (percorso, conteggio parole, ecc.) |
-| `vmark://windows/list` | Elenco delle finestre aperte |
-| `vmark://windows/focused` | Etichetta della finestra attualmente in primo piano |
+| Codice | Mostrato come | Significato |
+|---|---|---|
+| `STALE` | busta | `expected_revision` non corrispondeva; rileggi e riprova |
+| `INVALID_PATCH` | busta | `workflow.apply_patch` ha ricevuto un array `patches` malformato |
+| `INVALID_TAB` | busta | `tabId` non poteva essere risolto |
+| `INVALID_PATH` | busta | `workspace.open` ha ricevuto un `filePath` che non poteva essere letto |
+| `NOT_WORKFLOW` | busta | `workflow.*` è stato chiamato su una scheda non YAML-workflow |
+| `READ_ONLY` | busta | È stata tentata una mutazione su un documento di sola lettura |
+| `INTERNAL` | busta | Errore inaspettato del gestore |
+| (stringa semplice) | stringa | Argomento richiesto mancante o tipo errato |

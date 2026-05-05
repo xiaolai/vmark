@@ -78,18 +78,37 @@ Le scorciatoie shell standard come `Ctrl+R` (ricerca cronologia inversa in zsh/b
 
 Quando apri un workspace o un file dopo che il terminale è già in esecuzione, tutte le sessioni eseguono automaticamente `cd` alla nuova radice del workspace.
 
+## Pausa / Ripristino
+
+Per processi a lunga esecuzione che producono output prolisso, puoi sospendere il processo shell sottostante da VMark per liberare CPU senza terminare la sessione. Ripristinando il processo continua da dove era stato interrotto.
+
+| Azione | Come |
+|---|---|
+| Metti in pausa la sessione attiva | Clic destro sulla scheda della sessione → **Pausa** |
+| Ripristina la sessione in pausa | Clic destro sulla scheda in pausa → **Ripristina** |
+
+Mentre è in pausa:
+
+- La scheda della sessione mostra un indicatore attenuato
+- La shell riceve `SIGSTOP` (POSIX); il sistema operativo sospende lo scheduling del processo
+- L'output bufferizzato già scritto sul terminale è preservato sullo schermo, ma non appare nuovo output finché non ripristini
+- I controlli di terminazione / cancellazione / riavvio rimangono disponibili
+
+Pausa/Ripristino è una funzionalità solo per macOS/Linux — il controllo dei processi di Windows non espone un segnale di sospensione equivalente, quindi le voci del menu sono nascoste nelle build di Windows.
+
 ## Impostazioni
 
 Apri **Impostazioni → Terminale** per configurare:
 
-| Impostazione | Intervallo | Predefinito |
-|-------------|-----------|-------------|
-| Dimensione Font | 10 – 24 px | 13 px |
-| Interlinea | 1.0 – 2.0 | 1.2 |
-| Copia alla Selezione | Attivo / Off | Off |
+| Impostazione | Intervallo | Predefinito | Piattaforme |
+|-------------|-----------|-------------|-------------|
+| Dimensione Font | 10 – 24 px | 13 px | Tutte |
+| Interlinea | 1.0 – 2.0 | 1.2 | Tutte |
+| Copia alla Selezione | Attivo / Off | Off | Tutte |
+| Mac Option come Meta | Attivo / Off | Off | macOS |
 
-Le modifiche si applicano immediatamente a tutte le sessioni aperte.
+Le modifiche si applicano immediatamente a tutte le sessioni aperte. **Mac Option come Meta** instrada il tasto Option di macOS come Meta nel terminale integrato in modo che emacs, tmux e strumenti simili vedano scorciatoie con prefisso Alt.
 
 ## Persistenza
 
-La visibilità e l'altezza del pannello terminale vengono salvate e ripristinate tra i riavvii hot-exit. I processi shell stessi non possono essere preservati — una shell nuova viene avviata per ogni sessione al riavvio.
+La visibilità e l'altezza del pannello terminale vengono salvate e ripristinate tra i riavvii hot-exit. I processi shell stessi non possono essere preservati — una shell nuova viene avviata per ogni sessione al riavvio, e qualsiasi sessione in pausa perde il suo stato `SIGSTOP` insieme al processo stesso.

@@ -496,6 +496,21 @@ Format as a bullet list. If everything looks solid, say
 {{content}}
 ```
 
+## Suggerimenti IA
+
+Quando un Genie restituisce testo destinato a essere una sostituzione per la selezione (piuttosto che una risposta di chat libera), VMark lo mostra come **suggerimento** con un diff inline: barrato rosso per il testo originale, sottolineatura verde per il testo proposto. Esamini e approvi prima che qualsiasi modifica persista.
+
+| Azione | Scorciatoia |
+|---|---|
+| Accetta il suggerimento focalizzato | `Tab` |
+| Rifiuta il suggerimento focalizzato | `Esc` |
+| Accetta tutti i suggerimenti nel documento | `Mod + Shift + Enter` _(contestuale — anche Aggiungi riga sopra quando all'interno di una tabella)_ |
+| Cicla al suggerimento successivo | `Tab` da una posizione non focalizzata |
+
+Quando un Genie riscrive più paragrafi, ogni sostituzione è il proprio suggerimento navigabile in modo indipendente. Accettarne uno non accetta automaticamente gli altri.
+
+L'interfaccia dei suggerimenti ha anche una superficie MCP — gli agenti IA esterni connessi tramite il [server MCP](/it/guide/mcp-tools) possono emettere azioni `suggestion.accept` / `suggestion.reject` per manipolare lo stesso stato.
+
 ## Limitazioni
 
 - I genies funzionano solo in **modalità WYSIWYG**. In modalità sorgente, una notifica toast spiega questo.

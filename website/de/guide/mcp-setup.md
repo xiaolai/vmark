@@ -52,7 +52,7 @@ Jeder Anbieter zeigt einen Status-Indikator:
 | Symbol | Status | Bedeutung |
 |--------|--------|-----------|
 | ✓ Grün | Gültig | Konfiguration ist korrekt und funktioniert |
-| ⚠️ Amber | Pfad-Diskrepanz | VMark wurde verschoben — klicken Sie auf **Reparieren** |
+| ⚠ Amber | Pfad-Diskrepanz | VMark wurde verschoben — klicken Sie auf **Reparieren** |
 | ✗ Rot | Binary fehlt | MCP-Binary nicht gefunden — VMark neu installieren |
 | ○ Grau | Nicht konfiguriert | Nicht installiert — klicken Sie auf **Installieren** |
 
@@ -157,7 +157,7 @@ Der Port wird automatisch erkannt — keine `args` erforderlich.
 
 ## Funktionsweise
 
-```
+```text
 KI-Assistent <--stdio--> MCP-Server <--WebSocket--> VMark-Editor
 ```
 
@@ -236,7 +236,7 @@ In **Einstellungen → Integrationen**, wenn der Server läuft, sehen Sie:
 Wenn Sie VMark.app an einen anderen Ort verschoben haben (z.B. von Downloads zu Programme), verweist die Konfiguration auf den alten Pfad:
 
 1. Öffnen Sie **Einstellungen → Integrationen**
-2. Achten Sie auf das amber ⚠️ Warnsymbol neben betroffenen Anbietern
+2. Achten Sie auf das amber ⚠ Warnsymbol neben betroffenen Anbietern
 3. Klicken Sie auf **Reparieren**, um den Pfad zu aktualisieren
 4. Starten Sie Ihren KI-Assistenten neu
 

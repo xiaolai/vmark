@@ -496,6 +496,21 @@ Formate como lista com marcadores. Se tudo parecer sólido, diga
 {{content}}
 ```
 
+## Sugestões de IA
+
+Quando um Gênio retorna um texto destinado a substituir a seleção (em vez de uma resposta de chat livre), o VMark exibe o resultado como uma **sugestão** com diff inline: tachado em vermelho para o texto original, sublinhado em verde para o texto proposto. Você revisa e aprova antes de qualquer alteração ser persistida.
+
+| Ação | Atalho |
+|------|--------|
+| Aceitar a sugestão em foco | `Tab` |
+| Rejeitar a sugestão em foco | `Esc` |
+| Aceitar todas as sugestões do documento | `Mod + Shift + Enter` _(sensível ao contexto — também Adicionar Linha Acima quando dentro de uma tabela)_ |
+| Avançar para a próxima sugestão | `Tab` a partir de uma posição fora de foco |
+
+Quando um Gênio reescreve vários parágrafos, cada substituição é uma sugestão independente, navegável separadamente. Aceitar uma não aceita automaticamente as outras.
+
+A interface de sugestões também tem uma superfície MCP — agentes de IA externos conectados pelo [servidor MCP](/pt-BR/guide/mcp-tools) podem emitir as ações `suggestion.accept` / `suggestion.reject` para manipular o mesmo estado.
+
 ## Limitações
 
 - Os gênios só funcionam no **modo WYSIWYG**. No modo fonte, uma notificação de toast explica isso.

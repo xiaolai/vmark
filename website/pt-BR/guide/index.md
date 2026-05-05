@@ -109,10 +109,10 @@ O VMark inclui Gênios de IA integrados — selecione texto e pressione `Mod + Y
 
 ## Dicas para Começar
 
-1. **Navegue com o esboço**: Clique nos itens do esboço para pular para seções
-2. **Experimente os Gênios de IA**: Selecione texto e pressione `Mod + Y` para polir, reformular ou expandir
-3. **Experimente o modo foco**: `F8` ajuda você a se concentrar no parágrafo atual
-4. **Aprenda os atalhos**: Consulte o [guia de atalhos](/pt-BR/guide/shortcuts) para eficiência
+1. **Navegue com o esboço**: Clique nos itens do esboço para pular entre seções
+2. **Experimente o modo foco**: `F8` esmaece tudo, exceto o parágrafo atual
+3. **Valide enquanto escreve**: `Cmd + Shift + L` executa o motor de lint de markdown e a verificação de links quebrados
+4. **Aprenda os atalhos**: a referência completa está no [guia de atalhos](/pt-BR/guide/shortcuts)
 
 ## Próximos Passos
 

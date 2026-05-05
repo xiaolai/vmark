@@ -32,7 +32,7 @@ Enveloppez le balisage SVG brut dans un bloc de code délimité avec l'identifia
   <text x="100" y="55" text-anchor="middle" fill="white"
         font-size="18" font-family="system-ui">Hello SVG</text>
 </svg>
-```
+```text
 ````
 
 Le SVG s'affiche en ligne — tout comme les diagrammes Mermaid — avec des contrôles interactifs.

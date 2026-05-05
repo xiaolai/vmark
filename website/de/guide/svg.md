@@ -32,7 +32,7 @@ Rohe SVG-Markierung in einem umzäunten Code-Block mit der `svg`-Sprachkennung e
   <text x="100" y="55" text-anchor="middle" fill="white"
         font-size="18" font-family="system-ui">Hello SVG</text>
 </svg>
-```
+```text
 ````
 
 Das SVG wird inline gerendert — genau wie Mermaid-Diagramme — mit interaktiven Steuerelementen.

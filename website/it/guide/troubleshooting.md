@@ -1,5 +1,22 @@
 # Risoluzione dei problemi
 
+## Ricerca rapida
+
+Problemi comuni e dove cercare la soluzione:
+
+| Sintomo | Causa probabile | Dove cercare |
+|---|---|---|
+| Il client MCP non riesce a connettersi | File porta obsoleto o VMark non in esecuzione | [Problemi di connessione del server MCP](#problemi-di-connessione-del-server-mcp) |
+| Il file non si apre o mostra testo illeggibile | Codifica non UTF-8 o attributo di quarantena | [Il file non si apre](#il-file-non-si-apre) |
+| Il Genie IA si blocca o non restituisce nulla | Provider mal configurato o CLI non nel PATH | [Il Genio IA non risponde](#il-genio-ia-non-risponde) |
+| La scorciatoia da tastiera non fa nulla | Riassegnata nelle Impostazioni o sovrascritta dal sistema | [La scorciatoia da tastiera non funziona](#la-scorciatoia-da-tastiera-non-funziona) |
+| Editor lento su file di grandi dimensioni | Memoria per scheda + ritardo di input oltre 10K righe | [Prestazioni dell'editor](#prestazioni-dell-editor) |
+| Il menu è ancora in inglese dopo il cambio di lingua | Il menu si ricostruisce all'avvio | [La barra dei menu mostra l'inglese](#la-barra-dei-menu-mostra-l-inglese-dopo-il-cambio-di-lingua) |
+| Esportazione PDF incompleta | Percorsi delle immagini o permessi di scrittura | [Problemi di esportazione/stampa](#problemi-di-esportazione-stampa) |
+| Avvio lento su Windows | Scansione antivirus + WebView2 | [L'applicazione si avvia lentamente su Windows](#l-applicazione-si-avvia-lentamente-su-windows) |
+
+Per qualsiasi cosa non elencata sopra, consulta [Segnalare bug](#segnalare-bug).
+
 ## File di log
 
 VMark scrive file di log per aiutare a diagnosticare i problemi. I log includono avvisi ed errori sia dal backend Rust che dal frontend.

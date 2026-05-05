@@ -2,7 +2,7 @@
 
 VMark's settings panel lets you customize every aspect of the editor. Open it with `Mod + ,` or via **VMark > Settings** in the menu bar.
 
-The settings window has a sidebar with sections listed alphabetically. Changes take effect immediately — there is no save button.
+The settings window has a sidebar with sections grouped by topic — the most-used sections appear first, with About and Advanced at the bottom. Changes take effect immediately — there is no save button.
 
 ## Appearance
 
@@ -93,7 +93,8 @@ Paste behavior, layout, and HTML rendering settings.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Enable regex in search | Show a regex toggle button in the Find & Replace bar | On | On / Off |
-| Smart paste Markdown | When pasting text that looks like Markdown into the WYSIWYG editor, automatically convert it to rich content | Auto (detect Markdown) | Auto (detect Markdown), Off |
+| Paste mode | How VMark routes content from the clipboard | Smart | Smart, Plain |
+| Markdown paste in WYSIWYG | When pasting text that looks like Markdown into the WYSIWYG editor, automatically convert it to rich content | Auto | Auto, Off |
 
 ### Layout
 
@@ -109,6 +110,8 @@ Paste behavior, layout, and HTML rendering settings.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Enable markdown lint | Check for common markdown issues (broken links, missing alt text, heading increments, unclosed fences, etc.) | On | On / Off |
+
+See [Markdown Lint](/guide/lint) for the full rule list and severity levels.
 
 ### HTML Rendering
 
@@ -158,6 +161,24 @@ These settings only apply when a workspace (folder) is open.
 | Auto-resize on paste | Automatically resize large images before saving to the assets folder. The value is the maximum dimension in pixels | Off | Off, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copy to assets folder | Copy pasted or dropped images into the document's assets folder instead of embedding them | On | On / Off |
 | Clean up unused images on close | Automatically delete images from the assets folder that are no longer referenced in the document when you close it | Off | On / Off |
+| Inline image threshold | Maximum size (MB) for embedding images as base64 data URLs in HTML/PDF export. Larger files are linked instead | 1.0 MB | 0.1 – 10 MB |
+
+### Large Files
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Warn above size | Show a confirmation prompt when opening files above this size | 5 MB | On / Off |
+| Auto Source mode | Automatically open files above the threshold in Source mode (skips WYSIWYG to keep performance smooth) | On | On / Off |
+
+See [Large Files](/guide/large-files) for the full breakdown of how large files are handled.
+
+### Updates
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Check frequency | When to check for new VMark releases | On startup | On startup, Daily, Weekly, Manual |
+| Auto-download updates | Download release artifacts in the background once an update is detected | Off | On / Off |
+| Skip a version | Suppresses the update prompt for a specific version (set per-update from the prompt itself) | None | — |
 
 ::: tip
 Enable **Auto-resize on paste** if you frequently paste screenshots or photos — it keeps your assets folder lightweight without manual resizing.
@@ -205,7 +226,7 @@ See [AI Providers](/guide/ai-providers) for detailed setup instructions for each
 
 ## Language
 
-CJK (Chinese, Japanese, Korean) formatting rules. These rules are applied when you run **Format > Format CJK Text** (`Cmd+Shift+F`).
+CJK (Chinese, Japanese, Korean) formatting rules. These rules are applied when you run **Format → Format CJK Selection** (`Cmd+Shift+F`) on a selection, or **Format → Format CJK Document** (`Alt+Cmd+Shift+F`) on the whole file.
 
 ::: tip
 The Language section contains 20+ fine-grained formatting toggles. For a full explanation of each rule with examples, see [CJK Formatting](/guide/cjk-formatting).
@@ -315,6 +336,22 @@ This lets you create links like `obsidian://open?vault=...` or `vscode://file/..
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Keep both editors alive | Mount both the WYSIWYG and Source mode editors simultaneously for faster mode switching. Increases memory usage | Off |
+
+### Workflow Engine
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Workflow engine | Enable the GitHub Actions workflow viewer/editor for `.yml`/`.yaml` files under `.github/workflows/`. When off, those files open as plain YAML | Off | On / Off |
+| Preserve YAML formatting | When saving workflow edits made via the form panel, preserve the original YAML's comments, anchors, key order, and blank lines via the CST round-trip pipeline. When off, save uses a compact serializer (faster but lossy) | On | On / Off |
+
+See [Workflow Viewer](/guide/workflow-viewer) for the full feature surface.
+
+### Platform-Specific
+
+| Setting | Description | Default | Platforms |
+|---------|-------------|---------|-----------|
+| Clear macOS quarantine on open | When opening a file that carries the macOS quarantine attribute (`com.apple.quarantine`), strip it before reading. Helpful for files downloaded from the web that VMark would otherwise be blocked from opening | On | macOS |
+| Mac Option as Meta (terminal) | Treat the macOS Option key as Meta in the integrated terminal. Required for tools like emacs and tmux that expect Alt-prefixed shortcuts | Off | macOS |
 
 ### Developer Tools
 

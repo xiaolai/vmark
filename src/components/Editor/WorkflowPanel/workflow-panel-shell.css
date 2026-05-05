@@ -1,0 +1,38 @@
+/* WI-2.4 — shared split-pane shell for workflow viewers. */
+
+.gha-panel-shell {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-color);
+  overflow: hidden;
+}
+
+.gha-panel-shell__pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.gha-panel-shell__pane--left {
+  flex: 0 0 auto;
+  border-right: var(--space-px) solid var(--border-color);
+}
+
+.gha-panel-shell__pane--right {
+  flex: 1 1 0;
+}
+
+.gha-panel-shell__handle {
+  flex: 0 0 var(--radius-sm);
+  background: transparent;
+  cursor: col-resize;
+  transition: background var(--duration-fast);
+}
+
+.gha-panel-shell__handle:hover,
+.gha-panel-shell__handle:active {
+  background: var(--accent-bg);
+}

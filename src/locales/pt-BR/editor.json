@@ -258,5 +258,9 @@
   "sourceTable.menu.alignAllLeft": "Alinhar tudo à esquerda",
   "sourceTable.menu.alignAllCenter": "Centralizar tudo",
   "sourceTable.menu.alignAllRight": "Alinhar tudo à direita",
-  "sourceTable.menu.formatTable": "Formatar tabela"
+  "sourceTable.menu.formatTable": "Formatar tabela",
+  "lint.linkNotFound": "Linked file not found: {{path}}",
+  "lint.imageNotFound": "Image file not found: {{path}}",
+  "lint.yamlParseError": "YAML: {{message}}",
+  "lint.yamlParseWarning": "YAML: {{message}}"
 }

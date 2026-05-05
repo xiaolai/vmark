@@ -2,8 +2,8 @@
  * Code Preview Tiptap Extension
  *
  * Purpose: Renders live previews below code blocks for special languages (LaTeX/math,
- * Mermaid diagrams, Markmap mindmaps, SVG) in WYSIWYG mode. Also handles click-to-edit
- * for block math ($$...$$ code blocks).
+ * Mermaid diagrams, Markmap mindmaps, SVG, GitHub Actions workflow YAML) in WYSIWYG mode.
+ * Also handles click-to-edit for block math ($$...$$ code blocks).
  *
  * Pipeline: code_block node -> detect language -> render preview widget decoration
  *         -> debounced re-render on content change -> click to edit -> Cmd+Enter to commit
@@ -15,6 +15,8 @@
  *   - Each preview type has its own renderer (in renderers/ directory)
  *   - Block math uses a special "$$math$$" sentinel language to distinguish from regular latex
  *   - Export buttons (copy SVG, download PNG) are injected into diagram previews
+ *   - YAML code fences are previewed only when content has workflow shape
+ *     (isWorkflowYaml). Plain YAML blocks (docker-compose, etc.) stay as text.
  *   - Plugin state tracks `codeBlockRanges` so the apply() fast path can skip the full
  *     doc.descendants() scan when a transaction doesn't touch any code block
  *
@@ -48,11 +50,32 @@ import { updateLatexLivePreview, createLatexPreviewWidget } from "./renderers/re
 import { updateMermaidLivePreview, createMermaidPreviewWidget } from "./renderers/renderMermaidPreview";
 import { updateMarkmapLivePreview, createMarkmapPreviewWidget } from "./renderers/renderMarkmapPreview";
 import { updateSvgLivePreview, createSvgPreviewWidget } from "./renderers/renderSvgPreview";
+import {
+  updateWorkflowLivePreview,
+  createWorkflowPreviewWidget,
+} from "./renderers/renderWorkflowPreview";
+import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
 import "./code-preview.css";
 
 const codePreviewPluginKey = new PluginKey("codePreview");
 const PREVIEW_ONLY_LANGUAGES = new Set(["latex", "mermaid", "markmap", "svg", "$$math$$"]);
 const DEBOUNCE_MS = 200;
+
+/**
+ * True when this code block should get an inline preview. Either:
+ *   - language is in PREVIEW_ONLY_LANGUAGES (latex, mermaid, markmap, svg, $$math$$), OR
+ *   - language is yaml/yml AND content has GitHub Actions workflow shape.
+ *
+ * Content-based gating for yaml means a docker-compose.yml in a fenced
+ * code block stays as plain text; only real workflows get the diagram.
+ */
+function isPreviewable(language: string, content: string): boolean {
+  if (PREVIEW_ONLY_LANGUAGES.has(language)) return true;
+  if (language === "yaml" || language === "yml") {
+    return isWorkflowYaml(content);
+  }
+  return false;
+}
 
 // Store current editor view for button callbacks
 let currentEditorView: EditorView | null = null;
@@ -121,6 +144,8 @@ function updateLivePreview(
         await updateMermaidLivePreview(element, trimmed, currentToken, getToken);
       } else if (language === "markmap") {
         await updateMarkmapLivePreview(element, trimmed, currentToken, getToken);
+      } else if (language === "yaml" || language === "yml") {
+        await updateWorkflowLivePreview(element, trimmed, currentToken, getToken);
       } else {
         // Only "svg" reaches this branch among PREVIEW_ONLY_LANGUAGES
         updateSvgLivePreview(element, trimmed, currentToken, getToken);
@@ -298,8 +323,13 @@ export const codePreviewExtension = Extension.create({
             ) {
               let newCodeBlockCount = 0;
               newState.doc.forEach((node) => {
-                if ((node.type.name === "codeBlock" || node.type.name === "code_block") &&
-                    PREVIEW_ONLY_LANGUAGES.has((node.attrs.language ?? "").toLowerCase())) {
+                if (
+                  (node.type.name === "codeBlock" || node.type.name === "code_block") &&
+                  isPreviewable(
+                    (node.attrs.language ?? "").toLowerCase(),
+                    node.textContent,
+                  )
+                ) {
                   newCodeBlockCount++;
                 }
               });
@@ -327,9 +357,8 @@ export const codePreviewExtension = Extension.create({
               if (node.type.name !== "codeBlock" && node.type.name !== "code_block") return;
 
               const language = (node.attrs.language ?? "").toLowerCase();
-              if (!PREVIEW_ONLY_LANGUAGES.has(language)) return;
-
               const content = node.textContent;
+              if (!isPreviewable(language, content)) return;
               const cacheKey = `${language}:${content}`;
               const nodeStart = pos;
               const nodeEnd = pos + node.nodeSize;
@@ -418,7 +447,9 @@ export const codePreviewExtension = Extension.create({
               if (!content.trim()) {
                 const placeholderLabel = language === "mermaid" ? "Empty diagram"
                   : language === "markmap" ? "Empty mindmap"
-                  : language === "svg" ? "Empty SVG" : "Empty math block";
+                  : language === "svg" ? "Empty SVG"
+                  : (language === "yaml" || language === "yml") ? "Empty workflow"
+                  : "Empty math block";
                 const widget = Decoration.widget(
                   nodeEnd,
                   (view) => createPreviewPlaceholder(language, placeholderLabel, () => handleEnterEdit(view)),
@@ -466,10 +497,22 @@ export const codePreviewExtension = Extension.create({
               }
 
               // Mermaid (async rendering with placeholder)
-              /* v8 ignore next -- @preserve unreachable false branch: all non-mermaid PREVIEW_ONLY_LANGUAGES return early above */
               if (language === "mermaid") {
                 newDecorations.push(
                   createMermaidPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
+                );
+                return;
+              }
+
+              // GitHub Actions workflow YAML (async via xyflow snapshot
+              // pipeline). Pipes IR → toGraph + applyLayout → hidden
+              // ReactFlow root → html-to-image.toSvg → cached SVG.
+              // Visual parity with the side-panel JobNode by sharing
+              // the same React subtree. See
+              // dev-docs/plans/20260504-workflow-fence-snapshot.md.
+              if (language === "yaml" || language === "yml") {
+                newDecorations.push(
+                  createWorkflowPreviewWidget(nodeEnd, content, cacheKey, previewCache, handleEnterEdit)
                 );
               }
             });

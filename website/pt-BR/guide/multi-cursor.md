@@ -144,6 +144,10 @@ As operações de múltiplos cursores têm **escopo no bloco atual** para evitar
 
 Pressione `Escape` para colapsar de volta para um único cursor na posição principal.
 
+::: tip Estabilidade do cursor
+Cursores colapsados permanecem estáveis quando o texto é inserido na posição do cursor. Eles não se expandirão inesperadamente em seleções após inserções mapeadas (corrigido na v0.6.x).
+:::
+
 ## Feedback Visual
 
 - **Cursor principal** — cursor piscante padrão

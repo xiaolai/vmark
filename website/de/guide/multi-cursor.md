@@ -144,6 +144,10 @@ Mehrcursor-Operationen sind **auf den aktuellen Block beschränkt**, um unbeabsi
 
 `Escape` drücken, um auf einen einzelnen Cursor an der primären Position zu reduzieren.
 
+::: tip Cursor-Stabilität
+Reduzierte Cursor bleiben stabil, wenn Text an der Cursorposition eingefügt wird. Sie expandieren nach zugeordneten Einfügungen nicht unerwartet zu Auswahlen (behoben in v0.6.x).
+:::
+
 ## Visuelles Feedback
 
 - **Primärer Cursor** — Standard-blinkender Cursor

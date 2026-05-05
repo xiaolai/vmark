@@ -1,0 +1,33 @@
+# Sample workflow genie (WI-6.1).
+#
+# Chains two bundled v0 genies via `needs:` to demonstrate how YAML genie
+# files orchestrate multiple AI steps. The picker (Cmd+Y) lists this file
+# alongside the markdown genies; selecting it invokes the workflow runner.
+#
+# To customize: copy this file to your global genies directory
+# (~/Library/Application Support/com.vmark.app/genies/ on macOS) and
+# adjust steps, models, or with: parameters.
+#
+# Demonstrates:
+#   - genie/<name> step type (calls a markdown genie's prompt template)
+#   - needs: dependency between steps
+#   - ${{ steps.X.outputs.text }} expression to wire output → next input
+#   - Workflow defaults (approval, model) override-able per step.
+
+name: Outline and Polish
+description: Generate an outline, then polish the output for clarity.
+
+defaults:
+  approval: auto
+
+steps:
+  - id: outline
+    uses: genie/outline
+    with:
+      input: "Workflow runs need an input. Replace this seed with your topic before running."
+
+  - id: polish
+    uses: genie/polish
+    needs: outline
+    with:
+      input: ${{ steps.outline.outputs.text }}

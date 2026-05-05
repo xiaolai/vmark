@@ -144,6 +144,10 @@ Le operazioni multi-cursore hanno **ambito limitato al blocco corrente** per pre
 
 Premi `Escape` per comprimere di nuovo a un singolo cursore nella posizione primaria.
 
+::: tip Stabilità del cursore
+I cursori compressi rimangono stabili quando il testo viene inserito nella posizione del cursore. Non si espandono inaspettatamente in selezioni dopo inserimenti mappati (corretto in v0.6.x).
+:::
+
 ## Feedback Visivo
 
 - **Cursore primario** — cursore lampeggiante standard

@@ -78,18 +78,37 @@ Standard-Shell-Kürzel wie `Strg+R` (Rückwärtshistorie-Suche in zsh/bash) funk
 
 Wenn Sie einen Arbeitsbereich oder eine Datei öffnen, nachdem das Terminal bereits läuft, wechseln alle Sitzungen automatisch per `cd` zum neuen Arbeitsbereichsstammverzeichnis.
 
+## Pausieren / Fortsetzen
+
+Bei lang laufenden Prozessen mit umfangreicher Ausgabe können Sie den zugrunde liegenden Shell-Prozess aus VMark heraus aussetzen, um CPU freizugeben, ohne die Sitzung zu beenden. Beim Fortsetzen läuft der Prozess dort weiter, wo er aufgehört hat.
+
+| Aktion | Wie |
+|---|---|
+| Aktive Sitzung pausieren | Rechtsklick auf den Sitzungs-Tab → **Pausieren** |
+| Pausierte Sitzung fortsetzen | Rechtsklick auf den pausierten Tab → **Fortsetzen** |
+
+Während der Pause:
+
+- Der Sitzungs-Tab zeigt einen abgeblendeten Indikator
+- Die Shell empfängt `SIGSTOP` (POSIX); das Betriebssystem setzt das Scheduling für den Prozess aus
+- Bereits ausgegebene gepufferte Inhalte bleiben am Bildschirm erhalten, aber bis zum Fortsetzen erscheint keine neue Ausgabe
+- Die Schaltflächen für Beenden / Löschen / Neustart bleiben verfügbar
+
+Pausieren/Fortsetzen ist ausschließlich eine macOS-/Linux-Funktion — die Windows-Prozesssteuerung kennt kein entsprechendes Suspend-Signal, daher sind die Menüpunkte in Windows-Builds ausgeblendet.
+
 ## Einstellungen
 
 Öffnen Sie **Einstellungen → Terminal** zur Konfiguration:
 
-| Einstellung | Bereich | Standard |
-|-------------|---------|---------|
-| Schriftgröße | 10 – 24 px | 13 px |
-| Zeilenhöhe | 1,0 – 2,0 | 1,2 |
-| Bei Auswahl kopieren | Ein / Aus | Aus |
+| Einstellung | Bereich | Standard | Plattformen |
+|-------------|---------|---------|-------------|
+| Schriftgröße | 10 – 24 px | 13 px | Alle |
+| Zeilenhöhe | 1,0 – 2,0 | 1,2 | Alle |
+| Bei Auswahl kopieren | Ein / Aus | Aus | Alle |
+| Mac Option als Meta | Ein / Aus | Aus | macOS |
 
-Änderungen werden sofort auf alle geöffneten Sitzungen angewendet.
+Änderungen werden sofort auf alle geöffneten Sitzungen angewendet. **Mac Option als Meta** leitet die macOS-Option-Taste im integrierten Terminal als Meta weiter, sodass Werkzeuge wie emacs, tmux und ähnliche Alt-präfigierte Tastenkürzel sehen.
 
 ## Persistenz
 
-Sichtbarkeit und Höhe des Terminal-Panels werden gespeichert und bei Hot-Exit-Neustarts wiederhergestellt. Shell-Prozesse selbst können nicht erhalten werden — eine neue Shell wird für jede Sitzung beim Neustart gestartet.
+Sichtbarkeit und Höhe des Terminal-Panels werden gespeichert und bei Hot-Exit-Neustarts wiederhergestellt. Shell-Prozesse selbst können nicht erhalten werden — beim Neustart wird für jede Sitzung eine frische Shell erzeugt, und jede pausierte Sitzung verliert zusammen mit dem Prozess auch ihren `SIGSTOP`-Zustand.

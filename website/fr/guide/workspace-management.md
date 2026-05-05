@@ -28,6 +28,14 @@ L'explorateur de fichiers apparaît dans la barre latérale chaque fois qu'un es
 - **Clic simple** sur un dossier pour le développer ou le réduire
 - **Double-clic** ou **Entrée** sur un fichier pour l'ouvrir dans un onglet
 - Les fichiers non-markdown s'ouvrent avec l'application par défaut de votre système
+- Les dossiers démarrent réduits lors de la première ouverture d'un espace de travail&nbsp;; leur état d'ouverture est préservé lorsque vous basculez entre les vues Fichiers, Plan et Historique
+
+### Tout développer / Tout réduire
+
+Deux boutons dans l'en-tête de la vue Fichiers basculent toute l'arborescence d'un seul coup&nbsp;:
+
+- **Tout développer** — ouvre chaque dossier de l'arborescence
+- **Tout réduire** — ferme chaque dossier jusqu'à la racine
 
 ### Opérations sur les fichiers
 
@@ -87,6 +95,28 @@ Tapez quelques caractères pour filtrer — la correspondance est floue, donc `r
 ::: tip
 Sans espace de travail, l'Ouverture rapide fonctionne quand même — elle affiche les fichiers récents et les onglets ouverts mais ne peut pas rechercher dans l'arborescence de fichiers.
 :::
+
+## Recherche dans le contenu de l'espace de travail
+
+Lorsqu'un espace de travail est ouvert, VMark peut rechercher dans le **contenu des fichiers** (et pas seulement dans les noms de fichiers) les correspondances dans les fichiers markdown et texte.
+
+| Action | Raccourci |
+|---|---|
+| Ouvrir le panneau de recherche dans le contenu | `Mod + Shift + F` |
+| Aller au résultat suivant | `Entrée` (ou touches fléchées pour naviguer) |
+| Ouvrir le résultat dans un nouvel onglet | Cliquer sur l'aperçu de la correspondance |
+
+Chaque résultat affiche le chemin du fichier, le numéro de ligne et un extrait avec le texte correspondant mis en évidence. Les correspondances sont classées par&nbsp;:
+
+1. Pertinence du nom de fichier (les fichiers contenant le terme dans leur nom en premier)
+2. Proximité du titre (les correspondances dans les titres avant le corps du texte)
+3. Récence (les fichiers récemment modifiés apparaissent en premier)
+
+**Exclus par défaut**&nbsp;: `node_modules/`, `.git/`, `dist/`, `target/`, `coverage/`, ainsi que tous les répertoires que vous avez ajoutés dans **Dossiers exclus** des Paramètres de l'espace de travail.
+
+**Fichiers cachés**&nbsp;: ignorés sauf si **Afficher les fichiers cachés** est activé dans l'explorateur de fichiers.
+
+Cela se distingue de l'[Ouverture rapide](#ouverture-rapide) qui recherche uniquement dans les *noms de fichiers* — la recherche dans le contenu ouvre le fichier correspondant avec le curseur placé sur la ligne correspondante.
 
 ## Espaces de travail récents
 

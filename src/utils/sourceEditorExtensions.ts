@@ -20,12 +20,18 @@ import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { workflowWarn } from "@/utils/debug";
 import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { yaml } from "@codemirror/lang-yaml";
 import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
+import { sourceGhaWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceGhaWorkflowPreview";
+import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflowCompletion";
+import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
+import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
+import { yamlLintExtension } from "@/plugins/codemirror/sourceYamlLint";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
@@ -122,7 +128,14 @@ interface ExtensionConfig {
  */
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, updateListener, tabId, lintEnabled, filePath } = config;
-  const isYaml = isWorkflowEnabled() && filePath ? isYamlFileName(filePath.split("/").pop() ?? "") : false;
+  // YAML detection is independent of the workflow feature flag — every
+  // YAML file gets `lang-yaml` highlighting and parse-error linting.
+  // Workflow-only extensions (preview, completion, goto, cursor sync)
+  // additionally gate on `isWorkflowEnabled()`. Codex audit MED-2 fix.
+  const isYaml = filePath
+    ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
+    : false;
+  const workflowFeatures = isYaml && isWorkflowEnabled();
 
   return [
     // Line wrapping (dynamic via compartment)
@@ -263,7 +276,31 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Language mode: YAML for .yml/.yaml files, markdown for everything else
     isYaml ? yaml() : markdown({ codeLanguages: languages }),
     // Workflow preview plugin for YAML files (parses YAML → workflowPreviewStore)
-    ...(isYaml ? sourceWorkflowPreviewExtensions : []),
+    ...(workflowFeatures ? sourceWorkflowPreviewExtensions : []),
+    // GHA workflow preview plugin for YAML files (parses YAML → ghaWorkflowPanelStore)
+    ...(workflowFeatures ? sourceGhaWorkflowPreviewExtensions : []),
+    // YAML parse-error linter (every YAML file, regardless of workflow
+    // flag). Surfaces duplicate keys, unterminated strings, indentation
+    // breaks via the CodeMirror gutter.
+    ...(isYaml ? [yamlLintExtension()] : []),
+    // Workflow expression autocomplete inside ${{ }} (WI-A.1).
+    ...(workflowFeatures ? [workflowCompletionExtension()] : []),
+    // Source cursor → canvas job selection (WI-B.3).
+    ...(workflowFeatures ? [workflowCursorSyncExtension()] : []),
+    // Cmd/Ctrl-Click on `uses:` opens local target (WI-B.2).
+    ...(workflowFeatures && filePath
+      ? [
+          gotoExtension({
+            filePath,
+            windowLabel: getCurrentWindowLabel(),
+            onOpenFailure: (reason) => {
+              workflowWarn(
+                `[gha goto-def] could not open local target (${reason})`,
+              );
+            },
+          }),
+        ]
+      : []),
     // Syntax highlighting for code blocks
     syntaxHighlighting(codeHighlightStyle, { fallback: true }),
     // Listen for changes

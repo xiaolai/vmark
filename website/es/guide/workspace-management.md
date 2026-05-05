@@ -88,6 +88,28 @@ Escribe algunos caracteres para filtrar — la coincidencia es difusa, así que 
 Sin un espacio de trabajo, la Apertura Rápida sigue funcionando — muestra los archivos recientes y las pestañas abiertas, pero no puede buscar en el árbol de archivos.
 :::
 
+## Búsqueda de Contenido en el Espacio de Trabajo
+
+Cuando hay un espacio de trabajo abierto, VMark puede buscar a través del **contenido de los archivos** (no solo nombres de archivo) coincidencias en archivos markdown y de texto.
+
+| Acción | Atajo |
+|---|---|
+| Abrir el panel de búsqueda de contenido | `Mod + Shift + F` |
+| Saltar al siguiente resultado | `Enter` (o teclas de flecha para navegar) |
+| Abrir el resultado en una nueva pestaña | Haz clic en la vista previa de la coincidencia |
+
+Cada resultado muestra la ruta del archivo, número de línea y un fragmento con el texto coincidente resaltado. Los resultados se ordenan por:
+
+1. Relevancia del nombre de archivo (primero los archivos que contienen el término en su nombre)
+2. Proximidad a encabezados (las coincidencias dentro de encabezados antes que en el cuerpo del texto)
+3. Recencia (los archivos modificados recientemente aparecen primero)
+
+**Excluidos por defecto**: `node_modules/`, `.git/`, `dist/`, `target/`, `coverage/`, además de cualquier directorio que hayas añadido a **Carpetas excluidas** en Configuración del Espacio de Trabajo.
+
+**Archivos ocultos**: omitidos a menos que **Mostrar archivos ocultos** esté habilitado en el explorador de archivos.
+
+Esto es distinto de [Apertura Rápida](#apertura-rapida), que busca solo *nombres de archivo* — la búsqueda de contenido abre el archivo coincidente con el cursor situado en la línea coincidente.
+
 ## Espacios de Trabajo Recientes
 
 VMark recuerda hasta 10 espacios de trabajo abiertos recientemente. Accede a ellos desde **Archivo > Espacios de Trabajo Recientes** en la barra de menú.

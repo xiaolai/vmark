@@ -9,7 +9,9 @@
     "spike:d": "node spike-d-roundtrip.mjs"
   },
   "dependencies": {
+    "@actions/languageservice": "0.3.55",
     "@actions/workflow-parser": "0.3.55",
+    "vscode-languageserver-textdocument": "^1.0.12",
     "yaml": "2.8.4"
   },
   "devDependencies": {

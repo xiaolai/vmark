@@ -32,6 +32,7 @@ import { filterMarkdownPaths } from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
@@ -74,6 +75,7 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
   try {
     const content = await readTextFile(path);
     const tabId = useTabStore.getState().createTab(windowLabel, path);
+    maybeForceSourceForYaml(tabId, path);
     useDocumentStore.getState().initDocument(tabId, content, path);
     useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
     useRecentFilesStore.getState().addFile(path);

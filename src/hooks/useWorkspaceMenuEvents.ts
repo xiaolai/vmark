@@ -23,6 +23,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentWorkspacesStore } from "@/stores/recentWorkspacesStore";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import { workspaceWarn, workspaceError } from "@/utils/debug";
@@ -100,6 +101,7 @@ export function useWorkspaceMenuEvents() {
               try {
                 const content = await readTextFile(filePath);
                 const tabId = useTabStore.getState().createTab(windowLabel, filePath);
+                maybeForceSourceForYaml(tabId, filePath);
                 useDocumentStore.getState().initDocument(tabId, content, filePath);
                 useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
               } catch {

@@ -78,18 +78,37 @@ Los atajos de shell estándar como `Ctrl+R` (búsqueda inversa del historial en 
 
 Cuando abres un espacio de trabajo o archivo después de que el terminal ya está en ejecución, todas las sesiones cambian automáticamente su directorio a la nueva raíz del espacio de trabajo mediante `cd`.
 
+## Pausar / Reanudar
+
+Para procesos de larga duración que producen una salida verbosa, puedes suspender el proceso de shell subyacente desde VMark para liberar CPU sin matar la sesión. Al reanudar, el proceso continúa desde donde se quedó.
+
+| Acción | Cómo |
+|---|---|
+| Pausar la sesión activa | Clic derecho en la pestaña de sesión → **Pausar** |
+| Reanudar la sesión pausada | Clic derecho en la pestaña pausada → **Reanudar** |
+
+Mientras está en pausa:
+
+- La pestaña de sesión muestra un indicador atenuado
+- El shell recibe `SIGSTOP` (POSIX); el sistema operativo suspende la planificación del proceso
+- La salida almacenada en búfer que ya estaba escrita en el terminal se conserva en pantalla, pero no aparece nueva salida hasta que reanudes
+- Los controles de matar / limpiar / reiniciar permanecen disponibles
+
+Pausar/Reanudar es una función exclusiva de macOS/Linux — el control de procesos de Windows no expone una señal de suspensión equivalente, por lo que los elementos del menú están ocultos en las compilaciones para Windows.
+
 ## Configuración
 
 Abre **Configuración → Terminal** para configurar:
 
-| Configuración | Rango | Predeterminado |
-|---------------|-------|----------------|
-| Tamaño de Fuente | 10 – 24 px | 13 px |
-| Altura de Línea | 1.0 – 2.0 | 1.2 |
-| Copiar al Seleccionar | Activado / Desactivado | Desactivado |
+| Configuración | Rango | Predeterminado | Plataformas |
+|---------------|-------|----------------|-------------|
+| Tamaño de Fuente | 10 – 24 px | 13 px | Todas |
+| Altura de Línea | 1.0 – 2.0 | 1.2 | Todas |
+| Copiar al Seleccionar | Activado / Desactivado | Desactivado | Todas |
+| Tecla Option de Mac como Meta | Activado / Desactivado | Desactivado | macOS |
 
-Los cambios se aplican inmediatamente a todas las sesiones abiertas.
+Los cambios se aplican inmediatamente a todas las sesiones abiertas. **Tecla Option de Mac como Meta** enruta la tecla Option de macOS como Meta en el terminal integrado para que emacs, tmux y herramientas similares vean los atajos con prefijo Alt.
 
 ## Persistencia
 
-La visibilidad y la altura del panel del terminal se guardan y restauran en los reinicios con salida en caliente. Los procesos de shell en sí no pueden preservarse — se genera un nuevo shell para cada sesión al reiniciar.
+La visibilidad y la altura del panel del terminal se guardan y restauran en los reinicios con salida en caliente. Los procesos de shell en sí no pueden preservarse — se genera un nuevo shell para cada sesión al reiniciar, y cualquier sesión pausada pierde su estado de `SIGSTOP` junto con el propio proceso.

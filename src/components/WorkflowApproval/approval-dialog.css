@@ -1,0 +1,141 @@
+/* Workflow approval dialog (WI-3.2). Component-scoped one-off dimensions
+   live on `.approval-dialog` per .claude/rules/31-design-tokens.md. */
+
+.approval-dialog__backdrop {
+  --approval-backdrop-color: color-mix(in srgb, black 40%, transparent);
+  --approval-dialog-width: 560px;
+  --approval-dialog-max-width: 90vw;
+  --approval-dialog-max-height: 80vh;
+  --approval-preview-max-height: 240px;
+
+  position: fixed;
+  inset: 0;
+  background: var(--approval-backdrop-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-popup);
+}
+
+.approval-dialog {
+  background: var(--bg-color);
+  color: var(--text-color);
+  border: var(--space-px) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  width: min(var(--approval-dialog-width), var(--approval-dialog-max-width));
+  max-height: var(--approval-dialog-max-height);
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-3);
+  gap: var(--spacing-2);
+}
+
+.dark-theme .approval-dialog {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.approval-dialog__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.approval-dialog__meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.approval-dialog__meta-row {
+  display: flex;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-sm);
+}
+
+.approval-dialog__meta-row dt {
+  color: var(--text-secondary);
+  min-width: var(--space-15);
+}
+
+.approval-dialog__meta-row dd {
+  margin: 0;
+}
+
+.approval-dialog__meta-row code {
+  font-family: var(--font-mono);
+  background: var(--code-bg-color);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.approval-dialog__preview-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-loose);
+}
+
+.approval-dialog__preview {
+  margin: 0;
+  background: var(--code-bg-color);
+  color: var(--code-text-color);
+  border: var(--space-px) solid var(--code-border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  max-height: var(--approval-preview-max-height);
+}
+
+.approval-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-1);
+}
+
+.approval-dialog__btn {
+  padding: var(--space-1-5) var(--space-3-5);
+  border-radius: var(--radius-md);
+  border: var(--space-px) solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  position: relative;
+}
+
+.approval-dialog__btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.approval-dialog__btn:focus-visible {
+  outline: none;
+}
+
+.approval-dialog__btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: var(--space-1);
+  right: var(--space-1);
+  height: var(--space-1);
+  border-bottom: var(--border-medium) solid var(--primary-color);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.approval-dialog__btn--approve {
+  border-color: var(--primary-color);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.approval-dialog__btn--deny {
+  color: var(--text-secondary);
+}

@@ -157,15 +157,15 @@ Präfixieren Sie eine Interpunktion mit `\`, um die Konvertierung zu verhindern:
 
 ## KI-unterstützte Formatierung
 
-Wenn der [MCP-Server](/guide/mcp-setup) verbunden ist, können KI-Assistenten die CJK-Formatierung programmatisch über die Aktion `cjk_format` anwenden.
+Wenn der [MCP-Server](/de/guide/mcp-setup) verbunden ist, können KI-Assistenten die CJK-Formatierung programmatisch über das Werkzeug `document.transform` mit einem von drei `kind`-Werten anwenden:
 
-**Bereichsoptionen:**
-- `"document"` (Standard) — formatiert das gesamte Dokument mit Ihren CJK-Einstellungen
-- `"selection"` — formatiert nur den aktuell ausgewählten Text
+- `"cjk-format"` — vollständige CJK-Normalisierung (Abstände + Interpunktion + typografische Anführungszeichen gemäß Ihren Einstellungen)
+- `"cjk-spacing"` — passt nur Leerzeichen an Übergängen zwischen CJK ↔ Latein/Ziffer an
+- `"cjk-punctuation"` — konvertiert Interpunktion zwischen Voll- und Halbbreite gemäß den Regeln
 
-Beide Bereiche verwenden einen Serialisieren-Formatieren-Parsen-Roundtrip, um Inline-Markierungen (Fett, Links, Mathematik usw.) zu erhalten und Ihre konfigurierten Formatierungsregeln zu respektieren.
+Jede Transformation führt das aktive Dokument durch einen Serialisieren-Formatieren-Parsen-Roundtrip, um Inline-Markierungen (Fett, Links, Mathematik usw.) zu erhalten und Ihre konfigurierten Formatierungsregeln zu respektieren.
 
-Weitere Informationen zu CJK-bezogenen MCP-Aktionen, einschließlich `cjk_punctuation` und `cjk_spacing`, finden Sie in der [MCP-Tools-Referenz](/guide/mcp-tools).
+In der [MCP-Tools-Referenz](/de/guide/mcp-tools#document-tool) finden Sie die vollständige Anfrageform — `document.transform` nimmt `tabId`, `kind` und ein `expected_revision` für optimistische Nebenläufigkeit.
 
 ## Konfiguration
 
@@ -183,6 +183,18 @@ Wenn **Kontextuelle Anführungszeichen** aktiviert ist (Standard):
 - Anführungszeichen um reinen lateinischen Inhalt → gerade Anführungszeichen `""`
 
 Dies bewahrt das natürliche Erscheinungsbild englischer Texte, während CJK-Inhalt korrekt formatiert wird.
+
+### CJK-Eckklammern *(standardmäßig aus)*
+
+Wenn **CJK-Eckanführungszeichen** aktiviert sind, werden geschwungene Anführungszeichen um CJK-Inhalte in Eckklammern konvertiert (`「」` für primär, `『』` für verschachtelt) — die typografisch traditionelle Anführungsform für vertikalen CJK-Satz. Lateinische Inhalte behalten unabhängig von dieser Einstellung standardmäßige geschwungene Anführungszeichen.
+
+### Referenzabschnitte überspringen
+
+Der CJK-Formatierer erkennt Überschriften wie „References", „参考文献", „参考资料" oder „Bibliography" und überspringt die Neuformatierung in diesen Abschnitten — zitatformatierter Text stützt sich häufig auf bestimmte Interpunktion, die die CJK-Regeln sonst normalisieren würden.
+
+### Integritätsprüfung
+
+Nach jedem CJK-Formatierungsdurchlauf führt der Formatierer eine Integritätsprüfung durch, die den sichtbaren Textinhalt (ohne Berücksichtigung von Leerzeichen-/Interpunktionsänderungen) vor und nach dem Vorgang vergleicht. Schlägt die Prüfung fehl, wird der Vorgang zurückgerollt und es erscheint eine Diagnose — so ist garantiert, dass die CJK-Formatierung niemals stillschweigend Inhalt verliert.
 
 ---
 

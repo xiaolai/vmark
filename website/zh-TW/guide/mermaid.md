@@ -2,6 +2,8 @@
 
 VMark 支援 [Mermaid](https://mermaid.js.org/) 圖表，讓你直接在 Markdown 文件中建立流程圖、時序圖和其他視覺化圖表。
 
+[[toc]]
+
 ![Mermaid diagram rendered in WYSIWYG mode](/screenshots/mermaid-wysiwyg.png)
 
 ## 插入圖表

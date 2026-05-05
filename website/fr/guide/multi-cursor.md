@@ -144,6 +144,10 @@ Les opérations multi-curseur sont **limitées au bloc actuel** pour éviter les
 
 Appuyez sur `Échap` pour réduire à un seul curseur à la position principale.
 
+::: tip Stabilité du curseur
+Les curseurs réduits restent stables lorsque du texte est inséré à la position du curseur. Ils ne s'étendront pas de façon inattendue en sélections après des insertions mappées (corrigé en v0.6.x).
+:::
+
 ## Retour visuel
 
 - **Curseur principal** — curseur clignotant standard

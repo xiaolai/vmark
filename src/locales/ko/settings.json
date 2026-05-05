@@ -611,5 +611,7 @@
       "label": "워크플로 엔진",
       "description": "React Flow 시각화로 YAML 워크플로 파일 사용 (실험적)"
     }
-  }
+  },
+  "advanced.workflowEditorPreserveYamlFormatting.label": "Preserve YAML formatting on save",
+  "advanced.workflowEditorPreserveYamlFormatting.description": "When the structured editor saves changes, preserve comments, anchors, and existing formatting through a CST round-trip. Disable to reformat through plain yaml.stringify on every save (drops comments)."
 }

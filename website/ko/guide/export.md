@@ -8,7 +8,7 @@ VMark는 문서를 내보내고 공유하는 여러 방법을 제공합니다.
 
 깔끔한 구조의 자체 포함 폴더를 만듭니다:
 
-```
+```text
 MyDocument/
 ├── index.html
 └── assets/
@@ -27,7 +27,7 @@ MyDocument/
 
 단일 자체 포함 HTML 파일을 만듭니다:
 
-```
+```text
 MyDocument.html
 ```
 

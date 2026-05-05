@@ -110,9 +110,9 @@ VMark include Genies IA integrati — seleziona del testo e premi `Mod + Y` per 
 ## Suggerimenti per Iniziare
 
 1. **Naviga con la struttura**: Fai clic sugli elementi della struttura per passare alle sezioni
-2. **Prova i Genies IA**: Seleziona del testo e premi `Mod + Y` per rifinire, riformulare o espandere
-3. **Prova la modalità focus**: `F8` ti aiuta a concentrarti sul paragrafo corrente
-4. **Impara le scorciatoie**: Consulta la [guida alle scorciatoie](/it/guide/shortcuts) per lavorare in modo efficiente
+2. **Prova la modalità focus**: `F8` attenua tutto tranne il paragrafo corrente
+3. **Convalida durante la scrittura**: `Cmd + Shift + L` esegue il motore di lint markdown e il controllo dei collegamenti interrotti
+4. **Impara le scorciatoie**: il riferimento completo è nella [guida alle scorciatoie](/it/guide/shortcuts)
 
 ## Prossimi Passi
 

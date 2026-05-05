@@ -59,10 +59,19 @@ export const es = {
               link: "/es/guide/workspace-management",
             },
             {
+              text: "Archivos grandes",
+              link: "/es/guide/large-files",
+            },
+            {
+              text: "Visor de flujos de trabajo",
+              link: "/es/guide/workflow-viewer",
+            },
+            {
               text: "Formato CJK",
               link: "/es/guide/cjk-formatting",
             },
             { text: "AI Genies", link: "/es/guide/ai-genies" },
+            { text: "Genies de flujo de trabajo", link: "/es/guide/workflow-genies" },
             {
               text: "Proveedores de IA",
               link: "/es/guide/ai-providers",
@@ -75,6 +84,8 @@ export const es = {
               text: "Referencia de herramientas MCP",
               link: "/es/guide/mcp-tools",
             },
+            { text: "Lint de Markdown", link: "/es/guide/lint" },
+            { text: "Verificación de enlaces", link: "/es/guide/link-check" },
             { text: "Ajustes", link: "/es/guide/settings" },
             { text: "Solución de problemas", link: "/es/guide/troubleshooting" },
             { text: "Privacidad", link: "/es/guide/privacy" },

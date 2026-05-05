@@ -32,7 +32,7 @@ Encapsule a marcação SVG bruta em um bloco de código delimitado com o identif
   <text x="100" y="55" text-anchor="middle" fill="white"
         font-size="18" font-family="system-ui">Hello SVG</text>
 </svg>
-```
+```text
 ````
 
 O SVG é renderizado inline — assim como diagramas Mermaid — com controles interativos.

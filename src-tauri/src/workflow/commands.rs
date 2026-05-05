@@ -8,6 +8,8 @@
 //!   - Cancellation via shared CancellationToken (AtomicBool checked per step).
 //!   - Snapshots created before execution for file-modifying steps.
 
+use super::approval::ApprovalRegistry;
+use super::genie_step::ProviderConfig;
 use super::runner::run_workflow_sequential;
 use super::snapshots;
 use super::types::RawWorkflow;
@@ -18,10 +20,23 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
-/// Shared state for workflow execution.
+/// Shared state for workflow execution. Held by the Tauri app via `.manage()`
+/// at startup; outlives any individual execution.
 pub struct WorkflowRunnerState {
+    /// Concurrency guard — only one workflow runs at a time per window.
+    /// `run_workflow` flips this from `false` → `true` via `compare_exchange`
+    /// and the spawned runner task flips it back when done. The CAS makes
+    /// double-start attempts return `errors.workflow.alreadyRunning`.
     pub running: AtomicBool,
+    /// Soft cancel flag observed by the runner before each step. The bridge
+    /// task in `runner::spawn_cancel_bridge` polls this and forwards the
+    /// signal to a tokio `CancellationToken` so the AI provider stack
+    /// (CLI children, REST requests) reacts without polling.
     pub cancel_requested: Arc<AtomicBool>,
+    /// Outstanding approval senders keyed by `(execution_id, step_id)`.
+    /// `respond_workflow_approval` looks the entry up and delivers the user's
+    /// verdict; the runner awaits the matching receiver.
+    pub approvals: Arc<ApprovalRegistry>,
 }
 
 /// Execute a workflow from YAML string.
@@ -29,12 +44,22 @@ pub struct WorkflowRunnerState {
 /// Spawns the runner as a background task and returns the execution ID
 /// immediately. The frontend should subscribe to `workflow:step-update`
 /// and `workflow:complete` events using this ID before calling this command.
+///
+/// `provider` is optional: action-only workflows don't need it. Workflows
+/// containing `genie/*` steps will fail those steps with a clear error if
+/// no provider is supplied.
 #[tauri::command]
 pub async fn run_workflow(
     app: AppHandle,
     yaml: String,
     env: HashMap<String, String>,
     workspace_root: String,
+    provider: Option<ProviderConfig>,
+    // Optional caller-supplied execution ID. Frontends pre-generate this so
+    // they can subscribe to events with the right key before the runner
+    // emits its first event (closes the executionId race in
+    // useWorkflowExecution).
+    execution_id: Option<String>,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<String, String> {
     // Concurrency guard
@@ -85,20 +110,10 @@ pub async fn run_workflow(
         );
     }
 
-    // Validate supported features — reject what the runner can't handle yet
+    // Validate supported features — reject only what the runner truly can't
+    // handle yet. `genie/*` is supported (WI-2.2); webhooks are not.
     for (i, step) in workflow.steps.iter().enumerate() {
         let step_id = step.id.as_deref().unwrap_or("(unnamed)");
-        if step.uses.starts_with("genie/") {
-            state.running.store(false, Ordering::SeqCst);
-            return Err(
-                rust_i18n::t!(
-                    "errors.workflow.genieNotImplemented",
-                    index = (i + 1).to_string(),
-                    id = step_id
-                )
-                .to_string(),
-            );
-        }
         if step.uses.starts_with("webhook/") {
             state.running.store(false, Ordering::SeqCst);
             return Err(
@@ -112,8 +127,10 @@ pub async fn run_workflow(
         }
     }
 
-    // Generate execution ID and return immediately
-    let execution_id = Uuid::new_v4().to_string();
+    // Use the caller-supplied execution ID if present (avoids a race where the
+    // frontend can't filter events by ID until invoke() resolves). Otherwise
+    // generate a fresh one.
+    let execution_id = execution_id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let exec_id_clone = execution_id.clone();
     let cancel_token = Arc::clone(&state.cancel_requested);
     let app_clone = app.clone();
@@ -155,6 +172,15 @@ pub async fn run_workflow(
         }
     }
 
+    // Resolve genies dir up-front so the runner doesn't need a Tauri handle
+    // for filesystem I/O. `app.path().app_data_dir()` can fail on rare
+    // sandbox configurations; in that case genie steps will report a clean
+    // error and action-only workflows still run.
+    let genies_dir = app.path().app_data_dir().ok().map(|d| d.join("genies"));
+
+    // Approval registry is per-app, shared across executions.
+    let approvals = Arc::clone(&state.approvals);
+
     // Spawn runner as background task — return ID immediately
     tokio::spawn(async move {
         let result = run_workflow_sequential(
@@ -164,6 +190,9 @@ pub async fn run_workflow(
             &workspace,
             &exec_id_clone,
             &cancel_token,
+            provider,
+            genies_dir,
+            approvals,
         )
         .await;
 
@@ -196,4 +225,20 @@ pub async fn cancel_workflow(
     state.cancel_requested.store(true, Ordering::SeqCst);
     log::info!("Workflow cancellation requested");
     Ok(())
+}
+
+/// Respond to an outstanding approval request from the frontend dialog.
+#[tauri::command]
+pub async fn respond_workflow_approval(
+    execution_id: String,
+    step_id: String,
+    approved: bool,
+    state: State<'_, WorkflowRunnerState>,
+) -> Result<(), String> {
+    let key = (execution_id, step_id);
+    if state.approvals.respond(&key, approved) {
+        Ok(())
+    } else {
+        Err("No outstanding approval request matched".to_string())
+    }
 }

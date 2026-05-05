@@ -17,6 +17,7 @@ export const zhCN = {
           items: [
             { text: "快速上手", link: "/zh-CN/guide/" },
             { text: "功能特性", link: "/zh-CN/guide/features" },
+            { text: "大文件", link: "/zh-CN/guide/large-files" },
             { text: "导出与打印", link: "/zh-CN/guide/export" },
             { text: "键盘快捷键", link: "/zh-CN/guide/shortcuts" },
             {
@@ -36,6 +37,10 @@ export const zhCN = {
               text: "Markmap 思维导图",
               link: "/zh-CN/guide/markmap",
             },
+            {
+              text: "GitHub Actions 工作流查看器",
+              link: "/zh-CN/guide/workflow-viewer",
+            },
             { text: "SVG 图形", link: "/zh-CN/guide/svg" },
             {
               text: "媒体（视频/音频）",
@@ -54,6 +59,7 @@ export const zhCN = {
               link: "/zh-CN/guide/cjk-formatting",
             },
             { text: "AI 精灵", link: "/zh-CN/guide/ai-genies" },
+            { text: "工作流精灵", link: "/zh-CN/guide/workflow-genies" },
             {
               text: "AI 服务商",
               link: "/zh-CN/guide/ai-providers",
@@ -63,6 +69,8 @@ export const zhCN = {
               text: "MCP 工具参考",
               link: "/zh-CN/guide/mcp-tools",
             },
+            { text: "Markdown 检查", link: "/zh-CN/guide/lint" },
+            { text: "链接检查", link: "/zh-CN/guide/link-check" },
             { text: "设置", link: "/zh-CN/guide/settings" },
             { text: "故障排除", link: "/zh-CN/guide/troubleshooting" },
             { text: "隐私政策", link: "/zh-CN/guide/privacy" },

@@ -1,0 +1,14 @@
+{
+  "approval": {
+    "title": "Approve workflow step?",
+    "step": "Step",
+    "model": "Model",
+    "preview": "Prompt preview",
+    "approve": "Approve",
+    "deny": "Deny"
+  },
+  "run": {
+    "start": "Run workflow",
+    "cancel": "Cancel workflow"
+  }
+}

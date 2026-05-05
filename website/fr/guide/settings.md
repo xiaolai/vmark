@@ -2,7 +2,7 @@
 
 Le panneau de paramètres de VMark vous permet de personnaliser chaque aspect de l'éditeur. Ouvrez-le avec `Mod + ,` ou via **VMark > Paramètres** dans la barre de menus.
 
-La fenêtre de paramètres comporte une barre latérale avec des sections listées par ordre alphabétique. Les modifications prennent effet immédiatement — il n'y a pas de bouton d'enregistrement.
+La fenêtre de paramètres comporte une barre latérale avec des sections regroupées par sujet — les sections les plus utilisées apparaissent en premier, avec À propos et Avancé en bas. Les modifications prennent effet immédiatement — il n'y a pas de bouton d'enregistrement.
 
 ## Apparence
 
@@ -93,7 +93,8 @@ Comportement de collage, mise en page et paramètres de rendu HTML.
 | Paramètre | Description | Par défaut | Options |
 |-----------|-------------|------------|---------|
 | Activer les expressions régulières dans la recherche | Afficher un bouton de basculement regex dans la barre Rechercher & Remplacer | Activé | Activé / Désactivé |
-| Coller intelligemment le Markdown | Lors du collage de texte ressemblant à du Markdown dans l'éditeur WYSIWYG, le convertir automatiquement en contenu enrichi | Auto (détecter Markdown) | Auto (détecter Markdown), Désactivé |
+| Mode collage | Comment VMark route le contenu depuis le presse-papiers | Intelligent | Intelligent, Brut |
+| Coller intelligemment le Markdown | Lors du collage de texte ressemblant à du Markdown dans l'éditeur WYSIWYG, le convertir automatiquement en contenu enrichi | Auto | Auto, Désactivé |
 
 ### Mise en page
 
@@ -109,6 +110,8 @@ Comportement de collage, mise en page et paramètres de rendu HTML.
 | Paramètre | Description | Par défaut | Options |
 |-----------|-------------|------------|---------|
 | Activer le lint markdown | Vérifier les problèmes markdown courants (liens cassés, texte alt manquant, niveaux de titre, blocs de code non fermés, etc.) | Activé | Activé / Désactivé |
+
+Voir [Lint Markdown](/fr/guide/lint) pour la liste complète des règles et les niveaux de gravité.
 
 ### Rendu HTML
 
@@ -158,6 +161,24 @@ Ces paramètres s'appliquent uniquement lorsqu'un espace de travail (dossier) es
 | Redimensionner automatiquement au collage | Redimensionner automatiquement les grandes images avant de les enregistrer dans le dossier assets. La valeur est la dimension maximale en pixels | Désactivé | Désactivé, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copier dans le dossier assets | Copier les images collées ou déposées dans le dossier assets du document au lieu de les incorporer | Activé | Activé / Désactivé |
 | Nettoyer les images inutilisées à la fermeture | Supprimer automatiquement les images du dossier assets qui ne sont plus référencées dans le document à sa fermeture | Désactivé | Activé / Désactivé |
+| Seuil d'image en ligne | Taille maximale (Mo) pour intégrer les images comme URL de données base64 dans l'export HTML/PDF. Les fichiers plus volumineux sont liés à la place | 1,0 Mo | 0,1 – 10 Mo |
+
+### Fichiers volumineux
+
+| Paramètre | Description | Par défaut | Options |
+|-----------|-------------|------------|---------|
+| Avertir au-dessus de la taille | Afficher une invite de confirmation lors de l'ouverture de fichiers au-dessus de cette taille | 5 Mo | Activé / Désactivé |
+| Mode Source automatique | Ouvrir automatiquement les fichiers au-dessus du seuil en mode Source (saute le WYSIWYG pour préserver la fluidité des performances) | Activé | Activé / Désactivé |
+
+Voir [Fichiers volumineux](/fr/guide/large-files) pour la ventilation complète de la façon dont les fichiers volumineux sont gérés.
+
+### Mises à jour
+
+| Paramètre | Description | Par défaut | Options |
+|-----------|-------------|------------|---------|
+| Fréquence de vérification | Quand vérifier les nouvelles versions de VMark | Au démarrage | Au démarrage, Quotidien, Hebdomadaire, Manuel |
+| Téléchargement automatique des mises à jour | Télécharger les artefacts de version en arrière-plan une fois qu'une mise à jour est détectée | Désactivé | Activé / Désactivé |
+| Ignorer une version | Supprime l'invite de mise à jour pour une version spécifique (défini par mise à jour depuis l'invite elle-même) | Aucune | — |
 
 ::: tip
 Activez **Redimensionner automatiquement au collage** si vous collez fréquemment des captures d'écran ou des photos — cela garde votre dossier assets léger sans redimensionnement manuel.
@@ -183,8 +204,8 @@ Le serveur MCP (Model Context Protocol) permet aux assistants IA externes comme 
 | Démarrer au lancement | Démarrer automatiquement le serveur MCP à l'ouverture de VMark | Activé |
 | Approuver automatiquement les modifications | Appliquer les changements de document initiés par IA sans afficher d'aperçu pour approbation. Utilisez avec prudence | Désactivé |
 
-Lorsque le serveur est en cours d'exécution, le panneau affiche également :
-- **Port** — assigné automatiquement ; les clients IA le découvrent via le fichier de configuration
+Lorsque le serveur est en cours d'exécution, le panneau affiche également&nbsp;:
+- **Port** — assigné automatiquement&nbsp;; les clients IA le découvrent via le fichier de configuration
 - **Version** — version du sidecar du serveur MCP
 - **Outils / Ressources** — nombre d'outils et de ressources MCP disponibles
 - **Clients connectés** — nombre de clients IA actuellement connectés
@@ -205,7 +226,7 @@ Voir [Fournisseurs IA](/fr/guide/ai-providers) pour les instructions de configur
 
 ## Langue
 
-Règles de mise en forme CJK (chinois, japonais, coréen). Ces règles sont appliquées lorsque vous exécutez **Format > Formater le texte CJK** (`Cmd+Shift+F`).
+Règles de mise en forme CJK (chinois, japonais, coréen). Ces règles sont appliquées lorsque vous exécutez **Format → Formater la sélection CJK** (`Cmd+Shift+F`) sur une sélection, ou **Format → Formater le document CJK** (`Alt+Cmd+Shift+F`) sur l'intégralité du fichier.
 
 ::: tip
 La section Langue contient plus de 20 contrôles de mise en forme précis. Pour une explication complète de chaque règle avec des exemples, voir [Mise en forme CJK](/fr/guide/cjk-formatting).
@@ -315,6 +336,22 @@ Cela vous permet de créer des liens comme `obsidian://open?vault=...` ou `vscod
 | Paramètre | Description | Par défaut |
 |-----------|-------------|------------|
 | Garder les deux éditeurs actifs | Monter simultanément les éditeurs WYSIWYG et mode Source pour un changement de mode plus rapide. Augmente la consommation mémoire | Désactivé |
+
+### Moteur de workflow
+
+| Paramètre | Description | Par défaut | Options |
+|-----------|-------------|------------|---------|
+| Moteur de workflow | Activer le visualiseur/éditeur de workflow GitHub Actions pour les fichiers `.yml`/`.yaml` sous `.github/workflows/`. Lorsqu'il est désactivé, ces fichiers s'ouvrent comme du YAML brut | Désactivé | Activé / Désactivé |
+| Préserver le formatage YAML | Lors de l'enregistrement des modifications de workflow effectuées via le panneau de formulaire, préserver les commentaires, ancres, ordre des clés et lignes vides du YAML d'origine via le pipeline d'aller-retour CST. Lorsqu'il est désactivé, l'enregistrement utilise un sérialiseur compact (plus rapide mais avec perte) | Activé | Activé / Désactivé |
+
+Voir [Visualiseur de workflows](/fr/guide/workflow-viewer) pour la surface complète des fonctionnalités.
+
+### Spécifique à la plateforme
+
+| Paramètre | Description | Par défaut | Plateformes |
+|-----------|-------------|------------|-------------|
+| Effacer la quarantaine macOS à l'ouverture | Lors de l'ouverture d'un fichier portant l'attribut de quarantaine macOS (`com.apple.quarantine`), le supprimer avant la lecture. Utile pour les fichiers téléchargés du web que VMark serait sinon empêché d'ouvrir | Activé | macOS |
+| Option Mac comme Meta (terminal) | Traiter la touche Option de macOS comme Meta dans le terminal intégré. Requis pour des outils comme emacs et tmux qui s'attendent à des raccourcis préfixés par Alt | Désactivé | macOS |
 
 ### Outils développeur
 

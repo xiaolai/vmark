@@ -1,5 +1,22 @@
 # Solución de problemas
 
+## Búsqueda Rápida
+
+Problemas comunes y dónde encontrar la solución:
+
+| Síntoma | Causa probable | Dónde mirar |
+|---|---|---|
+| El cliente MCP no se conecta | Archivo de puerto obsoleto o VMark no en ejecución | [Problemas de conexión del servidor MCP](#problemas-de-conexion-del-servidor-mcp) |
+| El archivo no se abre o muestra texto ilegible | Codificación no UTF-8 o atributo de cuarentena | [El archivo no se abre](#el-archivo-no-se-abre) |
+| El Genio de IA se cuelga o no devuelve nada | Proveedor mal configurado o CLI no en PATH | [El Genio de IA no responde](#el-genio-de-ia-no-responde) |
+| El atajo de teclado no hace nada | Reasignado en Configuración o anulado por el sistema | [El atajo de teclado no funciona](#el-atajo-de-teclado-no-funciona) |
+| Editor lento con archivos grandes | Memoria por pestaña + retraso de entrada con más de 10K líneas | [Rendimiento del editor](#rendimiento-del-editor) |
+| El menú sigue en inglés tras cambiar el idioma | El menú se reconstruye al iniciar | [La barra de menú muestra inglés](#la-barra-de-menu-muestra-ingles-tras-cambiar-el-idioma) |
+| Exportación a PDF incompleta | Rutas de imágenes o permisos de escritura | [Problemas de exportación/impresión](#problemas-de-exportacion-impresion) |
+| Inicio lento en Windows | WebView2 + escaneo del antivirus | [La aplicación se inicia lentamente en Windows](#la-aplicacion-se-inicia-lentamente-en-windows) |
+
+Para cualquier cosa no listada arriba, consulta [Reportar errores](#reportar-errores).
+
 ## Archivos de registro
 
 VMark genera archivos de registro para ayudar a diagnosticar problemas. Los registros incluyen advertencias y errores tanto del backend de Rust como del frontend.

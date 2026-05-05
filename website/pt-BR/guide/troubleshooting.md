@@ -1,5 +1,22 @@
 # Solução de problemas
 
+## Consulta rápida
+
+Problemas comuns e onde encontrar a correção:
+
+| Sintoma | Causa provável | Onde procurar |
+|---------|----------------|---------------|
+| Cliente MCP não consegue conectar | Arquivo de porta antigo ou VMark não está em execução | [Problemas de conexão do servidor MCP](#problemas-de-conexao-do-servidor-mcp) |
+| Arquivo não abre ou mostra texto truncado | Codificação não-UTF-8 ou atributo de quarentena | [O arquivo não abre](#o-arquivo-nao-abre) |
+| Gênio de IA trava ou não retorna nada | Provedor mal configurado ou CLI fora do PATH | [O Gênio de IA não responde](#o-genio-de-ia-nao-responde) |
+| Atalho de teclado não faz nada | Reatribuído nas Configurações ou sobrescrito pelo sistema | [O atalho de teclado não funciona](#o-atalho-de-teclado-nao-funciona) |
+| Editor lento em arquivos grandes | Memória por aba + atraso em entradas com mais de 10 mil linhas | [Desempenho do editor](#desempenho-do-editor) |
+| Menu continua em inglês após mudar o idioma | O menu é reconstruído na inicialização | [A barra de menus mostra inglês após a troca de idioma](#a-barra-de-menus-mostra-ingles-apos-a-troca-de-idioma) |
+| Exportação de PDF incompleta | Caminhos de imagens ou permissões de gravação | [Problemas de exportação/impressão](#problemas-de-exportacao-impressao) |
+| Inicialização lenta no Windows | WebView2 + varredura de antivírus | [O aplicativo inicia lentamente no Windows](#o-aplicativo-inicia-lentamente-no-windows) |
+
+Para qualquer coisa não listada acima, veja [Reportar bugs](#reportar-bugs).
+
 ## Arquivos de log
 
 O VMark grava arquivos de log para ajudar a diagnosticar problemas. Os logs incluem avisos e erros tanto do backend Rust quanto do frontend.

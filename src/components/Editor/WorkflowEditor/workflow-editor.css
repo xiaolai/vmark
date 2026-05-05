@@ -1,0 +1,1065 @@
+/**
+ * Workflow editor forms — used by JobForm, StepForm, TriggerForm and
+ * the SaveControls header. Mirrors VMark's popup-shared.css conventions
+ * but lives in a panel surface (no fixed positioning).
+ */
+
+.workflow-editor-panel {
+  /* In the GHA side panel this lives as the second flex-column child;
+     `flex: 1 1 0; min-height: 0` lets it claim the leftover space
+     under the canvas and scroll internally instead of pushing past
+     its parent. In other surfaces (no flex parent) the flex props
+     are inert — natural block layout still applies. */
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: var(--border-thin) solid var(--border-color);
+  background: var(--bg-color);
+  overflow-y: auto;
+  font-size: var(--font-size-sm);
+}
+
+.workflow-editor-panel__empty {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: var(--space-2);
+  text-align: center;
+}
+
+.workflow-editor-panel__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-editor-panel__controls-status {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.workflow-editor-panel__controls-status[data-dirty="true"] {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.workflow-editor-panel__controls-buttons {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.workflow-editor-panel__btn {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-editor-panel__btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.workflow-editor-panel__btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-editor-panel__btn--primary {
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.workflow-editor-panel__btn--primary:hover:not(:disabled) {
+  background: var(--accent-primary);
+  color: var(--contrast-text);
+}
+
+.workflow-editor-panel__btn:focus-visible {
+  outline: none;
+  position: relative;
+}
+
+.workflow-editor-panel__btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: var(--radius-sm);
+  right: var(--radius-sm);
+  height: var(--radius-sm);
+  border-bottom: var(--border-medium) solid var(--accent-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+/* Form layout */
+
+.workflow-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.workflow-form__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  padding-bottom: var(--space-1);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-form__kind {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-loose);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.workflow-form__id {
+  /* Component-internal one-off dimension per
+     .claude/rules/31-design-tokens.md ("define a local CSS var on
+     the component class instead of adding a global token"). 12em
+     fits ~12 monospace chars — typical synthesized step ids. */
+  --workflow-form-id-max-width: 12em;
+  font-family: var(--font-mono);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: var(--workflow-form-id-max-width);
+}
+
+/* Step header: back-to-job + prev/next + position pill + step id.
+   Aligned center so the chevrons sit next to the position label. */
+.workflow-form__header--step {
+  align-items: center;
+}
+
+.workflow-form__nav-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__nav-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__nav-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-form__nav-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
+}
+
+.workflow-form__step-position {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.workflow-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.workflow-form__input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-1-5);
+  outline: none;
+  resize: vertical;
+}
+
+.workflow-form__input--mono {
+  font-family: var(--font-mono);
+}
+
+.workflow-form__input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  /* Focus indicator: full-border accent + caret remains the primary cue. */
+  box-shadow: 0 0 0 var(--border-thin) var(--accent-bg);
+}
+
+.workflow-form__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  padding-top: var(--space-1);
+  border-top: var(--border-thin) solid var(--border-color);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.workflow-form__summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.workflow-form__summary-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.workflow-form__needs-chip {
+  font-family: var(--font-mono);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+/* Step list inside JobForm — clickable rows that select a step. */
+
+.workflow-form__step-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  padding-top: var(--space-1);
+  border-top: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-form__step-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__step-row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1-5);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__step-row:hover {
+  background: var(--hover-bg);
+}
+
+.workflow-form__step-row:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thin) var(--accent-bg);
+}
+
+.workflow-form__step-row-label {
+  flex: 0 1 auto;
+  font-weight: 600;
+}
+
+.workflow-form__step-row-uses {
+  flex: 1 1 auto;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Step "with:" key/value rows */
+
+.workflow-form__with-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__with-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.workflow-form__with-add {
+  align-self: flex-start;
+  font-size: var(--font-size-xs);
+  background: transparent;
+  border: var(--border-thin) dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: var(--space-half) var(--space-1-5);
+  cursor: pointer;
+}
+
+.workflow-form__with-add:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__with-add:focus-visible {
+  outline: none;
+  border-style: solid;
+  border-color: var(--accent-primary);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
+.workflow-form__with-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  padding: 0 var(--space-1);
+}
+
+.workflow-form__with-remove:hover {
+  color: var(--error-color);
+}
+
+.workflow-form__with-remove:focus-visible {
+  outline: none;
+  color: var(--error-color);
+  background: var(--accent-bg);
+  border-radius: var(--radius-sm);
+}
+
+.workflow-form__with-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__metadata-loading {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.workflow-form__metadata-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  padding-left: var(--space-2);
+  line-height: var(--line-height-snug);
+}
+
+.workflow-form__missing-required {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-top: var(--border-thin) dashed var(--border-color);
+}
+
+.workflow-form__missing-required-key {
+  background: var(--warning-bg);
+  border: var(--border-thin) solid var(--warning-border);
+  color: var(--text-color);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-half);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+
+.workflow-form__missing-required-key:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+}
+
+.workflow-form__missing-required-key:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thin) var(--accent-bg);
+}
+
+.workflow-form__missing-required-key span[aria-label="required"] {
+  color: var(--error-color);
+}
+
+/* Diagnostics banner — appears above the canvas when workflow.diagnostics
+   has any entries. Click-to-select wires through workflowViewStore. */
+
+.workflow-diagnostics-banner {
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-diagnostics-banner__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-diagnostics-banner__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-half);
+}
+
+/* Header with title + collapse-all bulk action. */
+.workflow-diagnostics-banner__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0 var(--space-1);
+}
+
+.workflow-diagnostics-banner__title {
+  font-size: var(--font-size-xs);
+}
+
+.workflow-diagnostics-banner__count {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+/* Section-level collapse toggle (chevron icon button in the header).
+   Click hides/shows the entire diagnostics list, leaving only the
+   title + count visible. Replaces the prior text-based "Collapse all"
+   bulk action — the per-row chevrons still handle individual rows. */
+.workflow-diagnostics-banner__section-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-diagnostics-banner__section-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-diagnostics-banner__section-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
+}
+
+/* Per-row chevron — toggles message visibility for that row. */
+.workflow-diagnostics-banner__chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-diagnostics-banner__chevron:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-diagnostics-banner__chevron:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
+}
+
+.workflow-diagnostics-banner__row-button,
+.workflow-diagnostics-banner__row-static {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-half) var(--space-1);
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+}
+
+.workflow-diagnostics-banner__row-button {
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.workflow-diagnostics-banner__row-button:hover {
+  background: var(--hover-bg);
+}
+
+.workflow-diagnostics-banner__row-button:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+}
+
+.workflow-diagnostics-banner__icon {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.workflow-diagnostics-banner__icon--error {
+  color: var(--error-color);
+}
+
+.workflow-diagnostics-banner__icon--warning {
+  color: var(--warning-color);
+}
+
+.workflow-diagnostics-banner__icon--info {
+  color: var(--accent-primary);
+}
+
+.workflow-diagnostics-banner__code {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  background: var(--bg-color);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-half);
+}
+
+.workflow-diagnostics-banner__message {
+  flex: 1 1 auto;
+  word-break: break-word;
+}
+
+.workflow-diagnostics-banner__toggle {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  padding: 0;
+  text-decoration: underline;
+}
+
+.workflow-diagnostics-banner__toggle:focus-visible {
+  outline: var(--border-medium) solid var(--accent-primary);
+  outline-offset: var(--border-medium);
+  border-radius: var(--radius-sm);
+}
+
+/* Trigger summary list */
+
+.workflow-form__trigger-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.workflow-form__trigger-item {
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-1-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__trigger-event {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.workflow-form__trigger-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* Cron cell — renders the raw expression as inline code, the human-
+   readable summary as muted text alongside, and a warning glyph when
+   GHA would throttle the schedule (interval < 5 min). */
+.workflow-form__trigger-cron {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.workflow-form__trigger-cron-raw {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  background: var(--bg-secondary);
+  padding: 0 var(--space-half);
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+}
+
+.workflow-form__trigger-cron-readable {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.workflow-form__trigger-cron-throttled {
+  color: var(--warning-color);
+  font-weight: 600;
+  cursor: help;
+}
+
+/* Available-inputs panel — renders as a collapsed <details>. Each
+   chip is clickable to add the input as a new with: row. Used chips
+   are dimmed and disabled. */
+.workflow-form__known-inputs {
+  margin-top: var(--space-1);
+}
+
+.workflow-form__known-inputs-summary {
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--space-half) 0;
+  user-select: none;
+}
+
+.workflow-form__known-inputs-summary:hover {
+  color: var(--text-color);
+}
+
+.workflow-form__known-inputs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-half);
+  margin-top: var(--space-half);
+}
+
+.workflow-form__known-input {
+  appearance: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-half);
+  padding: var(--space-half) var(--space-1);
+  border: var(--border-thin) solid var(--border-color);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__known-input code {
+  font-family: var(--font-mono);
+}
+
+.workflow-form__known-input:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.workflow-form__known-input[data-used="true"] {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-form__known-input-required {
+  color: var(--error-color);
+  font-weight: 600;
+}
+
+/* WI-A.2 polish (Codex MED-4 fix) — visible per-chip description
+   alongside the chip button so users see input docs without hovering. */
+.workflow-form__known-input-row {
+  /* Component-internal one-off dimension per
+     .claude/rules/31-design-tokens.md ("define a local CSS var on the
+     component class instead of adding a global token"). */
+  --workflow-form-input-desc-max-width: 18em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  flex: 0 1 auto;
+}
+
+.workflow-form__known-input-desc {
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  line-height: var(--line-height-snug);
+  max-width: var(--workflow-form-input-desc-max-width);
+}
+
+.workflow-form__known-input-default {
+  color: var(--text-tertiary);
+  font-style: normal;
+}
+
+/* WI-C.1/C.2/C.3 — destructive + step-list controls + add-job inline form */
+
+.workflow-form__danger-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  margin-left: var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__danger-btn:hover {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
+.workflow-form__step-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-half);
+}
+
+.workflow-form__step-add-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workflow-form__step-add-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__step-row-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+}
+
+.workflow-form__step-row-group .workflow-form__step-row {
+  flex: 1 1 auto;
+}
+
+.workflow-form__step-action-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__step-action-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__step-action-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-form__step-action-btn--danger:hover:not(:disabled) {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
+.workflow-editor-panel__add-job {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-editor-panel__add-job-toggle {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workflow-editor-panel__add-job-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-editor-panel__add-job-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.workflow-editor-panel__add-job-form input {
+  flex: 1 1 auto;
+}
+
+.workflow-editor-panel__add-job-submit {
+  appearance: none;
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  border: none;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workflow-editor-panel__add-job-submit:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-editor-panel__add-job-cancel {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--space-1);
+  cursor: pointer;
+}
+
+.workflow-form--inline {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-form__inline-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-half);
+}
+
+.workflow-form__field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.workflow-form__permissions-scopes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-half);
+}
+
+.workflow-form__permissions-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+  font-size: var(--font-size-xs);
+}
+
+.workflow-form__permissions-scope-name {
+  flex: 1 1 auto;
+  color: var(--text-secondary);
+}
+
+.workflow-form__trigger-fields {
+  --workflow-form-inline-label-width: 8em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+}
+
+.workflow-form__field--inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.workflow-form__field--inline .workflow-form__label {
+  flex: 0 0 auto;
+  min-width: var(--workflow-form-inline-label-width);
+}
+
+.workflow-form__trigger-readonly-hint {
+  font-style: italic;
+  color: var(--text-tertiary);
+}
+
+/* Expression-editor modal */
+
+.workflow-expression-editor__backdrop {
+  /* Local one-off dim overlay — see .claude/rules/31-design-tokens.md
+     "Component-internal one-off dimensions". 40% black is a standard
+     modal backdrop; --source-mode-bg (5%) is too transparent to dim. */
+  --workflow-expression-editor-backdrop: rgba(0, 0, 0, 0.4);
+  --workflow-expression-editor-max-vw: 90vw;
+  --workflow-expression-editor-max-vh: 80vh;
+  position: fixed;
+  inset: 0;
+  background: var(--workflow-expression-editor-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-popup);
+}
+
+.workflow-expression-editor {
+  --workflow-expression-editor-width: 60ch;
+  --workflow-expression-editor-height: 50vh;
+  width: var(--workflow-expression-editor-width);
+  max-width: var(--workflow-expression-editor-max-vw);
+  height: var(--workflow-expression-editor-height);
+  max-height: var(--workflow-expression-editor-max-vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  overflow: hidden;
+}
+
+.workflow-expression-editor__header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.workflow-expression-editor__title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.workflow-expression-editor__host {
+  flex: 1 1 auto;
+  overflow: auto;
+  background: var(--bg-color);
+}
+
+.workflow-expression-editor__host .cm-editor {
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.workflow-expression-editor__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+/* Expand button rendered next to expression-heavy fields */
+
+.workflow-form__expand-btn {
+  align-self: flex-start;
+  font-size: var(--font-size-xs);
+  background: transparent;
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: var(--space-half) var(--space-1);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__expand-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__expand-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}

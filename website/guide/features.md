@@ -2,6 +2,8 @@
 
 VMark is a feature-rich Markdown editor designed for modern writing workflows. Here's what's included.
 
+[[toc]]
+
 ## Editor Modes
 
 ### Rich Text Mode (WYSIWYG)

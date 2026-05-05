@@ -1,12 +1,24 @@
 //! Genie directory scanning.
 //!
-//! Recursively scans directories for `.md` genie files, extracting names
-//! from filenames and categories from subdirectory structure.
+//! Recursively scans directories for `.md` (markdown one-shot) and
+//! `.yml`/`.yaml` (workflow) genie files, extracting names from filenames
+//! and categories from subdirectory structure (WI-7.1).
 
-use super::types::{GenieEntry, GenieMenuEntry};
+use super::types::{GenieEntry, GenieKind, GenieMenuEntry};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+
+/// Classify a file extension into a GenieKind, if any.
+fn classify(ext: Option<&std::ffi::OsStr>) -> Option<GenieKind> {
+    let ext = ext?.to_string_lossy();
+    let lower = ext.to_ascii_lowercase();
+    match lower.as_str() {
+        "md" => Some(GenieKind::Markdown),
+        "yml" | "yaml" => Some(GenieKind::Workflow),
+        _ => None,
+    }
+}
 
 /// Recursively scan a directory for `.md` files. Subdirectory names become categories.
 pub(crate) fn scan_genies_dir(
@@ -33,7 +45,7 @@ pub(crate) fn scan_genies_dir(
         let path = entry.path();
         if ft.is_dir() {
             scan_genies_dir(&path, base, source, entries);
-        } else if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("md")) {
+        } else if let Some(kind) = classify(path.extension()) {
             let name: String = path
                 .file_stem()
                 .unwrap_or_default()
@@ -51,12 +63,11 @@ pub(crate) fn scan_genies_dir(
                 .filter(|rel| !rel.as_os_str().is_empty())
                 .map(|rel| rel.to_string_lossy().replace('\\', "/"));
 
-            // Key by relative path (e.g. "writing/improve") to avoid collisions
-            // between files with the same stem in different categories.
+            // Key by relative path including extension to avoid collisions
+            // between markdown and yaml genies that share a stem.
             let rel_key = path
                 .strip_prefix(base)
                 .unwrap_or(&path)
-                .with_extension("")
                 .to_string_lossy()
                 .replace('\\', "/");
 
@@ -67,6 +78,7 @@ pub(crate) fn scan_genies_dir(
                     path: path.to_string_lossy().to_string(),
                     source: source.to_string(),
                     category,
+                    kind,
                 },
             );
         }
@@ -99,7 +111,7 @@ fn scan_genies_recursive(dir: &Path, base: &Path, entries: &mut Vec<GenieMenuEnt
         let path = entry.path();
         if ft.is_dir() {
             scan_genies_recursive(&path, base, entries);
-        } else if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("md")) {
+        } else if classify(path.extension()).is_some() {
             let filename_stem = path
                 .file_stem()
                 .unwrap_or_default()

@@ -2,6 +2,8 @@
 
 VMark prend en charge les diagrammes [Mermaid](https://mermaid.js.org/) pour créer des organigrammes, des diagrammes de séquence et d'autres visualisations directement dans vos documents Markdown.
 
+[[toc]]
+
 ![Diagramme Mermaid rendu en mode WYSIWYG](/screenshots/mermaid-wysiwyg.png)
 
 ## Insérer un diagramme

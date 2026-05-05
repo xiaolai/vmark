@@ -1,6 +1,6 @@
 # Atalhos de Teclado
 
-O VMark é projetado para fluxos de trabalho com teclado em primeiro lugar. A maioria dos atalhos pode ser personalizada nas Configurações. Alguns — como atalhos de múltiplos cursores (Selecionar Próxima Ocorrência, Selecionar Todas as Ocorrências), Desfazer e Refazer — ainda não são personalizáveis.
+O VMark é projetado para fluxos de trabalho com teclado em primeiro lugar. A maioria dos atalhos pode ser personalizada nas Configurações. Algumas primitivas são fixas: os seletores de múltiplos cursores `Mod+D` (Selecionar Próxima Ocorrência) e `Mod+Shift+L` (Selecionar Todas as Ocorrências), e os bindings globais de Desfazer/Refazer. Os demais atalhos de múltiplos cursores (Pular Ocorrência, Desfazer Cursor Suave, Adicionar Cursor Acima/Abaixo) são configuráveis. Atalhos marcados como _(sensíveis ao contexto)_ são tratados dentro do editor para estruturas específicas (ex.: alternar caixa de seleção em lista de tarefas) e não aparecem no registro de personalização.
 
 ## Notação
 
@@ -52,7 +52,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | Itálico | `Mod + I` |
 | Sublinhado | `Mod + U` |
 | Tachado | `Mod + Shift + X` |
-| Código Inline | Mod + Shift + `` ` `` |
+| Código Inline | `` Mod + Shift + ` `` |
 | Destaque | `Mod + Shift + M` |
 | Subscrito | `Alt + Mod + =` |
 | Sobrescrito | `Alt + Mod + Shift + =` |
@@ -76,7 +76,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | Lista com Marcadores | `Alt + Mod + U` |
 | Lista Ordenada | `Alt + Mod + O` |
 | Lista de Tarefas | `Alt + Mod + X` |
-| Alternar Caixa de Seleção de Tarefa | `Mod + Shift + Enter` |
+| Alternar Caixa de Seleção de Tarefa | `Mod + Shift + Enter` _(sensível ao contexto; não personalizável)_ |
 | Alternar Tipo de Lista | _(personalizável)_ |
 | Aumentar Recuo | `Mod + ]` |
 | Diminuir Recuo | `Mod + [` |
@@ -101,6 +101,8 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | MAIÚSCULAS | `Ctrl + Shift + U` | `Alt + Shift + U` |
 | minúsculas | `Ctrl + Shift + L` | `Alt + Shift + L` |
 | Capitalização de Título | `Ctrl + Shift + T` | `Alt + Shift + T` |
+| Alternar Maiúsculas/Minúsculas | _(personalizável)_ | _(personalizável)_ |
+| Remover Linhas em Branco | _(personalizável)_ | _(personalizável)_ |
 | Alternar Estilo de Aspas | `Shift + Mod + '` | `Shift + Mod + '` |
 
 ## Inserir
@@ -145,6 +147,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | Localizar Próximo | `Mod + G` |
 | Localizar Anterior | `Mod + Shift + G` |
 | Usar Seleção para Pesquisa | `Mod + E` |
+| Localizar em Arquivos | `Mod + Shift + H` |
 
 ## Visualização e Modo
 
@@ -272,6 +275,12 @@ Quando o cursor estiver dentro de uma tabela:
 | Adicionar Linha Abaixo | `Mod + Enter` |
 | Adicionar Linha Acima | `Mod + Shift + Enter` |
 | Excluir Linha | `Mod + Backspace` |
+| Adicionar Coluna à Esquerda | `Alt + Mod + Left` |
+| Adicionar Coluna à Direita | `Alt + Mod + Right` |
+| Excluir Coluna | `Alt + Mod + Backspace` |
+| Alinhar Coluna à Esquerda | `Mod + Alt + Shift + L` |
+| Alinhar Coluna à Direita | `Mod + Shift + R` |
+| Alinhar Coluna ao Centro | _(personalizável)_ |
 | Formatar Tabela | `Alt + Mod + T` |
 | Sair da Tabela | Teclas de seta na borda da tabela |
 

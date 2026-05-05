@@ -155,17 +155,17 @@ Prefixe qualquer pontuação com `\` para evitar a conversão:
 
 ---
 
-## Formatação Assistida por IA
+## Formatação assistida por IA
 
-Quando o [servidor MCP](/guide/mcp-setup) está conectado, assistentes de IA podem aplicar a formatação CJK programaticamente via a ação `cjk_format`.
+Quando o [servidor MCP](/pt-BR/guide/mcp-setup) está conectado, assistentes de IA podem aplicar a formatação CJK programaticamente via a ferramenta `document.transform` com um destes três valores de `kind`:
 
-**Opções de escopo:**
-- `"document"` (padrão) — formata o documento inteiro usando suas configurações CJK
-- `"selection"` — formata apenas o texto atualmente selecionado
+- `"cjk-format"` — normalização CJK completa (espaçamento + pontuação + aspas inteligentes conforme suas configurações)
+- `"cjk-spacing"` — ajusta apenas o espaço em branco nos limites CJK ↔ Latim/dígito
+- `"cjk-punctuation"` — converte a pontuação entre largura total e meia largura segundo as regras
 
-Ambos os escopos utilizam um ciclo de serialização-formatação-análise para preservar as marcações inline (negrito, links, matemática, etc.) e respeitar suas regras de formatação configuradas.
+Cada transformação executa um ciclo de serialização-formatação-análise no documento ativo para preservar as marcas inline (negrito, links, matemática, etc.) e respeitar suas regras de formatação configuradas.
 
-Consulte a [Referência de Ferramentas MCP](/guide/mcp-tools) para a lista completa de ações MCP relacionadas a CJK, incluindo `cjk_punctuation` e `cjk_spacing`.
+Consulte a [Referência de Ferramentas MCP](/pt-BR/guide/mcp-tools#document-tool) para o formato completo da requisição — `document.transform` recebe `tabId`, `kind` e um `expected_revision` para concorrência otimista.
 
 ## Configuração
 
@@ -175,7 +175,7 @@ As opções de formatação CJK podem ser configuradas em Configurações → Id
 - Definir limite de repetição de pontuação
 - Escolher estilo de aspas (padrão ou colchetes de canto)
 
-### Aspas Contextuais
+### Aspas contextuais
 
 Quando **Aspas Contextuais** está habilitado (padrão):
 
@@ -183,6 +183,18 @@ Quando **Aspas Contextuais** está habilitado (padrão):
 - Aspas ao redor de conteúdo puramente latino → aspas retas `""`
 
 Isso preserva a aparência natural do texto em inglês enquanto formata adequadamente o conteúdo CJK.
+
+### Colchetes de canto CJK *(desligado por padrão)*
+
+Quando **Aspas de Canto CJK** está habilitado, as aspas curvas ao redor de conteúdo CJK são convertidas em colchetes de canto (`「」` para o nível primário, `『』` para o aninhado) — a forma de citação tradicional na composição vertical de textos CJK. O conteúdo latino mantém aspas curvas padrão, independentemente desta opção.
+
+### Pular seção de referências
+
+O formatador CJK detecta cabeçalhos "References" / "参考文献" / "参考资料" / "Bibliography" e pula a reformatação dessas seções — texto formatado como citação muitas vezes depende de pontuação específica que as regras CJK normalizariam.
+
+### Verificação de integridade
+
+Após cada passada de formatação CJK, o formatador executa uma verificação de integridade que compara o conteúdo de texto visível (ignorando as transformações de espaço em branco e pontuação) antes e depois. Se a verificação falhar, a operação é revertida e um diagnóstico aparece — garantindo que a formatação CJK nunca perca conteúdo silenciosamente.
 
 ---
 

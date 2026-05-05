@@ -252,5 +252,9 @@
   "sourceTable.menu.alignAllLeft": "すべて左揃え",
   "sourceTable.menu.alignAllCenter": "すべて中央揃え",
   "sourceTable.menu.alignAllRight": "すべて右揃え",
-  "sourceTable.menu.formatTable": "テーブルを整形"
+  "sourceTable.menu.formatTable": "テーブルを整形",
+  "lint.linkNotFound": "Linked file not found: {{path}}",
+  "lint.imageNotFound": "Image file not found: {{path}}",
+  "lint.yamlParseError": "YAML: {{message}}",
+  "lint.yamlParseWarning": "YAML: {{message}}"
 }

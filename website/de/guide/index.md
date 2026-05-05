@@ -110,9 +110,9 @@ VMark enthält integrierte KI-Genies — wählen Sie Text aus und drücken Sie `
 ## Tipps für den Einstieg
 
 1. **Mit der Gliederung navigieren**: Klicken Sie auf Gliederungselemente, um zu Abschnitten zu springen
-2. **KI-Genies ausprobieren**: Text auswählen und `Mod + Y` drücken, um zu verfeinern, umzuformulieren oder zu erweitern
-3. **Fokusmodus ausprobieren**: `F8` hilft Ihnen, sich auf den aktuellen Absatz zu konzentrieren
-4. **Tastaturkürzel lernen**: Schauen Sie in den [Tastaturkürzel-Leitfaden](/de/guide/shortcuts) für mehr Effizienz
+2. **Fokusmodus ausprobieren**: `F8` hebt nur den aktuellen Absatz hervor
+3. **Während des Schreibens validieren**: `Cmd + Shift + L` führt die Markdown-Lint-Engine und die Prüfung auf defekte Links aus
+4. **Tastaturkürzel lernen**: Die vollständige Referenz finden Sie im [Tastaturkürzel-Leitfaden](/de/guide/shortcuts)
 
 ## Nächste Schritte
 

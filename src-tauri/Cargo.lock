@@ -5760,6 +5760,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]
@@ -6195,7 +6196,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vmark"
-version = "0.6.56"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
@@ -6234,6 +6235,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-tungstenite",
+ "tokio-util",
  "toml 0.8.23",
  "urlencoding",
  "uuid",

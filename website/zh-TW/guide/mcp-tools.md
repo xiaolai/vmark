@@ -1,825 +1,263 @@
 # MCP 工具參考
 
-本頁記錄 Claude（或其他 AI 助理）連接 VMark 時可用的所有 MCP 工具。
+VMark 對 AI 助理開放**四個複合 MCP 工具**：`session`、`workspace`、`document` 與 `workflow`。這四個工具合計提供 **14 個操作** —— 涵蓋讀寫主軸、檔案與視窗生命週期，以及針對 GitHub Actions YAML 的 CST 安全編輯。
 
-VMark 公開一組 **複合工具**、**協定工具** 和 **資源** — 均記錄於下方。複合工具使用 `action` 參數來選取操作 — 這在減少 Token 開銷的同時保持所有功能的可存取性。
+先前的 12 工具 / 76 操作介面已被精簡，原因是文件內的格式化工具(粗體、標題、表格等)與 AI 代理透過 Markdown 來回轉換就能輕鬆完成的工作高度重複。完整的取捨理由請參閱 [MCP 精簡計畫](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md)。
 
-::: tip 建議工作流程
-對於大多數寫作任務，你只需要少數幾個操作：
-
-**了解：** `structure` → `get_digest`，`document` → `search`
-**讀取：** `structure` → `get_section`，`document` → `read_paragraph` / `get_content`
-**寫入：** `structure` → `update_section` / `insert_section`，`document` → `write_paragraph` / `smart_insert`
-**控制：** `editor` → `undo` / `redo`，`suggestions` → `accept` / `reject`
-**檔案：** `workspace` → `save`，`tabs` → `switch` / `list`
-
-其餘操作提供進階自動化情境的精細控制。
+::: tip 建議的工作流
+1. 呼叫 `session.get_state` 一次，取得所有開啟的視窗、分頁，以及每個分頁的 `{filePath, dirty, revision, kind}`。
+2. 對 Markdown 而言：`document.read` → 推理 → `document.write`(傳入 `expected_revision` 確保並行安全)。
+3. 對 GitHub Actions YAML(`kind: "yaml-workflow"`)而言：以 `workflow.apply_patch` 進行 CST 安全編輯，保留註解與錨點；以 `workflow.validate` 取得 actionlint 診斷。
+4. 檔案操作(開啟、儲存、關閉、切換分頁)集中在 `workspace`。
 :::
 
 ::: tip Mermaid 圖表
-透過 MCP 使用 AI 生成 Mermaid 圖表時，建議安裝 [mermaid-validator MCP 伺服器](/zh-TW/guide/mermaid#mermaid-validator-mcp-server-syntax-checking) — 它在圖表到達你的文件之前，使用相同的 Mermaid v11 解析器捕捉語法錯誤。
+透過 MCP 讓 AI 產生 Mermaid 圖表時，建議搭配安裝 [mermaid-validator MCP 伺服器](/zh-TW/guide/mermaid#mermaid-驗證器-mcp-伺服器-語法檢查) —— 它使用相同的 Mermaid v11 解析器，在圖表進入文件之前先攔截語法錯誤。
 :::
 
 ---
 
-## `document`
-
-讀取、寫入、搜尋和轉換文件內容。12 個操作。
-
-所有操作接受可選的 `windowId`（字串）參數以鎖定特定視窗。預設為聚焦的視窗。
-
-### `get_content`
-
-以 Markdown 文字形式取得完整文件內容。
-
-### `set_content`
-
-取代整份文件內容。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `content` | string | 是 | 新文件內容（支援 Markdown）。 |
-
-::: warning 僅限空白文件
-為安全起見，此操作只在目標文件 **為空** 時允許使用。對於非空文件，請改用 `insert_at_cursor`、`apply_diff` 或 `selection` → `replace` — 這些會建立需要使用者核准的建議。
-:::
-
-### `insert_at_cursor`
-
-在目前游標位置插入文字。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `text` | string | 是 | 要插入的文字（支援 Markdown）。 |
-
-**返回：** `{ message, position, suggestionId?, applied }`
-
-::: tip 建議系統
-預設情況下，此操作建立一個需要使用者核准的 **建議**。文字以幽靈文字預覽顯示。使用者可以接受（Enter）或拒絕（Escape）。若設定 → 整合中啟用了 **自動核准編輯**，變更會立即套用。
-:::
-
-### `insert_at_position`
-
-在特定字元位置插入文字。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `text` | string | 是 | 要插入的文字（支援 Markdown）。 |
-| `position` | number | 是 | 字元位置（從 0 開始計算）。 |
-
-**返回：** `{ message, position, suggestionId?, applied }`
-
-### `search`
-
-在文件中搜尋文字。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `query` | string | 是 | 要搜尋的文字。 |
-| `caseSensitive` | boolean | 否 | 區分大小寫搜尋。預設：false。 |
-
-**返回：** 帶有位置和行號的符合項目陣列。
-
-### `replace_in_source`
-
-在 Markdown 原始碼層級取代文字，略過 ProseMirror 節點邊界。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `search` | string | 是 | 要在 Markdown 原始碼中搜尋的文字。 |
-| `replace` | string | 是 | 替換文字（支援 Markdown）。 |
-| `all` | boolean | 否 | 取代所有符合項目。預設：false。 |
-
-**返回：** `{ count, message, suggestionIds?, applied }`
-
-::: tip 使用時機
-優先使用 `apply_diff` — 它更快且更精確。只有當搜尋文字跨越格式邊界（粗體、斜體、連結等）且 `apply_diff` 找不到時，才改用 `replace_in_source`。
-:::
-
-### `batch_edit`
-
-以原子方式套用多個操作。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `operations` | array | 是 | 操作陣列（最多 100 個）。 |
-| `baseRevision` | string | 是 | 用於衝突偵測的預期版本。 |
-| `requestId` | string | 否 | 冪等性金鑰。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-每個操作需要 `type`（`update`、`insert`、`delete`、`format` 或 `move`）、`nodeId` 和可選的 `text`/`content`。
-
-**返回：** `{ success, changedNodeIds[], suggestionIds[] }`
-
-### `apply_diff`
-
-使用符合策略控制尋找和取代文字。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `original` | string | 是 | 要搜尋的文字。 |
-| `replacement` | string | 是 | 要取代的文字。 |
-| `baseRevision` | string | 是 | 用於衝突偵測的預期版本。 |
-| `matchPolicy` | string | 否 | `first`、`all`、`nth` 或 `error_if_multiple`。預設：`first`。 |
-| `nth` | number | 否 | 要取代第幾個符合項目（從 0 開始，用於 `nth` 策略）。 |
-| `scopeQuery` | object | 否 | 用於縮小搜尋範圍的過濾器。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-**返回：** `{ matchCount, appliedCount, matches[], suggestionIds[] }`
-
-### `replace_anchored`
-
-使用上下文錨定進行精確定向取代文字。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `anchor` | object | 是 | `{ text, beforeContext, afterContext }` |
-| `replacement` | string | 是 | 替換文字。 |
-| `baseRevision` | string | 是 | 用於衝突偵測的預期版本。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-### `read_paragraph`
-
-依索引或內容符合從文件讀取段落。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `target` | object | 是 | `{ index: 0 }` 或 `{ containing: "text" }` |
-| `includeContext` | boolean | 否 | 包含周圍的段落。預設：false。 |
-
-**返回：** `{ index, content, wordCount, charCount, position, context? }`
-
-### `write_paragraph`
-
-修改文件中的段落。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `baseRevision` | string | 是 | 用於衝突偵測的文件版本。 |
-| `target` | object | 是 | `{ index: 0 }` 或 `{ containing: "text" }` |
-| `operation` | string | 是 | `replace`、`append`、`prepend` 或 `delete`。 |
-| `content` | string | 條件 | 新內容（`delete` 以外的操作必填）。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-**返回：** `{ success, message, suggestionId?, applied, newRevision? }`
-
-### `smart_insert`
-
-在常見文件位置插入內容。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `baseRevision` | string | 是 | 用於衝突偵測的文件版本。 |
-| `destination` | varies | 是 | 插入位置（見下文）。 |
-| `content` | string | 是 | 要插入的 Markdown 內容。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-**目標選項：**
-- `"end_of_document"` — 在末尾插入
-- `"start_of_document"` — 在開頭插入
-- `{ after_paragraph: 2 }` — 在索引 2 的段落後插入
-- `{ after_paragraph_containing: "conclusion" }` — 在包含該文字的段落後插入
-- `{ after_section: "Introduction" }` — 在該節標題後插入
-
-**返回：** `{ success, message, suggestionId?, applied, newRevision?, insertedAt? }`
-
-::: tip 使用時機
-- **有標題的結構化文件**：使用 `structure` → `get_section`、`update_section`、`insert_section`
-- **無標題的平鋪文件**：使用 `document` → `read_paragraph`、`write_paragraph`、`smart_insert`
-- **文件末尾**：使用 `document` → `smart_insert`，設定 `"end_of_document"`
-:::
-
----
-
-## `structure`
-
-文件結構查詢和節操作。8 個操作。
-
-所有操作接受可選的 `windowId` 參數。
-
-### `get_ast`
-
-取得文件的抽象語法樹。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `projection` | string[] | 否 | 要包含的欄位：`id`、`type`、`text`、`attrs`、`marks`、`children`。 |
-| `filter` | object | 否 | 依 `type`、`level`、`contains`、`hasMarks` 過濾。 |
-| `limit` | number | 否 | 最大結果數。 |
-| `offset` | number | 否 | 跳過的數量。 |
-| `afterCursor` | string | 否 | 游標分頁的節點 ID。 |
-
-**返回：** 包含節點類型、位置和內容的完整 AST。
-
-### `get_digest`
-
-取得文件結構的緊湊摘要。
-
-**返回：** `{ revision, title, wordCount, charCount, outline[], sections[], blockCounts, hasImages, hasTables, hasCodeBlocks, languages[] }`
-
-### `list_blocks`
-
-列出文件中所有帶節點 ID 的區塊。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `query` | object | 否 | 依 `type`、`level`、`contains`、`hasMarks` 過濾。 |
-| `projection` | string[] | 否 | 要包含的欄位。 |
-| `limit` | number | 否 | 最大結果數。 |
-| `afterCursor` | string | 否 | 游標分頁的節點 ID。 |
-
-**返回：** `{ revision, blocks[], hasMore, nextCursor? }`
-
-節點 ID 使用前綴：`h-0`（標題）、`p-0`（段落）、`code-0`（程式碼區塊）等。
-
-### `resolve_targets`
-
-突變的預飛行檢查 — 依查詢尋找節點。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `query` | object | 是 | 查詢條件：`type`、`level`、`contains`、`hasMarks`。 |
-| `maxResults` | number | 否 | 最大候選數。 |
-
-**返回：** 已解析的目標位置和類型。
-
-### `get_section`
-
-取得文件節的內容（標題及其內容，直到下一個同級或更高級別的標題）。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `heading` | string \| object | 是 | 標題文字（字串）或 `{ level, index }`。 |
-| `includeNested` | boolean | 否 | 包含子節。 |
-
-**返回：** 含標題、正文和位置的節內容。
-
-### `update_section`
-
-更新節的內容。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `baseRevision` | string | 是 | 文件版本。 |
-| `target` | object | 是 | `{ heading, byIndex, 或 sectionId }` |
-| `newContent` | string | 是 | 新的節內容（Markdown）。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-### `insert_section`
-
-插入新節。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `baseRevision` | string | 是 | 文件版本。 |
-| `after` | object | 否 | 要在其後插入的節目標。 |
-| `sectionHeading` | object | 是 | `{ level, text }` — 標題層級（1-6）和文字。 |
-| `content` | string | 否 | 節正文內容。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-### `move_section`
-
-將節移至新位置。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `baseRevision` | string | 是 | 文件版本。 |
-| `section` | object | 是 | 要移動的節：`{ heading, byIndex, 或 sectionId }`。 |
-| `after` | object | 否 | 要移至其後的節目標。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
----
-
-## `selection`
-
-讀取和操作文字選取和游標。5 個操作。
-
-所有操作接受可選的 `windowId` 參數。
-
-### `get`
-
-取得目前的文字選取。
-
-**返回：** `{ text, range: { from, to }, isEmpty }`
-
-### `set`
-
-設定選取範圍。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `from` | number | 是 | 起始位置（包含）。 |
-| `to` | number | 是 | 結束位置（不包含）。 |
-
-::: tip
-`from` 和 `to` 使用相同值可定位游標而不選取文字。
-:::
-
-### `replace`
-
-用新文字取代選取的文字。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `text` | string | 是 | 替換文字（支援 Markdown）。 |
-
-**返回：** `{ message, range, originalContent, suggestionId?, applied }`
-
-::: tip 建議系統
-預設情況下，此操作建立一個需要使用者核准的 **建議**。原始文字帶刪除線顯示，新文字以幽靈文字顯示。若設定 → 整合中啟用了 **自動核准編輯**，變更會立即套用。
-:::
-
-### `get_context`
-
-取得游標周圍的文字以了解上下文。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `linesBefore` | number | 否 | 游標前的行數。預設：3。 |
-| `linesAfter` | number | 否 | 游標後的行數。預設：3。 |
-
-**返回：** `{ before, after, currentLine, currentParagraph, block }`
-
-`block` 物件包含：
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `type` | string | 區塊類型：`paragraph`、`heading`、`codeBlock`、`blockquote` 等 |
-| `level` | number | 標題層級 1-6（僅限標題） |
-| `language` | string | 程式碼語言（僅限有語言設定的程式碼區塊） |
-| `inList` | string | 在清單內時的清單類型：`bullet`、`ordered` 或 `task` |
-| `inBlockquote` | boolean | 在引言內時為 `true` |
-| `inTable` | boolean | 在表格內時為 `true` |
-| `position` | number | 區塊起始的文件位置 |
-
-### `set_cursor`
-
-設定游標位置（清除選取）。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `position` | number | 是 | 字元位置（從 0 開始計算）。 |
-
----
-
-## `format`
-
-文字格式、區塊類型、清單和清單批次操作。10 個操作。
-
-所有操作接受可選的 `windowId` 參數。
-
-### `toggle`
-
-在目前選取上切換格式標記。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `mark` | string | 是 | `bold`、`italic`、`code`、`strike`、`underline` 或 `highlight` |
-
-### `set_link`
-
-在選取的文字上建立超連結。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `href` | string | 是 | 連結 URL。 |
-| `title` | string | 否 | 連結標題（提示）。 |
-
-### `remove_link`
-
-從選取中移除超連結。無需其他參數。
-
-### `clear`
-
-從選取中移除所有格式。無需其他參數。
-
-### `set_block_type`
-
-將目前區塊轉換為特定類型。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `blockType` | string | 是 | `paragraph`、`heading`、`codeBlock` 或 `blockquote` |
-| `level` | number | 條件 | 標題層級 1-6（`heading` 必填）。 |
-| `language` | string | 否 | 程式碼語言（用於 `codeBlock`）。 |
-
-### `insert_hr`
-
-在游標處插入水平線（`---`）。無需其他參數。
-
-### `toggle_list`
-
-在目前區塊上切換清單類型。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `listType` | string | 是 | `bullet`、`ordered` 或 `task` |
-
-### `indent_list`
-
-增加目前清單項目的縮排。無需其他參數。
-
-### `outdent_list`
-
-減少目前清單項目的縮排。無需其他參數。
-
-### `list_modify`
-
-批次修改清單的結構和內容。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `baseRevision` | string | 是 | 文件版本。 |
-| `target` | object | 是 | `{ listId }`、`{ selector }` 或 `{ listIndex }` |
-| `operations` | array | 是 | 清單操作陣列。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-操作：`add_item`、`delete_item`、`update_item`、`toggle_check`、`reorder`、`set_indent`
-
----
-
-## `table`
-
-表格操作。3 個操作。
-
-所有操作接受可選的 `windowId` 參數。
-
-### `insert`
-
-在游標處插入新表格。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `rows` | number | 是 | 列數（至少 1）。 |
-| `cols` | number | 是 | 欄數（至少 1）。 |
-| `withHeaderRow` | boolean | 否 | 是否包含標題列。預設：true。 |
-
-### `delete`
-
-刪除游標位置的表格。無需其他參數。
-
-### `modify`
-
-批次修改表格的結構和內容。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `baseRevision` | string | 是 | 文件版本。 |
-| `target` | object | 是 | `{ tableId }`、`{ afterHeading }` 或 `{ tableIndex }` |
-| `operations` | array | 是 | 表格操作陣列。 |
-| `mode` | string | 否 | `dryRun` 可預覽而不套用。套用或建議由使用者設定控制。 |
-
-操作：`add_row`、`delete_row`、`add_column`、`delete_column`、`update_cell`、`set_header`
-
----
-
-## `editor`
-
-編輯器狀態操作。3 個操作。
-
-所有操作接受可選的 `windowId` 參數。
-
-### `undo`
-
-還原最後一次編輯操作。
-
-### `redo`
-
-重做最後一次已還原的操作。
-
-### `focus`
-
-聚焦編輯器（將其帶至前景，準備好接受輸入）。
+## `session`
+
+一次呼叫即可完成定位：透過單一請求探索所有視窗、分頁與伺服器能力。
+
+### `get_state`
+
+無參數。
+
+**回傳** `{windows, capabilities}`：
+
+```json
+{
+  "windows": [
+    {
+      "label": "main",
+      "focused": true,
+      "tabs": [
+        {
+          "id": "tab-1",
+          "filePath": "/path/to/notes.md",
+          "title": "notes",
+          "dirty": false,
+          "revision": "rev-x7Q3aB1F",
+          "kind": "markdown"
+        },
+        {
+          "id": "tab-2",
+          "filePath": "/repo/.github/workflows/ci.yml",
+          "title": "ci",
+          "dirty": true,
+          "revision": "rev-x7Q3aB1F",
+          "kind": "yaml-workflow"
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "version": "<vmark-mcp-server version>",
+    "supportedKinds": ["markdown", "yaml-workflow"],
+    "mcpProtocol": "0.1.0"
+  }
+}
+```
+
+`kind` 這個判別欄位告訴你某個分頁應使用 `document.write`(適用於 markdown)還是 `workflow.apply_patch`(適用於 yaml-workflow)。
 
 ---
 
 ## `workspace`
 
-管理文件、視窗和工作區狀態。12 個操作。
+只負責檔案與視窗的生命週期，不處理文件內容。
 
-對特定視窗操作的操作接受可選的 `windowId` 參數。
+### `new`
 
-### `list_windows`
+建立一個新的未命名分頁。
 
-列出所有開啟的 VMark 視窗。
-
-**返回：** `{ label, title, filePath, isFocused, isAiExposed }` 的陣列
-
-### `get_focused`
-
-取得聚焦視窗的標籤。
-
-### `focus_window`
-
-聚焦特定視窗。
-
-| 參數 | 類型 | 必填 | 說明 |
+| 參數 | 型別 | 必填 | 說明 |
 |------|------|------|------|
-| `windowId` | string | 是 | 要聚焦的視窗標籤。 |
+| `kind` | string | 否 | `"markdown"`(預設值)或 `"yaml-workflow"` |
+| `windowLabel` | string | 否 | 目標視窗；未指定時使用聚焦中的視窗 |
 
-### `new_document`
+回傳 `{tabId}`。
 
-建立新的空白文件。
+### `open`
 
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `title` | string | 否 | 可選的文件標題。 |
+從磁碟開啟檔案。
 
-### `open_document`
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `filePath` | string | 是 |
+| `windowLabel` | string | 否 |
 
-從檔案系統開啟文件。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `path` | string | 是 | 要開啟的檔案路徑。 |
+回傳 `{tabId}`。
 
 ### `save`
 
-儲存目前文件。
+將分頁內容存回原本的路徑。
+
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `tabId` | string | 否(預設為聚焦中的分頁) |
+
+回傳 `{filePath, revision}`。
 
 ### `save_as`
 
-將文件儲存至新路徑。
+將分頁另存至新路徑。
 
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `path` | string | 是 | 新的檔案路徑。 |
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `tabId` | string | 否 |
+| `filePath` | string | 是 |
 
-### `get_document_info`
-
-取得文件元資料。
-
-**返回：** `{ filePath, isDirty, title, wordCount, charCount }`
-
-### `close_window`
-
-關閉視窗。
-
-### `list_recent_files`
-
-列出最近開啟的檔案。
-
-**返回：** `{ path, name, timestamp }` 的陣列（最多 10 個檔案，最近的在前）。
-
-### `get_info`
-
-取得目前工作區狀態的資訊。
-
-**返回：** `{ isWorkspaceMode, rootPath, workspaceName }`
-
-### `reload_document`
-
-從磁碟重新載入活躍文件。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `force` | boolean | 否 | 強制重新載入，即使文件有未儲存的變更。預設：false。 |
-
-若文件未命名或有未儲存變更且未設定 `force: true`，則失敗。
-
----
-
-## `tabs`
-
-管理視窗內的編輯器分頁。6 個操作。
-
-所有操作接受可選的 `windowId` 參數。
-
-### `list`
-
-列出視窗中的所有分頁。
-
-**返回：** `{ id, title, filePath, isDirty, isActive }` 的陣列
-
-### `switch`
-
-切換至特定分頁。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `tabId` | string | 是 | 要切換至的分頁 ID。 |
+回傳 `{revision}`。
 
 ### `close`
 
-關閉分頁。
+關閉分頁。若未指定 `force`，遇到未儲存的內容會拒絕關閉。
 
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `tabId` | string | 否 | 要關閉的分頁 ID。預設為活躍分頁。 |
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `tabId` | string | 是 |
+| `force` | boolean | 否 |
 
-### `create`
+成功時回傳 `{closed: true}`；若分頁有未儲存變更且未提供 `force`，則回傳 `{closed: false, reason: "DIRTY"}`。
 
-建立新的空白分頁。
+### `switch_tab`
 
-**返回：** `{ tabId }`
+啟用某個分頁。
 
-### `get_info`
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `tabId` | string | 是 |
 
-取得詳細的分頁資訊。
+### `focus_window`
 
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `tabId` | string | 否 | 分頁 ID。預設為活躍分頁。 |
+讓某個視窗取得焦點。
 
-**返回：** `{ id, title, filePath, isDirty, isActive }`
-
-### `reopen_closed`
-
-重新開啟最近關閉的分頁。
-
-**返回：** `{ tabId, filePath, title }` 或無可用時的訊息。
-
-VMark 追蹤每個視窗最後關閉的 10 個分頁。
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `windowLabel` | string | 是 |
 
 ---
 
-## `media`
+## `document`
 
-插入數學、圖表、媒體、Wiki 連結和中日韓文格式。11 個操作。
+讀取、寫入、轉換 —— 整個介面的主軸。
 
-所有操作接受可選的 `windowId` 參數。
+### `read`
 
-### `math_inline`
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `tabId` | string | 否(預設為聚焦中的分頁) |
 
-插入行內 LaTeX 數學。
+回傳 `{content, revision, filePath, kind, dirty}`。寫入前務必先讀取 —— 下一次的 `write` 必須帶上這次讀取所拿到的 `revision` 標記。
 
-| 參數 | 類型 | 必填 | 說明 |
+### `write`
+
+整份文件內容替換。
+
+| 參數 | 型別 | 必填 | 說明 |
 |------|------|------|------|
-| `latex` | string | 是 | LaTeX 表達式（例如 `E = mc^2`）。 |
+| `tabId` | string | 否 | 目標分頁(預設為聚焦中的分頁) |
+| `content` | string | 是 | 全新的完整內容 |
+| `expected_revision` | string | 否 | 上一次讀取拿到的 revision 標記 |
 
-### `math_block`
+如果有提供 `expected_revision`，但文件自上次讀取後已變動，回應會是 `STALE` 結構化錯誤封包，並附上目前的 revision；此時請重新讀取後再嘗試。
 
-插入區塊級數學方程式。
+```json
+// 成功
+{ "revision": "rev-newAfterWrite" }
 
-| 參數 | 類型 | 必填 | 說明 |
+// 過期
+{ "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
+```
+
+### `transform`
+
+套用一個確定性的改寫操作。目前支援 CJK 相關的轉換(全形 ↔ ASCII 標點互換、CJK ↔ 拉丁字母間距)。
+
+| 參數 | 型別 | 必填 | 說明 |
 |------|------|------|------|
-| `latex` | string | 是 | LaTeX 表達式。 |
+| `tabId` | string | 否 | 目標分頁 |
+| `kind` | string | 是 | `"cjk-format"`、`"cjk-spacing"` 或 `"cjk-punctuation"` |
+| `expected_revision` | string | 否 | 並行控制標記 |
 
-### `mermaid`
+`cjk-format` 會套用使用者目前的 CJK 排版設定，從頭執行一遍。`cjk-spacing` 會在 CJK 字元與相鄰的拉丁字母或數字之間補上單一空格。`cjk-punctuation` 會把緊鄰 CJK 字元的 ASCII 標點轉換成對應的全形形式。
 
-插入 Mermaid 圖表。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `code` | string | 是 | Mermaid 圖表程式碼。 |
-
-### `markmap`
-
-插入 Markmap 心智圖。使用標準 Markdown 標題定義樹狀結構。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `code` | string | 是 | 帶有定義心智圖樹狀結構標題的 Markdown。 |
-
-### `svg`
-
-插入 SVG 圖形。SVG 以行內方式渲染，附有平移、縮放和 PNG 匯出功能。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `code` | string | 是 | SVG 標記（帶 `<svg>` 根元素的有效 XML）。 |
-
-### `wiki_link`
-
-插入 Wiki 風格連結。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `target` | string | 是 | 連結目標（頁面名稱）。 |
-| `displayText` | string | 否 | 顯示文字（若與目標不同）。 |
-
-**結果：** `[[target]]` 或 `[[target|displayText]]`
-
-### `video`
-
-插入 HTML5 影片元素。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `src` | string | 是 | 影片檔案路徑或 URL。 |
-| `baseRevision` | string | 是 | 文件版本。 |
-| `title` | string | 否 | Title 屬性。 |
-| `poster` | string | 否 | 封面圖片路徑或 URL。 |
-
-### `audio`
-
-插入 HTML5 音訊元素。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `src` | string | 是 | 音訊檔案路徑或 URL。 |
-| `baseRevision` | string | 是 | 文件版本。 |
-| `title` | string | 否 | Title 屬性。 |
-
-### `video_embed`
-
-插入影片嵌入（iframe）。支援 YouTube（隱私增強）、Vimeo 和 Bilibili。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `videoId` | string | 是 | 影片 ID（YouTube：11 個字元，Vimeo：數字，Bilibili：BV ID）。 |
-| `baseRevision` | string | 是 | 文件版本。 |
-| `provider` | string | 否 | `youtube`（預設）、`vimeo` 或 `bilibili`。 |
-
-### `cjk_punctuation`
-
-在半形和全形之間轉換標點。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `direction` | string | 是 | `to-fullwidth` 或 `to-halfwidth`。 |
-
-### `cjk_spacing`
-
-在中日韓文和拉丁字元之間新增或移除間距。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `spacingAction` | string | 是 | `add` 或 `remove`。 |
+回傳 `{revision}`。
 
 ---
 
-## `suggestions`
+## `workflow`
 
-管理等待使用者核准的 AI 生成的編輯建議。5 個操作。
+針對 GitHub Actions 工作流程 YAML 提供 `actionlint` 驗證與 **CST 安全的精準編輯**。僅在 `kind` 為 `"yaml-workflow"` 的分頁上可用。
 
-當 AI 使用 `document` → `insert_at_cursor` / `insert_at_position` / `replace_in_source`、`selection` → `replace` 或 `document` → `apply_diff` / `batch_edit` 時，變更會被暫存為需要使用者核准的建議。
+::: info `document.read` 與 `document.write` 對所有分頁皆有效 —— 包含 workflow YAML
+`workflow` 工具**並不是**取代讀寫主軸的東西。針對 workflow 分頁，你仍然可以：
 
-所有操作接受可選的 `windowId` 參數。
+- 用 `document.read` 取得原始 YAML 文字(含所有註解)
+- 用 `document.write` 整份替換(送進去什麼字串就原封不動寫入 —— 只要你保留註解，註解就會留下來)
+- 在只想改一個欄位、其他都保持不變時用 `workflow.apply_patch` —— 由伺服器本身保證註解、錨點與鍵的順序都不會掉失(伺服器不會丟掉它沒有去改的註解)
 
-::: info 還原/重做安全性
-建議在接受之前不會修改文件。這保留了完整的還原/重做功能 — 使用者可以在接受後還原，拒絕則不在歷史記錄中留下任何痕跡。
+簡而言之：要進行單點修改、其餘原樣保留時用 `apply_patch`；要整份重寫或從零產生新工作流程時用 `document.write`。
 :::
 
-::: tip 自動核准模式
-若設定 → 整合中啟用了 **自動核准編輯**，變更直接套用而不建立建議。以下操作只在自動核准停用（預設）時需要。
-:::
+### `apply_patch`
 
-### `list`
+套用一組 `IRPatch` 物件陣列。每個 patch 都會經過 VMark 的 CST 感知變更器，能保留註解、錨點以及鍵的順序；若用原始 `document.write` 直接寫入 YAML 檔，這些都會丟失。
 
-列出所有待定建議。
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `tabId` | string | 否 |
+| `patches` | IRPatch[] | 是 |
+| `expected_revision` | string | 否 |
 
-**返回：** `{ suggestions: [...], count, focusedId }`
+`IRPatch` 是以 `kind` 欄位區分的判別聯合型別。支援的種類如下：
 
-每個建議包含 `id`、`type`（`insert`、`replace`、`delete`）、`from`、`to`、`newContent`、`originalContent` 和 `createdAt`。
+| `kind` | 效果 |
+|---|---|
+| `workflow.set` | 設定頂層欄位(`{path, value}`) —— `name`、`env.X` 等 |
+| `job.set` | 在某個 job 上設定欄位(`{jobId, path, value}`) |
+| `step.set` | 在某個 step 上設定欄位(`{jobId, stepIndex, path, value}`) |
+| `with.set` | 在某個 step 的 `with:` 區塊中設定鍵(`{jobId, stepIndex, key, value}`) |
+| `with.remove` | 從某個 step 的 `with:` 區塊中移除鍵 |
+| `needs.add` / `needs.remove` | 在 `needs:` 中新增或移除一個 job ID |
+| `trigger.setFilters` | 替換觸發器的篩選陣列 —— branches、paths、types 等(`{event, filter, value: string[]}`) |
 
-### `accept`
+成功時回傳 `{revision}`；失敗時回傳結構化的 `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW` 錯誤封包。
 
-接受特定建議，將其變更套用至文件。
+### `validate`
 
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `suggestionId` | string | 是 | 要接受的建議 ID。 |
+對工作流程 YAML 執行 `actionlint`。
 
-### `reject`
+| 參數 | 型別 | 必填 |
+|------|------|------|
+| `tabId` | string | 否 |
 
-拒絕特定建議，捨棄它而不做任何變更。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `suggestionId` | string | 是 | 要拒絕的建議 ID。 |
-
-### `accept_all`
-
-依文件順序接受所有待定建議。
-
-### `reject_all`
-
-拒絕所有待定建議。
+回傳 `{ok, diagnostics, binaryAvailable}`。每筆診斷帶有 `{line, col, message, severity}`。`binaryAvailable: false` 代表本機沒有安裝 `actionlint`；可透過 Homebrew 或上游 Releases 安裝。
 
 ---
 
-## 協定工具
+## 錯誤
 
-兩個用於查詢伺服器功能和文件狀態的獨立工具。這些不使用複合 `action` 模式。
+錯誤有兩種形態：
 
-### `get_capabilities`
+**領域錯誤(Domain errors)** —— 將 `success` 設為 `false`，並在 `error` 欄位以 JSON 格式回傳結構化封包：
 
-取得 MCP 伺服器的功能和可用工具。
+```json
+{ "error": "STALE", "message": "...", "current_revision": "rev-..." }
+```
 
-**返回：** `{ version, supportedNodeTypes[], supportedQueryOperators[], limits, features }`
+**參數形態錯誤(Argument-shape errors)** —— 對於必要參數遺漏或型別不符(例如 `document.write` 沒帶 `content`),`error` 欄位是直接描述問題的純字串。結構化封包僅保留給領域層級的條件。
 
-### `get_document_revision`
-
-取得目前文件版本，用於樂觀鎖定。
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `windowId` | string | 否 | 視窗識別符。 |
-
-**返回：** `{ revision, lastUpdated }`
-
-在突變操作中使用版本以偵測並發編輯。
-
----
-
-## MCP 資源
-
-除工具外，VMark 還公開以下唯讀資源：
-
-| 資源 URI | 說明 |
-|----------|------|
-| `vmark://document/outline` | 文件標題階層 |
-| `vmark://document/metadata` | 文件元資料（路徑、字數等） |
-| `vmark://windows/list` | 已開啟視窗的清單 |
-| `vmark://windows/focused` | 目前聚焦的視窗標籤 |
+| 代碼 | 出現形式 | 含義 |
+|---|---|---|
+| `STALE` | 結構化封包 | `expected_revision` 不符；請重新讀取後重試 |
+| `INVALID_PATCH` | 結構化封包 | `workflow.apply_patch` 收到格式錯誤的 `patches` 陣列 |
+| `INVALID_TAB` | 結構化封包 | 無法解析 `tabId` |
+| `INVALID_PATH` | 結構化封包 | `workspace.open` 收到無法讀取的 `filePath` |
+| `NOT_WORKFLOW` | 結構化封包 | 在非 yaml-workflow 分頁上呼叫 `workflow.*` |
+| `READ_ONLY` | 結構化封包 | 對唯讀文件嘗試進行變更操作 |
+| `INTERNAL` | 結構化封包 | 處理器發生非預期錯誤 |
+| (純字串) | 字串 | 必要參數遺漏或型別錯誤 |

@@ -132,9 +132,17 @@ module.exports = [
     // Top-level App.tsx chunk + transitively-imported hooks (~30 hooks).
     // ~1196 kB. The audit's B2 finding is to split this by window kind
     // (main/document/settings); doing so should drop this to ~700 kB.
+    //
+    // Bumped from 1250 to 1400 kB by Phase 2 (WI-2.6) of the GHA workflow
+    // viewer: GhaWorkflowSidePanel must be eager-mounted to avoid a React
+    // 19 + Suspense + xyflow setState loop in disappearLayoutEffects.
+    // See dev-docs/plans/20260504-github-actions-workflow-viewer.md ADR-1
+    // for the lazy-vs-eager tradeoff. xyflow + dagre add ~150 kB eager.
+    // The Suspense workaround can be re-attempted after a future xyflow
+    // release that addresses the strict-mode compatibility issue.
     name: "EAGER: App",
     path: "dist/assets/App-*.js",
-    limit: "1250 kB",
+    limit: "1400 kB",
     brotli: false,
   },
 
@@ -150,9 +158,12 @@ module.exports = [
   },
   {
     // CodeMirror Source-mode wrapper. Lazy via React.lazy in Editor.tsx.
+    // Bumped 140 → 145 kB after Phase A/B GHA features (WI-A.1
+    // expression autocomplete, WI-B.2 goto-def, WI-B.3 cursor sync).
+    // Each adds a small CodeMirror extension; total ~1 kB minified.
     name: "LAZY: SourceEditor",
     path: "dist/assets/SourceEditor-*.js",
-    limit: "140 kB",
+    limit: "145 kB",
     brotli: false,
   },
   {

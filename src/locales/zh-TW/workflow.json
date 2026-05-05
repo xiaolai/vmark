@@ -1,0 +1,14 @@
+{
+  "approval": {
+    "title": "是否核准此工作流程步驟？",
+    "step": "步驟",
+    "model": "模型",
+    "preview": "提示詞預覽",
+    "approve": "核准",
+    "deny": "拒絕"
+  },
+  "run": {
+    "start": "執行工作流程",
+    "cancel": "取消工作流程"
+  }
+}

@@ -17,6 +17,7 @@ export const de = {
           items: [
             { text: "Erste Schritte", link: "/de/guide/" },
             { text: "Funktionen", link: "/de/guide/features" },
+            { text: "Große Dateien", link: "/de/guide/large-files" },
             {
               text: "Export und Drucken",
               link: "/de/guide/export",
@@ -45,6 +46,10 @@ export const de = {
               text: "Markmap-Mindmaps",
               link: "/de/guide/markmap",
             },
+            {
+              text: "GitHub Actions Workflow-Viewer",
+              link: "/de/guide/workflow-viewer",
+            },
             { text: "SVG-Grafiken", link: "/de/guide/svg" },
             {
               text: "Medien (Video/Audio)",
@@ -64,6 +69,10 @@ export const de = {
             },
             { text: "AI Genies", link: "/de/guide/ai-genies" },
             {
+              text: "Workflow-Genies",
+              link: "/de/guide/workflow-genies",
+            },
+            {
               text: "KI-Anbieter",
               link: "/de/guide/ai-providers",
             },
@@ -75,6 +84,8 @@ export const de = {
               text: "MCP-Tools-Referenz",
               link: "/de/guide/mcp-tools",
             },
+            { text: "Markdown-Lint", link: "/de/guide/lint" },
+            { text: "Link-Prüfung", link: "/de/guide/link-check" },
             { text: "Einstellungen", link: "/de/guide/settings" },
             { text: "Fehlerbehebung", link: "/de/guide/troubleshooting" },
             { text: "Datenschutz", link: "/de/guide/privacy" },

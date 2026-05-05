@@ -17,6 +17,7 @@ export const ko = {
           items: [
             { text: "시작하기", link: "/ko/guide/" },
             { text: "기능", link: "/ko/guide/features" },
+            { text: "대용량 파일", link: "/ko/guide/large-files" },
             { text: "내보내기 및 인쇄", link: "/ko/guide/export" },
             {
               text: "키보드 단축키",
@@ -42,6 +43,10 @@ export const ko = {
               text: "Markmap 마인드맵",
               link: "/ko/guide/markmap",
             },
+            {
+              text: "GitHub Actions 워크플로 뷰어",
+              link: "/ko/guide/workflow-viewer",
+            },
             { text: "SVG 그래픽", link: "/ko/guide/svg" },
             {
               text: "미디어 (비디오/오디오)",
@@ -61,6 +66,10 @@ export const ko = {
             },
             { text: "AI 지니", link: "/ko/guide/ai-genies" },
             {
+              text: "워크플로 지니",
+              link: "/ko/guide/workflow-genies",
+            },
+            {
               text: "AI 제공업체",
               link: "/ko/guide/ai-providers",
             },
@@ -69,6 +78,8 @@ export const ko = {
               text: "MCP 도구 참조",
               link: "/ko/guide/mcp-tools",
             },
+            { text: "Markdown 린트", link: "/ko/guide/lint" },
+            { text: "링크 검사", link: "/ko/guide/link-check" },
             { text: "설정", link: "/ko/guide/settings" },
             { text: "문제 해결", link: "/ko/guide/troubleshooting" },
             { text: "개인정보 보호", link: "/ko/guide/privacy" },

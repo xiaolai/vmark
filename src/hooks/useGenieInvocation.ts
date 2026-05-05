@@ -354,6 +354,50 @@ export function useGenieInvocation() {
 
   const invokeGenie = useCallback(
     async (genie: GenieDefinition, scopeOverride?: GenieScope) => {
+      // WI-7.1: workflow genies dispatch through run_workflow instead of
+      // run_ai_prompt. The picker still shows them inline; invocation routes
+      // the YAML body to the Rust runner.
+      if (genie.kind === "workflow") {
+        const hasProvider = await useAiProviderStore.getState().ensureProvider();
+        if (!hasProvider) {
+          toast.error(i18n.t("dialog:toast.genieNoProvider"));
+          return;
+        }
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          const provState = useAiProviderStore.getState();
+          const active = provState.activeProvider;
+          const rest = active ? provState.restProviders.find((p) => p.type === active) : null;
+          const cli = active ? provState.cliProviders.find((p) => p.type === active) : null;
+          const provider = active
+            ? {
+                provider: active,
+                apiKey: rest?.apiKey || null,
+                endpoint: rest?.endpoint || null,
+                cliPath: cli?.path || null,
+              }
+            : null;
+          const { useWorkspaceStore } = await import("@/stores/workspaceStore");
+          const workspaceRoot = useWorkspaceStore.getState().rootPath ?? "";
+          if (!workspaceRoot) {
+            toast.error(i18n.t("dialog:toast.workflowNeedsWorkspace", "Open a workspace first"));
+            return;
+          }
+          const { useWorkflowPreviewStore } = await import("@/stores/workflowPreviewStore");
+          const id = await invoke<string>("run_workflow", {
+            yaml: genie.template,
+            env: {},
+            workspaceRoot,
+            provider,
+          });
+          useWorkflowPreviewStore.getState().setExecution(id);
+          useGeniesStore.getState().addRecent(genie.metadata.name);
+        } catch (err) {
+          toast.error(String(err));
+        }
+        return;
+      }
+
       // Block in Source Mode — suggestions can only apply via Tiptap
       if (useEditorStore.getState().sourceMode) {
         toast.info(i18n.t("dialog:toast.genieNotInSourceMode"));

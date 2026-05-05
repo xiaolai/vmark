@@ -145,6 +145,32 @@ describe("createPreviewElement", () => {
     el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(handler).toHaveBeenCalledTimes(1);
   });
+
+  describe("yaml/yml workflow cache-hit class", () => {
+    it("yaml language produces .workflow-preview class (not .yaml-preview)", () => {
+      // Cache-hit path: a workflow YAML fence already rendered once;
+      // the cached Mermaid SVG comes back here with language="yaml".
+      // Without the workflow branch, this fell through to
+      // "yaml-preview" + sanitizeKatex, which strips the SVG and
+      // bypasses .workflow-preview CSS sizing — visible bug after
+      // F6 source-mode round-trip.
+      const el = createPreviewElement(
+        "yaml",
+        "<svg viewBox='0 0 100 100'><rect/></svg>",
+      );
+      expect(el.className).toContain("workflow-preview");
+      expect(el.className).not.toContain("yaml-preview");
+      expect(el.innerHTML).toContain("<svg");
+    });
+
+    it("yml language also routes to .workflow-preview", () => {
+      const el = createPreviewElement(
+        "yml",
+        "<svg viewBox='0 0 100 100'><rect/></svg>",
+      );
+      expect(el.className).toContain("workflow-preview");
+    });
+  });
 });
 
 describe("createPreviewPlaceholder", () => {

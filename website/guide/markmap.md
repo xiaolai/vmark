@@ -25,7 +25,7 @@ Type a fenced code block with the `markmap` language identifier:
 ## Branch B
 ### Topic 3
 ### Topic 4
-```
+```text
 ````
 
 ### Using MCP Tool
@@ -80,7 +80,7 @@ Nodes can contain inline Markdown:
 ## Documentation
 ### API reference
 ### User guide
-```
+```text
 ````
 
 List items under a heading become child nodes of that heading.

@@ -28,6 +28,7 @@ import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
+import { isYamlFileName } from "@/utils/dropPaths";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
 import { menuError } from "@/utils/debug";
 
@@ -200,14 +201,38 @@ export function useViewMenuEvents(): void {
         }
 
         if (content !== undefined) {
-          const diagnostics = useLintStore.getState().runLint(tabId, content);
-          triggerLintRefresh();
-          if (diagnostics.length === 0) {
-            toast.success(i18n.t("statusbar:lint.clean.toast"));
+          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          const isYaml = filePath
+            ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
+            : false;
+          const finalize = (totalCount: number) => {
+            triggerLintRefresh();
+            if (totalCount === 0) {
+              toast.success(i18n.t("statusbar:lint.clean.toast"));
+            } else {
+              toast.info(
+                i18n.t("dialog:toast.lintFoundIssues", { count: totalCount }),
+              );
+            }
+          };
+          if (isYaml) {
+            const yamlDiags = useLintStore
+              .getState()
+              .runYamlLint(tabId, content);
+            finalize(yamlDiags.length);
           } else {
-            toast.info(
-              i18n.t("dialog:toast.lintFoundIssues", { count: diagnostics.length }),
-            );
+            const syncDiagnostics = useLintStore
+              .getState()
+              .runLint(tabId, content);
+            triggerLintRefresh();
+            if (filePath) {
+              void useLintStore
+                .getState()
+                .runLinkCheck(tabId, content, filePath)
+                .then((merged) => finalize(merged.length));
+            } else {
+              finalize(syncDiagnostics.length);
+            }
           }
         }
       });

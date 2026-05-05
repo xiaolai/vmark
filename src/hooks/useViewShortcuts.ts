@@ -33,6 +33,7 @@ import { getActiveDocument, getActiveTabId } from "@/utils/activeDocument";
 import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
+import { isYamlFileName } from "@/utils/dropPaths";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
@@ -230,15 +231,43 @@ export function useViewShortcuts() {
         }
 
         if (content !== undefined) {
-          const diagnostics = useLintStore.getState().runLint(tabId, content);
-          // Refresh CM linter so it picks up the new diagnostics immediately
-          triggerLintRefresh();
-          if (diagnostics.length === 0) {
-            toast.success(i18n.t("statusbar:lint.clean.toast"));
+          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          const isYaml = filePath
+            ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
+            : false;
+          const finalize = (totalCount: number) => {
+            triggerLintRefresh();
+            if (totalCount === 0) {
+              toast.success(i18n.t("statusbar:lint.clean.toast"));
+            } else {
+              toast.info(
+                i18n.t("dialog:toast.lintFoundIssues", { count: totalCount }),
+              );
+            }
+          };
+          if (isYaml) {
+            // Codex audit MED-3 close-out: YAML files now run their
+            // own lint pipeline and write to lintStore. Same toast,
+            // same badge, same F2 navigation as markdown.
+            const yamlDiags = useLintStore
+              .getState()
+              .runYamlLint(tabId, content);
+            finalize(yamlDiags.length);
           } else {
-            toast.info(
-              i18n.t("dialog:toast.lintFoundIssues", { count: diagnostics.length }),
-            );
+            const syncDiagnostics = useLintStore
+              .getState()
+              .runLint(tabId, content);
+            triggerLintRefresh();
+            // Codex audit MED-4: toast reflects the COMBINED
+            // (sync + async link-check) result.
+            if (filePath) {
+              void useLintStore
+                .getState()
+                .runLinkCheck(tabId, content, filePath)
+                .then((merged) => finalize(merged.length));
+            } else {
+              finalize(syncDiagnostics.length);
+            }
           }
         }
         return;

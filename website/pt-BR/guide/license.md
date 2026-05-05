@@ -1,8 +1,6 @@
 # Licença
 
-O VMark é lançado sob a Licença ISC — uma licença simples e permissiva semelhante à MIT. Veja o que isso significa para você.
-
-O VMark é lançado sob a **Licença ISC** — uma das licenças de código aberto mais simples e permissivas.
+O VMark é lançado sob a **Licença ISC** — uma das licenças de código aberto mais simples e permissivas, funcionalmente equivalente à MIT.
 
 ## O que a Licença ISC Permite
 

@@ -1,6 +1,6 @@
 # Atajos de Teclado
 
-VMark está diseñado para flujos de trabajo que priorizan el teclado. La mayoría de los atajos se pueden personalizar en Configuración. Algunos — como los atajos multicursor (Seleccionar Siguiente Ocurrencia, Seleccionar Todas las Ocurrencias), Deshacer y Rehacer — aún no son personalizables.
+VMark está diseñado para flujos de trabajo que priorizan el teclado. La mayoría de los atajos se pueden personalizar en Configuración. Un pequeño número de primitivas son fijas: los selectores multicursor `Mod+D` (Seleccionar Siguiente Ocurrencia) y `Mod+Shift+L` (Seleccionar Todas las Ocurrencias), y las asignaciones globales de Deshacer/Rehacer. Los demás atajos multicursor (Omitir Ocurrencia, Deshacer Cursor Suave, Añadir Cursor Arriba/Abajo) son configurables. Los atajos marcados como _(sensibles al contexto)_ son gestionados dentro del editor para estructuras específicas (por ejemplo, alternar la casilla de una lista de tareas) y no están expuestos en el registro de personalización.
 
 ## Notación
 
@@ -76,7 +76,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Lista con Viñetas | `Alt + Mod + U` |
 | Lista Ordenada | `Alt + Mod + O` |
 | Lista de Tareas | `Alt + Mod + X` |
-| Alternar Casilla de Tarea | `Mod + Shift + Enter` |
+| Alternar Casilla de Tarea | `Mod + Shift + Enter` _(sensible al contexto; no personalizable)_ |
 | Cambiar Tipo de Lista | _(personalizable)_ |
 | Indentar | `Mod + ]` |
 | Desindentar | `Mod + [` |
@@ -145,6 +145,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Siguiente Coincidencia | `Mod + G` |
 | Coincidencia Anterior | `Mod + Shift + G` |
 | Usar Selección para Buscar | `Mod + E` |
+| Buscar en Archivos | `Mod + Shift + H` |
 
 ## Vista y Modo
 
@@ -271,7 +272,13 @@ Cuando el cursor está dentro de una tabla:
 | Celda Anterior | `Shift + Tab` |
 | Añadir Fila Abajo | `Mod + Enter` |
 | Añadir Fila Arriba | `Mod + Shift + Enter` |
-| Eliminar Fila | `Mod + Retroceso` |
+| Eliminar Fila | `Mod + Backspace` |
+| Añadir Columna a la Izquierda | `Alt + Mod + Left` |
+| Añadir Columna a la Derecha | `Alt + Mod + Right` |
+| Eliminar Columna | `Alt + Mod + Backspace` |
+| Alinear Columna a la Izquierda | `Mod + Alt + Shift + L` |
+| Alinear Columna a la Derecha | `Mod + Shift + R` |
+| Alinear Columna al Centro | _(personalizable)_ |
 | Formatear Tabla | `Alt + Mod + T` |
 | Salir de la Tabla | Teclas de flecha en el borde de la tabla |
 

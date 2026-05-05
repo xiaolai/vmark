@@ -1,5 +1,22 @@
 # Fehlerbehebung
 
+## Schnellnachschlag
+
+Häufige Probleme und wo Sie die Lösung finden:
+
+| Symptom | Mögliche Ursache | Wo nachsehen |
+|---|---|---|
+| MCP-Client kann sich nicht verbinden | Veraltete Port-Datei oder VMark läuft nicht | [MCP-Server-Verbindungsprobleme](#mcp-server-verbindungsprobleme) |
+| Datei lässt sich nicht öffnen oder zeigt verstümmelten Text | Nicht-UTF-8-Kodierung oder Quarantäne-Attribut | [Datei lässt sich nicht öffnen](#datei-lasst-sich-nicht-offnen) |
+| KI-Genie hängt oder antwortet nicht | Anbieter falsch konfiguriert oder CLI nicht im PATH | [KI-Genie reagiert nicht](#ki-genie-reagiert-nicht) |
+| Tastenkürzel reagiert nicht | In den Einstellungen neu zugewiesen oder System-Override | [Tastenkürzel funktioniert nicht](#tastenkurzel-funktioniert-nicht) |
+| Langsamer Editor bei großen Dateien | Speicherverbrauch pro Tab + Eingabeverzögerung bei 10.000+ Zeilen | [Editor-Leistung](#editor-leistung) |
+| Menü ist nach Sprachwechsel weiterhin auf Englisch | Menü wird beim Start neu aufgebaut | [Menüleiste zeigt nach Sprachwechsel weiterhin Englisch](#menuleiste-zeigt-nach-sprachwechsel-weiterhin-englisch) |
+| PDF-Export unvollständig | Bildpfade oder Schreibrechte | [Export-/Druckprobleme](#export-druckprobleme) |
+| Langsamer Start unter Windows | WebView2 + Antivirenscanning | [App startet unter Windows langsam](#app-startet-unter-windows-langsam) |
+
+Für alles, was oben nicht aufgeführt ist, siehe [Fehler melden](#fehler-melden).
+
 ## Protokolldateien
 
 VMark erstellt Protokolldateien, um bei der Diagnose von Problemen zu helfen. Die Protokolle enthalten Warnungen und Fehler sowohl vom Rust-Backend als auch vom Frontend.

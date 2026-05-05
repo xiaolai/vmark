@@ -179,3 +179,182 @@ fn test_parse_genie_name_from_filename_not_frontmatter() {
     let result = parse_genie(content, "/path/to/new-name.md").unwrap();
     assert_eq!(result.metadata.name, "new-name");
 }
+
+// === WI-0.1: Genie v1 nested-frontmatter parsing ===
+
+#[test]
+fn test_parse_v1_nested_io() {
+    // Genie v1 with proper nested input/output objects.
+    let content = r#"---
+description: Translate to target language
+scope: selection
+genie: v1
+input:
+  type: text
+  description: Source text to translate
+output:
+  type: text
+  description: Translated text
+tags:
+  - translation
+  - language
+---
+
+Translate {{input}} into the target language."#;
+    let result = parse_genie(content, "translate.md").unwrap();
+    assert_eq!(result.metadata.version.as_deref(), Some("v1"));
+
+    let input = result.metadata.input.expect("input spec missing");
+    assert_eq!(input.io_type, "text");
+    assert_eq!(input.description.as_deref(), Some("Source text to translate"));
+    assert_eq!(input.accept, None);
+
+    let output = result.metadata.output.expect("output spec missing");
+    assert_eq!(output.io_type, "text");
+    assert_eq!(output.description.as_deref(), Some("Translated text"));
+
+    let tags = result.metadata.tags.expect("tags missing");
+    assert_eq!(tags, vec!["translation", "language"]);
+}
+
+#[test]
+fn test_parse_v1_nested_with_schema() {
+    // Output schema should be preserved as serde_json::Value for IPC.
+    let content = r#"---
+description: Extract structured fields
+scope: selection
+genie: v1
+input:
+  type: text
+output:
+  type: json
+  schema:
+    type: object
+    required:
+      - title
+      - summary
+    properties:
+      title:
+        type: string
+      summary:
+        type: string
+---
+
+Extract title and summary from: {{input}}"#;
+    let result = parse_genie(content, "extract.md").unwrap();
+    let output = result.metadata.output.expect("output spec missing");
+    assert_eq!(output.io_type, "json");
+    let schema = output.schema.expect("schema should round-trip");
+    // Verify schema landed as a JSON object with the expected structure.
+    let obj = schema.as_object().expect("schema should be object");
+    assert_eq!(obj.get("type").and_then(|v| v.as_str()), Some("object"));
+    let required = obj
+        .get("required")
+        .and_then(|v| v.as_array())
+        .expect("required array");
+    assert_eq!(required.len(), 2);
+}
+
+#[test]
+fn test_parse_v1_flat_io_deprecated() {
+    // Existing flat form (input_type:, output_type:) must continue to parse
+    // for one release as a deprecation bridge.
+    let content = r#"---
+description: Deprecated flat form
+scope: selection
+genie: v1
+input_type: text
+input_description: Source text
+output_type: text
+tags: a, b, c
+---
+
+{{input}}"#;
+    let result = parse_genie(content, "deprecated-flat.md").unwrap();
+    assert_eq!(result.metadata.version.as_deref(), Some("v1"));
+    let input = result.metadata.input.expect("flat input should still parse");
+    assert_eq!(input.io_type, "text");
+    assert_eq!(input.description.as_deref(), Some("Source text"));
+    let tags = result.metadata.tags.expect("tags missing");
+    assert_eq!(tags, vec!["a", "b", "c"]);
+}
+
+#[test]
+fn test_parse_v1_malformed_nested_falls_back() {
+    // A v1 declaration with completely malformed YAML in the input block —
+    // parser should still recover and give a v0-shaped result rather than panic.
+    let content = r#"---
+description: malformed
+scope: selection
+genie: v1
+input: [not-a-mapping
+---
+
+{{input}}"#;
+    // Malformed YAML in an `input:` block produces no input spec but also does
+    // not crash the parser. The genie is still discoverable.
+    let result = parse_genie(content, "malformed.md");
+    // Either Err with a clean message OR Ok with input=None; both are acceptable.
+    // The contract is no panic and the file still listed somewhere.
+    if let Ok(content) = result {
+        // No panic, no input populated
+        assert!(content.metadata.input.is_none());
+    }
+}
+
+#[test]
+fn test_parse_v0_still_works_after_v1_support() {
+    // The base v0 case (no `genie:` field) must remain untouched.
+    let content = r#"---
+description: V0 classic genie
+scope: selection
+category: writing
+---
+
+{{content}}"#;
+    let result = parse_genie(content, "classic.md").unwrap();
+    assert_eq!(result.metadata.version, None);
+    assert_eq!(result.metadata.input, None);
+    assert_eq!(result.metadata.output, None);
+    assert_eq!(result.metadata.tags, None);
+    assert_eq!(result.metadata.scope, "selection");
+    assert_eq!(result.metadata.description, "V0 classic genie");
+}
+
+#[test]
+fn test_parse_v1_approval_field() {
+    // ADR-6 precedence requires genie-level approval default.
+    let content = r#"---
+description: Asks before running
+scope: document
+genie: v1
+approval: ask
+input:
+  type: text
+output:
+  type: text
+---
+
+{{input}}"#;
+    let result = parse_genie(content, "ask-first.md").unwrap();
+    assert_eq!(result.metadata.approval.as_deref(), Some("ask"));
+}
+
+#[test]
+fn test_parse_v1_invalid_approval_filtered() {
+    // Only "ask" or "auto" valid; anything else dropped.
+    let content = r#"---
+description: bad approval
+scope: selection
+genie: v1
+approval: maybe-later
+input:
+  type: text
+output:
+  type: text
+---
+
+{{input}}"#;
+    let result = parse_genie(content, "bad-approval.md").unwrap();
+    assert_eq!(result.metadata.approval, None);
+}

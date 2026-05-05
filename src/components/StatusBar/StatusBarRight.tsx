@@ -28,6 +28,7 @@ import { formatExactTime } from "@/utils/dateUtils";
 import { formatKeyForDisplay } from "@/stores/shortcutsStore";
 import { UpdateIndicator } from "./UpdateIndicator";
 import { StatusBarCounts } from "./StatusBarCounts";
+import { McpHistoryButton } from "@/components/McpHistory";
 import { LintBadge } from "./LintBadge";
 import type { McpClient } from "@/hooks/useMcpClients";
 
@@ -89,6 +90,11 @@ interface StatusBarRightProps {
   sourceMode: boolean;
   sourceModeShortcut: string;
   onToggleSourceMode: () => void;
+  /**
+   * Hide the WYSIWYG↔Source toggle entirely. Used for YAML workflow
+   * tabs where the markdown round-trip would corrupt the file.
+   */
+  modeToggleHidden?: boolean;
   readOnly: boolean;
   readOnlyShortcut: string;
   onToggleReadOnly: () => void;
@@ -119,6 +125,7 @@ export function StatusBarRight({
   sourceMode,
   sourceModeShortcut,
   onToggleSourceMode,
+  modeToggleHidden,
   readOnly,
   readOnlyShortcut,
   onToggleReadOnly,
@@ -212,6 +219,8 @@ export function StatusBarRight({
         <Satellite size={12} />
       </button>
 
+      <McpHistoryButton />
+
       <button
         className={`status-terminal ${terminalVisible ? "active" : ""}`}
         title={t("toggleTerminal", { shortcut: formatKeyForDisplay(terminalShortcut) })}
@@ -222,22 +231,24 @@ export function StatusBarRight({
         <Terminal size={12} />
       </button>
 
-      <button
-        className="status-mode"
-        title={sourceMode ? t("sourceModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) }) : t("richTextModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) })}
-        aria-label={sourceMode ? t("sourceModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) }) : t("richTextModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) })}
-        onClick={() => {
-          const toastStore = useImagePasteToastStore.getState();
-          /* v8 ignore next -- @preserve toastStore.isOpen true branch: toast not open during mode toggle tests */
-          if (toastStore.isOpen) {
-            toastStore.hideToast();
-          }
-          flushActiveWysiwygNow();
-          onToggleSourceMode();
-        }}
-      >
-        {sourceMode ? <Code2 size={14} /> : <Type size={12} />}
-      </button>
+      {!modeToggleHidden && (
+        <button
+          className="status-mode"
+          title={sourceMode ? t("sourceModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) }) : t("richTextModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) })}
+          aria-label={sourceMode ? t("sourceModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) }) : t("richTextModeTitle", { shortcut: formatKeyForDisplay(sourceModeShortcut) })}
+          onClick={() => {
+            const toastStore = useImagePasteToastStore.getState();
+            /* v8 ignore next -- @preserve toastStore.isOpen true branch: toast not open during mode toggle tests */
+            if (toastStore.isOpen) {
+              toastStore.hideToast();
+            }
+            flushActiveWysiwygNow();
+            onToggleSourceMode();
+          }}
+        >
+          {sourceMode ? <Code2 size={14} /> : <Type size={12} />}
+        </button>
+      )}
 
       <button
         className={`status-lock${readOnly ? " active" : ""}`}

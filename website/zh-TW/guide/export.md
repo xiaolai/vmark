@@ -8,7 +8,7 @@ VMark 提供多種文件匯出與分享方式。
 
 建立結構清晰的自包含資料夾：
 
-```
+```text
 MyDocument/
 ├── index.html
 └── assets/
@@ -27,7 +27,7 @@ MyDocument/
 
 建立單一自包含 HTML 檔案：
 
-```
+```text
 MyDocument.html
 ```
 

@@ -2,7 +2,7 @@
 
 O painel de configurações do VMark permite personalizar todos os aspectos do editor. Abra-o com `Mod + ,` ou via **VMark > Configurações** na barra de menus.
 
-A janela de configurações tem uma barra lateral com seções listadas alfabeticamente. As alterações têm efeito imediato — não há botão de salvar.
+A janela de configurações tem uma barra lateral com seções agrupadas por tópico — as seções mais usadas aparecem primeiro, com Sobre e Avançado no final. As alterações têm efeito imediato — não há botão de salvar.
 
 ## Aparência
 
@@ -93,7 +93,8 @@ Configurações de comportamento ao colar, layout e renderização HTML.
 | Configuração | Descrição | Padrão | Opções |
 |-------------|-----------|--------|--------|
 | Habilitar regex na pesquisa | Mostrar um botão de alternância de regex na barra de Localizar e Substituir | Ligado | Ligado / Desligado |
-| Colar Markdown de forma inteligente | Ao colar texto que parece Markdown no editor WYSIWYG, convertê-lo automaticamente em conteúdo rico | Auto (detectar Markdown) | Auto (detectar Markdown), Desligado |
+| Modo de colar | Como o VMark roteia o conteúdo da área de transferência | Smart | Smart, Plain |
+| Colar Markdown no WYSIWYG | Ao colar texto que parece Markdown no editor WYSIWYG, convertê-lo automaticamente em conteúdo rico | Auto | Auto, Desligado |
 
 ### Layout
 
@@ -109,6 +110,8 @@ Configurações de comportamento ao colar, layout e renderização HTML.
 | Configuração | Descrição | Padrão | Opções |
 |-------------|-----------|--------|--------|
 | Habilitar markdown lint | Verificar problemas comuns de markdown (links quebrados, texto alt ausente, incrementos de títulos, blocos de código não fechados, etc.) | Ligado | Ligado / Desligado |
+
+Veja [Lint de Markdown](/pt-BR/guide/lint) para a lista completa de regras e níveis de severidade.
 
 ### Renderização HTML
 
@@ -158,6 +161,24 @@ Essas configurações só se aplicam quando uma área de trabalho (pasta) estive
 | Redimensionar automaticamente ao colar | Redimensionar automaticamente imagens grandes antes de salvar na pasta de ativos. O valor é a dimensão máxima em pixels | Desligado | Desligado, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copiar para pasta de ativos | Copiar imagens coladas ou arrastadas para a pasta de ativos do documento em vez de incorporá-las | Ligado | Ligado / Desligado |
 | Limpar imagens não utilizadas ao fechar | Excluir automaticamente imagens da pasta de ativos que não são mais referenciadas no documento ao fechá-lo | Desligado | Ligado / Desligado |
+| Limite de imagem inline | Tamanho máximo (MB) para incorporar imagens como URLs de dados base64 na exportação HTML/PDF. Arquivos maiores são vinculados | 1.0 MB | 0.1 – 10 MB |
+
+### Arquivos grandes
+
+| Configuração | Descrição | Padrão | Opções |
+|--------------|-----------|--------|--------|
+| Avisar acima do tamanho | Mostrar uma confirmação ao abrir arquivos acima deste tamanho | 5 MB | Ligado / Desligado |
+| Modo Fonte automático | Abrir automaticamente arquivos acima do limite no modo Fonte (pula o WYSIWYG para manter o desempenho fluido) | Ligado | Ligado / Desligado |
+
+Veja [Large Files](/guide/large-files) para a explicação completa de como arquivos grandes são tratados.
+
+### Atualizações
+
+| Configuração | Descrição | Padrão | Opções |
+|--------------|-----------|--------|--------|
+| Frequência de verificação | Quando verificar novas versões do VMark | Na inicialização | Na inicialização, Diariamente, Semanalmente, Manual |
+| Baixar atualizações automaticamente | Baixar artefatos de versão em segundo plano assim que uma atualização é detectada | Desligado | Ligado / Desligado |
+| Pular uma versão | Suprime o aviso de atualização para uma versão específica (definido por atualização a partir do próprio aviso) | Nenhuma | — |
 
 ::: tip
 Habilite **Redimensionar automaticamente ao colar** se você frequentemente cola capturas de tela ou fotos — isso mantém a pasta de ativos leve sem redimensionamento manual.
@@ -205,7 +226,7 @@ Veja [Provedores de IA](/pt-BR/guide/ai-providers) para instruções de configur
 
 ## Idioma
 
-Regras de formatação CJK (Chinês, Japonês, Coreano). Essas regras são aplicadas quando você executa **Formatar > Formatar Texto CJK** (`Cmd+Shift+F`).
+Regras de formatação CJK (Chinês, Japonês, Coreano). Essas regras são aplicadas quando você executa **Formatar → Formatar Seleção CJK** (`Cmd+Shift+F`) sobre uma seleção, ou **Formatar → Formatar Documento CJK** (`Alt+Cmd+Shift+F`) sobre o arquivo inteiro.
 
 ::: tip
 A seção Idioma contém mais de 20 alternâncias de formatação refinadas. Para uma explicação completa de cada regra com exemplos, veja [Formatação CJK](/pt-BR/guide/cjk-formatting).
@@ -315,6 +336,22 @@ Isso permite criar links como `obsidian://open?vault=...` ou `vscode://file/...`
 | Configuração | Descrição | Padrão |
 |-------------|-----------|--------|
 | Manter ambos os editores ativos | Montar os editores dos modos WYSIWYG e Fonte simultaneamente para alternância mais rápida entre modos. Aumenta o uso de memória | Desligado |
+
+### Motor de workflow
+
+| Configuração | Descrição | Padrão | Opções |
+|--------------|-----------|--------|--------|
+| Motor de workflow | Habilita o visualizador/editor de workflow do GitHub Actions para arquivos `.yml`/`.yaml` em `.github/workflows/`. Quando desligado, esses arquivos abrem como YAML simples | Desligado | Ligado / Desligado |
+| Preservar formatação YAML | Ao salvar edições de workflow feitas pelo painel de formulário, preservar comentários, âncoras, ordem de chaves e linhas em branco do YAML original via o pipeline de ida e volta da CST. Quando desligado, o salvamento usa um serializador compacto (mais rápido, mas com perda) | Ligado | Ligado / Desligado |
+
+Veja [Workflow Viewer](/guide/workflow-viewer) para a superfície completa de recursos.
+
+### Específico da plataforma
+
+| Configuração | Descrição | Padrão | Plataformas |
+|--------------|-----------|--------|-------------|
+| Limpar quarentena macOS ao abrir | Ao abrir um arquivo que carrega o atributo de quarentena do macOS (`com.apple.quarantine`), removê-lo antes da leitura. Útil para arquivos baixados da web que o VMark não conseguiria abrir | Ligado | macOS |
+| Tecla Option do Mac como Meta (terminal) | Tratar a tecla Option do macOS como Meta no terminal integrado. Necessária para ferramentas como emacs e tmux que esperam atalhos prefixados com Alt | Desligado | macOS |
 
 ### Ferramentas de Desenvolvedor
 

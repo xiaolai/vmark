@@ -17,7 +17,8 @@
  *
  * @coordinates-with SourceEditor.tsx, TiptapEditor.tsx — mounts one or both based on mode
  * @coordinates-with stores/editorStore.ts — reads sourceMode for mode switching
- * @coordinates-with plugins/workflowPreview/WorkflowSidePanel.tsx — renders workflow panel for .yml files
+ * @coordinates-with plugins/workflowPreview/WorkflowSidePanel.tsx — renders Genie workflow panel for .yml files
+ * @coordinates-with plugins/ghaWorkflowPreview/GhaWorkflowSidePanel.tsx — renders GitHub Actions workflow panel
  * @module components/Editor/Editor
  */
 import { lazy, Suspense } from "react";
@@ -39,6 +40,11 @@ import { DropZoneIndicator } from "./DropZoneIndicator";
 const WorkflowSidePanel = lazy(() =>
   import("@/plugins/workflowPreview/WorkflowSidePanel").then((m) => ({ default: m.WorkflowSidePanel }))
 );
+// Eager-loaded — placing GhaWorkflowSidePanel inside a Suspense boundary
+// triggered "Maximum update depth exceeded" loops in React 19 due to
+// xyflow's internal store firing setState from disappearLayoutEffects
+// during Suspense transitions. Eager mount avoids the transition entirely.
+import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
 import "./editor.css";
 import "./heading-picker.css";
 import "@/styles/popup-shared.css";
@@ -102,6 +108,7 @@ export function Editor() {
         {editorContent}
       </div>
       {workflowEnabled && <Suspense fallback={null}><WorkflowSidePanel /></Suspense>}
+      <GhaWorkflowSidePanel />
       <HeadingPicker />
       <DropZoneIndicator />
     </div>

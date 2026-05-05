@@ -14,24 +14,25 @@
 //!   - Cancellation checked before each step via shared AtomicBool
 //!   - Steps ordered by topological sort on `needs:` dependencies
 
+use super::approval::{ApprovalRegistry, ApprovalRequest};
+use super::expressions::{self, WorkflowOutputs};
+use super::genie_step::{self, LoadedGenie, ProviderConfig};
 use super::sandbox::validate_path;
+use super::step_config::resolve_step_config;
 use super::types::*;
-use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
+use tokio_util::sync::CancellationToken;
 
 // Resource limits for file actions
 const MAX_FILES_PER_FOLDER: usize = 1000;
 const MAX_FILE_SIZE_BYTES: u64 = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_READ_BYTES: u64 = 100 * 1024 * 1024; // 100MB
 const MAX_OUTPUT_SIZE_BYTES: usize = 5 * 1024 * 1024; // 5MB per step output in IPC
-
-static ENV_VAR_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\$\{(\w+)\}").expect("Invalid env var regex"));
 
 /// Emit a Tauri event, logging failures instead of silently dropping them.
 fn emit_event<S: serde::Serialize + Clone>(app: &AppHandle, event: &str, payload: S) {
@@ -137,10 +138,87 @@ fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
     Ok(ordered)
 }
 
+/// Outcome of the approval wait — explicit so the caller doesn't have to
+/// reason about which `Result` variant came from where.
+enum ApprovalOutcome {
+    Approved,
+    Denied,
+    /// Sender side dropped without delivering a value (window close, etc.).
+    ChannelClosed,
+    /// Approval window expired.
+    TimedOut,
+    /// Workflow was cancelled while the dialog was open.
+    Cancelled,
+}
+
+/// Build the preview the approval dialog shows.
+///
+/// For genie steps, attempts to load the genie and fill its template against
+/// `resolved_params` so the preview matches what the model will actually
+/// receive. Falls back to the raw `with.input` / `with.content` / `with.prompt`
+/// value if the genie can't be loaded (so non-genie steps and authoring-time
+/// errors still get a useful preview).
+async fn build_approval_preview(
+    step: &RawStep,
+    resolved_params: &HashMap<String, String>,
+    genies_dir: Option<&Path>,
+) -> String {
+    const PREVIEW_BYTES: usize = 500;
+
+    if let Some(name) = step.uses.strip_prefix("genie/") {
+        if let Some(dir) = genies_dir {
+            if let Ok(path) = genie_step::find_genie_file(dir, name) {
+                if let Ok(raw) = tokio::fs::read_to_string(&path).await {
+                    if let Ok(content) = parse_genie_content(&raw, &path) {
+                        if let Ok(filled) =
+                            super::template::fill(&content.template, resolved_params)
+                        {
+                            return filled.chars().take(PREVIEW_BYTES).collect();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    resolved_params
+        .get("input")
+        .or_else(|| resolved_params.get("content"))
+        .or_else(|| resolved_params.get("prompt"))
+        .map(|s| s.chars().take(PREVIEW_BYTES).collect())
+        .unwrap_or_default()
+}
+
+/// Convert the legacy `Arc<AtomicBool>` cancel flag into a polling task that
+/// flips a `CancellationToken`. Bridges the existing API to the new tokio
+/// cancellation primitive used by `run_ai_prompt_collect`.
+fn spawn_cancel_bridge(
+    legacy: Arc<AtomicBool>,
+    token: CancellationToken,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            if legacy.load(Ordering::SeqCst) {
+                token.cancel();
+                return;
+            }
+            if token.is_cancelled() {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    })
+}
+
 /// Execute a parsed workflow with topological ordering and cancellation support.
 ///
 /// The `execution_id` is provided by the caller (commands.rs) so events can
 /// be emitted with the correct ID from the start.
+///
+/// `provider` and `genies_dir` are required for `genie/*` steps; `None`
+/// values cause genie steps to fail with a clear error rather than panic
+/// (lets the runner exercise action-only workflows from contexts where no
+/// AI provider has been selected yet).
 pub async fn run_workflow_sequential(
     app: &AppHandle,
     workflow: RawWorkflow,
@@ -148,8 +226,17 @@ pub async fn run_workflow_sequential(
     workspace_root: &Path,
     execution_id: &str,
     cancel_token: &Arc<AtomicBool>,
+    provider: Option<ProviderConfig>,
+    genies_dir: Option<PathBuf>,
+    approvals: Arc<ApprovalRegistry>,
 ) -> Result<String, String> {
-    let mut outputs: HashMap<String, String> = HashMap::new();
+    // Bridge the legacy AtomicBool cancel flag into a CancellationToken that
+    // the AI provider stack can react to without polling.
+    let cancel = CancellationToken::new();
+    let _bridge = spawn_cancel_bridge(Arc::clone(cancel_token), cancel.clone());
+
+    let defaults = workflow.defaults;
+    let mut outputs: WorkflowOutputs = HashMap::new();
 
     // Merge workflow env with provided env (provided takes precedence)
     let mut merged_env = workflow.env.clone();
@@ -270,17 +357,137 @@ pub async fn run_workflow_sequential(
                 }
             };
 
-        // Execute step based on type
-        let result = execute_step(&step.uses, &resolved_params, workspace_root).await;
+        // Resolve effective step timeout (ADR-6) so we can wrap execution.
+        let step_config = resolve_step_config(&step, None, &defaults);
+        let step_timeout = std::time::Duration::from_secs(step_config.timeout_secs);
+
+        // Approval gate: if step.approval == "ask", emit a request event and
+        // park on the registered oneshot until the dialog responds OR the
+        // workflow is cancelled. Build the preview from the *resolved* prompt
+        // for genie steps so the user approves what the model actually sees.
+        if step_config.approval == "ask" {
+            let approval_key = (execution_id.to_string(), step_id.clone());
+            let rx = approvals.register(approval_key.clone());
+            let preview =
+                build_approval_preview(&step, &resolved_params, genies_dir.as_deref()).await;
+            emit_event(
+                app,
+                "workflow:approval-request",
+                ApprovalRequest {
+                    execution_id: execution_id.to_string(),
+                    step_id: step_id.clone(),
+                    summary: step.uses.clone(),
+                    preview,
+                    model: step_config.model.clone(),
+                },
+            );
+            let approval_timeout = step_timeout.min(std::time::Duration::from_secs(600));
+            let approval_outcome = tokio::select! {
+                _ = cancel.cancelled() => ApprovalOutcome::Cancelled,
+                res = tokio::time::timeout(approval_timeout, rx) => match res {
+                    Ok(Ok(true)) => ApprovalOutcome::Approved,
+                    Ok(Ok(false)) => ApprovalOutcome::Denied,
+                    Ok(Err(_)) => ApprovalOutcome::ChannelClosed,
+                    Err(_) => ApprovalOutcome::TimedOut,
+                },
+            };
+            match approval_outcome {
+                ApprovalOutcome::Approved => {}
+                ApprovalOutcome::Cancelled => {
+                    approvals.drop_pending(&approval_key);
+                    failed = true;
+                    failed_step = step_id.clone();
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id,
+                            status: "skipped".to_string(),
+                            output: None,
+                            error: Some("Workflow cancelled".to_string()),
+                            duration: Some(start.elapsed().as_millis() as u64),
+                        },
+                    );
+                    continue;
+                }
+                ApprovalOutcome::TimedOut => {
+                    approvals.drop_pending(&approval_key);
+                    failed = true;
+                    failed_step = step_id.clone();
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id,
+                            status: "error".to_string(),
+                            output: None,
+                            error: Some("Approval timed out".to_string()),
+                            duration: Some(start.elapsed().as_millis() as u64),
+                        },
+                    );
+                    continue;
+                }
+                ApprovalOutcome::Denied | ApprovalOutcome::ChannelClosed => {
+                    failed = true;
+                    failed_step = step_id.clone();
+                    let err_msg = if matches!(approval_outcome, ApprovalOutcome::ChannelClosed) {
+                        "Approval channel closed"
+                    } else {
+                        "Approval denied by user"
+                    };
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id,
+                            status: "error".to_string(),
+                            output: None,
+                            error: Some(err_msg.to_string()),
+                            duration: Some(start.elapsed().as_millis() as u64),
+                        },
+                    );
+                    continue;
+                }
+            }
+        }
+
+        // Execute step based on type, with a per-step timeout. On elapsed:
+        // fire the cancel token so any in-flight AI provider work (CLI child,
+        // REST request) is aborted, then surface a "Timed out" step error.
+        let exec_fut = execute_step(
+            &step,
+            &resolved_params,
+            workspace_root,
+            cancel.clone(),
+            provider.as_ref(),
+            genies_dir.as_deref(),
+            &defaults,
+        );
+        let result = match tokio::time::timeout(step_timeout, exec_fut).await {
+            Ok(r) => r,
+            Err(_elapsed) => {
+                cancel.cancel();
+                Err(format!("Timed out after {}s", step_config.timeout_secs))
+            }
+        };
         let duration_ms = start.elapsed().as_millis() as u64;
 
         match result {
-            Ok(output) => {
-                // Store full output for downstream step consumption
-                outputs.insert(step_id.clone(), output.clone());
+            Ok(step_outputs) => {
+                // Store full structured output for downstream step consumption.
+                // Action steps + text genies have a single "text" entry; JSON
+                // genies populate one entry per top-level field.
+                let primary_text = step_outputs
+                    .get("text")
+                    .cloned()
+                    .unwrap_or_default();
+                outputs.insert(step_id.clone(), step_outputs);
                 completed_steps.insert(step_id.clone());
                 // Truncate only for IPC emission (char-safe, no byte-boundary panic)
-                let emitted_output = truncate_utf8_safe(&output, MAX_OUTPUT_SIZE_BYTES);
+                let emitted_output = truncate_utf8_safe(&primary_text, MAX_OUTPUT_SIZE_BYTES);
                 emit_event(
                     app,
                     "workflow:step-update",
@@ -369,47 +576,24 @@ fn truncate_utf8_safe(s: &str, max_bytes: usize) -> String {
     )
 }
 
-/// Resolve step parameters: substitute ${VAR} env refs and step.output refs.
+/// Resolve step parameters via the expression module (WI-2.3).
+///
+/// Supports `${{ steps.X.outputs.Y }}`, `${{ steps.X.output }}`,
+/// `${{ env.NAME }}`, legacy `${VAR}`, and legacy whole-string
+/// `stepId.output` aliases.
 fn resolve_params(
     params: &HashMap<String, String>,
-    outputs: &HashMap<String, String>,
+    outputs: &WorkflowOutputs,
     env: &HashMap<String, String>,
     workspace_root: &Path,
 ) -> Result<HashMap<String, String>, String> {
     let mut resolved = HashMap::new();
 
     for (key, value) in params {
-        let mut val = value.clone();
+        let val = expressions::resolve(value, outputs, env)
+            .map_err(|e| e.to_string())?;
 
-        // 1. Env variable substitution (regex-based, handles embedded ${VAR})
-        val = ENV_VAR_RE
-            .replace_all(&val, |caps: &regex::Captures| {
-                let var_name = &caps[1];
-                env.get(var_name).cloned().unwrap_or_else(|| {
-                    log::warn!("Unresolved env variable '${{{}}}'", var_name);
-                    String::new()
-                })
-            })
-            .to_string();
-
-        // 2. Output reference resolution (stepId.output)
-        if val.ends_with(".output") {
-            let ref_id = val.trim_end_matches(".output");
-            if let Some(output) = outputs.get(ref_id) {
-                val = output.clone();
-            } else {
-                log::warn!(
-                    "Unresolved output reference '{}.output'",
-                    ref_id
-                );
-                return Err(format!(
-                    "Step output reference '{}.output' not found — the step may have failed or been skipped",
-                    ref_id
-                ));
-            }
-        }
-
-        // 3. Re-validate paths after substitution
+        // Re-validate paths after substitution.
         if key == "path" {
             validate_path(&val, workspace_root).map_err(|e| {
                 format!("Path validation failed after parameter resolution: {}", e)
@@ -423,18 +607,30 @@ fn resolve_params(
 }
 
 /// Execute a single step based on its `uses:` prefix.
+///
+/// Returns a `StepOutputs` map (step id → field → value). Action steps and
+/// v0/v1-text genies populate just `{"text": ...}`; v1-JSON genies populate
+/// each declared schema field as a sibling of `text`.
+///
+/// `genie/*` steps require `provider` and `genies_dir` — passing `None` for
+/// either causes the step to fail with a clear error rather than panic, so
+/// action-only workflows can run from contexts that haven't selected a
+/// provider yet.
 async fn execute_step(
-    uses: &str,
+    step: &RawStep,
     params: &HashMap<String, String>,
     workspace_root: &Path,
-) -> Result<String, String> {
+    cancel: CancellationToken,
+    provider: Option<&ProviderConfig>,
+    genies_dir: Option<&Path>,
+    defaults: &RawDefaults,
+) -> Result<HashMap<String, String>, String> {
+    let uses = step.uses.as_str();
     if uses.starts_with("action/") {
-        execute_action(uses, params, workspace_root).await
+        let text = execute_action(uses, params, workspace_root).await?;
+        Ok(HashMap::from([("text".to_string(), text)]))
     } else if uses.starts_with("genie/") {
-        Err(format!(
-            "Genie '{}' execution not yet implemented — requires AI provider adapter",
-            uses
-        ))
+        execute_genie_step(step, params, cancel, provider, genies_dir, defaults).await
     } else if uses.starts_with("webhook/") {
         Err(format!(
             "Webhook '{}' execution not yet implemented",
@@ -443,6 +639,76 @@ async fn execute_step(
     } else {
         Err(format!("Unknown step type: {}", uses))
     }
+}
+
+/// Resolve and execute a `genie/<name>` step.
+///
+/// Walks: name extraction → file discovery → frontmatter parse → input
+/// validation → template fill → AI provider call → output validation.
+/// Each failure mode produces a step-level error string suitable for the
+/// `workflow:step-update` event payload.
+async fn execute_genie_step(
+    step: &RawStep,
+    params: &HashMap<String, String>,
+    cancel: CancellationToken,
+    provider: Option<&ProviderConfig>,
+    genies_dir: Option<&Path>,
+    defaults: &RawDefaults,
+) -> Result<HashMap<String, String>, String> {
+    let name = genie_step::parse_genie_name(&step.uses)
+        .map_err(|e| e.to_string())?;
+    let provider = provider.ok_or_else(|| {
+        format!(
+            "Genie '{}' requires an active AI provider — none configured for this workflow run",
+            name
+        )
+    })?;
+    let genies_dir = genies_dir.ok_or_else(|| {
+        format!(
+            "Genie '{}' requires a genies directory — none resolved for this workflow run",
+            name
+        )
+    })?;
+
+    let genie_path = genie_step::find_genie_file(genies_dir, name).map_err(|e| e.to_string())?;
+    // Use tokio::fs to avoid blocking the runtime worker on slow disks.
+    let raw = tokio::fs::read_to_string(&genie_path)
+        .await
+        .map_err(|e| format!("Failed to read genie file '{}': {}", genie_path.display(), e))?;
+
+    // Parse via the same path the editor uses, so v0 + v1 frontmatter behave
+    // identically. We inline the call here rather than re-export `parse_genie`
+    // (private to the genies module) by going through the public Tauri command
+    // surface in tests, but at runtime we need a synchronous path. Re-implement
+    // the minimal slice: BOM strip + frontmatter detect + parse via serde_yaml.
+    let content = parse_genie_content(&raw, &genie_path)?;
+
+    let step_config = resolve_step_config(step, Some(&content.metadata), defaults);
+
+    let loaded = LoadedGenie {
+        metadata: content.metadata,
+        template: content.template,
+    };
+
+    genie_step::execute_genie(cancel, &loaded, params, &step_config, provider)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Slim genie-content parser used by the runner.
+///
+/// The editor path goes through `crate::genies::commands::read_genie` which
+/// is a Tauri command and can't be called from inside another Tauri command's
+/// async handler without re-entering the IPC layer. This function calls the
+/// same `parse_genie` underneath via the public `read_genie` Rust API exposed
+/// through `genies::types::GenieContent`.
+fn parse_genie_content(
+    raw: &str,
+    path: &Path,
+) -> Result<crate::genies::types::GenieContent, String> {
+    let path_str = path.to_string_lossy();
+    crate::genies::parse_genie_for_runner(raw, &path_str)
+        .map_err(|e| format!("Failed to parse genie '{}': {}", path.display(), e))
 }
 
 /// Execute a built-in action step.
@@ -755,27 +1021,78 @@ mod tests {
         assert!(result.is_err());
     }
 
+    fn step_with_uses(uses: &str) -> RawStep {
+        RawStep {
+            id: Some("s".into()),
+            uses: uses.into(),
+            with: HashMap::new(),
+            needs: NeedsDef::None,
+            condition: None,
+            model: None,
+            approval: None,
+            limits: None,
+        }
+    }
+
     #[tokio::test]
     async fn test_execute_step_unknown_type() {
         let params = HashMap::new();
         let root = std::path::Path::new("/tmp");
-        let result = execute_step("unknown/thing", &params, root).await;
+        let defaults = RawDefaults::default();
+        let result = execute_step(
+            &step_with_uses("unknown/thing"),
+            &params,
+            root,
+            CancellationToken::new(),
+            None,
+            None,
+            &defaults,
+        )
+        .await;
         assert!(result.is_err());
     }
 
+    // Per-step timeout enforcement (WI-2.5): see cli::tests::cancellation_kills_long_running_shim
+    // for the cancellation primitive proof. The runner wraps each step
+    // exec in tokio::time::timeout(step_config.timeout_secs, ...) and fires
+    // the shared CancellationToken on elapsed; both layers are exercised
+    // separately by the ai_provider tests and the standard tokio test suite.
+
     #[tokio::test]
-    async fn test_genie_step_returns_error() {
+    async fn test_genie_step_without_provider_returns_error() {
+        // Without an active provider configured, a genie step fails fast
+        // with a clear message rather than panicking.
         let params = HashMap::new();
         let root = std::path::Path::new("/tmp");
-        let result = execute_step("genie/summarize", &params, root).await;
-        assert!(result.is_err());
+        let defaults = RawDefaults::default();
+        let result = execute_step(
+            &step_with_uses("genie/summarize"),
+            &params,
+            root,
+            CancellationToken::new(),
+            None,
+            None,
+            &defaults,
+        )
+        .await;
+        assert!(matches!(result, Err(ref e) if e.contains("provider")));
     }
 
     #[tokio::test]
     async fn test_webhook_step_returns_error() {
         let params = HashMap::new();
         let root = std::path::Path::new("/tmp");
-        let result = execute_step("webhook/stripe", &params, root).await;
+        let defaults = RawDefaults::default();
+        let result = execute_step(
+            &step_with_uses("webhook/stripe"),
+            &params,
+            root,
+            CancellationToken::new(),
+            None,
+            None,
+            &defaults,
+        )
+        .await;
         assert!(result.is_err());
     }
 
@@ -796,30 +1113,23 @@ mod tests {
     }
 
     #[test]
-    fn test_env_substitution_regex() {
+    fn test_env_substitution_via_resolver() {
+        // Legacy ${VAR} syntax still works via the new expression resolver.
         let env: HashMap<String, String> = [("DIR".to_string(), "notes".to_string())].into();
-        let input = "output/${DIR}/file.md";
-        let result = ENV_VAR_RE
-            .replace_all(input, |caps: &regex::Captures| {
-                env.get(&caps[1]).cloned().unwrap_or_default()
-            })
-            .to_string();
+        let outputs = WorkflowOutputs::new();
+        let result = expressions::resolve("output/${DIR}/file.md", &outputs, &env).unwrap();
         assert_eq!(result, "output/notes/file.md");
     }
 
     #[test]
-    fn test_env_substitution_multiple_vars() {
+    fn test_env_substitution_multiple_vars_via_resolver() {
         let env: HashMap<String, String> = [
             ("A".to_string(), "hello".to_string()),
             ("B".to_string(), "world".to_string()),
         ]
         .into();
-        let input = "${A}/${B}";
-        let result = ENV_VAR_RE
-            .replace_all(input, |caps: &regex::Captures| {
-                env.get(&caps[1]).cloned().unwrap_or_default()
-            })
-            .to_string();
+        let outputs = WorkflowOutputs::new();
+        let result = expressions::resolve("${A}/${B}", &outputs, &env).unwrap();
         assert_eq!(result, "hello/world");
     }
 
@@ -827,10 +1137,45 @@ mod tests {
     fn test_resolve_params_output_ref_missing() {
         let mut params = HashMap::new();
         params.insert("input".to_string(), "missing.output".to_string());
-        let outputs = HashMap::new();
+        let outputs = WorkflowOutputs::new();
         let env = HashMap::new();
         let root = std::path::Path::new("/tmp");
         let result = resolve_params(&params, &outputs, &env, root);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_params_steps_outputs_field() {
+        // WI-2.3: ${{ steps.X.outputs.Y }} resolves to outputs[X][Y].
+        let mut params = HashMap::new();
+        params.insert(
+            "input".to_string(),
+            "${{ steps.outline.outputs.text }}".to_string(),
+        );
+        let mut outputs = WorkflowOutputs::new();
+        outputs.insert(
+            "outline".to_string(),
+            HashMap::from([("text".to_string(), "section list".to_string())]),
+        );
+        let env = HashMap::new();
+        let root = std::path::Path::new("/tmp");
+        let resolved = resolve_params(&params, &outputs, &env, root).unwrap();
+        assert_eq!(resolved.get("input").unwrap(), "section list");
+    }
+
+    #[test]
+    fn test_resolve_params_bare_alias_still_works() {
+        // Backward compat: stepId.output reads outputs[id]["text"].
+        let mut params = HashMap::new();
+        params.insert("input".to_string(), "outline.output".to_string());
+        let mut outputs = WorkflowOutputs::new();
+        outputs.insert(
+            "outline".to_string(),
+            HashMap::from([("text".to_string(), "compat ok".to_string())]),
+        );
+        let env = HashMap::new();
+        let root = std::path::Path::new("/tmp");
+        let resolved = resolve_params(&params, &outputs, &env, root).unwrap();
+        assert_eq!(resolved.get("input").unwrap(), "compat ok");
     }
 }

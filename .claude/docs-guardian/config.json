@@ -22,7 +22,7 @@
     { "code": "src/components/Tabs", "doc": "website/guide/tab-navigation.md" },
     { "code": "src/export", "doc": "website/guide/export.md" },
     { "code": "src-tauri/src/ai_provider", "doc": "website/guide/ai-providers.md" },
-    { "code": "src/components/Genie", "doc": "website/guide/ai-genies.md" },
+    { "code": "src/components/GeniePicker", "doc": "website/guide/ai-genies.md" },
     { "code": "src/components/Terminal", "doc": "website/guide/terminal.md" },
     { "code": "src/plugins/markmap*", "doc": "website/guide/markmap.md" },
     { "code": "src/plugins/blockImage", "doc": "website/guide/media-support.md" },

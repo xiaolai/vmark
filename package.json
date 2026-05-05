@@ -1,7 +1,7 @@
 {
   "name": "vmark",
   "private": true,
-  "version": "0.6.59",
+  "version": "0.7.0",
   "license": "ISC",
   "type": "module",
   "scripts": {
@@ -29,6 +29,9 @@
     "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm test:coverage && pnpm build && pnpm size"
   },
   "dependencies": {
+    "@actions/expressions": "0.3.55",
+    "@actions/languageservice": "0.3.55",
+    "@actions/workflow-parser": "0.3.55",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-markdown": "^6.5.0",
@@ -73,11 +76,12 @@
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "^6.0.0",
-    "@xyflow/react": "^12.10.2",
+    "@xyflow/react": "12.10.2",
     "alfaaz": "^1.1.0",
     "dagre": "^0.8.5",
     "dompurify": "^3.3.1",
     "highlight.js": "^11.11.1",
+    "html-to-image": "1.11.13",
     "i18next": "^25.8.18",
     "i18next-resources-to-backend": "^1.2.1",
     "js-yaml": "^4.1.1",
@@ -104,6 +108,9 @@
     "turndown": "^7.2.2",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-languageserver-types": "^3.17.5",
+    "yaml": "2.8.4",
     "zustand": "^5.0.10"
   },
   "pnpm": {

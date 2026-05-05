@@ -45,6 +45,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import type { ReplaceableTabInfo } from "@/utils/openPolicy";
 import { isWithinRoot } from "@/utils/paths";
@@ -74,13 +75,17 @@ interface PendingFileOpen {
  * Load file content into a tab (new or existing).
  * Throws on read failure so callers can handle cleanup.
  */
-async function loadFileIntoTab(
+export async function loadFileIntoTab(
   tabId: string,
   path: string,
   isNewTab: boolean,
 ): Promise<void> {
   const content = await readTextFile(path);
   const meta = detectLinebreaks(content);
+  // Mark YAML/workflow files as forced-source BEFORE init/load so the
+  // WYSIWYG editor never markdown-parses them (which silently strips
+  // YAML indentation). See utils/yamlOpenRouting.
+  maybeForceSourceForYaml(tabId, path);
   if (isNewTab) {
     useDocumentStore.getState().initDocument(tabId, content, path);
   } else {

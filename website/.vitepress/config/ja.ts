@@ -17,6 +17,7 @@ export const ja = {
           items: [
             { text: "はじめに", link: "/ja/guide/" },
             { text: "機能", link: "/ja/guide/features" },
+            { text: "大きなファイル", link: "/ja/guide/large-files" },
             { text: "エクスポートと印刷", link: "/ja/guide/export" },
             {
               text: "キーボードショートカット",
@@ -42,6 +43,10 @@ export const ja = {
               text: "Markmap マインドマップ",
               link: "/ja/guide/markmap",
             },
+            {
+              text: "GitHub Actions ワークフロービューア",
+              link: "/ja/guide/workflow-viewer",
+            },
             { text: "SVG グラフィックス", link: "/ja/guide/svg" },
             {
               text: "メディア（動画/音声）",
@@ -60,6 +65,7 @@ export const ja = {
               link: "/ja/guide/cjk-formatting",
             },
             { text: "AI ジーニー", link: "/ja/guide/ai-genies" },
+            { text: "ワークフロージーニー", link: "/ja/guide/workflow-genies" },
             {
               text: "AI プロバイダー",
               link: "/ja/guide/ai-providers",
@@ -69,6 +75,8 @@ export const ja = {
               text: "MCP ツールリファレンス",
               link: "/ja/guide/mcp-tools",
             },
+            { text: "Markdown Lint", link: "/ja/guide/lint" },
+            { text: "リンクチェック", link: "/ja/guide/link-check" },
             { text: "設定", link: "/ja/guide/settings" },
             { text: "トラブルシューティング", link: "/ja/guide/troubleshooting" },
             { text: "プライバシー", link: "/ja/guide/privacy" },

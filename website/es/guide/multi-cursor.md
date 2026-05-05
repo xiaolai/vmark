@@ -144,6 +144,10 @@ Las operaciones de multicursor tienen **alcance al bloque actual** para evitar e
 
 Presiona `Escape` para colapsar de nuevo a un solo cursor en la posición principal.
 
+::: tip Estabilidad del cursor
+Los cursores colapsados permanecen estables cuando se inserta texto en la posición del cursor. No se expandirán inesperadamente a selecciones después de inserciones mapeadas (corregido en v0.6.x).
+:::
+
 ## Retroalimentación Visual
 
 - **Cursor principal** — cursor parpadeante estándar

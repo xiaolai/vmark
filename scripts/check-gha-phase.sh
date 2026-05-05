@@ -133,8 +133,17 @@ phase_1() {
   # WI-1.4 — detection heuristic
   assert_file "src/lib/ghaWorkflow/detection.ts"        "WI-1.4 detection heuristic"
 
-  # WI-1.5 — workflow router
-  assert_file "src/lib/workflowRouting/router.ts"       "WI-1.5 workflow router"
+  # WI-1.5 — workflow router. Originally a separate module under
+  # src/lib/workflowRouting/, but production never imported it: the
+  # routing decision is made directly by sourceEditorExtensions
+  # (.yml extension) + sourceGhaWorkflowPreview (workflow shape).
+  # Removed as dead code in the Codex audit round 5; the gate now
+  # checks the actual decision points instead.
+  assert_grep "isYamlFileName" \
+    "src/utils/sourceEditorExtensions.ts" "WI-1.5 routing — yaml extension gate"
+  assert_grep "isWorkflowYaml" \
+    "src/plugins/codemirror/sourceGhaWorkflowPreview.ts" \
+    "WI-1.5 routing — workflow-shape gate"
 
   # WI-1.6 — fixture corpus (≥20 per plan)
   if [[ -d "dev-docs/fixtures/gha-workflows" ]]; then
@@ -154,12 +163,12 @@ phase_1() {
   fi
 
   # Diagnostic taxonomy: every code in §4.4 must have an i18n key (post-WI-DoD).
+  # Locale keys use a `diagnostics.<CODE>` namespace, so substring match.
   local plan="dev-docs/plans/20260504-github-actions-workflow-viewer.md"
   if [[ -f "$plan" ]] && [[ -f "src/locales/en/workflowEditor.json" ]]; then
-    # Pull GHA-* codes from the plan, check each in the locale file.
     local missing=0
     for code in $(grep -E -o "GHA-[A-Z]+-[0-9]+" "$plan" | sort -u); do
-      if ! grep -q "\"$code\"" "src/locales/en/workflowEditor.json"; then
+      if ! grep -q "$code" "src/locales/en/workflowEditor.json"; then
         missing=$((missing+1))
       fi
     done
@@ -176,7 +185,115 @@ phase_1() {
   echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
 }
 
-# ─── Phases 2-9: stubs (each phase fills in its own assertions) ──────────
+# ─── Phase 8 ─────────────────────────────────────────────────────────────
+phase_8() {
+  echo "Phase 8 — CST round-trip"
+
+  # WI-8.1 — CST parser
+  assert_file "src/lib/ghaWorkflow/save/cstParser.ts"                  "WI-8.1 CST parser"
+  assert_file "src/lib/ghaWorkflow/save/__tests__/cstParser.test.ts"   "WI-8.1 CST parser tests"
+  assert_grep "WORKFLOW_YAML_STRINGIFY_OPTIONS" \
+    "src/lib/ghaWorkflow/save/cstParser.ts" "WI-8.1 stringify options exported"
+  assert_grep "semanticEqual" \
+    "src/lib/ghaWorkflow/save/cstParser.ts" "WI-8.1 semanticEqual exported"
+
+  # WI-8.2 — Mutators
+  assert_file "src/lib/ghaWorkflow/save/mutators.ts"                   "WI-8.2 mutators"
+  assert_file "src/lib/ghaWorkflow/save/__tests__/mutators.test.ts"    "WI-8.2 mutator tests"
+  for kind in workflow.set job.set step.set with.set with.remove needs.add needs.remove; do
+    if grep -q "\"$kind\"" "src/lib/ghaWorkflow/save/mutators.ts" 2>/dev/null; then
+      ok "WI-8.2 patch kind '$kind' wired"
+    else
+      fail "WI-8.2 patch kind '$kind' not in mutators.ts"
+    fi
+  done
+
+  # WI-8.3 — workflowEditStore + save pipeline
+  assert_file "src/stores/workflowEditStore.ts"                        "WI-8.3 edit store"
+  assert_file "src/stores/__tests__/workflowEditStore.test.ts"         "WI-8.3 edit store tests"
+  assert_grep "applyAndSerialize" \
+    "src/stores/workflowEditStore.ts" "WI-8.3 save pipeline exposed"
+  assert_grep "preserveYamlFormatting" \
+    "src/stores/workflowEditStore.ts" "WI-8.3 preserve-formatting toggle"
+
+  echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
+}
+
+# ─── Phase 7 ─────────────────────────────────────────────────────────────
+phase_7() {
+  echo "Phase 7 — Structured editor (forms)"
+
+  # WI-7.1 — JobForm, StepForm, TriggerForm
+  assert_dir "src/components/Editor/WorkflowEditor"                    "WI-7.1 forms directory"
+  assert_file "src/components/Editor/WorkflowEditor/JobForm.tsx"       "WI-7.1 JobForm"
+  assert_file "src/components/Editor/WorkflowEditor/StepForm.tsx"      "WI-7.1 StepForm"
+  assert_file "src/components/Editor/WorkflowEditor/TriggerForm.tsx"   "WI-7.1 TriggerForm"
+
+  # WI-7.2 — Edit pipeline (forms emit IRPatch via workflowEditStore)
+  assert_grep "useWorkflowEditStore" \
+    "src/components/Editor/WorkflowEditor/JobForm.tsx" "WI-7.2 JobForm uses edit store"
+
+  echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
+}
+
+# ─── Phase 9 ─────────────────────────────────────────────────────────────
+phase_9() {
+  echo "Phase 9 — Polish"
+
+  # Locale completion (en authoritative)
+  assert_file "src/locales/en/workflowEditor.json"      "Phase 9 en workflowEditor locale"
+
+  # Documentation
+  assert_file "website/guide/workflow-viewer.md"        "Phase 9 user-facing docs"
+  if grep -q "workflow-viewer\|github-actions-workflow-viewer" "dev-docs/README.md" 2>/dev/null; then
+    ok "dev-docs/README.md links the workflow viewer plan or guide"
+  else
+    fail "dev-docs/README.md is missing a topical entry for the workflow viewer"
+  fi
+
+  # Performance benchmark with 100-job fixture
+  assert_file "src/bench/workflow.bench.ts"             "100-job perf benchmark"
+  assert_grep "100" "src/bench/workflow.bench.ts"       "perf bench targets a 100-job fixture"
+
+  # Accessibility — JobNode has an aria-label summary helper
+  assert_grep "buildJobAriaLabel\|aria-label" \
+    "src/components/Editor/WorkflowPanel/JobNode.tsx" "JobNode exposes an aria-label"
+  # Accessibility — Escape on JobNode clears selection (per plan: Esc returns focus)
+  assert_grep "Escape" \
+    "src/components/Editor/WorkflowPanel/JobNode.tsx" "JobNode handles Escape"
+  # Accessibility — Enter / Space activates the node (already in place; lock it)
+  assert_grep "Enter" \
+    "src/components/Editor/WorkflowPanel/JobNode.tsx" "JobNode handles Enter"
+  # Accessibility — JobNode has a focus-visible style
+  assert_grep "focus-visible" \
+    "src/components/Editor/WorkflowPanel/job-node.css" "JobNode has focus-visible style"
+  # Accessibility — every interactive control in the editor forms has a focus-visible style
+  for cls in workflow-editor-panel__btn workflow-form__step-row workflow-form__with-add \
+             workflow-form__with-remove workflow-form__missing-required-key \
+             workflow-diagnostics-banner__row-button workflow-diagnostics-banner__toggle; do
+    if grep -q "${cls}:focus-visible\|${cls}:focus" \
+        "src/components/Editor/WorkflowEditor/workflow-editor.css" 2>/dev/null; then
+      ok "${cls} has a focus style"
+    else
+      fail "${cls} missing focus style — see .claude/rules/33-focus-indicators.md"
+    fi
+  done
+
+  # Dark theme — canvas chrome must style the side-panel canvas (the
+  # bug Phase 9 dark-theme QA found was that styles only matched
+  # .gha-workflow-canvas, not .gha-workflow-side-panel__canvas).
+  assert_grep "gha-workflow-side-panel__canvas" \
+    "src/components/Editor/WorkflowPanel/workflow-canvas.css" \
+    "canvas chrome covers the side-panel surface (dark-theme parity)"
+
+  # Manual a11y / VoiceOver checklist documented for the human pass
+  assert_file "dev-docs/plans/gha-workflow-viewer-a11y-checklist.md" \
+    "VoiceOver / keyboard-nav manual checklist"
+
+  echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
+}
+
+# ─── Phases 2-6: stubs (each phase fills in its own assertions) ──────────
 phase_stub() {
   local n="$1"
   echo "Phase $n — stub (assertions will be added when Phase $n begins)"
@@ -187,7 +304,10 @@ phase_stub() {
 case "$PHASE" in
   0) phase_0 ;;
   1) phase_1 ;;
-  2|3|4|5|6|7|8|9) phase_stub "$PHASE" ;;
+  7) phase_7 ;;
+  8) phase_8 ;;
+  9) phase_9 ;;
+  2|3|4|5|6) phase_stub "$PHASE" ;;
   *) echo "unknown phase: $PHASE"; exit 64 ;;
 esac
 

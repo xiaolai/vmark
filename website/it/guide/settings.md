@@ -2,7 +2,7 @@
 
 Il pannello impostazioni di VMark ti consente di personalizzare ogni aspetto dell'editor. Aprilo con `Mod + ,` o tramite **VMark > Impostazioni** nella barra dei menu.
 
-La finestra delle impostazioni ha una barra laterale con le sezioni elencate in ordine alfabetico. Le modifiche hanno effetto immediato — non c'è nessun pulsante di salvataggio.
+La finestra delle impostazioni ha una barra laterale con le sezioni raggruppate per argomento — le sezioni più usate appaiono per prime, con Informazioni e Avanzate in fondo. Le modifiche hanno effetto immediato — non c'è nessun pulsante di salvataggio.
 
 ## Aspetto
 
@@ -93,7 +93,8 @@ Comportamento dell'incolla, layout e impostazioni di rendering HTML.
 | Impostazione | Descrizione | Predefinito | Opzioni |
 |-------------|-------------|-------------|---------|
 | Abilita regex nella ricerca | Mostra un pulsante toggle regex nella barra Trova e Sostituisci | Attivo | Attivo / Off |
-| Incolla Markdown intelligente | Quando si incolla testo che sembra Markdown nell'editor WYSIWYG, convertilo automaticamente in contenuto formattato | Auto (rileva Markdown) | Auto (rileva Markdown), Off |
+| Modalità di incolla | Come VMark instrada il contenuto dagli appunti | Smart | Smart, Plain |
+| Incolla Markdown in WYSIWYG | Quando si incolla testo che sembra Markdown nell'editor WYSIWYG, convertilo automaticamente in contenuto formattato | Auto | Auto, Off |
 
 ### Layout
 
@@ -109,6 +110,8 @@ Comportamento dell'incolla, layout e impostazioni di rendering HTML.
 | Impostazione | Descrizione | Predefinito | Opzioni |
 |-------------|-------------|-------------|---------|
 | Abilita markdown lint | Controlla problemi markdown comuni (link non funzionanti, testo alt mancante, incrementi intestazioni, blocchi di codice non chiusi, ecc.) | Attivo | Attivo / Off |
+
+Vedi [Lint markdown](/it/guide/lint) per l'elenco completo delle regole e i livelli di gravità.
 
 ### Rendering HTML
 
@@ -158,6 +161,24 @@ Queste impostazioni si applicano solo quando un workspace (cartella) è aperto.
 | Ridimensiona automaticamente all'incolla | Ridimensiona automaticamente le immagini grandi prima di salvarle nella cartella assets. Il valore è la dimensione massima in pixel | Off | Off, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copia nella cartella assets | Copia le immagini incollate o trascinate nella cartella assets del documento invece di incorporarle | Attivo | Attivo / Off |
 | Pulisci immagini inutilizzate alla chiusura | Elimina automaticamente le immagini dalla cartella assets che non sono più referenziate nel documento quando lo chiudi | Off | Attivo / Off |
+| Soglia immagini incorporate | Dimensione massima (MB) per incorporare le immagini come URL di dati base64 nell'esportazione HTML/PDF. I file più grandi vengono collegati invece | 1.0 MB | 0.1 – 10 MB |
+
+### File di grandi dimensioni
+
+| Impostazione | Descrizione | Predefinito | Opzioni |
+|-------------|-------------|-------------|---------|
+| Avvisa sopra la dimensione | Mostra una richiesta di conferma quando si aprono file sopra questa dimensione | 5 MB | Attivo / Off |
+| Modalità Sorgente automatica | Apri automaticamente i file sopra la soglia in modalità Sorgente (salta WYSIWYG per mantenere prestazioni fluide) | Attivo | Attivo / Off |
+
+Vedi [File di grandi dimensioni](/guide/large-files) per la suddivisione completa di come vengono gestiti i file di grandi dimensioni.
+
+### Aggiornamenti
+
+| Impostazione | Descrizione | Predefinito | Opzioni |
+|-------------|-------------|-------------|---------|
+| Frequenza di controllo | Quando controllare nuove versioni di VMark | All'avvio | All'avvio, Quotidianamente, Settimanalmente, Manuale |
+| Scarica automaticamente gli aggiornamenti | Scarica gli artefatti di rilascio in background una volta rilevato un aggiornamento | Off | Attivo / Off |
+| Salta una versione | Sopprime la richiesta di aggiornamento per una versione specifica (impostata per aggiornamento dalla richiesta stessa) | Nessuna | — |
 
 ::: tip
 Abilita **Ridimensiona automaticamente all'incolla** se incolla frequentemente screenshot o foto — mantiene leggera la cartella assets senza ridimensionamento manuale.
@@ -205,7 +226,7 @@ Vedi [Provider IA](/it/guide/ai-providers) per le istruzioni di configurazione d
 
 ## Lingua
 
-Regole di formattazione CJK (cinese, giapponese, coreano). Queste regole vengono applicate quando esegui **Formato > Formatta Testo CJK** (`Cmd+Shift+F`).
+Regole di formattazione CJK (cinese, giapponese, coreano). Queste regole vengono applicate quando esegui **Formato → Formatta selezione CJK** (`Cmd+Shift+F`) su una selezione, o **Formato → Formatta documento CJK** (`Alt+Cmd+Shift+F`) sull'intero file.
 
 ::: tip
 La sezione Lingua contiene oltre 20 toggle di formattazione granulari. Per una spiegazione completa di ogni regola con esempi, vedi [Formattazione CJK](/it/guide/cjk-formatting).
@@ -315,6 +336,22 @@ Questo ti permette di creare collegamenti come `obsidian://open?vault=...` o `vs
 | Impostazione | Descrizione | Predefinito |
 |-------------|-------------|-------------|
 | Mantieni entrambi gli editor attivi | Monta sia l'editor WYSIWYG che quello Sorgente contemporaneamente per un cambio di modalità più veloce. Aumenta l'utilizzo della memoria | Off |
+
+### Motore dei workflow
+
+| Impostazione | Descrizione | Predefinito | Opzioni |
+|-------------|-------------|-------------|---------|
+| Motore dei workflow | Abilita il visualizzatore/editor dei workflow GitHub Actions per i file `.yml`/`.yaml` sotto `.github/workflows/`. Quando disattivato, quei file si aprono come YAML semplice | Off | Attivo / Off |
+| Preserva la formattazione YAML | Quando si salvano le modifiche al workflow effettuate tramite il pannello del modulo, preserva i commenti, le ancore, l'ordine delle chiavi e le righe vuote dello YAML originale tramite il pipeline CST round-trip. Quando disattivato, il salvataggio usa un serializzatore compatto (più veloce ma con perdita) | Attivo | Attivo / Off |
+
+Vedi [Visualizzatore di workflow](/guide/workflow-viewer) per la superficie completa delle funzionalità.
+
+### Specifico per piattaforma
+
+| Impostazione | Descrizione | Predefinito | Piattaforme |
+|-------------|-------------|-------------|-------------|
+| Cancella la quarantena macOS all'apertura | Quando si apre un file che porta l'attributo di quarantena macOS (`com.apple.quarantine`), rimuovilo prima della lettura. Utile per i file scaricati dal web che VMark altrimenti sarebbe bloccato dall'aprire | Attivo | macOS |
+| Mac Option come Meta (terminale) | Tratta il tasto Option di macOS come Meta nel terminale integrato. Necessario per strumenti come emacs e tmux che si aspettano scorciatoie con prefisso Alt | Off | macOS |
 
 ### Strumenti per Sviluppatori
 

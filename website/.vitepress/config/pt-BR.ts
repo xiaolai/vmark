@@ -59,10 +59,22 @@ export const ptBR = {
               link: "/pt-BR/guide/workspace-management",
             },
             {
+              text: "Arquivos grandes",
+              link: "/pt-BR/guide/large-files",
+            },
+            {
+              text: "Visualizador de Workflows",
+              link: "/pt-BR/guide/workflow-viewer",
+            },
+            {
               text: "Formatação CJK",
               link: "/pt-BR/guide/cjk-formatting",
             },
             { text: "AI Genies", link: "/pt-BR/guide/ai-genies" },
+            {
+              text: "Genies de Workflow",
+              link: "/pt-BR/guide/workflow-genies",
+            },
             {
               text: "Provedores de IA",
               link: "/pt-BR/guide/ai-providers",
@@ -75,6 +87,8 @@ export const ptBR = {
               text: "Referência de ferramentas MCP",
               link: "/pt-BR/guide/mcp-tools",
             },
+            { text: "Lint do Markdown", link: "/pt-BR/guide/lint" },
+            { text: "Verificação de links", link: "/pt-BR/guide/link-check" },
             {
               text: "Configurações",
               link: "/pt-BR/guide/settings",
