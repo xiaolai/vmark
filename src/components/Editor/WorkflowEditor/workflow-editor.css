@@ -733,6 +733,194 @@
   font-weight: 600;
 }
 
+/* WI-C.1/C.2/C.3 — destructive + step-list controls + add-job inline form */
+
+.workflow-form__danger-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  margin-left: var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__danger-btn:hover {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
+.workflow-form__step-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-half);
+}
+
+.workflow-form__step-add-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workflow-form__step-add-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__step-row-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+}
+
+.workflow-form__step-row-group .workflow-form__step-row {
+  flex: 1 1 auto;
+}
+
+.workflow-form__step-action-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.workflow-form__step-action-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__step-action-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-form__step-action-btn--danger:hover:not(:disabled) {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
+.workflow-editor-panel__add-job {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-editor-panel__add-job-toggle {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workflow-editor-panel__add-job-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.workflow-editor-panel__add-job-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.workflow-editor-panel__add-job-form input {
+  flex: 1 1 auto;
+}
+
+.workflow-editor-panel__add-job-submit {
+  appearance: none;
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  border: none;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workflow-editor-panel__add-job-submit:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.workflow-editor-panel__add-job-cancel {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: var(--space-half) var(--space-1);
+  cursor: pointer;
+}
+
+.workflow-form--inline {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.workflow-form__inline-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-half);
+}
+
+.workflow-form__field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.workflow-form__permissions-scopes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-half);
+}
+
+.workflow-form__permissions-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+  font-size: var(--font-size-xs);
+}
+
+.workflow-form__permissions-scope-name {
+  flex: 1 1 auto;
+  color: var(--text-secondary);
+}
+
 .workflow-form__trigger-fields {
   --workflow-form-inline-label-width: 8em;
   display: flex;

@@ -25,6 +25,7 @@
 
 import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
+import { Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
@@ -87,6 +88,27 @@ export function JobForm({ job }: JobFormProps): ReactElement {
       <header className="workflow-form__header">
         <span className="workflow-form__kind">{t("form.job.kind")}</span>
         <code className="workflow-form__id">{job.id}</code>
+        <button
+          type="button"
+          className="workflow-form__danger-btn"
+          onClick={() => {
+            const ok = window.confirm(
+              t("form.job.delete.confirm", {
+                defaultValue: "Delete job '{{id}}'? This cannot be undone before save.",
+                id: job.id,
+              }),
+            );
+            if (!ok) return;
+            queue({ kind: "job.delete", jobId: job.id });
+            useWorkflowViewStore.getState().clearSelection();
+          }}
+          aria-label={t("form.job.delete.label", {
+            defaultValue: "Delete job",
+          })}
+          title={t("form.job.delete.label", { defaultValue: "Delete job" })}
+        >
+          <Trash2 size={14} />
+        </button>
       </header>
 
       <label className="workflow-form__field">
@@ -155,19 +177,41 @@ export function JobForm({ job }: JobFormProps): ReactElement {
         )}
       </section>
 
-      {job.steps.length > 0 && (
-        <section
-          className="workflow-form__step-list"
-          aria-label={t("form.job.steps.navigation")}
-        >
+      <section
+        className="workflow-form__step-list"
+        aria-label={t("form.job.steps.navigation")}
+      >
+        <div className="workflow-form__step-list-header">
           <span className="workflow-form__label">
             {t("form.job.steps.label")}
           </span>
+          <button
+            type="button"
+            className="workflow-form__step-add-btn"
+            onClick={() =>
+              queue({
+                kind: "step.insert",
+                jobId: job.id,
+                index: job.steps.length,
+                step: {},
+              })
+            }
+            aria-label={t("form.job.steps.add", {
+              defaultValue: "Add step",
+            })}
+            title={t("form.job.steps.add", { defaultValue: "Add step" })}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+        {job.steps.length > 0 && (
           <ul className="workflow-form__step-rows">
-            {job.steps.map((step) => {
+            {job.steps.map((step, idx) => {
               const label = step.name ?? step.uses ?? step.id;
+              const isFirst = idx === 0;
+              const isLast = idx === job.steps.length - 1;
               return (
-                <li key={step.id}>
+                <li key={step.id} className="workflow-form__step-row-group">
                   <button
                     type="button"
                     className="workflow-form__step-row"
@@ -184,12 +228,80 @@ export function JobForm({ job }: JobFormProps): ReactElement {
                       </code>
                     )}
                   </button>
+                  <button
+                    type="button"
+                    className="workflow-form__step-action-btn"
+                    disabled={isFirst}
+                    onClick={() =>
+                      queue({
+                        kind: "step.move",
+                        jobId: job.id,
+                        fromIndex: idx,
+                        toIndex: idx - 1,
+                      })
+                    }
+                    aria-label={t("form.job.steps.moveUp", {
+                      defaultValue: "Move step up",
+                    })}
+                    title={t("form.job.steps.moveUp", {
+                      defaultValue: "Move step up",
+                    })}
+                  >
+                    <ChevronUp size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    className="workflow-form__step-action-btn"
+                    disabled={isLast}
+                    onClick={() =>
+                      queue({
+                        kind: "step.move",
+                        jobId: job.id,
+                        fromIndex: idx,
+                        toIndex: idx + 1,
+                      })
+                    }
+                    aria-label={t("form.job.steps.moveDown", {
+                      defaultValue: "Move step down",
+                    })}
+                    title={t("form.job.steps.moveDown", {
+                      defaultValue: "Move step down",
+                    })}
+                  >
+                    <ChevronDown size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    className="workflow-form__step-action-btn workflow-form__step-action-btn--danger"
+                    onClick={() => {
+                      const ok = window.confirm(
+                        t("form.job.steps.deleteConfirm", {
+                          defaultValue: "Delete step '{{label}}'?",
+                          label,
+                        }),
+                      );
+                      if (!ok) return;
+                      queue({
+                        kind: "step.delete",
+                        jobId: job.id,
+                        stepIndex: idx,
+                      });
+                    }}
+                    aria-label={t("form.job.steps.delete", {
+                      defaultValue: "Delete step",
+                    })}
+                    title={t("form.job.steps.delete", {
+                      defaultValue: "Delete step",
+                    })}
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </li>
               );
             })}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
     </form>
   );
 }

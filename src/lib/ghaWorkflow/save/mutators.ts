@@ -111,6 +111,62 @@ export interface TriggerSetFiltersPatch {
   value: string[];
 }
 
+/** Add a new job to jobs:. WI-C.1 */
+export interface JobCreatePatch {
+  kind: "job.create";
+  jobId: string;
+  runsOn?: string;
+}
+
+/** Remove a job from jobs:. WI-C.1 */
+export interface JobDeletePatch {
+  kind: "job.delete";
+  jobId: string;
+}
+
+/** Insert a new step in a job's steps[] at the given index. WI-C.2 */
+export interface StepInsertPatch {
+  kind: "step.insert";
+  jobId: string;
+  index: number;
+  step: { name?: string; uses?: string; run?: string };
+}
+
+/** Delete a step. WI-C.2 */
+export interface StepDeletePatch {
+  kind: "step.delete";
+  jobId: string;
+  stepIndex: number;
+}
+
+/** Move a step to a new index within the same job. WI-C.2 */
+export interface StepMovePatch {
+  kind: "step.move";
+  jobId: string;
+  fromIndex: number;
+  toIndex: number;
+}
+
+/** Set workflow-level permissions. WI-C.3 */
+export interface PermissionsSetPatch {
+  kind: "workflow.permissions.set";
+  /** "read-all" | "write-all" | "none" | record of scope→level. */
+  value:
+    | "read-all"
+    | "write-all"
+    | "none"
+    | Record<string, "read" | "write" | "none">;
+}
+
+/** Set workflow-level concurrency. WI-C.3 */
+export interface ConcurrencySetPatch {
+  kind: "workflow.concurrency.set";
+  value:
+    | string
+    | { group: string; cancelInProgress: boolean }
+    | null /* clear */;
+}
+
 export type IRPatch =
   | WorkflowSetPatch
   | JobSetPatch
@@ -119,7 +175,14 @@ export type IRPatch =
   | WithRemovePatch
   | NeedsAddPatch
   | NeedsRemovePatch
-  | TriggerSetFiltersPatch;
+  | TriggerSetFiltersPatch
+  | JobCreatePatch
+  | JobDeletePatch
+  | StepInsertPatch
+  | StepDeletePatch
+  | StepMovePatch
+  | PermissionsSetPatch
+  | ConcurrencySetPatch;
 
 // ─── Dispatcher ──────────────────────────────────────────────────────
 
@@ -164,12 +227,152 @@ export function applyPatch(doc: Document, patch: IRPatch): void {
     case "trigger.setFilters":
       setTriggerFilters(doc, patch.event, patch.filter, patch.value);
       return;
+    case "job.create":
+      createJob(doc, patch.jobId, patch.runsOn ?? "ubuntu-latest");
+      return;
+    case "job.delete":
+      deleteJob(doc, patch.jobId);
+      return;
+    case "step.insert":
+      insertStep(doc, patch.jobId, patch.index, patch.step);
+      return;
+    case "step.delete":
+      deleteStep(doc, patch.jobId, patch.stepIndex);
+      return;
+    case "step.move":
+      moveStep(doc, patch.jobId, patch.fromIndex, patch.toIndex);
+      return;
+    case "workflow.permissions.set":
+      setPermissions(doc, patch.value);
+      return;
+    case "workflow.concurrency.set":
+      setConcurrency(doc, patch.value);
+      return;
     default: {
-      // Exhaustiveness check.
       const _exhaustive: never = patch;
       void _exhaustive;
     }
   }
+}
+
+// ─── Job CRUD (WI-C.1) ─────────────────────────────────────────────────
+
+function createJob(doc: Document, jobId: string, runsOn: string): void {
+  let jobs = doc.get("jobs", true);
+  if (!isMap(jobs)) {
+    // jobs: doesn't exist; create it. Rare for a real workflow file
+    // but possible for skeletal templates.
+    jobs = new YAMLMap();
+    doc.set("jobs", jobs);
+  }
+  // Refuse to overwrite an existing job — silent no-op per the
+  // file's "stale state should not throw" rule.
+  if ((jobs as YAMLMap).get(jobId, true)) return;
+  const jobMap = new YAMLMap();
+  jobMap.set("runs-on", runsOn);
+  const stepsSeq = new YAMLSeq();
+  jobMap.set("steps", stepsSeq);
+  (jobs as YAMLMap).set(jobId, jobMap);
+}
+
+function deleteJob(doc: Document, jobId: string): void {
+  const jobs = doc.get("jobs", true);
+  if (!isMap(jobs)) return;
+  jobs.delete(jobId);
+}
+
+// ─── Step CRUD (WI-C.2) ───────────────────────────────────────────────
+
+function insertStep(
+  doc: Document,
+  jobId: string,
+  index: number,
+  step: { name?: string; uses?: string; run?: string },
+): void {
+  withJob(doc, jobId, (jobMap) => {
+    let seq = jobMap.get("steps", true) as unknown as YAMLSeq | undefined;
+    if (!isSeq(seq)) {
+      seq = new YAMLSeq();
+      jobMap.set("steps", seq);
+    }
+    const stepMap = new YAMLMap();
+    if (step.name) stepMap.set("name", step.name);
+    if (step.uses) stepMap.set("uses", step.uses);
+    if (step.run) stepMap.set("run", step.run);
+    if (!step.uses && !step.run && !step.name) {
+      stepMap.set("run", "echo TODO");
+    }
+    const seqRef = seq!;
+    const clamped = Math.max(0, Math.min(index, seqRef.items.length));
+    seqRef.items.splice(clamped, 0, stepMap);
+  });
+}
+
+function deleteStep(doc: Document, jobId: string, stepIndex: number): void {
+  withJob(doc, jobId, (jobMap) => {
+    const steps = jobMap.get("steps", true);
+    if (!isSeq(steps)) return;
+    if (stepIndex < 0 || stepIndex >= steps.items.length) return;
+    steps.items.splice(stepIndex, 1);
+  });
+}
+
+function moveStep(
+  doc: Document,
+  jobId: string,
+  fromIndex: number,
+  toIndex: number,
+): void {
+  withJob(doc, jobId, (jobMap) => {
+    const steps = jobMap.get("steps", true);
+    if (!isSeq(steps)) return;
+    const len = steps.items.length;
+    if (fromIndex < 0 || fromIndex >= len) return;
+    const clampedTo = Math.max(0, Math.min(toIndex, len - 1));
+    if (clampedTo === fromIndex) return;
+    const [item] = steps.items.splice(fromIndex, 1);
+    steps.items.splice(clampedTo, 0, item);
+  });
+}
+
+// ─── Workflow-level forms (WI-C.3) ────────────────────────────────────
+
+function setPermissions(
+  doc: Document,
+  value:
+    | "read-all"
+    | "write-all"
+    | "none"
+    | Record<string, "read" | "write" | "none">,
+): void {
+  if (typeof value === "string") {
+    doc.set("permissions", value);
+    return;
+  }
+  // Per-scope mapping
+  const map = new YAMLMap();
+  for (const [k, v] of Object.entries(value)) {
+    map.set(k, v);
+  }
+  doc.set("permissions", map);
+}
+
+function setConcurrency(
+  doc: Document,
+  value: string | { group: string; cancelInProgress: boolean } | null,
+): void {
+  if (value == null) {
+    doc.delete("concurrency");
+    return;
+  }
+  if (typeof value === "string") {
+    doc.set("concurrency", value);
+    return;
+  }
+  const map = new YAMLMap();
+  map.set("group", value.group);
+  map.set("cancel-in-progress", value.cancelInProgress);
+  doc.set("concurrency", map);
 }
 
 // ─── Helpers — locating job/step ─────────────────────────────────────

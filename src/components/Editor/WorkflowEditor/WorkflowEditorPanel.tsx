@@ -28,6 +28,10 @@ import { JobForm } from "./JobForm";
 import { StepForm } from "./StepForm";
 import { TriggerForm } from "./TriggerForm";
 import { SaveControls } from "./SaveControls";
+import { PermissionsForm } from "./PermissionsForm";
+import { ConcurrencyForm } from "./ConcurrencyForm";
+import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { applyPreviewPatches } from "@/lib/ghaWorkflow/save/previewIR";
 import "./workflow-editor.css";
 
 interface WorkflowEditorPanelProps {
@@ -88,10 +92,21 @@ export function WorkflowEditorPanel({
     return () => cancelAnimationFrame(id);
   }, [selectedStepId]);
 
-  if (!workflow) return null;
+  // Preview-IR overlay: apply structural pendingPatches (job.create/
+  // delete, step.insert/delete/move) to the parsed IR so freshly-added
+  // entities are visible before save (WI-C0). Non-structural edits
+  // are tracked via local React state in the form components. The
+  // useWorkflowEditStore selector keeps this reactive — the panel
+  // re-renders when patches enqueue/dequeue.
+  const pendingPatches = useWorkflowEditStore((s) => s.pendingPatches);
+  const previewWorkflow = workflow
+    ? applyPreviewPatches(workflow, pendingPatches)
+    : null;
+
+  if (!previewWorkflow) return null;
 
   const selectedJob = selectedJobId
-    ? workflow.jobs.find((j) => j.id === selectedJobId) ?? null
+    ? previewWorkflow.jobs.find((j) => j.id === selectedJobId) ?? null
     : null;
 
   const selectedStepIndex =
@@ -113,8 +128,11 @@ export function WorkflowEditorPanel({
   return (
     <div className="workflow-editor-panel">
       <SaveControls onSave={onSave} onDiscard={handleDiscard} />
-      <DiagnosticsBanner diagnostics={workflow.diagnostics} />
-      <TriggerForm triggers={workflow.triggers} />
+      <DiagnosticsBanner diagnostics={previewWorkflow.diagnostics} />
+      <AddJobControl existingIds={previewWorkflow.jobs.map((j) => j.id)} />
+      <PermissionsForm permissions={previewWorkflow.permissions} />
+      <ConcurrencyForm concurrency={previewWorkflow.concurrency} />
+      <TriggerForm triggers={previewWorkflow.triggers} />
       {selectedStep && selectedJob ? (
         // key forces remount when selection switches so useState seeded
         // from the IR resets cleanly. Without this, switching jobs/steps
@@ -138,6 +156,86 @@ export function WorkflowEditorPanel({
       ) : (
         <div className="workflow-editor-panel__empty">
           {t("form.empty.selectJob")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface AddJobControlProps {
+  existingIds: readonly string[];
+}
+
+/** Inline "Add job" affordance — toggles a tiny prompt on click. */
+function AddJobControl({ existingIds }: AddJobControlProps): ReactElement {
+  const [open, setOpen] = useState(false);
+  const [draftId, setDraftId] = useState("");
+  const queue = useWorkflowEditStore((s) => s.queuePatch);
+
+  const submit = () => {
+    const id = draftId.trim();
+    if (!id) return;
+    if (existingIds.includes(id)) return;
+    if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(id)) return;
+    queue({ kind: "job.create", jobId: id });
+    setDraftId("");
+    setOpen(false);
+  };
+
+  return (
+    <div className="workflow-editor-panel__add-job">
+      {!open && (
+        <button
+          type="button"
+          className="workflow-editor-panel__add-job-toggle"
+          onClick={() => setOpen(true)}
+        >
+          + Add job
+        </button>
+      )}
+      {open && (
+        <div className="workflow-editor-panel__add-job-form">
+          <input
+            className="workflow-form__input workflow-form__input--mono"
+            type="text"
+            value={draftId}
+            placeholder="job-id"
+            autoFocus
+            onChange={(e) => setDraftId(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setOpen(false);
+                setDraftId("");
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="workflow-editor-panel__add-job-submit"
+            onClick={submit}
+            disabled={
+              !draftId.trim() ||
+              existingIds.includes(draftId.trim()) ||
+              !/^[A-Za-z_][A-Za-z0-9_-]*$/.test(draftId.trim())
+            }
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            className="workflow-editor-panel__add-job-cancel"
+            onClick={() => {
+              setOpen(false);
+              setDraftId("");
+            }}
+          >
+            Cancel
+          </button>
         </div>
       )}
     </div>

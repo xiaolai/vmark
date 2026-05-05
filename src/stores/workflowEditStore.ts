@@ -157,6 +157,23 @@ function patchTarget(patch: IRPatch): string {
       return `needs:${patch.jobId}:${patch.ref}`;
     case "trigger.setFilters":
       return `trigger.setFilters:${patch.event}:${patch.filter}`;
+    // New patch kinds (WI-C.1/C.2/C.3). Each instance has a distinct
+    // target so we don't dedupe — using a unique-per-call identifier.
+    case "job.create":
+      return `job.create:${patch.jobId}`;
+    case "job.delete":
+      return `job.delete:${patch.jobId}`;
+    case "step.insert":
+      // index + step content uniquely identify the insert operation.
+      return `step.insert:${patch.jobId}:${patch.index}:${JSON.stringify(patch.step)}`;
+    case "step.delete":
+      return `step.delete:${patch.jobId}:${patch.stepIndex}`;
+    case "step.move":
+      return `step.move:${patch.jobId}:${patch.fromIndex}:${patch.toIndex}`;
+    case "workflow.permissions.set":
+      return `workflow.permissions.set`;
+    case "workflow.concurrency.set":
+      return `workflow.concurrency.set`;
   }
 }
 
