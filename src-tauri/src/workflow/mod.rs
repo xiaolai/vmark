@@ -4,6 +4,7 @@
 //! event emission to the frontend, and built-in action support.
 
 pub mod commands;
+pub mod genie_step;
 pub mod runner;
 pub mod sandbox;
 pub mod snapshots;
