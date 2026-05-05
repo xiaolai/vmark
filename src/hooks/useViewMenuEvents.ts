@@ -28,6 +28,7 @@ import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
+import { isYamlFileName } from "@/utils/dropPaths";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
 import { menuError } from "@/utils/debug";
 
@@ -200,13 +201,10 @@ export function useViewMenuEvents(): void {
         }
 
         if (content !== undefined) {
-          const syncDiagnostics = useLintStore
-            .getState()
-            .runLint(tabId, content);
-          triggerLintRefresh();
-          // Codex audit MED-4 fix: defer the toast until the async
-          // link-check resolves so the count is accurate.
           const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          const isYaml = filePath
+            ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
+            : false;
           const finalize = (totalCount: number) => {
             triggerLintRefresh();
             if (totalCount === 0) {
@@ -217,13 +215,24 @@ export function useViewMenuEvents(): void {
               );
             }
           };
-          if (filePath) {
-            void useLintStore
+          if (isYaml) {
+            const yamlDiags = useLintStore
               .getState()
-              .runLinkCheck(tabId, content, filePath)
-              .then((merged) => finalize(merged.length));
+              .runYamlLint(tabId, content);
+            finalize(yamlDiags.length);
           } else {
-            finalize(syncDiagnostics.length);
+            const syncDiagnostics = useLintStore
+              .getState()
+              .runLint(tabId, content);
+            triggerLintRefresh();
+            if (filePath) {
+              void useLintStore
+                .getState()
+                .runLinkCheck(tabId, content, filePath)
+                .then((merged) => finalize(merged.length));
+            } else {
+              finalize(syncDiagnostics.length);
+            }
           }
         }
       });

@@ -269,5 +269,7 @@
   "sourceTable.menu.alignAllRight": "Alle rechts ausrichten",
   "sourceTable.menu.formatTable": "Tabelle formatieren",
   "lint.linkNotFound": "Linked file not found: {{path}}",
-  "lint.imageNotFound": "Image file not found: {{path}}"
+  "lint.imageNotFound": "Image file not found: {{path}}",
+  "lint.yamlParseError": "YAML: {{message}}",
+  "lint.yamlParseWarning": "YAML: {{message}}"
 }

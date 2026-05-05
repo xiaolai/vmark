@@ -18,50 +18,18 @@
 
 import { linter, type Diagnostic } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
-import { parseDocument } from "yaml";
+import { collectYamlParseErrors } from "@/lib/yamlValidation/parseErrors";
 
 /**
  * Run the yaml package's parse + collect any errors and warnings as
  * CodeMirror diagnostics with absolute char offsets in the source.
+ *
+ * Thin wrapper over the lib-side `collectYamlParseErrors` — kept
+ * here for backward-compat (test imports etc.). The lib version
+ * is the single source of truth.
  */
 export function collectYamlDiagnostics(text: string): Diagnostic[] {
-  if (!text) return [];
-  let doc: ReturnType<typeof parseDocument>;
-  try {
-    doc = parseDocument(text, { keepSourceTokens: true });
-  } catch {
-    // Catastrophic parse failure — return a single document-wide
-    // diagnostic so the user sees something. Rare; the yaml package
-    // recovers from most malformations.
-    return [
-      {
-        from: 0,
-        to: Math.min(text.length, 1),
-        severity: "error",
-        message: "YAML parse failed catastrophically",
-      },
-    ];
-  }
-  const diags: Diagnostic[] = [];
-  for (const e of doc.errors) {
-    const [from, to] = e.pos ?? [0, Math.min(text.length, 1)];
-    diags.push({
-      from: Math.max(0, Math.min(from, text.length)),
-      to: Math.max(0, Math.min(to, text.length)),
-      severity: "error",
-      message: e.message,
-    });
-  }
-  for (const w of doc.warnings) {
-    const [from, to] = w.pos ?? [0, Math.min(text.length, 1)];
-    diags.push({
-      from: Math.max(0, Math.min(from, text.length)),
-      to: Math.max(0, Math.min(to, text.length)),
-      severity: "warning",
-      message: w.message,
-    });
-  }
-  return diags;
+  return collectYamlParseErrors(text);
 }
 
 /**

@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { lintMarkdown } from "@/lib/lintEngine";
+import { lintYaml } from "@/lib/lintEngine/yaml";
 import type { LintDiagnostic } from "@/lib/lintEngine";
 import { checkLocalLinks } from "@/lib/markdownLinkCheck/check";
 
@@ -33,8 +34,14 @@ const linkCheckTokens = {
 };
 
 interface LintActions {
-  /** Run lint on source for a specific tab */
+  /** Run markdown lint on source for a specific tab */
   runLint: (tabId: string, source: string) => LintDiagnostic[];
+  /**
+   * Run YAML lint on source for a specific tab. Replaces ALL prior
+   * diagnostics for the tab — YAML files are exclusive; they don't
+   * also run markdown rules.
+   */
+  runYamlLint: (tabId: string, source: string) => LintDiagnostic[];
   /**
    * Run async link-existence check for a specific tab. Append-only —
    * does NOT clear sync diagnostics; merges results in. Returns
@@ -67,6 +74,20 @@ export const useLintStore = create<LintState & LintActions>((set, get) => ({
       selectedIndexByTab: { ...state.selectedIndexByTab, [tabId]: 0 },
     }));
 
+    return diagnostics;
+  },
+
+  runYamlLint: (tabId, source) => {
+    // Bumping the link-check token here too: a runLinkCheck() that
+    // started while this tab was being treated as markdown should
+    // not later overwrite our YAML diagnostics. Uniform invalidation.
+    linkCheckTokens.next++;
+    delete linkCheckTokens.byTab[tabId];
+    const diagnostics = lintYaml(source);
+    set((state) => ({
+      diagnosticsByTab: { ...state.diagnosticsByTab, [tabId]: diagnostics },
+      selectedIndexByTab: { ...state.selectedIndexByTab, [tabId]: 0 },
+    }));
     return diagnostics;
   },
 

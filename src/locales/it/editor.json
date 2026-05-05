@@ -264,5 +264,7 @@
   "sourceTable.menu.alignAllRight": "Allinea tutto a destra",
   "sourceTable.menu.formatTable": "Formatta tabella",
   "lint.linkNotFound": "Linked file not found: {{path}}",
-  "lint.imageNotFound": "Image file not found: {{path}}"
+  "lint.imageNotFound": "Image file not found: {{path}}",
+  "lint.yamlParseError": "YAML: {{message}}",
+  "lint.yamlParseWarning": "YAML: {{message}}"
 }

@@ -33,6 +33,7 @@ import { getActiveDocument, getActiveTabId } from "@/utils/activeDocument";
 import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
+import { isYamlFileName } from "@/utils/dropPaths";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
@@ -230,15 +231,10 @@ export function useViewShortcuts() {
         }
 
         if (content !== undefined) {
-          const syncDiagnostics = useLintStore
-            .getState()
-            .runLint(tabId, content);
-          triggerLintRefresh();
-          // Codex audit MED-4 fix: toast reflects the COMBINED
-          // (sync + async link-check) result, not just the sync subset.
-          // Without this, a doc with broken links got "clean" toasted
-          // and then silently grew red squiggles a few hundred ms later.
           const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          const isYaml = filePath
+            ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
+            : false;
           const finalize = (totalCount: number) => {
             triggerLintRefresh();
             if (totalCount === 0) {
@@ -249,14 +245,29 @@ export function useViewShortcuts() {
               );
             }
           };
-          if (filePath) {
-            void useLintStore
+          if (isYaml) {
+            // Codex audit MED-3 close-out: YAML files now run their
+            // own lint pipeline and write to lintStore. Same toast,
+            // same badge, same F2 navigation as markdown.
+            const yamlDiags = useLintStore
               .getState()
-              .runLinkCheck(tabId, content, filePath)
-              .then((merged) => finalize(merged.length));
+              .runYamlLint(tabId, content);
+            finalize(yamlDiags.length);
           } else {
-            // No filePath → no link check possible → toast on sync only.
-            finalize(syncDiagnostics.length);
+            const syncDiagnostics = useLintStore
+              .getState()
+              .runLint(tabId, content);
+            triggerLintRefresh();
+            // Codex audit MED-4: toast reflects the COMBINED
+            // (sync + async link-check) result.
+            if (filePath) {
+              void useLintStore
+                .getState()
+                .runLinkCheck(tabId, content, filePath)
+                .then((merged) => finalize(merged.length));
+            } else {
+              finalize(syncDiagnostics.length);
+            }
           }
         }
         return;
