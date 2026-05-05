@@ -216,15 +216,18 @@ function findEnclosingExpression(
   return { from: openIdx, to: closeIdx, inner: text.slice(openIdx, closeIdx) };
 }
 
-/** Return the dotted-path identifier preceding the cursor inside an expression. */
+/**
+ * Return the dotted-path identifier preceding the cursor. GHA expression
+ * identifiers permit `-` (e.g., `inputs.node-version`,
+ * `needs.build.outputs.artifact-id`), so the token regex includes it.
+ */
 function pathBeforeCursor(
   text: string,
   cursor: number,
   exprFrom: number,
 ): { path: string[]; prefixStart: number; prefix: string } {
-  // Look backward from cursor for a contiguous sequence of `[A-Za-z0-9_.]`.
   let i = cursor;
-  while (i > exprFrom && /[A-Za-z0-9_.]/.test(text[i - 1])) {
+  while (i > exprFrom && /[A-Za-z0-9_.-]/.test(text[i - 1])) {
     i--;
   }
   const segment = text.slice(i, cursor);

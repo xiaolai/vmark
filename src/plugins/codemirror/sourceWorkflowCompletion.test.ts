@@ -138,6 +138,92 @@ describe("workflowCompletionExtension — factory", () => {
   });
 });
 
+describe("workflowCompletionSource — job-scope detection from cursor", () => {
+  it("scopes steps.* completions to the job whose position contains the cursor", () => {
+    // Two jobs; cursor on a line inside the SECOND job. The IR
+    // position ranges declare which job each line belongs to.
+    const text = [
+      "name: ci",
+      "on: push",
+      "jobs:",
+      "  build:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - id: checkout",
+      "        uses: actions/checkout@v4",
+      "  test:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - id: install",
+      "        run: ${{ steps. }}",
+      "      - id: pytest",
+      "        run: pytest",
+    ].join("\n");
+    const ir: WorkflowIR = {
+      triggers: [
+        {
+          event: "push",
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+      ],
+      permissions: undefined,
+      env: {},
+      jobs: [
+        {
+          id: "build",
+          runsOn: ["ubuntu-latest"],
+          needs: [],
+          steps: [
+            {
+              id: "checkout",
+              idSynthesized: false,
+              uses: "actions/checkout@v4",
+              position: { startLine: 7, startCol: 1, endLine: 8, endCol: 30 },
+            },
+          ],
+          position: { startLine: 4, startCol: 1, endLine: 8, endCol: 30 },
+        },
+        {
+          id: "test",
+          runsOn: ["ubuntu-latest"],
+          needs: [],
+          steps: [
+            {
+              id: "install",
+              idSynthesized: false,
+              run: "echo",
+              position: { startLine: 12, startCol: 1, endLine: 13, endCol: 30 },
+            },
+            {
+              id: "pytest",
+              idSynthesized: false,
+              run: "pytest",
+              position: { startLine: 14, startCol: 1, endLine: 15, endCol: 12 },
+            },
+          ],
+          position: { startLine: 9, startCol: 1, endLine: 15, endCol: 12 },
+        },
+      ],
+      positions: {},
+      diagnostics: [],
+    } as WorkflowIR;
+    useGhaWorkflowPanelStore.setState({ workflow: ir, parseError: null });
+
+    const state = EditorState.create({ doc: text });
+    // Cursor on line 13 (1-based) at "${{ steps. " position.
+    const lineStart = state.doc.line(13).from;
+    const cursor = lineStart + text.split("\n")[12].indexOf("steps.") + "steps.".length;
+    const ctx = mkContext(state, cursor);
+
+    const result = workflowCompletionSource(ctx);
+    expect(result).not.toBeNull();
+    const labels = result!.options.map((o) => o.label);
+    // Should see test job's steps (install, pytest), NOT build's checkout.
+    expect(labels).toEqual(expect.arrayContaining(["install", "pytest"]));
+    expect(labels).not.toContain("checkout");
+  });
+});
+
 // Minimal CompletionContext stub — the source signature uses only
 // `state.doc` and `pos`. Avoids pulling in the full `@codemirror/view`
 // dependency just for testing.

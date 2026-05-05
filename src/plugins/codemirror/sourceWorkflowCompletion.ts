@@ -29,6 +29,20 @@ import {
   type CompletionItem,
 } from "@/lib/ghaWorkflow/completion/expressionCompletion";
 import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
+import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
+
+/**
+ * Find the job whose source-range contains the given 1-based line.
+ * Returns null when the cursor is outside any job (workflow-level
+ * scope: triggers, env, permissions, etc.).
+ */
+function findJobAtLine(workflow: WorkflowIR, line: number): string | null {
+  for (const job of workflow.jobs) {
+    const { startLine, endLine } = job.position;
+    if (line >= startLine && line <= endLine) return job.id;
+  }
+  return null;
+}
 
 function toCmCompletion(item: CompletionItem): Completion {
   // Map our internal Category to a CodeMirror "type" for icon coloring.
@@ -62,14 +76,13 @@ export function workflowCompletionSource(
   if (!workflow) return null;
 
   const text = context.state.doc.toString();
-  // We don't track active job from the cursor yet — pass null which
-  // means workflow-level scope. Step/needs path completions still
-  // work because the second-level (steps.<id>) lookup uses ALL job
-  // step ids when no active job is given… actually the helper scopes
-  // by activeJobId, so we collapse to all step ids across the workflow
-  // when none is provided. Worse-but-acceptable trade-off; a future
-  // enhancement can compute the cursor's enclosing job via positions.
-  const result = completeAtPosition(text, context.pos, workflow, null);
+  // Resolve the active job from the cursor line via JobIR.position
+  // ranges. Without this, step-scoped completions (`steps.*`, job
+  // `env.*`, `matrix.*`) drop to workflow-level and produce empty
+  // or misleading suggestions (Codex audit HIGH-1).
+  const cursorLine = context.state.doc.lineAt(context.pos).number;
+  const activeJobId = findJobAtLine(workflow, cursorLine);
+  const result = completeAtPosition(text, context.pos, workflow, activeJobId);
   if (!result) return null;
 
   // Empty options list: don't show an empty popup.
@@ -82,8 +95,10 @@ export function workflowCompletionSource(
     to: result.to,
     options: result.options.map(toCmCompletion),
     // Validate token chars so CM keeps the popup open as the user
-    // types more identifier characters; closes on `.` / `}` / space.
-    validFor: /^[A-Za-z0-9_]*$/,
+    // types more identifier characters. GHA expression identifiers
+    // permit `-` (e.g., `inputs.node-version`); closes on `.` / `}` /
+    // space (Codex audit HIGH-2).
+    validFor: /^[A-Za-z0-9_-]*$/,
   };
 }
 

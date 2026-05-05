@@ -440,6 +440,50 @@ describe("completeAtPosition — boundary edge cases", () => {
     expect(ctx.stepIds).toEqual([]);
   });
 
+  it("hyphenated identifiers complete correctly (inputs.node-version)", () => {
+    const ir = makeIR({
+      triggers: [
+        {
+          event: "workflow_call",
+          inputs: {
+            "node-version": { type: "string", required: false },
+          },
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+      ],
+    } as Partial<WorkflowIR>);
+    // Cursor mid-token after the hyphen.
+    const text = "if: ${{ inputs.node-ver }}";
+    const cursor = text.indexOf("node-ver") + "node-ver".length;
+    const result = completeAtPosition(text, cursor, ir);
+    expect(result).not.toBeNull();
+    const labels = result!.options.map((o: { label: string }) => o.label);
+    expect(labels).toContain("node-version");
+    // Replacement range covers the hyphenated prefix, not just past the dash.
+    expect(text.slice(result!.from, result!.to)).toBe("node-ver");
+  });
+
+  it("hyphenated needs.<jobId>.outputs.<artifact-id>", () => {
+    const ir = makeIR({
+      jobs: [
+        {
+          id: "build",
+          runsOn: ["ubuntu-latest"],
+          needs: [],
+          outputs: { "artifact-id": "${{ steps.x.outputs.id }}" },
+          steps: [],
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+      ],
+    } as Partial<WorkflowIR>);
+    const text = "if: ${{ needs.build.outputs. }}";
+    const cursor = text.indexOf("outputs.") + "outputs.".length;
+    const result = completeAtPosition(text, cursor, ir);
+    expect(result?.options.map((o: { label: string }) => o.label)).toContain(
+      "artifact-id",
+    );
+  });
+
   it("buildExpressionContext when active job has no env returns workflow env only", () => {
     const ir = makeIR({
       env: { ONLY_GLOBAL: "x" },
