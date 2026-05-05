@@ -125,11 +125,12 @@ describe("GhaWorkflowSidePanel", () => {
     ) as HTMLElement;
     expect(handle).toBeTruthy();
 
-    // Trigger the drag start.
+    // Trigger the drag start. The component attaches mousemove/mouseup
+    // to `document` (not window), so we dispatch there to actually
+    // hit the listeners and flip userResizedRef.
     fireEvent.mouseDown(handle, { clientX: 800 });
-    // Move 100px to the left → +100px panel width.
-    fireEvent.mouseMove(window, { clientX: 700 });
-    fireEvent.mouseUp(window);
+    fireEvent.mouseMove(document, { clientX: 700 });
+    fireEvent.mouseUp(document);
 
     // After the drag, the userResizedRef.current is true. Now toggle
     // panelOpen and re-render: the half-width effect must NOT
