@@ -20,6 +20,7 @@ import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { genieError } from "@/utils/debug";
 import { WorkflowPreview } from "./WorkflowPreview";
 import "./workflow-side-panel.css";
 
@@ -76,9 +77,10 @@ export function WorkflowSidePanel() {
     try {
       await start({ yaml, workspaceRoot });
     } catch (err) {
-      // The runner reports failures as workflow:complete events; surface
-      // synchronous invoke errors via console for now.
-      console.error("Workflow run failed to start:", err);
+      // The runner reports step failures as workflow:complete events;
+      // synchronous invoke errors (parse error, missing workspace,
+      // already-running guard) bubble up here.
+      genieError("Workflow run failed to start:", err);
     }
   }, [start]);
 

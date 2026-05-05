@@ -572,6 +572,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn execute_v0_with_input_alias_via_content() {
         // V0 genie template uses {{content}}; with.input supplies the value
@@ -635,10 +636,14 @@ mod tests {
         assert!(matches!(res, Err(GenieStepError::InvalidInput(_))));
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn execute_unsupported_output_type_errors_after_call() {
         // v1 output.type: file isn't supported. The provider runs (we get text)
         // but post-processing rejects.
+        // Unix-only: provider_echo() uses /bin/echo which isn't a Windows
+        // binary. The unsupported-output validation logic itself is platform-
+        // independent (process_output is exercised in non-async tests above).
         let loaded = LoadedGenie {
             metadata: meta_v1("text", "file"),
             template: "produce {{input}}".to_string(),

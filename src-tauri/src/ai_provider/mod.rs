@@ -331,6 +331,12 @@ mod tests {
     use super::*;
 
     /// A successful CLI provider completion returns the collected text.
+    ///
+    /// Unix-only: relies on `/bin/echo` ignoring unknown flags. Windows has
+    /// no `/bin/echo` (echo is a cmd.exe builtin) so this path can't be
+    /// exercised cross-platform. macOS BSD echo and Linux GNU echo both
+    /// pass the test — they print all positional args including the prompt.
+    #[cfg(unix)]
     #[tokio::test]
     async fn collect_returns_text_on_done() {
         let cancel = CancellationToken::new();
@@ -341,9 +347,10 @@ mod tests {
             None,
             None,
             None,
-            // Force the cli_path to /bin/echo. The args list emitted by
+            // Force cli_path to /bin/echo. The args list emitted by
             // dispatch_to_provider for "claude" is not what `echo` expects,
-            // but it WILL print them. We assert "ignored" appears.
+            // but echo prints all its args verbatim. We assert "ignored"
+            // appears in the captured stdout.
             Some("/bin/echo"),
             None,
         )
@@ -355,6 +362,21 @@ mod tests {
     }
 
     /// Cancellation aborts the collect with the canonical error.
+    ///
+    /// Tests the run_ai_prompt_collect → dispatch_to_provider →
+    /// cli::run_cli_blocking cancel-token plumbing end-to-end. The CLI
+    /// path is built with claude's args (which include `-p`); that means
+    /// any standin binary must tolerate unknown flags long enough for the
+    /// cancel signal to fire. macOS BSD `/bin/sleep` rejects `-p` and
+    /// returns immediately with a usage error — too fast for cancel to win.
+    /// `/usr/bin/yes` (POSIX) reads its args, then loops printing forever,
+    /// so it's still alive when the cancel arrives. Windows has no
+    /// equivalent we can rely on.
+    ///
+    /// The single-cli-level cancel primitive (no dispatcher) is covered
+    /// portably by `cli::tests::cancellation_kills_long_running_shim` —
+    /// this test verifies the additional dispatcher + collect layers.
+    #[cfg(unix)]
     #[tokio::test]
     async fn collect_cancellation_returns_cancelled() {
         let cancel = CancellationToken::new();
@@ -368,8 +390,9 @@ mod tests {
                 None,
                 None,
                 None,
-                // /bin/sleep ignores claude args; sleeps for "30" (first arg).
-                Some("/bin/sleep"),
+                // /usr/bin/yes ignores claude's `-p ...` args and prints
+                // forever; we cancel mid-stream and expect Err("Cancelled").
+                Some("/usr/bin/yes"),
                 None,
             )
             .await
