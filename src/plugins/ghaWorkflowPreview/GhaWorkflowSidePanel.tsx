@@ -104,11 +104,13 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
   }, [panelOpen, panelWidth]);
 
   // Resize handler refs (project convention: rules/50 §2 — always store
-  // listener references so cleanup can remove the exact functions).
+  // listener references so cleanup can remove the exact functions, and
+  // clean up on `mouseup`, `blur`, AND component unmount).
   const handlersRef = useRef<{
     move: ((e: MouseEvent) => void) | null;
     up: (() => void) | null;
-  }>({ move: null, up: null });
+    blur: (() => void) | null;
+  }>({ move: null, up: null, blur: null });
 
   const cleanup = useCallback(() => {
     if (handlersRef.current.move) {
@@ -117,7 +119,10 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     if (handlersRef.current.up) {
       document.removeEventListener("mouseup", handlersRef.current.up);
     }
-    handlersRef.current = { move: null, up: null };
+    if (handlersRef.current.blur) {
+      window.removeEventListener("blur", handlersRef.current.blur);
+    }
+    handlersRef.current = { move: null, up: null, blur: null };
   }, []);
 
   useEffect(() => cleanup, [cleanup]);
@@ -144,10 +149,15 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
       };
 
       const onUp = () => cleanup();
+      const onBlur = () => cleanup();
 
-      handlersRef.current = { move: onMove, up: onUp };
+      handlersRef.current = { move: onMove, up: onUp, blur: onBlur };
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
+      // Clean up if the user Cmd-Tabs away mid-drag — without this the
+      // mousemove listener stays attached and the next mousedown over
+      // the document briefly resumes the drag.
+      window.addEventListener("blur", onBlur);
     },
     [panelWidth, cleanup],
   );

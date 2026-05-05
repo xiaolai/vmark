@@ -478,6 +478,75 @@ describe("StepForm — step navigation", () => {
     expect(useWorkflowViewStore.getState().selectedStepId).toBe("step-2");
   });
 
+  it("Alt+ArrowRight is ignored when focus is inside an editable field (preserves native word-jump)", async () => {
+    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
+    useWorkflowViewStore.getState().reset();
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={3}
+        prevStepId={null}
+        nextStepId="step-2"
+      />,
+    );
+    const nameInput = screen.getByLabelText(/name/i);
+    nameInput.focus();
+    // Dispatch on the input element so e.target is the input, not body.
+    fireEvent.keyDown(nameInput, { key: "ArrowRight", altKey: true });
+    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+  });
+
+  it("Alt+ArrowRight is ignored when focus is inside a CodeMirror editor", async () => {
+    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
+    useWorkflowViewStore.getState().reset();
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={3}
+        prevStepId={null}
+        nextStepId="step-2"
+      />,
+    );
+    // Build a fake CodeMirror surface in the document. The guard uses
+    // `closest(".cm-editor")` so any descendant of a `.cm-editor`
+    // ancestor is treated as an editable surface.
+    const cmHost = document.createElement("div");
+    cmHost.className = "cm-editor";
+    const inner = document.createElement("div");
+    cmHost.appendChild(inner);
+    document.body.appendChild(cmHost);
+    fireEvent.keyDown(inner, { key: "ArrowRight", altKey: true });
+    document.body.removeChild(cmHost);
+    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+  });
+
+  it("Alt+ArrowRight is ignored when defaultPrevented is already set", async () => {
+    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
+    useWorkflowViewStore.getState().reset();
+    render(
+      <StepForm
+        jobId="build"
+        stepIndex={0}
+        step={makeStep()}
+        stepCount={3}
+        prevStepId={null}
+        nextStepId="step-2"
+      />,
+    );
+    // Pre-handle the same event at capture phase to mark it defaultPrevented.
+    const blocker = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "ArrowRight") e.preventDefault();
+    };
+    window.addEventListener("keydown", blocker, { capture: true });
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    window.removeEventListener("keydown", blocker, { capture: true } as never);
+    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+  });
+
   it("Alt+ArrowLeft does nothing when prevStepId is null", async () => {
     const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
     useWorkflowViewStore.getState().selectStep("build", "step-1");

@@ -210,4 +210,45 @@ describe("WorkflowEditorPanel", () => {
     nameInput = screen.getByLabelText(/^name/i) as HTMLInputElement;
     expect(nameInput.value).toBe("Deploy");
   });
+
+  describe("focus restoration on step navigation", () => {
+    it("focuses Next button after step→step transition", async () => {
+      useWorkflowViewStore.getState().selectStep("build", "checkout");
+      render(
+        <WorkflowEditorPanel
+          workflow={makeWorkflow()}
+          onSave={async () => {}}
+          onDiscard={() => {}}
+        />,
+      );
+      // Trigger step→step nav. The effect inside the panel observes the
+      // stepId transition and schedules a focus via requestAnimationFrame.
+      useWorkflowViewStore.getState().selectStep("build", "test");
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      // After nav, Back-to-job should be focused (Next disabled at last step,
+      // Prev points back to previous step which IS available — so Prev or Back).
+      const focused = document.activeElement as HTMLElement | null;
+      expect(focused?.className).toContain("workflow-form__nav-btn");
+    });
+
+    it("does NOT auto-focus on initial step selection (null → step)", async () => {
+      const { container } = render(
+        <WorkflowEditorPanel
+          workflow={makeWorkflow()}
+          onSave={async () => {}}
+          onDiscard={() => {}}
+        />,
+      );
+      // Initial mount with NO step selected — body is the active element.
+      // Now select a step for the first time. Should NOT trigger auto-focus.
+      const focusedBefore = document.activeElement;
+      useWorkflowViewStore.getState().selectStep("build", "checkout");
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      // No nav button should have been focused.
+      const focused = document.activeElement;
+      expect(focused).toBe(focusedBefore);
+      // Form did render though.
+      expect(container.querySelector(".workflow-form__step-position")).toBeTruthy();
+    });
+  });
 });

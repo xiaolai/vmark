@@ -254,6 +254,60 @@ describe("DiagnosticsBanner — per-row collapse", () => {
     expect(screen.getByText("first message")).toBeTruthy();
   });
 
+  it("Collapse all collapses ALL diagnostics including those hidden behind the >5 truncation", () => {
+    // 8 diagnostics: only 5 are rendered initially. Collapse-all must
+    // hide the 3 not-yet-rendered ones too, otherwise clicking "Show all"
+    // reveals them still expanded (Codex audit MED-2 + regression test).
+    const eight: Diagnostic[] = Array.from({ length: 8 }, (_, i) => ({
+      severity: "warning",
+      code: "GHA-STEP-003",
+      message: `synthesized id ${i}`,
+    }));
+    render(<DiagnosticsBanner diagnostics={eight} />);
+    expect(screen.getByText(/synthesized id 0/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /collapse all/i }));
+    // First 5 already had their messages hidden.
+    expect(screen.queryByText(/synthesized id 0/)).toBeNull();
+    // Reveal the rest — they should also be collapsed.
+    fireEvent.click(screen.getByRole("button", { name: /show all 8/i }));
+    expect(screen.queryByText(/synthesized id 7/)).toBeNull();
+  });
+
+  it("preserves per-row collapse state when the diagnostics array reorders", () => {
+    // Repeated codes with distinct messages: collapsed rows should
+    // stay collapsed by content, not by their index in the array.
+    const initial: Diagnostic[] = [
+      makeDiag({ message: "alpha" }),
+      makeDiag({ message: "beta" }),
+      makeDiag({ message: "gamma" }),
+    ];
+    const { rerender } = render(<DiagnosticsBanner diagnostics={initial} />);
+    // Collapse beta only.
+    const chevrons = screen
+      .getAllByRole("button")
+      .filter((b) => b.className.includes("workflow-diagnostics-banner__chevron"));
+    fireEvent.click(chevrons[1]);
+    expect(screen.queryByText("beta")).toBeNull();
+    expect(screen.getByText("alpha")).toBeTruthy();
+
+    // Rerender with reordered + extra diagnostic; beta is now at index 2
+    // instead of 1 — content-based key should keep it collapsed.
+    rerender(
+      <DiagnosticsBanner
+        diagnostics={[
+          makeDiag({ message: "alpha" }),
+          makeDiag({ message: "delta" }),
+          makeDiag({ message: "beta" }),
+          makeDiag({ message: "gamma" }),
+        ]}
+      />,
+    );
+    expect(screen.queryByText("beta")).toBeNull();
+    expect(screen.getByText("alpha")).toBeTruthy();
+    expect(screen.getByText("delta")).toBeTruthy();
+    expect(screen.getByText("gamma")).toBeTruthy();
+  });
+
   it("Collapse all / Expand all toggles every visible row", () => {
     render(
       <DiagnosticsBanner

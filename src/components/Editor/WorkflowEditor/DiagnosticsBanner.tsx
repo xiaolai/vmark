@@ -111,6 +111,22 @@ export function DiagnosticsBanner({
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
   );
 
+  // Per-row keys derive from diagnostic CONTENT, not render index, so
+  // collapse state survives re-renders that reorder the array (e.g.
+  // a new lint pass with one extra diagnostic). Duplicates within the
+  // same code+message+position+jobId tuple get a stable occurrence
+  // counter so distinct rows still get distinct keys (Codex audit
+  // LOW-2 finding).
+  const occurrenceCounts = new Map<string, number>();
+  const rowKeys: string[] = sorted.map((d) => {
+    const sig =
+      `${d.code}::${d.message}::${d.position?.startLine ?? "x"}` +
+      `::${typeof d.context?.jobId === "string" ? d.context.jobId : ""}`;
+    const occ = occurrenceCounts.get(sig) ?? 0;
+    occurrenceCounts.set(sig, occ + 1);
+    return `${sig}::${occ}`;
+  });
+
   const visible =
     expanded || sorted.length <= COLLAPSE_THRESHOLD
       ? sorted
@@ -125,16 +141,15 @@ export function DiagnosticsBanner({
     });
   };
 
-  const collapseAll = () => {
-    const all = new Set<string>();
-    visible.forEach((d, i) => all.add(`${d.code}::${i}`));
-    setCollapsedRows(all);
-  };
+  // Bulk actions operate on the full sorted list, not just `visible`.
+  // With >5 diagnostics, `visible` is the first 5 until the user
+  // clicks "Show all" — collapsing only those 5 left the hidden
+  // rows expanded (Codex audit MED-2 finding).
+  const collapseAll = () => setCollapsedRows(new Set(rowKeys));
   const expandAll = () => setCollapsedRows(new Set());
 
   const allCollapsed =
-    visible.length > 0 &&
-    visible.every((d, i) => collapsedRows.has(`${d.code}::${i}`));
+    rowKeys.length > 0 && rowKeys.every((k) => collapsedRows.has(k));
 
   return (
     <section
@@ -171,7 +186,7 @@ export function DiagnosticsBanner({
       </header>
       <ul className="workflow-diagnostics-banner__list">
         {visible.map((diag, idx) => {
-          const rowKey = `${diag.code}::${idx}`;
+          const rowKey = rowKeys[idx];
           const rowCollapsed = collapsedRows.has(rowKey);
           const jobId =
             typeof diag.context?.jobId === "string"

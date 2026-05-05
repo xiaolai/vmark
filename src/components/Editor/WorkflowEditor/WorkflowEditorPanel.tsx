@@ -19,7 +19,7 @@
  * @module components/Editor/WorkflowEditor/WorkflowEditorPanel
  */
 
-import { useCallback, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
@@ -56,6 +56,37 @@ export function WorkflowEditorPanel({
     setFormGen((n) => n + 1);
     onDiscard();
   }, [onDiscard]);
+
+  // Restore focus after a step→step navigation remount. The `key=`
+  // prop change unmounts/remounts StepForm and strands keyboard focus
+  // on document.body. Only fires when transitioning between two
+  // non-null step ids — initial selection (null → step) does NOT
+  // auto-focus, so users who clicked a step row in JobForm aren't
+  // pulled to the nav buttons. Codex audit MED-3 + verify regression.
+  const prevStepIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const wasStepNavigation =
+      prevStepIdRef.current !== null &&
+      selectedStepId !== null &&
+      prevStepIdRef.current !== selectedStepId;
+    prevStepIdRef.current = selectedStepId;
+    if (!wasStepNavigation) return;
+    // Defer to the next frame so the new StepForm has mounted before
+    // we query its DOM. requestAnimationFrame ensures layout has run.
+    const id = requestAnimationFrame(() => {
+      const next = document.querySelector(
+        '.workflow-form__nav-btn[aria-label*="Next"]:not([disabled])',
+      ) as HTMLElement | null;
+      const prev = document.querySelector(
+        '.workflow-form__nav-btn[aria-label*="Previous"]:not([disabled])',
+      ) as HTMLElement | null;
+      const back = document.querySelector(
+        '.workflow-form__nav-btn[aria-label*="Back to job"]',
+      ) as HTMLElement | null;
+      (next ?? prev ?? back)?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [selectedStepId]);
 
   if (!workflow) return null;
 

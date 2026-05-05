@@ -41,8 +41,10 @@ export function SourceModeUpgrade() {
   const activeFilePath = useDocumentStore((s) =>
     activeTabId ? s.documents[activeTabId]?.filePath ?? null : null,
   );
+  // Split on both POSIX (`/`) and Windows (`\`) separators so path
+  // basenames resolve correctly on every supported platform.
   const isYamlFile = activeFilePath
-    ? isYamlFileName(activeFilePath.split("/").pop() ?? "")
+    ? isYamlFileName(activeFilePath.split(/[\\/]/).pop() ?? "")
     : false;
 
   // The "Switch to WYSIWYG" action clears only this tab's forced-source

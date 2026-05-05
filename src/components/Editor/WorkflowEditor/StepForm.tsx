@@ -23,7 +23,7 @@
  * @module components/Editor/WorkflowEditor/StepForm
  */
 
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, ArrowUp } from "lucide-react";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
@@ -85,12 +85,45 @@ export function StepForm({
     useWorkflowViewStore.getState().selectJob(jobId);
   };
 
+  // Refs the parent uses to restore focus after a step→step navigation
+  // remount. Auto-focus does NOT happen here in StepForm because each
+  // remount produces a fresh component with fresh refs and no memory
+  // of whether the mount was triggered by user nav or by a fresh step
+  // selection. WorkflowEditorPanel owns that distinction (it can
+  // observe selectedStepId transitions) and reaches into the new DOM
+  // via querySelector to land focus on the appropriate nav button.
+  const nextBtnRef = useRef<HTMLButtonElement>(null);
+  const prevBtnRef = useRef<HTMLButtonElement>(null);
+  const backBtnRef = useRef<HTMLButtonElement>(null);
+
   // Keyboard nav: Alt+Left / Alt+Right walk steps. Listens on the
   // window so the form doesn't have to be focused — accessible from
-  // anywhere within the side panel context. Esc returns to the job.
+  // anywhere within the side panel context. Bails out when the user
+  // is typing in an editable element so we don't steal native
+  // word-navigation (Alt+Arrow on macOS) or any child shortcut that
+  // already called preventDefault.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (!e.altKey) return;
+      if (e.defaultPrevented) return;
+      // Skip when focus is inside an editable surface (input, textarea,
+      // contenteditable host, or CodeMirror). These all need the native
+      // Alt+Arrow word-jump and would silently lose it otherwise.
+      // The instanceof check handles Window/Document/null targets that
+      // don't expose tagName/closest/isContentEditable.
+      const target = e.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable ||
+          target.closest(".cm-editor")
+        ) {
+          return;
+        }
+      }
       if (e.key === "ArrowLeft" && prevStepId) {
         e.preventDefault();
         goToStep(prevStepId);
@@ -239,6 +272,7 @@ export function StepForm({
     <form className="workflow-form" onSubmit={(e) => e.preventDefault()}>
       <header className="workflow-form__header workflow-form__header--step">
         <button
+          ref={backBtnRef}
           type="button"
           className="workflow-form__nav-btn"
           onClick={backToJob}
@@ -250,6 +284,7 @@ export function StepForm({
           <ArrowUp size={14} />
         </button>
         <button
+          ref={prevBtnRef}
           type="button"
           className="workflow-form__nav-btn"
           onClick={() => goToStep(prevStepId)}
@@ -271,6 +306,7 @@ export function StepForm({
           })}
         </span>
         <button
+          ref={nextBtnRef}
           type="button"
           className="workflow-form__nav-btn"
           onClick={() => goToStep(nextStepId)}
