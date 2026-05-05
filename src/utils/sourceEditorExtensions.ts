@@ -31,6 +31,7 @@ import { sourceGhaWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceG
 import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflowCompletion";
 import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
 import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
+import { yamlLintExtension } from "@/plugins/codemirror/sourceYamlLint";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
@@ -271,6 +272,10 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     ...(isYaml ? sourceWorkflowPreviewExtensions : []),
     // GHA workflow preview plugin for YAML files (parses YAML → ghaWorkflowPanelStore)
     ...(isYaml ? sourceGhaWorkflowPreviewExtensions : []),
+    // YAML parse-error linter (any YAML file). Surfaces duplicate
+    // keys, unterminated strings, indentation breaks via the
+    // CodeMirror gutter. No schema validation, no style rules.
+    ...(isYaml ? [yamlLintExtension()] : []),
     // Workflow expression autocomplete inside ${{ }} (WI-A.1).
     // The completion source itself short-circuits on missing IR, so
     // mounting it for all YAML files is safe — it returns null for

@@ -181,6 +181,8 @@
   "lint.W03": "Unused link definition: [{{ref}}]",
   "lint.W04": "Fragment #{{anchor}} does not match any heading",
   "lint.W05": "Empty link href",
+  "lint.linkNotFound": "Linked file not found: {{path}}",
+  "lint.imageNotFound": "Image file not found: {{path}}",
 
   "plugin.exportPng": "Export as PNG",
   "plugin.zoomOut": "Zoom out",

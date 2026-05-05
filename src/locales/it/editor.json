@@ -262,5 +262,7 @@
   "sourceTable.menu.alignAllLeft": "Allinea tutto a sinistra",
   "sourceTable.menu.alignAllCenter": "Centra tutto",
   "sourceTable.menu.alignAllRight": "Allinea tutto a destra",
-  "sourceTable.menu.formatTable": "Formatta tabella"
+  "sourceTable.menu.formatTable": "Formatta tabella",
+  "lint.linkNotFound": "Linked file not found: {{path}}",
+  "lint.imageNotFound": "Image file not found: {{path}}"
 }

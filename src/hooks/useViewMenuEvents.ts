@@ -202,6 +202,16 @@ export function useViewMenuEvents(): void {
         if (content !== undefined) {
           const diagnostics = useLintStore.getState().runLint(tabId, content);
           triggerLintRefresh();
+          // Async link-existence check (mirrors useViewShortcuts).
+          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          void useLintStore
+            .getState()
+            .runLinkCheck(tabId, content, filePath)
+            .then((merged) => {
+              if (merged.length !== diagnostics.length) {
+                triggerLintRefresh();
+              }
+            });
           if (diagnostics.length === 0) {
             toast.success(i18n.t("statusbar:lint.clean.toast"));
           } else {

@@ -267,5 +267,7 @@
   "sourceTable.menu.alignAllLeft": "Alle links ausrichten",
   "sourceTable.menu.alignAllCenter": "Alle zentrieren",
   "sourceTable.menu.alignAllRight": "Alle rechts ausrichten",
-  "sourceTable.menu.formatTable": "Tabelle formatieren"
+  "sourceTable.menu.formatTable": "Tabelle formatieren",
+  "lint.linkNotFound": "Linked file not found: {{path}}",
+  "lint.imageNotFound": "Image file not found: {{path}}"
 }

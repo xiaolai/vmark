@@ -252,5 +252,7 @@
   "sourceTable.menu.alignAllLeft": "全部左对齐",
   "sourceTable.menu.alignAllCenter": "全部居中对齐",
   "sourceTable.menu.alignAllRight": "全部右对齐",
-  "sourceTable.menu.formatTable": "格式化表格"
+  "sourceTable.menu.formatTable": "格式化表格",
+  "lint.linkNotFound": "Linked file not found: {{path}}",
+  "lint.imageNotFound": "Image file not found: {{path}}"
 }

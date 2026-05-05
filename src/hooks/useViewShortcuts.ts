@@ -233,6 +233,18 @@ export function useViewShortcuts() {
           const diagnostics = useLintStore.getState().runLint(tabId, content);
           // Refresh CM linter so it picks up the new diagnostics immediately
           triggerLintRefresh();
+          // Async link-existence check — fires alongside the sync rules
+          // and merges results when fs.exists comes back. Skipped for
+          // untitled documents (no filePath to resolve relative URLs).
+          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
+          void useLintStore
+            .getState()
+            .runLinkCheck(tabId, content, filePath)
+            .then((merged) => {
+              if (merged.length !== diagnostics.length) {
+                triggerLintRefresh();
+              }
+            });
           if (diagnostics.length === 0) {
             toast.success(i18n.t("statusbar:lint.clean.toast"));
           } else {
