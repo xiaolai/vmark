@@ -216,6 +216,48 @@ describe("lintStore", () => {
       expect(after.find((d) => d.ruleId === "M002")).toBeTruthy();
     });
 
+    it("clearDiagnostics invalidates pending runLinkCheck tokens", async () => {
+      let resolveSlow!: (v: boolean) => void;
+      existsMock.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            resolveSlow = resolve;
+          }),
+      );
+
+      const slowPromise = useLintStore
+        .getState()
+        .runLinkCheck("tab-1", "[a](./missing.md)\n", "/repo/x.md");
+
+      // User clears the tab while fs.exists is still pending.
+      useLintStore.getState().clearDiagnostics("tab-1");
+      expect(useLintStore.getState().diagnosticsByTab["tab-1"]).toBeUndefined();
+
+      // Slow path resolves with file-missing — would have written
+      // diagnostics. The token guard must drop the result.
+      resolveSlow(false);
+      await slowPromise;
+
+      expect(useLintStore.getState().diagnosticsByTab["tab-1"]).toBeUndefined();
+    });
+
+    it("clearAllDiagnostics invalidates all pending runLinkCheck tokens", async () => {
+      let resolveSlow!: (v: boolean) => void;
+      existsMock.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            resolveSlow = resolve;
+          }),
+      );
+      const slowPromise = useLintStore
+        .getState()
+        .runLinkCheck("tab-1", "[a](./x.md)\n", "/repo/x.md");
+      useLintStore.getState().clearAllDiagnostics();
+      resolveSlow(false);
+      await slowPromise;
+      expect(useLintStore.getState().diagnosticsByTab).toEqual({});
+    });
+
     it("a stale runLinkCheck completion does not overwrite a fresher one", async () => {
       // First call: slow to resolve. Second call: fast. The first must
       // not overwrite the second's results when its fs.exists() finally

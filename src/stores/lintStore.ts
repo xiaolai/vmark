@@ -109,6 +109,13 @@ export const useLintStore = create<LintState & LintActions>((set, get) => ({
   },
 
   clearDiagnostics: (tabId) => {
+    // Invalidate any in-flight runLinkCheck promise for this tab —
+    // bumping `next` and clearing byTab[tabId] makes any pending
+    // completion's token comparison fail, so it drops its result
+    // instead of repopulating the cleared tab. Codex audit HIGH-1
+    // partial finding.
+    linkCheckTokens.next++;
+    delete linkCheckTokens.byTab[tabId];
     set((state) => {
       const { [tabId]: _, ...rest } = state.diagnosticsByTab;
       const { [tabId]: __, ...indexRest } = state.selectedIndexByTab;
@@ -120,6 +127,10 @@ export const useLintStore = create<LintState & LintActions>((set, get) => ({
   },
 
   clearAllDiagnostics: () => {
+    // Same invalidation: nuke all per-tab tokens so every in-flight
+    // runLinkCheck Promise drops its result on settle.
+    linkCheckTokens.next++;
+    linkCheckTokens.byTab = {};
     set({ diagnosticsByTab: {}, selectedIndexByTab: {} });
   },
 
