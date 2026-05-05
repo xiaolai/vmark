@@ -8,6 +8,7 @@
 //!   - Cancellation via shared CancellationToken (AtomicBool checked per step).
 //!   - Snapshots created before execution for file-modifying steps.
 
+use super::genie_step::ProviderConfig;
 use super::runner::run_workflow_sequential;
 use super::snapshots;
 use super::types::RawWorkflow;
@@ -29,12 +30,17 @@ pub struct WorkflowRunnerState {
 /// Spawns the runner as a background task and returns the execution ID
 /// immediately. The frontend should subscribe to `workflow:step-update`
 /// and `workflow:complete` events using this ID before calling this command.
+///
+/// `provider` is optional: action-only workflows don't need it. Workflows
+/// containing `genie/*` steps will fail those steps with a clear error if
+/// no provider is supplied.
 #[tauri::command]
 pub async fn run_workflow(
     app: AppHandle,
     yaml: String,
     env: HashMap<String, String>,
     workspace_root: String,
+    provider: Option<ProviderConfig>,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<String, String> {
     // Concurrency guard
@@ -85,20 +91,10 @@ pub async fn run_workflow(
         );
     }
 
-    // Validate supported features — reject what the runner can't handle yet
+    // Validate supported features — reject only what the runner truly can't
+    // handle yet. `genie/*` is supported (WI-2.2); webhooks are not.
     for (i, step) in workflow.steps.iter().enumerate() {
         let step_id = step.id.as_deref().unwrap_or("(unnamed)");
-        if step.uses.starts_with("genie/") {
-            state.running.store(false, Ordering::SeqCst);
-            return Err(
-                rust_i18n::t!(
-                    "errors.workflow.genieNotImplemented",
-                    index = (i + 1).to_string(),
-                    id = step_id
-                )
-                .to_string(),
-            );
-        }
         if step.uses.starts_with("webhook/") {
             state.running.store(false, Ordering::SeqCst);
             return Err(
@@ -155,6 +151,12 @@ pub async fn run_workflow(
         }
     }
 
+    // Resolve genies dir up-front so the runner doesn't need a Tauri handle
+    // for filesystem I/O. `app.path().app_data_dir()` can fail on rare
+    // sandbox configurations; in that case genie steps will report a clean
+    // error and action-only workflows still run.
+    let genies_dir = app.path().app_data_dir().ok().map(|d| d.join("genies"));
+
     // Spawn runner as background task — return ID immediately
     tokio::spawn(async move {
         let result = run_workflow_sequential(
@@ -164,6 +166,8 @@ pub async fn run_workflow(
             &workspace,
             &exec_id_clone,
             &cancel_token,
+            provider,
+            genies_dir,
         )
         .await;
 

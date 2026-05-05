@@ -13,6 +13,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
 use super::step_config::StepConfig;
@@ -23,12 +24,18 @@ use crate::genies::types::GenieMetadata;
 /// Provider invocation parameters resolved by the runner before each step.
 ///
 /// Held by value rather than by reference so the runner can move it across
-/// `await` boundaries without lifetime gymnastics.
-#[derive(Debug, Clone)]
+/// `await` boundaries without lifetime gymnastics. Derives `Deserialize` so
+/// the frontend can pass the active provider config through the
+/// `run_workflow` Tauri command alongside the YAML body.
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderConfig {
     pub provider: String,
+    #[serde(default)]
     pub api_key: Option<String>,
+    #[serde(default)]
     pub endpoint: Option<String>,
+    #[serde(default)]
     pub cli_path: Option<String>,
 }
 

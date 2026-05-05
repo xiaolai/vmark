@@ -29,7 +29,7 @@ fn name_from_path(path: &str) -> String {
 /// `path` must be an absolute or canonical filesystem path — the filename stem
 /// is used as the display name. Callers (`read_genie`, `scan_genies_dir`) always
 /// provide paths from filesystem enumeration or `fs::canonicalize`.
-pub(crate) fn parse_genie(content: &str, path: &str) -> Result<GenieContent, String> {
+pub fn parse_genie(content: &str, path: &str) -> Result<GenieContent, String> {
     // Strip UTF-8 BOM if present
     let content = content.trim_start_matches('\u{FEFF}');
     let trimmed = content.trim_start();

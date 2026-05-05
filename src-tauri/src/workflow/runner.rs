@@ -14,15 +14,18 @@
 //!   - Cancellation checked before each step via shared AtomicBool
 //!   - Steps ordered by topological sort on `needs:` dependencies
 
+use super::genie_step::{self, LoadedGenie, ProviderConfig};
 use super::sandbox::validate_path;
+use super::step_config::resolve_step_config;
 use super::types::*;
 use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
+use tokio_util::sync::CancellationToken;
 
 // Resource limits for file actions
 const MAX_FILES_PER_FOLDER: usize = 1000;
@@ -137,10 +140,36 @@ fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
     Ok(ordered)
 }
 
+/// Convert the legacy `Arc<AtomicBool>` cancel flag into a polling task that
+/// flips a `CancellationToken`. Bridges the existing API to the new tokio
+/// cancellation primitive used by `run_ai_prompt_collect`.
+fn spawn_cancel_bridge(
+    legacy: Arc<AtomicBool>,
+    token: CancellationToken,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            if legacy.load(Ordering::SeqCst) {
+                token.cancel();
+                return;
+            }
+            if token.is_cancelled() {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    })
+}
+
 /// Execute a parsed workflow with topological ordering and cancellation support.
 ///
 /// The `execution_id` is provided by the caller (commands.rs) so events can
 /// be emitted with the correct ID from the start.
+///
+/// `provider` and `genies_dir` are required for `genie/*` steps; `None`
+/// values cause genie steps to fail with a clear error rather than panic
+/// (lets the runner exercise action-only workflows from contexts where no
+/// AI provider has been selected yet).
 pub async fn run_workflow_sequential(
     app: &AppHandle,
     workflow: RawWorkflow,
@@ -148,7 +177,15 @@ pub async fn run_workflow_sequential(
     workspace_root: &Path,
     execution_id: &str,
     cancel_token: &Arc<AtomicBool>,
+    provider: Option<ProviderConfig>,
+    genies_dir: Option<PathBuf>,
 ) -> Result<String, String> {
+    // Bridge the legacy AtomicBool cancel flag into a CancellationToken that
+    // the AI provider stack can react to without polling.
+    let cancel = CancellationToken::new();
+    let _bridge = spawn_cancel_bridge(Arc::clone(cancel_token), cancel.clone());
+
+    let defaults = workflow.defaults;
     let mut outputs: HashMap<String, String> = HashMap::new();
 
     // Merge workflow env with provided env (provided takes precedence)
@@ -271,7 +308,16 @@ pub async fn run_workflow_sequential(
             };
 
         // Execute step based on type
-        let result = execute_step(&step.uses, &resolved_params, workspace_root).await;
+        let result = execute_step(
+            &step,
+            &resolved_params,
+            workspace_root,
+            cancel.clone(),
+            provider.as_ref(),
+            genies_dir.as_deref(),
+            &defaults,
+        )
+        .await;
         let duration_ms = start.elapsed().as_millis() as u64;
 
         match result {
@@ -423,18 +469,25 @@ fn resolve_params(
 }
 
 /// Execute a single step based on its `uses:` prefix.
+///
+/// `genie/*` steps require `provider` and `genies_dir` — passing `None` for
+/// either causes the step to fail with a clear error rather than panic, so
+/// action-only workflows can run from contexts that haven't selected a
+/// provider yet.
 async fn execute_step(
-    uses: &str,
+    step: &RawStep,
     params: &HashMap<String, String>,
     workspace_root: &Path,
+    cancel: CancellationToken,
+    provider: Option<&ProviderConfig>,
+    genies_dir: Option<&Path>,
+    defaults: &RawDefaults,
 ) -> Result<String, String> {
+    let uses = step.uses.as_str();
     if uses.starts_with("action/") {
         execute_action(uses, params, workspace_root).await
     } else if uses.starts_with("genie/") {
-        Err(format!(
-            "Genie '{}' execution not yet implemented — requires AI provider adapter",
-            uses
-        ))
+        execute_genie_step(step, params, cancel, provider, genies_dir, defaults).await
     } else if uses.starts_with("webhook/") {
         Err(format!(
             "Webhook '{}' execution not yet implemented",
@@ -443,6 +496,74 @@ async fn execute_step(
     } else {
         Err(format!("Unknown step type: {}", uses))
     }
+}
+
+/// Resolve and execute a `genie/<name>` step.
+///
+/// Walks: name extraction → file discovery → frontmatter parse → input
+/// validation → template fill → AI provider call → output validation.
+/// Each failure mode produces a step-level error string suitable for the
+/// `workflow:step-update` event payload.
+async fn execute_genie_step(
+    step: &RawStep,
+    params: &HashMap<String, String>,
+    cancel: CancellationToken,
+    provider: Option<&ProviderConfig>,
+    genies_dir: Option<&Path>,
+    defaults: &RawDefaults,
+) -> Result<String, String> {
+    let name = genie_step::parse_genie_name(&step.uses)
+        .map_err(|e| e.to_string())?;
+    let provider = provider.ok_or_else(|| {
+        format!(
+            "Genie '{}' requires an active AI provider — none configured for this workflow run",
+            name
+        )
+    })?;
+    let genies_dir = genies_dir.ok_or_else(|| {
+        format!(
+            "Genie '{}' requires a genies directory — none resolved for this workflow run",
+            name
+        )
+    })?;
+
+    let genie_path = genie_step::find_genie_file(genies_dir, name).map_err(|e| e.to_string())?;
+    let raw = std::fs::read_to_string(&genie_path)
+        .map_err(|e| format!("Failed to read genie file '{}': {}", genie_path.display(), e))?;
+
+    // Parse via the same path the editor uses, so v0 + v1 frontmatter behave
+    // identically. We inline the call here rather than re-export `parse_genie`
+    // (private to the genies module) by going through the public Tauri command
+    // surface in tests, but at runtime we need a synchronous path. Re-implement
+    // the minimal slice: BOM strip + frontmatter detect + parse via serde_yaml.
+    let content = parse_genie_content(&raw, &genie_path)?;
+
+    let step_config = resolve_step_config(step, Some(&content.metadata), defaults);
+
+    let loaded = LoadedGenie {
+        metadata: content.metadata,
+        template: content.template,
+    };
+
+    genie_step::execute_genie(cancel, &loaded, params, &step_config, provider)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Slim genie-content parser used by the runner.
+///
+/// The editor path goes through `crate::genies::commands::read_genie` which
+/// is a Tauri command and can't be called from inside another Tauri command's
+/// async handler without re-entering the IPC layer. This function calls the
+/// same `parse_genie` underneath via the public `read_genie` Rust API exposed
+/// through `genies::types::GenieContent`.
+fn parse_genie_content(
+    raw: &str,
+    path: &Path,
+) -> Result<crate::genies::types::GenieContent, String> {
+    let path_str = path.to_string_lossy();
+    crate::genies::parse_genie_for_runner(raw, &path_str)
+        .map_err(|e| format!("Failed to parse genie '{}': {}", path.display(), e))
 }
 
 /// Execute a built-in action step.
@@ -755,27 +876,72 @@ mod tests {
         assert!(result.is_err());
     }
 
+    fn step_with_uses(uses: &str) -> RawStep {
+        RawStep {
+            id: Some("s".into()),
+            uses: uses.into(),
+            with: HashMap::new(),
+            needs: NeedsDef::None,
+            condition: None,
+            model: None,
+            approval: None,
+            limits: None,
+        }
+    }
+
     #[tokio::test]
     async fn test_execute_step_unknown_type() {
         let params = HashMap::new();
         let root = std::path::Path::new("/tmp");
-        let result = execute_step("unknown/thing", &params, root).await;
+        let defaults = RawDefaults::default();
+        let result = execute_step(
+            &step_with_uses("unknown/thing"),
+            &params,
+            root,
+            CancellationToken::new(),
+            None,
+            None,
+            &defaults,
+        )
+        .await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
-    async fn test_genie_step_returns_error() {
+    async fn test_genie_step_without_provider_returns_error() {
+        // Without an active provider configured, a genie step fails fast
+        // with a clear message rather than panicking.
         let params = HashMap::new();
         let root = std::path::Path::new("/tmp");
-        let result = execute_step("genie/summarize", &params, root).await;
-        assert!(result.is_err());
+        let defaults = RawDefaults::default();
+        let result = execute_step(
+            &step_with_uses("genie/summarize"),
+            &params,
+            root,
+            CancellationToken::new(),
+            None,
+            None,
+            &defaults,
+        )
+        .await;
+        assert!(matches!(result, Err(ref e) if e.contains("provider")));
     }
 
     #[tokio::test]
     async fn test_webhook_step_returns_error() {
         let params = HashMap::new();
         let root = std::path::Path::new("/tmp");
-        let result = execute_step("webhook/stripe", &params, root).await;
+        let defaults = RawDefaults::default();
+        let result = execute_step(
+            &step_with_uses("webhook/stripe"),
+            &params,
+            root,
+            CancellationToken::new(),
+            None,
+            None,
+            &defaults,
+        )
+        .await;
         assert!(result.is_err());
     }
 
