@@ -81,9 +81,44 @@ export interface ParsedCron {
   intervalMinutes: number;
 }
 
+/**
+ * Discriminated union for the time portion of a cron expression.
+ * Callers translate each kind via i18n keys
+ * `form.trigger.cron.<kind>` (Codex audit MED-5 fix — readable.ts
+ * was previously English-only with no path to localized output).
+ */
+export type CronTimePart =
+  | { kind: "every-minute" }
+  | { kind: "every-n-minutes"; n: number }
+  | { kind: "at-time"; time: string }
+  | { kind: "at-times"; times: string[] }
+  | { kind: "at-times-many"; visible: string[]; rest: number }
+  | { kind: "every-minute-of-hour"; hours: string }
+  | { kind: "every-hour-on-the-hour" }
+  | { kind: "at-minute-of-every-hour"; minutes: string };
+
+/**
+ * Modifiers attached to the time clause:
+ *   - dom: day-of-month list (e.g., "1, 15")
+ *   - month: month abbreviations (e.g., "Jan, Feb")
+ *   - dowList: day-of-week as comma list (e.g., "Mon, Wed")
+ *   - dowRange: contiguous range (e.g., { from: "Mon", to: "Fri" })
+ */
+export interface CronModifiers {
+  dom?: string;
+  month?: string;
+  dowList?: string;
+  dowRange?: { from: string; to: string };
+}
+
 export interface CronReadable {
+  /** English fallback rendering (for callers that don't translate). */
   text: string;
-  /** True when the smallest fire interval is below 5 minutes (GHA throttles). */
+  /** Structured time clause for translation. */
+  time: CronTimePart;
+  /** Structured modifiers for translation. */
+  modifiers: CronModifiers;
+  /** True when the smallest fire interval is below 5 minutes. */
   throttled: boolean;
 }
 
@@ -215,19 +250,24 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
 
-function describeTime(
+function buildTimePart(
   minutes: number[] | null,
   hours: number[] | null,
-): string {
-  if (minutes === null && hours === null) return "every minute";
+): CronTimePart {
+  if (minutes === null && hours === null) {
+    return { kind: "every-minute" };
+  }
   if (minutes === null) {
-    return `every minute of hour ${hours!.join(", ")}`;
+    return { kind: "every-minute-of-hour", hours: hours!.join(", ") };
   }
   if (hours === null) {
     if (minutes.length === 1 && minutes[0] === 0) {
-      return "every hour on the hour";
+      return { kind: "every-hour-on-the-hour" };
     }
-    return `at minute ${minutes.join(", ")} of every hour`;
+    return {
+      kind: "at-minute-of-every-hour",
+      minutes: minutes.join(", "),
+    };
   }
   const times: string[] = [];
   for (const h of hours) {
@@ -235,46 +275,86 @@ function describeTime(
       times.push(`${pad2(h)}:${pad2(m)}`);
     }
   }
-  if (times.length === 1) return `at ${times[0]}`;
-  if (times.length <= 4) return `at ${times.join(", ")}`;
-  return `at ${times.slice(0, 3).join(", ")} (+${times.length - 3} more)`;
+  if (times.length === 1) return { kind: "at-time", time: times[0] };
+  if (times.length <= 4) return { kind: "at-times", times };
+  return {
+    kind: "at-times-many",
+    visible: times.slice(0, 3),
+    rest: times.length - 3,
+  };
 }
 
-function describeDom(dom: number[] | null): string {
-  if (dom === null) return "";
-  return ` on day-of-month ${dom.join(", ")}`;
-}
-
-function describeMonth(month: number[] | null): string {
-  if (month === null) return "";
-  return ` in ${month.map((m) => MONTH_NAMES[m - 1]).join(", ")}`;
-}
-
-function describeDow(dow: number[] | null): string {
-  if (dow === null) return "";
-  if (dow.length >= 3) {
-    const sorted = [...dow].sort((a, b) => a - b);
-    let isRange = true;
-    for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i] !== sorted[i - 1] + 1) {
-        isRange = false;
-        break;
+function buildModifiers(
+  dom: number[] | null,
+  month: number[] | null,
+  dow: number[] | null,
+): CronModifiers {
+  const out: CronModifiers = {};
+  if (dom !== null) out.dom = dom.join(", ");
+  if (month !== null) {
+    out.month = month.map((m) => MONTH_NAMES[m - 1]).join(", ");
+  }
+  if (dow !== null) {
+    if (dow.length >= 3) {
+      const sorted = [...dow].sort((a, b) => a - b);
+      let isRange = true;
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] !== sorted[i - 1] + 1) {
+          isRange = false;
+          break;
+        }
       }
-    }
-    if (isRange) {
-      return ` on ${DOW_NAMES[sorted[0]]}-${
-        DOW_NAMES[sorted[sorted.length - 1]]
-      }`;
+      if (isRange) {
+        out.dowRange = {
+          from: DOW_NAMES[sorted[0]],
+          to: DOW_NAMES[sorted[sorted.length - 1]],
+        };
+      } else {
+        out.dowList = dow.map((d) => DOW_NAMES[d]).join(", ");
+      }
+    } else {
+      out.dowList = dow.map((d) => DOW_NAMES[d]).join(", ");
     }
   }
-  return ` on ${dow.map((d) => DOW_NAMES[d]).join(", ")}`;
+  return out;
+}
+
+/** English-only fallback renderer for callers that don't translate. */
+function renderTimePartEnglish(part: CronTimePart): string {
+  switch (part.kind) {
+    case "every-minute":
+      return "every minute";
+    case "every-n-minutes":
+      return `every ${part.n} minutes`;
+    case "at-time":
+      return `at ${part.time}`;
+    case "at-times":
+      return `at ${part.times.join(", ")}`;
+    case "at-times-many":
+      return `at ${part.visible.join(", ")} (+${part.rest} more)`;
+    case "every-minute-of-hour":
+      return `every minute of hour ${part.hours}`;
+    case "every-hour-on-the-hour":
+      return "every hour on the hour";
+    case "at-minute-of-every-hour":
+      return `at minute ${part.minutes} of every hour`;
+  }
+}
+
+function renderModifiersEnglish(mod: CronModifiers): string {
+  let out = "";
+  if (mod.dom) out += ` on day-of-month ${mod.dom}`;
+  if (mod.month) out += ` in ${mod.month}`;
+  if (mod.dowRange) out += ` on ${mod.dowRange.from}-${mod.dowRange.to}`;
+  else if (mod.dowList) out += ` on ${mod.dowList}`;
+  return out;
 }
 
 export function cronToReadable(input: string): CronReadable {
   const parsed = parseCron(input);
   const [minute, hour, dom, month, dow] = parsed.fields;
 
-  let text: string;
+  let time: CronTimePart;
   if (
     minute !== null &&
     minute.length > 1 &&
@@ -286,20 +366,21 @@ export function cronToReadable(input: string): CronReadable {
     const interval = parsed.intervalMinutes;
     const allDivisible = minute.every((m) => m % interval === 0);
     if (allDivisible && minute[0] === 0) {
-      text = `every ${interval} minutes`;
+      time = { kind: "every-n-minutes", n: interval };
     } else {
-      text = describeTime(minute, hour);
+      time = buildTimePart(minute, hour);
     }
   } else {
-    text = describeTime(minute, hour);
+    time = buildTimePart(minute, hour);
   }
 
-  text += describeDom(dom);
-  text += describeMonth(month);
-  text += describeDow(dow);
+  const modifiers = buildModifiers(dom, month, dow);
+  const text = renderTimePartEnglish(time) + renderModifiersEnglish(modifiers);
 
   return {
     text,
+    time,
+    modifiers,
     throttled: parsed.intervalMinutes < 5,
   };
 }

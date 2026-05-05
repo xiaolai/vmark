@@ -484,6 +484,87 @@ describe("completeAtPosition — boundary edge cases", () => {
     );
   });
 
+  it("scopes needs.* to direct deps only when activeJobId is set (Codex MED-3)", () => {
+    const ir = makeIR({
+      jobs: [
+        {
+          id: "lint",
+          runsOn: ["ubuntu-latest"],
+          needs: [],
+          steps: [],
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+        {
+          id: "build",
+          runsOn: ["ubuntu-latest"],
+          needs: ["lint"],
+          steps: [],
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+        {
+          id: "deploy",
+          runsOn: ["ubuntu-latest"],
+          needs: ["build"],
+          steps: [],
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+      ],
+    } as Partial<WorkflowIR>);
+    // From "deploy", needs.* should ONLY offer "build" (its direct
+    // dep), NOT "lint" (transitive).
+    const text = "if: ${{ needs. }}";
+    const cursor = text.indexOf("needs.") + "needs.".length;
+    const result = completeAtPosition(text, cursor, ir, "deploy");
+    const labels = result?.options.map((o: { label: string }) => o.label) ?? [];
+    expect(labels).toContain("build");
+    expect(labels).not.toContain("lint");
+    expect(labels).not.toContain("deploy");
+  });
+
+  it("workflow-level needs.* still offers all jobs (no activeJobId)", () => {
+    const ir = makeIR({
+      jobs: [
+        {
+          id: "a",
+          runsOn: ["ubuntu-latest"],
+          needs: [],
+          steps: [],
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+        {
+          id: "b",
+          runsOn: ["ubuntu-latest"],
+          needs: [],
+          steps: [],
+          position: { startLine: 1, startCol: 1, endLine: 1, endCol: 1 },
+        },
+      ],
+    } as Partial<WorkflowIR>);
+    const text = "if: ${{ needs. }}";
+    const cursor = text.indexOf("needs.") + "needs.".length;
+    const result = completeAtPosition(text, cursor, ir);
+    const labels = result?.options.map((o: { label: string }) => o.label) ?? [];
+    expect(labels).toEqual(expect.arrayContaining(["a", "b"]));
+  });
+
+  it("scopes steps.* to prior-or-current when cursorStepIndex is given", () => {
+    // build job has [checkout, build] (from makeIR). cursorStepIndex
+    // = 0 → only "checkout" offered (the build step is "future").
+    const text = "if: ${{ steps. }}";
+    const cursor = text.indexOf("steps.") + "steps.".length;
+    const result = completeAtPosition(text, cursor, makeIR(), "build", 0);
+    const labels = result?.options.map((o: { label: string }) => o.label) ?? [];
+    expect(labels).toEqual(["checkout"]);
+  });
+
+  it("scopes steps.* to prior+current when cursorStepIndex = 1", () => {
+    const text = "if: ${{ steps. }}";
+    const cursor = text.indexOf("steps.") + "steps.".length;
+    const result = completeAtPosition(text, cursor, makeIR(), "build", 1);
+    const labels = result?.options.map((o: { label: string }) => o.label) ?? [];
+    expect(labels).toEqual(["checkout", "build"]);
+  });
+
   it("buildExpressionContext when active job has no env returns workflow env only", () => {
     const ir = makeIR({
       env: { ONLY_GLOBAL: "x" },

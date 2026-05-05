@@ -218,8 +218,11 @@ describe("workflowCompletionSource — job-scope detection from cursor", () => {
     const result = workflowCompletionSource(ctx);
     expect(result).not.toBeNull();
     const labels = result!.options.map((o) => o.label);
-    // Should see test job's steps (install, pytest), NOT build's checkout.
-    expect(labels).toEqual(expect.arrayContaining(["install", "pytest"]));
+    // Should see only PRIOR steps (install) per GHA semantics — pytest
+    // hasn't run yet at the cursor location. Codex MED-3 fix.
+    expect(labels).toContain("install");
+    expect(labels).not.toContain("pytest");
+    // build job's steps must not leak across job boundaries.
     expect(labels).not.toContain("checkout");
   });
 });

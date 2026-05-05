@@ -432,6 +432,11 @@ export function StepForm({
                       value={row.key}
                       placeholder={t("form.step.with.keyPlaceholder")}
                       list={knownInputKeys.length > 0 ? datalistId : undefined}
+                      aria-describedby={
+                        knownInputKeys.length > 0
+                          ? `${datalistId}-help`
+                          : undefined
+                      }
                       onChange={(e) => updateRow(idx, { key: e.target.value })}
                       onBlur={() => commitWithRow(withRows[idx])}
                     />
@@ -482,7 +487,10 @@ export function StepForm({
               </div>
             )}
             {knownInputKeys.length > 0 && (
-              <details className="workflow-form__known-inputs">
+              <details
+                id={`${datalistId}-help`}
+                className="workflow-form__known-inputs"
+              >
                 <summary className="workflow-form__known-inputs-summary">
                   {t("form.step.with.knownInputs", {
                     defaultValue: "Available inputs ({{count}})",
@@ -493,25 +501,53 @@ export function StepForm({
                   {Object.entries(inputs!).map(([key, schema]) => {
                     const used = setKeys.has(key);
                     return (
-                      <button
+                      <div
                         key={key}
-                        type="button"
-                        className="workflow-form__known-input"
-                        data-used={used}
-                        disabled={used}
-                        onClick={() => addSuggestedKey(key)}
-                        title={schema.description ?? ""}
+                        className="workflow-form__known-input-row"
                       >
-                        <code>{key}</code>
-                        {schema.required && (
+                        <button
+                          type="button"
+                          className="workflow-form__known-input"
+                          data-used={used}
+                          disabled={used}
+                          onClick={() => addSuggestedKey(key)}
+                          aria-label={
+                            schema.description
+                              ? `${key} — ${schema.description}`
+                              : key
+                          }
+                          title={schema.description ?? ""}
+                        >
+                          <code>{key}</code>
+                          {schema.required && (
+                            <span
+                              className="workflow-form__known-input-required"
+                              aria-label={t("form.step.with.required", {
+                                defaultValue: "required",
+                              })}
+                            >
+                              *
+                            </span>
+                          )}
+                        </button>
+                        {schema.description && (
                           <span
-                            className="workflow-form__known-input-required"
-                            aria-label="required"
+                            className="workflow-form__known-input-desc"
+                            id={`${datalistId}-${key}-desc`}
                           >
-                            *
+                            {schema.description}
+                            {schema.default !== undefined && (
+                              <em className="workflow-form__known-input-default">
+                                {" "}
+                                {t("form.step.with.defaultValue", {
+                                  defaultValue: "(default: {{value}})",
+                                  value: schema.default,
+                                })}
+                              </em>
+                            )}
                           </span>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

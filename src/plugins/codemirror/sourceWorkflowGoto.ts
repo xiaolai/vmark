@@ -20,8 +20,6 @@ import {
   resolveLocalUsesRef,
 } from "@/lib/ghaWorkflow/paths";
 import { openLocalFileInTab } from "@/hooks/useOpenWorkflowTarget";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
 
 const USES_LINE = /^(\s*-?\s*uses\s*:\s*)([^\s#]+.*)$/;
 
@@ -57,24 +55,6 @@ export function extractUsesAt(
   return value || null;
 }
 
-function findActiveWindowAndFilePath(): {
-  windowLabel: string;
-  filePath: string;
-} | null {
-  const tabs = useTabStore.getState().tabs;
-  const docs = useDocumentStore.getState().documents;
-  // Pick the first window with an active tab that has a filePath.
-  // Multi-window support is best-effort: workflow YAML files are
-  // typically opened one-per-window in practice.
-  for (const label of Object.keys(tabs)) {
-    const activeId = useTabStore.getState().activeTabId[label] ?? null;
-    if (!activeId) continue;
-    const fp = docs[activeId]?.filePath;
-    if (fp) return { windowLabel: label, filePath: fp };
-  }
-  return null;
-}
-
 /**
  * Build the workspace root (POSIX absolute path) from the workflow
  * file. Heuristic: if the file is under `.github/workflows/`, the
@@ -88,11 +68,25 @@ function workspaceRootOf(filePath: string): string {
   return norm.slice(0, norm.lastIndexOf("/"));
 }
 
-export function gotoExtension(): Extension {
+export interface GotoExtensionContext {
+  /** Absolute path of the editor's current file. */
+  filePath: string;
+  /** Window label this editor belongs to. */
+  windowLabel: string;
+  /** Optional callback for missing/load-failed targets (Codex MED-6). */
+  onOpenFailure?: (reason: "missing" | "load-failed") => void;
+}
+
+/**
+ * Build the goto-def extension scoped to a specific editor's file
+ * + window. Codex audit HIGH-5 fix — previously read from global
+ * tab state, which resolved local refs against the wrong repo in
+ * multi-window sessions.
+ */
+export function gotoExtension(ctx: GotoExtensionContext): Extension {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
       // Modifier-click only. macOS uses meta (Cmd); others use ctrl.
-      // Use userAgent rather than the deprecated navigator.platform.
       const isMac = /Mac|iPhone|iPad/i.test(navigator.userAgent);
       const isMod = isMac ? event.metaKey : event.ctrlKey;
       if (!isMod) return false;
@@ -107,15 +101,24 @@ export function gotoExtension(): Extension {
       if (!ref) return false;
       if (!isLocalUsesRef(ref)) return false;
 
-      const ctx = findActiveWindowAndFilePath();
-      if (!ctx) return false;
       const wsRoot = workspaceRootOf(ctx.filePath);
       const resolved = resolveLocalUsesRef(ref, ctx.filePath, wsRoot);
       if (resolved.kind !== "action" && resolved.kind !== "workflow") {
+        if (resolved.kind === "escaped" || resolved.kind === "invalid") {
+          ctx.onOpenFailure?.("missing");
+        }
         return false;
       }
       event.preventDefault();
-      void openLocalFileInTab(ctx.windowLabel, resolved.absPath);
+      // Codex MED-6 fix: surface failures to the caller instead of
+      // silently dropping them.
+      void openLocalFileInTab(ctx.windowLabel, resolved.absPath).then(
+        (result) => {
+          if (!result.ok) {
+            ctx.onOpenFailure?.(result.reason ?? "load-failed");
+          }
+        },
+      );
       return true;
     },
   });

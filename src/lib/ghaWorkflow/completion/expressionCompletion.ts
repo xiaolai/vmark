@@ -112,16 +112,48 @@ const ROOT_CONTEXTS: readonly { label: string; detail: string }[] = [
   { label: "runner", detail: "Runner context" },
 ];
 
-/** Collect identifiers available in expression scope from the IR. */
+/**
+ * Collect identifiers available in expression scope from the IR.
+ *
+ * Codex audit MED-3 fix: previously offered ALL job ids under
+ * `needs.*` and ALL steps in the active job. GHA only exposes:
+ *   - `needs.<id>`: jobs in this job's needs[] array (direct deps only)
+ *   - `steps.<id>`: prior-or-current step (already-run steps)
+ * Restrictions only apply when activeJobId is set; workflow-level
+ * scope (no active job) keeps the broader view since semantics there
+ * are unconstrained.
+ *
+ * `cursorStepIndex` (optional) refines `steps.*` further to steps
+ * before-or-equal-to the cursor position. Default behavior (undefined)
+ * surfaces all steps in the active job for backward compatibility.
+ */
 export function buildExpressionContext(
   ir: WorkflowIR,
   activeJobId: string | null,
+  cursorStepIndex?: number,
 ): ExpressionContext {
-  const jobIds = ir.jobs.map((j) => j.id);
   const activeJob: JobIR | undefined = activeJobId
     ? ir.jobs.find((j) => j.id === activeJobId)
     : undefined;
-  const stepIds = activeJob ? activeJob.steps.map((s) => s.id) : [];
+
+  // jobIds: when scoped to an active job, narrow to direct deps only.
+  // Workflow-level (no activeJob) keeps all jobs visible.
+  const jobIds = activeJob
+    ? activeJob.needs ?? []
+    : ir.jobs.map((j) => j.id);
+
+  // stepIds: limit to prior-or-current step when cursorStepIndex is
+  // provided. Without it, expose all steps in the active job (legacy).
+  let stepIds: string[] = [];
+  if (activeJob) {
+    if (typeof cursorStepIndex === "number" && cursorStepIndex >= 0) {
+      stepIds = activeJob.steps
+        .slice(0, cursorStepIndex + 1)
+        .map((s) => s.id);
+    } else {
+      stepIds = activeJob.steps.map((s) => s.id);
+    }
+  }
 
   const envKeys = new Set<string>();
   for (const k of Object.keys(ir.env ?? {})) envKeys.add(k);
@@ -256,6 +288,7 @@ export function completeAtPosition(
   cursor: number,
   ir: WorkflowIR,
   activeJobId: string | null = null,
+  cursorStepIndex?: number,
 ): CompletionResult | null {
   if (cursor > source.length) return null;
   const enclosing = findEnclosingExpression(source, cursor);
@@ -266,7 +299,7 @@ export function completeAtPosition(
     cursor,
     enclosing.from,
   );
-  const ctx = buildExpressionContext(ir, activeJobId);
+  const ctx = buildExpressionContext(ir, activeJobId, cursorStepIndex);
 
   let options: CompletionItem[] = [];
 

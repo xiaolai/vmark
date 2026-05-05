@@ -733,6 +733,31 @@
   font-weight: 600;
 }
 
+/* WI-A.2 polish (Codex MED-4 fix) — visible per-chip description
+   alongside the chip button so users see input docs without hovering. */
+.workflow-form__known-input-row {
+  /* Component-internal one-off dimension per
+     .claude/rules/31-design-tokens.md ("define a local CSS var on the
+     component class instead of adding a global token"). */
+  --workflow-form-input-desc-max-width: 18em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-half);
+  flex: 0 1 auto;
+}
+
+.workflow-form__known-input-desc {
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  line-height: var(--line-height-snug);
+  max-width: var(--workflow-form-input-desc-max-width);
+}
+
+.workflow-form__known-input-default {
+  color: var(--text-tertiary);
+  font-style: normal;
+}
+
 /* WI-C.1/C.2/C.3 — destructive + step-list controls + add-job inline form */
 
 .workflow-form__danger-btn {

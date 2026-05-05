@@ -126,5 +126,20 @@
   "diagnosticsBanner.expandSection": "Expand diagnostics",
   "diagnosticsBanner.collapseSection": "Collapse diagnostics",
   "form.trigger.cronThrottled": "GitHub silently throttles schedules under 5-minute intervals",
-  "form.step.with.knownInputs": "Available inputs ({{count}})"
+  "form.step.with.knownInputs": "Available inputs ({{count}})",
+  "form.trigger.cronExpression": "Cron expression {{value}}",
+  "form.trigger.cron.everyMinute": "every minute",
+  "form.trigger.cron.everyNMinutes": "every {{n}} minutes",
+  "form.trigger.cron.atTime": "at {{time}}",
+  "form.trigger.cron.atTimes": "at {{times}}",
+  "form.trigger.cron.atTimesMany": "at {{visible}} (+{{rest}} more)",
+  "form.trigger.cron.everyMinuteOfHour": "every minute of hour {{hours}}",
+  "form.trigger.cron.everyHourOnTheHour": "every hour on the hour",
+  "form.trigger.cron.atMinuteOfEveryHour": "at minute {{minutes}} of every hour",
+  "form.trigger.cron.modDom": " on day-of-month {{dom}}",
+  "form.trigger.cron.modMonth": " in {{month}}",
+  "form.trigger.cron.modDowRange": " on {{from}}-{{to}}",
+  "form.trigger.cron.modDowList": " on {{days}}",
+  "form.step.with.required": "required",
+  "form.step.with.defaultValue": "(default: {{value}})"
 }

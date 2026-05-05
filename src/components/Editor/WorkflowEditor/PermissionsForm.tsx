@@ -15,7 +15,12 @@
 
 import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
-import type { PermissionsValue } from "@/lib/ghaWorkflow/types";
+import type { PermissionsValue, PermLevel } from "@/lib/ghaWorkflow/types";
+import {
+  COMMON_SCOPES_KEBAB,
+  camelToKebab,
+  kebabToCamel,
+} from "@/lib/ghaWorkflow/permissions/scopes";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
 import "./workflow-editor.css";
 
@@ -24,18 +29,6 @@ interface PermissionsFormProps {
 }
 
 type PresetMode = "default" | "read-all" | "write-all" | "none" | "custom";
-
-const COMMON_SCOPES: readonly string[] = [
-  "contents",
-  "pull-requests",
-  "issues",
-  "actions",
-  "checks",
-  "deployments",
-  "id-token",
-  "packages",
-  "statuses",
-];
 
 function permissionsToMode(
   perms: PermissionsValue | undefined,
@@ -56,14 +49,31 @@ export function PermissionsForm({
     permissionsToMode(permissions),
   );
 
-  const customMap: Record<string, "read" | "write" | "none"> =
+  // The IR carries scope keys in camelCase (`pullRequests`); the
+  // form displays them in kebab-case (the on-disk YAML form). We
+  // convert both ways through scopes.ts (Codex audit HIGH-2 fix).
+  // `customMap` is keyed by kebab so direct lookup works in the
+  // render below.
+  const customMap: Record<string, PermLevel> =
     typeof permissions === "object" && permissions !== null
       ? Object.fromEntries(
-          Object.entries(permissions as Record<string, string>).map(
-            ([k, v]) => [k, v as "read" | "write" | "none"],
+          Object.entries(permissions as Record<string, PermLevel>).map(
+            ([camelOrKebab, v]) => [camelToKebab(camelOrKebab), v],
           ),
         )
       : {};
+
+  const queueCustomMap = (yamlMap: Record<string, PermLevel>): void => {
+    // Mutator expects whatever-shape the user wants serialized — and
+    // the parser/mutator round-trip through kebab-case YAML keys. We
+    // keep the patch in IR-shape (camelCase) so the save pipeline
+    // is symmetric with reads.
+    const irShape: Record<string, PermLevel> = {};
+    for (const [k, v] of Object.entries(yamlMap)) {
+      irShape[kebabToCamel(k)] = v;
+    }
+    queue({ kind: "workflow.permissions.set", value: irShape });
+  };
 
   const onModeChange = (next: PresetMode): void => {
     setMode(next);
@@ -75,7 +85,7 @@ export function PermissionsForm({
       return;
     }
     if (next === "custom") {
-      queue({ kind: "workflow.permissions.set", value: customMap });
+      queueCustomMap(customMap);
       return;
     }
     queue({ kind: "workflow.permissions.set", value: next });
@@ -83,12 +93,12 @@ export function PermissionsForm({
 
   const onScopeChange = (
     scope: string,
-    value: "read" | "write" | "none" | "",
+    value: PermLevel | "",
   ): void => {
     const next = { ...customMap };
     if (!value) delete next[scope];
     else next[scope] = value;
-    queue({ kind: "workflow.permissions.set", value: next });
+    queueCustomMap(next);
   };
 
   return (
@@ -119,7 +129,7 @@ export function PermissionsForm({
       </label>
       {mode === "custom" && (
         <div className="workflow-form__permissions-scopes">
-          {COMMON_SCOPES.map((scope) => (
+          {COMMON_SCOPES_KEBAB.map((scope) => (
             <label key={scope} className="workflow-form__permissions-scope">
               <span className="workflow-form__permissions-scope-name">
                 <code>{scope}</code>
@@ -128,10 +138,7 @@ export function PermissionsForm({
                 className="workflow-form__input"
                 value={customMap[scope] ?? ""}
                 onChange={(e) =>
-                  onScopeChange(
-                    scope,
-                    e.target.value as "read" | "write" | "none" | "",
-                  )
+                  onScopeChange(scope, e.target.value as PermLevel | "")
                 }
               >
                 <option value="">

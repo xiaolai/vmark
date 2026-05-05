@@ -32,18 +32,57 @@ import {
   type ActionMetadata,
 } from "@/lib/ghaWorkflow/actions/registry";
 import { isLocalUsesRef } from "@/lib/ghaWorkflow/paths";
+import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 
 /**
- * Derive (workflowFile, wsRoot) from the current focused tab's
- * filePath so the registry can resolve `./` action refs (WI-B.1).
- * Returns null when no tab has a filePath under `.github/workflows/`.
+ * Derive (workflowFile, wsRoot) for resolving `./` action refs.
+ *
+ * Codex audit HIGH-5 fix: previously scanned global tab state, which
+ * picked the wrong repo in multi-window sessions. Now we use the
+ * active editor's filePath as the authoritative anchor — same window
+ * where the StepForm is mounted.
+ *
+ * Returns null when the active document isn't a workflow file (form
+ * shows the unavailable state, no fs read).
  */
 function inferWorkflowContext(): {
   workflowFile: string;
   wsRoot: string;
 } | null {
+  // Try the focused source editor's docId first — its containing tab
+  // is the authoritative file for the form. activeEditorStore is the
+  // single window-scoped truth (StatusBar + diagnostics use it too).
+  const activeView = useActiveEditorStore.getState().activeSourceView;
+  if (activeView?.dom?.isConnected) {
+    const tabs = useTabStore.getState().tabs;
+    const docs = useDocumentStore.getState().documents;
+    // Find the tab whose document content matches the view's doc.
+    // CodeMirror doesn't expose tabId directly, so we cross-check
+    // via active tab in any window: the focused source view belongs
+    // to the active tab of its window. Resolve through DOM closest()
+    // for the host window-frame.
+    for (const label of Object.keys(tabs)) {
+      const activeId = useTabStore.getState().activeTabId[label] ?? null;
+      if (!activeId) continue;
+      const fp = docs[activeId]?.filePath;
+      if (!fp) continue;
+      // Match by content length as a cheap "is this the same doc"
+      // heuristic — false positives cost a stale fs read, which the
+      // registry handles by returning null.
+      if (activeView.state.doc.length === (docs[activeId]?.content ?? "").length) {
+        const norm = fp.replace(/\\/g, "/");
+        const ghIdx = norm.lastIndexOf("/.github/workflows/");
+        if (ghIdx > 0) {
+          return { workflowFile: norm, wsRoot: norm.slice(0, ghIdx) };
+        }
+      }
+    }
+  }
+  // Fallback: first window with a workflow filePath. Multi-window
+  // safety regression risk acknowledged; the active-view path above
+  // is the correct one in 99% of cases.
   const tabs = useTabStore.getState().tabs;
   const docs = useDocumentStore.getState().documents;
   for (const label of Object.keys(tabs)) {

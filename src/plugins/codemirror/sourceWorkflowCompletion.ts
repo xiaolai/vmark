@@ -44,6 +44,26 @@ function findJobAtLine(workflow: WorkflowIR, line: number): string | null {
   return null;
 }
 
+/**
+ * Find the index of the step whose source range contains the cursor
+ * line. Returns the largest index whose start <= line — gives the
+ * "current step" semantics needed for scoping `steps.*` completions
+ * to prior-or-current (Codex audit MED-3).
+ */
+function findStepIndexAtLine(
+  workflow: WorkflowIR,
+  jobId: string,
+  line: number,
+): number | undefined {
+  const job = workflow.jobs.find((j) => j.id === jobId);
+  if (!job) return undefined;
+  let bestIdx: number | undefined;
+  for (let i = 0; i < job.steps.length; i++) {
+    if (line >= job.steps[i].position.startLine) bestIdx = i;
+  }
+  return bestIdx;
+}
+
 function toCmCompletion(item: CompletionItem): Completion {
   // Map our internal Category to a CodeMirror "type" for icon coloring.
   let type: string | undefined;
@@ -82,7 +102,16 @@ export function workflowCompletionSource(
   // or misleading suggestions (Codex audit HIGH-1).
   const cursorLine = context.state.doc.lineAt(context.pos).number;
   const activeJobId = findJobAtLine(workflow, cursorLine);
-  const result = completeAtPosition(text, context.pos, workflow, activeJobId);
+  const cursorStepIdx = activeJobId
+    ? findStepIndexAtLine(workflow, activeJobId, cursorLine)
+    : undefined;
+  const result = completeAtPosition(
+    text,
+    context.pos,
+    workflow,
+    activeJobId,
+    cursorStepIdx,
+  );
   if (!result) return null;
 
   // Empty options list: don't show an empty popup.

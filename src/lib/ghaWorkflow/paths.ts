@@ -33,15 +33,42 @@ export function isLocalUsesRef(ref: string): boolean {
 }
 
 /**
+ * Detect the root form of an absolute path so we can preserve it
+ * across normalization. Returns:
+ *   - "drive": Windows drive root like `C:/`
+ *   - "unc":   UNC share root like `//server/share/`
+ *   - "posix": POSIX absolute root `/`
+ *
+ * The remainder is the path body without the root prefix.
+ */
+function classifyRoot(absPath: string): {
+  rootKind: "drive" | "unc" | "posix";
+  rootPrefix: string;
+  body: string;
+} {
+  const norm = absPath.replace(/\\/g, "/");
+  // UNC: leading `//server/share`
+  const unc = /^(\/\/[^/]+\/[^/]+)(\/.*|$)/.exec(norm);
+  if (unc) return { rootKind: "unc", rootPrefix: unc[1], body: unc[2] };
+  // Drive: leading `C:` (any letter + colon).
+  const drive = /^([A-Za-z]:)(\/.*|$)/.exec(norm);
+  if (drive) return { rootKind: "drive", rootPrefix: drive[1], body: drive[2] };
+  return { rootKind: "posix", rootPrefix: "", body: norm };
+}
+
+/**
  * Resolve a relative path. GitHub Actions treats `./` paths as
  * relative to the WORKSPACE ROOT (the repo root), not relative to
  * the workflow file's directory — see docs.github.com/actions/
  * sharing-automations/creating-actions/about-custom-actions#types-of-actions.
- * Returns a POSIX absolute path normalized for `..` segments, or null
+ * Returns an absolute path normalized for `..` segments, or null
  * when the path escapes `wsRoot`.
  *
- * `workflowFile` is accepted for API symmetry but currently unused;
- * a future feature might support workflow-relative refs.
+ * Preserves the workspace root's prefix form (`C:/`, `//server/share/`,
+ * or `/`) so Windows callers don't see pseudo-POSIX paths like
+ * `/C:/repo/...` (Codex audit MED-7 fix).
+ *
+ * `workflowFile` is accepted for API symmetry but currently unused.
  */
 function resolveAgainst(
   rel: string,
@@ -49,25 +76,30 @@ function resolveAgainst(
   wsRoot: string,
 ): string | null {
   const wsRootNorm = wsRoot.replace(/\\/g, "/").replace(/\/$/, "");
+  const { rootKind, rootPrefix, body: wsBody } = classifyRoot(wsRootNorm);
 
   let relNorm = rel.replace(/\\/g, "/");
   if (relNorm.startsWith("./")) relNorm = relNorm.slice(2);
 
-  // Anchor at workspace root.
-  const segments = (wsRootNorm + "/" + relNorm).split("/").filter(Boolean);
+  // Anchor at workspace root's body. We split the body (no root
+  // prefix) and re-attach the prefix at the end.
+  const segments = (wsBody + "/" + relNorm).split("/").filter(Boolean);
   const stack: string[] = [];
-  const wsDepth = wsRootNorm.split("/").filter(Boolean).length;
+  const wsDepth = wsBody.split("/").filter(Boolean).length;
   for (const seg of segments) {
     if (seg === ".") continue;
     if (seg === "..") {
-      // Refuse to pop above the workspace root.
       if (stack.length <= wsDepth) return null;
       stack.pop();
       continue;
     }
     stack.push(seg);
   }
-  return "/" + stack.join("/");
+  const tail = stack.join("/");
+  if (rootKind === "posix") return "/" + tail;
+  if (rootKind === "drive") return `${rootPrefix}/${tail}`;
+  // UNC
+  return `${rootPrefix}/${tail}`;
 }
 
 /**

@@ -430,9 +430,13 @@ describe("StepForm — action metadata threading", () => {
       />,
     );
     await waitFor(() => {
+      // Description renders in TWO places after Codex MED-4 fix:
+      // (1) inline next to the with: row that uses the input
+      // (2) inside the "Available inputs" panel as the chip's
+      //     visible description. Both are intentional.
       expect(
-        screen.getByText(/Version of Node\.js to use/),
-      ).toBeDefined();
+        screen.getAllByText(/Version of Node\.js to use/).length,
+      ).toBeGreaterThanOrEqual(1);
     });
   });
 

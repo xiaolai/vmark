@@ -20,6 +20,7 @@ import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { workflowWarn } from "@/utils/debug";
 import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { yaml } from "@codemirror/lang-yaml";
@@ -280,7 +281,22 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     ...(isYaml ? [workflowCursorSyncExtension()] : []),
     // Cmd/Ctrl-Click on `uses:` opens local action / reusable
     // workflow target (WI-B.2). Falls through for remote refs.
-    ...(isYaml ? [gotoExtension()] : []),
+    // Multi-window safety per Codex audit HIGH-5: the editor's own
+    // filePath + windowLabel are passed in, not derived from global
+    // tab state.
+    ...(isYaml && filePath
+      ? [
+          gotoExtension({
+            filePath,
+            windowLabel: getCurrentWindowLabel(),
+            onOpenFailure: (reason) => {
+              workflowWarn(
+                `[gha goto-def] could not open local target (${reason})`,
+              );
+            },
+          }),
+        ]
+      : []),
     // Syntax highlighting for code blocks
     syntaxHighlighting(codeHighlightStyle, { fallback: true }),
     // Listen for changes

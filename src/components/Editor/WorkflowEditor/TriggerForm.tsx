@@ -24,10 +24,13 @@ import { useTranslation } from "react-i18next";
 import type { TriggerIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowEditStore } from "@/stores/workflowEditStore";
 import type { TriggerFilter } from "@/lib/ghaWorkflow/save/mutators";
-import { cronToReadable } from "@/lib/ghaWorkflow/cron/readable";
+import {
+  cronToReadable,
+  type CronReadable,
+} from "@/lib/ghaWorkflow/cron/readable";
 
 /** Wraps cronToReadable with try/catch — invalid cron returns null. */
-function safeCronReadable(cron: string): { text: string; throttled: boolean } | null {
+function safeCronReadable(cron: string): CronReadable | null {
   try {
     return cronToReadable(cron);
   } catch {
@@ -223,24 +226,127 @@ export function TriggerForm({ triggers }: TriggerFormProps): ReactElement {
  * a throttle warning when GHA would silently rate-limit the schedule
  * (interval < 5 min). Invalid cron renders the raw value only.
  */
+/**
+ * Render the time-part of a cron expression as a localized string.
+ * Codex audit MED-5 fix — readable.ts now exposes structured parts
+ * so the form can call t() with the appropriate locale string.
+ */
+function renderCronTime(
+  t: ReturnType<typeof useTranslation>["t"],
+  readable: CronReadable,
+): string {
+  const time = readable.time;
+  let main: string;
+  switch (time.kind) {
+    case "every-minute":
+      main = t("form.trigger.cron.everyMinute", {
+        defaultValue: "every minute",
+      });
+      break;
+    case "every-n-minutes":
+      main = t("form.trigger.cron.everyNMinutes", {
+        defaultValue: "every {{n}} minutes",
+        n: time.n,
+      });
+      break;
+    case "at-time":
+      main = t("form.trigger.cron.atTime", {
+        defaultValue: "at {{time}}",
+        time: time.time,
+      });
+      break;
+    case "at-times":
+      main = t("form.trigger.cron.atTimes", {
+        defaultValue: "at {{times}}",
+        times: time.times.join(", "),
+      });
+      break;
+    case "at-times-many":
+      main = t("form.trigger.cron.atTimesMany", {
+        defaultValue: "at {{visible}} (+{{rest}} more)",
+        visible: time.visible.join(", "),
+        rest: time.rest,
+      });
+      break;
+    case "every-minute-of-hour":
+      main = t("form.trigger.cron.everyMinuteOfHour", {
+        defaultValue: "every minute of hour {{hours}}",
+        hours: time.hours,
+      });
+      break;
+    case "every-hour-on-the-hour":
+      main = t("form.trigger.cron.everyHourOnTheHour", {
+        defaultValue: "every hour on the hour",
+      });
+      break;
+    case "at-minute-of-every-hour":
+      main = t("form.trigger.cron.atMinuteOfEveryHour", {
+        defaultValue: "at minute {{minutes}} of every hour",
+        minutes: time.minutes,
+      });
+      break;
+  }
+  const mod = readable.modifiers;
+  let suffix = "";
+  if (mod.dom) {
+    suffix += t("form.trigger.cron.modDom", {
+      defaultValue: " on day-of-month {{dom}}",
+      dom: mod.dom,
+    });
+  }
+  if (mod.month) {
+    suffix += t("form.trigger.cron.modMonth", {
+      defaultValue: " in {{month}}",
+      month: mod.month,
+    });
+  }
+  if (mod.dowRange) {
+    suffix += t("form.trigger.cron.modDowRange", {
+      defaultValue: " on {{from}}-{{to}}",
+      from: mod.dowRange.from,
+      to: mod.dowRange.to,
+    });
+  } else if (mod.dowList) {
+    suffix += t("form.trigger.cron.modDowList", {
+      defaultValue: " on {{days}}",
+      days: mod.dowList,
+    });
+  }
+  return main + suffix;
+}
+
 function CronCell({ cron }: { cron: string }): ReactElement {
   const { t } = useTranslation("workflowEditor");
   const readable = safeCronReadable(cron);
+  // Codex audit MED-5 fix: throttle warning previously surfaced via
+  // `title=` only — invisible to many screen readers. Now uses
+  // role="img" + aria-label so AT users hear the warning.
+  const throttleLabel = t("form.trigger.cronThrottled", {
+    defaultValue:
+      "GitHub silently throttles schedules under 5-minute intervals",
+  });
   return (
-    <span className="workflow-form__trigger-cron" title={cron}>
-      <code className="workflow-form__trigger-cron-raw">{cron}</code>
+    <span className="workflow-form__trigger-cron">
+      <code
+        className="workflow-form__trigger-cron-raw"
+        aria-label={t("form.trigger.cronExpression", {
+          defaultValue: "Cron expression {{value}}",
+          value: cron,
+        })}
+      >
+        {cron}
+      </code>
       {readable && (
         <span className="workflow-form__trigger-cron-readable">
-          {readable.text}
+          {renderCronTime(t, readable)}
         </span>
       )}
       {readable?.throttled && (
         <span
           className="workflow-form__trigger-cron-throttled"
-          title={t("form.trigger.cronThrottled", {
-            defaultValue:
-              "GitHub silently throttles schedules under 5-minute intervals",
-          })}
+          role="img"
+          aria-label={throttleLabel}
+          title={throttleLabel}
         >
           ⚠
         </span>

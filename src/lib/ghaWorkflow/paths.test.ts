@@ -103,3 +103,36 @@ describe("resolveLocalUsesRef — invalid", () => {
     ).toBe("invalid");
   });
 });
+
+describe("resolveLocalUsesRef — Windows drive roots", () => {
+  it("preserves the C: drive prefix in the resolved path", () => {
+    const got = resolveLocalUsesRef(
+      "./.github/actions/setup",
+      "C:\\repo\\.github\\workflows\\ci.yml",
+      "C:\\repo",
+    );
+    expect(got.kind).toBe("action");
+    expect(got.absPath).toBe("C:/repo/.github/actions/setup/action.yml");
+  });
+
+  it("preserves UNC share prefix in the resolved path", () => {
+    const got = resolveLocalUsesRef(
+      "./.github/actions/setup",
+      "//server/share/repo/.github/workflows/ci.yml",
+      "//server/share/repo",
+    );
+    expect(got.kind).toBe("action");
+    expect(got.absPath).toBe(
+      "//server/share/repo/.github/actions/setup/action.yml",
+    );
+  });
+
+  it("Windows path-traversal is still refused", () => {
+    const got = resolveLocalUsesRef(
+      "../../../../etc",
+      "C:\\repo\\.github\\workflows\\ci.yml",
+      "C:\\repo",
+    );
+    expect(got.kind).toBe("escaped");
+  });
+});

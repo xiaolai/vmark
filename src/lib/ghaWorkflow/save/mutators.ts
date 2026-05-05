@@ -25,6 +25,7 @@
 
 import type { Document } from "yaml";
 import { isMap, isSeq, isScalar, YAMLMap, YAMLSeq } from "yaml";
+import { irToYamlMap } from "@/lib/ghaWorkflow/permissions/scopes";
 
 // ─── Patch types ──────────────────────────────────────────────────────
 
@@ -355,10 +356,15 @@ function setPermissions(
     doc.set("permissions", value);
     return;
   }
-  // Per-scope mapping
+  // Per-scope mapping. The form passes IR-shape (camelCase) keys; we
+  // convert to YAML-shape (kebab-case) before serializing so the file
+  // matches GHA convention. Codex audit HIGH-2 fix.
   const map = new YAMLMap();
   for (const [k, v] of Object.entries(value)) {
-    map.set(k, v);
+    const kebab = irToYamlMap({ [k]: v });
+    for (const [yamlKey, yamlVal] of Object.entries(kebab)) {
+      map.set(yamlKey, yamlVal);
+    }
   }
   doc.set("permissions", map);
 }
