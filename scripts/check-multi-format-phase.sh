@@ -70,6 +70,7 @@ case "$PHASE" in
     OFFENDERS=$(git grep -l "markForcedSource" -- 'src/' 2>/dev/null \
       | grep -v -E '\.test\.|\.bench\.' \
       | grep -v -E 'src/lib/formats/adapters/markdown\.tsx$' \
+      | grep -v -E 'src/lib/formats/markdownLargeFile\.ts$' \
       | grep -v -E 'src/stores/largeFileSessionStore\.ts$' \
       | grep -v -E 'src/utils/largeFileRouting\.ts$' \
       | grep -v -E 'src/utils/yamlOpenRouting\.ts$' \
