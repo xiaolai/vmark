@@ -9,6 +9,9 @@ import { registerTxtFormat } from "./adapters/txt";
 import { registerJsonFormat } from "./adapters/json";
 import { registerYamlFormat } from "./adapters/yaml";
 import { registerTomlFormat } from "./adapters/toml";
+import { registerMermaidFormat } from "./adapters/mermaid";
+import { registerSvgFormat } from "./adapters/svg";
+import { registerHtmlFormat } from "./adapters/html";
 import { registerStubFormats } from "./adapters/stubs";
 
 let bootstrapped = false;
@@ -18,13 +21,18 @@ export function bootstrapFormats(): void {
   // Phase 1A — markdown + txt
   registerMarkdownFormat();
   registerTxtFormat();
-  // Phase 2 — full data-format adapters (replaces the stubs that
-  // Phase 1A registered for these ids; stubs.ts now only registers
-  // the Phase 3 + Phase 4 formats).
+  // Phase 2 — full data-format adapters
   registerJsonFormat();
   registerYamlFormat();
   registerTomlFormat();
-  // Phase 3 + 4 stubs — remaining formats not yet implemented.
+  // Phase 3 — visual-render adapters (mermaid + svg fully verified;
+  // HTML adapter ships in code but the iframe-sandbox + DOMPurify
+  // defense-in-depth requires manual XSS sign-off per WI-3.4 — see
+  // dev-docs/grills/multi-format/security-review-html.md).
+  registerMermaidFormat();
+  registerSvgFormat();
+  registerHtmlFormat();
+  // Phase 4 stubs — remaining formats not yet implemented.
   registerStubFormats();
   bootstrapped = true;
 }

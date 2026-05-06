@@ -273,9 +273,43 @@ case "$PHASE" in
     fi
     ;;
 
-  3|4|5|6)
+  3)
+    echo "Phase 3 — Visual-render formats"
+
+    [[ -f src/lib/formats/adapters/mermaid.tsx ]] && ok "mermaid adapter present" || fail "mermaid adapter missing"
+    [[ -f src/lib/formats/adapters/svg.tsx ]] && ok "svg adapter present" || fail "svg adapter missing"
+    [[ -f src/lib/formats/adapters/html.tsx ]] && ok "html adapter present" || fail "html adapter missing"
+    [[ -f dev-docs/grills/multi-format/security-review-html.md ]] && ok "HTML security review document present" || fail "security-review-html.md missing"
+
+    if grep -q 'sandbox=""' src/lib/formats/adapters/html.tsx; then
+      ok "HTML preview uses iframe sandbox=\"\" (ADR-4)"
+    else
+      fail "HTML preview missing empty sandbox attribute"
+    fi
+    if grep -q "DOMPurify.sanitize" src/lib/formats/adapters/html.tsx; then
+      ok "HTML preview applies DOMPurify defense-in-depth"
+    else
+      fail "HTML preview missing DOMPurify"
+    fi
+
+    if grep -q "registerMermaidFormat\|registerSvgFormat\|registerHtmlFormat" src/lib/formats/index.ts; then
+      ok "bootstrap registers Phase 3 adapters"
+    else
+      fail "bootstrap doesn't include Phase 3 adapters"
+    fi
+
+    # WI-3.4 sign-off detection — interactive run pending (informational)
+    if grep -q "OWASP top-20" dev-docs/grills/multi-format/security-review-html.md; then
+      ok "WI-3.4 procedure documented"
+    else
+      fail "WI-3.4 procedure missing from security review doc"
+    fi
+    note "WI-3.4 OWASP run is INTERACTIVE — sign-off block in security-review-html.md must be ticked manually"
+    ;;
+
+  4|5|6)
     note "Phase $PHASE DoD script not yet implemented"
-    note "(this is expected during Phase 2 — phases write their own checks)"
+    note "(this is expected during Phase 3 — phases write their own checks)"
     exit 0
     ;;
 

@@ -24,32 +24,6 @@ const dataMenuPolicy = {
   paragraphFormatting: false,
 } as const;
 
-function makeDataStub(
-  id: string,
-  nameI18nKey: string,
-  extensions: string[],
-  filterName: string,
-): FormatConfig {
-  return {
-    id,
-    nameI18nKey,
-    extensions,
-    kind: "split-pane",
-    adapters: {
-      saveDialogFilters: [{ name: filterName, extensions }],
-      untitledExtension: extensions[0],
-      exportEnabled: false,
-      findEnabled: true,
-      searchAdapter: "codemirror",
-      contentSearchIndexed: true,
-      readOnlyDefault: false,
-      reloadPolicy: "reload",
-      menuPolicy: dataMenuPolicy,
-      closeSavePolicy: "markdown-default",
-    },
-  };
-}
-
 function makeCodeStub(
   id: string,
   nameI18nKey: string,
@@ -80,25 +54,10 @@ function makeCodeStub(
 // See src/lib/formats/adapters/{json,yaml,toml}.tsx. The bootstrap in
 // src/lib/formats/index.ts registers them before invoking this module.
 
-// Phase 3 — visual-render formats
-export const mermaidStub = makeDataStub(
-  "mermaid",
-  "format.mermaid",
-  ["mmd"],
-  "Mermaid",
-);
-export const svgStub = makeDataStub(
-  "svg",
-  "format.svg",
-  ["svg"],
-  "SVG",
-);
-export const htmlStub = makeDataStub(
-  "html",
-  "format.html",
-  ["html", "htm"],
-  "HTML",
-);
+// Phase 3 visual-render formats (mermaid, svg, html) graduated to
+// full adapters. See src/lib/formats/adapters/{mermaid,svg,html}.tsx.
+// HTML is marked UNVERIFIED until WI-3.4 sign-off, but the adapter
+// ships and dispatches normally.
 
 // Phase 4 — code viewers
 export const codeTypescriptStub = makeCodeStub(
@@ -157,10 +116,6 @@ export const codeLuaStub = makeCodeStub(
 );
 
 const ALL_STUBS: FormatConfig[] = [
-  // Phase 3 — visual-render formats (still stubs)
-  mermaidStub,
-  svgStub,
-  htmlStub,
   // Phase 4 — code viewers (still stubs)
   codeTypescriptStub,
   codeJavascriptStub,

@@ -1,9 +1,8 @@
-// WI-1A.11 / Phase 2 — format stub registration tests.
+// WI-1A.11 / Phase 2 / Phase 3 — format stub registration tests.
 //
-// Phase 2 graduated json/yaml/toml from stub status to full adapters.
-// Tests that exercised those stubs moved to the per-adapter test
-// files; this file now covers Phase 3 (visual-render) and Phase 4
-// (code-viewer) stubs only.
+// Phase 2 graduated json/yaml/toml; Phase 3 graduated mermaid/svg/html.
+// This file now covers Phase 4 (code-viewer) stubs only — the remaining
+// formats not yet implemented.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -18,6 +17,9 @@ import { registerTxtFormat } from "./txt";
 import { registerJsonFormat } from "./json";
 import { registerYamlFormat } from "./yaml";
 import { registerTomlFormat } from "./toml";
+import { registerMermaidFormat } from "./mermaid";
+import { registerSvgFormat } from "./svg";
+import { registerHtmlFormat } from "./html";
 import { registerStubFormats } from "./stubs";
 
 describe("stub registrations", () => {
@@ -28,19 +30,12 @@ describe("stub registrations", () => {
     registerJsonFormat();
     registerYamlFormat();
     registerTomlFormat();
+    registerMermaidFormat();
+    registerSvgFormat();
+    registerHtmlFormat();
     registerStubFormats();
   });
   afterEach(() => __resetRegistry());
-
-  // Phase 3 visual-render formats
-  it.each([
-    ["mmd", "mermaid"],
-    ["svg", "svg"],
-    ["html", "html"],
-    ["htm", "html"],
-  ])("dispatches .%s to the %s stub", (ext, formatId) => {
-    expect(dispatchEditor(`/x/foo.${ext}`).id).toBe(formatId);
-  });
 
   // Phase 4 code-viewer formats
   it.each([
@@ -91,7 +86,8 @@ describe("stub registrations", () => {
     }
   });
 
-  it("html / svg / mermaid stubs have readOnlyDefault=false", () => {
+  it("Phase 3 visual-render adapters have readOnlyDefault=false", () => {
+    // Now graduated; verifies bootstrap registers them with R/W.
     for (const id of ["html", "svg", "mermaid"]) {
       expect(getFormatById(id)?.adapters.readOnlyDefault).toBe(false);
     }
@@ -111,54 +107,57 @@ describe("stub registrations", () => {
     }
   });
 
-  it("visual-render stubs default contentSearchIndexed=true", () => {
+  it("Phase 3 visual-render adapters default contentSearchIndexed=true", () => {
     for (const id of ["html", "svg", "mermaid"]) {
       expect(getFormatById(id)?.adapters.contentSearchIndexed).toBe(true);
     }
   });
 
-  it("Phase 3+4 stubs do not declare loadLanguage (raw CodeMirror fallback per invariant 4)", () => {
-    // Markdown + txt + Phase 2 graduates (json/yaml/toml) are excluded.
-    const stubs = listFormats().filter(
-      (f) =>
-        ![
-          "markdown",
-          "txt",
-          "json",
-          "yaml",
-          "toml",
-        ].includes(f.id),
-    );
+  it("Phase 4 stubs do not declare loadLanguage (raw CodeMirror fallback per invariant 4)", () => {
+    // Markdown + txt + every Phase 2/3 graduate are excluded.
+    const graduates = new Set([
+      "markdown",
+      "txt",
+      "json",
+      "yaml",
+      "toml",
+      "mermaid",
+      "svg",
+      "html",
+    ]);
+    const stubs = listFormats().filter((f) => !graduates.has(f.id));
     for (const f of stubs) {
       expect(f.loadLanguage).toBeUndefined();
     }
   });
 
-  it("Phase 3+4 stubs do not declare validator", () => {
-    const stubs = listFormats().filter(
-      (f) =>
-        ![
-          "markdown",
-          "json",
-          "yaml",
-          "toml",
-        ].includes(f.id),
-    );
+  it("Phase 4 stubs do not declare validator", () => {
+    const graduates = new Set([
+      "markdown",
+      "json",
+      "yaml",
+      "toml",
+      "mermaid",
+      "svg",
+      "html",
+    ]);
+    const stubs = listFormats().filter((f) => !graduates.has(f.id));
     for (const f of stubs) {
       expect(f.validator).toBeUndefined();
     }
   });
 
-  it("Phase 3+4 stubs do not declare genericPreview", () => {
-    const stubs = listFormats().filter(
-      (f) =>
-        ![
-          "markdown",
-          "json",
-          "yaml",
-          "toml",
-        ].includes(f.id),
-    );
+  it("Phase 4 stubs do not declare genericPreview", () => {
+    const graduates = new Set([
+      "markdown",
+      "json",
+      "yaml",
+      "toml",
+      "mermaid",
+      "svg",
+      "html",
+    ]);
+    const stubs = listFormats().filter((f) => !graduates.has(f.id));
     for (const f of stubs) {
       expect(f.genericPreview).toBeUndefined();
     }
