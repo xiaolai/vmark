@@ -2,7 +2,8 @@
  * Tab Store
  *
  * Purpose: Manages per-window tab lifecycle — creation, closing, pinning,
- *   reordering, drag-detach, and recently-closed history for reopen.
+ *   reordering, drag-detach, recently-closed history for reopen, and
+ *   per-tab format-registry id (Tab.formatId derived from path).
  *
  * Key decisions:
  *   - State is keyed by window label to support multi-window (each window
@@ -13,6 +14,8 @@
  *   - Tab IDs use timestamp + random suffix — unique but not globally sortable.
  *   - No persistence middleware: tab state is restored from workspace config
  *     on startup via workspaceStore.lastOpenTabs, not via localStorage.
+ *   - Tab.formatId is computed via dispatchEditor() and recomputed in
+ *     updateTabPath; kind changes fire a one-time toast (ADR-10 / WI-1A.12).
  *
  * Known limitations:
  *   - closedTabs only stores tab metadata, not document content — reopening
@@ -22,6 +25,7 @@
  *
  * @coordinates-with documentStore.ts — each tab ID maps to a document entry
  * @coordinates-with workspaceStore.ts — lastOpenTabs for session restore
+ * @coordinates-with lib/formats/registry.ts — dispatchEditor() drives formatId derivation
  * @module stores/tabStore
  */
 
