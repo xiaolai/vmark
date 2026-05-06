@@ -1,7 +1,22 @@
 import { render } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Editor } from "./Editor";
 import { WindowProvider } from "@/contexts/WindowContext";
+import {
+  bootstrapFormats,
+  __resetBootstrap,
+} from "@/lib/formats";
+import { __resetRegistry } from "@/lib/formats/registry";
+
+beforeEach(() => {
+  __resetRegistry();
+  __resetBootstrap();
+  bootstrapFormats();
+});
+afterEach(() => {
+  __resetRegistry();
+  __resetBootstrap();
+});
 
 type Selector<T> = (state: T) => unknown;
 

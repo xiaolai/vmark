@@ -1,36 +1,55 @@
 /**
  * Editor
  *
- * Purpose: Top-level editor container. In WI-1A.3 the markdown rendering surface
- * was extracted into MarkdownEditorSurface (under src/lib/formats/adapters);
- * this file currently delegates rendering to it. WI-1A.5 turns this into a
- * format-registry dispatcher that selects between MarkdownEditorSurface (kind
- * "wysiwyg") and SplitPaneEditor (kinds "split-pane" / "viewer").
+ * Purpose: Format-registry dispatcher (WI-1A.5). Reads the active tab's
+ *   filePath, calls dispatchEditor() to resolve a FormatConfig, and mounts
+ *   either the format's wysiwygComponent (markdown today) or the generic
+ *   <SplitPaneEditor> for split-pane / viewer kinds.
+ *
+ * Pipeline: useActiveTabId → useTabStore.findTabById → dispatchEditor →
+ *   FormatConfig.kind === "wysiwyg" ? <wysiwygComponent /> : <SplitPaneEditor />
  *
  * Key decisions:
- *   - SourceEditor and WorkflowSidePanel are lazy-loaded inside the markdown
- *     adapter so their bundles stay deferred until first markdown mount.
- *   - `keepAlive` setting (in the markdown adapter) keeps both editors mounted
- *     to preserve undo history across mode switches.
- *   - Format dispatch happens once per render via dispatchEditor(); the
- *     registry is the single source of truth for "what does this tab do."
+ *   - Markdown rendering surface lives in src/lib/formats/adapters/markdown.tsx
+ *     as MarkdownEditorSurface; this dispatcher pulls the component reference
+ *     out of the FormatConfig so the registry is the single source of truth.
+ *   - Tab kind change (markdown → txt → json …) triggers an automatic
+ *     remount because Tab.formatId is part of editorKey (ADR-10 / WI-1A.12).
+ *   - Failure-open: if no tab is active or no format resolves, the dispatcher
+ *     falls back to MarkdownEditorSurface so a fresh app start with no tabs
+ *     still renders something.
  *
+ * @coordinates-with src/lib/formats/registry.ts — dispatchEditor()
  * @coordinates-with src/lib/formats/adapters/markdown.tsx — MarkdownEditorSurface
- * @coordinates-with src/lib/formats/registry.ts — dispatchEditor (WI-1A.5)
+ * @coordinates-with src/components/Editor/SplitPaneEditor — SplitPaneEditor
  * @module components/Editor/Editor
  */
 import { useActiveTabId } from "@/hooks/useDocumentState";
+import { useTabStore } from "@/stores/tabStore";
+import { dispatchEditor } from "@/lib/formats/registry";
 import { MarkdownEditorSurface } from "@/lib/formats/adapters/markdown";
+import { SplitPaneEditor } from "./SplitPaneEditor/SplitPaneEditor";
 import "./editor.css";
 import "./heading-picker.css";
 import "@/styles/popup-shared.css";
 
-/** Top-level editor container. Delegates to the markdown surface today;
- *  WI-1A.5 will route through dispatchEditor() based on the active tab's path. */
+/** Top-level editor dispatcher. Resolves the active tab's FormatConfig and
+ *  mounts the matching surface (wysiwyg or split-pane). */
 export function Editor() {
   const tabId = useActiveTabId();
-  /* v8 ignore next -- @preserve tabId always defined inside Editor surface */
-  return <MarkdownEditorSurface tabId={tabId ?? ""} />;
+  /* v8 ignore next 4 -- @preserve null-tab fallback path */
+  const tab = useTabStore((s) =>
+    tabId ? (s.findTabById?.(tabId) ?? null) : null,
+  );
+  const filePath = tab?.filePath ?? null;
+  const formatConfig = dispatchEditor(filePath);
+
+  if (formatConfig.kind === "wysiwyg") {
+    /* v8 ignore next -- @preserve markdown surface dispatch — the only kind="wysiwyg" today */
+    const Surface = formatConfig.wysiwygComponent ?? MarkdownEditorSurface;
+    return <Surface tabId={tabId ?? ""} />;
+  }
+  return <SplitPaneEditor tabId={tabId ?? ""} formatConfig={formatConfig} />;
 }
 
 export default Editor;
