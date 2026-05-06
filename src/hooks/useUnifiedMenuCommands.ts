@@ -3,19 +3,25 @@
  *
  * Purpose: Single dispatcher for all format/insert menu events — routes each
  *   action to the appropriate editor adapter based on current mode
- *   (WYSIWYG via Tiptap or Source via CodeMirror).
+ *   (WYSIWYG via Tiptap or Source via CodeMirror) and the active tab's
+ *   format-registry menuPolicy (WI-1A.7).
  *
  * Pipeline: Rust menu event → Tauri `listen("menu:{id}")` → MENU_TO_ACTION
- *   lookup → performWysiwygToolbarAction() or performSourceToolbarAction()
+ *   lookup → menuPolicy gate → mode capability check →
+ *   performWysiwygToolbarAction() or performSourceToolbarAction()
  *
  * Key decisions:
  *   - Must be mounted ONCE at EditorHost level, not per-editor
  *   - Uses actionRegistry to map menu IDs to canonical action IDs
  *   - Heading levels extracted from menu params (e.g., "heading-1" → level 1)
+ *   - Per-format menuPolicy gating fails open (unknown category, missing
+ *     format) so non-markdown formats can ship without coordinating
+ *     edits to this dispatcher
  *
  * @coordinates-with actionRegistry.ts — maps menu event IDs to action IDs
  * @coordinates-with wysiwygAdapter.ts — executes actions in WYSIWYG mode
  * @coordinates-with sourceAdapter.ts — executes actions in Source mode
+ * @coordinates-with lib/formats/registry.ts — getFormatById() drives menuPolicy gating
  * @module hooks/useUnifiedMenuCommands
  */
 
