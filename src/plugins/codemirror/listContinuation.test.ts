@@ -229,6 +229,31 @@ describe("listContinuationKeymap", () => {
     });
   });
 
+  describe("fenced code blocks", () => {
+    it("returns false when cursor is inside a fenced code block on a list-shaped line", () => {
+      // Doc: ```python\n- for x in items:\n```
+      const doc = "```python\n- for x in items:\n```";
+      // Place cursor at end of "- for x in items:" line
+      const cursorPos = "```python\n- for x in items:".length;
+      const view = createView(doc, cursorPos);
+      const before = view.state.doc.toString();
+      expect(runEnter(view)).toBe(false);
+      // No dispatch occurred — document is unchanged
+      expect(view.state.doc.toString()).toBe(before);
+      view.destroy();
+    });
+
+    it("still continues a real list outside fences", () => {
+      // Doc: - item\n```\n```
+      const doc = "- item\n```\n```";
+      // Cursor at end of "- item"
+      const view = createView(doc, "- item".length);
+      expect(runEnter(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe("- item\n- \n```\n```");
+      view.destroy();
+    });
+  });
+
   describe("keymap structure", () => {
     it("is bound to Enter key", () => {
       expect(listContinuationKeymap.key).toBe("Enter");

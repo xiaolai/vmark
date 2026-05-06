@@ -16,6 +16,7 @@
 
 import type { KeyBinding } from "@codemirror/view";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
+import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
 
 // Pattern matching for different list types
 const TASK_PATTERN = /^(\s*)([-*+])\s\[([ xX])\]\s(.*)$/;
@@ -109,6 +110,9 @@ export const listContinuationKeymap: KeyBinding = guardCodeMirrorKeyBinding({
 
     // Only handle single cursor (not range selection)
     if (from !== to) return false;
+
+    // Skip inside fenced code blocks — Enter must produce a plain newline there
+    if (getCodeFenceInfo(view) !== null) return false;
 
     const line = state.doc.lineAt(from);
     const listMatch = parseListLine(line.text);
