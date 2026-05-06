@@ -32,7 +32,13 @@ import {
   ACTION_DEFINITIONS,
   getHeadingLevelFromParams,
 } from "@/plugins/actions/actionRegistry";
-import type { MenuEventId, ActionId } from "@/plugins/actions/types";
+import type {
+  ActionDefinition,
+  MenuEventId,
+  ActionId,
+} from "@/plugins/actions/types";
+import { getFormatById } from "@/lib/formats/registry";
+import type { FormatConfig } from "@/lib/formats/types";
 import {
   performSourceToolbarAction,
   setSourceHeadingLevel,
@@ -50,6 +56,68 @@ import { shouldBlockMenuAction } from "@/utils/focusGuard";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import { menuDispatcherLog, menuDispatcherWarn, menuError } from "@/utils/debug";
+
+/**
+ * Map an ActionDefinition's category to the per-format menuPolicy field
+ * that gates it. Returns true when the active format permits the action.
+ *
+ * - edit / selection / lines: universal text-editor concerns; always allowed.
+ * - formatting / headings / lists / blockquote: paragraphFormatting.
+ * - codeBlock / tables / inserts / links: insertBlockActions.
+ * - cjk / cleanup / transform: cjkFormatActions.
+ * - any unknown / future category: allowed (failure-open keeps existing
+ *   tests with mock categories such as "insert" / "table" green and lets
+ *   new categories ship without a coordinated dispatcher edit).
+ *
+ * WI-1A.7 — markdown adapter sets every menuPolicy bit true; non-markdown
+ * formats register false bits via their adapters and silently no-op the
+ * markdown-only menu actions.
+ */
+function isMenuActionAllowedForActiveFormat(
+  actionDef: ActionDefinition,
+  windowLabel: string,
+): boolean {
+  /* v8 ignore next 3 -- @preserve universal categories — early-out for hot path */
+  if (
+    actionDef.category === "edit" ||
+    actionDef.category === "selection" ||
+    actionDef.category === "lines"
+  ) {
+    return true;
+  }
+  let formatConfig: FormatConfig | undefined;
+  /* v8 ignore next 11 -- @preserve defensive lookup; tests with stub tabStore exercise the happy path */
+  try {
+    const activeTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+    const tab = activeTabId
+      ? useTabStore.getState().findTabById(activeTabId)
+      : null;
+    formatConfig = tab ? getFormatById(tab.formatId) : undefined;
+  } catch {
+    formatConfig = undefined;
+  }
+  /* v8 ignore next -- @preserve format unresolved → permissive (matches pre-WI-1A.7 behavior) */
+  if (!formatConfig) return true;
+  const policy = formatConfig.adapters.menuPolicy;
+  switch (actionDef.category) {
+    case "formatting":
+    case "headings":
+    case "lists":
+    case "blockquote":
+      return policy.paragraphFormatting;
+    case "codeBlock":
+    case "tables":
+    case "inserts":
+    case "links":
+      return policy.insertBlockActions;
+    case "cjk":
+    case "cleanup":
+    case "transform":
+      return policy.cjkFormatActions;
+    default:
+      return true;
+  }
+}
 
 /**
  * Map action IDs to the internal adapter action names.
@@ -315,6 +383,16 @@ export function useUnifiedMenuCommands(): void {
           const actionDef = ACTION_DEFINITIONS[actionId];
           if (!actionDef) {
             menuDispatcherWarn(`Unknown action: ${actionId}`);
+            return;
+          }
+
+          // WI-1A.7 — gate on the active format's menuPolicy. Markdown
+          // enables every bit; non-markdown formats no-op markdown-only
+          // categories (insert blocks, paragraph formatting, CJK).
+          if (!isMenuActionAllowedForActiveFormat(actionDef, windowLabel)) {
+            menuDispatcherLog(
+              `Action ${actionId} disabled by active format menuPolicy`,
+            );
             return;
           }
 
