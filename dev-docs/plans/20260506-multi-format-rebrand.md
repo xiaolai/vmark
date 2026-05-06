@@ -1,6 +1,6 @@
 # Multi-Format Workspace + Rebrand — Plain-Text Workspace for Humans and AI
 
-**Status:** Draft — revision 4 (post Phase 0 spike findings)
+**Status:** Draft — revision 5 (post Codex iteration-4 review)
 **Owner:** Xiaolai
 **Branch:** `feat/multi-format-workspace` (proposed)
 **Created:** 2026-05-06
@@ -290,7 +290,7 @@ export function getSupportedExtensions(): readonly string[]; // for dialog filte
 1. `id` is non-empty, unique, and matches `/^[a-z0-9-]+$/`.
 2. `extensions` is non-empty and disjoint from every previously-registered format's extensions.
 3. If `kind === "wysiwyg"`, then `wysiwygComponent` is defined.
-4. If `kind !== "wysiwyg"`, then `loadLanguage` is defined OR the format is plain `.txt` (no language).
+4. If `kind !== "wysiwyg"`, then `loadLanguage` is defined OR the format is plain `.txt` OR the format is a Phase 1A stub (per WI-1A.11). Stubs and plain text render with raw CodeMirror — no syntax highlighting, but full editing/find/undo/save still work.
 5. **`adapters.readOnlyDefault === true` ⟹ `adapters.closeSavePolicy === "markdown-default"`** (per § Format registry contract). Asserts in `registerFormat()` so a viewer-format that becomes editable always has a working save flow.
 6. `adapters.sidePanelKeepAlive === "always-when-registered"` is permitted only when the format id is in a hardcoded allow-list (`["yaml-gha-workflow"]` for v1) — guards the perf footgun.
 7. `schemaRenderers` keys must include every schema id any registered `schemaDetector` can return (verified by spot-checking against detector unit-test fixtures, not statically — but the registry warns if a detector returns an unknown id at runtime).
@@ -315,7 +315,7 @@ Generic JSON / YAML / TOML tree preview behavior:
 | Screen reader announcements | `aria-live="polite"` region announces selection ("foo: 42, string"), expand ("expanded, 5 children"), collapse ("collapsed") |
 | Focus management | Selection follows focus; Tab leaves the tree to source pane |
 
-Library candidate: `@uiw/react-json-view` or alternative — Phase 0 WI-0.5 picks one.
+**Library:** `react-json-view-lite` v2.5.0 (Phase 0 WI-0.5 CLOSED). Mechanism: only candidate with documented keyboard navigation + ARIA labelling per `33-focus-indicators.md`.
 
 ## Final format surface
 
@@ -393,6 +393,13 @@ Markdown behavior is byte-identical to current main at the end of Phase 1A.
 - **WI-1A.9** — Plain `.txt` adapter — full pipeline smoke test.
 - **WI-1A.10** — `<SplitPaneEditor>` resize handle, theme parity, ARIA roles, focus management.
 - **WI-1A.11** — **Stub registrations for all Phase 2-4 formats.** Each format from the Final format surface table is registered with **`extensions`, `kind`, `nameI18nKey`, and minimum `adapters`** (`saveDialogFilters`, `untitledExtension`, `searchAdapter`, `readOnlyDefault`, `closeSavePolicy`, `menuPolicy`). `loadLanguage`, `validator`, `genericPreview`, `schemaDetector`, `schemaRenderers`, and `wysiwygComponent` are not yet implemented. Rationale: Phase 1B's entry-point work depends on `getSupportedExtensions()` returning the full set; if Phase 1A only registers markdown + txt, opening `.json` from Finder would still be rejected. Stubs enable correct routing while later phases land the actual implementations. A stub-registered format opens with raw CodeMirror (no language pack, no preview, no validator) — functional fallback, not broken.
+- **WI-1A.12** — **Tab kind-change contract (ADR-10).** Adds `Tab.formatId` field derived from path on `createTab` / `createUntitledTab` / `updateTabPath`. When path change yields a different `dispatchEditor()` result, the editor surface unmounts and the new surface mounts fresh — content preserved as string, undo history reset, dirty state preserved, one-time toast informs the user. Moved here from Phase 1B per WI-0.7 refactor-audit "PR 2: Tab store extension" (originally listed as WI-1B.15 — that ID is reused for this purpose; Phase 1B no longer carries a kind-change contract WI).
+
+**Build order (per WI-0.7 refactor-audit risk-tabling — `useUnifiedMenuCommands` is the long pole):**
+
+1. **First:** WI-1A.1 (types) → WI-1A.2 (registry) → WI-1A.3 (markdown adapter declares `menuPolicy`) → WI-1A.12 (tab kind plumbing). Foundation that every other WI depends on.
+2. **Second (long pole — start as soon as foundation lands):** WI-1A.7 (`useUnifiedMenuCommands` format routing). Markdown still works because the markdown adapter's `menuPolicy` enables every action; non-markdown tabs no-op.
+3. **Parallelizable:** WI-1A.4 + WI-1A.5 + WI-1A.10 (SplitPaneEditor + Editor.tsx refactor + polish), WI-1A.6 (sourceMode → markdown adapter), WI-1A.8 (gutter), WI-1A.9 (txt adapter), WI-1A.11 (stubs).
 
 **Per-WI i18n requirement:** every WI introducing user-visible strings adds `en` keys in `src/locales/en/*.json` in the same commit. Translation to other locales batched in Phase 6.
 
@@ -423,7 +430,7 @@ Markdown remains the default for **untitled** files; this phase opens **existing
 - **WI-1B.12** — CLI argv handling. Verify Rust `lib.rs` argv parsing accepts non-markdown paths and routes through the same registry-driven open path. Existing test in `lib.rs:1052` (loop over `MARKDOWN_EXTENSIONS`) is updated to loop over `SUPPORTED_EXTENSIONS`.
 - **WI-1B.13** — `contentSearchStore.ts:147` content-search scope expansion. Scope expands to `getSupportedExtensions()` filtered by `adapters.contentSearchIndexed === true` (default true for split-pane, false for viewer per ADR-9). Settings UI gets a "Search in code files" toggle (deferred to v1.x).
 - **WI-1B.14** — `useExternalFileChanges.ts` reload behavior consults `adapters.reloadPolicy`. For markdown: existing behavior preserved; for data formats: reload + revalidate.
-- **WI-1B.15** — Tab kind-change contract (ADR-10). `updateTabPath()` detects format change via `dispatchEditor()` and triggers surface remount + undo reset + toast.
+- **WI-1B.15** — *(MOVED to WI-1A.12 in revision 5; kept as a placeholder so cross-references stay valid.)* Tab kind-change contract was originally scoped here but landed in Phase 1A per WI-0.7 refactor-audit ordering. No Phase 1B work remains under this id.
 - **WI-1B.16** — macOS quarantine flow generalization. Two changes:
   - `src-tauri/src/quarantine.rs:54` `strip_workspace_quarantine(root)` extends from "direct `.md` children only" to "direct children matching `getSupportedExtensions()`-equivalent Rust list" — using the same `SUPPORTED_EXTENSIONS` constant from WI-1B.4. The "markdown-only" comment at `quarantine.rs:18-19` is updated to reflect the new scope.
   - `src/utils/macQuarantineNotice.ts:63-98` `maybeStripMacQuarantine` framing remains identical (Rust does the per-format work); user-facing toast strings are reworded from markdown-specific to format-agnostic in the locale JSON (`src/locales/en/dialog.json:95`, `src/locales/en/settings.json:552`).
@@ -554,7 +561,7 @@ Before Phase 6 begins:
 - [ ] `dev-docs/grills/multi-format/perf-bench.md` shows 50-mixed-tab switch p99 < 200ms
 - [ ] `yamlOpenRouting.ts` deleted (WI-2.6)
 - [ ] HTML security review (Phase 3) signed off
-- [ ] Cross-model review of revision 3: APPROVE or APPROVE-WITH-NOTES
+- [ ] Cross-model review of revision 4 (or current revision): APPROVE or APPROVE-WITH-NOTES
 
 ## Appendix A — Why not just use VS Code?
 
@@ -576,6 +583,17 @@ VMark's defaults differ from VS Code's by direction-of-gradient: VS Code is a *c
 The "and" matters. AI-first framing puts humans in the user-of-tool position. Human-and-AI framing names the artifact as the shared substrate, with both parties reading and writing it directly. Plain text is the un-mediated meeting point; VMark optimizes the experience of working in that meeting point.
 
 ## Appendix C — Resolution of cross-model review findings
+
+### Review iteration 4 (verdict: NEEDS-REVISION → addressed in revision 5)
+
+Codex thread `019dfb2e-e1ed-7042-b5ed-5c8bafc9329b` against revision 4.
+
+| Codex finding | Severity | Resolution in revision 5 |
+|---|---|---|
+| WI-1A.11 stub registration conflicts with `registerFormat()` invariant 4 (loadLanguage required for non-wysiwyg) | BLOCKER | Invariant 4 expanded to allow stubs and plain `.txt` to omit `loadLanguage`; raw CodeMirror fallback documented |
+| Phase 1A WI ordering doesn't follow WI-0.7 refactor-audit's PR sequence (audit's PR 2 tab-kind plumbing is in Phase 1B; PR 4 menu routing not scheduled "immediately after PR 1") | HIGH | Added new WI-1A.12 (tab kind-change contract, moved from WI-1B.15); added explicit "Build order" note in Phase 1A naming WI-1A.7 as the long pole |
+| Tree library citation inconsistency: `@uiw/react-json-view or alternative` (line 318) vs WI-0.5 closed with `react-json-view-lite` (line 523) | LOW | Tree preview library citation updated to `react-json-view-lite` v2.5.0 with mechanism noted |
+| Rebrand-readiness checklist still references "revision 3" cross-model review (line 557) | LOW | Wording generalized to "revision 4 (or current revision)" so future revisions don't need this edit |
 
 ### Review iteration 1 (verdict: MAJOR GAPS)
 
