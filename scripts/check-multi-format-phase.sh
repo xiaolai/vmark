@@ -123,9 +123,115 @@ case "$PHASE" in
     fi
     ;;
 
-  1B|2|3|4|5|6)
+  1B)
+    echo "Phase 1B — Entry-point and save-path generalization"
+
+    # WI-1B.3 — TS SUPPORTED_EXTENSIONS
+    if grep -q "MARKDOWN_ONLY_EXTENSIONS" src/utils/dropPaths.ts \
+      && grep -q "getSupportedExtensionsWithDots" src/utils/dropPaths.ts; then
+      ok "dropPaths.ts uses MARKDOWN_ONLY_EXTENSIONS + registry-derived getter"
+    else
+      fail "dropPaths.ts not migrated"
+    fi
+
+    # WI-1B.4 — Rust SUPPORTED_EXTENSIONS
+    if grep -q "pub(crate) const SUPPORTED_EXTENSIONS:" src-tauri/src/lib.rs; then
+      ok "Rust SUPPORTED_EXTENSIONS const present"
+    else
+      fail "Rust SUPPORTED_EXTENSIONS missing"
+    fi
+    if grep -q "fn has_supported_extension" src-tauri/src/lib.rs; then
+      ok "has_supported_extension function present"
+    else
+      fail "has_supported_extension function missing"
+    fi
+
+    # WI-1B.5 — security gate uses is_openable_supported
+    if grep -q "is_openable_supported" src-tauri/src/window_manager.rs; then
+      ok "validate_openable_path uses is_openable_supported"
+    else
+      fail "validate_openable_path still markdown-only"
+    fi
+
+    # WI-1B.16 — quarantine uses has_supported_extension
+    if grep -q "has_supported_extension" src-tauri/src/quarantine.rs; then
+      ok "strip_workspace_quarantine uses has_supported_extension"
+    else
+      fail "quarantine.rs still markdown-only"
+    fi
+
+    # ADR-12 — sync script
+    [[ -f scripts/check-ext-sync.sh ]] && ok "check-ext-sync.sh present" || fail "check-ext-sync.sh missing"
+    if bash scripts/check-ext-sync.sh >/dev/null 2>&1; then
+      ok "Rust ↔ TS extension lists in sync"
+    else
+      fail "Rust ↔ TS extension drift (run scripts/check-ext-sync.sh)"
+    fi
+
+    # WI-1B.1 — open dialog filter
+    if grep -q "All Supported" src/hooks/useFileOpen.ts; then
+      ok "Open dialog has All Supported preset"
+    else
+      fail "Open dialog filter not generalized"
+    fi
+
+    # WI-1B.2 — drag-drop generalization
+    if grep -q "filterSupportedPaths" src/hooks/useDragDropOpen.ts; then
+      ok "Drag-drop uses filterSupportedPaths"
+    else
+      fail "Drag-drop still markdown-only"
+    fi
+
+    # WI-1B.6 + 1B.7 — maybeForceSourceForYaml removed from finder + recent
+    if ! grep -q "maybeForceSourceForYaml" src/hooks/useFinderFileOpen.ts \
+      && ! grep -q "maybeForceSourceForYaml" src/hooks/useRecentFilesMenuEvents.ts; then
+      ok "maybeForceSourceForYaml removed from useFinderFileOpen + useRecentFilesMenuEvents"
+    else
+      fail "maybeForceSourceForYaml still called from finder/recent"
+    fi
+
+    # WI-1B.8 — closeSave saveDialogFilters per-tab
+    if grep -q "saveFiltersForFilePath\|saveDialogFilters" src/hooks/closeSave.ts \
+      && ! grep -q "MARKDOWN_FILTERS" src/hooks/closeSave.ts; then
+      ok "closeSave.ts derives filters per format"
+    else
+      fail "closeSave.ts still uses MARKDOWN_FILTERS"
+    fi
+
+    # WI-1B.9 — useFileSave uses untitledExtension
+    if grep -q "untitledExtension" src/hooks/useFileSave.ts; then
+      ok "useFileSave uses adapters.untitledExtension"
+    else
+      fail "useFileSave still hardcodes .md"
+    fi
+
+    # WI-1B.10 — newFile.createUntitledTab(formatId?)
+    if grep -q "_formatId\|formatId.*=.*\"markdown\"" src/utils/newFile.ts; then
+      ok "createUntitledTab accepts formatId"
+    else
+      fail "createUntitledTab not migrated"
+    fi
+
+    # WI-1B.11 — fileAssociations expanded
+    EXT_COUNT=$(grep -c '"ext":' src-tauri/tauri.conf.json || true)
+    if [[ "$EXT_COUNT" -gt 1 ]]; then
+      ok "tauri.conf.json fileAssociations expanded ($EXT_COUNT entries)"
+    else
+      fail "tauri.conf.json fileAssociations still markdown-only"
+    fi
+
+    # WI-1B.13 — content search consults registry
+    if grep -q "listFormats" src/stores/contentSearchStore.ts \
+      && ! grep -qE "^import.*MARKDOWN_EXTENSIONS" src/stores/contentSearchStore.ts; then
+      ok "contentSearchStore uses listFormats() filtered by contentSearchIndexed"
+    else
+      fail "contentSearchStore still imports MARKDOWN_EXTENSIONS"
+    fi
+    ;;
+
+  2|3|4|5|6)
     note "Phase $PHASE DoD script not yet implemented"
-    note "(this is expected during Phase 1A — phases write their own checks)"
+    note "(this is expected during Phase 1B — phases write their own checks)"
     exit 0
     ;;
 
