@@ -15,8 +15,9 @@
  *     selectable), enabling simple arrow-key navigation.
  *   - Regex validation happens in Rust, not frontend — grep-regex syntax differs
  *     from JS RegExp. Invalid regex errors are displayed inline.
- *   - Extensions list comes from MARKDOWN_EXTENSIONS in dropPaths.ts so the
- *     source of truth for "what counts as markdown" stays in one place.
+ *   - Extensions list comes from listFormats() filtered by
+ *     adapters.contentSearchIndexed === true (Phase 1B). Code-viewer
+ *     formats opt out by default per ADR-9 / WI-1B.13.
  *
  * @coordinates-with ContentSearch.tsx — overlay UI
  * @coordinates-with content_search.rs — Rust backend command
