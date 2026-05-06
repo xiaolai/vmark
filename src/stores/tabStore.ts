@@ -30,13 +30,31 @@ import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { stripMarkdownExtension } from "@/utils/dropPaths";
+import { dispatchEditor } from "@/lib/formats/registry";
 
-/** A single editor tab with ID, optional file path, display title, and pin state. */
+/** A single editor tab with ID, optional file path, display title, pin state,
+ *  and the format adapter id (derived from filePath via dispatchEditor). */
 export interface Tab {
   id: string;
   filePath: string | null; // null = untitled
   title: string;
   isPinned: boolean;
+  /** WI-1A.12 — format registry id (e.g. "markdown", "txt"). Derived from filePath
+   *  on createTab/createTransferredTab/updateTabPath. The Editor surface keys on
+   *  this; a kind change triggers remount + undo reset + toast (ADR-10). */
+  formatId: string;
+}
+
+function deriveFormatId(filePath: string | null): string {
+  // dispatchEditor throws only when no formats are registered (test-only edge);
+  // production bootstraps markdown + txt + stubs at app start. Defensive try
+  // keeps the store usable in any code path that runs before bootstrap.
+  /* v8 ignore next 5 -- @preserve defensive fallback for unbootstrapped registry */
+  try {
+    return dispatchEditor(filePath).id;
+  } catch {
+    return "markdown";
+  }
 }
 
 // Per-window tab state
@@ -54,7 +72,10 @@ interface TabState {
 interface TabActions {
   // Tab CRUD
   createTab: (windowLabel: string, filePath?: string | null) => string;
-  createTransferredTab: (windowLabel: string, tab: Tab) => string;
+  createTransferredTab: (
+    windowLabel: string,
+    tab: Omit<Tab, "formatId"> & { formatId?: string },
+  ) => string;
   closeTab: (windowLabel: string, tabId: string) => void;
 
   // Tab state
@@ -130,7 +151,13 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
         title = getTabTitle(null, newCounter);
       }
 
-      const newTab: Tab = { id, filePath, title, isPinned: false };
+      const newTab: Tab = {
+        id,
+        filePath,
+        title,
+        isPinned: false,
+        formatId: deriveFormatId(filePath),
+      };
       const windowTabs = state.tabs[windowLabel] || [];
 
       return {
@@ -145,18 +172,22 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
   createTransferredTab: (windowLabel, tab) => {
     let returnId = tab.id;
+    const fullTab: Tab = {
+      ...tab,
+      formatId: tab.formatId ?? deriveFormatId(tab.filePath),
+    };
 
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
-      const existing = windowTabs.find((t) => t.id === tab.id);
+      const existing = windowTabs.find((t) => t.id === fullTab.id);
       if (existing) {
         returnId = existing.id;
         return { activeTabId: { ...state.activeTabId, [windowLabel]: existing.id } };
       }
 
       return {
-        tabs: { ...state.tabs, [windowLabel]: [...windowTabs, tab] },
-        activeTabId: { ...state.activeTabId, [windowLabel]: tab.id },
+        tabs: { ...state.tabs, [windowLabel]: [...windowTabs, fullTab] },
+        activeTabId: { ...state.activeTabId, [windowLabel]: fullTab.id },
       };
     });
 
@@ -235,15 +266,35 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   },
 
   updateTabPath: (tabId, filePath) => {
+    let kindChange:
+      | { previousFormatId: string; nextFormatId: string }
+      | null = null;
     set((state) => {
       const newTabs = { ...state.tabs };
       for (const windowLabel of Object.keys(newTabs)) {
-        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-          t.id === tabId ? { ...t, filePath, title: getTabTitle(filePath) } : t
-        );
+        newTabs[windowLabel] = newTabs[windowLabel].map((t) => {
+          if (t.id !== tabId) return t;
+          const nextFormatId = deriveFormatId(filePath);
+          if (nextFormatId !== t.formatId) {
+            kindChange = { previousFormatId: t.formatId, nextFormatId };
+          }
+          return {
+            ...t,
+            filePath,
+            title: getTabTitle(filePath),
+            formatId: nextFormatId,
+          };
+        });
       }
       return { tabs: newTabs };
     });
+    /* v8 ignore next 6 -- @preserve fired only on cross-format rename; unit-tested separately */
+    if (kindChange) {
+      const change = kindChange as { previousFormatId: string; nextFormatId: string };
+      toast.info(
+        i18n.t("dialog:toast.tabFormatChanged", { format: change.nextFormatId }),
+      );
+    }
   },
 
   updateTabTitle: (tabId, title) => {

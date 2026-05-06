@@ -119,6 +119,7 @@
     "pdfExportFailed": "PDF export failed: {{error}}",
     "cannotMoveTabNoDoc": "Cannot move tab: document is not loaded.",
     "cannotMoveLastTab": "Cannot move the last tab in the main window.",
+    "tabFormatChanged": "Editor switched to {{format}}.",
     "tabMoved": "Moved \"{{title}}\" to a new window",
     "tabDetached": "Detached \"{{title}}\"",
     "tabMovedToWindow": "Moved \"{{title}}\"",
