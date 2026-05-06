@@ -7,7 +7,7 @@
 // and per-format extras (loadExtraExtensions).
 
 import { useEffect, useRef } from "react";
-import { EditorState, type Extension } from "@codemirror/state";
+import { EditorState, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
@@ -89,8 +89,12 @@ export function SourcePane({ tabId, formatId, formatConfig }: SourcePaneProps) {
       lastSyncedRef.current = storeContent;
       return;
     }
+    // addToHistory: false — store→view sync (file load, external
+    // reload) must not appear in the undo stack; otherwise Cmd-Z would
+    // revert to the empty pre-load buffer.
     view.dispatch({
       changes: { from: 0, to: current.length, insert: storeContent },
+      annotations: [Transaction.addToHistory.of(false)],
     });
     lastSyncedRef.current = storeContent;
   }, [storeContent]);
