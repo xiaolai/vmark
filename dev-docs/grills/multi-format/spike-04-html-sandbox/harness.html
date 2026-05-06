@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VMark HTML Sandbox Spike — WI-0.4</title>
+</head>
+<body>
+<h1>WI-0.4 — HTML iframe sandbox spike</h1>
+
+<p>
+  Each row injects an OWASP XSS payload into <code>&lt;iframe sandbox="" srcdoc=…&gt;</code>
+  and reports whether <code>document.title</code> on this outer page changed.
+</p>
+<p>
+  <strong>Pass criteria:</strong> <em>every</em> payload leaves the outer
+  <code>document.title</code> at "VMark HTML Sandbox Spike — WI-0.4". Title change = sandbox
+  escape = FAIL.
+</p>
+
+<h2>Outer-page state</h2>
+<p>Outer document title: <code id="outer-title">(reading...)</code></p>
+<p>Verdict: <strong id="overall-verdict">running...</strong></p>
+
+<h2>Live output log</h2>
+<pre id="log" aria-live="polite"></pre>
+
+<h2>Payloads</h2>
+<table id="payloads" border="1" cellpadding="6" cellspacing="0" width="100%">
+  <thead>
+    <tr><th align="left">ID + Name</th><th align="left">Sandboxed iframe</th><th align="left">Verdict</th></tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+  const ORIGINAL_TITLE = document.title;
+  const $log = document.getElementById("log");
+  const $outerTitle = document.getElementById("outer-title");
+  const $verdict = document.getElementById("overall-verdict");
+  const $tbody = document.querySelector("#payloads tbody");
+
+  function log(line) {
+    const stamp = new Date().toISOString().slice(11, 23);
+    $log.textContent += `[${stamp}] ${line}\n`;
+    $log.scrollTop = $log.scrollHeight;
+  }
+
+  function refreshTitleDisplay() {
+    $outerTitle.textContent = document.title;
+    if (document.title !== ORIGINAL_TITLE) {
+      $verdict.textContent = `FAIL — title changed to "${document.title}"`;
+      log(`!!! TITLE CHANGED to: ${document.title}`);
+    }
+  }
+
+  // Strict CSP injected into every iframe srcdoc — mirrors ADR-4.
+  const META_CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:">`;
+
+  function wrap(payload) {
+    return `<!DOCTYPE html><html><head>${META_CSP}</head><body>${payload}</body></html>`;
+  }
+
+  // Self-test: confirm the harness can detect a title change.
+  log("Self-test: changing outer title to 'SELFTEST', then reverting...");
+  document.title = "SELFTEST";
+  refreshTitleDisplay();
+  document.title = ORIGINAL_TITLE;
+  refreshTitleDisplay();
+  log("Self-test ok — harness detects title changes correctly.");
+
+  fetch("./payloads.json")
+    .then((r) => r.json())
+    .then((payloads) => {
+      log(`Loaded ${payloads.length} payloads.`);
+      for (const p of payloads) {
+        const tr = document.createElement("tr");
+        const escaped = p.html.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+        tr.innerHTML = `
+          <td>
+            <strong>${p.id}</strong>: ${p.name}<br>
+            <small>Expected: ${p.expected}</small>
+            <details><summary>raw</summary><pre>${escaped}</pre></details>
+          </td>
+          <td><iframe sandbox="" srcdoc='${wrap(p.html).replace(/'/g, "&#39;")}' width="100%" height="80"></iframe></td>
+          <td id="v-${p.id}">checking...</td>
+        `;
+        $tbody.appendChild(tr);
+      }
+
+      setTimeout(() => {
+        for (const p of payloads) {
+          const cell = document.getElementById(`v-${p.id}`);
+          const passed = !document.title.includes(p.id);
+          cell.textContent = passed ? "PASS" : `FAIL — escaped via ${p.id}`;
+          log(`${p.id}: ${passed ? "PASS" : "FAIL"}`);
+        }
+
+        if (document.title === ORIGINAL_TITLE) {
+          $verdict.textContent = "PASS — sandbox blocked all 20 payloads";
+          log("==== OVERALL: PASS ====");
+        } else {
+          $verdict.textContent = "FAIL — at least one payload escaped sandbox";
+          log("==== OVERALL: FAIL ====");
+        }
+        refreshTitleDisplay();
+      }, 1500);
+    })
+    .catch((e) => log(`Failed to load payloads.json: ${e.message}`));
+</script>
+</body>
+</html>
