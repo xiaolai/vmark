@@ -345,9 +345,35 @@ case "$PHASE" in
     fi
     ;;
 
-  5|6)
-    note "Phase $PHASE DoD script not yet implemented"
-    note "(this is expected during Phase 4 — phases write their own checks)"
+  5)
+    echo "Phase 5 — Additional schema-aware previews"
+
+    [[ -f src/lib/formats/adapters/packageJson.tsx ]] && ok "packageJson schema renderer present" || fail "packageJson renderer missing"
+    [[ -f src/lib/formats/adapters/pyprojectToml.tsx ]] && ok "pyprojectToml schema renderer present" || fail "pyprojectToml renderer missing"
+
+    if grep -q "package-json" src/lib/formats/adapters/json.tsx; then
+      ok "json adapter wires package-json schemaRenderer"
+    else
+      fail "json adapter missing package-json wiring"
+    fi
+    if grep -q "pyproject-toml" src/lib/formats/adapters/toml.tsx; then
+      ok "toml adapter wires pyproject-toml schemaRenderer"
+    else
+      fail "toml adapter missing pyproject-toml wiring"
+    fi
+
+    if grep -q "cargoTomlSchemaDetector\|pyprojectTomlSchemaDetector" src/lib/formats/adapters/toml.tsx; then
+      ok "toml adapter composes both Cargo + pyproject detectors"
+    else
+      fail "toml adapter detector composition broken"
+    fi
+
+    note "WI-5.3 (OpenAPI / Swagger browser) DEFERRED to Phase 5b per the plan"
+    ;;
+
+  6)
+    note "Phase 6 DoD script not yet implemented"
+    note "(this is expected during Phase 5 — phases write their own checks)"
     exit 0
     ;;
 

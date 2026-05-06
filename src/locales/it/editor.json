@@ -281,5 +281,10 @@
   "preview.htmlIframeTitle": "HTML preview",
   "readOnly.label": "{{format}} — read-only by default",
   "readOnly.enableEditing": "Enable editing",
-  "readOnly.openExternal": "Open in external editor"
+  "readOnly.openExternal": "Open in external editor",
+  "npm.peerDependencies": "Peer dependencies",
+  "npm.optionalDependencies": "Optional dependencies",
+  "python.optionalGroup": "Optional [{{group}}]",
+  "python.poetryDependencies": "Poetry dependencies",
+  "python.poetryDevDependencies": "Poetry dev dependencies"
 }

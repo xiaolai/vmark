@@ -18,6 +18,10 @@ import {
   CargoTomlSchemaRenderer,
   cargoTomlSchemaDetector,
 } from "./cargoToml";
+import {
+  PyprojectTomlSchemaRenderer,
+  pyprojectTomlSchemaDetector,
+} from "./pyprojectToml";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -104,9 +108,14 @@ export const tomlFormat: FormatConfig = {
   },
   validator: tomlValidator,
   genericPreview: TomlTreePreview,
-  schemaDetector: cargoTomlSchemaDetector,
+  // Composed detector: try Cargo first (filename match wins), then
+  // pyproject. Both detectors are pure and side-effect-free.
+  schemaDetector: (path, content) =>
+    cargoTomlSchemaDetector(path, content) ??
+    pyprojectTomlSchemaDetector(path, content),
   schemaRenderers: {
     "cargo-toml": CargoTomlSchemaRenderer,
+    "pyproject-toml": PyprojectTomlSchemaRenderer,
   },
   adapters: {
     saveDialogFilters: [{ name: "TOML", extensions: ["toml"] }],

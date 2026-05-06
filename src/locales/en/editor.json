@@ -14,6 +14,11 @@
   "cargo.devDependencies": "Dev dependencies",
   "cargo.buildDependencies": "Build dependencies",
   "cargo.empty": "No dependencies declared.",
+  "npm.peerDependencies": "Peer dependencies",
+  "npm.optionalDependencies": "Optional dependencies",
+  "python.optionalGroup": "Optional [{{group}}]",
+  "python.poetryDependencies": "Poetry dependencies",
+  "python.poetryDevDependencies": "Poetry dev dependencies",
 
   "toolbar.group.heading": "Heading",
   "toolbar.group.inline": "Inline",

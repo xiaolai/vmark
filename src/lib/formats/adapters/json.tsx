@@ -14,6 +14,10 @@ import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import { JsonView, defaultStyles } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
+import {
+  PackageJsonSchemaRenderer,
+  packageJsonSchemaDetector,
+} from "./packageJson";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -179,6 +183,10 @@ export const jsonFormat: FormatConfig = {
   },
   validator: jsonValidator,
   genericPreview: JsonTreePreview,
+  schemaDetector: packageJsonSchemaDetector,
+  schemaRenderers: {
+    "package-json": PackageJsonSchemaRenderer,
+  },
   adapters: {
     saveDialogFilters: [{ name: "JSON", extensions: ["json", "jsonl"] }],
     untitledExtension: "json",
