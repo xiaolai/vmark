@@ -33,7 +33,7 @@ import { create } from "zustand";
 import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { getFileName, normalizePath } from "@/utils/paths";
-import { stripMarkdownExtension } from "@/utils/dropPaths";
+import { stripSupportedExtension } from "@/utils/dropPaths";
 import { dispatchEditor } from "@/lib/formats/registry";
 
 /** A single editor tab with ID, optional file path, display title, pin state,
@@ -116,7 +116,7 @@ const getTabTitle = (filePath: string | null, untitledNum?: number): string => {
   }
   // Extract filename without markdown extension
   const name = getFileName(filePath) || filePath;
-  return stripMarkdownExtension(name);
+  return stripSupportedExtension(name);
 };
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */

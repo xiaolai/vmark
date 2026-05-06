@@ -43,6 +43,9 @@ beforeEach(() => {
   resetTabStore();
   __resetRegistry();
   registerMarkdownFormat();
+  // tab titles strip every registered extension; txt must be live so
+  // the legacy "strip .txt" tests stay green.
+  registerInlineTxt();
 });
 
 describe("tabStore", () => {
@@ -721,7 +724,6 @@ describe("tabStore", () => {
     });
 
     it("updateTabPath fires no toast when formatId is unchanged", () => {
-      registerInlineTxt();
       const store = useTabStore.getState();
       const id = store.createTab("main", "/docs/foo.md");
       vi.mocked(toast.info).mockClear();
@@ -730,7 +732,6 @@ describe("tabStore", () => {
     });
 
     it("updateTabPath fires kind-change toast when formatId differs (markdown → txt)", () => {
-      registerInlineTxt();
       const store = useTabStore.getState();
       const id = store.createTab("main", "/docs/foo.md");
       vi.mocked(toast.info).mockClear();
@@ -740,7 +741,6 @@ describe("tabStore", () => {
     });
 
     it("createTransferredTab honors a caller-provided formatId", () => {
-      registerInlineTxt();
       const store = useTabStore.getState();
       store.createTransferredTab("main", {
         id: "tab-pinned-format",

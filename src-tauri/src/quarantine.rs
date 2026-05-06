@@ -1,22 +1,27 @@
 //! # Quarantine
 //!
 //! Purpose: Clear `com.apple.quarantine` xattr from a workspace root and its
-//! direct `.md` children so subsequent Finder opens are not silently dropped
-//! by macOS Launch Services / CoreServicesUIAgent on running Tauri apps.
+//! direct children with a registered VMark extension, so subsequent Finder
+//! opens are not silently dropped by macOS Launch Services /
+//! CoreServicesUIAgent on running Tauri apps.
 //!
 //! Pipeline: frontend `openWorkspaceWithConfig` → `strip_workspace_quarantine`
-//! command → strips xattr on root + depth-1 markdown files → returns counts.
+//! command → strips xattr on root + depth-1 supported-format files →
+//! returns counts.
 //!
 //! Key decisions:
-//!   - Scope is bounded: root directory + direct `.md` children only. No
-//!     recursion. Keeps the operation predictable and fast on huge folders.
+//!   - Scope is bounded: root directory + direct supported-extension
+//!     children only. No recursion. Keeps the operation predictable and
+//!     fast on huge folders.
 //!   - macOS-only. The xattr strip is a no-op on other platforms — the
 //!     command exists on all platforms but returns an empty result so the
 //!     frontend can call it unconditionally.
 //!   - Best-effort: per-entry failures are logged and counted, never fatal.
 //!     The workspace open must succeed even if quarantine cannot be cleared.
-//!   - `.md` only: matches the editor's domain. Other file types in the
-//!     folder keep their quarantine markers.
+//!   - Registered-extension only: matches `SUPPORTED_EXTENSIONS` from the
+//!     format registry. Phase 1B (WI-1B.16) extended the scope from
+//!     markdown-only so newly-supported formats reach the same Finder
+//!     "Open With" guarantee.
 
 #[cfg(target_os = "macos")]
 use std::path::Path;
@@ -94,7 +99,7 @@ pub fn strip_workspace_quarantine(root: &Path) -> StripStats {
         if !path.is_file() {
             continue;
         }
-        if !crate::has_markdown_extension(&path) {
+        if !crate::has_supported_extension(&path) {
             continue;
         }
         match strip_one(&path) {
@@ -153,30 +158,36 @@ mod tests {
     }
 
     #[test]
-    fn strips_root_dir_and_direct_md_children() {
+    fn strips_root_and_every_supported_extension_child() {
+        // WI-1B.16: scope expanded from .md-only to every registered
+        // format. Verifies markdown + txt + json + yaml + html now all
+        // get cleared, while an unregistered extension (.png) is left
+        // alone.
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
-        let md1 = root.join("a.md");
-        let md2 = root.join("b.markdown");
+        let md = root.join("a.md");
+        let markdown = root.join("b.markdown");
         let txt = root.join("c.txt");
-        fs::write(&md1, b"# a").unwrap();
-        fs::write(&md2, b"# b").unwrap();
-        fs::write(&txt, b"text").unwrap();
+        let json = root.join("d.json");
+        let yaml = root.join("e.yaml");
+        let html = root.join("f.html");
+        let png = root.join("g.png");
+        for path in [&md, &markdown, &txt, &json, &yaml, &html, &png] {
+            fs::write(path, b"data").unwrap();
+            set_quarantine(path);
+        }
         set_quarantine(root);
-        set_quarantine(&md1);
-        set_quarantine(&md2);
-        set_quarantine(&txt);
 
         let stats = strip_workspace_quarantine(root);
 
         assert_eq!(stats.error_count, 0);
-        // Root + md1 + md2 → 3. txt is left alone.
-        assert_eq!(stats.stripped_count, 3);
+        // Root + 6 supported children = 7. .png is left alone.
+        assert_eq!(stats.stripped_count, 7);
+        for path in [&md, &markdown, &txt, &json, &yaml, &html] {
+            assert!(!has_quarantine(path), "{} kept attr", path.display());
+        }
         assert!(!has_quarantine(root));
-        assert!(!has_quarantine(&md1));
-        assert!(!has_quarantine(&md2));
-        // .txt keeps its attribute — out of scope.
-        assert!(has_quarantine(&txt));
+        assert!(has_quarantine(&png), "unregistered .png should keep attr");
     }
 
     #[test]

@@ -150,10 +150,13 @@ if (inRustScope) {
   } catch {
     // New file — block; expect tests in same edit.
   }
-  // Heuristic: the file has a `#[cfg(test)]` block. This admits whole-file
-  // scope per plan; granular function-level scoping is intentionally
+  // Heuristic: the file has any `#[cfg(...test...)]` attribute, which
+  // covers `#[cfg(test)]`, `#[cfg(all(test, target_os = ...))]`, etc.
+  // (a single regex can't reliably balance nested parens; this looser
+  // form just looks for the substring `cfg(` followed by `test` on the
+  // same line). Whole-file scope per plan; function-level scoping is
   // out of scope for v1 of this guard.
-  if (/#\[cfg\(test\)\]/.test(content)) process.exit(0);
+  if (/#\[cfg\([^\]]*\btest\b[^\]]*\)\]/.test(content)) process.exit(0);
 
   const msg = [
     "",

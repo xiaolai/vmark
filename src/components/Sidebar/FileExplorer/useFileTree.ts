@@ -26,7 +26,12 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, FsChangeEvent, DirectoryEntry } from "./types";
 import { shouldRefreshTree } from "@/utils/fsEventFilter";
-import { isMarkdownFileName, isVMarkFileName, stripMarkdownExtension } from "@/utils/dropPaths";
+import {
+  isMarkdownFileName,
+  isSupportedFileName,
+  isVMarkFileName,
+  stripSupportedExtension,
+} from "@/utils/dropPaths";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
 import { fileExplorerError } from "@/utils/debug";
@@ -70,7 +75,7 @@ async function loadDirectoryRecursive(
           id: fullPath,
           name: (options.showAllFiles && !isMarkdownFileName(name))
             ? name
-            : stripMarkdownExtension(name),
+            : stripSupportedExtension(name),
           isFolder: false,
         });
       }
@@ -89,8 +94,12 @@ async function loadDirectoryRecursive(
   }
 }
 
+// Phase 1B: file explorer surfaces every registered format. The
+// workflow-engine + markdown-only narrowing of the legacy filter is
+// preserved as a fallback when the registry isn't bootstrapped.
 const mdFilter = (name: string, isFolder: boolean): boolean => {
   if (isFolder) return true;
+  if (isSupportedFileName(name)) return true;
   if (isWorkflowEnabled()) return isVMarkFileName(name);
   return isMarkdownFileName(name);
 };
