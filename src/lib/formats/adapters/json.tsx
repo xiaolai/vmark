@@ -10,6 +10,7 @@
 // document. Lines that are blank or whitespace-only are skipped.
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import { JsonView, defaultStyles } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
@@ -93,6 +94,9 @@ export const jsonValidator: Validator = (content, path) => {
     return out;
   }
   if (content.length === 0) {
+    // Translation key resolved by the gutter UI; the validator emits
+    // a stable ruleId so consumers can localize without parsing the
+    // English message.
     return [
       {
         severity: "error",
@@ -121,6 +125,7 @@ export const jsonValidator: Validator = (content, path) => {
 };
 
 function JsonTreePreview({ content, path, diagnostics }: PreviewRendererProps) {
+  const { t } = useTranslation("editor");
   const parsed = useMemo(() => {
     try {
       if (isJsonlPath(path ?? undefined)) {
@@ -142,11 +147,14 @@ function JsonTreePreview({ content, path, diagnostics }: PreviewRendererProps) {
   if (parsed === null) {
     return (
       <div className="json-tree-preview json-tree-preview--invalid">
-        <span>Cannot render preview — fix syntax errors</span>
+        <span>{t("preview.cannotRender")}</span>
         {diagnostics[0] && (
           <span className="json-tree-preview__hint">
             {" "}
-            ({diagnostics[0].line}:{diagnostics[0].column})
+            {t("preview.errorAt", {
+              line: diagnostics[0].line,
+              column: diagnostics[0].column,
+            })}
           </span>
         )}
       </div>

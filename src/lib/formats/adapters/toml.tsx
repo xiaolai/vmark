@@ -9,6 +9,7 @@
 // is shared.
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import { JsonView, defaultStyles } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
@@ -56,6 +57,7 @@ export const tomlValidator: Validator = (content) => {
 };
 
 function TomlTreePreview({ content, diagnostics }: PreviewRendererProps) {
+  const { t } = useTranslation("editor");
   const parsed = useMemo(() => {
     try {
       return parseToml(content);
@@ -67,11 +69,14 @@ function TomlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   if (parsed === null) {
     return (
       <div className="toml-tree-preview toml-tree-preview--invalid">
-        <span>Cannot render preview — fix syntax errors</span>
+        <span>{t("preview.cannotRender")}</span>
         {diagnostics[0] && (
           <span className="toml-tree-preview__hint">
             {" "}
-            ({diagnostics[0].line}:{diagnostics[0].column})
+            {t("preview.errorAt", {
+              line: diagnostics[0].line,
+              column: diagnostics[0].column,
+            })}
           </span>
         )}
       </div>

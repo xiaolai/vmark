@@ -22,7 +22,11 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
 import { useDocumentStore } from "@/stores/documentStore";
-import type { FormatConfig, PreviewRenderer } from "@/lib/formats/types";
+import type {
+  FormatConfig,
+  PreviewRenderer,
+  ValidationDiagnostic,
+} from "@/lib/formats/types";
 import "./split-pane-editor.css";
 
 export interface SplitPaneEditorProps {
@@ -44,6 +48,7 @@ function clamp(n: number): number {
 export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const { t } = useTranslation("editor");
   const [fraction, setFraction] = useState(DEFAULT_FRACTION);
+  const [diagnostics, setDiagnostics] = useState<ValidationDiagnostic[]>([]);
 
   // WI-2.4 — schema-aware preview dispatch. When the format declares a
   // schemaDetector AND the active document matches a registered
@@ -106,6 +111,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
           tabId={tabId}
           formatId={formatConfig.id}
           formatConfig={formatConfig}
+          onDiagnostics={setDiagnostics}
         />
       </div>
       {hasPreview && (
@@ -123,7 +129,11 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
       )}
       {hasPreview && Preview && (
         <div className="split-pane-editor__preview">
-          <Preview content={content} path={filePath} diagnostics={[]} />
+          <Preview
+            content={content}
+            path={filePath}
+            diagnostics={diagnostics}
+          />
         </div>
       )}
     </div>

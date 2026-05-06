@@ -9,13 +9,16 @@
 // resolution, no crates.io lookup, no transitive resolution.
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { parse as parseToml } from "smol-toml";
 import type {
   PreviewRendererProps,
   SchemaDetector,
 } from "../types";
 
-const CARGO_FILENAME_RE = /(^|\/)cargo\.toml$/i;
+// Cross-platform separator — Windows uses backslash. Strip query/fragment
+// per dispatchEditor parity.
+const CARGO_FILENAME_RE = /(^|[/\\])cargo\.toml($|[?#])/i;
 
 /**
  * Detector precedence per ADR-5: filename match wins, content fallback
@@ -23,8 +26,14 @@ const CARGO_FILENAME_RE = /(^|\/)cargo\.toml$/i;
  * names (rare but valid in Cargo workspaces).
  */
 export const cargoTomlSchemaDetector: SchemaDetector = (path, content) => {
-  if (path && CARGO_FILENAME_RE.test(path)) return "cargo-toml";
+  // Append a sentinel so the path-tail regex catches Cargo.toml at the
+  // very end of the string too (no trailing slash).
+  if (path && CARGO_FILENAME_RE.test(path + "$")) return "cargo-toml";
+  // Content fallback — accept manifests with non-standard names
+  // (rare but valid in Cargo workspaces).
   if (/^\s*\[package\]/m.test(content)) return "cargo-toml";
+  // Workspace + virtual-manifest fallback per Codex audit.
+  if (/^\s*\[workspace\]/m.test(content)) return "cargo-toml";
   return null;
 };
 
@@ -127,6 +136,7 @@ export function CargoTomlSchemaRenderer({
   content,
   diagnostics,
 }: PreviewRendererProps) {
+  const { t } = useTranslation("editor");
   const result = useMemo(() => collectCargoDependencies(content), [content]);
   const totalDeps =
     result.runtime.length + result.dev.length + result.build.length;
@@ -135,21 +145,33 @@ export function CargoTomlSchemaRenderer({
     <div className="cargo-deps" data-schema="cargo-toml">
       {result.parseError && (
         <div className="cargo-deps__parse-error">
-          Cannot render dependency tree — fix syntax errors
+          {t("preview.cannotRender")}
           {diagnostics[0] && (
             <span>
               {" "}
-              ({diagnostics[0].line}:{diagnostics[0].column})
+              {t("preview.errorAt", {
+                line: diagnostics[0].line,
+                column: diagnostics[0].column,
+              })}
             </span>
           )}
         </div>
       )}
       {!result.parseError && totalDeps === 0 && (
-        <div className="cargo-deps__empty">No dependencies declared.</div>
+        <div className="cargo-deps__empty">{t("cargo.empty")}</div>
       )}
-      <DependencyList title="Dependencies" deps={result.runtime} />
-      <DependencyList title="Dev dependencies" deps={result.dev} />
-      <DependencyList title="Build dependencies" deps={result.build} />
+      <DependencyList
+        title={t("cargo.dependencies")}
+        deps={result.runtime}
+      />
+      <DependencyList
+        title={t("cargo.devDependencies")}
+        deps={result.dev}
+      />
+      <DependencyList
+        title={t("cargo.buildDependencies")}
+        deps={result.build}
+      />
     </div>
   );
 }

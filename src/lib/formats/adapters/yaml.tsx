@@ -7,6 +7,7 @@
 // WI-2.4 wires GHA-workflow schemaDetector into this adapter.
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import jsYaml from "js-yaml";
 import { JsonView, defaultStyles } from "react-json-view-lite";
@@ -61,15 +62,27 @@ export const yamlValidator: Validator = (content) => {
 /**
  * WI-2.4 — GitHub Actions workflow schema detector.
  *
- * ADR-5 precedence: path detection wins over content detection. A
- * file under `.github/workflows/` routes to the workflow renderer
- * even with malformed YAML so the user sees a degraded view with
- * diagnostics instead of falling back to a generic tree.
+ * ADR-5 precedence:
+ *   1. Path detection wins. A file under `.github/workflows/` routes
+ *      to the workflow renderer even with malformed YAML so the user
+ *      sees a degraded view with diagnostics.
+ *   2. Content detection on syntactically invalid content returns null
+ *      — the regex-based shape check is gated on a successful YAML
+ *      parse so a regex hit on broken YAML doesn't false-positive.
  */
 export const yamlSchemaDetector: SchemaDetector = (path, content) => {
   if (looksLikeWorkflowPath(path)) return "gha-workflow";
-  if (isWorkflowYaml(content)) return "gha-workflow";
-  return null;
+  // Cheap shape pre-filter before the parse — if the regex doesn't
+  // match, we can return null without paying for jsYaml.load.
+  if (!isWorkflowYaml(content)) return null;
+  // Per ADR-5: content detection on syntactically invalid content
+  // returns null. Run the parser; on failure, decline.
+  try {
+    jsYaml.load(content);
+  } catch {
+    return null;
+  }
+  return "gha-workflow";
 };
 
 /**
@@ -84,6 +97,7 @@ function GhaWorkflowSchemaRenderer({
   path,
   diagnostics,
 }: PreviewRendererProps) {
+  const { t } = useTranslation("editor");
   const parseResult = useMemo(() => {
     try {
       const fileName = path
@@ -105,11 +119,14 @@ function GhaWorkflowSchemaRenderer({
         className="yaml-tree-preview yaml-tree-preview--invalid"
         data-schema="gha-workflow"
       >
-        <span>Workflow parse failed — fix syntax errors</span>
+        <span>{t("preview.workflowParseFailed")}</span>
         {diagnostics[0] && (
           <span className="yaml-tree-preview__hint">
             {" "}
-            ({diagnostics[0].line}:{diagnostics[0].column})
+            {t("preview.errorAt", {
+              line: diagnostics[0].line,
+              column: diagnostics[0].column,
+            })}
           </span>
         )}
       </div>
@@ -128,6 +145,7 @@ function GhaWorkflowSchemaRenderer({
 }
 
 function YamlTreePreview({ content, diagnostics }: PreviewRendererProps) {
+  const { t } = useTranslation("editor");
   const parsed = useMemo(() => {
     try {
       return jsYaml.load(content);
@@ -139,11 +157,14 @@ function YamlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   if (parsed == null) {
     return (
       <div className="yaml-tree-preview yaml-tree-preview--invalid">
-        <span>Cannot render preview — fix syntax errors</span>
+        <span>{t("preview.cannotRender")}</span>
         {diagnostics[0] && (
           <span className="yaml-tree-preview__hint">
             {" "}
-            ({diagnostics[0].line}:{diagnostics[0].column})
+            {t("preview.errorAt", {
+              line: diagnostics[0].line,
+              column: diagnostics[0].column,
+            })}
           </span>
         )}
       </div>

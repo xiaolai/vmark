@@ -264,5 +264,13 @@
   "lint.yamlParseWarning": "YAML: {{message}}",
   "splitPane.editorLabel": "Editor for {{format}}",
   "splitPane.resize": "Resize source / preview",
-  "splitPane.validationDiagnostics": "Validation diagnostics"
+  "splitPane.validationDiagnostics": "Validation diagnostics",
+  "preview.cannotRender": "Cannot render preview — fix syntax errors",
+  "preview.errorAt": "({{line}}:{{column}})",
+  "preview.emptyDocument": "Empty document",
+  "preview.workflowParseFailed": "Workflow parse failed — fix syntax errors",
+  "cargo.dependencies": "Dependencies",
+  "cargo.devDependencies": "Dev dependencies",
+  "cargo.buildDependencies": "Build dependencies",
+  "cargo.empty": "No dependencies declared."
 }

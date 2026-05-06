@@ -118,6 +118,33 @@ deps:
       expect(yamlSchemaDetector("/x/config.yaml", yaml)).toBeNull();
     });
 
+    it("returns null for syntactically invalid YAML even with workflow shape (ADR-5)", () => {
+      // The regex shape check would match top-level on:/jobs:, but the
+      // content fails to parse. Per ADR-5 rule 3 the detector must
+      // return null — the path-first branch already covers files under
+      // .github/workflows/, where we *do* keep the schema id even on
+      // broken YAML.
+      const broken = `
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo: : ::: invalid
+      `.trim();
+      expect(yamlSchemaDetector("/x/random.yaml", broken)).toBeNull();
+    });
+
+    it("path detection still wins on syntactically invalid YAML", () => {
+      // Same broken content, but path is .github/workflows/ — the
+      // user sees a degraded view with diagnostics instead of a tree.
+      const broken = "::: invalid yaml :::";
+      expect(
+        yamlSchemaDetector("/repo/.github/workflows/ci.yml", broken),
+      ).toBe("gha-workflow");
+    });
+
     it("returns null for empty content + unrelated path", () => {
       expect(yamlSchemaDetector("/x/random.yaml", "")).toBeNull();
     });
