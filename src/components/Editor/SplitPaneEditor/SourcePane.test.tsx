@@ -9,24 +9,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FormatConfig } from "@/lib/formats/types";
 import { SourcePane } from "./SourcePane";
 
+// Mutable mock state so individual tests can simulate async store
+// updates that arrive after the editor has mounted.
+const mockState = {
+  documents: {
+    "tab-1": { content: "hello world", filePath: "/foo.txt" as string | null },
+  } as Record<string, { content: string; filePath: string | null }>,
+  getDocument: (id: string) => mockState.documents[id],
+  setContent: vi.fn((id: string, content: string) => {
+    mockState.documents[id] = { ...mockState.documents[id], content };
+  }),
+};
+
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: Object.assign(
     (selector?: (state: unknown) => unknown) => {
-      const state = {
-        documents: {
-          "tab-1": { content: "hello world", filePath: "/foo.txt" },
-        },
-        getDocument: () => ({ content: "hello world", filePath: "/foo.txt" }),
-      };
-      return selector ? selector(state) : state;
+      return selector ? selector(mockState) : mockState;
     },
     {
-      getState: () => ({
-        documents: {
-          "tab-1": { content: "hello world", filePath: "/foo.txt" },
-        },
-        getDocument: () => ({ content: "hello world", filePath: "/foo.txt" }),
-      }),
+      getState: () => mockState,
       subscribe: () => () => {},
     },
   ),
@@ -76,5 +77,39 @@ describe("SourcePane", () => {
       <SourcePane tabId="tab-1" formatId="txt" formatConfig={txtConfig} />,
     );
     expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("renders content from the document store on mount", () => {
+    const { container } = render(
+      <SourcePane tabId="tab-1" formatId="txt" formatConfig={txtConfig} />,
+    );
+    // CodeMirror renders content into .cm-content (per CodeMirror v6 DOM).
+    const cm = container.querySelector(".cm-content");
+    expect(cm).not.toBeNull();
+    expect(cm?.textContent ?? "").toContain("hello world");
+  });
+
+  it("re-syncs the editor when the store content updates after mount", async () => {
+    mockState.documents["tab-1"] = {
+      content: "initial",
+      filePath: "/foo.txt",
+    };
+    const { container, rerender } = render(
+      <SourcePane tabId="tab-1" formatId="txt" formatConfig={txtConfig} />,
+    );
+    expect(container.querySelector(".cm-content")?.textContent ?? "").toContain(
+      "initial",
+    );
+    // Simulate the file load completing — store content updates after mount.
+    mockState.documents["tab-1"] = {
+      content: "loaded after mount",
+      filePath: "/foo.txt",
+    };
+    rerender(
+      <SourcePane tabId="tab-1" formatId="txt" formatConfig={txtConfig} />,
+    );
+    expect(container.querySelector(".cm-content")?.textContent ?? "").toContain(
+      "loaded after mount",
+    );
   });
 });
