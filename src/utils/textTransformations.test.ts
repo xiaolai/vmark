@@ -17,7 +17,6 @@ import {
   sortLinesAscending,
   sortLinesDescending,
   getLinesInRange,
-  getLineBoundaries,
 } from "./textTransformations";
 
 describe("Case Transformations", () => {
@@ -250,32 +249,6 @@ describe("Line Operations", () => {
       const text = "only line";
       const result = sortLinesDescending(text, 0, 8);
       expect(result.newText).toBe("only line");
-    });
-  });
-
-  describe("getLineBoundaries", () => {
-    it("returns boundaries for first line", () => {
-      const text = "first\nsecond\nthird";
-      const result = getLineBoundaries(text, 2);
-      expect(result).toEqual({ lineStart: 0, lineEnd: 5, lineText: "first" });
-    });
-
-    it("returns boundaries for middle line", () => {
-      const text = "first\nsecond\nthird";
-      const result = getLineBoundaries(text, 8);
-      expect(result).toEqual({ lineStart: 6, lineEnd: 12, lineText: "second" });
-    });
-
-    it("returns boundaries for last line", () => {
-      const text = "first\nsecond\nthird";
-      const result = getLineBoundaries(text, 15);
-      expect(result).toEqual({ lineStart: 13, lineEnd: 18, lineText: "third" });
-    });
-
-    it("handles single line text", () => {
-      const text = "only line";
-      const result = getLineBoundaries(text, 4);
-      expect(result).toEqual({ lineStart: 0, lineEnd: 9, lineText: "only line" });
     });
   });
 
