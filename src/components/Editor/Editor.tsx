@@ -50,12 +50,24 @@ export function Editor() {
   // owns this so non-markdown tabs receive menu events too.
   useUnifiedMenuCommands();
 
+  // WI-4.3 — keying by tabId+formatId forces a remount on tab switch
+  // and on kind change (markdown → txt → json …) so per-tab state in
+  // SplitPaneEditor / MarkdownEditorSurface (split fraction, lazy-
+  // language load) doesn't leak across tabs.
+  const key = `${tabId ?? "no-tab"}-${formatConfig.id}`;
+
   if (formatConfig.kind === "wysiwyg") {
     /* v8 ignore next -- @preserve markdown surface dispatch — the only kind="wysiwyg" today */
     const Surface = formatConfig.wysiwygComponent ?? MarkdownEditorSurface;
-    return <Surface tabId={tabId ?? ""} />;
+    return <Surface key={key} tabId={tabId ?? ""} />;
   }
-  return <SplitPaneEditor tabId={tabId ?? ""} formatConfig={formatConfig} />;
+  return (
+    <SplitPaneEditor
+      key={key}
+      tabId={tabId ?? ""}
+      formatConfig={formatConfig}
+    />
+  );
 }
 
 export default Editor;

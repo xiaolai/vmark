@@ -24,6 +24,7 @@ import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
 import { ReadOnlyBanner } from "./ReadOnlyBanner";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useTabStore } from "@/stores/tabStore";
 import type {
   FormatConfig,
   PreviewRenderer,
@@ -51,11 +52,13 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const { t } = useTranslation("editor");
   const [fraction, setFraction] = useState(DEFAULT_FRACTION);
   const [diagnostics, setDiagnostics] = useState<ValidationDiagnostic[]>([]);
-  // WI-4.3 — per-tab editing override. When true, the ReadOnlyBanner
-  // hides and the SourcePane mounts in read-write mode regardless of
-  // formatConfig.adapters.readOnlyDefault. Keyed by tabId so each
-  // tab tracks its own state.
-  const [editingEnabled, setEditingEnabled] = useState(false);
+  // WI-4.3 — per-tab editing override sourced from tabStore so it
+  // survives tab switches. The Tab.editingEnabled flag persists in
+  // the store; SplitPaneEditor reads it and dispatches to set it.
+  const editingEnabled = useTabStore((s) => {
+    const found = s.findTabById?.(tabId) ?? null;
+    return Boolean(found?.editingEnabled);
+  });
 
   // WI-2.4 — schema-aware preview dispatch. When the format declares a
   // schemaDetector AND the active document matches a registered
@@ -134,7 +137,9 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
       {showReadOnlyBanner && (
         <ReadOnlyBanner
           formatNameI18nKey={formatConfig.nameI18nKey}
-          onEnableEditing={() => setEditingEnabled(true)}
+          onEnableEditing={() =>
+            useTabStore.getState().setTabEditingEnabled(tabId, true)
+          }
           onOpenExternal={filePath ? handleOpenExternal : undefined}
         />
       )}

@@ -29,11 +29,16 @@ export function ReadOnlyBanner({
   hidden = false,
 }: ReadOnlyBannerProps) {
   const { t } = useTranslation("editor");
+  // Format names live in the `common` namespace (src/locales/en/common.json
+  // — keys like format.markdown / format.codeRust). useTranslation defaults
+  // to "common" too, but we passed "editor" for the readOnly.* keys; need
+  // to resolve format names from common explicitly.
+  const { t: tCommon } = useTranslation("common");
   if (hidden) return null;
   return (
     <div className="read-only-banner" role="status">
       <span className="read-only-banner__label">
-        {t("readOnly.label", { format: t(formatNameI18nKey) })}
+        {t("readOnly.label", { format: tCommon(formatNameI18nKey) })}
       </span>
       <div className="read-only-banner__actions">
         <button

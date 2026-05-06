@@ -37,7 +37,8 @@ import { stripSupportedExtension } from "@/utils/dropPaths";
 import { dispatchEditor } from "@/lib/formats/registry";
 
 /** A single editor tab with ID, optional file path, display title, pin state,
- *  and the format adapter id (derived from filePath via dispatchEditor). */
+ *  the format adapter id (derived from filePath via dispatchEditor), and the
+ *  WI-4.3 per-tab editingEnabled override. */
 export interface Tab {
   id: string;
   filePath: string | null; // null = untitled
@@ -47,6 +48,10 @@ export interface Tab {
    *  on createTab/createTransferredTab/updateTabPath. The Editor surface keys on
    *  this; a kind change triggers remount + undo reset + toast (ADR-10). */
   formatId: string;
+  /** WI-4.3 — per-tab override of `formatConfig.adapters.readOnlyDefault`.
+   *  When true, the editor mounts read-write even for kind="viewer"
+   *  formats. Persists across tab switches; resets on tab close. */
+  editingEnabled?: boolean;
 }
 
 function deriveFormatId(filePath: string | null): string {
@@ -84,6 +89,7 @@ interface TabActions {
 
   // Tab state
   setActiveTab: (windowLabel: string, tabId: string) => void;
+  setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
   updateTabPath: (tabId: string, filePath: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
@@ -267,6 +273,19 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     set((state) => ({
       activeTabId: { ...state.activeTabId, [windowLabel]: tabId },
     }));
+  },
+
+  /** WI-4.3 — promote a tab to read-write or revert to read-only. */
+  setTabEditingEnabled: (tabId: string, enabled: boolean) => {
+    set((state) => {
+      const newTabs = { ...state.tabs };
+      for (const windowLabel of Object.keys(newTabs)) {
+        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
+          t.id === tabId ? { ...t, editingEnabled: enabled } : t,
+        );
+      }
+      return { tabs: newTabs };
+    });
   },
 
   updateTabPath: (tabId, filePath) => {
