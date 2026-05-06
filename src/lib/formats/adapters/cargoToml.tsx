@@ -16,9 +16,10 @@ import type {
   SchemaDetector,
 } from "../types";
 
-// Cross-platform separator — Windows uses backslash. Strip query/fragment
-// per dispatchEditor parity.
-const CARGO_FILENAME_RE = /(^|[/\\])cargo\.toml($|[?#])/i;
+// Cross-platform separator — accept both POSIX `/` and Windows `\`.
+// Anchored at end-of-string after stripping query/fragment so paths
+// like `/repo/Cargo.toml?reload=1` still match.
+const CARGO_FILENAME_RE = /(^|[/\\])cargo\.toml$/i;
 
 /**
  * Detector precedence per ADR-5: filename match wins, content fallback
@@ -26,9 +27,11 @@ const CARGO_FILENAME_RE = /(^|[/\\])cargo\.toml($|[?#])/i;
  * names (rare but valid in Cargo workspaces).
  */
 export const cargoTomlSchemaDetector: SchemaDetector = (path, content) => {
-  // Append a sentinel so the path-tail regex catches Cargo.toml at the
-  // very end of the string too (no trailing slash).
-  if (path && CARGO_FILENAME_RE.test(path + "$")) return "cargo-toml";
+  if (path) {
+    // Strip query/fragment for parity with dispatchEditor.
+    const stripped = path.replace(/[?#].*$/, "");
+    if (CARGO_FILENAME_RE.test(stripped)) return "cargo-toml";
+  }
   // Content fallback — accept manifests with non-standard names
   // (rare but valid in Cargo workspaces).
   if (/^\s*\[package\]/m.test(content)) return "cargo-toml";

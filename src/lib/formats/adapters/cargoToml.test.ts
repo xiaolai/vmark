@@ -52,6 +52,32 @@ describe("cargoToml schema detector", () => {
       cargoTomlSchemaDetector("/repo/CARGO.TOML", "[package]"),
     ).toBe("cargo-toml");
   });
+
+  it("matches Windows-style paths with backslash separator", () => {
+    expect(
+      cargoTomlSchemaDetector("C:\\code\\repo\\Cargo.toml", ""),
+    ).toBe("cargo-toml");
+  });
+
+  it("strips query string before path match", () => {
+    expect(
+      cargoTomlSchemaDetector("/repo/Cargo.toml?reload=1", ""),
+    ).toBe("cargo-toml");
+  });
+
+  it("returns 'cargo-toml' for [workspace]-only virtual manifests", () => {
+    const yaml = `
+[workspace]
+members = ["crate-a", "crate-b"]
+    `.trim();
+    expect(cargoTomlSchemaDetector("/repo/Cargo.toml", yaml)).toBe(
+      "cargo-toml",
+    );
+    // Even with an unrelated filename, the [workspace] header wins.
+    expect(cargoTomlSchemaDetector("/x/odd-name.toml", yaml)).toBe(
+      "cargo-toml",
+    );
+  });
 });
 
 describe("collectCargoDependencies", () => {
