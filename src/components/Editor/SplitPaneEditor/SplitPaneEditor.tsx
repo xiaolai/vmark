@@ -19,6 +19,7 @@
 // is held in component state and clamped to [0.2, 0.8].
 
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
 import type { FormatConfig } from "@/lib/formats/types";
 import "./split-pane-editor.css";
@@ -40,6 +41,7 @@ function clamp(n: number): number {
 }
 
 export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
+  const { t } = useTranslation("editor");
   const [fraction, setFraction] = useState(DEFAULT_FRACTION);
   const Preview = formatConfig.genericPreview;
   const hasPreview = Boolean(Preview);
@@ -64,7 +66,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
     <div
       className="split-pane-editor"
       role="group"
-      aria-label={`Editor for ${formatConfig.id}`}
+      aria-label={t("splitPane.editorLabel", { format: formatConfig.id })}
       data-format-id={formatConfig.id}
       style={
         {
@@ -86,7 +88,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
           className="split-pane-editor__resize-handle"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize source / preview"
+          aria-label={t("splitPane.resize")}
           aria-valuemin={MIN_FRACTION * 100}
           aria-valuemax={MAX_FRACTION * 100}
           aria-valuenow={Math.round(fraction * 100)}

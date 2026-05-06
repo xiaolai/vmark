@@ -112,6 +112,15 @@ describe("format registry", () => {
       ).toThrowError(/wysiwygComponent/);
     });
 
+    it("rejects wysiwyg kind that also declares loadLanguage", () => {
+      expect(() =>
+        registerFormat({
+          ...mdConfig,
+          loadLanguage: async () => ({}) as never,
+        }),
+      ).toThrowError(/wysiwyg.*loadLanguage/i);
+    });
+
     it("allows split-pane stub without loadLanguage (Phase 1A stub fallback)", () => {
       const stub: FormatConfig = {
         id: "json",
@@ -194,6 +203,18 @@ describe("format registry", () => {
 
     it("returns plain-text fallback for paths with no extension", () => {
       expect(dispatchEditor("/x/Makefile").id).toBe("txt");
+    });
+
+    it("strips query string before extension match", () => {
+      expect(dispatchEditor("/x/foo.md?reload=1").id).toBe("markdown");
+    });
+
+    it("strips fragment before extension match", () => {
+      expect(dispatchEditor("/x/foo.md#section").id).toBe("markdown");
+    });
+
+    it("strips both query and fragment", () => {
+      expect(dispatchEditor("/x/foo.txt?v=2#l3").id).toBe("txt");
     });
   });
 

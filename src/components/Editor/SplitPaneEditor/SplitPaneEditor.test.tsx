@@ -154,6 +154,56 @@ describe("SplitPaneEditor", () => {
       expect(parseFloat(after)).toBeGreaterThan(parseFloat(before));
     });
 
+    it("Home key snaps to minimum fraction (0.2)", async () => {
+      const user = userEvent.setup();
+      const config: FormatConfig = { ...jsonStub, genericPreview: GenericPreview };
+      const { container } = render(
+        <SplitPaneEditor tabId="tab-1" formatConfig={config} />,
+      );
+      const handle = screen.getByRole("separator");
+      handle.focus();
+      await user.keyboard("{Home}");
+      const fraction = parseFloat(
+        (container.querySelector(".split-pane-editor") as HTMLElement).style
+          .getPropertyValue("--split-pane-source-fraction"),
+      );
+      expect(fraction).toBeCloseTo(0.2);
+    });
+
+    it("End key snaps to maximum fraction (0.8)", async () => {
+      const user = userEvent.setup();
+      const config: FormatConfig = { ...jsonStub, genericPreview: GenericPreview };
+      const { container } = render(
+        <SplitPaneEditor tabId="tab-1" formatConfig={config} />,
+      );
+      const handle = screen.getByRole("separator");
+      handle.focus();
+      await user.keyboard("{End}");
+      const fraction = parseFloat(
+        (container.querySelector(".split-pane-editor") as HTMLElement).style
+          .getPropertyValue("--split-pane-source-fraction"),
+      );
+      expect(fraction).toBeCloseTo(0.8);
+    });
+
+    it("ignores keys other than Arrow / Home / End", async () => {
+      const user = userEvent.setup();
+      const config: FormatConfig = { ...jsonStub, genericPreview: GenericPreview };
+      const { container } = render(
+        <SplitPaneEditor tabId="tab-1" formatConfig={config} />,
+      );
+      const handle = screen.getByRole("separator");
+      handle.focus();
+      const before = (container.querySelector(
+        ".split-pane-editor",
+      ) as HTMLElement).style.getPropertyValue("--split-pane-source-fraction");
+      await user.keyboard("a");
+      const after = (container.querySelector(
+        ".split-pane-editor",
+      ) as HTMLElement).style.getPropertyValue("--split-pane-source-fraction");
+      expect(after).toBe(before);
+    });
+
     it("clamps fraction within [0.2, 0.8]", async () => {
       const user = userEvent.setup();
       const config: FormatConfig = { ...jsonStub, genericPreview: GenericPreview };

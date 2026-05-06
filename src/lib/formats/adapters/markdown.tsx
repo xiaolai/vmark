@@ -15,7 +15,6 @@ import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useDocumentId } from "@/hooks/useDocumentState";
-import { useUnifiedMenuCommands } from "@/hooks/useUnifiedMenuCommands";
 import { TiptapEditorInner } from "@/components/Editor/TiptapEditor";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
@@ -71,7 +70,8 @@ export function MarkdownEditorSurface({ tabId }: { tabId: string }) {
     tabId ? (s.documents[tabId]?.readOnly ?? false) : false,
   );
 
-  useUnifiedMenuCommands();
+  // useUnifiedMenuCommands now mounts in Editor.tsx (dispatcher) so menu
+  // events reach both markdown and non-markdown surfaces.
 
   const editorKey = `${tabId}-doc-${documentId}`;
   /* v8 ignore next -- @preserve tableFitToWidth conditional class appended at runtime */

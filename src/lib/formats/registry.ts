@@ -50,7 +50,16 @@ export function registerFormat(config: FormatConfig): void {
   }
   // Invariant 4 (per plan rev 5): non-wysiwyg formats may omit
   // loadLanguage. They render with raw CodeMirror — full editing,
-  // find, undo, save still work.
+  // find, undo, save still work. The original strict invariant is
+  // documented in the plan but consciously relaxed here so Phase 1A
+  // stubs and plain `.txt` register without scaffolding fake language
+  // packs. wysiwyg formats may NOT declare loadLanguage — they don't
+  // mount CodeMirror at all.
+  if (config.kind === "wysiwyg" && config.loadLanguage) {
+    throw new Error(
+      `[formats] "${config.id}" kind=wysiwyg must not declare loadLanguage (CodeMirror is not mounted in WYSIWYG)`,
+    );
+  }
   if (
     config.adapters.readOnlyDefault === true &&
     config.adapters.closeSavePolicy !== "markdown-default"
@@ -122,9 +131,12 @@ export function __resetRegistry(): void {
 function extractExtension(filePath: string): string | null {
   const slash = filePath.lastIndexOf("/");
   const base = slash >= 0 ? filePath.slice(slash + 1) : filePath;
-  const dot = base.lastIndexOf(".");
-  if (dot <= 0 || dot === base.length - 1) return null;
-  return base.slice(dot + 1).toLowerCase();
+  // Strip query string and fragment so file:// URLs and tab-restore
+  // paths with `?reload=1` / `#anchor` still match.
+  const stripped = base.replace(/[?#].*$/, "");
+  const dot = stripped.lastIndexOf(".");
+  if (dot <= 0 || dot === stripped.length - 1) return null;
+  return stripped.slice(dot + 1).toLowerCase();
 }
 
 function requireFirst(): FormatConfig {

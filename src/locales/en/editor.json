@@ -1,4 +1,8 @@
 {
+  "splitPane.editorLabel": "Editor for {{format}}",
+  "splitPane.resize": "Resize source / preview",
+  "splitPane.validationDiagnostics": "Validation diagnostics",
+
   "toolbar.group.heading": "Heading",
   "toolbar.group.inline": "Inline",
   "toolbar.group.list": "List",

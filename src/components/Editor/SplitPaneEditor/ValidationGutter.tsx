@@ -9,6 +9,7 @@
 // can move the cursor to the diagnostic.
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { ValidationDiagnostic } from "@/lib/formats/types";
 import "./validation-gutter.css";
 
@@ -18,6 +19,7 @@ export interface ValidationGutterProps {
 }
 
 export function ValidationGutter({ diagnostics, onJump }: ValidationGutterProps) {
+  const { t } = useTranslation("editor");
   const counts = useMemo(() => {
     const c = { error: 0, warning: 0, info: 0 };
     for (const d of diagnostics) c[d.severity] += 1;
@@ -46,7 +48,7 @@ export function ValidationGutter({ diagnostics, onJump }: ValidationGutterProps)
       <ul
         className="validation-gutter__list"
         role="list"
-        aria-label="Validation diagnostics"
+        aria-label={t("splitPane.validationDiagnostics")}
       >
         {diagnostics.map((d, i) => (
           <li
