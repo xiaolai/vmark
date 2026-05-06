@@ -1,6 +1,6 @@
 # Multi-Format Workspace + Rebrand — Plain-Text Workspace for Humans and AI
 
-**Status:** Draft — revision 3 (post third cross-model review iteration)
+**Status:** Draft — revision 4 (post Phase 0 spike findings)
 **Owner:** Xiaolai
 **Branch:** `feat/multi-format-workspace` (proposed)
 **Created:** 2026-05-06
@@ -80,11 +80,13 @@ Markdown stays on its current Tiptap WYSIWYG path, registered as `kind: "wysiwyg
 
 ### ADR-3: Code files are viewer-mode by default
 
-**Decision:** `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh` open with CodeMirror syntax highlighting in **read-only mode by default**. A clearly-labeled "Enable editing" toggle promotes to read-write (no LSP, no autocomplete). An "Open in external editor" affordance deep-links to `$EDITOR`.
+**Decision:** `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.rb`, `.lua` open with CodeMirror syntax highlighting in **read-only mode by default**. A clearly-labeled "Enable editing" toggle promotes to read-write (no LSP, no autocomplete). An "Open in external editor" affordance deep-links to `$EDITOR`.
 
 **Mechanism:** Read-only-default is a pre-commitment device against scope creep into LSP territory.
 
-**Removed from v1 scope:** `.zig` (no maintained CodeMirror pack), `.rb`, `.lua` (only legacy-modes packs available — defer until Phase 0 maintenance audit confirms acceptable; if rejected, defer to v1.x).
+**`.rb` and `.lua` use `@codemirror/legacy-modes`.** No maintained Lezer-grammar pack exists for either — Phase 0 WI-0.6 audit confirmed legacy-modes is the same path the plan already uses for TOML, `.sh`, and `.bash` (1.6M weekly DL, current commits, MIT, zero CVEs). Quality is "syntax-coloring only," which fits viewer-mode posture.
+
+**Removed from v1 scope:** `.zig` only (no maintained CodeMirror pack of any kind).
 
 **Confidence:** Medium-high.
 
@@ -335,8 +337,10 @@ Verified language pack support, tiered:
 | `.go` | viewer | `@codemirror/lang-go` (NEW) | OFFICIAL | none | — | — |
 | `.css` | viewer | `@codemirror/lang-css` (NEW) | OFFICIAL | none | — | — |
 | `.sh`, `.bash` | viewer | `legacy-modes/mode/shell` via `@codemirror/language-data` | LEGACY | none | — | — |
+| `.rb` | viewer | `legacy-modes/mode/ruby` via `@codemirror/language-data` | LEGACY | none | — | — |
+| `.lua` | viewer | `legacy-modes/mode/lua` via `@codemirror/language-data` | LEGACY | none | — | — |
 
-**Removed from v1 scope:** `.zig`, `.rb`, `.lua` (Phase 0 maintenance audit may rescue `.rb` / `.lua` if a maintained pack exists; otherwise defer to v1.x).
+**Removed from v1 scope:** `.zig` only (no maintained CodeMirror pack of any kind). Phase 0 WI-0.6 audit confirmed `.rb` and `.lua` are reachable via `@codemirror/legacy-modes`, so they ship in v1 per ADR-3.
 
 **New npm dependencies:**
 
@@ -350,10 +354,11 @@ Verified language pack support, tiered:
 | `@codemirror/lang-python` | OFFICIAL | |
 | `@codemirror/lang-rust` | OFFICIAL | |
 | `@codemirror/lang-go` | OFFICIAL | |
-| `smol-toml` | EVAL | Or `@iarna/toml`. Phase 0 picks. |
-| `codemirror-lang-mermaid` | COMMUNITY | Phase 0 maintenance audit gate. |
-| `@uiw/react-json-view` (or alt) | EVAL | Phase 0 picks. |
-| `dompurify` | OFFICIAL | Optional defense-in-depth for HTML preview. |
+| `smol-toml` (>=1.6.1) | OFFICIAL | Phase 0 WI-0.6 picked over `@iarna/toml` — actively maintained, prior CVEs all fixed in 1.6.1. Wrap parse/stringify in try/catch when reading user files. |
+| `codemirror-lang-mermaid` (pin =0.5.0) | COMMUNITY | Phase 0 WI-0.6: SUFFICIENT-FALLBACK — last commit 2023-09-14, but 90k weekly DL, no CVEs, MIT. Mermaid grammar evolves slowly; pin exact version. v1.x backlog: replace if upstream remains dormant past 2026-09. |
+| `react-json-view-lite` (>=2.5.0) | OFFICIAL | Phase 0 WI-0.5 picked over `@uiw/react-json-view` and `react-json-tree` — only candidate with documented keyboard navigation + ARIA labelling, required by `33-focus-indicators.md` accessibility rules. |
+| `dompurify` (>=3.4.2) | OFFICIAL | Defense-in-depth for HTML preview. Pin >=3.4.2 to avoid CVE-2025-15599 and CVE-2026-0540. |
+| `@codemirror/legacy-modes` (>=6.5.2) | OFFICIAL | Substrate for TOML, Shell, Ruby, Lua syntax via `StreamLanguage.define()`. Already pulled in via existing `@codemirror/language-data` dep. |
 
 Each subject to `scripts/check-new-deps.sh` per AI gov rule 4.
 
@@ -515,10 +520,10 @@ Gated on Phase 2 shipping.
 
 ## Open questions
 
-1. **Tree preview library** — Phase 0 WI-0.5 picks one.
-2. **TOML parser library** — `smol-toml` vs `@iarna/toml`. Phase 0 WI-0.6 picks.
-3. **Mermaid CodeMirror language pack** — `codemirror-lang-mermaid` maintenance audit per WI-0.6.
-4. **`.rb` and `.lua` packs** — WI-0.6 audit; if rejected, defer to v1.x.
+1. ~~Tree preview library~~ **CLOSED (Phase 0 WI-0.5):** `react-json-view-lite` >=2.5.0. Mechanism: only candidate with documented keyboard nav + ARIA labelling.
+2. ~~TOML parser library~~ **CLOSED (Phase 0 WI-0.6):** `smol-toml` >=1.6.1. `@iarna/toml` rejected as effectively unmaintained.
+3. ~~Mermaid CodeMirror language pack~~ **CLOSED (Phase 0 WI-0.6):** `codemirror-lang-mermaid` 0.5.0 pinned exactly. SUFFICIENT-FALLBACK verdict — stale (last commit 2023-09-14) but no CVEs, no functional risk for stable mermaid grammars. v1.x backlog item: replace if upstream remains dormant past 2026-09.
+4. ~~`.rb` and `.lua` packs~~ **CLOSED (Phase 0 WI-0.6):** ship in v1 via `@codemirror/legacy-modes/mode/{ruby,lua}` — same path the plan uses for TOML, `.sh`, `.bash`.
 5. **`open_in_external_editor` macOS PATH** — verify in WI-4.4.
 6. **`pyproject.toml` detector scope** — PEP 621 + Poetry. Decide in WI-5.2.
 7. **OpenAPI as Phase 5b** — defer until Phase 5 completes.
@@ -575,6 +580,20 @@ The "and" matters. AI-first framing puts humans in the user-of-tool position. Hu
 ### Review iteration 1 (verdict: MAJOR GAPS)
 
 Resolved in revision 1. See git history for that diff.
+
+### Phase 0 spike findings (revision 4)
+
+Phase 0 spikes (`dev-docs/grills/multi-format/findings.md`) executed 2026-05-06 with verdict PASS for Phase 1A and Phase 2; Phase 3 BLOCKED on user-run Tauri webview XSS test (WI-0.4 Part B).
+
+| Finding | Source | Plan change |
+|---|---|---|
+| Tree library: `react-json-view-lite` >=2.5.0 | WI-0.5 | New-deps table, Open Q #1 closed |
+| TOML parser: `smol-toml` >=1.6.1 | WI-0.6 | New-deps table, Open Q #2 closed |
+| Mermaid pack: `codemirror-lang-mermaid` 0.5.0 pinned exactly | WI-0.6 | New-deps table (staleness mitigation noted), Open Q #3 closed |
+| `.rb` and `.lua` ship via `@codemirror/legacy-modes` | WI-0.6 | ADR-3 reinstates them; Final format surface adds rows; Open Q #4 closed |
+| `dompurify` >=3.4.2 to avoid CVE-2025-15599 + CVE-2026-0540 | WI-0.6 | New-deps table version pin |
+| `useUnifiedMenuCommands` is the long pole, not `Editor.tsx` | WI-0.7 | Risk #1 already calls this out; Phase 1A WI ordering preserved |
+| HTML sandbox harness needs Tauri-webview verification | WI-0.4 | Phase 3 gate on user sign-off; harness in `dev-docs/grills/multi-format/spike-04-html-sandbox/` |
 
 ### Review iteration 3 (verdict: NEEDS REVISION → addressed in this revision)
 
