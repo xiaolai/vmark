@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.7.0",
   "license": "ISC",
+  "description": "The plain-text workspace where humans and AI collaborate",
   "type": "module",
   "scripts": {
     "dev": "vite",

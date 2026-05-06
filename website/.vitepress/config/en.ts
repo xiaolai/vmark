@@ -16,6 +16,7 @@ export const en = {
           text: "Guide",
           items: [
             { text: "Getting Started", link: "/guide/" },
+            { text: "Supported Formats", link: "/guide/formats" },
             { text: "Features", link: "/guide/features" },
             { text: "Large Files", link: "/guide/large-files" },
             { text: "Export & Print", link: "/guide/export" },

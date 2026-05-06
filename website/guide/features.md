@@ -1,6 +1,6 @@
 # Features
 
-VMark is a feature-rich Markdown editor designed for modern writing workflows. Here's what's included.
+VMark is the plain-text workspace where humans and AI collaborate. Markdown is the centerpiece (with WYSIWYG, Source Peek, and Source modes), but the workspace also opens YAML, JSON, TOML, Mermaid, SVG, HTML, and 9 code-viewer formats — see [Supported Formats](/guide/formats) for the full list.
 
 [[toc]]
 

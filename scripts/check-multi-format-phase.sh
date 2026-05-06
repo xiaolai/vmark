@@ -372,9 +372,60 @@ case "$PHASE" in
     ;;
 
   6)
-    note "Phase 6 DoD script not yet implemented"
-    note "(this is expected during Phase 5 — phases write their own checks)"
-    exit 0
+    echo "Phase 6 — Rebrand"
+
+    if grep -q "plain-text workspace where humans and AI collaborate" README.md; then
+      ok "README.md adopts new tagline"
+    else
+      fail "README.md still uses old tagline"
+    fi
+    if grep -q "plain-text workspace where humans and AI collaborate" website/.vitepress/config/shared.ts; then
+      ok "website meta description updated"
+    else
+      fail "website meta description not updated"
+    fi
+    if grep -q "Plain-Text Workspace" website/index.md; then
+      ok "website hero updated"
+    else
+      fail "website hero not updated"
+    fi
+    if grep -q "plain-text workspace where humans and AI collaborate" src-tauri/Cargo.toml; then
+      ok "src-tauri Cargo.toml description updated (drives macOS About dialog)"
+    else
+      fail "Cargo.toml description still uses old tagline"
+    fi
+    if grep -q "plain-text workspace where humans and AI collaborate" package.json; then
+      ok "package.json description updated"
+    else
+      fail "package.json description not updated"
+    fi
+    if grep -q "plain-text workspace where humans and AI collaborate" vmark-mcp-server/package.json; then
+      ok "vmark-mcp-server package.json description updated"
+    else
+      fail "vmark-mcp-server description not updated"
+    fi
+    if grep -q "shortDescription" src-tauri/tauri.conf.json; then
+      ok "tauri.conf.json bundle description set"
+    else
+      fail "tauri.conf.json bundle description missing"
+    fi
+
+    [[ -f website/guide/formats.md ]] && ok "formats.md present" || fail "formats.md missing"
+    [[ -f website/blog/2026-05-multi-format-launch.md ]] && ok "launch blog draft present" || fail "launch blog draft missing"
+
+    if grep -q "plain-text workspace" website/guide/index.md; then
+      ok "guide intro restructured"
+    else
+      fail "guide intro not restructured"
+    fi
+    if grep -q "Supported Formats" website/.vitepress/config/en.ts; then
+      ok "sidebar links to formats.md"
+    else
+      fail "sidebar missing formats link"
+    fi
+
+    note "WI-6.4 screenshot reel is INTERACTIVE — capture 5+ formats open simultaneously in the actual app"
+    note "WI-6.5 translation pass — locale strings translated as they were added per-WI (English placeholders for non-en); /translate-docs skill can polish them"
     ;;
 
   *)
