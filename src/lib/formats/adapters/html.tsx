@@ -109,6 +109,18 @@ function HtmlSandboxPreview({ content, diagnostics }: PreviewRendererProps) {
 
   return (
     <div className="html-preview">
+      {/* Phase 3 ships the HTML adapter with iframe-sandbox +
+          DOMPurify defense-in-depth. The OWASP top-20 verification
+          (WI-3.4) is interactive and gates Phase 3 readiness for
+          rebrand. Surface the pending state so users know the
+          preview hasn't been signed off yet. */}
+      <div
+        className="html-preview__sign-off-pending"
+        role="status"
+        data-testid="html-preview-sign-off-pending"
+      >
+        {t("preview.signOffPending")}
+      </div>
       {diagnostics.length > 0 && (
         <div className="html-preview__hint" role="status">
           {t("preview.errorAt", {

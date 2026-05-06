@@ -60,6 +60,27 @@ flowchart LR
       expect(diags[0].ruleId).toMatch(/^mermaid\//);
     });
 
+    it("flags missing header at the actual non-comment line (not always line 1)", () => {
+      const diags = mermaidValidator(`
+%% leading comment
+%% another comment
+
+invalid header
+      `.trim());
+      // The header lives on the 4th line of the (leading-newline-stripped)
+      // content because of the trim above. Verify the validator
+      // reports the actual line, not 1.
+      expect(diags).toHaveLength(1);
+      expect(diags[0].line).toBeGreaterThan(1);
+    });
+
+    it("flags missing header with column pointing at the bad token", () => {
+      const diags = mermaidValidator("    bogus");
+      expect(diags).toHaveLength(1);
+      // Column is 1-based; "bogus" starts at column 5 (after 4 spaces).
+      expect(diags[0].column).toBe(5);
+    });
+
     it("accepts every common diagram-type keyword", () => {
       for (const head of [
         "flowchart LR",

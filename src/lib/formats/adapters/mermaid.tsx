@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import { renderMermaid } from "@/plugins/mermaid";
+import { sanitizeSvg } from "@/utils/sanitize";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -60,19 +61,32 @@ const DIAGRAM_HEADERS = [
 
 export const mermaidValidator: Validator = (content) => {
   if (content.length === 0) return [];
-  // Find the first non-empty, non-comment line.
-  const firstLine = content
-    .split(/\r?\n/)
-    .find((line) => line.trim() && !line.trim().startsWith("%%"));
+  // Find the first non-empty, non-comment line — track its 1-based
+  // line number so the gutter marker lands on the correct row.
+  const lines = content.split(/\r?\n/);
+  let headerLine = 0;
+  let firstLine = "";
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("%%")) continue;
+    headerLine = i + 1;
+    firstLine = trimmed;
+    break;
+  }
   if (!firstLine) return [];
-  const head = firstLine.trim().split(/\s+/)[0];
+  const head = firstLine.split(/\s+/)[0];
   const matched = DIAGRAM_HEADERS.some((h) => head === h || head.startsWith(h));
   if (!matched) {
+    // Locate column of the first non-whitespace char on that line so
+    // the marker points at the start of the offending token.
+    const rawLine = lines[headerLine - 1] ?? "";
+    const column = Math.max(1, rawLine.indexOf(head) + 1);
     return [
       {
         severity: "error",
-        line: 1,
-        column: 1,
+        line: headerLine,
+        column,
         message: `Unknown Mermaid diagram type: "${head}"`,
         ruleId: "mermaid/missing-diagram-type",
       } satisfies ValidationDiagnostic,
@@ -105,7 +119,12 @@ function MermaidPreview({ content, diagnostics }: PreviewRendererProps) {
           setSvg(null);
         } else {
           setRenderError(null);
-          setSvg(result);
+          // Sanitize Mermaid's output before rendering — defense-
+          // in-depth even though Mermaid generates the SVG itself,
+          // because malicious .mmd input can produce SVG with
+          // foreignObject / scripts. Matches the existing
+          // src/plugins/mermaidPreview/mermaidPreviewRender.ts path.
+          setSvg(sanitizeSvg(result));
         }
       })
       .catch(() => {

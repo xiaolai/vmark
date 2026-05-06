@@ -14,6 +14,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import { renderSvgBlock } from "@/plugins/svg/svgRender";
+import { sanitizeSvg } from "@/utils/sanitize";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -105,7 +106,14 @@ export const svgValidator: Validator = (content) => {
 
 function SvgPreview({ content, diagnostics }: PreviewRendererProps) {
   const { t } = useTranslation("editor");
-  const rendered = useMemo(() => renderSvgBlock(content), [content]);
+  const rendered = useMemo(() => {
+    const raw = renderSvgBlock(content);
+    if (raw === null) return null;
+    // Sanitize before render — strip scripts, javascript: URLs,
+    // event handlers from arbitrary user-supplied SVG. Matches the
+    // existing src/plugins/svg path which also sanitizes.
+    return sanitizeSvg(raw);
+  }, [content]);
 
   if (!content.trim()) {
     return <div className="svg-preview svg-preview--empty" />;
