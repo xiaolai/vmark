@@ -29,7 +29,10 @@ import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useUIStore } from "@/stores/uiStore";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
-import { filterMarkdownPaths } from "@/utils/dropPaths";
+import {
+  filterSupportedPaths,
+  isSupportedFileName,
+} from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
@@ -118,12 +121,13 @@ export function useDragDropOpen(): void {
 
         // Handle drag enter for visual feedback
         if (type === "enter") {
-          // Check if any markdown files are being dragged
+          // WI-1B.2 — accept any registered extension on drag-enter so
+          // the drop overlay shows for .json/.yaml/.toml/etc. as well.
           const paths = event.payload.paths;
-          const hasMarkdown = paths.some((p: string) =>
-            [".md", ".markdown", ".txt"].some((ext) => p.toLowerCase().endsWith(ext))
+          const hasSupported = paths.some((p: string) =>
+            isSupportedFileName(p),
           );
-          if (hasMarkdown) {
+          if (hasSupported) {
             useUIStore.getState().setDraggingFiles(true);
           }
           return;
@@ -146,10 +150,13 @@ export function useDragDropOpen(): void {
         useUIStore.getState().setDraggingFiles(false);
 
         const paths = event.payload.paths;
-        const markdownPaths = filterMarkdownPaths(paths);
+        // WI-1B.2 — drop accepts any registered format. The legacy
+        // markdownPaths variable name is kept (it's used by the
+        // downstream replacement pipeline) but the filter is broader.
+        const markdownPaths = filterSupportedPaths(paths);
         if (markdownPaths.length === 0) {
           if (paths.length > 0) {
-            toast.info(i18n.t("dialog:toast.onlyMarkdownViaDropDrop"));
+            toast.info(i18n.t("dialog:toast.unsupportedFileViaDropDrop"));
           }
           return;
         }

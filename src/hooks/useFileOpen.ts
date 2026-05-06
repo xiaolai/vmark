@@ -30,6 +30,7 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
+import { getSupportedExtensions } from "@/lib/formats/registry";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
@@ -152,8 +153,17 @@ export async function handleOpen(windowLabel: string): Promise<void> {
     perfMark("handleOpen:start");
 
     perfStart("openDialog");
+    // WI-1B.1 — "All Supported" preset (every registered format) plus
+    // a Markdown-only preset for the user who wants the legacy filter.
+    const allExtensions = getSupportedExtensions();
     const path = await open({
-      filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "txt"] }],
+      filters: [
+        { name: "All Supported", extensions: [...allExtensions] },
+        {
+          name: "Markdown",
+          extensions: ["md", "markdown", "mdown", "mkd", "mdx"],
+        },
+      ],
     });
     perfEnd("openDialog");
 

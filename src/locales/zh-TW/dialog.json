@@ -172,7 +172,8 @@
     "exportRenderTimedOut": "匯出渲染逾時 — 編輯器未能初始化",
     "exportHtmlDialogTitle": "匯出 HTML",
     "exportFormatDialogTitle": "匯出 {{name}}",
-    "tabFormatChanged": "Editor switched to {{format}}."
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "需要儲存"

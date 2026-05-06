@@ -172,7 +172,8 @@
     "exportRenderTimedOut": "Le rendu d'export a expiré — l'éditeur n'a pas pu être initialisé",
     "exportHtmlDialogTitle": "Exporter en HTML",
     "exportFormatDialogTitle": "Exporter en {{name}}",
-    "tabFormatChanged": "Editor switched to {{format}}."
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "Enregistrement requis"

@@ -46,9 +46,51 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["md", "markdown", "mdown", "mkd"],
+        "ext": ["md", "markdown", "mdown", "mkd", "mdx"],
         "mimeType": "text/markdown",
         "description": "Markdown Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["txt"],
+        "mimeType": "text/plain",
+        "description": "Plain Text Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["json", "jsonl"],
+        "mimeType": "application/json",
+        "description": "JSON Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["yaml", "yml"],
+        "mimeType": "text/yaml",
+        "description": "YAML Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["toml"],
+        "mimeType": "text/x-toml",
+        "description": "TOML Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["mmd"],
+        "mimeType": "text/x-mermaid",
+        "description": "Mermaid Diagram",
+        "role": "Editor"
+      },
+      {
+        "ext": ["svg"],
+        "mimeType": "image/svg+xml",
+        "description": "SVG Image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["html", "htm"],
+        "mimeType": "text/html",
+        "description": "HTML Document",
         "role": "Editor"
       }
     ],

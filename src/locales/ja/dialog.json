@@ -172,7 +172,8 @@
     "exportRenderTimedOut": "エクスポートのレンダリングがタイムアウトしました — エディタを初期化できませんでした",
     "exportHtmlDialogTitle": "HTMLをエクスポート",
     "exportFormatDialogTitle": "{{name}}をエクスポート",
-    "tabFormatChanged": "Editor switched to {{format}}."
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "保存が必要"

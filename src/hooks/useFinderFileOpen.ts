@@ -45,7 +45,6 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import type { ReplaceableTabInfo } from "@/utils/openPolicy";
 import { isWithinRoot } from "@/utils/paths";
@@ -82,10 +81,10 @@ export async function loadFileIntoTab(
 ): Promise<void> {
   const content = await readTextFile(path);
   const meta = detectLinebreaks(content);
-  // Mark YAML/workflow files as forced-source BEFORE init/load so the
-  // WYSIWYG editor never markdown-parses them (which silently strips
-  // YAML indentation). See utils/yamlOpenRouting.
-  maybeForceSourceForYaml(tabId, path);
+  // WI-1B.6 — registry-driven mode dispatch replaces the YAML
+  // force-source bandaid. .yaml / .yml now route to the YAML adapter
+  // (kind: "split-pane"), so no force-source is needed. The legacy
+  // call is removed; yamlOpenRouting.ts is fully retired in WI-2.6.
   if (isNewTab) {
     useDocumentStore.getState().initDocument(tabId, content, path);
   } else {

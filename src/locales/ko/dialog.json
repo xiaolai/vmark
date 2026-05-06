@@ -172,7 +172,8 @@
     "exportRenderTimedOut": "내보내기 렌더링 시간 초과 — 에디터를 초기화할 수 없습니다",
     "exportHtmlDialogTitle": "HTML 내보내기",
     "exportFormatDialogTitle": "{{name}} 내보내기",
-    "tabFormatChanged": "Editor switched to {{format}}."
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "저장 필요"

@@ -172,7 +172,8 @@
     "exportRenderTimedOut": "Export-Rendering hat das Zeitlimit überschritten — Editor konnte nicht initialisiert werden",
     "exportHtmlDialogTitle": "HTML exportieren",
     "exportFormatDialogTitle": "{{name}} exportieren",
-    "tabFormatChanged": "Editor switched to {{format}}."
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "Speichern erforderlich"
