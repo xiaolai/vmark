@@ -71,31 +71,6 @@ export function removeBlankLines(text: string): string {
 // ============================================================================
 
 /**
- * Get line boundaries for a position in text.
- * Returns { lineStart, lineEnd, lineText }.
- */
-export function getLineBoundaries(
-  text: string,
-  pos: number
-): { lineStart: number; lineEnd: number; lineText: string } {
-  let lineStart = pos;
-  while (lineStart > 0 && text[lineStart - 1] !== "\n") {
-    lineStart--;
-  }
-
-  let lineEnd = pos;
-  while (lineEnd < text.length && text[lineEnd] !== "\n") {
-    lineEnd++;
-  }
-
-  return {
-    lineStart,
-    lineEnd,
-    lineText: text.slice(lineStart, lineEnd),
-  };
-}
-
-/**
  * Get all lines in a range, expanding to full lines.
  * Returns { startLine, endLine, lines, fullStart, fullEnd }.
  */
