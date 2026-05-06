@@ -27,7 +27,6 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { createUntitledTab } from "@/utils/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
@@ -84,9 +83,9 @@ export async function openFileInNewTabCore(
     const content = await readTextFile(path);
     perfEnd("readTextFile", { size: content.length });
 
-    // YAML/workflow files must enter source mode BEFORE initDocument so the
-    // WYSIWYG editor never parses them as markdown. See utils/yamlOpenRouting.
-    maybeForceSourceForYaml(tabId, path);
+    // WI-2.6 — YAML force-source bandaid retired. YAML files now route
+    // through the YAML adapter (kind: split-pane) via the format
+    // registry, so they bypass the markdown WYSIWYG path entirely.
 
     perfStart("initDocument");
     useDocumentStore.getState().initDocument(tabId, content, path);

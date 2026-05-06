@@ -104,8 +104,7 @@ export function useRecentFilesMenuEvents(): void {
               try {
                 const content = await readTextFile(file.path);
                 const tabId = useTabStore.getState().createTab(windowLabel, file.path);
-                // WI-1B.7 — registry-driven dispatch replaces the YAML
-                // force-source bandaid. yamlOpenRouting.ts retires in WI-2.6.
+                // WI-1B.7 / WI-2.6 — registry-driven dispatch.
                 useDocumentStore.getState().initDocument(tabId, content, file.path);
                 useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
                 useRecentFilesStore.getState().addFile(file.path);

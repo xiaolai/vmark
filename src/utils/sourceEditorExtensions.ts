@@ -27,7 +27,10 @@ import { yaml } from "@codemirror/lang-yaml";
 import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
-import { sourceGhaWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceGhaWorkflowPreview";
+// WI-2.4 — sourceGhaWorkflowPreview retired. Standalone workflow YAML
+// files now route through the YAML adapter's schemaRenderer
+// (registry-driven). The markdown source mode no longer needs to
+// detect workflow-shaped content.
 import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflowCompletion";
 import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
 import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
@@ -277,8 +280,6 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     isYaml ? yaml() : markdown({ codeLanguages: languages }),
     // Workflow preview plugin for YAML files (parses YAML → workflowPreviewStore)
     ...(workflowFeatures ? sourceWorkflowPreviewExtensions : []),
-    // GHA workflow preview plugin for YAML files (parses YAML → ghaWorkflowPanelStore)
-    ...(workflowFeatures ? sourceGhaWorkflowPreviewExtensions : []),
     // YAML parse-error linter (every YAML file, regardless of workflow
     // flag). Surfaces duplicate keys, unterminated strings, indentation
     // breaks via the CodeMirror gutter.

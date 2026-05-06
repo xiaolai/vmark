@@ -76,25 +76,9 @@ function makeCodeStub(
   };
 }
 
-// Phase 2 — data formats
-export const jsonStub = makeDataStub(
-  "json",
-  "format.json",
-  ["json", "jsonl"],
-  "JSON",
-);
-export const yamlStub = makeDataStub(
-  "yaml",
-  "format.yaml",
-  ["yaml", "yml"],
-  "YAML",
-);
-export const tomlStub = makeDataStub(
-  "toml",
-  "format.toml",
-  ["toml"],
-  "TOML",
-);
+// Phase 2 data formats (json, yaml, toml) graduated to full adapters.
+// See src/lib/formats/adapters/{json,yaml,toml}.tsx. The bootstrap in
+// src/lib/formats/index.ts registers them before invoking this module.
 
 // Phase 3 — visual-render formats
 export const mermaidStub = makeDataStub(
@@ -173,15 +157,11 @@ export const codeLuaStub = makeCodeStub(
 );
 
 const ALL_STUBS: FormatConfig[] = [
-  // Phase 2
-  jsonStub,
-  yamlStub,
-  tomlStub,
-  // Phase 3
+  // Phase 3 — visual-render formats (still stubs)
   mermaidStub,
   svgStub,
   htmlStub,
-  // Phase 4
+  // Phase 4 — code viewers (still stubs)
   codeTypescriptStub,
   codeJavascriptStub,
   codePythonStub,

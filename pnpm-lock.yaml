@@ -42,6 +42,9 @@ importers:
       '@codemirror/commands':
         specifier: ^6.10.1
         version: 6.10.1
+      '@codemirror/lang-json':
+        specifier: ^6.0.2
+        version: 6.0.2
       '@codemirror/lang-markdown':
         specifier: ^6.5.0
         version: 6.5.0
@@ -52,6 +55,9 @@ importers:
         specifier: ^6.12.1
         version: 6.12.1
       '@codemirror/language-data':
+        specifier: ^6.5.2
+        version: 6.5.2
+      '@codemirror/legacy-modes':
         specifier: ^6.5.2
         version: 6.5.2
       '@codemirror/lint':
@@ -231,6 +237,9 @@ importers:
       react-i18next:
         specifier: ^16.5.8
         version: 16.5.8(i18next@25.8.18(typescript@5.8.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.8.3)
+      react-json-view-lite:
+        specifier: ^2.5.0
+        version: 2.5.0(react@19.2.4)
       react-router-dom:
         specifier: ^7.13.0
         version: 7.13.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -252,6 +261,9 @@ importers:
       remark-stringify:
         specifier: ^11.0.0
         version: 11.0.0
+      smol-toml:
+        specifier: ^1.6.1
+        version: 1.6.1
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -4180,6 +4192,12 @@ packages:
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
 
+  react-json-view-lite@2.5.0:
+    resolution: {integrity: sha512-tk7o7QG9oYyELWHL8xiMQ8x4WzjCzbWNyig3uexmkLb54r8jO0yH3WCWx8UZS0c49eSA4QUmG5caiRJ8fAn58g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
@@ -4419,6 +4437,10 @@ packages:
   slash@5.1.0:
     resolution: {integrity: sha512-ZA6oR3T/pEyuqwMgAKT0/hAv8oAXckzbkmR0UkUosQ+Mc4RxGoJkRmwHgHufaenlyAgE1Mxgpdcrf75y6XcnDg==}
     engines: {node: '>=14.16'}
+
+  smol-toml@1.6.1:
+    resolution: {integrity: sha512-dWUG8F5sIIARXih1DTaQAX4SsiTXhInKf1buxdY9DIg4ZYPZK5nGM1VRIYmEbDbsHt7USo99xSLFu5Q1IqTmsg==}
+    engines: {node: '>= 18'}
 
   sonner@2.0.7:
     resolution: {integrity: sha512-W6ZN4p58k8aDKA4XPcx2hpIQXBRAgyiWVkYhT7CvK6D3iAu7xjvVyhQHg2/iaKJZ1XVJ4r7XuwGL+WGEK37i9w==}
@@ -9293,6 +9315,10 @@ snapshots:
 
   react-is@17.0.2: {}
 
+  react-json-view-lite@2.5.0(react@19.2.4):
+    dependencies:
+      react: 19.2.4
+
   react-refresh@0.17.0: {}
 
   react-router-dom@7.13.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
@@ -9601,6 +9627,8 @@ snapshots:
       jiti: 2.6.1
 
   slash@5.1.0: {}
+
+  smol-toml@1.6.1: {}
 
   sonner@2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:

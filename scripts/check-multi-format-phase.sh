@@ -229,9 +229,53 @@ case "$PHASE" in
     fi
     ;;
 
-  2|3|4|5|6)
+  2)
+    echo "Phase 2 — Data formats + first schema detectors (rebrand gate)"
+
+    [[ -f src/lib/formats/adapters/json.tsx ]] && ok "json adapter present" || fail "json adapter missing"
+    [[ -f src/lib/formats/adapters/yaml.tsx ]] && ok "yaml adapter present" || fail "yaml adapter missing"
+    [[ -f src/lib/formats/adapters/toml.tsx ]] && ok "toml adapter present" || fail "toml adapter missing"
+    [[ -f src/lib/formats/adapters/cargoToml.tsx ]] && ok "cargoToml schema renderer present" || fail "cargoToml renderer missing"
+
+    if grep -q "schemaDetector" src/lib/formats/adapters/yaml.tsx; then
+      ok "yaml adapter declares schemaDetector"
+    else
+      fail "yaml adapter missing schemaDetector"
+    fi
+    if grep -q "schemaDetector" src/lib/formats/adapters/toml.tsx; then
+      ok "toml adapter declares schemaDetector (Cargo.toml)"
+    else
+      fail "toml adapter missing schemaDetector"
+    fi
+
+    if [[ ! -f src/utils/yamlOpenRouting.ts ]]; then
+      ok "yamlOpenRouting.ts deleted"
+    else
+      fail "yamlOpenRouting.ts still present"
+    fi
+
+    if grep -rq "yamlOpenRouting\|maybeForceSourceForYaml" src/ --include="*.ts" --include="*.tsx" 2>/dev/null; then
+      fail "lingering yamlOpenRouting / maybeForceSourceForYaml references"
+    else
+      ok "no production code references yamlOpenRouting"
+    fi
+
+    if [[ ! -f src/plugins/codemirror/sourceGhaWorkflowPreview.ts ]]; then
+      ok "sourceGhaWorkflowPreview plugin deleted"
+    else
+      fail "sourceGhaWorkflowPreview plugin still present"
+    fi
+
+    if grep -q "registerJsonFormat\|registerYamlFormat\|registerTomlFormat" src/lib/formats/index.ts; then
+      ok "bootstrap registers Phase 2 adapters"
+    else
+      fail "bootstrap doesn't include Phase 2 adapters"
+    fi
+    ;;
+
+  3|4|5|6)
     note "Phase $PHASE DoD script not yet implemented"
-    note "(this is expected during Phase 1B — phases write their own checks)"
+    note "(this is expected during Phase 2 — phases write their own checks)"
     exit 0
     ;;
 

@@ -18,10 +18,11 @@
 // gutter rendering lives inside SourcePane in WI-1A.8. The split fraction
 // is held in component state and clamped to [0.2, 0.8].
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
-import type { FormatConfig } from "@/lib/formats/types";
+import { useDocumentStore } from "@/stores/documentStore";
+import type { FormatConfig, PreviewRenderer } from "@/lib/formats/types";
 import "./split-pane-editor.css";
 
 export interface SplitPaneEditorProps {
@@ -43,7 +44,31 @@ function clamp(n: number): number {
 export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const { t } = useTranslation("editor");
   const [fraction, setFraction] = useState(DEFAULT_FRACTION);
-  const Preview = formatConfig.genericPreview;
+
+  // WI-2.4 — schema-aware preview dispatch. When the format declares a
+  // schemaDetector AND the active document matches a registered
+  // schemaRenderer, prefer the schema renderer over the generic preview.
+  const content = useDocumentStore(
+    (state) => state.documents?.[tabId]?.content ?? "",
+  );
+  const filePath = useDocumentStore(
+    (state) => state.documents?.[tabId]?.filePath ?? null,
+  );
+  const Preview: PreviewRenderer | undefined = useMemo(() => {
+    const detector = formatConfig.schemaDetector;
+    const renderers = formatConfig.schemaRenderers;
+    if (detector && renderers) {
+      try {
+        const schemaId = detector(filePath ?? "", content);
+        if (schemaId && renderers[schemaId]) {
+          return renderers[schemaId];
+        }
+      } catch {
+        /* detector errors fall through to generic preview */
+      }
+    }
+    return formatConfig.genericPreview;
+  }, [content, filePath, formatConfig]);
   const hasPreview = Boolean(Preview);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -98,7 +123,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
       )}
       {hasPreview && Preview && (
         <div className="split-pane-editor__preview">
-          <Preview content="" path={null} diagnostics={[]} />
+          <Preview content={content} path={filePath} diagnostics={[]} />
         </div>
       )}
     </div>
