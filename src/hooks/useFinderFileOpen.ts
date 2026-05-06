@@ -52,8 +52,8 @@ import { isWithinRoot } from "@/utils/paths";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/utils/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/adapters/markdown";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
 interface OpenFilePayload {
@@ -290,8 +290,7 @@ export function useFinderFileOpen(): void {
       };
 
       const applyForcedSource = (tabId: string) => {
-        if (!route.forceSourceMode) return;
-        useLargeFileSessionStore.getState().markForcedSource(tabId);
+        maybeMarkLargeMarkdownAsSource(tabId, path, route.forceSourceMode);
       };
 
       const replaceableTab = getReplaceableTab(windowLabel);

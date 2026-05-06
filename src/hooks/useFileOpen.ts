@@ -29,7 +29,7 @@ import { createUntitledTab } from "@/utils/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/adapters/markdown";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
@@ -98,13 +98,10 @@ export async function openFileInNewTabCore(
 
     useRecentFilesStore.getState().addFile(path);
 
-    if (route.forceSourceMode) {
-      // Large / huge file: mark the tab as forced-source. The Editor reads
-      // this marker as a per-tab override on top of the window-global
-      // sourceMode, so other tabs in the same window are unaffected and the
-      // StatusBar can offer an explicit upgrade back to WYSIWYG.
-      useLargeFileSessionStore.getState().markForcedSource(tabId);
-    }
+    // Large / huge file: mark the tab as forced-source via the markdown
+    // adapter helper (WI-1A.6). For non-markdown formats this is a no-op
+    // since they don't have a WYSIWYG path.
+    maybeMarkLargeMarkdownAsSource(tabId, path, route.forceSourceMode);
 
     perfMark("openFileInNewTab:complete");
     // On success, the indicator stays on until TiptapEditor's onCreate fires
@@ -237,9 +234,11 @@ export async function handleOpen(windowLabel: string): Promise<void> {
 
           useRecentFilesStore.getState().addFile(path);
 
-          if (route.forceSourceMode) {
-            useLargeFileSessionStore.getState().markForcedSource(decision.tabId);
-          }
+          maybeMarkLargeMarkdownAsSource(
+            decision.tabId,
+            path,
+            route.forceSourceMode,
+          );
 
           perfMark("handleOpen:replacedTab");
         } catch (error) {

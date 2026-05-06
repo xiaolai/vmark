@@ -20,8 +20,38 @@ import { TiptapEditorInner } from "@/components/Editor/TiptapEditor";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
 import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
-import { registerFormat } from "../registry";
+import { dispatchEditor, registerFormat } from "../registry";
 import type { FormatConfig } from "../types";
+
+/**
+ * WI-1A.6 — markdown-adapter-internal helper. Centralizes
+ * markForcedSource() so non-markdown adapters bypass the
+ * largeFileSessionStore entirely. Other formats don't have a WYSIWYG
+ * path; forcing source mode on them is meaningless.
+ *
+ * Call this from any entry-point hook that opens a file. It is the only
+ * production caller of largeFileSessionStore.markForcedSource() — the
+ * git grep guarantee that the Phase 1A DoD asks for.
+ */
+export function maybeMarkLargeMarkdownAsSource(
+  tabId: string,
+  filePath: string,
+  shouldForce: boolean,
+): void {
+  if (!shouldForce) return;
+  // Defensive: dispatchEditor throws if the registry isn't bootstrapped
+  // (test edges and any code path that runs before main.tsx finishes).
+  // Production always bootstraps before any open-file path runs; we
+  // fail-open to "treat as markdown" so prior behavior is preserved.
+  let formatId = "markdown";
+  try {
+    formatId = dispatchEditor(filePath).id;
+  } catch {
+    /* registry not bootstrapped — fall through to markdown default */
+  }
+  if (formatId !== "markdown") return;
+  useLargeFileSessionStore.getState().markForcedSource(tabId);
+}
 
 /* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
 const SourceEditor = lazy(() =>

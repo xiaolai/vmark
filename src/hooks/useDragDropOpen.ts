@@ -28,6 +28,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useUIStore } from "@/stores/uiStore";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/adapters/markdown";
 import { filterMarkdownPaths } from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
@@ -38,7 +39,6 @@ import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
@@ -80,9 +80,7 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
     useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
     useRecentFilesStore.getState().addFile(path);
 
-    if (route.forceSourceMode) {
-      useLargeFileSessionStore.getState().markForcedSource(tabId);
-    }
+    maybeMarkLargeMarkdownAsSource(tabId, path, route.forceSourceMode);
   } catch (error) {
     dragDropError("Failed to open file:", path, error);
     const filename = getFileName(path) || path;
@@ -246,11 +244,11 @@ export function useDragDropOpen(): void {
                     detectLinebreaks(content)
                   );
                   useRecentFilesStore.getState().addFile(path);
-                  if (route.forceSourceMode) {
-                    useLargeFileSessionStore
-                      .getState()
-                      .markForcedSource(initialReplaceableTab.tabId);
-                  }
+                  maybeMarkLargeMarkdownAsSource(
+                    initialReplaceableTab.tabId,
+                    path,
+                    route.forceSourceMode,
+                  );
                   replaceableTabUsed = true;
                   continue;
                 } catch (error) {
@@ -313,9 +311,11 @@ export function useDragDropOpen(): void {
                 );
                 await openWorkspaceWithConfig(decision.workspaceRoot);
                 useRecentFilesStore.getState().addFile(path);
-                if (route.forceSourceMode) {
-                  useLargeFileSessionStore.getState().markForcedSource(decision.tabId);
-                }
+                maybeMarkLargeMarkdownAsSource(
+                  decision.tabId,
+                  path,
+                  route.forceSourceMode,
+                );
                 replaceableTabUsed = true;
               } catch (error) {
                 dragDropError("Failed to replace tab with file:", path, error);
