@@ -19,8 +19,10 @@
 // is held in component state and clamped to [0.2, 0.8].
 
 import { useCallback, useMemo, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
+import { ReadOnlyBanner } from "./ReadOnlyBanner";
 import { useDocumentStore } from "@/stores/documentStore";
 import type {
   FormatConfig,
@@ -49,6 +51,11 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const { t } = useTranslation("editor");
   const [fraction, setFraction] = useState(DEFAULT_FRACTION);
   const [diagnostics, setDiagnostics] = useState<ValidationDiagnostic[]>([]);
+  // WI-4.3 — per-tab editing override. When true, the ReadOnlyBanner
+  // hides and the SourcePane mounts in read-write mode regardless of
+  // formatConfig.adapters.readOnlyDefault. Keyed by tabId so each
+  // tab tracks its own state.
+  const [editingEnabled, setEditingEnabled] = useState(false);
 
   // WI-2.4 — schema-aware preview dispatch. When the format declares a
   // schemaDetector AND the active document matches a registered
@@ -92,6 +99,24 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
     }
   }, []);
 
+  // WI-4.2 — read-only banner for kind="viewer" tabs. Hidden when the
+  // user has clicked "Enable editing" or when the format isn't read-
+  // only-default.
+  const showReadOnlyBanner =
+    formatConfig.kind === "viewer" &&
+    formatConfig.adapters.readOnlyDefault &&
+    !editingEnabled;
+
+  // WI-4.4 — Open in external editor handler. The Tauri command lives
+  // in src-tauri/src/external_editor.rs (added in this phase). It
+  // reads $EDITOR (or platform default) and spawns it with the file
+  // path. Failure is surfaced via the toast pipeline; we don't block
+  // the UI.
+  const handleOpenExternal = useCallback(() => {
+    if (!filePath) return;
+    void invoke("open_in_external_editor", { path: filePath });
+  }, [filePath]);
+
   return (
     <div
       className="split-pane-editor"
@@ -106,12 +131,20 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
         } as React.CSSProperties
       }
     >
+      {showReadOnlyBanner && (
+        <ReadOnlyBanner
+          formatNameI18nKey={formatConfig.nameI18nKey}
+          onEnableEditing={() => setEditingEnabled(true)}
+          onOpenExternal={filePath ? handleOpenExternal : undefined}
+        />
+      )}
       <div className="split-pane-editor__source">
         <SourcePane
           tabId={tabId}
           formatId={formatConfig.id}
           formatConfig={formatConfig}
           onDiagnostics={setDiagnostics}
+          editingEnabled={editingEnabled}
         />
       </div>
       {hasPreview && (

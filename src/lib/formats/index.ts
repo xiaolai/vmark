@@ -12,7 +12,7 @@ import { registerTomlFormat } from "./adapters/toml";
 import { registerMermaidFormat } from "./adapters/mermaid";
 import { registerSvgFormat } from "./adapters/svg";
 import { registerHtmlFormat } from "./adapters/html";
-import { registerStubFormats } from "./adapters/stubs";
+import { registerCodeFormats } from "./adapters/code";
 
 let bootstrapped = false;
 
@@ -32,8 +32,9 @@ export function bootstrapFormats(): void {
   registerMermaidFormat();
   registerSvgFormat();
   registerHtmlFormat();
-  // Phase 4 stubs — remaining formats not yet implemented.
-  registerStubFormats();
+  // Phase 4 — code-viewer adapters (read-only-default per ADR-3,
+  // editing toggle via WI-4.3, "Open in external editor" via WI-4.4).
+  registerCodeFormats();
   bootstrapped = true;
 }
 

@@ -20,7 +20,7 @@ describe("bootstrapFormats", () => {
     __resetBootstrap();
   });
 
-  it("registers markdown, txt, and all stubs in one call", () => {
+  it("registers markdown, txt, and every Phase 2-4 adapter in one call", () => {
     bootstrapFormats();
     expect(getFormatById("markdown")).toBeDefined();
     expect(getFormatById("txt")).toBeDefined();

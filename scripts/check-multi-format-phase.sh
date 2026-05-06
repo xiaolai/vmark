@@ -307,9 +307,47 @@ case "$PHASE" in
     note "WI-3.4 OWASP run is INTERACTIVE — sign-off block in security-review-html.md must be ticked manually"
     ;;
 
-  4|5|6)
+  4)
+    echo "Phase 4 — Code viewing"
+
+    [[ -f src/lib/formats/adapters/code.ts ]] && ok "code adapter present" || fail "code adapter missing"
+    [[ -f src/components/Editor/SplitPaneEditor/ReadOnlyBanner.tsx ]] && ok "ReadOnlyBanner present" || fail "ReadOnlyBanner missing"
+    [[ -f src-tauri/src/external_editor.rs ]] && ok "external_editor Rust module present" || fail "external_editor.rs missing"
+
+    if grep -q "registerCodeFormats" src/lib/formats/index.ts; then
+      ok "bootstrap registers Phase 4 code adapters"
+    else
+      fail "bootstrap doesn't include Phase 4"
+    fi
+
+    if [[ ! -f src/lib/formats/adapters/stubs.ts ]]; then
+      ok "stubs.ts deleted (all formats graduated)"
+    else
+      fail "stubs.ts still present"
+    fi
+
+    if grep -q "kind: \"viewer\"" src/lib/formats/adapters/code.ts; then
+      ok "code adapters declare kind=\"viewer\" (read-only-default per ADR-3)"
+    else
+      fail "code adapters missing kind=\"viewer\""
+    fi
+
+    if grep -q "open_in_external_editor" src-tauri/src/lib.rs; then
+      ok "open_in_external_editor wired into invoke_handler"
+    else
+      fail "open_in_external_editor not registered"
+    fi
+
+    if grep -q "editingEnabled" src/components/Editor/SplitPaneEditor/SplitPaneEditor.tsx; then
+      ok "SplitPaneEditor tracks editingEnabled (WI-4.3)"
+    else
+      fail "SplitPaneEditor missing editingEnabled state"
+    fi
+    ;;
+
+  5|6)
     note "Phase $PHASE DoD script not yet implemented"
-    note "(this is expected during Phase 3 — phases write their own checks)"
+    note "(this is expected during Phase 4 — phases write their own checks)"
     exit 0
     ;;
 

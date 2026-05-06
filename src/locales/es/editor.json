@@ -273,5 +273,8 @@
   "cargo.buildDependencies": "Build dependencies",
   "cargo.empty": "No dependencies declared.",
   "preview.signOffPending": "HTML preview is sandboxed but pending OWASP sign-off (WI-3.4).",
-  "preview.htmlIframeTitle": "HTML preview"
+  "preview.htmlIframeTitle": "HTML preview",
+  "readOnly.label": "{{format}} — read-only by default",
+  "readOnly.enableEditing": "Enable editing",
+  "readOnly.openExternal": "Open in external editor"
 }

@@ -29,6 +29,9 @@ export interface SourcePaneProps {
   formatConfig: FormatConfig;
   /** Optional callback so the parent can hoist diagnostics into preview / gutter. */
   onDiagnostics?: (diagnostics: ValidationDiagnostic[]) => void;
+  /** WI-4.3 — per-tab override. When true, the editor mounts in
+   *  read-write mode regardless of formatConfig.adapters.readOnlyDefault. */
+  editingEnabled?: boolean;
 }
 
 function diagnosticToCodemirror(
@@ -61,6 +64,7 @@ export function SourcePane({
   formatId,
   formatConfig,
   onDiagnostics,
+  editingEnabled = false,
 }: SourcePaneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -75,7 +79,8 @@ export function SourcePane({
   const storeContent = useDocumentStore(
     (state) => state.documents?.[tabId]?.content ?? "",
   );
-  const readOnly = formatConfig.adapters.readOnlyDefault;
+  // WI-4.3 — readOnly defers to the per-tab editing override when set.
+  const readOnly = formatConfig.adapters.readOnlyDefault && !editingEnabled;
   const validator = formatConfig.validator;
   const loadLanguage = formatConfig.loadLanguage;
 

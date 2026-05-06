@@ -50,6 +50,7 @@ mod tab_transfer;
 mod workflow;
 mod gha_workflow;
 mod quarantine;
+mod external_editor;
 
 #[cfg(target_os = "macos")]
 mod app_nap;
@@ -606,6 +607,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_pending_file_opens,
+            external_editor::open_in_external_editor,
             menu::update_recent_files,
             menu::update_recent_workspaces,
             menu::refresh_genies_menu,
