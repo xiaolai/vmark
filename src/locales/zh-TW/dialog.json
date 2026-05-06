@@ -171,7 +171,8 @@
     "tabDropPinnedZone": "固定的分頁保留在左側。無法在此處放下。",
     "exportRenderTimedOut": "匯出渲染逾時 — 編輯器未能初始化",
     "exportHtmlDialogTitle": "匯出 HTML",
-    "exportFormatDialogTitle": "匯出 {{name}}"
+    "exportFormatDialogTitle": "匯出 {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}."
   },
   "saveRequired": {
     "title": "需要儲存"

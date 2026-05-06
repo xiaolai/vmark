@@ -64,7 +64,7 @@ import type { TabTransferPayload } from "@/types/tabTransfer";
 import { windowCloseWarn, windowContextError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/adapters/markdown";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { cleanupTabState } from "@/hooks/tabCleanup";

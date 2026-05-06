@@ -53,7 +53,7 @@ import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/utils/hotExit
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/adapters/markdown";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
 interface OpenFilePayload {

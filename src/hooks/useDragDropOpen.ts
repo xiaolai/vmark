@@ -28,7 +28,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useUIStore } from "@/stores/uiStore";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/adapters/markdown";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { filterMarkdownPaths } from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";

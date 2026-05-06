@@ -171,7 +171,8 @@
     "tabDropPinnedZone": "ピン留めされたタブは左側に固定されます。ドロップはブロックされました。",
     "exportRenderTimedOut": "エクスポートのレンダリングがタイムアウトしました — エディタを初期化できませんでした",
     "exportHtmlDialogTitle": "HTMLをエクスポート",
-    "exportFormatDialogTitle": "{{name}}をエクスポート"
+    "exportFormatDialogTitle": "{{name}}をエクスポート",
+    "tabFormatChanged": "Editor switched to {{format}}."
   },
   "saveRequired": {
     "title": "保存が必要"

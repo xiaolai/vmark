@@ -171,7 +171,8 @@
     "tabDropPinnedZone": "固定的标签页保留在左侧。无法在此处放下。",
     "exportRenderTimedOut": "导出渲染超时 — 编辑器未能初始化",
     "exportHtmlDialogTitle": "导出 HTML",
-    "exportFormatDialogTitle": "导出 {{name}}"
+    "exportFormatDialogTitle": "导出 {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}."
   },
   "saveRequired": {
     "title": "需要保存"

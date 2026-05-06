@@ -171,7 +171,8 @@
     "tabDropPinnedZone": "Angeheftete Tabs bleiben links. Drop blockiert.",
     "exportRenderTimedOut": "Export-Rendering hat das Zeitlimit überschritten — Editor konnte nicht initialisiert werden",
     "exportHtmlDialogTitle": "HTML exportieren",
-    "exportFormatDialogTitle": "{{name}} exportieren"
+    "exportFormatDialogTitle": "{{name}} exportieren",
+    "tabFormatChanged": "Editor switched to {{format}}."
   },
   "saveRequired": {
     "title": "Speichern erforderlich"

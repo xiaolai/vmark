@@ -171,7 +171,8 @@
     "tabDropPinnedZone": "Las pestañas fijadas permanecen a la izquierda. Soltar bloqueado.",
     "exportRenderTimedOut": "El renderizado de la exportación expiró: el editor no se pudo inicializar",
     "exportHtmlDialogTitle": "Exportar HTML",
-    "exportFormatDialogTitle": "Exportar {{name}}"
+    "exportFormatDialogTitle": "Exportar {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}."
   },
   "saveRequired": {
     "title": "Guardado requerido"

@@ -171,7 +171,8 @@
     "tabDropPinnedZone": "Le schede fissate rimangono a sinistra. Rilascio bloccato.",
     "exportRenderTimedOut": "Il rendering dell'esportazione ha superato il tempo limite — l'editor non è riuscito a inizializzarsi",
     "exportHtmlDialogTitle": "Esporta HTML",
-    "exportFormatDialogTitle": "Esporta {{name}}"
+    "exportFormatDialogTitle": "Esporta {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}."
   },
   "saveRequired": {
     "title": "Salvataggio richiesto"

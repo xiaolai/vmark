@@ -29,7 +29,7 @@ import { createUntitledTab } from "@/utils/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/adapters/markdown";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 

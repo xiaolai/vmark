@@ -171,7 +171,8 @@
     "tabDropPinnedZone": "Les onglets épinglés restent à gauche. Dépose bloquée.",
     "exportRenderTimedOut": "Le rendu d'export a expiré — l'éditeur n'a pas pu être initialisé",
     "exportHtmlDialogTitle": "Exporter en HTML",
-    "exportFormatDialogTitle": "Exporter en {{name}}"
+    "exportFormatDialogTitle": "Exporter en {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}."
   },
   "saveRequired": {
     "title": "Enregistrement requis"
