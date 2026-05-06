@@ -58,6 +58,24 @@ version = "0.7.0"
       ),
     ).toBeNull();
   });
+
+  it("returns null for syntactically invalid TOML even when shape matches (ADR-5)", () => {
+    // Regex-only shape match would say yes, but TOML parse fails.
+    const broken = `
+[project
+name = "x"
+    `.trim();
+    expect(pyprojectTomlSchemaDetector("/x/random.toml", broken)).toBeNull();
+  });
+
+  it("path detection still wins on syntactically invalid TOML", () => {
+    // Same broken content under pyproject.toml — degraded view per
+    // ADR-5 path-first rule.
+    const broken = "[project\nname = ::: invalid";
+    expect(
+      pyprojectTomlSchemaDetector("/repo/pyproject.toml", broken),
+    ).toBe("pyproject-toml");
+  });
 });
 
 describe("collectPyprojectDependencies", () => {

@@ -30,9 +30,21 @@ export const pyprojectTomlSchemaDetector: SchemaDetector = (
     const stripped = path.replace(/[?#].*$/, "");
     if (PYPROJECT_FILENAME_RE.test(stripped)) return "pyproject-toml";
   }
-  if (/^\s*\[project\]/m.test(content)) return "pyproject-toml";
-  if (/^\s*\[tool\.poetry\]/m.test(content)) return "pyproject-toml";
-  return null;
+  // Content fallback per ADR-5 rule 3 — must parse cleanly before
+  // we trust the regex shape match. Avoids routing broken TOML to
+  // a renderer that would crash trying to read it.
+  if (
+    !/^\s*\[project\]/m.test(content) &&
+    !/^\s*\[tool\.poetry\]/m.test(content)
+  ) {
+    return null;
+  }
+  try {
+    parseToml(content);
+  } catch {
+    return null;
+  }
+  return "pyproject-toml";
 };
 
 export interface PythonDependency {
