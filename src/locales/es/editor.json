@@ -272,5 +272,6 @@
   "cargo.devDependencies": "Dev dependencies",
   "cargo.buildDependencies": "Build dependencies",
   "cargo.empty": "No dependencies declared.",
-  "preview.signOffPending": "HTML preview is sandboxed but pending OWASP sign-off (WI-3.4)."
+  "preview.signOffPending": "HTML preview is sandboxed but pending OWASP sign-off (WI-3.4).",
+  "preview.htmlIframeTitle": "HTML preview"
 }

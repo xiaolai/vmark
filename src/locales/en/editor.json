@@ -6,6 +6,7 @@
   "preview.errorAt": "({{line}}:{{column}})",
   "preview.workflowParseFailed": "Workflow parse failed — fix syntax errors",
   "preview.signOffPending": "HTML preview is sandboxed but pending OWASP sign-off (WI-3.4).",
+  "preview.htmlIframeTitle": "HTML preview",
   "cargo.dependencies": "Dependencies",
   "cargo.devDependencies": "Dev dependencies",
   "cargo.buildDependencies": "Build dependencies",

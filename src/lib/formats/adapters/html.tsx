@@ -133,7 +133,7 @@ function HtmlSandboxPreview({ content, diagnostics }: PreviewRendererProps) {
         ref={iframeRef}
         // Empty sandbox: no scripts, no same-origin, no forms, no popups.
         sandbox=""
-        title="HTML preview"
+        title={t("preview.htmlIframeTitle")}
         srcDoc={srcdoc}
         className="html-preview__iframe"
         // referrerPolicy is honored by the outer document; the iframe
