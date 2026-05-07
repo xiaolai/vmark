@@ -51,17 +51,15 @@ export interface ResolveOptions {
 /**
  * Check that `normalizedPath` is `normalizedBase` or sits under it, with a
  * separator boundary so a sibling directory like `/a/b-evil` cannot pass a
- * `/a/b` baseDir check via plain `startsWith`.
+ * `/a/b` baseDir check via plain `startsWith`. Tries both POSIX and Windows
+ * separators because Tauri's `normalize()` returns platform-native paths.
  */
-function isInsideBase(normalizedPath: string, normalizedBase: string): boolean {
+export function isInsideBase(normalizedPath: string, normalizedBase: string): boolean {
   if (normalizedPath === normalizedBase) return true;
-  // Use both POSIX and Windows separators since `normalize()` returns
-  // platform-native paths.
-  const sep = normalizedBase.includes("\\") ? "\\" : "/";
-  const baseWithSep = normalizedBase.endsWith(sep)
-    ? normalizedBase
-    : normalizedBase + sep;
-  return normalizedPath.startsWith(baseWithSep);
+  return (
+    normalizedPath.startsWith(normalizedBase + "/") ||
+    normalizedPath.startsWith(normalizedBase + "\\")
+  );
 }
 
 /**

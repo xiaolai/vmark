@@ -74,6 +74,7 @@ import {
   isRemoteUrl,
   isDataUri,
   isAssetUrl,
+  isInsideBase,
   extractImageSources,
   resolveRelativePath,
   fileToDataUri,
@@ -398,6 +399,33 @@ describe("resolveRelativePath", () => {
     });
   });
 
+});
+
+// ---------------------------------------------------------------------------
+// isInsideBase — direct unit tests for the helper, including the Windows
+// separator branch that is unreachable via the POSIX-only normalize() mock.
+// ---------------------------------------------------------------------------
+describe("isInsideBase", () => {
+  it("returns true when path equals base (===  branch)", () => {
+    expect(isInsideBase("/a/b", "/a/b")).toBe(true);
+  });
+
+  it("returns true when path is inside base via POSIX separator", () => {
+    expect(isInsideBase("/a/b/x.png", "/a/b")).toBe(true);
+  });
+
+  it("returns true when path is inside base via Windows separator", () => {
+    expect(isInsideBase("C:\\a\\b\\x.png", "C:\\a\\b")).toBe(true);
+  });
+
+  it("returns false for sibling directory whose name shares the base prefix", () => {
+    expect(isInsideBase("/a/b-evil/x.png", "/a/b")).toBe(false);
+    expect(isInsideBase("C:\\a\\b-evil\\x.png", "C:\\a\\b")).toBe(false);
+  });
+
+  it("returns false for completely unrelated paths", () => {
+    expect(isInsideBase("/c/d", "/a/b")).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
