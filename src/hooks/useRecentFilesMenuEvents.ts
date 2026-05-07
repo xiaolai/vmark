@@ -23,6 +23,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -31,6 +32,10 @@ import { resolveOpenAction } from "@/utils/openPolicy";
 import { getReplaceableTab } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
+import { openFileInNewTabCore } from "@/hooks/useFileOpen";
+import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
+import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import { menuError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
@@ -102,12 +107,13 @@ export function useRecentFilesMenuEvents(): void {
 
             case "create_tab":
               try {
-                const content = await readTextFile(file.path);
-                const tabId = useTabStore.getState().createTab(windowLabel, file.path);
-                // WI-1B.7 / WI-2.6 — registry-driven dispatch.
-                useDocumentStore.getState().initDocument(tabId, content, file.path);
-                useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
-                useRecentFilesStore.getState().addFile(file.path);
+                // Route through the shared open core so size-routing,
+                // forced-source marking, and progress indication all apply.
+                // openFileInNewTabCore handles refused / cancelled / huge
+                // files identically to Cmd+O / drag-drop / Finder, and
+                // already updates the recent-files store on success — no
+                // duplicate addFile call needed here.
+                await openFileInNewTabCore(windowLabel, file.path);
               } catch (error) {
                 menuError("Failed to open recent file:", error);
                 const remove = await ask(
@@ -120,11 +126,26 @@ export function useRecentFilesMenuEvents(): void {
               }
               break;
 
-            case "replace_tab":
+            case "replace_tab": {
+              // Pre-read size gate so refused / cancelled / huge files
+              // honor the large-file UX on the replace branch too.
+              const route = await routeOpenBySize(file.path);
+              if (!route.proceed) break;
+
+              const showIndicator =
+                !route.forceSourceMode &&
+                shouldShowProgressIndicator(route.sizeBytes);
+              let replaceLoadId: number | null = null;
+              if (showIndicator) {
+                const filename = getFileName(file.path) || file.path;
+                replaceLoadId = useFileLoadStore
+                  .getState()
+                  .startLoad(filename, route.sizeBytes);
+              }
+
               try {
                 const content = await readTextFile(file.path);
                 useTabStore.getState().updateTabPath(result.tabId, result.filePath);
-                // WI-1B.7 — registry-driven dispatch (see WI-1B.6 above).
                 useDocumentStore.getState().loadContent(
                   result.tabId,
                   content,
@@ -133,8 +154,17 @@ export function useRecentFilesMenuEvents(): void {
                 );
                 await openWorkspaceWithConfig(result.workspaceRoot);
                 useRecentFilesStore.getState().addFile(file.path);
+
+                maybeMarkLargeMarkdownAsSource(
+                  result.tabId,
+                  file.path,
+                  route.forceSourceMode,
+                );
               } catch (error) {
                 menuError("Failed to replace tab with recent file:", error);
+                if (replaceLoadId !== null) {
+                  useFileLoadStore.getState().endLoad(replaceLoadId);
+                }
                 const remove = await ask(
                   i18n.t("dialog:fileNotFound.message"),
                   { title: i18n.t("dialog:fileNotFound.title"), kind: "warning" }
@@ -144,6 +174,7 @@ export function useRecentFilesMenuEvents(): void {
                 }
               }
               break;
+            }
 
             case "open_workspace_in_new_window":
               try {

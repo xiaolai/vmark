@@ -79,19 +79,22 @@ export function MarkdownEditorSurface({ tabId }: { tabId: string }) {
   /* v8 ignore next -- @preserve sourceMode ternary branches require mode toggle */
   const activeEditor = sourceMode ? "source" : "wysiwyg";
   /* v8 ignore next 10 -- @preserve keepAlive and sourceMode ternary branches require advanced settings */
+  // Distinct keys are required when both editors are mounted side-by-side
+  // (keepAlive). React's reconciler keys siblings at the same level —
+  // sharing one key triggers warnings and incorrect element reuse.
   const editorContent = keepAlive ? (
     <>
       <Suspense fallback={null}>
-        <SourceEditor key={editorKey} hidden={!sourceMode} readOnly={readOnly} />
+        <SourceEditor key={`${editorKey}-source`} hidden={!sourceMode} readOnly={readOnly} />
       </Suspense>
-      <TiptapEditorInner key={editorKey} hidden={sourceMode} readOnly={readOnly} />
+      <TiptapEditorInner key={`${editorKey}-wysiwyg`} hidden={sourceMode} readOnly={readOnly} />
     </>
   ) : sourceMode ? (
     <Suspense fallback={null}>
-      <SourceEditor key={editorKey} readOnly={readOnly} />
+      <SourceEditor key={`${editorKey}-source`} readOnly={readOnly} />
     </Suspense>
   ) : (
-    <TiptapEditorInner key={editorKey} readOnly={readOnly} />
+    <TiptapEditorInner key={`${editorKey}-wysiwyg`} readOnly={readOnly} />
   );
 
   return (

@@ -83,8 +83,10 @@ describe("json adapter", () => {
       expect(diags[0].severity).toBe("error");
     });
 
-    it("returns empty on empty document (treats as valid empty)", () => {
-      // JSON.parse("") throws; we surface that as a diagnostic at line 1.
+    it("flags empty document as a syntax error at line 1", () => {
+      // JSON.parse("") throws — empty content is not valid JSON, so the
+      // validator surfaces a line:1 diagnostic. The user sees the same
+      // gutter marker they would for any other parse failure.
       const diags = jsonValidator("");
       expect(diags).toHaveLength(1);
       expect(diags[0].line).toBe(1);

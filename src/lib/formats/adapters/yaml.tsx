@@ -18,6 +18,7 @@ import {
 } from "@/lib/ghaWorkflow/detection";
 import { parse as parseWorkflow } from "@/lib/ghaWorkflow/parser";
 import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
+import { getFileName } from "@/utils/pathUtils";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -100,9 +101,9 @@ function GhaWorkflowSchemaRenderer({
   const { t } = useTranslation("editor");
   const parseResult = useMemo(() => {
     try {
-      const fileName = path
-        ? path.split("/").pop() ?? "workflow.yml"
-        : "workflow.yml";
+      // Use a cross-platform basename helper — `.split("/")` drops the
+      // final segment on Windows paths (`C:\…\workflow.yml`).
+      const fileName = path ? getFileName(path) || "workflow.yml" : "workflow.yml";
       const ir = parseWorkflow(content, fileName);
       return { ok: true as const, ir };
     } catch (error) {

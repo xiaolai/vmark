@@ -154,12 +154,17 @@ export async function handleOpen(windowLabel: string): Promise<void> {
     perfStart("openDialog");
     // WI-1B.1 — "All Supported" preset (every registered format) plus
     // a Markdown-only preset for the user who wants the legacy filter.
+    // Filter names are localized via dialog:openFilter.* — only the
+    // extension lists stay registry-driven.
     const allExtensions = getSupportedExtensions();
     const path = await open({
       filters: [
-        { name: "All Supported", extensions: [...allExtensions] },
         {
-          name: "Markdown",
+          name: i18n.t("dialog:openFilter.allSupported"),
+          extensions: [...allExtensions],
+        },
+        {
+          name: i18n.t("dialog:openFilter.markdown"),
           extensions: ["md", "markdown", "mdown", "mkd", "mdx"],
         },
       ],

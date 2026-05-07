@@ -16,7 +16,7 @@
 // before this adapter is considered production-ready; until then the
 // adapter ships in code but is marked UNVERIFIED in the file header.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import DOMPurify from "dompurify";
@@ -92,16 +92,12 @@ function buildSandboxedSrcdoc(content: string): string {
 
 function HtmlSandboxPreview({ content, diagnostics }: PreviewRendererProps) {
   const { t } = useTranslation("editor");
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // React updates the iframe's srcDoc prop on every change — no
+  // imperative ref+effect duplicate needed. SplitPaneEditor re-renders
+  // on every keystroke, so the iframe rebuilds at typing rhythm. If
+  // perf becomes an issue, debounce `content` upstream rather than
+  // double-writing here.
   const srcdoc = useMemo(() => buildSandboxedSrcdoc(content), [content]);
-
-  // Debounce-style update — the parent SplitPaneEditor already
-  // re-renders on every keystroke; we just refresh srcdoc here.
-  useEffect(() => {
-    if (iframeRef.current) {
-      iframeRef.current.srcdoc = srcdoc;
-    }
-  }, [srcdoc]);
 
   if (!content.trim()) {
     return <div className="html-preview html-preview--empty" />;
@@ -130,7 +126,6 @@ function HtmlSandboxPreview({ content, diagnostics }: PreviewRendererProps) {
         </div>
       )}
       <iframe
-        ref={iframeRef}
         // Empty sandbox: no scripts, no same-origin, no forms, no popups.
         sandbox=""
         title={t("preview.htmlIframeTitle")}

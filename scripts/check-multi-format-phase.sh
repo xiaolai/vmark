@@ -168,11 +168,14 @@ case "$PHASE" in
       fail "Rust ↔ TS extension drift (run scripts/check-ext-sync.sh)"
     fi
 
-    # WI-1B.1 — open dialog filter
-    if grep -q "All Supported" src/hooks/useFileOpen.ts; then
-      ok "Open dialog has All Supported preset"
+    # WI-1B.1 — open dialog filter is registry-driven (calls
+    # getSupportedExtensions). Structural check survives i18n filter
+    # name changes — earlier literal match for "All Supported"
+    # blocked translation work.
+    if grep -q "getSupportedExtensions" src/hooks/useFileOpen.ts; then
+      ok "Open dialog filter is registry-driven"
     else
-      fail "Open dialog filter not generalized"
+      fail "Open dialog filter must use getSupportedExtensions()"
     fi
 
     # WI-1B.2 — drag-drop generalization
