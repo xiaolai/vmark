@@ -17,7 +17,7 @@ import {
   type ShortcutCategory,
 } from "@/stores/shortcutsStore";
 import { KeyCapture } from "./KeyCapture";
-import { Button } from "./components";
+import { Button, SearchInput } from "./components";
 
 export function ShortcutsSettings() {
   const { t } = useTranslation("settings");
@@ -190,15 +190,11 @@ export function ShortcutsSettings() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {/* Search */}
         <div className="flex-1 min-w-[200px]">
-          <input
-            type="text"
+          <SearchInput
+            type="search"
             placeholder={t("shortcuts.searchPlaceholder")}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-0 py-1 text-sm bg-transparent text-[var(--text-primary)]
-                       border-0 border-b border-[var(--border-color)]
-                       placeholder:text-[var(--text-tertiary)]
-                       focus:border-[var(--primary-color)]"
+            onChange={setSearch}
           />
         </div>
 
