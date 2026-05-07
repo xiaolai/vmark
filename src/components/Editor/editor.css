@@ -87,11 +87,7 @@
    This keeps selection highlight constrained to content area.
    Tables use negative margin to break out and span full width. */
 
-/* Center alignment for block images (when setting enabled) */
-.media-align-center .tiptap-editor .ProseMirror > .block-image {
-  display: flex;
-  justify-content: center;
-}
+/* Block-image center alignment lives in src/plugins/blockImage/block-image.css. */
 
 /* Headings: no horizontal margins needed - ProseMirror padding aligns all content */
 
