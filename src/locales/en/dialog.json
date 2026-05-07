@@ -84,6 +84,10 @@
   "saveVersionAs": {
     "title": "Save your version as..."
   },
+  "openFilter": {
+    "allSupported": "All Supported",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "Choose folder for {{count}} new documents",
   "toast": {
     "saveDialogFailed": "Save dialog failed: {{error}}",

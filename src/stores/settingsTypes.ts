@@ -239,6 +239,44 @@ export interface AdvancedSettingsState {
   clearMacQuarantineOnOpen: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Format support (multi-format rebrand opt-in)
+// ---------------------------------------------------------------------------
+
+/**
+ * Format support settings — opt-in toggles for non-default format adapters.
+ *
+ * Markdown, plain text, and YAML/YML are always registered (markdown is the
+ * core product; YAML shipped on by default in the previous release with the
+ * GHA workflow viewer — reverting it would break the contract). Every other
+ * adapter is grouped here behind a category toggle so the existing user base
+ * isn't surprised by VMark suddenly opening `.html` / `.toml` / `.ts` files
+ * with rich previews. Defaults are all OFF on first install AND on upgrade.
+ *
+ * `externalEditor` is the explicit override for the "Open in external editor"
+ * button on read-only code tabs (WI-4.4). Empty string = fall back to the
+ * env-var chain (`$VMARK_EXTERNAL_EDITOR` → `$VISUAL` → `$EDITOR` → platform
+ * default). The GUI setting wins over env vars when both are set — explicit
+ * beats implicit.
+ */
+export interface FormatsSettings {
+  /** Register `.json` / `.jsonl` / `.toml` adapters (split-pane source + tree). */
+  dataFormats: boolean;
+  /** Register `.mmd` (Mermaid) and `.svg` adapters (source + sanitized render). */
+  diagrams: boolean;
+  /** Register `.html` / `.htm` adapter (sandboxed iframe + DOMPurify + CSP). */
+  htmlPreview: boolean;
+  /** Register `.ts` / `.tsx` / `.js` / `.jsx` / `.py` / `.rs` / `.go` /
+   *  `.css` / `.sh` / `.bash` / `.rb` / `.lua` viewers (read-only by default). */
+  codeViewers: boolean;
+  /** Explicit external-editor command for the read-only code-tab escape hatch.
+   *  Empty = env-var fallback chain. Browse button populates. */
+  externalEditor: string;
+  /** Internal: set true once the upgrade nudge toast has been shown so it
+   *  never repeats. Not user-toggled — only updated by the nudge handler. */
+  upgradeNudgeShown: boolean;
+}
+
 /** General settings — auto-save, document history, tab size, line endings, and quit behavior. */
 // ---------------------------------------------------------------------------
 // Large file open behavior
@@ -305,6 +343,7 @@ export interface SettingsState {
   advanced: AdvancedSettingsState;
   update: UpdateSettings;
   largeFile: LargeFileSettings;
+  formats: FormatsSettings;
   // UI state
   showDevSection: boolean;
 }
@@ -346,6 +385,10 @@ export interface SettingsActions {
   updateLargeFileSetting: <K extends keyof LargeFileSettings>(
     key: K,
     value: LargeFileSettings[K]
+  ) => void;
+  updateFormatsSetting: <K extends keyof FormatsSettings>(
+    key: K,
+    value: FormatsSettings[K]
   ) => void;
   toggleDevSection: () => void;
   resetSettings: () => void;

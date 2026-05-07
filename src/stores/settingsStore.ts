@@ -253,11 +253,23 @@ const initialState: SettingsState = {
     autoSourceMode: true,
     warnAbove5MB: true,
   },
+  formats: {
+    // Multi-format rebrand opt-in defaults — markdown, txt, and yaml are
+    // always registered; everything else is OFF by default so existing
+    // users aren't surprised. The first-run-after-upgrade nudge surfaces
+    // these in the Settings panel via a one-time toast.
+    dataFormats: false,
+    diagrams: false,
+    htmlPreview: false,
+    codeViewers: false,
+    externalEditor: "",
+    upgradeNudgeShown: false,
+  },
   showDevSection: false,
 };
 
 // Object sections that can be updated with createSectionUpdater
-type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced" | "update" | "largeFile";
+type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced" | "update" | "largeFile" | "formats";
 
 // Helper to create section updaters - reduces duplication
 const createSectionUpdater = <T extends ObjectSections>(
@@ -283,6 +295,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       updateAdvancedSetting: createSectionUpdater(set, "advanced"),
       updateUpdateSetting: createSectionUpdater(set, "update"),
       updateLargeFileSetting: createSectionUpdater(set, "largeFile"),
+      updateFormatsSetting: createSectionUpdater(set, "formats"),
 
       toggleDevSection: () => set((state) => ({ showDevSection: !state.showDevSection })),
       resetSettings: () => set(structuredClone(initialState)),

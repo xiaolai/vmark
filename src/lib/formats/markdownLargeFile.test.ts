@@ -88,12 +88,41 @@ describe("maybeMarkLargeMarkdownAsSource", () => {
     ).toBeUndefined();
   });
 
-  it("treats unbootstrapped registry as markdown (failure-open preserves prior behavior)", () => {
-    // Registry empty → dispatchEditor would throw; the helper catches
-    // and falls back to "treat as markdown."
+  it("treats unbootstrapped registry as markdown for .md files (failure-open preserves prior behavior)", () => {
+    // Registry empty → dispatchEditor would throw; the helper falls back
+    // to a static markdown-extension allow-list and treats .md as markdown.
     maybeMarkLargeMarkdownAsSource("tab-1", "/foo.md", true);
     expect(
       useLargeFileSessionStore.getState().forcedSourceTabs["tab-1"],
     ).toBe(true);
+  });
+
+  it("does NOT mark non-markdown extensions when registry is unbootstrapped", () => {
+    // Regression: previously the failure-open path defaulted every
+    // extension to markdown, so /foo.txt with the registry empty would
+    // get marked forced-source — wrong, because txt doesn't have a
+    // WYSIWYG path. Static extension allow-list now rejects it.
+    maybeMarkLargeMarkdownAsSource("tab-1", "/foo.txt", true);
+    expect(
+      useLargeFileSessionStore.getState().forcedSourceTabs["tab-1"],
+    ).toBeUndefined();
+    maybeMarkLargeMarkdownAsSource("tab-2", "/path/to/foo.json", true);
+    expect(
+      useLargeFileSessionStore.getState().forcedSourceTabs["tab-2"],
+    ).toBeUndefined();
+    maybeMarkLargeMarkdownAsSource("tab-3", "/no-extension", true);
+    expect(
+      useLargeFileSessionStore.getState().forcedSourceTabs["tab-3"],
+    ).toBeUndefined();
+  });
+
+  it("matches every markdown alias when registry is unbootstrapped", () => {
+    for (const [i, ext] of ["md", "markdown", "mdown", "mkd", "mdx"].entries()) {
+      const tabId = `tab-mdvariant-${i}`;
+      maybeMarkLargeMarkdownAsSource(tabId, `/foo.${ext}`, true);
+      expect(
+        useLargeFileSessionStore.getState().forcedSourceTabs[tabId],
+      ).toBe(true);
+    }
   });
 });

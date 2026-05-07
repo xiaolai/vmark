@@ -5,6 +5,7 @@ import "./i18n";
 import "./utils/startupMenuSync";
 import { initSecureStorage } from "./utils/secureStorage";
 import { bootstrapFormats } from "./lib/formats";
+import { useSettingsStore } from "./stores/settingsStore";
 import "./styles/index.css";
 // KaTeX CSS must load AFTER Tailwind (so preflight runs first).
 // KaTeX fixes must load AFTER KaTeX CSS to restore border-widths reset by Tailwind.
@@ -20,8 +21,19 @@ async function bootstrap() {
   await initSecureStorage(SECURE_KEYS);
 
   // Register every format adapter before App imports any store that
-  // calls dispatchEditor() (e.g., tabStore.createTab).
-  bootstrapFormats();
+  // calls dispatchEditor() (e.g., tabStore.createTab). Honor the user's
+  // opt-in toggles — markdown, txt, and yaml always register; the rest
+  // depend on `settings.formats.*`. The runtime re-bootstrap subscription
+  // is mounted by document windows only (see useFormatSettingsBridge in
+  // App.tsx) so non-document windows like Settings / PDF Export don't
+  // pull tabStore + registry orchestration.
+  const initialFormats = useSettingsStore.getState().formats;
+  bootstrapFormats({
+    dataFormats: initialFormats.dataFormats,
+    diagrams: initialFormats.diagrams,
+    htmlPreview: initialFormats.htmlPreview,
+    codeViewers: initialFormats.codeViewers,
+  });
 
   // Dynamic import: App (and its transitive Zustand stores) only evaluate
   // AFTER the secure storage cache is populated.

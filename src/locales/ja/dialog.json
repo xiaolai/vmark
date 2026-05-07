@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "バージョンに名前を付けて保存..."
   },
+  "openFilter": {
+    "allSupported": "サポートされているすべての形式",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "{{count}}個の新しいドキュメントのフォルダを選択",
   "toast": {
     "saveDialogFailed": "保存ダイアログが失敗しました: {{error}}",

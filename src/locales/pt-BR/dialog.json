@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "Salvar sua versão como..."
   },
+  "openFilter": {
+    "allSupported": "Todos os formatos suportados",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "Escolher pasta para {{count}} novos documentos",
   "toast": {
     "saveDialogFailed": "Falha na caixa de diálogo de salvar: {{error}}",

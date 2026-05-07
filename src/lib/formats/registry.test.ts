@@ -174,6 +174,48 @@ describe("format registry", () => {
         }),
       ).not.toThrow();
     });
+
+    it("normalizes extensions: strips leading dot", () => {
+      registerFormat({ ...txtConfig, extensions: [".txt"] });
+      expect(dispatchEditor("/x/foo.txt").id).toBe("txt");
+      expect(getSupportedExtensions()).toContain("txt");
+      expect(getSupportedExtensions()).not.toContain(".txt");
+    });
+
+    it("normalizes extensions: trims whitespace", () => {
+      registerFormat({ ...txtConfig, extensions: ["  txt  "] });
+      expect(dispatchEditor("/x/foo.txt").id).toBe("txt");
+    });
+
+    it("normalizes extensions: lowercases", () => {
+      registerFormat({ ...txtConfig, extensions: ["TXT"] });
+      expect(dispatchEditor("/x/foo.txt").id).toBe("txt");
+      expect(dispatchEditor("/x/foo.TXT").id).toBe("txt");
+    });
+
+    it("rejects empty extension after normalization", () => {
+      expect(() =>
+        registerFormat({ ...txtConfig, extensions: ["   "] }),
+      ).toThrowError(/non-empty/);
+      expect(() =>
+        registerFormat({ ...txtConfig, extensions: ["."] }),
+      ).toThrowError(/non-empty/);
+    });
+
+    it("rejects non-string extensions", () => {
+      expect(() =>
+        registerFormat({
+          ...txtConfig,
+          extensions: [123 as unknown as string],
+        }),
+      ).toThrowError(/string/);
+    });
+
+    it("rejects same extension declared twice in one format", () => {
+      expect(() =>
+        registerFormat({ ...txtConfig, extensions: ["txt", "TXT"] }),
+      ).toThrowError(/more than once/);
+    });
   });
 
   describe("dispatchEditor", () => {

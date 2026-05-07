@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "Enregistrer votre version sous..."
   },
+  "openFilter": {
+    "allSupported": "Tous les formats pris en charge",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "Choisir un dossier pour {{count}} nouveaux documents",
   "toast": {
     "saveDialogFailed": "Échec de la boîte de dialogue d'enregistrement : {{error}}",

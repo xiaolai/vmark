@@ -34,7 +34,7 @@ import { imeToast as toast } from "@/utils/imeToast";
 import i18n from "@/i18n";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { stripSupportedExtension } from "@/utils/dropPaths";
-import { dispatchEditor } from "@/lib/formats/registry";
+import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 
 /** A single editor tab with ID, optional file path, display title, pin state,
  *  the format adapter id (derived from filePath via dispatchEditor), and the
@@ -93,6 +93,12 @@ interface TabActions {
   updateTabPath: (tabId: string, filePath: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
+  /** Re-resolve every tab's `formatId` against the current registry.
+   *  Called after the user toggles a format-support setting and the
+   *  registry rebuilds — a tab whose adapter just got unregistered
+   *  must fall back to the txt format (and vice versa). The Editor
+   *  remount key picks up the change automatically. */
+  recomputeAllFormatIds: () => void;
 
   // Detach (drag-out) — remove without adding to closedTabs
   detachTab: (windowLabel: string, tabId: string) => void;
@@ -118,12 +124,28 @@ const generateTabId = (): string => `tab-${Date.now()}-${Math.random().toString(
 // Get filename from path for tab title
 const getTabTitle = (filePath: string | null, untitledNum?: number): string => {
   if (!filePath) {
-    return untitledNum ? `Untitled-${untitledNum}` : "Untitled";
+    // Translated "Untitled" — `common:untitled`. The numbered suffix
+    // stays a plain "-N" because file names don't carry locale formatting.
+    const base = i18n.t("common:untitled");
+    return untitledNum ? `${base}-${untitledNum}` : base;
   }
   // Extract filename without markdown extension
   const name = getFileName(filePath) || filePath;
   return stripSupportedExtension(name);
 };
+
+// Resolve a format id (e.g. "markdown", "json") to its localized display
+// name. Falls back to the id itself if the format isn't registered or the
+// translation key is missing — never throws, never blocks tab updates.
+function getLocalizedFormatName(formatId: string): string {
+  const config = getFormatById(formatId);
+  if (!config) return formatId;
+  const translated = i18n.t(`common:${config.nameI18nKey}`);
+  // i18next returns the key string when missing; treat that as a miss.
+  return translated && translated !== `common:${config.nameI18nKey}`
+    ? translated
+    : formatId;
+}
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
 export const useTabStore = create<TabState & TabActions>((set, get) => ({
@@ -311,11 +333,13 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       }
       return { tabs: newTabs };
     });
-    /* v8 ignore next 6 -- @preserve fired only on cross-format rename; unit-tested separately */
+    /* v8 ignore next 8 -- @preserve fired only on cross-format rename; unit-tested separately */
     if (kindChange) {
       const change = kindChange as { previousFormatId: string; nextFormatId: string };
       toast.info(
-        i18n.t("dialog:toast.tabFormatChanged", { format: change.nextFormatId }),
+        i18n.t("dialog:toast.tabFormatChanged", {
+          format: getLocalizedFormatName(change.nextFormatId),
+        }),
       );
     }
   },
@@ -435,6 +459,22 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       }
     }
     return paths;
+  },
+
+  recomputeAllFormatIds: () => {
+    set((state) => {
+      const newTabs: Record<string, Tab[]> = {};
+      let changed = false;
+      for (const windowLabel of Object.keys(state.tabs)) {
+        newTabs[windowLabel] = state.tabs[windowLabel].map((t) => {
+          const nextFormatId = deriveFormatId(t.filePath);
+          if (nextFormatId === t.formatId) return t;
+          changed = true;
+          return { ...t, formatId: nextFormatId };
+        });
+      }
+      return changed ? { tabs: newTabs } : state;
+    });
   },
 
   removeWindow: (windowLabel) => {

@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "버전을 다른 이름으로 저장..."
   },
+  "openFilter": {
+    "allSupported": "지원되는 모든 형식",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "새 문서 {{count}}개의 폴더 선택",
   "toast": {
     "saveDialogFailed": "저장 대화 상자 실패: {{error}}",

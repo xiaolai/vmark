@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "將您的版本另存新檔..."
   },
+  "openFilter": {
+    "allSupported": "所有支援的格式",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "選擇 {{count}} 份新文件的儲存資料夾",
   "toast": {
     "saveDialogFailed": "儲存對話框失敗：{{error}}",

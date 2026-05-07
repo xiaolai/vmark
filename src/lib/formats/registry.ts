@@ -33,8 +33,29 @@ export function registerFormat(config: FormatConfig): void {
       `[formats] "${config.id}" must declare at least one extension`,
     );
   }
+  // Normalize once; downstream lookups use lowercase, dot-less keys.
+  // Pre-flight all entries before mutating either map so a partial
+  // registration can't leave the registry in a half-applied state.
+  const normalizedExts: string[] = [];
+  const seenLocal = new Set<string>();
   for (const raw of config.extensions) {
-    const ext = raw.toLowerCase();
+    if (typeof raw !== "string") {
+      throw new Error(
+        `[formats] "${config.id}" extension must be a string, got ${typeof raw}`,
+      );
+    }
+    const ext = raw.trim().replace(/^\.+/, "").toLowerCase();
+    if (ext.length === 0) {
+      throw new Error(
+        `[formats] "${config.id}" extension must be non-empty after trim/strip-dot`,
+      );
+    }
+    if (seenLocal.has(ext)) {
+      throw new Error(
+        `[formats] "${config.id}" declares ".${ext}" more than once`,
+      );
+    }
+    seenLocal.add(ext);
     if (byExt.has(ext)) {
       throw new Error(
         `[formats] extension collision: ".${ext}" already registered by "${
@@ -42,6 +63,7 @@ export function registerFormat(config: FormatConfig): void {
         }"`,
       );
     }
+    normalizedExts.push(ext);
   }
   if (config.kind === "wysiwyg" && !config.wysiwygComponent) {
     throw new Error(
@@ -83,8 +105,8 @@ export function registerFormat(config: FormatConfig): void {
 
   formats.push(config);
   byId.set(config.id, config);
-  for (const raw of config.extensions) {
-    byExt.set(raw.toLowerCase(), config);
+  for (const ext of normalizedExts) {
+    byExt.set(ext, config);
   }
 }
 
@@ -121,7 +143,14 @@ export function getSupportedExtensions(): readonly string[] {
   return [...byExt.keys()];
 }
 
-// Test-only — never called from production code.
+/**
+ * Clear every registered format. The `__` prefix is historical (this
+ * was test-only when first introduced) — production now also calls it
+ * via `rebootstrapFormats()` whenever the user flips a `formats.*`
+ * settings toggle. Safe to invoke at runtime: callers must immediately
+ * re-bootstrap via `bootstrapFormats(toggles)` so the always-on trio
+ * (markdown / txt / yaml) re-registers before the next dispatch.
+ */
 export function __resetRegistry(): void {
   formats.length = 0;
   byId.clear();
