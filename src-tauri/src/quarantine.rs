@@ -56,8 +56,9 @@ fn strip_one(path: &Path) -> std::io::Result<bool> {
     }
 }
 
-/// Strip `com.apple.quarantine` from `root` and every `.md` file directly
-/// inside `root`. Does not recurse into subdirectories.
+/// Strip `com.apple.quarantine` from `root` and every file with a
+/// registered VMark extension (see `crate::has_supported_extension`)
+/// directly inside `root`. Does not recurse into subdirectories.
 ///
 /// Errors on individual entries are logged and counted, never propagated.
 #[cfg(target_os = "macos")]

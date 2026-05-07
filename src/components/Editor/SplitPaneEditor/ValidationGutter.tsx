@@ -18,6 +18,26 @@ export interface ValidationGutterProps {
   onJump?: (line: number, column: number) => void;
 }
 
+type EditorTranslate = (
+  key: string,
+  options?: Record<string, unknown>,
+) => string;
+
+// Resolve a diagnostic message:
+//   1. If ruleId has a `diagnostic.<ruleId>` translation, use it (with
+//      the raw `message` plumbed in as a `{{message}}` interpolation).
+//   2. Otherwise fall back to the raw message — library/parser errors
+//      that we don't have a localized template for stay readable.
+function translateDiagnostic(
+  t: EditorTranslate,
+  d: ValidationDiagnostic,
+): string {
+  if (!d.ruleId) return d.message;
+  const key = `diagnostic.${d.ruleId}`;
+  const translated = t(key, { message: d.message, defaultValue: "" });
+  return translated && translated !== key ? translated : d.message;
+}
+
 export function ValidationGutter({ diagnostics, onJump }: ValidationGutterProps) {
   const { t } = useTranslation("editor");
   const counts = useMemo(() => {
@@ -68,7 +88,9 @@ export function ValidationGutter({ diagnostics, onJump }: ValidationGutterProps)
             <span className="validation-gutter__location">
               {d.line}:{d.column}
             </span>
-            <span className="validation-gutter__message">{d.message}</span>
+            <span className="validation-gutter__message">
+              {translateDiagnostic(t, d)}
+            </span>
             {d.ruleId && (
               <span className="validation-gutter__rule">{d.ruleId}</span>
             )}

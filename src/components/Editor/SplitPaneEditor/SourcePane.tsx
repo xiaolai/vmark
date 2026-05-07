@@ -29,27 +29,43 @@ export interface SourcePaneProps {
   formatConfig: FormatConfig;
   /** Optional callback so the parent can hoist diagnostics into preview / gutter. */
   onDiagnostics?: (diagnostics: ValidationDiagnostic[]) => void;
+  /** Imperative jump-to-position handle. Parent passes a ref-setter; the
+   *  SourcePane installs a callback that focuses the editor and moves the
+   *  cursor to (line, column). Used by ValidationGutter row clicks. */
+  onJumpHandleReady?: (jump: (line: number, column: number) => void) => void;
   /** WI-4.3 — per-tab override. When true, the editor mounts in
    *  read-write mode regardless of formatConfig.adapters.readOnlyDefault. */
   editingEnabled?: boolean;
 }
 
 function diagnosticToCodemirror(
-  doc: { line: (n: number) => { from: number; to: number; length: number } },
+  doc: {
+    line: (n: number) => { from: number; to: number; length: number };
+    lines: number;
+  },
   d: ValidationDiagnostic,
 ): Diagnostic {
-  const lineInfo = doc.line(Math.max(1, Math.min(d.line, Number.MAX_SAFE_INTEGER)));
+  // Clamp line/endLine to the doc's real line range so an out-of-range
+  // diagnostic (parser reports past EOF; doc shrunk between validate and
+  // render) doesn't throw inside doc.line() and break linting.
+  const totalLines = Math.max(1, doc.lines);
+  const startLine = Math.min(Math.max(1, d.line), totalLines);
+  const lineInfo = doc.line(startLine);
   const from = Math.min(
     lineInfo.from + Math.max(0, d.column - 1),
     lineInfo.to,
   );
-  const to =
-    d.endLine !== undefined && d.endColumn !== undefined
-      ? Math.min(
-          doc.line(d.endLine).from + Math.max(0, d.endColumn - 1),
-          doc.line(d.endLine).to,
-        )
-      : Math.min(from + 1, lineInfo.to);
+  let to: number;
+  if (d.endLine !== undefined && d.endColumn !== undefined) {
+    const endLine = Math.min(Math.max(1, d.endLine), totalLines);
+    const endLineInfo = doc.line(endLine);
+    to = Math.min(
+      endLineInfo.from + Math.max(0, d.endColumn - 1),
+      endLineInfo.to,
+    );
+  } else {
+    to = Math.min(from + 1, lineInfo.to);
+  }
   return {
     from,
     to: to <= from ? Math.min(from + 1, lineInfo.to) : to,
@@ -64,6 +80,7 @@ export function SourcePane({
   formatId,
   formatConfig,
   onDiagnostics,
+  onJumpHandleReady,
   editingEnabled = false,
 }: SourcePaneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -141,6 +158,24 @@ export function SourcePane({
     });
     viewRef.current = view;
 
+    // Expose an imperative jump-to-position handle so the validation
+    // gutter (parent) can move the cursor on row click.
+    if (onJumpHandleReady) {
+      onJumpHandleReady((line: number, column: number) => {
+        const v = viewRef.current;
+        if (!v) return;
+        const totalLines = v.state.doc.lines;
+        const safeLine = Math.min(Math.max(1, line), Math.max(1, totalLines));
+        const lineInfo = v.state.doc.line(safeLine);
+        const pos = Math.min(
+          lineInfo.from + Math.max(0, column - 1),
+          lineInfo.to,
+        );
+        v.dispatch({ selection: { anchor: pos, head: pos } });
+        v.focus();
+      });
+    }
+
     let cancelled = false;
     if (loadLanguage) {
       void loadLanguage()
@@ -163,8 +198,8 @@ export function SourcePane({
       view.destroy();
       viewRef.current = null;
     };
-     
-  }, [tabId, formatId, readOnly, validator, loadLanguage, onDiagnostics]);
+
+  }, [tabId, formatId, readOnly, validator, loadLanguage, onDiagnostics, onJumpHandleReady]);
 
   // Re-sync the editor when the store content diverges from the last
   // value we authored. Handles file-load races (initDocument arriving

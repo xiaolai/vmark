@@ -18,13 +18,16 @@
 // gutter rendering lives inside SourcePane in WI-1A.8. The split fraction
 // is held in component state and clamped to [0.2, 0.8].
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
 import { ReadOnlyBanner } from "./ReadOnlyBanner";
+import { ValidationGutter } from "./ValidationGutter";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { imeToast as toast } from "@/utils/imeToast";
 import type {
   FormatConfig,
   PreviewRenderer,
@@ -52,6 +55,14 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const { t } = useTranslation("editor");
   const [fraction, setFraction] = useState(DEFAULT_FRACTION);
   const [diagnostics, setDiagnostics] = useState<ValidationDiagnostic[]>([]);
+  // Imperative cursor-jump handle exposed by SourcePane. ValidationGutter
+  // row clicks call this to move the editor cursor to (line, column).
+  const jumpHandleRef = useRef<((line: number, column: number) => void) | null>(
+    null,
+  );
+  const handleJump = useCallback((line: number, column: number) => {
+    jumpHandleRef.current?.(line, column);
+  }, []);
   // WI-4.3 — per-tab editing override sourced from tabStore so it
   // survives tab switches. The Tab.editingEnabled flag persists in
   // the store; SplitPaneEditor reads it and dispatches to set it.
@@ -117,7 +128,20 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   // the UI.
   const handleOpenExternal = useCallback(() => {
     if (!filePath) return;
-    void invoke("open_in_external_editor", { path: filePath });
+    // Read the GUI-setting at click time (not via selector) so a setting
+    // change while a tab is open takes effect immediately.
+    const editorOverride =
+      useSettingsStore.getState().formats.externalEditor.trim() || null;
+    invoke("open_in_external_editor", {
+      path: filePath,
+      editorOverride,
+    }).catch((error: unknown) => {
+      // Bubble Rust-side rejections (forbidden override chars, missing
+      // editor, spawn failure) to the user instead of silently dropping
+      // the unhandled promise rejection.
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(message);
+    });
   }, [filePath]);
 
   return (
@@ -149,8 +173,14 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
           formatId={formatConfig.id}
           formatConfig={formatConfig}
           onDiagnostics={setDiagnostics}
+          onJumpHandleReady={(jump) => {
+            jumpHandleRef.current = jump;
+          }}
           editingEnabled={editingEnabled}
         />
+        {diagnostics.length > 0 && (
+          <ValidationGutter diagnostics={diagnostics} onJump={handleJump} />
+        )}
       </div>
       {hasPreview && (
         <div

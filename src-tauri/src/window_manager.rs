@@ -320,13 +320,15 @@ pub fn new_window(app: AppHandle) -> Result<String, String> {
 }
 
 /// Validate that a frontend-supplied path is safe to extend into the fs
-/// read scope. Rejects non-files, non-markdown extensions, and paths that
-/// don't resolve on disk — so a compromised webview can't escalate by
-/// invoking these commands with arbitrary targets.
+/// read scope. Rejects non-files, paths whose extension isn't in
+/// `crate::SUPPORTED_EXTENSIONS`, and paths that don't resolve on disk
+/// — so a compromised webview can't escalate by invoking these commands
+/// with arbitrary targets.
 ///
-/// Canonicalization resolves symlinks so the markdown-extension check
+/// Canonicalization resolves symlinks so the registered-extension check
 /// runs on the real target, not the link name (e.g. a `.md` symlink
-/// pointing to `/etc/passwd` is rejected).
+/// pointing to `/etc/passwd` is rejected because the canonical target
+/// isn't a registered VMark format).
 ///
 /// Returns `Ok(())` when the raw path is acceptable. The raw string is
 /// intentionally used downstream — the scope pattern must match what the
