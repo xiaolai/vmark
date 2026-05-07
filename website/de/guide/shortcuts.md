@@ -62,6 +62,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Wiki-Link | `Alt + Mod + K` |
 | Lesezeichen-Link | `Alt + Mod + B` |
 | Formatierung löschen | `Mod + \` |
+| Betonung durchschalten | `Mod + Alt + E` _(kein → kursiv → fett → fett+kursiv)_ |
 
 ## Blockformatierung
 
@@ -71,6 +72,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Absatz | `Mod + Umschalt + 0` |
 | Überschriften-Ebene erhöhen | `Alt + Mod + ]` |
 | Überschriften-Ebene verringern | `Alt + Mod + [` |
+| Überschrift durchschalten | `Mod + Alt + H` _(Absatz → H1 → H2 → … → H6)_ |
 | Blockzitat | `Alt + Mod + Q` |
 | Codeblock | `Alt + Mod + C` |
 | Aufzählungsliste | `Alt + Mod + U` |
@@ -145,6 +147,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Nächste finden | `Mod + G` |
 | Vorherige finden | `Mod + Umschalt + G` |
 | Auswahl für Suche verwenden | `Mod + E` |
+| In Dateien suchen | `Mod + Umschalt + H` |
 
 ## Ansicht & Modus
 
@@ -177,7 +180,8 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Aktion | Tastenkürzel |
 |--------|--------------|
 | Neue Datei | `Mod + N` |
-| Schnell öffnen | `Mod + O` |
+| Schnell öffnen | `Mod + O` _(Fuzzy-Dateibrowser)_ |
+| Datei öffnen... | Nur Menü _(nativer Dateidialog)_ |
 | Arbeitsbereich öffnen | `Mod + Umschalt + O` |
 | Speichern | `Mod + S` |
 | Speichern unter | `Mod + Umschalt + S` |

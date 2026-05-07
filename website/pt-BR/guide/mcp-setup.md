@@ -155,6 +155,24 @@ No Linux:
 A porta é descoberta automaticamente — nenhum argumento `args` é necessário.
 :::
 
+### Flags de CLI (avançado)
+
+O binário do servidor MCP suporta um pequeno conjunto de flags para diagnóstico e configurações legadas:
+
+| Flag | O que faz |
+|---|---|
+| `--version` (ou `-v`) | Exibe a versão (deve corresponder ao VMark em execução) e encerra. |
+| `--health-check` | Executa um autoteste contra a ponte VMark em execução e encerra. Use isso para verificar sua instalação antes de conectar um assistente de IA. |
+| `--port <número>` | Sobrescrita manual de porta. Ignora o handshake de autodescoberta e conecta na porta indicada. Útil apenas para configurações legadas onde a porta da ponte é fixada externamente; o caminho de autodescoberta é preferido. |
+
+Exemplo:
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # legado / manual
+```
+
 ## Como Funciona
 
 ```text

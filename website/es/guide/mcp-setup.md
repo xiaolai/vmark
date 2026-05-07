@@ -155,6 +155,24 @@ En Linux:
 El puerto se detecta automáticamente — no se necesitan `args`.
 :::
 
+### Opciones de línea de comandos (avanzado)
+
+El binario del servidor MCP admite un pequeño conjunto de opciones para diagnósticos y configuraciones heredadas:
+
+| Opción | Qué hace |
+|---|---|
+| `--version` (o `-v`) | Muestra la versión (debe coincidir con la de VMark en ejecución) y sale. |
+| `--health-check` | Ejecuta una autoprueba contra el puente de VMark en ejecución y sale. Úsalo para verificar tu instalación antes de conectar un asistente de IA. |
+| `--port <número>` | Anulación manual del puerto. Omite el protocolo de autodescubrimiento y se conecta en el puerto indicado. Solo es útil para configuraciones heredadas en las que el puerto del puente está fijado externamente; se prefiere la ruta de autodescubrimiento. |
+
+Ejemplo:
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # heredado / manual
+```
+
 ## Cómo Funciona
 
 ```text

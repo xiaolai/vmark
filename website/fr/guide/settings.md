@@ -224,6 +224,35 @@ Configurez quel fournisseur IA alimente les [Génies IA](/fr/guide/ai-genies). U
 
 Voir [Fournisseurs IA](/fr/guide/ai-providers) pour les instructions de configuration détaillées pour chaque fournisseur.
 
+## Formats
+
+Basculements optionnels pour les adaptateurs de format non-défaut, ainsi que la commande d'éditeur externe explicite pour les onglets de code en lecture seule.
+
+Markdown, texte brut et YAML/YML sont **toujours** enregistrés — les valeurs par défaut tranquilles. Chaque autre adaptateur est **désactivé par défaut** afin que les utilisateurs existants ne soient pas surpris lors d'une mise à niveau. Activez un basculement et le registre se reconstruit à la volée ; les onglets ouverts se remontent avec l'adaptateur approprié, sans redémarrage.
+
+Pour la liste complète des formats et leurs aperçus, voir [Formats pris en charge](/fr/guide/formats).
+
+### Prise en charge des formats
+
+| Basculement | Par défaut | Active |
+|---|---|---|
+| **Formats de données** | Désactivé | `.json`, `.jsonl`, `.toml` — volet source + arbre navigable. Aperçus adaptés au schéma pour `Cargo.toml`, `package.json`, `pyproject.toml`. |
+| **Diagrammes & SVG** | Désactivé | `.mmd` (Mermaid) et `.svg` — volet source + rendu en direct désinfecté. |
+| **Aperçu HTML** | Désactivé | `.html` et `.htm` — aperçu en iframe isolée (`sandbox=""` liste d'autorisation vide, DOMPurify, CSP `<meta>`). OWASP top-20 vérifié — voir [Modèle de sécurité pour HTML](/fr/guide/formats#modèle-de-sécurité-pour-html). |
+| **Visionneuses de code** | Désactivé | 12 visionneuses en lecture seule (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua`). S'ouvre dans une visionneuse à coloration syntaxique avec les boutons **Activer l'édition** et **Ouvrir dans l'éditeur externe**. |
+
+Lorsqu'une catégorie est désactivée, les extensions correspondantes basculent vers le mode texte brut — le fichier s'ouvre quand même, simplement sans la vue schéma.
+
+### Éditeur externe
+
+Pour le bouton **Ouvrir dans l'éditeur externe** sur les onglets de code en lecture seule, choisissez l'éditeur qui doit se lancer. Un bundle d'application (ex. `/Applications/Visual Studio Code.app`) ou un exécutable.
+
+Le paramètre GUI a priorité sur les variables d'environnement — l'explicite prime sur l'implicite. Laissez-le vide pour utiliser la chaîne de substitution `$VMARK_EXTERNAL_EDITOR → $VISUAL → $EDITOR → valeur par défaut de la plateforme`. Voir [Ouvrir dans l'éditeur externe](/fr/guide/formats#ouvrir-dans-léditeur-externe) pour l'ordre de résolution complet et le portail de sécurité.
+
+### Notification ponctuelle de mise à niveau
+
+Au premier lancement après une mise à niveau vers la prise en charge multi-format, VMark affiche une notification non bloquante pointant vers **Paramètres → Formats**. La notification se déclenche une seule fois par installation — une fois affichée (ou ignorée), elle ne réapparaît plus jamais.
+
 ## Langue
 
 Règles de mise en forme CJK (chinois, japonais, coréen). Ces règles sont appliquées lorsque vous exécutez **Format → Formater la sélection CJK** (`Cmd+Shift+F`) sur une sélection, ou **Format → Formater le document CJK** (`Alt+Cmd+Shift+F`) sur l'intégralité du fichier.

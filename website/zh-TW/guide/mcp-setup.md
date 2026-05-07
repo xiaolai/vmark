@@ -155,6 +155,24 @@ command = "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server"
 連接埠自動探索 — 無需 `args`。
 :::
 
+### CLI 旗標（進階）
+
+MCP 伺服器執行檔支援少量用於診斷與舊版設定的旗標：
+
+| 旗標 | 功能 |
+|---|---|
+| `--version`（或 `-v`） | 印出版本號（必須與執行中的 VMark 相符）並退出。 |
+| `--health-check` | 對執行中的 VMark 橋接執行自我測試並退出。在接入 AI 助理之前，可用此指令驗證安裝是否正確。 |
+| `--port <數字>` | 手動連接埠覆蓋。略過自動探索握手，直接以指定連接埠連線。僅在橋接連接埠由外部固定的舊版設定中有用；一般情況下建議使用自動探索路徑。 |
+
+範例：
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # 舊版 / 手動
+```
+
 ## 運作原理
 
 ```text

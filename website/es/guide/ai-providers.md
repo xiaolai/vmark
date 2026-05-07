@@ -138,6 +138,16 @@ model: claude-haiku-4-5-20251001
 
 Esto es útil para dirigir tareas simples a modelos más rápidos y económicos, manteniendo un modelo potente como predeterminado.
 
+## Fiabilidad y tiempos de espera
+
+VMark protege cada llamada al proveedor para que una CLI bloqueada o una respuesta de API mal formada nunca pueda bloquear el editor:
+
+- **Tiempo de espera de subproceso CLI**: cada invocación de proveedor CLI se ejecuta bajo un tiempo de espera de ejecución. Si la CLI no responde, VMark cancela la llamada, devuelve el error al genio y libera el trabajador — el grupo de hilos no puede quedar atascado por un subproceso descontrolado.
+- **Seguridad en el análisis JSON de REST**: si un proveedor REST devuelve una respuesta con una forma inesperada (página de error HTML, JSON truncado, cambio de esquema tras una actualización en el servidor), VMark muestra un error tipado en el frontend en lugar de dejar al listener de IA esperando indefinidamente. Verás el error en el banner de estado del genio con la opción de reintentar.
+- **Tokens de cancelación**: las tareas de genio o workflow de larga duración pueden cancelarse en cualquier momento — pulsa Cancelar en el selector de genio o cierra el panel y la solicitud en curso se cancela limpiamente.
+- **Cliente HTTP compartido**: los proveedores REST comparten un único cliente `reqwest` con pool de conexiones, de modo que las ejecuciones consecutivas de genios no pagan el coste del handshake TCP/TLS cada vez.
+- **Descubrimiento de PATH en Windows**: en Windows, VMark lee el `PATH` completo del usuario (incluidas las entradas exclusivas de PowerShell) al detectar CLIs, de modo que las herramientas instaladas por el usuario que funcionan en un terminal también funcionan dentro de VMark.
+
 ## Notas de Seguridad
 
 - **Las claves API son efímeras** — se almacenan solo en memoria, nunca se escriben en disco ni en `localStorage`
@@ -151,9 +161,13 @@ Esto es útil para dirigir tareas simples a modelos más rápidos y económicos,
 
 **La CLI muestra "No encontrado"** — La CLI no está en tu `$PATH`. Instálala o verifica tu perfil de shell. En macOS, las aplicaciones GUI pueden no heredar el `$PATH` del terminal — intenta añadir la ruta a `/etc/paths.d/`.
 
+**La CLI se bloquea / sin respuesta** — El tiempo de espera de ejecución de VMark cancelará la llamada automáticamente; verás un error en el banner de estado del genio. Si una CLI en particular alcanza el tiempo de espera de forma sistemática, ejecútala una vez desde el terminal para confirmar que funciona allí y luego comprueba si requiere autenticación interactiva.
+
 **El proveedor REST devuelve 401** — Tu clave API no es válida o ha expirado. Genera una nueva desde la consola del proveedor.
 
 **El proveedor REST devuelve 429** — Has alcanzado el límite de solicitudes. Espera un momento e inténtalo de nuevo, o cambia a un proveedor diferente.
+
+**El proveedor REST devuelve JSON ilegible / inesperado** — VMark muestra un error de análisis tipado (p. ej. "list_models returned an unexpected response shape"). Verifica la URL del endpoint y que el contrato de la API coincida con el tipo de proveedor seleccionado; algunas pasarelas auto-alojadas anuncian URLs compatibles con OpenAI pero envían un esquema diferente.
 
 **Respuestas lentas** — Los proveedores CLI añaden sobrecarga de subprocesos. Para respuestas más rápidas, usa proveedores REST que se conectan directamente. Para la opción local más rápida, usa Ollama con un modelo pequeño.
 

@@ -62,6 +62,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Lien Wiki | `Alt + Mod + K` |
 | Lien favori | `Alt + Mod + B` |
 | Supprimer la mise en forme | `Mod + \` |
+| Cycle de mise en évidence | `Mod + Alt + E` _(aucun → italique → gras → gras+italique)_ |
 
 ## Mise en forme des blocs
 
@@ -71,6 +72,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Paragraphe | `Mod + Shift + 0` |
 | Augmenter le niveau de titre | `Alt + Mod + ]` |
 | Diminuer le niveau de titre | `Alt + Mod + [` |
+| Cycle de niveau de titre | `Mod + Alt + H` _(P → H1 → H2 → … → H6)_ |
 | Citation | `Alt + Mod + Q` |
 | Bloc de code | `Alt + Mod + C` |
 | Liste à puces | `Alt + Mod + U` |
@@ -180,7 +182,8 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Action | Raccourci |
 |--------|----------|
 | Nouveau fichier | `Mod + N` |
-| Ouverture rapide | `Mod + O` |
+| Ouverture rapide | `Mod + O` _(navigateur de fichiers flou)_ |
+| Ouvrir un fichier… | Menu seulement _(sélecteur de fichiers natif)_ |
 | Ouvrir un espace de travail | `Mod + Shift + O` |
 | Enregistrer | `Mod + S` |
 | Enregistrer sous | `Mod + Shift + S` |

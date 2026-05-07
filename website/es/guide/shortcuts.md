@@ -62,6 +62,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Wiki Link | `Alt + Mod + K` |
 | Bookmark Link | `Alt + Mod + B` |
 | Limpiar Formato | `Mod + \` |
+| Alternar Énfasis | `Mod + Alt + E` _(ninguno → cursiva → negrita → negrita+cursiva)_ |
 
 ## Formato de Bloque
 
@@ -71,6 +72,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Párrafo | `Mod + Shift + 0` |
 | Aumentar Nivel de Encabezado | `Alt + Mod + ]` |
 | Disminuir Nivel de Encabezado | `Alt + Mod + [` |
+| Alternar Encabezado | `Mod + Alt + H` _(P → H1 → H2 → … → H6)_ |
 | Cita | `Alt + Mod + Q` |
 | Bloque de Código | `Alt + Mod + C` |
 | Lista con Viñetas | `Alt + Mod + U` |
@@ -178,7 +180,8 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Acción | Atajo |
 |--------|-------|
 | Nuevo Archivo | `Mod + N` |
-| Abrir Rápido | `Mod + O` |
+| Abrir Rápido | `Mod + O` _(explorador de archivos difuso)_ |
+| Abrir Archivo... | Solo menú _(selector de archivos nativo)_ |
 | Abrir Espacio de Trabajo | `Mod + Shift + O` |
 | Guardar | `Mod + S` |
 | Guardar Como | `Mod + Shift + S` |

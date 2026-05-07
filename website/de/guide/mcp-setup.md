@@ -155,6 +155,24 @@ Unter Linux:
 Der Port wird automatisch erkannt — keine `args` erforderlich.
 :::
 
+### CLI-Flags (erweitert)
+
+Das MCP-Server-Binary unterstützt einige Flags für Diagnose und ältere Setups:
+
+| Flag | Funktion |
+|---|---|
+| `--version` (oder `-v`) | Gibt die Version aus (muss mit dem laufenden VMark übereinstimmen) und beendet sich. |
+| `--health-check` | Führt einen Selbsttest gegen die laufende VMark-Brücke durch und beendet sich. Verwenden Sie dieses Flag, um Ihre Installation zu überprüfen, bevor Sie einen KI-Assistenten anbinden. |
+| `--port <number>` | Manuelles Port-Override. Überspringt den Auto-Discovery-Handshake und verbindet sich auf dem angegebenen Port. Nur für ältere Setups nützlich, bei denen der Brücken-Port extern fest vorgegeben ist; der Auto-Discovery-Pfad ist bevorzugt. |
+
+Beispiel:
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # Legacy / manuell
+```
+
 ## Funktionsweise
 
 ```text

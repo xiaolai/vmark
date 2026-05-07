@@ -138,6 +138,16 @@ model: claude-haiku-4-5-20251001
 
 Questo è utile per indirizzare i compiti semplici verso modelli più veloci/economici mantenendo un modello predefinito potente.
 
+## Affidabilità e timeout
+
+VMark protegge ogni chiamata al provider in modo che un CLI bloccato o una risposta API non valida non possano mai bloccare l'editor:
+
+- **Timeout del sottoprocesso CLI**: ogni invocazione di un provider CLI viene eseguita con un timeout di esecuzione. Se il CLI non risponde, VMark annulla la chiamata, restituisce l'errore al genie e libera il worker — il pool di thread non può essere bloccato da un sottoprocesso impazzito.
+- **Sicurezza nell'analisi JSON REST**: se un provider REST restituisce una risposta con forma inaspettata (pagina di errore HTML, JSON troncato, deriva dello schema dopo una modifica upstream), VMark segnala un errore tipizzato al frontend invece di lasciare il listener IA in attesa per sempre. Vedrai l'errore nel banner di stato del genie con la possibilità di riprovare.
+- **Token di cancellazione**: i passaggi di genie o workflow di lunga durata possono essere cancellati in qualsiasi momento — Annulla nel selettore genie o chiudi il pannello e la richiesta in corso si interrompe in modo pulito.
+- **Client HTTP condiviso**: i provider REST condividono un singolo client `reqwest` con pool di connessioni, quindi le esecuzioni consecutive di genie non pagano il costo di handshake TCP/TLS ogni volta.
+- **Scoperta del PATH su Windows**: su Windows, VMark legge il `PATH` completo dell'utente (incluse le voci solo PowerShell) quando rileva i CLI, in modo che gli strumenti installati dall'utente che funzionano in un terminale funzionino anche dentro VMark.
+
 ## Note sulla Sicurezza
 
 - **Le chiavi API sono effimere** — conservate solo in memoria, mai scritte su disco o in `localStorage`
@@ -150,6 +160,10 @@ Questo è utile per indirizzare i compiti semplici verso modelli più veloci/eco
 **"Nessun provider IA disponibile"** — Fai clic su **Rileva** per cercare i CLI, o configura un provider REST con una chiave API.
 
 **Il CLI mostra "Non trovato"** — Il CLI non è nel tuo `$PATH`. Installalo o controlla il tuo profilo shell. Su macOS, le app GUI potrebbero non ereditare il `$PATH` del terminale — prova ad aggiungere il percorso a `/etc/paths.d/`.
+
+**Il CLI si blocca / nessuna risposta** — Il timeout di esecuzione di VMark annullerà la chiamata automaticamente; vedrai un errore nel banner di stato del genie. Se un particolare CLI raggiunge sistematicamente il timeout, eseguilo una volta dal terminale per confermare che funzioni lì, poi verifica se richiede un'autenticazione interattiva.
+
+**Il provider REST restituisce JSON alterato / inaspettato** — VMark segnala un errore di analisi tipizzato (es. "list_models ha restituito una forma di risposta inaspettata"). Controlla l'URL dell'endpoint e verifica che il contratto API corrisponda al tipo di provider selezionato; alcuni gateway self-hosted pubblicizzano URL compatibili con OpenAI ma hanno uno schema diverso.
 
 **Il provider REST restituisce 401** — La tua chiave API non è valida o è scaduta. Genera una nuova dalla console del provider.
 
