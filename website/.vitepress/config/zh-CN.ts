@@ -8,6 +8,7 @@ export const zhCN = {
       { text: "首页", link: "/zh-CN/" },
       { text: "下载", link: "/zh-CN/download" },
       { text: "指南", link: "/zh-CN/guide/" },
+      { text: "博客", link: "/blog/" },
     ],
 
     sidebar: {

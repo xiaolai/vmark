@@ -8,6 +8,7 @@ export const ja = {
       { text: "ホーム", link: "/ja/" },
       { text: "ダウンロード", link: "/ja/download" },
       { text: "ガイド", link: "/ja/guide/" },
+      { text: "ブログ", link: "/blog/" },
     ],
 
     sidebar: {

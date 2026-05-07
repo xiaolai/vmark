@@ -18,6 +18,9 @@ hero:
     - theme: alt
       text: Supported Formats
       link: /guide/formats
+    - theme: alt
+      text: What's New
+      link: /blog/2026-05-multi-format-launch
 
 features:
   - icon:

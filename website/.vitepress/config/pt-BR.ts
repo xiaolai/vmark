@@ -8,6 +8,7 @@ export const ptBR = {
       { text: "Início", link: "/pt-BR/" },
       { text: "Baixar", link: "/pt-BR/download" },
       { text: "Guia", link: "/pt-BR/guide/" },
+      { text: "Blog", link: "/blog/" },
     ],
 
     sidebar: {

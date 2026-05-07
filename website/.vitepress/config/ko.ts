@@ -8,6 +8,7 @@ export const ko = {
       { text: "홈", link: "/ko/" },
       { text: "다운로드", link: "/ko/download" },
       { text: "가이드", link: "/ko/guide/" },
+      { text: "블로그", link: "/blog/" },
     ],
 
     sidebar: {

@@ -8,9 +8,22 @@ export const en = {
       { text: "Home", link: "/" },
       { text: "Download", link: "/download" },
       { text: "Guide", link: "/guide/" },
+      { text: "Blog", link: "/blog/" },
     ],
 
     sidebar: {
+      "/blog/": [
+        {
+          text: "Blog",
+          items: [
+            { text: "All posts", link: "/blog/" },
+            {
+              text: "Multi-format launch (2026-05)",
+              link: "/blog/2026-05-multi-format-launch",
+            },
+          ],
+        },
+      ],
       "/guide/": [
         {
           text: "Guide",

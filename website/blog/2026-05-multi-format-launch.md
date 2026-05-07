@@ -1,12 +1,13 @@
 ---
 title: "VMark is now the plain-text workspace where humans and AI collaborate"
-date: 2026-05-06
-draft: true
+date: 2026-05-07
 ---
 
 # VMark is now the plain-text workspace where humans and AI collaborate
 
 VMark started as a markdown editor. Today's release reframes that — not as a rebrand, but as the natural conclusion of where the product was heading anyway. Markdown is still the centerpiece. What's changed is that the workspace around it now opens every plain-text artifact you'd actually keep next to a markdown file: configuration, data, diagrams, web pages, source code.
+
+![Markdown — WYSIWYG, unchanged](/screenshots/multi-format-launch/01-markdown.png)
 
 ## What "plain-text workspace" means
 
@@ -25,6 +26,16 @@ This is the differentiator. Opening more file types is what every IDE does. VMar
 - Generic JSON / YAML / TOML get a navigable, keyboard-accessible tree alongside the source.
 
 The detector precedence is path-first: a file under `.github/workflows/` routes to the workflow renderer even with malformed YAML, so you see the degraded view with diagnostics instead of falling back to a generic tree.
+
+![JSON — source pane plus navigable tree, parse-error gutter on the left margin](/screenshots/multi-format-launch/02-json.png)
+
+![YAML — same split, with `js-yaml` validation feeding the gutter](/screenshots/multi-format-launch/03-yaml.png)
+
+![Mermaid — live render with sanitized SVG, errors surface as gutter markers](/screenshots/multi-format-launch/04-mermaid.png)
+
+![HTML — sandboxed iframe (`sandbox=""` empty allow-list, DOMPurify, CSP `<meta>`)](/screenshots/multi-format-launch/05-html.png)
+
+![Code (read-only by default) — TypeScript, with "Enable editing" + "Open in external editor"](/screenshots/multi-format-launch/06-typescript.png)
 
 ## What's new beyond markdown
 
@@ -51,7 +62,9 @@ The HTML adapter takes three independent layers of defense:
 2. DOMPurify sanitization before the iframe renders
 3. CSP `<meta>` injection limiting in-iframe resource loading
 
-The validator surfaces script tags, `javascript:` URLs, and inline event handlers as warnings so you can see what's being blocked. We documented the OWASP top-20 verification procedure in the project's grills directory.
+The validator surfaces script tags, `javascript:` URLs, and inline event handlers as warnings so you can see what's being blocked. We ran the OWASP top-20 XSS payloads through the actual Tauri webview on macOS — all 20 neutralized, no alerts fired, no `postMessage` / `BroadcastChannel` exfiltration, no cookie reads. Sanitized output dropped from 1806 bytes raw to 530 bytes after DOMPurify, and every dangerous pattern (`<script>`, `javascript:` URLs, inline `on*=` handlers, `<meta http-equiv=refresh>`, `<base href=javascript:>`, `<object data=javascript:>`, `<iframe srcdoc=>`, `<foreignObject><script>`) was zero-matched in the resulting srcdoc. Sign-off lives in `dev-docs/grills/multi-format/security-review-html.md`.
+
+![OWASP top-20 XSS source on the left, sandboxed preview on the right — only the `<h1>` survived](/screenshots/multi-format-launch/07-html-sandbox.png)
 
 ## What's not in scope
 
