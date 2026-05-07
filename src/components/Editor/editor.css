@@ -95,15 +95,14 @@
 
 /* Headings: no horizontal margins needed - ProseMirror padding aligns all content */
 
-/* Block elements: configurable font-size (lists, blockquotes, tables, alerts, details)
+/* Block elements: configurable font-size (lists, blockquotes, tables)
    Uses absolute pixel value from --editor-font-size-block to prevent compounding
-   when elements are nested (e.g., list inside blockquote) */
+   when elements are nested (e.g., list inside blockquote).
+   Alert and details blocks live in their respective plugin CSS files. */
 .tiptap-editor ul,
 .tiptap-editor ol,
 .tiptap-editor blockquote,
-.tiptap-editor table,
-.tiptap-editor .alert-block,
-.tiptap-editor .details-block {
+.tiptap-editor table {
   font-size: var(--editor-font-size-block);
 }
 
