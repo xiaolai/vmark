@@ -104,7 +104,9 @@ export async function downloadFont(url: string, retries = 3): Promise<Uint8Array
       try {
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) {
-          if (attempt === retries - 1) return null;
+          const status = response.status;
+          const retriable = status >= 500 || status === 408 || status === 429;
+          if (!retriable || attempt === retries - 1) return null;
           await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
           continue;
         }
