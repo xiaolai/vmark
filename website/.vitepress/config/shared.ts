@@ -10,7 +10,7 @@ const pkg = JSON.parse(
 
 export const shared: UserConfig = {
   title: "VMark",
-  description: "AI friendly markdown editor",
+  description: "The plain-text workspace where humans and AI collaborate",
 
   vite: {
     define: {

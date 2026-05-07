@@ -1,5 +1,34 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "./tabStore";
+import { __resetRegistry, registerFormat } from "@/lib/formats/registry";
+import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({
+  toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() },
+}));
+
+function registerInlineTxt(): void {
+  registerFormat({
+    id: "txt",
+    nameI18nKey: "format.txt",
+    extensions: ["txt"],
+    kind: "split-pane",
+    adapters: {
+      saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
+      untitledExtension: "txt",
+      searchAdapter: "codemirror",
+      readOnlyDefault: false,
+      closeSavePolicy: "markdown-default",
+      menuPolicy: {
+        sourceWysiwygToggle: false,
+        cjkFormatActions: false,
+        insertBlockActions: false,
+        paragraphFormatting: false,
+      },
+    },
+  });
+}
 
 function resetTabStore() {
   useTabStore.setState({
@@ -10,7 +39,14 @@ function resetTabStore() {
   });
 }
 
-beforeEach(resetTabStore);
+beforeEach(() => {
+  resetTabStore();
+  __resetRegistry();
+  registerMarkdownFormat();
+  // tab titles strip every registered extension; txt must be live so
+  // the legacy "strip .txt" tests stay green.
+  registerInlineTxt();
+});
 
 describe("tabStore", () => {
   describe("tab titles", () => {
@@ -91,8 +127,8 @@ describe("tabStore", () => {
       // Any future refactor that reorders iteration must update this test.
       useTabStore.setState(() => ({
         tabs: {
-          win1: [{ id: "shared-id", filePath: "/win1.md", title: "from-win1", isPinned: false }],
-          win2: [{ id: "shared-id", filePath: "/win2.md", title: "from-win2", isPinned: false }],
+          win1: [{ id: "shared-id", filePath: "/win1.md", title: "from-win1", isPinned: false, formatId: "markdown" }],
+          win2: [{ id: "shared-id", filePath: "/win2.md", title: "from-win2", isPinned: false, formatId: "markdown" }],
         },
       }));
 
@@ -647,4 +683,73 @@ describe("tabStore", () => {
     });
   });
 
+  describe("formatId derivation (WI-1A.12)", () => {
+    it("derives formatId='markdown' for .md files", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/docs/foo.md");
+      expect(store.findTabById(id)?.formatId).toBe("markdown");
+    });
+
+    it("derives formatId='markdown' for untitled tabs (null path)", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", null);
+      expect(store.findTabById(id)?.formatId).toBe("markdown");
+    });
+
+    it("derives formatId for every markdown extension", () => {
+      const store = useTabStore.getState();
+      for (const ext of ["md", "markdown", "mdown", "mkd", "mdx"]) {
+        // unique window per ext to avoid dedupe
+        const id = store.createTab(`win-${ext}`, `/x/foo.${ext}`);
+        expect(store.findTabById(id)?.formatId).toBe("markdown");
+      }
+    });
+
+    it("createTransferredTab fills in formatId from filePath when missing", () => {
+      const store = useTabStore.getState();
+      store.createTransferredTab("main", {
+        id: "tab-transfer-md",
+        filePath: "/docs/moved.md",
+        title: "moved",
+        isPinned: false,
+      });
+      expect(store.findTabById("tab-transfer-md")?.formatId).toBe("markdown");
+    });
+
+    it("updateTabPath recomputes formatId on path change to same kind", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/docs/foo.md");
+      store.updateTabPath(id, "/docs/bar.markdown");
+      expect(store.findTabById(id)?.formatId).toBe("markdown");
+    });
+
+    it("updateTabPath fires no toast when formatId is unchanged", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/docs/foo.md");
+      vi.mocked(toast.info).mockClear();
+      store.updateTabPath(id, "/docs/bar.md");
+      expect(toast.info).not.toHaveBeenCalled();
+    });
+
+    it("updateTabPath fires kind-change toast when formatId differs (markdown → txt)", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/docs/foo.md");
+      vi.mocked(toast.info).mockClear();
+      store.updateTabPath(id, "/docs/notes.txt");
+      expect(toast.info).toHaveBeenCalledOnce();
+      expect(store.findTabById(id)?.formatId).toBe("txt");
+    });
+
+    it("createTransferredTab honors a caller-provided formatId", () => {
+      const store = useTabStore.getState();
+      store.createTransferredTab("main", {
+        id: "tab-pinned-format",
+        filePath: "/docs/odd.md",
+        title: "odd",
+        isPinned: false,
+        formatId: "txt",
+      });
+      expect(store.findTabById("tab-pinned-format")?.formatId).toBe("txt");
+    });
+  });
 });

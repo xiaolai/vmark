@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: VMark
-  text: The Markdown Editor That Gets It Right
-  tagline: Free · Smart · Beautiful · Yours
+  text: The Plain-Text Workspace Where Humans and AI Collaborate
+  tagline: Markdown · YAML · JSON · TOML · Mermaid · SVG · HTML · Code
   image:
     src: /logo.png
     alt: VMark
@@ -15,12 +15,18 @@ hero:
     - theme: alt
       text: View Guide
       link: /guide/
+    - theme: alt
+      text: Supported Formats
+      link: /guide/formats
+    - theme: alt
+      text: What's New
+      link: /blog/2026-05-multi-format-launch
 
 features:
   - icon:
       src: /icons/bot.svg
-    title: AI Friendly
-    details: Built for the AI era. VMark speaks MCP natively — Claude, Codex, or Gemini can read, suggest, and edit your documents. No plugins. Just connect and collaborate.
+    title: Humans + AI on the Same Files
+    details: Plain text is the un-mediated meeting point. VMark speaks MCP natively — Claude, Codex, or Gemini read and write the same artifacts you do. No translation layer.
 
   - icon:
       src: /icons/languages.svg
@@ -34,8 +40,13 @@ features:
 
   - icon:
       src: /icons/keyboard.svg
+    title: Schema-Aware Previews
+    details: Open `.github/workflows/ci.yml` and see the workflow graph. Open `Cargo.toml`, `package.json`, or `pyproject.toml` and see the dependency tree. Generic JSON / YAML / TOML get a navigable tree. The right view per artifact, not a generic editor.
+
+  - icon:
+      src: /icons/keyboard.svg
     title: Power Without Complexity
-    details: 165 keyboard shortcuts. Three editor modes — WYSIWYG, Source Peek, and Source. Multi-cursor editing, focus mode, typewriter mode, document history. All there when you need them. Invisible when you don't.
+    details: 165 keyboard shortcuts. Three markdown modes — WYSIWYG, Source Peek, Source. Multi-cursor editing, focus mode, typewriter mode, document history. All there when you need them. Invisible when you don't.
 
   - icon:
       src: /icons/globe.svg

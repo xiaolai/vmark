@@ -32,6 +32,7 @@ import i18n from "@/i18n";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { dispatchEditor } from "@/lib/formats/registry";
 import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { normalizePath } from "@/utils/paths";
 import { saveToPath } from "@/utils/saveToPath";
@@ -124,11 +125,25 @@ export function useExternalFileChanges(): void {
       // With custom buttons, plugin-dialog returns the clicked button label string.
       // With default buttons, it returns 'Yes' | 'No' | 'Cancel' | 'Ok'.
       if ((result === "Yes" || result === dialogButtons.saveAs) && doc) {
-        // Open Save As dialog
+        // WI-1B.14 — Save As filter derives from the active tab's
+        // format adapter, not a hardcoded Markdown filter. Falls back
+        // to Markdown if the registry isn't bootstrapped.
+        let filters: { name: string; extensions: string[] }[] = [
+          { name: "Markdown", extensions: ["md", "markdown"] },
+        ];
+        try {
+          const cfg = dispatchEditor(filePath);
+          filters = cfg.adapters.saveDialogFilters.map((f) => ({
+            name: f.name,
+            extensions: [...f.extensions],
+          }));
+        } catch {
+          /* registry not bootstrapped — keep markdown fallback */
+        }
         const savePath = await save({
           title: i18n.t("dialog:saveVersionAs.title"),
           defaultPath: filePath,
-          filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+          filters,
         });
 
         if (savePath) {

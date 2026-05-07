@@ -1,0 +1,97 @@
+/* WI-1A.8 — ValidationGutter styles. */
+
+.validation-gutter {
+  /* Component-internal one-off — em-relative so the list scales with
+   * the user's editor font-size. Per .claude/rules/31-design-tokens.md
+   * "Component-internal one-off dimensions — define a local CSS var
+   * on the component class instead of adding a global token." */
+  --validation-gutter-max-height: 12em;
+  display: flex;
+  flex-direction: column;
+  border-top: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.validation-gutter__summary {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.validation-gutter__summary-count {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.validation-gutter__summary-count[data-severity="error"] {
+  color: var(--error-color);
+}
+
+.validation-gutter__summary-count[data-severity="warning"] {
+  color: var(--warning-color);
+}
+
+.validation-gutter__summary-count[data-severity="info"] {
+  color: var(--accent-primary);
+}
+
+.validation-gutter__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  max-height: var(--validation-gutter-max-height);
+}
+
+.validation-gutter__row {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  gap: var(--spacing-2);
+  align-items: baseline;
+  padding: var(--spacing-1) var(--spacing-2);
+  cursor: pointer;
+  border-bottom: var(--border-hairline) solid var(--border-color);
+  outline: none;
+}
+
+.validation-gutter__row:hover {
+  background: var(--hover-bg);
+}
+
+.validation-gutter__row:focus-visible {
+  background: var(--accent-bg);
+}
+
+.validation-gutter__row[data-severity="error"] .validation-gutter__location {
+  color: var(--error-color);
+}
+
+.validation-gutter__row[data-severity="warning"] .validation-gutter__location {
+  color: var(--warning-color);
+}
+
+.validation-gutter__row[data-severity="info"] .validation-gutter__location {
+  color: var(--accent-primary);
+}
+
+.validation-gutter__location {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.validation-gutter__message {
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.validation-gutter__rule {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}

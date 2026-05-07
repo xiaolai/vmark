@@ -8,14 +8,28 @@ export const en = {
       { text: "Home", link: "/" },
       { text: "Download", link: "/download" },
       { text: "Guide", link: "/guide/" },
+      { text: "Blog", link: "/blog/" },
     ],
 
     sidebar: {
+      "/blog/": [
+        {
+          text: "Blog",
+          items: [
+            { text: "All posts", link: "/blog/" },
+            {
+              text: "Multi-format launch (2026-05)",
+              link: "/blog/2026-05-multi-format-launch",
+            },
+          ],
+        },
+      ],
       "/guide/": [
         {
           text: "Guide",
           items: [
             { text: "Getting Started", link: "/guide/" },
+            { text: "Supported Formats", link: "/guide/formats" },
             { text: "Features", link: "/guide/features" },
             { text: "Large Files", link: "/guide/large-files" },
             { text: "Export & Print", link: "/guide/export" },

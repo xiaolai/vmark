@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "バージョンに名前を付けて保存..."
   },
+  "openFilter": {
+    "allSupported": "サポートされているすべての形式",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "{{count}}個の新しいドキュメントのフォルダを選択",
   "toast": {
     "saveDialogFailed": "保存ダイアログが失敗しました: {{error}}",
@@ -171,7 +175,9 @@
     "tabDropPinnedZone": "ピン留めされたタブは左側に固定されます。ドロップはブロックされました。",
     "exportRenderTimedOut": "エクスポートのレンダリングがタイムアウトしました — エディタを初期化できませんでした",
     "exportHtmlDialogTitle": "HTMLをエクスポート",
-    "exportFormatDialogTitle": "{{name}}をエクスポート"
+    "exportFormatDialogTitle": "{{name}}をエクスポート",
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "保存が必要"

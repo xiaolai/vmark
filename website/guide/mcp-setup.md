@@ -155,6 +155,24 @@ On Linux:
 The port is auto-discovered — no `args` needed.
 :::
 
+### CLI flags (advanced)
+
+The MCP server binary supports a small set of flags for diagnostics and legacy setups:
+
+| Flag | What it does |
+|---|---|
+| `--version` (or `-v`) | Print the version (must match the running VMark) and exit. |
+| `--health-check` | Run a self-test against the running VMark bridge and exit. Use this to verify your install before wiring an AI assistant. |
+| `--port <number>` | Manual port override. Skip the auto-discovery handshake and connect on the given port. Only useful for legacy setups where the bridge port is fixed externally; the auto-discovery path is preferred. |
+
+Example:
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # legacy / manual
+```
+
 ## How It Works
 
 ```text

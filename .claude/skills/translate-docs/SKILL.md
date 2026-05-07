@@ -243,7 +243,7 @@ Each subagent returns a JSON/YAML fragment containing **only the new keys** (nev
    - CJK: fullwidth `。，：？！`
    - European: halfwidth `.,:?!`
    - French: space before `: ; ? !` per French typography
-7. Preserve the English string's ending punctuation presence/absence. If English ends with `.`, the translation ends with `。`/`.`; if it ends without, so does the translation.
+7. Preserve the ending punctuation of the English string (presence/absence). If English ends with `.`, the translation ends with `。`/`.`; if it ends without, so does the translation.
 
 **Stage C — Audit (parallel subagents, one per locale)**
 

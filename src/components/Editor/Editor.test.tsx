@@ -1,7 +1,22 @@
 import { render } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Editor } from "./Editor";
 import { WindowProvider } from "@/contexts/WindowContext";
+import {
+  bootstrapFormats,
+  __resetBootstrap,
+} from "@/lib/formats";
+import { __resetRegistry } from "@/lib/formats/registry";
+
+beforeEach(() => {
+  __resetRegistry();
+  __resetBootstrap();
+  bootstrapFormats();
+});
+afterEach(() => {
+  __resetRegistry();
+  __resetBootstrap();
+});
 
 type Selector<T> = (state: T) => unknown;
 
@@ -119,4 +134,18 @@ describe("Editor", () => {
     expect(content).toBeInTheDocument();
   });
 
+  describe("WI-1A.5 — dispatch by FormatConfig.kind", () => {
+    it("dispatchEditor maps a .txt path to a non-wysiwyg format", async () => {
+      // The Editor.tsx dispatcher mounts SplitPaneEditor when
+      // dispatchEditor returns kind !== "wysiwyg". This focused test
+      // verifies the registry contract end-to-end (the integration
+      // path that drives Editor.tsx). UI-level dispatch is exercised
+      // by SplitPaneEditor's own test suite plus the overall
+      // bootstrap test in src/lib/formats/index.test.ts.
+      const { dispatchEditor } = await import("@/lib/formats/registry");
+      const cfg = dispatchEditor("/x/notes.txt");
+      expect(cfg.id).toBe("txt");
+      expect(cfg.kind).not.toBe("wysiwyg");
+    });
+  });
 });

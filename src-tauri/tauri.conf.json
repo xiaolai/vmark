@@ -37,6 +37,8 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "shortDescription": "Plain-text workspace for humans and AI",
+    "longDescription": "VMark is the plain-text workspace where humans and AI collaborate. Both parties read and write the same artifacts — markdown, YAML, JSON, TOML, Mermaid, SVG, HTML, code — directly. Schema-aware previews render the right view for known artifacts (GitHub Actions workflows, Cargo.toml, package.json, pyproject.toml).",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -46,9 +48,51 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["md", "markdown", "mdown", "mkd"],
+        "ext": ["md", "markdown", "mdown", "mkd", "mdx"],
         "mimeType": "text/markdown",
         "description": "Markdown Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["txt"],
+        "mimeType": "text/plain",
+        "description": "Plain Text Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["json", "jsonl"],
+        "mimeType": "application/json",
+        "description": "JSON Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["yaml", "yml"],
+        "mimeType": "text/yaml",
+        "description": "YAML Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["toml"],
+        "mimeType": "text/x-toml",
+        "description": "TOML Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["mmd"],
+        "mimeType": "text/x-mermaid",
+        "description": "Mermaid Diagram",
+        "role": "Editor"
+      },
+      {
+        "ext": ["svg"],
+        "mimeType": "image/svg+xml",
+        "description": "SVG Image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["html", "htm"],
+        "mimeType": "text/html",
+        "description": "HTML Document",
         "role": "Editor"
       }
     ],

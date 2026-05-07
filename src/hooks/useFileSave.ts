@@ -17,6 +17,10 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { remove } from "@tauri-apps/plugin-fs";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import {
+  dispatchEditor,
+  getFormatById,
+} from "@/lib/formats/registry";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
@@ -99,7 +103,18 @@ async function buildDefaultSavePath(
 
   const tab = useTabStore.getState().tabs[windowLabel]?.find(t => t.id === tabId);
   const suggestedName = getSaveFileName(content, tab?.title ?? "");
-  const filename = `${suggestedName}.md`;
+  // WI-1B.9 — default extension is the active format's
+  // untitledExtension. Untitled tab → "markdown" formatId → ".md".
+  let ext = "md";
+  try {
+    const cfg = tab?.formatId
+      ? (getFormatById(tab.formatId) ?? dispatchEditor(tab.filePath ?? null))
+      : dispatchEditor(tab?.filePath ?? null);
+    ext = cfg.adapters.untitledExtension;
+  } catch {
+    /* registry not bootstrapped — keep .md default */
+  }
+  const filename = `${suggestedName}.${ext}`;
   const folder = await getDefaultSaveFolderWithFallback(windowLabel);
   return joinPath(folder, filename);
 }

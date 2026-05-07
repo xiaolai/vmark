@@ -12,12 +12,7 @@ import { useTranslation } from "react-i18next";
 import type { RestProviderType } from "@/types/aiGenies";
 import { useAiProviderStore } from "@/stores/aiProviderStore";
 import { ModelComboBox } from "./ModelComboBox";
-
-const inputClass = `w-full px-2 py-1 text-xs rounded
-  bg-[var(--bg-tertiary)] text-[var(--text-color)]
-  border border-[var(--border-color)]
-  focus:border-[var(--primary-color)] outline-none
-  font-mono`;
+import { FieldInput } from "./components";
 
 const iconBtnClass = `shrink-0 p-1 rounded
   text-[var(--text-secondary)] hover:text-[var(--text-color)]
@@ -120,20 +115,18 @@ export function RestProviderConfigFields({
   return (
     <div className="flex flex-col gap-1.5 ml-5.5 mt-1">
       {type !== "google-ai" && (
-        <input
-          className={inputClass}
+        <FieldInput
           placeholder={t("integrations.apiEndpoint")}
           value={endpoint}
-          onChange={(e) => handleChange("endpoint", e.target.value)}
+          onChange={(v) => handleChange("endpoint", v)}
         />
       )}
       <div className="flex items-center gap-1">
-        <input
-          className={inputClass}
+        <FieldInput
           placeholder={t("integrations.apiKey")}
           type={revealed ? "text" : "password"}
           value={apiKey}
-          onChange={(e) => handleChange("apiKey", e.target.value)}
+          onChange={(v) => handleChange("apiKey", v)}
         />
         <button
           className={iconBtnClass}

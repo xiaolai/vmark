@@ -100,7 +100,7 @@ The primary audit command. Supports two modes:
 
 Usage:
 
-```
+```text
 /codex-toolkit:audit                  # Mini audit on uncommitted changes
 /codex-toolkit:audit --full           # Full 9-dimension audit
 /codex-toolkit:audit commit -3        # Audit last 3 commits
@@ -113,7 +113,7 @@ The output is a structured report with severity ratings (Critical / High / Mediu
 
 After fixing audit findings, have Codex confirm the fixes are correct:
 
-```
+```text
 /codex-toolkit:verify                 # Verify fixes from last audit
 ```
 
@@ -123,7 +123,7 @@ Codex re-reads each file at the reported locations and marks each issue as fixed
 
 The most powerful command. It chains audit → fix → verify in a loop:
 
-```
+```text
 /codex-toolkit:audit-fix              # Loop on uncommitted changes
 /codex-toolkit:audit-fix commit -1    # Loop on last commit
 ```
@@ -148,7 +148,7 @@ The loop exits when Codex reports zero findings across all severities, or after 
 
 Send a plan to Codex for full autonomous implementation:
 
-```
+```text
 /codex-toolkit:implement              # Implement from a plan
 ```
 
@@ -156,7 +156,7 @@ Send a plan to Codex for full autonomous implementation:
 
 Root cause analysis for user-described bugs:
 
-```
+```text
 /codex-toolkit:bug-analyze            # Analyze a bug
 ```
 
@@ -164,7 +164,7 @@ Root cause analysis for user-described bugs:
 
 Send a plan to Codex for architectural review:
 
-```
+```text
 /codex-toolkit:review-plan            # Review a plan for consistency and risk
 ```
 
@@ -172,7 +172,7 @@ Send a plan to Codex for architectural review:
 
 Continue a previous Codex session to iterate on findings:
 
-```
+```text
 /codex-toolkit:continue               # Continue where you left off
 ```
 
@@ -180,7 +180,7 @@ Continue a previous Codex session to iterate on findings:
 
 This project-specific command runs the full pipeline for a GitHub issue:
 
-```
+```text
 /fix-issue #123               # Fix a single issue
 /fix-issue #123 #456 #789     # Fix multiple issues in parallel
 ```
@@ -217,7 +217,7 @@ For complex features, this command deploys a team of specialized subagents:
 
 Usage:
 
-```
+```text
 /feature-workflow sidebar-redesign
 ```
 
@@ -237,7 +237,7 @@ Plans are saved to `dev-docs/plans/` for reference during implementation.
 
 Beyond structured commands, you can ask Claude to consult Codex at any time:
 
-```
+```text
 Summarize your trouble, and ask Codex for help.
 ```
 
@@ -245,11 +245,11 @@ Claude formulates a question, sends it to Codex via MCP, and incorporates the re
 
 You can also be specific:
 
-```
+```text
 Ask Codex whether this Zustand pattern could cause stale state.
 ```
 
-```
+```text
 Have Codex review the SQL in this migration for edge cases.
 ```
 

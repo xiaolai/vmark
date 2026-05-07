@@ -14,6 +14,7 @@ import {
   Zap,
   Languages,
   FileText,
+  Files,
   Keyboard,
   Plug,
   SquareTerminal,
@@ -31,6 +32,7 @@ import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { AppearanceSettings } from "./settings/AppearanceSettings";
 import { EditorSettings } from "./settings/EditorSettings";
 import { FilesImagesSettings } from "./settings/FilesImagesSettings";
+import { FormatsSettings } from "./settings/FormatsSettings";
 import { IntegrationsSettings } from "./settings/IntegrationsSettings";
 import { LanguageSettings } from "./settings/LanguageSettings";
 import { MarkdownSettings } from "./settings/MarkdownSettings";
@@ -79,6 +81,7 @@ type Section =
   | "appearance"
   | "editor"
   | "files"
+  | "formats"
   | "integrations"
   | "language"
   | "markdown"
@@ -115,6 +118,7 @@ const navConfig = [
   { id: "appearance" as const, icon: Palette },
   { id: "editor" as const, icon: Type },
   { id: "files" as const, icon: FolderOpen },
+  { id: "formats" as const, icon: Files },
   { id: "integrations" as const, icon: Plug },
   { id: "language" as const, icon: Languages },
   { id: "markdown" as const, icon: FileText },
@@ -125,7 +129,7 @@ const navConfig = [
 
 // Valid section IDs for URL param validation
 const validSections = new Set<string>([
-  "about", "appearance", "editor", "files", "integrations", "language",
+  "about", "appearance", "editor", "files", "formats", "integrations", "language",
   "markdown", "shortcuts", "terminal", "advanced"
 ]);
 
@@ -232,6 +236,7 @@ export function SettingsPage() {
           {section === "appearance" && <AppearanceSettings />}
           {section === "editor" && <EditorSettings />}
           {section === "files" && <FilesImagesSettings />}
+          {section === "formats" && <FormatsSettings />}
           {section === "integrations" && <IntegrationsSettings />}
           {section === "language" && <LanguageSettings />}
           {section === "markdown" && <MarkdownSettings />}

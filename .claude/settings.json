@@ -20,6 +20,10 @@
           {
             "type": "command",
             "command": "node ${CLAUDE_PROJECT_DIR}/.claude/hooks/gha-tdd-guard.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PROJECT_DIR}/.claude/hooks/multi-format-tdd-guard.mjs"
           }
         ]
       }

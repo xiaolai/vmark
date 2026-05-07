@@ -4,6 +4,12 @@ import { useUnifiedMenuCommands } from "./useUnifiedMenuCommands";
 import { performWysiwygToolbarAction } from "@/plugins/toolbarActions/wysiwygAdapter";
 import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
 import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
+import { useTabStore } from "@/stores/tabStore";
+import {
+  __resetRegistry,
+  registerFormat,
+} from "@/lib/formats/registry";
+import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
 
 type MenuEventHandler = (event: { payload: string }) => void;
 
@@ -67,6 +73,9 @@ vi.mock("@/utils/focusGuard", () => ({
 
 vi.mock("@/utils/imeGuard", () => ({
   runOrQueueCodeMirrorAction: (_view: unknown, fn: () => void) => fn(),
+  // Markdown adapter pulls in CodeMirror plugins that wrap their bindings
+  // with this guard. Pass-through identity is fine for tests.
+  guardCodeMirrorKeyBinding: (binding: unknown) => binding,
 }));
 
 vi.mock("@/plugins/toolbarActions/wysiwygAdapter", () => ({
@@ -816,5 +825,142 @@ describe("useUnifiedMenuCommands", () => {
     unmount(); // disposed=true before any async work completes
     // Just verify no error thrown
     expect(true).toBe(true);
+  });
+
+  describe("WI-1A.7 — per-format menuPolicy gating", () => {
+    afterEach(() => {
+      __resetRegistry();
+      useTabStore.setState({
+        tabs: {},
+        activeTabId: {},
+        untitledCounter: 0,
+        closedTabs: {},
+      });
+    });
+
+    function registerNonMarkdownTxt(): void {
+      registerFormat({
+        id: "txt",
+        nameI18nKey: "format.txt",
+        extensions: ["txt"],
+        kind: "split-pane",
+        adapters: {
+          saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
+          untitledExtension: "txt",
+          searchAdapter: "codemirror",
+          readOnlyDefault: false,
+          closeSavePolicy: "markdown-default",
+          menuPolicy: {
+            sourceWysiwygToggle: false,
+            cjkFormatActions: false,
+            insertBlockActions: false,
+            paragraphFormatting: false,
+          },
+        },
+      });
+    }
+
+    it("permits formatting actions when active tab is markdown", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      // Active tab on /foo.md → markdown adapter, paragraphFormatting=true
+      const tabId = useTabStore.getState().createTab("main", "/foo.md");
+      expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe(
+        "markdown",
+      );
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+        "italic",
+        expect.objectContaining({ surface: "wysiwyg" }),
+      );
+    });
+
+    it("blocks formatting actions when active tab is non-markdown (paragraphFormatting=false)", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      const tabId = useTabStore.getState().createTab("main", "/foo.txt");
+      expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("txt");
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      vi.mocked(performWysiwygToolbarAction).mockClear();
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+      expect(performSourceToolbarAction).not.toHaveBeenCalled();
+    });
+
+    it("permits edit-category actions (undo/redo) regardless of active format", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      useTabStore.getState().createTab("main", "/foo.txt");
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
+
+      listeners.get("menu:undo")?.({ payload: "main" });
+
+      expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+    });
+
+    it("permits actions when no active tab is set (failure-open behavior)", async () => {
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      // No active tab — useTabStore.activeTabId["main"] is undefined
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+      listeners.get("menu:italic")?.({ payload: "main" });
+
+      expect(performWysiwygToolbarAction).toHaveBeenCalled();
+    });
+
+    it("permits actions with unknown category (failure-open for forward-compat)", async () => {
+      // The mock ACTION_DEFINITIONS uses category "insert"/"table" which are
+      // not in the gating switch. They should always be permitted.
+      __resetRegistry();
+      registerMarkdownFormat();
+      registerNonMarkdownTxt();
+      useTabStore.getState().createTab("main", "/foo.txt");
+
+      sourceMode = false;
+      activeWysiwygEditor = { view: {} };
+
+      render(<TestHarness />);
+      await waitFor(() => expect(listeners.has("menu:wikiLink")).toBe(true));
+
+      vi.mocked(performWysiwygToolbarAction).mockClear();
+      listeners.get("menu:wikiLink")?.({ payload: "main" });
+
+      // wikiLink in the test mock has category "insert" (singular, unknown to
+      // the gating switch) — defaults to allowed, so it dispatches.
+      expect(performWysiwygToolbarAction).toHaveBeenCalledWith(
+        "link:wiki",
+        expect.any(Object),
+      );
+    });
   });
 });

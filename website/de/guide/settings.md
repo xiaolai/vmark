@@ -224,6 +224,35 @@ Konfigurieren Sie, welcher KI-Anbieter [KI-Genies](/de/guide/ai-genies) betreibt
 
 Unter [KI-Anbieter](/de/guide/ai-providers) finden Sie detaillierte Setup-Anweisungen für jeden Anbieter.
 
+## Formate
+
+Opt-in-Umschalter für nicht standardmäßige Format-Adapter sowie der explizite Befehl für den externen Editor als Ausstiegsmöglichkeit aus dem schreibgeschützten Code-Tab.
+
+Markdown, Klartext und YAML/YML sind **immer** registriert — die ruhigen Standardwerte. Alle anderen Adapter sind **standardmäßig deaktiviert**, damit bestehende Benutzer beim Upgrade nicht überrascht werden. Schalten Sie einen Umschalter um, und die Registry wird sofort neu aufgebaut; geöffnete Tabs werden mit dem passenden Adapter neu gemountet — kein Neustart erforderlich.
+
+Die vollständige Liste der Formate und ihrer Vorschauen finden Sie unter [Unterstützte Formate](/de/guide/formats).
+
+### Formatunterstützung
+
+| Umschalter | Standard | Aktiviert |
+|---|---|---|
+| **Datenformate** | Aus | `.json`, `.jsonl`, `.toml` — geteilter Bereich: Quelle + navigierbarer Baum. Schemagestützte Vorschauen für `Cargo.toml`, `package.json`, `pyproject.toml`. |
+| **Diagramme & SVG** | Aus | `.mmd` (Mermaid) und `.svg` — geteilter Bereich: Quelle + bereinigtes Live-Rendering. |
+| **HTML-Vorschau** | Aus | `.html` und `.htm` — sandboxed iframe-Vorschau (leeres `sandbox=""`, DOMPurify, CSP `<meta>`). OWASP Top-20 verifiziert — siehe [Sicherheitsmodell für HTML](/de/guide/formats#sicherheitsmodell-fur-html). |
+| **Code-Betrachter** | Aus | 12 schreibgeschützte Betrachter (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua`). Öffnet in einem syntaxhervorgehobenen Betrachter mit den Schaltflächen **Bearbeitung aktivieren** und **In externem Editor öffnen**. |
+
+Wenn eine Kategorie deaktiviert ist, fallen die zugehörigen Erweiterungen auf den Klartext-Fallback zurück, sodass die Datei trotzdem geöffnet wird — nur ohne Schemaansicht.
+
+### Externer Editor
+
+Für die Schaltfläche **In externem Editor öffnen** auf schreibgeschützten Code-Tabs wählen Sie den Editor, der gestartet werden soll. Ein App-Bundle (z. B. `/Applications/Visual Studio Code.app`) oder eine ausführbare Datei.
+
+Die GUI-Einstellung überschreibt alle Umgebungsvariablen — explizit schlägt implizit. Lassen Sie das Feld leer, um die Fallback-Kette `$VMARK_EXTERNAL_EDITOR → $VISUAL → $EDITOR → Plattformstandard` zu nutzen. Unter [In externem Editor öffnen](/de/guide/formats#in-externem-editor-offnen) finden Sie die vollständige Auflösungsreihenfolge und Sicherheitsüberprüfung.
+
+### Einmaliger Upgrade-Hinweis
+
+Beim ersten Start nach dem Upgrade auf die Mehrformat-Unterstützung zeigt VMark einen nicht blockierenden Toast, der auf **Einstellungen → Formate** hinweist. Der Hinweis erscheint einmal pro Installation — nach dem Anzeigen (oder Verwerfen) erscheint er nie wieder.
+
 ## Sprache
 
 CJK (Chinesisch, Japanisch, Koreanisch) Formatierungsregeln. Diese Regeln werden angewendet, wenn Sie **Format → CJK-Auswahl formatieren** (`Cmd+Shift+F`) auf einer Auswahl oder **Format → CJK-Dokument formatieren** (`Alt+Cmd+Shift+F`) auf der gesamten Datei ausführen.

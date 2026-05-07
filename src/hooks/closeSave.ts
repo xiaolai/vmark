@@ -63,7 +63,50 @@ const MULTI_SAVE_BUTTONS = {
   cancel: "Cancel",
 } as const;
 
-const MARKDOWN_FILTERS = [{ name: "Markdown", extensions: ["md"] }];
+// WI-1B.8 — derive Save dialog filters per-tab from the format
+// registry. Untitled tabs default to markdown (the canonical "Save As"
+// flow); existing tabs use their format's adapter filters.
+import {
+  dispatchEditor,
+  getFormatById,
+} from "@/lib/formats/registry";
+
+const MARKDOWN_FALLBACK_FILTERS = [
+  { name: "Markdown", extensions: ["md"] },
+];
+
+function saveFiltersForFilePath(
+  filePath: string | null,
+): { name: string; extensions: string[] }[] {
+  try {
+    const cfg = filePath
+      ? dispatchEditor(filePath)
+      : (getFormatById("markdown") ?? dispatchEditor(null));
+    return cfg.adapters.saveDialogFilters.map((f) => ({
+      name: f.name,
+      extensions: [...f.extensions],
+    }));
+  } catch {
+    /* registry not bootstrapped (test edge) — preserve prior behavior */
+    return MARKDOWN_FALLBACK_FILTERS.map((f) => ({
+      ...f,
+      extensions: [...f.extensions],
+    }));
+  }
+}
+
+function untitledExtensionForFilePath(filePath: string | null): string {
+  try {
+    const cfg = filePath
+      ? dispatchEditor(filePath)
+      : (getFormatById("markdown") ?? dispatchEditor(null));
+    return cfg.adapters.untitledExtension;
+  } catch {
+    /* registry not bootstrapped — preserve prior `.md` default */
+    return "md";
+  }
+}
+
 
 /**
  * Sanitize a title for use as a filename.
@@ -79,11 +122,19 @@ function toSafeFilename(title: string): string {
 }
 
 /**
- * Ensure filename ends with .md extension.
+ * Ensure filename ends with the default extension for `filePath`'s format.
+ * Untitled tabs default to markdown (.md). WI-1B.8 + WI-1B.9 — was
+ * hardcoded ".md".
  */
-function ensureMarkdownExtension(filename: string): string {
-  return filename.endsWith(".md") ? filename : `${filename}.md`;
+function ensureFormatExtension(
+  filename: string,
+  filePath: string | null,
+): string {
+  const ext = untitledExtensionForFilePath(filePath);
+  const dotted = `.${ext}`;
+  return filename.endsWith(dotted) ? filename : `${filename}${dotted}`;
 }
+
 
 /**
  * Prompt user to save a dirty document before closing.
@@ -127,13 +178,14 @@ export async function promptSaveForDirtyDocument(
 
   let path = filePath;
   if (path == null) {
-    // Pre-fill with sanitized title as filename
+    // Pre-fill with sanitized title as filename. Filters + default
+    // extension derive from this tab's format adapter.
     const defaultFolder = await getDefaultSaveFolderWithFallback(windowLabel);
-    const filename = ensureMarkdownExtension(toSafeFilename(title));
+    const filename = ensureFormatExtension(toSafeFilename(title), filePath);
     const defaultPath = joinPath(defaultFolder, filename);
     const newPath = await save({
       defaultPath,
-      filters: MARKDOWN_FILTERS,
+      filters: saveFiltersForFilePath(filePath),
     });
     if (!newPath) {
       return { action: "cancelled" };
@@ -256,11 +308,14 @@ export async function promptSaveForMultipleDocuments(
       current++;
       onProgress?.(current, total, doc.title);
 
-      const filename = ensureMarkdownExtension(toSafeFilename(doc.title));
+      const filename = ensureFormatExtension(
+        toSafeFilename(doc.title),
+        doc.filePath ?? null,
+      );
       const defaultPath = joinPath(defaultFolder, filename);
       const newPath = await save({
         defaultPath,
-        filters: MARKDOWN_FILTERS,
+        filters: saveFiltersForFilePath(doc.filePath ?? null),
       });
       if (!newPath) {
         return { action: "cancelled" };
@@ -288,7 +343,10 @@ export async function promptSaveForMultipleDocuments(
         current++;
         onProgress?.(current, total, doc.title);
 
-        const filename = ensureMarkdownExtension(toSafeFilename(doc.title));
+        const filename = ensureFormatExtension(
+          toSafeFilename(doc.title),
+          doc.filePath ?? null,
+        );
         const path = joinPath(folderPath, filename);
 
         const saved = await saveToPath(doc.tabId, path, doc.content, "manual");
@@ -351,11 +409,14 @@ export async function saveAllDocuments(
       current++;
       onProgress?.(current, total, doc.title);
 
-      const filename = ensureMarkdownExtension(toSafeFilename(doc.title));
+      const filename = ensureFormatExtension(
+        toSafeFilename(doc.title),
+        doc.filePath ?? null,
+      );
       const defaultPath = joinPath(defaultFolder, filename);
       const newPath = await save({
         defaultPath,
-        filters: MARKDOWN_FILTERS,
+        filters: saveFiltersForFilePath(doc.filePath ?? null),
       });
       if (!newPath) {
         return { action: "cancelled" };
@@ -381,7 +442,10 @@ export async function saveAllDocuments(
         current++;
         onProgress?.(current, total, doc.title);
 
-        const filename = ensureMarkdownExtension(toSafeFilename(doc.title));
+        const filename = ensureFormatExtension(
+          toSafeFilename(doc.title),
+          doc.filePath ?? null,
+        );
         const path = joinPath(folderPath, filename);
 
         const saved = await saveToPath(doc.tabId, path, doc.content, "manual");

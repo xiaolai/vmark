@@ -1,0 +1,75 @@
+/* WI-1A.4 + WI-1A.10 — SplitPaneEditor styles.
+ *
+ * Two-pane layout with a keyboard-resizable handle. Theme-token-only;
+ * no hardcoded colors. Dark mode parity is implicit because every
+ * surface uses tokens.
+ */
+
+.split-pane-editor {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.split-pane-editor__source {
+  flex: var(--split-pane-source-fraction, 0.5) 0 0%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.split-pane-editor__resize-handle {
+  flex: 0 0 var(--border-medium);
+  background: var(--border-color);
+  cursor: col-resize;
+  position: relative;
+  outline: none;
+  z-index: var(--z-resize-handle);
+}
+
+.split-pane-editor__resize-handle:hover,
+.split-pane-editor__resize-handle:focus-visible {
+  background: var(--accent-primary);
+}
+
+.split-pane-editor__resize-handle:focus-visible::after {
+  /* U-shape underline focus indicator — matches universal-toolbar pattern */
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: 0;
+  right: 0;
+  height: var(--space-1);
+  background: var(--accent-primary);
+}
+
+.split-pane-editor__preview {
+  flex: 1 0 0%;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--spacing-2);
+  background: var(--bg-secondary);
+}
+
+.source-pane {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-mono);
+  font-size: var(--editor-font-size-mono);
+  line-height: var(--code-line-height);
+}
+
+.source-pane__editor {
+  flex: 1 0 0%;
+  padding: var(--editor-content-padding);
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+}

@@ -27,9 +27,9 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { createUntitledTab } from "@/utils/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
+import { getSupportedExtensions } from "@/lib/formats/registry";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
@@ -83,9 +83,9 @@ export async function openFileInNewTabCore(
     const content = await readTextFile(path);
     perfEnd("readTextFile", { size: content.length });
 
-    // YAML/workflow files must enter source mode BEFORE initDocument so the
-    // WYSIWYG editor never parses them as markdown. See utils/yamlOpenRouting.
-    maybeForceSourceForYaml(tabId, path);
+    // WI-2.6 — YAML force-source bandaid retired. YAML files now route
+    // through the YAML adapter (kind: split-pane) via the format
+    // registry, so they bypass the markdown WYSIWYG path entirely.
 
     perfStart("initDocument");
     useDocumentStore.getState().initDocument(tabId, content, path);
@@ -98,13 +98,10 @@ export async function openFileInNewTabCore(
 
     useRecentFilesStore.getState().addFile(path);
 
-    if (route.forceSourceMode) {
-      // Large / huge file: mark the tab as forced-source. The Editor reads
-      // this marker as a per-tab override on top of the window-global
-      // sourceMode, so other tabs in the same window are unaffected and the
-      // StatusBar can offer an explicit upgrade back to WYSIWYG.
-      useLargeFileSessionStore.getState().markForcedSource(tabId);
-    }
+    // Large / huge file: mark the tab as forced-source via the markdown
+    // adapter helper (WI-1A.6). For non-markdown formats this is a no-op
+    // since they don't have a WYSIWYG path.
+    maybeMarkLargeMarkdownAsSource(tabId, path, route.forceSourceMode);
 
     perfMark("openFileInNewTab:complete");
     // On success, the indicator stays on until TiptapEditor's onCreate fires
@@ -155,8 +152,22 @@ export async function handleOpen(windowLabel: string): Promise<void> {
     perfMark("handleOpen:start");
 
     perfStart("openDialog");
+    // WI-1B.1 — "All Supported" preset (every registered format) plus
+    // a Markdown-only preset for the user who wants the legacy filter.
+    // Filter names are localized via dialog:openFilter.* — only the
+    // extension lists stay registry-driven.
+    const allExtensions = getSupportedExtensions();
     const path = await open({
-      filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "txt"] }],
+      filters: [
+        {
+          name: i18n.t("dialog:openFilter.allSupported"),
+          extensions: [...allExtensions],
+        },
+        {
+          name: i18n.t("dialog:openFilter.markdown"),
+          extensions: ["md", "markdown", "mdown", "mkd", "mdx"],
+        },
+      ],
     });
     perfEnd("openDialog");
 
@@ -237,9 +248,11 @@ export async function handleOpen(windowLabel: string): Promise<void> {
 
           useRecentFilesStore.getState().addFile(path);
 
-          if (route.forceSourceMode) {
-            useLargeFileSessionStore.getState().markForcedSource(decision.tabId);
-          }
+          maybeMarkLargeMarkdownAsSource(
+            decision.tabId,
+            path,
+            route.forceSourceMode,
+          );
 
           perfMark("handleOpen:replacedTab");
         } catch (error) {

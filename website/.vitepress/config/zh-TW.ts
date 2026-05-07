@@ -8,6 +8,7 @@ export const zhTW = {
       { text: "首頁", link: "/zh-TW/" },
       { text: "下載", link: "/zh-TW/download" },
       { text: "指南", link: "/zh-TW/guide/" },
+      { text: "部落格", link: "/blog/" },
     ],
 
     sidebar: {

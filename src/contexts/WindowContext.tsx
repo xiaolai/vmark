@@ -64,7 +64,7 @@ import type { TabTransferPayload } from "@/types/tabTransfer";
 import { windowCloseWarn, windowContextError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { cleanupTabState } from "@/hooks/tabCleanup";
@@ -294,9 +294,11 @@ export function WindowProvider({ children }: WindowProviderProps) {
                 useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
                 useRecentFilesStore.getState().addFile(pathToOpen);
 
-                if (route.forceSourceMode) {
-                  useLargeFileSessionStore.getState().markForcedSource(tabId);
-                }
+                maybeMarkLargeMarkdownAsSource(
+                  tabId,
+                  pathToOpen,
+                  route.forceSourceMode,
+                );
               } catch (error) {
                 windowContextError("Failed to load file:", pathToOpen, error);
                 useDocumentStore.getState().initDocument(tabId, "", null);

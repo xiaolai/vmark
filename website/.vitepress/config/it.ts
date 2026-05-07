@@ -8,6 +8,7 @@ export const it = {
       { text: "Home", link: "/it/" },
       { text: "Scarica", link: "/it/download" },
       { text: "Guida", link: "/it/guide/" },
+      { text: "Blog", link: "/blog/" },
     ],
 
     sidebar: {

@@ -81,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pnpm test
-```
+```text
 ````
 
 VMark detects the workflow shape (top-level `jobs:` with `runs-on` per job) and renders the diagram inline. The diagram is read-only — edit the source to change the workflow.

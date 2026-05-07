@@ -224,6 +224,35 @@ Configura quale provider IA alimenta i [Genies IA](/it/guide/ai-genies). È atti
 
 Vedi [Provider IA](/it/guide/ai-providers) per le istruzioni di configurazione dettagliate per ogni provider.
 
+## Formati
+
+Toggle di attivazione per gli adattatori di formato non predefiniti, più il comando esplicito per l'editor esterno usato come via d'uscita dalle schede di codice in sola lettura.
+
+Markdown, testo normale e YAML/YML sono **sempre** registrati — le impostazioni predefinite. Tutti gli altri adattatori sono **disattivati per impostazione predefinita** in modo che gli utenti esistenti non siano sorpresi dall'aggiornamento. Attiva un toggle e il registro si ricostruisce in loco; le schede aperte si rimontano con l'adattatore appropriato, senza necessità di riavvio.
+
+Per l'elenco completo dei formati e delle loro anteprime, vedi [Formati Supportati](/it/guide/formats).
+
+### Supporto dei formati
+
+| Toggle | Predefinito | Abilita |
+|---|---|---|
+| **Formati dati** | Off | `.json`, `.jsonl`, `.toml` — riquadro sorgente + albero navigabile. Anteprime contestuali per `Cargo.toml`, `package.json`, `pyproject.toml`. |
+| **Diagrammi e SVG** | Off | `.mmd` (Mermaid) e `.svg` — riquadro sorgente + rendering live sanitizzato. |
+| **Anteprima HTML** | Off | `.html` e `.htm` — anteprima iframe in sandbox (`sandbox=""` lista autorizzazioni vuota, DOMPurify, CSP `<meta>`). Verificato OWASP top-20 — vedi [Modello di sicurezza per HTML](/it/guide/formats#modello-di-sicurezza-per-html). |
+| **Visualizzatori di codice** | Off | 12 visualizzatori in sola lettura (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua`). Si apre in un visualizzatore con evidenziazione della sintassi con i pulsanti **Abilita modifica** e **Apri nell'editor esterno**. |
+
+Quando una categoria è disattivata, le estensioni corrispondenti ricadono sul fallback in testo normale — il file si apre comunque, ma senza la vista schema.
+
+### Editor esterno
+
+Per il pulsante **Apri nell'editor esterno** nelle schede di codice in sola lettura, scegli l'editor che deve essere avviato. Un bundle app (es. `/Applications/Visual Studio Code.app`) o un eseguibile.
+
+L'impostazione GUI sostituisce qualsiasi variabile d'ambiente — l'esplicito supera l'implicito. Lasciala vuota per usare la catena di fallback `$VMARK_EXTERNAL_EDITOR → $VISUAL → $EDITOR → predefinito di piattaforma`. Vedi [Apri nell'editor esterno](/it/guide/formats#apri-nelleditor-esterno) per l'ordine di risoluzione completo e il controllo di sicurezza.
+
+### Notifica di aggiornamento una tantum
+
+Al primo avvio dopo l'aggiornamento al supporto multi-formato, VMark mostra un toast non bloccante che punta a **Impostazioni → Formati**. La notifica appare una sola volta per installazione — una volta mostrata (o ignorata), non riappare mai più.
+
 ## Lingua
 
 Regole di formattazione CJK (cinese, giapponese, coreano). Queste regole vengono applicate quando esegui **Formato → Formatta selezione CJK** (`Cmd+Shift+F`) su una selezione, o **Formato → Formatta documento CJK** (`Alt+Cmd+Shift+F`) sull'intero file.

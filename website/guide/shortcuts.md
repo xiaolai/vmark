@@ -62,6 +62,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Wiki Link | `Alt + Mod + K` |
 | Bookmark Link | `Alt + Mod + B` |
 | Clear Formatting | `Mod + \` |
+| Cycle Emphasis | `Mod + Alt + E` _(none → italic → bold → bold+italic)_ |
 
 ## Block Formatting
 
@@ -71,6 +72,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Paragraph | `Mod + Shift + 0` |
 | Increase Heading Level | `Alt + Mod + ]` |
 | Decrease Heading Level | `Alt + Mod + [` |
+| Cycle Heading | `Mod + Alt + H` _(P → H1 → H2 → … → H6)_ |
 | Blockquote | `Alt + Mod + Q` |
 | Code Block | `Alt + Mod + C` |
 | Bullet List | `Alt + Mod + U` |
@@ -180,7 +182,8 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Action | Shortcut |
 |--------|----------|
 | New File | `Mod + N` |
-| Quick Open | `Mod + O` |
+| Quick Open | `Mod + O` _(fuzzy file browser)_ |
+| Open File... | Menu only _(native file picker)_ |
 | Open Workspace | `Mod + Shift + O` |
 | Save | `Mod + S` |
 | Save As | `Mod + Shift + S` |

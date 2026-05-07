@@ -98,6 +98,8 @@ import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
 import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
 import { useImagePasteToast } from "@/hooks/useImagePasteToast";
+import { useFormatsUpgradeNudge } from "@/hooks/useFormatsUpgradeNudge";
+import { useFormatSettingsBridge } from "@/utils/formatSettingsBridge";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useUpdateBroadcast } from "@/hooks/useUpdateSync";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
@@ -170,6 +172,7 @@ function DocumentWindowHooks() {
   useCrashRecoveryWriter(); // Periodically snapshot dirty docs for crash recovery
   useCrashRecoveryCleanup(); // Clean up recovery files on save/close/exit
   useMcpBridge(); // Handle MCP bridge requests — each window has its own editor
+  useFormatSettingsBridge(); // Re-bootstrap registry on format-toggle change
   return null;
 }
 
@@ -237,6 +240,7 @@ function MainLayout() {
   useFileExplorerShortcuts(); // Toggle hidden files
   useImagePasteToast(); // Image paste confirmation toast
   useTerminalPosition(); // Auto-reposition terminal panel based on window shape
+  useFormatsUpgradeNudge(); // One-time toast surfacing the new opt-in formats
 
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
 

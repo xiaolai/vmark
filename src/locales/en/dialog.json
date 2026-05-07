@@ -84,6 +84,10 @@
   "saveVersionAs": {
     "title": "Save your version as..."
   },
+  "openFilter": {
+    "allSupported": "All Supported",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "Choose folder for {{count}} new documents",
   "toast": {
     "saveDialogFailed": "Save dialog failed: {{error}}",
@@ -97,6 +101,7 @@
     "quarantineClearedDesc": "macOS marks files downloaded by some apps with a flag that silently blocks Finder double-click while VMark is running. VMark cleared it so those files open. Disable in Settings → Advanced.",
     "failedToOpenFilesInNewWindow": "Failed to open files in new window",
     "onlyMarkdownViaDropDrop": "Only markdown files can be opened via drag-drop",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark.",
     "restored": "Restored: {{filename}}",
     "reloaded": "Reloaded: {{filename}}",
     "pandocExportFailed": "Pandoc export failed",
@@ -119,6 +124,7 @@
     "pdfExportFailed": "PDF export failed: {{error}}",
     "cannotMoveTabNoDoc": "Cannot move tab: document is not loaded.",
     "cannotMoveLastTab": "Cannot move the last tab in the main window.",
+    "tabFormatChanged": "Editor switched to {{format}}.",
     "tabMoved": "Moved \"{{title}}\" to a new window",
     "tabDetached": "Detached \"{{title}}\"",
     "tabMovedToWindow": "Moved \"{{title}}\"",

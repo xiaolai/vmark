@@ -320,13 +320,15 @@ pub fn new_window(app: AppHandle) -> Result<String, String> {
 }
 
 /// Validate that a frontend-supplied path is safe to extend into the fs
-/// read scope. Rejects non-files, non-markdown extensions, and paths that
-/// don't resolve on disk — so a compromised webview can't escalate by
-/// invoking these commands with arbitrary targets.
+/// read scope. Rejects non-files, paths whose extension isn't in
+/// `crate::SUPPORTED_EXTENSIONS`, and paths that don't resolve on disk
+/// — so a compromised webview can't escalate by invoking these commands
+/// with arbitrary targets.
 ///
-/// Canonicalization resolves symlinks so the markdown-extension check
+/// Canonicalization resolves symlinks so the registered-extension check
 /// runs on the real target, not the link name (e.g. a `.md` symlink
-/// pointing to `/etc/passwd` is rejected).
+/// pointing to `/etc/passwd` is rejected because the canonical target
+/// isn't a registered VMark format).
 ///
 /// Returns `Ok(())` when the raw path is acceptable. The raw string is
 /// intentionally used downstream — the scope pattern must match what the
@@ -335,9 +337,15 @@ fn validate_openable_path(raw: &str) -> Result<(), String> {
     let canonical = std::path::Path::new(raw)
         .canonicalize()
         .map_err(|e| format!("invalid path '{raw}': {e}"))?;
-    if !crate::is_openable_markdown(&canonical) {
+    // WI-1B.5 — security gate now accepts every registered format's
+    // extension (markdown + txt + json + yaml + toml + html + svg +
+    // mmd + code-viewer set). Symlink rejection still works because
+    // canonicalize() resolves the link first; we then re-check the
+    // canonical path against `is_openable_supported`. A symlink whose
+    // target lives outside the registered set fails this check.
+    if !crate::is_openable_supported(&canonical) {
         return Err(format!(
-            "path '{raw}' is not an openable markdown file"
+            "path '{raw}' is not an openable VMark file"
         ));
     }
     Ok(())
@@ -786,36 +794,55 @@ mod tests {
     #[test]
     fn validate_rejects_directory() {
         let dir = tempfile::tempdir().expect("create tempdir");
-        // Directory with a markdown-looking name — extension alone must not
-        // be enough to pass validation.
+        // Directory with a registered-extension-looking name — extension
+        // alone must not be enough to pass validation.
         let md_dir = dir.path().join("looks-like-note.md");
         std::fs::create_dir(&md_dir).expect("mkdir");
         let err = validate_openable_path(md_dir.to_str().unwrap()).unwrap_err();
-        assert!(err.contains("not an openable markdown file"), "got: {err}");
+        assert!(err.contains("not an openable VMark file"), "got: {err}");
     }
 
     #[test]
-    fn validate_rejects_non_markdown_file() {
+    fn validate_rejects_unregistered_file_extension() {
+        // WI-1B.5: .png is not in SUPPORTED_EXTENSIONS, so it must be
+        // rejected even though the path exists. .txt is now accepted
+        // (it's a registered Phase 1A format), so the test pivots to
+        // an unambiguously unregistered extension.
         let dir = tempfile::tempdir().expect("create tempdir");
-        let file = dir.path().join("note.txt");
-        std::fs::write(&file, b"plain").expect("write");
+        let file = dir.path().join("photo.png");
+        std::fs::write(&file, b"\x89PNG").expect("write");
         let err = validate_openable_path(file.to_str().unwrap()).unwrap_err();
-        assert!(err.contains("not an openable markdown file"), "got: {err}");
+        assert!(err.contains("not an openable VMark file"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_accepts_phase1a_extensions() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        for ext in ["md", "txt", "json", "yaml", "toml", "html", "ts"] {
+            let file = dir.path().join(format!("file.{ext}"));
+            std::fs::write(&file, b"data").expect("write");
+            assert!(
+                validate_openable_path(file.to_str().unwrap()).is_ok(),
+                "Phase 1A extension .{ext} should pass validate_openable_path",
+            );
+        }
     }
 
     #[cfg(unix)]
     #[test]
-    fn validate_rejects_markdown_symlink_to_non_markdown() {
+    fn validate_rejects_supported_symlink_to_unregistered() {
         // Canonicalization catches a crafted symlink: the link name ends
-        // in .md but it points at a non-markdown target. This is the
-        // concrete security reason validate_openable_path canonicalizes
-        // before checking the extension.
+        // in .md but it points at an unregistered target (.png). This is
+        // the concrete security reason validate_openable_path canonicalizes
+        // before checking the extension. Phase 1B widens the registered
+        // set, but the canonicalize-then-check ordering still rejects
+        // any symlink whose target is unregistered.
         let dir = tempfile::tempdir().expect("create tempdir");
-        let target = dir.path().join("real.txt");
-        std::fs::write(&target, b"not markdown").expect("write target");
+        let target = dir.path().join("real.png");
+        std::fs::write(&target, b"\x89PNG").expect("write target");
         let link = dir.path().join("looks-markdown.md");
         std::os::unix::fs::symlink(&target, &link).expect("symlink");
         let err = validate_openable_path(link.to_str().unwrap()).unwrap_err();
-        assert!(err.contains("not an openable markdown file"), "got: {err}");
+        assert!(err.contains("not an openable VMark file"), "got: {err}");
     }
 }

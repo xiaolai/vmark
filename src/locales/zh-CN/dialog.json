@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "另存为..."
   },
+  "openFilter": {
+    "allSupported": "所有支持的格式",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "为 {{count}} 个新文档选择文件夹",
   "toast": {
     "saveDialogFailed": "保存对话框失败：{{error}}",
@@ -171,7 +175,9 @@
     "tabDropPinnedZone": "固定的标签页保留在左侧。无法在此处放下。",
     "exportRenderTimedOut": "导出渲染超时 — 编辑器未能初始化",
     "exportHtmlDialogTitle": "导出 HTML",
-    "exportFormatDialogTitle": "导出 {{name}}"
+    "exportFormatDialogTitle": "导出 {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "需要保存"

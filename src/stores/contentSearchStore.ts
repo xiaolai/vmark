@@ -15,8 +15,9 @@
  *     selectable), enabling simple arrow-key navigation.
  *   - Regex validation happens in Rust, not frontend — grep-regex syntax differs
  *     from JS RegExp. Invalid regex errors are displayed inline.
- *   - Extensions list comes from MARKDOWN_EXTENSIONS in dropPaths.ts so the
- *     source of truth for "what counts as markdown" stays in one place.
+ *   - Extensions list comes from listFormats() filtered by
+ *     adapters.contentSearchIndexed === true (Phase 1B). Code-viewer
+ *     formats opt out by default per ADR-9 / WI-1B.13.
  *
  * @coordinates-with ContentSearch.tsx — overlay UI
  * @coordinates-with content_search.rs — Rust backend command
@@ -26,7 +27,7 @@
 
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { MARKDOWN_EXTENSIONS } from "@/utils/dropPaths";
+import { listFormats } from "@/lib/formats/registry";
 
 /** A single match range within a line (character indices into lineContent). */
 export interface MatchRange {
@@ -143,8 +144,15 @@ export const useContentSearchStore = create<ContentSearchState & ContentSearchAc
       set({ isSearching: true, error: null });
 
       try {
+        // WI-1B.13 — scope expands from markdown-only to every
+        // registered format with `contentSearchIndexed: true`.
+        // Code-viewer formats (.ts/.py/.rs/...) opt out by default
+        // (ADR-9). Empty array means "search every text-like file
+        // the Rust backend allows", preserving the prior fallback.
         const extensions = markdownOnly
-          ? (MARKDOWN_EXTENSIONS as readonly string[]).map((ext) => ext)
+          ? listFormats()
+              .filter((f) => f.adapters.contentSearchIndexed === true)
+              .flatMap((f) => f.extensions.map((ext) => `.${ext}`))
           : [];
 
         const results = await invoke<FileSearchResult[]>(

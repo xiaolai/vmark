@@ -46,7 +46,11 @@ import { useObservedHeight } from "./useObservedHeight";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
-import { isVMarkFileName, isMarkdownFileName } from "@/utils/dropPaths";
+import {
+  isMarkdownFileName,
+  isSupportedFileName,
+  isVMarkFileName,
+} from "@/utils/dropPaths";
 import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
 import type { FileNode as FileNodeType } from "./types";
 import "./FileExplorer.css";
@@ -178,7 +182,14 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const openFileByType = useCallback(
     (path: string) => {
       const fileName = getFileName(path);
-      const isSupported = fileName && (isWorkflowEnabled() ? isVMarkFileName(fileName) : isMarkdownFileName(fileName));
+      // Phase 1B: any registered format opens in VMark. The workflow-
+      // engine / markdown-only fallback covers the pre-bootstrap edge.
+      const isSupported =
+        fileName &&
+        (isSupportedFileName(fileName) ||
+          (isWorkflowEnabled()
+            ? isVMarkFileName(fileName)
+            : isMarkdownFileName(fileName)));
       if (isSupported) {
         openFile(path);
       } else {

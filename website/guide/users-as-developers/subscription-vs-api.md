@@ -67,7 +67,7 @@ For interactive coding sessions — where you're going back and forth with the A
 
 VMark’s `AGENTS.md` enforces subscription-first auth as a project convention. When you clone the repo and open an AI coding tool, it reminds you to use subscription auth:
 
-```
+```text
 Prefer subscription auth over API keys for all AI coding tools.
 ```
 

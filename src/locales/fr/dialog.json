@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "Enregistrer votre version sous..."
   },
+  "openFilter": {
+    "allSupported": "Tous les formats pris en charge",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "Choisir un dossier pour {{count}} nouveaux documents",
   "toast": {
     "saveDialogFailed": "Échec de la boîte de dialogue d'enregistrement : {{error}}",
@@ -171,7 +175,9 @@
     "tabDropPinnedZone": "Les onglets épinglés restent à gauche. Dépose bloquée.",
     "exportRenderTimedOut": "Le rendu d'export a expiré — l'éditeur n'a pas pu être initialisé",
     "exportHtmlDialogTitle": "Exporter en HTML",
-    "exportFormatDialogTitle": "Exporter en {{name}}"
+    "exportFormatDialogTitle": "Exporter en {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "Enregistrement requis"

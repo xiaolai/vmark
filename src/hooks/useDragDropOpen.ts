@@ -28,17 +28,19 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/recentFilesStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useUIStore } from "@/stores/uiStore";
-import { filterMarkdownPaths } from "@/utils/dropPaths";
+import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
+import {
+  filterSupportedPaths,
+  isSupportedFileName,
+} from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { maybeForceSourceForYaml } from "@/utils/yamlOpenRouting";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/utils/largeFileRouting";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
@@ -75,14 +77,12 @@ async function openFileInNewTab(windowLabel: string, path: string): Promise<void
   try {
     const content = await readTextFile(path);
     const tabId = useTabStore.getState().createTab(windowLabel, path);
-    maybeForceSourceForYaml(tabId, path);
+    // WI-2.6 — YAML force-source bandaid retired (registry handles it).
     useDocumentStore.getState().initDocument(tabId, content, path);
     useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
     useRecentFilesStore.getState().addFile(path);
 
-    if (route.forceSourceMode) {
-      useLargeFileSessionStore.getState().markForcedSource(tabId);
-    }
+    maybeMarkLargeMarkdownAsSource(tabId, path, route.forceSourceMode);
   } catch (error) {
     dragDropError("Failed to open file:", path, error);
     const filename = getFileName(path) || path;
@@ -120,12 +120,13 @@ export function useDragDropOpen(): void {
 
         // Handle drag enter for visual feedback
         if (type === "enter") {
-          // Check if any markdown files are being dragged
+          // WI-1B.2 — accept any registered extension on drag-enter so
+          // the drop overlay shows for .json/.yaml/.toml/etc. as well.
           const paths = event.payload.paths;
-          const hasMarkdown = paths.some((p: string) =>
-            [".md", ".markdown", ".txt"].some((ext) => p.toLowerCase().endsWith(ext))
+          const hasSupported = paths.some((p: string) =>
+            isSupportedFileName(p),
           );
-          if (hasMarkdown) {
+          if (hasSupported) {
             useUIStore.getState().setDraggingFiles(true);
           }
           return;
@@ -148,10 +149,13 @@ export function useDragDropOpen(): void {
         useUIStore.getState().setDraggingFiles(false);
 
         const paths = event.payload.paths;
-        const markdownPaths = filterMarkdownPaths(paths);
+        // WI-1B.2 — drop accepts any registered format. The legacy
+        // markdownPaths variable name is kept (it's used by the
+        // downstream replacement pipeline) but the filter is broader.
+        const markdownPaths = filterSupportedPaths(paths);
         if (markdownPaths.length === 0) {
           if (paths.length > 0) {
-            toast.info(i18n.t("dialog:toast.onlyMarkdownViaDropDrop"));
+            toast.info(i18n.t("dialog:toast.unsupportedFileViaDropDrop"));
           }
           return;
         }
@@ -246,11 +250,11 @@ export function useDragDropOpen(): void {
                     detectLinebreaks(content)
                   );
                   useRecentFilesStore.getState().addFile(path);
-                  if (route.forceSourceMode) {
-                    useLargeFileSessionStore
-                      .getState()
-                      .markForcedSource(initialReplaceableTab.tabId);
-                  }
+                  maybeMarkLargeMarkdownAsSource(
+                    initialReplaceableTab.tabId,
+                    path,
+                    route.forceSourceMode,
+                  );
                   replaceableTabUsed = true;
                   continue;
                 } catch (error) {
@@ -313,9 +317,11 @@ export function useDragDropOpen(): void {
                 );
                 await openWorkspaceWithConfig(decision.workspaceRoot);
                 useRecentFilesStore.getState().addFile(path);
-                if (route.forceSourceMode) {
-                  useLargeFileSessionStore.getState().markForcedSource(decision.tabId);
-                }
+                maybeMarkLargeMarkdownAsSource(
+                  decision.tabId,
+                  path,
+                  route.forceSourceMode,
+                );
                 replaceableTabUsed = true;
               } catch (error) {
                 dragDropError("Failed to replace tab with file:", path, error);

@@ -155,6 +155,24 @@ Su Linux:
 La porta viene scoperta automaticamente — nessun argomento `args` necessario.
 :::
 
+### Flag CLI (avanzato)
+
+Il binario del server MCP supporta un piccolo set di flag per la diagnostica e le configurazioni legacy:
+
+| Flag | Funzione |
+|---|---|
+| `--version` (o `-v`) | Stampa la versione (deve corrispondere a VMark in esecuzione) ed esce. |
+| `--health-check` | Esegue un autotest sul bridge VMark in esecuzione ed esce. Usalo per verificare l'installazione prima di collegare un assistente IA. |
+| `--port <numero>` | Override manuale della porta. Salta l'handshake di auto-scoperta e si connette sulla porta indicata. Utile solo per configurazioni legacy in cui la porta del bridge è fissa esternamente; il percorso di auto-scoperta è preferito. |
+
+Esempio:
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # legacy / manuale
+```
+
 ## Come Funziona
 
 ```text

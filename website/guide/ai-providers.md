@@ -136,6 +136,16 @@ model: claude-haiku-4-5-20251001
 
 This is useful for routing simple tasks to faster/cheaper models while keeping a powerful default.
 
+## Reliability and timeouts
+
+VMark guards every provider call so a hung CLI or a malformed API response can never block the editor:
+
+- **CLI subprocess timeout**: every CLI provider invocation runs under an execution timeout. If the CLI doesn't respond, VMark cancels the call, returns the error to the genie, and frees the worker — the thread pool can't be wedged by a runaway subprocess.
+- **REST JSON parse safety**: if a REST provider returns an unexpected response shape (HTML error page, truncated JSON, schema drift after an upstream change), VMark surfaces a typed error to the frontend instead of leaving the AI listener waiting forever. You'll see the error in the genie's status banner with an option to retry.
+- **Cancellation tokens**: long-running genie or workflow steps can be cancelled at any point — Cancel in the genie picker or close the panel and the in-flight request aborts cleanly.
+- **Shared HTTP client**: REST providers share a single connection-pooled `reqwest` client, so back-to-back genie runs don't pay the TCP/TLS handshake cost each time.
+- **Windows path discovery**: on Windows, VMark reads the user's full `PATH` (including PowerShell-only entries) when detecting CLIs, so user-installed tools that work in a terminal also work inside VMark.
+
 ## Security Notes
 
 - **API keys are ephemeral** — stored in memory only, never written to disk or `localStorage`
@@ -149,9 +159,13 @@ This is useful for routing simple tasks to faster/cheaper models while keeping a
 
 **CLI shows "Not found"** — The CLI is not in your `$PATH`. Install it or check your shell profile. On macOS, GUI apps may not inherit terminal `$PATH` — try adding the path to `/etc/paths.d/`.
 
+**CLI hangs / no response** — VMark's execution timeout will cancel the call automatically; you'll see an error in the genie status banner. If a particular CLI consistently hits the timeout, run it once from a terminal to confirm it works there, then check whether it requires interactive auth.
+
 **REST provider returns 401** — Your API key is invalid or expired. Generate a new one from the provider's console.
 
 **REST provider returns 429** — You've hit a rate limit. Wait a moment and try again, or switch to a different provider.
+
+**REST provider returns garbled / unexpected JSON** — VMark surfaces a typed parse error (e.g. "list_models returned an unexpected response shape"). Check the endpoint URL and that the API contract matches the provider type you selected; some self-hosted gateways advertise OpenAI-compatible URLs but ship a different schema.
 
 **Slow responses** — CLI providers add subprocess overhead. For faster responses, use REST providers which connect directly. For the fastest local option, use Ollama with a small model.
 

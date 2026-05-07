@@ -28,6 +28,11 @@ Update website docs when:
 | Change PTY / terminal pause | `website/guide/terminal.md` |
 | Change workspace content search | `website/guide/workspace-management.md` |
 | Add/modify AI suggestion UI | `website/guide/ai-genies.md` |
+| Add/modify format adapter (registry / dispatch / new file type) | `website/guide/formats.md` |
+| Change SplitPaneEditor behavior (source pane, validation gutter, split UX) | `website/guide/formats.md` |
+| Change `formats.*` settings (toggles, externalEditor, upgrade nudge) | `website/guide/settings.md` (`Formats` section) + `website/guide/formats.md` |
+| Change `open_in_external_editor` Tauri command | `website/guide/formats.md` (`Open in external editor`) |
+| Add new release post / launch note | `website/blog/<YYYY-MM>-<slug>.md` + entry in `website/blog/index.md` |
 | New major feature | Consider adding new guide page |
 
 ## File Mapping
@@ -50,6 +55,12 @@ Update website docs when:
 | `src/lib/markdownLinkCheck/` | `website/guide/link-check.md` |
 | `src-tauri/src/content_search.rs` | `website/guide/workspace-management.md` (Workspace Content Search) |
 | `src/plugins/aiSuggestion/`, `src/stores/aiSuggestionStore.ts` | `website/guide/ai-genies.md` (AI Suggestions section) |
+| `src/lib/formats/` (registry + adapters) | `website/guide/formats.md` |
+| `src/components/Editor/SplitPaneEditor/` | `website/guide/formats.md` |
+| `src/pages/settings/FormatsSettings.tsx` | `website/guide/settings.md` (Formats section) |
+| `src-tauri/src/external_editor.rs` | `website/guide/formats.md` (Open in external editor) |
+| `src/hooks/useFormatsUpgradeNudge.ts` | `website/guide/settings.md` (Formats — One-time upgrade nudge) |
+| `src/pages/settings/components.tsx` (SearchInput / FieldInput primitives) | No website doc — internal API. Keep `components.tsx` header comment as the source of truth for the decision rule. |
 
 ## Timestamp Handling
 

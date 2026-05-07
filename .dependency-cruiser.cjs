@@ -74,6 +74,14 @@ module.exports = {
           // side panel uses — visual parity is the WHOLE point per
           // dev-docs/plans/20260504-workflow-fence-snapshot.md ADR-1)
           "src/lib/ghaWorkflow/render/snapshotRoot",
+          // Format-registry adapters (multi-format rebrand, Phase 1A).
+          // Adapters are boundary modules that wire formats to React
+          // components and stores by design. The leaf rule does not
+          // model "adapter" as a concept; explicit exemption per WI-1A.3.
+          "src/lib/formats/adapters/",
+          // markdown-adapter-internal large-file helper — reads
+          // largeFileSessionStore by design (WI-1A.6).
+          "src/lib/formats/markdownLargeFile",
         ],
       },
       to: { path: "^src/(plugins|components|stores)/" },

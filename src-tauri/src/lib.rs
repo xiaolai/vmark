@@ -50,6 +50,7 @@ mod tab_transfer;
 mod workflow;
 mod gha_workflow;
 mod quarantine;
+mod external_editor;
 
 #[cfg(target_os = "macos")]
 mod app_nap;
@@ -110,35 +111,57 @@ pub(crate) fn allow_fs_read<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: 
     }
 }
 
-/// Accepted markdown file extensions (lowercased, without the leading dot).
+/// Accepted file extensions (lowercased, without the leading dot).
 ///
-/// Kept as a single source of truth so CLI arg filtering, Finder `Opened`
-/// filtering, and runtime path validation for `open_*_in_new_window`
-/// commands all agree on what counts as a markdown document.
-pub(crate) const MARKDOWN_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx"];
+/// Single source of truth for CLI arg filtering, Finder `Opened`
+/// filtering, the `validate_openable_path` security gate, and the
+/// macOS quarantine strip pass. Mirrors the TypeScript format
+/// registry's `getSupportedExtensions()` output; CI script
+/// `scripts/check-ext-sync.sh` enforces parity (ADR-12).
+///
+/// The original markdown-only list is preserved as
+/// `MARKDOWN_ONLY_EXTENSIONS` for places that genuinely mean "markdown
+/// adapter only" (e.g. parts of the macOS About-dialog narrative).
+pub(crate) const SUPPORTED_EXTENSIONS: &[&str] = &[
+    // Markdown
+    "md", "markdown", "mdown", "mkd", "mdx",
+    // Plain text
+    "txt",
+    // Phase 2 data formats
+    "json", "jsonl", "yaml", "yml", "toml",
+    // Phase 3 visual-render formats
+    "mmd", "svg", "html", "htm",
+    // Phase 4 code viewers
+    "ts", "tsx", "js", "jsx", "py", "rs", "go", "css", "sh", "bash", "rb", "lua",
+];
 
-/// True if `path` has a markdown extension (case-insensitive).
+/// Strict markdown-only extensions — kept for callers that genuinely
+/// mean "markdown editor candidate" rather than "any registered format."
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub(crate) const MARKDOWN_ONLY_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx"];
+
+/// True if `path` has any registered format's extension (case-insensitive).
 ///
 /// Only inspects the extension — does not touch the filesystem. Callers
 /// that also need existence / file-type checks should compose this with
 /// `path.exists()` / `path.is_file()` as needed.
-pub(crate) fn has_markdown_extension(path: &std::path::Path) -> bool {
+pub(crate) fn has_supported_extension(path: &std::path::Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| {
             let lowered = ext.to_ascii_lowercase();
-            MARKDOWN_EXTENSIONS.iter().any(|allowed| *allowed == lowered)
+            SUPPORTED_EXTENSIONS.iter().any(|allowed| *allowed == lowered)
         })
         .unwrap_or(false)
 }
 
-/// True if `path` refers to an existing, regular, markdown-extension file.
+/// True if `path` refers to an existing, regular, registered-extension file.
 ///
 /// Single gate used by every "open this path" entry point (CLI args,
 /// Finder `RunEvent::Opened`, `open_*_in_new_window` commands) so they
 /// all agree on which paths VMark will accept.
-pub(crate) fn is_openable_markdown(path: &std::path::Path) -> bool {
-    path.is_file() && has_markdown_extension(path)
+pub(crate) fn is_openable_supported(path: &std::path::Path) -> bool {
+    path.is_file() && has_supported_extension(path)
 }
 
 /// Pure wrapper over the Windows/Linux CLI-args filter.
@@ -151,9 +174,9 @@ pub(crate) fn is_openable_markdown(path: &std::path::Path) -> bool {
 /// aren't used (Finder dispatches via `RunEvent::Opened`). Suppress the
 /// unused-warning there.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-pub(crate) fn filter_markdown_args(args: impl IntoIterator<Item = String>) -> Vec<String> {
+pub(crate) fn filter_supported_args(args: impl IntoIterator<Item = String>) -> Vec<String> {
     args.into_iter()
-        .filter(|arg| is_openable_markdown(std::path::Path::new(arg)))
+        .filter(|arg| is_openable_supported(std::path::Path::new(arg)))
         .collect()
 }
 
@@ -584,6 +607,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_pending_file_opens,
+            external_editor::open_in_external_editor,
             menu::update_recent_files,
             menu::update_recent_workspaces,
             menu::refresh_genies_menu,
@@ -708,7 +732,7 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             {
                 let file_args =
-                    filter_markdown_args(std::env::args().skip(1));
+                    filter_supported_args(std::env::args().skip(1));
 
                 if !file_args.is_empty() {
                     if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
@@ -851,7 +875,7 @@ pub fn run() {
                             // Uses the shared helper so CLI and Finder filters
                             // stay in sync — the same set of markdown
                             // extensions is accepted at every entry point.
-                            if !is_openable_markdown(&path) {
+                            if !is_openable_supported(&path) {
                                 log::warn!("[Finder] Skipping non-markdown file: {}", path_str);
                                 continue;
                             }
@@ -948,32 +972,45 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        atomic_write_file_sync, filter_markdown_args, has_markdown_extension, is_openable_markdown,
-        MARKDOWN_EXTENSIONS, PARENT_MISSING_ERROR_PREFIX,
+        atomic_write_file_sync, filter_supported_args, has_supported_extension, is_openable_supported,
+        MARKDOWN_ONLY_EXTENSIONS, SUPPORTED_EXTENSIONS, PARENT_MISSING_ERROR_PREFIX,
     };
     use std::path::{Path, PathBuf};
 
-    // -- MARKDOWN_EXTENSIONS constant ----------------------------------------
+    // -- SUPPORTED_EXTENSIONS constant ----------------------------------------
 
     #[test]
-    fn markdown_extensions_cover_known_variants() {
-        // Freezes the accepted set — if this list changes, every entry point
-        // (CLI args, Finder RunEvent::Opened, open_*_in_new_window commands,
-        // `dialog:allow-open` filters) must be audited for consistency.
+    fn supported_extensions_cover_phase1a_set() {
+        // Freezes the Phase 1A accepted set — if this list changes, every
+        // entry point (CLI args, Finder RunEvent::Opened,
+        // open_*_in_new_window commands, `dialog:allow-open` filters,
+        // `validate_openable_path`, the macOS quarantine strip pass)
+        // must be audited for consistency. The TS side is verified by
+        // `scripts/check-ext-sync.sh` (ADR-12).
+        assert!(SUPPORTED_EXTENSIONS.contains(&"md"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"txt"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"json"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"yaml"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"toml"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"html"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"ts"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"py"));
+        assert!(SUPPORTED_EXTENSIONS.contains(&"rs"));
+        // Strict markdown subset is still available for narrow callers.
         assert_eq!(
-            MARKDOWN_EXTENSIONS,
+            MARKDOWN_ONLY_EXTENSIONS,
             &["md", "markdown", "mdown", "mkd", "mdx"],
         );
     }
 
-    // -- has_markdown_extension ----------------------------------------------
+    // -- has_supported_extension ----------------------------------------------
 
     #[test]
     fn accepts_every_markdown_extension() {
-        for ext in MARKDOWN_EXTENSIONS {
+        for ext in SUPPORTED_EXTENSIONS {
             let path = PathBuf::from(format!("/some/file.{ext}"));
             assert!(
-                has_markdown_extension(&path),
+                has_supported_extension(&path),
                 "expected '.{ext}' to be accepted",
             );
         }
@@ -981,36 +1018,46 @@ mod tests {
 
     #[test]
     fn accepts_uppercase_and_mixed_case_extensions() {
-        assert!(has_markdown_extension(Path::new("/a/NOTE.MD")));
-        assert!(has_markdown_extension(Path::new("/a/note.Md")));
-        assert!(has_markdown_extension(Path::new("/a/Readme.MARKDOWN")));
+        assert!(has_supported_extension(Path::new("/a/NOTE.MD")));
+        assert!(has_supported_extension(Path::new("/a/note.Md")));
+        assert!(has_supported_extension(Path::new("/a/Readme.MARKDOWN")));
     }
 
     #[test]
-    fn rejects_non_markdown_extensions() {
-        assert!(!has_markdown_extension(Path::new("/a/note.txt")));
-        assert!(!has_markdown_extension(Path::new("/a/image.png")));
-        // `.md.bak` resolves to extension `bak`, not a markdown variant
-        assert!(!has_markdown_extension(Path::new("/a/note.md.bak")));
+    fn rejects_unregistered_extensions() {
+        assert!(!has_supported_extension(Path::new("/a/image.png")));
+        assert!(!has_supported_extension(Path::new("/a/video.mp4")));
+        // `.md.bak` resolves to extension `bak`, which is not registered.
+        assert!(!has_supported_extension(Path::new("/a/note.md.bak")));
+    }
+
+    #[test]
+    fn accepts_phase1a_non_markdown_extensions() {
+        // Phase 1B verification: txt, json, yaml etc. now pass.
+        assert!(has_supported_extension(Path::new("/a/notes.txt")));
+        assert!(has_supported_extension(Path::new("/a/data.json")));
+        assert!(has_supported_extension(Path::new("/a/config.yaml")));
+        assert!(has_supported_extension(Path::new("/a/Cargo.toml")));
+        assert!(has_supported_extension(Path::new("/a/page.html")));
     }
 
     #[test]
     fn rejects_path_without_extension() {
-        assert!(!has_markdown_extension(Path::new("/a/README")));
-        assert!(!has_markdown_extension(Path::new("/a/.hiddenrc")));
+        assert!(!has_supported_extension(Path::new("/a/README")));
+        assert!(!has_supported_extension(Path::new("/a/.hiddenrc")));
     }
 
     #[test]
     fn rejects_empty_path() {
-        assert!(!has_markdown_extension(Path::new("")));
+        assert!(!has_supported_extension(Path::new("")));
     }
 
-    // -- is_openable_markdown (requires real filesystem) ---------------------
+    // -- is_openable_supported (requires real filesystem) ---------------------
 
     #[test]
     fn rejects_missing_path() {
         let missing = PathBuf::from("/definitely/does/not/exist-vmark-test.md");
-        assert!(!is_openable_markdown(&missing));
+        assert!(!is_openable_supported(&missing));
     }
 
     #[test]
@@ -1020,7 +1067,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("create tempdir");
         let md_dir = dir.path().join("looks-like-note.md");
         std::fs::create_dir(&md_dir).expect("create subdir");
-        assert!(!is_openable_markdown(&md_dir));
+        assert!(!is_openable_supported(&md_dir));
     }
 
     #[test]
@@ -1028,44 +1075,57 @@ mod tests {
         let dir = tempfile::tempdir().expect("create tempdir");
         let file_path = dir.path().join("note.MD");
         std::fs::write(&file_path, b"# hi").expect("write temp file");
-        assert!(is_openable_markdown(&file_path));
+        assert!(is_openable_supported(&file_path));
     }
 
     #[test]
-    fn rejects_existing_non_markdown_file() {
+    fn rejects_existing_unregistered_file() {
         let dir = tempfile::tempdir().expect("create tempdir");
-        let file_path = dir.path().join("note.txt");
-        std::fs::write(&file_path, b"not markdown").expect("write temp file");
-        assert!(!is_openable_markdown(&file_path));
+        let file_path = dir.path().join("photo.png");
+        std::fs::write(&file_path, b"\x89PNG").expect("write temp file");
+        assert!(!is_openable_supported(&file_path));
     }
 
-    // -- filter_markdown_args -------------------------------------------------
+    #[test]
+    fn accepts_existing_phase1a_files() {
+        let dir = tempfile::tempdir().expect("create tempdir");
+        for ext in ["txt", "json", "yaml", "toml", "html"] {
+            let file_path = dir.path().join(format!("file.{ext}"));
+            std::fs::write(&file_path, b"data").expect("write");
+            assert!(
+                is_openable_supported(&file_path),
+                ".{ext} file should pass"
+            );
+        }
+    }
+
+    // -- filter_supported_args -------------------------------------------------
     // Covers the Windows/Linux CLI entry point. macOS Finder
     // (RunEvent::Opened) and the `open_*_in_new_window` commands go through
-    // the same `is_openable_markdown` gate, so the acceptance policy is
+    // the same `is_openable_supported` gate, so the acceptance policy is
     // uniform across all three surfaces.
 
     #[test]
-    fn cli_filter_keeps_every_markdown_variant() {
+    fn cli_filter_keeps_every_supported_variant() {
         let dir = tempfile::tempdir().expect("create tempdir");
         let mut inputs = Vec::new();
-        for ext in MARKDOWN_EXTENSIONS {
+        for ext in SUPPORTED_EXTENSIONS {
             let path = dir.path().join(format!("note.{ext}"));
             std::fs::write(&path, b"# hi").expect("write");
             inputs.push(path.to_string_lossy().into_owned());
         }
-        let kept = filter_markdown_args(inputs.clone());
-        assert_eq!(kept, inputs, "every markdown variant should pass");
+        let kept = filter_supported_args(inputs.clone());
+        assert_eq!(kept, inputs, "every supported extension should pass");
     }
 
     #[test]
-    fn cli_filter_drops_non_markdown_and_missing_and_directory() {
+    fn cli_filter_drops_unregistered_and_missing_and_directory() {
         let dir = tempfile::tempdir().expect("create tempdir");
         let good = dir.path().join("keep.md");
         std::fs::write(&good, b"# hi").expect("write good");
 
-        let plain = dir.path().join("drop.txt");
-        std::fs::write(&plain, b"plain").expect("write plain");
+        let unregistered = dir.path().join("drop.png");
+        std::fs::write(&unregistered, b"png").expect("write unregistered");
 
         let md_dir = dir.path().join("looks-markdown.md");
         std::fs::create_dir(&md_dir).expect("mkdir");
@@ -1074,18 +1134,18 @@ mod tests {
 
         let inputs = vec![
             good.to_string_lossy().into_owned(),
-            plain.to_string_lossy().into_owned(),
+            unregistered.to_string_lossy().into_owned(),
             md_dir.to_string_lossy().into_owned(),
             missing.to_string_lossy().into_owned(),
         ];
 
-        let kept = filter_markdown_args(inputs);
+        let kept = filter_supported_args(inputs);
         assert_eq!(kept, vec![good.to_string_lossy().into_owned()]);
     }
 
     #[test]
     fn cli_filter_empty_input_returns_empty() {
-        let kept = filter_markdown_args(Vec::<String>::new());
+        let kept = filter_supported_args(Vec::<String>::new());
         assert!(kept.is_empty());
     }
 
@@ -1093,9 +1153,9 @@ mod tests {
 
     #[test]
     fn finder_and_cli_share_acceptance_policy() {
-        // The Finder RunEvent::Opened handler uses `is_openable_markdown`
+        // The Finder RunEvent::Opened handler uses `is_openable_supported`
         // directly (lib.rs `tauri::RunEvent::Opened` arm). The CLI filter
-        // routes through the same predicate via filter_markdown_args. This
+        // routes through the same predicate via filter_supported_args. This
         // test pins that invariant — if either surface diverges, this
         // fails loudly rather than letting drift recur silently.
         let dir = tempfile::tempdir().expect("create tempdir");
@@ -1104,9 +1164,9 @@ mod tests {
         let raw = file.to_string_lossy().into_owned();
 
         // Finder path (the predicate called inside RunEvent::Opened)
-        let finder_accepts = is_openable_markdown(&file);
+        let finder_accepts = is_openable_supported(&file);
         // CLI path (the wrapper used in the setup closure)
-        let cli_accepts = !filter_markdown_args(vec![raw.clone()]).is_empty();
+        let cli_accepts = !filter_supported_args(vec![raw.clone()]).is_empty();
 
         assert!(finder_accepts, "finder arm must accept note.MD");
         assert!(cli_accepts, "cli arm must accept note.MD");

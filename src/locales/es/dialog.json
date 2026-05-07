@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "Guardar tu versión como..."
   },
+  "openFilter": {
+    "allSupported": "Todos los formatos compatibles",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "Elegir carpeta para {{count}} documentos nuevos",
   "toast": {
     "saveDialogFailed": "Error en el cuadro de diálogo de guardado: {{error}}",
@@ -171,7 +175,9 @@
     "tabDropPinnedZone": "Las pestañas fijadas permanecen a la izquierda. Soltar bloqueado.",
     "exportRenderTimedOut": "El renderizado de la exportación expiró: el editor no se pudo inicializar",
     "exportHtmlDialogTitle": "Exportar HTML",
-    "exportFormatDialogTitle": "Exportar {{name}}"
+    "exportFormatDialogTitle": "Exportar {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "Guardado requerido"

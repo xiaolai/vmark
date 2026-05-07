@@ -62,6 +62,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Wiki Link | `Alt + Mod + K` |
 | Segnalibro | `Alt + Mod + B` |
 | Cancella formattazione | `Mod + \` |
+| Ciclo enfasi | `Mod + Alt + E` _(nessuna → corsivo → grassetto → grassetto+corsivo)_ |
 
 ## Formattazione a Blocchi
 
@@ -71,6 +72,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Paragrafo | `Mod + Shift + 0` |
 | Aumenta livello intestazione | `Alt + Mod + ]` |
 | Diminuisci livello intestazione | `Alt + Mod + [` |
+| Ciclo intestazione | `Mod + Alt + H` _(P → H1 → H2 → … → H6)_ |
 | Citazione | `Alt + Mod + Q` |
 | Blocco di codice | `Alt + Mod + C` |
 | Elenco puntato | `Alt + Mod + U` |
@@ -181,6 +183,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 |--------|-------------|
 | Nuovo file | `Mod + N` |
 | Apertura rapida | `Mod + O` |
+| Apri file... | Solo menu _(selettore file nativo)_ |
 | Apri workspace | `Mod + Shift + O` |
 | Salva | `Mod + S` |
 | Salva come | `Mod + Shift + S` |

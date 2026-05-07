@@ -155,6 +155,24 @@ command = "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server"
 端口自动发现——不需要 `args`。
 :::
 
+### CLI 标志（高级）
+
+MCP 服务器二进制文件支持少量用于诊断和兼容旧版配置的标志：
+
+| 标志 | 作用 |
+|---|---|
+| `--version`（或 `-v`） | 打印版本号（须与运行中的 VMark 匹配）后退出。 |
+| `--health-check` | 对运行中的 VMark 桥接执行自测并退出。在接入 AI 助手前，可用此标志验证安装是否正常。 |
+| `--port <number>` | 手动指定端口。跳过自动发现握手，直接连接到指定端口。仅在桥接端口由外部固定的旧版配置中有用；通常应优先使用自动发现。 |
+
+示例：
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # 旧版 / 手动配置
+```
+
 ## 工作原理
 
 ```text

@@ -224,6 +224,35 @@ Configure qual provedor de IA alimenta os [Gênios de IA](/pt-BR/guide/ai-genies
 
 Veja [Provedores de IA](/pt-BR/guide/ai-providers) para instruções de configuração detalhadas para cada provedor.
 
+## Formatos
+
+Alternâncias de adesão para adaptadores de formato não padrão, além do comando de editor externo explícito para o escape de abas de código somente leitura.
+
+Markdown, texto simples e YAML/YML estão **sempre** registrados — os padrões tranquilos. Todos os outros adaptadores estão **desativados por padrão** para que usuários existentes não sejam surpreendidos na atualização. Ative uma alternância e o registro é reconstruído no lugar; as abas abertas remontam com o adaptador correto, sem necessidade de reinicialização.
+
+Para a lista completa de formatos e suas prévias, veja [Formatos Suportados](/pt-BR/guide/formats).
+
+### Suporte a formatos
+
+| Alternância | Padrão | Habilita |
+|---|---|---|
+| **Formatos de dados** | Desligado | `.json`, `.jsonl`, `.toml` — painel dividido com fonte + árvore navegável. Prévias com reconhecimento de esquema para `Cargo.toml`, `package.json`, `pyproject.toml`. |
+| **Diagramas e SVG** | Desligado | `.mmd` (Mermaid) e `.svg` — painel dividido com fonte + renderização ao vivo sanitizada. |
+| **Prévia HTML** | Desligado | `.html` e `.htm` — prévia em iframe com sandbox (`sandbox=""` com lista de permissões vazia, DOMPurify, CSP `<meta>`). Verificado com o top-20 do OWASP — veja [Modelo de segurança para HTML](/pt-BR/guide/formats#modelo-de-seguranca-para-html). |
+| **Visualizadores de código** | Desligado | 12 visualizadores somente leitura (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua`). Abrem em um visualizador com realce de sintaxe e botões **Habilitar edição** e **Abrir no editor externo**. |
+
+Quando uma categoria está desativada, as extensões correspondentes recaem no fallback de texto simples para que o arquivo ainda abra — apenas sem a visualização de esquema.
+
+### Editor externo
+
+Para o botão **Abrir no editor externo** em abas de código somente leitura, escolha o editor que deve ser iniciado. Um bundle de app (ex.: `/Applications/Visual Studio Code.app`) ou um executável.
+
+A configuração da interface substitui qualquer variável de ambiente — explícito prevalece sobre implícito. Deixe vazio para usar a cadeia de fallback de variáveis de ambiente `$VMARK_EXTERNAL_EDITOR → $VISUAL → $EDITOR → padrão da plataforma`. Veja [Abrir no editor externo](/pt-BR/guide/formats#abrir-no-editor-externo) para a ordem de resolução completa e a barreira de segurança.
+
+### Notificação única de atualização
+
+Na primeira execução após atualizar para o suporte a múltiplos formatos, o VMark exibe uma notificação não bloqueante apontando para **Configurações → Formatos**. A notificação é exibida uma única vez por instalação — após ser mostrada (ou dispensada), nunca reaparece.
+
 ## Idioma
 
 Regras de formatação CJK (Chinês, Japonês, Coreano). Essas regras são aplicadas quando você executa **Formatar → Formatar Seleção CJK** (`Cmd+Shift+F`) sobre uma seleção, ou **Formatar → Formatar Documento CJK** (`Alt+Cmd+Shift+F`) sobre o arquivo inteiro.

@@ -10,6 +10,7 @@ import { createUntitledTab } from "./newFile";
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: vi.fn(),
+    setState: vi.fn(),
   },
 }));
 
@@ -17,6 +18,14 @@ vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: vi.fn(),
   },
+}));
+
+// WI-1B.10 — formatId override path consults the registry to verify
+// the requested format is registered before overriding.
+vi.mock("@/lib/formats/registry", () => ({
+  getFormatById: vi.fn((id: string) =>
+    id === "txt" ? { id: "txt" } : undefined,
+  ),
 }));
 
 import { useTabStore } from "@/stores/tabStore";
@@ -67,5 +76,23 @@ describe("createUntitledTab", () => {
     createUntitledTab("doc-window-2");
 
     expect(mockCreateTab).toHaveBeenCalledWith("doc-window-2", null);
+  });
+
+  it("does not override formatId when caller passes 'markdown'", () => {
+    mockCreateTab.mockReturnValue("tab-md");
+    createUntitledTab("main", "markdown");
+    expect(useTabStore.setState).not.toHaveBeenCalled();
+  });
+
+  it("overrides formatId via setState when caller passes a registered non-markdown id", () => {
+    mockCreateTab.mockReturnValue("tab-txt");
+    createUntitledTab("main", "txt");
+    expect(useTabStore.setState).toHaveBeenCalledOnce();
+  });
+
+  it("does not override when caller passes an unregistered formatId", () => {
+    mockCreateTab.mockReturnValue("tab-fake");
+    createUntitledTab("main", "no-such-format");
+    expect(useTabStore.setState).not.toHaveBeenCalled();
   });
 });

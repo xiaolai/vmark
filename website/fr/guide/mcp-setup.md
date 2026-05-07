@@ -155,6 +155,24 @@ Sur Linux :
 Le port est découvert automatiquement — pas d'argument `args` nécessaire.
 :::
 
+### Options CLI (avancé)
+
+Le binaire du serveur MCP prend en charge un petit ensemble d'options pour les diagnostics et les configurations legacy :
+
+| Option | Ce qu'elle fait |
+|---|---|
+| `--version` (ou `-v`) | Affiche la version (doit correspondre à la VMark en cours d'exécution) et quitte. |
+| `--health-check` | Exécute un auto-test contre le pont VMark en cours d'exécution et quitte. Utilisez ceci pour vérifier votre installation avant de connecter un assistant IA. |
+| `--port <nombre>` | Substitution manuelle du port. Ignore la procédure de découverte automatique et se connecte sur le port indiqué. Utile uniquement pour les configurations legacy où le port du pont est fixé en externe ; la découverte automatique est préférable. |
+
+Exemple :
+
+```bash
+vmark-mcp-server --health-check
+vmark-mcp-server --version
+vmark-mcp-server --port 9223   # legacy / manuel
+```
+
 ## Fonctionnement
 
 ```text

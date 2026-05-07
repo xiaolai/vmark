@@ -5,6 +5,7 @@
  * Select, CollapsibleGroup, TagInput, Button, IconButton, CopyButton, CloseButton.
  */
 
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -13,6 +14,8 @@ import {
   Toggle,
   SettingsGroup,
   Select,
+  SearchInput,
+  FieldInput,
   CollapsibleGroup,
   TagInput,
   Button,
@@ -236,6 +239,220 @@ describe("Select", () => {
     render(<Select value="light" options={options} onChange={vi.fn()} disabled />);
 
     expect(screen.getByRole("combobox")).toBeDisabled();
+  });
+});
+
+// ============================================================================
+// SearchInput — bottom-border focus, transparent background.
+// ============================================================================
+
+describe("SearchInput", () => {
+  it("renders with placeholder and current value", () => {
+    render(
+      <SearchInput value="hello" onChange={() => {}} placeholder="Search…" />,
+    );
+    const input = screen.getByPlaceholderText("Search…") as HTMLInputElement;
+    expect(input.value).toBe("hello");
+  });
+
+  it("calls onChange with cumulative string when the user types (controlled)", async () => {
+    // Stateful harness — without this the SearchInput stays at value=""
+    // and onChange would fire with each individual character rather than
+    // the cumulative string the controlled-component contract promises.
+    function Harness({ onChange }: { onChange: (v: string) => void }) {
+      const [v, setV] = React.useState("");
+      return (
+        <SearchInput
+          value={v}
+          onChange={(next) => {
+            setV(next);
+            onChange(next);
+          }}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    await user.type(screen.getByRole("textbox"), "abc");
+    expect(onChange).toHaveBeenCalledTimes(3);
+    // Last invocation receives the full cumulative string, not just "c".
+    expect(onChange).toHaveBeenLastCalledWith("abc");
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("abc");
+  });
+
+  it("uses bottom-border styling, not full border (rule §33-focus-indicators)", () => {
+    render(<SearchInput value="" onChange={() => {}} />);
+    const input = screen.getByRole("textbox");
+    expect(input.className).toContain("border-b");
+    expect(input.className).toContain("border-0");
+    expect(input.className).toContain("bg-transparent");
+  });
+
+  it("highlights bottom border in primary color on focus", () => {
+    render(<SearchInput value="" onChange={() => {}} />);
+    expect(screen.getByRole("textbox").className).toContain(
+      "focus:border-[var(--primary-color)]",
+    );
+  });
+
+  it("applies font-mono when mono prop is true", () => {
+    const { rerender } = render(
+      <SearchInput value="" onChange={() => {}} mono />,
+    );
+    expect(screen.getByRole("textbox").className).toContain("font-mono");
+
+    rerender(<SearchInput value="" onChange={() => {}} />);
+    expect(screen.getByRole("textbox").className).not.toContain("font-mono");
+  });
+
+  it("forwards onBlur and onKeyDown handlers", async () => {
+    const user = userEvent.setup();
+    const onBlur = vi.fn();
+    const onKeyDown = vi.fn();
+    render(
+      <>
+        <SearchInput
+          value=""
+          onChange={() => {}}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+        />
+        <button>blur target</button>
+      </>,
+    );
+    const input = screen.getByRole("textbox");
+    input.focus();
+    await user.keyboard("{Enter}");
+    expect(onKeyDown).toHaveBeenCalled();
+    await user.click(screen.getByRole("button"));
+    expect(onBlur).toHaveBeenCalled();
+  });
+
+  it("supports type=\"search\" for UA-provided clear button", () => {
+    render(<SearchInput type="search" value="x" onChange={() => {}} />);
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+  });
+
+  it("disabled state mutes the input and blocks typing", async () => {
+    const onChange = vi.fn();
+    render(<SearchInput value="x" onChange={onChange} disabled />);
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input).toBeDisabled();
+    expect(input.className).toContain("opacity-50");
+  });
+
+  it("forwards aria attributes", () => {
+    render(
+      <SearchInput
+        value=""
+        onChange={() => {}}
+        aria-label="Search shortcuts"
+      />,
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "aria-label",
+      "Search shortcuts",
+    );
+  });
+
+  it("className prop appends layout classes (escape hatch only)", () => {
+    render(
+      <SearchInput value="" onChange={() => {}} className="flex-1 min-w-0" />,
+    );
+    const input = screen.getByRole("textbox");
+    expect(input.className).toContain("flex-1");
+    expect(input.className).toContain("min-w-0");
+  });
+});
+
+// ============================================================================
+// FieldInput — full border + tinted bg, the "fill me in" affordance.
+// ============================================================================
+
+describe("FieldInput", () => {
+  it("renders with placeholder and current value", () => {
+    render(
+      <FieldInput
+        value="https://api.example.com"
+        onChange={() => {}}
+        placeholder="API endpoint"
+      />,
+    );
+    const input = screen.getByPlaceholderText(
+      "API endpoint",
+    ) as HTMLInputElement;
+    expect(input.value).toBe("https://api.example.com");
+  });
+
+  it("calls onChange with cumulative string when the user types (controlled)", async () => {
+    function Harness({ onChange }: { onChange: (v: string) => void }) {
+      const [v, setV] = React.useState("");
+      return (
+        <FieldInput
+          value={v}
+          onChange={(next) => {
+            setV(next);
+            onChange(next);
+          }}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    await user.type(screen.getByRole("textbox"), "key");
+    expect(onChange).toHaveBeenCalledTimes(3);
+    expect(onChange).toHaveBeenLastCalledWith("key");
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("key");
+  });
+
+  it("uses full border + tinted background (the fillable affordance)", () => {
+    render(<FieldInput value="" onChange={() => {}} />);
+    const input = screen.getByRole("textbox");
+    expect(input.className).toContain("border");
+    expect(input.className).toContain("bg-[var(--bg-tertiary)]");
+    expect(input.className).not.toContain("bg-transparent");
+  });
+
+  it("highlights border in primary color on focus", () => {
+    render(<FieldInput value="" onChange={() => {}} />);
+    expect(screen.getByRole("textbox").className).toContain(
+      "focus:border-[var(--primary-color)]",
+    );
+  });
+
+  it("defaults to monospace (form fields carry paths/URLs/keys)", () => {
+    render(<FieldInput value="" onChange={() => {}} />);
+    expect(screen.getByRole("textbox").className).toContain("font-mono");
+  });
+
+  it("mono={false} drops the monospace class for prose-style fields", () => {
+    render(<FieldInput value="" onChange={() => {}} mono={false} />);
+    expect(screen.getByRole("textbox").className).not.toContain("font-mono");
+  });
+
+  it("type=\"password\" masks the value (used for API keys)", () => {
+    const { container } = render(
+      <FieldInput value="secret" onChange={() => {}} type="password" />,
+    );
+    const input = container.querySelector(
+      "input[type=password]",
+    ) as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe("secret");
+  });
+
+  it("disabled state mutes the input and blocks typing", () => {
+    render(<FieldInput value="x" onChange={() => {}} disabled />);
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input).toBeDisabled();
+    expect(input.className).toContain("opacity-50");
+  });
+
+  it("className prop appends layout classes only", () => {
+    render(<FieldInput value="" onChange={() => {}} className="my-2" />);
+    expect(screen.getByRole("textbox").className).toContain("my-2");
   });
 });
 

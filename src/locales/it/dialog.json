@@ -57,6 +57,10 @@
   "saveVersionAs": {
     "title": "Salva la tua versione come..."
   },
+  "openFilter": {
+    "allSupported": "Tutti i formati supportati",
+    "markdown": "Markdown"
+  },
   "chooseFolderForDocs": "Scegli cartella per {{count}} nuovi documenti",
   "toast": {
     "saveDialogFailed": "Finestra di dialogo di salvataggio fallita: {{error}}",
@@ -171,7 +175,9 @@
     "tabDropPinnedZone": "Le schede fissate rimangono a sinistra. Rilascio bloccato.",
     "exportRenderTimedOut": "Il rendering dell'esportazione ha superato il tempo limite — l'editor non è riuscito a inizializzarsi",
     "exportHtmlDialogTitle": "Esporta HTML",
-    "exportFormatDialogTitle": "Esporta {{name}}"
+    "exportFormatDialogTitle": "Esporta {{name}}",
+    "tabFormatChanged": "Editor switched to {{format}}.",
+    "unsupportedFileViaDropDrop": "This file type is not supported by VMark."
   },
   "saveRequired": {
     "title": "Salvataggio richiesto"

@@ -39,5 +39,22 @@
   "aria": {
     "sidebar": "Sidebar",
     "mainContent": "Contenuto principale"
-  }
+  },
+  "format.markdown": "Markdown",
+  "format.txt": "Plain Text",
+  "format.json": "JSON",
+  "format.yaml": "YAML",
+  "format.toml": "TOML",
+  "format.mermaid": "Mermaid",
+  "format.svg": "SVG",
+  "format.html": "HTML",
+  "format.codeTypescript": "TypeScript",
+  "format.codeJavascript": "JavaScript",
+  "format.codePython": "Python",
+  "format.codeRust": "Rust",
+  "format.codeGo": "Go",
+  "format.codeCss": "CSS",
+  "format.codeShell": "Shell",
+  "format.codeRuby": "Ruby",
+  "format.codeLua": "Lua"
 }

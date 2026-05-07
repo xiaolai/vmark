@@ -138,6 +138,16 @@ model: claude-haiku-4-5-20251001
 
 Dies ist nützlich, um einfache Aufgaben an schnellere/günstigere Modelle zu leiten, während ein leistungsfähiges Standardmodell beibehalten wird.
 
+## Zuverlässigkeit und Timeouts
+
+VMark sichert jeden Anbieteraufruf ab, sodass ein blockiertes CLI oder eine fehlerhafte API-Antwort den Editor niemals blockieren kann:
+
+- **CLI-Unterprozess-Timeout**: Jede CLI-Anbieter-Anfrage wird unter einem Ausführungs-Timeout ausgeführt. Reagiert das CLI nicht, bricht VMark den Aufruf ab, gibt den Fehler an das Genie zurück und gibt den Worker frei — der Thread-Pool kann durch einen außer Kontrolle geratenen Unterprozess nicht blockiert werden.
+- **REST-JSON-Parse-Sicherheit**: Gibt ein REST-Anbieter eine unerwartete Antwortstruktur zurück (HTML-Fehlerseite, abgeschnittenes JSON, Schema-Drift nach einer vorgelagerten Änderung), zeigt VMark dem Frontend einen typisierten Fehler an, anstatt den KI-Listener endlos warten zu lassen. Der Fehler wird im Status-Banner des Genies mit einer Option zum erneuten Versuch angezeigt.
+- **Abbruch-Token**: Lang laufende Genie- oder Workflow-Schritte können jederzeit abgebrochen werden — Abbrechen im Genie-Picker oder Schließen des Panels bricht die laufende Anfrage sauber ab.
+- **Gemeinsamer HTTP-Client**: REST-Anbieter teilen sich einen einzelnen verbindungsgepoolten `reqwest`-Client, sodass aufeinanderfolgende Genie-Aufrufe nicht jedes Mal den TCP/TLS-Handshake-Aufwand zahlen.
+- **Windows-Pfaderkennung**: Unter Windows liest VMark beim Erkennen von CLIs den vollständigen `PATH` des Benutzers (einschließlich PowerShell-exklusiver Einträge), sodass benutzerseitig installierte Tools, die im Terminal funktionieren, auch in VMark funktionieren.
+
 ## Sicherheitshinweise
 
 - **API-Schlüssel sind flüchtig** — nur im Speicher gespeichert, nie auf Festplatte oder `localStorage`
@@ -151,9 +161,13 @@ Dies ist nützlich, um einfache Aufgaben an schnellere/günstigere Modelle zu le
 
 **CLI zeigt "Nicht gefunden"** — Das CLI ist nicht in Ihrem `$PATH`. Installieren Sie es oder überprüfen Sie Ihr Shell-Profil. Auf macOS erben GUI-Apps möglicherweise nicht den Terminal-`$PATH` — versuchen Sie, den Pfad zu `/etc/paths.d/` hinzuzufügen.
 
+**CLI hängt / keine Antwort** — VMark's Ausführungs-Timeout bricht den Aufruf automatisch ab; im Status-Banner des Genies erscheint eine Fehlermeldung. Wenn ein bestimmtes CLI den Timeout regelmäßig überschreitet, führen Sie es einmal im Terminal aus, um zu bestätigen, dass es dort funktioniert, und prüfen Sie dann, ob eine interaktive Authentifizierung erforderlich ist.
+
 **REST-Anbieter gibt 401 zurück** — Ihr API-Schlüssel ist ungültig oder abgelaufen. Generieren Sie einen neuen von der Konsole des Anbieters.
 
 **REST-Anbieter gibt 429 zurück** — Sie haben ein Ratenlimit überschritten. Warten Sie einen Moment und versuchen Sie es erneut, oder wechseln Sie zu einem anderen Anbieter.
+
+**REST-Anbieter gibt korrumpierten / unerwarteten JSON zurück** — VMark zeigt einen typisierten Parse-Fehler an (z. B. „list_models hat eine unerwartete Antwortstruktur zurückgegeben"). Überprüfen Sie die Endpunkt-URL und stellen Sie sicher, dass der API-Vertrag zum ausgewählten Anbietertyp passt; manche selbstgehosteten Gateways kündigen OpenAI-kompatible URLs an, liefern aber ein anderes Schema aus.
 
 **Langsame Antworten** — CLI-Anbieter fügen Unterprozess-Overhead hinzu. Für schnellere Antworten verwenden Sie REST-Anbieter, die direkt verbinden. Für die schnellste lokale Option verwenden Sie Ollama mit einem kleinen Modell.
 
