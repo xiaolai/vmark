@@ -38,6 +38,14 @@ export interface ResourceReport {
   totalSize: number;
 }
 
+/** SVG placeholder used when an image cannot be embedded (missing, traversal-blocked, symlink, or unreadable). */
+const MISSING_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect fill='%23f0f0f0' width='200' height='150'/%3E%3Ctext x='100' y='75' text-anchor='middle' fill='%23999' font-family='sans-serif' font-size='14'%3EImage not found%3C/text%3E%3C/svg%3E";
+
+/** SVG placeholder used in folder mode when the source file exists but copy fails. */
+const COPY_FAIL_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect fill='%23f0f0f0' width='200' height='150'/%3E%3Ctext x='100' y='75' text-anchor='middle' fill='%23999' font-family='sans-serif' font-size='14'%3ECopy failed%3C/text%3E%3C/svg%3E";
+
 /** Options for resource resolution during export. */
 export interface ResolveOptions {
   /** Base directory for resolving relative paths (usually document directory) */
@@ -270,9 +278,13 @@ export async function resolveResources(
     try {
       const resolvedPath = await resolveRelativePath(src, baseDir);
 
-      // Path traversal blocked — treat as missing
+      // Path traversal blocked — treat as missing.
+      // Substitute the placeholder so the exported HTML doesn't carry the
+      // original asset://localhost URL (broken outside VMark).
       if (resolvedPath === null) {
         info.found = false;
+        info.exportSrc = MISSING_IMAGE_PLACEHOLDER;
+        modifiedHtml = modifiedHtml.split(src).join(MISSING_IMAGE_PLACEHOLDER);
         resources.push(info);
         missing.push(info);
         continue;
@@ -286,9 +298,8 @@ export async function resolveResources(
         info.found = false;
         // Replace broken asset:// URLs with a transparent placeholder
         // This prevents browser errors from trying to load Tauri-specific URLs
-        const placeholderDataUri = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect fill='%23f0f0f0' width='200' height='150'/%3E%3Ctext x='100' y='75' text-anchor='middle' fill='%23999' font-family='sans-serif' font-size='14'%3EImage not found%3C/text%3E%3C/svg%3E";
-        info.exportSrc = placeholderDataUri;
-        modifiedHtml = modifiedHtml.split(src).join(placeholderDataUri);
+        info.exportSrc = MISSING_IMAGE_PLACEHOLDER;
+        modifiedHtml = modifiedHtml.split(src).join(MISSING_IMAGE_PLACEHOLDER);
         resources.push(info);
         missing.push(info);
         continue;
@@ -300,6 +311,8 @@ export async function resolveResources(
         if (fileStat.isSymlink) {
           exportWarn(`Symlink traversal blocked: ${src}`);
           info.found = false;
+          info.exportSrc = MISSING_IMAGE_PLACEHOLDER;
+          modifiedHtml = modifiedHtml.split(src).join(MISSING_IMAGE_PLACEHOLDER);
           resources.push(info);
           missing.push(info);
           continue;
@@ -307,6 +320,8 @@ export async function resolveResources(
       } catch {
         // lstat failure — treat as inaccessible
         info.found = false;
+        info.exportSrc = MISSING_IMAGE_PLACEHOLDER;
+        modifiedHtml = modifiedHtml.split(src).join(MISSING_IMAGE_PLACEHOLDER);
         resources.push(info);
         missing.push(info);
         continue;
@@ -349,9 +364,8 @@ export async function resolveResources(
           exportWarn(`Failed to copy ${resolvedPath}:`, e);
           info.found = false;
           // Replace with placeholder to avoid broken Tauri-internal URLs in exported HTML
-          const copyFailPlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150' viewBox='0 0 200 150'%3E%3Crect fill='%23f0f0f0' width='200' height='150'/%3E%3Ctext x='100' y='75' text-anchor='middle' fill='%23999' font-family='sans-serif' font-size='14'%3ECopy failed%3C/text%3E%3C/svg%3E";
-          info.exportSrc = copyFailPlaceholder;
-          modifiedHtml = modifiedHtml.split(src).join(copyFailPlaceholder);
+          info.exportSrc = COPY_FAIL_PLACEHOLDER;
+          modifiedHtml = modifiedHtml.split(src).join(COPY_FAIL_PLACEHOLDER);
         }
 
         // Use stat() to get size without re-reading the file
