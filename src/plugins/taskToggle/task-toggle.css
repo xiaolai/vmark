@@ -34,6 +34,12 @@
   line-height: var(--editor-line-height-px);
 }
 
+/* Paragraphs inside task-list content: tight spacing matching .tiptap-editor li > p */
+.tiptap-editor .task-list-content > p {
+  margin-bottom: 0;
+  line-height: var(--editor-line-height-px);
+}
+
 /* Custom checkbox styling - uses --checkbox-size from parent .task-list-item
    Border and radius are proportional to checkbox size */
 .tiptap-editor .task-list-item input[type="checkbox"] {
