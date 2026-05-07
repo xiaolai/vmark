@@ -8,9 +8,14 @@
 .details-block {
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
-  margin: 0 0 var(--editor-block-spacing, 1em) 0;
+  margin: 0 0 var(--editor-block-spacing, var(--list-indent)) 0;
   overflow: hidden;
   line-height: var(--editor-line-height-px);
+}
+
+/* Block font size — kept here so the detailsBlock plugin owns its own typography */
+.tiptap-editor .details-block {
+  font-size: var(--editor-font-size-block);
 }
 
 /* Summary (clickable header) */
