@@ -89,9 +89,19 @@ async function saveAndInsertImages(view: EditorView, files: File[], capturedFrom
 
   const markdown = insertParts.join("\n") + "\n";
 
+  const { from: currentFrom, to: currentTo } = view.state.selection.main;
+  const docLength = view.state.doc.length;
+  const selectionChanged = currentFrom !== capturedFrom || currentTo !== capturedTo;
+  const insertFrom = selectionChanged ? Math.min(currentFrom, docLength) : Math.min(capturedFrom, docLength);
+  const insertTo = selectionChanged ? Math.min(currentTo, docLength) : Math.min(capturedTo, docLength);
+
+  if (selectionChanged) {
+    smartPasteWarn("Selection changed during async, using current position");
+  }
+
   view.dispatch({
-    changes: { from: capturedFrom, to: capturedTo, insert: markdown },
-    selection: { anchor: capturedFrom + markdown.length },
+    changes: { from: insertFrom, to: insertTo, insert: markdown },
+    selection: { anchor: insertFrom + markdown.length },
   });
   view.focus();
 }

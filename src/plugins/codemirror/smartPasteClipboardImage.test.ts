@@ -71,14 +71,20 @@ import { handleClipboardImagePaste } from "./smartPasteClipboardImage";
 interface FakeView {
   dispatch: ReturnType<typeof vi.fn>;
   focus: ReturnType<typeof vi.fn>;
-  state: { selection: { main: { from: number; to: number } } };
+  state: {
+    selection: { main: { from: number; to: number } };
+    doc: { length: number };
+  };
 }
 
-function createFakeView(from = 0, to = 0): FakeView {
+function createFakeView(from = 0, to = 0, docLength = Math.max(from, to)): FakeView {
   return {
     dispatch: vi.fn(),
     focus: vi.fn(),
-    state: { selection: { main: { from, to } } },
+    state: {
+      selection: { main: { from, to } },
+      doc: { length: docLength },
+    },
   };
 }
 
@@ -185,6 +191,49 @@ describe("handleClipboardImagePaste", () => {
       );
     });
     expect(view.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("clamps insert position to current doc length when document shrank during async save", async () => {
+    // Captured cursor at 200, but doc was reduced to 5 while saveImageToAssets awaited.
+    // Without clamp, dispatch at 200 throws "Position 200 is out of range".
+    const view = createFakeView(200, 200, 5);
+    const event = createClipboardEvent([createImageFile()]);
+
+    handleClipboardImagePaste(view as unknown as EditorView, event);
+
+    await vi.waitFor(() => {
+      expect(view.dispatch).toHaveBeenCalled();
+    });
+
+    const dispatchArg = view.dispatch.mock.calls[0][0];
+    expect(dispatchArg.changes.from).toBeLessThanOrEqual(5);
+    expect(dispatchArg.changes.to).toBeLessThanOrEqual(5);
+    // Captured was 200, so selection didn't change — it's the doc-length clamp that saves us.
+    expect(dispatchArg.changes.from).toBe(5);
+    expect(dispatchArg.changes.to).toBe(5);
+  });
+
+  it("uses current selection position when selection moved during async save", async () => {
+    // Captured 10/10 on entry. Before the async save resolves, the user clicks to position 20.
+    const view = createFakeView(10, 10, 100);
+    const event = createClipboardEvent([createImageFile()]);
+
+    handleClipboardImagePaste(view as unknown as EditorView, event);
+
+    // Simulate the user moving the cursor mid-await.
+    view.state.selection.main.from = 20;
+    view.state.selection.main.to = 20;
+
+    await vi.waitFor(() => {
+      expect(view.dispatch).toHaveBeenCalled();
+    });
+
+    const dispatchArg = view.dispatch.mock.calls[0][0];
+    expect(dispatchArg.changes.from).toBe(20);
+    expect(dispatchArg.changes.to).toBe(20);
+    expect(mockSmartPasteWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Selection changed"),
+    );
   });
 
   it("logs and skips insert when all saves fail", async () => {
