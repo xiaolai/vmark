@@ -49,6 +49,22 @@ export interface ResolveOptions {
 }
 
 /**
+ * Check that `normalizedPath` is `normalizedBase` or sits under it, with a
+ * separator boundary so a sibling directory like `/a/b-evil` cannot pass a
+ * `/a/b` baseDir check via plain `startsWith`.
+ */
+function isInsideBase(normalizedPath: string, normalizedBase: string): boolean {
+  if (normalizedPath === normalizedBase) return true;
+  // Use both POSIX and Windows separators since `normalize()` returns
+  // platform-native paths.
+  const sep = normalizedBase.includes("\\") ? "\\" : "/";
+  const baseWithSep = normalizedBase.endsWith(sep)
+    ? normalizedBase
+    : normalizedBase + sep;
+  return normalizedPath.startsWith(baseWithSep);
+}
+
+/**
  * Check if a URL is remote (http/https).
  */
 export function isRemoteUrl(src: string): boolean {
@@ -109,7 +125,7 @@ export async function resolveRelativePath(
   if (src.startsWith("/")) {
     const normalizedPath = await normalize(src);
     const normalizedBase = await normalize(baseDir);
-    if (!normalizedPath.startsWith(normalizedBase)) {
+    if (!isInsideBase(normalizedPath, normalizedBase)) {
       exportWarn(`Absolute path traversal blocked: ${src}`);
       return null;
     }
@@ -132,7 +148,7 @@ export async function resolveRelativePath(
       const extractedPath = decodeURIComponent(url.pathname.slice(1));
       const normalizedPath = await normalize(extractedPath);
       const normalizedBase = await normalize(baseDir);
-      if (!normalizedPath.startsWith(normalizedBase)) {
+      if (!isInsideBase(normalizedPath, normalizedBase)) {
         exportWarn(`Asset URL path traversal blocked: ${src}`);
         return null;
       }
@@ -154,7 +170,7 @@ export async function resolveRelativePath(
   const normalizedBase = await normalize(baseDir);
 
   // Block path traversal: resolved path must stay within baseDir
-  if (!normalizedPath.startsWith(normalizedBase)) {
+  if (!isInsideBase(normalizedPath, normalizedBase)) {
     exportWarn(`Path traversal blocked: ${src}`);
     return null;
   }

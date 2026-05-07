@@ -345,6 +345,59 @@ describe("resolveRelativePath", () => {
     expect(result).toBe("/Users/test/docs/photo.png");
   });
 
+  // ------------------------------------------------------------------
+  // Sibling-directory prefix-confusion: /a/b-evil must not match /a/b
+  // ------------------------------------------------------------------
+  describe("sibling-directory prefix confusion", () => {
+    it("absolute branch: blocks sibling directory whose name starts with baseDir", async () => {
+      const result = await resolveRelativePath("/a/b-evil/x.png", "/a/b");
+      expect(result).toBeNull();
+    });
+
+    it("absolute branch: allows file inside baseDir", async () => {
+      const result = await resolveRelativePath("/a/b/x.png", "/a/b");
+      expect(result).toBe("/a/b/x.png");
+    });
+
+    it("absolute branch: allows the baseDir itself", async () => {
+      const result = await resolveRelativePath("/a/b", "/a/b");
+      expect(result).toBe("/a/b");
+    });
+
+    it("relative branch: blocks `../b-evil/x.png` from /a/b", async () => {
+      const result = await resolveRelativePath("../b-evil/x.png", "/a/b");
+      expect(result).toBeNull();
+    });
+
+    it("relative branch: allows file resolved into baseDir", async () => {
+      const result = await resolveRelativePath("./x.png", "/a/b");
+      expect(result).toBe("/a/b/x.png");
+    });
+
+    it("relative branch: allows `.` resolving to baseDir itself", async () => {
+      const result = await resolveRelativePath(".", "/a/b");
+      expect(result).toBe("/a/b");
+    });
+
+    it("asset-URL branch: blocks sibling directory via asset:// scheme", async () => {
+      const src = `asset://localhost/${encodeURIComponent("/a/b-evil/x.png")}`;
+      const result = await resolveRelativePath(src, "/a/b");
+      expect(result).toBeNull();
+    });
+
+    it("asset-URL branch: allows file inside baseDir via asset:// scheme", async () => {
+      const src = `asset://localhost/${encodeURIComponent("/a/b/x.png")}`;
+      const result = await resolveRelativePath(src, "/a/b");
+      expect(result).toBe("/a/b/x.png");
+    });
+
+    it("asset-URL branch: allows the baseDir itself via asset:// scheme", async () => {
+      const src = `asset://localhost/${encodeURIComponent("/a/b")}`;
+      const result = await resolveRelativePath(src, "/a/b");
+      expect(result).toBe("/a/b");
+    });
+  });
+
 });
 
 // ---------------------------------------------------------------------------
