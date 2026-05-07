@@ -22,18 +22,23 @@ const MAX_REST_BODY_BYTES: usize = 5 * 1024 * 1024;
 /// Read a response body with a hard byte cap. Returns Err if the body
 /// exceeds the cap before fully reading. Uses byte-level reading rather than
 /// `resp.json()` so we can short-circuit on size.
-async fn read_body_capped(resp: reqwest::Response) -> Result<Vec<u8>, String> {
-    let bytes = resp
-        .bytes()
-        .await
-        .map_err(|e| format!("Failed to read response body: {}", e))?;
-    if bytes.len() > MAX_REST_BODY_BYTES {
-        return Err(format!(
-            "Response body exceeded {} MB cap",
-            MAX_REST_BODY_BYTES / (1024 * 1024)
-        ));
+async fn read_body_capped(mut resp: reqwest::Response) -> Result<Vec<u8>, String> {
+    let mut buf: Vec<u8> = Vec::new();
+    loop {
+        match resp.chunk().await {
+            Ok(Some(chunk)) => {
+                if buf.len().saturating_add(chunk.len()) > MAX_REST_BODY_BYTES {
+                    return Err(format!(
+                        "Response body exceeded {} MB cap",
+                        MAX_REST_BODY_BYTES / (1024 * 1024)
+                    ));
+                }
+                buf.extend_from_slice(&chunk);
+            }
+            Ok(None) => return Ok(buf),
+            Err(e) => return Err(format!("Failed to read response body: {}", e)),
+        }
     }
-    Ok(bytes.to_vec())
 }
 
 // ============================================================================
