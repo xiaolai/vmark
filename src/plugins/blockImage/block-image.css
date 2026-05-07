@@ -16,6 +16,12 @@
 }
 
 .block-image.image-error img {
-  min-width: 100px;
+  min-width: var(--radius-pill);
   min-height: var(--space-15);
+}
+
+/* Center alignment for block images (when "Center Media" setting enabled) */
+.media-align-center .tiptap-editor .ProseMirror > .block-image {
+  display: flex;
+  justify-content: center;
 }
