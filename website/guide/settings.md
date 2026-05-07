@@ -224,6 +224,35 @@ Configure which AI provider powers [AI Genies](/guide/ai-genies). Only one provi
 
 See [AI Providers](/guide/ai-providers) for detailed setup instructions for each provider.
 
+## Formats
+
+Opt-in toggles for non-default format adapters, plus the explicit external-editor command for the read-only code-tab escape hatch.
+
+Markdown, plain text, and YAML/YML are **always** registered — the calm defaults. Every other adapter is **off by default** so existing users aren't surprised on upgrade. Flip a toggle and the registry rebuilds in place; open tabs remount with the proper adapter, no restart needed.
+
+For the full list of formats and their previews, see [Supported Formats](/guide/formats).
+
+### Format support
+
+| Toggle | Default | Enables |
+|---|---|---|
+| **Data formats** | Off | `.json`, `.jsonl`, `.toml` — split-pane source + navigable tree. Schema-aware previews for `Cargo.toml`, `package.json`, `pyproject.toml`. |
+| **Diagrams & SVG** | Off | `.mmd` (Mermaid) and `.svg` — split-pane source + sanitized live render. |
+| **HTML preview** | Off | `.html` and `.htm` — sandboxed iframe preview (`sandbox=""` empty allow-list, DOMPurify, CSP `<meta>`). OWASP top-20 verified — see [Security model for HTML](/guide/formats#security-model-for-html). |
+| **Code viewers** | Off | 12 read-only viewers (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua`). Open in a syntax-highlighted viewer with **Enable editing** and **Open in external editor** buttons. |
+
+When a category is off, the matching extensions fall through to the plain-text fallback so the file still opens — just without the schema view.
+
+### External editor
+
+For the **Open in external editor** button on read-only code tabs, pick the editor that should launch. An app bundle (e.g. `/Applications/Visual Studio Code.app`) or an executable.
+
+The GUI setting overrides any environment variables — explicit beats implicit. Leave it empty to use the env-var fallback chain `$VMARK_EXTERNAL_EDITOR → $VISUAL → $EDITOR → platform default`. See [Open in external editor](/guide/formats#open-in-external-editor) for the full resolution order and security gate.
+
+### One-time upgrade nudge
+
+On the first launch after upgrading to multi-format support, VMark surfaces a non-blocking toast pointing to **Settings → Formats**. The nudge fires once per install — once shown (or dismissed), it never reappears.
+
 ## Language
 
 CJK (Chinese, Japanese, Korean) formatting rules. These rules are applied when you run **Format → Format CJK Selection** (`Cmd+Shift+F`) on a selection, or **Format → Format CJK Document** (`Alt+Cmd+Shift+F`) on the whole file.

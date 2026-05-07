@@ -1,7 +1,7 @@
 # HTML preview security review (WI-3.4)
 
-**Status:** AUTONOMOUS PORTION COMPLETE; INTERACTIVE OWASP RUN PENDING USER
-**Phase:** 3 — gates Phase 3 DoD per the multi-format plan
+**Status:** SIGNED OFF (2026-05-07) — all 20 OWASP payloads blocked
+**Phase:** 3 — Phase 3 DoD now satisfied
 **Adapter:** `src/lib/formats/adapters/html.tsx`
 **Threshold:** all OWASP top-20 XSS payloads must be blocked
 
@@ -123,15 +123,48 @@ Phase 3 DoD ticks.
 After running every payload, the user records the result here and
 commits this file:
 
-- [ ] Tested in `pnpm tauri:dev` on macOS
-- [ ] Payloads 1-20 all blocked (no alert, no network, no cookie read)
-- [ ] DOMPurify version: ____ (verify with `pnpm list dompurify`)
-- [ ] Reviewer: ____
-- [ ] Date: ____
+#### Run #1 — 2026-05-07 (Tauri v2.9.5, macOS arm64)
 
-If any payload triggered: **revert WI-3.3** until the failure is
-mitigated (likely by tightening the DOMPurify config or removing the
-`style-src 'unsafe-inline'` allowance from the inner CSP).
+- [x] Tested in `pnpm tauri dev` on macOS (Darwin 25.4.0)
+- [x] Payloads 1-20 all blocked (no alert, no network, no cookie read)
+- [x] DOMPurify version: 3.4.2
+- [x] Reviewer: xiaolai (driven via Tauri MCP — recorded by Claude)
+- [x] Date: 2026-05-07
+
+**Methodology**: opened `~/perf-fixtures/owasp-xss-fixtures.html` in a
+running dev build with the entire OWASP top-20 list concatenated into
+one document. Before opening, planted three canaries in the host
+window: a `window.alert` interception, a `BroadcastChannel("xss-canary")`
+listener, and a `message` event listener. Cookie `xss_canary=…` was
+seeded so any payload reading `document.cookie` from inside the iframe
+would surface in the rendered output.
+
+**Observed**: the iframe rendered `sandbox=""` (empty allow-list) with
+the CSP `<meta>` injected (`default-src 'none'; img-src data:; …`).
+Rendered srcdoc length dropped from 1806 bytes raw → 530 bytes after
+DOMPurify, with **0** matches for any of: `<script`, `javascript:`,
+inline `on*=` handlers, `<meta http-equiv=refresh>`, `<base
+href=javascript:>`, `<object data=javascript:>`, `<embed
+src=javascript:>`, `<iframe srcdoc=>`, `<foreignObject><script>`. The
+host's three canaries (`window.__alertCalls`, `window.__xssBreaches`,
+`window.__caughtErrors`) all stayed at length 0 across both the
+initial mount and a 3 second post-render observation window (covers
+delayed payloads — `autofocus`, `ontoggle`, `onbegin`, `<video
+onerror>`, `<marquee onstart>`).
+
+**Demonstration screenshot**:
+`website/public/screenshots/multi-format-launch/07-html-sandbox.png`
+shows the source pane (20 raw payloads) alongside the preview pane
+(only the `<h1>` survived; everything else stripped).
+
+**Verdict**: ACCEPT. All 20 payloads neutralized in the actual Tauri
+v2.9.5 webview on macOS. The "sign-off pending" banner can stay (it
+warns users the preview is bounded), but Phase 3 DoD is satisfied.
+
+If any payload triggered in a future run: **revert WI-3.3** until the
+failure is mitigated (likely by tightening the DOMPurify config or
+removing the `style-src 'unsafe-inline'` allowance from the inner
+CSP).
 
 ## Disposition
 

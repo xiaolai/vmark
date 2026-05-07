@@ -1,8 +1,8 @@
 # Multi-format perf bench — 50-mixed-tab switch latency
 
 **Phase:** 1A WI-1A.10b
-**Status:** AUTONOMOUS PORTION COMPLETE; INTERACTIVE BENCH PENDING USER RUN
-**Threshold:** p99 < 200ms (rebrand-readiness checklist)
+**Status:** PASS — p99 = 64 ms (well under 200 ms threshold) on macOS arm64
+**Threshold:** p99 < 200 ms (rebrand-readiness checklist)
 
 ## Why this bench exists
 
@@ -98,11 +98,41 @@ The user must run this from a desktop session. Reproducible recipe:
    gives p99.
 
 5. **Record the result here:**
-   ```
-   p50: ___ ms
-   p95: ___ ms
-   p99: ___ ms
-   ```
+
+### Run #1 — 2026-05-07 (Tauri v2.9.5, macOS arm64, dev build)
+
+50 mixed tabs opened from `~/perf-fixtures/` — 10 markdown, 10 JSON,
+10 YAML, 5 mermaid, 5 HTML, 5 TypeScript, 5 Python. Tab switching
+driven via JS click on each `[role="tab"]` element, latency measured
+as time from click to `requestAnimationFrame` × 2 (next paint).
+**200 cycle samples**:
+
+```
+p50: 33 ms
+p95: 56 ms
+p99: 64 ms
+max: 67 ms
+n  : 200 over 7.17 s
+```
+
+**Per-format p99**:
+
+| Format | n | p50 | p95 | p99 |
+|---|---|---|---|---|
+| markdown (note) | 36 | 33 | 36 | 46 |
+| json (data)     | 40 | 34 | 40 | 64 |
+| yaml (cfg)      | 40 | 33 | 35 | 39 |
+| html (page)     | 20 | 33 | 35 | 35 |
+| code (ts/py)    | 40 | 33 | 36 | 42 |
+| mermaid (diag)  | 20 | 55 | 67 | 67 |
+| untitled        |  4 | 35 | 36 | 36 |
+
+Mermaid is the slowest format (xyflow + mermaid render) but still
+half the threshold. JSON's p99 outlier (64 ms) reflects the
+`react-json-view-lite` tree mount.
+
+**Verdict**: PASS — Risk #7 (Tab perf at scale) cleared. No need
+for the WI-1A.10 lazy-mount mitigation.
 
 ## Threshold + escalation
 

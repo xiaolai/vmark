@@ -37,7 +37,7 @@ The plugin uses Claude Haiku for corrections — fast and cheap, with zero inter
 
 Just type normally. The plugin detects language automatically:
 
-```
+```text
 You type:    "refactor the autentication modul, its got too many responsibilties"
 
 You see:     Refactor the authentication module. It has too many responsibilities.
@@ -53,7 +53,7 @@ When your prompt is clean — silence. No noise. Silence means correct.
 
 Non-English prompts are automatically translated:
 
-```
+```text
 You type:    这个组件渲染太慢了，每次父组件更新都会重新渲染，帮我优化一下
 
 You see:     Optimize this component to prevent unnecessary re-renders when
@@ -67,13 +67,13 @@ Claude sees: the English translation.
 
 Prefix your prompt with `::` to refine a rough idea into a precise prompt:
 
-```
+```text
 :: make the search faster it's really slow with big files
 ```
 
 Becomes:
 
-```
+```text
 Optimize the search implementation for large files. Profile the current
 bottleneck and consider debouncing, web workers, or incremental matching.
 ```

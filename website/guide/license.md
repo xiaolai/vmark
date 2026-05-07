@@ -20,7 +20,7 @@ VMark is released under the **ISC License** — one of the simplest and most per
 
 ## The Full License
 
-```
+```text
 ISC License
 
 Copyright (c) 2026 Xiaolai Li

@@ -197,13 +197,13 @@ The best enforcement mechanisms are the ones that change your habits, then get o
 
 docs-guardian's accuracy checker reads both code and documentation, then compares them. On its first full audit of VMark, it found that the AI Genies guide told users their genies were stored at:
 
-```
+```text
 ~/Library/Application Support/com.vmark.app/genies/
 ```
 
 But the actual Tauri identifier in the code was `app.vmark`. The real path was:
 
-```
+```text
 ~/Library/Application Support/app.vmark/genies/
 ```
 

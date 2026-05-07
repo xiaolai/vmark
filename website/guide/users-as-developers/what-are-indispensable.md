@@ -71,7 +71,7 @@ Test-Driven Development is the methodology that turns AI coding from "hope it wo
 
 TDD follows a strict three-step loop:
 
-```
+```text
 1. RED     — Write a test that describes what you want. It fails.
 2. GREEN   — Ask the AI to write the minimum code to pass the test.
 3. REFACTOR — Clean up without changing behavior. Tests still pass.
@@ -141,7 +141,7 @@ Each of these becomes a test. Each test becomes a guarantee. The more edge cases
 
 Here's a real workflow:
 
-```
+```yaml
 You:   Add a function that checks if a filename is valid.
        Start with a failing test.
 
