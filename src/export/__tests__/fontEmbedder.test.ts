@@ -459,14 +459,59 @@ describe("downloadFont", () => {
     expect(result).toEqual(fakeData);
   });
 
-  it("returns null on non-ok response after retries exhausted", async () => {
+  it("returns null on retriable 5xx response after retries exhausted", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
+      status: 503,
     } as Response);
 
     const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
     expect(result).toBeNull();
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("bails immediately on 404 without retrying", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as Response);
+
+    const result = await runWithTimers(downloadFont("https://example.com/missing.woff2"));
+    expect(result).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("bails immediately on 403 without retrying", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 403,
+    } as Response);
+
+    const result = await runWithTimers(downloadFont("https://example.com/forbidden.woff2"));
+    expect(result).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries on 408 Request Timeout", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 408,
+    } as Response);
+
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
+    expect(result).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on 429 Too Many Requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 429,
+    } as Response);
+
+    const result = await runWithTimers(downloadFont("https://example.com/font.woff2"));
+    expect(result).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
   it("returns null on network error after retries exhausted", async () => {
@@ -497,10 +542,10 @@ describe("downloadFont", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("retries on non-ok response then succeeds", async () => {
+  it("retries on retriable 5xx response then succeeds", async () => {
     const fakeData = new Uint8Array([0x30]);
     const fetchSpy = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: false } as Response)
+      .mockResolvedValueOnce({ ok: false, status: 502 } as Response)
       .mockResolvedValueOnce({
         ok: true,
         arrayBuffer: () => Promise.resolve(fakeData.buffer),
