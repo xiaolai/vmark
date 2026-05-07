@@ -312,8 +312,7 @@
 
 /* Paragraphs inside list items:
    - No margin (line-height provides rhythm)
-   - Use absolute line-height to match li (ratio would compute smaller due to sm font-size).
-   The .task-list-content > p variant lives in src/plugins/taskToggle/task-toggle.css. */
+   - Use absolute line-height to match li (ratio would compute smaller due to sm font-size). */
 .tiptap-editor li > p {
   margin-bottom: 0;
   line-height: var(--editor-line-height-px);
