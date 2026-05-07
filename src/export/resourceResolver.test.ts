@@ -755,12 +755,33 @@ describe("resolveResources", () => {
     expect(mockCopyFile).not.toHaveBeenCalled();
   });
 
+  it("substitutes placeholder for traversal-blocked asset:// images in exported HTML", async () => {
+    // asset://localhost URLs that resolve outside baseDir must not survive into
+    // exported HTML — they have no meaning outside VMark and render broken.
+    const evilSrc = `asset://localhost/${encodeURIComponent("/etc/passwd")}`;
+    const html = `<img src="${evilSrc}">`;
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/Users/test/docs",
+      mode: "single",
+    });
+
+    expect(report.missing).toHaveLength(1);
+    expect(report.resolved).toHaveLength(0);
+    // Original asset:// URL must be gone from exported HTML
+    expect(result).not.toContain("asset://localhost");
+    expect(result).not.toContain(evilSrc);
+    // Placeholder must be present
+    expect(result).toContain("data:image/svg+xml");
+    expect(result).toContain("Image not found");
+  });
+
   it("blocks symlinks to prevent traversal", async () => {
     const html = '<img src="evil.png">';
     mockExists.mockResolvedValue(true);
     mockLstat.mockResolvedValue({ isSymlink: true });
 
-    const { report } = await resolveResources(html, {
+    const { html: result, report } = await resolveResources(html, {
       baseDir: "/docs",
       mode: "single",
     });
@@ -768,6 +789,11 @@ describe("resolveResources", () => {
     expect(report.missing).toHaveLength(1);
     expect(report.resolved).toHaveLength(0);
     expect(mockReadFile).not.toHaveBeenCalled();
+    // Symlink-blocked images must be replaced with the placeholder so the
+    // exported HTML doesn't carry an unresolvable internal src.
+    expect(result).not.toContain('src="evil.png"');
+    expect(result).toContain("data:image/svg+xml");
+    expect(result).toContain("Image not found");
   });
 
   it("blocks symlinks in folder mode without copying", async () => {
