@@ -11,7 +11,13 @@
  *     (get_default_shell: getpwuid → $SHELL → /bin/sh). Only absolute paths
  *     are accepted; relative paths are rejected to prevent PATH/CWD hijack.
  *   - If the configured shell fails to spawn, retries with system default.
- *   - Sets TERM_PROGRAM=vmark and EDITOR=vmark so CLI tools can detect the host.
+ *   - Sets TERM_PROGRAM=WezTerm (impersonation) so CLI tools with terminal
+ *     allowlists (Claude Code's /terminal-setup, etc.) recognize the host as a
+ *     CSI-u-capable terminal. WezTerm chosen for lowest side-effect risk among
+ *     the four recognized values. See dev-docs/decisions/ADR-006-terminal-program-identity.md.
+ *     Do NOT change to "vmark" — third-party tools will fall through to a
+ *     generic "unknown terminal" path.
+ *   - Sets EDITOR=vmark so $EDITOR-aware CLI tools open files back in VMark.
  *   - Injects login shell PATH via get_login_shell_path Tauri command so CLI
  *     tools (node, claude, etc.) are discoverable — macOS GUI apps have minimal
  *     PATH by default. Fallback PATH is platform-aware (Windows vs Unix).
@@ -175,7 +181,9 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   const env: Record<string, string> = {
     // Ensure consistent color capabilities in xterm.js; Tauri GUI apps may not inherit terminal env vars.
     TERM: "xterm-256color",
-    TERM_PROGRAM: "vmark",
+    // Impersonate WezTerm so CLI tools with terminal allowlists (Claude Code's
+    // /terminal-setup, etc.) recognize the host. See ADR-006. Do NOT change to "vmark".
+    TERM_PROGRAM: "WezTerm",
     EDITOR: "vmark",
     // macOS GUI apps launched from Dock/Spotlight have minimal environment —
     // set UTF-8 encoding so the shell and tools handle CJK/multibyte correctly.

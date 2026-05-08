@@ -363,7 +363,7 @@ describe("spawnPty shell selection", () => {
     expect(spawnCallEnv.env.VMARK_WORKSPACE).toBe("/my/workspace");
   });
 
-  it("sets TERM_PROGRAM env to vmark so CLI tools identify the host correctly", async () => {
+  it("sets TERM_PROGRAM env to WezTerm so CLI tools recognize the host (ADR-006)", async () => {
     vi.mocked(useSettingsStore.getState).mockReturnValue({
       terminal: { shell: "" },
     } as ReturnType<typeof useSettingsStore.getState>);
@@ -371,7 +371,8 @@ describe("spawnPty shell selection", () => {
     await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
 
     const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
-    expect(spawnCallEnv.env.TERM_PROGRAM).toBe("vmark");
+    // Impersonation per ADR-006: WezTerm is in Claude Code's CSI-u allowlist; "vmark" isn't.
+    expect(spawnCallEnv.env.TERM_PROGRAM).toBe("WezTerm");
   });
 
   it("throws original error when spawn fails and no configured shell", async () => {
