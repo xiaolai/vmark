@@ -84,12 +84,16 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
       // Bookmark: disable href input, update open button title
       this.hrefInput.disabled = true;
       this.hrefInput.classList.add("disabled");
-      this.openBtn.title = i18n.t("editor:popup.link.goToHeading");
+      const openLabel = i18n.t("editor:popup.link.goToHeading");
+      this.openBtn.title = openLabel;
+      this.openBtn.setAttribute("aria-label", openLabel);
     } else {
       // Regular link: enable href input
       this.hrefInput.disabled = false;
       this.hrefInput.classList.remove("disabled");
-      this.openBtn.title = i18n.t("editor:popup.link.openLink");
+      const openLabel = i18n.t("editor:popup.link.openLink");
+      this.openBtn.title = openLabel;
+      this.openBtn.setAttribute("aria-label", openLabel);
     }
 
     // Focus appropriate input (base class has already blurred the editor)

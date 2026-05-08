@@ -280,6 +280,43 @@ describe("SourceFootnotePopupView", () => {
       expect(gotoBtn.style.display).toBe("flex");
       expect(gotoBtn.title).toBe("Go to reference");
     });
+
+    // Regression: #896 — aria-label must track title so screen readers
+    // announce the context-aware action (definition vs reference).
+    it("updates goto button aria-label to match title when opened on reference", async () => {
+      popup.setOpenedOnReference(true);
+      emitStateChange({
+        isOpen: true,
+        label: "1",
+        content: "Test",
+        anchorRect,
+        definitionPos: 500,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const gotoBtn = document.querySelector(".source-footnote-popup-btn-goto") as HTMLElement;
+      expect(gotoBtn.getAttribute("aria-label")).toBe("Go to definition");
+      expect(gotoBtn.getAttribute("aria-label")).toBe(gotoBtn.title);
+    });
+
+    it("updates goto button aria-label to match title when opened on definition", async () => {
+      popup.setOpenedOnReference(false);
+      emitStateChange({
+        isOpen: true,
+        label: "1",
+        content: "Test",
+        anchorRect,
+        referencePos: 50,
+        definitionPos: null,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const gotoBtn = document.querySelector(".source-footnote-popup-btn-goto") as HTMLElement;
+      expect(gotoBtn.getAttribute("aria-label")).toBe("Go to reference");
+      expect(gotoBtn.getAttribute("aria-label")).toBe(gotoBtn.title);
+    });
   });
 
   describe("Keyboard shortcuts", () => {

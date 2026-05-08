@@ -115,7 +115,11 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     this.input.disabled = false;
     this.input.classList.remove("disabled");
     this.saveBtn.style.display = "";
-    this.openBtn.title = isBookmark ? i18n.t("editor:popup.link.goToHeading") : i18n.t("editor:popup.link.openLink");
+    const openLabel = isBookmark
+      ? i18n.t("editor:popup.link.goToHeading")
+      : i18n.t("editor:popup.link.openLink");
+    this.openBtn.title = openLabel;
+    this.openBtn.setAttribute("aria-label", openLabel);
 
     // Focus and select input
     requestAnimationFrame(() => {

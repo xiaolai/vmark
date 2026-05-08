@@ -96,11 +96,15 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     // Configure goto button based on context
     if (this.openedOnReference) {
       // On reference - goto goes to definition
-      this.gotoBtn.title = i18n.t("editor:popup.footnote.goToDefinition");
+      const gotoLabel = i18n.t("editor:popup.footnote.goToDefinition");
+      this.gotoBtn.title = gotoLabel;
+      this.gotoBtn.setAttribute("aria-label", gotoLabel);
       this.gotoBtn.style.display = state.definitionPos !== null ? "flex" : "none";
     } else {
       // On definition - goto goes to reference
-      this.gotoBtn.title = i18n.t("editor:popup.footnote.goToReference");
+      const gotoLabel = i18n.t("editor:popup.footnote.goToReference");
+      this.gotoBtn.title = gotoLabel;
+      this.gotoBtn.setAttribute("aria-label", gotoLabel);
       /* v8 ignore next -- @preserve reason: footnote definition without a reference is an edge case */
       this.gotoBtn.style.display = state.referencePos !== null ? "flex" : "none";
     }

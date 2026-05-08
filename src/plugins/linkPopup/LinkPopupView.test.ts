@@ -482,4 +482,41 @@ describe("LinkPopupView", () => {
     popup.destroy();
     viewWithError._editorContainer.remove();
   });
+
+  // ---------------------------------------------------------------------------
+  // Regression: #894 — openBtn aria-label must track title so screen readers
+  // announce the context-aware action (heading vs external URL).
+  // ---------------------------------------------------------------------------
+
+  it("openBtn aria-label matches title for bookmark links", () => {
+    const popup = new LinkPopupView(view as never);
+    triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "#some-heading" });
+
+    const openBtn = popup["openBtn"] as HTMLElement;
+    expect(openBtn.title).toBe("Go to heading");
+    expect(openBtn.getAttribute("aria-label")).toBe("Go to heading");
+    expect(openBtn.getAttribute("aria-label")).toBe(openBtn.title);
+
+    popup.destroy();
+  });
+
+  it("openBtn aria-label flips back to 'Open link' when popup re-opens on a regular URL", () => {
+    const popup = new LinkPopupView(view as never);
+
+    // First open on a bookmark to set the aria-label to "Go to heading".
+    triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "#first-heading" });
+    const openBtn = popup["openBtn"] as HTMLElement;
+    expect(openBtn.getAttribute("aria-label")).toBe("Go to heading");
+
+    // Close, then re-open on a regular URL — onShow runs on the
+    // false → true isOpen transition, so a "close-then-open" cycle is
+    // the only way to drive a fresh onShow() in the popup contract.
+    triggerStore({ isOpen: false, anchorRect: null });
+    triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "https://example.com" });
+    expect(openBtn.title).toBe("Open link");
+    expect(openBtn.getAttribute("aria-label")).toBe("Open link");
+    expect(openBtn.getAttribute("aria-label")).toBe(openBtn.title);
+
+    popup.destroy();
+  });
 });

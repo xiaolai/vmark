@@ -238,6 +238,22 @@ describe("SourceLinkPopupView", () => {
       expect(openBtn.title).toBe("Go to heading");
     });
 
+    // Regression: #895 — aria-label must track title so screen readers
+    // announce the context-aware action, not the construction-time label.
+    it("updates open button aria-label to match title for bookmark links", async () => {
+      emitStateChange({
+        isOpen: true,
+        href: "#heading-id",
+        anchorRect,
+      });
+
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const openBtn = document.querySelector(".source-link-popup-btn-open") as HTMLElement;
+      expect(openBtn.getAttribute("aria-label")).toBe("Go to heading");
+      expect(openBtn.getAttribute("aria-label")).toBe(openBtn.title);
+    });
+
     it("enables input for regular links", async () => {
       emitStateChange({
         isOpen: true,
@@ -252,6 +268,37 @@ describe("SourceLinkPopupView", () => {
 
       const openBtn = document.querySelector(".source-link-popup-btn-open") as HTMLElement;
       expect(openBtn.title).toBe("Open link");
+    });
+
+    // Regression: #895 — aria-label must track title back to "Open link"
+    // when the popup re-opens on a regular (non-bookmark) link.
+    it("updates open button aria-label to match title for regular links", async () => {
+      // First show on a bookmark to set the goToHeading label, then
+      // re-open on a regular URL and verify the aria-label flips back.
+      emitStateChange({
+        isOpen: true,
+        href: "#first-heading",
+        anchorRect,
+      });
+      await new Promise((r) => requestAnimationFrame(r));
+
+      emitStateChange({
+        isOpen: false,
+        href: "",
+        anchorRect: null,
+      });
+      await new Promise((r) => requestAnimationFrame(r));
+
+      emitStateChange({
+        isOpen: true,
+        href: "https://example.com",
+        anchorRect,
+      });
+      await new Promise((r) => requestAnimationFrame(r));
+
+      const openBtn = document.querySelector(".source-link-popup-btn-open") as HTMLElement;
+      expect(openBtn.getAttribute("aria-label")).toBe("Open link");
+      expect(openBtn.getAttribute("aria-label")).toBe(openBtn.title);
     });
   });
 
