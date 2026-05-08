@@ -289,10 +289,19 @@ pub fn create_document_window(
 /// Create a new "main" window (used when the original main window was destroyed
 /// and a file is opened from Finder, requiring useFinderFileOpen to handle it).
 /// The main window label is special: useFinderFileOpen only runs for "main".
-pub fn create_main_window(app: &AppHandle) -> Result<String, tauri::Error> {
+///
+/// `workspace_root` lets the dock-icon-reopen path restore the user's last
+/// workspace — without it the new window's WindowContext would explicitly
+/// clear any persisted workspace state.
+pub fn create_main_window(
+    app: &AppHandle,
+    workspace_root: Option<&str>,
+) -> Result<String, tauri::Error> {
     let label = "main";
 
-    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
+    let url = build_window_url(None, workspace_root);
+
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
         .title("")
         .inner_size(MIN_WIDTH, MIN_HEIGHT)
         .min_inner_size(800.0, 600.0)
@@ -317,6 +326,32 @@ pub fn create_main_window(app: &AppHandle) -> Result<String, tauri::Error> {
 #[tauri::command]
 pub fn new_window(app: AppHandle) -> Result<String, String> {
     create_document_window(&app, None, None).map_err(|e| e.to_string())
+}
+
+/// Pure decision function for `pick_reopen_workspace_root` — testable without
+/// touching the filesystem or the recent-workspaces snapshot.
+fn pick_reopen_workspace_root_with<F>(
+    most_recent: Option<String>,
+    path_exists: F,
+) -> Option<String>
+where
+    F: Fn(&str) -> bool,
+{
+    most_recent.filter(|p| path_exists(p))
+}
+
+/// On macOS dock-icon reactivation (no visible windows), pick the workspace
+/// to restore in the new main window. Returns the most-recent workspace if
+/// it still exists on disk; otherwise `None` so the window opens unscoped.
+///
+/// Falls back to `None` (rather than scanning further down the recent list)
+/// to keep behavior predictable: the user expects "the workspace I was just
+/// in," not an older one they may not remember.
+pub(crate) fn pick_reopen_workspace_root() -> Option<String> {
+    pick_reopen_workspace_root_with(
+        crate::menu::get_recent_workspace_path(0),
+        |p| std::path::Path::new(p).is_dir(),
+    )
 }
 
 /// Validate that a frontend-supplied path is safe to extend into the fs
@@ -729,6 +764,25 @@ mod tests {
     }
 
     #[test]
+    fn url_workspace_root_percent_encodes_reserved_chars() {
+        // The dock-reopen path passes a workspace path read off disk straight
+        // into this URL builder. Folder names can legally contain `?`, `#`,
+        // `&`, and spaces on every supported platform — they must be
+        // percent-encoded so the frontend's URLSearchParams parser receives
+        // them intact instead of misinterpreting them as fragment / query
+        // delimiters.
+        let url = build_window_url(None, Some("/path with?x#y&z"));
+        assert!(url.contains("workspaceRoot="), "url was {url}");
+        assert!(!url.contains("?x"), "raw '?' leaked into url: {url}");
+        assert!(!url.contains("#y"), "raw '#' leaked into url: {url}");
+        assert!(!url.contains("&z"), "raw '&' leaked into url: {url}");
+        assert!(url.contains("%3F"), "expected '?' encoded as %3F: {url}");
+        assert!(url.contains("%23"), "expected '#' encoded as %23: {url}");
+        assert!(url.contains("%26"), "expected '&' encoded as %26: {url}");
+        assert!(url.contains("%20"), "expected ' ' encoded as %20: {url}");
+    }
+
+    #[test]
     fn url_both_params() {
         let url = build_window_url(Some("/a/b.md"), Some("/a"));
         assert!(url.contains("file="));
@@ -771,6 +825,78 @@ mod tests {
         let n1: u32 = l1.strip_prefix("doc-").unwrap().parse().unwrap();
         let n2: u32 = l2.strip_prefix("doc-").unwrap().parse().unwrap();
         assert_eq!(n2, n1 + 1);
+    }
+
+    // -- pick_reopen_workspace_root_with --------------------------------------
+
+    #[test]
+    fn pick_reopen_returns_path_when_exists() {
+        let pick = pick_reopen_workspace_root_with(
+            Some("/some/workspace".to_string()),
+            |_| true,
+        );
+        assert_eq!(pick, Some("/some/workspace".to_string()));
+    }
+
+    #[test]
+    fn pick_reopen_returns_none_when_path_missing() {
+        // Path was the user's last workspace but the folder has been deleted
+        // or moved — fall back to no-workspace so the new window opens fresh.
+        let pick = pick_reopen_workspace_root_with(
+            Some("/deleted/path".to_string()),
+            |_| false,
+        );
+        assert_eq!(pick, None);
+    }
+
+    #[test]
+    fn pick_reopen_returns_none_when_snapshot_empty() {
+        // Fresh install or all recents cleared — never opened a workspace.
+        let pick = pick_reopen_workspace_root_with(None, |_| true);
+        assert_eq!(pick, None);
+    }
+
+    #[test]
+    fn pick_reopen_picks_real_directory_via_filesystem() {
+        // End-to-end check that the helper integrates correctly with
+        // Path::is_dir — the real wrapper uses this exact predicate.
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let real = dir.path().to_string_lossy().to_string();
+        let missing = format!("{}/does-not-exist", real);
+
+        assert_eq!(
+            pick_reopen_workspace_root_with(
+                Some(real.clone()),
+                |p| std::path::Path::new(p).is_dir(),
+            ),
+            Some(real),
+        );
+        assert_eq!(
+            pick_reopen_workspace_root_with(
+                Some(missing),
+                |p| std::path::Path::new(p).is_dir(),
+            ),
+            None,
+        );
+    }
+
+    #[test]
+    fn pick_reopen_rejects_path_that_is_a_regular_file() {
+        // A regression from `Path::is_dir()` to a weaker predicate like
+        // `Path::exists()` would silently route the dock-reopen URL to a
+        // file path — locking the rust-side guarantee in place with a test.
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let file = dir.path().join("not-a-workspace.md");
+        std::fs::write(&file, b"hi").expect("write");
+        let file_str = file.to_string_lossy().to_string();
+
+        assert_eq!(
+            pick_reopen_workspace_root_with(
+                Some(file_str),
+                |p| std::path::Path::new(p).is_dir(),
+            ),
+            None,
+        );
     }
 
     // -- validate_openable_path -----------------------------------------------

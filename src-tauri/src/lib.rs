@@ -844,13 +844,20 @@ pub fn run() {
                         // Prefer creating a "main" window so useFinderFileOpen works.
                         // Fall back to doc-N if "main" already exists (shouldn't happen
                         // when has_visible_windows is false, but be safe).
+                        //
+                        // Restore the user's last workspace so dock-click after
+                        // closing the workspace window doesn't drop them into an
+                        // orphan untitled doc with no workspace context.
+                        let ws = window_manager::pick_reopen_workspace_root();
                         if app.get_webview_window("main").is_none() {
                             // Reset readiness so any subsequent Opened events are queued
                             // until the new main window's React mounts and drains them.
                             FRONTEND_READY.store(false, Ordering::SeqCst);
-                            let _ = window_manager::create_main_window(app);
+                            let _ = window_manager::create_main_window(app, ws.as_deref());
                         } else {
-                            let _ = window_manager::create_document_window(app, None, None);
+                            let _ = window_manager::create_document_window(
+                                app, None, ws.as_deref(),
+                            );
                         }
                     }
                 }
@@ -939,7 +946,7 @@ pub fn run() {
                                             &mut pending, paths, ws,
                                         );
                                     }
-                                    let _ = window_manager::create_main_window(app);
+                                    let _ = window_manager::create_main_window(app, None);
                                 }
                             }
                             window_manager::FileOpenAction::QueueAndCreateWindow => {
@@ -950,7 +957,7 @@ pub fn run() {
                                         &mut pending, paths, ws,
                                     );
                                 }
-                                let _ = window_manager::create_main_window(app);
+                                let _ = window_manager::create_main_window(app, None);
                             }
                             window_manager::FileOpenAction::QueueOnly => {
                                 log::info!("[Finder] Queueing files (frontend not ready)");
