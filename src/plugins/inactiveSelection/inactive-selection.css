@@ -1,0 +1,22 @@
+/**
+ * Inactive selection — visible while the editor is blurred.
+ *
+ * The browser clears the native ::selection / .cm-selectionBackground
+ * highlight when focus leaves the editor. Our plugins render an inline
+ * decoration over the live selection range using this class so the user
+ * can still see what they have selected when typing in the built-in
+ * terminal or any other field.
+ *
+ * Both the WYSIWYG (ProseMirror) plugin in
+ * src/plugins/inactiveSelection/inactiveSelectionPlugin.ts and the
+ * Source-mode (CodeMirror) plugin in
+ * src/plugins/codemirror/inactiveSelectionPlugin.ts apply this same
+ * class — defined here as the single source of truth.
+ *
+ * Token choice: --accent-bg is half the opacity of --selection-color,
+ * which gives a clearly-dimmer-but-same-hue look. The token system
+ * already adjusts it across themes.
+ */
+.vmark-inactive-selection {
+  background-color: var(--accent-bg);
+}

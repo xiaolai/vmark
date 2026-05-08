@@ -68,6 +68,7 @@ import {
   createSourceMathPreviewPlugin,
   createSourceImagePreviewPlugin,
   sourceMultiCursorExtensions,
+  sourceInactiveSelectionExtensions,
   sourceTableContextMenuExtensions,
   sourceTableCellHighlightExtensions,
   sourceDiagramPreviewExtensions,
@@ -174,6 +175,9 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     ...sourceMultiCursorExtensions,
     // Allow multiple selections
     EditorState.allowMultipleSelections.of(true),
+    // Render selection ranges as a dimmed overlay while the editor is
+    // blurred (typing in the built-in terminal, etc.).
+    ...sourceInactiveSelectionExtensions,
     // History (undo/redo)
     history(),
     // Shortcuts from settings (dynamic via compartment)

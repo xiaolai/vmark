@@ -48,3 +48,4 @@ export { structuralBackspaceKeymap, structuralDeleteKeymap } from "./structuralC
 export { listSmartIndentKeymap, listSmartOutdentKeymap } from "./listSmartIndent";
 export { createSourceCopyOnSelectPlugin } from "./sourceCopyOnSelect";
 export { createSourceLintExtension, diagnosticToCM, triggerLintRefresh } from "./sourceLint";
+export { inactiveSelectionExtensions as sourceInactiveSelectionExtensions } from "./inactiveSelectionPlugin";

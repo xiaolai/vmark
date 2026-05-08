@@ -95,6 +95,7 @@ import { CJKBold, CJKItalic } from "@/plugins/markInputRules/tiptap";
 import { textDragDropExtension } from "@/plugins/textDragDrop/tiptap";
 import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
+import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
 
 export interface TiptapExtensionConfig {
   /** Tab ID for lint diagnostics (required when lintEnabled is true) */
@@ -221,6 +222,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     smartSelectAllExtension,
     inlineCodeBoundaryExtension,
     textDragDropExtension,
+    inactiveSelectionExtension,
     // Lint decorations (block-level, WYSIWYG only)
     ...(lintEnabled && tabId
       ? [LintExtension.configure({ tabId })]

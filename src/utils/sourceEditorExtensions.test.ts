@@ -115,6 +115,7 @@ vi.mock("@/plugins/codemirror", () => ({
   createSourceMathPreviewPlugin: vi.fn(() => "mathPreview"),
   createSourceImagePreviewPlugin: vi.fn(() => "imagePreview"),
   sourceMultiCursorExtensions: ["multiCursor"],
+  sourceInactiveSelectionExtensions: ["inactiveSelection"],
   sourceTableContextMenuExtensions: ["tableContextMenu"],
   sourceTableCellHighlightExtensions: ["tableCellHighlight"],
   sourceDiagramPreviewExtensions: ["diagramPreview"],
@@ -230,6 +231,7 @@ describe("createSourceEditorExtensions", () => {
       updateListener: "listener" as any,
     });
     expect(exts).toContain("multiCursor");
+    expect(exts).toContain("inactiveSelection");
     expect(exts).toContain("tableContextMenu");
     expect(exts).toContain("tableCellHighlight");
     expect(exts).toContain("diagramPreview");
