@@ -1,9 +1,9 @@
 /**
  * Purpose: Per-MCP-write content snapshots so users can roll back AI
  *   edits at any granularity. Each successful `document.write`,
- *   `document.transform`, or `workflow.apply_patch` pushes a checkpoint
- *   carrying the *before* content; the user (or AI) can restore by
- *   replaying that snapshot.
+ *   `document.transform`, `workflow.apply_patch`, or `selection.set`
+ *   pushes a checkpoint carrying the *before* content; the user (or AI)
+ *   can restore by replaying that snapshot.
  *
  *   Replaces the safety net the deleted suggestions/auto-approve
  *   feature used to provide. See dev-docs/plans/20260504-mcp-pruning.md
@@ -27,6 +27,7 @@
  *
  * @coordinates-with hooks/mcpBridge/v2/document.ts — push on write/transform
  * @coordinates-with hooks/mcpBridge/v2/workflow.ts — push on apply_patch
+ * @coordinates-with hooks/mcpBridge/v2/selection.ts — push on selection.set
  * @coordinates-with stores/documentStore.ts — restore via setContent
  * @coordinates-with stores/revisionStore.ts — revision bump on restore
  * @module stores/mcpCheckpointStore
