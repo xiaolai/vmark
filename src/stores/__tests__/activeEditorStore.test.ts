@@ -4,7 +4,9 @@ import { useActiveEditorStore } from "../activeEditorStore";
 beforeEach(() => {
   useActiveEditorStore.setState({
     activeWysiwygEditor: null,
+    activeWysiwygTabId: null,
     activeSourceView: null,
+    activeSourceTabId: null,
   });
 });
 
@@ -82,6 +84,56 @@ describe("activeEditorStore", () => {
       useActiveEditorStore.getState().clearActiveEditors();
       expect(useActiveEditorStore.getState().activeWysiwygEditor).toBeNull();
       expect(useActiveEditorStore.getState().activeSourceView).toBeNull();
+    });
+  });
+
+  describe("tabId binding", () => {
+    it("setActiveWysiwygEditor records the bound tabId", () => {
+      const editor = { id: "w" } as never;
+      useActiveEditorStore.getState().setActiveWysiwygEditor(editor, "tab-1");
+      expect(useActiveEditorStore.getState().activeWysiwygTabId).toBe("tab-1");
+    });
+
+    it("setActiveSourceView records the bound tabId", () => {
+      const view = { id: "s" } as never;
+      useActiveEditorStore.getState().setActiveSourceView(view, "tab-2");
+      expect(useActiveEditorStore.getState().activeSourceTabId).toBe("tab-2");
+    });
+
+    it("clearing the WYSIWYG editor also clears its tabId", () => {
+      const editor = { id: "w" } as never;
+      useActiveEditorStore.getState().setActiveWysiwygEditor(editor, "tab-3");
+      useActiveEditorStore.getState().setActiveWysiwygEditor(null);
+      expect(useActiveEditorStore.getState().activeWysiwygTabId).toBeNull();
+    });
+
+    it("clearWysiwygEditorIfMatch also clears the bound tabId", () => {
+      const editor = { id: "w" } as never;
+      useActiveEditorStore.getState().setActiveWysiwygEditor(editor, "tab-4");
+      useActiveEditorStore.getState().clearWysiwygEditorIfMatch(editor);
+      expect(useActiveEditorStore.getState().activeWysiwygTabId).toBeNull();
+    });
+
+    it("clearActiveEditors clears both tabIds", () => {
+      useActiveEditorStore
+        .getState()
+        .setActiveWysiwygEditor({ id: "w" } as never, "tab-w");
+      useActiveEditorStore
+        .getState()
+        .setActiveSourceView({ id: "s" } as never, "tab-s");
+      useActiveEditorStore.getState().clearActiveEditors();
+      expect(useActiveEditorStore.getState().activeWysiwygTabId).toBeNull();
+      expect(useActiveEditorStore.getState().activeSourceTabId).toBeNull();
+    });
+
+    it("setting a new editor for a different tab updates the bound tabId", () => {
+      useActiveEditorStore
+        .getState()
+        .setActiveWysiwygEditor({ id: "old" } as never, "tab-old");
+      useActiveEditorStore
+        .getState()
+        .setActiveWysiwygEditor({ id: "new" } as never, "tab-new");
+      expect(useActiveEditorStore.getState().activeWysiwygTabId).toBe("tab-new");
     });
   });
 });

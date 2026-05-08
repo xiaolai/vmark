@@ -17,11 +17,13 @@ import type { McpRequestEvent } from "./types";
 import { respond } from "./utils";
 import { isActiveDocReadOnly } from "@/utils/readOnlyGuard";
 import { dispatchV2 } from "./v2/dispatch";
+import { v2ErrorString } from "./v2/types";
 
 const READ_ONLY_BLOCKED = new Set<string>([
   "vmark.document.write",
   "vmark.document.transform",
   "vmark.workflow.apply_patch",
+  "vmark.selection.set",
 ]);
 
 /** Route an MCP request through the v2 dispatcher. */
@@ -32,7 +34,10 @@ export async function handleRequest(event: McpRequestEvent): Promise<void> {
     await respond({
       id,
       success: false,
-      error: "Document is read-only",
+      error: v2ErrorString({
+        error: "READ_ONLY",
+        message: "Document is read-only",
+      }),
     });
     return;
   }

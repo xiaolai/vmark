@@ -50,6 +50,7 @@ export type V2ErrorCode =
   | "INVALID_PATH"
   | "READ_ONLY"
   | "NOT_WORKFLOW"
+  | "NO_EDITOR"
   | "INTERNAL";
 
 export interface V2Error {

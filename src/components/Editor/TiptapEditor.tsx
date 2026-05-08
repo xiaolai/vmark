@@ -497,7 +497,9 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     if (!hidden) {
       useTiptapEditorStore.getState().setEditor(editor ?? null);
       if (editor) {
-        useActiveEditorStore.getState().setActiveWysiwygEditor(editor);
+        useActiveEditorStore
+          .getState()
+          .setActiveWysiwygEditor(editor, activeTabId);
       }
     }
     return () => {
@@ -506,7 +508,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
         useActiveEditorStore.getState().clearWysiwygEditorIfMatch(editor);
       }
     };
-  }, [editor, hidden]);
+  }, [editor, hidden, activeTabId]);
 
   // Force CJK letter spacing decorations to recalculate when setting changes.
   // The plugin tracks wasEnabled state, but needs a transaction to trigger apply().

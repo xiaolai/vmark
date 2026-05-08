@@ -66,75 +66,61 @@ const bridge = new WebSocketBridge({
 
 ## Available Tools
 
-### Document Tools
-- `document_get_content` - Get full document content
-- `document_set_content` - Replace entire document
-- `document_insert_at_cursor` - Insert text at cursor
-- `document_insert_at_position` - Insert text at specific position
-- `document_search` - Search for text in document
-- `document_replace` - Find and replace text
+The server exposes a pruned 5-tool surface — `session`, `workspace`, `document`,
+`workflow`, `selection`. Each tool has an `action` discriminator that routes to
+its sub-operations. See `dev-docs/plans/20260504-mcp-pruning.md` for the
+rationale behind the prune and ADR-7 for why `selection` was re-added.
 
-### Selection Tools
-- `selection_get` - Get current selection
-- `selection_set` - Set selection range
-- `selection_replace` - Replace selected text
-- `selection_delete` - Delete selected text
-- `cursor_get_context` - Get surrounding context
-- `cursor_set_position` - Move cursor
+### `session` — orientation (1 action)
 
-### Editor Tools
-- `editor_undo` - Undo last action
-- `editor_redo` - Redo last action
-- `editor_focus` - Focus the editor
+| Action | Purpose |
+|---|---|
+| `get_state` | One-shot discovery: returns `{windows, capabilities}` with every open tab's `{id, filePath, title, dirty, revision, kind}`. Replaces the legacy `get_capabilities`/`tabs.list`/`workspace.get_focused`/`workspace.list_windows`/`workspace.get_document_info` chain. |
 
-### Formatting Tools
-- `format_toggle` - Toggle bold/italic/code/strike/underline
-- `format_set_link` - Create hyperlink
-- `format_remove_link` - Remove hyperlink
-- `format_clear` - Clear all formatting
+### `workspace` — file and window lifecycle (7 actions)
 
-### Block Tools
-- `block_set_type` - Set block type (paragraph, heading, code, etc.)
-- `block_toggle` - Toggle block type
-- `block_insert_horizontal_rule` - Insert horizontal rule
+| Action | Purpose |
+|---|---|
+| `new` | Create a new document (markdown or workflow). |
+| `open` | Open a file from disk. |
+| `save` | Save the current document. |
+| `save_as` | Save to a new path. |
+| `close` | Close a tab. |
+| `switch_tab` | Activate a tab in its window. |
+| `focus_window` | Bring a window to focus. |
 
-### List Tools
-- `list_toggle` - Toggle list type (bullet, ordered, task)
-- `list_indent` - Increase list indentation
-- `list_outdent` - Decrease list indentation
+### `document` — read/write spine (3 actions)
 
-### Table Tools
-- `table_insert` - Insert new table
-- `table_delete` - Delete table
-- `table_add_row` - Add row before/after
-- `table_delete_row` - Delete current row
-- `table_add_column` - Add column before/after
-- `table_delete_column` - Delete current column
-- `table_toggle_header_row` - Toggle header row
+| Action | Purpose |
+|---|---|
+| `read` | Returns `{content, revision, filePath, kind, dirty}` for a tab. Always read before writing — pass `revision` back into `write`. |
+| `write` | Replace full document content. Optimistic concurrency via `expected_revision`; mismatch returns `STALE` with `current_revision`. |
+| `transform` | Apply a deterministic CJK rewriter — `cjk-format`, `cjk-spacing`, or `cjk-punctuation`. |
 
-### VMark Tools
-- `insert_math_inline` - Insert inline LaTeX math
-- `insert_math_block` - Insert block LaTeX math
-- `insert_mermaid` - Insert Mermaid diagram
-- `insert_wiki_link` - Insert wiki-style link
-- `cjk_punctuation_convert` - Convert CJK punctuation
-- `cjk_spacing_fix` - Fix CJK-Latin spacing
+### `workflow` — GitHub Actions YAML (2 actions)
 
-### Workspace Tools
-- `workspace_list_windows` - List all windows
-- `workspace_get_focused` - Get focused window
-- `workspace_focus_window` - Focus specific window
-- `workspace_new_document` - Create new document
-- `workspace_open_document` - Open document from path
-- `workspace_save_document` - Save current document
-- `workspace_close_window` - Close window
+| Action | Purpose |
+|---|---|
+| `apply_patch` | CST-safe patch application via the `IRPatch` discriminated union — preserves comments and anchors that a raw rewrite would lose. |
+| `validate` | Run actionlint and return diagnostics. |
+
+### `selection` — targeted edits on the user's selection (2 actions)
+
+| Action | Purpose |
+|---|---|
+| `get` | Returns `{text, isEmpty, range, mode, kind, tabId, revision}` for the current selection. `text` is the markdown serialization (WYSIWYG) or raw text (source). `mode` is `"wysiwyg"` or `"source"` — `range.{from,to}` lives in PM positions or character offsets respectively. |
+| `set` | Replace the current selection. Args: `{tabId?, content, expected_revision?}`. **WYSIWYG mode**: plain inline text round-trips exactly; markdown structure is parsed and inserted as nodes. **Source mode**: `content` is always spliced as raw text. STALE on revision mismatch. |
+
+`selection` exists so AI agents can edit large documents without paying the
+full-doc round-trip required by `document.read`/`document.write` — input
+tokens for the whole doc, output tokens for the whole doc, a long write
+window that widens the stale-revision retry loop, and a faithfulness risk
+on the bytes the AI didn't change.
 
 ## Available Resources
 
-- `vmark://document/outline` - Document heading hierarchy
-- `vmark://document/metadata` - Document metadata (path, title, word count)
-- `vmark://windows/list` - List of AI-exposed windows
-- `vmark://windows/focused` - Currently focused window label
+The pruned surface exposes no MCP resources. All discovery flows through
+`session.get_state`.
 
 ## Multi-Window Support
 

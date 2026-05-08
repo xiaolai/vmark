@@ -38,7 +38,8 @@ import { create } from "zustand";
 export type CheckpointTool =
   | "document.write"
   | "document.transform"
-  | "workflow.apply_patch";
+  | "workflow.apply_patch"
+  | "selection.set";
 
 /** A single content snapshot captured before an MCP write. */
 export interface MCPCheckpoint {

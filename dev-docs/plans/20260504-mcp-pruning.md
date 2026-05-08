@@ -76,6 +76,21 @@ There is deliberately no `workflow.read` (would duplicate `document.read` return
 
 **Confidence:** High.
 
+### ADR-7: Reintroduce `selection.{get, set}` for large-file economics
+
+**Decision:** Add a `selection` tool with two actions, `get` and `set`. Restores the read/replace-selected-text capability removed by ADR-1; does **not** restore the rest of the old `selection.*` family (`extend`, `clear`, range-only `set`). Date: 2026-05-08. Partial reversal of ADR-1.
+
+**Mechanism:** ADR-1 assumed every edit goes through `document.read → reason → document.write`. That is economical on small docs and quadratic-feeling on large ones — every edit pays the full doc in input tokens, the full doc in output tokens (~5× input price), proportionally longer write windows that widen the stale-revision retry loop, and a faithfulness risk where the model silently rewrites untouched bytes under length pressure. `selection.get` cuts input cost to the selected range; `selection.set` cuts output cost to the replacement string. Restricted to the user-driven selection (no AI-side offset arithmetic), which sidesteps the stateful-procedural failure mode that motivated ADR-004.
+
+**Shape:**
+
+- `selection.get({tabId?})` returns `{text, isEmpty, range: {from, to}, mode: "wysiwyg"|"source", kind, tabId, revision}`. `text` is the markdown serialization of the selected slice in WYSIWYG mode, raw text in source mode. `range` is in PM positions (WYSIWYG) or character offsets (source) — `mode` disambiguates.
+- `selection.set({tabId?, content, expected_revision?})` replaces the editor's current selection with `content`. In WYSIWYG mode, plain inline text inserts as a literal text node so leading/trailing whitespace round-trips exactly; content carrying markdown markers is parsed as nodes. In source mode, `content` is always spliced as raw text. `expected_revision` mismatch returns `STALE` with `current_revision`. Operates on the selection at call time — pure cursor movement between get and set is not arbitrated by the server (the doc-level revision catches keystrokes).
+
+**Trade-off acknowledged:** Tool surface goes from 4 / 14 to 5 / 15. Two actions, not five — the surface-bloat penalty stays small. New error code `NO_EDITOR` covers the case where the focused tab has no live editor instance.
+
+**Confidence:** High on the economics, medium on the surface-vs-capability balance. Revisit if AI clients start synthesising offset arithmetic on top of `selection.set`; that would be a signal to add `document.replace_range` rather than expand `selection.*`.
+
 ## Final tool surface
 
 | Tool | Action | Args | Returns |
@@ -93,10 +108,12 @@ There is deliberately no `workflow.read` (would duplicate `document.read` return
 | | `transform` | `{tabId?, kind, expected_revision?}` where `kind ∈ {"cjk-format", "cjk-spacing", "cjk-punctuation"}` | `{revision} \| {error: "STALE", current_revision}` |
 | `vmark.workflow` | `apply_patch` | `{tabId?, patches: IRPatch[], expected_revision?}` | `{revision} \| {error: "STALE" \| "INVALID_PATCH", details?}` |
 | | `validate` | `{tabId?}` | `{ok: bool, diagnostics: [{line, col, message, severity}]}` |
+| `vmark.selection` | `get` | `{tabId?}` | `{text, isEmpty, range: {from, to}, mode: "wysiwyg"\|"source", kind, tabId, revision}` |
+| | `set` | `{tabId?, content, expected_revision?}` | `{revision, replaced_chars} \| {error: "STALE" \| "NO_EDITOR" \| "INVALID_TAB", current_revision?}` |
 
-`tabId` is optional everywhere; defaults to the focused tab. `windowLabel` is optional; defaults to the focused window.
+`tabId` is optional everywhere; defaults to the focused tab. `windowLabel` is optional; defaults to the focused window. For `selection.*`, when `tabId` is supplied it must match the focused tab — selection is view-state and only the focused editor has a live selection; mismatch returns `INVALID_TAB`.
 
-**Errors:** Every action returns either `{success: true, data: ...}` or `{success: false, error: <code>, message: <human-readable>}`. Codes: `STALE`, `INVALID_PATCH`, `INVALID_TAB`, `INVALID_PATH`, `READ_ONLY`, `NOT_WORKFLOW`, `INTERNAL`.
+**Errors:** Every action returns either `{success: true, data: ...}` or `{success: false, error: <code>, message: <human-readable>}`. Codes: `STALE`, `INVALID_PATCH`, `INVALID_TAB`, `INVALID_PATH`, `READ_ONLY`, `NOT_WORKFLOW`, `NO_EDITOR`, `INTERNAL`.
 
 ## Work items
 
@@ -111,7 +128,11 @@ There is deliberately no `workflow.read` (would duplicate `document.read` return
 - **WI-1.7** — Version bump per `.claude/rules/40-version-bump.md` (5 files, breaking change). DoD: all 5 files match.
 - **WI-1.8** — Final gate: `pnpm check:all` + Tauri MCP smoke (read/write Markdown, transform CJK, apply_patch + validate on a workflow YAML). DoD: smoke passes; commit message lists every WI closed.
 
-This is a single-phase plan; phase boundary is just "everything green".
+### Phase 2 — Selection re-add (ADR-7)
+
+- **WI-2.1** — `vmark.selection.{get, set}` bridge handlers and MCP tool registration. New files: `src/hooks/mcpBridge/v2/selection.ts`, `vmark-mcp-server/src/tools/selection.ts`. Wire into `v2/dispatch.ts`, `READ_ONLY_BLOCKED`, `index.ts`/`TOOL_CATEGORIES`/`EXPECTED_TOOL_COUNT`. Extend `V2ErrorCode` with `NO_EDITOR` and `CheckpointTool` with `selection.set`. DoD: handler-level tests cover get/set across WYSIWYG and source modes, STALE rejection, no-editor rejection (including destroyed editors), tabId mismatch, single-marker emphasis detection; `--health-check` reports `toolCount: 5`; `pnpm check:all` green.
+
+This is now a two-phase plan; phase boundary is "everything green".
 
 ## Definition of Done
 

@@ -1,7 +1,7 @@
 /**
  * Core bridge types for communication between the MCP server and VMark.
  *
- * The pruned 4-tool surface defines BridgeRequest as a union of the 13
+ * The pruned 5-tool surface defines BridgeRequest as a union of the 15
  * `vmark.*` action types. The Rust bridge parser extracts `type` as the
  * request_type and forwards every other key as args, so all extra
  * fields here are flat (not nested under `args`).
@@ -52,7 +52,14 @@ export type BridgeRequest =
       patches: unknown[];
       expected_revision?: string;
     }
-  | { type: 'vmark.workflow.validate'; tabId?: string };
+  | { type: 'vmark.workflow.validate'; tabId?: string }
+  | { type: 'vmark.selection.get'; tabId?: string }
+  | {
+      type: 'vmark.selection.set';
+      tabId?: string;
+      content: string;
+      expected_revision?: string;
+    };
 
 /**
  * Bridge response types — what VMark returns.

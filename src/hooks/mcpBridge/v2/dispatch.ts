@@ -29,6 +29,7 @@ import {
   handleWorkflowApplyPatch,
   handleWorkflowValidate,
 } from "./workflow";
+import { handleSelectionGet, handleSelectionSet } from "./selection";
 
 /**
  * App version used in the `session.get_state` capabilities payload.
@@ -84,6 +85,13 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.workflow.validate":
       await handleWorkflowValidate(id, args);
+      return true;
+
+    case "vmark.selection.get":
+      await handleSelectionGet(id, args);
+      return true;
+    case "vmark.selection.set":
+      await handleSelectionSet(id, args);
       return true;
 
     default:

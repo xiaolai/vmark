@@ -1,14 +1,15 @@
 # MCP Tools Reference
 
-VMark exposes **four composite MCP tools** to AI assistants: `session`, `workspace`, `document`, and `workflow`. Together they cover **14 actions** — the read/write spine plus the file/window lifecycle plus CST-safe edits for GitHub Actions YAML.
+VMark exposes **five composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, and `selection`. Together they cover **15 actions** — the read/write spine plus the file/window lifecycle plus CST-safe edits for GitHub Actions YAML plus targeted edits on the user's current selection.
 
-The previous 12-tool / 76-action surface was pruned because in-document formatting tools (bold, headings, tables, etc.) duplicate work that AI agents already do trivially via Markdown round-trip. See [the MCP pruning plan](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) for the full rationale.
+The previous 12-tool / 76-action surface was pruned because in-document formatting tools (bold, headings, tables, etc.) duplicate work that AI agents already do trivially via Markdown round-trip. `selection` was kept (per ADR-7 of the pruning plan) because the full-doc round-trip is uneconomical on large files — every edit pays the whole document in input tokens, the whole document in output tokens (~5× input price), and a longer write window that widens the stale-revision retry loop. See [the MCP pruning plan](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) for the full rationale.
 
 ::: tip Recommended Workflow
 1. Call `session.get_state` once to see open windows, tabs, and per-tab `{filePath, dirty, revision, kind}`.
-2. For Markdown: `document.read` → reason → `document.write` (passing `expected_revision` for safe concurrency).
-3. For GitHub Actions YAML (`kind: "yaml-workflow"`): `workflow.apply_patch` for CST-safe edits that preserve comments and anchors; `workflow.validate` for actionlint diagnostics.
-4. File operations (open, save, close, switch tabs) live on `workspace`.
+2. For small Markdown changes or wholesale rewrites: `document.read` → reason → `document.write` (passing `expected_revision` for safe concurrency).
+3. For targeted edits on a large Markdown file when the user has selected the region to change: `selection.get` → reason → `selection.set` (cuts both input and output token cost to the selection).
+4. For GitHub Actions YAML (`kind: "yaml-workflow"`): `workflow.apply_patch` for CST-safe edits that preserve comments and anchors; `workflow.validate` for actionlint diagnostics.
+5. File operations (open, save, close, switch tabs) live on `workspace`.
 :::
 
 ::: tip Mermaid Diagrams
@@ -239,6 +240,48 @@ Returns `{ok, diagnostics, binaryAvailable}`. Each diagnostic carries `{line, co
 
 ---
 
+## `selection`
+
+Read or replace the user's current editor selection. Use this instead of `document.read`/`document.write` when the user has highlighted the region to change — `selection.get` returns just the selected slice, and `selection.set` rewrites just that range, so token cost scales with the edit, not the document.
+
+::: warning Selection is view-state — focused tab only
+The selection only exists in the editor that's currently rendered. If `tabId` is supplied it must match the focused tab; mismatch returns `INVALID_TAB`. If the focused tab has no live editor (e.g. read-only viewer), the response is `NO_EDITOR`.
+:::
+
+### `get`
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| `tabId` | string | No |
+
+Returns:
+
+| Field | Type | Notes |
+|---|---|---|
+| `text` | string | Markdown serialization of the selected slice (WYSIWYG mode), or raw selected text (source mode). Empty string when collapsed. |
+| `isEmpty` | boolean | `true` when the selection is collapsed (cursor only). |
+| `range` | `{from, to}` | ProseMirror positions in WYSIWYG mode; character offsets in source mode. |
+| `mode` | `"wysiwyg"` \| `"source"` | Disambiguates the position space of `range`. |
+| `kind` | `"markdown"` \| `"yaml-workflow"` | Document kind discriminator. |
+| `tabId` | string | Echoed for confirmation. |
+| `revision` | string | Pass back into `set` for optimistic concurrency. |
+
+### `set`
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| `tabId` | string | No |
+| `content` | string | Yes |
+| `expected_revision` | string | No (recommended) |
+
+Replaces whatever the editor reports as the current selection. **In WYSIWYG mode**, plain inline text inserts as a literal text node so leading/trailing whitespace round-trips exactly; content carrying markdown markers (`**bold**`, `*italic*`, `` `code` ``, fenced code, blockquotes, lists, etc.) is parsed as markdown and inserted as the corresponding nodes. **In source mode**, `content` is always spliced as raw text — the source surface is already markdown bytes. Empty `content` deletes the selection. When the selection is collapsed, `content` is inserted at the cursor.
+
+Returns `{revision, replaced_chars}` on success. `replaced_chars` is the length of the text that was selected before the call — useful for the AI to confirm it edited what it expected.
+
+`STALE` returns `{error: "STALE", message, current_revision}` exactly like `document.write`. The doc-level revision catches keystrokes between `get` and `set`. Pure cursor movement (without a keystroke) is not arbitrated by the server — if the user moved the cursor between `get` and `set`, the edit lands at the new position.
+
+---
+
 ## Errors
 
 Two error shapes appear:
@@ -259,5 +302,6 @@ Two error shapes appear:
 | `INVALID_PATH` | envelope | `workspace.open` received a `filePath` that could not be read |
 | `NOT_WORKFLOW` | envelope | `workflow.*` was called on a non-YAML-workflow tab |
 | `READ_ONLY` | envelope | A mutation was attempted on a read-only document |
+| `NO_EDITOR` | envelope | `selection.*` was called but the focused tab has no live editor |
 | `INTERNAL` | envelope | Unexpected handler error |
 | (plain string) | string | Required argument missing or wrong type |

@@ -219,7 +219,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
 
     // Only register and focus when not hidden
     if (!hiddenRef.current) {
-      useActiveEditorStore.getState().setActiveSourceView(view);
+      useActiveEditorStore.getState().setActiveSourceView(view, mountTabId);
     }
 
     const updateShortcutKeymap = () => {
@@ -312,12 +312,12 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       });
     }
 
-    // Register as active source view
-    useActiveEditorStore.getState().setActiveSourceView(view);
-
-    // Focus and restore cursor
+    // Register as active source view, bound to the currently visible tab
     const { activeTabId: tabIds } = useTabStore.getState();
     const visibleTabId = tabIds[windowLabel] ?? undefined;
+    useActiveEditorStore.getState().setActiveSourceView(view, visibleTabId);
+
+    // Focus and restore cursor
     setTimeout(() => {
       if (!viewRef.current || hiddenRef.current) return;
       view.focus();

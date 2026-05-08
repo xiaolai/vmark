@@ -1,6 +1,15 @@
 # ADR-004: Human-Oriented MCP Tool Design
 
-> Status: **Accepted** | Date: 2026-01-22
+> Status: **Superseded** by `dev-docs/plans/20260504-mcp-pruning.md` | Date: 2026-01-22
+>
+> The hybrid 60-tool surface this ADR designed was replaced by the pruned
+> 5-tool surface (`session`, `workspace`, `document`, `workflow`,
+> `selection`). The introspection tools described below were folded into
+> `session.get_state`; the granular formatting/structure/media/table tools
+> were dropped on the basis that AI agents round-trip Markdown trivially;
+> `selection.{get,set}` was retained per ADR-7 of the pruning plan because
+> the full-doc round-trip is uneconomical on large files. Read this file
+> for historical context only.
 
 ## Context
 
