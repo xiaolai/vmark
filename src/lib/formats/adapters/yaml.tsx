@@ -10,8 +10,10 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import jsYaml from "js-yaml";
-import { JsonView, defaultStyles } from "react-json-view-lite";
+import { JsonView, defaultStyles, darkStyles } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
+import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
+import "./json-tree.css";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,
@@ -117,12 +119,12 @@ function GhaWorkflowSchemaRenderer({
   if (!parseResult.ok) {
     return (
       <div
-        className="yaml-tree-preview yaml-tree-preview--invalid"
+        className="json-tree-preview json-tree-preview--invalid"
         data-schema="gha-workflow"
       >
         <span>{t("preview.workflowParseFailed")}</span>
         {diagnostics[0] && (
-          <span className="yaml-tree-preview__hint">
+          <span className="json-tree-preview__hint">
             {" "}
             {t("preview.errorAt", {
               line: diagnostics[0].line,
@@ -147,6 +149,7 @@ function GhaWorkflowSchemaRenderer({
 
 function YamlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   const { t } = useTranslation("editor");
+  const isDark = useIsDarkTheme();
   const parsed = useMemo(() => {
     try {
       return jsYaml.load(content);
@@ -157,10 +160,10 @@ function YamlTreePreview({ content, diagnostics }: PreviewRendererProps) {
 
   if (parsed == null) {
     return (
-      <div className="yaml-tree-preview yaml-tree-preview--invalid">
+      <div className="json-tree-preview json-tree-preview--invalid">
         <span>{t("preview.cannotRender")}</span>
         {diagnostics[0] && (
-          <span className="yaml-tree-preview__hint">
+          <span className="json-tree-preview__hint">
             {" "}
             {t("preview.errorAt", {
               line: diagnostics[0].line,
@@ -173,9 +176,9 @@ function YamlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   }
 
   return (
-    <div className="yaml-tree-preview">
+    <div className="json-tree-preview" data-format="yaml">
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <JsonView data={parsed as any} style={defaultStyles} />
+      <JsonView data={parsed as any} style={isDark ? darkStyles : defaultStyles} />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import DOMPurify from "dompurify";
 import { registerFormat } from "../registry";
+import "./html-preview.css";
 import type {
   FormatConfig,
   PreviewRendererProps,

@@ -23,6 +23,7 @@ import type { Extension } from "@codemirror/state";
 import { renderMermaid } from "@/plugins/mermaid";
 import { sanitizeSvg } from "@/utils/sanitize";
 import { registerFormat } from "../registry";
+import "./mermaid-preview.css";
 import type {
   FormatConfig,
   PreviewRendererProps,
@@ -76,7 +77,12 @@ export const mermaidValidator: Validator = (content) => {
   }
   if (!firstLine) return [];
   const head = firstLine.split(/\s+/)[0];
-  const matched = DIAGRAM_HEADERS.some((h) => head === h || head.startsWith(h));
+  // Exact match, or "<header>:" form (e.g. legacy `gitGraph:` syntax).
+  // Plain prefix matching would accept `flowchartXYZ` / `graphical` —
+  // a false negative for obviously bad headers.
+  const matched = DIAGRAM_HEADERS.some(
+    (h) => head === h || head === `${h}:`,
+  );
   if (!matched) {
     // Locate column of the first non-whitespace char on that line so
     // the marker points at the start of the offending token.

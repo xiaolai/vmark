@@ -20,29 +20,47 @@
   overflow: hidden;
 }
 
+/* Resize handle: a wider transparent hit area surrounds a 2px visible
+ * center bar. The track is 8px wide for grabbability; the visible bar
+ * is centered via ::before with hover/focus accent color. */
 .split-pane-editor__resize-handle {
-  flex: 0 0 var(--border-medium);
-  background: var(--border-color);
-  cursor: col-resize;
+  flex: 0 0 var(--space-2);
   position: relative;
+  background: transparent;
+  cursor: col-resize;
   outline: none;
   z-index: var(--z-resize-handle);
 }
 
-.split-pane-editor__resize-handle:hover,
-.split-pane-editor__resize-handle:focus-visible {
+.split-pane-editor__resize-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--border-medium);
+  margin-left: calc(var(--border-medium) * -0.5);
+  background: var(--border-color);
+  transition: background var(--duration-fast);
+}
+
+.split-pane-editor__resize-handle:hover::before,
+.split-pane-editor__resize-handle:focus-visible::before {
   background: var(--accent-primary);
 }
 
+/* Keyboard focus indicator — short bar at the bottom, matches U-shape
+ * idiom adapted for a vertical separator. */
 .split-pane-editor__resize-handle:focus-visible::after {
-  /* U-shape underline focus indicator — matches universal-toolbar pattern */
   content: "";
   position: absolute;
   bottom: var(--space-half);
-  left: 0;
-  right: 0;
+  left: 50%;
+  width: var(--space-3);
   height: var(--space-1);
+  margin-left: calc(var(--space-3) * -0.5);
   background: var(--accent-primary);
+  border-radius: var(--radius-sm);
 }
 
 .split-pane-editor__preview {

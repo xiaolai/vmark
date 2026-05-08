@@ -15,6 +15,8 @@ import type {
   PreviewRendererProps,
   SchemaDetector,
 } from "../types";
+import { DepList } from "./DepList";
+import "./dep-tree.css";
 
 // Cross-platform separator — accept both POSIX `/` and Windows `\`.
 // Anchored at end-of-string after stripping query/fragment so paths
@@ -99,42 +101,6 @@ export function collectCargoDependencies(
   };
 }
 
-function DependencyList({
-  title,
-  deps,
-}: {
-  title: string;
-  deps: CargoDependency[];
-}) {
-  if (deps.length === 0) return null;
-  return (
-    <section className="cargo-deps__section">
-      <h3 className="cargo-deps__heading">
-        {title} <span className="cargo-deps__count">{deps.length}</span>
-      </h3>
-      <ul className="cargo-deps__list">
-        {deps.map((d) => (
-          <li key={d.name} className="cargo-deps__item">
-            <span className="cargo-deps__name">{d.name}</span>
-            {d.version && (
-              <span className="cargo-deps__version">{d.version}</span>
-            )}
-            {d.features.length > 0 && (
-              <span className="cargo-deps__features">
-                {d.features.map((f) => (
-                  <span key={f} className="cargo-deps__feature">
-                    {f}
-                  </span>
-                ))}
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 export function CargoTomlSchemaRenderer({
   content,
   diagnostics,
@@ -145,9 +111,9 @@ export function CargoTomlSchemaRenderer({
     result.runtime.length + result.dev.length + result.build.length;
 
   return (
-    <div className="cargo-deps" data-schema="cargo-toml">
+    <div className="dep-tree" data-schema="cargo-toml">
       {result.parseError && (
-        <div className="cargo-deps__parse-error">
+        <div className="dep-tree__parse-error">
           {t("preview.cannotRender")}
           {diagnostics[0] && (
             <span>
@@ -161,20 +127,11 @@ export function CargoTomlSchemaRenderer({
         </div>
       )}
       {!result.parseError && totalDeps === 0 && (
-        <div className="cargo-deps__empty">{t("cargo.empty")}</div>
+        <div className="dep-tree__empty">{t("cargo.empty")}</div>
       )}
-      <DependencyList
-        title={t("cargo.dependencies")}
-        deps={result.runtime}
-      />
-      <DependencyList
-        title={t("cargo.devDependencies")}
-        deps={result.dev}
-      />
-      <DependencyList
-        title={t("cargo.buildDependencies")}
-        deps={result.build}
-      />
+      <DepList title={t("cargo.dependencies")} deps={result.runtime} />
+      <DepList title={t("cargo.devDependencies")} deps={result.dev} />
+      <DepList title={t("cargo.buildDependencies")} deps={result.build} />
     </div>
   );
 }

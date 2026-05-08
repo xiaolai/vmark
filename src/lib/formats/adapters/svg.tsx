@@ -16,6 +16,7 @@ import type { Extension } from "@codemirror/state";
 import { renderSvgBlock } from "@/plugins/svg/svgRender";
 import { sanitizeSvg } from "@/utils/sanitize";
 import { registerFormat } from "../registry";
+import "./svg-preview.css";
 import type {
   FormatConfig,
   PreviewRendererProps,

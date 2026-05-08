@@ -12,13 +12,15 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
-import { JsonView, defaultStyles } from "react-json-view-lite";
+import { JsonView, defaultStyles, darkStyles } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import {
   PackageJsonSchemaRenderer,
   packageJsonSchemaDetector,
 } from "./packageJson";
+import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
 import { registerFormat } from "../registry";
+import "./json-tree.css";
 import type {
   FormatConfig,
   PreviewRendererProps,
@@ -130,6 +132,7 @@ export const jsonValidator: Validator = (content, path) => {
 
 function JsonTreePreview({ content, path, diagnostics }: PreviewRendererProps) {
   const { t } = useTranslation("editor");
+  const isDark = useIsDarkTheme();
   const parsed = useMemo(() => {
     try {
       if (isJsonlPath(path ?? undefined)) {
@@ -167,7 +170,7 @@ function JsonTreePreview({ content, path, diagnostics }: PreviewRendererProps) {
 
   return (
     <div className="json-tree-preview">
-      <JsonView data={parsed} style={defaultStyles} />
+      <JsonView data={parsed} style={isDark ? darkStyles : defaultStyles} />
     </div>
   );
 }

@@ -10,6 +10,8 @@ import type {
   PreviewRendererProps,
   SchemaDetector,
 } from "../types";
+import { DepList } from "./DepList";
+import "./dep-tree.css";
 
 const PACKAGE_FILENAME_RE = /(^|[/\\])package\.json$/i;
 
@@ -86,31 +88,6 @@ export function collectPackageJsonDependencies(
   };
 }
 
-function DependencyList({
-  title,
-  deps,
-}: {
-  title: string;
-  deps: NpmDependency[];
-}) {
-  if (deps.length === 0) return null;
-  return (
-    <section className="cargo-deps__section">
-      <h3 className="cargo-deps__heading">
-        {title} <span className="cargo-deps__count">{deps.length}</span>
-      </h3>
-      <ul className="cargo-deps__list">
-        {deps.map((d) => (
-          <li key={d.name} className="cargo-deps__item">
-            <span className="cargo-deps__name">{d.name}</span>
-            <span className="cargo-deps__version">{d.version}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 export function PackageJsonSchemaRenderer({
   content,
   diagnostics,
@@ -127,9 +104,9 @@ export function PackageJsonSchemaRenderer({
     result.optional.length;
 
   return (
-    <div className="cargo-deps" data-schema="package-json">
+    <div className="dep-tree" data-schema="package-json">
       {result.parseError && (
-        <div className="cargo-deps__parse-error">
+        <div className="dep-tree__parse-error">
           {t("preview.cannotRender")}
           {diagnostics[0] && (
             <span>
@@ -143,18 +120,12 @@ export function PackageJsonSchemaRenderer({
         </div>
       )}
       {!result.parseError && total === 0 && (
-        <div className="cargo-deps__empty">{t("cargo.empty")}</div>
+        <div className="dep-tree__empty">{t("cargo.empty")}</div>
       )}
-      <DependencyList title={t("cargo.dependencies")} deps={result.runtime} />
-      <DependencyList
-        title={t("cargo.devDependencies")}
-        deps={result.dev}
-      />
-      <DependencyList title={t("npm.peerDependencies")} deps={result.peer} />
-      <DependencyList
-        title={t("npm.optionalDependencies")}
-        deps={result.optional}
-      />
+      <DepList title={t("cargo.dependencies")} deps={result.runtime} />
+      <DepList title={t("cargo.devDependencies")} deps={result.dev} />
+      <DepList title={t("npm.peerDependencies")} deps={result.peer} />
+      <DepList title={t("npm.optionalDependencies")} deps={result.optional} />
     </div>
   );
 }

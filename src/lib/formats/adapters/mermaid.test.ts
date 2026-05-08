@@ -98,5 +98,21 @@ invalid header
         expect(mermaidValidator(head + "\nA --> B")).toEqual([]);
       }
     });
+
+    it("accepts legacy colon-suffix syntax (e.g. gitGraph:)", () => {
+      expect(mermaidValidator("gitGraph:\n  commit")).toEqual([]);
+    });
+
+    it.each([
+      ["flowchartXYZ", "prefix-of-known-keyword should not match"],
+      ["graphical", "prefix-of-known-keyword should not match"],
+      ["pieChart", "prefix-of-known-keyword should not match"],
+      ["sequenceDiagramExtended", "prefix-of-known-keyword should not match"],
+    ])("rejects %s — %s", (head) => {
+      const diags = mermaidValidator(`${head}\nA --> B`);
+      expect(diags).toHaveLength(1);
+      expect(diags[0].ruleId).toBe("mermaid/missing-diagram-type");
+      expect(diags[0].message).toContain(head);
+    });
   });
 });

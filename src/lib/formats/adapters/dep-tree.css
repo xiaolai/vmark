@@ -1,0 +1,125 @@
+/* Dependency-tree styles for the Cargo / npm / Python schema renderers
+ * (cargoToml.tsx, packageJson.tsx, pyprojectToml.tsx). Token-only;
+ * dark-mode parity via existing tokens with one .dark-theme override
+ * for the rgba/color-mix bg on parse-error. */
+
+.dep-tree {
+  height: 100%;
+  overflow: auto;
+  padding: var(--spacing-3);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  color: var(--text-color);
+}
+
+.dep-tree__section {
+  margin: 0 0 var(--space-5) 0;
+}
+
+.dep-tree__section:last-child {
+  margin-bottom: 0;
+}
+
+.dep-tree__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0 0 var(--spacing-2) 0;
+  padding-bottom: var(--spacing-1);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-color);
+  letter-spacing: var(--letter-spacing-tight);
+  text-transform: uppercase;
+}
+
+.dep-tree__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-5);
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.dep-tree__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dep-tree__item {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  gap: var(--spacing-2);
+  align-items: baseline;
+  padding: var(--space-1-5) 0;
+  border-bottom: var(--border-hairline) solid var(--border-color);
+}
+
+.dep-tree__item:last-child {
+  border-bottom: 0;
+}
+
+.dep-tree__name {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--text-color);
+  word-break: break-word;
+}
+
+.dep-tree__version {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dep-tree__features {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-self: end;
+}
+
+.dep-tree__feature {
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.dep-tree__parse-error {
+  margin-bottom: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
+  border: var(--border-thin) solid var(--error-color);
+  border-radius: var(--radius-md);
+  background: var(--error-bg);
+  color: var(--error-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+}
+
+.dark-theme .dep-tree__parse-error {
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.dep-tree__empty {
+  padding: var(--spacing-3);
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  text-align: center;
+}

@@ -1,0 +1,45 @@
+/* Inline-SVG preview surface (svg.tsx). Centers the SVG, clamps to
+ * preview bounds, surfaces validation errors with token colors. */
+
+.svg-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--spacing-3);
+  overflow: auto;
+}
+
+.svg-preview > svg {
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  width: auto;
+}
+
+.svg-preview--empty {
+  /* Empty document: render nothing visible — preview slot stays
+   * silent until the user types real SVG. */
+  display: block;
+}
+
+.svg-preview--invalid {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3);
+  background: var(--error-bg);
+  color: var(--error-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+}
+
+.dark-theme .svg-preview--invalid {
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.svg-preview__hint {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}

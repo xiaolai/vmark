@@ -11,7 +11,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
-import { JsonView, defaultStyles } from "react-json-view-lite";
+import { JsonView, defaultStyles, darkStyles } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import { parse as parseToml } from "smol-toml";
 import {
@@ -22,7 +22,9 @@ import {
   PyprojectTomlSchemaRenderer,
   pyprojectTomlSchemaDetector,
 } from "./pyprojectToml";
+import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
 import { registerFormat } from "../registry";
+import "./json-tree.css";
 import type {
   FormatConfig,
   PreviewRendererProps,
@@ -62,6 +64,7 @@ export const tomlValidator: Validator = (content) => {
 
 function TomlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   const { t } = useTranslation("editor");
+  const isDark = useIsDarkTheme();
   const parsed = useMemo(() => {
     try {
       return parseToml(content);
@@ -72,10 +75,10 @@ function TomlTreePreview({ content, diagnostics }: PreviewRendererProps) {
 
   if (parsed === null) {
     return (
-      <div className="toml-tree-preview toml-tree-preview--invalid">
+      <div className="json-tree-preview json-tree-preview--invalid">
         <span>{t("preview.cannotRender")}</span>
         {diagnostics[0] && (
-          <span className="toml-tree-preview__hint">
+          <span className="json-tree-preview__hint">
             {" "}
             {t("preview.errorAt", {
               line: diagnostics[0].line,
@@ -88,8 +91,8 @@ function TomlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   }
 
   return (
-    <div className="toml-tree-preview">
-      <JsonView data={parsed} style={defaultStyles} />
+    <div className="json-tree-preview" data-format="toml">
+      <JsonView data={parsed} style={isDark ? darkStyles : defaultStyles} />
     </div>
   );
 }

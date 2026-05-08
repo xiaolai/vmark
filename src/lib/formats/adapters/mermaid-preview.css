@@ -1,0 +1,47 @@
+/* Standalone .mmd Mermaid preview container (mermaid.tsx). Note: the
+ * existing .code-block-preview.mermaid-preview rules in
+ * src/plugins/mermaid/mermaid.css are dual-class and don't reach the
+ * bare .mermaid-preview used here. The .mermaid-preview .node descendant
+ * rules in mermaid-fallback.css still apply because they only need
+ * .mermaid-preview as ancestor. */
+
+.mermaid-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--spacing-3);
+  overflow: auto;
+}
+
+.mermaid-preview > svg {
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  width: auto;
+}
+
+.mermaid-preview--empty {
+  display: block;
+}
+
+.mermaid-preview--invalid {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3);
+  background: var(--error-bg);
+  color: var(--error-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+}
+
+.dark-theme .mermaid-preview--invalid {
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.mermaid-preview__hint {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}

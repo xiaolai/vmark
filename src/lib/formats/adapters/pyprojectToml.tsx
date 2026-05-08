@@ -19,6 +19,8 @@ import type {
   PreviewRendererProps,
   SchemaDetector,
 } from "../types";
+import { DepList as SharedDepList, type DepEntry } from "./DepList";
+import "./dep-tree.css";
 
 const PYPROJECT_FILENAME_RE = /(^|[/\\])pyproject\.toml$/i;
 
@@ -150,31 +152,11 @@ export function collectPyprojectDependencies(
   };
 }
 
-function DepList({
-  title,
-  deps,
-}: {
-  title: string;
-  deps: PythonDependency[];
-}) {
-  if (deps.length === 0) return null;
-  return (
-    <section className="cargo-deps__section">
-      <h3 className="cargo-deps__heading">
-        {title} <span className="cargo-deps__count">{deps.length}</span>
-      </h3>
-      <ul className="cargo-deps__list">
-        {deps.map((d) => (
-          <li key={d.name} className="cargo-deps__item">
-            <span className="cargo-deps__name">{d.name}</span>
-            {d.spec && (
-              <span className="cargo-deps__version">{d.spec}</span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+function toDepEntries(deps: PythonDependency[]): DepEntry[] {
+  // PEP 508 / Poetry parsers emit { name, spec }; the shared DepList
+  // component expects { name, version }. Map at the boundary so the
+  // adapter doesn't leak its native shape into the presentation layer.
+  return deps.map((d) => ({ name: d.name, version: d.spec }));
 }
 
 export function PyprojectTomlSchemaRenderer({
@@ -196,9 +178,9 @@ export function PyprojectTomlSchemaRenderer({
     );
 
   return (
-    <div className="cargo-deps" data-schema="pyproject-toml">
+    <div className="dep-tree" data-schema="pyproject-toml">
       {result.parseError && (
-        <div className="cargo-deps__parse-error">
+        <div className="dep-tree__parse-error">
           {t("preview.cannotRender")}
           {diagnostics[0] && (
             <span>
@@ -212,23 +194,26 @@ export function PyprojectTomlSchemaRenderer({
         </div>
       )}
       {!result.parseError && total === 0 && (
-        <div className="cargo-deps__empty">{t("cargo.empty")}</div>
+        <div className="dep-tree__empty">{t("cargo.empty")}</div>
       )}
-      <DepList title={t("cargo.dependencies")} deps={result.runtime} />
+      <SharedDepList
+        title={t("cargo.dependencies")}
+        deps={toDepEntries(result.runtime)}
+      />
       {Object.entries(result.optionalGroups).map(([groupName, deps]) => (
-        <DepList
+        <SharedDepList
           key={`opt-${groupName}`}
           title={t("python.optionalGroup", { group: groupName })}
-          deps={deps}
+          deps={toDepEntries(deps)}
         />
       ))}
-      <DepList
+      <SharedDepList
         title={t("python.poetryDependencies")}
-        deps={result.poetryRuntime}
+        deps={toDepEntries(result.poetryRuntime)}
       />
-      <DepList
+      <SharedDepList
         title={t("python.poetryDevDependencies")}
-        deps={result.poetryDev}
+        deps={toDepEntries(result.poetryDev)}
       />
     </div>
   );

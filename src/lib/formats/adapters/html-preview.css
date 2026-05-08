@@ -1,0 +1,46 @@
+/* Sandboxed-iframe HTML preview (html.tsx). Without explicit width /
+ * height the iframe collapses to its UA default of 300x150 — these
+ * rules make it fill the preview slot. */
+
+.html-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-color);
+}
+
+.html-preview--empty {
+  /* Empty document: keep the slot quiet. */
+  display: block;
+}
+
+.html-preview__sign-off-pending {
+  flex: 0 0 auto;
+  padding: var(--spacing-1) var(--spacing-2);
+  background: var(--warning-bg);
+  border-bottom: var(--border-thin) solid var(--warning-border);
+  color: var(--warning-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+}
+
+.html-preview__hint {
+  flex: 0 0 auto;
+  padding: var(--spacing-1) var(--spacing-2);
+  background: var(--error-bg);
+  color: var(--error-color);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.dark-theme .html-preview__hint {
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.html-preview__iframe {
+  flex: 1 1 0%;
+  width: 100%;
+  border: 0;
+  background: var(--contrast-text);
+}

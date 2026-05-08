@@ -1,0 +1,36 @@
+/* Generic data-tree preview wrapper used by json.tsx, yaml.tsx, and
+ * toml.tsx around `react-json-view-lite`'s <JsonView />. The library
+ * supplies its own internal styles (defaultStyles / darkStyles); we
+ * style only the container, the invalid-state surface, and the inline
+ * "error at line" hint. */
+
+.json-tree-preview {
+  height: 100%;
+  overflow: auto;
+  padding: var(--spacing-2);
+  background: var(--bg-color);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.json-tree-preview--invalid {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3);
+  background: var(--error-bg);
+  color: var(--error-color);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+}
+
+.dark-theme .json-tree-preview--invalid {
+  background: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.json-tree-preview__hint {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
