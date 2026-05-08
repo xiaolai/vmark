@@ -12,6 +12,9 @@
 //!     events (which target "main") work correctly.
 //!   - File opens from Finder are grouped by workspace root so multiple files in the
 //!     same directory open as tabs in a single window.
+//!   - macOS dock-icon reactivation restores the user's most-recent workspace via
+//!     `pick_reopen_workspace_root` (validated against the live filesystem) instead
+//!     of opening an unscoped untitled doc.
 //!   - Settings window is a singleton — re-shown and focused if already open.
 //!
 //! Known limitations:

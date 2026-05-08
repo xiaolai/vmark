@@ -15,7 +15,10 @@
 //!     running) use `app.emit()` (global broadcast) — NOT `window.emit()` — so the
 //!     frontend's global `listen()` in `useFinderFileOpen` receives them. Tauri v2
 //!     webview-specific events are not delivered to global `listen()`.
-//!   - macOS Reopen event (dock click) creates a new main window when none visible.
+//!   - macOS Reopen event (dock click) creates a new main window when none visible,
+//!     restoring the user's most-recent workspace via
+//!     `window_manager::pick_reopen_workspace_root` so closing the last tab and
+//!     re-clicking the dock doesn't drop them into an orphan untitled doc.
 //!   - Default shell resolved via `getpwuid_r` → `$SHELL` → `/bin/sh` (reliable in
 //!     GUI apps). Available shells detected from `/etc/shells` (Unix) or `where.exe`
 //!     (Windows), always returning absolute paths.
