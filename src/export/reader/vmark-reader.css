@@ -45,7 +45,7 @@
   width: 280px;
   background: var(--bg-color, #eeeded);
   border: 1px solid var(--border-color, #d5d4d4);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   opacity: 0;
   visibility: hidden;

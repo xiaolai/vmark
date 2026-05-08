@@ -213,9 +213,10 @@
 }
 
 .workflow-form__input:focus {
-  outline: none;
+  /* Focus indicator: accent-primary border + accent-bg ring + caret.
+   * The base rule already disables the default focus ring, so we only
+   * declare the visible replacement here. */
   border-color: var(--accent-primary);
-  /* Focus indicator: full-border accent + caret remains the primary cue. */
   box-shadow: 0 0 0 var(--border-thin) var(--accent-bg);
 }
 

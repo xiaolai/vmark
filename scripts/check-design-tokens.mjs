@@ -27,6 +27,9 @@ const checks = [
       /editor\.css$/,          // Syntax highlighting (GitHub theme)
       /printStyles\.css$/,     // Print overrides (forces light theme)
       /exportStyles\.css$/,    // Export embeds standalone colors
+      /vmark-reader\.css$/,    // Export reader bundle defines its own tokens
+      /hljs-syntax\.css$/,     // Syntax-highlight palette (GitHub theme)
+      /source-syntax\.css$/,   // Syntax-highlight palette (CodeMirror)
     ],
   },
   {
