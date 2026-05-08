@@ -282,9 +282,20 @@ pub fn open_in_external_editor(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Serializes tests that mutate the process environment. `cargo test`
+    /// runs `#[test]` functions in parallel threads, but `std::env` is
+    /// process-wide — without this guard the three `resolve_editor_*`
+    /// tests below race on `VMARK_EXTERNAL_EDITOR` / `VISUAL` / `EDITOR`,
+    /// producing platform-dependent flaky failures (notably on Linux CI).
+    /// Holding `_guard` for the duration of each test makes the env
+    /// mutations effectively atomic across the suite.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn resolve_editor_prefers_gui_override_above_all() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // GUI setting beats every env var.
         let _vmark = std::env::var("VMARK_EXTERNAL_EDITOR").ok();
         let _visual = std::env::var("VISUAL").ok();
@@ -306,6 +317,7 @@ mod tests {
 
     #[test]
     fn resolve_editor_prefers_vmark_env_when_no_override() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _vmark = std::env::var("VMARK_EXTERNAL_EDITOR").ok();
         let _visual = std::env::var("VISUAL").ok();
         let _editor = std::env::var("EDITOR").ok();
@@ -323,6 +335,7 @@ mod tests {
 
     #[test]
     fn resolve_editor_falls_through_to_platform_default() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _vmark = std::env::var("VMARK_EXTERNAL_EDITOR").ok();
         let _visual = std::env::var("VISUAL").ok();
         let _editor = std::env::var("EDITOR").ok();
