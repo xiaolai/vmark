@@ -14,13 +14,26 @@ To format just a selection, use `Mod + Shift + F`.
 
 ### 1. CJK-Latin Spacing
 
-Automatically adds spaces between CJK and Latin characters/numbers.
+Automatically adds spaces between CJK and Latin characters/numbers, including
+signed numbers (negative, positive, plus-minus) and numbers with a currency
+prefix.
 
 | Before | After |
 |--------|-------|
 | 学习Python编程 | 学习 Python 编程 |
 | 共100个 | 共 100 个 |
 | 使用macOS系统 | 使用 macOS 系统 |
+| 我有-1个 | 我有 -1 个 |
+| 我有+1个 | 我有 +1 个 |
+| 误差±5%范围 | 误差 ±5% 范围 |
+| 中文-$100元 | 中文 -$100 元 |
+| 范围-100到-200 | 范围 -100 到 -200 |
+
+The recognized sign characters are ASCII `-` `+`, fullwidth `－` `＋`, Unicode
+minus `−`, and plus-minus `±`. A sign is only attached to the number when
+followed by a digit (or a currency symbol followed by a digit), so CJK-Latin
+hyphenated identifiers (e.g. `中文-Web`) and CJK-CJK hyphenated phrases
+(e.g. `中文-我`) stay intact, and ranges like `5-10` are preserved.
 
 ### 2. Fullwidth Punctuation
 

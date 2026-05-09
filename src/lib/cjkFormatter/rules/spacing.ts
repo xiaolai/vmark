@@ -6,12 +6,46 @@
 
 import { CJK_NO_KOREAN } from "./shared";
 
+/**
+ * Sign characters recognised in front of a digit run (issue 898 + extensions).
+ *
+ * Covered:
+ *   - ASCII `-` `+`
+ *   - Fullwidth `－` (U+FF0D) `＋` (U+FF0B), common from CJK IMEs
+ *   - Unicode minus `−` (U+2212), plus-minus `±` (U+00B1)
+ *
+ * Single source of truth — both sign-before-currency and sign-after-currency
+ * slots in `alphanumPattern` reference this so adding/removing a sign char
+ * stays in one place.
+ */
+const SIGN_CHAR_CLASS = "[-+−±－＋]";
+
+/** Currency symbols allowed as a prefix to the digit run. */
+const CURRENCY_CHAR_CLASS = "[$¥€£₹]";
+
 /** Add spaces between CJK characters and English/numbers. */
 export function addCJKEnglishSpacing(text: string): string {
   // Korean excluded: Korean uses native word spacing and particles attach
   // directly to preceding words (e.g., "VMark에는" not "VMark 에는").
+  //
+  // The pattern accepts an optional sign in two positions so all of the
+  // following are treated as a single token attached to the digit run:
+  //
+  //   -1, +1, −1, ±1, －1, ＋1     (sign-before-currency slot, no currency)
+  //   -$100, +€50, -$ 100         (sign-before-currency slot, with currency)
+  //   $-100, $+100, $ -100        (sign-after-currency slot)
+  //
+  // The lookaheads keep hyphenated identifiers (e.g. `中文-Web`,
+  // `中文+A1`) and CJK-CJK hyphenation (e.g. `中文-我`) intact:
+  //   - sign-before fires only when a digit, or a currency-(maybe-space)-digit
+  //     sequence, follows;
+  //   - sign-after fires only when a digit follows.
   const alphanumPattern =
-    "(?:[$¥€£₹][ ]?)?[A-Za-z0-9]+(?:[%‰℃℉]|°[CcFf]?|[ ]?(?:USD|CNY|EUR|GBP|RMB))?";
+    `(?:${SIGN_CHAR_CLASS}(?=\\d|${CURRENCY_CHAR_CLASS}[ ]?\\d))?` +
+    `(?:${CURRENCY_CHAR_CLASS}[ ]?)?` +
+    `(?:${SIGN_CHAR_CLASS}(?=\\d))?` +
+    "[A-Za-z0-9]+" +
+    "(?:[%‰℃℉]|°[CcFf]?|[ ]?(?:USD|CNY|EUR|GBP|RMB))?";
 
   // CJK (non-Korean) followed by alphanumeric
   text = text.replace(

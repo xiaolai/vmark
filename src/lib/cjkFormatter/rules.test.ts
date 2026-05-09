@@ -308,6 +308,136 @@ describe("addCJKEnglishSpacing", () => {
     expect(addCJKEnglishSpacing("안녕Hello")).toBe("안녕Hello");
     expect(addCJKEnglishSpacing("Hello안녕")).toBe("Hello안녕");
   });
+
+  // Issue 898 + extensions — signed numbers between CJK characters were
+  // not being spaced. The pattern handles ASCII `-`/`+`, fullwidth `－`/`＋`,
+  // Unicode minus `−`, and plus-minus `±`, in two positions (before and
+  // after an optional currency prefix).
+  describe("signed numbers adjacent to CJK (issue 898)", () => {
+    // ----- ASCII minus -----
+    it("adds spaces around a negative integer between CJK characters", () => {
+      expect(addCJKEnglishSpacing("我有-1个")).toBe("我有 -1 个");
+    });
+
+    it("adds spaces around a negative integer at the start of a CJK clause", () => {
+      expect(addCJKEnglishSpacing("-1是负数")).toBe("-1 是负数");
+    });
+
+    it("preserves the period inside a negative decimal", () => {
+      expect(addCJKEnglishSpacing("中文-1.5个")).toBe("中文 -1.5 个");
+    });
+
+    it("handles CJK + negative range '范围-100到-200'", () => {
+      expect(addCJKEnglishSpacing("范围-100到-200")).toBe("范围 -100 到 -200");
+    });
+
+    // ----- ASCII plus -----
+    it("adds spaces around a positive integer between CJK characters", () => {
+      expect(addCJKEnglishSpacing("我有+1个")).toBe("我有 +1 个");
+    });
+
+    it("adds spaces around a positive integer at the start of a CJK clause", () => {
+      expect(addCJKEnglishSpacing("+1是正数")).toBe("+1 是正数");
+    });
+
+    it("handles CJK + positive decimal", () => {
+      expect(addCJKEnglishSpacing("中文+1.5个")).toBe("中文 +1.5 个");
+    });
+
+    // ----- Fullwidth signs (common from CJK IMEs) -----
+    it("handles fullwidth hyphen-minus －", () => {
+      expect(addCJKEnglishSpacing("中文－1个")).toBe("中文 －1 个");
+    });
+
+    it("handles fullwidth plus ＋", () => {
+      expect(addCJKEnglishSpacing("中文＋1个")).toBe("中文 ＋1 个");
+    });
+
+    // ----- Unicode minus and plus-minus -----
+    it("handles Unicode minus −", () => {
+      expect(addCJKEnglishSpacing("中文−1个")).toBe("中文 −1 个");
+    });
+
+    it("handles plus-minus ± with a percentage unit", () => {
+      expect(addCJKEnglishSpacing("误差±5%范围")).toBe("误差 ±5% 范围");
+    });
+
+    // ----- Sign before currency prefix -----
+    it("handles sign before currency: -$100", () => {
+      expect(addCJKEnglishSpacing("中文-$100元")).toBe("中文 -$100 元");
+    });
+
+    it("handles plus before euro: +€50", () => {
+      expect(addCJKEnglishSpacing("中文+€50元")).toBe("中文 +€50 元");
+    });
+
+    it("handles sign before currency with optional space: -$ 100", () => {
+      // Currency-prefix has an optional space; sign-before-currency lookahead
+      // must allow it transitively so "-$ 100" is treated as one token.
+      expect(addCJKEnglishSpacing("中文-$ 100元")).toBe("中文 -$ 100 元");
+    });
+
+    // ----- Sign after currency prefix (regression + spaced + non-ASCII) -----
+    it("preserves sign-after-currency form $-100", () => {
+      expect(addCJKEnglishSpacing("中文$-100元")).toBe("中文 $-100 元");
+    });
+
+    it("handles spaced currency with sign-after: $ -100", () => {
+      expect(addCJKEnglishSpacing("中文$ -100元")).toBe("中文 $ -100 元");
+    });
+
+    it("handles non-ASCII sign in sign-after position: $＋100 (fullwidth plus)", () => {
+      expect(addCJKEnglishSpacing("中文$＋100元")).toBe("中文 $＋100 元");
+    });
+
+    it("handles non-ASCII sign in sign-after position: $−100 (Unicode minus)", () => {
+      expect(addCJKEnglishSpacing("中文$−100元")).toBe("中文 $−100 元");
+    });
+
+    it("handles non-ASCII sign in sign-after position: $±5 (plus-minus)", () => {
+      expect(addCJKEnglishSpacing("中文$±5元")).toBe("中文 $±5 元");
+    });
+
+    it("rejects sign-before when no digit eventually follows (defensive)", () => {
+      // Sign-before lookahead must require digit-after-currency; e.g.
+      // `中文-$元` (no digit after currency) must not match the signed token.
+      expect(addCJKEnglishSpacing("中文-$元")).toBe("中文-$元");
+    });
+
+    // ----- Hyphenated identifiers and CJK-CJK hyphens (must NOT split) -----
+    it("does not insert a space inside CJK-CJK hyphenated phrases", () => {
+      expect(addCJKEnglishSpacing("中文-我")).toBe("中文-我");
+    });
+
+    it("does not split CJK-Latin hyphenated identifiers (minus-letter)", () => {
+      expect(addCJKEnglishSpacing("中文-Web")).toBe("中文-Web");
+    });
+
+    it("does not split CJK-Latin hyphenated identifiers (plus-letter)", () => {
+      expect(addCJKEnglishSpacing("中文+Web")).toBe("中文+Web");
+    });
+
+    it("does not split CJK + hyphen-letter-digit (identifier-like)", () => {
+      // The leading char after `-` is a letter, so the hyphen is not a sign.
+      expect(addCJKEnglishSpacing("中文-A1个")).toBe("中文-A1 个");
+    });
+
+    // ----- Range/date preservation (no-CJK and CJK contexts) -----
+    it("treats hyphen between digits as a range when no CJK precedes", () => {
+      expect(addCJKEnglishSpacing("5-10")).toBe("5-10");
+      expect(addCJKEnglishSpacing("范围5-10")).toBe("范围 5-10");
+    });
+
+    it("preserves an ISO date inside CJK text", () => {
+      expect(addCJKEnglishSpacing("中文2024-01-01日")).toBe("中文 2024-01-01 日");
+    });
+
+    // ----- Regression on plain positive cases -----
+    it("does not regress simple positive number cases", () => {
+      expect(addCJKEnglishSpacing("我有1个")).toBe("我有 1 个");
+      expect(addCJKEnglishSpacing("共100个")).toBe("共 100 个");
+    });
+  });
 });
 
 describe("Korean handling - punctuation excluded", () => {
