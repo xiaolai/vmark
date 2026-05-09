@@ -1259,6 +1259,38 @@ describe('restoreHelpers', () => {
       expect(mockCreateTab).toHaveBeenCalledWith('main', '/notes/blank.md');
     });
 
+    it('should fall back to first remaining tab when active_tab_id pointed to a filtered empty-untitled', async () => {
+      // active_tab_id mapping skips filtered tabs, so the saved-state's
+      // active id ('tab-blank') won't be in the tabIdMap. Restore must
+      // gracefully fall back to the first surviving tab — without this
+      // path being exercised, a regression that drops the fallback would
+      // silently leave the window with no active tab.
+      mockGetTabsByWindow
+        .mockReturnValueOnce([]) // initial clear lookup
+        .mockReturnValueOnce([{ id: 'new-real' }]); // fallback lookup
+      mockCreateTab.mockReturnValueOnce('new-real');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-blank',
+        tabs: [
+          // Filtered: was the active tab
+          makeTabState({
+            id: 'tab-blank',
+            file_path: null,
+            document: makeDocState({ content: '', saved_content: '' }),
+          }),
+          // Survives the filter
+          makeTabState({ id: 'tab-real', file_path: '/notes/a.md' }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockCreateTab).toHaveBeenCalledTimes(1);
+      expect(mockCreateTab).toHaveBeenCalledWith('main', '/notes/a.md');
+      expect(mockSetActiveTab).toHaveBeenCalledWith('main', 'new-real');
+    });
+
     it('should preserve existing tabs when saved state has only empty-untitled tabs', async () => {
       // Hot-exit captured a session that was effectively empty (one blank
       // untitled tab). Restoring it would just clear the WindowContext-

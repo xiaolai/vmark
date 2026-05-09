@@ -86,11 +86,8 @@ function toStoreCursorInfo(cursorInfo: CursorInfo | null | undefined): StoreCurs
  * An empty-untitled tab carries no information: no file path, no saved
  * content, and no unsaved content. Restoring such tabs only adds orphan
  * blank tabs the user has to close manually — there is nothing to recover.
- *
- * Exported for the test in restoreHelpers.test.ts; not part of the public
- * API surface.
  */
-export function isEmptyUntitledTab(tab: TabState): boolean {
+function isEmptyUntitledTab(tab: TabState): boolean {
   return tab.file_path === null
     && tab.document.content === ""
     && tab.document.saved_content === "";

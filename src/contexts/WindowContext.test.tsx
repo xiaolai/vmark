@@ -539,6 +539,18 @@ describe("WindowContext", () => {
       await waitFor(() => {
         expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/projects/myapp");
       });
+
+      // The file tab MUST still be created when workspaceRoot AND file are
+      // both present — guards against the workspace-mode skip in the
+      // else-branch ever bleeding into the file-loading paths.
+      await waitFor(() => {
+        expect(mockCreateTab).toHaveBeenCalledWith("main", "/projects/myapp/README.md");
+        expect(mockInitDocument).toHaveBeenCalledWith(
+          "tab-1",
+          "# README",
+          "/projects/myapp/README.md",
+        );
+      });
     });
 
     it("does NOT create a blank untitled tab when entering a workspace with no file", async () => {
