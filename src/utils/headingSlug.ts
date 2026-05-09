@@ -6,6 +6,18 @@
  */
 
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
+import { linkPopupError } from "@/utils/debug";
+
+/**
+ * Minimal structural shape required for fragment navigation. Compatible with
+ * both `@tiptap/pm/view`'s `EditorView` and the popup-shared `EditorViewLike`.
+ */
+type NavigableEditorView = {
+  state: EditorState & { tr: Transaction };
+  dispatch: (tr: Transaction) => void;
+  focus: () => void;
+};
 
 /**
  * Generate a URL-safe slug from heading text.
@@ -79,6 +91,32 @@ export function findHeadingById(doc: PMNode, targetId: string): number | null {
   const headings = extractHeadingsWithIds(doc);
   const found = headings.find((h) => h.id === targetId);
   return found?.pos ?? null;
+}
+
+/**
+ * Navigate the given ProseMirror view to the heading whose generated ID
+ * matches `targetId`. Sets a non-history selection at the heading and
+ * scrolls it into view. Returns true if the heading was found and the
+ * transaction dispatched; false otherwise.
+ *
+ * Shared between Cmd+Click (linkPopup tiptap plugin) and the link popup's
+ * Open icon — both used to maintain near-identical inline copies.
+ */
+export function navigateToHeadingById(view: NavigableEditorView, targetId: string): boolean {
+  const pos = findHeadingById(view.state.doc, targetId);
+  if (pos === null) return false;
+
+  try {
+    const $pos = view.state.doc.resolve(pos + 1);
+    const selection = TextSelection.near($pos);
+    const tr = view.state.tr.setSelection(selection).scrollIntoView();
+    view.dispatch(tr.setMeta("addToHistory", false));
+    view.focus();
+    return true;
+  } catch (error) {
+    linkPopupError("Fragment navigation error:", error);
+    return false;
+  }
 }
 
 /**

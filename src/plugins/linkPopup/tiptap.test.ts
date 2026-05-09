@@ -49,12 +49,25 @@ vi.mock("@/stores/linkCreatePopupStore", () => ({
 // Mock headingSlug
 vi.mock("@/utils/headingSlug", () => ({
   findHeadingById: vi.fn(() => null),
+  navigateToHeadingById: vi.fn(() => false),
 }));
 
 // Mock tauri opener
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(() => Promise.resolve()),
 }));
+
+// Mock cross-file open helper (hoisted so vi.mock factory can reference it)
+const { mockOpenFilepathLink } = vi.hoisted(() => ({
+  mockOpenFilepathLink: vi.fn(() => Promise.resolve(true)),
+}));
+vi.mock("@/utils/linkOpen", async () => {
+  const actual = await vi.importActual<typeof import("@/utils/linkOpen")>("@/utils/linkOpen");
+  return {
+    ...actual,
+    openFilepathLink: mockOpenFilepathLink,
+  };
+});
 
 import { openUrl as mockOpenUrl } from "@tauri-apps/plugin-opener";
 import { findLinkMarkRange, linkPopupExtension } from "./tiptap";
@@ -123,6 +136,8 @@ describe("linkPopupExtension", () => {
     mockLinkPopupState.closePopup.mockClear();
     mockLinkCreatePopupState.isOpen = false;
     mockLinkCreatePopupState.closePopup.mockClear();
+    mockOpenFilepathLink.mockClear();
+    mockOpenFilepathLink.mockResolvedValue(true);
   });
 
   describe("extension creation", () => {
@@ -329,9 +344,10 @@ describe("linkPopupExtension", () => {
       expect(result).toBe(true);
       expect(preventDefault).toHaveBeenCalled();
 
-      // Wait for dynamic import in source code to resolve
-      await new Promise((r) => setTimeout(r, 10));
-      expect(mockOpenUrl).toHaveBeenCalledWith("http://example.com");
+      // Wait deterministically for the dynamic openUrl import to resolve.
+      await vi.waitFor(() => {
+        expect(mockOpenUrl).toHaveBeenCalledWith("http://example.com");
+      });
     });
 
     it("Ctrl+click on external link opens in browser", async () => {
@@ -349,43 +365,27 @@ describe("linkPopupExtension", () => {
     it("Cmd+click on fragment link navigates to heading", async () => {
       const handleClick = getHandleClick();
 
-      const { findHeadingById } = await import("@/utils/headingSlug");
-      vi.mocked(findHeadingById).mockReturnValue(0);
+      const { navigateToHeadingById } = await import("@/utils/headingSlug");
+      vi.mocked(navigateToHeadingById).mockReturnValueOnce(true);
 
-      // Build a doc with a heading and a link
-      const linkMark = schema.marks.link.create({ href: "#my-heading" });
-      const doc = schema.node("doc", null, [
-        schema.node("heading", { level: 1, id: "my-heading" }, [schema.text("My Heading")]),
-        schema.node("paragraph", null, [
-          schema.text("click", [linkMark]),
-        ]),
-      ]);
+      const doc = createDocWithLink("", "click", "#my-heading", "");
       const state = EditorState.create({ doc, schema });
       const view = createMockView(state);
 
-      // Need real dispatch for TextSelection.near to work
-      view.dispatch = vi.fn((_tr) => {
-        // Accept the transaction
-      });
-
-      // link text starts at paragraph start
-      // heading: 1 (open) + 10 (text) + 1 (close) = 12, so paragraph starts at 12
-      // paragraph: 12 (open) = 13, link "click" at 13..18
-      const linkPos = 13;
       const event = new MouseEvent("click", { metaKey: true });
       const preventDefault = vi.spyOn(event, "preventDefault");
-      const result = handleClick(view, linkPos, event);
+      const result = handleClick(view, 2, event);
 
       expect(result).toBe(true);
       expect(preventDefault).toHaveBeenCalled();
-      expect(findHeadingById).toHaveBeenCalledWith(expect.anything(), "my-heading");
+      expect(navigateToHeadingById).toHaveBeenCalledWith(view, "my-heading");
     });
 
     it("Cmd+click on fragment link returns false when heading not found", async () => {
       const handleClick = getHandleClick();
 
-      const { findHeadingById } = await import("@/utils/headingSlug");
-      vi.mocked(findHeadingById).mockReturnValue(null);
+      const { navigateToHeadingById } = await import("@/utils/headingSlug");
+      vi.mocked(navigateToHeadingById).mockReturnValueOnce(false);
 
       const doc = createDocWithLink("", "click", "#nonexistent", "");
       const state = EditorState.create({ doc, schema });
@@ -395,6 +395,27 @@ describe("linkPopupExtension", () => {
       const result = handleClick(view, 2, event);
 
       expect(result).toBe(false);
+    });
+
+    it("Cmd+click on a filepath link calls openFilepathLink and prevents default", async () => {
+      const handleClick = getHandleClick();
+      const doc = createDocWithLink("", "click", "../appendix/cards.md#bern", "");
+      const state = EditorState.create({ doc, schema });
+      const view = createMockView(state);
+
+      const event = new MouseEvent("click", { metaKey: true });
+      const preventDefault = vi.spyOn(event, "preventDefault");
+      const result = handleClick(view, 2, event);
+
+      expect(result).toBe(true);
+      expect(preventDefault).toHaveBeenCalled();
+      expect(mockOpenFilepathLink).toHaveBeenCalledWith("../appendix/cards.md#bern");
+      // Filepath path must not fall through to the external browser opener.
+      // Snapshot the call count before this test's click to avoid false
+      // positives from other tests in the same file.
+      expect(vi.mocked(mockOpenUrl).mock.calls).not.toContainEqual([
+        "../appendix/cards.md#bern",
+      ]);
     });
 
     it("Cmd+click on non-link returns false", () => {
@@ -466,50 +487,37 @@ describe("linkPopupExtension", () => {
 
     it("navigates to heading on Cmd+click on #fragment link when heading found", async () => {
       const handleClick = getHandleClick();
-      const { findHeadingById } = await import("@/utils/headingSlug");
+      const { navigateToHeadingById } = await import("@/utils/headingSlug");
+      vi.mocked(navigateToHeadingById).mockReturnValueOnce(true);
 
-      // Create doc with heading and a fragment link
-      const linkMark = schema.marks.link.create({ href: "#test-heading" });
-      const doc = schema.node("doc", null, [
-        schema.node("heading", { level: 1, id: "test-heading" }, [schema.text("Test Heading")]),
-        schema.node("paragraph", null, [
-          schema.text("click", [linkMark]),
-        ]),
-      ]);
+      const doc = createDocWithLink("", "click", "#test-heading", "");
       const state = EditorState.create({ doc, schema });
       const view = createMockView(state);
-      view.dispatch = vi.fn();
 
-      // Heading at position 0, so findHeadingById returns 0
-      vi.mocked(findHeadingById).mockReturnValue(0);
-
-      const linkPos = 15; // Inside the link text "click" in the paragraph after heading
       const event = new MouseEvent("click", { metaKey: true });
-      const result = handleClick(view, linkPos, event);
+      const preventDefault = vi.spyOn(event, "preventDefault");
+      const result = handleClick(view, 2, event);
 
       expect(result).toBe(true);
-      expect(view.dispatch).toHaveBeenCalled();
-      expect(view.focus).toHaveBeenCalled();
+      expect(preventDefault).toHaveBeenCalled();
+      expect(navigateToHeadingById).toHaveBeenCalledWith(view, "test-heading");
     });
 
-    it("navigateToFragment catches and handles errors", async () => {
+    it("Cmd+click on #fragment link returns false when navigateToHeadingById fails", async () => {
+      // The navigateToHeadingById error path (heading found but doc.resolve
+      // throws) is covered in utils/headingSlug.test.ts. The handler contract
+      // here is just: when the helper returns false, handleClick returns false.
       const handleClick = getHandleClick();
-      const { findHeadingById } = await import("@/utils/headingSlug");
+      const { navigateToHeadingById } = await import("@/utils/headingSlug");
+      vi.mocked(navigateToHeadingById).mockReturnValueOnce(false);
 
-      // findHeadingById returns a position that causes resolve to fail
-      vi.mocked(findHeadingById).mockReturnValue(999);
-
-      const linkMark = schema.marks.link.create({ href: "#bad" });
-      const doc = schema.node("doc", null, [
-        schema.node("paragraph", null, [schema.text("link", [linkMark])]),
-      ]);
+      const doc = createDocWithLink("", "click", "#missing-or-broken", "");
       const state = EditorState.create({ doc, schema });
       const view = createMockView(state);
 
       const event = new MouseEvent("click", { metaKey: true });
-      // Should not throw even if resolve fails
       const result = handleClick(view, 2, event);
-      // Returns false because navigateToFragment catches the error and returns false
+
       expect(result).toBe(false);
     });
   });

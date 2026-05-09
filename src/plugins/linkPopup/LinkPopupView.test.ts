@@ -48,11 +48,24 @@ vi.mock("@/plugins/sourcePopup", () => ({
 
 vi.mock("@/utils/headingSlug", () => ({
   findHeadingById: vi.fn(() => null),
+  navigateToHeadingById: vi.fn(() => false),
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(() => Promise.resolve()),
 }));
+
+const { mockOpenFilepathLink } = vi.hoisted(() => ({
+  mockOpenFilepathLink: vi.fn(() => Promise.resolve(true)),
+}));
+
+vi.mock("@/utils/linkOpen", async () => {
+  const actual = await vi.importActual<typeof import("@/utils/linkOpen")>("@/utils/linkOpen");
+  return {
+    ...actual,
+    openFilepathLink: mockOpenFilepathLink,
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Imports
@@ -61,7 +74,6 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // isImeKeyEvent is mocked above — no direct import needed
 import { linkPopupError } from "@/utils/debug";
-import { findHeadingById } from "@/utils/headingSlug";
 
 // ---------------------------------------------------------------------------
 // Store mock
@@ -159,6 +171,7 @@ describe("LinkPopupView", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockOpenFilepathLink.mockResolvedValue(true);
     storeState = {
       isOpen: false,
       anchorRect: null,
@@ -283,29 +296,22 @@ describe("LinkPopupView", () => {
   // handleOpen — line 199: bookmark catch block
   // ---------------------------------------------------------------------------
 
-  it("handleOpen bookmark catch block logs error when navigation fails", () => {
-    vi.mocked(linkPopupError).mockClear();
+  it("handleOpen does not close popup when navigateToHeadingById returns false", async () => {
+    const { navigateToHeadingById } = await import("@/utils/headingSlug");
+    vi.mocked(navigateToHeadingById).mockReturnValueOnce(false);
 
-    // findHeadingById returns a position so navigation is attempted
-    vi.mocked(findHeadingById).mockReturnValue(1);
-
-    // Make doc.resolve throw
-    const viewWithError = createMockEditorView();
-    viewWithError.state.doc.resolve = vi.fn(() => { throw new Error("resolve failed"); });
-
-    const popup = new LinkPopupView(viewWithError as never);
-    triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "#section-1" });
+    const popup = new LinkPopupView(view as never);
+    triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "#missing" });
+    mockClosePopup.mockClear();
 
     const openBtn = popup["openBtn"] as HTMLElement;
     openBtn.click();
 
-    expect(linkPopupError).toHaveBeenCalledWith(
-      "Navigation failed:",
-      expect.any(Error)
-    );
+    // navigateToHeadingById is responsible for the catch logging — covered in
+    // utils/headingSlug.test.ts. The popup just must not close on failure.
+    expect(mockClosePopup).not.toHaveBeenCalled();
 
     popup.destroy();
-    viewWithError._editorContainer.remove();
   });
 
   // ---------------------------------------------------------------------------
@@ -329,13 +335,13 @@ describe("LinkPopupView", () => {
     const copyBtn = popup["copyBtn"] as HTMLElement;
     copyBtn.click();
 
-    // Wait for async clipboard to settle
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(linkPopupError).toHaveBeenCalledWith(
-      "Failed to copy URL:",
-      expect.any(Error)
-    );
+    // Wait deterministically for the rejected clipboard write to surface.
+    await vi.waitFor(() => {
+      expect(linkPopupError).toHaveBeenCalledWith(
+        "Failed to copy URL:",
+        expect.any(Error)
+      );
+    });
 
     popup.destroy();
 
@@ -406,6 +412,54 @@ describe("LinkPopupView", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // handleOpen — filepath link routes through openFilepathLink
+  // ---------------------------------------------------------------------------
+
+  it("handleOpen routes a relative filepath link through openFilepathLink and closes the popup on success", async () => {
+    const popup = new LinkPopupView(view as never);
+    triggerStore({
+      isOpen: true,
+      anchorRect: ANCHOR,
+      href: "../appendix/cards.md#bern",
+    });
+
+    const openBtn = popup["openBtn"] as HTMLElement;
+    openBtn.click();
+
+    await vi.waitFor(() => {
+      expect(mockOpenFilepathLink).toHaveBeenCalledWith("../appendix/cards.md#bern");
+    });
+    expect(mockClosePopup).toHaveBeenCalled();
+
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    expect(openUrl).not.toHaveBeenCalled();
+
+    popup.destroy();
+  });
+
+  it("handleOpen leaves the popup open when openFilepathLink resolves false (unresolvable)", async () => {
+    mockOpenFilepathLink.mockResolvedValueOnce(false);
+
+    const popup = new LinkPopupView(view as never);
+    triggerStore({
+      isOpen: true,
+      anchorRect: ANCHOR,
+      href: "../appendix/cards.md",
+    });
+    mockClosePopup.mockClear();
+
+    const openBtn = popup["openBtn"] as HTMLElement;
+    openBtn.click();
+
+    await vi.waitFor(() => {
+      expect(mockOpenFilepathLink).toHaveBeenCalled();
+    });
+    expect(mockClosePopup).not.toHaveBeenCalled();
+
+    popup.destroy();
+  });
+
+  // ---------------------------------------------------------------------------
   // handleOpen — empty href guard
   // ---------------------------------------------------------------------------
 
@@ -426,16 +480,23 @@ describe("LinkPopupView", () => {
   // handleCopy — empty href guard
   // ---------------------------------------------------------------------------
 
-  it("handleCopy does nothing when href is empty", async () => {
+  it("handleCopy does nothing when href is empty", () => {
+    // Empty-href guard short-circuits synchronously; no async wait required.
+    const writeText = vi.fn();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    });
+
     const popup = new LinkPopupView(view as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "" });
 
     const copyBtn = popup["copyBtn"] as HTMLElement;
     copyBtn.click();
 
-    await new Promise((r) => setTimeout(r, 10));
-
-    // No clipboard operation attempted
+    // Strong assertion: clipboard write must NEVER fire for empty href.
+    expect(writeText).not.toHaveBeenCalled();
     popup.destroy();
   });
 

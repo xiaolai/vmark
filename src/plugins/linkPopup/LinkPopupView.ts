@@ -7,13 +7,13 @@
  * Extends WysiwygPopupView for common popup lifecycle management.
  */
 
-import { TextSelection } from "@tiptap/pm/state";
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { findHeadingById } from "@/utils/headingSlug";
+import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
+import { classifyHref, openFilepathLink } from "@/utils/linkOpen";
 import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
 
 /** Link popup store state (extends base with link-specific fields) */
@@ -183,32 +183,32 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     const { href } = this.store.getState();
     if (!href) return;
 
-    // Handle bookmark links - navigate to heading
-    if (href.startsWith("#")) {
-      const targetId = href.slice(1);
-      const pos = findHeadingById(this.editorView.state.doc, targetId);
-      if (pos !== null) {
-        try {
-          const $pos = this.editorView.state.doc.resolve(pos + 1);
-          const selection = TextSelection.near($pos);
-          const tr = this.editorView.state.tr.setSelection(selection).scrollIntoView();
-          this.editorView.dispatch(tr.setMeta("addToHistory", false));
-          this.closePopup();
-          this.focusEditor();
-        } catch (error) {
-          linkPopupError("Navigation failed:", error);
-        }
+    const kind = classifyHref(href);
+
+    if (kind === "fragment") {
+      // Bookmark link — navigate to heading inside this document.
+      if (navigateToHeadingById(this.editorView, href.slice(1))) {
+        this.closePopup();
       }
       return;
     }
 
-    // External link - open in browser
-    import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-      /* v8 ignore next -- @preserve openUrl failure is a Tauri runtime error; not testable in jsdom */
-      openUrl(href).catch((error: unknown) => {
-        linkPopupError("Failed to open link:", error);
-      });
-    }).catch(linkPopupError);
+    if (kind === "external") {
+      import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
+        /* v8 ignore next -- @preserve openUrl failure is a Tauri runtime error; not testable in jsdom */
+        openUrl(href).catch((error: unknown) => {
+          linkPopupError("Failed to open link:", error);
+        });
+      }).catch(linkPopupError);
+      return;
+    }
+
+    // Filepath — resolve relative to the active doc and open in a tab.
+    openFilepathLink(href).then((opened) => {
+      if (opened) this.closePopup();
+    }).catch((error: unknown) => {
+      linkPopupError("Failed to open file link:", error);
+    });
   };
 
   private handleCopy = async () => {

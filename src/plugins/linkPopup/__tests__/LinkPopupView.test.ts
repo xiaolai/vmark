@@ -47,6 +47,7 @@ vi.mock("@/utils/imeGuard", () => ({
 
 vi.mock("@/utils/headingSlug", () => ({
   findHeadingById: vi.fn(() => null),
+  navigateToHeadingById: vi.fn(() => false),
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -407,15 +408,9 @@ describe("LinkPopupView", () => {
     });
 
     it("navigates to heading when found", async () => {
-      const { findHeadingById } = await import("@/utils/headingSlug");
-      vi.mocked(findHeadingById).mockReturnValue(5);
+      const { navigateToHeadingById } = await import("@/utils/headingSlug");
+      vi.mocked(navigateToHeadingById).mockReturnValueOnce(true);
 
-      // Mock doc.resolve for bookmark navigation
-      view.state.doc.resolve = vi.fn(() => ({
-        parent: { type: { name: "heading" } },
-      })) as ReturnType<typeof vi.fn>;
-
-      // Mock TextSelection.near
       emitStateChange({
         isOpen: true,
         href: "#my-heading",
@@ -430,14 +425,13 @@ describe("LinkPopupView", () => {
 
       await new Promise((r) => setTimeout(r, 10));
 
-      // The handler attempts to navigate - may throw due to incomplete PM mocks
-      // but the path is exercised
-      expect(findHeadingById).toHaveBeenCalledWith(view.state.doc, "my-heading");
+      expect(navigateToHeadingById).toHaveBeenCalledWith(view, "my-heading");
+      expect(mockClosePopup).toHaveBeenCalled();
     });
 
     it("does nothing for bookmark when heading is not found", async () => {
-      const { findHeadingById } = await import("@/utils/headingSlug");
-      vi.mocked(findHeadingById).mockReturnValue(null);
+      const { navigateToHeadingById } = await import("@/utils/headingSlug");
+      vi.mocked(navigateToHeadingById).mockReturnValueOnce(false);
 
       emitStateChange({
         isOpen: true,
@@ -453,8 +447,8 @@ describe("LinkPopupView", () => {
 
       await new Promise((r) => setTimeout(r, 10));
 
-      // Should not dispatch since heading was not found
-      expect(view.dispatch).not.toHaveBeenCalled();
+      // navigateToHeadingById returned false → popup must NOT close.
+      expect(mockClosePopup).not.toHaveBeenCalled();
     });
   });
 

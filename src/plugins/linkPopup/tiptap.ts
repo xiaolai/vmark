@@ -1,20 +1,24 @@
 /**
  * Link Popup Plugin (Tiptap)
  *
- * Handles Cmd+Click to open links in browser / navigate to heading.
+ * Handles Cmd+Click to open links — heading navigation for `#fragment`,
+ * browser open for external URLs, and tab open for cross-file links
+ * (relative or absolute filesystem paths) resolved against the active
+ * document's directory.
+ *
  * Regular click on a link opens the edit popup.
  * Cmd+K also opens the edit popup (handled in editorPlugins.tiptap.ts).
  */
 
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { Mark } from "@tiptap/pm/model";
 import { linkPopupError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
-import { findHeadingById } from "@/utils/headingSlug";
+import { navigateToHeadingById } from "@/utils/headingSlug";
+import { classifyHref, openFilepathLink } from "@/utils/linkOpen";
 import { LinkPopupView } from "./LinkPopupView";
 import "./link-popup.css";
 
@@ -107,52 +111,39 @@ export function findLinkMarkRange(view: EditorView, pos: number): MarkRange | nu
 }
 
 /**
- * Navigate to a heading within the document by scrolling and placing cursor.
- */
-function navigateToFragment(view: EditorView, targetId: string): boolean {
-  const pos = findHeadingById(view.state.doc, targetId);
-  if (pos === null) return false;
-
-  try {
-    const $pos = view.state.doc.resolve(pos + 1);
-    const selection = TextSelection.near($pos);
-    const tr = view.state.tr.setSelection(selection).scrollIntoView();
-    view.dispatch(tr.setMeta("addToHistory", false));
-    view.focus();
-    return true;
-  } catch (error) {
-    linkPopupError("Fragment navigation error:", error);
-    return false;
-  }
-}
-
-/**
- * Click handler: Cmd/Ctrl+click opens link in browser or navigates to fragment.
- * Regular click on a link opens the edit popup.
- * Regular click elsewhere closes any open popups.
+ * Click handler: Cmd/Ctrl+click opens link in browser, navigates to fragment,
+ * or opens a target file in a new tab. Regular click on a link opens the
+ * edit popup. Regular click elsewhere closes any open popups.
  */
 function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean {
   try {
-    // Cmd/Ctrl + click: open link or navigate to fragment
+    // Cmd/Ctrl + click: open link, navigate to fragment, or open target file
     if (event.metaKey || event.ctrlKey) {
       const linkRange = findLinkMarkRange(view, pos);
       if (linkRange) {
         const href = linkRange.mark.attrs.href as string;
         if (href) {
-          // Handle fragment links (internal navigation)
-          if (href.startsWith("#")) {
+          const kind = classifyHref(href);
+
+          if (kind === "fragment") {
             const targetId = href.slice(1);
-            if (navigateToFragment(view, targetId)) {
+            if (navigateToHeadingById(view, targetId)) {
               event.preventDefault();
               return true;
             }
             return false;
           }
 
-          // External link - open in browser
-          import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-            openUrl(href).catch(linkPopupError);
-          }).catch(linkPopupError);
+          if (kind === "external") {
+            import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
+              openUrl(href).catch(linkPopupError);
+            }).catch(linkPopupError);
+            event.preventDefault();
+            return true;
+          }
+
+          // Filepath — resolve relative to active doc, open in a tab.
+          openFilepathLink(href).catch(linkPopupError);
           event.preventDefault();
           return true;
         }

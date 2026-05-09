@@ -5,15 +5,20 @@
  * findHeadingById, findHeadingByIdCM.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   generateSlug,
   makeUniqueSlug,
   extractHeadingsWithIds,
   findHeadingById,
   findHeadingByIdCM,
+  navigateToHeadingById,
 } from "./headingSlug";
 import { Schema } from "@tiptap/pm/model";
+
+vi.mock("@/utils/debug", () => ({
+  linkPopupError: vi.fn(),
+}));
 
 // ---- generateSlug ----
 
@@ -423,5 +428,80 @@ describe("findHeadingByIdCM", () => {
     // Should skip the first heading and find the second
     const pos = findHeadingByIdCM(doc, "real");
     expect(pos).not.toBeNull();
+  });
+});
+
+// ---- navigateToHeadingById ----
+
+describe("navigateToHeadingById", () => {
+  // Reuse the PM schema with a heading node so findHeadingById finds a real position.
+  const navSchema = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: { group: "block", content: "inline*" },
+      heading: {
+        group: "block",
+        content: "inline*",
+        attrs: { level: { default: 1 } },
+      },
+      text: { inline: true, group: "inline" },
+    },
+  });
+
+  function buildView(targetText: string) {
+    const doc = navSchema.node("doc", null, [
+      navSchema.node("heading", { level: 1 }, [navSchema.text(targetText)]),
+      navSchema.node("paragraph", null, [navSchema.text("body")]),
+    ]);
+    const dispatch = vi.fn();
+    const focus = vi.fn();
+    const tr = {
+      setSelection: vi.fn().mockReturnThis(),
+      scrollIntoView: vi.fn().mockReturnThis(),
+      setMeta: vi.fn().mockReturnThis(),
+    };
+    // Capture the real PM resolver before we replace doc.resolve so the
+    // success path still produces a real ResolvedPos.
+    const realResolve = doc.resolve.bind(doc);
+    const state = { doc, tr, _resolveShouldThrow: false };
+    (state.doc as unknown as { resolve: (p: number) => unknown }).resolve = (
+      pos: number,
+    ) => {
+      if (state._resolveShouldThrow) throw new Error("resolve failed");
+      return realResolve(pos);
+    };
+    return {
+      view: { state, dispatch, focus } as unknown as Parameters<typeof navigateToHeadingById>[0],
+      state,
+      dispatch,
+      focus,
+      tr,
+    };
+  }
+
+  it("returns false when the heading is not found", () => {
+    const { view, dispatch } = buildView("Some Heading");
+    expect(navigateToHeadingById(view, "no-such-heading")).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a non-history selection and returns true on success", () => {
+    const { view, dispatch, focus, tr } = buildView("Found Heading");
+    expect(navigateToHeadingById(view, "found-heading")).toBe(true);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(focus).toHaveBeenCalled();
+    expect(tr.setMeta).toHaveBeenCalledWith("addToHistory", false);
+  });
+
+  it("catches errors from doc.resolve and returns false (does not throw)", async () => {
+    const { view, state, dispatch } = buildView("Boom");
+    state._resolveShouldThrow = true;
+    expect(navigateToHeadingById(view, "boom")).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+    const { linkPopupError } = await import("@/utils/debug");
+    expect(linkPopupError).toHaveBeenCalledWith(
+      "Fragment navigation error:",
+      expect.any(Error),
+    );
   });
 });

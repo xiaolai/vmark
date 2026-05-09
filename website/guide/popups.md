@@ -32,7 +32,7 @@ VMark uses a two-tier system for links: a read-only tooltip on hover, and an edi
 
 **Fields:**
 - **URL** — Edit the link destination
-- **Open** — Open link in browser
+- **Open target** — Opens an external URL in the browser, jumps to the heading for `#bookmark` links, or opens a local file in a new tab for cross-file links
 - **Copy** — Copy URL to clipboard
 - **Delete** — Remove link, keep text
 
@@ -49,12 +49,16 @@ VMark uses a two-tier system for links: a read-only tooltip on hover, and an edi
 
 ### Source Mode
 
-- **`Cmd + Click`** on link → opens in browser
+- **`Cmd + Click`** on link → external URLs open in the browser, `#bookmark` links jump to the heading, and local file paths open the file in a new tab
 - **Click** on `[text](url)` syntax → shows edit popup
 - **`Mod + K`** inside link → shows edit popup
 
 ::: tip Bookmark Links
 Links starting with `#` are treated as bookmarks (internal heading links). Open jumps to the heading instead of opening a browser.
+:::
+
+::: tip Cross-File Links
+Links pointing to local files — relative paths like `../appendix/cards.md` or `./notes.md`, including `#fragment` suffixes — open the target file in a new tab. Paths are resolved against the current document's directory; if the document is untitled, only absolute paths can be opened. Fragment navigation inside the opened file is not yet supported — the file opens at its top.
 :::
 
 ## Media Popup (Images, Video, Audio)
