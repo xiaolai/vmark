@@ -175,7 +175,14 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   setupFileLinks(term);
 
   term.attachCustomKeyEventHandler(
-    createTerminalKeyHandler(term, ptyRef, { onSearch }),
+    createTerminalKeyHandler(term, ptyRef, {
+      onSearch,
+      // Closes over `ime.composing` (live getter) so the key handler
+      // sees the post-`compositionend` grace window, not just active
+      // composition. Without this, Shift+Enter / Cmd+C / etc. fired
+      // immediately after a CJK commit would leak past the IME guard.
+      isComposing: () => ime.composing,
+    }),
   );
 
   const cleanupCopyOnSelect = setupCopyOnSelect({

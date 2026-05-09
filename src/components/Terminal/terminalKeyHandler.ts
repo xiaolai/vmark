@@ -19,9 +19,19 @@
  *     breaking the "newline in input" affordance these tools advertise as
  *     "natively supported in WezTerm."
  *   - Returns false to consume the event, true to let xterm handle it.
- *   - Never interferes during IME composition to preserve CJK input.
+ *   - Never interferes during IME composition. Uses TWO checks:
+ *       1) `isImeKeyEvent(event)` — covers active composition keystrokes
+ *          (event.isComposing === true, or keyCode 229).
+ *       2) `callbacks.isComposing()` — covers the post-`compositionend`
+ *          grace window where browsers fire a follow-up keydown for the
+ *          confirming key with `isComposing === false` but the IME is
+ *          still settling. The terminal-wide handle in setupImeComposition
+ *          keeps `composing=true` through that window (default 80 ms).
+ *     Without (2), Shift+Enter / Cmd+C / Cmd+V immediately after a CJK
+ *     commit would leak past the guard and write to the PTY.
  *
  * @coordinates-with createTerminalInstance.ts — attached via term.attachCustomKeyEventHandler
+ * @coordinates-with setupImeComposition.ts — provides the `isComposing` callback (covers grace window)
  * @module components/Terminal/terminalKeyHandler
  */
 import type { IPty } from "@/lib/pty";
@@ -35,6 +45,13 @@ import { clipboardWarn } from "@/utils/debug";
 /** Callbacks provided to the terminal key handler for non-shell actions. */
 export interface KeyHandlerCallbacks {
   onSearch: () => void;
+  /**
+   * Returns true while a composition is active OR within the post-end grace
+   * period. Sourced from setupImeComposition's `ImeCompositionHandle.composing`
+   * getter. Without this, the post-`compositionend` keystroke window would
+   * leak past the IME guard and fire shortcuts during CJK commit.
+   */
+  isComposing: () => boolean;
 }
 
 /**
@@ -50,8 +67,10 @@ export function createTerminalKeyHandler(
 ): (event: KeyboardEvent) => boolean {
   return (event: KeyboardEvent): boolean => {
     if (event.type !== "keydown") return true;
-    // Never interfere during IME composition (CJK input, etc.)
+    // Never interfere during IME composition (CJK input, etc.).
+    // Two-layer guard — see module header for rationale.
     if (isImeKeyEvent(event)) return true;
+    if (callbacks.isComposing()) return true;
 
     // Shift+Enter — emit the CSI-u sequence so the WezTerm impersonation
     // (TERM_PROGRAM=WezTerm in spawnPty.ts) is honest. Scoped to plain

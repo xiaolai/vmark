@@ -50,12 +50,14 @@ function makeEvent(
 
 describe("createTerminalKeyHandler", () => {
   let callbacks: KeyHandlerCallbacks;
+  let mockIsComposing: ReturnType<typeof vi.fn<() => boolean>>;
   let ptyRef: React.RefObject<IPty | null>;
   let mockPty: { write: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    callbacks = { onSearch: vi.fn() };
+    mockIsComposing = vi.fn<() => boolean>(() => false);
+    callbacks = { onSearch: vi.fn(), isComposing: mockIsComposing };
     mockPty = { write: vi.fn() };
     ptyRef = { current: mockPty as unknown as IPty };
   });
@@ -214,6 +216,69 @@ describe("createTerminalKeyHandler", () => {
 
       expect(result).toBe(true);
       expect(mockPty.write).not.toHaveBeenCalled();
+    });
+
+    it("Shift+Enter inside the post-compositionend grace window also defers", () => {
+      // Browsers fire a follow-up keydown for the confirming key with
+      // event.isComposing === false, but setupImeComposition keeps the
+      // handle's `composing` flag true through the 80ms grace window.
+      // Without callbacks.isComposing(), this Shift+Enter would leak past
+      // the IME guard and write to the PTY mid-CJK-commit.
+      mockIsComposing.mockReturnValue(true);
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Enter", false, {
+        shiftKey: true,
+        isComposing: false, // post-compositionend; browser flag has cleared
+      });
+
+      const result = handler(event);
+
+      expect(result).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("IME grace-window protection (post-compositionend)", () => {
+    // Same vulnerability affected the pre-existing branches before this
+    // fix — Cmd+C / Cmd+V / Cmd+K / Cmd+F could fire during a CJK commit
+    // because their guard was only event.isComposing, which clears as
+    // soon as compositionend fires. The handle's composing getter stays
+    // true for ~80ms after compositionend so we cover that window.
+    it("Cmd+V during grace window does not paste", () => {
+      mockIsComposing.mockReturnValue(true);
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+
+      const result = handler(makeEvent("v", true, { isComposing: false }));
+
+      expect(result).toBe(true);
+      expect(readText).not.toHaveBeenCalled();
+    });
+
+    it("Cmd+C during grace window does not copy", () => {
+      mockIsComposing.mockReturnValue(true);
+      const term = makeTerm({
+        hasSelection: vi.fn(() => true),
+        getSelection: vi.fn(() => "selected"),
+      });
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+
+      const result = handler(makeEvent("c", true, { isComposing: false }));
+
+      expect(result).toBe(true);
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it("Cmd+K during grace window does not clear", () => {
+      mockIsComposing.mockReturnValue(true);
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+
+      const result = handler(makeEvent("k", true, { isComposing: false }));
+
+      expect(result).toBe(true);
+      expect(term.clear).not.toHaveBeenCalled();
     });
   });
 
