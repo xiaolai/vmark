@@ -29,6 +29,12 @@
  *     localStorage key so workspace config toggles work cross-window.
  *   - Doc-window localStorage is cleared on mount to prevent inheriting
  *     main window's persisted workspace state.
+ *   - Workspace re-entry without a specific file (e.g. dock-icon reopen
+ *     into a workspace) does NOT auto-create a blank untitled tab — the
+ *     file explorer is the entry point, and a forced blank tab feels
+ *     orphaned. Cold start without any workspace context still creates
+ *     one (familiar new-file UX). Hot-exit / lastOpenTabs restore can
+ *     still populate tabs after init.
  *
  * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
  * @coordinates-with tabTransferActions.ts — prepares transfer payloads for new windows
