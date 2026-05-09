@@ -11,6 +11,13 @@
  *   - Cmd+K → clear terminal scrollback and viewport.
  *   - Cmd+F → toggle search bar in the terminal panel.
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
+ *   - Shift+Enter → emits the CSI-u sequence "\x1b[13;2u" (codepoint 13 with
+ *     modifier 2 = Shift) so CLI tools that key off TERM_PROGRAM=WezTerm
+ *     (Claude Code, etc.) actually receive a distinguishable newline signal.
+ *     Without this, xterm's default would send a plain "\r", indistinguishable
+ *     from Enter — making the WezTerm impersonation in spawnPty.ts a lie and
+ *     breaking the "newline in input" affordance these tools advertise as
+ *     "natively supported in WezTerm."
  *   - Returns false to consume the event, true to let xterm handle it.
  *   - Never interferes during IME composition to preserve CJK input.
  *
@@ -45,6 +52,22 @@ export function createTerminalKeyHandler(
     if (event.type !== "keydown") return true;
     // Never interfere during IME composition (CJK input, etc.)
     if (isImeKeyEvent(event)) return true;
+
+    // Shift+Enter — emit the CSI-u sequence so the WezTerm impersonation
+    // (TERM_PROGRAM=WezTerm in spawnPty.ts) is honest. Scoped to plain
+    // Shift+Enter only; Alt/Ctrl/Cmd combos with Enter fall through.
+    if (
+      event.key === "Enter"
+      && event.shiftKey
+      && !event.metaKey
+      && !event.ctrlKey
+      && !event.altKey
+    ) {
+      event.preventDefault();
+      ptyRef.current?.write("\x1b[13;2u");
+      return false;
+    }
+
     const isMod = event.metaKey || event.ctrlKey;
     if (!isMod) return true;
 

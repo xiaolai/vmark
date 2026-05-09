@@ -120,6 +120,103 @@ describe("createTerminalKeyHandler", () => {
     expect(handler(makeEvent("z"))).toBe(true);
   });
 
+  describe("Shift+Enter — WezTerm-impersonation parity", () => {
+    it("writes the CSI-u sequence for codepoint 13 + Shift modifier", () => {
+      // Real WezTerm under the kitty keyboard protocol sends "\x1b[13;2u"
+      // for Shift+Enter (13 = Enter, 2 = Shift). Without this branch the
+      // PTY would receive a plain "\r" and a tool keying off the WezTerm
+      // env var (Claude Code, etc.) would not see the newline.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Enter", false, { shiftKey: true });
+
+      const result = handler(event);
+
+      expect(result).toBe(false);
+      expect(mockPty.write).toHaveBeenCalledWith("\x1b[13;2u");
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("does not crash when ptyRef.current is null", () => {
+      // Race window between session teardown and a queued keystroke.
+      // We still consume the event so xterm doesn't fall through and
+      // emit a stray "\r".
+      const term = makeTerm();
+      const nullPtyRef = { current: null } as React.RefObject<IPty | null>;
+      const handler = createTerminalKeyHandler(term, nullPtyRef, callbacks);
+
+      const result = handler(makeEvent("Enter", false, { shiftKey: true }));
+
+      expect(result).toBe(false);
+      // No crash, no write attempt
+    });
+
+    it("plain Enter (no Shift) passes through to xterm's default", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Enter", false, { shiftKey: false });
+
+      expect(handler(event)).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalled();
+    });
+
+    it("Cmd+Shift+Enter falls through (not the CSI-u path)", () => {
+      // CSI-u Shift+Enter is plain Shift+Enter only. Modifier combos with
+      // Cmd are reserved for the host shortcut layer.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Enter", true, { shiftKey: true });
+
+      handler(event);
+
+      expect(mockPty.write).not.toHaveBeenCalledWith("\x1b[13;2u");
+    });
+
+    it("Ctrl+Shift+Enter falls through (not the CSI-u path)", () => {
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Enter", false, {
+        ctrlKey: true,
+        shiftKey: true,
+      });
+
+      handler(event);
+
+      expect(mockPty.write).not.toHaveBeenCalledWith("\x1b[13;2u");
+    });
+
+    it("Alt+Shift+Enter falls through (different CSI-u modifier)", () => {
+      // Alt+Shift+Enter would be "\x1b[13;4u" in kitty mode, but we're
+      // scoping this fix to the user-facing Shift+Enter symptom only.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Enter", false, {
+        altKey: true,
+        shiftKey: true,
+      });
+
+      handler(event);
+
+      expect(mockPty.write).not.toHaveBeenCalledWith("\x1b[13;2u");
+    });
+
+    it("Shift+Enter during IME composition does not emit the sequence", () => {
+      // CJK input must take precedence — emitting CSI-u during composition
+      // could break the input method's commit flow.
+      const term = makeTerm();
+      const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+      const event = makeEvent("Enter", false, {
+        shiftKey: true,
+        isComposing: true,
+      });
+
+      const result = handler(event);
+
+      expect(result).toBe(true);
+      expect(mockPty.write).not.toHaveBeenCalled();
+    });
+  });
+
   it("passes through IME composition events (isComposing)", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);

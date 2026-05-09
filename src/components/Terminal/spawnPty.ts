@@ -16,7 +16,9 @@
  *     CSI-u-capable terminal. WezTerm chosen for lowest side-effect risk among
  *     the four recognized values. See dev-docs/decisions/ADR-006-terminal-program-identity.md.
  *     Do NOT change to "vmark" — third-party tools will fall through to a
- *     generic "unknown terminal" path.
+ *     generic "unknown terminal" path. The impersonation is kept honest by
+ *     terminalKeyHandler.ts, which translates Shift+Enter into the matching
+ *     CSI-u sequence ("\x1b[13;2u") that real WezTerm sends.
  *   - Sets EDITOR=vmark so $EDITOR-aware CLI tools open files back in VMark.
  *   - Injects login shell PATH via get_login_shell_path Tauri command so CLI
  *     tools (node, claude, etc.) are discoverable — macOS GUI apps have minimal
