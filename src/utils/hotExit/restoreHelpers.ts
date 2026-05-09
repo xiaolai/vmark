@@ -83,6 +83,20 @@ function toStoreCursorInfo(cursorInfo: CursorInfo | null | undefined): StoreCurs
 }
 
 /**
+ * An empty-untitled tab carries no information: no file path, no saved
+ * content, and no unsaved content. Restoring such tabs only adds orphan
+ * blank tabs the user has to close manually — there is nothing to recover.
+ *
+ * Exported for the test in restoreHelpers.test.ts; not part of the public
+ * API surface.
+ */
+export function isEmptyUntitledTab(tab: TabState): boolean {
+  return tab.file_path === null
+    && tab.document.content === ""
+    && tab.document.saved_content === "";
+}
+
+/**
  * Convert hot exit checkpoint back to store format
  */
 function fromHotExitCheckpoint(checkpoint: HistoryCheckpoint): StoreHistoryCheckpoint {
@@ -197,6 +211,17 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
   const tabStore = useTabStore.getState();
   const documentStore = useDocumentStore.getState();
 
+  // Strip empty-untitled tabs first — restoring blank tabs adds orphan
+  // clutter and there's nothing to recover. If filtering leaves nothing
+  // meaningful, skip the entire clear-and-rebuild so the window keeps
+  // whatever WindowContext init produced (a fresh blank tab in
+  // non-workspace mode, or no tabs in workspace mode).
+  const meaningfulTabs = windowState.tabs.filter((t) => !isEmptyUntitledTab(t));
+  if (meaningfulTabs.length === 0) {
+    hotExitLog(`No meaningful tabs to restore for '${windowLabel}'; preserving WindowContext fallback`);
+    return;
+  }
+
   // Clear existing tabs by removing the window (bypasses pin rules)
   const existingTabs = tabStore.getTabsByWindow(windowLabel);
   const historyStore = useUnifiedHistoryStore.getState();
@@ -219,7 +244,7 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
   // path returns the first tab's ID — causing restoreDocumentState to overwrite the
   // first tab's content. We skip later duplicates here to prevent silent data loss.
   const seenFilePaths = new Set<string>();
-  const deduplicatedTabs = windowState.tabs.filter((tabState) => {
+  const deduplicatedTabs = meaningfulTabs.filter((tabState) => {
     if (!tabState.file_path) return true; // untitled tabs are never duplicates
     const normalized = navigator.platform?.includes("Linux") ? tabState.file_path : tabState.file_path.toLowerCase();
     if (seenFilePaths.has(normalized)) {

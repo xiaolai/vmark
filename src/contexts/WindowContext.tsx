@@ -317,8 +317,15 @@ export function WindowProvider({ children }: WindowProviderProps) {
               }
             } else if (filePath) {
               await loadPathIntoNewTab(filePath);
-            } else {
-              // No file path - initialize empty document
+            } else if (!workspaceRootParam) {
+              // No file AND no workspace context: fresh new-file UX — create
+              // a blank untitled tab so the window has a live document.
+              // In workspace mode we deliberately skip this; the file explorer
+              // is the entry point, and a forced blank tab feels orphaned
+              // (the user wanted "into the workspace," not "into the workspace
+              // plus a blank doc"). Hot-exit / lastOpenTabs restore can still
+              // populate tabs after this — see useHotExitStartup and
+              // useWorkspaceBootstrap.
               const tabId = useTabStore.getState().createTab(label, null);
               useDocumentStore.getState().initDocument(tabId, "", null);
             }

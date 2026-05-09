@@ -541,6 +541,34 @@ describe("WindowContext", () => {
       });
     });
 
+    it("does NOT create a blank untitled tab when entering a workspace with no file", async () => {
+      // Dock-icon reopen flow: Rust passes ?workspaceRoot=... with no
+      // file. The file explorer is the entry point; a forced blank tab
+      // would feel orphaned. Hot-exit / lastOpenTabs restore can still
+      // populate tabs after init.
+      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+
+      Object.defineProperty(globalThis, "location", {
+        value: { search: "?workspaceRoot=/projects/myapp" },
+        writable: true,
+        configurable: true,
+      });
+
+      render(
+        <WindowProvider>
+          <div data-testid="child">content</div>
+        </WindowProvider>,
+      );
+
+      await waitFor(() => {
+        expect(openWorkspaceWithConfig).toHaveBeenCalledWith("/projects/myapp");
+      });
+
+      // The else-branch blank-tab fallback must be skipped in workspace mode
+      expect(mockCreateTab).not.toHaveBeenCalled();
+      expect(mockInitDocument).not.toHaveBeenCalled();
+    });
+
     it("handles multiple files from files URL param", async () => {
       const { readTextFile } = await import("@tauri-apps/plugin-fs");
       vi.mocked(readTextFile).mockResolvedValue("# content");

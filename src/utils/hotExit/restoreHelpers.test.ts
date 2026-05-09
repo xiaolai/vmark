@@ -1031,14 +1031,19 @@ describe('restoreHelpers', () => {
   // =========================================================================
 
   describe('restoreTabs', () => {
-    it('should clear existing tabs before restoring', async () => {
+    it('should clear existing tabs before restoring meaningful saved tabs', async () => {
       const existingTabs = [
         { id: 'old-tab-1' },
         { id: 'old-tab-2' },
       ];
       mockGetTabsByWindow.mockReturnValue(existingTabs);
 
-      const ws = makeWindowState({ tabs: [] });
+      // Pass a meaningful saved tab so restoration actually proceeds.
+      // Empty `tabs: []` would now early-return (preserving existing tabs)
+      // — covered separately by the "preserves existing tabs..." test.
+      const ws = makeWindowState({
+        tabs: [makeTabState({ id: 'saved-1', file_path: '/a.md' })],
+      });
 
       await restoreTabs('main', ws);
 
@@ -1052,7 +1057,9 @@ describe('restoreHelpers', () => {
     it('should NOT call removeWindow when no existing tabs', async () => {
       mockGetTabsByWindow.mockReturnValue([]);
 
-      const ws = makeWindowState({ tabs: [] });
+      const ws = makeWindowState({
+        tabs: [makeTabState({ id: 'saved-1', file_path: '/a.md' })],
+      });
 
       await restoreTabs('main', ws);
 
@@ -1205,8 +1212,77 @@ describe('restoreHelpers', () => {
 
       await restoreTabs('main', ws);
 
-      // Both untitled tabs should be created
+      // Both untitled tabs should be created (default makeDocState content
+      // is 'hello world' so neither is empty-untitled)
       expect(mockCreateTab).toHaveBeenCalledTimes(2);
+    });
+
+    it('should drop empty-untitled tabs from a mixed list', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      let callCount = 0;
+      mockCreateTab.mockImplementation(() => `new-tab-${++callCount}`);
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-real',
+        tabs: [
+          // Empty untitled — should be skipped
+          makeTabState({
+            id: 'tab-blank',
+            file_path: null,
+            document: makeDocState({ content: '', saved_content: '' }),
+          }),
+          // File-backed with content — kept
+          makeTabState({ id: 'tab-real', file_path: '/notes/a.md' }),
+          // Untitled with unsaved content — kept (saved_content empty but
+          // content isn't, meaning the user has typed something they
+          // haven't saved yet)
+          makeTabState({
+            id: 'tab-draft',
+            file_path: null,
+            document: makeDocState({ content: 'in progress', saved_content: '' }),
+          }),
+          // File-backed but file is empty on disk — kept (the file is the
+          // user's intentional artifact, blank is a valid initial state)
+          makeTabState({
+            id: 'tab-empty-file',
+            file_path: '/notes/blank.md',
+            document: makeDocState({ content: '', saved_content: '' }),
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockCreateTab).toHaveBeenCalledTimes(3);
+      expect(mockCreateTab).toHaveBeenCalledWith('main', '/notes/a.md');
+      expect(mockCreateTab).toHaveBeenCalledWith('main', null);
+      expect(mockCreateTab).toHaveBeenCalledWith('main', '/notes/blank.md');
+    });
+
+    it('should preserve existing tabs when saved state has only empty-untitled tabs', async () => {
+      // Hot-exit captured a session that was effectively empty (one blank
+      // untitled tab). Restoring it would just clear the WindowContext-
+      // created blank tab and replace it with another blank — pointless
+      // churn. The early-return preserves the fallback instead.
+      const existingTabs = [{ id: 'fallback-tab' }];
+      mockGetTabsByWindow.mockReturnValue(existingTabs);
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-blank',
+        tabs: [
+          makeTabState({
+            id: 'tab-blank',
+            file_path: null,
+            document: makeDocState({ content: '', saved_content: '' }),
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockRemoveWindow).not.toHaveBeenCalled();
+      expect(mockRemoveDocument).not.toHaveBeenCalled();
+      expect(mockCreateTab).not.toHaveBeenCalled();
     });
   });
 
