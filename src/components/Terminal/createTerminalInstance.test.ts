@@ -822,6 +822,43 @@ describe("createTerminalInstance — IME composition with textarea", () => {
     inst.dispose();
     vi.useRealTimers();
   });
+
+  // Regression for the "？ needs two presses" bug: macOS Pinyin and similar
+  // IMEs sometimes fire compositionend with empty `e.data` while the helper
+  // textarea actually carries the converted character. The setupImeComposition
+  // empty-data branch must end composition synchronously (no grace period)
+  // so xterm's late onData with the real character isn't blocked.
+  // This is the REAL-implementation counterpart of the inline test in
+  // compositionGuard.test.ts.
+  it("ends composition immediately on empty-data compositionend (no grace, no commit fired)", () => {
+    vi.useFakeTimers();
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea")!;
+    const commitCb = vi.fn();
+    inst.onCompositionCommit = commitCb;
+
+    textarea.dispatchEvent(new Event("compositionstart"));
+    expect(inst.composing).toBe(true);
+
+    const compEnd = new Event("compositionend") as CompositionEvent;
+    Object.defineProperty(compEnd, "data", { value: "" });
+    textarea.dispatchEvent(compEnd);
+
+    // composing must clear synchronously — NOT after the 80 ms grace —
+    // so the next onData is allowed through.
+    expect(inst.composing).toBe(false);
+    expect(inst.inGracePeriod).toBe(false);
+    // No spurious commit for empty data (Escape-cancel semantics preserved).
+    expect(commitCb).not.toHaveBeenCalled();
+
+    // Confirm grace timer wasn't scheduled — advancing time changes nothing.
+    vi.advanceTimersByTime(200);
+    expect(commitCb).not.toHaveBeenCalled();
+    expect(inst.composing).toBe(false);
+
+    inst.dispose();
+    vi.useRealTimers();
+  });
 });
 
 describe("createTerminalInstance — copy-on-select with copyOnSelect enabled", () => {

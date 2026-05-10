@@ -81,6 +81,20 @@ function createCompositionGuard() {
         return;
       }
 
+      // Empty/null commit data: some IMEs fire compositionend with no data
+      // while the textarea carries the real character. End composition
+      // immediately so xterm's late onData can pass through.
+      if (!data) {
+        composing = false;
+        inGracePeriod = false;
+        if (graceTimer) {
+          clearTimeout(graceTimer);
+          graceTimer = null;
+        }
+        pendingCommitText = null;
+        return;
+      }
+
       // Multi-char: use grace period as before.
       // Cancel any orphaned timer from a previous compositionend that fired
       // without a compositionstart in between (fcitx5+rime on Linux: #659).
@@ -176,6 +190,37 @@ describe("terminal IME composition grace period", () => {
     vi.advanceTimersByTime(GRACE_MS);
     expect(commit).not.toHaveBeenCalled();
     expect(guard.composing).toBe(false);
+  });
+
+  // Regression: macOS Pinyin IME fires compositionend with empty `e.data`
+  // for full-width punctuation like "？" while xterm's helper textarea
+  // actually carries the converted character. If we entered the 80ms grace
+  // period, xterm's setTimeout(0) onData with the real "？" would arrive
+  // while `composing` is still true and get blocked — the user's first
+  // "？" silently vanishes. Empty-data compositionend must end composition
+  // immediately so xterm's late onData passes through.
+  it("ends composition immediately on empty-data compositionend so xterm onData isn't blocked", () => {
+    const guard = createCompositionGuard();
+    const ptyWrite = vi.fn();
+    guard.onCompositionCommit = vi.fn();
+
+    // Mirrors the onData guard in terminalSessionInputWiring.
+    const onData = (data: string) => {
+      if (guard.composing) return;
+      ptyWrite(data);
+    };
+
+    guard.compositionStart();
+    expect(guard.composing).toBe(true);
+
+    // IME fires compositionend with no data — but textarea has "？".
+    guard.compositionEnd("");
+    // composing must clear synchronously, NOT after grace.
+    expect(guard.composing).toBe(false);
+
+    // xterm's setTimeout(0) onData with the real character must pass through.
+    onData("？");
+    expect(ptyWrite).toHaveBeenCalledWith("？");
   });
 
   it("new compositionstart flushes pending text then starts new composition", () => {

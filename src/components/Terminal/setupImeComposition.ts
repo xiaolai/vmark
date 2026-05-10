@@ -126,6 +126,25 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
       return;
     }
 
+    // Empty/null commit data: some IMEs (notably macOS Pinyin for full-width
+    // punctuation like "？") fire compositionend with `e.data == ""` while
+    // xterm's helper textarea actually carries the converted character. If we
+    // entered the grace period here, xterm's setTimeout(0) onData with the
+    // real character would land while `composing` is still true and get
+    // dropped — the user's first "？" silently vanishes and only the second
+    // attempt lands. End the composition immediately so xterm's onData can
+    // pass through unmolested.
+    if (!committedText) {
+      composing = false;
+      inGracePeriod = false;
+      if (graceTimer) {
+        clearTimeout(graceTimer);
+        graceTimer = null;
+      }
+      pendingCommitText = null;
+      return;
+    }
+
     // Multi-char or ASCII: grace period blocks ALL xterm onData; we deliver
     // the clean committed text via onCompositionCommit when it expires.
     // Cancel any orphaned timer from a previous compositionend that fired
