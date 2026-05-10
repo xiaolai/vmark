@@ -167,9 +167,19 @@ export function StatusBarRight({
       <UpdateIndicator />
 
       {aiRunning && (
-        <span className="status-ai-indicator status-ai-indicator--running" title={t("aiWorking")}>
+        // Live region announces ONLY the static "AI is working" message
+        // once when the indicator mounts. The visible per-second elapsed
+        // text is marked aria-hidden so screen readers don't get spammed
+        // with "AI thinking 1s, AI thinking 2s, …" every second.
+        <span
+          className="status-ai-indicator status-ai-indicator--running"
+          role="status"
+          aria-live="polite"
+          title={t("aiWorking")}
+        >
           <Sparkles size={12} className="status-ai-spinner" />
-          <span className="status-ai-text">
+          <span className="sr-only">{t("aiWorking")}</span>
+          <span className="status-ai-text" aria-hidden="true">
             {elapsedSeconds < 10
               ? t("aiThinking", { seconds: elapsedSeconds })
               : t("aiStillWorking", { seconds: elapsedSeconds })}
@@ -186,7 +196,12 @@ export function StatusBarRight({
       )}
 
       {!aiRunning && aiError && (
-        <span className="status-ai-indicator status-ai-indicator--error" title={aiError}>
+        <span
+          className="status-ai-indicator status-ai-indicator--error"
+          role="status"
+          aria-live="polite"
+          title={aiError}
+        >
           <AlertTriangle size={12} />
           <span className="status-ai-text">
             {aiError.length > 30 ? `${aiError.slice(0, 30)}...` : aiError}
@@ -204,7 +219,11 @@ export function StatusBarRight({
       )}
 
       {!aiRunning && !aiError && showSuccess && (
-        <span className="status-ai-indicator status-ai-indicator--success">
+        <span
+          className="status-ai-indicator status-ai-indicator--success"
+          role="status"
+          aria-live="polite"
+        >
           <Check size={12} />
           <span className="status-ai-text">{t("aiDone")}</span>
         </span>

@@ -333,6 +333,46 @@ describe("StatusBarRight", () => {
     expect(container.querySelector(".status-ai-indicator--success")).not.toBeInTheDocument();
   });
 
+  // --- AI indicator: a11y live regions (issue #901) ---
+  // WCAG 4.1.3 (Status Messages) requires non-modal status updates to be
+  // announced via role="status" + aria-live so screen-reader users hear
+  // when AI work starts, fails, or completes. Match the pattern in
+  // FileLoadIndicator.tsx; "polite" because none of these are blocking.
+
+  it("running indicator is a polite live region", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={2} />
+    );
+    const el = container.querySelector(".status-ai-indicator--running");
+    expect(el).toHaveAttribute("role", "status");
+    expect(el).toHaveAttribute("aria-live", "polite");
+  });
+
+  // The visible per-second elapsed text MUST be aria-hidden so screen
+  // readers aren't spammed every tick. The static announcement is carried
+  // by an sr-only sibling that doesn't change.
+  it("running indicator hides the per-second timer from screen readers", () => {
+    const { container } = render(
+      <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={5} />
+    );
+    const dynamicText = container.querySelector(".status-ai-text");
+    expect(dynamicText).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("error indicator is a polite live region", () => {
+    const { container } = render(<StatusBarRight {...baseProps} aiError="boom" />);
+    const el = container.querySelector(".status-ai-indicator--error");
+    expect(el).toHaveAttribute("role", "status");
+    expect(el).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("success indicator is a polite live region", () => {
+    const { container } = render(<StatusBarRight {...baseProps} showSuccess={true} />);
+    const el = container.querySelector(".status-ai-indicator--success");
+    expect(el).toHaveAttribute("role", "status");
+    expect(el).toHaveAttribute("aria-live", "polite");
+  });
+
   it("applies connected class when MCP is running", () => {
     const { container } = render(<StatusBarRight {...baseProps} mcpRunning={true} />);
     const btn = container.querySelector(".status-mcp");
