@@ -13,6 +13,11 @@
  *   - MCP tooltip is built from live client list (connected AI tools)
  *     and clicking opens the integrations settings panel.
  *   - formatClientName handles acronym capitalization (CLI, AI, MCP, etc.).
+ *   - AI status indicators are role="status" aria-live="polite" so screen
+ *     readers hear AI start/error/done. Running's per-second elapsed text
+ *     is aria-hidden with a static sr-only sibling carrying the
+ *     announcement, so the live region content stays stable across ticks
+ *     and SR users aren't spammed every second.
  *
  * @coordinates-with StatusBar.tsx — parent passes all props
  * @coordinates-with UpdateIndicator.tsx — inline update badge
