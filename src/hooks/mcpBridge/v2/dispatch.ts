@@ -43,6 +43,21 @@ import { handleSelectionGet, handleSelectionSet } from "./selection";
  */
 const APP_VERSION = "0.7.0";
 
+/**
+ * Tool prefixes this dispatcher routes — single source of truth.
+ * Anything that wants to enumerate supported tools (diagnostic error
+ * strings, capability discovery, docs) should import this rather than
+ * keep its own list, so a new tool addition can never silently leave
+ * the diagnostic surface stale (#900).
+ */
+export const SUPPORTED_TOOL_PREFIXES = [
+  "vmark.session.*",
+  "vmark.workspace.*",
+  "vmark.document.*",
+  "vmark.workflow.*",
+  "vmark.selection.*",
+] as const;
+
 export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
   const { id, type, args } = event;
   switch (type) {

@@ -1,9 +1,12 @@
 /**
  * MCP Bridge — top-level request router.
  *
- * Routes every MCP bridge request to the pruned 4-tool dispatcher
- * (vmark.session/workspace/document/workflow). Unrecognized request
- * types respond with `Unknown request type`.
+ * Routes every MCP bridge request to the pruned 5-tool dispatcher
+ * (vmark.session/workspace/document/workflow/selection). Unrecognized
+ * request types respond with a diagnostic `Unknown request type` that
+ * names the supported tool prefixes — so a sidecar/app version mismatch
+ * (issue #900) is identifiable from the error string alone, without
+ * grepping logs.
  *
  * Plan: dev-docs/plans/20260504-mcp-pruning.md (WI-1.5).
  *
@@ -16,7 +19,7 @@
 import type { McpRequestEvent } from "./types";
 import { respond } from "./utils";
 import { isActiveDocReadOnly } from "@/utils/readOnlyGuard";
-import { dispatchV2 } from "./v2/dispatch";
+import { dispatchV2, SUPPORTED_TOOL_PREFIXES } from "./v2/dispatch";
 import { v2ErrorString } from "./v2/types";
 
 const READ_ONLY_BLOCKED = new Set<string>([
@@ -44,10 +47,15 @@ export async function handleRequest(event: McpRequestEvent): Promise<void> {
 
   try {
     if (await dispatchV2(event)) return;
+    // Diagnostic suffix exposes the contract this VMark build advertises
+    // so version-mismatch failures (#900) name themselves.
     await respond({
       id,
       success: false,
-      error: `Unknown request type: ${type}`,
+      error:
+        `Unknown request type: ${type}. ` +
+        `This VMark build supports: ${SUPPORTED_TOOL_PREFIXES.join(", ")}. ` +
+        `If the requested type follows that shape, your sidecar may be a different version than the VMark app — restart both.`,
     });
   } catch (error) {
     await respond({

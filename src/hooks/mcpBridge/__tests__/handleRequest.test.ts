@@ -20,6 +20,15 @@ vi.mock("../utils", () => ({
 const mockDispatchV2 = vi.fn(async (_event: unknown) => false);
 vi.mock("../v2/dispatch", () => ({
   dispatchV2: (event: unknown) => mockDispatchV2(event),
+  // Re-export the real prefix list so handleRequest's diagnostic error
+  // string contains real values when the dispatcher returns false.
+  SUPPORTED_TOOL_PREFIXES: [
+    "vmark.session.*",
+    "vmark.workspace.*",
+    "vmark.document.*",
+    "vmark.workflow.*",
+    "vmark.selection.*",
+  ],
 }));
 
 import { respond } from "../utils";
@@ -98,6 +107,25 @@ describe("handleRequest — unknown types", () => {
     expect(r.success).toBe(false);
     expect(r.error).toContain("Unknown request type");
     expect(r.error).toContain("vmark.bogus");
+  });
+
+  // Regression for issue #900: when a sidecar/app version mismatch sends
+  // a request type the dispatcher does not recognize, the error must name
+  // the supported tool prefixes and point at version skew so the user can
+  // self-diagnose without log diving.
+  it("error names the supported tool prefixes and the version-skew hint", async () => {
+    mockDispatchV2.mockResolvedValue(false);
+
+    await handleRequest({ id: "req-skew", type: "vmark.session.get_state", args: {} });
+
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("vmark.session.*");
+    expect(r.error).toContain("vmark.workspace.*");
+    expect(r.error).toContain("vmark.document.*");
+    expect(r.error).toContain("vmark.workflow.*");
+    expect(r.error).toContain("vmark.selection.*");
+    expect(r.error).toContain("sidecar");
   });
 });
 
