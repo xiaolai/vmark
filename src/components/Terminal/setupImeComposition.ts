@@ -21,6 +21,13 @@
  *     writes.
  *   - Orphaned grace timers from rapid compositionend pairs are cleared
  *     before scheduling new ones.
+ *   - Empty-data compositionend (macOS Pinyin for full-width punctuation
+ *     like "？" sometimes fires e.data="") ends composition synchronously
+ *     with no grace period and no commit — xterm's helper textarea
+ *     carries the real character, and our grace window would otherwise
+ *     block xterm's late onData and lose the input. Symptom: typing "？"
+ *     once shows nothing, only the second press appears to work as the
+ *     next IME cycle finally lines up.
  *   - `lastCommittedText` / `lastCommitTime` are exposed for the caller
  *     to dedup against late onData chunks that arrive after the grace
  *     period ends (#525).
