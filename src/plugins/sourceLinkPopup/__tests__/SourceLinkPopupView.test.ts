@@ -325,6 +325,31 @@ describe("SourceLinkPopupView", () => {
       expect(mockClosePopup).toHaveBeenCalled();
     });
 
+    // Regression: paste / IME / drop can mutate input.value without firing the
+    // synthetic `input` event we rely on to mirror it into the store. Save
+    // must read the input element directly and sync the store BEFORE
+    // delegating to saveLinkChanges (which still reads from the store).
+    // The ordering matters — if saveLinkChanges runs before setHref, the
+    // pasted value never reaches the document.
+    it("save uses the current input value even when the store href is stale", () => {
+      const input = document.querySelector(".source-link-popup-href") as HTMLInputElement;
+      // Simulate paste landing in the DOM without firing `input`.
+      input.value = "https://pasted-url.example/new";
+
+      const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
+      input.dispatchEvent(event);
+
+      expect(mockSetHref).toHaveBeenCalledWith("https://pasted-url.example/new");
+      expect(saveLinkChanges).toHaveBeenCalledWith(view);
+      expect(mockClosePopup).toHaveBeenCalled();
+
+      // Lock in the call order: setHref must precede saveLinkChanges,
+      // otherwise saveLinkChanges reads the stale store and the bug returns.
+      const setHrefOrder = mockSetHref.mock.invocationCallOrder[0];
+      const saveOrder = vi.mocked(saveLinkChanges).mock.invocationCallOrder[0];
+      expect(setHrefOrder).toBeLessThan(saveOrder);
+    });
+
     it("closes on Escape", () => {
       const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true });
       document.dispatchEvent(event);

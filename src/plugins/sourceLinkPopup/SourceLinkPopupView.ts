@@ -140,14 +140,18 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
   }
 
   private handleSave(): void {
-    const { href } = useLinkPopupStore.getState();
-
+    // Read directly from the input rather than the store: paste / IME / drop
+    // can land in the DOM without the synthetic `input` event we rely on to
+    // mirror the value into the store, leaving the store stale at save time.
+    const href = this.hrefInput.value;
     if (!href.trim()) {
-      // Empty URL - remove the link
       this.handleRemove();
       return;
     }
 
+    // Sync the freshly read value back into the store so saveLinkChanges
+    // (which reads `href` from the store) sees what the user actually typed.
+    useLinkPopupStore.getState().setHref(href);
     saveLinkChanges(this.editorView);
     this.closePopup();
     this.focusEditor();

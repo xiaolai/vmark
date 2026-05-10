@@ -151,8 +151,11 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
   };
 
   private handleSave = () => {
-    const state = this.store.getState();
-    const { href, linkFrom, linkTo } = state;
+    // Read directly from the input rather than the store: paste / IME / drop
+    // can land in the DOM without the synthetic `input` event we rely on to
+    // mirror the value into the store, leaving the store stale at save time.
+    const href = this.input.value;
+    const { linkFrom, linkTo } = this.store.getState();
 
     if (!href.trim()) {
       this.handleRemove();
@@ -166,9 +169,10 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
       const linkMark = editorState.schema.marks.link;
       if (!linkMark) return;
 
-      const tr = editorState.tr;
-      tr.removeMark(linkFrom, linkTo, linkMark);
-      tr.addMark(linkFrom, linkTo, linkMark.create({ href }));
+      const tr = editorState.tr
+        .removeMark(linkFrom, linkTo, linkMark)
+        .addMark(linkFrom, linkTo, linkMark.create({ href }))
+        .setMeta("preventAutolink", true);
 
       dispatch(tr);
       this.closePopup();

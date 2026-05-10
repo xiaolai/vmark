@@ -108,6 +108,7 @@ function createMockView(editorDom: HTMLElement) {
     addMark: vi.fn().mockReturnThis(),
     setSelection: vi.fn().mockReturnThis(),
     scrollIntoView: vi.fn().mockReturnThis(),
+    setMeta: vi.fn().mockReturnThis(),
   };
 
   return {
@@ -317,6 +318,35 @@ describe("LinkPopupView", () => {
       const saveBtn = dom.container.querySelector(".link-popup-btn-save") as HTMLElement;
       saveBtn.click();
 
+      expect(mockClosePopup).toHaveBeenCalled();
+    });
+
+    // Regression: paste / IME / drop can change input.value without firing the
+    // synthetic `input` event we rely on to mirror it into the store. Save
+    // must read the input element directly, not the (possibly stale) store.
+    // Also asserts the preventAutolink meta — without it Tiptap's autolink
+    // appendTransaction can revert the new href when the link's display text
+    // matches a URL pattern.
+    it("save uses the current input value even when the store href is stale", () => {
+      const input = dom.container.querySelector(".link-popup-input") as HTMLInputElement;
+      // Simulate paste landing in the DOM without firing `input` (so the store
+      // keeps the old href set when the popup was opened).
+      input.value = "https://pasted-url.example/new";
+
+      const saveBtn = dom.container.querySelector(".link-popup-btn-save") as HTMLElement;
+      saveBtn.click();
+
+      expect(view.state.tr.addMark).toHaveBeenCalledWith(
+        5,
+        15,
+        expect.objectContaining({
+          attrs: { href: "https://pasted-url.example/new" },
+        })
+      );
+      // The save transaction must opt out of autolink so a URL-shaped link
+      // text doesn't relink to the OLD href after our update.
+      expect(view.state.tr.setMeta).toHaveBeenCalledWith("preventAutolink", true);
+      expect(view.dispatch).toHaveBeenCalled();
       expect(mockClosePopup).toHaveBeenCalled();
     });
 
