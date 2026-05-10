@@ -2,12 +2,15 @@
  * Purpose: Route the pruned 5-tool MCP surface — `vmark.session.*`,
  *   `vmark.workspace.*`, `vmark.document.*`, `vmark.workflow.*`,
  *   `vmark.selection.*` — to their handlers. Returns `true` iff the
- *   request type matched.
+ *   request type matched. Also exports SUPPORTED_TOOL_PREFIXES as the
+ *   single source of truth for the routed surface — anything that
+ *   enumerates supported tools (diagnostic errors, capability docs)
+ *   must import this rather than carry its own list.
  *
  * Plan: dev-docs/plans/20260504-mcp-pruning.md WI-1.2 (initial 4 tools)
  *   and WI-2.1 (selection re-add per ADR-7).
  *
- * @coordinates-with hooks/mcpBridge/handleRequest.ts — top-level router
+ * @coordinates-with hooks/mcpBridge/handleRequest.ts — top-level router; consumes SUPPORTED_TOOL_PREFIXES
  * @module hooks/mcpBridge/v2/dispatch
  */
 
