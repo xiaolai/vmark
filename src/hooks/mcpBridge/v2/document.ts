@@ -3,7 +3,10 @@
  *   read/write spine of the pruned MCP surface.
  *
  *   `read` returns full content + a revision token. `write` replaces
- *   full content (optimistic-concurrency-protected via expected_revision).
+ *   full content (optimistic-concurrency-protected via expected_revision)
+ *   AND persists to disk by default — the buffer-vs-disk distinction is
+ *   a VMark internal concern that has no business in the AI's reasoning
+ *   loop. Set `save: false` to leave changes in-memory only (rare).
  *   `transform` runs the deterministic CJK rewriter — kept because CJK
  *   rules are too nuanced for AI prose to reimplement reliably.
  *
@@ -16,6 +19,13 @@
  *     write — useful for greenfield "AI types from scratch" flows. When
  *     present, mismatch returns STALE.
  *   - `transform` operates on the whole document, not a selection.
+ *   - `write` saves to disk by default. The previous "buffer-only"
+ *     behaviour caused AI agents to bypass MCP and write files directly
+ *     when they noticed disk was stale — losing checkpoint history and
+ *     setting up race conditions with VMark's eventual auto-save. Save
+ *     failure does NOT fail the write: the buffer is updated, the
+ *     response carries `saved: false` + `save_error` so the caller can
+ *     surface the issue without re-writing.
  *
  * @coordinates-with stores/revisionStore.ts — current revision + isCurrentRevision
  * @coordinates-with lib/cjkFormatter — formatMarkdown for transform
@@ -25,6 +35,7 @@
  * @module hooks/mcpBridge/v2/document
  */
 
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
@@ -225,7 +236,14 @@ export async function handleDocumentRead(
 /**
  * Handle `vmark.document.write`.
  *
- * Args: `{tabId?, content: string, expected_revision?: string}`.
+ * Args: `{tabId?, content: string, expected_revision?: string, save?: boolean}`.
+ *
+ * `save` defaults to `true`: after the buffer is updated we persist to
+ * disk and call `markSaved` so the dirty flag clears. Untitled tabs (no
+ * filePath) skip the save with `saved: false` so the AI can decide
+ * whether to call `workspace.save_as`. Save failure leaves the buffer
+ * updated; the response surfaces `saved: false, save_error` instead of
+ * throwing — re-writing on a transient FS error would lose intent.
  */
 export async function handleDocumentWrite(
   id: string,
@@ -245,6 +263,10 @@ export async function handleDocumentWrite(
       typeof args.expected_revision === "string"
         ? args.expected_revision
         : undefined;
+    // `save` defaults to true. AI agents shouldn't have to know about
+    // VMark's buffer-vs-disk distinction; the natural mental model is
+    // "I wrote the file → file is updated."
+    const shouldSave = args.save !== false;
 
     const resolved = resolveTab(tabIdArg);
     if (!resolved) {
@@ -291,7 +313,37 @@ export async function handleDocumentWrite(
         revisionAfter: result.revision,
       });
     }
-    await respond({ id, success: true, data: result });
+
+    // Persist to disk unless explicitly opted out.
+    let saved = false;
+    let saveError: string | undefined;
+    if (shouldSave) {
+      if (!resolved.filePath) {
+        // Untitled tab — no path to save to. Surface a hint so the AI
+        // can call workspace.save_as if it wants persistence.
+        saveError = "Untitled tab — call workspace.save_as to choose a path";
+      } else {
+        try {
+          await writeTextFile(resolved.filePath, args.content);
+          useDocumentStore
+            .getState()
+            .markSaved(resolved.tabId, args.content);
+          saved = true;
+        } catch (err) {
+          saveError = err instanceof Error ? err.message : String(err);
+        }
+      }
+    }
+
+    await respond({
+      id,
+      success: true,
+      data: {
+        ...result,
+        saved,
+        ...(saveError !== undefined ? { save_error: saveError } : {}),
+      },
+    });
   } catch (error) {
     await respond({
       id,

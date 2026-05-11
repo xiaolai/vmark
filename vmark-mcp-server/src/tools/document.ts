@@ -19,7 +19,7 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
         'Read, write, and transform document content. The spine of the MCP surface — for in-document changes, prefer `read → reason → write` over the legacy granular formatting tools (now removed).\n\n' +
         'Actions:\n' +
         '- read: Return {content, revision, filePath, kind, dirty} for a tab. Pass `tabId` to target a specific tab; omit to use the focused tab. Always read before writing — the `revision` token must be passed back in `write`.\n' +
-        '- write: Replace full document content. Args: {tabId?, content, expected_revision?}. If `expected_revision` is supplied and does not match the current revision, returns a STALE error with the up-to-date `current_revision`; the caller should re-read and retry. If omitted, the write is unconditional (use only when no prior read exists, e.g. greenfield drafting).\n' +
+        '- write: Replace full document content AND save to disk. Args: {tabId?, content, expected_revision?, save?}. By default the new content is also persisted to the file on disk so a subsequent disk read sees the new value — do NOT bypass MCP and write the file yourself; that loses checkpoint history and races with VMark\'s buffer. Set `save: false` only if you explicitly want to stage in-memory without persistence (rare). The response carries `saved: true` on success; `saved: false` + `save_error` if the buffer was updated but the disk write failed (e.g. read-only filesystem) — do not retry the write in that case, surface the error to the user. If `expected_revision` is supplied and does not match the current revision, returns a STALE error with the up-to-date `current_revision`; the caller should re-read and retry. If omitted, the write is unconditional (use only when no prior read exists, e.g. greenfield drafting).\n' +
         '- transform: Apply a deterministic rewrite. Args: {tabId?, kind, expected_revision?}. `kind` is one of "cjk-format" (full CJK formatting per user settings), "cjk-spacing" (insert spaces between CJK and Latin/digits), "cjk-punctuation" (convert ASCII punctuation adjacent to CJK to fullwidth).',
       inputSchema: {
         type: 'object',
@@ -48,6 +48,12 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
             description:
               'Optimistic-concurrency token from the most recent read (write/transform only).',
           },
+          save: {
+            type: 'boolean',
+            default: true,
+            description:
+              'Whether to persist the new content to disk after updating the buffer (write only). Defaults to true. Set to false only to stage changes in-memory without persistence.',
+          },
         },
         required: ['action'],
       },
@@ -71,11 +77,14 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
         if (typeof args.content !== 'string') {
           return VMarkMcpServer.errorResult('content (string) is required');
         }
+        // Default save: true — only forward an explicit false.
+        const save = args.save === false ? false : undefined;
         const data = await server.sendBridgeRequest({
           type: 'vmark.document.write',
           tabId,
           content: args.content,
           expected_revision,
+          ...(save !== undefined ? { save } : {}),
         });
         return VMarkMcpServer.successJsonResult(data);
       }

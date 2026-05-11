@@ -31,6 +31,12 @@ vi.mock("@/stores/tiptapEditorStore", () => ({
   },
 }));
 
+const writeTextFileMock = vi.fn(async () => undefined);
+vi.mock("@tauri-apps/plugin-fs", () => ({
+  writeTextFile: (path: string, content: string) =>
+    writeTextFileMock(path, content),
+}));
+
 import { respond } from "../../utils";
 
 function resetStores() {
@@ -227,6 +233,96 @@ describe("vmark.document.write — STALE concurrency", () => {
     const stored =
       useDocumentStore.getState().documents["t-yaml-write"].content;
     expect(stored).toBe(yaml);
+  });
+});
+
+// Regression: AI agents bypassed MCP and wrote files directly when they
+// noticed the on-disk content was stale after a `document.write` —
+// losing checkpoint history and racing with VMark's auto-save. The fix:
+// `document.write` saves to disk by default. The buffer-vs-disk
+// distinction is a VMark internal concern that has no business in the
+// AI's reasoning loop.
+describe("vmark.document.write — save-on-write (UX fix for buffered writes)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+    writeTextFileMock.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("persists to disk by default and reports saved=true", async () => {
+    seedTab("t-save", "before", "/tmp/notes.md");
+    await handleDocumentWrite("req-save", {
+      tabId: "t-save",
+      content: "after",
+    });
+
+    expect(writeTextFileMock).toHaveBeenCalledWith("/tmp/notes.md", "after");
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    const data = r.data as { saved: boolean; revision: string };
+    expect(data.saved).toBe(true);
+    // Buffer's dirty flag is cleared by markSaved.
+    expect(useDocumentStore.getState().documents["t-save"].isDirty).toBe(false);
+  });
+
+  it("skips disk write when save:false is passed", async () => {
+    seedTab("t-nosave", "before", "/tmp/notes.md");
+    await handleDocumentWrite("req-nosave", {
+      tabId: "t-nosave",
+      content: "after",
+      save: false,
+    });
+
+    expect(writeTextFileMock).not.toHaveBeenCalled();
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    const data = r.data as { saved: boolean };
+    expect(data.saved).toBe(false);
+    // Buffer was updated but stays dirty since we didn't save.
+    const doc = useDocumentStore.getState().documents["t-nosave"];
+    expect(doc.content).toBe("after");
+    expect(doc.isDirty).toBe(true);
+  });
+
+  it("returns saved=false + save_error hint for untitled tabs (no filePath)", async () => {
+    seedTab("t-untitled", "", null);
+    await handleDocumentWrite("req-untitled", {
+      tabId: "t-untitled",
+      content: "draft",
+    });
+
+    expect(writeTextFileMock).not.toHaveBeenCalled();
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    const data = r.data as { saved: boolean; save_error?: string };
+    expect(data.saved).toBe(false);
+    expect(data.save_error).toContain("Untitled");
+    // Buffer still updated.
+    expect(useDocumentStore.getState().documents["t-untitled"].content).toBe(
+      "draft",
+    );
+  });
+
+  it("surfaces save failure as saved:false + save_error without failing the write", async () => {
+    seedTab("t-fail", "before", "/readonly/notes.md");
+    writeTextFileMock.mockRejectedValueOnce(new Error("EACCES"));
+
+    await handleDocumentWrite("req-fail", {
+      tabId: "t-fail",
+      content: "after",
+    });
+
+    const r = lastRespond();
+    // Important: success: true. The buffer was updated; re-writing on a
+    // transient FS error would lose intent. The caller surfaces the hint.
+    expect(r.success).toBe(true);
+    const data = r.data as { saved: boolean; save_error?: string };
+    expect(data.saved).toBe(false);
+    expect(data.save_error).toContain("EACCES");
+    // Buffer reflects the new content even though disk save failed.
+    expect(useDocumentStore.getState().documents["t-fail"].content).toBe(
+      "after",
+    );
   });
 });
 
