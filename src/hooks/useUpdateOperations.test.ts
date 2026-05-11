@@ -70,9 +70,6 @@ describe("useUpdateOperations", () => {
   });
 
   // downloadAndInstall: when this window holds pendingUpdate, run inline.
-  // Otherwise fall back to cross-window emit (covers the case where main
-  // window auto-checked and Settings — which didn't run check — wants to
-  // trigger the download).
   it("downloadAndInstall runs inline when pendingUpdate is local", async () => {
     const mockDownloadAndInstall = vi.fn(async () => {});
     useUpdateStore.getState().setPendingUpdate({
@@ -89,15 +86,50 @@ describe("useUpdateOperations", () => {
     expect(mockEmit).not.toHaveBeenCalledWith("update:request-download");
   });
 
-  it("downloadAndInstall emits cross-window when no local pendingUpdate", async () => {
+  // Regression for the audit's "silent no-op" finding: previously when no
+  // local pendingUpdate existed we emitted update:request-download and
+  // hoped the main window listener would handle it. If main was destroyed
+  // (the same scenario the Check Now fix originally targeted), the click
+  // vanished. Now downloadAndInstall re-checks locally and downloads
+  // self-sufficiently — no cross-window dependency for the user-visible
+  // download operation.
+  it("downloadAndInstall re-checks locally when no pendingUpdate (no cross-window emit)", async () => {
     useUpdateStore.getState().setPendingUpdate(null);
+
+    const mockDownloadAndInstall = vi.fn(async () => {});
+    // mockCheck returns an Update on the re-check — runUpdateCheck stores it.
+    mockCheck.mockResolvedValue({
+      version: "9.9.9",
+      body: "notes",
+      date: "2026-05-11",
+      downloadAndInstall: mockDownloadAndInstall,
+    });
+
     const { result } = renderHook(() => useUpdateOperations());
 
     await act(async () => {
       await result.current.downloadAndInstall();
     });
 
-    expect(mockEmit).toHaveBeenCalledWith("update:request-download");
+    expect(mockCheck).toHaveBeenCalled();
+    expect(mockDownloadAndInstall).toHaveBeenCalled();
+    expect(mockEmit).not.toHaveBeenCalledWith("update:request-download");
+  });
+
+  it("downloadAndInstall is a no-op when re-check finds no update", async () => {
+    useUpdateStore.getState().setPendingUpdate(null);
+    mockCheck.mockResolvedValue(null); // no update available
+
+    const { result } = renderHook(() => useUpdateOperations());
+
+    await act(async () => {
+      await result.current.downloadAndInstall();
+    });
+
+    expect(mockCheck).toHaveBeenCalled();
+    // Status from the re-check propagates; no broken download attempt.
+    expect(useUpdateStore.getState().status).toBe("up-to-date");
+    expect(mockEmit).not.toHaveBeenCalledWith("update:request-download");
   });
 
   it("restartApp emits restart event", async () => {

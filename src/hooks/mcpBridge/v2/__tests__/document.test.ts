@@ -265,7 +265,7 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     expect(useDocumentStore.getState().documents["t-save"].isDirty).toBe(false);
   });
 
-  it("skips disk write when save:false is passed", async () => {
+  it("skips disk write when save:false is passed (save_skipped='opt_out')", async () => {
     seedTab("t-nosave", "before", "/tmp/notes.md");
     await handleDocumentWrite("req-nosave", {
       tabId: "t-nosave",
@@ -276,15 +276,18 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     expect(writeTextFileMock).not.toHaveBeenCalled();
     const r = lastRespond();
     expect(r.success).toBe(true);
-    const data = r.data as { saved: boolean };
+    const data = r.data as { saved: boolean; save_skipped?: string; save_error?: string };
     expect(data.saved).toBe(false);
+    // Structured: explicit opt-out, NOT a free-form string.
+    expect(data.save_skipped).toBe("opt_out");
+    expect(data.save_error).toBeUndefined();
     // Buffer was updated but stays dirty since we didn't save.
     const doc = useDocumentStore.getState().documents["t-nosave"];
     expect(doc.content).toBe("after");
     expect(doc.isDirty).toBe(true);
   });
 
-  it("returns saved=false + save_error hint for untitled tabs (no filePath)", async () => {
+  it("untitled tabs get save_skipped='untitled' (machine-readable, not a prose hint)", async () => {
     seedTab("t-untitled", "", null);
     await handleDocumentWrite("req-untitled", {
       tabId: "t-untitled",
@@ -294,16 +297,19 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     expect(writeTextFileMock).not.toHaveBeenCalled();
     const r = lastRespond();
     expect(r.success).toBe(true);
-    const data = r.data as { saved: boolean; save_error?: string };
+    const data = r.data as { saved: boolean; save_skipped?: string; save_error?: string };
     expect(data.saved).toBe(false);
-    expect(data.save_error).toContain("Untitled");
+    // Structured field — AI clients shouldn't have to parse English.
+    expect(data.save_skipped).toBe("untitled");
+    // Mutually exclusive with save_error.
+    expect(data.save_error).toBeUndefined();
     // Buffer still updated.
     expect(useDocumentStore.getState().documents["t-untitled"].content).toBe(
       "draft",
     );
   });
 
-  it("surfaces save failure as saved:false + save_error without failing the write", async () => {
+  it("FS write failure surfaces save_error (NOT save_skipped) without failing the write", async () => {
     seedTab("t-fail", "before", "/readonly/notes.md");
     writeTextFileMock.mockRejectedValueOnce(new Error("EACCES"));
 
@@ -316,9 +322,11 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     // Important: success: true. The buffer was updated; re-writing on a
     // transient FS error would lose intent. The caller surfaces the hint.
     expect(r.success).toBe(true);
-    const data = r.data as { saved: boolean; save_error?: string };
+    const data = r.data as { saved: boolean; save_skipped?: string; save_error?: string };
     expect(data.saved).toBe(false);
     expect(data.save_error).toContain("EACCES");
+    // We DID attempt the write — save_skipped must NOT be set.
+    expect(data.save_skipped).toBeUndefined();
     // Buffer reflects the new content even though disk save failed.
     expect(useDocumentStore.getState().documents["t-fail"].content).toBe(
       "after",

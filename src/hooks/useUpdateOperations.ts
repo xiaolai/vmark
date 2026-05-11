@@ -159,18 +159,29 @@ export function useUpdateOperations() {
   }, []);
 
   /**
-   * Download and install the pending update. Prefers the local
-   * `pendingUpdate` (typical: user just clicked Check in this same window).
-   * Falls back to a cross-window emit so the main window's auto-checked
-   * pendingUpdate can still drive the download when the user hits Download
-   * from a window that didn't run the check itself.
+   * Download and install the pending update.
+   *
+   * If this window already holds a `pendingUpdate` (typical: it just ran
+   * Check), download directly. Otherwise re-run check locally first to
+   * populate one — this is the case where the main window auto-checked
+   * (so its store has pendingUpdate) but the user clicked Download from
+   * a different window (Settings) whose store doesn't have the object.
+   *
+   * The earlier emit-fallback pattern silently no-op'd when the main
+   * window was destroyed — same class of bug the inline-check fix
+   * targeted for the Check Now button. Re-checking locally is bounded
+   * (one extra HTTP HEAD if needed) and self-contained.
    */
   const downloadAndInstall = useCallback(async () => {
-    if (useUpdateStore.getState().pendingUpdate) {
-      await runUpdateDownload();
+    if (!useUpdateStore.getState().pendingUpdate) {
+      await runUpdateCheck();
+    }
+    if (!useUpdateStore.getState().pendingUpdate) {
+      // Check ran but found no update (already up-to-date or errored).
+      // The check itself surfaced the appropriate status — nothing to do.
       return;
     }
-    await emit(EVENTS.REQUEST_DOWNLOAD);
+    await runUpdateDownload();
   }, []);
 
   /**

@@ -24,8 +24,10 @@
  *     when they noticed disk was stale — losing checkpoint history and
  *     setting up race conditions with VMark's eventual auto-save. Save
  *     failure does NOT fail the write: the buffer is updated, the
- *     response carries `saved: false` + `save_error` so the caller can
- *     surface the issue without re-writing.
+ *     response carries `saved: false` plus EITHER `save_skipped`
+ *     (we didn't attempt — opt-out or untitled tab) OR `save_error`
+ *     (we attempted and the FS rejected). The two fields are mutually
+ *     exclusive so AI clients can branch without parsing free-form text.
  *
  * @coordinates-with stores/revisionStore.ts — current revision + isCurrentRevision
  * @coordinates-with lib/cjkFormatter — formatMarkdown for transform
@@ -314,24 +316,28 @@ export async function handleDocumentWrite(
       });
     }
 
-    // Persist to disk unless explicitly opted out.
+    // Persist to disk by default. The response carries structured fields
+    // so AI clients can branch on outcome without parsing prose:
+    //   - saved: true                            → buffer updated AND on disk
+    //   - saved: false, save_skipped: "opt_out"  → caller passed save:false
+    //   - saved: false, save_skipped: "untitled" → no filePath; call save_as
+    //   - saved: false, save_error: <message>    → disk write attempted & failed
+    // save_skipped and save_error are mutually exclusive — the former
+    // means "we never tried", the latter means "we tried and failed".
     let saved = false;
+    let saveSkipped: "opt_out" | "untitled" | undefined;
     let saveError: string | undefined;
-    if (shouldSave) {
-      if (!resolved.filePath) {
-        // Untitled tab — no path to save to. Surface a hint so the AI
-        // can call workspace.save_as if it wants persistence.
-        saveError = "Untitled tab — call workspace.save_as to choose a path";
-      } else {
-        try {
-          await writeTextFile(resolved.filePath, args.content);
-          useDocumentStore
-            .getState()
-            .markSaved(resolved.tabId, args.content);
-          saved = true;
-        } catch (err) {
-          saveError = err instanceof Error ? err.message : String(err);
-        }
+    if (!shouldSave) {
+      saveSkipped = "opt_out";
+    } else if (!resolved.filePath) {
+      saveSkipped = "untitled";
+    } else {
+      try {
+        await writeTextFile(resolved.filePath, args.content);
+        useDocumentStore.getState().markSaved(resolved.tabId, args.content);
+        saved = true;
+      } catch (err) {
+        saveError = err instanceof Error ? err.message : String(err);
       }
     }
 
@@ -341,6 +347,7 @@ export async function handleDocumentWrite(
       data: {
         ...result,
         saved,
+        ...(saveSkipped !== undefined ? { save_skipped: saveSkipped } : {}),
         ...(saveError !== undefined ? { save_error: saveError } : {}),
       },
     });

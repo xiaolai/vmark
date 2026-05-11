@@ -90,6 +90,7 @@ export function useUpdateChecker() {
 
   const status = useUpdateStore((state) => state.status);
   const updateInfo = useUpdateStore((state) => state.updateInfo);
+  const pendingUpdate = useUpdateStore((state) => state.pendingUpdate);
   const dismiss = useUpdateStore((state) => state.dismiss);
 
   // Track previous status for toast notifications
@@ -227,7 +228,15 @@ export function useUpdateChecker() {
     }
   }, [status, updateInfo, skipVersion, dismiss]);
 
-  // Auto-download when update is available and autoDownload is enabled
+  // Auto-download when update is available and autoDownload is enabled.
+  // Critical: only fire when we hold the LOCAL pendingUpdate. After
+  // bidirectional state sync was added, "available" can arrive in the
+  // main window via broadcast from another window (which holds the
+  // pendingUpdate object — Tauri Update is window-local). Without the
+  // pendingUpdate guard, main would call downloadAndInstall against a
+  // null reference, fail with "No update available to download", and
+  // broadcast that error back, overwriting the originating window's
+  // valid "available" state.
   useEffect(() => {
     if (hasAutoDownloaded.current) return;
 
@@ -235,6 +244,7 @@ export function useUpdateChecker() {
       status === "available" &&
       autoDownload &&
       updateInfo &&
+      pendingUpdate &&
       // Don't auto-download skipped versions
       !(skipVersion && updateInfo.version === skipVersion)
     ) {
@@ -243,7 +253,7 @@ export function useUpdateChecker() {
         updateCheckerLog("Auto-download failed:", error);
       });
     }
-  }, [status, autoDownload, updateInfo, skipVersion, doDownloadAndInstall]);
+  }, [status, autoDownload, updateInfo, pendingUpdate, skipVersion, doDownloadAndInstall]);
 
   // Reset auto-download flag when status goes back to idle
   useEffect(() => {

@@ -229,6 +229,7 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
+      useUpdateStore.getState().setPendingUpdate({} as never);
       useUpdateStore.getState().setStatus("available");
       useUpdateStore.getState().setUpdateInfo({
         version: "2.0.0",
@@ -241,6 +242,33 @@ describe("useUpdateChecker hook", () => {
     expect(mockDoDownloadAndInstall).toHaveBeenCalled();
   });
 
+  // Regression: bidirectional state sync means main can receive
+  // status="available" from another window's broadcast WITHOUT receiving
+  // pendingUpdate (Tauri Update is window-local, not serializable). Auto-
+  // download must guard on local pendingUpdate or it fires against null
+  // and produces a confusing "No update available to download" error
+  // that then broadcasts back, clobbering the originating window's state.
+  it("does not auto-download when status='available' but no local pendingUpdate", async () => {
+    useSettingsStore.getState().updateUpdateSetting("autoDownload", true);
+
+    renderHook(() => useUpdateChecker());
+
+    await act(async () => {
+      // Simulate receiving "available" from a remote broadcast — no local
+      // pendingUpdate.
+      useUpdateStore.getState().setPendingUpdate(null);
+      useUpdateStore.getState().setStatus("available");
+      useUpdateStore.getState().setUpdateInfo({
+        version: "2.0.0",
+        notes: "test",
+        pubDate: "2025-01-01",
+        currentVersion: "1.0.0",
+      });
+    });
+
+    expect(mockDoDownloadAndInstall).not.toHaveBeenCalled();
+  });
+
   it("does not auto-download skipped versions", async () => {
     useSettingsStore.getState().updateUpdateSetting("autoDownload", true);
     useSettingsStore.getState().updateUpdateSetting("skipVersion", "2.0.0");
@@ -248,6 +276,7 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
+      useUpdateStore.getState().setPendingUpdate({} as never);
       useUpdateStore.getState().setStatus("available");
       useUpdateStore.getState().setUpdateInfo({
         version: "2.0.0",
@@ -398,6 +427,7 @@ describe("useUpdateChecker hook", () => {
 
     // Trigger auto-download
     await act(async () => {
+      useUpdateStore.getState().setPendingUpdate({} as never);
       useUpdateStore.getState().setStatus("available");
       useUpdateStore.getState().setUpdateInfo({
         version: "2.0.0",
@@ -416,6 +446,7 @@ describe("useUpdateChecker hook", () => {
 
     // Trigger again — should auto-download again since flag was reset
     await act(async () => {
+      useUpdateStore.getState().setPendingUpdate({} as never);
       useUpdateStore.getState().setStatus("available");
       useUpdateStore.getState().setUpdateInfo({
         version: "2.1.0",
@@ -636,6 +667,7 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
+      useUpdateStore.getState().setPendingUpdate({} as never);
       useUpdateStore.getState().setStatus("available");
       useUpdateStore.getState().setUpdateInfo({
         version: "2.0.0",

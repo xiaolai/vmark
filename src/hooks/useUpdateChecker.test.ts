@@ -19,6 +19,10 @@ const mocks = vi.hoisted(() => ({
   // Store state
   updateStatus: "idle" as string,
   updateInfo: null as null | { version: string },
+  // pendingUpdate is the Tauri Update object — auto-download requires
+  // it to be local (non-null). Defaults to null so tests have to opt
+  // in, mirroring the runtime guard.
+  pendingUpdate: null as object | null,
   skipVersion: undefined as string | undefined,
   autoDownload: false,
   autoCheckEnabled: true,
@@ -58,6 +62,7 @@ vi.mock("@/stores/updateStore", () => {
   const storeData = () => ({
     status: mocks.updateStatus,
     updateInfo: mocks.updateInfo,
+    pendingUpdate: mocks.pendingUpdate,
     dismiss: mocks.dismiss,
     downloadProgress: null,
     error: null,
@@ -422,6 +427,10 @@ describe("useUpdateChecker — auto-download (lines 198-212)", () => {
     vi.useFakeTimers();
     mocks.updateStatus = "idle";
     mocks.updateInfo = null;
+    // Default to a non-null pendingUpdate so existing happy-path tests
+    // satisfy the new local-pendingUpdate guard. The dedicated
+    // null-pendingUpdate regression test below opts back to null.
+    mocks.pendingUpdate = {} as object;
     mocks.skipVersion = undefined;
     mocks.autoDownload = false;
     mocks.autoCheckEnabled = false;
@@ -443,6 +452,23 @@ describe("useUpdateChecker — auto-download (lines 198-212)", () => {
 
     const { unmount } = renderHook(() => useUpdateChecker());
     expect(mocks.doDownloadAndInstall).toHaveBeenCalled();
+    unmount();
+  });
+
+  // Regression: bidirectional state sync means main can receive
+  // status="available" via broadcast from another window WITHOUT
+  // owning the pendingUpdate (Tauri Update is window-local). Auto-
+  // download must be guarded by a local pendingUpdate or it fires
+  // against null and broadcasts a confusing "No update" error back,
+  // overwriting the originating window's valid state.
+  it("does not auto-download when status='available' but no local pendingUpdate", () => {
+    mocks.updateStatus = "available";
+    mocks.updateInfo = { version: "2.0.0" };
+    mocks.autoDownload = true;
+    mocks.pendingUpdate = null; // simulate "available" arrived via broadcast
+
+    const { unmount } = renderHook(() => useUpdateChecker());
+    expect(mocks.doDownloadAndInstall).not.toHaveBeenCalled();
     unmount();
   });
 
@@ -497,6 +523,9 @@ describe("useUpdateChecker — reset auto-download flag (lines 216-220)", () => 
     vi.useFakeTimers();
     mocks.updateStatus = "idle";
     mocks.updateInfo = null;
+    // Default to a non-null pendingUpdate so the auto-download guard
+    // is satisfied (matches the auto-download describe-block default).
+    mocks.pendingUpdate = {} as object;
     mocks.skipVersion = undefined;
     mocks.autoDownload = false;
     mocks.autoCheckEnabled = false;
