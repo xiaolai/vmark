@@ -18,6 +18,10 @@
  *   - Deleted files get isMissing flag (no auto-close — user may want to save)
  *   - Divergent docs auto-recover when disk content matches editor content —
  *     e.g. git checkout restoring the same content the user has locally
+ *   - After "Keep my changes", lastDiskContent is refreshed to current disk
+ *     content so identical follow-up rewrites from cloud sync daemons
+ *     (OneDrive/iCloud/Dropbox) are silently no-op'd by the soft-equals
+ *     guard instead of firing the dialog repeatedly (issue 904)
  *
  * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
