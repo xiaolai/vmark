@@ -859,6 +859,85 @@ describe("createTerminalInstance — IME composition with textarea", () => {
     inst.dispose();
     vi.useRealTimers();
   });
+
+  // Regression for "every CJK punctuation needs two presses" bug:
+  // macOS Pinyin punctuation conversion ("?" → "？", "," → "，", "(" → "（",
+  // "--" → "——", "~" → "～", "!" → "！") fires compositionend with e.data set
+  // to the *original ASCII key*, while the helper textarea actually contains
+  // the *converted CJK character*. Trusting e.data would commit the ASCII key
+  // (wrong); the textarea diff is the source of truth.
+  //
+  // Verifies: the converted character (read from textarea) is committed via
+  // onCompositionCommit, composing clears synchronously, and lastCommittedText
+  // gets the actual character so xterm's late onData dedup works.
+  it("commits textarea diff (not ASCII e.data) when IME converts punctuation", () => {
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement;
+    const commitCb = vi.fn();
+    inst.onCompositionCommit = commitCb;
+
+    // Snapshot length on compositionstart while textarea is empty.
+    textarea.dispatchEvent(new Event("compositionstart"));
+
+    // IME inserts the converted character into the textarea before firing
+    // compositionend. macOS Pinyin sets e.data to the original ASCII key.
+    textarea.value = "？";
+    const compEnd = new Event("compositionend") as CompositionEvent;
+    Object.defineProperty(compEnd, "data", { value: "?" });
+    textarea.dispatchEvent(compEnd);
+
+    expect(commitCb).toHaveBeenCalledTimes(1);
+    expect(commitCb).toHaveBeenCalledWith("？"); // textarea diff, NOT e.data
+    expect(inst.composing).toBe(false);
+    expect(inst.inGracePeriod).toBe(false);
+    expect(inst.lastCommittedText).toBe("？");
+
+    inst.dispose();
+  });
+
+  // Same pattern, multi-char ASCII e.data ("--" → "——").
+  it("commits multi-char textarea diff when ASCII e.data is multiple keys", () => {
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement;
+    const commitCb = vi.fn();
+    inst.onCompositionCommit = commitCb;
+
+    textarea.dispatchEvent(new Event("compositionstart"));
+
+    textarea.value = "——";
+    const compEnd = new Event("compositionend") as CompositionEvent;
+    Object.defineProperty(compEnd, "data", { value: "--" });
+    textarea.dispatchEvent(compEnd);
+
+    expect(commitCb).toHaveBeenCalledWith("——");
+    expect(inst.composing).toBe(false);
+  });
+
+  // Snapshot logic: when prior compositions left content in the textarea
+  // (xterm doesn't auto-clear it), only the *new* diff should be committed,
+  // not the cumulative content.
+  it("only commits the diff added during this composition, not previous content", () => {
+    const inst = makeInstanceWithTextarea();
+    const textarea = inst.container.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement;
+    const commitCb = vi.fn();
+    inst.onCompositionCommit = commitCb;
+
+    // Pre-existing content from a previous composition.
+    textarea.value = "你好";
+
+    // Now a new composition starts — snapshot the length at "你好".length === 2.
+    textarea.dispatchEvent(new Event("compositionstart"));
+
+    // IME appends the new converted char.
+    textarea.value = "你好？";
+    const compEnd = new Event("compositionend") as CompositionEvent;
+    Object.defineProperty(compEnd, "data", { value: "?" });
+    textarea.dispatchEvent(compEnd);
+
+    expect(commitCb).toHaveBeenCalledWith("？"); // ONLY the diff
+    expect(commitCb).not.toHaveBeenCalledWith("你好？");
+    inst.dispose();
+  });
 });
 
 describe("createTerminalInstance — copy-on-select with copyOnSelect enabled", () => {

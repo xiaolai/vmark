@@ -28,6 +28,15 @@
  *     block xterm's late onData and lose the input. Symptom: typing "？"
  *     once shows nothing, only the second press appears to work as the
  *     next IME cycle finally lines up.
+ *   - Textarea-vs-event mismatch (macOS Pinyin punctuation conversion: "?"
+ *     → "？", "," → "，", "(" → "（", "--" → "——", etc.). The IME fires
+ *     compositionend with e.data set to the *original ASCII key* but the
+ *     helper textarea receives the *converted CJK character*. Detect this
+ *     by snapshotting textarea length on compositionstart and comparing
+ *     the diff on compositionend: when the textarea added non-ASCII
+ *     content but e.data is empty/ASCII, commit the textarea diff
+ *     directly instead of trusting e.data — the wrong character (the
+ *     ASCII key) would otherwise be written.
  *   - `lastCommittedText` / `lastCommitTime` are exposed for the caller
  *     to dedup against late onData chunks that arrive after the grace
  *     period ends (#525).
@@ -77,8 +86,22 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
   let onCompositionCommit: ((text: string) => void) | null = null;
   let lastCommittedText: string | null = null;
   let lastCommitTime = 0;
+  /**
+   * Snapshot of textarea.value.length at compositionstart. Lets us recover
+   * what the IME actually added when e.data lies (macOS Pinyin punctuation:
+   * e.data is the ASCII key, textarea has the converted CJK char).
+   * Reassigned each compositionstart — keep as `let`.
+   */
+   
+  let textareaStartLen = 0;
 
   const textarea = container.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
+
+  /** Non-ASCII detector — any code unit above 0x7F (covers BMP CJK, punctuation, etc.). */
+   
+  const NON_ASCII_RE = /[-￿]/;
+  // eslint-disable-next-line no-control-regex
+  const ALL_ASCII_RE = /^[\x00-\x7f]+$/;
 
   const flushPendingCommit = () => {
     if (pendingCommitText && onCompositionCommit) {
@@ -103,6 +126,10 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     }
     composing = true;
     inGracePeriod = false;
+    // Snapshot textarea length so onCompositionEnd can read what the IME
+    // actually inserted (needed when e.data lies — see textarea-vs-event
+    // mismatch handling in onCompositionEnd).
+    textareaStartLen = textarea?.value.length ?? 0;
     terminalLog("compositionstart");
   };
 
@@ -133,14 +160,41 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
       return;
     }
 
-    // Empty/null commit data: some IMEs (notably macOS Pinyin for full-width
-    // punctuation like "？") fire compositionend with `e.data == ""` while
-    // xterm's helper textarea actually carries the converted character. If we
-    // entered the grace period here, xterm's setTimeout(0) onData with the
-    // real character would land while `composing` is still true and get
-    // dropped — the user's first "？" silently vanishes and only the second
-    // attempt lands. End the composition immediately so xterm's onData can
-    // pass through unmolested.
+    // Textarea-vs-event mismatch: macOS Pinyin's full-width-punctuation
+    // conversion fires compositionend with e.data set to the *original ASCII
+    // key* (",", "?", "(", "--", "~", "!"), but the helper textarea actually
+    // contains the *converted CJK character* ("，", "？", "（", "——", "～",
+    // "！"). The single-non-ASCII branch above missed it (data is ASCII)
+    // and the multi-char grace path below would commit the wrong (ASCII)
+    // character while blocking xterm's late onData with the real one. Trust
+    // the textarea diff instead — it's what the user actually typed.
+    //
+    // Trigger condition: e.data is empty OR pure-ASCII AND the textarea
+    // diff since compositionstart contains non-ASCII content.
+    const textareaDiff = textarea
+      ? textarea.value.slice(textareaStartLen)
+      : "";
+    const eDataLooksUntrustworthy =
+      !committedText || ALL_ASCII_RE.test(committedText);
+    if (eDataLooksUntrustworthy && textareaDiff && NON_ASCII_RE.test(textareaDiff)) {
+      composing = false;
+      inGracePeriod = false;
+      if (graceTimer) {
+        clearTimeout(graceTimer);
+        graceTimer = null;
+      }
+      pendingCommitText = null;
+      lastCommittedText = textareaDiff;
+      lastCommitTime = Date.now();
+      if (onCompositionCommit) {
+        onCompositionCommit(textareaDiff);
+      }
+      return;
+    }
+
+    // Empty/null commit data with nothing extra in the textarea: end
+    // composition synchronously, no commit. xterm's own setTimeout-driven
+    // onData (if any) is free to pass through since composing is now false.
     if (!committedText) {
       composing = false;
       inGracePeriod = false;
