@@ -7,9 +7,11 @@
  * Extends WysiwygPopupView for common popup lifecycle management.
  */
 
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import { useTabStore } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
@@ -208,7 +210,13 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     }
 
     // Filepath — resolve relative to the active doc and open in a tab.
-    openFilepathLink(href).then((opened) => {
+    // openFilepathLink is a pure leaf util; we read the source doc path
+    // from the tab store here and pass it in.
+    const activeTab = useTabStore
+      .getState()
+      .getActiveTab(getCurrentWebviewWindow().label);
+    const sourcePath = activeTab?.filePath ?? null;
+    openFilepathLink(href, sourcePath).then((opened) => {
       if (opened) this.closePopup();
     }).catch((error: unknown) => {
       linkPopupError("Failed to open file link:", error);

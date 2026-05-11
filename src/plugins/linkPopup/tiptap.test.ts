@@ -409,7 +409,12 @@ describe("linkPopupExtension", () => {
 
       expect(result).toBe(true);
       expect(preventDefault).toHaveBeenCalled();
-      expect(mockOpenFilepathLink).toHaveBeenCalledWith("../appendix/cards.md#bern");
+      // Second arg is the source-doc path read from the tab store. The
+      // test setup doesn't seed an active tab, so it resolves to null.
+      expect(mockOpenFilepathLink).toHaveBeenCalledWith(
+        "../appendix/cards.md#bern",
+        null,
+      );
       // Filepath path must not fall through to the external browser opener.
       // Snapshot the call count before this test's click to avoid false
       // positives from other tests in the same file.

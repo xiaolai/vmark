@@ -23,7 +23,6 @@
  */
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useTabStore } from "@/stores/tabStore";
 import { resolveMarkdownUrl } from "@/lib/markdownLinkCheck/check";
 import { linkPopupError } from "@/utils/debug";
 
@@ -48,17 +47,23 @@ export function classifyHref(href: string): LinkKind {
 }
 
 /**
- * Resolve a filepath-kind href against the currently focused document and
+ * Resolve a filepath-kind href against the given source document path and
  * emit `open-file` to open the target file in a tab. Returns true on a
- * successful emit, false if the link cannot be resolved (e.g. the active
- * tab is untitled and the href is relative).
+ * successful emit, false if the link cannot be resolved (e.g. the source
+ * doc is untitled and the href is relative).
+ *
+ * `sourcePath` is passed in (rather than read from tabStore) so this
+ * module stays a pure leaf utility per `.dependency-cruiser.cjs`'s
+ * leaf-modules-stay-pure rule. Callers fetch the active document path
+ * from their own store access.
  */
-export async function openFilepathLink(href: string): Promise<boolean> {
+export async function openFilepathLink(
+  href: string,
+  sourcePath: string | null,
+): Promise<boolean> {
   if (!href) return false;
 
   const currentWindow = getCurrentWebviewWindow();
-  const activeTab = useTabStore.getState().getActiveTab(currentWindow.label);
-  const sourcePath = activeTab?.filePath ?? null;
 
   // Strip fragment up front; the open-file event takes a plain path.
   const hashIdx = href.indexOf("#");

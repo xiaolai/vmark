@@ -427,7 +427,14 @@ describe("LinkPopupView", () => {
     openBtn.click();
 
     await vi.waitFor(() => {
-      expect(mockOpenFilepathLink).toHaveBeenCalledWith("../appendix/cards.md#bern");
+      // Second arg is the source-doc path read from the tab store. The
+      // test setup doesn't seed an active tab with a filePath, so it
+      // resolves to null. Assertion focuses on routing — source-path
+      // resolution is covered in linkOpen.test.ts.
+      expect(mockOpenFilepathLink).toHaveBeenCalledWith(
+        "../appendix/cards.md#bern",
+        null,
+      );
     });
     expect(mockClosePopup).toHaveBeenCalled();
 

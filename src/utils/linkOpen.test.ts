@@ -8,28 +8,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks — hoisted so vi.mock factories can reference them.
 // ---------------------------------------------------------------------------
 
-const { mockEmit, mockGetActiveTab } = vi.hoisted(() => ({
+const { mockEmit } = vi.hoisted(() => ({
   mockEmit: vi.fn(() => Promise.resolve()),
-  mockGetActiveTab: vi.fn<() => { id: string; filePath: string | null } | null>(
-    () => ({ id: "tab-1", filePath: "/repo/docs/index.md" }),
-  ),
 }));
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({ label: "main", emit: mockEmit }),
 }));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      getActiveTab: mockGetActiveTab,
-    }),
-  },
-}));
-
 vi.mock("@/utils/debug", () => ({
   linkPopupError: vi.fn(),
 }));
+
+// Default source-doc path used by most happy-path tests below. Each test
+// passes it explicitly — openFilepathLink is now a pure leaf util that
+// takes sourcePath rather than reaching into the tab store.
+const SOURCE = "/repo/docs/index.md";
 
 // ---------------------------------------------------------------------------
 
@@ -76,18 +70,16 @@ describe("classifyHref", () => {
 describe("openFilepathLink", () => {
   beforeEach(() => {
     mockEmit.mockClear();
-    mockGetActiveTab.mockReset();
-    mockGetActiveTab.mockReturnValue({ id: "tab-1", filePath: "/repo/docs/index.md" });
   });
 
   it("returns false for empty href without emitting", async () => {
-    const result = await openFilepathLink("");
+    const result = await openFilepathLink("", SOURCE);
     expect(result).toBe(false);
     expect(mockEmit).not.toHaveBeenCalled();
   });
 
-  it("resolves a relative href against the active doc and emits open-file", async () => {
-    const result = await openFilepathLink("../appendix/cards.md#bern");
+  it("resolves a relative href against the source doc and emits open-file", async () => {
+    const result = await openFilepathLink("../appendix/cards.md#bern", SOURCE);
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/appendix/cards.md",
@@ -95,7 +87,7 @@ describe("openFilepathLink", () => {
   });
 
   it("resolves a same-directory href", async () => {
-    const result = await openFilepathLink("./neighbour.md");
+    const result = await openFilepathLink("./neighbour.md", SOURCE);
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/docs/neighbour.md",
@@ -103,36 +95,26 @@ describe("openFilepathLink", () => {
   });
 
   it("strips the fragment before emitting", async () => {
-    await openFilepathLink("./neighbour.md#anchor");
+    await openFilepathLink("./neighbour.md#anchor", SOURCE);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/docs/neighbour.md",
     });
   });
 
-  it("returns false when active tab is untitled and href is relative", async () => {
-    mockGetActiveTab.mockReturnValue({ id: "tab-1", filePath: null });
-    const result = await openFilepathLink("./neighbour.md");
+  it("returns false when sourcePath is null and href is relative", async () => {
+    const result = await openFilepathLink("./neighbour.md", null);
     expect(result).toBe(false);
     expect(mockEmit).not.toHaveBeenCalled();
   });
 
-  it("falls through to absolute path (minus fragment) when active tab is untitled", async () => {
-    mockGetActiveTab.mockReturnValue({ id: "tab-1", filePath: null });
-    const result = await openFilepathLink("/abs/path/foo.md#x");
+  it("falls through to absolute path (minus fragment) when sourcePath is null", async () => {
+    const result = await openFilepathLink("/abs/path/foo.md#x", null);
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", { path: "/abs/path/foo.md" });
   });
 
-  it("returns false when no active tab is available", async () => {
-    mockGetActiveTab.mockReturnValue(null);
-    const result = await openFilepathLink("./neighbour.md");
-    expect(result).toBe(false);
-    expect(mockEmit).not.toHaveBeenCalled();
-  });
-
-  it("passes through a Windows absolute path with a titled active doc (does not base-prefix)", async () => {
-    mockGetActiveTab.mockReturnValue({ id: "tab-1", filePath: "/repo/docs/index.md" });
-    const result = await openFilepathLink("C:/Users/me/foo.md#x");
+  it("passes through a Windows absolute path with a source doc (does not base-prefix)", async () => {
+    const result = await openFilepathLink("C:/Users/me/foo.md#x", SOURCE);
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "C:/Users/me/foo.md",
@@ -140,17 +122,15 @@ describe("openFilepathLink", () => {
   });
 
   it("normalizes Windows backslashes to forward slashes", async () => {
-    mockGetActiveTab.mockReturnValue({ id: "tab-1", filePath: "/repo/docs/index.md" });
-    const result = await openFilepathLink("C:\\Users\\me\\foo.md");
+    const result = await openFilepathLink("C:\\Users\\me\\foo.md", SOURCE);
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "C:/Users/me/foo.md",
     });
   });
 
-  it("passes through a Windows absolute path even when active tab is untitled", async () => {
-    mockGetActiveTab.mockReturnValue({ id: "tab-1", filePath: null });
-    const result = await openFilepathLink("D:/work/notes.md#h");
+  it("passes through a Windows absolute path even when sourcePath is null", async () => {
+    const result = await openFilepathLink("D:/work/notes.md#h", null);
     expect(result).toBe(true);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "D:/work/notes.md",
@@ -160,7 +140,7 @@ describe("openFilepathLink", () => {
   it("returns false and logs when emit rejects", async () => {
     const { linkPopupError } = await import("@/utils/debug");
     mockEmit.mockRejectedValueOnce(new Error("emit failed"));
-    const result = await openFilepathLink("../appendix/cards.md");
+    const result = await openFilepathLink("../appendix/cards.md", SOURCE);
     expect(result).toBe(false);
     expect(linkPopupError).toHaveBeenCalledWith(
       "Failed to emit open-file:",

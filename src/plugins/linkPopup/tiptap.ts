@@ -14,9 +14,11 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { Mark } from "@tiptap/pm/model";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { linkPopupError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
+import { useTabStore } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { classifyHref, openFilepathLink } from "@/utils/linkOpen";
 import { LinkPopupView } from "./LinkPopupView";
@@ -143,7 +145,13 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
           }
 
           // Filepath — resolve relative to active doc, open in a tab.
-          openFilepathLink(href).catch(linkPopupError);
+          // openFilepathLink is a pure leaf util; read the source doc
+          // path from the tab store here and pass it in.
+          const activeTab = useTabStore
+            .getState()
+            .getActiveTab(getCurrentWebviewWindow().label);
+          const sourcePath = activeTab?.filePath ?? null;
+          openFilepathLink(href, sourcePath).catch(linkPopupError);
           event.preventDefault();
           return true;
         }
