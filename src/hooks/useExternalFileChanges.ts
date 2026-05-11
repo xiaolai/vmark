@@ -171,6 +171,28 @@ export function useExternalFileChanges(): void {
 
       // Cancel = keep user's changes - mark as divergent so user knows local differs from disk
       useDocumentStore.getState().markDivergent(tabId);
+
+      // Re-read disk and adopt its current content as `lastDiskContent` so a
+      // subsequent identical external rewrite is silently no-op'd by the
+      // soft-equals guard in handleModifyEvent. Without this, sync daemons
+      // (OneDrive/iCloud/Dropbox) that touch the file repeatedly with the
+      // same content would re-prompt this dialog every time — even though
+      // the user already said "Keep" once. Reported in issue 904 (OneDrive
+      // paused but auto-save warning persists; user has to manually save
+      // every time the dialog re-fires).
+      //
+      // Best-effort: read failure leaves lastDiskContent stale; worst case
+      // is the same prompt re-appears, which is the pre-fix behavior.
+      try {
+        const currentDisk = await readTextFile(filePath);
+        useDocumentStore.getState().updateLastDiskContent(tabId, currentDisk);
+      } catch (error) {
+        fileOpsError(
+          "Failed to refresh lastDiskContent after Keep my changes:",
+          filePath,
+          error,
+        );
+      }
     },
     []
   );
@@ -226,9 +248,23 @@ export function useExternalFileChanges(): void {
             }
           }
         } else if (result === "No" || result === batchButtons.keepAll) {
-          // Keep all local versions - mark as divergent
-          for (const { tabId } of pending) {
+          // Keep all local versions - mark divergent and adopt current disk
+          // content as lastDiskContent so the same external state doesn't
+          // re-prompt next time the sync daemon touches the file (#904).
+          for (const { tabId, filePath } of pending) {
             useDocumentStore.getState().markDivergent(tabId);
+            try {
+              const currentDisk = await readTextFile(filePath);
+              useDocumentStore
+                .getState()
+                .updateLastDiskContent(tabId, currentDisk);
+            } catch (error) {
+              fileOpsError(
+                "Failed to refresh lastDiskContent after Keep-all:",
+                filePath,
+                error,
+              );
+            }
           }
         } else {
           // Review each - process individually
