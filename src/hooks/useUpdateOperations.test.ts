@@ -51,17 +51,46 @@ describe("useUpdateOperations", () => {
     expect(result.current.requestState).toBeInstanceOf(Function);
   });
 
-  it("checkForUpdates emits request-check event", async () => {
+  // checkForUpdates now runs Tauri's check() inline in the calling window
+  // (no cross-window emit) so the button stays responsive even when the
+  // main window is destroyed. Regression for the "Check Now silently
+  // does nothing when auto-update is on" report.
+  it("checkForUpdates runs check() inline (no cross-window emit)", async () => {
+    mockCheck.mockResolvedValue(null);
     const { result } = renderHook(() => useUpdateOperations());
 
     await act(async () => {
       await result.current.checkForUpdates();
     });
 
-    expect(mockEmit).toHaveBeenCalledWith("update:request-check");
+    expect(mockCheck).toHaveBeenCalled();
+    expect(mockEmit).not.toHaveBeenCalledWith("update:request-check");
+    // And the local store reflects the result.
+    expect(useUpdateStore.getState().status).toBe("up-to-date");
   });
 
-  it("downloadAndInstall emits request-download event", async () => {
+  // downloadAndInstall: when this window holds pendingUpdate, run inline.
+  // Otherwise fall back to cross-window emit (covers the case where main
+  // window auto-checked and Settings — which didn't run check — wants to
+  // trigger the download).
+  it("downloadAndInstall runs inline when pendingUpdate is local", async () => {
+    const mockDownloadAndInstall = vi.fn(async () => {});
+    useUpdateStore.getState().setPendingUpdate({
+      downloadAndInstall: mockDownloadAndInstall,
+    } as never);
+
+    const { result } = renderHook(() => useUpdateOperations());
+
+    await act(async () => {
+      await result.current.downloadAndInstall();
+    });
+
+    expect(mockDownloadAndInstall).toHaveBeenCalled();
+    expect(mockEmit).not.toHaveBeenCalledWith("update:request-download");
+  });
+
+  it("downloadAndInstall emits cross-window when no local pendingUpdate", async () => {
+    useUpdateStore.getState().setPendingUpdate(null);
     const { result } = renderHook(() => useUpdateOperations());
 
     await act(async () => {

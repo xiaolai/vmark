@@ -24,7 +24,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTheme } from "@/hooks/useTheme";
-import { useUpdateListener } from "@/hooks/useUpdateSync";
+import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 
@@ -158,7 +158,12 @@ export function SettingsPage() {
   useSettingsClose();
   // Handle Cmd+Shift+D to toggle dev section
   useDevSectionShortcut();
-  // Listen for update state changes from main window
+  // Bidirectional sync with the main window's updateStore. Settings now
+  // runs Check / Download locally (so the button stays responsive when
+  // main is destroyed), so it must also broadcast its local state changes
+  // back to main — otherwise main's StatusBar UpdateIndicator would stay
+  // stale after a Settings-side check finds a new version.
+  useUpdateBroadcast();
   useUpdateListener();
 
   // Listen for navigation events (e.g., from "Check for Updates" menu)

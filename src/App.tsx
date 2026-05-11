@@ -101,7 +101,7 @@ import { useImagePasteToast } from "@/hooks/useImagePasteToast";
 import { useFormatsUpgradeNudge } from "@/hooks/useFormatsUpgradeNudge";
 import { useFormatSettingsBridge } from "@/utils/formatSettingsBridge";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
-import { useUpdateBroadcast } from "@/hooks/useUpdateSync";
+import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
 import { useHotExitCapture } from "@/utils/hotExit/useHotExitCapture";
 import { useHotExitRestore } from "@/utils/hotExit/useHotExitRestore";
@@ -197,6 +197,10 @@ function MainWindowHooks() {
   useMcpAutoStart(); // Auto-start MCP server if enabled
   useUpdateChecker(); // Check for updates on startup
   useUpdateBroadcast(); // Broadcast update state to other windows
+  // Also listen — Settings now runs check/download locally and broadcasts
+  // back. Without this, a Settings-side check that finds a new version
+  // wouldn't update the StatusBar UpdateIndicator in the main window.
+  useUpdateListener();
   useHotExitStartup(); // Check for saved session and restore if present (MUST run before Finder)
   useCrashRecoveryStartup(); // Restore docs from crash recovery (waits for hot exit)
   useFinderFileOpen(); // Handle files opened from Finder (waits for hot exit to complete)
