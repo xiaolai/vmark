@@ -45,6 +45,19 @@ const EVENTS = {
   REQUEST_STATE: "update:request-state",
 } as const;
 
+// Per-window single-flight gates. When the user spam-clicks "Check Now" or
+// when the auto-retry timer overlaps a manual click, every caller awaits the
+// same in-flight promise instead of issuing a parallel `check()` against the
+// Tauri updater plugin. The previous design let parallel checks pile up,
+// each broadcasting their own error and triggering the cross-window listener
+// — a contributing factor to the v0.7.11 freeze report.
+// Held inside a holder object so the formatter doesn't rewrite the
+// reassignment to `const` (assignments happen inside the run* helpers).
+const inFlight: { check: Promise<boolean> | null; download: Promise<boolean> | null } = {
+  check: null,
+  download: null,
+};
+
 /**
  * Run the update check inline in the current window. Updates the local
  * `useUpdateStore` and stores `pendingUpdate` here so the same window can
@@ -53,43 +66,56 @@ const EVENTS = {
  * share the same code path.
  */
 export async function runUpdateCheck(): Promise<boolean> {
-  const store = useUpdateStore.getState();
-  const settings = useSettingsStore.getState();
+  // Single-flight: if a check is already in progress in this window, every
+  // caller (manual button, auto-check, retry timer, cross-window listener)
+  // shares the same result. Otherwise overlapping callers spawn parallel
+  // `check()` requests, each broadcasting status churn back to the other
+  // window via useUpdateSync — the cascade behind the v0.7.11 freeze.
+  if (inFlight.check) return inFlight.check;
 
-  store.setStatus("checking");
+  inFlight.check = (async () => {
+    const store = useUpdateStore.getState();
+    const settings = useSettingsStore.getState();
 
-  try {
-    const update = await check();
+    store.setStatus("checking");
 
-    if (update) {
-      store.setPendingUpdate(update);
-      const currentVersion = await getVersion();
-      store.setUpdateInfo({
-        version: update.version,
-        notes: update.body ?? "",
-        pubDate: update.date ?? "",
-        currentVersion,
-      });
-      store.setStatus("available");
-      // New update — clear any prior dismiss flag so the banner shows.
-      store.clearDismissed();
+    try {
+      const update = await check();
+
+      if (update) {
+        store.setPendingUpdate(update);
+        const currentVersion = await getVersion();
+        store.setUpdateInfo({
+          version: update.version,
+          notes: update.body ?? "",
+          pubDate: update.date ?? "",
+          currentVersion,
+        });
+        store.setStatus("available");
+        // New update — clear any prior dismiss flag so the banner shows.
+        store.clearDismissed();
+        settings.updateUpdateSetting("lastCheckTimestamp", Date.now());
+        return true;
+      }
+
+      store.setStatus("up-to-date");
+      store.setPendingUpdate(null);
       settings.updateUpdateSetting("lastCheckTimestamp", Date.now());
-      return true;
+      return false;
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : i18n.t("dialog:toast.updateCheckFailedGeneric");
+      store.setError(message);
+      // Don't update lastCheckTimestamp on error — the check didn't complete.
+      return false;
+    } finally {
+      inFlight.check = null;
     }
+  })();
 
-    store.setStatus("up-to-date");
-    store.setPendingUpdate(null);
-    settings.updateUpdateSetting("lastCheckTimestamp", Date.now());
-    return false;
-  } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : i18n.t("dialog:toast.updateCheckFailedGeneric");
-    store.setError(message);
-    // Don't update lastCheckTimestamp on error — the check didn't complete.
-    return false;
-  }
+  return inFlight.check;
 }
 
 /**
@@ -98,47 +124,58 @@ export async function runUpdateCheck(): Promise<boolean> {
  * may decide to re-check or surface an error).
  */
 export async function runUpdateDownload(): Promise<boolean> {
+  // Single-flight: prevent two callers (manual click + auto-download effect)
+  // from each invoking pendingUpdate.downloadAndInstall on the same Update
+  // resource — the underlying Tauri resource is not safe to download twice.
+  if (inFlight.download) return inFlight.download;
+
   const initial = useUpdateStore.getState();
   const pendingUpdate = initial.pendingUpdate;
   if (!pendingUpdate) return false;
 
-  const store = useUpdateStore.getState();
-  store.setStatus("downloading");
-  store.setDownloadProgress({ downloaded: 0, total: null });
+  inFlight.download = (async () => {
+    const store = useUpdateStore.getState();
+    store.setStatus("downloading");
+    store.setDownloadProgress({ downloaded: 0, total: null });
 
-  // Track progress in local variables to avoid stale state on rapid updates.
-  let downloadedBytes = 0;
-  let totalBytes: number | null = null;
+    // Track progress in local variables to avoid stale state on rapid updates.
+    let downloadedBytes = 0;
+    let totalBytes: number | null = null;
 
-  try {
-    await pendingUpdate.downloadAndInstall((event) => {
-      const live = useUpdateStore.getState();
-      switch (event.event) {
-        case "Started":
-          downloadedBytes = 0;
-          totalBytes = event.data.contentLength ?? null;
-          live.setDownloadProgress({ downloaded: 0, total: totalBytes });
-          break;
-        case "Progress":
-          downloadedBytes += event.data.chunkLength;
-          live.setDownloadProgress({ downloaded: downloadedBytes, total: totalBytes });
-          break;
-        case "Finished":
-          live.setDownloadProgress(null);
-          break;
-      }
-    });
+    try {
+      await pendingUpdate.downloadAndInstall((event) => {
+        const live = useUpdateStore.getState();
+        switch (event.event) {
+          case "Started":
+            downloadedBytes = 0;
+            totalBytes = event.data.contentLength ?? null;
+            live.setDownloadProgress({ downloaded: 0, total: totalBytes });
+            break;
+          case "Progress":
+            downloadedBytes += event.data.chunkLength;
+            live.setDownloadProgress({ downloaded: downloadedBytes, total: totalBytes });
+            break;
+          case "Finished":
+            live.setDownloadProgress(null);
+            break;
+        }
+      });
 
-    useUpdateStore.getState().setStatus("ready");
-    return true;
-  } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : i18n.t("dialog:toast.updateDownloadFailedGeneric");
-    useUpdateStore.getState().setError(message);
-    return false;
-  }
+      useUpdateStore.getState().setStatus("ready");
+      return true;
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : i18n.t("dialog:toast.updateDownloadFailedGeneric");
+      useUpdateStore.getState().setError(message);
+      return false;
+    } finally {
+      inFlight.download = null;
+    }
+  })();
+
+  return inFlight.download;
 }
 
 /**

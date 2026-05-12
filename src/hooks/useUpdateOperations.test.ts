@@ -162,6 +162,76 @@ describe("useUpdateOperations", () => {
 
     expect(mockEmit).toHaveBeenCalledWith("update:request-state");
   });
+
+  // Regression for the v0.7.11 freeze: spam-clicking "Check Now" while a
+  // check was in flight spawned parallel `check()` requests. Each broadcast
+  // back to the other window via useUpdateSync, which fed main's retry
+  // effect with extra "checking → error" transitions. Single-flight makes
+  // every concurrent caller share the in-flight promise.
+  it("checkForUpdates is single-flight — overlapping callers reuse the in-flight check", async () => {
+    let resolveCheck: ((value: unknown) => void) | undefined;
+    mockCheck.mockReset();
+    mockCheck.mockImplementation(
+      () => new Promise((r) => { resolveCheck = r; }),
+    );
+
+    const { result } = renderHook(() => useUpdateOperations());
+
+    let firstDone = false;
+    let secondDone = false;
+    await act(async () => {
+      const first = result.current.checkForUpdates().then(() => { firstDone = true; });
+      const second = result.current.checkForUpdates().then(() => { secondDone = true; });
+      // Allow microtasks to settle so the second call enters runUpdateCheck
+      // and hits the single-flight guard.
+      await Promise.resolve();
+      expect(mockCheck).toHaveBeenCalledTimes(1);
+      expect(firstDone).toBe(false);
+      expect(secondDone).toBe(false);
+      resolveCheck?.(null);
+      await Promise.all([first, second]);
+    });
+
+    expect(mockCheck).toHaveBeenCalledTimes(1);
+    expect(firstDone).toBe(true);
+    expect(secondDone).toBe(true);
+  });
+
+  // Same single-flight guarantee for the download side. The Tauri
+  // pendingUpdate.downloadAndInstall is not safe to call twice on the
+  // same Update resource — overlapping callers (e.g., manual click while
+  // the auto-download effect fires) must share one in-flight promise.
+  it("downloadAndInstall is single-flight — overlapping callers reuse the in-flight download", async () => {
+    let resolveDownload: (() => void) | undefined;
+    const mockDownloadAndInstall = vi.fn(
+      () => new Promise<void>((r) => { resolveDownload = r; }),
+    );
+    useUpdateStore.getState().setPendingUpdate({
+      downloadAndInstall: mockDownloadAndInstall,
+    } as never);
+
+    const { result } = renderHook(() => useUpdateOperations());
+
+    let firstDone = false;
+    let secondDone = false;
+    await act(async () => {
+      const first = result.current.downloadAndInstall().then(() => { firstDone = true; });
+      const second = result.current.downloadAndInstall().then(() => { secondDone = true; });
+      // Let microtasks settle so the second call enters runUpdateDownload
+      // and hits the inFlight.download gate.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mockDownloadAndInstall).toHaveBeenCalledTimes(1);
+      expect(firstDone).toBe(false);
+      expect(secondDone).toBe(false);
+      resolveDownload?.();
+      await Promise.all([first, second]);
+    });
+
+    expect(mockDownloadAndInstall).toHaveBeenCalledTimes(1);
+    expect(firstDone).toBe(true);
+    expect(secondDone).toBe(true);
+  });
 });
 
 describe("useUpdateOperationHandler", () => {

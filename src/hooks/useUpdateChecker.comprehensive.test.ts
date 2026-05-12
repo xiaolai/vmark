@@ -565,6 +565,15 @@ describe("useUpdateChecker hook", () => {
   it("retries up to MAX_RETRIES times then gives up", async () => {
     renderHook(() => useUpdateChecker());
 
+    // Fire the startup timer (2000ms) — this is what arms the retry
+    // chain in the post-fix code path. Manual transitions before this
+    // point do not start a retry chain on purpose.
+    await act(async () => {
+      vi.advanceTimersByTime(2100);
+      await Promise.resolve();
+    });
+    mockDoCheckForUpdates.mockClear();
+
     // First retry: checking -> error
     await act(async () => {
       useUpdateStore.getState().setStatus("checking");
@@ -616,6 +625,122 @@ describe("useUpdateChecker hook", () => {
       await Promise.resolve();
     });
     expect(mockDoCheckForUpdates.mock.calls.length).toBe(callsBefore);
+  });
+
+  // Regression for the cancelled-timer / out-of-band-manual-check window:
+  // retryChainActiveRef must NOT be armed until the startup timer's
+  // callback actually runs. If the chain were armed in the effect body,
+  // a checking → error transition during the 2-second startup delay
+  // (e.g., user clicked Check Now in Settings before auto-check fires,
+  // or the component unmounted before the timer ran) would be
+  // misclassified as part of an auto-chain and surface retries/toast.
+  it("does not arm the retry chain until the startup timer fires", async () => {
+    const { toast } = await import("sonner");
+    (toast.error as ReturnType<typeof vi.fn>).mockClear();
+    mockDoCheckForUpdates.mockClear();
+
+    renderHook(() => useUpdateChecker());
+
+    // Stay BELOW the 2000ms startup delay — the auto-chain must not be
+    // armed yet.
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+
+    // Simulate an out-of-band manual check (e.g., from Settings) that
+    // fails immediately.
+    await act(async () => {
+      useUpdateStore.getState().setStatus("checking");
+    });
+    await act(async () => {
+      useUpdateStore.getState().setStatus("error");
+    });
+
+    // Advance another sub-startup interval. We don't cross 2000ms total,
+    // so the startup timer can't fire and any retry timer would still
+    // be 5000ms away — neither should have been scheduled in the first
+    // place because the chain wasn't active.
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+    });
+
+    expect(mockDoCheckForUpdates).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ id: "update-retries-exhausted" }),
+    );
+  });
+
+  // Regression for v0.7.11 freeze: after the auto-retry chain exhausts,
+  // every later `checking → error` transition (typically a Settings-window
+  // click broadcasting through useUpdateListener) used to re-fire the
+  // pinned "retries exhausted" toast — which then stacked because the
+  // toast had no stable id. With retryChainActiveRef cleared on exhaustion
+  // and a stable id passed to sonner, the toast fires exactly once per
+  // real chain and is deduplicated in place if it ever did re-fire.
+  it("fires retries-exhausted toast at most once per chain, with a stable id", async () => {
+    const { toast } = await import("sonner");
+    (toast.error as ReturnType<typeof vi.fn>).mockClear();
+
+    renderHook(() => useUpdateChecker());
+
+    // Fire the startup timer first — that arms the chain (post-fix the
+    // chain isn't active just by mounting; the timer's callback sets it).
+    await act(async () => {
+      vi.advanceTimersByTime(2100);
+      await Promise.resolve();
+    });
+
+    // Drive the chain to exhaustion: 3 retries scheduled, then the 4th
+    // checking→error transition is the exhaustion event.
+    const driveCheckingToError = async (advanceMs: number) => {
+      await act(async () => {
+        useUpdateStore.getState().setStatus("checking");
+      });
+      await act(async () => {
+        useUpdateStore.getState().setStatus("error");
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(advanceMs);
+        await Promise.resolve();
+      });
+    };
+
+    await driveCheckingToError(5100);   // retry 1 (count 0 -> 1)
+    await driveCheckingToError(10100);  // retry 2 (count 1 -> 2)
+    await driveCheckingToError(20100);  // retry 3 (count 2 -> 3)
+    // 4th transition is the exhaustion event (count 3, NOT < MAX) — fires toast.
+    await act(async () => {
+      useUpdateStore.getState().setStatus("checking");
+    });
+    await act(async () => {
+      useUpdateStore.getState().setStatus("error");
+    });
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ id: "update-retries-exhausted" }),
+    );
+
+    // Subsequent transitions (e.g., user clicks "Check Now" in Settings,
+    // its broadcast flips main's status checking→error) must NOT fire any
+    // additional retry-exhausted toast — chain is no longer active.
+    await act(async () => {
+      useUpdateStore.getState().setStatus("checking");
+    });
+    await act(async () => {
+      useUpdateStore.getState().setStatus("error");
+    });
+    await act(async () => {
+      useUpdateStore.getState().setStatus("checking");
+    });
+    await act(async () => {
+      useUpdateStore.getState().setStatus("error");
+    });
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry when autoCheckEnabled is false", async () => {

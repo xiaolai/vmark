@@ -42,6 +42,12 @@ const STARTUP_CHECK_DELAY_MS = 2000; // Delay to let app initialize before check
 // Retry constants
 const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 5000; // 5 seconds base delay
+// Stable id so subsequent retry-exhausted toasts REPLACE the visible one.
+// Without this, every status `checking → error` transition (including those
+// caused by another window's broadcast) creates a fresh pinned toast and
+// they stack until the screen is unusable. See issue investigation in
+// dev-docs/grills (v0.7.11 freeze report).
+const RETRIES_EXHAUSTED_TOAST_ID = "update-retries-exhausted";
 
 /**
  * Determine if we should check for updates based on settings and last check time.
@@ -80,6 +86,13 @@ export function useUpdateChecker() {
   const retryCount = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isManualCheck = useRef(false);
+  // True only while an auto-check chain is in progress. Without this guard,
+  // any `checking → error` transition fires a retry/toast — including those
+  // caused by another window's broadcast (Settings runs check inline → emits
+  // state-changed → main listener applies → main retry effect mistakes it
+  // for its own chain). Set true when an auto-check is launched, cleared on
+  // success or when the toast fires once at exhaustion.
+  const retryChainActiveRef = useRef(false);
   const { doCheckForUpdates, doDownloadAndInstall, EVENTS } = useUpdateOperationHandler();
 
   const autoCheckEnabled = useSettingsStore((state) => state.update.autoCheckEnabled);
@@ -108,7 +121,17 @@ export function useUpdateChecker() {
     if (shouldCheckNow(autoCheckEnabled, checkFrequency, lastCheckTimestamp)) {
       hasChecked.current = true;
 
+      // Arm the retry chain INSIDE the timer callback, not here. If the
+      // 2s timer is cancelled (e.g., the component unmounts during the
+      // delay — common in React Strict Mode mount/unmount/remount), an
+      // effect-body assignment would leave retryChainActiveRef stuck on
+      // `true` even though no auto-check ever ran. A later manual
+      // `checking → error` would then be misclassified as part of the
+      // (non-existent) auto-chain and surface the retries-exhausted
+      // toast or schedule retries that no one asked for.
       const timer = setTimeout(() => {
+        retryChainActiveRef.current = true;
+        retryCount.current = 0;
         doCheckForUpdates().catch((error) => {
           updateCheckerLog("Auto-check failed on startup:", error);
         });
@@ -175,10 +198,21 @@ export function useUpdateChecker() {
     // Reset retry count on successful check
     if (status === "up-to-date" || status === "available") {
       retryCount.current = 0;
+      retryChainActiveRef.current = false;
     }
 
-    // Retry on error if we haven't exceeded max retries
-    if (status === "error" && prevStatus === "checking" && autoCheckEnabled) {
+    // Retry on error if we haven't exceeded max retries.
+    // Gated on retryChainActiveRef so cross-window broadcast errors (Settings
+    // window's click flowing through useUpdateListener) don't get treated as
+    // continuations of an auto-check chain — that path produced both the
+    // stacked retry-exhausted toasts and the cascading parallel checks that
+    // made v0.7.11 feel frozen.
+    if (
+      status === "error" &&
+      prevStatus === "checking" &&
+      autoCheckEnabled &&
+      retryChainActiveRef.current
+    ) {
       if (retryCount.current < MAX_RETRIES) {
         // Exponential backoff: 5s, 10s, 20s
         const delay = BASE_RETRY_DELAY_MS * Math.pow(2, retryCount.current);
@@ -195,10 +229,13 @@ export function useUpdateChecker() {
         }, delay);
       } else {
         updateCheckerLog("Max retries reached, giving up");
-        // Surface a final toast so the user knows updates aren't reaching the
-        // server — otherwise auto-retry exhaustion is invisible. Pin so the
-        // user can read it before dismissing (likely AFK during retries).
+        // Chain ends here — clear before toasting so a later cross-window
+        // status flicker doesn't re-enter this branch.
+        retryChainActiveRef.current = false;
+        // Stable id makes sonner replace any prior copy of this toast in
+        // place instead of stacking pinned copies.
         toast.error(i18n.t("dialog:toast.updateRetriesExhausted"), {
+          id: RETRIES_EXHAUSTED_TOAST_ID,
           duration: 6000,
           pin: true,
         });
