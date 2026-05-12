@@ -12,6 +12,11 @@
  *   - Pure close decision logic delegated to utils/closeDecision.ts
  *   - Re-entry guard (closingTabIds) prevents duplicate save prompts when
  *     Cmd+W fires both keydown and menu:close concurrently
+ *   - Pinned tabs are short-circuited with the unpin-before-closing toast
+ *     BEFORE cleanup runs — tabStore.closeTab silently refuses them, so
+ *     letting cleanupTabState run anyway wipes the document of a visible tab
+ *   - When a workspace is open and only one tab remains, the close is gated
+ *     on a confirmation prompt (skipLastTabWarning bypasses for batch closes)
  *
  * @coordinates-with closeSave.ts — promptSaveForDirtyDocument dialog
  * @coordinates-with tabStore.ts — removeTab mutations

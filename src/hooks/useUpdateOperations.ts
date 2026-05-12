@@ -16,6 +16,10 @@
  *     The previous "always route to main" design broke when main was destroyed
  *     (closed via traffic light / Cmd+W on macOS) — the cross-window emit went
  *     to nobody and the "Check now" button silently did nothing.
+ *   - Per-window single-flight via module-level `inFlight.{check,download}`:
+ *     spam-clicks, the auto-retry timer, and the auto-download effect all
+ *     share one in-flight promise so the Tauri updater plugin is never
+ *     called twice in parallel from the same window.
  *   - Restart still emits cross-window because it needs to coordinate with
  *     dirty-document handling in the main window's useUpdateChecker.
  *   - Settings → Check, Settings → Download is the typical user path; it

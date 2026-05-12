@@ -10,10 +10,17 @@
  *   user to install → restartWithHotExit for seamless update
  *
  * Key decisions:
- *   - All update operations funneled to main window (pendingUpdate object lives there)
- *   - Other windows emit request events; main window listens and executes
+ *   - check/download run inline in whichever window the user clicked from
+ *     (pendingUpdate is window-local) — useUpdateOperations owns the
+ *     single-flight gate so the same window can't issue parallel checks
+ *   - Cross-window broadcast keeps StatusBar UpdateIndicator in sync;
+ *     retryChainActiveRef gates the retry effect so broadcast-driven
+ *     status transitions don't get misclassified as part of an auto-chain
  *   - Exponential backoff retry (3 attempts, 5s base delay) for network failures
- *   - Startup check delayed 2s to let app initialize first
+ *   - Startup check delayed 2s to let app initialize; chain is armed
+ *     INSIDE the timer callback so a cancelled timer leaves no stale state
+ *   - Exhaustion toast uses stable id "update-retries-exhausted" so any
+ *     duplicate replaces in place instead of stacking pinned copies
  *
  * @coordinates-with useUpdateOperations.ts — provides check/download/restart functions
  * @coordinates-with useUpdateSync.ts — syncs update state across windows
