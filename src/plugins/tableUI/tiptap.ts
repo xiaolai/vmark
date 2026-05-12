@@ -43,14 +43,38 @@ class TiptapTableUIPluginView {
   private contextMenu: TiptapTableContextMenu;
   private columnResize: ColumnResizeManager;
   private view: EditorView;
+  // True once destroy() has run. Guards the deferred microtask below
+  // against re-registering this (now-detached) instance's contextMenu
+  // into plugin state — a plugin-view swap (extension reload, document
+  // remount) destroys this instance while the underlying EditorView
+  // stays alive, so view.isDestroyed alone is not enough.
+  private destroyed = false;
 
   constructor(view: EditorView) {
     this.view = view;
     this.contextMenu = new TiptapTableContextMenu(view);
     this.columnResize = new ColumnResizeManager(view);
 
-    const tr = view.state.tr.setMeta(tiptapTableUIPluginKey, { contextMenu: this.contextMenu });
-    view.dispatch(tr);
+    // Defer the meta-only dispatch out of `view()` initialization. Dispatching
+    // synchronously here is reentrant — PM is still inside updateStateInner →
+    // updatePluginViews when this constructor runs, and the resulting nested
+    // applyTransaction runs every plugin's appendTransaction against a doc
+    // that may have just been emptied (Tiptap mounts with an empty
+    // <paragraph> and our onCreate replaces content via setTimeout(0)). If any
+    // other plugin's appendTransaction appends a step at a stored position
+    // from prior state, the step blows up with "Position N outside of
+    // fragment". Microtask defer puts the dispatch after mount completes and
+    // the real document is in place — the contextMenu reference is only read
+    // by the `contextmenu` DOM handler on user right-click, which can't fire
+    // earlier than this microtask.
+    queueMicrotask(() => {
+      if (this.destroyed) return;
+      if ((view as EditorView & { isDestroyed?: boolean }).isDestroyed) return;
+      const tr = view.state.tr.setMeta(tiptapTableUIPluginKey, {
+        contextMenu: this.contextMenu,
+      });
+      view.dispatch(tr);
+    });
   }
 
   update(view: EditorView) {
@@ -65,6 +89,7 @@ class TiptapTableUIPluginView {
   }
 
   destroy() {
+    this.destroyed = true;
     this.contextMenu.destroy();
     this.columnResize.destroy();
 
