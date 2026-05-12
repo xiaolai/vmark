@@ -182,6 +182,12 @@
   "saveRequired": {
     "title": "保存が必要"
   },
+  "closeLastTab": {
+    "title": "最後のドキュメントを閉じる",
+    "message": "このワークスペースで最後に開いているドキュメントです。閉じますか？",
+    "confirm": "閉じる",
+    "cancel": "キャンセル"
+  },
   "fileTooLarge": {
     "title": "ファイルが大きすぎます",
     "message": "ファイルが大きすぎます（{{size}} MB）。最大は {{max}} MB です。"

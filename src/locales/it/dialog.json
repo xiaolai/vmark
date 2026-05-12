@@ -182,6 +182,12 @@
   "saveRequired": {
     "title": "Salvataggio richiesto"
   },
+  "closeLastTab": {
+    "title": "Chiudi ultimo documento",
+    "message": "Questo è l'ultimo documento aperto in quest'area di lavoro. Chiuderlo?",
+    "confirm": "Chiudi",
+    "cancel": "Annulla"
+  },
   "fileTooLarge": {
     "title": "File troppo grande",
     "message": "Il file è troppo grande ({{size}} MB). Il massimo è {{max}} MB."

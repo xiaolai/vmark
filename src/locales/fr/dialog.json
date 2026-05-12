@@ -182,6 +182,12 @@
   "saveRequired": {
     "title": "Enregistrement requis"
   },
+  "closeLastTab": {
+    "title": "Fermer le dernier document",
+    "message": "Ceci est le dernier document ouvert dans cet espace de travail. Fermer ?",
+    "confirm": "Fermer",
+    "cancel": "Annuler"
+  },
   "fileTooLarge": {
     "title": "Fichier trop volumineux",
     "message": "Le fichier est trop volumineux ({{size}} Mo). Maximum : {{max}} Mo."

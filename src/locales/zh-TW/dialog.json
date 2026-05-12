@@ -182,6 +182,12 @@
   "saveRequired": {
     "title": "需要儲存"
   },
+  "closeLastTab": {
+    "title": "關閉最後一個文件",
+    "message": "這是此工作區中最後一個開啟的文件。要關閉嗎？",
+    "confirm": "關閉",
+    "cancel": "取消"
+  },
   "fileTooLarge": {
     "title": "檔案過大",
     "message": "檔案過大（{{size}} MB）。最大為 {{max}} MB。"

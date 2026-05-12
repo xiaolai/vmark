@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
-import { message, save } from "@tauri-apps/plugin-dialog";
+import { message, save, ask } from "@tauri-apps/plugin-dialog";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { invoke } from "@tauri-apps/api/core";
 import { saveToPath } from "@/utils/saveToPath";
 import { isMacPlatform } from "@/utils/shortcutMatch";
@@ -211,6 +212,48 @@ describe("closeTabWithDirtyCheck", () => {
 
     expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
   });
+
+  // Regression for pinned-tab data loss: tabStore.closeTab() refuses
+  // pinned tabs (shows an "Unpin before closing" toast). Without an
+  // explicit short-circuit here, cleanupTabState() still wiped the
+  // document state and the dirty-prompt path could still run for a tab
+  // that would never actually close. The tab stayed visible in the UI
+  // but with no document behind it.
+  it("refuses to close a pinned tab and keeps the document intact", async () => {
+    const tabId1 = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/pinned.md");
+    // Add a second tab so closeWindowIfEmpty would otherwise attempt to
+    // close the window — verifying we don't hit that path on a refused close.
+    const tabId2 = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/other.md");
+    useDocumentStore.getState().initDocument(tabId1, "hello", "/tmp/pinned.md");
+    useDocumentStore.getState().initDocument(tabId2, "world", "/tmp/other.md");
+    useTabStore.getState().togglePin(WINDOW_LABEL, tabId1);
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId1);
+
+    expect(result).toBe(false);
+    // Tab is still in the window.
+    const tabs = useTabStore.getState().tabs[WINDOW_LABEL] ?? [];
+    expect(tabs.some((t) => t.id === tabId1)).toBe(true);
+    // Document state survived — this is the data-loss bug being guarded.
+    expect(useDocumentStore.getState().getDocument(tabId1)).toBeDefined();
+    // No save prompt, no window close.
+    expect(message).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith("close_window", expect.anything());
+  });
+
+  it("refuses to close a pinned + dirty tab WITHOUT running the save prompt", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/pinned-dirty.md");
+    useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/pinned-dirty.md");
+    useDocumentStore.getState().setContent(tabId, "changed");
+    useTabStore.getState().togglePin(WINDOW_LABEL, tabId);
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    expect(result).toBe(false);
+    // The dirty prompt must not appear — close is going to be refused either way.
+    expect(message).not.toHaveBeenCalled();
+    expect(useDocumentStore.getState().getDocument(tabId)).toBeDefined();
+  });
 });
 
 describe("closeTabsWithDirtyCheck", () => {
@@ -400,5 +443,106 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(findOrphanedImages).not.toHaveBeenCalled();
+  });
+});
+
+// Confirmation before closing the only remaining tab while a workspace is
+// open. The warning prevents an accidental Cmd+W on the last document from
+// either closing the workspace window (macOS) or replacing the workspace
+// view with a blank untitled tab (Win/Linux) without the user realising it.
+describe("closeTabWithDirtyCheck — last-tab-in-workspace warning", () => {
+  beforeEach(() => {
+    resetStores();
+    vi.clearAllMocks();
+    vi.mocked(isMacPlatform).mockReturnValue(true);
+    // Default ask() to "user clicked Cancel" so any unintended fire is
+    // visible as the close returning false. Each test that should
+    // proceed overrides with mockResolvedValueOnce(true).
+    vi.mocked(ask).mockResolvedValue(false);
+    // Reset workspace state — closeWorkspace() clears rootPath/config and
+    // sets isWorkspaceMode to false.
+    useWorkspaceStore.getState().closeWorkspace();
+  });
+
+  it("prompts and proceeds when user confirms (workspace open, last tab)", async () => {
+    useWorkspaceStore.getState().openWorkspace("/tmp/workspace");
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/workspace/a.md");
+    useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/workspace/a.md");
+
+    vi.mocked(ask).mockResolvedValueOnce(true);
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(result).toBe(true);
+    expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
+  });
+
+  it("aborts when user cancels the prompt (workspace open, last tab)", async () => {
+    useWorkspaceStore.getState().openWorkspace("/tmp/workspace");
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/workspace/a.md");
+    useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/workspace/a.md");
+
+    vi.mocked(ask).mockResolvedValueOnce(false);
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(result).toBe(false);
+    expect(useDocumentStore.getState().getDocument(tabId)).toBeDefined();
+    expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(1);
+  });
+
+  it("does not prompt when not the last tab (workspace open, two tabs)", async () => {
+    useWorkspaceStore.getState().openWorkspace("/tmp/workspace");
+    const tabId1 = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/workspace/a.md");
+    const tabId2 = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/workspace/b.md");
+    useDocumentStore.getState().initDocument(tabId1, "a", "/tmp/workspace/a.md");
+    useDocumentStore.getState().initDocument(tabId2, "b", "/tmp/workspace/b.md");
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId1);
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(result).toBe(true);
+  });
+
+  it("does not prompt when no workspace is open (free-standing window)", async () => {
+    // No workspace open — the beforeEach already called closeWorkspace().
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/a.md");
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(result).toBe(true);
+  });
+
+  it("does not prompt for batch closes (skipLastTabWarning flag)", async () => {
+    useWorkspaceStore.getState().openWorkspace("/tmp/workspace");
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/workspace/a.md");
+    useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/workspace/a.md");
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId, {
+      skipLastTabWarning: true,
+    });
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(result).toBe(true);
+  });
+
+  it("closeTabsWithDirtyCheck skips the warning on its final iteration", async () => {
+    // Regression: batch-close paths (Close Others / To Right / All
+    // Unpinned) reach a state where one tab remains in the loop. Without
+    // the skip flag they would surface a confirmation dialog mid-batch.
+    useWorkspaceStore.getState().openWorkspace("/tmp/workspace");
+    const tabId1 = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/workspace/a.md");
+    const tabId2 = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/workspace/b.md");
+    useDocumentStore.getState().initDocument(tabId1, "a", "/tmp/workspace/a.md");
+    useDocumentStore.getState().initDocument(tabId2, "b", "/tmp/workspace/b.md");
+
+    const result = await closeTabsWithDirtyCheck(WINDOW_LABEL, [tabId1, tabId2]);
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(result).toBe(true);
   });
 });

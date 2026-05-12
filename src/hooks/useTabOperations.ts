@@ -25,12 +25,16 @@ import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { findOrphanedImages, deleteOrphanedImages } from "@/utils/orphanAssetCleanup";
 import { cleanupTabState } from "@/hooks/tabCleanup";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 import { createUntitledTab } from "@/utils/newFile";
 import { isMacPlatform } from "@/utils/shortcutMatch";
+import { imeToast as toast } from "@/utils/imeToast";
+import i18n from "@/i18n";
 
 /**
  * Clean up orphaned images for a document if setting is enabled.
@@ -82,10 +86,58 @@ async function closeWindowIfEmpty(windowLabel: string): Promise<void> {
  */
 const closingTabIds = new Set<string>();
 
+/** Options for closeTabWithDirtyCheck. */
+export interface CloseTabOptions {
+  /**
+   * Skip the "this is the last document in the workspace" confirmation.
+   * Batch closes (Close Others / Close to Right / Close All Unpinned)
+   * already represent an explicit decision to close many tabs, so we
+   * don't ask again when the loop reaches the last one. The window-close
+   * path doesn't call closeTabWithDirtyCheck at all (it has its own
+   * dirty-prompt path), so it doesn't need this flag.
+   */
+  skipLastTabWarning?: boolean;
+}
+
+/**
+ * Prompt the user before closing the last open document in a workspace.
+ * Returns true if the close should proceed, false if the user cancelled.
+ *
+ * Only fires when:
+ *   - This is the last tab in the window (so closing it would either
+ *     close the window on macOS or replace it with a blank untitled
+ *     tab on Windows/Linux), AND
+ *   - A workspace is open for this window (the warning is about losing
+ *     the workspace context, not about closing a free-standing window).
+ */
+async function confirmLastTabInWorkspace(
+  windowLabel: string,
+  tabId: string,
+): Promise<boolean> {
+  const tabs = useTabStore.getState().tabs[windowLabel] ?? [];
+  const isLastTab = tabs.length === 1 && tabs[0]?.id === tabId;
+  if (!isLastTab) return true;
+
+  const isWorkspaceMode = useWorkspaceStore.getState().isWorkspaceMode;
+  if (!isWorkspaceMode) return true;
+
+  return ask(i18n.t("dialog:closeLastTab.message"), {
+    title: i18n.t("dialog:closeLastTab.title"),
+    kind: "warning",
+    okLabel: i18n.t("dialog:closeLastTab.confirm"),
+    cancelLabel: i18n.t("dialog:closeLastTab.cancel"),
+  });
+}
+
 /**
  * Close a tab with dirty check. If the document has unsaved changes,
  * prompts the user to save, don't save, or cancel.
  * If the last tab is closed, the window is closed (macOS standard behavior).
+ *
+ * When a workspace is open and this is the last remaining tab, also
+ * asks the user to confirm — closing the last doc would either close
+ * the workspace window (macOS) or replace it with a blank tab (Win/Linux),
+ * and miss-clicked Cmd+W on the last tab is easy to do by accident.
  *
  * Re-entrant calls for the same tabId are treated as no-ops (returns true).
  *
@@ -93,7 +145,8 @@ const closingTabIds = new Set<string>();
  */
 export async function closeTabWithDirtyCheck(
   windowLabel: string,
-  tabId: string
+  tabId: string,
+  options: CloseTabOptions = {},
 ): Promise<boolean> {
   // Re-entry guard: another close for this tab is already in progress
   if (closingTabIds.has(tabId)) return true;
@@ -104,8 +157,27 @@ export async function closeTabWithDirtyCheck(
   // Tab or document doesn't exist - treat as already closed
   if (!doc || !tab) return true;
 
+  // Pinned tabs are refused by tabStore.closeTab — but the caller path
+  // here would still run cleanupTabState() and wipe the document state
+  // for a tab that remains visible in the UI. Short-circuit with the
+  // same toast tabStore would have shown.
+  if (tab.isPinned) {
+    toast.info(i18n.t("dialog:toast.unpinBeforeClosing"));
+    return false;
+  }
+
   closingTabIds.add(tabId);
   try {
+    // Last-tab-in-workspace warning. Inside the try (after add()) so
+    // concurrent Cmd+W calls hit the re-entry guard immediately rather
+    // than both awaiting their own copy of the warning dialog. Runs
+    // BEFORE the dirty prompt so a cancelled warning avoids the
+    // redundant "Save changes?" dialog.
+    if (!options.skipLastTabWarning) {
+      const proceed = await confirmLastTabInWorkspace(windowLabel, tabId);
+      if (!proceed) return false;
+    }
+
     // If not dirty, clean up orphans and close immediately
     if (!doc.isDirty) {
       await cleanupOrphansIfEnabled(doc.filePath, doc.content);
@@ -159,7 +231,14 @@ export async function closeTabsWithDirtyCheck(
   tabIds: string[]
 ): Promise<boolean> {
   for (const tabId of tabIds) {
-    const closed = await closeTabWithDirtyCheck(windowLabel, tabId);
+    // Batch closes (Close Others / To Right / All Unpinned) already
+    // represent an explicit user decision to close multiple tabs — skip
+    // the per-tab last-tab-in-workspace confirmation so we don't pop a
+    // surprise dialog mid-batch when the loop happens to reach the only
+    // remaining tab.
+    const closed = await closeTabWithDirtyCheck(windowLabel, tabId, {
+      skipLastTabWarning: true,
+    });
     if (!closed) {
       return false; // User cancelled - stop closing
     }
