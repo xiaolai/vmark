@@ -11,7 +11,7 @@
 //!
 //! Pure data; no I/O. Easy to unit-test.
 
-use super::types::{RawDefaults, RawLimits, RawStep};
+use super::types::{RawDefaults, RawStep};
 use crate::genies::types::GenieMetadata;
 
 /// Default step timeout when nothing along the precedence chain sets one.
@@ -111,7 +111,7 @@ pub fn resolve_step_config(
 mod tests {
     use super::*;
     use crate::genies::types::GenieMetadata;
-    use crate::workflow::types::{NeedsDef, RawStep};
+    use crate::workflow::types::{NeedsDef, RawLimits, RawStep};
 
     fn step(model: Option<&str>, approval: Option<&str>, limits: Option<RawLimits>) -> RawStep {
         RawStep {

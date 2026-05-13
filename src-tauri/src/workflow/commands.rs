@@ -9,7 +9,7 @@
 //!   - Snapshots created before execution for file-modifying steps.
 
 use super::approval::ApprovalRegistry;
-use super::genie_step::ProviderConfig;
+use super::genie_step::{resolve_genies_dir, ProviderConfig};
 use super::runner::run_workflow_sequential;
 use super::snapshots;
 use super::types::RawWorkflow;
@@ -176,7 +176,7 @@ pub async fn run_workflow(
     // for filesystem I/O. `app.path().app_data_dir()` can fail on rare
     // sandbox configurations; in that case genie steps will report a clean
     // error and action-only workflows still run.
-    let genies_dir = app.path().app_data_dir().ok().map(|d| d.join("genies"));
+    let genies_dir = app.path().app_data_dir().ok().map(|d| resolve_genies_dir(&d));
 
     // Approval registry is per-app, shared across executions.
     let approvals = Arc::clone(&state.approvals);
