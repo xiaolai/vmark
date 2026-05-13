@@ -85,6 +85,13 @@ jobs:
           echo "DMGs not available after 15 minutes"
           exit 1
 
+      # DMG trust chain: Apple Developer ID codesigning + notarization,
+      # enforced by Gatekeeper at install time on the user's machine. Tauri's
+      # minisign signatures cover updater-format bundles only (.app.tar.gz,
+       # .AppImage, .msi, .exe, .deb, .rpm) — there's no .dmg.sig to verify
+      # against here. Don't add codesign --verify to this Linux job; it would
+      # require a macOS runner (5× cost) to duplicate what every installing
+      # user's Gatekeeper already enforces.
       - name: Download DMGs and calculate SHA256
         id: sha256
         run: |
