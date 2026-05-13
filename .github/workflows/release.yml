@@ -33,7 +33,16 @@ jobs:
         id: get-version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            INPUT_VERSION="${{ github.event.inputs.version }}"
+            # Strict format: vX.Y.Z (optionally with -prerelease or +build).
+            # Manual-dispatch typos otherwise create bogus releases that pass
+            # the rest of the pipeline (semver validator on latest.json runs
+            # AFTER assets upload — too late).
+            if ! [[ "$INPUT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::workflow_dispatch.version must look like 'vX.Y.Z' (got '$INPUT_VERSION')"
+              exit 1
+            fi
+            echo "version=$INPUT_VERSION" >> $GITHUB_OUTPUT
           else
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
@@ -55,14 +64,23 @@ jobs:
             LATEST_VER="${LATEST_TAG#v}"
             echo "This tag: $THIS_VER, Latest release: $LATEST_VER"
 
+            # Block both older-than and equal-to. Equal-tag re-push would let
+            # softprops/action-gh-release update the published release in place,
+            # silently swapping assets that installed clients have already
+            # downloaded. Re-running a release requires a new tag, not a re-push.
+            if [ "$THIS_VER" = "$LATEST_VER" ]; then
+              echo "::error::Tag $TAG already matches the latest published release. Re-publishing would mutate assets in place. Bump the version instead."
+              exit 1
+            fi
+
             # Compare versions using sort -V (version sort)
             HIGHER=$(printf '%s\n%s' "$THIS_VER" "$LATEST_VER" | sort -V | tail -1)
-            if [ "$HIGHER" = "$LATEST_VER" ] && [ "$THIS_VER" != "$LATEST_VER" ]; then
+            if [ "$HIGHER" = "$LATEST_VER" ]; then
               echo "::error::Tag $TAG is older than current latest $LATEST_TAG — aborting to prevent version regression."
               exit 1
             fi
           fi
-          echo "✅ Tag $TAG is newer than or equal to latest — proceeding"
+          echo "✅ Tag $TAG is newer than latest — proceeding"
 
       - name: Create Release
         id: create-release
@@ -311,9 +329,23 @@ jobs:
 
           echo "Generating latest.json for $VERSION..."
 
-          # Download all .sig files to get signatures
+          # Download all .sig files to get signatures.
+          # Hard-fail on download failure: an empty `sigs/` directory used to
+          # cascade through the rest of this job silently — empty signature
+          # strings landed in latest.json, which validates as well-formed JSON
+          # but every Tauri client rejects at minisign verification, surfacing
+          # as "no update available" with no visible CI failure.
           mkdir -p sigs
-          gh release download "$VERSION" --repo "$REPO" --pattern "*.sig" --dir sigs || true
+          if ! gh release download "$VERSION" --repo "$REPO" --pattern "*.sig" --dir sigs; then
+            echo "::error::gh release download failed for *.sig — cannot continue."
+            exit 1
+          fi
+          DOWNLOADED_SIGS=$(find sigs -maxdepth 1 -name "*.sig" -type f | wc -l)
+          if [ "$DOWNLOADED_SIGS" -eq 0 ]; then
+            echo "::error::No .sig files downloaded from release $VERSION. tauri-action signing likely failed earlier."
+            exit 1
+          fi
+          echo "Found $DOWNLOADED_SIGS signature files"
 
           # Read signatures
           MACOS_AARCH64_SIG=""
@@ -400,7 +432,17 @@ jobs:
             echo "::error::latest.json contains an unexpanded shell variable in a platform URL"
             exit 1
           fi
-          echo "✅ latest.json validates: version=$MANIFEST_VERSION"
+          # Every per-platform signature must be non-empty. A missing .sig file
+          # produces an empty string here; the JSON parses but Tauri's updater
+          # rejects empty signatures and surfaces as "no update available" with
+          # no visible CI failure. Catch it now, not via user reports.
+          EMPTY_SIG_PLATFORMS=$(jq -r '.platforms | to_entries[] | select(.value.signature == "") | .key' latest.json)
+          if [ -n "$EMPTY_SIG_PLATFORMS" ]; then
+            echo "::error::latest.json has empty signatures for: $(echo "$EMPTY_SIG_PLATFORMS" | tr '\n' ' ')"
+            echo "::error::This usually means tauri-action's signing step failed silently. Check the build-tauri matrix for warnings."
+            exit 1
+          fi
+          echo "✅ latest.json validates: version=$MANIFEST_VERSION, all platform signatures present"
 
           # Upload latest.json to release
           gh release upload "$VERSION" latest.json --repo "$REPO" --clobber

@@ -112,7 +112,8 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZFQ0NGRjU5RUZBM0RBMDIKUldRQzJxUHZXZi9NL2k3RU9JbGg5amYxS2FVVFNGU0hTUWdEbUppcHpxTTRQMThkOVlKL0F3MUcK",
       "endpoints": [
-        "https://log.vmark.app/update/latest.json?target={{target}}&arch={{arch}}&version={{current_version}}"
+        "https://log.vmark.app/update/latest.json?target={{target}}&arch={{arch}}&version={{current_version}}",
+        "https://github.com/xiaolai/vmark/releases/latest/download/latest.json"
       ]
     }
   }

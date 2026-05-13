@@ -20,6 +20,43 @@ jobs:
       VERSION: ${{ github.event.inputs.version }}
       REPO: xiaolai/vmark
     steps:
+      - name: Validate version input
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version input must look like 'X.Y.Z' (got '$VERSION')"
+            exit 1
+          fi
+
+      - name: Checkout homebrew-tap (early, for regression guard)
+        uses: actions/checkout@v6
+        with:
+          repository: xiaolai/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Guard against tap regression
+        run: |
+          # Refuse to publish a Homebrew cask that's older than (or equal to)
+          # what the tap already has. Without this, a misfired workflow_dispatch
+          # with the wrong version would push every `brew upgrade` user
+          # backwards.
+          CURRENT=$(grep '^  version "' homebrew-tap/Casks/vmark.rb 2>/dev/null \
+            | head -1 | awk -F'"' '{print $2}')
+          if [ -z "$CURRENT" ]; then
+            echo "No existing cask version found — first publish, proceeding."
+            exit 0
+          fi
+          if [ "$VERSION" = "$CURRENT" ]; then
+            echo "::error::Tap already at $CURRENT — refusing to re-publish."
+            exit 1
+          fi
+          HIGHER=$(printf '%s\n%s' "$VERSION" "$CURRENT" | sort -V | tail -1)
+          if [ "$HIGHER" != "$VERSION" ]; then
+            echo "::error::Refusing to downgrade tap from $CURRENT to $VERSION"
+            exit 1
+          fi
+          echo "✅ $VERSION > $CURRENT — proceeding"
+
       - name: Wait for DMGs to be available
         run: |
           ARM_URL="https://github.com/${REPO}/releases/download/v${VERSION}/VMark_${VERSION}_aarch64.dmg"
@@ -29,15 +66,19 @@ jobs:
           echo "ARM: $ARM_URL"
           echo "Intel: $INTEL_URL"
 
+          # curl -L follows redirects; -w "%{http_code}" reports the FINAL
+          # code. Match only 200 — the previous "302|200" regex was dead
+          # code (with -L, 302 never reaches the output) and misled readers
+          # into thinking we accepted unfollowed redirects.
           for i in {1..30}; do
-            ARM_OK=$(curl -sI -o /dev/null -w "%{http_code}" -L "$ARM_URL" | grep -q "302\|200" && echo "yes" || echo "no")
-            INTEL_OK=$(curl -sI -o /dev/null -w "%{http_code}" -L "$INTEL_URL" | grep -q "302\|200" && echo "yes" || echo "no")
+            ARM_CODE=$(curl -sI -o /dev/null -w "%{http_code}" -L "$ARM_URL")
+            INTEL_CODE=$(curl -sI -o /dev/null -w "%{http_code}" -L "$INTEL_URL")
 
-            if [ "$ARM_OK" = "yes" ] && [ "$INTEL_OK" = "yes" ]; then
+            if [ "$ARM_CODE" = "200" ] && [ "$INTEL_CODE" = "200" ]; then
               echo "Both DMGs are available!"
               exit 0
             fi
-            echo "Attempt $i/30: Waiting... (ARM: $ARM_OK, Intel: $INTEL_OK)"
+            echo "Attempt $i/30: Waiting... (ARM: $ARM_CODE, Intel: $INTEL_CODE)"
             sleep 30
           done
 
