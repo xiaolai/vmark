@@ -27,6 +27,12 @@ const SYNC_GROUPS = [
   "cjkFormatting",
   "advanced",
   "update",
+  // `formats` must sync cross-window so that toggling a category in the
+  // Settings window (a separate Tauri webview) re-bootstraps the format
+  // registry in the document window via useFormatSettingsBridge. Without
+  // this, the toggle only takes effect after restart and `.mmd`/`.svg`/
+  // `.html`/code-viewer adapters keep falling through to plain text.
+  "formats",
 ] as const;
 
 type SyncGroup = (typeof SYNC_GROUPS)[number];

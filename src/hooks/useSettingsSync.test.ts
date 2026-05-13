@@ -204,6 +204,21 @@ describe("useSettingsSync cross-window sync", () => {
       expect(useSettingsStore.getState().update.autoCheckEnabled).toBe(false);
     });
 
+    it("syncs formats settings so registry rebootstraps cross-window", () => {
+      const newFormats = {
+        ...useSettingsStore.getState().formats,
+        diagrams: true,
+        htmlPreview: true,
+        codeViewers: true,
+      };
+
+      handleSettingsStorageEvent(createStorageEvent({ formats: newFormats }));
+
+      expect(useSettingsStore.getState().formats.diagrams).toBe(true);
+      expect(useSettingsStore.getState().formats.htmlPreview).toBe(true);
+      expect(useSettingsStore.getState().formats.codeViewers).toBe(true);
+    });
+
     it("does not call setState when no values changed", () => {
       // Send the exact current values — no update should occur
       const spy = vi.spyOn(useSettingsStore, "setState");
