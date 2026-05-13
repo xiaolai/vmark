@@ -97,9 +97,14 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
 
   const textarea = container.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
 
-  /** Non-ASCII detector — any code unit above 0x7F (covers BMP CJK, punctuation, etc.). */
-   
-  const NON_ASCII_RE = /[-￿]/;
+  /** Non-ASCII detector — any code unit above 0x7F (covers BMP CJK, punctuation, etc.).
+   *  Written with `\x00-\x7f` escape syntax instead of a literal U+0080–U+FFFF
+   *  range. The literal form is correct but the leading U+0080 (a C1 control
+   *  character) renders invisibly in browsers, terminals, and review tools,
+   *  making the regex look like `/[-￿]/` and triggering false "this matches
+   *  only `-` and `￿`" bug reports (issue #910). */
+  // eslint-disable-next-line no-control-regex
+  const NON_ASCII_RE = /[^\x00-\x7f]/;
   // eslint-disable-next-line no-control-regex
   const ALL_ASCII_RE = /^[\x00-\x7f]+$/;
 
