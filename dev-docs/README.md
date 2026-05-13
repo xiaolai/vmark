@@ -8,6 +8,7 @@
 - `dev-docs/cjk-gotchas.md`: CJK formatter pitfalls — things that will bite you if you're not careful.
 - `dev-docs/large-file-open-pipeline.md`: end-to-end pipeline for the large-file open UX — tiers, routing, forced Source mode, indeterminate indicator, and the perf tricks in TiptapEditor.
 - `dev-docs/plans/20260504-github-actions-workflow-viewer.md`: GitHub Actions workflow viewer + structured editor — IR pivot, ADRs, 10-phase plan with all phases complete. End-user docs at `website/guide/workflow-viewer.md`; perf benchmark at `src/bench/workflow.bench.ts`.
+- `dev-docs/house-cleaning/`: recurring framework for paying down measurable debt — daily (T1) / weekly (T2) / monthly (T3) / quarterly (T4) cadence with per-tier runbooks, ledger schema, and findings template. Complements the existing `audit/` chunk reports.
 - `dev-docs/decisions/`: architecture decision records (ADRs).
   - `heading-ime-composition-fix.md`: How we fixed the WebKit heading IME split-block bug — 5 attempts, root cause analysis, and why prevention beats repair.
 
