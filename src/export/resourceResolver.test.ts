@@ -575,6 +575,30 @@ describe("resolveResources", () => {
     expect(report.missing[0].found).toBe(false);
   });
 
+  // Regression for issue #907: in single mode, a successful exists() check
+  // followed by a readFile() failure (permission denied, EIO, locked file,
+  // etc.) used to leave the original asset:// URL untouched in the exported
+  // HTML — invisible to the user inside VMark, broken everywhere else. The
+  // fix mirrors the folder-mode copy-fail branch and substitutes the missing
+  // image placeholder so the asset is correctly routed into report.missing.
+  it("replaces unreadable files with placeholder SVG in single mode", async () => {
+    const html = '<img src="locked.png">';
+    mockExists.mockResolvedValue(true);
+    mockReadFile.mockRejectedValue(new Error("EACCES: permission denied"));
+
+    const { html: result, report } = await resolveResources(html, {
+      baseDir: "/docs",
+      mode: "single",
+    });
+
+    expect(result).toContain("data:image/svg+xml");
+    expect(result).not.toContain("locked.png");
+    expect(result).not.toContain("asset://");
+    expect(report.missing).toHaveLength(1);
+    expect(report.missing[0].found).toBe(false);
+    expect(report.resolved).toHaveLength(0);
+  });
+
   it("copies images to assets folder in folder mode", async () => {
     const html = '<img src="photo.png">';
     mockExists.mockImplementation(async (path: string) => {
@@ -763,22 +787,6 @@ describe("resolveResources", () => {
     });
 
     expect(report.resources).toHaveLength(1);
-  });
-
-  it("keeps original src when fileToDataUri returns null in single mode", async () => {
-    const html = '<img src="photo.png">';
-    mockExists.mockResolvedValue(true);
-    // First readFile (for data URI) fails, second (for size) also fails
-    mockReadFile.mockRejectedValue(new Error("Read error"));
-
-    const { html: result, report } = await resolveResources(html, {
-      baseDir: "/docs",
-      mode: "single",
-    });
-
-    // The src should remain unchanged since data URI creation failed
-    expect(result).toContain("photo.png");
-    expect(report.resolved).toHaveLength(1);
   });
 
   it("skips image copy in folder mode when outputDir is not provided", async () => {

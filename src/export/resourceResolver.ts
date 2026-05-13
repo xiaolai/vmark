@@ -351,6 +351,13 @@ export async function resolveResources(
           info.size = result.size;
           totalSize += result.size;
           modifiedHtml = modifiedHtml.split(src).join(result.dataUri);
+        } else {
+          // Read failed (permission denied, EIO, file lock, etc.). Mirror the
+          // folder-mode copy-fail path so the exported HTML never carries an
+          // asset:// URL that only resolves inside VMark (issue #907).
+          info.found = false;
+          info.exportSrc = MISSING_IMAGE_PLACEHOLDER;
+          modifiedHtml = modifiedHtml.split(src).join(MISSING_IMAGE_PLACEHOLDER);
         }
       } else if (mode === "folder" && imagesDir) {
         // Copy to images folder, deduplicating filenames to prevent overwrites
