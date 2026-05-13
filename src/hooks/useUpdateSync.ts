@@ -1,14 +1,29 @@
 /**
  * Update Sync Hook
  *
- * Purpose: Synchronizes update state across windows — main window broadcasts
- *   status/progress changes via Tauri events, other windows listen and
- *   update their local updateStore to stay consistent.
+ * Purpose: Synchronizes update state across windows — every mounting window
+ *   broadcasts local store changes and listens for remote changes from peers.
+ *
+ * Pipeline: useUpdateBroadcast watches the local store; any change is emitted
+ *   to all other windows as a full snapshot. useUpdateListener applies remote
+ *   snapshots to the local store, recording the applied snapshot so the very
+ *   next broadcast pass recognises "I already saw this from a peer" and skips
+ *   the echo.
  *
  * Key decisions:
- *   - Two hooks: useUpdateStateBroadcaster (main window) and useUpdateStateListener (others)
- *   - Listener also handles request-state event for late-joining windows
- *   - Payload includes full state snapshot (status, info, progress, error)
+ *   - Symmetric: both Main and Settings mount Broadcast AND Listener, because
+ *     either window can originate a check/download.
+ *   - Echo-suppression via module-level `lastAppliedSnapshot`: when the
+ *     listener applies a remote payload, it stores the JSON of that payload
+ *     in a window-scoped module ref. useUpdateBroadcast's effect compares
+ *     the next observed state to this ref; if they match, no emit. This
+ *     breaks the cross-window A↔B feedback loop that previously hit the
+ *     store thousands of times per second whenever two windows held
+ *     contradictory pending states (manual check in Settings while Main
+ *     was at error from its own startup auto-check, etc).
+ *   - The previous `prevState` per-hook ref couldn't break the loop because
+ *     each window genuinely transitioned through the broadcast states; the
+ *     JSON-diff said "yes this is new, emit" on every hop.
  *
  * @coordinates-with useUpdateOperations.ts — triggers state changes
  * @coordinates-with updateStore.ts — reads/writes update state
@@ -31,9 +46,21 @@ interface UpdateStatePayload {
   error: string | null;
 }
 
+// Window-scoped: the JSON of the last snapshot this window applied from a
+// remote broadcast. When the broadcaster sees its observed state already
+// matches this snapshot, it suppresses the outgoing emit — that state came
+// from a peer and re-emitting it would echo back into an infinite loop.
+// Reset to null after any local-origin emit so subsequent local changes
+// still propagate.
+let lastAppliedSnapshot: string | null = null;
+
+function snapshotJson(state: UpdateStatePayload): string {
+  return JSON.stringify(state);
+}
+
 /**
  * Broadcasts update state changes to other windows.
- * Should be used in the main window only.
+ * Skips emits that originated from an incoming remote snapshot.
  */
 export function useUpdateBroadcast() {
   const status = useUpdateStore((state) => state.status);
@@ -51,21 +78,32 @@ export function useUpdateBroadcast() {
       error,
     };
 
-    // Only broadcast if state actually changed
-    const prevJson = prevState.current ? JSON.stringify(prevState.current) : null;
-    const currentJson = JSON.stringify(currentState);
+    const currentJson = snapshotJson(currentState);
 
-    if (prevJson !== currentJson) {
+    // Skip emit if this state was just applied from a remote broadcast —
+    // re-broadcasting it would echo into the peer that sent it and create
+    // the cross-window A↔B feedback loop documented in Key decisions.
+    if (lastAppliedSnapshot !== null && lastAppliedSnapshot === currentJson) {
+      lastAppliedSnapshot = null;
       prevState.current = currentState;
-      emit(UPDATE_STATE_EVENT, currentState).catch((e) => { updateSyncWarn("emit failed:", e); });
+      return;
     }
+
+    // No-op de-dup: state hasn't actually changed since the last emit
+    // (e.g., a setX call with the same value).
+    const prevJson = prevState.current ? snapshotJson(prevState.current) : null;
+    if (prevJson === currentJson) return;
+
+    prevState.current = currentState;
+    lastAppliedSnapshot = null;
+    emit(UPDATE_STATE_EVENT, currentState).catch((e) => { updateSyncWarn("emit failed:", e); });
   }, [status, updateInfo, downloadProgress, error]);
 }
 
 /**
- * Listens for update state changes from other windows.
- * Also requests initial state on mount.
- * Should be used in non-main windows (e.g., Settings).
+ * Listens for update state changes from other windows and applies them
+ * to the local store. Marks the applied snapshot so useUpdateBroadcast's
+ * next pass knows not to echo this change back.
  */
 export function useUpdateListener() {
   const hasRequestedState = useRef(false);
@@ -74,9 +112,16 @@ export function useUpdateListener() {
   useEffect(() => {
     const unlistenPromise = listen<UpdateStatePayload>(UPDATE_STATE_EVENT, (event) => {
       const { status, updateInfo, downloadProgress, error } = event.payload;
+
+      // Record what we're about to apply. The broadcast effect runs after
+      // React renders the resulting state change; it will see lastAppliedSnapshot
+      // matches the observed state and skip re-emitting. React 18 auto-batches
+      // the three setX calls below into a single render, so the broadcast
+      // effect runs exactly once.
+      lastAppliedSnapshot = snapshotJson({ status, updateInfo, downloadProgress, error });
+
       const { setStatus, setUpdateInfo, setDownloadProgress, setError } = useUpdateStore.getState();
 
-      // Update store with received state
       // Order matters: set info/progress first, then status (which may clear error)
       setUpdateInfo(updateInfo);
       setDownloadProgress(downloadProgress);
@@ -105,4 +150,9 @@ export function useUpdateListener() {
 
     return () => clearTimeout(timer);
   }, []);
+}
+
+// Test-only: reset the module-level echo-suppression state between cases.
+export function __resetUpdateSyncStateForTests() {
+  lastAppliedSnapshot = null;
 }
