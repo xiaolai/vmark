@@ -9,6 +9,12 @@
     "openInNewWindow": "This window has unsaved changes. Open the workspace in a new window instead?",
     "restartUnsaved": "You have {{count}} unsaved document(s). Restart and restore on relaunch?"
   },
+  "windowClose": {
+    "pinnedTitle": "Close Window?",
+    "pinnedPrompt": "This window has {{count}} pinned tab. Close anyway?",
+    "pinnedPrompt_plural": "This window has {{count}} pinned tabs. Close anyway?",
+    "confirmClose": "Close Window"
+  },
   "fileChanged": {
     "title": "File Changed",
     "message": "\"{{fileName}}\" has been modified externally.\n\nWhat would you like to do?",

@@ -27,6 +27,8 @@
 import { useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ask } from "@tauri-apps/plugin-dialog";
+import i18n from "@/i18n";
 import { useWindowLabel } from "../contexts/WindowContext";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
@@ -98,8 +100,32 @@ export function useWindowClose() {
         return doc?.isDirty;
       });
 
-      // If no dirty tabs, just close
+      // If no dirty tabs, just close — but first check for pinned tabs.
+      // Pin is the user's "keep this around" signal; the per-tab close path
+      // (closeTab in tabStore) already refuses to drop a pinned tab without
+      // explicit unpin. Window close used to ignore the signal and silently
+      // drop pinned tabs. Confirm once when no dirty docs are involved; when
+      // there ARE dirty docs, the save dialog already interrupts intent and
+      // stacking a second prompt is friction-on-friction.
       if (dirtyTabs.length === 0) {
+        const pinnedTabs = tabs.filter((tab) => tab.isPinned);
+        if (pinnedTabs.length > 0) {
+          const confirmed = await ask(
+            i18n.t("dialog:windowClose.pinnedPrompt", {
+              count: pinnedTabs.length,
+            }),
+            {
+              title: i18n.t("dialog:windowClose.pinnedTitle"),
+              kind: "warning",
+              okLabel: i18n.t("dialog:windowClose.confirmClose"),
+              cancelLabel: i18n.t("dialog:common.cancel"),
+            },
+          );
+          if (!confirmed) {
+            closeLog(windowLabel, "close cancelled by pinned-tabs prompt");
+            return false;
+          }
+        }
         closeLog(windowLabel, "no dirty tabs, closing window");
         tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
         await persistWorkspaceSession(windowLabel);

@@ -9,6 +9,12 @@
     "openInNewWindow": "Esta ventana tiene cambios sin guardar. ¿Abrir el espacio de trabajo en una nueva ventana?",
     "restartUnsaved": "Tienes {{count}} documento(s) sin guardar. ¿Reiniciar y restaurar al relanzar?"
   },
+  "windowClose": {
+    "pinnedTitle": "¿Cerrar ventana?",
+    "pinnedPrompt": "Esta ventana tiene {{count}} pestaña fijada. ¿Cerrar de todos modos?",
+    "pinnedPrompt_plural": "Esta ventana tiene {{count}} pestañas fijadas. ¿Cerrar de todos modos?",
+    "confirmClose": "Cerrar ventana"
+  },
   "fileChanged": {
     "title": "Archivo modificado",
     "message": "\"{{fileName}}\" ha sido modificado externamente.\n\n¿Qué deseas hacer?",

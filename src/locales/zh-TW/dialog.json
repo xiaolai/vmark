@@ -9,6 +9,12 @@
     "openInNewWindow": "此視窗有未儲存的變更。是否改為在新視窗開啟工作區？",
     "restartUnsaved": "您有 {{count}} 份未儲存的文件。是否重新啟動並在重新開啟時還原？"
   },
+  "windowClose": {
+    "pinnedTitle": "關閉視窗?",
+    "pinnedPrompt": "此視窗有 {{count}} 個釘選分頁。仍要關閉嗎?",
+    "pinnedPrompt_plural": "此視窗有 {{count}} 個釘選分頁。仍要關閉嗎?",
+    "confirmClose": "關閉視窗"
+  },
   "fileChanged": {
     "title": "檔案已變更",
     "message": "「{{fileName}}」已被外部程式修改。\n\n您想要怎麼做？",

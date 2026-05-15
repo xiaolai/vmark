@@ -9,6 +9,12 @@
     "openInNewWindow": "Dieses Fenster hat nicht gespeicherte Änderungen. Den Arbeitsbereich stattdessen in einem neuen Fenster öffnen?",
     "restartUnsaved": "Sie haben {{count}} nicht gespeicherte(s) Dokument(e). Neu starten und beim Neustart wiederherstellen?"
   },
+  "windowClose": {
+    "pinnedTitle": "Fenster schließen?",
+    "pinnedPrompt": "Dieses Fenster hat {{count}} angepinnten Tab. Trotzdem schließen?",
+    "pinnedPrompt_plural": "Dieses Fenster hat {{count}} angepinnte Tabs. Trotzdem schließen?",
+    "confirmClose": "Fenster schließen"
+  },
   "fileChanged": {
     "title": "Datei geändert",
     "message": "\"{{fileName}}\" wurde extern geändert.\n\nWas möchten Sie tun?",

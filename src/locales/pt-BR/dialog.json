@@ -9,6 +9,12 @@
     "openInNewWindow": "Esta janela tem alterações não salvas. Abrir o espaço de trabalho em uma nova janela?",
     "restartUnsaved": "Você tem {{count}} documento(s) não salvo(s). Reiniciar e restaurar ao reabrir?"
   },
+  "windowClose": {
+    "pinnedTitle": "Fechar janela?",
+    "pinnedPrompt": "Esta janela tem {{count}} aba fixada. Fechar mesmo assim?",
+    "pinnedPrompt_plural": "Esta janela tem {{count}} abas fixadas. Fechar mesmo assim?",
+    "confirmClose": "Fechar janela"
+  },
   "fileChanged": {
     "title": "Arquivo alterado",
     "message": "\"{{fileName}}\" foi modificado externamente.\n\nO que você deseja fazer?",

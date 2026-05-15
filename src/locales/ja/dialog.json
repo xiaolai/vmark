@@ -9,6 +9,12 @@
     "openInNewWindow": "このウィンドウに未保存の変更があります。代わりに新しいウィンドウでワークスペースを開きますか？",
     "restartUnsaved": "{{count}}個の未保存ドキュメントがあります。再起動後に復元しますか？"
   },
+  "windowClose": {
+    "pinnedTitle": "ウィンドウを閉じますか?",
+    "pinnedPrompt": "このウィンドウには {{count}} 個のピン留めされたタブがあります。閉じてもよろしいですか?",
+    "pinnedPrompt_plural": "このウィンドウには {{count}} 個のピン留めされたタブがあります。閉じてもよろしいですか?",
+    "confirmClose": "ウィンドウを閉じる"
+  },
   "fileChanged": {
     "title": "ファイルが変更されました",
     "message": "「{{fileName}}」が外部で変更されました。\n\nどうしますか？",

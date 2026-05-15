@@ -9,6 +9,12 @@
     "openInNewWindow": "Questa finestra ha modifiche non salvate. Aprire lo spazio di lavoro in una nuova finestra?",
     "restartUnsaved": "Hai {{count}} documento(i) non salvato(i). Riavviare e ripristinare al riavvio?"
   },
+  "windowClose": {
+    "pinnedTitle": "Chiudi finestra?",
+    "pinnedPrompt": "Questa finestra ha {{count}} scheda fissata. Chiudere comunque?",
+    "pinnedPrompt_plural": "Questa finestra ha {{count}} schede fissate. Chiudere comunque?",
+    "confirmClose": "Chiudi finestra"
+  },
   "fileChanged": {
     "title": "File modificato",
     "message": "\"{{fileName}}\" è stato modificato esternamente.\n\nCosa vuoi fare?",

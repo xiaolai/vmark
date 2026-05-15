@@ -47,6 +47,11 @@ vi.mock("@/hooks/workspaceSession", () => ({
     mockPersistWorkspaceSession(...args),
 }));
 
+const mockAsk = vi.fn();
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  ask: (...args: unknown[]) => mockAsk(...args),
+}));
+
 vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: () => "main",
 }));
@@ -229,6 +234,86 @@ describe("useWindowClose — window:close-requested", () => {
 
     // Document should be removed
     expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
+  });
+
+  it("does NOT prompt for pinned tabs when no tab is pinned", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(tabId, "", null);
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+    await waitFor(() => expect(listeners.has("window:close-requested")).toBe(true));
+
+    await act(async () => {
+      await listeners.get("window:close-requested")!({ payload: WINDOW });
+    });
+
+    expect(mockAsk).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("close_window", { label: WINDOW });
+  });
+
+  it("prompts pinned-tabs confirmation and closes when user confirms", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(tabId, "", null);
+    useTabStore.getState().togglePin(WINDOW, tabId);
+
+    mockAsk.mockResolvedValue(true);
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+    await waitFor(() => expect(listeners.has("window:close-requested")).toBe(true));
+
+    await act(async () => {
+      await listeners.get("window:close-requested")!({ payload: WINDOW });
+    });
+
+    expect(mockAsk).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith("close_window", { label: WINDOW });
+  });
+
+  it("does NOT close when pinned-tabs confirmation is cancelled", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(tabId, "", null);
+    useTabStore.getState().togglePin(WINDOW, tabId);
+
+    mockAsk.mockResolvedValue(false);
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+    await waitFor(() => expect(listeners.has("window:close-requested")).toBe(true));
+
+    await act(async () => {
+      await listeners.get("window:close-requested")!({ payload: WINDOW });
+    });
+
+    expect(mockAsk).toHaveBeenCalledTimes(1);
+    expect(invoke).not.toHaveBeenCalledWith("close_window", expect.anything());
+    expect(mockPersistWorkspaceSession).not.toHaveBeenCalled();
+  });
+
+  it("does NOT show pinned-tabs prompt when a tab is also dirty (save dialog handles intent)", async () => {
+    const pinnedTab = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(pinnedTab, "initial", null);
+    useTabStore.getState().togglePin(WINDOW, pinnedTab);
+    useDocumentStore.getState().setContent(pinnedTab, "dirty");
+
+    mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "saved" });
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+    await waitFor(() => expect(listeners.has("window:close-requested")).toBe(true));
+
+    await act(async () => {
+      await listeners.get("window:close-requested")!({ payload: WINDOW });
+    });
+
+    expect(mockAsk).not.toHaveBeenCalled();
+    expect(mockPromptSaveForDirtyDocument).toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("close_window", { label: WINDOW });
   });
 });
 

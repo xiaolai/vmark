@@ -9,6 +9,12 @@
     "openInNewWindow": "Cette fenêtre contient des modifications non enregistrées. Ouvrir l'espace de travail dans une nouvelle fenêtre ?",
     "restartUnsaved": "Vous avez {{count}} document(s) non enregistré(s). Redémarrer et restaurer au relancement ?"
   },
+  "windowClose": {
+    "pinnedTitle": "Fermer la fenêtre ?",
+    "pinnedPrompt": "Cette fenêtre a {{count}} onglet épinglé. Fermer quand même ?",
+    "pinnedPrompt_plural": "Cette fenêtre a {{count}} onglets épinglés. Fermer quand même ?",
+    "confirmClose": "Fermer la fenêtre"
+  },
   "fileChanged": {
     "title": "Fichier modifié",
     "message": "« {{fileName}} » a été modifié en dehors de l'application.\n\nQue souhaitez-vous faire ?",
