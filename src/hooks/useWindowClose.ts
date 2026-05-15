@@ -15,6 +15,10 @@
  * Key decisions:
  *   - Prevents default close to run async save prompts first
  *   - Batches all dirty docs into one multi-save prompt
+ *   - When no tab is dirty but at least one is pinned, prompts before
+ *     closing — honors the same "keep this around" signal that tab close
+ *     (Cmd+W) already enforces. Skipped when dirty docs trigger the save
+ *     dialog (that dialog already interrupts intent).
  *   - Persists workspace session (open tabs) before closing
  *   - Dev-only closeLog for debugging window close race conditions
  *
