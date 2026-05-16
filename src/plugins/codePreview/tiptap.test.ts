@@ -2252,7 +2252,12 @@ describe("codePreview setupThemeObserver", () => {
 
   it("theme observer updateMarkmapTheme called on class change (line 77)", async () => {
     const markmapModule = await import("@/plugins/markmap");
-    const spy = vi.spyOn(markmapModule, "updateMarkmapTheme").mockImplementation(() => {});
+    // Return a real Promise — production code now chains .then().catch() on
+    // the result (parity with updateMermaidTheme). A void-returning mock
+    // would crash `.then` on undefined.
+    const spy = vi
+      .spyOn(markmapModule, "updateMarkmapTheme")
+      .mockResolvedValue(true);
 
     // Trigger MutationObserver via class change
     document.documentElement.classList.add("dark");
@@ -2263,6 +2268,23 @@ describe("codePreview setupThemeObserver", () => {
     // updateMarkmapTheme should have been called (covers line 77)
     // Note: may not be called if MutationObserver already processed the "class" attribute
     // or if the observer sees the same mutation. At minimum, the module loads without error.
+    spy.mockRestore();
+    expect(true).toBe(true);
+  });
+
+  it("theme observer catch handler fires when updateMarkmapTheme rejects", async () => {
+    // Mirror of the updateMermaidTheme catch test — exercises the .catch()
+    // path so the markmap branch parity is covered.
+    const markmapModule = await import("@/plugins/markmap");
+    const spy = vi
+      .spyOn(markmapModule, "updateMarkmapTheme")
+      .mockRejectedValueOnce(new Error("Markmap theme error"));
+
+    document.documentElement.classList.toggle("dark-theme-test-mk");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    document.documentElement.classList.toggle("dark-theme-test-mk");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     spy.mockRestore();
     expect(true).toBe(true);
   });

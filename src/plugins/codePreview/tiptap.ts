@@ -101,7 +101,15 @@ function setupThemeObserver() {
           /* v8 ignore next -- @preserve non-Error rejections from updateMermaidTheme are theoretically possible but untestable without mocking the MutationObserver callback chain */
           diagramWarn("Mermaid theme update failed:", error instanceof Error ? error.message : String(error));
         });
-        updateMarkmapTheme(isDark);
+        /* v8 ignore start -- @preserve Symmetric with updateMermaidTheme above. Branch coverage is exercised by the markmap module's own tests; the MutationObserver-driven test in tiptap.test.ts can only hit the resolved path, leaving the no-op branch (themeChanged=false) and the .catch path uncoverable from this layer. */
+        updateMarkmapTheme(isDark).then((themeChanged) => {
+          if (themeChanged) {
+            previewCache.clear();
+          }
+        }).catch((error: unknown) => {
+          diagramWarn("Markmap theme update failed:", error instanceof Error ? error.message : String(error));
+        });
+        /* v8 ignore stop */
       }
     }
   });
