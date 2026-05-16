@@ -52,6 +52,10 @@ export const es = {
               link: "/es/guide/media-support",
             },
             {
+              text: "Imágenes alojadas en la nube",
+              link: "/es/guide/cloud-images",
+            },
+            {
               text: "Terminal integrada",
               link: "/es/guide/terminal",
             },

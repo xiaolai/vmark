@@ -54,6 +54,10 @@ export const ko = {
               link: "/ko/guide/media-support",
             },
             {
+              text: "클라우드 호스팅 이미지",
+              link: "/ko/guide/cloud-images",
+            },
+            {
               text: "통합 터미널",
               link: "/ko/guide/terminal",
             },

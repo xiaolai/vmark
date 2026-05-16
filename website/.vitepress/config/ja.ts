@@ -54,6 +54,10 @@ export const ja = {
               link: "/ja/guide/media-support",
             },
             {
+              text: "クラウドホスト画像",
+              link: "/ja/guide/cloud-images",
+            },
+            {
               text: "統合ターミナル",
               link: "/ja/guide/terminal",
             },

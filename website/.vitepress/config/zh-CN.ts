@@ -48,6 +48,10 @@ export const zhCN = {
               link: "/zh-CN/guide/media-support",
             },
             {
+              text: "云端托管图片",
+              link: "/zh-CN/guide/cloud-images",
+            },
+            {
               text: "集成终端",
               link: "/zh-CN/guide/terminal",
             },

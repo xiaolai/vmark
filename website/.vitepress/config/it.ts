@@ -60,6 +60,10 @@ export const it = {
               link: "/it/guide/media-support",
             },
             {
+              text: "Immagini ospitate nel cloud",
+              link: "/it/guide/cloud-images",
+            },
+            {
               text: "Terminale integrato",
               link: "/it/guide/terminal",
             },

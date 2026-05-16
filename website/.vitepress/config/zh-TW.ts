@@ -48,6 +48,10 @@ export const zhTW = {
               link: "/zh-TW/guide/media-support",
             },
             {
+              text: "雲端託管圖片",
+              link: "/zh-TW/guide/cloud-images",
+            },
+            {
               text: "整合終端機",
               link: "/zh-TW/guide/terminal",
             },

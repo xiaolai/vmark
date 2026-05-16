@@ -57,6 +57,10 @@ export const de = {
               link: "/de/guide/media-support",
             },
             {
+              text: "In der Cloud gehostete Bilder",
+              link: "/de/guide/cloud-images",
+            },
+            {
               text: "Integriertes Terminal",
               link: "/de/guide/terminal",
             },

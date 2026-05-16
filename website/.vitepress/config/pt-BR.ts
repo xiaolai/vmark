@@ -52,6 +52,10 @@ export const ptBR = {
               link: "/pt-BR/guide/media-support",
             },
             {
+              text: "Imagens hospedadas na nuvem",
+              link: "/pt-BR/guide/cloud-images",
+            },
+            {
               text: "Terminal integrado",
               link: "/pt-BR/guide/terminal",
             },
