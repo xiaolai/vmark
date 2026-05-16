@@ -79,6 +79,20 @@ pub fn cli_install_status() -> Result<CliStatus, String> {
     })
 }
 
+/// POSIX-safe single-quote wrap. Escapes embedded single quotes via the
+/// `'\''` close-escape-open idiom, then wraps in single quotes. The result
+/// is safe to interpolate into a `/bin/sh` command line because single-
+/// quoted strings disable every metacharacter except `'`.
+///
+/// Load-bearing: `tmp_path` in `cli_install` is derived from `TMPDIR`,
+/// which a terminal-launched VMark inherits from the user's shell. Without
+/// quoting, a `TMPDIR` containing `;`, `$()`, backticks, or whitespace
+/// would inject arbitrary commands into the `osascript with administrator
+/// privileges` call — local privilege escalation to root.
+fn shell_single_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
 /// Run a shell command with administrator privileges via `osascript`.
 /// Handles user cancellation and returns structured errors.
 fn run_admin_shell(shell_cmd: &str) -> Result<(), CliInstallError> {
@@ -133,11 +147,16 @@ pub fn cli_install() -> Result<String, String> {
     std::fs::write(&tmp, SCRIPT_CONTENT)
         .map_err(|e| format!("Failed to write temp file: {}", e))?;
 
-    let tmp_path = tmp.to_string_lossy();
-    let parent = cli_parent_dir();
+    // POSIX-quote every path interpolated into the privileged shell call.
+    // `parent` and `CLI_PATH` are compile-time constants today (/usr/local/bin
+    // and /usr/local/bin/vmark) and don't contain metacharacters, but quoting
+    // them as well future-proofs the code if either is ever made configurable.
+    let tmp_path_q = shell_single_quote(&tmp.to_string_lossy());
+    let parent_q = shell_single_quote(cli_parent_dir());
+    let cli_path_q = shell_single_quote(CLI_PATH);
     let shell_cmd = format!(
         "mkdir -p {} && mv {} {} && chmod 755 {}",
-        parent, tmp_path, CLI_PATH, CLI_PATH
+        parent_q, tmp_path_q, cli_path_q, cli_path_q
     );
 
     if let Err(e) = run_admin_shell(&shell_cmd) {
@@ -170,7 +189,7 @@ pub fn cli_uninstall() -> Result<String, String> {
         return Ok("'vmark' command is not installed.".to_string());
     }
 
-    let shell_cmd = format!("rm {}", CLI_PATH);
+    let shell_cmd = format!("rm {}", shell_single_quote(CLI_PATH));
     run_admin_shell(&shell_cmd).map_err(String::from)?;
 
     Ok(format!("'vmark' command removed from {}", CLI_PATH))
@@ -214,6 +233,49 @@ mod tests {
     fn error_into_string() {
         let s: String = CliInstallError::Cancelled.into();
         assert_eq!(s, "Operation cancelled.");
+    }
+
+    #[test]
+    fn shell_single_quote_plain_path() {
+        assert_eq!(shell_single_quote("/usr/local/bin"), "'/usr/local/bin'");
+    }
+
+    #[test]
+    fn shell_single_quote_path_with_space() {
+        assert_eq!(shell_single_quote("/tmp/with space"), "'/tmp/with space'");
+    }
+
+    #[test]
+    fn shell_single_quote_disarms_command_injection() {
+        // The shape of the attack #921 was filed for: a TMPDIR containing `;`
+        // that breaks out of the path argument. After quoting, the `;` and any
+        // following command live inside a literal single-quoted string and do
+        // nothing.
+        let evil = "/tmp/foo;touch /tmp/pwned";
+        assert_eq!(shell_single_quote(evil), "'/tmp/foo;touch /tmp/pwned'");
+    }
+
+    #[test]
+    fn shell_single_quote_handles_dollar_paren_and_backtick() {
+        let evil = "/tmp/$(id)/`whoami`";
+        assert_eq!(shell_single_quote(evil), "'/tmp/$(id)/`whoami`'");
+    }
+
+    #[test]
+    fn shell_single_quote_escapes_embedded_single_quote() {
+        // POSIX idiom: close, escape, reopen — a single `'` inside the string
+        // becomes `'\''` (close-quote, escaped-quote, reopen-quote).
+        assert_eq!(shell_single_quote("/a/it's/b"), "'/a/it'\\''s/b'");
+    }
+
+    #[test]
+    fn shell_single_quote_escapes_multiple_single_quotes() {
+        assert_eq!(shell_single_quote("a'b'c"), "'a'\\''b'\\''c'");
+    }
+
+    #[test]
+    fn shell_single_quote_empty_input() {
+        assert_eq!(shell_single_quote(""), "''");
     }
 
     #[test]
