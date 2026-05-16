@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.7.19"
+version = "0.7.20"
 description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
