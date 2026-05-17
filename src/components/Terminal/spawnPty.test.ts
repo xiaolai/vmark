@@ -107,6 +107,40 @@ describe("resolveTerminalCwd", () => {
 
     expect(resolveTerminalCwd()).toBeUndefined();
   });
+
+  it("returns active file parent dir on Windows (backslash-separated paths)", () => {
+    // Regression for #924 — `lastIndexOf("/")` used to return -1 on Windows
+    // paths, falling through to `undefined` and dropping the terminal in
+    // $HOME instead of the file's parent directory. `getParentDir`
+    // normalizes both separators to forward slashes.
+    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
+      rootPath: null,
+    } as ReturnType<typeof useWorkspaceStore.getState>);
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      activeTabId: { main: "tab1" },
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: () => ({ filePath: "C:\\Users\\test\\docs\\file.md" }),
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    // Drive letter is lowercased by normalizePath; backslashes converted
+    // to forward slashes. Windows shells accept forward-slash CWDs.
+    expect(resolveTerminalCwd()).toBe("c:/Users/test/docs");
+  });
+
+  it("returns / for a file at POSIX filesystem root", () => {
+    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
+      rootPath: null,
+    } as ReturnType<typeof useWorkspaceStore.getState>);
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      activeTabId: { main: "tab1" },
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: () => ({ filePath: "/scratch.md" }),
+    } as unknown as ReturnType<typeof useDocumentStore.getState>);
+
+    expect(resolveTerminalCwd()).toBe("/");
+  });
 });
 
 describe("wirePtyFlowControl", () => {

@@ -47,6 +47,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { getParentDir } from "@/utils/paths/paths";
 
 /**
  * Resolve terminal working directory:
@@ -63,11 +64,18 @@ export function resolveTerminalCwd(): string | undefined {
   if (activeTabId) {
     const doc = useDocumentStore.getState().getDocument(activeTabId);
     if (doc?.filePath) {
-      const lastSlash = doc.filePath.lastIndexOf("/");
-      // lastSlash === 0 means file is at filesystem root (e.g. /foo.md) → return "/"
-      /* v8 ignore next 3 -- @preserve root-level or missing-slash paths not exercised in spawnPty tests */
-      if (lastSlash === 0) return "/";
-      if (lastSlash > 0) return doc.filePath.substring(0, lastSlash);
+      // Use the cross-platform path helper instead of a raw forward-slash
+      // search. On Windows, `doc.filePath` is typically backslash-separated
+      // (`C:\Users\foo\bar.md`); `lastIndexOf("/")` returned -1 and the
+      // terminal opened in $HOME, breaking the documented CWD priority.
+      // `getParentDir` normalizes both separators and returns "" for
+      // filesystem roots.
+      const parent = getParentDir(doc.filePath);
+      if (parent) return parent;
+      // File is at filesystem root — return "/" on POSIX. Windows drive
+      // root (e.g. `C:\file.md`) is an extreme edge case left as
+      // undefined; not worth the special case in shell-CWD parsing.
+      if (doc.filePath.startsWith("/")) return "/";
     }
   }
 
