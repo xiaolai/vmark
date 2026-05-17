@@ -209,6 +209,14 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             // Genie read operations
             | "genies.list"
             | "genies.read"
+            // Pruned 5-tool surface (vmark.* prefix) — read operations.
+            // Wire types defined in vmark-mcp-server/src/bridge/core-types.ts.
+            // Missing entries here forced every concurrent AI client read
+            // (Claude Code + Codex + Cursor) to serialize through WRITE_LOCK.
+            | "vmark.session.get_state"
+            | "vmark.document.read"
+            | "vmark.selection.get"
+            | "vmark.workflow.validate"
     )
 }
 
@@ -274,6 +282,17 @@ mod tests {
     fn read_only_genie_operations() {
         assert!(is_read_only_operation("genies.list"));
         assert!(is_read_only_operation("genies.read"));
+    }
+
+    #[test]
+    fn read_only_vmark_pruned_surface_operations() {
+        // Regression for #925 — pruned 5-tool surface uses vmark.* prefix.
+        // Read types must be allowlisted so concurrent AI clients don't
+        // queue behind WRITE_LOCK on every pure-read call.
+        assert!(is_read_only_operation("vmark.session.get_state"));
+        assert!(is_read_only_operation("vmark.document.read"));
+        assert!(is_read_only_operation("vmark.selection.get"));
+        assert!(is_read_only_operation("vmark.workflow.validate"));
     }
 
     #[test]
@@ -379,6 +398,20 @@ mod tests {
             "vmark.insertMermaid",
             "vmark.insertSvg",
             "vmark.insertWikiLink",
+            // Pruned 5-tool surface — write types. Regression for #925 —
+            // these must stay out of the read allowlist or document state
+            // can diverge under concurrent AI-client load.
+            "vmark.workspace.new",
+            "vmark.workspace.open",
+            "vmark.workspace.save",
+            "vmark.workspace.save_as",
+            "vmark.workspace.close",
+            "vmark.workspace.switch_tab",
+            "vmark.workspace.focus_window",
+            "vmark.document.write",
+            "vmark.document.transform",
+            "vmark.workflow.apply_patch",
+            "vmark.selection.set",
         ];
         for op in &write_ops {
             assert!(
