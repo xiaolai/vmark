@@ -207,9 +207,13 @@ fn write_temp_html(app: tauri::AppHandle, html: String) -> Result<String, String
         return Err(rust_i18n::t!("errors.core.htmlTooLarge").to_string());
     }
 
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data directory: {}", e))?;
     let dir = app_data.join("temp");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create temp directory {}: {}", dir.display(), e))?;
 
     // Clean up stale temp files (older than 1 hour)
     cleanup_stale_temp_files(&dir);
@@ -222,7 +226,8 @@ fn write_temp_html(app: tauri::AppHandle, html: String) -> Result<String, String
         .map_err(|e| format!("Failed to create temp file: {}", e))?;
 
     // Write content first, then persist (keep on disk after handle drops)
-    temp.write_all(html.as_bytes()).map_err(|e| e.to_string())?;
+    temp.write_all(html.as_bytes())
+        .map_err(|e| format!("Failed to write temp HTML file: {}", e))?;
     let path = temp.path().to_path_buf();
     temp.persist(&path).map_err(|e| format!("Failed to persist temp file: {}", e))?;
     Ok(path.to_string_lossy().into_owned())
