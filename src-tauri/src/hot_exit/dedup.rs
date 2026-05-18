@@ -42,7 +42,7 @@ pub fn hash_payload(json: &str) -> SessionHash {
 /// Holding the lock for the whole check is safe because the operation is
 /// O(1) (a 32-byte comparison).
 pub fn payload_differs_from_last(current: &SessionHash) -> bool {
-    let guard = hash_state().lock().expect("hot-exit dedup lock poisoned");
+    let guard = hash_state().lock().unwrap_or_else(|p| p.into_inner());
     match guard.as_ref() {
         Some(last) => last != current,
         None => true,
@@ -53,7 +53,7 @@ pub fn payload_differs_from_last(current: &SessionHash) -> bool {
 /// the atomic write succeeds — recording before would risk silently losing a
 /// real change if the write later fails.
 pub fn record_written(hash: SessionHash) {
-    let mut guard = hash_state().lock().expect("hot-exit dedup lock poisoned");
+    let mut guard = hash_state().lock().unwrap_or_else(|p| p.into_inner());
     *guard = Some(hash);
 }
 
@@ -62,7 +62,7 @@ pub fn record_written(hash: SessionHash) {
 /// not skipped — otherwise a "skip then deleted file" sequence would leave
 /// the user without any persisted hot-exit state.
 pub fn reset() {
-    let mut guard = hash_state().lock().expect("hot-exit dedup lock poisoned");
+    let mut guard = hash_state().lock().unwrap_or_else(|p| p.into_inner());
     *guard = None;
 }
 
@@ -156,6 +156,33 @@ mod tests {
                 payload_differs_from_last(&h),
                 "reset must invalidate the cached hash"
             );
+        });
+    }
+
+    #[test]
+    fn poisoned_lock_does_not_crash_subsequent_calls() {
+        // If a thread panics while holding the dedup lock, the lock becomes
+        // poisoned. Hot-exit autosaves run on every edit; a poisoned lock
+        // must not cascade into a crash on the next autosave.
+        run_serial(|| {
+            // Poison the lock by panicking inside the critical section.
+            let panicked = std::panic::catch_unwind(|| {
+                let _guard = hash_state().lock().unwrap_or_else(|p| p.into_inner());
+                panic!("simulated panic inside dedup lock");
+            });
+            assert!(panicked.is_err(), "test must observe a panic");
+            assert!(
+                hash_state().is_poisoned(),
+                "lock must be poisoned for this test to be meaningful"
+            );
+
+            // All public APIs must still work.
+            let h = hash_payload("post-poison");
+            assert!(payload_differs_from_last(&h));
+            record_written(h);
+            assert!(!payload_differs_from_last(&h));
+            reset();
+            assert!(payload_differs_from_last(&h));
         });
     }
 }
