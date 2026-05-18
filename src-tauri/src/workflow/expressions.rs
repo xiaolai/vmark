@@ -113,7 +113,13 @@ pub fn resolve(
 
     // Step 3: bare stepId.output alias (whole-string)
     if let Some(alias_caps) = BARE_ALIAS_RE.captures(after_env.trim()) {
-        let id = alias_caps.get(1).unwrap().as_str();
+        // BARE_ALIAS_RE has exactly one capture group, so .get(1) is Some
+        // whenever .captures() returns Some. If a future regex edit removes
+        // the group, treat it as "not an alias" rather than panicking.
+        let Some(id_match) = alias_caps.get(1) else {
+            return Ok(after_env);
+        };
+        let id = id_match.as_str();
         if let Some(step_outputs) = outputs.get(id) {
             if let Some(text) = step_outputs.get("text") {
                 return Ok(text.clone());
