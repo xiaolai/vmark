@@ -429,4 +429,47 @@ describe("settingsStore — corrupted config recovery", () => {
       expect((result as typeof defaults).terminal.shell).toBe("");
     });
   });
+
+  /**
+   * Direct tests for the `migrate` callback registered with zustand/persist.
+   * Reaching into `persist.getOptions().migrate` lets us assert each branch
+   * (valid v1, future version, malformed version) without relying on a
+   * full rehydrate cycle (which can be flaky across test environments).
+   */
+  describe("persist.migrate version handling", () => {
+    function migrate(persistedState: unknown, version: number): unknown {
+      const opts = useSettingsStore.persist.getOptions();
+      // `migrate` is registered in settingsStore.ts; assert it exists so a
+      // regression that drops it surfaces as a clear failure here rather
+      // than a confusing later runtime crash.
+      expect(typeof opts.migrate).toBe("function");
+      return opts.migrate!(persistedState, version);
+    }
+
+    it("returns the persisted state unchanged for the current version (1)", () => {
+      const blob = { general: { autoSaveEnabled: false } };
+      expect(migrate(blob, 1)).toEqual(blob);
+    });
+
+    it("returns the persisted state unchanged for an older version (0)", () => {
+      // Treat pre-versioning blobs the same as v1 — the deep-merge step
+      // handles any missing fields.
+      const blob = { general: { autoSaveEnabled: true } };
+      expect(migrate(blob, 0)).toEqual(blob);
+    });
+
+    it("drops the persisted state when the version is from the future", () => {
+      // Downgrade scenario: a newer build wrote shape v2; current binary
+      // doesn't know v2. Returning undefined tells zustand to keep the
+      // in-memory defaults instead of merging a possibly-corrupt blob.
+      expect(migrate({ general: { autoSaveEnabled: false } }, 2)).toBeUndefined();
+      expect(migrate({ general: { autoSaveEnabled: false } }, 99)).toBeUndefined();
+    });
+
+    it("drops the persisted state when the version is not a number", () => {
+      // Defends against a tampered/corrupt version field.
+      expect(migrate({ general: {} }, "1" as unknown as number)).toBeUndefined();
+      expect(migrate({ general: {} }, null as unknown as number)).toBeUndefined();
+    });
+  });
 });

@@ -302,6 +302,23 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
     }),
     {
       name: "vmark-settings",
+      // Schema version. Bump whenever the persisted shape changes in a way
+      // the `merge` function below cannot recover. `migrate` returns the
+      // current defaults so an incompatible blob from a future build (e.g.
+      // after a downgrade) is dropped rather than deep-merged into an
+      // undefined-laden state that crashes downstream consumers.
+      version: 1,
+      migrate: (persistedState, version) => {
+        // Forward migrations have no work to do today — the only currently
+        // released shape is v1. If a downgrade puts a v2+ blob here, we
+        // explicitly drop it: returning `undefined` tells persist to keep
+        // the in-memory default state, which is preferable to producing a
+        // partially-initialized object.
+        if (typeof version !== "number" || version > 1) {
+          return undefined;
+        }
+        return persistedState as SettingsState;
+      },
       // Guard localStorage access for SSR/non-browser environments
       storage: createJSONStorage(() => createSafeStorage()),
       // Deep merge to preserve new default properties when loading old localStorage
