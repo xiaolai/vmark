@@ -7,7 +7,7 @@ use super::state::{
     cleanup_stale_pending, generate_auth_token, get_bridge_state, get_shutdown_holder,
     get_write_lock, is_read_only_operation, is_webview_alive, remove_port_file,
     set_webview_alive, write_port_file, ClientConnection, PendingRequest,
-    MAX_PENDING_REQUESTS,
+    CLIENT_TX_CAPACITY, MAX_PENDING_REQUESTS,
 };
 use super::types::{
     ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage,
@@ -21,6 +21,70 @@ use tauri::Manager;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::{accept_async, tungstenite::Message};
+
+/// Outcome of an `enqueue_client_msg` attempt.
+///
+/// `Sent` is the happy path. The two failure variants distinguish "client is
+/// alive but backpressured beyond the cap" from "client is gone" so callers
+/// can pick the right policy — silent drop for notifications, disconnect for
+/// in-flight request responses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EnqueueOutcome {
+    Sent,
+    QueueFull,
+    Closed,
+}
+
+/// Enqueue an outbound message on a client's bounded channel.
+///
+/// Uses `try_send` so the server is never blocked by a slow client. On a
+/// full queue or closed receiver the message is dropped at this layer and
+/// the outcome is returned so callers can take protocol-level action when
+/// the dropped message is load-bearing (e.g. a request response). Both
+/// failure cases are logged here so call sites only need to act on the
+/// returned outcome.
+fn enqueue_client_msg(
+    client_id: u64,
+    tx: &mpsc::Sender<String>,
+    msg: String,
+) -> EnqueueOutcome {
+    match tx.try_send(msg) {
+        Ok(()) => EnqueueOutcome::Sent,
+        Err(mpsc::error::TrySendError::Full(_)) => {
+            log::warn!(
+                "[MCP Bridge] Client {} outbound queue full (cap {}) — dropping message",
+                client_id, CLIENT_TX_CAPACITY
+            );
+            EnqueueOutcome::QueueFull
+        }
+        Err(mpsc::error::TrySendError::Closed(_)) => {
+            log::debug!(
+                "[MCP Bridge] Client {} send channel closed — dropping message",
+                client_id
+            );
+            EnqueueOutcome::Closed
+        }
+    }
+}
+
+/// Signal the shutdown channel for a client so its read/write tasks tear
+/// down promptly. Used after dropping a load-bearing message (e.g. a
+/// request response) — leaving the client connected after losing a
+/// response would otherwise let it hang waiting for a reply that will
+/// never arrive.
+async fn force_disconnect_client(client_id: u64, reason: &str) {
+    let state = get_bridge_state();
+    let mut guard = state.lock().await;
+    if let Some(client) = guard.clients.get_mut(&client_id) {
+        if let Some(shutdown_tx) = client.shutdown.take() {
+            let _ = shutdown_tx.send(());
+            log::warn!(
+                "[MCP Bridge] Forcing client {} disconnect: {}",
+                client_id, reason
+            );
+        }
+    }
+}
 
 /// Start the MCP bridge WebSocket server.
 /// Returns the actual port the server is listening on.
@@ -64,7 +128,7 @@ pub async fn start_bridge(
 
     let app_handle = app.clone();
 
-    tauri::async_runtime::spawn(async move {
+    crate::task::spawn_logged("mcp-bridge-accept-loop", async move {
         loop {
             tokio::select! {
                 _ = &mut shutdown_rx => {
@@ -76,7 +140,10 @@ pub async fn start_bridge(
                         Ok((stream, addr)) => {
                             let app = app_handle.clone();
                             let token = auth_token.clone();
-                            tauri::async_runtime::spawn(handle_connection(stream, addr, app, token));
+                            crate::task::spawn_logged(
+                                "mcp-bridge-connection",
+                                handle_connection(stream, addr, app, token),
+                            );
                         }
                         Err(e) => {
                             log::error!("[MCP Bridge] Accept error: {}", e);
@@ -141,8 +208,10 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle, 
 
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
-    // Create channel for sending messages to this client
-    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+    // Create channel for sending messages to this client.
+    // Bounded so a stalled client cannot exhaust process memory; senders
+    // use `try_send` and drop+log on overflow rather than blocking.
+    let (tx, mut rx) = mpsc::channel::<String>(CLIENT_TX_CAPACITY);
 
     // Create shutdown channel for this connection
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
@@ -178,7 +247,7 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle, 
         }),
     };
     if let Ok(msg_str) = serde_json::to_string(&welcome_msg) {
-        let _ = tx.send(msg_str);
+        enqueue_client_msg(client_id, &tx, msg_str);
     }
 
     // Spawn task to forward messages from channel to WebSocket
@@ -238,7 +307,7 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle, 
                 payload: serde_json::json!({ "success": true }),
             };
             if let Ok(msg_str) = serde_json::to_string(&auth_ok) {
-                let _ = tx.send(msg_str);
+                enqueue_client_msg(client_id, &tx, msg_str);
             }
             log::debug!("[MCP Bridge] Client {} authenticated", client_id);
         }
@@ -250,7 +319,7 @@ async fn handle_connection(stream: TcpStream, addr: SocketAddr, app: AppHandle, 
                 payload: serde_json::json!({ "success": false, "error": "Authentication failed" }),
             };
             if let Ok(msg_str) = serde_json::to_string(&auth_fail) {
-                let _ = tx.send(msg_str);
+                enqueue_client_msg(client_id, &tx, msg_str);
             }
             log::warn!("[MCP Bridge] Client {} rejected: auth failed", client_id);
         }
@@ -393,8 +462,16 @@ fn resolve_target_window(args: &serde_json::Value, app: &AppHandle) -> String {
 }
 
 /// Send an error response back to the MCP sidecar client.
-fn send_error_response(
-    client_tx: &mpsc::UnboundedSender<String>,
+/// Send an error response back to the MCP sidecar client.
+///
+/// Async because dropping a response (queue full or closed) is treated as
+/// a transport failure — silently losing an in-flight response leaves the
+/// client hanging on `await` forever. On `EnqueueOutcome::QueueFull` or
+/// `Closed`, the client is forced to disconnect so it can reconnect and
+/// retry, instead of waiting indefinitely for a reply that won't arrive.
+async fn send_error_response(
+    client_id: u64,
+    client_tx: &mpsc::Sender<String>,
     msg_id: &str,
     error: &str,
 ) {
@@ -409,7 +486,19 @@ fn send_error_response(
         payload: serde_json::to_value(&error_response).unwrap_or_default(),
     };
     if let Ok(json) = serde_json::to_string(&ws_response) {
-        let _ = client_tx.send(json);
+        match enqueue_client_msg(client_id, client_tx, json) {
+            EnqueueOutcome::Sent => {}
+            EnqueueOutcome::QueueFull => {
+                force_disconnect_client(
+                    client_id,
+                    "error-response could not be enqueued (queue full)",
+                )
+                .await;
+            }
+            EnqueueOutcome::Closed => {
+                // Already gone — nothing to disconnect.
+            }
+        }
     }
 }
 
@@ -476,9 +565,19 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
         };
         let response_json = serde_json::to_string(&ws_response)
             .map_err(|e| format!("Failed to serialize: {}", e))?;
-        client_tx
-            .send(response_json)
-            .map_err(|e| format!("Failed to send: {}", e))?;
+        match enqueue_client_msg(client_id, &client_tx, response_json) {
+            EnqueueOutcome::Sent | EnqueueOutcome::Closed => {}
+            EnqueueOutcome::QueueFull => {
+                // Response could not be enqueued; client is stuck. Force a
+                // disconnect so it reconnects and retries rather than
+                // hanging on its `await` indefinitely.
+                force_disconnect_client(
+                    client_id,
+                    "rust-side response could not be enqueued (queue full)",
+                )
+                .await;
+            }
+        }
         return Ok(());
     }
 
@@ -577,7 +676,7 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
             guard.pending.remove(&request_id);
             drop(guard);
 
-            send_error_response(&client_tx, &msg.id, "Response channel closed");
+            send_error_response(client_id, &client_tx, &msg.id, "Response channel closed").await;
             return Ok(());
         }
         Err(_) => {
@@ -620,9 +719,9 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                     guard.pending.remove(&request_id);
                     drop(guard);
                     send_error_response(
-                        &client_tx, &msg.id,
+                        client_id, &client_tx, &msg.id,
                         &format!("Failed to re-emit to window '{}' on retry: {}", target_label, e),
-                    );
+                    ).await;
                     return Ok(());
                 }
             } else {
@@ -635,9 +734,9 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                 guard.pending.remove(&request_id);
                 drop(guard);
                 send_error_response(
-                    &client_tx, &msg.id,
+                    client_id, &client_tx, &msg.id,
                     &format!("Target window '{}' was closed during retry", target_label),
-                );
+                ).await;
                 return Ok(());
             }
 
@@ -662,7 +761,7 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                         client_id, request_type_for_log
                     );
 
-                    send_error_response(&client_tx, &msg.id, "Response channel closed on retry");
+                    send_error_response(client_id, &client_tx, &msg.id, "Response channel closed on retry").await;
                     return Ok(());
                 }
                 Err(_) => {
@@ -678,10 +777,11 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
                     );
 
                     send_error_response(
+                        client_id,
                         &client_tx,
                         &msg.id,
                         "Request timeout after 20s (including retry with webview wake)",
-                    );
+                    ).await;
                     return Ok(());
                 }
             }
@@ -707,9 +807,18 @@ async fn handle_message(text: &str, client_id: u64, app: &AppHandle) -> Result<(
     let response_json =
         serde_json::to_string(&ws_response).map_err(|e| format!("Failed to serialize: {}", e))?;
 
-    client_tx
-        .send(response_json)
-        .map_err(|e| format!("Failed to send response: {}", e))?;
+    match enqueue_client_msg(client_id, &client_tx, response_json) {
+        EnqueueOutcome::Sent | EnqueueOutcome::Closed => {}
+        EnqueueOutcome::QueueFull => {
+            // Response would be lost; force disconnect so the client
+            // reconnects rather than blocking on `await` forever.
+            force_disconnect_client(
+                client_id,
+                "request response could not be enqueued (queue full)",
+            )
+            .await;
+        }
+    }
 
     Ok(())
 }

@@ -26,9 +26,17 @@ pub(crate) fn is_webview_alive() -> bool {
     WEBVIEW_ALIVE.load(Ordering::Relaxed)
 }
 
+/// Per-client outbound message queue capacity.
+///
+/// Sized to absorb realistic bursts (streaming AI chunks, batched search
+/// results, workflow progress) while bounding memory if a client stalls.
+/// A slow/dead client overflows long before the process runs out of memory;
+/// senders drop the message and log rather than blocking the server.
+pub(crate) const CLIENT_TX_CAPACITY: usize = 1024;
+
 /// Connected client information.
 pub(crate) struct ClientConnection {
-    pub tx: mpsc::UnboundedSender<String>,
+    pub tx: mpsc::Sender<String>,
     pub shutdown: Option<oneshot::Sender<()>>,
     /// Client identity (set after identify message)
     pub identity: Option<ClientIdentity>,
@@ -223,6 +231,35 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // -- bounded outbound channel -------------------------------------------
+    //
+    // The per-client outbound channel must not be unbounded. A misbehaving
+    // sidecar that stops draining its socket would otherwise grow the queue
+    // until the process is OOM-killed.
+
+    #[tokio::test]
+    async fn client_tx_capacity_is_bounded() {
+        // Sanity: the capacity constant is a sane positive number, not the
+        // sentinel `usize::MAX` an unbounded channel would imply.
+        assert!(CLIENT_TX_CAPACITY > 0);
+        assert!(CLIENT_TX_CAPACITY <= 65_536);
+    }
+
+    #[tokio::test]
+    async fn client_tx_overflow_returns_full_not_blocking() {
+        // A stalled receiver must not block senders past the configured cap.
+        let (tx, _rx) = mpsc::channel::<String>(CLIENT_TX_CAPACITY);
+        for i in 0..CLIENT_TX_CAPACITY {
+            tx.try_send(format!("msg-{i}"))
+                .expect("messages within capacity must enqueue");
+        }
+        // Next send must return Full, not block.
+        match tx.try_send("overflow".to_string()) {
+            Err(mpsc::error::TrySendError::Full(_)) => {}
+            other => panic!("expected Full at capacity, got {:?}", other.err()),
+        }
+    }
 
     // -- is_read_only_operation ------------------------------------------------
 
