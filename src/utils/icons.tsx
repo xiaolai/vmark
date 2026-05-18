@@ -4,10 +4,50 @@
  * Purpose: Centralized Lucide-style icon definitions (24x24 viewBox, stroke-based)
  * used across both WYSIWYG (Tiptap/ProseMirror) and CodeMirror editors.
  *
+ * The icons are interpolated via `dangerouslySetInnerHTML`, so the values
+ * MUST never be derived from runtime input. The `SafeIconSvg` branded type
+ * below makes this a compile-time invariant: anything assigned to a field
+ * typed as `SafeIconSvg` must have come through `defineIconSvg`, which
+ * validates structural assumptions (whitelisted root tag, no script tags,
+ * no event-handler attributes) before allowing it.
+ *
  * @module utils/icons
  */
 
-export const icons = {
+/**
+ * A brand applied to SVG strings that have been validated as safe to inject
+ * via `dangerouslySetInnerHTML`. Plain `string` cannot be assigned to a
+ * `SafeIconSvg` field; only `defineIconSvg` returns this branded type.
+ */
+declare const safeIconBrand: unique symbol;
+export type SafeIconSvg = string & { readonly [safeIconBrand]: true };
+
+/** Structural allowlist of root SVG tags permitted in icon definitions. */
+const ALLOWED_ICON_ROOT = /^<svg\b[^>]*>[\s\S]*<\/svg>$/i;
+
+/** Reject any payload containing scripts or event-handler attributes. */
+const FORBIDDEN_ICON_PATTERN = /(<script\b|<iframe\b|on[a-z]+\s*=|javascript:)/i;
+
+/**
+ * Validate that `svg` is a static, safe SVG icon and tag it as `SafeIconSvg`.
+ * Throws at module load if a definition violates the structural contract —
+ * surfacing accidental introductions of unsafe HTML at the earliest point.
+ */
+function defineIconSvg(svg: string): SafeIconSvg {
+  if (!ALLOWED_ICON_ROOT.test(svg)) {
+    throw new Error(
+      `defineIconSvg: not a wellformed <svg>...</svg> literal: ${svg.slice(0, 64)}…`,
+    );
+  }
+  if (FORBIDDEN_ICON_PATTERN.test(svg)) {
+    throw new Error(
+      `defineIconSvg: forbidden pattern (script/iframe/event-handler/javascript:) in icon`,
+    );
+  }
+  return svg as SafeIconSvg;
+}
+
+const rawIcons = {
   // Text/Block icons
   paragraph: `<svg viewBox="0 0 24 24"><path d="M13 4v16"/><path d="M17 4v16"/><path d="M19 4H9.5a4.5 4.5 0 1 0 0 9H13"/></svg>`,
   heading1: `<svg viewBox="0 0 24 24"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-2v8"/></svg>`,
@@ -96,5 +136,20 @@ export const icons = {
   // UI icons
   chevronDown: `<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`,
   chevronUp: `<svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>`,
-};
+} as const;
+
+/**
+ * Public icon registry. Every value is branded `SafeIconSvg` after passing
+ * `defineIconSvg` validation at module load. Consumers that interpolate into
+ * `dangerouslySetInnerHTML` should type the icon parameter as `SafeIconSvg`
+ * so plain strings (which could carry untrusted input) cannot reach the DOM.
+ */
+export const icons = Object.freeze(
+  Object.fromEntries(
+    Object.entries(rawIcons).map(([key, value]) => [key, defineIconSvg(value)]),
+  ),
+) as { readonly [K in keyof typeof rawIcons]: SafeIconSvg };
+
+/** Convenience union of all known icon keys. */
+export type IconName = keyof typeof rawIcons;
 

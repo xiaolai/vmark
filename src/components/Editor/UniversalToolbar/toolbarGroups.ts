@@ -9,7 +9,7 @@
  *
  * @module components/Editor/UniversalToolbar/toolbarGroups
  */
-import { icons } from "@/utils/icons";
+import { icons, type SafeIconSvg } from "@/utils/icons";
 
 /** Contexts where a menu item is enabled */
 export type EnableContext =
@@ -33,7 +33,13 @@ export interface ToolbarSeparator {
 export interface ToolbarActionItem {
   id: string;
   type?: "action";       // Optional, defaults to action
-  icon: string;
+  /**
+   * Branded as `SafeIconSvg` so the only legal source is the validated
+   * `icons` registry from `@/utils/icons`. This is what stops untrusted
+   * input from ever reaching the `dangerouslySetInnerHTML` in
+   * ToolbarButton.
+   */
+  icon: SafeIconSvg;
   label: string;
   shortcut?: string;
   action: string;        // Action identifier for adapters
@@ -52,7 +58,7 @@ export function isSeparator(item: ToolbarMenuItem): item is ToolbarSeparator {
 export interface ToolbarGroup {
   id: string;
   label: string;
-  icon: string;
+  icon: SafeIconSvg;
   items: ToolbarMenuItem[];
 }
 
@@ -60,7 +66,7 @@ export interface ToolbarGroup {
 export interface ToolbarGroupButton {
   id: string;
   type: "dropdown";
-  icon: string;
+  icon: SafeIconSvg;
   label: string;
   action: string;
   enabledIn: EnableContext[];
