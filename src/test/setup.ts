@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { vi } from "vitest";
+import React from "react";
 
 // ---------------------------------------------------------------------------
 // react-i18next global mock
@@ -81,6 +82,20 @@ vi.mock("react-i18next", () => ({
       resolveKey(key, namespace, opts);
     return { t, i18n: { language: "en" } };
   },
+  // `withTranslation(ns)` HOC: injects `t` and `i18n` props into the wrapped
+  // component. Mirrors the production behavior just enough for tests that
+  // render class components depending on the HOC.
+  withTranslation:
+    (ns?: string) =>
+    <P extends object>(WrappedComponent: React.ComponentType<P & { t: (key: string, opts?: Record<string, unknown>) => string; i18n: { language: string } }>) => {
+      const namespace = ns ?? "common";
+      const t = (key: string, opts?: Record<string, unknown>) =>
+        resolveKey(key, namespace, opts);
+      const Wrapped = (props: P) =>
+        React.createElement(WrappedComponent, { ...props, t, i18n: { language: "en" } } as P & { t: typeof t; i18n: { language: string } });
+      Wrapped.displayName = `withTranslation(${WrappedComponent.displayName || WrappedComponent.name || "Component"})`;
+      return Wrapped;
+    },
   Trans: ({ children }: { children: React.ReactNode }) => children,
   initReactI18next: { type: "3rdParty", init: vi.fn() },
 }));

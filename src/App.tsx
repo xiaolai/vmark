@@ -1,4 +1,5 @@
 import { Component, lazy, Suspense, type ReactNode } from "react";
+import { FeatureErrorBoundary } from "@/components/FeatureErrorBoundary";
 import { useTranslation, withTranslation, type WithTranslation } from "react-i18next";
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -330,9 +331,12 @@ function MainLayout() {
         >
           {/* Editor column: editor + bottom bars */}
           <div role="main" aria-label={t("aria.mainContent")} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 }}>
-            {/* Editor area */}
+            {/* Editor area — wrapped so a Tiptap / ProseMirror schema crash
+                shows an inline error rather than unmounting the whole window. */}
             <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-              <Editor />
+              <FeatureErrorBoundary feature="Editor">
+                <Editor />
+              </FeatureErrorBoundary>
             </div>
             {/* Bottom bar container - fixed 40px height, all bars overlay within */}
             <div style={{ position: "relative", height: 40, flexShrink: 0 }}>
@@ -341,8 +345,10 @@ function MainLayout() {
               <FindBar />
             </div>
           </div>
-          {/* Terminal panel */}
-          <Suspense fallback={null}><TerminalPanel /></Suspense>
+          {/* Terminal panel — xterm + PTY crashes stay contained to the panel. */}
+          <FeatureErrorBoundary feature="Terminal">
+            <Suspense fallback={null}><TerminalPanel /></Suspense>
+          </FeatureErrorBoundary>
         </div>
       </div>
     </div>
@@ -355,8 +361,26 @@ function App() {
       <WindowProvider>
         <Routes>
           <Route path="/" element={<MainLayout />} />
-          <Route path="/settings" element={<Suspense fallback={null}><SettingsPage /></Suspense>} />
-          <Route path="/pdf-export" element={<Suspense fallback={null}><PdfExportPage /></Suspense>} />
+          <Route
+            path="/settings"
+            element={
+              <FeatureErrorBoundary feature="Settings">
+                <Suspense fallback={null}>
+                  <SettingsPage />
+                </Suspense>
+              </FeatureErrorBoundary>
+            }
+          />
+          <Route
+            path="/pdf-export"
+            element={
+              <FeatureErrorBoundary feature="PDF Export">
+                <Suspense fallback={null}>
+                  <PdfExportPage />
+                </Suspense>
+              </FeatureErrorBoundary>
+            }
+          />
         </Routes>
         <Toaster
           position="top-center"

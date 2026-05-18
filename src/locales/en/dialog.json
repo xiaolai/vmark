@@ -82,7 +82,9 @@
     "refuseBody": "\"{{filename}}\" is {{size}}. VMark cannot safely open files above {{limit}}. Use a line-oriented tool such as less, bat, or grep."
   },
   "errorBoundary": {
-    "title": "Something went wrong"
+    "title": "Something went wrong",
+    "featureFailedTitle": "{{feature}} failed to render",
+    "tryAgain": "Try again"
   },
   "pdfExport": {
     "title": "Export PDF",
