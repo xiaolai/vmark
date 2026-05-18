@@ -207,7 +207,9 @@
     "refuseBody": "«{{filename}}» è di {{size}}. VMark non può aprire file oltre {{limit}} in sicurezza. Usa uno strumento orientato alle righe come less, bat o grep."
   },
   "errorBoundary": {
-    "title": "Qualcosa è andato storto"
+    "title": "Qualcosa è andato storto",
+    "featureFailedTitle": "Impossibile visualizzare {{feature}}",
+    "tryAgain": "Riprova"
   },
   "pdfExport": {
     "title": "Esporta PDF",

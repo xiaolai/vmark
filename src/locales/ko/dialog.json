@@ -207,7 +207,9 @@
     "refuseBody": "\"{{filename}}\" 의 크기는 {{size}} 입니다. VMark는 {{limit}} 이상의 파일을 안전하게 열 수 없습니다. less, bat, grep 같은 행 기반 도구를 사용하세요."
   },
   "errorBoundary": {
-    "title": "문제가 발생했습니다"
+    "title": "문제가 발생했습니다",
+    "featureFailedTitle": "{{feature}}을(를) 표시하지 못했습니다",
+    "tryAgain": "다시 시도"
   },
   "pdfExport": {
     "title": "PDF 내보내기",

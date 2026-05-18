@@ -207,7 +207,9 @@
     "refuseBody": "«{{filename}}» pesa {{size}}. VMark no puede abrir archivos de más de {{limit}} con seguridad. Usa una herramienta orientada a líneas como less, bat o grep."
   },
   "errorBoundary": {
-    "title": "Algo salió mal"
+    "title": "Algo salió mal",
+    "featureFailedTitle": "No se pudo renderizar {{feature}}",
+    "tryAgain": "Reintentar"
   },
   "pdfExport": {
     "title": "Exportar PDF",

@@ -207,7 +207,9 @@
     "refuseBody": "“{{filename}}” 大小为 {{size}}。VMark 无法安全打开超过 {{limit}} 的文件，请使用 less、bat 或 grep 等命令行工具。"
   },
   "errorBoundary": {
-    "title": "出错了"
+    "title": "出错了",
+    "featureFailedTitle": "{{feature}} 渲染失败",
+    "tryAgain": "重试"
   },
   "pdfExport": {
     "title": "导出 PDF",

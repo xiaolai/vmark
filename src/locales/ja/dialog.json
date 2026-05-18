@@ -207,7 +207,9 @@
     "refuseBody": "「{{filename}}」は {{size}} です。VMark は {{limit}} を超えるファイルを安全に開けません。less、bat、grep などの行指向ツールをご利用ください。"
   },
   "errorBoundary": {
-    "title": "問題が発生しました"
+    "title": "問題が発生しました",
+    "featureFailedTitle": "{{feature}} の表示に失敗しました",
+    "tryAgain": "再試行"
   },
   "pdfExport": {
     "title": "PDF をエクスポート",

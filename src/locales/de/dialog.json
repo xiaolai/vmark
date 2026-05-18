@@ -207,7 +207,9 @@
     "refuseBody": "„{{filename}}“ ist {{size}}. VMark kann Dateien über {{limit}} nicht sicher öffnen. Verwenden Sie ein zeilenorientiertes Werkzeug wie less, bat oder grep."
   },
   "errorBoundary": {
-    "title": "Etwas ist schiefgelaufen"
+    "title": "Etwas ist schiefgelaufen",
+    "featureFailedTitle": "{{feature}} konnte nicht gerendert werden",
+    "tryAgain": "Erneut versuchen"
   },
   "pdfExport": {
     "title": "PDF exportieren",

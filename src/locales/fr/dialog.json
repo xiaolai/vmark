@@ -207,7 +207,9 @@
     "refuseBody": "« {{filename}} » fait {{size}}. VMark ne peut pas ouvrir de fichiers de plus de {{limit}} en toute sécurité. Utilisez un outil orienté ligne comme less, bat ou grep."
   },
   "errorBoundary": {
-    "title": "Un problème est survenu"
+    "title": "Un problème est survenu",
+    "featureFailedTitle": "Échec de l'affichage de {{feature}}",
+    "tryAgain": "Réessayer"
   },
   "pdfExport": {
     "title": "Exporter le PDF",
