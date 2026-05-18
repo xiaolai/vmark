@@ -16,6 +16,7 @@ import type { MarkdownPasteMode } from "@/stores/settingsStore";
 import {
   createMarkdownPasteSlice,
   createMarkdownPasteTransaction,
+  MarkdownPasteTooComplexError,
   shouldHandleMarkdownPaste,
   triggerPastePlainText,
   markdownPasteExtension,
@@ -435,6 +436,35 @@ describe("createMarkdownPasteTransaction error handling", () => {
       "Failed to parse markdown:",
       expect.any(Error)
     );
+  });
+});
+
+describe("markdown paste node-count cap", () => {
+  it("rejects pastes whose parsed structure exceeds MAX_MARKDOWN_PASTE_NODES", () => {
+    // 6_000 single-character list items produces ~12_000 nodes (list_item + paragraph + text),
+    // well above the 5_000 cap. This is the regression: previously a 199KB paste
+    // with this shape could freeze the editor for seconds during dispatch.
+    const big = Array.from({ length: 6_000 }, (_, i) => `- item ${i}`).join("\n");
+    const state = createState(createParagraphDoc(""));
+    const tr = createMarkdownPasteTransaction(state, big);
+    expect(tr).toBeNull();
+    // The catch path logs via pasteError with the "falling back to plain text" message.
+    expect(pasteError).toHaveBeenCalledWith(
+      expect.stringContaining("falling back to plain text"),
+      expect.stringContaining("more than 5000 nodes"),
+    );
+  });
+
+  it("MarkdownPasteTooComplexError exposes the node count in its message", () => {
+    const err = new MarkdownPasteTooComplexError(8_000);
+    expect(err.name).toBe("MarkdownPasteTooComplexError");
+    expect(err.message).toMatch(/8000/);
+  });
+
+  it("accepts pastes well below the node cap", () => {
+    const state = createState(createParagraphDoc(""));
+    const tr = createMarkdownPasteTransaction(state, "# Title\n\nSome **bold** text.");
+    expect(tr).not.toBeNull();
   });
 });
 

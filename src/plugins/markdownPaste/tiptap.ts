@@ -36,6 +36,32 @@ const markdownPastePluginKey = new PluginKey("markdownPaste");
 
 const MAX_MARKDOWN_PASTE_CHARS = 200_000;
 
+/**
+ * Cap on the number of ProseMirror nodes produced by a markdown paste.
+ * Character count alone doesn't bound parse-tree complexity — a 199KB paste
+ * of deeply nested list items can produce tens of thousands of nodes and
+ * freeze the main thread on dispatch. When the parsed content exceeds this
+ * cap, the paste is rejected and falls through to plain-text insertion
+ * (which is O(n) regardless of structure).
+ */
+const MAX_MARKDOWN_PASTE_NODES = 5_000;
+
+/** Recursively count nodes in a Fragment, bailing out early at `limit`. */
+function countNodesUpTo(content: Fragment, limit: number): number {
+  let count = 0;
+  let exceeded = false;
+  content.descendants(() => {
+    if (exceeded) return false;
+    count += 1;
+    if (count > limit) {
+      exceeded = true;
+      return false;
+    }
+    return true;
+  });
+  return count;
+}
+
 /** Decision parameters controlling whether a paste should be handled as markdown. */
 export interface MarkdownPasteDecision {
   pasteMode: MarkdownPasteMode;
@@ -58,6 +84,22 @@ function hasValidUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim());
 }
 
+/**
+ * Sentinel error thrown when the parsed markdown structure exceeds
+ * `MAX_MARKDOWN_PASTE_NODES`. The caller catches this specific type to
+ * distinguish "too complex" (fall back to plain text) from a generic
+ * parse failure (just log and bail).
+ */
+export class MarkdownPasteTooComplexError extends Error {
+  constructor(nodeCount: number) {
+    super(
+      `Parsed markdown has more than ${MAX_MARKDOWN_PASTE_NODES} nodes (${nodeCount}); ` +
+        `refusing to insert to prevent UI freeze`,
+    );
+    this.name = "MarkdownPasteTooComplexError";
+  }
+}
+
 /** Parses markdown text into a ProseMirror Slice suitable for insertion. */
 export function createMarkdownPasteSlice(
   state: EditorState,
@@ -66,6 +108,10 @@ export function createMarkdownPasteSlice(
 ): Slice {
   const parsed = parseMarkdown(state.schema, markdown, options);
   const content = ensureBlockContent(parsed.content, state.schema.nodes.paragraph);
+  const nodeCount = countNodesUpTo(content, MAX_MARKDOWN_PASTE_NODES);
+  if (nodeCount > MAX_MARKDOWN_PASTE_NODES) {
+    throw new MarkdownPasteTooComplexError(nodeCount);
+  }
   return Slice.maxOpen(content);
 }
 
@@ -79,7 +125,13 @@ export function createMarkdownPasteTransaction(
     const slice = createMarkdownPasteSlice(state, markdown, options);
     return state.tr.replaceSelection(slice);
   } catch (error) {
-    pasteError("Failed to parse markdown:", error);
+    if (error instanceof MarkdownPasteTooComplexError) {
+      // Log at info level — this is an expected backstop, not a bug.
+      // Returning null tells the caller to fall back to plain-text paste.
+      pasteError("Markdown paste exceeded node cap; falling back to plain text:", error.message);
+    } else {
+      pasteError("Failed to parse markdown:", error);
+    }
     return null;
   }
 }
