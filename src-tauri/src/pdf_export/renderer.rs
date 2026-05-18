@@ -21,8 +21,14 @@
 use objc2::MainThreadOnly;
 use objc2_foundation::NSString;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::oneshot;
+
+/// Hard ceiling on a single PDF render. The internal print pipeline can wait
+/// up to ~60s of run-loop ticks; double that to give the dispatcher headroom
+/// without leaving the user staring at a frozen export forever.
+const PDF_OPERATION_TIMEOUT: Duration = Duration::from_secs(180);
 
 /// Progress event payload.
 #[derive(Clone, serde::Serialize)]
@@ -84,7 +90,12 @@ fn create_offscreen_webview(
 /// Load HTML from a file URL and wait for the load to complete.
 ///
 /// Returns Err if the load times out (10 seconds).
+///
+/// `_mtm` is unused at runtime but required as a compile-time proof that the
+/// caller is on the main thread — the `unsafe` Cocoa calls below segfault if
+/// run from a worker thread.
 fn load_html_and_wait(
+    _mtm: objc2::MainThreadMarker,
     webview: &objc2_web_kit::WKWebView,
     html_path: &str,
     read_access_dir: &str,
@@ -136,7 +147,12 @@ fn load_html_and_wait(
 /// Configure NSPrintInfo with zero margins and fit-to-page pagination.
 ///
 /// Returns a copy of the shared print info to avoid mutating global state.
-fn configure_print_info() -> objc2::rc::Retained<objc2_app_kit::NSPrintInfo> {
+///
+/// `_mtm` proves we're on the main thread — `NSPrintInfo::sharedPrintInfo()`
+/// is main-thread-only.
+fn configure_print_info(
+    _mtm: objc2::MainThreadMarker,
+) -> objc2::rc::Retained<objc2_app_kit::NSPrintInfo> {
     use objc2_app_kit::{NSPrintInfo, NSPrintingPaginationMode};
     use objc2_foundation::NSCopying;
 
@@ -219,8 +235,23 @@ pub async fn render_pdf(
     })
     .map_err(|e| format!("Failed to dispatch to main thread: {}", e))?;
 
-    rx.await
-        .map_err(|_| "PDF render channel closed".to_string())?
+    // Bound the wait. If the main-thread dispatch panics or never runs the
+    // sender (e.g. because the run_on_main_thread closure unwound before
+    // reaching the `sender.send(...)` line), the receiver would otherwise
+    // wait forever and freeze the calling async task.
+    let temp_html_for_cleanup = temp_html.clone();
+    match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) => Err("PDF render channel closed".to_string()),
+        Err(_) => {
+            // Timed out — clean up the temp file the main thread never reached.
+            let _ = std::fs::remove_file(&temp_html_for_cleanup);
+            Err(format!(
+                "PDF export timed out after {} seconds",
+                PDF_OPERATION_TIMEOUT.as_secs()
+            ))
+        }
+    }
 }
 
 /// Main-thread PDF rendering logic.
@@ -241,12 +272,12 @@ fn render_pdf_on_main_thread(
     let ov = create_offscreen_webview(mtm);
 
     log::debug!("[PDF] loading file: {}", html_path);
-    load_html_and_wait(&ov.webview, html_path, read_access_dir)?;
+    load_html_and_wait(mtm, &ov.webview, html_path, read_access_dir)?;
 
     log::debug!("[PDF] creating PDF via print operation...");
     emit_progress(app, "rendering");
     let pdf_start = std::time::Instant::now();
-    let result = print_to_pdf(&ov.webview, &ov.window, output_path);
+    let result = print_to_pdf(mtm, &ov.webview, &ov.window, output_path);
     log::debug!(
         "[PDF] print operation done in {:.2}s",
         pdf_start.elapsed().as_secs_f64()
@@ -262,7 +293,11 @@ fn render_pdf_on_main_thread(
 ///
 /// Uses printOperationWithPrintInfo with NSPrintSaveJob disposition
 /// to generate a paginated PDF that respects @page CSS rules.
+///
+/// `mtm` proves main-thread context for the unsafe Cocoa calls and is
+/// forwarded to helpers that need the same proof.
 fn print_to_pdf(
+    mtm: objc2::MainThreadMarker,
     webview: &objc2_web_kit::WKWebView,
     window: &objc2_app_kit::NSWindow,
     output_path: &str,
@@ -272,7 +307,7 @@ fn print_to_pdf(
 
     log::debug!("[PDF] configuring NSPrintInfo...");
 
-    let print_info = configure_print_info();
+    let print_info = configure_print_info(mtm);
 
     // Configure save-to-PDF disposition
     // SAFETY: print_info is a valid NSPrintInfo copy from configure_print_info().
@@ -433,8 +468,18 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), String> 
     })
     .map_err(|e| format!("Failed to dispatch to main thread: {}", e))?;
 
-    rx.await
-        .map_err(|_| "Print channel closed".to_string())?
+    let temp_html_for_cleanup = temp_html.clone();
+    match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) => Err("Print channel closed".to_string()),
+        Err(_) => {
+            let _ = std::fs::remove_file(&temp_html_for_cleanup);
+            Err(format!(
+                "Print operation timed out after {} seconds",
+                PDF_OPERATION_TIMEOUT.as_secs()
+            ))
+        }
+    }
 }
 
 /// Main-thread native print logic.
@@ -456,9 +501,9 @@ fn print_on_main_thread(
 
     let ov = create_offscreen_webview(mtm);
 
-    load_html_and_wait(&ov.webview, html_path, read_access_dir)?;
+    load_html_and_wait(mtm, &ov.webview, html_path, read_access_dir)?;
 
-    let print_info = configure_print_info();
+    let print_info = configure_print_info(mtm);
 
     // Show the print panel (unlike PDF export which hides it)
     // SAFETY: ov.webview is a valid WKWebView created on this main thread.
