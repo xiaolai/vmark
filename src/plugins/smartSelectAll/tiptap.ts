@@ -51,33 +51,32 @@ function createSmartSelectPlugin(): Plugin<SmartSelectState> {
 
 /**
  * Attempt progressive expansion. Returns true if handled.
+ *
+ * Always returns true (consuming Cmd+A) when the editor has focus. Returning
+ * false would let the browser run its own page-wide `selectAll`, which spills
+ * the selection highlight into the sidebar and status bar — exactly the
+ * behavior the user expects Cmd+A inside the editor NOT to produce.
  */
 function handleSmartSelectAll(state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
   const { from, to } = state.selection;
   const docSize = state.doc.content.size;
 
-  // Already selecting entire document — nothing more to expand
+  // Already selecting entire document — keep the selection where it is and
+  // consume the event so the browser doesn't promote it to page-wide.
   if (from === 0 && to === docSize) {
-    return false;
+    return true;
   }
 
   const nextBounds = getNextContainerBounds(state, from, to);
 
   if (!nextBounds) {
-    // No container found. If we're in a container-less context (plain paragraph),
-    // return false to let default select-all handle it.
-    // But if we got here via progressive expansion (stack non-empty),
-    // select the entire document ourselves so it's tracked.
-    const pluginState = smartSelectPluginKey.getState(state);
-    if (!pluginState || pluginState.stack.length === 0) {
-      return false;
-    }
-
-    // Select entire document — AllSelection highlights the doc uniformly;
-    // TextSelection(0, docSize) silently snaps endpoints to inline positions
-    // and can leave visual gaps at block boundaries (Issue #816).
+    // No container found (plain paragraph context, etc.). Select the whole
+    // document explicitly rather than handing off to the browser default —
+    // browser select-all in this app spreads into the sidebar.
     /* v8 ignore next -- @preserve dispatch is always provided by ProseMirror keyboard handlers; the no-dispatch path is a dry-run check that Tiptap never uses for this command */
     if (dispatch) {
+      const pluginState =
+        smartSelectPluginKey.getState(state) ?? { stack: [], lastExpanded: null };
       const tr = state.tr.setSelection(new AllSelection(state.doc));
       tr.setMeta("addToHistory", false);
       tr.setMeta(smartSelectPluginKey, {

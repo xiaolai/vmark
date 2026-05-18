@@ -280,8 +280,12 @@ describe("smart select-all (Mod-a)", () => {
     expect(view.state.selection.main.to).toBe(docLength);
   });
 
-  it("falls through when not in any block", () => {
-    const view = createView("plain text", 5);
+  it("selects the whole document when not in any block", () => {
+    // Returning false here would invoke the browser's page-wide
+    // selectAll and spread the highlight into the sidebar. The handler
+    // must consume Cmd+A and select the full document instead.
+    const content = "plain text without block structure";
+    const view = createView(content, 5);
 
     mockGetCodeFenceInfo.mockReturnValue(null);
     mockGetSourceTableInfo.mockReturnValue(null);
@@ -292,16 +296,21 @@ describe("smart select-all (Mod-a)", () => {
     const modA = bindings.find((b) => b.key === "Mod-a");
 
     const handled = modA!.run!(view);
-    expect(handled).toBe(false);
+    expect(handled).toBe(true);
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(content.length);
   });
 
-  it("falls through when entire block is already selected", () => {
+  it("expands to the whole document when entire block is already selected", () => {
+    // Second Cmd+A in a block context should escalate to whole-document.
+    // It must NOT return false (which would invoke the browser default
+    // and leak the selection into the sidebar).
     const content = "- item 1\n- item 2";
-    // Pre-select entire block
     const parent = document.createElement("div");
     document.body.appendChild(parent);
     const state = EditorState.create({
       doc: content,
+      // Pre-select entire block (which here is also the whole document).
       selection: { anchor: 0, head: 17 },
     });
     const view = new EditorView({ state, parent });
@@ -316,7 +325,10 @@ describe("smart select-all (Mod-a)", () => {
     const modA = bindings.find((b) => b.key === "Mod-a");
 
     const handled = modA!.run!(view);
-    expect(handled).toBe(false);
+    expect(handled).toBe(true);
+    // Selection covers the whole document.
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(content.length);
   });
 });
 

@@ -213,25 +213,43 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
   bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), doTransformToggleCase);
 
   // --- Smart select-all: block-level expansion ---
-  // Mod-a detects block context and selects block content first, then whole document on second press.
-  // Detection order: code fence -> table -> blockquote -> list -> default
+  // Mod-a detects block context and selects block content first, then whole
+  // document on second press. Detection order: code fence -> table ->
+  // blockquote -> list -> default.
+  //
+  // Always returns true (preventDefault is set on the binding). Returning
+  // false would hand the event back to the browser, whose default
+  // `document.execCommand("selectAll")` highlights every selectable element
+  // in the window — including the sidebar — instead of keeping the
+  // selection scoped to the editor.
   bindings.push(
     guardCodeMirrorKeyBinding({
       key: "Mod-a",
       run: (view) => {
         const { from, to } = view.state.selection.main;
+        const docLen = view.state.doc.length;
 
         const blockBounds = getSourceBlockBounds(view);
+
         if (!blockBounds) {
-          // Not in any block — clear undo state and let default select-all handle it
+          // No detectable block context — select the entire document so the
+          // event is consumed inside the editor instead of escaping to the
+          // browser's page-wide select-all.
           sourceSelectUndoState.delete(view);
-          return false;
+          if (from === 0 && to === docLen) return true;
+          view.dispatch({ selection: { anchor: 0, head: docLen } });
+          return true;
         }
 
-        // If already selecting entire block, clear undo state and fall through
+        // Already selecting the entire block: progress to whole-document.
+        // We dispatch the document-wide selection ourselves instead of
+        // returning false (which would invoke the browser's spreading
+        // select-all).
         if (from === blockBounds.from && to === blockBounds.to) {
           sourceSelectUndoState.delete(view);
-          return false;
+          if (from === 0 && to === docLen) return true;
+          view.dispatch({ selection: { anchor: 0, head: docLen } });
+          return true;
         }
 
         // Save current selection for undo, then select block

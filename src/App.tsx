@@ -90,6 +90,7 @@ import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { useViewShortcuts } from "@/hooks/useViewShortcuts";
 import { useTabShortcuts } from "@/hooks/useTabShortcuts";
 import { useReloadGuard } from "@/hooks/useReloadGuard";
+import { useSelectAllScope } from "@/hooks/useSelectAllScope";
 import { useDragDropOpen } from "@/hooks/useDragDropOpen";
 import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
@@ -241,6 +242,7 @@ function MainLayout() {
   useViewShortcuts(); // F8, F9 view shortcuts
   useTabShortcuts(); // Cmd+T, Cmd+W tab shortcuts
   useReloadGuard(); // Prevent reload when dirty
+  useSelectAllScope(); // Scope Cmd+A to editor/terminal/inputs; suppress page-wide selection
   useUniversalToolbar(); // Universal toolbar toggle (shortcut configurable)
   useFileExplorerShortcuts(); // Toggle hidden files
   useImagePasteToast(); // Image paste confirmation toast

@@ -424,7 +424,10 @@ describe("handleSmartSelectAll dispatch paths", () => {
     expect(dispatched[0].getMeta("addToHistory")).toBe(false);
   });
 
-  it("handleSmartSelectAll returns false when already at document level", () => {
+  it("handleSmartSelectAll consumes Cmd+A even when already at document level", () => {
+    // Returning false here would let the browser run its page-wide
+    // selectAll, which spills the selection highlight into the sidebar.
+    // The handler must always consume Cmd+A so long as the editor has focus.
     const d = doc(p("hello"));
     const docSize = d.content.size;
     const { state } = createPluginState(d, 0, docSize);
@@ -440,7 +443,8 @@ describe("handleSmartSelectAll dispatch paths", () => {
     } as never);
 
     const result = shortcuts["Mod-a"]({ editor: { state, view: { dispatch: mockDispatch } } } as never);
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+    // No transaction needed — selection is already full-doc.
     expect(dispatched.length).toBe(0);
   });
 
@@ -460,10 +464,13 @@ describe("handleSmartSelectAll dispatch paths", () => {
     expect(shortcuts["Mod-a"]).toBeDefined();
   });
 
-  it("handleSmartSelectAll returns false when no container found and plugin state has empty stack (line 73)", () => {
-    // Plain paragraph — no container. Plugin state exists but stack is empty.
-    // This should return false to let default select-all handle it.
+  it("handleSmartSelectAll selects the whole document on Cmd+A in a plain paragraph", () => {
+    // Plain paragraph context: no container can be expanded into. The handler
+    // must NOT return false here — that would invoke the browser's page-wide
+    // selectAll and spread the highlight into the sidebar. Instead, dispatch
+    // an AllSelection so the selection stays scoped to the editor doc.
     const d = doc(p("plain text"));
+    const docSize = d.content.size;
     const { state } = createPluginState(d, 3);
 
     const dispatched: Transaction[] = [];
@@ -477,8 +484,12 @@ describe("handleSmartSelectAll dispatch paths", () => {
     } as never);
 
     const result = shortcuts["Mod-a"]({ editor: { state, view: { dispatch: mockDispatch } } } as never);
-    expect(result).toBe(false);
-    expect(dispatched.length).toBe(0);
+    expect(result).toBe(true);
+    expect(dispatched.length).toBe(1);
+    // The dispatched selection must cover the full document.
+    const sel = dispatched[0].selection;
+    expect(sel.from).toBe(0);
+    expect(sel.to).toBe(docSize);
   });
 
   it("handleSmartSelectAll selects entire document when no container and stack is non-empty", () => {
@@ -514,6 +525,10 @@ describe("handleSmartSelectAll dispatch paths", () => {
 
       const result = shortcuts["Mod-a"]({ editor: { state: currentState, view: { dispatch: (tr: Transaction) => dispatched.push(tr) } } } as never);
       if (!result) break;
+      // Once selection has reached the full document, the handler consumes
+      // Cmd+A without dispatching anything further (it has nothing to do).
+      // That's the terminal state of progressive expansion.
+      if (dispatched.length === 0) break;
 
       currentState = currentState.apply(dispatched[0]);
       expandCount++;

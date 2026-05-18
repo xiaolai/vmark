@@ -130,6 +130,16 @@ export function createTerminalKeyHandler(
         callbacks.onSearch();
         return false;
       }
+      case "a": {
+        // Cmd+A inside the terminal — scope the select-all to the terminal
+        // buffer. Without this, the event falls through to xterm's hidden
+        // textarea and then to the browser's page-wide selectAll, which
+        // highlights every visible element including the editor and
+        // sidebar.
+        event.preventDefault();
+        term.selectAll();
+        return false;
+      }
       case "1": case "2": case "3": case "4": case "5": {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;

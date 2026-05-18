@@ -115,11 +115,26 @@ describe("createTerminalKeyHandler", () => {
     expect(callbacks.onSearch).toHaveBeenCalled();
   });
 
+  it("selects the terminal buffer on Cmd+A and consumes the event", () => {
+    // Without this branch, Cmd+A inside the terminal falls through to the
+    // browser's `document.execCommand("selectAll")` and the selection
+    // highlight spills into the editor and sidebar.
+    const selectAll = vi.fn();
+    const term = makeTerm({ selectAll });
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    const event = makeEvent("a");
+    const result = handler(event);
+
+    expect(result).toBe(false);
+    expect(selectAll).toHaveBeenCalledTimes(1);
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
+
   it("passes through unhandled keys", () => {
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
-    expect(handler(makeEvent("a"))).toBe(true);
     expect(handler(makeEvent("z"))).toBe(true);
+    expect(handler(makeEvent("q"))).toBe(true);
   });
 
   describe("Shift+Enter — WezTerm-impersonation parity", () => {
