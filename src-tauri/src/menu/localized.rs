@@ -108,34 +108,65 @@ pub fn create_localized_menu(
         ],
     )?;
 
+    // Build the Export submenu with platform-aware item set. `export-pdf-native`
+    // is the native PDF export path backed by WKWebView + NSPrintOperation;
+    // the entire `pdf_export` Rust module is `#[cfg(target_os = "macos")]`
+    // and the corresponding Tauri command is not registered on Windows/Linux,
+    // so the menu item must be hidden there. Issue #929 reported the menu
+    // leaking through and showing a "macOS only" toast — fixed by omitting
+    // the item from the submenu entirely on non-macOS.
+    let other_formats_submenu = {
+        let items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = if crate::pandoc::commands::resolve_pandoc_path().is_some() {
+            vec![
+                Box::new(MenuItem::with_id(app, "export-pandoc-docx", &t!("menu.file.export.pandocDocx").to_string(), true, accel("export-pandoc-docx", ""))?),
+                Box::new(MenuItem::with_id(app, "export-pandoc-epub", &t!("menu.file.export.pandocEpub").to_string(), true, accel("export-pandoc-epub", ""))?),
+                Box::new(MenuItem::with_id(app, "export-pandoc-latex", &t!("menu.file.export.pandocLatex").to_string(), true, accel("export-pandoc-latex", ""))?),
+                Box::new(MenuItem::with_id(app, "export-pandoc-odt", &t!("menu.file.export.pandocOdt").to_string(), true, accel("export-pandoc-odt", ""))?),
+                Box::new(MenuItem::with_id(app, "export-pandoc-rtf", &t!("menu.file.export.pandocRtf").to_string(), true, accel("export-pandoc-rtf", ""))?),
+                Box::new(MenuItem::with_id(app, "export-pandoc-txt", &t!("menu.file.export.pandocTxt").to_string(), true, accel("export-pandoc-txt", ""))?),
+            ]
+        } else {
+            vec![
+                Box::new(MenuItem::with_id(app, "export-pandoc-hint", &t!("menu.file.export.pandocHint").to_string(), true, None::<&str>)?),
+            ]
+        };
+        let refs: Vec<&dyn IsMenuItem<tauri::Wry>> = items.iter().map(|i| &**i).collect();
+        Submenu::with_id_and_items(app, "other-formats-submenu", &t!("menu.file.export.otherFormats").to_string(), true, &refs)?
+    };
+
+    let html_item = MenuItem::with_id(app, "export-html", &t!("menu.file.export.html").to_string(), true, accel("export-html", ""))?;
+    let copy_html_item = MenuItem::with_id(app, "copy-html", &t!("menu.file.export.copyHtml").to_string(), true, accel("copy-html", "CmdOrCtrl+Shift+C"))?;
+    let separator = PredefinedMenuItem::separator(app)?;
+
+    #[cfg(target_os = "macos")]
+    let export_submenu = {
+        let pdf_item = MenuItem::with_id(app, "export-pdf-native", &t!("menu.file.export.pdf").to_string(), true, accel("export-pdf-native", ""))?;
+        Submenu::with_id_and_items(
+            app,
+            "export-submenu",
+            &t!("menu.file.export").to_string(),
+            true,
+            &[
+                &html_item,
+                &pdf_item,
+                &other_formats_submenu,
+                &separator,
+                &copy_html_item,
+            ],
+        )?
+    };
+
+    #[cfg(not(target_os = "macos"))]
     let export_submenu = Submenu::with_id_and_items(
         app,
         "export-submenu",
         &t!("menu.file.export").to_string(),
         true,
         &[
-            &MenuItem::with_id(app, "export-html", &t!("menu.file.export.html").to_string(), true, accel("export-html", ""))?,
-            &MenuItem::with_id(app, "export-pdf-native", &t!("menu.file.export.pdf").to_string(), true, accel("export-pdf-native", ""))?,
-            &{
-                let items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = if crate::pandoc::commands::resolve_pandoc_path().is_some() {
-                    vec![
-                        Box::new(MenuItem::with_id(app, "export-pandoc-docx", &t!("menu.file.export.pandocDocx").to_string(), true, accel("export-pandoc-docx", ""))?),
-                        Box::new(MenuItem::with_id(app, "export-pandoc-epub", &t!("menu.file.export.pandocEpub").to_string(), true, accel("export-pandoc-epub", ""))?),
-                        Box::new(MenuItem::with_id(app, "export-pandoc-latex", &t!("menu.file.export.pandocLatex").to_string(), true, accel("export-pandoc-latex", ""))?),
-                        Box::new(MenuItem::with_id(app, "export-pandoc-odt", &t!("menu.file.export.pandocOdt").to_string(), true, accel("export-pandoc-odt", ""))?),
-                        Box::new(MenuItem::with_id(app, "export-pandoc-rtf", &t!("menu.file.export.pandocRtf").to_string(), true, accel("export-pandoc-rtf", ""))?),
-                        Box::new(MenuItem::with_id(app, "export-pandoc-txt", &t!("menu.file.export.pandocTxt").to_string(), true, accel("export-pandoc-txt", ""))?),
-                    ]
-                } else {
-                    vec![
-                        Box::new(MenuItem::with_id(app, "export-pandoc-hint", &t!("menu.file.export.pandocHint").to_string(), true, None::<&str>)?),
-                    ]
-                };
-                let refs: Vec<&dyn IsMenuItem<tauri::Wry>> = items.iter().map(|i| &**i).collect();
-                Submenu::with_id_and_items(app, "other-formats-submenu", &t!("menu.file.export.otherFormats").to_string(), true, &refs)?
-            },
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "copy-html", &t!("menu.file.export.copyHtml").to_string(), true, accel("copy-html", "CmdOrCtrl+Shift+C"))?,
+            &html_item,
+            &other_formats_submenu,
+            &separator,
+            &copy_html_item,
         ],
     )?;
 
@@ -204,7 +235,12 @@ pub fn create_localized_menu(
             &MenuItem::with_id(app, "move-to", &t!("menu.file.moveTo").to_string(), true, accel("move-to", ""))?,
             &PredefinedMenuItem::separator(app)?,
             &export_submenu,
-            &MenuItem::with_id(app, "export-pdf", &t!("menu.file.print").to_string(), true, accel("export-pdf", "CmdOrCtrl+P"))?,
+            // `export-pdf` (Print) is omitted on Windows/Linux: the underlying
+            // Rust command (pdf_export::commands::print_document) is gated to
+            // macOS because it uses NSPrintOperation against a WKWebView, and
+            // neither the command nor a cross-platform equivalent exists on
+            // other targets. Cross-platform alternative: Export → HTML, then
+            // print to PDF from the system browser. Issue #929.
             &PredefinedMenuItem::separator(app)?,
             &history_submenu,
             &PredefinedMenuItem::separator(app)?,
