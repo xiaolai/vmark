@@ -266,9 +266,10 @@ pub fn open_in_external_editor(
             // Reap on a detached thread so fast-exiting launchers
             // (`open -t`, `xdg-open`) don't leave zombies on Unix.
             // We deliberately don't wait synchronously — the editor
-            // may run for hours.
+            // may run for hours. spawn_thread_logged surfaces the
+            // (extremely unlikely) panic via the structured log channel.
             let mut child = child;
-            std::thread::spawn(move || {
+            crate::task::spawn_thread_logged("external-editor-reaper", move || {
                 let _ = child.wait();
             });
             Ok(())

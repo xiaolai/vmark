@@ -560,24 +560,42 @@ fn spawn_restore_timeout(generation: u64) {
         prev.abort();
     }
 
+    // Inner body is wrapped in catch_unwind so a panic inside the cleanup
+    // doesn't disappear silently — the restore-timeout task owns the
+    // expected_labels invariant; a swallowed panic would leak that state.
+    // We use inline catch_unwind (not spawn_logged) because the JoinHandle
+    // type is tauri::async_runtime::JoinHandle in prod and tokio::task::
+    // JoinHandle in test, and the handle is stored for abort().
     let future = async move {
-        tokio::time::sleep(Duration::from_secs(RESTORE_TIMEOUT_SECS)).await;
-        let pending = get_pending_restore_state();
-        let mut state = lock_pending_restore(&pending);
-        // Only clear if this timeout's generation still matches current state
-        if state.generation == generation && !state.expected_labels.is_empty() {
-            let incomplete: Vec<_> = state
-                .expected_labels
-                .iter()
-                .filter(|l| !state.completed_windows.contains(*l))
-                .cloned()
-                .collect();
-            log::warn!(
-                "[HotExit] Restore timeout ({}s) — clearing pending state. Incomplete windows: {:?}",
-                RESTORE_TIMEOUT_SECS,
-                incomplete
+        let body = async {
+            tokio::time::sleep(Duration::from_secs(RESTORE_TIMEOUT_SECS)).await;
+            let pending = get_pending_restore_state();
+            let mut state = lock_pending_restore(&pending);
+            // Only clear if this timeout's generation still matches current state
+            if state.generation == generation && !state.expected_labels.is_empty() {
+                let incomplete: Vec<_> = state
+                    .expected_labels
+                    .iter()
+                    .filter(|l| !state.completed_windows.contains(*l))
+                    .cloned()
+                    .collect();
+                log::warn!(
+                    "[HotExit] Restore timeout ({}s) — clearing pending state. Incomplete windows: {:?}",
+                    RESTORE_TIMEOUT_SECS,
+                    incomplete
+                );
+                state.clear();
+            }
+        };
+        if let Err(payload) = futures_util::FutureExt::catch_unwind(
+            std::panic::AssertUnwindSafe(body),
+        )
+        .await
+        {
+            log::error!(
+                "[task:hot-exit-restore-timeout] task panicked: {}",
+                crate::task::panic_payload_message(&payload),
             );
-            state.clear();
         }
     };
 

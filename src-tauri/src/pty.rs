@@ -234,28 +234,60 @@ pub async fn pty_start<R: Runtime>(
     let data_event = format!("pty:data:{pid}");
     let exit_event = format!("pty:exit:{pid}");
 
+    // Reader thread body wrapped in catch_unwind so a panic doesn't crash
+    // the whole process. We must keep the explicit thread name (`pty-reader-{pid}`)
+    // for log filtering, so we use Builder directly rather than spawn_thread_logged.
+    //
+    // Capture identifiers needed inside the panic-recovery branch BEFORE the
+    // closure consumes `child`/`app`/`exit_event` — on a panic we still need
+    // to emit a synthetic `pty:exit:{pid}` so the frontend doesn't sit
+    // forever waiting for an exit event that the panicked thread never sent.
+    let app_for_panic = app.clone();
+    let exit_event_for_panic = exit_event.clone();
+    let session_for_panic = session.clone();
     std::thread::Builder::new()
         .name(format!("pty-reader-{pid}"))
         .spawn(move || {
-            let mut buf = vec![0u8; 4096];
-            loop {
-                if shutdown.load(Ordering::Acquire) {
-                    break;
-                }
-                pause_ctl.wait_if_paused();
-                if shutdown.load(Ordering::Acquire) {
-                    break;
-                }
-                match reader.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        let _ = app.emit(&data_event, buf[..n].to_vec());
+            let pid_for_log = pid;
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let mut buf = vec![0u8; 4096];
+                loop {
+                    if shutdown.load(Ordering::Acquire) {
+                        break;
                     }
-                    Err(_) => break,
+                    pause_ctl.wait_if_paused();
+                    if shutdown.load(Ordering::Acquire) {
+                        break;
+                    }
+                    match reader.read(&mut buf) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            let _ = app.emit(&data_event, buf[..n].to_vec());
+                        }
+                        Err(_) => break,
+                    }
                 }
+                let exit_code = child.wait().map(|s| s.exit_code()).unwrap_or(1);
+                let _ = app.emit(&exit_event, PtyExitEvent { exit_code });
+            }));
+            if let Err(payload) = result {
+                log::error!(
+                    "[task:pty-reader-{}] reader thread panicked: {}",
+                    pid_for_log,
+                    crate::task::panic_payload_message(&payload),
+                );
+                // Best-effort: kill the child (the panicked reader can't
+                // wait() on it) and emit a synthetic exit so the frontend
+                // transitions out of "running" instead of hanging on the
+                // missing exit event.
+                if let Ok(mut killer) = session_for_panic.child_killer.lock() {
+                    let _ = killer.kill();
+                }
+                let _ = app_for_panic.emit(
+                    &exit_event_for_panic,
+                    PtyExitEvent { exit_code: 1 },
+                );
             }
-            let exit_code = child.wait().map(|s| s.exit_code()).unwrap_or(1);
-            let _ = app.emit(&exit_event, PtyExitEvent { exit_code });
         })
         .map_err(|e| format!("Failed to spawn reader thread: {e}"))?;
 

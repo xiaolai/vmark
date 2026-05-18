@@ -243,9 +243,11 @@ pub async fn mcp_server_start(app: AppHandle, port: u16) -> Result<McpServerStat
         return Err(format!("{}, bridge stopped", e));
     }
 
-    // Spawn a task to monitor the process output
+    // Spawn a task to monitor the process output.
+    // Wrapped in spawn_logged so a panic in the event-handling loop doesn't
+    // silently leave MCP_SERVER state pointing at a dead process.
     let app_handle = app.clone();
-    tauri::async_runtime::spawn(async move {
+    crate::task::spawn_logged("mcp-server-monitor", async move {
         use tauri_plugin_shell::process::CommandEvent;
 
         while let Some(event) = rx.recv().await {

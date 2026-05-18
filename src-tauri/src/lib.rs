@@ -54,6 +54,7 @@ mod workflow;
 mod gha_workflow;
 mod quarantine;
 mod external_editor;
+mod task;
 
 #[cfg(target_os = "macos")]
 mod app_nap;

@@ -192,11 +192,15 @@ async fn build_approval_preview(
 /// Convert the legacy `Arc<AtomicBool>` cancel flag into a polling task that
 /// flips a `CancellationToken`. Bridges the existing API to the new tokio
 /// cancellation primitive used by `run_ai_prompt_collect`.
+///
+/// Wrapped in `spawn_logged` so a panic inside the polling loop surfaces in
+/// the log instead of silently leaking a cancel token (which would let the
+/// downstream AI request run past its caller's cancel signal).
 fn spawn_cancel_bridge(
     legacy: Arc<AtomicBool>,
     token: CancellationToken,
 ) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
+    crate::task::spawn_logged("workflow-cancel-bridge", async move {
         loop {
             if legacy.load(Ordering::SeqCst) {
                 token.cancel();

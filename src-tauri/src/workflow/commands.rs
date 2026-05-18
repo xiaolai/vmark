@@ -20,6 +20,32 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
+/// RAII guard that releases the workflow `running` concurrency flag on drop.
+///
+/// Whether the spawned runner returns normally, returns `Err`, or panics,
+/// `Drop::drop` runs and resets `running` to `false`. Without this, a panic
+/// inside `run_workflow_sequential` (caught by `spawn_logged`) would leave
+/// `running == true` forever and permanently block every subsequent
+/// workflow start.
+struct RunningGuard {
+    app: AppHandle,
+}
+
+impl RunningGuard {
+    fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+impl Drop for RunningGuard {
+    fn drop(&mut self) {
+        self.app
+            .state::<WorkflowRunnerState>()
+            .running
+            .store(false, Ordering::SeqCst);
+    }
+}
+
 /// Shared state for workflow execution. Held by the Tauri app via `.manage()`
 /// at startup; outlives any individual execution.
 pub struct WorkflowRunnerState {
@@ -181,8 +207,16 @@ pub async fn run_workflow(
     // Approval registry is per-app, shared across executions.
     let approvals = Arc::clone(&state.approvals);
 
-    // Spawn runner as background task — return ID immediately
-    tokio::spawn(async move {
+    // Spawn runner as background task — return ID immediately.
+    //
+    // Wrapped in spawn_logged so a panic inside the runner is logged instead
+    // of silently swallowed by the tokio runtime. The RunningGuard below
+    // clears `WorkflowRunnerState.running` on Drop so even an unwind path
+    // releases the concurrency lock — preventing a stuck-true flag from
+    // permanently blocking subsequent workflow runs.
+    crate::task::spawn_logged("workflow-runner", async move {
+        let _guard = RunningGuard::new(app_clone.clone());
+
         let result = run_workflow_sequential(
             &app_clone,
             workflow,
@@ -199,14 +233,7 @@ pub async fn run_workflow(
         if let Err(e) = result {
             log::error!("Workflow execution failed: {}", e);
         }
-
-        // Reset the concurrency guard so the next workflow can run.
-        // AppHandle::state::<T>() is available inside tokio::spawn because
-        // AppHandle implements Clone + Send + Sync.
-        app_clone
-            .state::<WorkflowRunnerState>()
-            .running
-            .store(false, Ordering::SeqCst);
+        // _guard drops here on the happy path and clears the flag.
     });
 
     Ok(execution_id)

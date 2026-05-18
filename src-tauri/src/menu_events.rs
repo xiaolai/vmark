@@ -155,13 +155,25 @@ fn get_any_document_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     })
 }
 
-/// Emit an event immediately using its payload format
+/// Emit an event immediately using its payload format.
+///
+/// Logs a warning on failure. The most common failure mode is the window
+/// being destroyed between the readiness check and the emit (e.g. user
+/// closes the window while a menu accelerator is in flight). Silent loss
+/// was making race-condition reports very hard to diagnose; the warning
+/// makes the dropped event visible without producing a crash.
 fn emit_event(window: &tauri::WebviewWindow, event: &PendingMenuEvent) {
     let label = window.label();
-    if let Some(ref path) = event.recent_file_path {
-        let _ = window.emit(&event.event_name, (path.as_str(), label));
+    let result = if let Some(ref path) = event.recent_file_path {
+        window.emit(&event.event_name, (path.as_str(), label))
     } else {
-        let _ = window.emit(&event.event_name, label);
+        window.emit(&event.event_name, label)
+    };
+    if let Err(e) = result {
+        log::warn!(
+            "[menu_events] Failed to emit '{}' to window '{}': {}",
+            event.event_name, label, e
+        );
     }
 }
 
@@ -319,8 +331,10 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     if id == "install-cli" {
         use tauri_plugin_dialog::DialogExt;
         let app = app.clone();
-        // Use spawn_blocking because cli_install/uninstall call Command::output() (blocking I/O)
-        tauri::async_runtime::spawn(async move {
+        // Use spawn_blocking because cli_install/uninstall call Command::output() (blocking I/O).
+        // Wrapped in spawn_logged so a panic inside the install flow doesn't silently
+        // disappear, leaving the user with no feedback.
+        crate::task::spawn_logged("menu-cli-install", async move {
             let result: Result<String, String> = tauri::async_runtime::spawn_blocking(|| {
                 let status = crate::cli_install::cli_install_status()?;
                 if status.foreign {
