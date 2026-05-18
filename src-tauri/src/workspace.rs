@@ -74,9 +74,29 @@ impl Default for WorkspaceConfig {
 // Path hashing
 // ============================================================================
 
-/// Hash a workspace root path to a deterministic 16-hex-char filename.
+/// Hash a workspace root path to a deterministic 32-hex-char filename.
 /// Normalizes trailing separators before hashing for cross-platform consistency.
+///
+/// 16 bytes (128 bits) of hash gives 2^64 collision space at the birthday
+/// bound — vastly more than a real user will ever accumulate workspaces.
+/// The previous 8-byte truncation (2^32 collision bound) was empirically
+/// safe at user scale but the cost of being defensive here is one extra
+/// filename character, paid for by `migrate_legacy_hash_filename` below.
 fn hash_root_path(root_path: &str) -> String {
+    let normalized = root_path
+        .trim_end_matches('/')
+        .trim_end_matches('\\');
+    let hash = Sha256::digest(normalized.as_bytes());
+    hash.iter()
+        .take(16)
+        .map(|b| format!("{:02x}", b))
+        .collect()
+}
+
+/// Legacy 8-byte hash used in releases <= 0.7.22. Read-only — used by
+/// `migrate_legacy_hash_filename` to rename a pre-existing config file to
+/// the new 16-byte hash filename on first load.
+fn legacy_hash_root_path(root_path: &str) -> String {
     let normalized = root_path
         .trim_end_matches('/')
         .trim_end_matches('\\');
@@ -101,6 +121,81 @@ fn get_workspace_config_path(
     let ws_dir = get_workspaces_dir(app)?;
     let hash = hash_root_path(root_path);
     Ok(ws_dir.join(format!("{hash}.json")))
+}
+
+/// Get the legacy 16-hex-char workspace config path for migration only.
+fn get_legacy_workspace_config_path(
+    app: &tauri::AppHandle,
+    root_path: &str,
+) -> Result<std::path::PathBuf, String> {
+    let ws_dir = get_workspaces_dir(app)?;
+    let hash = legacy_hash_root_path(root_path);
+    Ok(ws_dir.join(format!("{hash}.json")))
+}
+
+/// Outcome of a hash-filename migration attempt. Returned from
+/// `try_rename_legacy_hash` purely so tests can assert which branch ran;
+/// production callers ignore the value (every branch is benign).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HashMigrationOutcome {
+    /// New-layout file already exists; nothing to do.
+    AlreadyMigrated,
+    /// No legacy file present; nothing to do.
+    NoLegacyFile,
+    /// Renamed legacy → new successfully.
+    Renamed,
+    /// Tried to rename but the syscall failed; legacy file left in place.
+    RenameFailed,
+}
+
+/// Pure-paths migration helper: if `legacy_path` exists and `new_path` does
+/// not, rename one to the other. Split out from `migrate_legacy_hash_filename`
+/// so unit tests can exercise every branch without a Tauri AppHandle.
+fn try_rename_legacy_hash(
+    legacy_path: &std::path::Path,
+    new_path: &std::path::Path,
+) -> HashMigrationOutcome {
+    if new_path.exists() {
+        return HashMigrationOutcome::AlreadyMigrated;
+    }
+    if !legacy_path.exists() {
+        return HashMigrationOutcome::NoLegacyFile;
+    }
+    match fs::rename(legacy_path, new_path) {
+        Ok(()) => {
+            log::info!(
+                "[workspace] migrated config to 16-byte hash: {} -> {}",
+                legacy_path.display(),
+                new_path.display()
+            );
+            HashMigrationOutcome::Renamed
+        }
+        Err(e) => {
+            log::warn!(
+                "[workspace] failed to migrate legacy config {}: {}",
+                legacy_path.display(),
+                e
+            );
+            HashMigrationOutcome::RenameFailed
+        }
+    }
+}
+
+/// If a legacy-hash config exists for this workspace, rename it to the new
+/// hash. Returns whether or not a migration happened — failure to migrate
+/// is logged and treated as "no legacy config" so reads continue.
+fn migrate_legacy_hash_filename(
+    app: &tauri::AppHandle,
+    root_path: &str,
+    new_path: &std::path::Path,
+) {
+    if new_path.exists() {
+        return; // Already on new layout.
+    }
+    let Ok(legacy_path) = get_legacy_workspace_config_path(app, root_path) else {
+        return;
+    };
+    let _ = try_rename_legacy_hash(&legacy_path, new_path);
 }
 
 // ============================================================================
@@ -252,6 +347,10 @@ pub fn read_workspace_config(
 ) -> Result<Option<WorkspaceConfig>, String> {
     let ws_path = get_workspace_config_path(&app, root_path)?;
 
+    // Migrate from the previous 8-byte hash filename if present. After this
+    // call, ws_path will exist if a legacy config was found.
+    migrate_legacy_hash_filename(&app, root_path, &ws_path);
+
     // New location exists — read directly
     if ws_path.exists() {
         let content = fs::read_to_string(&ws_path)
@@ -316,7 +415,26 @@ mod tests {
         let h1 = hash_root_path("/Users/test/project");
         let h2 = hash_root_path("/Users/test/project");
         assert_eq!(h1, h2);
-        assert_eq!(h1.len(), 16); // 8 bytes = 16 hex chars
+        assert_eq!(h1.len(), 32); // 16 bytes = 32 hex chars
+    }
+
+    #[test]
+    fn test_legacy_hash_root_path_unchanged_8_bytes() {
+        // The legacy helper exists for migration; its output must remain
+        // exactly 16 hex chars / 8 bytes so it matches files produced by
+        // previous releases.
+        let h = legacy_hash_root_path("/Users/test/project");
+        assert_eq!(h.len(), 16);
+    }
+
+    #[test]
+    fn test_new_hash_differs_from_legacy() {
+        // 16-byte hash must not collide with the 8-byte prefix — this is
+        // what makes the new path distinct from the old one for migration.
+        let new_h = hash_root_path("/Users/test/project");
+        let legacy_h = legacy_hash_root_path("/Users/test/project");
+        assert_ne!(new_h, legacy_h);
+        assert!(new_h.starts_with(&legacy_h), "new hash should extend the legacy prefix");
     }
 
     #[test]
@@ -338,6 +456,71 @@ mod tests {
         let h1 = hash_root_path("/Users/test/project-a");
         let h2 = hash_root_path("/Users/test/project-b");
         assert_ne!(h1, h2);
+    }
+
+    // ----- hash-filename migration -----------------------------------------
+    //
+    // Exercises `try_rename_legacy_hash` (the AppHandle-free helper extracted
+    // from `migrate_legacy_hash_filename`) on every branch: already migrated,
+    // no legacy file present, successful rename, and rename failure.
+
+    #[test]
+    fn migration_already_migrated_when_new_path_exists() {
+        let dir = tempdir().unwrap();
+        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
+        let new_path = dir.path().join("aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
+        fs::write(&legacy, b"{}").unwrap();
+        fs::write(&new_path, b"{\"current\": true}").unwrap();
+
+        let outcome = try_rename_legacy_hash(&legacy, &new_path);
+        assert_eq!(outcome, HashMigrationOutcome::AlreadyMigrated);
+        // Legacy file untouched — we did not clobber.
+        assert!(legacy.exists());
+        let new_contents = fs::read_to_string(&new_path).unwrap();
+        assert!(new_contents.contains("current"));
+    }
+
+    #[test]
+    fn migration_no_op_when_no_legacy_file() {
+        let dir = tempdir().unwrap();
+        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
+        let new_path = dir.path().join("aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
+
+        let outcome = try_rename_legacy_hash(&legacy, &new_path);
+        assert_eq!(outcome, HashMigrationOutcome::NoLegacyFile);
+        assert!(!new_path.exists());
+    }
+
+    #[test]
+    fn migration_renames_legacy_to_new_path() {
+        let dir = tempdir().unwrap();
+        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
+        let new_path = dir.path().join("aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
+        let payload = b"{\"legacy\": true}";
+        fs::write(&legacy, payload).unwrap();
+
+        let outcome = try_rename_legacy_hash(&legacy, &new_path);
+        assert_eq!(outcome, HashMigrationOutcome::Renamed);
+        assert!(!legacy.exists(), "legacy file must be gone after rename");
+        assert!(new_path.exists(), "new path must contain the renamed file");
+        let new_contents = fs::read(&new_path).unwrap();
+        assert_eq!(new_contents.as_slice(), payload);
+    }
+
+    #[test]
+    fn migration_reports_failure_when_rename_target_is_invalid() {
+        // Forcing fs::rename to fail is OS-specific; the cleanest cross-platform
+        // way is to give it a target path whose parent directory does not exist.
+        let dir = tempdir().unwrap();
+        let legacy = dir.path().join("aaaaaaaaaaaaaaaa.json");
+        let new_path = dir.path().join("missing-subdir/aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbb.json");
+        fs::write(&legacy, b"{}").unwrap();
+
+        let outcome = try_rename_legacy_hash(&legacy, &new_path);
+        assert_eq!(outcome, HashMigrationOutcome::RenameFailed);
+        // Legacy file must be left in place on failure — the next attempt
+        // can retry. Losing the legacy file would lose user state.
+        assert!(legacy.exists(), "legacy file must survive a failed rename");
     }
 
     #[test]
