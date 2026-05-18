@@ -183,6 +183,7 @@ export function McpHistoryButton(): React.ReactElement {
               onClick={onClear}
               disabled={visible.length === 0}
               title={t("mcpHistoryClear")}
+              aria-label={t("mcpHistoryClear")}
             >
               <Trash2 size={14} />
             </button>
