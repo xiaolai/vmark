@@ -2,7 +2,18 @@
   "mcpServers": {
     "tauri": {
       "command": "npx",
-      "args": ["-y", "@hypothesi/tauri-mcp-server"]
+      "args": [
+        "-y",
+        "@hypothesi/tauri-mcp-server"
+      ]
+    },
+    "codex-cli": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "codex-mcp-server@1.4.10"
+      ]
     }
   }
 }

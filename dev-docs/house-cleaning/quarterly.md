@@ -139,7 +139,7 @@ The principle is *least privilege*. Every permission is a liability that must ju
 Codex has different training data and catches blind spots Claude misses (and vice versa). Worth one full-repo run per quarter.
 
 ```
-/codex-toolkit:audit
+/cc-suite:audit
 ```
 
 Record findings in the strategy note. Promote any new recurring pattern to a `.claude/rules/` entry — that's how the audit improves the codebase rather than just generating reports.

@@ -547,7 +547,7 @@ Gated on Phase 2 shipping.
 | Rust↔TS ext sync | `bash scripts/check-ext-sync.sh` (NEW per ADR-12) | Every PR touching the registry or `lib.rs` extension constants |
 | TDD hook | New `.claude/hooks/multi-format-tdd-guard.mjs` (parallel to `gha-tdd-guard.mjs`) — file-path-scoped (matches `gha-tdd-guard` model). Production paths covered: `src/lib/formats/**`, `src/components/Editor/SplitPaneEditor/**`, `src/components/Editor/Editor.tsx`, `src/components/Editor/SourceEditor.tsx`, `src/hooks/useFileOpen.ts`, `src/hooks/useFileSave.ts`, `src/hooks/useDragDropOpen.ts`, `src/hooks/useFinderFileOpen.ts`, `src/hooks/useRecentFilesMenuEvents.ts`, `src/hooks/closeSave.ts`, `src/hooks/useExternalFileChanges.ts`, `src/stores/tabStore.ts`, `src/stores/contentSearchStore.ts`, `src/utils/dropPaths.ts`, `src/utils/newFile.ts`, `src/utils/macQuarantineNotice.ts`, `src/utils/yamlOpenRouting.ts` (until WI-2.6), `src-tauri/src/lib.rs` (whole-file scope — granular function scoping isn't supported by the current guard model), `src-tauri/src/window_manager.rs` (whole-file), `src-tauri/src/quarantine.rs` (whole-file). Allow-list within scope: `*.test.ts(x)`, `*.test.rs`, `types.ts`, `*.d.ts`, `*.css`. | Pre-Write/Edit on every WI |
 | i18n keys | Each WI introducing user-visible strings adds `en` keys in same commit (Phase 6 batches translation) | Per-WI review |
-| Cross-model review | `/codex-toolkit:review-plan` | Required again after this revision; mandatory before Phase 1A commits |
+| Cross-model review | `/cc-suite:review-plan` | Required again after this revision; mandatory before Phase 1A commits |
 | Coverage | `pnpm check:all` | Before every merge |
 | HTML XSS | OWASP XSS top-20 payload list manual test | WI-3.4 sign-off |
 

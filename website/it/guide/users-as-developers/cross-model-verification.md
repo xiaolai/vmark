@@ -32,7 +32,7 @@ Questo è lo stesso principio alla base della revisione del codice umano — un 
 
 ### Il Plugin Codex Toolkit
 
-VMark usa il plugin Claude Code `codex-toolkit@xiaolai`, che include Codex come server MCP. Quando il plugin è abilitato, Claude Code ottiene automaticamente accesso a uno strumento MCP `codex` — un canale per inviare prompt a Codex e ricevere risposte strutturate. Codex gira in un **contesto sandboxed, di sola lettura**: può leggere il codebase ma non può modificare i file. Tutte le modifiche sono fatte da Claude.
+VMark usa il plugin Claude Code `cc-suite@xiaolai`, che include Codex come server MCP. Quando il plugin è abilitato, Claude Code ottiene automaticamente accesso a uno strumento MCP `codex` — un canale per inviare prompt a Codex e ricevere risposte strutturate. Codex gira in un **contesto sandboxed, di sola lettura**: può leggere il codebase ma non può modificare i file. Tutte le modifiche sono fatte da Claude.
 
 ### Configurazione
 
@@ -49,10 +49,10 @@ codex login                   # Accedi con abbonamento ChatGPT (raccomandato)
 claude plugin marketplace add xiaolai/claude-plugin-marketplace
 ```
 
-3. Installa e abilita il plugin codex-toolkit in Claude Code:
+3. Installa e abilita il plugin cc-suite in Claude Code:
 
 ```bash
-claude plugin install codex-toolkit@xiaolai --scope project
+claude plugin install cc-suite@xiaolai --scope project
 ```
 
 4. Verifica che Codex sia disponibile:
@@ -72,14 +72,14 @@ Le app GUI macOS hanno un PATH minimo. Se `codex --version` funziona nel tuo ter
 :::
 
 ::: tip Configurazione del Progetto
-Esegui `/codex-toolkit:init` per generare un file di configurazione `.codex-toolkit.md` con impostazioni predefinite specifiche del progetto (focus di audit, livello di sforzo, pattern da saltare).
+Esegui `/cc-suite:init` per generare un file di configurazione `.cc-suite.md` con impostazioni predefinite specifiche del progetto (focus di audit, livello di sforzo, pattern da saltare).
 :::
 
 ## Comandi Slash
 
-Il plugin `codex-toolkit` fornisce comandi slash pre-costruiti che orchestrano i flussi di lavoro Claude + Codex. Non devi gestire l'interazione manualmente — invoca semplicemente il comando e i modelli si coordinano automaticamente.
+Il plugin `cc-suite` fornisce comandi slash pre-costruiti che orchestrano i flussi di lavoro Claude + Codex. Non devi gestire l'interazione manualmente — invoca semplicemente il comando e i modelli si coordinano automaticamente.
 
-### `/codex-toolkit:audit` — Audit del Codice
+### `/cc-suite:audit` — Audit del Codice
 
 Il comando di audit principale. Supporta due modalità:
 
@@ -101,31 +101,31 @@ Il comando di audit principale. Supporta due modalità:
 Utilizzo:
 
 ```
-/codex-toolkit:audit                  # Audit mini sulle modifiche non committate
-/codex-toolkit:audit --full           # Audit completo a 9 dimensioni
-/codex-toolkit:audit commit -3        # Audit degli ultimi 3 commit
-/codex-toolkit:audit src/stores/      # Audit di una directory specifica
+/cc-suite:audit                  # Audit mini sulle modifiche non committate
+/cc-suite:audit --full           # Audit completo a 9 dimensioni
+/cc-suite:audit commit -3        # Audit degli ultimi 3 commit
+/cc-suite:audit src/stores/      # Audit di una directory specifica
 ```
 
 L'output è un report strutturato con valutazioni di gravità (Critico / Alto / Medio / Basso) e correzioni suggerite per ogni risultato.
 
-### `/codex-toolkit:verify` — Verifica delle Correzioni Precedenti
+### `/cc-suite:verify` — Verifica delle Correzioni Precedenti
 
 Dopo aver corretto i risultati dell'audit, fai confermare a Codex che le correzioni siano corrette:
 
 ```
-/codex-toolkit:verify                 # Verifica le correzioni dall'ultimo audit
+/cc-suite:verify                 # Verifica le correzioni dall'ultimo audit
 ```
 
 Codex rilegge ogni file nelle posizioni segnalate e marca ogni problema come corretto, non corretto o parzialmente corretto. Esegue anche controlli spot per individuare nuovi problemi introdotti dalle correzioni.
 
-### `/codex-toolkit:audit-fix` — Il Ciclo Completo
+### `/cc-suite:audit-fix` — Il Ciclo Completo
 
 Il comando più potente. Concatena audit → correggi → verifica in un ciclo:
 
 ```
-/codex-toolkit:audit-fix              # Ciclo sulle modifiche non committate
-/codex-toolkit:audit-fix commit -1    # Ciclo sull'ultimo commit
+/cc-suite:audit-fix              # Ciclo sulle modifiche non committate
+/cc-suite:audit-fix commit -1    # Ciclo sull'ultimo commit
 ```
 
 Ecco cosa succede:
@@ -144,36 +144,36 @@ flowchart TD
 
 Il ciclo si interrompe quando Codex segnala zero risultati su tutte le gravità, o dopo 3 iterazioni (a quel punto i problemi rimanenti vengono segnalati a te).
 
-### `/codex-toolkit:implement` — Implementazione Autonoma
+### `/cc-suite:implement` — Implementazione Autonoma
 
 Invia un piano a Codex per l'implementazione autonoma completa:
 
 ```
-/codex-toolkit:implement              # Implementa da un piano
+/cc-suite:implement              # Implementa da un piano
 ```
 
-### `/codex-toolkit:bug-analyze` — Analisi della Causa Radice
+### `/cc-suite:bug-analyze` — Analisi della Causa Radice
 
 Analisi della causa radice per bug descritti dagli utenti:
 
 ```
-/codex-toolkit:bug-analyze            # Analizza un bug
+/cc-suite:bug-analyze            # Analizza un bug
 ```
 
-### `/codex-toolkit:review-plan` — Revisione del Piano
+### `/cc-suite:review-plan` — Revisione del Piano
 
 Invia un piano a Codex per la revisione architetturale:
 
 ```
-/codex-toolkit:review-plan            # Revisiona un piano per coerenza e rischio
+/cc-suite:review-plan            # Revisiona un piano per coerenza e rischio
 ```
 
-### `/codex-toolkit:continue` — Continua una Sessione
+### `/cc-suite:continue` — Continua una Sessione
 
 Continua una sessione Codex precedente per iterare sui risultati:
 
 ```
-/codex-toolkit:continue               # Continua da dove hai lasciato
+/cc-suite:continue               # Continua da dove hai lasciato
 ```
 
 ### `/fix-issue` — Risolutore End-to-End di Issue

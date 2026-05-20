@@ -170,7 +170,7 @@ export default defineConfig({
         // mount-once, actionlint resolver + integration). Same shape as
         // above — defensive paths added with no live Tauri test backstop.
         //
-        // Relaxed another 0.05 pp (93.15 → 93.10) by the codex-toolkit
+        // Relaxed another 0.05 pp (93.15 → 93.10) by the cc-suite
         // audit-fix batch: per-document patch stash (pendingPatches
         // mirroring + bind/swap branches), cancelPatchForTarget
         // revert paths, runs-on array branch, network-error retry

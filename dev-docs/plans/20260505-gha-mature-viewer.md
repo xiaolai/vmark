@@ -231,7 +231,7 @@ preserves shape.
 
 ## 7.5. Codex review summary (2026-05-05)
 
-`/codex-toolkit:review-plan` against this file (rule 60.6 mandatory for
+`/cc-suite:review-plan` against this file (rule 60.6 mandatory for
 plans >3 phases). Findings incorporated:
 - Phase C0 (draft overlay) added before WI-C.1 to fix IR staleness
 - Phase B-prime (shared path resolver) added between B.0 and B.1/B.2

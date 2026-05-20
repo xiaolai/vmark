@@ -2,7 +2,7 @@
  * TerminalPanel — wiring tests (#856)
  *
  * Focused on the panel→context-menu→resetDisplay path. The audit
- * (codex-toolkit:audit-fix) flagged this wiring as untested critical:
+ * (cc-suite:audit-fix) flagged this wiring as untested critical:
  * a regression here would silently remove the #856 fix in real usage.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";

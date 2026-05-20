@@ -29,7 +29,7 @@ Ein einzelner Entwickler hat es mit Claude Code gebaut. Dabei entstanden sieben 
 ```mermaid
 flowchart LR
     subgraph Marketplace["xiaolai Marketplace"]
-        CT["codex-toolkit\nCross-model auditing"]
+        CT["cc-suite\nCross-model auditing"]
         TG["tdd-guardian\nTest-first enforcement"]
         DG["docs-guardian\nDoc quality + freshness"]
         LG["loc-guardian\nFile size enforcement"]
@@ -41,7 +41,7 @@ flowchart LR
 
 | Plugin | Funktion | Entstanden aus |
 |--------|-------------|-----------|
-| [codex-toolkit](https://github.com/xiaolai/codex-toolkit-for-claude) | Cross-Model Code-Auditing über OpenAI Codex | „Ich brauche ein zweites Augenpaar, das nicht Claude ist" |
+| [cc-suite](https://github.com/xiaolai/cc-suite) | Cross-Model Code-Auditing über OpenAI Codex | „Ich brauche ein zweites Augenpaar, das nicht Claude ist" |
 | [tdd-guardian](https://github.com/xiaolai/tdd-guardian-for-claude) | Durchsetzung des Test-First-Workflows | „Die Abdeckung sinkt ständig, wenn ich Tests vergesse" |
 | [docs-guardian](https://github.com/xiaolai/docs-guardian-for-claude) | Qualitäts- und Aktualitätsprüfung der Dokumentation | „In meiner Doku steht `com.vmark.app`, aber der tatsächliche Identifier ist `app.vmark`" |
 | [loc-guardian](https://github.com/xiaolai/loc-guardian-for-claude) | Durchsetzung der Zeilenlimits pro Datei | „Diese Datei hat 800 Zeilen und niemand hat es bemerkt" |
@@ -63,7 +63,7 @@ timeline
         Jan 2026 : Test coverage at 40%
                  : "this is unacceptable"
     section Plugin Adoption
-        Feb 2026 : codex-toolkit installed
+        Feb 2026 : cc-suite installed
                  : First cross-model audit
         Early Mar : tdd-guardian enabled
                   : docs-guardian configured
@@ -89,11 +89,11 @@ Die Git-Historie erzählt die Geschichte:
 | Dokumentation | 128 |
 | Abdeckungskampagne-Phasen | 26 |
 
-## codex-toolkit: Die zweite Meinung
+## cc-suite: Die zweite Meinung
 
 **Verwendet in**: 27 von 28 Plugin-Sitzungen. 200+ Codex-Aufrufe über alle Sitzungen.
 
-Das Wichtigste an codex-toolkit ist, dass *nicht Claude Claudes Arbeit auditiert*. Es sendet Code an OpenAIs Codex-Modell zur unabhängigen Prüfung. Wenn man tief in einem Feature mit einer AI steckt, fängt ein völlig anderes Modell bei der Überprüfung Dinge auf, die sowohl man selbst als auch die primäre AI übersehen haben.
+Das Wichtigste an cc-suite ist, dass *nicht Claude Claudes Arbeit auditiert*. Es sendet Code an OpenAIs Codex-Modell zur unabhängigen Prüfung. Wenn man tief in einem Feature mit einer AI steckt, fängt ein völlig anderes Modell bei der Überprüfung Dinge auf, die sowohl man selbst als auch die primäre AI übersehen haben.
 
 ```mermaid
 flowchart LR
@@ -303,17 +303,17 @@ journey
         Ad-hoc code reviews: 2: Developer
         Test coverage at 40%: 1: Developer
     section Phase 2 - Experiment
-        First Codex audit: 3: codex-toolkit
+        First Codex audit: 3: cc-suite
         Can a second AI help?: 3: Developer
     section Phase 3 - Configure
         Project-specific configs: 4: All Plugins
         19 code-to-doc mappings: 4: docs-guardian
     section Phase 4 - Automate
-        Daily cron audit: 5: codex-toolkit
+        Daily cron audit: 5: cc-suite
         84 auto-merged PRs: 5: claude bot
     section Phase 5 - Orchestrate
         Multi-plugin workflows: 5: All Plugins
-        38 Codex calls per session: 5: codex-toolkit
+        38 Codex calls per session: 5: cc-suite
 ```
 
 ### Phase 1: Manuelles Auditing (Januar 2026)
@@ -324,7 +324,7 @@ Ad-hoc-Reviews. Keine Tools. Testabdeckung bei 40 %.
 ### Phase 2: Einzelne Plugin-Experimente (Ende Januar -- Anfang Februar)
 > „Lass Codex die Codequalität überprüfen"
 
-Erste Nutzung von codex-toolkit für den MCP-Server. Experimentell. Kann eine zweite AI Dinge finden, die die erste übersehen hat? Erste Installation: [`e6373c7a`](https://github.com/xiaolai/vmark/commit/e6373c7a).
+Erste Nutzung von cc-suite für den MCP-Server. Experimentell. Kann eine zweite AI Dinge finden, die die erste übersehen hat? Erste Installation: [`e6373c7a`](https://github.com/xiaolai/vmark/commit/e6373c7a).
 
 ### Phase 3: Konfigurierte Infrastruktur (Anfang März)
 Plugins mit projektspezifischen Konfigurationen installiert. tdd-guardian mit strengen Schwellenwerten aktiviert ([`f775f300`](https://github.com/xiaolai/vmark/commit/f775f300)). docs-guardian hat 19 Code-zu-Doku-Mappings. loc-guardian hat 300-Zeilen-Limits mit Extraktionsregeln.
@@ -333,7 +333,7 @@ Plugins mit projektspezifischen Konfigurationen installiert. tdd-guardian mit st
 Tägliches Cron-Audit um 9 Uhr UTC. Issues automatisch erstellt, automatisch gefixt, automatisch als PR eingereicht, automatisch gemergt. 84 PRs ohne menschliches Eingreifen.
 
 ### Phase 5: Multi-Plugin-Orchestrierung (Ende März)
-Einzelne Sitzungen, die loc-guardian-Scan -> Performance-Audit -> Subagenten-Implementierung -> codex-toolkit-Audit -> codex-toolkit-Verifizierung -> Version-Bump kombinieren. 38 Codex-Aufrufe in einer Sitzung. Plugins fügen sich zu Workflows zusammen.
+Einzelne Sitzungen, die loc-guardian-Scan -> Performance-Audit -> Subagenten-Implementierung -> cc-suite-Audit -> cc-suite-Verifizierung -> Version-Bump kombinieren. 38 Codex-Aufrufe in einer Sitzung. Plugins fügen sich zu Workflows zusammen.
 
 ## Die Feedbackschleife
 
@@ -352,7 +352,7 @@ flowchart TB
 
 Jedes Plugin entstand beim Bau von VMark:
 
-- **codex-toolkit** existiert, weil eine AI, die ihre eigene Arbeit überprüft, nicht ausreicht
+- **cc-suite** existiert, weil eine AI, die ihre eigene Arbeit überprüft, nicht ausreicht
 - **tdd-guardian** existiert, weil die Abdeckung zwischen Sitzungen immer weiter sank
 - **docs-guardian** existiert, weil Dokumentation immer vom Code abdriftet
 - **loc-guardian** existiert, weil Dateien immer über wartbare Größen hinauswachsen
@@ -364,7 +364,7 @@ Und jedes Plugin wurde durch den Bau von VMark verbessert:
 
 - Die blockierenden Hooks von tdd-guardian erwiesen sich als zu aggressiv — was zu einem Vorschlag für optionale Durchsetzung führte
 - Die Dateimuster-Erkennung von nlpm erwies sich als zu breit — sie blockierte während unzusammenhängender Bug-Fixes
-- Die Benennung von codex-toolkit wurde korrigiert, nachdem mitten in einer Sitzung eine Phantom-Referenz entdeckt wurde
+- Die Benennung von cc-suite wurde korrigiert, nachdem mitten in einer Sitzung eine Phantom-Referenz entdeckt wurde
 - Der Accuracy-Checker von docs-guardian bewies seinen Wert, indem er den `com.vmark.app`-Bug fand, den kein anderes Tool hätte entdecken können
 
 ## Das geschichtete Qualitätssystem
@@ -377,7 +377,7 @@ flowchart TB
         TG2["tdd-guardian\nDuring coding"]
     end
     subgraph Session["Session-level"]
-        CT2["codex-toolkit\nAfter coding"]
+        CT2["cc-suite\nAfter coding"]
     end
     subgraph Project["Project-level"]
         LG2["loc-guardian\nStructural health"]
@@ -399,7 +399,7 @@ flowchart TB
 | Ebene | Plugin | Wann es aktiv wird | Was es findet |
 |-------|--------|-------------|-----------------|
 | Echtzeit-Disziplin | tdd-guardian | Während des Programmierens | Übersprungene Tests, Abdeckungsrückgang |
-| Sitzungsebene-Review | codex-toolkit | Nach dem Programmieren | Bugs, Sicherheit, Barrierefreiheit |
+| Sitzungsebene-Review | cc-suite | Nach dem Programmieren | Bugs, Sicherheit, Barrierefreiheit |
 | Strukturelle Gesundheit | loc-guardian | Auf Anfrage | Dateiwachstum, Komplexitätsschleichung |
 | Dokumentationssynchronisation | docs-guardian | Auf Anfrage | Veraltete Doku, fehlende Doku, falsche Doku |
 | Strategische Bewertung | grill | Periodisch | Architekturlücken, Testlücken, Qualitätsschulden |
@@ -412,7 +412,7 @@ Das ist kein „optionales Tooling." Es ist die Governance-Schicht, die rekursiv
 
 „Unverzichtbar" ist ein starkes Wort. Hier der Lackmustest: Wie sähe VMark ohne sie aus?
 
-**Ohne codex-toolkit**: 292 Issues an Bugs, Sicherheitslücken und Barrierefreiheitslücken hätten sich angehäuft. Die automatisierte Pipeline, die Issues innerhalb von 24 Stunden nach Einführung erkennt, würde nicht existieren. Der Entwickler hätte sich auf manuelle periodische Reviews verlassen — die laut den Januar-Sitzungen bestenfalls ad hoc stattfanden.
+**Ohne cc-suite**: 292 Issues an Bugs, Sicherheitslücken und Barrierefreiheitslücken hätten sich angehäuft. Die automatisierte Pipeline, die Issues innerhalb von 24 Stunden nach Einführung erkennt, würde nicht existieren. Der Entwickler hätte sich auf manuelle periodische Reviews verlassen — die laut den Januar-Sitzungen bestenfalls ad hoc stattfanden.
 
 **Ohne tdd-guardian**: Die 26-Phasen-Abdeckungskampagne wäre möglicherweise nie passiert. Die Disziplin, Schwellenwerte stetig nach oben zu schrauben — sodass die Abdeckung nur steigen, nie sinken kann — kam aus der Denkweise, die tdd-guardian einpflanzte. 99,96 % Abdeckung passiert nicht zufällig.
 
@@ -542,7 +542,7 @@ flowchart TB
 flowchart TB
     CMD["/fix-issue"] --> SKILL["rust-tauri-backend\nSkill"]
     CMD --> RULE1["10-tdd.md\nRule"]
-    CMD --> PLUGIN["codex-toolkit\nPlugin"]
+    CMD --> PLUGIN["cc-suite\nPlugin"]
     CMD --> RULE2["31-design-tokens.md\nRule"]
     CMD --> RULE3["41-keyboard-shortcuts.md\nRule"]
     SKILL --> RESULT["Consistent, tested,\naudited, documented\nfix"]
@@ -552,7 +552,7 @@ flowchart TB
     RULE3 --> RESULT
 ```
 
-Regeln + Skills + Plugins + Befehle bilden ein zusammengesetztes System. Wenn man `/fix-issue` ausführt, nutzt es den `rust-tauri-backend`-Skill für Rust-Änderungen, folgt der `10-tdd.md`-Regel für Testanforderungen, ruft `codex-toolkit` für das Audit auf, prüft `31-design-tokens.md` für CSS-Konformität und verifiziert gegen `41-keyboard-shortcuts.md` für Shortcut-Synchronisation.
+Regeln + Skills + Plugins + Befehle bilden ein zusammengesetztes System. Wenn man `/fix-issue` ausführt, nutzt es den `rust-tauri-backend`-Skill für Rust-Änderungen, folgt der `10-tdd.md`-Regel für Testanforderungen, ruft `cc-suite` für das Audit auf, prüft `31-design-tokens.md` für CSS-Konformität und verifiziert gegen `41-keyboard-shortcuts.md` für Shortcut-Synchronisation.
 
 Kein einzelnes Stück ist revolutionär. Der Compounding-Effekt — 13 Regeln x 19 Skills x 7 Plugins x 7 Befehle, die sich gegenseitig verstärken — das ist es, was das System funktionieren lässt. Jedes Stück wurde hinzugefügt, als eine Lücke entdeckt wurde, in realer Entwicklung getestet und durch Nutzung verfeinert.
 
@@ -572,7 +572,7 @@ Wenn Sie darüber nachdenken, Claude Code Plugins zu bauen, hier ist, was VMark 
 
 6. **Komponieren statt Monolith.** Sieben fokussierte Plugins schlagen ein Mega-Plugin. Jedes macht eine Sache gut, und sie fügen sich zu Workflows zusammen, die mehr sind als die Summe ihrer Teile.
 
-7. **Vertrauen wird pro Aufruf verdient.** Der Entwickler vertraut codex-toolkit genug, um „Alles fixen" zu sagen, ohne die Befunde zu überprüfen. Dieses Vertrauen wurde über 27 Sitzungen und 292 gelöste Issues aufgebaut.
+7. **Vertrauen wird pro Aufruf verdient.** Der Entwickler vertraut cc-suite genug, um „Alles fixen" zu sagen, ohne die Befunde zu überprüfen. Dieses Vertrauen wurde über 27 Sitzungen und 292 gelöste Issues aufgebaut.
 
 ---
 

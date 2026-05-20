@@ -29,7 +29,7 @@ VMark 是一款基于 Tauri、React 和 Rust 构建的 AI 友好型 Markdown 编
 ```mermaid
 flowchart LR
     subgraph Marketplace["xiaolai Marketplace"]
-        CT["codex-toolkit\nCross-model auditing"]
+        CT["cc-suite\nCross-model auditing"]
         TG["tdd-guardian\nTest-first enforcement"]
         DG["docs-guardian\nDoc quality + freshness"]
         LG["loc-guardian\nFile size enforcement"]
@@ -41,7 +41,7 @@ flowchart LR
 
 | 插件 | 功能 | 诞生缘由 |
 |--------|-------------|-----------|
-| [codex-toolkit](https://github.com/xiaolai/codex-toolkit-for-claude) | 通过 OpenAI Codex 进行跨模型代码审计 | "我需要一双不是 Claude 的第二双眼睛" |
+| [cc-suite](https://github.com/xiaolai/cc-suite) | 通过 OpenAI Codex 进行跨模型代码审计 | "我需要一双不是 Claude 的第二双眼睛" |
 | [tdd-guardian](https://github.com/xiaolai/tdd-guardian-for-claude) | 测试优先工作流强制执行 | "忘了写测试，覆盖率又降了" |
 | [docs-guardian](https://github.com/xiaolai/docs-guardian-for-claude) | 文档质量与时效审计 | "文档写的是 `com.vmark.app`，但实际标识符是 `app.vmark`" |
 | [loc-guardian](https://github.com/xiaolai/loc-guardian-for-claude) | 单文件行数限制强制执行 | "这个文件 800 行了，居然没人注意到" |
@@ -63,7 +63,7 @@ timeline
         Jan 2026 : Test coverage at 40%
                  : "this is unacceptable"
     section Plugin Adoption
-        Feb 2026 : codex-toolkit installed
+        Feb 2026 : cc-suite installed
                  : First cross-model audit
         Early Mar : tdd-guardian enabled
                   : docs-guardian configured
@@ -89,11 +89,11 @@ Git 历史记录讲述了这个故事：
 | 文档 | 128 |
 | 覆盖率计划阶段 | 26 |
 
-## codex-toolkit：第二意见
+## cc-suite：第二意见
 
 **使用频率**：28 次插件会话中使用了 27 次。所有会话累计 200+ 次 Codex 调用。
 
-codex-toolkit 最重要的一点是——它*不是 Claude 审计 Claude 自己的工作*。它将代码发送给 OpenAI 的 Codex 模型进行独立评审。当你与一个 AI 深入开发某个功能时，让一个完全不同的模型来审视结果，能捕获你和你的主力 AI 都遗漏的问题。
+cc-suite 最重要的一点是——它*不是 Claude 审计 Claude 自己的工作*。它将代码发送给 OpenAI 的 Codex 模型进行独立评审。当你与一个 AI 深入开发某个功能时，让一个完全不同的模型来审视结果，能捕获你和你的主力 AI 都遗漏的问题。
 
 ```mermaid
 flowchart LR
@@ -303,17 +303,17 @@ journey
         Ad-hoc code reviews: 2: Developer
         Test coverage at 40%: 1: Developer
     section Phase 2 - Experiment
-        First Codex audit: 3: codex-toolkit
+        First Codex audit: 3: cc-suite
         Can a second AI help?: 3: Developer
     section Phase 3 - Configure
         Project-specific configs: 4: All Plugins
         19 code-to-doc mappings: 4: docs-guardian
     section Phase 4 - Automate
-        Daily cron audit: 5: codex-toolkit
+        Daily cron audit: 5: cc-suite
         84 auto-merged PRs: 5: claude bot
     section Phase 5 - Orchestrate
         Multi-plugin workflows: 5: All Plugins
-        38 Codex calls per session: 5: codex-toolkit
+        38 Codex calls per session: 5: cc-suite
 ```
 
 ### 第一阶段：手动审计（2026 年 1 月）
@@ -324,7 +324,7 @@ journey
 ### 第二阶段：单插件实验（1 月底至 2 月初）
 > "让 Codex 审查代码质量"
 
-首次在 MCP 服务器上使用 codex-toolkit。实验阶段。第二个 AI 能捕获第一个遗漏的东西吗？首次安装：[`e6373c7a`](https://github.com/xiaolai/vmark/commit/e6373c7a)。
+首次在 MCP 服务器上使用 cc-suite。实验阶段。第二个 AI 能捕获第一个遗漏的东西吗？首次安装：[`e6373c7a`](https://github.com/xiaolai/vmark/commit/e6373c7a)。
 
 ### 第三阶段：配置化基础设施（3 月初）
 安装插件并配置项目特定的设置。tdd-guardian 以严格阈值启用（[`f775f300`](https://github.com/xiaolai/vmark/commit/f775f300)）。docs-guardian 配置了 19 个代码到文档的映射。loc-guardian 设置了 300 行限制和提取规则。
@@ -333,7 +333,7 @@ journey
 每日 UTC 早上 9 点定时审计。问题自动创建、自动修复、自动提 PR、自动合并。84 个 PR 无需人工干预。
 
 ### 第五阶段：多插件编排（3 月下旬）
-单次会话中组合 loc-guardian 扫描 -> 性能审计 -> 子代理实现 -> codex-toolkit 审计 -> codex-toolkit 验证 -> 版本号递增。一次会话 38 次 Codex 调用。插件组合成工作流。
+单次会话中组合 loc-guardian 扫描 -> 性能审计 -> 子代理实现 -> cc-suite 审计 -> cc-suite 验证 -> 版本号递增。一次会话 38 次 Codex 调用。插件组合成工作流。
 
 ## 反馈循环
 
@@ -352,7 +352,7 @@ flowchart TB
 
 每个插件都诞生于 VMark 的构建过程：
 
-- **codex-toolkit** 存在是因为一个 AI 审查自己的工作是不够的
+- **cc-suite** 存在是因为一个 AI 审查自己的工作是不够的
 - **tdd-guardian** 存在是因为覆盖率在会话之间不断下滑
 - **docs-guardian** 存在是因为文档总是与代码产生偏差
 - **loc-guardian** 存在是因为文件总是增长到难以维护的大小
@@ -364,7 +364,7 @@ flowchart TB
 
 - tdd-guardian 的阻塞钩子被发现过于激进——导致了一项可选启用强制执行的提案
 - nlpm 的文件模式匹配被发现过于宽泛——在无关的 bug 修复中造成阻塞
-- codex-toolkit 的命名在会话中发现幽灵引用后被修正
+- cc-suite 的命名在会话中发现幽灵引用后被修正
 - docs-guardian 的准确性检查器通过发现其他任何工具都无法捕获的 `com.vmark.app` bug 证明了自己的价值
 
 ## 分层质量体系
@@ -377,7 +377,7 @@ flowchart TB
         TG2["tdd-guardian\nDuring coding"]
     end
     subgraph Session["Session-level"]
-        CT2["codex-toolkit\nAfter coding"]
+        CT2["cc-suite\nAfter coding"]
     end
     subgraph Project["Project-level"]
         LG2["loc-guardian\nStructural health"]
@@ -399,7 +399,7 @@ flowchart TB
 | 层级 | 插件 | 何时生效 | 捕获什么 |
 |-------|--------|-------------|-----------------|
 | 实时纪律 | tdd-guardian | 编码期间 | 跳过的测试、覆盖率回退 |
-| 会话级评审 | codex-toolkit | 编码之后 | Bug、安全、无障碍 |
+| 会话级评审 | cc-suite | 编码之后 | Bug、安全、无障碍 |
 | 结构健康 | loc-guardian | 按需 | 文件膨胀、复杂度蔓延 |
 | 文档同步 | docs-guardian | 按需 | 过时文档、缺失文档、错误文档 |
 | 战略评估 | grill | 定期 | 架构缺陷、测试缺陷、质量债务 |
@@ -412,7 +412,7 @@ flowchart TB
 
 "不可或缺"是一个很强的词。以下是检验标准：没有它们的 VMark 会是什么样子？
 
-**没有 codex-toolkit**：292 个问题规模的 bug、安全漏洞和无障碍缺陷会不断累积。24 小时内捕获新引入问题的自动化管道将不存在。开发者将依赖手动的定期评审——而 1 月的会话表明，这种评审充其量也只是偶尔进行。
+**没有 cc-suite**：292 个问题规模的 bug、安全漏洞和无障碍缺陷会不断累积。24 小时内捕获新引入问题的自动化管道将不存在。开发者将依赖手动的定期评审——而 1 月的会话表明，这种评审充其量也只是偶尔进行。
 
 **没有 tdd-guardian**：26 阶段覆盖率攻坚计划可能不会发生。递增阈值的纪律——覆盖率只能上升，永远不能下降——来自 tdd-guardian 灌输的思维方式。99.96% 的覆盖率不是偶然发生的。
 
@@ -542,7 +542,7 @@ flowchart TB
 flowchart TB
     CMD["/fix-issue"] --> SKILL["rust-tauri-backend\nSkill"]
     CMD --> RULE1["10-tdd.md\nRule"]
-    CMD --> PLUGIN["codex-toolkit\nPlugin"]
+    CMD --> PLUGIN["cc-suite\nPlugin"]
     CMD --> RULE2["31-design-tokens.md\nRule"]
     CMD --> RULE3["41-keyboard-shortcuts.md\nRule"]
     SKILL --> RESULT["Consistent, tested,\naudited, documented\nfix"]
@@ -552,7 +552,7 @@ flowchart TB
     RULE3 --> RESULT
 ```
 
-规则 + 技能 + 插件 + 命令构成了复合系统。当你运行 `/fix-issue` 时，它使用 `rust-tauri-backend` 技能处理 Rust 变更，遵循 `10-tdd.md` 规则满足测试要求，调用 `codex-toolkit` 进行审计，检查 `31-design-tokens.md` 确保 CSS 合规，并根据 `41-keyboard-shortcuts.md` 验证快捷键同步。
+规则 + 技能 + 插件 + 命令构成了复合系统。当你运行 `/fix-issue` 时，它使用 `rust-tauri-backend` 技能处理 Rust 变更，遵循 `10-tdd.md` 规则满足测试要求，调用 `cc-suite` 进行审计，检查 `31-design-tokens.md` 确保 CSS 合规，并根据 `41-keyboard-shortcuts.md` 验证快捷键同步。
 
 没有单独哪一部分是革命性的。复合效应——13 条规则 x 19 个技能 x 7 个插件 x 7 个命令，全部相互强化——才是系统运转的原因。每一部分都是在发现缺口时添加的，在真实开发中测试，并通过使用来完善。
 
@@ -572,7 +572,7 @@ flowchart TB
 
 6. **组合，不要大一统。** 七个专注的插件胜过一个巨型插件。每个做好一件事，然后组合成大于各部分之和的工作流。
 
-7. **信任是逐次调用赢得的。** 开发者信任 codex-toolkit 到可以不审查发现就说"全部修复"的程度。这种信任是经过 27 次会话和 292 个已解决问题建立起来的。
+7. **信任是逐次调用赢得的。** 开发者信任 cc-suite 到可以不审查发现就说"全部修复"的程度。这种信任是经过 27 次会话和 292 个已解决问题建立起来的。
 
 ---
 

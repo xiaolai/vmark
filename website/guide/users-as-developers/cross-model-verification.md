@@ -32,7 +32,7 @@ This is the same principle behind human code review — a second pair of eyes ca
 
 ### The Codex Toolkit Plugin
 
-VMark uses the `codex-toolkit@xiaolai` Claude Code plugin, which bundles Codex as an MCP server. When the plugin is enabled, Claude Code automatically gets access to a `codex` MCP tool — a channel to send prompts to Codex and receive structured responses. Codex runs in a **sandboxed, read-only context**: it can read the codebase but cannot modify files. All changes are made by Claude.
+VMark uses the `cc-suite@xiaolai` Claude Code plugin, which bundles Codex as an MCP server. When the plugin is enabled, Claude Code automatically gets access to a `codex` MCP tool — a channel to send prompts to Codex and receive structured responses. Codex runs in a **sandboxed, read-only context**: it can read the codebase but cannot modify files. All changes are made by Claude.
 
 ### Setup
 
@@ -49,10 +49,10 @@ codex login                   # Log in with ChatGPT subscription (recommended)
 claude plugin marketplace add xiaolai/claude-plugin-marketplace
 ```
 
-3. Install and enable the codex-toolkit plugin in Claude Code:
+3. Install and enable the cc-suite plugin in Claude Code:
 
 ```bash
-claude plugin install codex-toolkit@xiaolai --scope project
+claude plugin install cc-suite@xiaolai --scope project
 ```
 
 4. Verify Codex is available:
@@ -72,14 +72,14 @@ macOS GUI apps have a minimal PATH. If `codex --version` works in your terminal 
 :::
 
 ::: tip Project Configuration
-Run `/codex-toolkit:init` to generate a `.codex-toolkit.md` config file with project-specific defaults (audit focus, effort level, skip patterns).
+Run `/cc-suite:init` to generate a `.cc-suite.md` config file with project-specific defaults (audit focus, effort level, skip patterns).
 :::
 
 ## Slash Commands
 
-The `codex-toolkit` plugin provides pre-built slash commands that orchestrate Claude + Codex workflows. You don't need to manage the interaction manually — just invoke the command and the models coordinate automatically.
+The `cc-suite` plugin provides pre-built slash commands that orchestrate Claude + Codex workflows. You don't need to manage the interaction manually — just invoke the command and the models coordinate automatically.
 
-### `/codex-toolkit:audit` — Code Audit
+### `/cc-suite:audit` — Code Audit
 
 The primary audit command. Supports two modes:
 
@@ -101,31 +101,31 @@ The primary audit command. Supports two modes:
 Usage:
 
 ```text
-/codex-toolkit:audit                  # Mini audit on uncommitted changes
-/codex-toolkit:audit --full           # Full 9-dimension audit
-/codex-toolkit:audit commit -3        # Audit last 3 commits
-/codex-toolkit:audit src/stores/      # Audit a specific directory
+/cc-suite:audit                  # Mini audit on uncommitted changes
+/cc-suite:audit --full           # Full 9-dimension audit
+/cc-suite:audit commit -3        # Audit last 3 commits
+/cc-suite:audit src/stores/      # Audit a specific directory
 ```
 
 The output is a structured report with severity ratings (Critical / High / Medium / Low) and suggested fixes for every finding.
 
-### `/codex-toolkit:verify` — Verify Previous Fixes
+### `/cc-suite:verify` — Verify Previous Fixes
 
 After fixing audit findings, have Codex confirm the fixes are correct:
 
 ```text
-/codex-toolkit:verify                 # Verify fixes from last audit
+/cc-suite:verify                 # Verify fixes from last audit
 ```
 
 Codex re-reads each file at the reported locations and marks each issue as fixed, not fixed, or partially fixed. It also spots-checks for new issues introduced by the fixes.
 
-### `/codex-toolkit:audit-fix` — The Full Loop
+### `/cc-suite:audit-fix` — The Full Loop
 
 The most powerful command. It chains audit → fix → verify in a loop:
 
 ```text
-/codex-toolkit:audit-fix              # Loop on uncommitted changes
-/codex-toolkit:audit-fix commit -1    # Loop on last commit
+/cc-suite:audit-fix              # Loop on uncommitted changes
+/cc-suite:audit-fix commit -1    # Loop on last commit
 ```
 
 Here's what happens:
@@ -144,36 +144,36 @@ flowchart TD
 
 The loop exits when Codex reports zero findings across all severities, or after 3 iterations (at which point remaining issues are reported to you).
 
-### `/codex-toolkit:implement` — Autonomous Implementation
+### `/cc-suite:implement` — Autonomous Implementation
 
 Send a plan to Codex for full autonomous implementation:
 
 ```text
-/codex-toolkit:implement              # Implement from a plan
+/cc-suite:implement              # Implement from a plan
 ```
 
-### `/codex-toolkit:bug-analyze` — Root Cause Analysis
+### `/cc-suite:bug-analyze` — Root Cause Analysis
 
 Root cause analysis for user-described bugs:
 
 ```text
-/codex-toolkit:bug-analyze            # Analyze a bug
+/cc-suite:bug-analyze            # Analyze a bug
 ```
 
-### `/codex-toolkit:review-plan` — Plan Review
+### `/cc-suite:review-plan` — Plan Review
 
 Send a plan to Codex for architectural review:
 
 ```text
-/codex-toolkit:review-plan            # Review a plan for consistency and risk
+/cc-suite:review-plan            # Review a plan for consistency and risk
 ```
 
-### `/codex-toolkit:continue` — Continue a Session
+### `/cc-suite:continue` — Continue a Session
 
 Continue a previous Codex session to iterate on findings:
 
 ```text
-/codex-toolkit:continue               # Continue where you left off
+/cc-suite:continue               # Continue where you left off
 ```
 
 ### `/fix-issue` — End-to-End Issue Resolver

@@ -32,7 +32,7 @@ Este es el mismo principio detrás de la revisión de código humana — un segu
 
 ### El Plugin Codex Toolkit
 
-VMark usa el plugin de Claude Code `codex-toolkit@xiaolai`, que incluye Codex como servidor MCP. Cuando el plugin está habilitado, Claude Code obtiene acceso automáticamente a una herramienta MCP `codex` — un canal para enviar prompts a Codex y recibir respuestas estructuradas. Codex se ejecuta en un **contexto aislado y de solo lectura**: puede leer el código base pero no puede modificar archivos. Todos los cambios los hace Claude.
+VMark usa el plugin de Claude Code `cc-suite@xiaolai`, que incluye Codex como servidor MCP. Cuando el plugin está habilitado, Claude Code obtiene acceso automáticamente a una herramienta MCP `codex` — un canal para enviar prompts a Codex y recibir respuestas estructuradas. Codex se ejecuta en un **contexto aislado y de solo lectura**: puede leer el código base pero no puede modificar archivos. Todos los cambios los hace Claude.
 
 ### Configuración
 
@@ -49,10 +49,10 @@ codex login                   # Iniciar sesión con suscripción ChatGPT (recome
 claude plugin marketplace add xiaolai/claude-plugin-marketplace
 ```
 
-3. Instala y habilita el plugin codex-toolkit en Claude Code:
+3. Instala y habilita el plugin cc-suite en Claude Code:
 
 ```bash
-claude plugin install codex-toolkit@xiaolai --scope project
+claude plugin install cc-suite@xiaolai --scope project
 ```
 
 4. Verifica que Codex está disponible:
@@ -72,14 +72,14 @@ Las aplicaciones GUI de macOS tienen un PATH mínimo. Si `codex --version` funci
 :::
 
 ::: tip Configuración del Proyecto
-Ejecuta `/codex-toolkit:init` para generar un archivo de configuración `.codex-toolkit.md` con valores predeterminados específicos del proyecto (enfoque de auditoría, nivel de esfuerzo, patrones a omitir).
+Ejecuta `/cc-suite:init` para generar un archivo de configuración `.cc-suite.md` con valores predeterminados específicos del proyecto (enfoque de auditoría, nivel de esfuerzo, patrones a omitir).
 :::
 
 ## Slash Commands
 
-El plugin `codex-toolkit` proporciona slash commands predefinidos que orquestan los flujos de trabajo de Claude + Codex. No necesitas gestionar la interacción manualmente — solo invoca el comando y los modelos se coordinan automáticamente.
+El plugin `cc-suite` proporciona slash commands predefinidos que orquestan los flujos de trabajo de Claude + Codex. No necesitas gestionar la interacción manualmente — solo invoca el comando y los modelos se coordinan automáticamente.
 
-### `/codex-toolkit:audit` — Auditoría de Código
+### `/cc-suite:audit` — Auditoría de Código
 
 El comando de auditoría principal. Admite dos modos:
 
@@ -101,31 +101,31 @@ El comando de auditoría principal. Admite dos modos:
 Uso:
 
 ```
-/codex-toolkit:audit                  # Auditoría mini en cambios sin commit
-/codex-toolkit:audit --full           # Auditoría completa en 9 dimensiones
-/codex-toolkit:audit commit -3        # Auditar los últimos 3 commits
-/codex-toolkit:audit src/stores/      # Auditar un directorio específico
+/cc-suite:audit                  # Auditoría mini en cambios sin commit
+/cc-suite:audit --full           # Auditoría completa en 9 dimensiones
+/cc-suite:audit commit -3        # Auditar los últimos 3 commits
+/cc-suite:audit src/stores/      # Auditar un directorio específico
 ```
 
 La salida es un informe estructurado con clasificaciones de severidad (Crítico / Alto / Medio / Bajo) y correcciones sugeridas para cada hallazgo.
 
-### `/codex-toolkit:verify` — Verificar Correcciones Anteriores
+### `/cc-suite:verify` — Verificar Correcciones Anteriores
 
 Después de corregir los hallazgos de la auditoría, haz que Codex confirme que las correcciones son correctas:
 
 ```
-/codex-toolkit:verify                 # Verificar correcciones de la última auditoría
+/cc-suite:verify                 # Verificar correcciones de la última auditoría
 ```
 
 Codex vuelve a leer cada archivo en las ubicaciones reportadas y marca cada problema como corregido, no corregido o parcialmente corregido. También verifica si hay nuevos problemas introducidos por las correcciones.
 
-### `/codex-toolkit:audit-fix` — El Bucle Completo
+### `/cc-suite:audit-fix` — El Bucle Completo
 
 El comando más potente. Encadena auditoría → corrección → verificación en un bucle:
 
 ```
-/codex-toolkit:audit-fix              # Bucle en cambios sin commit
-/codex-toolkit:audit-fix commit -1    # Bucle en el último commit
+/cc-suite:audit-fix              # Bucle en cambios sin commit
+/cc-suite:audit-fix commit -1    # Bucle en el último commit
 ```
 
 Esto es lo que sucede:
@@ -144,36 +144,36 @@ flowchart TD
 
 El bucle termina cuando Codex reporta cero hallazgos en todas las severidades, o después de 3 iteraciones (momento en el que los problemas restantes se te reportan a ti).
 
-### `/codex-toolkit:implement` — Implementación Autónoma
+### `/cc-suite:implement` — Implementación Autónoma
 
 Envía un plan a Codex para una implementación autónoma completa:
 
 ```
-/codex-toolkit:implement              # Implementar a partir de un plan
+/cc-suite:implement              # Implementar a partir de un plan
 ```
 
-### `/codex-toolkit:bug-analyze` — Análisis de Causa Raíz
+### `/cc-suite:bug-analyze` — Análisis de Causa Raíz
 
 Análisis de causa raíz para errores descritos por el usuario:
 
 ```
-/codex-toolkit:bug-analyze            # Analizar un error
+/cc-suite:bug-analyze            # Analizar un error
 ```
 
-### `/codex-toolkit:review-plan` — Revisión de Plan
+### `/cc-suite:review-plan` — Revisión de Plan
 
 Envía un plan a Codex para una revisión arquitectónica:
 
 ```
-/codex-toolkit:review-plan            # Revisar un plan en busca de coherencia y riesgos
+/cc-suite:review-plan            # Revisar un plan en busca de coherencia y riesgos
 ```
 
-### `/codex-toolkit:continue` — Continuar una Sesión
+### `/cc-suite:continue` — Continuar una Sesión
 
 Continúa una sesión anterior de Codex para iterar sobre los hallazgos:
 
 ```
-/codex-toolkit:continue               # Continuar donde lo dejaste
+/cc-suite:continue               # Continuar donde lo dejaste
 ```
 
 ### `/fix-issue` — Resolvedor de Issues de Extremo a Extremo

@@ -29,7 +29,7 @@ One developer built it with Claude Code. Along the way, that developer created s
 ```mermaid
 flowchart LR
     subgraph Marketplace["xiaolai Marketplace"]
-        CT["codex-toolkit\nCross-model auditing"]
+        CT["cc-suite\nCross-model auditing"]
         TG["tdd-guardian\nTest-first enforcement"]
         DG["docs-guardian\nDoc quality + freshness"]
         LG["loc-guardian\nFile size enforcement"]
@@ -41,7 +41,7 @@ flowchart LR
 
 | Plugin | What It Does | Born From |
 |--------|-------------|-----------|
-| [codex-toolkit](https://github.com/xiaolai/codex-toolkit-for-claude) | Cross-model code auditing via OpenAI Codex | "I need a second pair of eyes that isn't Claude" |
+| [cc-suite](https://github.com/xiaolai/cc-suite) | Cross-model code auditing via OpenAI Codex | "I need a second pair of eyes that isn't Claude" |
 | [tdd-guardian](https://github.com/xiaolai/tdd-guardian-for-claude) | Test-first workflow enforcement | "Coverage keeps dropping when I forget tests" |
 | [docs-guardian](https://github.com/xiaolai/docs-guardian-for-claude) | Documentation quality and freshness auditing | "My docs say `com.vmark.app` but the actual identifier is `app.vmark`" |
 | [loc-guardian](https://github.com/xiaolai/loc-guardian-for-claude) | Per-file line count enforcement | "This file is 800 lines and nobody noticed" |
@@ -63,7 +63,7 @@ timeline
         Jan 2026 : Test coverage at 40%
                  : "this is unacceptable"
     section Plugin Adoption
-        Feb 2026 : codex-toolkit installed
+        Feb 2026 : cc-suite installed
                  : First cross-model audit
         Early Mar : tdd-guardian enabled
                   : docs-guardian configured
@@ -89,11 +89,11 @@ The git history tells the story:
 | Documentation | 128 |
 | Coverage campaign phases | 26 |
 
-## codex-toolkit: The Second Opinion
+## cc-suite: The Second Opinion
 
 **Used in**: 27 of 28 plugin sessions. 200+ Codex calls across all sessions.
 
-The most important thing about codex-toolkit is that it's *not Claude auditing Claude's work*. It sends code to OpenAI's Codex model for independent review. When you've been deep in a feature with one AI, having a completely different model scrutinize the result catches things both you and your primary AI missed.
+The most important thing about cc-suite is that it's *not Claude auditing Claude's work*. It sends code to OpenAI's Codex model for independent review. When you've been deep in a feature with one AI, having a completely different model scrutinize the result catches things both you and your primary AI missed.
 
 ```mermaid
 flowchart LR
@@ -303,17 +303,17 @@ journey
         Ad-hoc code reviews: 2: Developer
         Test coverage at 40%: 1: Developer
     section Phase 2 - Experiment
-        First Codex audit: 3: codex-toolkit
+        First Codex audit: 3: cc-suite
         Can a second AI help?: 3: Developer
     section Phase 3 - Configure
         Project-specific configs: 4: All Plugins
         19 code-to-doc mappings: 4: docs-guardian
     section Phase 4 - Automate
-        Daily cron audit: 5: codex-toolkit
+        Daily cron audit: 5: cc-suite
         84 auto-merged PRs: 5: claude bot
     section Phase 5 - Orchestrate
         Multi-plugin workflows: 5: All Plugins
-        38 Codex calls per session: 5: codex-toolkit
+        38 Codex calls per session: 5: cc-suite
 ```
 
 ### Phase 1: Manual Auditing (Jan 2026)
@@ -324,7 +324,7 @@ Ad-hoc reviews. No tools. Test coverage at 40%.
 ### Phase 2: Single Plugin Experiments (Late Jan -- Early Feb)
 > "ask codex to review code quality"
 
-First codex-toolkit usage for the MCP server. Experimental. Can a second AI catch things the first missed? First install: [`e6373c7a`](https://github.com/xiaolai/vmark/commit/e6373c7a).
+First cc-suite usage for the MCP server. Experimental. Can a second AI catch things the first missed? First install: [`e6373c7a`](https://github.com/xiaolai/vmark/commit/e6373c7a).
 
 ### Phase 3: Configured Infrastructure (Early Mar)
 Plugins installed with project-specific configs. tdd-guardian enabled with strict thresholds ([`f775f300`](https://github.com/xiaolai/vmark/commit/f775f300)). docs-guardian has 19 code-to-doc mappings. loc-guardian has 300-line limits with extraction rules.
@@ -333,7 +333,7 @@ Plugins installed with project-specific configs. tdd-guardian enabled with stric
 Daily cron audit at 9am UTC. Issues auto-created, auto-fixed, auto-PRed, auto-merged. 84 PRs without human intervention.
 
 ### Phase 5: Multi-Plugin Orchestration (Late Mar)
-Single sessions combining loc-guardian scan -> performance audit -> subagent implementation -> codex-toolkit audit -> codex-toolkit verify -> version bump. 38 Codex calls in one session. Plugins compose into workflows.
+Single sessions combining loc-guardian scan -> performance audit -> subagent implementation -> cc-suite audit -> cc-suite verify -> version bump. 38 Codex calls in one session. Plugins compose into workflows.
 
 ## The Feedback Loop
 
@@ -352,7 +352,7 @@ flowchart TB
 
 Every plugin was born from building VMark:
 
-- **codex-toolkit** exists because one AI reviewing its own work isn't enough
+- **cc-suite** exists because one AI reviewing its own work isn't enough
 - **tdd-guardian** exists because coverage kept slipping between sessions
 - **docs-guardian** exists because docs always drift from code
 - **loc-guardian** exists because files always grow past maintainable sizes
@@ -364,7 +364,7 @@ And every plugin was improved by building VMark:
 
 - tdd-guardian's blocking hooks were found to be too aggressive — leading to a proposal for opt-in enforcement
 - nlpm's file pattern matching was found to be too broad — blocking during unrelated bug fixes
-- codex-toolkit's naming was fixed after a phantom reference was discovered mid-session
+- cc-suite's naming was fixed after a phantom reference was discovered mid-session
 - docs-guardian's accuracy checker proved its value by finding the `com.vmark.app` bug that no other tool could catch
 
 ## The Layered Quality System
@@ -377,7 +377,7 @@ flowchart TB
         TG2["tdd-guardian\nDuring coding"]
     end
     subgraph Session["Session-level"]
-        CT2["codex-toolkit\nAfter coding"]
+        CT2["cc-suite\nAfter coding"]
     end
     subgraph Project["Project-level"]
         LG2["loc-guardian\nStructural health"]
@@ -399,7 +399,7 @@ flowchart TB
 | Layer | Plugin | When It Acts | What It Catches |
 |-------|--------|-------------|-----------------|
 | Real-time discipline | tdd-guardian | During coding | Skipped tests, coverage regression |
-| Session-level review | codex-toolkit | After coding | Bugs, security, accessibility |
+| Session-level review | cc-suite | After coding | Bugs, security, accessibility |
 | Structural health | loc-guardian | On demand | File growth, complexity creep |
 | Documentation sync | docs-guardian | On demand | Stale docs, missing docs, wrong docs |
 | Strategic assessment | grill | Periodically | Architecture gaps, testing gaps, quality debt |
@@ -412,7 +412,7 @@ This is not "optional tooling." It is the governance layer that makes recursive 
 
 "Indispensable" is a strong word. Here's the test: what would VMark look like without them?
 
-**Without codex-toolkit**: 292 issues worth of bugs, security vulnerabilities, and accessibility gaps would have accumulated. The automated pipeline that catches issues within 24 hours of introduction wouldn't exist. The developer would rely on manual periodic reviews — which the January sessions show were happening ad-hoc at best.
+**Without cc-suite**: 292 issues worth of bugs, security vulnerabilities, and accessibility gaps would have accumulated. The automated pipeline that catches issues within 24 hours of introduction wouldn't exist. The developer would rely on manual periodic reviews — which the January sessions show were happening ad-hoc at best.
 
 **Without tdd-guardian**: The 26-phase coverage campaign might not have happened. The discipline of ratcheting thresholds upward — where coverage can only go up, never down — came from the mindset tdd-guardian instilled. 99.96% coverage doesn't happen by accident.
 
@@ -542,7 +542,7 @@ flowchart TB
 flowchart TB
     CMD["/fix-issue"] --> SKILL["rust-tauri-backend\nSkill"]
     CMD --> RULE1["10-tdd.md\nRule"]
-    CMD --> PLUGIN["codex-toolkit\nPlugin"]
+    CMD --> PLUGIN["cc-suite\nPlugin"]
     CMD --> RULE2["31-design-tokens.md\nRule"]
     CMD --> RULE3["41-keyboard-shortcuts.md\nRule"]
     SKILL --> RESULT["Consistent, tested,\naudited, documented\nfix"]
@@ -552,7 +552,7 @@ flowchart TB
     RULE3 --> RESULT
 ```
 
-Rules + skills + plugins + commands form a compound system. When you run `/fix-issue`, it uses the `rust-tauri-backend` skill for Rust changes, follows the `10-tdd.md` rule for test requirements, invokes `codex-toolkit` for audit, checks `31-design-tokens.md` for CSS compliance, and verifies against `41-keyboard-shortcuts.md` for shortcut sync.
+Rules + skills + plugins + commands form a compound system. When you run `/fix-issue`, it uses the `rust-tauri-backend` skill for Rust changes, follows the `10-tdd.md` rule for test requirements, invokes `cc-suite` for audit, checks `31-design-tokens.md` for CSS compliance, and verifies against `41-keyboard-shortcuts.md` for shortcut sync.
 
 No single piece is revolutionary. The compound effect — 13 rules x 19 skills x 7 plugins x 7 commands, all reinforcing each other — is what makes the system work. Each piece was added when a gap was discovered, tested in real development, and refined through use.
 
@@ -572,7 +572,7 @@ If you're thinking about building Claude Code plugins, here's what VMark taught 
 
 6. **Compose, don't monolith.** Seven focused plugins beat one mega-plugin. Each does one thing well, and they compose into workflows greater than the sum of their parts.
 
-7. **Trust is earned per-invocation.** The developer trusts codex-toolkit enough to say "fix all" without reviewing findings. That trust was built over 27 sessions and 292 resolved issues.
+7. **Trust is earned per-invocation.** The developer trusts cc-suite enough to say "fix all" without reviewing findings. That trust was built over 27 sessions and 292 resolved issues.
 
 ---
 

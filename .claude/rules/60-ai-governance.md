@@ -69,7 +69,7 @@ larger features).
 
 ## 6. Cross-model review at risk points
 
-Use `/codex-toolkit:review-plan` against any plan exceeding ~500 lines or
+Use `/cc-suite:review-plan` against any plan exceeding ~500 lines or
 spanning >3 phases before starting Phase 1. Codex (different training data,
 different blind spots) catches package-name hallucinations and API
 assumptions that a single-model review will miss. This is mandatory for
@@ -93,7 +93,7 @@ subagent rather than letting the main thread accumulate context. Use:
 |---|---|
 | Open-ended search across the codebase | `Explore` |
 | Multi-source web research | `coding-researcher` |
-| Independent plan/code review | `codex-toolkit:review-plan`, `auditor` |
+| Independent plan/code review | `cc-suite:review-plan`, `auditor` |
 | Implementation of a single scoped WI | `execution-agent` or `implementer` |
 
 Aggressive `/clear` between unrelated tasks; new session per phase.
