@@ -18,6 +18,7 @@
 import { type KeyBinding, type EditorView } from "@codemirror/view";
 import { EditorState, EditorSelection, findClusterBreak, type ChangeSpec, type SelectionRange } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
+import { isPipeInCodeSpan } from "@/utils/tableParser";
 
 /**
  * Patterns for detecting structural characters at cursor position.
@@ -48,42 +49,6 @@ function isPipeEscaped(text: string, pipeIndex: number): boolean {
     i--;
   }
   return n % 2 === 1;
-}
-
-/**
- * True if the `|` at `pipeIndex` falls inside an inline code span on the
- * same logical text (typically a line). Mirrors the backtick-run +
- * backslash-escape tracking in `splitTableCells` (tableParser.ts) so that
- * a pipe inside `` `a|b` `` is recognized as content, not a table delimiter.
- */
-function isPipeInCodeSpan(text: string, pipeIndex: number): boolean {
-  let escaped = false;
-  let inCode = false;
-  let fenceLen = 0;
-  for (let i = 0; i < pipeIndex; i++) {
-    const ch = text[i];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (ch === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (ch === "`") {
-      let run = 1;
-      while (i + run < text.length && text[i + run] === "`") run++;
-      if (!inCode) {
-        inCode = true;
-        fenceLen = run;
-      } else if (run === fenceLen) {
-        inCode = false;
-        fenceLen = 0;
-      }
-      i += run - 1;
-    }
-  }
-  return inCode;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseTableRow, splitTableCells } from "./tableParser";
+import { parseTableRow, splitTableCells, isPipeInCodeSpan } from "./tableParser";
 
 describe("tableParser", () => {
   describe("parseTableRow", () => {
@@ -132,6 +132,52 @@ describe("tableParser", () => {
     it("handles unclosed code span", () => {
       // Unclosed code span — pipe inside should still be protected
       expect(splitTableCells("`a|b")).toEqual(["`a|b"]);
+    });
+  });
+
+  describe("isPipeInCodeSpan", () => {
+    // Direct tests of the helper extracted from structuralCharProtection so
+    // it can be reused. Each case picks a pipeIndex and verifies whether
+    // the position is inside an inline code span.
+
+    it("returns true for a pipe inside a single-backtick span", () => {
+      const text = "| `a|b` | x |";
+      // Position of the inner `|` (between a and b) is 4.
+      expect(text[4]).toBe("|");
+      expect(isPipeInCodeSpan(text, 4)).toBe(true);
+    });
+
+    it("returns false for a structural delimiter pipe", () => {
+      const text = "| `a|b` | x |";
+      // Outer delimiter pipes are NOT inside a code span.
+      expect(text[0]).toBe("|");
+      expect(isPipeInCodeSpan(text, 0)).toBe(false);
+      expect(text[8]).toBe("|");
+      expect(isPipeInCodeSpan(text, 8)).toBe(false);
+    });
+
+    it("respects matching backtick run lengths (double-backtick span)", () => {
+      // `` `…|…` `` form: only a matching ``-run closes the span.
+      const text = "| ``a|b`` | x |";
+      // The inner `|` between a and b is at index 5.
+      expect(text[5]).toBe("|");
+      expect(isPipeInCodeSpan(text, 5)).toBe(true);
+    });
+
+    it("treats a backslash-escaped backtick as content, not span start", () => {
+      // The leading `` ` `` is escaped, so no code span opens; the `|` is
+      // a normal delimiter, not inside a span.
+      const text = "| \\`a|b | x |";
+      // The `|` between a and b sits at index 5.
+      expect(text[5]).toBe("|");
+      expect(isPipeInCodeSpan(text, 5)).toBe(false);
+    });
+
+    it("handles an unclosed code span (still considered inside)", () => {
+      // No closing backtick — the rest of the line stays inside the span.
+      const text = "| `a|b | x |";
+      expect(text[4]).toBe("|");
+      expect(isPipeInCodeSpan(text, 4)).toBe(true);
     });
   });
 });

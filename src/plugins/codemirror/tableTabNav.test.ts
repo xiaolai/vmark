@@ -103,6 +103,33 @@ describe("getCellBoundaries", () => {
     expect(cells[0]).toEqual({ from: 2, to: 3 });
     expect(cells[1]).toEqual({ from: 6, to: 7 });
   });
+
+  // --- backslash-parity boundary detection ------------------------------
+  //
+  // Originally `getCellBoundaries` decided whether the trailing `|` was a
+  // delimiter via `endsWith("|") && !endsWith("\\|")`, which cannot tell
+  // an escaped pipe (`\|`, cell content) from a literal `\` followed by
+  // a real delimiter (`\\|`). The endsWithDelimiterPipe helper introduced
+  // in tableParser.ts uses backslash parity to disambiguate; these tests
+  // pin both directions.
+
+  it("strips trailing delimiter when content ends with a literal backslash", () => {
+    // Raw text: "| \\|" — one cell containing a single literal "\".
+    // After leading-pipe strip the helper sees "\\|", and recognizes the
+    // final pipe as a real delimiter (even backslash run).
+    const cells = getCellBoundaries("| \\\\|");
+    expect(cells.length).toBe(1);
+    // Cell content (positions in the original line): "\\\\" sits at 2..4.
+    expect(cells[0]).toEqual({ from: 2, to: 4 });
+  });
+
+  it("keeps escaped trailing pipe as content (no closing delimiter)", () => {
+    // Raw text: "| \\|" with a SINGLE backslash — escaped pipe is cell content.
+    // The final `|` must NOT be stripped, so the only cell still includes it.
+    const cells = getCellBoundaries("| \\|");
+    expect(cells.length).toBe(1);
+    expect(cells[0]).toEqual({ from: 2, to: 4 });
+  });
 });
 
 describe("goToNextCell", () => {

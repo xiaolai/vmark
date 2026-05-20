@@ -68,6 +68,44 @@ export function splitTableCells(content: string): string[] {
 }
 
 /**
+ * True if the `|` at `pipeIndex` falls inside an inline code span in
+ * `text` (typically one table row). Mirrors the backtick-run +
+ * backslash-escape tracking used in `splitTableCells` so callers that
+ * need a position-specific query (Delete/Backspace guards in
+ * structuralCharProtection.ts) share the same scanner as the cell
+ * splitter — no drift between delimiter-detection paths.
+ */
+export function isPipeInCodeSpan(text: string, pipeIndex: number): boolean {
+  let escaped = false;
+  let inCode = false;
+  let fenceLen = 0;
+  for (let i = 0; i < pipeIndex; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === "`") {
+      let run = 1;
+      while (i + run < text.length && text[i + run] === "`") run++;
+      if (!inCode) {
+        inCode = true;
+        fenceLen = run;
+      } else if (run === fenceLen) {
+        inCode = false;
+        fenceLen = 0;
+      }
+      i += run - 1;
+    }
+  }
+  return inCode;
+}
+
+/**
  * True if `content` ends with a real (non-escaped) table delimiter pipe.
  *
  * A naive `endsWith("\\|")` check cannot distinguish:
