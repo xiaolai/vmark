@@ -221,6 +221,20 @@ describe("Structural Character Protection", () => {
       // Positions: 0=|, 1= , 2=c, 3=e, 4=l, 5=l, 6= , 7=\, 8=\, 9=|, 10= , ...
       expect(pipePos).toBe(9);
     });
+
+    // --- code-span pipe regression (issue #933) -----------------------
+    //
+    // A `|` inside an inline code span is cell content, not a structural
+    // delimiter. Backspace right after it must NOT find a "real" pipe to
+    // skip into — otherwise the cursor moves silently instead of editing.
+
+    it("returns -1 when the nearest pipe is inside an inline code span", () => {
+      // Text: "| `a|b` | x |" — pipe at index 4 is inside `` `a|b` ``.
+      // Cursor positioned right after that inner pipe.
+      const view = createView("| `a|^b` | x |");
+      const pipePos = getCellStartPipePos(view);
+      expect(pipePos).toBe(-1);
+    });
   });
 
   describe("getListMarkerRange", () => {
@@ -689,6 +703,20 @@ describe("Structural Character Protection", () => {
       // Cursor is right before the | of \| — should NOT protect it
       const view = createView("| cell \\^| with pipe | next |");
       const handled = smartDelete(view);
+      expect(handled).toBe(false);
+    });
+
+    // --- code-span pipe regression (issue #933) -----------------------
+    //
+    // A `|` inside an inline code span is cell content, not a delimiter.
+    // Forward-Delete on it must NOT skip the cursor — it must actually
+    // remove the character.
+
+    it("allows deleting a pipe inside an inline code span on a table row", () => {
+      // Text: "| `a|b` | x |" — cursor right before the inner `|` inside `` `…` ``.
+      const view = createView("| `a^|b` | x |");
+      const handled = smartDelete(view);
+      // The handler must NOT claim this pipe — it's content, not a delimiter.
       expect(handled).toBe(false);
     });
 

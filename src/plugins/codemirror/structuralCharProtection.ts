@@ -51,6 +51,42 @@ function isPipeEscaped(text: string, pipeIndex: number): boolean {
 }
 
 /**
+ * True if the `|` at `pipeIndex` falls inside an inline code span on the
+ * same logical text (typically a line). Mirrors the backtick-run +
+ * backslash-escape tracking in `splitTableCells` (tableParser.ts) so that
+ * a pipe inside `` `a|b` `` is recognized as content, not a table delimiter.
+ */
+function isPipeInCodeSpan(text: string, pipeIndex: number): boolean {
+  let escaped = false;
+  let inCode = false;
+  let fenceLen = 0;
+  for (let i = 0; i < pipeIndex; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === "`") {
+      let run = 1;
+      while (i + run < text.length && text[i + run] === "`") run++;
+      if (!inCode) {
+        inCode = true;
+        fenceLen = run;
+      } else if (run === fenceLen) {
+        inCode = false;
+        fenceLen = 0;
+      }
+      i += run - 1;
+    }
+  }
+  return inCode;
+}
+
+/**
  * Check if a position is right after a table pipe at cell start.
  * Returns the pipe position if true, or -1 if not.
  */
@@ -64,11 +100,17 @@ function getCellStartPipePosAt(state: EditorState, head: number): number {
   const offsetInLine = head - line.from;
   const textBefore = line.text.slice(0, offsetInLine);
 
-  // Walk back through trailing whitespace, find nearest `|`, and check if it's
-  // escaped by an odd number of leading backslashes.
+  // Walk back through trailing whitespace, find nearest `|`, and check that
+  // it's a real delimiter — not an escaped pipe (`\|`) and not a pipe inside
+  // an inline code span (`` `a|b` ``).
   let i = textBefore.length - 1;
   while (i >= 0 && /\s/.test(textBefore[i])) i--;
-  if (i >= 0 && textBefore[i] === "|" && !isPipeEscaped(textBefore, i)) {
+  if (
+    i >= 0 &&
+    textBefore[i] === "|" &&
+    !isPipeEscaped(textBefore, i) &&
+    !isPipeInCodeSpan(textBefore, i)
+  ) {
     return line.from + i;
   }
 
@@ -325,9 +367,14 @@ function deleteSpecForCursor(
   const line = state.doc.lineAt(head);
   const offsetInLine = head - line.from;
 
-  // Check if we're about to delete into a pipe
+  // Check if we're about to delete into a pipe that is actually a structural
+  // delimiter (not an escaped pipe and not inside an inline code span).
   const charAfter = line.text[offsetInLine];
-  if (charAfter === "|" && TABLE_ROW_PATTERN.test(line.text)) {
+  if (
+    charAfter === "|" &&
+    TABLE_ROW_PATTERN.test(line.text) &&
+    !isPipeInCodeSpan(line.text, offsetInLine)
+  ) {
     // Don't protect escaped pipes (\|) — they are cell content, not delimiters
     if (isPipeEscaped(line.text, offsetInLine)) return null;
     return { changes: [], range: EditorSelection.cursor(head + 1) };
