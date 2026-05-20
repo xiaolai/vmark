@@ -79,6 +79,32 @@ pub fn find_on_path(name: &str) -> Option<PathBuf> {
     None
 }
 
+/// Compose the PATH passed to the actionlint child process.
+///
+/// `extra_path` (typically the frontend-supplied login-shell PATH from the
+/// renderer) is prepended so the caller's preferred binary discovery order
+/// wins. The macOS login-shell PATH is appended so subtools (shellcheck,
+/// pyflakes) remain discoverable in GUI launches that inherit a minimal
+/// launchd PATH.
+///
+/// `extra_path` may already be a colon-separated list. Empty / `None`
+/// inputs are skipped. The OS `PATH` env separator is `:` on Unix and `;`
+/// on Windows; we use the platform separator so the merged value stays
+/// portable.
+pub(crate) fn compose_actionlint_path(extra_path: Option<&str>, login_shell_path: &str) -> String {
+    let sep = if cfg!(windows) { ';' } else { ':' };
+    match extra_path.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(prefix) => {
+            if login_shell_path.is_empty() {
+                prefix.to_string()
+            } else {
+                format!("{}{}{}", prefix, sep, login_shell_path)
+            }
+        }
+        None => login_shell_path.to_string(),
+    }
+}
+
 /// Run actionlint on the given YAML content. Returns a `LintResult`
 /// that the caller serializes back to the frontend.
 ///
@@ -104,7 +130,9 @@ pub fn run_actionlint(yaml: &str, extra_path: Option<&str>) -> LintResult {
     // actionlint can't find its subtools (shellcheck, pyflakes) and
     // silently degrades shell-script and Python-expression checks.
     // Same pattern as ai_provider/cli.rs, pandoc/commands.rs, external_editor.rs.
-    cmd.env("PATH", crate::ai_provider::login_shell_path());
+    // extra_path is prepended so caller-supplied binary-discovery order wins.
+    let login_path = crate::ai_provider::login_shell_path();
+    cmd.env("PATH", compose_actionlint_path(extra_path, &login_path));
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
@@ -337,5 +365,53 @@ mod tests {
             std::env::set_var("PATH", p);
         }
         assert!(matches!(result, LintResult::BinaryMissing));
+    }
+
+    // --- compose_actionlint_path ------------------------------------------
+    //
+    // Composing the spawn-time PATH is the only logic that the spawned
+    // child process depends on for subtool discovery. Unit-test the helper
+    // directly so a regression that drops the env var or the prepend order
+    // is caught without needing a subprocess.
+
+    fn sep() -> char {
+        if cfg!(windows) { ';' } else { ':' }
+    }
+
+    #[test]
+    fn compose_path_prepends_extra_path_in_front_of_login_shell_path() {
+        let s = sep();
+        let composed = compose_actionlint_path(Some("/opt/homebrew/bin"), "/usr/bin:/bin");
+        assert_eq!(composed, format!("/opt/homebrew/bin{}{}", s, "/usr/bin:/bin"));
+    }
+
+    #[test]
+    fn compose_path_falls_back_to_login_shell_when_extra_is_none() {
+        let composed = compose_actionlint_path(None, "/usr/bin:/bin");
+        assert_eq!(composed, "/usr/bin:/bin");
+    }
+
+    #[test]
+    fn compose_path_falls_back_to_login_shell_when_extra_is_blank() {
+        let composed = compose_actionlint_path(Some("   "), "/usr/bin:/bin");
+        assert_eq!(composed, "/usr/bin:/bin");
+    }
+
+    #[test]
+    fn compose_path_returns_extra_path_alone_when_login_shell_is_empty() {
+        let composed = compose_actionlint_path(Some("/opt/homebrew/bin"), "");
+        assert_eq!(composed, "/opt/homebrew/bin");
+    }
+
+    #[test]
+    fn compose_path_uses_platform_separator() {
+        let composed = compose_actionlint_path(Some("A"), "B");
+        let expected_sep = sep();
+        assert!(
+            composed.contains(expected_sep),
+            "expected platform sep {:?} in {:?}",
+            expected_sep,
+            composed
+        );
     }
 }
