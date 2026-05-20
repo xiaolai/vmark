@@ -20,7 +20,7 @@ import type { EditorView, KeyBinding } from "@codemirror/view";
 import { getSourceTableInfo, isInEditableTableRow } from "@/plugins/sourceContextDetection/tableDetection";
 import { insertRowBelow, insertRowAbove } from "@/plugins/sourceContextDetection/tableActions";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
-import { splitTableCells } from "@/utils/tableParser";
+import { splitTableCells, endsWithDelimiterPipe } from "@/utils/tableParser";
 
 export interface CellBoundary {
   from: number; // Start of cell content (after leading space)
@@ -49,9 +49,11 @@ export function getCellBoundaries(lineText: string): CellBoundary[] {
     offset += 1;
   }
 
-  // Normalize trailing whitespace then strip trailing pipe (only if not escaped)
+  // Normalize trailing whitespace then strip trailing pipe (only when it's
+  // a real delimiter; backslash-parity tells escaped pipe from literal-`\` +
+  // delimiter — see endsWithDelimiterPipe in tableParser.ts).
   content = content.trimEnd();
-  if (content.endsWith("|") && !content.endsWith("\\|")) {
+  if (endsWithDelimiterPipe(content)) {
     content = content.slice(0, -1);
   }
 

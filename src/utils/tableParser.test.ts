@@ -80,6 +80,24 @@ describe("tableParser", () => {
     it("handles row with only escaped pipes", () => {
       expect(parseTableRow("| A \\| B \\|")).toEqual(["A \\| B \\|"]);
     });
+
+    // --- backslash-parity regression (issue #934) -----------------------
+    //
+    // Naive `endsWith("\\|")` cannot tell `\|` (escaped pipe, cell content)
+    // from `\\|` (cell ends with literal `\`, then real delimiter). These
+    // two cases must produce different parses.
+
+    it("strips trailing delimiter when content ends with literal backslash before pipe", () => {
+      // Source: `| \\|` — cell content is a single literal `\` character,
+      // and the final `|` is the closing delimiter. Result: one cell `\`.
+      expect(parseTableRow("| \\\\|")).toEqual(["\\\\"]);
+    });
+
+    it("keeps trailing pipe as content when it is an escaped pipe", () => {
+      // Source: `| \|` — cell content ends with an escaped `\|`. There is
+      // no closing delimiter; the escaped pipe must remain in the cell.
+      expect(parseTableRow("| \\|")).toEqual(["\\|"]);
+    });
   });
 
   describe("splitTableCells", () => {
