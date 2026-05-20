@@ -100,6 +100,11 @@ pub fn run_actionlint(yaml: &str, extra_path: Option<&str>) -> LintResult {
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
+    // macOS GUI launches inherit a minimal launchd PATH; without this,
+    // actionlint can't find its subtools (shellcheck, pyflakes) and
+    // silently degrades shell-script and Python-expression checks.
+    // Same pattern as ai_provider/cli.rs, pandoc/commands.rs, external_editor.rs.
+    cmd.env("PATH", crate::ai_provider::login_shell_path());
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
