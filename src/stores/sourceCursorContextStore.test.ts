@@ -135,6 +135,36 @@ describe("sourceCursorContextStore", () => {
     });
   });
 
+  // ── setContext deduplication ──────────────────────────────────────
+
+  describe("setContext deduplication", () => {
+    it("keeps the existing context reference when an equal context is set with the same view", () => {
+      const view = { state: {} } as unknown as import("@codemirror/view").EditorView;
+      const first = createEmptyCursorContext();
+      useSourceCursorContextStore.getState().setContext(first, view);
+      useSourceCursorContextStore.getState().setContext(createEmptyCursorContext(), view);
+      expect(useSourceCursorContextStore.getState().context).toBe(first);
+    });
+
+    it("publishes the new context when content changes", () => {
+      const view = { state: {} } as unknown as import("@codemirror/view").EditorView;
+      useSourceCursorContextStore.getState().setContext(createEmptyCursorContext(), view);
+      const changed: CursorContext = { ...createEmptyCursorContext(), hasSelection: true };
+      useSourceCursorContextStore.getState().setContext(changed, view);
+      expect(useSourceCursorContextStore.getState().context).toBe(changed);
+    });
+
+    it("publishes the new context when the editor view changes", () => {
+      const view1 = { state: { v: 1 } } as unknown as import("@codemirror/view").EditorView;
+      const view2 = { state: { v: 2 } } as unknown as import("@codemirror/view").EditorView;
+      useSourceCursorContextStore.getState().setContext(createEmptyCursorContext(), view1);
+      const same = createEmptyCursorContext();
+      useSourceCursorContextStore.getState().setContext(same, view2);
+      expect(useSourceCursorContextStore.getState().context).toBe(same);
+      expect(useSourceCursorContextStore.getState().editorView).toBe(view2);
+    });
+  });
+
   // ── clearContext ──────────────────────────────────────────────────
 
   describe("clearContext", () => {

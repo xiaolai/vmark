@@ -10,6 +10,9 @@
  *     This store is specifically for the WYSIWYG Tiptap instance and its
  *     toolbar context (bold active, heading level, list type, etc.).
  *   - Context updates on every selection change via toolbarContext plugin.
+ *   - setContext skips no-op updates: extractTiptapContext() returns a fresh
+ *     object every keystroke, so without a structural-equality guard the
+ *     toolbar would re-render on every keypress even when nothing changed.
  *
  * @coordinates-with toolbarContext plugin — emits cursor context on selection change
  * @coordinates-with UniversalToolbar — reads context to show active formatting
@@ -20,6 +23,7 @@ import { create } from "zustand";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { EditorView } from "@tiptap/pm/view";
 import type { CursorContext } from "@/plugins/toolbarContext/types";
+import { structuralEqual } from "@/utils/structuralEqual";
 
 interface TiptapEditorState {
   editor: TiptapEditor | null;
@@ -57,7 +61,7 @@ function publishDebugEditorView(view: EditorView | null): void {
 }
 
 /** Manages current Tiptap editor instance and cursor formatting context for toolbar display. Use selectors, not destructuring. */
-export const useTiptapEditorStore = create<TiptapEditorState & TiptapEditorActions>((set) => ({
+export const useTiptapEditorStore = create<TiptapEditorState & TiptapEditorActions>((set, get) => ({
   ...initialState,
 
   setEditor: (editor) => {
@@ -67,6 +71,14 @@ export const useTiptapEditorStore = create<TiptapEditorState & TiptapEditorActio
   },
 
   setContext: (context, view) => {
+    const prev = get();
+    if (
+      prev.editorView === view &&
+      prev.context !== null &&
+      structuralEqual(prev.context, context)
+    ) {
+      return;
+    }
     set({ context, editorView: view });
   },
 
