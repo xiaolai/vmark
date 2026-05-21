@@ -71,6 +71,13 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Vite's preload helper is a tiny runtime module. Left to Rollup it
+          // gets co-located into whichever vendor chunk is convenient
+          // (historically vendor-mermaid), which then drags that whole chunk
+          // into the entry's static-import graph and onto the cold-start
+          // modulepreload list. Pin it to vendor-react, which is always
+          // eagerly loaded anyway.
+          if (id.includes("vite/preload-helper")) return "vendor-react";
           if (!id.includes("node_modules")) return;
 
           const parts = id.split("node_modules/");
@@ -86,6 +93,12 @@ export default defineConfig(async () => ({
           // "Cannot access 'kn' before initialization" in production builds
           if (pkgName.startsWith("@codemirror/")) return "vendor-codemirror";
           if (pkgName.startsWith("@tiptap/") || pkgName.startsWith("prosemirror")) return "vendor-tiptap";
+          // DOMPurify is imported eagerly by src/utils/sanitize.ts. Without an
+          // explicit chunk, Rollup co-locates it into vendor-mermaid, which then
+          // forces a modulepreload of the entire ~1.7 MB mermaid chunk (and the
+          // ~630 KB vendor-graph it pulls) on cold start — just to reach a ~20 KB
+          // sanitizer. Isolating it keeps mermaid genuinely lazy.
+          if (pkgName === "dompurify") return "vendor-dompurify";
           // Plain `dagre` is used only by workflow layout (lib/workflow/layout.ts) which
           // is reached lazily through WorkflowSidePanel. Mermaid uses its own bundled
           // fork (`dagre-d3-es`), so isolating plain `dagre` is safe and removes ~150 KB
