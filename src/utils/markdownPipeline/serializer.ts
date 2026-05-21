@@ -89,7 +89,7 @@ function handleLink(
 }
 
 /**
- * Unified processor configured for VMark markdown serialization.
+ * Build the unified processor configured for VMark markdown serialization.
  *
  * Plugins (must match parser configuration):
  * - remark-stringify: Base CommonMark serializer
@@ -97,8 +97,12 @@ function handleLink(
  * - remark-math: Math output ($...$ and $$...$$)
  * - remark-frontmatter: YAML frontmatter output
  * - remarkCustomInline: Custom inline marks (==highlight==, ~sub~, etc.)
+ *
+ * The plugin set is fully static — it has no content- or option-dependent
+ * branches — so getSerializer() builds it once and reuses it across every
+ * serialize call.
  */
-function createSerializer(_options: MarkdownPipelineOptions = {}) {
+function buildSerializer() {
   return unified()
     .use(remarkStringify, {
       // Serialization options for consistent output
@@ -126,6 +130,14 @@ function createSerializer(_options: MarkdownPipelineOptions = {}) {
     .use(remarkWikiLinks)
     .use(remarkDetailsBlock)
     .use(remarkCustomInline);
+}
+
+let cachedSerializer: ReturnType<typeof buildSerializer> | undefined;
+
+/** Return the shared serialization processor, building it on first use. */
+function getSerializer() {
+  cachedSerializer ??= buildSerializer();
+  return cachedSerializer;
 }
 
 /**
@@ -249,7 +261,7 @@ export function serializeMdastToMarkdown(
   mdast: Root,
   options: MarkdownPipelineOptions = {}
 ): string {
-  const processor = createSerializer(options);
+  const processor = getSerializer();
   let result = processor.stringify(mdast);
 
   // Convert encoded space entities back to regular spaces.

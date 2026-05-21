@@ -1,10 +1,10 @@
 /**
  * Unified processor factories.
  *
- * `createProcessor` builds a content-aware processor for the editor pipeline
- * (lazy plugin loading). `createMarkdownProcessor` builds a superset processor
- * used by the lint engine where all plugins must be loaded to preserve
- * source positions.
+ * `createProcessor` builds — and caches — a content-aware processor for the
+ * editor pipeline (lazy plugin loading). `createMarkdownProcessor` builds a
+ * superset processor used by the lint engine where all plugins must be loaded
+ * to preserve source positions.
  *
  * @module utils/markdownPipeline/parser/processorFactory
  */
@@ -27,12 +27,13 @@ import {
   analyzeContent,
   remarkDisableSetextHeadings,
   remarkValidateMath,
+  type ContentAnalysis,
 } from "./remarkPlugins";
 
 /**
- * Unified processor configured for VMark markdown parsing.
+ * Build a unified processor configured for VMark markdown parsing.
  *
- * Plugins are loaded lazily based on content analysis:
+ * Plugins are included based on content analysis:
  * - remark-parse: Always (base CommonMark parser)
  * - remark-gfm: Always (tables, task lists, strikethrough, autolinks)
  * - remark-math: Only if document contains `$`
@@ -43,9 +44,7 @@ import {
  * Custom inline syntax (==highlight==, ~sub~, ^sup^, ++underline++)
  * is handled via remarkCustomInline plugin (always loaded, lightweight).
  */
-export function createProcessor(markdown: string, options: MarkdownPipelineOptions = {}) {
-  const analysis = analyzeContent(markdown);
-
+function buildProcessor(analysis: ContentAnalysis, preserveLineBreaks: boolean) {
   const processor = unified()
     .use(remarkParse)
     .use(remarkDisableSetextHeadings)
@@ -85,10 +84,48 @@ export function createProcessor(markdown: string, options: MarkdownPipelineOptio
   // Always load reference resolver (needed for GFM references)
   processor.use(remarkResolveReferences);
 
-  if (options.preserveLineBreaks) {
+  if (preserveLineBreaks) {
     processor.use(remarkBreaks);
   }
 
+  return processor;
+}
+
+/** Stable cache key combining the four analysis flags with the line-break option. */
+function processorCacheKey(analysis: ContentAnalysis, preserveLineBreaks: boolean): string {
+  return (
+    (analysis.hasMath ? "M" : "-") +
+    (analysis.hasFrontmatter ? "F" : "-") +
+    (analysis.hasWikiLinks ? "W" : "-") +
+    (analysis.hasDetails ? "D" : "-") +
+    (preserveLineBreaks ? "B" : "-")
+  );
+}
+
+/**
+ * Cache of built processors keyed by content-analysis flags. A unified
+ * processor is safe to reuse across `.parse()`/`.runSync()` calls once its
+ * plugin set is fixed, so caching avoids rebuilding the ~10-plugin pipeline on
+ * every parse. Bounded to 2^5 = 32 entries by the flag-combination key space.
+ */
+const processorCache = new Map<string, ReturnType<typeof buildProcessor>>();
+
+/**
+ * Return a unified processor matching the markdown's plugin needs.
+ *
+ * Processors are cached by content-analysis flags: every parse that needs the
+ * same plugin set reuses one processor instead of reconstructing it.
+ */
+export function createProcessor(markdown: string, options: MarkdownPipelineOptions = {}) {
+  const analysis = analyzeContent(markdown);
+  const preserveLineBreaks = options.preserveLineBreaks === true;
+  const key = processorCacheKey(analysis, preserveLineBreaks);
+
+  const cached = processorCache.get(key);
+  if (cached) return cached;
+
+  const processor = buildProcessor(analysis, preserveLineBreaks);
+  processorCache.set(key, processor);
   return processor;
 }
 

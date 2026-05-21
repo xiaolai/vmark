@@ -12,7 +12,6 @@
  *   - Guards null/undefined input from IPC/clipboard edge cases
  *   - Performance instrumented via perfLog for parse bottleneck diagnosis
  *
- * @coordinates-with parsingCache.ts — cached version wraps these functions
  * @coordinates-with parser.ts — markdown → MDAST step
  * @coordinates-with mdastToProseMirror.ts — MDAST → ProseMirror step
  * @coordinates-with proseMirrorToMdast.ts — ProseMirror → MDAST step

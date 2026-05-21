@@ -19,7 +19,7 @@
  *
  * @coordinates-with serializer.ts — reverse direction (MDAST → markdown string)
  * @coordinates-with adapter.ts — wraps this with error handling and perf logging
- * @coordinates-with parsingCache.ts — caches results of parseMarkdownToMdast
+ * @coordinates-with parser/processorFactory.ts — builds and caches the unified processor
  * @module utils/markdownPipeline/parser
  */
 
