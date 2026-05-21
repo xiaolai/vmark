@@ -61,6 +61,7 @@ function createMockEditor(opts?: { selectedText?: string; from?: number; to?: nu
     },
     destroy: vi.fn(),
     setEditable: vi.fn(),
+    on: vi.fn(),
   };
 }
 

@@ -38,6 +38,7 @@ import { Selection } from "@tiptap/pm/state";
 import { useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
+import { initializeRevisionTracking } from "@/hooks/mcpBridge/revisionTracker";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
 import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
@@ -269,6 +270,11 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
     onCreate: ({ editor }) => {
       // Reset for this new editor instance (handles React Strict Mode double-mount)
       editorInitialized.current = false;
+
+      // Wire MCP revision tracking so user edits bump the revision token that
+      // optimistic-concurrency (STALE) checks in the MCP bridge depend on. The
+      // transaction listener is bound to this editor and torn down with it.
+      initializeRevisionTracking(editor);
 
       // Capture content at mount time — the closure value is stable for this editor instance.
       const contentSnapshot = content;

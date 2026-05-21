@@ -6,6 +6,7 @@
  *   when the document has changed.
  *
  * @coordinates-with revisionStore.ts — stores current revision ID
+ * @coordinates-with components/Editor/TiptapEditor.tsx — calls initializeRevisionTracking on editor creation
  * @module hooks/mcpBridge/revisionTracker
  */
 
@@ -36,45 +37,4 @@ export function initializeRevisionTracking(editor: Editor): void {
 function shouldUpdateRevision(tr: Transaction): boolean {
   // Only update revision for actual document changes
   return tr.docChanged;
-}
-
-/**
- * Get the current document revision.
- */
-export function getCurrentRevision(): string {
-  return useRevisionStore.getState().getRevision();
-}
-
-/**
- * Check if a revision matches the current document state.
- * Used for optimistic concurrency control.
- */
-export function isValidRevision(revision: string): boolean {
-  return useRevisionStore.getState().isCurrentRevision(revision);
-}
-
-/**
- * Validate a base revision for a mutation operation.
- * Returns an error object if invalid, null if valid.
- */
-export function validateBaseRevision(
-  baseRevision: string | undefined
-): { error: string; currentRevision: string } | null {
-  const currentRevision = getCurrentRevision();
-
-  if (!baseRevision) {
-    return {
-      error: "baseRevision is required for mutations",
-      currentRevision,
-    };
-  }
-
-  if (!isValidRevision(baseRevision)) {
-    return {
-      error: `Revision conflict: document has changed. Expected ${baseRevision}, current is ${currentRevision}`,
-      currentRevision,
-    };
-  }
-
-  return null;
 }
