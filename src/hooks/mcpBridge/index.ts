@@ -1,27 +1,31 @@
 /**
  * MCP Bridge Hook — entry point.
  *
- * Purpose: Listens for mcp-bridge:request events from the Rust MCP server and
- *   routes each request to the category sub-dispatchers in `dispatchers/` via
- *   `handleRequest`. Blocks editor-dependent tools in source mode via
- *   sourceModeGuard.
+ * Purpose: Listens for `mcp-bridge:request` events from the Rust MCP server
+ *   and forwards each request to `handleRequest`, which routes it through the
+ *   pruned 5-tool v2 surface.
  *
  * Pipeline: AI client → MCP server (Rust) → WebSocket → Tauri event
- *   "mcp-bridge:request" → source mode guard → handleRequest → category
- *   sub-dispatcher → handler function → respond() back to Rust → MCP server
- *   → AI client
+ *   "mcp-bridge:request" → useMcpBridge parses args_json → handleRequest →
+ *   dispatchV2 → tool handler → respond() back to Rust → MCP server → AI client
  *
  * Key decisions:
- *   - The route table is split across category sub-dispatchers (document,
- *     editor, workspace, insert, aiMcp) in `dispatchers/`.
- *   - Handlers organized by domain: document, selection, mutation, structure, etc.
- *   - All mutations wrapped in AI suggestion layer for user approval.
- *   - Idempotency cache prevents duplicate execution of identical requests.
- *   - Source mode guard blocks editor-dependent tools before sub-dispatchers run.
+ *   - useMcpBridge parses each request's `args_json` (handling Tauri's
+ *     snake_case/camelCase IPC quirk) before forwarding to handleRequest.
+ *   - handleRequest applies the read-only guard (READ_ONLY_BLOCKED +
+ *     isActiveDocReadOnly()), then routes through dispatchV2 — the pruned
+ *     5-tool surface (vmark.session / workspace / document / workflow /
+ *     selection).
+ *   - On mount the hook sends a 5-second `mcp_bridge_heartbeat` so the Rust
+ *     side can tell the webview is alive under macOS App Nap, and hydrates
+ *     persisted checkpoint history.
+ *   - Listener registration is async; mounted-state tracking handles React
+ *     Strict Mode double-mount without leaking listeners.
  *
- * @coordinates-with handleRequest.ts — guards + dispatcher chain
- * @coordinates-with utils.ts — respond(), getEditor(), resolveWindowId()
- * @coordinates-with types.ts — McpRequestEvent, McpResponse
+ * @coordinates-with handleRequest.ts — read-only guard + v2 routing
+ * @coordinates-with v2/dispatch.ts — dispatchV2, the 5-tool dispatcher
+ * @coordinates-with utils.ts — respond()
+ * @coordinates-with types.ts — McpRequestEvent, McpRequestEventRaw
  * @module hooks/mcpBridge
  */
 
