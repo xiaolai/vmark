@@ -39,6 +39,7 @@ export type BridgeRequest =
       tabId?: string;
       content: string;
       expected_revision?: string;
+      save?: boolean;
     }
   | {
       type: 'vmark.document.transform';
