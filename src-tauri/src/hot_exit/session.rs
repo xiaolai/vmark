@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 /// Schema version for hot exit sessions
 /// v1: Initial schema
 /// v2: Added undo_history and redo_history to DocumentState
-pub const SCHEMA_VERSION: u32 = 2;
+/// v3: Added format_id, editing_enabled, active_schema_id to TabState (WI-1A.13)
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// Maximum session age in days before considering it stale
 pub const MAX_SESSION_AGE_DAYS: i64 = 7;
@@ -45,6 +46,27 @@ pub struct TabState {
     pub title: String,
     pub is_pinned: bool,
     pub document: DocumentState,
+    /// Format registry id (e.g. "markdown", "json"). Added in v3 (WI-1A.13).
+    /// Pre-v3 sessions backfill to "markdown" via the v2→v3 migration. Serde
+    /// `default` keeps cross-version deserialization safe even if the
+    /// migration is bypassed.
+    #[serde(default = "default_format_id")]
+    pub format_id: String,
+    /// Whether the user has explicitly enabled editing on a viewer-mode
+    /// format. Added in v3 (WI-1A.13). Pre-v3 backfills to `true`.
+    #[serde(default = "default_editing_enabled")]
+    pub editing_enabled: bool,
+    /// Active schemaRenderer id when the format supports multiple. Added in v3.
+    #[serde(default)]
+    pub active_schema_id: Option<String>,
+}
+
+fn default_format_id() -> String {
+    "markdown".to_string()
+}
+
+fn default_editing_enabled() -> bool {
+    true
 }
 
 /// Document content, dirty state, cursor position, and undo history.

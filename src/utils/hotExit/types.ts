@@ -5,7 +5,7 @@
  * These types define the complete application session state for save/restore.
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /**
  * Line ending types
@@ -38,6 +38,29 @@ export interface TabState {
   title: string;
   is_pinned: boolean;
   document: DocumentState;
+  /**
+   * Format registry id for this tab — added in v3 (WI-1A.13).
+   *
+   * Persisted directly rather than derived at restore: derivation
+   * requires re-running content schemaDetectors (pure-but-paid) and
+   * is fragile if the user has edited content between hot-exit and
+   * restore. Direct persistence is the smaller correctness surface.
+   *
+   * Pre-v3 sessions backfill to "markdown" — see migrateV2toV3.
+   */
+  format_id: string;
+  /**
+   * Whether the user has explicitly enabled editing on a viewer-mode
+   * format (e.g. read-only `.json`). Added in v3 (WI-1A.13).
+   * Pre-v3 sessions backfill to `true` (markdown is editable by default).
+   */
+  editing_enabled: boolean;
+  /**
+   * Active schema renderer id when the format supports multiple
+   * (e.g. yaml-gha-workflow vs generic yaml tree). Added in v3 (WI-1A.13).
+   * Null/undefined means "use format default schema dispatch".
+   */
+  active_schema_id: string | null;
 }
 
 export interface DocumentState {

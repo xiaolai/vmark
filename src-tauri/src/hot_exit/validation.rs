@@ -129,6 +129,9 @@ mod tests {
                 undo_history: Vec::new(),
                 redo_history: Vec::new(),
             },
+            format_id: "markdown".to_string(),
+            editing_enabled: true,
+            active_schema_id: None,
         }
     }
 

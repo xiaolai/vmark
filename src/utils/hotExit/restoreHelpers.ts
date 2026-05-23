@@ -268,6 +268,16 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
       tabStore.togglePin(windowLabel, newTabId);
     }
 
+    // WI-1A.13 — restore multi-format fields. `format_id` is re-derived from
+    // file_path inside createTab via dispatchEditor, so the only state that
+    // needs explicit restoration is the user-driven overrides.
+    if (tabState.editing_enabled === false) {
+      tabStore.setTabEditingEnabled(newTabId, false);
+    }
+    if (tabState.active_schema_id != null) {
+      tabStore.setTabActiveSchemaId(newTabId, tabState.active_schema_id);
+    }
+
     // Restore document state
     await restoreDocumentState(newTabId, tabState, documentStore);
   }

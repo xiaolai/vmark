@@ -42,7 +42,7 @@ vi.mock('@/utils/debug', () => ({
 }));
 
 import { restartWithHotExit, checkAndRestoreSession } from './restartWithHotExit';
-import { HOT_EXIT_EVENTS } from './types';
+import { HOT_EXIT_EVENTS, SCHEMA_VERSION } from './types';
 
 // ---------------------------------------------------------------
 // restartWithHotExit
@@ -156,8 +156,10 @@ describe('checkAndRestoreSession — additional coverage', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    // Verify multi-window restore was used
-    expect(mockInvoke).toHaveBeenCalledWith('hot_exit_restore_multi_window', { session });
+    // Verify multi-window restore was used (session passes through migration
+    // and is bumped to current SCHEMA_VERSION before being sent)
+    const migratedSession = { ...session, version: SCHEMA_VERSION };
+    expect(mockInvoke).toHaveBeenCalledWith('hot_exit_restore_multi_window', { session: migratedSession });
 
     // Complete
     const completeHandler = eventListeners.get(HOT_EXIT_EVENTS.RESTORE_COMPLETE);
@@ -232,7 +234,7 @@ describe('checkAndRestoreSession — additional coverage', () => {
     // Should not throw
   });
 
-  it('migrates v1 session to v2 before restoring', async () => {
+  it('migrates v1 session to current schema before restoring', async () => {
     const v1Session = {
       version: 1,
       timestamp: Date.now() / 1000,
@@ -249,9 +251,9 @@ describe('checkAndRestoreSession — additional coverage', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    // Session should be migrated to v2
+    // Session should be migrated to current SCHEMA_VERSION
     const restoreCall = mockInvoke.mock.calls.find(c => c[0] === 'hot_exit_restore');
-    expect(restoreCall?.[1]?.session?.version).toBe(2);
+    expect(restoreCall?.[1]?.session?.version).toBe(SCHEMA_VERSION);
 
     const completeHandler = eventListeners.get(HOT_EXIT_EVENTS.RESTORE_COMPLETE);
     completeHandler?.({ payload: {} });

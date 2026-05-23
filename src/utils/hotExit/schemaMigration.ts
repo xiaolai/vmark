@@ -39,6 +39,7 @@ type MigrationFn = (session: SessionData) => SessionData;
  */
 const migrations: Record<number, MigrationFn> = {
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 /**
@@ -160,5 +161,45 @@ function addHistoryToDocument(doc: V1DocumentState): DocumentState {
     ...doc,
     undo_history: [],
     redo_history: [],
+  };
+}
+
+/**
+ * V2 TabState — without v3-only format fields. Used for type-safe migration.
+ */
+type V2TabState = Omit<
+  SessionData['windows'][number]['tabs'][number],
+  'format_id' | 'editing_enabled' | 'active_schema_id'
+>;
+
+/**
+ * Migrate v2 -> v3: Add tab-format fields (formatId / editingEnabled / activeSchemaId)
+ *
+ * v3 adds three fields to TabState in support of the multi-format
+ * workspace (plan WI-1A.13). All v2 sessions are markdown-only by
+ * definition, so the backfill is:
+ *   - format_id = "markdown" (the only format that existed pre-v3)
+ *   - editing_enabled = true  (markdown is editable by default)
+ *   - active_schema_id = null (no schema dispatch yet)
+ */
+function migrateV2toV3(session: SessionData): SessionData {
+  return {
+    ...session,
+    version: 3,
+    windows: session.windows.map((window) => ({
+      ...window,
+      tabs: window.tabs.map((tab) => addFormatFieldsToTab(tab as V2TabState)),
+    })),
+  };
+}
+
+function addFormatFieldsToTab(
+  tab: V2TabState,
+): SessionData['windows'][number]['tabs'][number] {
+  return {
+    ...tab,
+    format_id: 'markdown',
+    editing_enabled: true,
+    active_schema_id: null,
   };
 }

@@ -197,6 +197,11 @@ function captureWindowState(windowLabel: string, isMainWindow: boolean): WindowS
     title: tab.title,
     is_pinned: tab.isPinned,
     document: captureDocumentState(tab.id, tab.filePath, tab.title, documentStore, historyStore),
+    // Multi-format fields (WI-1A.13). `formatId` is always present on
+    // the in-memory Tab; the other two have store-defined defaults.
+    format_id: tab.formatId,
+    editing_enabled: tab.editingEnabled ?? true,
+    active_schema_id: tab.activeSchemaId ?? null,
   }));
 
   const activeTab = tabStore.getActiveTab(windowLabel);

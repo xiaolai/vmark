@@ -52,6 +52,12 @@ export interface Tab {
    *  When true, the editor mounts read-write even for kind="viewer"
    *  formats. Persists across tab switches; resets on tab close. */
   editingEnabled?: boolean;
+  /** WI-1A.13 — active schemaRenderer id for formats that ship multiple
+   *  (e.g. yaml-gha-workflow vs generic yaml tree). `undefined`/`null` means
+   *  "let the schemaDetector decide on each render". Persisted directly
+   *  in hot-exit so restore is deterministic and does not re-run pure
+   *  detectors against possibly-edited content. */
+  activeSchemaId?: string | null;
 }
 
 function deriveFormatId(filePath: string | null): string {
@@ -90,6 +96,7 @@ interface TabActions {
   // Tab state
   setActiveTab: (windowLabel: string, tabId: string) => void;
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
+  setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
   updateTabPath: (tabId: string, filePath: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
@@ -304,6 +311,20 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       for (const windowLabel of Object.keys(newTabs)) {
         newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
           t.id === tabId ? { ...t, editingEnabled: enabled } : t,
+        );
+      }
+      return { tabs: newTabs };
+    });
+  },
+
+  /** WI-1A.13 — set the active schemaRenderer id (e.g. yaml-gha-workflow).
+   *  Pass `null` to clear the override and let schemaDetector decide. */
+  setTabActiveSchemaId: (tabId: string, schemaId: string | null) => {
+    set((state) => {
+      const newTabs = { ...state.tabs };
+      for (const windowLabel of Object.keys(newTabs)) {
+        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
+          t.id === tabId ? { ...t, activeSchemaId: schemaId } : t,
         );
       }
       return { tabs: newTabs };

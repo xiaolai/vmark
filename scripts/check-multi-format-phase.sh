@@ -106,10 +106,11 @@ case "$PHASE" in
     fi
 
     # WI-1A.13 (rev 6) — hot-exit persistence migration for tab format fields
-    if grep -qE "formatId" src/utils/hotExit/types.ts 2>/dev/null; then
-      ok "hotExit types include formatId (WI-1A.13 TS)"
+    # Snake_case in both TS and Rust to mirror serde serialization on the wire.
+    if grep -qE "format_id" src/utils/hotExit/types.ts 2>/dev/null; then
+      ok "hotExit types include format_id (WI-1A.13 TS)"
     else
-      fail "hotExit types missing formatId (WI-1A.13 TS incomplete)"
+      fail "hotExit types missing format_id (WI-1A.13 TS incomplete)"
     fi
     if grep -qE "format_id" src-tauri/src/hot_exit/session.rs 2>/dev/null; then
       ok "hot_exit session.rs includes format_id (WI-1A.13 Rust)"
