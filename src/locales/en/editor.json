@@ -125,6 +125,7 @@
   "findbar.toggleWholeWord": "Whole Word",
   "findbar.find.placeholder": "Find...",
   "findbar.find.label": "Search text in document",
+  "contentSearch.label": "Search across workspace files",
   "findbar.prev": "Previous (Shift+Enter)",
   "findbar.next": "Next (Enter)",
   "findbar.replace.placeholder": "Replace...",

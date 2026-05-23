@@ -160,6 +160,32 @@ function getLocalizedFormatName(formatId: string): string {
     : formatId;
 }
 
+/**
+ * Shared update helper for keyed-by-id tab field mutations.
+ *
+ * Three setters — setTabEditingEnabled, setTabActiveSchemaId, setTabFormatId
+ * — share the same scan-and-map pattern: walk every window's tab array,
+ * replace exactly one tab (by id) with a shallow-merged copy. Factoring
+ * this out keeps the field-specific setters thin and prevents drift
+ * (e.g., one setter forgetting to clone state.tabs).
+ *
+ * Returns a partial state slice for direct return from Zustand's `set`.
+ * Unknown ids result in a no-op clone (same shape, same data) — safe.
+ */
+function updateTabById(
+  state: { tabs: Record<string, Tab[]> },
+  tabId: string,
+  patch: Partial<Tab>,
+): { tabs: Record<string, Tab[]> } {
+  const newTabs = { ...state.tabs };
+  for (const windowLabel of Object.keys(newTabs)) {
+    newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
+      t.id === tabId ? { ...t, ...patch } : t,
+    );
+  }
+  return { tabs: newTabs };
+}
+
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
 export const useTabStore = create<TabState & TabActions>((set, get) => ({
   tabs: {},
@@ -312,43 +338,19 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
   /** WI-4.3 — promote a tab to read-write or revert to read-only. */
   setTabEditingEnabled: (tabId: string, enabled: boolean) => {
-    set((state) => {
-      const newTabs = { ...state.tabs };
-      for (const windowLabel of Object.keys(newTabs)) {
-        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-          t.id === tabId ? { ...t, editingEnabled: enabled } : t,
-        );
-      }
-      return { tabs: newTabs };
-    });
+    set((state) => updateTabById(state, tabId, { editingEnabled: enabled }));
   },
 
   /** WI-1A.13 — set the active schemaRenderer id (e.g. yaml-gha-workflow).
    *  Pass `null` to clear the override and let schemaDetector decide. */
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => {
-    set((state) => {
-      const newTabs = { ...state.tabs };
-      for (const windowLabel of Object.keys(newTabs)) {
-        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-          t.id === tabId ? { ...t, activeSchemaId: schemaId } : t,
-        );
-      }
-      return { tabs: newTabs };
-    });
+    set((state) => updateTabById(state, tabId, { activeSchemaId: schemaId }));
   },
 
   /** WI-1A.13 — overwrite a tab's `formatId`. Used by hot-exit restore for
    *  untitled tabs where path-based derivation can't recover non-markdown. */
   setTabFormatId: (tabId: string, formatId: string) => {
-    set((state) => {
-      const newTabs = { ...state.tabs };
-      for (const windowLabel of Object.keys(newTabs)) {
-        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-          t.id === tabId ? { ...t, formatId } : t,
-        );
-      }
-      return { tabs: newTabs };
-    });
+    set((state) => updateTabById(state, tabId, { formatId }));
   },
 
   updateTabPath: (tabId, filePath) => {

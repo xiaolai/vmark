@@ -430,6 +430,69 @@ describe('Schema Migration', () => {
       expect(tab.active_schema_id).toBeNull();
     });
 
+    it('preserves preexisting format fields if a v2 payload already carries them (idempotency)', () => {
+      // Audit-fix MEDIUM-3: a hand-crafted or partially-migrated v2
+      // session might already include format_id / editing_enabled /
+      // active_schema_id. The migration must NOT clobber explicit user
+      // state in that case.
+      const v2WithFormatFields = {
+        version: 2,
+        timestamp: 1747958400,
+        vmark_version: '0.7.26',
+        windows: [
+          {
+            window_label: 'main',
+            is_main_window: true,
+            active_tab_id: 'tab-1',
+            tabs: [
+              {
+                id: 'tab-1',
+                file_path: '/data/payload.json',
+                title: 'payload.json',
+                is_pinned: false,
+                document: {
+                  content: '{}',
+                  saved_content: '{}',
+                  is_dirty: false,
+                  is_missing: false,
+                  is_divergent: false,
+                  is_read_only: false,
+                  line_ending: '\n',
+                  cursor_info: null,
+                  last_modified_timestamp: null,
+                  is_untitled: false,
+                  untitled_number: null,
+                  undo_history: [],
+                  redo_history: [],
+                },
+                format_id: 'json',
+                editing_enabled: false,
+                active_schema_id: 'package-json',
+              },
+            ],
+            ui_state: {
+              sidebar_visible: true,
+              sidebar_width: 260,
+              outline_visible: false,
+              sidebar_view_mode: 'files',
+              status_bar_visible: true,
+              source_mode_enabled: false,
+              focus_mode_enabled: false,
+              typewriter_mode_enabled: false,
+            },
+            geometry: null,
+          },
+        ],
+        workspace: null,
+      } as unknown as SessionData;
+
+      const migrated = migrateSession(v2WithFormatFields);
+      const tab = migrated.windows[0].tabs[0];
+      expect(tab.format_id).toBe('json');
+      expect(tab.editing_enabled).toBe(false);
+      expect(tab.active_schema_id).toBe('package-json');
+    });
+
     it('rejects v4 (a future schema) with a typed error', () => {
       const futureSession = {
         version: 4,

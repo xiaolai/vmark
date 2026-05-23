@@ -79,6 +79,7 @@
   "findbar.toggleWholeWord": "Ganzes Wort",
   "findbar.find.placeholder": "Suchen...",
   "findbar.find.label": "Text im Dokument suchen",
+  "contentSearch.label": "Im Arbeitsbereich suchen",
   "findbar.prev": "Vorherige (Shift+Enter)",
   "findbar.next": "Nächste (Enter)",
   "findbar.replace.placeholder": "Ersetzen...",

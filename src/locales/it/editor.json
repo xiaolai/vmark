@@ -79,6 +79,7 @@
   "findbar.toggleWholeWord": "Parola intera",
   "findbar.find.placeholder": "Trova...",
   "findbar.find.label": "Cerca testo nel documento",
+  "contentSearch.label": "Cerca nell'area di lavoro",
   "findbar.prev": "Precedente (Shift+Invio)",
   "findbar.next": "Successivo (Invio)",
   "findbar.replace.placeholder": "Sostituisci...",

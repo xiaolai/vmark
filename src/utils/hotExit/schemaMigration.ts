@@ -196,10 +196,28 @@ function migrateV2toV3(session: SessionData): SessionData {
 function addFormatFieldsToTab(
   tab: V2TabState,
 ): SessionData['windows'][number]['tabs'][number] {
+  // Defensive read: a real v2 session can't contain these fields (they
+  // were added in v3), but a hand-crafted or partially-migrated payload
+  // could. Preserve preexisting non-undefined values so the migration
+  // is idempotent and never clobbers explicit user state. This also
+  // mirrors the Rust side's behavior — `#[serde(default = …)]` keeps
+  // any present field as-is.
+  const incoming = tab as V2TabState & {
+    format_id?: unknown;
+    editing_enabled?: unknown;
+    active_schema_id?: unknown;
+  };
   return {
     ...tab,
-    format_id: 'markdown',
-    editing_enabled: true,
-    active_schema_id: null,
+    format_id:
+      typeof incoming.format_id === 'string' ? incoming.format_id : 'markdown',
+    editing_enabled:
+      typeof incoming.editing_enabled === 'boolean'
+        ? incoming.editing_enabled
+        : true,
+    active_schema_id:
+      typeof incoming.active_schema_id === 'string'
+        ? incoming.active_schema_id
+        : null,
   };
 }

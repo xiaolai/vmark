@@ -79,6 +79,7 @@
   "findbar.toggleWholeWord": "全字相符",
   "findbar.find.placeholder": "尋找...",
   "findbar.find.label": "在文件中搜尋文字",
+  "contentSearch.label": "在工作區中搜尋",
   "findbar.prev": "上一個（Shift+Enter）",
   "findbar.next": "下一個（Enter）",
   "findbar.replace.placeholder": "取代...",

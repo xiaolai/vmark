@@ -316,8 +316,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
               }
               // WI-2.4 (a11y) — explicit accessible name. Placeholder text
               // is not a reliable label for screen readers and changes based
-              // on workspace state.
-              aria-label={t("contentSearch.label", "Search across workspace files")}
+              // on workspace state. Key defined in editor locale namespace.
+              aria-label={t("contentSearch.label")}
               disabled={!isWorkspaceMode}
               value={query}
               onChange={(e) =>

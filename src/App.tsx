@@ -94,7 +94,11 @@ import { useSelectAllScope } from "@/hooks/useSelectAllScope";
 import { useDragDropOpen } from "@/hooks/useDragDropOpen";
 import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
-import { useSidebarResize } from "@/hooks/useSidebarResize";
+import {
+  useSidebarResize,
+  MIN_SIDEBAR_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+} from "@/hooks/useSidebarResize";
 import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
 import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
@@ -314,8 +318,8 @@ function MainLayout() {
             aria-orientation="vertical"
             aria-label={t("aria.sidebarResize")}
             aria-valuenow={sidebarWidth}
-            aria-valuemin={150}
-            aria-valuemax={500}
+            aria-valuemin={MIN_SIDEBAR_WIDTH}
+            aria-valuemax={MAX_SIDEBAR_WIDTH}
             tabIndex={0}
             onMouseDown={handleResizeStart}
             onKeyDown={handleResizeKeyDown}

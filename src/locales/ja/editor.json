@@ -79,6 +79,7 @@
   "findbar.toggleWholeWord": "単語全体",
   "findbar.find.placeholder": "検索...",
   "findbar.find.label": "ドキュメント内のテキストを検索",
+  "contentSearch.label": "ワークスペース内を検索",
   "findbar.prev": "前へ (Shift+Enter)",
   "findbar.next": "次へ (Enter)",
   "findbar.replace.placeholder": "置換...",
