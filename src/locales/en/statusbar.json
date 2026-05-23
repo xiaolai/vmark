@@ -52,6 +52,7 @@
   "autoSavedAt": "Auto-saved at {{time}}",
 
   "terminal.search.placeholder": "Search...",
+  "terminal.search.label": "Search terminal output",
   "terminal.search.previous": "Previous (Shift+Enter)",
   "terminal.search.next": "Next (Enter)",
   "terminal.search.close": "Close (Escape)",

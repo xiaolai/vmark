@@ -108,6 +108,18 @@ describe("FindBar", () => {
       expect(screen.getByPlaceholderText("Replace...")).toBeInTheDocument();
     });
 
+    // WI-2.4 (a11y) — search input fields must have accessible names.
+    // Placeholder alone is not a reliable label for screen readers.
+    it("exposes accessible names on find and replace inputs", () => {
+      render(<FindBar />);
+      expect(
+        screen.getByRole("textbox", { name: /search text in document/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("textbox", { name: /replacement text/i }),
+      ).toBeInTheDocument();
+    });
+
     it("renders close button", () => {
       render(<FindBar />);
       expect(screen.getByTitle("Close (Esc)")).toBeInTheDocument();
