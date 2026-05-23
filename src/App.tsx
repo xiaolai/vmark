@@ -220,7 +220,7 @@ function MainLayout() {
   const findBarOpen = useSearchStore((state) => state.isOpen);
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
-  const handleResizeStart = useSidebarResize();
+  const { handleResizeStart, handleResizeKeyDown } = useSidebarResize();
   const sidebarOffset = sidebarVisible ? `${sidebarWidth}px` : "0px";
 
   // Initialize hooks
@@ -303,10 +303,22 @@ function MainLayout() {
           }}
         >
           <Sidebar />
-          {/* Resize handle - positioned at right edge of sidebar */}
+          {/* Resize handle — positioned at right edge of sidebar.
+              WI-2.2 (a11y): focusable separator with arrow-key resize.
+              role=separator + aria-orientation=vertical announces purpose;
+              tabIndex=0 puts it in tab order; aria-valuenow/min/max + the
+              live `now` value let screen readers report current width. */}
           <div
             className="sidebar-resize-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("aria.sidebarResize")}
+            aria-valuenow={sidebarWidth}
+            aria-valuemin={150}
+            aria-valuemax={500}
+            tabIndex={0}
             onMouseDown={handleResizeStart}
+            onKeyDown={handleResizeKeyDown}
           />
         </aside>
       )}

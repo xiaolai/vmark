@@ -1,8 +1,9 @@
 /**
  * Sidebar Resize Hook
  *
- * Purpose: Drag-to-resize handler for the sidebar panel — clamps width
- *   to min/max bounds and cleans up listeners on blur/unmount.
+ * Purpose: Resize handlers for the sidebar panel — drag (mouse) and
+ *   keyboard arrows (a11y). Clamps width to min/max bounds and cleans
+ *   up drag listeners on blur/unmount.
  *
  * @coordinates-with uiStore.ts — reads/writes sidebarWidth
  * @module hooks/useSidebarResize
@@ -12,18 +13,27 @@ import { useCallback, useRef, useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
 
 /** Sidebar width constraints in pixels */
-const MIN_SIDEBAR_WIDTH = 150;
-const MAX_SIDEBAR_WIDTH = 500;
+export const MIN_SIDEBAR_WIDTH = 150;
+export const MAX_SIDEBAR_WIDTH = 500;
+/** Keyboard resize step per arrow press */
+export const KEYBOARD_RESIZE_STEP = 8;
+/** Larger step when Shift is held */
+export const KEYBOARD_RESIZE_STEP_LARGE = 32;
 
 /**
- * Hook for handling sidebar resize via drag handle.
+ * Hook for handling sidebar resize via drag (mouse) and keyboard arrows.
  *
  * Features:
  * - Clamps width to MIN/MAX bounds
- * - Cleans up listeners on blur/unmount to prevent leaks
+ * - Cleans up drag listeners on blur/unmount to prevent leaks
  * - Prevents text selection during drag
+ * - WI-2.2 (a11y): arrow-key resize for keyboard users
  *
- * @returns handleResizeStart - onMouseDown handler for the resize handle
+ * Returns both:
+ * - `handleResizeStart` — onMouseDown handler for drag
+ * - `handleResizeKeyDown` — onKeyDown handler: ArrowLeft/Right step by
+ *   KEYBOARD_RESIZE_STEP (Shift = KEYBOARD_RESIZE_STEP_LARGE); Home/End
+ *   clamp to MIN/MAX
  */
 export function useSidebarResize() {
   const isResizing = useRef(false);
@@ -93,5 +103,38 @@ export function useSidebarResize() {
     [clampWidth, cleanup]
   );
 
-  return handleResizeStart;
+  // WI-2.2 — keyboard resize for screen-reader and keyboard-only users.
+  // Arrows step by KEYBOARD_RESIZE_STEP (Shift = LARGE); Home/End clamp.
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const current = useUIStore.getState().sidebarWidth;
+      const step = e.shiftKey
+        ? KEYBOARD_RESIZE_STEP_LARGE
+        : KEYBOARD_RESIZE_STEP;
+      let next: number | null = null;
+
+      switch (e.key) {
+        case "ArrowLeft":
+          next = current - step;
+          break;
+        case "ArrowRight":
+          next = current + step;
+          break;
+        case "Home":
+          next = MIN_SIDEBAR_WIDTH;
+          break;
+        case "End":
+          next = MAX_SIDEBAR_WIDTH;
+          break;
+        default:
+          return;
+      }
+
+      e.preventDefault();
+      useUIStore.getState().setSidebarWidth(clampWidth(next));
+    },
+    [clampWidth],
+  );
+
+  return { handleResizeStart, handleResizeKeyDown };
 }

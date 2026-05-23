@@ -28,6 +28,7 @@
 
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "Resize sidebar (use Left and Right arrow keys)",
 
   "untitled": "Untitled",
   "unknown": "Unknown",
