@@ -51,6 +51,7 @@
   "updateError": "更新检查失败 — 点击重试",
   "autoSavedAt": "自动保存于 {{time}}",
   "terminal.search.placeholder": "搜索...",
+  "terminal.search.label": "搜索终端输出",
   "terminal.search.previous": "上一个 (Shift+Enter)",
   "terminal.search.next": "下一个 (Enter)",
   "terminal.search.close": "关闭 (Escape)",

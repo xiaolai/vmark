@@ -32,6 +32,7 @@
   "tabActions": "Acciones de pestaña",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "Cambiar tamaño de la barra lateral (flechas izquierda y derecha)",
   "resize": "Redimensionar",
   "unknown": "Desconocido",
   "running": "En ejecución",

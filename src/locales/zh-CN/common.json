@@ -32,6 +32,7 @@
   "tabActions": "标签页操作",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "调整侧边栏宽度（使用左右方向键）",
   "resize": "调整大小",
   "unknown": "未知",
   "running": "运行中",

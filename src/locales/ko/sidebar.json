@@ -7,6 +7,8 @@
   "showHistory": "기록 보기",
   "newFile": "새 파일",
   "newFolder": "새 폴더",
+  "expandFolder": "폴더 펼치기",
+  "collapseFolder": "폴더 접기",
   "expandAllFolders": "모든 폴더 펼치기",
   "collapseAllFolders": "모든 폴더 접기",
   "clearDocumentHistory": "문서 기록 지우기",

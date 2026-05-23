@@ -7,6 +7,8 @@
   "showHistory": "Mostra cronologia",
   "newFile": "Nuovo file",
   "newFolder": "Nuova cartella",
+  "expandFolder": "Espandi cartella",
+  "collapseFolder": "Comprimi cartella",
   "expandAllFolders": "Espandi tutte le cartelle",
   "collapseAllFolders": "Comprimi tutte le cartelle",
   "clearDocumentHistory": "Cancella cronologia documento",

@@ -51,6 +51,7 @@
   "updateError": "アップデート確認失敗 — クリックして再試行",
   "autoSavedAt": "{{time}} に自動保存",
   "terminal.search.placeholder": "検索...",
+  "terminal.search.label": "ターミナル出力を検索",
   "terminal.search.previous": "前へ (Shift+Enter)",
   "terminal.search.next": "次へ (Enter)",
   "terminal.search.close": "閉じる (Escape)",

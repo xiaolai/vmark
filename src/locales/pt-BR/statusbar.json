@@ -51,6 +51,7 @@
   "updateError": "Falha na verificação de atualização — clique para tentar novamente",
   "autoSavedAt": "Salvo automaticamente às {{time}}",
   "terminal.search.placeholder": "Pesquisar...",
+  "terminal.search.label": "Pesquisar saída do terminal",
   "terminal.search.previous": "Anterior (Shift+Enter)",
   "terminal.search.next": "Próximo (Enter)",
   "terminal.search.close": "Fechar (Escape)",

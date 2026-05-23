@@ -32,6 +32,7 @@
   "tabActions": "탭 작업",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "사이드바 크기 조정 (좌우 방향키 사용)",
   "resize": "크기 조정",
   "unknown": "알 수 없음",
   "running": "실행 중",

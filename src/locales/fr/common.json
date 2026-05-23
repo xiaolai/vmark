@@ -32,6 +32,7 @@
   "tabActions": "Actions de l'onglet",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "Redimensionner la barre latérale (flèches gauche et droite)",
   "resize": "Redimensionner",
   "unknown": "Inconnu",
   "running": "En cours",

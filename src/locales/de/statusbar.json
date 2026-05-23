@@ -51,6 +51,7 @@
   "updateError": "Update-Prüfung fehlgeschlagen — klicken zum Wiederholen",
   "autoSavedAt": "Automatisch gespeichert um {{time}}",
   "terminal.search.placeholder": "Suchen...",
+  "terminal.search.label": "Terminal-Ausgabe durchsuchen",
   "terminal.search.previous": "Vorherige (Shift+Enter)",
   "terminal.search.next": "Nächste (Enter)",
   "terminal.search.close": "Schließen (Escape)",

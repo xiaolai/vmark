@@ -174,3 +174,79 @@ describe("FileNode — folder chevron (WI-2.1 a11y)", () => {
     ).toBeNull();
   });
 });
+
+describe("FileNode — inline rename", () => {
+  function renderEditing(opts: {
+    isFolder?: boolean;
+    submit?: (value: string) => void;
+    reset?: () => void;
+  } = {}) {
+    const data: FileNodeType = {
+      id: "/file.md",
+      name: "file.md",
+      isFolder: opts.isFolder ?? false,
+    };
+    const node = {
+      data,
+      isOpen: false,
+      isEditing: true,
+      isSelected: false,
+      toggle: vi.fn(),
+      reset: opts.reset ?? vi.fn(),
+      submit: opts.submit ?? vi.fn(),
+    };
+    return render(
+      <FileNode
+        node={node as never}
+        style={{}}
+        dragHandle={undefined}
+        currentFilePath={null}
+        tree={{} as never}
+        preview={false as never}
+      />,
+    );
+  }
+
+  it("renders an editable input pre-filled with the node name", () => {
+    renderEditing();
+    const input = screen.getByDisplayValue("file.md") as HTMLInputElement;
+    expect(input.tagName).toBe("INPUT");
+  });
+
+  it("Escape calls node.reset() to cancel rename", async () => {
+    const reset = vi.fn();
+    renderEditing({ reset });
+    const user = userEvent.setup();
+
+    const input = screen.getByDisplayValue("file.md");
+    input.focus();
+    await user.keyboard("{Escape}");
+
+    expect(reset).toHaveBeenCalled();
+  });
+
+  it("Enter calls node.submit() with the current input value", async () => {
+    const submit = vi.fn();
+    renderEditing({ submit });
+    const user = userEvent.setup();
+
+    const input = screen.getByDisplayValue("file.md");
+    await user.click(input);
+    await user.keyboard("{Control>}a{/Control}");
+    await user.keyboard("renamed.md");
+    await user.keyboard("{Enter}");
+
+    expect(submit).toHaveBeenCalledWith("renamed.md");
+  });
+
+  it("blur calls node.reset() to abandon rename", () => {
+    const reset = vi.fn();
+    renderEditing({ reset });
+
+    const input = screen.getByDisplayValue("file.md");
+    input.focus();
+    input.blur();
+
+    expect(reset).toHaveBeenCalled();
+  });
+});
