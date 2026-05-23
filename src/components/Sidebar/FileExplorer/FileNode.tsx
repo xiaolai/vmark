@@ -14,6 +14,7 @@
  * @module components/Sidebar/FileExplorer/FileNode
  */
 import { ChevronRight, ChevronDown, Folder, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import type { NodeRendererProps } from "react-arborist";
 import type { FileNode as FileNodeType } from "./types";
@@ -24,6 +25,7 @@ interface FileNodeProps extends NodeRendererProps<FileNodeType> {
 
 /** Renders a single file or folder node in the explorer tree with inline rename support. */
 export function FileNode({ node, style, dragHandle, currentFilePath }: FileNodeProps) {
+  const { t } = useTranslation("sidebar");
   const data = node.data;
   const isActive = data.id === currentFilePath;
   const isEditing = node.isEditing;
@@ -38,11 +40,28 @@ export function FileNode({ node, style, dragHandle, currentFilePath }: FileNodeP
       <span className="file-node-indent" />
 
       {data.isFolder ? (
-        <span
+        // WI-2.1 (a11y) — folder expand/collapse chevron is a real button.
+        // Keyboard users press Enter or Space to toggle; mouse click still
+        // works. aria-expanded reflects the live folder state so screen
+        // readers announce open/closed correctly.
+        <button
+          type="button"
           className="file-node-arrow"
+          aria-label={
+            node.isOpen ? t("collapseFolder") : t("expandFolder")
+          }
+          aria-expanded={node.isOpen}
           onClick={(e) => {
             e.stopPropagation();
             node.toggle();
+          }}
+          onKeyDown={(e) => {
+            // <button> already handles Enter/Space natively, but stop
+            // propagation so the parent's row-level keydown handlers
+            // (react-arborist) don't double-trigger.
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+            }
           }}
         >
           {node.isOpen ? (
@@ -50,7 +69,7 @@ export function FileNode({ node, style, dragHandle, currentFilePath }: FileNodeP
           ) : (
             <ChevronRight size={14} />
           )}
-        </span>
+        </button>
       ) : (
         <span className="file-node-arrow" />
       )}

@@ -7,6 +7,8 @@
   "showHistory": "Show History",
   "newFile": "New File",
   "newFolder": "New Folder",
+  "expandFolder": "Expand folder",
+  "collapseFolder": "Collapse folder",
   "expandAllFolders": "Expand All Folders",
   "collapseAllFolders": "Collapse All Folders",
   "clearDocumentHistory": "Clear Document History",
