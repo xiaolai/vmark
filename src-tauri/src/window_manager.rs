@@ -325,12 +325,6 @@ pub fn create_main_window(
     Ok(label.to_string())
 }
 
-/// Create a new empty window (Tauri command)
-#[tauri::command]
-pub fn new_window(app: AppHandle) -> Result<String, String> {
-    create_document_window(&app, None, None).map_err(|e| e.to_string())
-}
-
 /// Pure decision function for `pick_reopen_workspace_root` — testable without
 /// touching the filesystem or the recent-workspaces snapshot.
 fn pick_reopen_workspace_root_with<F>(
