@@ -268,9 +268,22 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
       tabStore.togglePin(windowLabel, newTabId);
     }
 
-    // WI-1A.13 — restore multi-format fields. `format_id` is re-derived from
-    // file_path inside createTab via dispatchEditor, so the only state that
-    // needs explicit restoration is the user-driven overrides.
+    // WI-1A.13 — restore multi-format fields.
+    //
+    // For tabs WITH a file_path, `formatId` derives deterministically from
+    // the extension via dispatchEditor — restoration is automatic.
+    //
+    // For UNTITLED tabs (file_path === null), derivation always falls back
+    // to markdown. If the persisted format_id is not "markdown", explicitly
+    // restore it. This guards untitled non-markdown sessions (e.g. an
+    // unsaved JSON scratch tab) against silent format loss across restart.
+    if (
+      tabState.file_path == null &&
+      tabState.format_id &&
+      tabState.format_id !== "markdown"
+    ) {
+      tabStore.setTabFormatId(newTabId, tabState.format_id);
+    }
     if (tabState.editing_enabled === false) {
       tabStore.setTabEditingEnabled(newTabId, false);
     }

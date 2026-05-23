@@ -97,6 +97,12 @@ interface TabActions {
   setActiveTab: (windowLabel: string, tabId: string) => void;
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
   setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
+  /** WI-1A.13 — overwrite a tab's `formatId` directly. Used by hot-exit
+   *  restore for untitled tabs where path-based derivation cannot recover
+   *  a non-markdown format (untitled JSON, etc.). Caller is responsible
+   *  for passing a valid registered id; invalid ids fall back to txt at
+   *  render time via dispatchEditor. */
+  setTabFormatId: (tabId: string, formatId: string) => void;
   updateTabPath: (tabId: string, filePath: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
@@ -325,6 +331,20 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       for (const windowLabel of Object.keys(newTabs)) {
         newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
           t.id === tabId ? { ...t, activeSchemaId: schemaId } : t,
+        );
+      }
+      return { tabs: newTabs };
+    });
+  },
+
+  /** WI-1A.13 — overwrite a tab's `formatId`. Used by hot-exit restore for
+   *  untitled tabs where path-based derivation can't recover non-markdown. */
+  setTabFormatId: (tabId: string, formatId: string) => {
+    set((state) => {
+      const newTabs = { ...state.tabs };
+      for (const windowLabel of Object.keys(newTabs)) {
+        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
+          t.id === tabId ? { ...t, formatId } : t,
         );
       }
       return { tabs: newTabs };

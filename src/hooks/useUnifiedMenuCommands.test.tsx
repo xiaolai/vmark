@@ -1139,6 +1139,40 @@ describe("useUnifiedMenuCommands", () => {
             expect(setWysiwygHeadingLevel).not.toHaveBeenCalled();
           }
         });
+
+        it(`paragraph ${expectFormattingDispatch ? "dispatches" : "is blocked"} (category formatting → paragraphFormatting)`, async () => {
+          // paragraph → setWysiwygHeadingLevel(level=0).
+          const { setWysiwygHeadingLevel } = await import(
+            "@/plugins/toolbarActions/wysiwygAdapter"
+          );
+
+          useTabStore.getState().createTab("main", filePath);
+
+          render(<TestHarness />);
+          await waitFor(() =>
+            expect(listeners.has("menu:paragraph")).toBe(true),
+          );
+
+          vi.mocked(setWysiwygHeadingLevel).mockClear();
+          listeners.get("menu:paragraph")?.({ payload: "main" });
+
+          if (expectFormattingDispatch) {
+            expect(setWysiwygHeadingLevel).toHaveBeenCalled();
+          } else {
+            expect(setWysiwygHeadingLevel).not.toHaveBeenCalled();
+          }
+        });
+
+        it("redo dispatches regardless of menuPolicy (edit-category always allowed)", async () => {
+          useTabStore.getState().createTab("main", filePath);
+
+          render(<TestHarness />);
+          await waitFor(() => expect(listeners.has("menu:redo")).toBe(true));
+
+          listeners.get("menu:redo")?.({ payload: "main" });
+
+          expect(performUnifiedRedo).toHaveBeenCalledWith("main");
+        });
       },
     );
 

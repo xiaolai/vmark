@@ -50,7 +50,7 @@ Live state as of 2026-05-23, used as the rev-6 baseline.
 | Frontend supported extensions | `getSupportedExtensionsWithDots()` consumed by `dropPaths.ts`. Legacy `MARKDOWN_ONLY_EXTENSIONS` preserved for markdown-specific paths. | `src/utils/dropPaths.ts:1-15` |
 | Open dialog filters | `useFileOpen.ts` builds "All Supported" + "Markdown" presets from registry. | `src/hooks/useFileOpen.ts:155-170` |
 | Close-save dialog filters | Derives filters per-tab from registry via `dispatchEditor` and `getFormatById`. | `src/hooks/closeSave.ts:60-72` |
-| Hot-exit persistence | **`TabState` (TS and Rust) does not yet carry `formatId` / `editingEnabled` / `activeSchemaId`.** Restored tabs will silently default to markdown — WI-1A.13 below. | `src/utils/hotExit/types.ts`, `src-tauri/src/hot_exit/session.rs` |
+| Hot-exit persistence | `TabState` (TS and Rust) **now carries** `format_id`, `editing_enabled`, `active_schema_id`. Schema bumped to v3 with v2→v3 migration backfilling markdown defaults. Untitled non-markdown tabs are restored via explicit `setTabFormatId` since path derivation fails for them. Closes WI-1A.13. | `src/utils/hotExit/types.ts:35-65`, `src/utils/hotExit/schemaMigration.ts:40-49`, `src-tauri/src/hot_exit/session.rs:53-79`, `src/utils/hotExit/restoreHelpers.ts:271-292` |
 | Mermaid renderer purity | Still impure — depends on `document.documentElement.classList`, `getComputedStyle`, transient DOM in `document.body`. Reuse for inline workflow rendering blocks until ADR-13 closes. | `src/plugins/mermaid/index.ts` |
 
 ### Background — historical (2026-05-06)

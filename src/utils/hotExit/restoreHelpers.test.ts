@@ -80,6 +80,10 @@ const mockRemoveWindow = vi.fn();
 const mockUpdateTabTitle = vi.fn();
 const mockTogglePin = vi.fn();
 const mockSetActiveTab = vi.fn();
+// WI-1A.13 — hot-exit format-field restore setters
+const mockSetTabFormatId = vi.fn();
+const mockSetTabEditingEnabled = vi.fn();
+const mockSetTabActiveSchemaId = vi.fn();
 
 vi.mock('@/stores/tabStore', () => ({
   useTabStore: {
@@ -90,6 +94,9 @@ vi.mock('@/stores/tabStore', () => ({
       updateTabTitle: mockUpdateTabTitle,
       togglePin: mockTogglePin,
       setActiveTab: mockSetActiveTab,
+      setTabFormatId: mockSetTabFormatId,
+      setTabEditingEnabled: mockSetTabEditingEnabled,
+      setTabActiveSchemaId: mockSetTabActiveSchemaId,
     }),
   },
 }));
@@ -200,6 +207,11 @@ function makeTabState(overrides: Partial<TabState> = {}): TabState {
     title: 'file.md',
     is_pinned: false,
     document: makeDocState(),
+    // WI-1A.13 — v3 schema defaults: markdown tab with editing enabled and
+    // no schema override. Individual tests override these as needed.
+    format_id: 'markdown',
+    editing_enabled: true,
+    active_schema_id: null,
     ...overrides,
   };
 }
@@ -1315,6 +1327,157 @@ describe('restoreHelpers', () => {
       expect(mockRemoveWindow).not.toHaveBeenCalled();
       expect(mockRemoveDocument).not.toHaveBeenCalled();
       expect(mockCreateTab).not.toHaveBeenCalled();
+    });
+
+    // ─── WI-1A.13 — multi-format field restore (rev 6) ────────────────────
+    //
+    // Untitled tabs cannot recover non-markdown formatId from path
+    // (createTab → dispatchEditor(null) → markdown fallback). For these
+    // tabs, restoreTabs must explicitly call setTabFormatId so the
+    // restored tab matches what the user actually had open.
+
+    it('restores explicit format_id for untitled non-markdown tabs', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-json-untitled',
+        tabs: [
+          makeTabState({
+            id: 'tab-json-untitled',
+            file_path: null,
+            format_id: 'json',
+            title: 'Untitled.json',
+            document: makeDocState({
+              is_dirty: true,
+              content: '{"key": "value"}',
+            }),
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockCreateTab).toHaveBeenCalledWith('main', null);
+      expect(mockSetTabFormatId).toHaveBeenCalledWith('new-1', 'json');
+    });
+
+    it('does NOT call setTabFormatId for untitled markdown tabs (derivation matches)', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-md-untitled',
+        tabs: [
+          makeTabState({
+            id: 'tab-md-untitled',
+            file_path: null,
+            format_id: 'markdown',
+            document: makeDocState({ is_dirty: true, content: '# hi' }),
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabFormatId).not.toHaveBeenCalled();
+    });
+
+    it('does NOT call setTabFormatId when file_path is set (derivation is authoritative)', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-with-path',
+        tabs: [
+          makeTabState({
+            id: 'tab-with-path',
+            file_path: '/data/payload.json',
+            format_id: 'json',
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabFormatId).not.toHaveBeenCalled();
+    });
+
+    it('restores editing_enabled=false override', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-locked',
+        tabs: [
+          makeTabState({
+            id: 'tab-locked',
+            file_path: '/src/lib.rs',
+            format_id: 'code',
+            editing_enabled: false,
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabEditingEnabled).toHaveBeenCalledWith('new-1', false);
+    });
+
+    it('does NOT call setTabEditingEnabled when editing_enabled is true (default)', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-1',
+        tabs: [
+          makeTabState({ id: 'tab-1', file_path: '/x.md', editing_enabled: true }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabEditingEnabled).not.toHaveBeenCalled();
+    });
+
+    it('restores active_schema_id when present', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-schema',
+        tabs: [
+          makeTabState({
+            id: 'tab-schema',
+            file_path: '/package.json',
+            format_id: 'json',
+            active_schema_id: 'package-json',
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabActiveSchemaId).toHaveBeenCalledWith(
+        'new-1',
+        'package-json',
+      );
+    });
+
+    it('does NOT call setTabActiveSchemaId when active_schema_id is null', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-1',
+        tabs: [
+          makeTabState({ id: 'tab-1', file_path: '/x.md', active_schema_id: null }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabActiveSchemaId).not.toHaveBeenCalled();
     });
   });
 
