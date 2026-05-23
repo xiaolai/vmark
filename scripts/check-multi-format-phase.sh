@@ -105,6 +105,41 @@ case "$PHASE" in
       fail "Tab.formatId field not found in tabStore.ts"
     fi
 
+    # WI-1A.13 (rev 6) — hot-exit persistence migration for tab format fields
+    if grep -qE "formatId" src/utils/hotExit/types.ts 2>/dev/null; then
+      ok "hotExit types include formatId (WI-1A.13 TS)"
+    else
+      fail "hotExit types missing formatId (WI-1A.13 TS incomplete)"
+    fi
+    if grep -qE "format_id" src-tauri/src/hot_exit/session.rs 2>/dev/null; then
+      ok "hot_exit session.rs includes format_id (WI-1A.13 Rust)"
+    else
+      fail "hot_exit session.rs missing format_id (WI-1A.13 Rust incomplete)"
+    fi
+    if [[ -f src/utils/hotExit/schemaMigration.ts ]] \
+      || [[ -f src/utils/hotExit/migration.ts ]] \
+      || grep -rqE "schemaVersion[^a-zA-Z]+[2-9]" src/utils/hotExit 2>/dev/null; then
+      ok "hotExit schema migration present"
+    else
+      fail "hotExit schema migration missing (WI-1A.13 migration)"
+    fi
+
+    # WI-1A.14 (rev 6) — cross-format menu regression matrix
+    MENU_TEST=""
+    for cand in src/hooks/useUnifiedMenuCommands.test.tsx src/hooks/useUnifiedMenuCommands.test.ts; do
+      [[ -f "$cand" ]] && MENU_TEST="$cand" && break
+    done
+    if [[ -n "$MENU_TEST" ]]; then
+      ok "useUnifiedMenuCommands test file exists"
+      if grep -qE "describe\.each|FormatKind" "$MENU_TEST" 2>/dev/null; then
+        ok "menu matrix iterates over formats"
+      else
+        fail "menu matrix does not iterate over formats (WI-1A.14)"
+      fi
+    else
+      fail "useUnifiedMenuCommands test file missing (WI-1A.14)"
+    fi
+
     # getSupportedExtensions returns >= 14 entries (runtime check via vitest)
     if pnpm exec vitest run src/lib/formats/index.test.ts >/dev/null 2>&1; then
       ok "bootstrapFormats tests pass (getSupportedExtensions >= 14 verified)"
@@ -116,10 +151,10 @@ case "$PHASE" in
     [[ -f .claude/hooks/multi-format-tdd-guard.mjs ]] && ok "multi-format TDD hook present" || fail "multi-format TDD hook missing"
 
     # Cross-model review noted in plan body
-    if grep -q "Review iteration 4" dev-docs/plans/20260506-multi-format-rebrand.md; then
-      ok "Codex review iteration-4 resolution recorded"
+    if grep -q "Review iteration 5" dev-docs/plans/20260506-multi-format-rebrand.md; then
+      ok "Codex review iteration-5 resolution recorded"
     else
-      fail "Codex review iteration-4 resolution not recorded in plan body"
+      fail "Codex review iteration-5 resolution not recorded in plan body"
     fi
     ;;
 

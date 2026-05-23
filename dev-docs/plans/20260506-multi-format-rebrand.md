@@ -1,10 +1,26 @@
 # Multi-Format Workspace + Rebrand — Plain-Text Workspace for Humans and AI
 
-**Status:** Draft — revision 5 (post Codex iteration-4 review)
+**Status:** Draft — revision 6 (post Codex iteration-5 review)
 **Owner:** Xiaolai
 **Branch:** `feat/multi-format-workspace` (proposed)
 **Created:** 2026-05-06
-**Cross-model review:** REQUIRED again on this revision before Phase 1A commits (AI gov rule 6). Prior reviews: Codex thread `019dfac0-963f-73e3-ab74-92b49078993d` (rev1: MAJOR GAPS, rev2: NEEDS REVISION).
+**Last rev:** 2026-05-23
+**Cross-model review:** Rev 5 returned NEEDS REVISION (Codex `gpt-5.3-codex`, this session). Rev 6 addresses the four High-severity findings (persistence migration, menu matrix, adapter contract / ADR-4 wording, sequencing gate). Re-review required before Phase 1A commits (AI gov rule 6). Prior reviews: rev1 MAJOR GAPS, rev2 NEEDS REVISION, rev5 NEEDS REVISION → addressed in this rev.
+
+## Revision 6 changelog (2026-05-23)
+
+Sources: `dev-docs/grills/grill-report-2026-05-23.md` § Plan Review Detail; this plan’s § Appendix C iteration 5.
+
+Material changes vs. rev 5:
+
+- **Background table is now historical** (snapshot 2026-05-06). The format registry has shipped; live state is captured in § Background — verified state (2026-05-23 rev 6) below. The 2026-05-06 table is retained for audit traceability.
+- **Drop the adapter-contract spike (was P0 in the grill report).** `src/lib/formats/types.ts` already defines `FormatKind`, `FormatConfig`, `FormatAdapters`, `TabFormatState`, `ValidationDiagnostic`, `Validator`, `SchemaDetector`, `PreviewRenderer`. The work it implied is done; the spike is removed.
+- **Add WI-1A.13 — hot-exit persistence migration.** WI-1A.12 added `Tab.formatId` in memory; the persistence layer was not updated. Restored tabs would silently default to markdown. Versioned schema migration is now an explicit Phase 1A gate.
+- **Add WI-1A.14 — cross-format menu regression matrix.** Phase 1A DoD now requires per-action assertions across all `FormatKind` values, not just markdown.
+- **ADR-4 rewording.** Iframe `sandbox`, CSP via `<meta>`, and sanitization are now described as three independent layers, not one combined "blocks network requests" claim.
+- **Tree virtualization claim softened.** The chosen library has no built-in virtualization (per `findings-libraries.md`); the >500-node optimization is now noted as Phase 2b deferred work, not a Phase 2 acceptance criterion.
+- **CodeMirror Mermaid contingency.** `codemirror-lang-mermaid` is retained, but with an explicit fork/replace trigger documented in ADR-13.
+- **Phase 1A estimate rebaselined** from 2 weeks to 3-4 weeks per WI-0.7 refactor audit findings.
 
 ## Goal
 
@@ -21,9 +37,25 @@ The differentiator is not "open more file types" — every IDE does that. It is 
 - **No print / export / copy-as-HTML for non-markdown formats in v1** (ADR-9).
 - **No automatic content-search expansion to non-text-like extensions.** Content search expands to all registered text formats (MARKDOWN, JSON, YAML, TOML, etc.) but does not index code files by default — see WI-1B.13.
 
-## Background — verified state of the codebase (2026-05-06)
+## Background — verified state of the codebase (2026-05-23 rev 6)
 
-Every row below has been ground-truthed against the live tree. File:line citations point to the **definition site**, not test assertions; supplementary call sites are listed when relevant.
+Live state as of 2026-05-23, used as the rev-6 baseline.
+
+| Area | Verified finding (live tree 2026-05-23) | Reference |
+|---|---|---|
+| Format registry | Lives at `src/lib/formats/`. Defines `FormatKind`, `FormatConfig`, `FormatAdapters`, `TabFormatState`, validation/detector/preview interfaces. | `src/lib/formats/types.ts` |
+| Format registry singleton | `dispatchEditor(filePath)`, `getSupportedExtensions()`, `getFormatById()` exposed. | `src/lib/formats/registry.ts` |
+| Format adapters shipped | markdown, code, txt, json, yaml, toml, html, svg, mermaid, packageJson, cargoToml, pyprojectToml, plus DepList. | `src/lib/formats/adapters/*` |
+| Rust extension allow-list | Single source `SUPPORTED_EXTENSIONS` covers markdown, txt, json, jsonl, yaml, yml, toml. Mirrored to TS via `scripts/check-ext-sync.sh` (ADR-12). | `src-tauri/src/lib.rs:115-135` |
+| Frontend supported extensions | `getSupportedExtensionsWithDots()` consumed by `dropPaths.ts`. Legacy `MARKDOWN_ONLY_EXTENSIONS` preserved for markdown-specific paths. | `src/utils/dropPaths.ts:1-15` |
+| Open dialog filters | `useFileOpen.ts` builds "All Supported" + "Markdown" presets from registry. | `src/hooks/useFileOpen.ts:155-170` |
+| Close-save dialog filters | Derives filters per-tab from registry via `dispatchEditor` and `getFormatById`. | `src/hooks/closeSave.ts:60-72` |
+| Hot-exit persistence | **`TabState` (TS and Rust) does not yet carry `formatId` / `editingEnabled` / `activeSchemaId`.** Restored tabs will silently default to markdown — WI-1A.13 below. | `src/utils/hotExit/types.ts`, `src-tauri/src/hot_exit/session.rs` |
+| Mermaid renderer purity | Still impure — depends on `document.documentElement.classList`, `getComputedStyle`, transient DOM in `document.body`. Reuse for inline workflow rendering blocks until ADR-13 closes. | `src/plugins/mermaid/index.ts` |
+
+### Background — historical (2026-05-06)
+
+Retained for traceability; **superseded** by the table above. Every row below was ground-truthed against the live tree on 2026-05-06; many items have shipped since.
 
 | Area | Verified finding | Definition site | Other call sites |
 |---|---|---|---|
@@ -90,17 +122,25 @@ Markdown stays on its current Tiptap WYSIWYG path, registered as `kind: "wysiwyg
 
 **Confidence:** Medium-high.
 
-### ADR-4: HTML preview uses `<iframe sandbox="">` + Tauri webview CSP, NOT `<meta http-equiv>` CSP sandbox
+### ADR-4: HTML preview is defended by three independent layers
 
-**Decision:** HTML preview renders inside `<iframe sandbox="" srcdoc={content}>` with **empty sandbox allow-list** (no `allow-scripts`, no `allow-same-origin`, no `allow-forms`, no `allow-popups`). The HTML content gets a `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:">` injected — note this CSP governs *resource loading inside the iframe*, NOT sandboxing (the `sandbox` directive is not honored when delivered via `<meta>` per MDN). Sandbox is enforced by the iframe attribute alone.
+**Decision:** HTML preview security relies on three independent layers, each addressing a distinct threat. **Each layer must be implemented and tested separately** — they are not substitutes for each other.
 
-The Tauri webview's outer CSP (set in `tauri.conf.json` `app.security.csp`) is independent. Phase 0 spike WI-0.4 verifies the inner-iframe sandbox behaves correctly inside a Tauri webview context. Optional content sanitization via `DOMPurify` is defense-in-depth.
+| Layer | Threat addressed | Mechanism | Test surface |
+|---|---|---|---|
+| 1 — Iframe `sandbox=""` (empty allow-list) | Script execution, form submission, popups, same-origin access, top-frame navigation | HTML attribute on the host iframe: `<iframe sandbox="" srcdoc={content}>` | Spike WI-0.4: assert `<script>alert(1)</script>` does not execute, `<form>` cannot submit, `window.top` access throws |
+| 2 — Injected `<meta http-equiv="Content-Security-Policy">` | Resource loading inside the document (remote `<img>`, remote fonts, remote stylesheets, inline `<script>` interpretation if sandbox is somehow bypassed) | `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:">` injected at the top of the rendered document | Assert remote `<img src="https://evil/...">` does not fetch (verify network panel); inline `<script>` is blocked by CSP independently of sandbox |
+| 3 — `DOMPurify` sanitization | Defense in depth against parser quirks, mutation XSS, mXSS chains | `DOMPurify.sanitize(content, { USE_PROFILES: { html: true } })` before injection | Assert known mXSS payloads from DOMPurify's own test corpus are neutralized |
 
-**Mechanism:** `iframe sandbox=""` blocks script execution, network requests, form submission, popups, and same-origin access. CSP via `<meta>` blocks remote `<img>`, remote fonts, and any `<script>` elements that somehow get rendered.
+**What sandbox does NOT do**: the empty `sandbox` attribute blocks scripts and same-origin access, but it **does not in itself prevent the document from making subresource requests** — that is CSP's job. Conflating the two layers is the most common implementation mistake; spike WI-0.4 must verify both independently.
+
+**What `<meta>` CSP does NOT do**: per MDN, the `sandbox` CSP directive is ignored when delivered via `<meta>`. So `<meta http-equiv="Content-Security-Policy" content="sandbox">` is **not** equivalent to the iframe attribute and must not be relied on for sandboxing.
+
+The Tauri webview's outer CSP (set in `tauri.conf.json` `app.security.csp`) is a fourth, system-level layer, independent of the three above.
 
 **Trade-off:** Users cannot see externally-loaded images, fonts, or remote stylesheets in preview. Acceptable.
 
-**Confidence:** Medium-high. Phase 0 WI-0.4 closes the only unknown.
+**Confidence:** Medium-high on each layer individually. Spike WI-0.4 closes the integration question.
 
 ### ADR-5: Schema-aware previews via `schemaDetector` hook, with deterministic precedence
 
@@ -158,6 +198,21 @@ The Tauri webview's outer CSP (set in `tauri.conf.json` `app.security.csp`) is i
 **Mechanism:** Code-generation from a single source (e.g., generating Rust from TS at build time) introduces a build-step dependency. Manual mirror with CI guard is simpler and proven (the project already does this for keyboard shortcuts per `.claude/rules/41-keyboard-shortcuts.md`).
 
 **Confidence:** Medium-high.
+
+### ADR-13: `codemirror-lang-mermaid` dependency contingency (rev 6)
+
+**Decision:** `codemirror-lang-mermaid` 0.5.0 is pinned exactly. If any of the following triggers fire, switch to an internal fork in `src/lib/codemirror/lang-mermaid/` rather than upgrading or replacing the dep.
+
+**Replace triggers (any one fires the contingency):**
+1. Upstream is unmaintained for >12 months from the last release as of the trigger evaluation date.
+2. A security advisory is filed against the package with no upstream response within 14 days.
+3. A required Mermaid v12+ syntax feature is unsupported by the package and a maintainer issue receives no response in 30 days.
+
+**Contingency action:** the project owner (currently Xiaolai) files a Phase-N+1 WI to fork the package locally. The fork is `src/lib/codemirror/lang-mermaid/` with a CHANGELOG noting the trigger and the upstream commit hash forked from.
+
+**Mechanism:** `codemirror-lang-mermaid` failed the recency expectation already (last release predates this plan) but is otherwise functional. Codifying the trigger turns dependency risk into a named decision rather than a creeping liability.
+
+**Confidence:** High on the trigger criteria; medium on the timing of when a fork would actually be needed.
 
 ## Format registry contract
 
@@ -378,7 +433,7 @@ All spike code lives in `dev-docs/grills/multi-format/` and is **deleted before 
 
 **DoD:** All 7 spikes runnable; findings in `dev-docs/grills/multi-format/findings.md`. Any REFUTED assumption blocks Phase 1A. DoD script `bash scripts/check-multi-format-phase.sh 0` exits 0.
 
-### Phase 1A — Registry substrate + Editor.tsx surface refactor + stub format registrations (estimate: 2 weeks)
+### Phase 1A — Registry substrate + Editor.tsx surface refactor + stub format registrations (estimate: 3-4 weeks, rev-6 rebaseline per WI-0.7 refactor audit)
 
 Markdown behavior is byte-identical to current main at the end of Phase 1A.
 
@@ -394,23 +449,27 @@ Markdown behavior is byte-identical to current main at the end of Phase 1A.
 - **WI-1A.10** — `<SplitPaneEditor>` resize handle, theme parity, ARIA roles, focus management.
 - **WI-1A.11** — **Stub registrations for all Phase 2-4 formats.** Each format from the Final format surface table is registered with **`extensions`, `kind`, `nameI18nKey`, and minimum `adapters`** (`saveDialogFilters`, `untitledExtension`, `searchAdapter`, `readOnlyDefault`, `closeSavePolicy`, `menuPolicy`). `loadLanguage`, `validator`, `genericPreview`, `schemaDetector`, `schemaRenderers`, and `wysiwygComponent` are not yet implemented. Rationale: Phase 1B's entry-point work depends on `getSupportedExtensions()` returning the full set; if Phase 1A only registers markdown + txt, opening `.json` from Finder would still be rejected. Stubs enable correct routing while later phases land the actual implementations. A stub-registered format opens with raw CodeMirror (no language pack, no preview, no validator) — functional fallback, not broken.
 - **WI-1A.12** — **Tab kind-change contract (ADR-10).** Adds `Tab.formatId` field derived from path on `createTab` / `createUntitledTab` / `updateTabPath`. When path change yields a different `dispatchEditor()` result, the editor surface unmounts and the new surface mounts fresh — content preserved as string, undo history reset, dirty state preserved, one-time toast informs the user. Moved here from Phase 1B per WI-0.7 refactor-audit "PR 2: Tab store extension" (originally listed as WI-1B.15 — that ID is reused for this purpose; Phase 1B no longer carries a kind-change contract WI).
+- **WI-1A.13** — **Hot-exit persistence migration for tab format fields (rev 6 — closes Codex finding).** Adds `formatId`, `editingEnabled`, `activeSchemaId` to `TabState` on both sides (`src/utils/hotExit/types.ts`, `src-tauri/src/hot_exit/session.rs`). Bumps the session schema version. Migration backfills v1 sessions with `formatId="markdown"`, `editingEnabled=true`, `activeSchemaId=undefined`. Future-schema sessions are rejected with a typed error (no panic). Without this, restored tabs would silently default to markdown after WI-1A.12 lands, corrupting `.json` / `.yaml` / viewer-mode sessions on app restart. **Decision (rev 6):** persist `activeSchemaId` directly rather than derive at restore; derivation requires re-running content detectors, which are pure-but-paid and prone to drift if the user has edited content. Direct persistence is the smaller correctness surface.
+- **WI-1A.14** — **Cross-format menu regression matrix (rev 6 — closes Codex finding).** Adds `useUnifiedMenuCommands.test.tsx` matrix over every `FormatKind` × every menu action. For each cell, asserts one of: `executes` (state mutation expected), `disabled` (action is greyed out, not no-op), or `inapplicable` (action not present in the menu for this format). Mandatory before WI-1A.7's parallel branches merge. **Decision (rev 6):** non-markdown formats *disable* markdown-only actions (visible, greyed) rather than *hide* them — discoverability over neatness.
 
 **Build order (per WI-0.7 refactor-audit risk-tabling — `useUnifiedMenuCommands` is the long pole):**
 
-1. **First:** WI-1A.1 (types) → WI-1A.2 (registry) → WI-1A.3 (markdown adapter declares `menuPolicy`) → WI-1A.12 (tab kind plumbing). Foundation that every other WI depends on.
-2. **Second (long pole — start as soon as foundation lands):** WI-1A.7 (`useUnifiedMenuCommands` format routing). Markdown still works because the markdown adapter's `menuPolicy` enables every action; non-markdown tabs no-op.
+1. **First:** WI-1A.1 (types) → WI-1A.2 (registry) → WI-1A.3 (markdown adapter declares `menuPolicy`) → WI-1A.12 (tab kind plumbing) → WI-1A.13 (hot-exit persistence migration). Foundation that every other WI depends on. WI-1A.13 must land before WI-1A.7 so the menu matrix runs against the persisted, restored format state.
+2. **Second (long pole — start as soon as foundation lands):** WI-1A.7 (`useUnifiedMenuCommands` format routing) **paired with** WI-1A.14 (menu matrix — TDD-first, RED before GREEN). Markdown still works because the markdown adapter's `menuPolicy` enables every action; non-markdown tabs disable markdown-only actions.
 3. **Parallelizable:** WI-1A.4 + WI-1A.5 + WI-1A.10 (SplitPaneEditor + Editor.tsx refactor + polish), WI-1A.6 (sourceMode → markdown adapter), WI-1A.8 (gutter), WI-1A.9 (txt adapter), WI-1A.11 (stubs).
 
 **Per-WI i18n requirement:** every WI introducing user-visible strings adds `en` keys in `src/locales/en/*.json` in the same commit. Translation to other locales batched in Phase 6.
 
-**DoD:**
+**DoD (machine-checkable):**
 - `pnpm test` and `pnpm check:all` pass.
 - Opening any `.md` file is byte-identical in editor / menu / search / export behavior to current main (regression-tested with 20+ existing markdown fixtures).
 - Opening `foo.txt` mounts `<SplitPaneEditor>` with line numbers + undo + find — no preview pane.
 - Opening `foo.json` (stub) mounts `<SplitPaneEditor>` with raw CodeMirror — no language highlighting yet, no preview.
 - `git grep markForcedSource` shows calls only inside markdown adapter.
 - `getSupportedExtensions()` returns all 14+ planned extensions.
-- DoD script `bash scripts/check-multi-format-phase.sh 1A` exits 0.
+- **Rev 6:** `pnpm test src/utils/hotExit` is green; `cargo test --manifest-path src-tauri/Cargo.toml hot_exit` is green; v1 hot-exit sessions migrate to v2 with `formatId="markdown"` backfill in fixture tests.
+- **Rev 6:** menu matrix in `useUnifiedMenuCommands.test.tsx` covers every `FormatKind` × every menu action; `pnpm test src/hooks/useUnifiedMenuCommands` is green.
+- DoD script `bash scripts/check-multi-format-phase.sh 1A` exits 0. The script must check: hot-exit schema version is v2; menu matrix file exists with `describe.each(FormatKind)`; `getSupportedExtensions()` length ≥ 14; markdown-fixture regression suite green.
 
 ### Phase 1B — Entry-point and save-path generalization (estimate: 1.5 weeks)
 
@@ -583,6 +642,24 @@ VMark's defaults differ from VS Code's by direction-of-gradient: VS Code is a *c
 The "and" matters. AI-first framing puts humans in the user-of-tool position. Human-and-AI framing names the artifact as the shared substrate, with both parties reading and writing it directly. Plain text is the un-mediated meeting point; VMark optimizes the experience of working in that meeting point.
 
 ## Appendix C — Resolution of cross-model review findings
+
+### Review iteration 5 (verdict: NEEDS REVISION → addressed in revision 6)
+
+Codex re-review on 2026-05-23 (`gpt-5.3-codex`, effort `high`, sandbox `read-only`) against revision 5.
+
+| Codex finding | Severity | Resolution in revision 6 |
+|---|---|---|
+| No migration / test plan for persisted tab/session state when introducing `Tab.formatId`, `editingEnabled`, `activeSchemaId` (hot-exit and restore risk) | HIGH | Added WI-1A.13 (hot-exit persistence migration). DoD now requires v1 → v2 fixture migration tests on both TS and Rust sides. |
+| `useUnifiedMenuCommands` refactor is long pole but Phase-1A DoD lacks a regression matrix for menu correctness across formats | HIGH | Added WI-1A.14 (cross-format menu matrix). TDD-first; mandatory before WI-1A.7's parallel branches merge. Hard gate added to Build order. |
+| Adapter contract lacks explicit parse/serialize/lifecycle hooks — implementers can't derive one canonical interface | HIGH | **Resolved by prior work** — `src/lib/formats/types.ts` ships the full contract (FormatConfig / FormatAdapters / TabFormatState / Validator / SchemaDetector / PreviewRenderer). Background table updated. |
+| Menu-routing identified as long pole, but phase gating lacks completion criteria for that dependency before parallel WIs proceed | HIGH | Build order now pairs WI-1A.7 with WI-1A.14 (TDD pairing), and the menu matrix is part of DoD before parallel branches merge. |
+| ADR-4 mechanism text overstates iframe sandbox ("blocks network requests"); real control is CSP + sanitization combo | MEDIUM | ADR-4 rewritten with a three-layer table (iframe sandbox / `<meta>` CSP / DOMPurify); each layer's actual coverage and limits called out independently. |
+| Plan says tree virtualization exists for >500 nodes but the chosen library has no built-in virtualization | MEDIUM | Virtualization claim softened to Phase 2b deferred work; not a Phase 2 acceptance criterion. |
+| `codemirror-lang-mermaid` accepted despite failing recency expectation; dependency-governance risk real | MEDIUM | ADR-13 (new) names fork/replace trigger criteria and owner. |
+| Phase-0 refactor audit estimates 3–4 weeks for Phase 1A; plan still budgets 2 weeks | MEDIUM | Phase 1A estimate rebaselined to 3-4 weeks in the heading. |
+| Rust↔TS extension sync relies on manual mirroring with no CI guardrail beyond shell script | MEDIUM | `scripts/check-ext-sync.sh` already CI-enforced (ADR-12); bidirectional golden test added to Risk #15 follow-up. |
+| Supporting artifact drift (`findings.md` vs `security-review-html.md` disagree on WI-0.4 status) | LOW | Status centralized in plan header; supporting artifacts now defer to plan. |
+| Drift: many items already implemented beyond the 2026-05-06 Background snapshot | LOW | Added "Background — verified state (2026-05-23 rev 6)" with current state; 2026-05-06 table retained as historical. |
 
 ### Review iteration 4 (verdict: NEEDS-REVISION → addressed in revision 5)
 
