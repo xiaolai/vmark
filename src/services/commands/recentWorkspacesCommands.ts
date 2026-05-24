@@ -91,8 +91,8 @@ export function registerRecentWorkspacesCommands(): void {
             {
               title: i18n.t("dialog:unsavedChanges.title"),
               kind: "warning",
-              okLabel: "Open in New Window",
-              cancelLabel: "Cancel",
+              okLabel: i18n.t("dialog:unsavedChanges.openInNewWindowOk"),
+              cancelLabel: i18n.t("dialog:unsavedChanges.openInNewWindowCancel"),
             }
           );
           if (confirmed) {

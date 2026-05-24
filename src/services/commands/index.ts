@@ -17,4 +17,3 @@ export type {
   CommandScope,
   RankedCommand,
 } from "./CommandBus";
-export { bridgeActionRegistry, _resetActionBridge } from "./actionBridge";

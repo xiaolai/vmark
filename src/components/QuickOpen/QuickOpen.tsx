@@ -23,7 +23,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useQuickOpenStore } from "./quickOpenStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useWorkspace } from "@/workspace";
 import { useFileTree } from "@/components/Sidebar/FileExplorer/useFileTree";
 import { openFileInNewTabCore, handleOpen } from "@/hooks/useFileOpen";
 import {
@@ -85,10 +85,11 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
   const previousFocusRef = useRef<Element | null>(null);
   const ime = useImeComposition();
 
-  // Workspace file tree — only load while Quick Open is open (perf: avoids idle watcher)
-  const rootPath = useWorkspaceStore((s) => s.rootPath);
-  const isWorkspaceMode = useWorkspaceStore((s) => s.isWorkspaceMode);
-  const excludeFolders = useWorkspaceStore((s) => s.config?.excludeFolders ?? EMPTY_FOLDERS);
+  // Workspace file tree — only load while Quick Open is open (perf: avoids idle watcher).
+  // Use the ADR-008 workspace facade for the common reads; fall back to
+  // useWorkspaceStore only for the field-derived `excludeFolders` value.
+  const { rootPath, isWorkspaceMode, config } = useWorkspace();
+  const excludeFolders = config?.excludeFolders ?? EMPTY_FOLDERS;
   const { tree } = useFileTree(isOpen ? rootPath : null, {
     excludeFolders,
     showHidden: false,

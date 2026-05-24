@@ -45,12 +45,19 @@ export async function mountMenuCommands(
       const off = await currentWindow.listen<string | [unknown, string]>(event, async (e) => {
         // Window-targeting filter — supports both string payload
         // (single value === windowLabel) and tuple payload (second
-        // element is the target window label).
+        // element is the target window label). Anything else is
+        // an unknown payload shape; refuse to dispatch.
         const payload = e.payload;
         if (typeof payload === "string") {
           if (payload !== windowLabel) return;
         } else if (Array.isArray(payload)) {
           if (payload[1] !== windowLabel) return;
+        } else {
+          menuError(
+            `Refusing to dispatch ${binding.commandId}: unexpected payload shape`,
+            payload,
+          );
+          return;
         }
         try {
           await executeCommand(binding.commandId, payload, { windowLabel });

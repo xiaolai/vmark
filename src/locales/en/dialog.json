@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}} new document will need a save location.",
     "newDocsHint_plural": "{{count}} new documents will need a save location.",
     "openInNewWindow": "This window has unsaved changes. Open the workspace in a new window instead?",
+    "openInNewWindowOk": "Open in New Window",
+    "openInNewWindowCancel": "Cancel",
     "restartUnsaved": "You have {{count}} unsaved document(s). Restart and restore on relaunch?"
+  },
+  "clearHistory": {
+    "allTitle": "Clear All History",
+    "allMessage": "This will permanently delete all document history. This action cannot be undone.",
+    "workspaceTitle": "Clear Workspace History",
+    "workspaceMessage": "Delete history for all documents in workspace \"{{workspaceName}}\"?\nThis cannot be undone."
   },
   "windowClose": {
     "pinnedTitle": "Close Window?",

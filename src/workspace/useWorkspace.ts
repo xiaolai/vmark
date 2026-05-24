@@ -17,13 +17,18 @@
  * @module workspace/useWorkspace
  */
 
+import { useContext } from "react";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 import { useRecentFilesStore, type RecentFile } from "@/stores/recentFilesStore";
 import { useRecentWorkspacesStore, type RecentWorkspace } from "@/stores/recentWorkspacesStore";
-import { useWindowLabel } from "@/contexts/WindowContext";
+import { WindowContext } from "@/contexts/WindowContext";
 
 export interface WorkspaceView {
+  /** Absolute path of the currently-open workspace folder, or null. */
+  rootPath: string | null;
+  /** True when the user opened a folder via "Open Workspace…". */
+  isWorkspaceMode: boolean;
   /** Workspace config for the current window (folder path, settings). */
   config: WorkspaceConfig | null;
 
@@ -49,8 +54,14 @@ export interface WorkspaceView {
 const EMPTY_TABS: Tab[] = [];
 
 export function useWorkspace(): WorkspaceView {
-  const windowLabel = useWindowLabel();
+  // Tolerate missing WindowProvider — tests that render isolated UI
+  // surfaces shouldn't be forced to wrap in WindowProvider. Defaults
+  // to "main" which matches the single-window code path.
+  const ctx = useContext(WindowContext);
+  const windowLabel = ctx?.windowLabel ?? "main";
 
+  const rootPath = useWorkspaceStore((s) => s.rootPath);
+  const isWorkspaceMode = useWorkspaceStore((s) => s.isWorkspaceMode);
   const config = useWorkspaceStore((s) => s.config);
 
   // Stable empty-array reference avoids infinite re-render when tabs are absent.
@@ -62,6 +73,8 @@ export function useWorkspace(): WorkspaceView {
   const recentWorkspaces = useRecentWorkspacesStore((s) => s.workspaces);
 
   return {
+    rootPath,
+    isWorkspaceMode,
     config,
     openTabs,
     activeTabId,

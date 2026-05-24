@@ -16,7 +16,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 
 // Mock dependencies before imports
 const mockSanitizeHtmlPreview = vi.fn((html: string) => `sanitized:${html}`);
-const mockToggleSourceMode = vi.fn();
+const mockToggleSourceModeWithCheckpoint = vi.fn();
 const mockSetCursorInfo = vi.fn();
 let mockHtmlRenderingMode = "sanitized";
 let storeSubscriber: ((state: { markdown: { htmlRenderingMode: string } }) => void) | null = null;
@@ -31,15 +31,6 @@ vi.mock("@/stores/settingsStore", () => ({
       storeSubscriber = cb;
       return mockUnsubscribe;
     },
-  },
-}));
-
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => ({
-      sourceMode: false,
-      toggleSourceMode: mockToggleSourceMode,
-    }),
   },
 }));
 
@@ -58,6 +49,17 @@ vi.mock("@/stores/tabStore", () => ({
       activeTabId: { main: "tab-1" },
     }),
   },
+}));
+
+vi.mock("@/utils/workspaceStorage", () => ({
+  getCurrentWindowLabel: () => "main",
+}));
+
+// HtmlNodeView routes mode toggles through the checkpoint-aware helper
+// from useUnifiedHistory (per ADR-009 mirror invariants).
+vi.mock("@/hooks/useUnifiedHistory", () => ({
+  toggleSourceModeWithCheckpoint: (...args: unknown[]) =>
+    mockToggleSourceModeWithCheckpoint(...args),
 }));
 
 vi.mock("@/utils/sanitize", () => ({
@@ -269,7 +271,7 @@ describe("HtmlNodeView (inline)", () => {
     it("toggles source mode on double-click", () => {
       createInlineView();
       nodeView.dom.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-      expect(mockToggleSourceMode).toHaveBeenCalled();
+      expect(mockToggleSourceModeWithCheckpoint).toHaveBeenCalledWith("main");
     });
 
     it("sets cursor info when sourceLine is available", () => {

@@ -97,6 +97,10 @@ module.exports = {
           "^src/plugins/$1/",
           "^src/plugins/shared/",
           "^src/plugins/sourcePopup/",
+          // ADR-011: the plugin registry is the cross-cutting contract
+          // module; every plugin's manifest.ts imports its PluginManifest
+          // type. Treat it like shared/.
+          "^src/plugins/registry\\.ts$",
         ],
       },
     },

@@ -20,7 +20,7 @@ import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { useTabStore } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
-import { classifyHref, openFilepathLink } from "@/utils/linkOpen";
+import { classifyLinkAction, openLink } from "./operations";
 import { LinkPopupView } from "./LinkPopupView";
 import "./link-popup.css";
 
@@ -125,35 +125,35 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
       if (linkRange) {
         const href = linkRange.mark.attrs.href as string;
         if (href) {
-          const kind = classifyHref(href);
-
-          if (kind === "fragment") {
-            const targetId = href.slice(1);
-            if (navigateToHeadingById(view, targetId)) {
+          // ADR-010: route through shared operations.ts so source and
+          // WYSIWYG controllers share classification + open logic.
+          const action = classifyLinkAction(href);
+          if (action.kind === "fragment") {
+            if (navigateToHeadingById(view, action.targetId)) {
               event.preventDefault();
               return true;
             }
             return false;
           }
-
-          if (kind === "external") {
+          if (action.kind === "external") {
             import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
               openUrl(href).catch(linkPopupError);
             }).catch(linkPopupError);
             event.preventDefault();
             return true;
           }
-
-          // Filepath — resolve relative to active doc, open in a tab.
-          // openFilepathLink is a pure leaf util; read the source doc
-          // path from the tab store here and pass it in.
-          const activeTab = useTabStore
-            .getState()
-            .getActiveTab(getCurrentWebviewWindow().label);
-          const sourcePath = activeTab?.filePath ?? null;
-          openFilepathLink(href, sourcePath).catch(linkPopupError);
-          event.preventDefault();
-          return true;
+          if (action.kind === "filepath") {
+            const activeTab = useTabStore
+              .getState()
+              .getActiveTab(getCurrentWebviewWindow().label);
+            const sourcePath = activeTab?.filePath ?? null;
+            // navigateToFragment passed as null — Tiptap path uses
+            // navigateToHeadingById above for fragments, so openLink
+            // only handles filepath here.
+            void openLink(href, sourcePath, null);
+            event.preventDefault();
+            return true;
+          }
         }
       }
       return false;

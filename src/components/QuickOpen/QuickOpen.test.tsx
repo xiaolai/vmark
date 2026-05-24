@@ -37,18 +37,36 @@ vi.mock("@/stores/workspaceStore", () => ({
   ),
 }));
 
-const mockRecentFilesGetState = vi.fn(() => ({ files: [] as { path: string; timestamp: number }[], removeFile: vi.fn() }));
+const mockRecentFilesState = { files: [] as { path: string; timestamp: number }[], removeFile: vi.fn() };
+const mockRecentFilesGetState = vi.fn(() => mockRecentFilesState);
 
 vi.mock("@/stores/recentFilesStore", () => ({
-  useRecentFilesStore: {
-    getState: (...args: unknown[]) => mockRecentFilesGetState(...args),
-  },
+  useRecentFilesStore: Object.assign(
+    vi.fn((selector?: (s: typeof mockRecentFilesState) => unknown) =>
+      selector ? selector(mockRecentFilesState) : mockRecentFilesState,
+    ),
+    { getState: (...args: unknown[]) => mockRecentFilesGetState(...args) },
+  ),
 }));
 
+const mockTabsState = { tabs: {} as Record<string, unknown[]>, activeTabId: {} as Record<string, string | null> };
 vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: vi.fn(() => ({ getTabsByWindow: () => [] })),
-  },
+  useTabStore: Object.assign(
+    vi.fn((selector?: (s: typeof mockTabsState) => unknown) =>
+      selector ? selector(mockTabsState) : mockTabsState,
+    ),
+    { getState: vi.fn(() => ({ getTabsByWindow: () => [], ...mockTabsState })) },
+  ),
+}));
+
+const mockRecentWorkspacesState = { workspaces: [] };
+vi.mock("@/stores/recentWorkspacesStore", () => ({
+  useRecentWorkspacesStore: Object.assign(
+    vi.fn((selector?: (s: typeof mockRecentWorkspacesState) => unknown) =>
+      selector ? selector(mockRecentWorkspacesState) : mockRecentWorkspacesState,
+    ),
+    { getState: () => mockRecentWorkspacesState },
+  ),
 }));
 
 vi.mock("@/utils/imeGuard", () => ({

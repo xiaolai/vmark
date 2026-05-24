@@ -9,6 +9,7 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { mkdir } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { registerCommand } from "./CommandBus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -48,8 +49,8 @@ export function registerMiscCommands(): void {
       const windowLabel = ctx.windowLabel ?? "main";
       await withReentryGuard(windowLabel, "clear-history", async () => {
         const confirmed = await ask(
-          "This will permanently delete all document history. This action cannot be undone.",
-          { title: "Clear All History", kind: "warning" }
+          i18n.t("dialog:clearHistory.allMessage"),
+          { title: i18n.t("dialog:clearHistory.allTitle"), kind: "warning" }
         );
         if (confirmed) {
           try {
@@ -76,8 +77,8 @@ export function registerMiscCommands(): void {
 
         const workspaceName = rootPath.split(/[\\/]/).filter(Boolean).pop() || rootPath;
         const confirmed = await ask(
-          `Delete history for all documents in workspace "${workspaceName}"?\nThis cannot be undone.`,
-          { title: "Clear Workspace History", kind: "warning" }
+          i18n.t("dialog:clearHistory.workspaceMessage", { workspaceName }),
+          { title: i18n.t("dialog:clearHistory.workspaceTitle"), kind: "warning" }
         );
         if (confirmed) {
           const count = await clearWorkspaceHistory(rootPath);

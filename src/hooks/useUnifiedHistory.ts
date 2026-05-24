@@ -85,6 +85,15 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
     cursorInfo,
   });
 
+  // ADR-009 mirror — runs in EVERY exit path so document.mode stays in
+  // sync with the effective mode the user just produced.
+  const syncDocMode = () => {
+    const tabIdForMirror = tabStore.activeTabId[windowLabel];
+    if (!tabIdForMirror) return;
+    const newMode = useUIStore.getState().sourceMode ? "source" : "wysiwyg";
+    documentStore.setMode(tabIdForMirror, newMode);
+  };
+
   // If this tab is forced-source, the user explicitly toggling mode means
   // "I want to leave the forced-source state". Clear the marker; the global
   // toggle below then takes effect normally.
@@ -95,7 +104,9 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
     // WYSIWYG, clearing the marker IS the toggle (effective: source → wysiwyg).
     if (!editorStore.sourceMode) {
       // Global is WYSIWYG, effective was forced Source; clearing marker
-      // gives effective WYSIWYG. No global toggle needed.
+      // gives effective WYSIWYG. No global toggle needed — but we still
+      // mirror so document.mode flips from "source" to "wysiwyg".
+      syncDocMode();
       return;
     }
     // Global is Source; clearing marker leaves effective Source. Fall through
@@ -103,15 +114,7 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
   }
 
   editorStore.toggleSourceMode();
-
-  // ADR-009: keep the per-document mode in sync with the window flag.
-  // For now they always match; future per-tab mode UX reads the doc
-  // field directly without changing the toggle path.
-  const tabIdForMirror = tabStore.activeTabId[windowLabel];
-  if (tabIdForMirror) {
-    const newMode = useUIStore.getState().sourceMode ? "source" : "wysiwyg";
-    documentStore.setMode(tabIdForMirror, newMode);
-  }
+  syncDocMode();
 }
 
 /**

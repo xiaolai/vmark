@@ -142,15 +142,18 @@ export function registerRecentFilesCommands(): void {
               );
             } catch (error) {
               menuError("Failed to replace tab with recent file:", error);
-              if (replaceLoadId !== null) {
-                useFileLoadStore.getState().endLoad(replaceLoadId);
-              }
               const remove = await ask(
                 i18n.t("dialog:fileNotFound.message"),
                 { title: i18n.t("dialog:fileNotFound.title"), kind: "warning" }
               );
               if (remove) {
                 useRecentFilesStore.getState().removeFile(file.path);
+              }
+            } finally {
+              // Ensure the progress indicator clears whether the load
+              // succeeded or failed — drops the orphan-indicator finding.
+              if (replaceLoadId !== null) {
+                useFileLoadStore.getState().endLoad(replaceLoadId);
               }
             }
             break;

@@ -18,9 +18,10 @@
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { useSettingsStore, type HtmlRenderingMode } from "@/stores/settingsStore";
-import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
+import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
 import type { CursorInfo } from "@/types/cursorSync";
 
@@ -83,19 +84,18 @@ class BaseHtmlNodeView implements NodeView {
         contextAfter: "",
       };
       // Per ADR-009: cursorInfo lives per-document; setCursorInfo takes tabId.
-      const windowLabel = "main"; // HtmlNodeView is editor-internal; single-window scope.
+      // Resolve the actual window label so cursor sync also works in
+      // doc-* windows, not only the main one.
+      const windowLabel = getCurrentWindowLabel();
       const activeTabId = useTabStore.getState().activeTabId[windowLabel];
       if (activeTabId) {
         useDocumentStore.getState().setCursorInfo(activeTabId, cursorInfo);
       }
     }
 
-    // Switch to source mode
-    const uiStore = useUIStore.getState();
-    /* v8 ignore next -- @preserve already-in-source-mode path skips toggle; tested path always enters from WYSIWYG */
-    if (!uiStore.sourceMode) {
-      uiStore.toggleSourceMode();
-    }
+    // Switch to source mode via the checkpoint-aware path so undo history
+    // and the per-doc mode mirror stay consistent.
+    toggleSourceModeWithCheckpoint(getCurrentWindowLabel());
   };
 
   update(node: PMNode): boolean {
