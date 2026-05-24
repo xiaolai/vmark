@@ -118,7 +118,7 @@ Edit LaTeX math expressions with live preview.
 
 **Trigger:**
 - **WYSIWYG:** Click on inline math `$...$`
-- **Source:** Place cursor inside `$...$`, `$$...$$`, or ` ```latex ` blocks
+- **Source:** Place cursor inside a non-empty `$...$`, a `$$...$$` block, or a ` ```latex ` block
 
 **Fields:**
 - **LaTeX Input** — Edit the math expression
@@ -127,7 +127,8 @@ Edit LaTeX math expressions with live preview.
 
 **Shortcuts:**
 - `Mod + Enter` — Save and close
-- `Escape` — Cancel and close
+- `Click outside` — Save and close (commits your edits)
+- `Escape` — Cancel and close (discards your edits)
 - `Shift + Backspace` — Delete inline math (works even when non-empty, WYSIWYG only)
 - `Alt + Mod + M` — Insert new inline math
 
@@ -136,7 +137,7 @@ When you have a LaTeX syntax error, the popup shows helpful suggestions like mis
 :::
 
 ::: info Source Mode
-Source mode provides the same editable math popup as WYSIWYG mode — a textarea for LaTeX input with a live KaTeX preview below it. The popup opens automatically when your cursor enters any math syntax (`$...$`, `$$...$$`, or ` ```latex `). Press `Mod + Enter` to save or `Escape` to cancel.
+Source mode provides the same editable math popup as WYSIWYG mode — a textarea for LaTeX input with a live KaTeX preview below it. The popup opens automatically when your cursor enters any math syntax (a non-empty `$...$`, `$$...$$`, or ` ```latex `). Press `Mod + Enter` to save or `Escape` to cancel. An empty `$$` typed at the end of a line is treated as plain text — likely a half-typed block-math delimiter — and does not open the popup.
 :::
 
 ## Footnote Popup
