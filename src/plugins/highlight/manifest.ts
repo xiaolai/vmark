@@ -1,11 +1,12 @@
 /**
- * highlight manifest — ADR-011 foundation entry.
- * Refine modes/slots/commands/dependsOn as the plugin gets characterized.
+ * highlight manifest — ADR-011 with tiptap factory demo.
  */
 import type { PluginManifest } from "@/plugins/registry";
+import { highlightExtension } from "./tiptap";
 
 export const manifest: PluginManifest = {
   id: "highlight",
   formats: ["markdown"],
   modes: ["wysiwyg"],
+  tiptap: () => highlightExtension,
 };

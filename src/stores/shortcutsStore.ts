@@ -193,6 +193,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new", scope: "global" },
   { id: "newWindow", label: "New Window", category: "file", defaultKey: "Mod-Shift-n", menuId: "new-window", scope: "global" },
   { id: "quickOpen", label: "Quick Open", category: "file", defaultKey: "Mod-o", menuId: "quick-open", scope: "global" },
+  { id: "commandPalette", label: "Command Palette", category: "file", defaultKey: "Mod-Shift-p", scope: "global" },
   { id: "openFile", label: "Open File...", category: "file", defaultKey: "", menuId: "open", scope: "global" },
   { id: "openFolder", label: "Open Workspace", category: "file", defaultKey: "Mod-Shift-o", menuId: "open-folder", scope: "global" },
   { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save", scope: "global" },

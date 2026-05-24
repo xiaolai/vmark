@@ -119,8 +119,18 @@ import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { useContentSearchShortcuts } from "@/components/ContentSearch/useContentSearchShortcuts";
+import { CommandPalette, useCommandPaletteShortcut } from "@/components/CommandPalette";
+import { useTabModeSync } from "@/hooks/useTabModeSync";
+import { cssVars } from "@/theme";
 
-/** Drop zone indicator when dragging markdown files */
+// ADR-014 sample migration — visual values come from the typed accessor
+// in `@/theme`. Non-token literals (z-index, border width, viewport
+// margins) stay literal per the ADR's "what stays literal" exemption.
+const DROP_OVERLAY_BORDER_WIDTH = 3;
+const DROP_OVERLAY_Z = 9998;
+const DROP_OVERLAY_MARGIN = 8;
+const DROP_LABEL_FONT_SIZE = 14;
+
 function DropOverlay() {
   const { t } = useTranslation();
   const isDragging = useUIStore((state) => state.isDraggingFiles);
@@ -131,25 +141,25 @@ function DropOverlay() {
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "var(--accent-bg)",
-        border: "3px dashed var(--accent-primary)",
-        borderRadius: "var(--radius-lg)",
+        backgroundColor: cssVars.color.accent.bg,
+        border: `${DROP_OVERLAY_BORDER_WIDTH}px dashed ${cssVars.color.accent.primary}`,
+        borderRadius: cssVars.radius.lg,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 9998,
+        zIndex: DROP_OVERLAY_Z,
         pointerEvents: "none",
-        margin: 8,
+        margin: DROP_OVERLAY_MARGIN,
       }}
     >
       <div
         style={{
-          padding: "16px 24px",
-          backgroundColor: "var(--bg-color)",
-          borderRadius: "var(--radius-md)",
-          boxShadow: "var(--popup-shadow)",
-          color: "var(--text-color)",
-          fontSize: 14,
+          padding: `${cssVars.space[4]} ${cssVars.space[6]}`,
+          backgroundColor: cssVars.color.bg.primary,
+          borderRadius: cssVars.radius.md,
+          boxShadow: cssVars.shadow.popup,
+          color: cssVars.color.text.primary,
+          fontSize: DROP_LABEL_FONT_SIZE,
           fontWeight: 500,
         }}
       >
@@ -188,6 +198,11 @@ function QuickOpenShortcutsRunner() {
 
 function ContentSearchShortcutsRunner() {
   useContentSearchShortcuts();
+  return null;
+}
+
+function CommandPaletteShortcutRunner() {
+  useCommandPaletteShortcut();
   return null;
 }
 
@@ -241,6 +256,7 @@ function MainLayout() {
   useFileExplorerShortcuts(); // Toggle hidden files
   useImagePasteToast(); // Image paste confirmation toast
   useTerminalPosition(); // Auto-reposition terminal panel based on window shape
+  useTabModeSync(); // ADR-009: per-tab editor swap on tab switch
   useFormatsUpgradeNudge(); // One-time toast surfacing the new opt-in formats
 
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
@@ -297,12 +313,14 @@ function MainLayout() {
           <GenieShortcutsRunner />
           <QuickOpenShortcutsRunner />
           <ContentSearchShortcutsRunner />
+          <CommandPaletteShortcutRunner />
 
           <DropOverlay />
           <QuickOpen windowLabel={windowLabel} />
           <ContentSearch windowLabel={windowLabel} />
           <GeniePicker />
           <ApprovalDialog />
+          <CommandPalette />
         </>
       }
     />
