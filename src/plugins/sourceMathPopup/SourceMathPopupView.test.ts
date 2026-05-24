@@ -246,4 +246,44 @@ describe("SourceMathPopupView — stale range validation (P3)", () => {
     expect(view.state.doc.toString()).toBe("plain text without math");
     expect(useSourceMathPopupStore.getState().isOpen).toBe(false);
   });
+
+  it("block math: aborts when captured range opens with $$ but has no closing $$", () => {
+    // Range starts with `$$` (passes the prefix check) but the body — captured
+    // before the user deleted the closing fence — no longer contains a valid
+    // closer. Writing back the new block would clobber the trailing text.
+    view.destroy();
+    view = createCmView("$$\nx^2\n\nstray paragraph");
+    popup.destroy();
+    popup = new SourceMathPopupView(view);
+
+    openPopup({ latex: "x^2", mathFrom: 0, mathTo: 23, isBlock: true });
+    useSourceMathPopupStore.getState().updateLatex("y^3");
+
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+    expect(view.state.doc.toString()).toBe("$$\nx^2\n\nstray paragraph");
+    expect(useSourceMathPopupStore.getState().isOpen).toBe(false);
+  });
+
+  it("block math: aborts when latex-fence range has no closing ```", () => {
+    view.destroy();
+    view = createCmView("```latex\nx^2\nmore content with no fence end");
+    popup.destroy();
+    popup = new SourceMathPopupView(view);
+
+    openPopup({
+      latex: "x^2",
+      mathFrom: 0,
+      mathTo: view.state.doc.length,
+      isBlock: true,
+    });
+    useSourceMathPopupStore.getState().updateLatex("y^3");
+
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+    expect(view.state.doc.toString()).toBe(
+      "```latex\nx^2\nmore content with no fence end",
+    );
+    expect(useSourceMathPopupStore.getState().isOpen).toBe(false);
+  });
 });

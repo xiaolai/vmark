@@ -118,7 +118,7 @@ Edit LaTeX math expressions with live preview.
 
 **Trigger:**
 - **WYSIWYG:** Click on inline math `$...$`
-- **Source:** Place cursor inside a non-empty `$...$`, a `$$...$$` block, or a ` ```latex ` block
+- **Source:** Place cursor inside a non-empty `$...$`, a `$$...$$` block, or a ` ```latex ` / ` ```math ` block
 
 **Fields:**
 - **LaTeX Input** — Edit the math expression
@@ -137,7 +137,7 @@ When you have a LaTeX syntax error, the popup shows helpful suggestions like mis
 :::
 
 ::: info Source Mode
-Source mode provides the same editable math popup as WYSIWYG mode — a textarea for LaTeX input with a live KaTeX preview below it. The popup opens automatically when your cursor enters any math syntax (a non-empty `$...$`, `$$...$$`, or ` ```latex `). Press `Mod + Enter` to save or `Escape` to cancel. An empty `$$` typed at the end of a line is treated as plain text — likely a half-typed block-math delimiter — and does not open the popup.
+Source mode provides the same editable math popup as WYSIWYG mode — a textarea for LaTeX input with a live KaTeX preview below it. The popup opens automatically when your cursor enters any math syntax (a non-empty `$...$`, `$$...$$`, or ` ```latex ` / ` ```math `). Press `Mod + Enter` to save or `Escape` to cancel. An empty `$$` typed at the end of a line is treated as plain text — likely a half-typed block-math delimiter — and does not open the popup.
 :::
 
 ## Footnote Popup
@@ -230,7 +230,9 @@ Fix spelling errors with suggestions.
 - For multi-line content (footnotes, math): use `Mod + Enter` to save
 
 ### Mouse Behavior
-- Click outside popup to close (changes are discarded)
+- Click outside popup to close. Default behavior is **discard** unsaved
+  changes; the math popup is an exception and **commits** the edit on
+  click-outside (see the [Math Popup](#math-popup) section).
 - Hover popups (link, footnote, wiki) have 300ms delay before showing
 - Moving mouse back to popup keeps it open
 

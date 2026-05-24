@@ -175,8 +175,19 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
     if (mathFrom < 0 || mathTo > doc.length || mathFrom >= mathTo) return false;
     const slice = doc.sliceString(mathFrom, mathTo);
     if (isBlock) {
-      // Block math: must start with $$ or ```latex / ```math fence.
-      return /^(?:\$\$|```(?:latex|math))/.test(slice);
+      // Block math must have BOTH the opening fence AND a matching closing
+      // delimiter inside the captured range. Without the close check, a range
+      // whose tail drifted out from under us (closing `$$` deleted, fence
+      // re-opened, etc.) would still pass and overwrite unrelated content.
+      if (slice.startsWith("$$")) {
+        // Need a closing `$$` AFTER the opening one on its own logical line.
+        return /\n\$\$\s*$/.test(slice) || /\n\$\$\n/.test(slice);
+      }
+      if (/^```(?:latex|math)/.test(slice)) {
+        // Need a closing ``` after the opener.
+        return /\n```\s*$/.test(slice) || /\n```\n/.test(slice);
+      }
+      return false;
     }
     // Inline math: must start and end with a single `$` and have non-empty body.
     return slice.length >= 3 && slice.startsWith("$") && slice.endsWith("$");
