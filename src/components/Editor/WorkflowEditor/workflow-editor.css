@@ -73,15 +73,19 @@
   cursor: not-allowed;
 }
 
+/* Solid primary-CTA pattern. Previously --accent-bg + blue text fell to
+ * ~4.3:1 contrast (below WCAG AA) and the CTA was less prominent at rest
+ * than on hover. */
 .workflow-editor-panel__btn--primary {
-  background: var(--accent-bg);
+  background: var(--accent-primary);
   border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  color: var(--contrast-text);
 }
 
 .workflow-editor-panel__btn--primary:hover:not(:disabled) {
   background: var(--accent-primary);
   color: var(--contrast-text);
+  opacity: var(--opacity-mostly-opaque);
 }
 
 .workflow-editor-panel__btn:focus-visible {

@@ -102,8 +102,13 @@
   text-overflow: ellipsis;
 }
 
+/* Selected name keeps --text-color rather than switching to --accent-primary.
+ * Blue on pale-blue (--accent-bg) sat at ~4.3:1 — below WCAG AA. Dark text
+ * on the same band reaches ~11:1; the pale-blue band still indicates
+ * selection, and matched characters keep their own --accent-primary
+ * highlight via .quick-open-match. */
 .quick-open-item--selected .quick-open-item-name {
-  color: var(--accent-primary);
+  color: var(--text-color);
 }
 
 .quick-open-item-path {
