@@ -9,6 +9,9 @@
  *   - Click outside also reverts, matching ESC behavior for consistency
  *   - Cmd+Enter commits changes, providing a keyboard path to save
  *   - Uses a ProseMirror plugin (not Tiptap keymap) to intercept click-outside events
+ *   - exitEditing guards stale editingPos (out-of-bounds, or pointing at a
+ *     non-codeBlock node after a doc shift) and clears state without mutating
+ *     unrelated content — prevents `Position N outside of fragment` crashes.
  *
  * @coordinates-with codePreview/tiptap.ts — the code preview node that hosts the math editor
  * @coordinates-with stores/blockMathEditingStore.ts — editing state (original content, position)

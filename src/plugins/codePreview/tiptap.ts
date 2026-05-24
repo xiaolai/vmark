@@ -19,6 +19,9 @@
  *     (isWorkflowYaml). Plain YAML blocks (docker-compose, etc.) stay as text.
  *   - Plugin state tracks `codeBlockRanges` so the apply() fast path can skip the full
  *     doc.descendants() scan when a transaction doesn't touch any code block
+ *   - exitEditMode guards stale editingPos (out-of-bounds, or pointing at a
+ *     non-codeBlock node after a doc shift) and aborts the replaceWith path
+ *     to prevent `Position N outside of fragment` crashes on save/cancel.
  *
  * Known limitations:
  *   - Module-level `currentEditorView` is used for button callbacks (not ideal for multi-editor)
