@@ -35,6 +35,7 @@ module.exports = {
           // Assembler files (wire plugins into editor configurations)
           "src/utils/tiptapExtensions\\.ts$",
           "src/utils/sourceEditorExtensions\\.ts$",
+          "src/utils/sourceEditorExtensions\\.test\\.ts$",
           "src/utils/modeSwitchCleanup\\.ts$",
           // File operation services (need store access for tab/document state)
           "src/utils/activeDocument",

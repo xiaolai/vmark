@@ -1,6 +1,6 @@
 # ADR-010: Editor host as mode-agnostic interface
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Revised — Scoped Down** | Date: 2026-05-24 | Spike: 2026-05-24
 
 ## Context
 
@@ -88,3 +88,91 @@ read-only embeds (preview-only) — those stay separate.
   co-location side-effect.
 - Spike outcome on `linkPopup` is the gate before adopting beyond
   proposal status.
+
+## Spike outcome (2026-05-24) — VERDICT: scope down
+
+Read both implementations end-to-end:
+
+| File | Engine | Lines | Detection model | Edit model |
+|---|---|---|---|---|
+| `plugins/linkPopup/tiptap.ts` | Tiptap | 239 | Mark traversal on node tree | PM `Transaction` against mark range |
+| `plugins/linkPopup/LinkPopupView.ts` | Tiptap | 260 | (view only) | (view only) |
+| `plugins/sourceLinkPopup/sourceLinkPopupPlugin.ts` | CM | 176 | Regex on flat text | CM `Transaction` replacing chars |
+| `plugins/sourceLinkPopup/SourceLinkPopupView.ts` | CM | 173 | (view only) | (view only) |
+
+**The honest verdict on EditorHost-as-whole-editor:**
+
+The data models genuinely diverge. ProseMirror has a typed node tree
+with marks; CodeMirror has flat text with decorations. ProseMirror has
+node selections; CodeMirror does not. ProseMirror transactions operate
+on document positions; CodeMirror transactions operate on character
+offsets. An interface that abstracts both at the "host" level either
+becomes a lowest-common-denominator string-and-cursor API (losing
+both engines' power), or leaks the underlying model through enough
+union types that callers might as well branch on the engine.
+
+**A `linkPopup` controller that only uses an `EditorHost` API would
+need every detail of both data models exposed — at which point it
+isn't an abstraction, just a wider surface.** The first-draft ADR-010
+oversold this.
+
+**What IS feasible and already partly proven:**
+
+A *per-operation* adapter pattern:
+
+- `plugins/toolbarActions/{wysiwyg,source}Adapter*.ts` already abstracts
+  toolbar actions across engines.
+- `plugins/sourcePopup/` (`SourcePopupView`, `createSourcePopupPlugin`)
+  already extracts shared CodeMirror popup infrastructure. No Tiptap
+  equivalent exists yet.
+- Both engines can populate the same Zustand store
+  (`useLinkPopupStore`) — already the case.
+
+**Revised decision (scope down ADR-010 → 011 territory):**
+
+Drop the goal of a unified `EditorHost`. Instead, for each dual-mode
+feature, ship:
+
+1. **One React view** (the popup) in `plugins/<feature>/<Feature>PopupView.tsx`.
+2. **One shared state** (Zustand store) — already pattern.
+3. **Two thin controllers**: `plugins/<feature>/tiptap.ts` and
+   `plugins/<feature>/codemirror.ts`. Each detects feature presence
+   and dispatches the appropriate engine transaction. Logic that does
+   not touch engine internals (string parsing, URL handling, navigation)
+   lives in a `plugins/<feature>/operations.ts` file consumed by both.
+
+The `source*Popup/` directories then collapse into the parent feature
+folder, with `codemirror.ts` replacing the standalone module.
+
+**What this means for downstream ADRs:**
+
+- **ADR-011 (Plugin manifest)**: needs `modes: ('source' | 'wysiwyg')[]`
+  and a controller declaration per mode — already the manifest shape.
+  Survives unchanged.
+- **ADR-009 (Document model)**: unaffected; document is the input to
+  both controllers.
+- **Existing plan T11 (source/WYSIWYG popup unification)**: this is the
+  actual mechanism. T11 was approximately right; ADR-010 in its first
+  draft overpromised by trying to abstract the entire editor surface.
+
+**Verification gates — revised:**
+
+- Each previously-duplicated feature has **one** view, **one** state,
+  **one** operations file, **two** controllers (max).
+- `find src/plugins -type d -name 'source*Popup'` returns empty after
+  T11/this-ADR's work lands per-feature.
+- View files import neither `@tiptap/*` nor `@codemirror/*`.
+- Controller files are <200 LOC each (forces logic to live in
+  `operations.ts`).
+
+**What gets dropped from the original ADR:**
+
+- The `EditorHost` interface itself. No common selection/edit API
+  across engines.
+- The promise that plugins "consume `EditorHost`." Plugins still target
+  the engine through a thin controller.
+- The verification line "`grep -rln 'from.*@tiptap\|from.*@codemirror'
+  src/plugins/` matches only controller files" — still useful, kept.
+
+This is a **smaller** but **more truthful** ADR. The original was
+architecturally ambitious in a way the engines do not support.

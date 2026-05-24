@@ -23,7 +23,7 @@
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",
     "lint:design-tokens": "node scripts/check-design-tokens.mjs",
     "lint:emdash": "node scripts/check-emdash-spacing.mjs",
-    "lint:deps": "depcruise src --config .dependency-cruiser.cjs --ignore-known",
+    "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
     "lint:console": "bash scripts/lint-console.sh",
     "lint:i18n": "tsx scripts/check-i18n-keys.ts",
     "extract-menu-ids": "tsx scripts/extract-menu-ids.ts",

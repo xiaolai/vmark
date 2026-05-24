@@ -90,3 +90,33 @@ that resolve to command IDs.
   mutations), and ADR-011 (plugin command declarations).
 - Enabled by ADR-013 (command bus lives in `services/commands/`).
 - Subsumes existing T06.
+
+## Scope reality (added 2026-05-24)
+
+Initial audit assumed `useUnifiedMenuCommands` already covered most
+menu events. **It does not.** The unified dispatcher iterates 80 entries
+in `MENU_TO_ACTION`; the six legacy `use*MenuEvents` hooks listen for
+roughly 40 additional menu IDs that have **zero overlap** with the
+registry.
+
+To fully accept this ADR, each of those 40+ events needs:
+1. An `ActionId` constant
+2. An `ActionDefinition` with category and dispatch handler
+3. An entry in `MENU_TO_ACTION`
+4. The legacy hook's handler logic ported into the dispatch handler
+
+That is a dedicated effort, not a same-session task. **Approach**:
+
+- **First**: this ADR remains Proposed.
+- **Second** (separate PR): scaffold `src/services/commands/CommandBus.ts`
+  with `register / execute / search` over the existing `actionRegistry`
+  data. No behavior change, just an API surface.
+- **Third** (one PR per legacy hook): migrate `useExportMenuEvents`,
+  then `useRecentFilesMenuEvents`, etc. Each PR ports ~5-10 actions and
+  deletes one hook. Six PRs total.
+- **Fourth**: when all six legacy hooks are gone, this ADR flips
+  Accepted with the grep gate (`grep -rn "listen.*['\"]menu:" src/`
+  returns exactly 1).
+
+This staged path avoids a multi-day branch and lets each migration get
+its own review.

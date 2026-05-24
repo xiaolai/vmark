@@ -1,108 +1,117 @@
 # ADR-014: Theme tokens as typed data
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Proposed (rewritten)** | Date: 2026-05-24
+> Supersedes the first draft of this ADR.
 
 ## Context
 
 163 CSS custom properties live in `src/styles/index.css` across three
 layers (semantic tokens, primitives, dynamic overrides set by
-`useTheme.ts`). Many alias-of-alias chains exist
-(`--bg-primary → --bg-color`, `--spacing-1 = --space-1`). The
-`ui-tokenize` audit produces 58% wrong suggestions (per
-`.claude/rules/31-design-tokens.md`) because the tool matches on value
-coincidence and token semantics are not encoded — there is no way for
-tooling to know that `--radius-sm: 4px` and `--spacing-1: 4px` are
-semantically distinct.
+`useTheme.ts`). Alias-of-alias chains exist (`--bg-primary →
+--bg-color`, `--spacing-1 = --space-1`).
 
 The reskin replaces the visual language. Without a theme contract, the
-reskin team edits `index.css` and a long tail of component styles
-directly, with no type-checked surface to confirm coverage.
+reskin team edits `index.css` and a long tail of component styles by
+hand, with no type-checked surface to confirm the new theme covers
+every token the codebase actually consumes.
 
-Existing T04 collapses the token set to ~30 in a single CSS file. The
-plan's count is wildly wrong (50 → 30 vs. reality 163 → 30), and the
-collapse does not address the semantic encoding problem.
+Existing plan task T04 collapses the token set to ~30 in a single CSS
+file. T04 helps surface area but does not give the reskin team a
+type-checked theme contract.
+
+## What this ADR is NOT trying to do (rewrite correction)
+
+The first draft of this ADR claimed typed tokens would fix the
+`ui-tokenize` audit's 58 % wrong-suggestion problem. **That claim was
+wrong.** The audit is a third-party tool (`ui-tokenize` plugin) that
+matches on value coincidence; typing my tokens in TypeScript does not
+change the tool's behavior. The audit stays broken unless we replace
+or wrap the tool, which is out of scope.
+
+What remains true and load-bearing: a typed theme contract makes the
+reskin a swap, not an edit campaign.
 
 ## Considered Options
 
-1. **Status quo** — document conventions in
-   `.claude/rules/31-design-tokens.md`; keep audit tool as-is.
-2. **Collapse to ~30 tokens, single CSS file** — existing T04;
-   reduces surface area but keeps CSS as source of truth.
-3. **Tokens as typed TypeScript data; CSS generated from it** — the
-   structure is the contract; themes implement the type.
+1. **Status quo** — keep CSS as source of truth; collapse aliases via
+   existing T04.
+2. **Collapse + add a manual type guide** — T04 plus a `theme/tokens.ts`
+   reference file that documents (but does not generate) the tokens.
+3. **Typed `ThemeTokens` + codegen** — TypeScript type is the contract;
+   light/dark themes implement it; CSS is generated.
 
 ## Decision
 
-Chosen: **Option 3 — `ThemeTokens` is a TypeScript type**. Light and
-dark themes implement it. CSS is generated at build time from the
-structure.
+Chosen: **Option 3**, scoped tighter than the first draft.
 
 ```ts
-type ThemeTokens = {
+// src/theme/tokens.ts
+export type ThemeTokens = {
   color: {
-    bg: { primary; secondary; tertiary };
-    text: { primary; secondary; tertiary };
-    accent: { primary; bg };
-    semantic: { error; warning; success };
-    alert: { note; tip; important; warning; caution };
-    media: { video; audio; youtube; vimeo; bilibili };
+    bg: { primary: string; secondary: string; tertiary: string };
+    text: { primary: string; secondary: string; tertiary: string };
+    accent: { primary: string; bg: string };
+    semantic: { error: string; warning: string; success: string };
+    alert: { note: string; tip: string; important: string; warning: string; caution: string };
+    media: { video: string; audio: string; youtube: string; vimeo: string; bilibili: string };
+    border: string;
   };
   space: Record<1 | 2 | 3 | 4 | 5 | 6 | 8 | 10, string>;
-  radius: { sm; md; lg; pill };
-  shadow: { sm; md; popup };
-  font: { sans; mono };
-  // ...
+  radius: { sm: string; md: string; lg: string; pill: string };
+  shadow: { sm: string; md: string; popup: string };
+  font: { sans: string; mono: string };
 };
 
-const lightTheme: ThemeTokens = { ... };
-const darkTheme: ThemeTokens = { ... };
+export const lightTheme: ThemeTokens = { ... };
+export const darkTheme: ThemeTokens = { ... };
 ```
 
-Generated artifacts:
-- `src/styles/tokens.generated.css` — do not edit; produced by a build
-  script from `src/theme/`.
-- `src/styles/tokens.legacy.css` — compat layer with old token names
-  aliased to new ones; maintained manually; entries removed as components
-  migrate.
+Generated artifact: `src/styles/tokens.generated.css` — produced by a
+build script from `src/theme/`. Do not edit by hand.
 
-Components consume tokens via generated CSS variables (existing pattern)
-OR via typed accessors for inline styles in TSX.
+Existing tokens that don't map cleanly into the `ThemeTokens` type
+(e.g. `--editor-font-size`, runtime-overridden tokens) stay in
+`index.css` for now and migrate opportunistically. The compat layer is
+the existing `index.css`, not a new `tokens.legacy.css`.
 
 ## Verification gate
 
-- `src/styles/tokens.generated.css` exists and is regenerated by a build
-  script under `scripts/`.
-- `grep -c '^\s*--' src/styles/index.css` ≤ 30 (only non-token globals
-  remain: font stacks, system-level resets).
-- Audit tool reads the TypeScript structure, not regex over CSS.
-- Adding a new theme requires implementing `ThemeTokens`, not editing
-  `index.css`.
-- `tokens.legacy.css` has a documented removal target (one entry removed
-  per migrated component, tracked).
+- `src/theme/tokens.ts` defines `ThemeTokens` and exports light + dark
+  implementations.
+- `src/styles/tokens.generated.css` is regenerated by a build script
+  and lives under `.gitignore` (or under `dist/` — TBD by implementer).
+- Adding a new theme requires implementing `ThemeTokens`; the type
+  enforces that every token has a value.
+- No claim about `ui-tokenize` audit accuracy. The audit stays an
+  advisory tool with its known false-positive rate.
 
 ## Consequences
 
 - **Good**: reskin = implement a new `ThemeTokens`, regenerate, done.
-  Token audit becomes type-checked; the 58% wrong-suggestion problem
-  disappears because semantics are encoded. Density and accessibility
-  modes become alternate `ThemeTokens` implementations. Storybook /
-  reference documents auto-generate from the typed structure.
-- **Bad**: codegen step adds build complexity. Existing 163 tokens need
-  migration (mechanical but tedious, ~3 days). Components touching CSS
-  variables directly in TSX (inline `style={{}}`) need typed-accessor
-  adoption.
+  TypeScript catches missing tokens at compile time. Density and
+  accessibility modes become alternate implementations of the same
+  type.
+- **Bad**: codegen step adds build complexity. Migration is incremental
+  — runtime-overridden tokens (`useTheme.ts` dynamic ones) and some
+  one-off CSS vars stay in `index.css` until each surface is migrated.
 
 ## Negative space
 
-Tokens do NOT migrate every component in one go — the compat layer
-keeps old token names working until each component is updated. Does NOT
-replace CSS variables at runtime; the runtime is still CSS vars, the
-source is just typed.
+Tokens do NOT replace CSS variables at runtime — the runtime stays
+CSS-var-based; the source is typed and CSS is generated. Does NOT
+migrate every existing component in one go. Does NOT fix the
+`ui-tokenize` audit (third-party tool, out of scope).
 
 ## Dependencies
 
 - Theme provider lives at the ADR-007 Shell root.
-- Replaces and widens existing T04 (which only collapses tokens; does not
-  address semantic encoding).
-- Removes the obsolete `scripts/migrate-tokens-v*.mjs` family (existing
-  T05).
+- Replaces existing plan task T04 (which only collapses tokens; does
+  not introduce a type contract).
+- Existing plan task T05 (deleting obsolete `migrate-tokens-v*.mjs`
+  scripts) is independent of this ADR and can ship separately.
+
+## Open question for implementer
+
+Whether the generated CSS lives in `dist/` (build artifact, never
+committed) or `src/styles/` (committed for IDE convenience, git-ignored
+if needed). Decide during implementation.
