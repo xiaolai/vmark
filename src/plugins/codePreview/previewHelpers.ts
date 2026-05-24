@@ -120,7 +120,10 @@ export function createLivePreview(language: string): HTMLElement {
     : language === "svg" ? "mermaid"
     : language === "markmap" ? "markmap" : language;
   wrapper.className = `code-block-live-preview ${previewClass}-live-preview`;
-  wrapper.innerHTML = '<div class="code-block-live-preview-loading">Rendering...</div>';
+  const loading = document.createElement("div");
+  loading.className = "code-block-live-preview-loading";
+  loading.textContent = i18n.t("editor:preview.rendering");
+  wrapper.replaceChildren(loading);
   return wrapper;
 }
 

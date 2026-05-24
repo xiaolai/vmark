@@ -73,9 +73,26 @@ function createMockView(state: EditorState): EditorView & { dispatch: ReturnType
   } as unknown as EditorView & { dispatch: ReturnType<typeof vi.fn> };
 }
 
-describe("blockMathKeymap — isCursorInCodeBlock logic", () => {
-  // We test the behavior via the extension's plugin handleKeyDown indirectly
-  // by verifying the store and dispatch interactions.
+describe("blockMathKeymap — handleKeyDown drives the plugin", () => {
+  // These tests invoke the plugin's handleKeyDown for real and assert the
+  // observable side effects (return value, exitEditing call, dispatched
+  // transaction shape). Earlier versions only inspected store state and
+  // never exercised the plugin code path.
+
+  function buildPlugin() {
+    const ctx = {
+      name: blockMathKeymapExtension.name,
+      options: blockMathKeymapExtension.options,
+      storage: blockMathKeymapExtension.storage,
+       
+      editor: {} as any,
+      type: null,
+      parent: undefined,
+    };
+     
+    const plugins = (blockMathKeymapExtension.config as any).addProseMirrorPlugins?.call(ctx) ?? [];
+    return plugins[0];
+  }
 
   beforeEach(() => {
     const store = useBlockMathEditingStore.getState();
@@ -84,53 +101,104 @@ describe("blockMathKeymap — isCursorInCodeBlock logic", () => {
     vi.mocked(store.exitEditing).mockClear();
   });
 
-  it("exitEditing returns false when editingPos is null", () => {
-    // When no editing is happening, the keydown handler should return false.
-    const store = useBlockMathEditingStore.getState();
-    expect(store.editingPos).toBeNull();
-    // This is implicitly tested — we just verify the store state.
+  it("returns false when no editing is in progress", () => {
+    const state = createEditorState("content");
+    const view = createMockView(state);
+    const plugin = buildPlugin();
+    const result = plugin.props.handleKeyDown!(view, new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(result).toBe(false);
+    expect(view.dispatch).not.toHaveBeenCalled();
+    expect(useBlockMathEditingStore.getState().exitEditing).not.toHaveBeenCalled();
   });
 
-  it("exitEditing reverts content when revert=true and content differs", () => {
+  it("Escape reverts edited content back to originalContent", () => {
+    const state = createEditorState("modified", "latex");
+    const view = createMockView(state);
     const store = useBlockMathEditingStore.getState();
     store.editingPos = 0;
     store.originalContent = "original";
 
-    const state = createEditorState("modified", "latex");
-    const _view = createMockView(state);
+    const plugin = buildPlugin();
+    const result = plugin.props.handleKeyDown!(view, new KeyboardEvent("keydown", { key: "Escape" }));
 
-    // Simulate what exitEditing does: check node at editingPos
-    const node = state.doc.nodeAt(0);
-    expect(node).toBeDefined();
-    expect(node!.textContent).toBe("modified");
-
-    // The store should be clearable
-    store.exitEditing();
+    expect(result).toBe(true);
+    expect(view.dispatch).toHaveBeenCalled();
     expect(store.exitEditing).toHaveBeenCalled();
+    // The dispatched transaction should have at least one step that touches
+    // the codeBlock content range.
+     
+    const tr = view.dispatch.mock.calls[0][0] as any;
+    expect(tr.steps.length).toBeGreaterThan(0);
   });
 
-  it("exitEditing handles missing node gracefully", () => {
-    const store = useBlockMathEditingStore.getState();
-    // Position that is within document range but has no node
-    // doc structure: codeBlock("content") + paragraph
-    // codeBlock starts at 0, text starts at 1. Position 1 is text, not a node start.
-    store.editingPos = 1;
-
-    const state = createEditorState("content", "latex");
-    const node = state.doc.nodeAt(1);
-    // Position 1 is a text node, not a code block
-    expect(node?.type.name).not.toBe("codeBlock");
-  });
-
-  it("exitEditing does nothing when originalContent matches current", () => {
+  it("Escape with unchanged content clears state without rewriting the doc", () => {
+    const state = createEditorState("same", "latex");
+    const view = createMockView(state);
     const store = useBlockMathEditingStore.getState();
     store.editingPos = 0;
     store.originalContent = "same";
 
-    const state = createEditorState("same", "latex");
-    const node = state.doc.nodeAt(0);
-    expect(node!.textContent).toBe("same");
-    // When content matches, no replaceWith is needed
+    const plugin = buildPlugin();
+    const result = plugin.props.handleKeyDown!(view, new KeyboardEvent("keydown", { key: "Escape" }));
+
+    expect(result).toBe(true);
+    expect(store.exitEditing).toHaveBeenCalled();
+    // dispatch is still called (to move the cursor), but no step replaces
+    // content because currentContent === originalContent.
+     
+    const tr = view.dispatch.mock.calls[0][0] as any;
+    const hasReplace = tr.steps.some(
+      (s: { from?: number; to?: number }) =>
+        typeof s.from === "number" && typeof s.to === "number" && s.to > s.from,
+    );
+    expect(hasReplace).toBe(false);
+  });
+
+  it("Cmd+Enter outside the editing codeBlock returns false (no-op)", () => {
+    // Cursor in the paragraph after the codeBlock; editingPos still points at
+    // the codeBlock. isCursorInCodeBlock should reject and the handler must
+    // not commit.
+    const doc = createDoc("body", "latex");
+    const cursorInPara = doc.firstChild!.nodeSize + 1;
+    const state = createEditorState("body", "latex", cursorInPara);
+    const view = createMockView(state);
+    const store = useBlockMathEditingStore.getState();
+    store.editingPos = 0;
+    store.originalContent = "body";
+
+    const plugin = buildPlugin();
+    const result = plugin.props.handleKeyDown!(
+      view,
+      new KeyboardEvent("keydown", { key: "Enter", metaKey: true }),
+    );
+
+    expect(result).toBe(false);
+    expect(store.exitEditing).not.toHaveBeenCalled();
+  });
+
+  it("Cmd+Enter inside the editing codeBlock commits (does not revert)", () => {
+    const state = createEditorState("edited", "latex", 1); // cursor inside block
+    const view = createMockView(state);
+    const store = useBlockMathEditingStore.getState();
+    store.editingPos = 0;
+    store.originalContent = "orig";
+
+    const plugin = buildPlugin();
+    const result = plugin.props.handleKeyDown!(
+      view,
+      new KeyboardEvent("keydown", { key: "Enter", metaKey: true }),
+    );
+
+    expect(result).toBe(true);
+    expect(store.exitEditing).toHaveBeenCalled();
+    // commit path: revert=false so no replaceWith on the codeBlock content.
+     
+    const tr = view.dispatch.mock.calls[0][0] as any;
+    const hasReplace = tr.steps.some(
+      (s: { from?: number; to?: number }) =>
+        typeof s.from === "number" && typeof s.to === "number" && s.to > s.from,
+    );
+    expect(hasReplace).toBe(false);
   });
 });
 
@@ -519,6 +587,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
       replaceWith: vi.fn().mockReturnThis(),
       setSelection: vi.fn().mockReturnThis(),
       setMeta: vi.fn().mockReturnThis(),
+      get doc() { return state.doc; },
     };
     const mockState = {
       ...state,
@@ -573,6 +642,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
       replaceWith: vi.fn().mockReturnThis(),
       setSelection: vi.fn().mockReturnThis(),
       setMeta: vi.fn().mockReturnThis(),
+      get doc() { return state.doc; },
     };
     const mockState = {
       ...state,

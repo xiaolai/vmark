@@ -94,9 +94,11 @@ function exitEditing(view: EditorView, revert: boolean): boolean {
     }
   }
 
-  // Move cursor after the code block
+  // Move cursor after the code block. Resolve against tr.doc, not state.doc:
+  // a preceding replaceWith may have transformed the document, and PM rejects
+  // a selection whose $pos belongs to a different doc instance.
   const nodeEnd = editingPos + node.nodeSize;
-  const $pos = state.doc.resolve(Math.min(nodeEnd, state.doc.content.size));
+  const $pos = tr.doc.resolve(Math.min(nodeEnd, tr.doc.content.size));
   tr = tr.setSelection(TextSelection.near($pos));
   tr.setMeta(EDITING_STATE_CHANGED, true);
 

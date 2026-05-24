@@ -787,6 +787,12 @@
   color: var(--error-color);
 }
 
+.workflow-form__danger-btn:focus-visible {
+  outline: none;
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
 .workflow-form__step-list-header {
   display: flex;
   align-items: center;
@@ -813,6 +819,12 @@
 .workflow-form__step-add-btn:hover {
   background: var(--hover-bg);
   color: var(--text-color);
+}
+
+.workflow-form__step-add-btn:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+  color: var(--accent-primary);
 }
 
 .workflow-form__step-row-group {
@@ -856,6 +868,17 @@
   color: var(--error-color);
 }
 
+.workflow-form__step-action-btn:focus-visible:not(:disabled) {
+  outline: none;
+  background: var(--accent-bg);
+  color: var(--text-color);
+}
+
+.workflow-form__step-action-btn--danger:focus-visible:not(:disabled) {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
 .workflow-editor-panel__add-job {
   padding: var(--space-1) var(--space-2);
   border-bottom: var(--border-thin) solid var(--border-color);
@@ -876,6 +899,12 @@
 .workflow-editor-panel__add-job-toggle:hover {
   background: var(--hover-bg);
   color: var(--text-color);
+}
+
+.workflow-editor-panel__add-job-toggle:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+  color: var(--accent-primary);
 }
 
 .workflow-editor-panel__add-job-form {

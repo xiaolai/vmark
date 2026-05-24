@@ -23,8 +23,11 @@
  *     non-codeBlock node after a doc shift) and aborts the replaceWith path
  *     to prevent `Position N outside of fragment` crashes on save/cancel.
  *
- * Known limitations:
- *   - Module-level `currentEditorView` is used for button callbacks (not ideal for multi-editor)
+ *   - Active EditorView instances are tracked in a module-level Set
+ *     (`activeEditorViews`) populated via each plugin's `view()` lifecycle.
+ *     refreshPreviews dispatches into every registered view, so split-pane or
+ *     multi-window scenarios refresh consistently. exitEditMode falls back to
+ *     the first registered view if a caller doesn't pass one.
  *
  * @coordinates-with blockMathKeymap.ts — keyboard shortcuts for math editing
  * @coordinates-with previewHelpers.ts — shared element creation and utility functions
@@ -41,6 +44,7 @@ import { diagramWarn } from "@/utils/debug";
 import { updateMarkmapTheme } from "@/plugins/markmap";
 import { sweepDetached } from "@/plugins/shared/diagramCleanup";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
+import i18n from "@/i18n";
 import {
   isLatexLanguage,
   createPreviewElement,
@@ -80,8 +84,11 @@ function isPreviewable(language: string, content: string): boolean {
   return false;
 }
 
-// Store current editor view for button callbacks
-let currentEditorView: EditorView | null = null;
+// Registry of active editor views. Populated/cleared via each plugin's
+// `view()` lifecycle. refreshPreviews() iterates this set so multi-editor
+// scenarios (split windows, embedded editors) all get refreshed instead of
+// only the most-recently-mounted instance.
+const activeEditorViews = new Set<EditorView>();
 
 const previewCache = new Map<string, PreviewCacheEntry>();
 
@@ -145,7 +152,12 @@ function updateLivePreview(
     try {
       const trimmed = content.trim();
       if (!trimmed) {
-        element.innerHTML = '<div class="code-block-live-preview-empty">Empty</div>';
+        element.replaceChildren(
+          Object.assign(document.createElement("div"), {
+            className: "code-block-live-preview-empty",
+            textContent: i18n.t("editor:preview.empty"),
+          }),
+        );
         return;
       }
 
@@ -164,7 +176,12 @@ function updateLivePreview(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       diagramWarn("code preview live render failed:", msg);
-      element.innerHTML = '<div class="code-block-live-preview-error">Preview failed</div>';
+      element.replaceChildren(
+        Object.assign(document.createElement("div"), {
+          className: "code-block-live-preview-error",
+          textContent: i18n.t("editor:preview.renderFailed"),
+        }),
+      );
     }
   }, DEBOUNCE_MS);
 }
@@ -210,8 +227,10 @@ function changesIntersectRanges(tr: Transaction, ranges: CodeBlockRange[]): bool
 
 /** Exit editing mode */
 function exitEditMode(view: EditorView | null, revert: boolean): void {
-  // Use stored view if passed view is not valid
-  const editorView = view || currentEditorView;
+  // Fall back to any active view if the caller didn't pass one (e.g. button
+  // click callbacks bound before the widget knew its view). Picks the first
+  // registered view — multi-editor scenarios should pass `view` explicitly.
+  const editorView = view ?? activeEditorViews.values().next().value ?? null;
   if (!editorView) {
     return;
   }
@@ -287,9 +306,11 @@ function exitEditMode(view: EditorView | null, revert: boolean): void {
     previewCache.delete(cacheKey);
   }
 
-  // Move cursor after the code block
+  // Move cursor after the code block. Resolve against tr.doc, not state.doc:
+  // a preceding replaceWith may have transformed the document, and PM rejects
+  // a selection whose $pos belongs to a different doc instance.
   const nodeEnd = editingPos + node.nodeSize;
-  const $pos = state.doc.resolve(Math.min(nodeEnd, state.doc.content.size));
+  const $pos = tr.doc.resolve(Math.min(nodeEnd, tr.doc.content.size));
   tr = tr.setSelection(TextSelection.near($pos));
   tr.setMeta(EDITING_STATE_CHANGED, true);
 
@@ -483,11 +504,15 @@ export const codePreviewExtension = Extension.create({
               );
 
               if (!content.trim()) {
-                const placeholderLabel = language === "mermaid" ? "Empty diagram"
-                  : language === "markmap" ? "Empty mindmap"
-                  : language === "svg" ? "Empty SVG"
-                  : (language === "yaml" || language === "yml") ? "Empty workflow"
-                  : "Empty math block";
+                const placeholderLabel = language === "mermaid"
+                  ? i18n.t("editor:preview.emptyDiagram")
+                  : language === "markmap"
+                  ? i18n.t("editor:preview.emptyMindmap")
+                  : language === "svg"
+                  ? i18n.t("editor:preview.emptySvg")
+                  : (language === "yaml" || language === "yml")
+                  ? i18n.t("editor:preview.emptyWorkflow")
+                  : i18n.t("editor:preview.emptyMath");
                 const widget = Decoration.widget(
                   nodeEnd,
                   (view) => createPreviewPlaceholder(language, placeholderLabel, () => handleEnterEdit(view)),
@@ -569,14 +594,18 @@ export const codePreviewExtension = Extension.create({
           },
         },
         view(view) {
-          // Store the view for button callbacks
-          currentEditorView = view;
+          // Register this view so cross-cutting helpers (refreshPreviews,
+          // button-callback exitEditMode fallback) can find it. destroy()
+          // unregisters so refreshPreviews doesn't dispatch into torn-down
+          // editors. update() is a no-op (PM passes the same view across
+          // updates), kept for PluginView interface conformance.
+          activeEditorViews.add(view);
           return {
-            update(view) {
-              currentEditorView = view;
+            update() {
+              /* no-op — view instance is stable across updates */
             },
             destroy() {
-              currentEditorView = null;
+              activeEditorViews.delete(view);
             },
           };
         },
@@ -598,9 +627,18 @@ export function clearPreviewCache() {
  */
 export function refreshPreviews() {
   previewCache.clear();
-  if (currentEditorView) {
-    const tr = currentEditorView.state.tr;
+  for (const view of activeEditorViews) {
+    const tr = view.state.tr;
     tr.setMeta(SETTINGS_CHANGED, true);
-    currentEditorView.dispatch(tr);
+    view.dispatch(tr);
   }
+}
+
+/**
+ * Test-only: empty the active-views registry. Tests that exercise the plugin
+ * lifecycle via `spec.view!()` directly (rather than through a real Editor)
+ * can leak entries; use this in `beforeEach` to isolate. Not for production.
+ */
+export function __resetActiveEditorViewsForTesting(): void {
+  activeEditorViews.clear();
 }

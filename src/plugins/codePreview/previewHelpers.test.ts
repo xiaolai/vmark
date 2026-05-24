@@ -208,7 +208,8 @@ describe("createLivePreview", () => {
   it("creates live preview with latex class for latex language", () => {
     const el = createLivePreview("latex");
     expect(el.className).toBe("code-block-live-preview latex-live-preview");
-    expect(el.innerHTML).toContain("Rendering...");
+    // Resolved via i18n key editor:preview.rendering — uses unicode ellipsis
+    expect(el.textContent).toBe("Rendering…");
   });
 
   it("creates live preview with latex class for $$math$$", () => {
