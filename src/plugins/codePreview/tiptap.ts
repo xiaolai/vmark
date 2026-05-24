@@ -22,6 +22,10 @@
  *   - exitEditMode guards stale editingPos (out-of-bounds, or pointing at a
  *     non-codeBlock node after a doc shift) and aborts the replaceWith path
  *     to prevent `Position N outside of fragment` crashes on save/cancel.
+ *   - Selection placement resolves against tr.doc (not state.doc); see
+ *     blockMathKeymap header for the same rule and motivation.
+ *   - User-facing strings flow through i18n.t("editor:preview.*") rather than
+ *     literal English.
  *
  *   - Active EditorView instances are tracked in a module-level Set
  *     (`activeEditorViews`) populated via each plugin's `view()` lifecycle.

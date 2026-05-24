@@ -12,6 +12,9 @@
  *   - exitEditing guards stale editingPos (out-of-bounds, or pointing at a
  *     non-codeBlock node after a doc shift) and clears state without mutating
  *     unrelated content — prevents `Position N outside of fragment` crashes.
+ *   - Selection placement resolves against tr.doc (not state.doc). A preceding
+ *     replaceWith may have transformed the doc; PM rejects selections whose
+ *     $pos belongs to a different doc instance.
  *
  * @coordinates-with codePreview/tiptap.ts — the code preview node that hosts the math editor
  * @coordinates-with stores/blockMathEditingStore.ts — editing state (original content, position)
