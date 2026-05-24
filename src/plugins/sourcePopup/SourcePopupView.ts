@@ -252,8 +252,18 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
 
     const target = e.target as Node;
     if (!this.container.contains(target)) {
-      this.closePopup();
+      this.onClickOutside();
     }
+  }
+
+  /**
+   * Hook for click-outside behavior. Defaults to closing the popup (discarding
+   * any in-flight edits). Subclasses that hold unsaved input (math, links)
+   * should override this to commit before closing — otherwise the user loses
+   * the text they just typed when they click away.
+   */
+  protected onClickOutside(): void {
+    this.closePopup();
   }
 
   /**

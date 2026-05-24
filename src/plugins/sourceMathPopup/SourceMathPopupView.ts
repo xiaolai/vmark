@@ -6,9 +6,15 @@
  *   (click-outside, scroll-close, Tab trapping, Escape handling).
  *
  * Key decisions:
- *   - Saves on Cmd+Enter, cancels on Escape
- *   - Click-outside auto-saves (not discard)
- *   - Replaces the full math range (including delimiters) in the document
+ *   - Saves on Cmd+Enter, save-button click, and click-outside
+ *   - Escape cancels (discards the edit)
+ *   - Replaces the full math range (including delimiters) in the document,
+ *     but only after re-validating that the captured range still wraps a math
+ *     span in the current doc — protects against stale offsets from IME or
+ *     concurrent edits.
+ *   - DOM refs (textarea/preview/error) are queried in the constructor AFTER
+ *     super(), because buildContainer runs inside super() — earlier `this.foo`
+ *     assignments are wiped by class-field initialization (useDefineForClassFields).
  *   - Reuses KaTeX loading from the shared katexLoader
  *
  * @coordinates-with stores/sourceMathPopupStore.ts — popup state
@@ -29,13 +35,26 @@ import "./source-math-popup.css";
 type SourceMathPopupState = ReturnType<typeof useSourceMathPopupStore.getState>;
 
 export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
-  private textarea!: HTMLTextAreaElement;
-  private preview!: HTMLElement;
-  private error!: HTMLElement;
+  private textarea: HTMLTextAreaElement;
+  private preview: HTMLElement;
+  private error: HTMLElement;
   private renderToken = 0;
 
   constructor(view: EditorView) {
     super(view, useSourceMathPopupStore);
+    // Query the DOM refs after super() — assignments inside buildContainer are
+    // erased by class-field [[Define]] initialization in ES2022 class semantics.
+    this.textarea = this.container.querySelector(".source-math-popup-input") as HTMLTextAreaElement;
+    this.preview = this.container.querySelector(".source-math-popup-preview") as HTMLElement;
+    this.error = this.container.querySelector(".source-math-popup-error") as HTMLElement;
+    // Re-wire listeners that buildContainer attempted to bind before the arrow
+    // function fields existed (same root cause as above).
+    this.textarea.addEventListener("input", this.handleInputChange);
+    this.textarea.addEventListener("keydown", this.handleTextareaKeydown);
+    const cancelBtn = this.container.querySelector(".source-math-popup-btn-cancel");
+    const saveBtn = this.container.querySelector(".source-math-popup-btn-save");
+    cancelBtn?.addEventListener("click", this.handleCancel as EventListener);
+    saveBtn?.addEventListener("click", this.handleSave as EventListener);
   }
 
   protected buildContainer(): HTMLElement {
@@ -46,17 +65,12 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
     textarea.className = "source-math-popup-input";
     textarea.placeholder = i18n.t("editor:popup.math.input.placeholder");
     textarea.rows = 3;
-    textarea.addEventListener("input", this.handleInputChange);
-    textarea.addEventListener("keydown", this.handleTextareaKeydown);
-    this.textarea = textarea;
 
     const preview = document.createElement("div");
     preview.className = "source-math-popup-preview";
-    this.preview = preview;
 
     const error = document.createElement("div");
     error.className = "source-math-popup-error";
-    this.error = error;
 
     const buttons = document.createElement("div");
     buttons.className = "source-math-popup-buttons";
@@ -65,13 +79,11 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
     cancelBtn.type = "button";
     cancelBtn.className = "source-math-popup-btn source-math-popup-btn-cancel";
     cancelBtn.textContent = i18n.t("editor:popup.math.cancel");
-    cancelBtn.addEventListener("click", this.handleCancel);
 
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.className = "source-math-popup-btn source-math-popup-btn-save";
     saveBtn.textContent = i18n.t("editor:popup.math.save");
-    saveBtn.addEventListener("click", this.handleSave);
 
     buttons.appendChild(cancelBtn);
     buttons.appendChild(saveBtn);
@@ -98,6 +110,14 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
     this.renderToken++;
     this.preview.textContent = "";
     this.error.textContent = "";
+  }
+
+  /**
+   * Click-outside commits the edit. Defaults to base class would discard the
+   * textarea content — surprising for an editor popup with unsaved text.
+   */
+  protected onClickOutside(): void {
+    this.handleSave();
   }
 
   protected getPopupDimensions(): PopupPositionConfig {
@@ -141,6 +161,27 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
       });
   }
 
+  /**
+   * Re-validate the captured math range against the current doc.
+   * Returns true if it is safe to replace [mathFrom..mathTo] with new math.
+   *
+   * Why: mathFrom/mathTo were captured when the popup opened. Between then and
+   * now, the doc may have been mutated (IME composition, external edit, other
+   * plugin transaction). Writing back blindly can corrupt unrelated content or
+   * trigger ProseMirror Fragment errors on the next round-trip.
+   */
+  private isRangeStillMath(mathFrom: number, mathTo: number, isBlock: boolean): boolean {
+    const doc = this.editorView.state.doc;
+    if (mathFrom < 0 || mathTo > doc.length || mathFrom >= mathTo) return false;
+    const slice = doc.sliceString(mathFrom, mathTo);
+    if (isBlock) {
+      // Block math: must start with $$ or ```latex / ```math fence.
+      return /^(?:\$\$|```(?:latex|math))/.test(slice);
+    }
+    // Inline math: must start and end with a single `$` and have non-empty body.
+    return slice.length >= 3 && slice.startsWith("$") && slice.endsWith("$");
+  }
+
   private handleInputChange = () => {
     const value = this.textarea.value;
     useSourceMathPopupStore.getState().updateLatex(value);
@@ -166,6 +207,13 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
 
     // Don't save if nothing changed
     if (latex === originalLatex) {
+      state.closePopup();
+      this.editorView.focus();
+      return;
+    }
+
+    // Validate against the current doc — abort silently rather than corrupt.
+    if (!this.isRangeStillMath(mathFrom, mathTo, isBlock)) {
       state.closePopup();
       this.editorView.focus();
       return;
