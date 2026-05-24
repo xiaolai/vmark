@@ -1,6 +1,6 @@
 # ADR-009: Document as the unit of state
 
-> Status: **Accepted (legacy store deleted)** | Date: 2026-05-24
+> Status: **Accepted (per-doc mode representable)** | Date: 2026-05-24
 
 ## Context
 
@@ -103,13 +103,16 @@ straight field reads; the one cursorInfo writer
 - `find src/stores -name 'editorStore.ts'` returns empty.
 - `grep -rn "useEditorStore\|@/stores/editorStore" src/` returns zero.
 
-**What the original ADR aimed for vs. what shipped**:
+**What shipped**:
 
-- **Shipped**: editorStore deletion, per-window flags consolidated in
-  uiStore, per-document fields confirmed live in documentStore.
-- **NOT shipped**: per-document `mode` (the "two tabs in one window
-  with different modes" capability). `sourceMode` lives at window
-  scope in `uiStore` for this pass. Moving mode per-document is a
-  behavioral change touching the entire editor-recreation pipeline
-  and is its own follow-up. The current migration unblocks ADR-008
-  and ADR-011 without taking that risk.
+- **editorStore deleted**, per-window flags consolidated in uiStore,
+  per-document fields confirmed live in documentStore.
+- **Per-document mode is now representable**: DocumentState carries
+  a `mode: "wysiwyg" | "source"` field defaulting to `"wysiwyg"`,
+  with a `setMode(tabId, mode)` action. `toggleSourceModeWithCheckpoint`
+  now mirrors the uiStore toggle into the active document's mode, so
+  two tabs in one window can hold different modes in the data layer.
+- The UI continues to read `uiStore.sourceMode` as a window flag —
+  switching the active tab does NOT yet swap the editor based on the
+  new doc's per-doc mode. That's the next layer (per-tab editor
+  recreation on switch); the data model no longer blocks it.

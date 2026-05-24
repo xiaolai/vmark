@@ -57,6 +57,15 @@ export interface DocumentState {
   readOnly: boolean;
   lineEnding: LineEnding;
   hardBreakStyle: HardBreakStyle;
+  /**
+   * Per-document editor mode (ADR-009). Defaults to "wysiwyg"; the
+   * window-scoped `useUIStore.sourceMode` is the public toggle and is
+   * mirrored into the active document's mode on toggle. Persisting
+   * per-doc mode makes "two tabs in one window, different modes" a
+   * representable state; selectors layered on top of this enable
+   * future per-tab mode switching without further schema changes.
+   */
+  mode: "wysiwyg" | "source";
 }
 
 interface DocumentStore {
@@ -91,6 +100,8 @@ interface DocumentStore {
    */
   updateLastDiskContent: (tabId: string, diskContent: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
+  /** Per-doc editor mode (ADR-009). */
+  setMode: (tabId: string, mode: "wysiwyg" | "source") => void;
   setSelectedText: (tabId: string, text: string) => void;
   setLineMetadata: (
     tabId: string,
@@ -118,6 +129,7 @@ const createInitialDocument = (content = "", filePath: string | null = null): Do
   readOnly: false,
   lineEnding: "unknown",
   hardBreakStyle: "unknown",
+  mode: "wysiwyg",
 });
 
 /**
@@ -234,6 +246,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 
   setCursorInfo: (tabId, info) =>
     set((state) => updateDoc(state, tabId, () => ({ cursorInfo: info }))),
+
+  setMode: (tabId, mode) =>
+    set((state) => updateDoc(state, tabId, () => ({ mode }))),
 
   setSelectedText: (tabId, text) =>
     set((state) => {

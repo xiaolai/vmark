@@ -103,6 +103,15 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
   }
 
   editorStore.toggleSourceMode();
+
+  // ADR-009: keep the per-document mode in sync with the window flag.
+  // For now they always match; future per-tab mode UX reads the doc
+  // field directly without changing the toggle path.
+  const tabIdForMirror = tabStore.activeTabId[windowLabel];
+  if (tabIdForMirror) {
+    const newMode = useUIStore.getState().sourceMode ? "source" : "wysiwyg";
+    documentStore.setMode(tabIdForMirror, newMode);
+  }
 }
 
 /**

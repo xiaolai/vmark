@@ -1,6 +1,6 @@
 # ADR-010: Editor host as mode-agnostic interface
 
-> Status: **Revised — Scoped Down** | Date: 2026-05-24 | Spike: 2026-05-24
+> Status: **Accepted (revised — first operations.ts landed)** | Date: 2026-05-24 | Spike: 2026-05-24
 
 ## Context
 
@@ -176,3 +176,22 @@ folder, with `codemirror.ts` replacing the standalone module.
 
 This is a **smaller** but **more truthful** ADR. The original was
 architecturally ambitious in a way the engines do not support.
+
+## First pattern realization (2026-05-24)
+
+`src/plugins/linkPopup/operations.ts` is the first feature-level
+operations module per the revised pattern. It exposes
+`classifyLinkAction(href)` and `openLink(href, sourcePath, navigateToFragment)`
+— engine-agnostic logic both the Tiptap controller (`tiptap.ts`) and
+the CodeMirror controller (`sourceLinkPopup/sourceLinkPopupPlugin.ts`)
+can call. Engine-specific selection/edit dispatch stays in the
+controllers; shared classification, fragment-vs-external-vs-filepath
+routing, and the open primitive live in operations.ts.
+
+The 6 `source*Popup/` directories are NOT yet collapsed into the
+parent feature folders — that mechanical refactor still applies the
+same pattern across `linkPopup`, `linkCreatePopup`, `mathPopup`,
+`wikiLinkPopup`, `footnotePopup`, `imageView ↔ sourceImagePopup`.
+Each is a per-feature PR; this ADR provides the template, the
+verification gate (`find src/plugins -type d -name 'source*Popup'`
+returns empty), and now a concrete first realization to copy from.

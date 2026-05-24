@@ -15,8 +15,8 @@ architectural choice using the [MADR](https://adr.github.io/madr/) format.
 | [006](ADR-006-terminal-program-identity.md) | Terminal program identity | Accepted | — |
 | [007](ADR-007-shell-as-composition-root.md) | Shell as composition root | Accepted | 2026-05-24 |
 | [008](ADR-008-workspace-as-single-facade.md) | Workspace as single facade | Accepted (read-only) | 2026-05-24 |
-| [009](ADR-009-document-as-unit-of-state.md) | Document as the unit of state | Accepted (legacy store deleted) | 2026-05-24 |
-| [010](ADR-010-editor-host-as-mode-agnostic-interface.md) | Editor host (scoped down to per-feature controllers) | Revised | 2026-05-24 |
+| [009](ADR-009-document-as-unit-of-state.md) | Document as the unit of state | Accepted (per-doc mode representable) | 2026-05-24 |
+| [010](ADR-010-editor-host-as-mode-agnostic-interface.md) | Editor host (per-feature operations) | Accepted (revised + first operations.ts) | 2026-05-24 |
 | [011](ADR-011-plugin-manifest-contract.md) | Plugin manifest contract | Accepted (manifests complete) | 2026-05-24 |
 | [012](ADR-012-command-bus-as-single-intent-path.md) | Command bus as single intent path | Accepted (all 6 hooks routed) | 2026-05-24 |
 | [013](ADR-013-service-tier-as-cross-cutting-seam.md) | Service tier as cross-cutting seam | Accepted | 2026-05-24 |
