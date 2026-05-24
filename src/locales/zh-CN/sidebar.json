@@ -7,6 +7,8 @@
   "showHistory": "显示历史记录",
   "newFile": "新建文件",
   "newFolder": "新建文件夹",
+  "expandFolder": "展开文件夹",
+  "collapseFolder": "折叠文件夹",
   "expandAllFolders": "展开所有文件夹",
   "collapseAllFolders": "折叠所有文件夹",
   "clearDocumentHistory": "清空文档历史记录",

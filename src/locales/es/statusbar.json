@@ -51,6 +51,7 @@
   "updateError": "Error al buscar actualizaciones — haz clic para reintentar",
   "autoSavedAt": "Guardado automáticamente a las {{time}}",
   "terminal.search.placeholder": "Buscar...",
+  "terminal.search.label": "Buscar en la salida del terminal",
   "terminal.search.previous": "Anterior (Shift+Enter)",
   "terminal.search.next": "Siguiente (Enter)",
   "terminal.search.close": "Cerrar (Escape)",

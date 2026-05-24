@@ -106,17 +106,43 @@
 }
 
 .file-node-arrow {
-  width: 16px;
-  height: 16px;
+  width: var(--list-indent);
+  height: var(--list-indent);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   color: var(--text-secondary);
+  /* WI-2.1 — reset <button> chrome so the chevron stays visually neutral.
+     The chevron is rendered as a real button for keyboard accessibility;
+     these resets keep it indistinguishable from the previous <span>. */
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
 }
 
 .file-node-arrow:hover {
   color: var(--text-color);
+}
+
+/* WI-2.1 — visible focus indicator for keyboard users (a11y).
+   Follows .claude/rules/33-focus-indicators.md: U-shaped underline for
+   icon buttons. */
+.file-node-arrow:focus-visible {
+  outline: none;
+  position: relative;
+}
+.file-node-arrow:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-px);
+  left: var(--space-half);
+  right: var(--space-half);
+  height: var(--space-half);
+  background: var(--primary-color);
+  border-radius: var(--space-px);
 }
 
 .file-node-icon {

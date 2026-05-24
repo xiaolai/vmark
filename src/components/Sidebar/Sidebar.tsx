@@ -34,6 +34,11 @@ const VIEW_CONFIG: Record<SidebarViewMode, {
 export function Sidebar() {
   const { t } = useTranslation("sidebar");
   const viewMode = useUIStore((state) => state.sidebarViewMode);
+  // WI-2.3 — bind aria-expanded on the close-sidebar button to live state
+  // instead of hardcoding `true`. The button only renders when the sidebar
+  // is open, but binding to the store keeps maintainers honest if rendering
+  // conditions change.
+  const sidebarVisible = useUIStore((state) => state.sidebarVisible);
   const filePath = useDocumentFilePath();
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
   const isClearingRef = useRef(false);
@@ -155,7 +160,7 @@ export function Sidebar() {
           onClick={() => useUIStore.getState().toggleSidebar()}
           title={t("closeSidebar")}
           aria-label={t("closeSidebar")}
-          aria-expanded={true}
+          aria-expanded={sidebarVisible}
         >
           <PanelLeftClose size={16} />
         </button>

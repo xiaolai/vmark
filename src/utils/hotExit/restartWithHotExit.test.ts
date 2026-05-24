@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { checkAndRestoreSession } from './restartWithHotExit';
-import { HOT_EXIT_EVENTS } from './types';
+import { HOT_EXIT_EVENTS, SCHEMA_VERSION } from './types';
 import { restoreMainWindowState } from './useHotExitRestore';
 
 // Mock Tauri APIs
@@ -86,8 +86,8 @@ describe('checkAndRestoreSession', () => {
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Verify restore was called (single-window uses legacy command)
-    // Session is migrated from v1 to v2 before restore
-    const migratedSession = { ...mockSession, version: 2 };
+    // Session is migrated from v1 to current schema before restore
+    const migratedSession = { ...mockSession, version: SCHEMA_VERSION };
     expect(mockInvoke).toHaveBeenCalledWith('hot_exit_restore', { session: migratedSession });
 
     // Verify clear_session has NOT been called yet (waiting for event)

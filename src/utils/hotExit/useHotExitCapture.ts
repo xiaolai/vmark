@@ -181,9 +181,13 @@ function captureDocumentState(
 }
 
 /**
- * Capture complete window state
+ * Capture complete window state.
+ *
+ * Exported for direct unit testing of the capture payload (WI-1A.13:
+ * format_id / editing_enabled / active_schema_id population). The hook
+ * uses this internally to respond to capture requests from Rust.
  */
-function captureWindowState(windowLabel: string, isMainWindow: boolean): WindowState {
+export function captureWindowState(windowLabel: string, isMainWindow: boolean): WindowState {
   const tabStore = useTabStore.getState();
   const documentStore = useDocumentStore.getState();
   const historyStore = useUnifiedHistoryStore.getState();
@@ -197,6 +201,11 @@ function captureWindowState(windowLabel: string, isMainWindow: boolean): WindowS
     title: tab.title,
     is_pinned: tab.isPinned,
     document: captureDocumentState(tab.id, tab.filePath, tab.title, documentStore, historyStore),
+    // Multi-format fields (WI-1A.13). `formatId` is always present on
+    // the in-memory Tab; the other two have store-defined defaults.
+    format_id: tab.formatId,
+    editing_enabled: tab.editingEnabled ?? true,
+    active_schema_id: tab.activeSchemaId ?? null,
   }));
 
   const activeTab = tabStore.getActiveTab(windowLabel);

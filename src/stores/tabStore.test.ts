@@ -566,6 +566,66 @@ describe("tabStore", () => {
     });
   });
 
+  // WI-1A.13 — hot-exit restore setters added for non-markdown formats
+  describe("setTabFormatId / setTabActiveSchemaId", () => {
+    it("setTabFormatId overrides the path-derived formatId", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", null); // untitled → markdown
+      expect(store.findTabById(id)?.formatId).toBe("markdown");
+
+      store.setTabFormatId(id, "json");
+      expect(useTabStore.getState().findTabById(id)?.formatId).toBe("json");
+    });
+
+    it("setTabActiveSchemaId stores the schema override", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/data/payload.json");
+
+      store.setTabActiveSchemaId(id, "package-json");
+      expect(useTabStore.getState().findTabById(id)?.activeSchemaId).toBe(
+        "package-json",
+      );
+    });
+
+    it("setTabActiveSchemaId accepts null to clear an override", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/data/payload.json");
+
+      store.setTabActiveSchemaId(id, "package-json");
+      store.setTabActiveSchemaId(id, null);
+      expect(
+        useTabStore.getState().findTabById(id)?.activeSchemaId,
+      ).toBeNull();
+    });
+
+    it("setters are no-ops for unknown tab ids", () => {
+      const store = useTabStore.getState();
+      // Should not throw or mutate any other tab.
+      expect(() => store.setTabFormatId("nonexistent", "yaml")).not.toThrow();
+      expect(() =>
+        store.setTabActiveSchemaId("nonexistent", "x"),
+      ).not.toThrow();
+      expect(() =>
+        store.setTabEditingEnabled("nonexistent", false),
+      ).not.toThrow();
+    });
+
+    it("setTabEditingEnabled toggles a tab's read-write override", () => {
+      const store = useTabStore.getState();
+      const id = store.createTab("main", "/src/lib.rs");
+
+      store.setTabEditingEnabled(id, false);
+      expect(useTabStore.getState().findTabById(id)?.editingEnabled).toBe(
+        false,
+      );
+
+      store.setTabEditingEnabled(id, true);
+      expect(useTabStore.getState().findTabById(id)?.editingEnabled).toBe(
+        true,
+      );
+    });
+  });
+
   describe("getTabsByWindow", () => {
     it("returns empty array for non-existent window", () => {
       const store = useTabStore.getState();

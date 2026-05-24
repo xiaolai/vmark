@@ -7,6 +7,8 @@
   "showHistory": "Mostrar historial",
   "newFile": "Nuevo archivo",
   "newFolder": "Nueva carpeta",
+  "expandFolder": "Expandir carpeta",
+  "collapseFolder": "Contraer carpeta",
   "expandAllFolders": "Expandir todas las carpetas",
   "collapseAllFolders": "Contraer todas las carpetas",
   "clearDocumentHistory": "Borrar historial del documento",

@@ -32,6 +32,7 @@
   "tabActions": "タブの操作",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "サイドバーのサイズを変更（左右の矢印キーを使用）",
   "resize": "サイズ変更",
   "unknown": "不明",
   "running": "実行中",

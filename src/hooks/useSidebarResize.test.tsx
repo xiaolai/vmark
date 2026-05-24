@@ -56,7 +56,7 @@ beforeEach(() => {
 describe("useSidebarResize", () => {
   it("clamps width to MIN (150) when delta pushes below the floor", () => {
     const { result } = renderHook(() => useSidebarResize());
-    act(() => result.current(fireMouseDown(500)));
+    act(() => result.current.handleResizeStart(fireMouseDown(500)));
 
     // Drag far to the left — delta = -400, start was 250 → 250-400 = -150,
     // clamped to 150.
@@ -68,7 +68,7 @@ describe("useSidebarResize", () => {
 
   it("clamps width to MAX (500) when delta pushes above the ceiling", () => {
     const { result } = renderHook(() => useSidebarResize());
-    act(() => result.current(fireMouseDown(0)));
+    act(() => result.current.handleResizeStart(fireMouseDown(0)));
 
     // Drag far right — delta = +1000, 250+1000 = 1250, clamped to 500.
     act(() => fireMouseMove(1000));
@@ -79,7 +79,7 @@ describe("useSidebarResize", () => {
 
   it("passes unclamped widths inside [150, 500] through unchanged", () => {
     const { result } = renderHook(() => useSidebarResize());
-    act(() => result.current(fireMouseDown(100)));
+    act(() => result.current.handleResizeStart(fireMouseDown(100)));
 
     // delta = +50, start 250 → 300 (within range)
     act(() => fireMouseMove(150));
@@ -90,7 +90,7 @@ describe("useSidebarResize", () => {
 
   it("sets body cursor and userSelect on drag start", () => {
     const { result } = renderHook(() => useSidebarResize());
-    act(() => result.current(fireMouseDown(0)));
+    act(() => result.current.handleResizeStart(fireMouseDown(0)));
 
     expect(document.body.style.cursor).toBe("col-resize");
     expect(document.body.style.userSelect).toBe("none");
@@ -100,7 +100,7 @@ describe("useSidebarResize", () => {
 
   it("resets body styles and removes listeners on mouseup", () => {
     const { result } = renderHook(() => useSidebarResize());
-    act(() => result.current(fireMouseDown(0)));
+    act(() => result.current.handleResizeStart(fireMouseDown(0)));
     act(() => fireMouseUp());
 
     expect(document.body.style.cursor).toBe("");
@@ -114,7 +114,7 @@ describe("useSidebarResize", () => {
 
   it("window blur triggers the same cleanup as mouseup", () => {
     const { result } = renderHook(() => useSidebarResize());
-    act(() => result.current(fireMouseDown(0)));
+    act(() => result.current.handleResizeStart(fireMouseDown(0)));
     act(() => fireBlur());
 
     expect(document.body.style.cursor).toBe("");
@@ -127,7 +127,7 @@ describe("useSidebarResize", () => {
 
   it("unmount mid-drag runs cleanup", () => {
     const { result, unmount } = renderHook(() => useSidebarResize());
-    act(() => result.current(fireMouseDown(0)));
+    act(() => result.current.handleResizeStart(fireMouseDown(0)));
 
     unmount();
 
@@ -137,5 +137,114 @@ describe("useSidebarResize", () => {
     const callsBefore = mockSetSidebarWidth.mock.calls.length;
     act(() => fireMouseMove(500));
     expect(mockSetSidebarWidth.mock.calls.length).toBe(callsBefore);
+  });
+
+  // ─── WI-2.2 — keyboard resize (a11y) ──────────────────────────────────
+  //
+  // Verifies the arrow-key resize handler clamps to MIN/MAX, supports the
+  // Shift modifier for larger steps, and routes Home/End to MIN/MAX. The
+  // hook reads the current width from the mocked uiStore on each call —
+  // tests adjust `uiState.sidebarWidth` between presses to simulate a
+  // sequence (since the mock is a getter, not a true reactive store).
+
+  function fireKeyDown(
+    key: string,
+    opts: { shiftKey?: boolean } = {},
+  ): React.KeyboardEvent {
+    return {
+      key,
+      shiftKey: !!opts.shiftKey,
+      preventDefault: vi.fn(),
+    } as unknown as React.KeyboardEvent;
+  }
+
+  describe("handleResizeKeyDown (a11y)", () => {
+    it("ArrowRight increments width by KEYBOARD_RESIZE_STEP (8)", () => {
+      uiState.sidebarWidth = 250;
+      const { result } = renderHook(() => useSidebarResize());
+
+      act(() => result.current.handleResizeKeyDown(fireKeyDown("ArrowRight")));
+
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(258);
+    });
+
+    it("ArrowLeft decrements width by KEYBOARD_RESIZE_STEP (8)", () => {
+      uiState.sidebarWidth = 250;
+      const { result } = renderHook(() => useSidebarResize());
+
+      act(() => result.current.handleResizeKeyDown(fireKeyDown("ArrowLeft")));
+
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(242);
+    });
+
+    it("Shift+ArrowRight uses LARGE step (32)", () => {
+      uiState.sidebarWidth = 250;
+      const { result } = renderHook(() => useSidebarResize());
+
+      act(() =>
+        result.current.handleResizeKeyDown(
+          fireKeyDown("ArrowRight", { shiftKey: true }),
+        ),
+      );
+
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(282);
+    });
+
+    it("ArrowLeft clamps to MIN (150) when already at floor", () => {
+      uiState.sidebarWidth = 152;
+      const { result } = renderHook(() => useSidebarResize());
+
+      act(() => result.current.handleResizeKeyDown(fireKeyDown("ArrowLeft")));
+
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(150);
+    });
+
+    it("ArrowRight clamps to MAX (500) when already at ceiling", () => {
+      uiState.sidebarWidth = 495;
+      const { result } = renderHook(() => useSidebarResize());
+
+      act(() => result.current.handleResizeKeyDown(fireKeyDown("ArrowRight")));
+
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(500);
+    });
+
+    it("Home jumps directly to MIN (150)", () => {
+      uiState.sidebarWidth = 350;
+      const { result } = renderHook(() => useSidebarResize());
+
+      act(() => result.current.handleResizeKeyDown(fireKeyDown("Home")));
+
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(150);
+    });
+
+    it("End jumps directly to MAX (500)", () => {
+      uiState.sidebarWidth = 350;
+      const { result } = renderHook(() => useSidebarResize());
+
+      act(() => result.current.handleResizeKeyDown(fireKeyDown("End")));
+
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(500);
+    });
+
+    it("ignores non-resize keys (no store write, no preventDefault)", () => {
+      uiState.sidebarWidth = 250;
+      const { result } = renderHook(() => useSidebarResize());
+      const evt = fireKeyDown("Tab");
+
+      act(() => result.current.handleResizeKeyDown(evt));
+
+      expect(mockSetSidebarWidth).not.toHaveBeenCalled();
+      expect(evt.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("calls preventDefault on resize keys to prevent default scroll behavior", () => {
+      uiState.sidebarWidth = 250;
+      const { result } = renderHook(() => useSidebarResize());
+      const evt = fireKeyDown("ArrowRight");
+
+      act(() => result.current.handleResizeKeyDown(evt));
+
+      expect(evt.preventDefault).toHaveBeenCalledTimes(1);
+    });
   });
 });

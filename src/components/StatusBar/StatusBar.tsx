@@ -248,7 +248,12 @@ export function StatusBar() {
                 type="button"
                 className="status-sidebar-toggle"
                 onClick={() => useUIStore.getState().toggleSidebar()}
-                aria-expanded={false}
+                // WI-2.3 — bind to live state instead of hardcoding `false`.
+                // The button currently only renders when sidebar is hidden,
+                // so this is structurally always false today; binding keeps
+                // it correct if rendering conditions ever change and signals
+                // to maintainers that the value is dynamic.
+                aria-expanded={sidebarVisible}
                 aria-label={t("openSidebar")}
                 title={t("openSidebar")}
               >

@@ -32,6 +32,7 @@
   "tabActions": "Ações da aba",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "Redimensionar barra lateral (setas esquerda e direita)",
   "resize": "Redimensionar",
   "unknown": "Desconhecido",
   "running": "Em execução",

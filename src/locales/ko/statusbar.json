@@ -51,6 +51,7 @@
   "updateError": "업데이트 확인 실패 — 클릭하여 재시도",
   "autoSavedAt": "{{time}}에 자동 저장됨",
   "terminal.search.placeholder": "검색...",
+  "terminal.search.label": "터미널 출력 검색",
   "terminal.search.previous": "이전 (Shift+Enter)",
   "terminal.search.next": "다음 (Enter)",
   "terminal.search.close": "닫기 (Escape)",

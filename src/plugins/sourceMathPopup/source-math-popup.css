@@ -81,7 +81,10 @@
   color: var(--text-secondary);
 }
 
-.source-math-popup-btn:hover {
+/* Hover for the secondary (Cancel) button only. Excluding Save here prevents
+ * the cascade from leaving Save with var(--hover-bg) under its still-white
+ * text — which renders the label invisible. */
+.source-math-popup-btn:not(.source-math-popup-btn-save):hover {
   background: var(--hover-bg);
   color: var(--text-color);
 }
@@ -91,9 +94,11 @@
   color: var(--contrast-text);
 }
 
+/* Save hover: re-assert background and color, dim with opacity token. */
 .source-math-popup-btn-save:hover {
-  opacity: 0.9;
+  background: var(--primary-color);
   color: var(--contrast-text);
+  opacity: var(--opacity-mostly-opaque);
 }
 
 /* Focus: U-shaped underline per 33-focus-indicators */

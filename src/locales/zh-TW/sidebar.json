@@ -7,6 +7,8 @@
   "showHistory": "顯示歷史紀錄",
   "newFile": "新增檔案",
   "newFolder": "新增資料夾",
+  "expandFolder": "展開資料夾",
+  "collapseFolder": "摺疊資料夾",
   "expandAllFolders": "展開所有資料夾",
   "collapseAllFolders": "摺疊所有資料夾",
   "clearDocumentHistory": "清除文件歷史紀錄",

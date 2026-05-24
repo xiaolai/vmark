@@ -52,6 +52,12 @@ export interface Tab {
    *  When true, the editor mounts read-write even for kind="viewer"
    *  formats. Persists across tab switches; resets on tab close. */
   editingEnabled?: boolean;
+  /** WI-1A.13 — active schemaRenderer id for formats that ship multiple
+   *  (e.g. yaml-gha-workflow vs generic yaml tree). `undefined`/`null` means
+   *  "let the schemaDetector decide on each render". Persisted directly
+   *  in hot-exit so restore is deterministic and does not re-run pure
+   *  detectors against possibly-edited content. */
+  activeSchemaId?: string | null;
 }
 
 function deriveFormatId(filePath: string | null): string {
@@ -90,6 +96,13 @@ interface TabActions {
   // Tab state
   setActiveTab: (windowLabel: string, tabId: string) => void;
   setTabEditingEnabled: (tabId: string, enabled: boolean) => void;
+  setTabActiveSchemaId: (tabId: string, schemaId: string | null) => void;
+  /** WI-1A.13 — overwrite a tab's `formatId` directly. Used by hot-exit
+   *  restore for untitled tabs where path-based derivation cannot recover
+   *  a non-markdown format (untitled JSON, etc.). Caller is responsible
+   *  for passing a valid registered id; invalid ids fall back to txt at
+   *  render time via dispatchEditor. */
+  setTabFormatId: (tabId: string, formatId: string) => void;
   updateTabPath: (tabId: string, filePath: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
@@ -145,6 +158,32 @@ function getLocalizedFormatName(formatId: string): string {
   return translated && translated !== `common:${config.nameI18nKey}`
     ? translated
     : formatId;
+}
+
+/**
+ * Shared update helper for keyed-by-id tab field mutations.
+ *
+ * Three setters — setTabEditingEnabled, setTabActiveSchemaId, setTabFormatId
+ * — share the same scan-and-map pattern: walk every window's tab array,
+ * replace exactly one tab (by id) with a shallow-merged copy. Factoring
+ * this out keeps the field-specific setters thin and prevents drift
+ * (e.g., one setter forgetting to clone state.tabs).
+ *
+ * Returns a partial state slice for direct return from Zustand's `set`.
+ * Unknown ids result in a no-op clone (same shape, same data) — safe.
+ */
+function updateTabById(
+  state: { tabs: Record<string, Tab[]> },
+  tabId: string,
+  patch: Partial<Tab>,
+): { tabs: Record<string, Tab[]> } {
+  const newTabs = { ...state.tabs };
+  for (const windowLabel of Object.keys(newTabs)) {
+    newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
+      t.id === tabId ? { ...t, ...patch } : t,
+    );
+  }
+  return { tabs: newTabs };
 }
 
 /** Manages per-window tab lifecycle — creation, closing, pinning, reordering, and reopen history. Use selectors, not destructuring. */
@@ -299,15 +338,19 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
 
   /** WI-4.3 — promote a tab to read-write or revert to read-only. */
   setTabEditingEnabled: (tabId: string, enabled: boolean) => {
-    set((state) => {
-      const newTabs = { ...state.tabs };
-      for (const windowLabel of Object.keys(newTabs)) {
-        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-          t.id === tabId ? { ...t, editingEnabled: enabled } : t,
-        );
-      }
-      return { tabs: newTabs };
-    });
+    set((state) => updateTabById(state, tabId, { editingEnabled: enabled }));
+  },
+
+  /** WI-1A.13 — set the active schemaRenderer id (e.g. yaml-gha-workflow).
+   *  Pass `null` to clear the override and let schemaDetector decide. */
+  setTabActiveSchemaId: (tabId: string, schemaId: string | null) => {
+    set((state) => updateTabById(state, tabId, { activeSchemaId: schemaId }));
+  },
+
+  /** WI-1A.13 — overwrite a tab's `formatId`. Used by hot-exit restore for
+   *  untitled tabs where path-based derivation can't recover non-markdown. */
+  setTabFormatId: (tabId: string, formatId: string) => {
+    set((state) => updateTabById(state, tabId, { formatId }));
   },
 
   updateTabPath: (tabId, filePath) => {

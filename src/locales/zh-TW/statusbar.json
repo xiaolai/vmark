@@ -51,6 +51,7 @@
   "updateError": "更新檢查失敗 — 點擊重試",
   "autoSavedAt": "自動儲存於 {{time}}",
   "terminal.search.placeholder": "搜尋...",
+  "terminal.search.label": "搜尋終端機輸出",
   "terminal.search.previous": "上一個（Shift+Enter）",
   "terminal.search.next": "下一個（Enter）",
   "terminal.search.close": "關閉（Escape）",

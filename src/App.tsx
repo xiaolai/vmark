@@ -94,7 +94,11 @@ import { useSelectAllScope } from "@/hooks/useSelectAllScope";
 import { useDragDropOpen } from "@/hooks/useDragDropOpen";
 import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
-import { useSidebarResize } from "@/hooks/useSidebarResize";
+import {
+  useSidebarResize,
+  MIN_SIDEBAR_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+} from "@/hooks/useSidebarResize";
 import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
 import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
@@ -220,7 +224,7 @@ function MainLayout() {
   const findBarOpen = useSearchStore((state) => state.isOpen);
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
-  const handleResizeStart = useSidebarResize();
+  const { handleResizeStart, handleResizeKeyDown } = useSidebarResize();
   const sidebarOffset = sidebarVisible ? `${sidebarWidth}px` : "0px";
 
   // Initialize hooks
@@ -303,10 +307,22 @@ function MainLayout() {
           }}
         >
           <Sidebar />
-          {/* Resize handle - positioned at right edge of sidebar */}
+          {/* Resize handle — positioned at right edge of sidebar.
+              WI-2.2 (a11y): focusable separator with arrow-key resize.
+              role=separator + aria-orientation=vertical announces purpose;
+              tabIndex=0 puts it in tab order; aria-valuenow/min/max + the
+              live `now` value let screen readers report current width. */}
           <div
             className="sidebar-resize-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("aria.sidebarResize")}
+            aria-valuenow={sidebarWidth}
+            aria-valuemin={MIN_SIDEBAR_WIDTH}
+            aria-valuemax={MAX_SIDEBAR_WIDTH}
+            tabIndex={0}
             onMouseDown={handleResizeStart}
+            onKeyDown={handleResizeKeyDown}
           />
         </aside>
       )}

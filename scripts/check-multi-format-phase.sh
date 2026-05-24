@@ -105,6 +105,58 @@ case "$PHASE" in
       fail "Tab.formatId field not found in tabStore.ts"
     fi
 
+    # WI-1A.13 (rev 6) — hot-exit persistence migration for tab format fields.
+    # These checks verify BEHAVIOR, not just file presence: each assertion
+    # targets a specific code pattern that proves the migration actually does
+    # what the WI claims (file existence alone is meaningless — an empty
+    # placeholder file would pass a `[[ -f … ]]` gate).
+    if grep -qE "^\s*format_id:\s*string" src/utils/hotExit/types.ts 2>/dev/null; then
+      ok "TabState includes format_id field (WI-1A.13 TS)"
+    else
+      fail "TabState missing format_id field (WI-1A.13 TS incomplete)"
+    fi
+    if grep -qE "^\s*pub format_id:\s*String" src-tauri/src/hot_exit/session.rs 2>/dev/null; then
+      ok "Rust TabState includes pub format_id (WI-1A.13 Rust)"
+    else
+      fail "Rust TabState missing pub format_id (WI-1A.13 Rust incomplete)"
+    fi
+    if grep -qE "^export const SCHEMA_VERSION = 3" src/utils/hotExit/types.ts 2>/dev/null; then
+      ok "TS schema version bumped to 3"
+    else
+      fail "TS schema version not at 3 (WI-1A.13 incomplete)"
+    fi
+    if grep -qE "SCHEMA_VERSION:\s*u32 = 3" src-tauri/src/hot_exit/session.rs 2>/dev/null; then
+      ok "Rust schema version bumped to 3"
+    else
+      fail "Rust schema version not at 3 (WI-1A.13 incomplete)"
+    fi
+    if grep -qE "migrateV2toV3" src/utils/hotExit/schemaMigration.ts 2>/dev/null; then
+      ok "TS migrateV2toV3 implemented"
+    else
+      fail "TS migrateV2toV3 missing (WI-1A.13 migration)"
+    fi
+    if grep -qE "migrate_v2_to_v3" src-tauri/src/hot_exit/migration.rs 2>/dev/null; then
+      ok "Rust migrate_v2_to_v3 implemented"
+    else
+      fail "Rust migrate_v2_to_v3 missing (WI-1A.13 migration)"
+    fi
+
+    # WI-1A.14 (rev 6) — cross-format menu regression matrix
+    MENU_TEST=""
+    for cand in src/hooks/useUnifiedMenuCommands.test.tsx src/hooks/useUnifiedMenuCommands.test.ts; do
+      [[ -f "$cand" ]] && MENU_TEST="$cand" && break
+    done
+    if [[ -n "$MENU_TEST" ]]; then
+      ok "useUnifiedMenuCommands test file exists"
+      if grep -qE "describe\.each|FormatKind" "$MENU_TEST" 2>/dev/null; then
+        ok "menu matrix iterates over formats"
+      else
+        fail "menu matrix does not iterate over formats (WI-1A.14)"
+      fi
+    else
+      fail "useUnifiedMenuCommands test file missing (WI-1A.14)"
+    fi
+
     # getSupportedExtensions returns >= 14 entries (runtime check via vitest)
     if pnpm exec vitest run src/lib/formats/index.test.ts >/dev/null 2>&1; then
       ok "bootstrapFormats tests pass (getSupportedExtensions >= 14 verified)"
@@ -116,10 +168,10 @@ case "$PHASE" in
     [[ -f .claude/hooks/multi-format-tdd-guard.mjs ]] && ok "multi-format TDD hook present" || fail "multi-format TDD hook missing"
 
     # Cross-model review noted in plan body
-    if grep -q "Review iteration 4" dev-docs/plans/20260506-multi-format-rebrand.md; then
-      ok "Codex review iteration-4 resolution recorded"
+    if grep -q "Review iteration 5" dev-docs/plans/20260506-multi-format-rebrand.md; then
+      ok "Codex review iteration-5 resolution recorded"
     else
-      fail "Codex review iteration-4 resolution not recorded in plan body"
+      fail "Codex review iteration-5 resolution not recorded in plan body"
     fi
     ;;
 

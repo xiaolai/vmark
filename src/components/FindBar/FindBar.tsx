@@ -209,6 +209,9 @@ export function FindBar() {
             type="text"
             className="find-bar-input"
             placeholder={t("findbar.find.placeholder")}
+            // WI-2.4 (a11y) — explicit accessible name. Placeholder text is
+            // not a reliable label for screen readers.
+            aria-label={t("findbar.find.label")}
             value={query}
             onChange={handleQueryChange}
             onKeyDown={handleFindKeyDown}
@@ -248,6 +251,8 @@ export function FindBar() {
             type="text"
             className="find-bar-input"
             placeholder={t("findbar.replace.placeholder")}
+            // WI-2.4 (a11y) — explicit accessible name.
+            aria-label={t("findbar.replace.label")}
             value={replaceText}
             onChange={handleReplaceChange}
             onKeyDown={handleReplaceKeyDown}

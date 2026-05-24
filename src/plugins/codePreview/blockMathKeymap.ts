@@ -9,6 +9,12 @@
  *   - Click outside also reverts, matching ESC behavior for consistency
  *   - Cmd+Enter commits changes, providing a keyboard path to save
  *   - Uses a ProseMirror plugin (not Tiptap keymap) to intercept click-outside events
+ *   - exitEditing guards stale editingPos (out-of-bounds, or pointing at a
+ *     non-codeBlock node after a doc shift) and clears state without mutating
+ *     unrelated content — prevents `Position N outside of fragment` crashes.
+ *   - Selection placement resolves against tr.doc (not state.doc). A preceding
+ *     replaceWith may have transformed the doc; PM rejects selections whose
+ *     $pos belongs to a different doc instance.
  *
  * @coordinates-with codePreview/tiptap.ts — the code preview node that hosts the math editor
  * @coordinates-with stores/blockMathEditingStore.ts — editing state (original content, position)
@@ -54,11 +60,28 @@ function exitEditing(view: EditorView, revert: boolean): boolean {
   if (editingPos === null) return false;
 
   const { state, dispatch } = view;
+
+  // Guard against stale editingPos: the position may now point past the doc,
+  // or at a different node type because the doc shifted between editing-start
+  // and exit. Without this, replaceWith below throws
+  // `Position N outside of fragment (...)`.
+  if (editingPos < 0 || editingPos >= state.doc.content.size) {
+    store.exitEditing();
+    return true;
+  }
   const node = state.doc.nodeAt(editingPos);
 
   if (!node) {
     store.exitEditing();
     return false;
+  }
+
+  if (node.type.name !== "codeBlock" && node.type.name !== "code_block") {
+    // The captured position no longer points at a code block (doc was
+    // restructured under us). Clear the editing flag without mutating
+    // unrelated content.
+    store.exitEditing();
+    return true;
   }
 
   let tr = state.tr;
@@ -74,9 +97,11 @@ function exitEditing(view: EditorView, revert: boolean): boolean {
     }
   }
 
-  // Move cursor after the code block
+  // Move cursor after the code block. Resolve against tr.doc, not state.doc:
+  // a preceding replaceWith may have transformed the document, and PM rejects
+  // a selection whose $pos belongs to a different doc instance.
   const nodeEnd = editingPos + node.nodeSize;
-  const $pos = state.doc.resolve(Math.min(nodeEnd, state.doc.content.size));
+  const $pos = tr.doc.resolve(Math.min(nodeEnd, tr.doc.content.size));
   tr = tr.setSelection(TextSelection.near($pos));
   tr.setMeta(EDITING_STATE_CHANGED, true);
 

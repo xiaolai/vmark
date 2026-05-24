@@ -9,6 +9,7 @@ import {
   codePreviewPluginKey,
   EDITING_STATE_CHANGED,
   SETTINGS_CHANGED,
+  __resetActiveEditorViewsForTesting,
 } from "./tiptap";
 
 function createStateWithCodeBlock(language: string, text: string) {
@@ -571,6 +572,13 @@ describe("codePreview plugin props.decorations", () => {
 });
 
 describe("refreshPreviews with active editor view", () => {
+  beforeEach(() => {
+    // Earlier tests register plugin views without always calling destroy().
+    // Clear the registry so refreshPreviews assertions are not contaminated
+    // by leaked views from previous tests.
+    __resetActiveEditorViewsForTesting();
+  });
+
   it("dispatches SETTINGS_CHANGED when editor view is set", () => {
     const extensionContext = {
       name: codePreviewExtension.name,
@@ -607,7 +615,7 @@ describe("refreshPreviews with active editor view", () => {
     viewResult.destroy!();
   });
 
-  it("view update keeps currentEditorView in sync", () => {
+  it("view update is a no-op (PM passes the same view instance across updates)", () => {
     const extensionContext = {
       name: codePreviewExtension.name,
       options: codePreviewExtension.options,
@@ -622,18 +630,49 @@ describe("refreshPreviews with active editor view", () => {
     const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
     const editorState = EditorState.create({ schema, doc, plugins });
 
-    const mockView1 = { state: editorState, dispatch: vi.fn() };
-    const viewResult = plugins[0].spec.view!(mockView1 as never);
+    const mockView = { state: editorState, dispatch: vi.fn() };
+    const viewResult = plugins[0].spec.view!(mockView as never);
 
-    // Update with new view reference
-    const mockView2 = { state: editorState, dispatch: vi.fn() };
-    viewResult.update!(mockView2 as never, {} as never);
+    // Call update with a different mock — should NOT swap the registered view,
+    // because the original behavior (single-global swap) was the bug that
+    // broke multi-editor scenarios. PM always passes the same view here.
+    const otherView = { state: editorState, dispatch: vi.fn() };
+    expect(() => viewResult.update!(otherView as never, {} as never)).not.toThrow();
 
-    // refreshPreviews should use the updated view
     refreshPreviews();
-    expect(mockView2.dispatch).toHaveBeenCalled();
+    expect(mockView.dispatch).toHaveBeenCalled();
+    expect(otherView.dispatch).not.toHaveBeenCalled();
 
     viewResult.destroy!();
+  });
+
+  it("refreshPreviews dispatches into every registered view (multi-editor)", () => {
+    const buildPluginView = () => {
+      const extensionContext = {
+        name: codePreviewExtension.name,
+        options: codePreviewExtension.options,
+        storage: codePreviewExtension.storage,
+        editor: {} as Editor,
+        type: null,
+        parent: undefined,
+      };
+      const plugins = codePreviewExtension.config.addProseMirrorPlugins?.call(extensionContext) ?? [];
+      const schema = getSchema([StarterKit]);
+      const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create()]);
+      const editorState = EditorState.create({ schema, doc, plugins });
+      const mockView = { state: editorState, dispatch: vi.fn() };
+      return { mockView, viewResult: plugins[0].spec.view!(mockView as never) };
+    };
+
+    const a = buildPluginView();
+    const b = buildPluginView();
+
+    refreshPreviews();
+    expect(a.mockView.dispatch).toHaveBeenCalled();
+    expect(b.mockView.dispatch).toHaveBeenCalled();
+
+    a.viewResult.destroy!();
+    b.viewResult.destroy!();
   });
 
   it("view destroy nullifies currentEditorView", () => {
@@ -845,6 +884,7 @@ describe("codePreview exitEditMode — via plugin with dispatch-able view (lines
 
   beforeEach(async () => {
     vi.useFakeTimers();
+    __resetActiveEditorViewsForTesting();
     const { useBlockMathEditingStore } = await import("@/stores/blockMathEditingStore");
     useBlockMathEditingStore.getState().exitEditing();
   });

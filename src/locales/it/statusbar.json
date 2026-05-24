@@ -51,6 +51,7 @@
   "updateError": "Verifica aggiornamento fallita — clicca per riprovare",
   "autoSavedAt": "Salvato automaticamente alle {{time}}",
   "terminal.search.placeholder": "Cerca...",
+  "terminal.search.label": "Cerca nell'output del terminale",
   "terminal.search.previous": "Precedente (Shift+Invio)",
   "terminal.search.next": "Successivo (Invio)",
   "terminal.search.close": "Chiudi (Esc)",

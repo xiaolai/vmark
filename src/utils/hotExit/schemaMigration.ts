@@ -39,6 +39,7 @@ type MigrationFn = (session: SessionData) => SessionData;
  */
 const migrations: Record<number, MigrationFn> = {
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 /**
@@ -160,5 +161,63 @@ function addHistoryToDocument(doc: V1DocumentState): DocumentState {
     ...doc,
     undo_history: [],
     redo_history: [],
+  };
+}
+
+/**
+ * V2 TabState — without v3-only format fields. Used for type-safe migration.
+ */
+type V2TabState = Omit<
+  SessionData['windows'][number]['tabs'][number],
+  'format_id' | 'editing_enabled' | 'active_schema_id'
+>;
+
+/**
+ * Migrate v2 -> v3: Add tab-format fields (formatId / editingEnabled / activeSchemaId)
+ *
+ * v3 adds three fields to TabState in support of the multi-format
+ * workspace (plan WI-1A.13). All v2 sessions are markdown-only by
+ * definition, so the backfill is:
+ *   - format_id = "markdown" (the only format that existed pre-v3)
+ *   - editing_enabled = true  (markdown is editable by default)
+ *   - active_schema_id = null (no schema dispatch yet)
+ */
+function migrateV2toV3(session: SessionData): SessionData {
+  return {
+    ...session,
+    version: 3,
+    windows: session.windows.map((window) => ({
+      ...window,
+      tabs: window.tabs.map((tab) => addFormatFieldsToTab(tab as V2TabState)),
+    })),
+  };
+}
+
+function addFormatFieldsToTab(
+  tab: V2TabState,
+): SessionData['windows'][number]['tabs'][number] {
+  // Defensive read: a real v2 session can't contain these fields (they
+  // were added in v3), but a hand-crafted or partially-migrated payload
+  // could. Preserve preexisting non-undefined values so the migration
+  // is idempotent and never clobbers explicit user state. This also
+  // mirrors the Rust side's behavior — `#[serde(default = …)]` keeps
+  // any present field as-is.
+  const incoming = tab as V2TabState & {
+    format_id?: unknown;
+    editing_enabled?: unknown;
+    active_schema_id?: unknown;
+  };
+  return {
+    ...tab,
+    format_id:
+      typeof incoming.format_id === 'string' ? incoming.format_id : 'markdown',
+    editing_enabled:
+      typeof incoming.editing_enabled === 'boolean'
+        ? incoming.editing_enabled
+        : true,
+    active_schema_id:
+      typeof incoming.active_schema_id === 'string'
+        ? incoming.active_schema_id
+        : null,
   };
 }

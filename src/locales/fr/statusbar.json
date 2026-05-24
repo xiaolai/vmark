@@ -51,6 +51,7 @@
   "updateError": "Échec de la vérification des mises à jour — cliquez pour réessayer",
   "autoSavedAt": "Enregistré automatiquement à {{time}}",
   "terminal.search.placeholder": "Rechercher...",
+  "terminal.search.label": "Rechercher dans la sortie du terminal",
   "terminal.search.previous": "Précédent (Maj+Entrée)",
   "terminal.search.next": "Suivant (Entrée)",
   "terminal.search.close": "Fermer (Échap)",

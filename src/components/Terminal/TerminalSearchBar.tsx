@@ -135,6 +135,8 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
         className="terminal-search-input"
         type="text"
         placeholder={t("terminal.search.placeholder")}
+        // WI-2.4 (a11y) — explicit accessible name.
+        aria-label={t("terminal.search.label")}
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}

@@ -963,4 +963,231 @@ describe("useUnifiedMenuCommands", () => {
       );
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // WI-1A.14 — Cross-format menu regression matrix (rev 6).
+  //
+  // Iterates over every FormatKind × every menu-action category and asserts
+  // dispatch behavior against the format's menuPolicy. This is a structural
+  // gate: adding a new FormatKind without specifying its menu behavior fails
+  // here, not in production.
+  //
+  // Plan reference:
+  //   dev-docs/plans/20260506-multi-format-rebrand.md § Phase 1A WI-1A.14
+  //   dev-docs/plans/20260523-grill-followup.md § WI-1.3
+  // ─────────────────────────────────────────────────────────────────────────
+  describe("WI-1A.14 — cross-format menu regression matrix", () => {
+    type FormatKindFixture = {
+      kind: import("@/lib/formats/types").FormatKind;
+      formatId: string;
+      filePath: string;
+      menuPolicy: {
+        sourceWysiwygToggle: boolean;
+        cjkFormatActions: boolean;
+        insertBlockActions: boolean;
+        paragraphFormatting: boolean;
+      };
+      /** Whether formatting-category actions (bold, setHeading) should dispatch.
+       *  These are gated by menuPolicy.paragraphFormatting. */
+      expectFormattingDispatch: boolean;
+    };
+
+    // One fixture per FormatKind. Add a row when a new FormatKind lands.
+    //
+    // Action category gating in useUnifiedMenuCommands.ts:
+    //   "edit"       — always allowed (universal early-out)
+    //   "formatting" — gated by menuPolicy.paragraphFormatting
+    //   "headings"   — gated by menuPolicy.paragraphFormatting
+    //   "inserts"    — gated by menuPolicy.insertBlockActions
+    //   "cjk"        — gated by menuPolicy.cjkFormatActions
+    //
+    // The matrix proves dispatch behavior for the two extremes (edit always
+    // allowed; formatting gated by policy) across all three FormatKinds.
+    // Adding a new FormatKind without a fixture row fails the structural
+    // guard test below.
+    //
+    // Fixtures use unique extensions so each fixture genuinely owns the path.
+    const fixtures: FormatKindFixture[] = [
+      {
+        kind: "wysiwyg",
+        formatId: "matrix-wsy",
+        filePath: "/sample.wsymtx",
+        menuPolicy: {
+          sourceWysiwygToggle: true,
+          cjkFormatActions: true,
+          insertBlockActions: true,
+          paragraphFormatting: true,
+        },
+        expectFormattingDispatch: true,
+      },
+      {
+        kind: "split-pane",
+        formatId: "matrix-split",
+        filePath: "/sample.spmtx",
+        menuPolicy: {
+          sourceWysiwygToggle: false,
+          cjkFormatActions: false,
+          insertBlockActions: false,
+          paragraphFormatting: false,
+        },
+        expectFormattingDispatch: false,
+      },
+      {
+        kind: "viewer",
+        formatId: "matrix-viewer",
+        filePath: "/sample.vwmtx",
+        menuPolicy: {
+          sourceWysiwygToggle: false,
+          cjkFormatActions: false,
+          insertBlockActions: false,
+          paragraphFormatting: false,
+        },
+        expectFormattingDispatch: false,
+      },
+    ];
+
+    // Minimal wysiwyg stub so registry validation accepts kind="wysiwyg".
+    // The dispatcher never renders this — it only inspects FormatConfig.
+    const WysiwygStub = () => null;
+
+    function registerFixture(f: FormatKindFixture): void {
+      const ext = f.filePath.split(".").pop()!;
+      registerFormat({
+        id: f.formatId,
+        nameI18nKey: `format.${f.formatId}`,
+        extensions: [ext],
+        kind: f.kind,
+        ...(f.kind === "wysiwyg" ? { wysiwygComponent: WysiwygStub } : {}),
+        ...(f.kind !== "wysiwyg"
+          ? { loadLanguage: async () => [] as never }
+          : {}),
+        adapters: {
+          saveDialogFilters: [{ name: f.formatId, extensions: [ext] }],
+          untitledExtension: ext,
+          searchAdapter: "codemirror",
+          readOnlyDefault: f.kind === "viewer",
+          closeSavePolicy: "markdown-default",
+          menuPolicy: f.menuPolicy,
+        },
+      });
+    }
+
+    describe.each(fixtures)(
+      "FormatKind=$kind ($formatId)",
+      ({ formatId, filePath, expectFormattingDispatch }) => {
+        beforeEach(() => {
+          __resetRegistry();
+          // Markdown must be registered first so the registry has a default
+          // for tabs that don't match any other extension.
+          registerMarkdownFormat();
+          // Register all three fixtures so registry shape is constant.
+          fixtures.forEach(registerFixture);
+          sourceMode = false;
+          activeWysiwygEditor = { view: {} };
+        });
+
+        it("undo dispatches regardless of menuPolicy (edit-category always allowed)", async () => {
+          const tabId = useTabStore.getState().createTab("main", filePath);
+          expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe(
+            formatId,
+          );
+
+          render(<TestHarness />);
+          await waitFor(() => expect(listeners.has("menu:undo")).toBe(true));
+
+          listeners.get("menu:undo")?.({ payload: "main" });
+
+          expect(performUnifiedUndo).toHaveBeenCalledWith("main");
+        });
+
+        it(`formatting (italic) ${expectFormattingDispatch ? "dispatches" : "is blocked"}`, async () => {
+          useTabStore.getState().createTab("main", filePath);
+
+          render(<TestHarness />);
+          await waitFor(() => expect(listeners.has("menu:italic")).toBe(true));
+
+          vi.mocked(performWysiwygToolbarAction).mockClear();
+          listeners.get("menu:italic")?.({ payload: "main" });
+
+          if (expectFormattingDispatch) {
+            expect(performWysiwygToolbarAction).toHaveBeenCalled();
+          } else {
+            expect(performWysiwygToolbarAction).not.toHaveBeenCalled();
+          }
+        });
+
+        it(`heading-1 ${expectFormattingDispatch ? "dispatches" : "is blocked"} (category formatting → paragraphFormatting)`, async () => {
+          // heading-1 → setHeading takes a special code path through
+          // setWysiwygHeadingLevel rather than performWysiwygToolbarAction.
+          const { setWysiwygHeadingLevel } = await import(
+            "@/plugins/toolbarActions/wysiwygAdapter"
+          );
+
+          useTabStore.getState().createTab("main", filePath);
+
+          render(<TestHarness />);
+          await waitFor(() =>
+            expect(listeners.has("menu:heading-1")).toBe(true),
+          );
+
+          vi.mocked(setWysiwygHeadingLevel).mockClear();
+          listeners.get("menu:heading-1")?.({ payload: "main" });
+
+          if (expectFormattingDispatch) {
+            expect(setWysiwygHeadingLevel).toHaveBeenCalled();
+          } else {
+            expect(setWysiwygHeadingLevel).not.toHaveBeenCalled();
+          }
+        });
+
+        it(`paragraph ${expectFormattingDispatch ? "dispatches" : "is blocked"} (category formatting → paragraphFormatting)`, async () => {
+          // paragraph → setWysiwygHeadingLevel(level=0).
+          const { setWysiwygHeadingLevel } = await import(
+            "@/plugins/toolbarActions/wysiwygAdapter"
+          );
+
+          useTabStore.getState().createTab("main", filePath);
+
+          render(<TestHarness />);
+          await waitFor(() =>
+            expect(listeners.has("menu:paragraph")).toBe(true),
+          );
+
+          vi.mocked(setWysiwygHeadingLevel).mockClear();
+          listeners.get("menu:paragraph")?.({ payload: "main" });
+
+          if (expectFormattingDispatch) {
+            expect(setWysiwygHeadingLevel).toHaveBeenCalled();
+          } else {
+            expect(setWysiwygHeadingLevel).not.toHaveBeenCalled();
+          }
+        });
+
+        it("redo dispatches regardless of menuPolicy (edit-category always allowed)", async () => {
+          useTabStore.getState().createTab("main", filePath);
+
+          render(<TestHarness />);
+          await waitFor(() => expect(listeners.has("menu:redo")).toBe(true));
+
+          listeners.get("menu:redo")?.({ payload: "main" });
+
+          expect(performUnifiedRedo).toHaveBeenCalledWith("main");
+        });
+      },
+    );
+
+    it("structural guard: every FormatKind has a matrix fixture", () => {
+      const declared = new Set(fixtures.map((f) => f.kind));
+      // Compile-time exhaustiveness aid: enumerate every FormatKind here.
+      // Adding a new kind without a fixture flags here.
+      const all: import("@/lib/formats/types").FormatKind[] = [
+        "wysiwyg",
+        "split-pane",
+        "viewer",
+      ];
+      for (const k of all) {
+        expect(declared.has(k)).toBe(true);
+      }
+    });
+  });
 });

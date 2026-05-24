@@ -624,7 +624,6 @@ pub fn run() {
             menu::rebuild_menu,
             menu::update_menu_accelerators,
             menu::set_locale,
-            window_manager::new_window,
             window_manager::open_file_in_new_window,
             window_manager::open_workspace_in_new_window,
             window_manager::open_workspace_with_files_in_new_window,

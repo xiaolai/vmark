@@ -91,4 +91,14 @@ describe("StatusBar accessibility", () => {
     const toggle = screen.getByLabelText(/open sidebar/i);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
+
+  // WI-2.3 — the toggle button should disappear entirely when the sidebar
+  // is already open. This and the test above together fully cover the
+  // `aria-expanded={sidebarVisible}` binding (the button never renders
+  // with `aria-expanded="true"` because of the surrounding conditional).
+  it("does not render the toggle when the sidebar is already open", () => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: true });
+    render(<StatusBar />);
+    expect(screen.queryByLabelText(/open sidebar/i)).toBeNull();
+  });
 });

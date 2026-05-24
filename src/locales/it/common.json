@@ -32,6 +32,7 @@
   "tabActions": "Azioni scheda",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.sidebarResize": "Ridimensiona barra laterale (frecce sinistra e destra)",
   "resize": "Ridimensiona",
   "unknown": "Sconosciuto",
   "running": "In esecuzione",

@@ -129,11 +129,20 @@
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
+/* Approve: solid primary-CTA pattern. Earlier design used --accent-bg + blue
+ * text, which fell to ~4.3:1 contrast (below WCAG AA) and inverted the
+ * usual UX where the CTA is the most prominent state at rest. */
 .approval-dialog__btn--approve {
-  border-color: var(--primary-color);
-  background: var(--accent-bg);
-  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+  color: var(--contrast-text);
   font-weight: 600;
+}
+
+.approval-dialog__btn--approve:hover {
+  background: var(--accent-primary);
+  color: var(--contrast-text);
+  opacity: var(--opacity-mostly-opaque);
 }
 
 .approval-dialog__btn--deny {

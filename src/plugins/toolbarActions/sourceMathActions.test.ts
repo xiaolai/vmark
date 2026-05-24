@@ -45,10 +45,29 @@ describe("findInlineMathAtCursor", () => {
     view.destroy();
   });
 
-  it("handles empty math $$", () => {
+  it("ignores empty $$ pair — not inline math", () => {
+    // Adjacent `$$` with nothing between is not inline math under remark-math
+    // semantics and must not trigger the Source-mode math popup. Two `$`s with
+    // no content are usually a half-typed block-math delimiter.
     const view = createView("text $$ more", 6);
     const result = findInlineMathAtCursor(view, 6);
-    expect(result).toEqual({ from: 5, to: 7, content: "" });
+    expect(result).toBeNull();
+    view.destroy();
+  });
+
+  it("ignores trailing $$ at end of paragraph", () => {
+    // Regression: typing `$$` at end of a non-`$$`-only line previously opened
+    // the popup with empty content, which then wrote a stale range on Save.
+    const view = createView("对我们来说，有价值的独立 agents。$$", 22);
+    const result = findInlineMathAtCursor(view, 22);
+    expect(result).toBeNull();
+    view.destroy();
+  });
+
+  it("still matches non-empty math between $...$ on the same line", () => {
+    const view = createView("intro $a$ $$ tail", 8);
+    const result = findInlineMathAtCursor(view, 8);
+    expect(result).toEqual({ from: 6, to: 9, content: "a" });
     view.destroy();
   });
 
