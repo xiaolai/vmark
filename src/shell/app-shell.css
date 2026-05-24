@@ -1,0 +1,30 @@
+/*
+ * AppShell layout primitives.
+ *
+ * The shell owns: window-fill, sidebar gutter, primary flex column.
+ * Visual concerns (theme, background) live in tokens consumed by these rules.
+ *
+ * Height: relies on html/body/#root being 100% (set in styles/index.css).
+ */
+
+.app-shell {
+  display: flex;
+  height: 100%;
+  overflow: clip;
+  position: relative;
+  background-color: var(--bg-color);
+}
+
+.app-shell__sidebar {
+  height: 100%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.app-shell__primary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+  min-width: 0;
+}

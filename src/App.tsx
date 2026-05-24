@@ -6,10 +6,12 @@ import { Toaster } from "sonner";
 import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
 import { Editor } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
+import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
 import { StatusBar } from "@/components/StatusBar";
 import { FindBar } from "@/components/FindBar";
 import { TitleBar } from "@/components/TitleBar";
 import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
+import { AppShell, EditorArea } from "@/shell";
 const TerminalPanel = lazy(() =>
   import("@/components/Terminal").then((m) => ({ default: m.TerminalPanel }))
 );
@@ -94,11 +96,6 @@ import { useSelectAllScope } from "@/hooks/useSelectAllScope";
 import { useDragDropOpen } from "@/hooks/useDragDropOpen";
 import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
-import {
-  useSidebarResize,
-  MIN_SIDEBAR_WIDTH,
-  MAX_SIDEBAR_WIDTH,
-} from "@/hooks/useSidebarResize";
 import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
 import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
@@ -123,9 +120,6 @@ import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { useContentSearchShortcuts } from "@/components/ContentSearch/useContentSearchShortcuts";
-
-/** Height of the title bar area in pixels */
-const TITLEBAR_HEIGHT = 40;
 
 /** Drop zone indicator when dragging markdown files */
 function DropOverlay() {
@@ -214,7 +208,6 @@ function MainWindowHooks() {
 }
 
 function MainLayout() {
-  const { t } = useTranslation();
   const focusModeEnabled = useEditorStore((state) => state.focusModeEnabled);
   const typewriterModeEnabled = useEditorStore(
     (state) => state.typewriterModeEnabled
@@ -224,8 +217,6 @@ function MainLayout() {
   const findBarOpen = useSearchStore((state) => state.isOpen);
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
-  const { handleResizeStart, handleResizeKeyDown } = useSidebarResize();
-  const sidebarOffset = sidebarVisible ? `${sidebarWidth}px` : "0px";
 
   // Initialize hooks
   useWorkspaceBootstrap(); // Load config from disk on startup (must be first)
@@ -255,8 +246,7 @@ function MainLayout() {
 
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
 
-  const classNames = [
-    "app-layout",
+  const className = [
     focusModeEnabled && "focus-mode",
     typewriterModeEnabled && "typewriter-mode",
     findBarOpen && "find-bar-open",
@@ -265,111 +255,58 @@ function MainLayout() {
     .join(" ");
 
   return (
-    <div
-      className={classNames}
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "clip",
-        position: "relative",
-        backgroundColor: "var(--bg-color)",
-        ["--sidebar-offset" as string]: sidebarOffset,
-      }}
-    >
-      {/* Window lifecycle hooks for document windows */}
-      {isDocumentWindow && <DocumentWindowHooks />}
-      {/* Main window specific hooks */}
-      {windowLabel === "main" && <MainWindowHooks />}
-      {/* AI Genies hooks */}
-      <GenieShortcutsRunner />
-      <QuickOpenShortcutsRunner />
-      <ContentSearchShortcutsRunner />
-
-      {/* Drop zone indicator for drag-and-drop */}
-      <DropOverlay />
-      <QuickOpen windowLabel={windowLabel} />
-      <ContentSearch windowLabel={windowLabel} />
-      <GeniePicker />
-      <ApprovalDialog />
-
-      {/* Title bar with drag region and filename display */}
-      <TitleBar />
-
-      {sidebarVisible && (
-        <aside
-          aria-label={t("aria.sidebar")}
-          style={{
-            width: sidebarWidth,
-            minWidth: sidebarWidth,
-            height: "100%",
-            flexShrink: 0,
-            position: "relative",
-          }}
-        >
-          <Sidebar />
-          {/* Resize handle — positioned at right edge of sidebar.
-              WI-2.2 (a11y): focusable separator with arrow-key resize.
-              role=separator + aria-orientation=vertical announces purpose;
-              tabIndex=0 puts it in tab order; aria-valuenow/min/max + the
-              live `now` value let screen readers report current width. */}
-          <div
-            className="sidebar-resize-handle"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t("aria.sidebarResize")}
-            aria-valuenow={sidebarWidth}
-            aria-valuemin={MIN_SIDEBAR_WIDTH}
-            aria-valuemax={MAX_SIDEBAR_WIDTH}
-            tabIndex={0}
-            onMouseDown={handleResizeStart}
-            onKeyDown={handleResizeKeyDown}
-          />
-        </aside>
-      )}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "clip",
-          minWidth: 0, // Prevent flex child from expanding beyond parent
-        }}
-      >
-        {/* Spacer for title bar area */}
-        <div style={{ height: TITLEBAR_HEIGHT, flexShrink: 0 }} />
-        {/* Editor + Terminal container with dynamic flex direction */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: terminalPosition === "right" ? "row" : "column",
-            minHeight: 0,
-            minWidth: 0,
-          }}
-        >
-          {/* Editor column: editor + bottom bars */}
-          <div role="main" aria-label={t("aria.mainContent")} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 }}>
-            {/* Editor area — wrapped so a Tiptap / ProseMirror schema crash
-                shows an inline error rather than unmounting the whole window. */}
-            <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-              <FeatureErrorBoundary feature="Editor">
-                <Editor />
-              </FeatureErrorBoundary>
-            </div>
-            {/* Bottom bar container - fixed 40px height, all bars overlay within */}
-            <div style={{ position: "relative", height: 40, flexShrink: 0 }}>
+    <AppShell
+      className={className}
+      chrome={<TitleBar />}
+      sidebar={
+        sidebarVisible ? (
+          <>
+            <Sidebar />
+            <SidebarResizeHandle width={sidebarWidth} />
+          </>
+        ) : null
+      }
+      sidebarWidth={sidebarWidth}
+      primary={
+        <EditorArea
+          editor={
+            <FeatureErrorBoundary feature="Editor">
+              <Editor />
+            </FeatureErrorBoundary>
+          }
+          bottomBar={
+            <>
               <StatusBar />
               <UniversalToolbar />
               <FindBar />
-            </div>
-          </div>
-          {/* Terminal panel — xterm + PTY crashes stay contained to the panel. */}
-          <FeatureErrorBoundary feature="Terminal">
-            <Suspense fallback={null}><TerminalPanel /></Suspense>
-          </FeatureErrorBoundary>
-        </div>
-      </div>
-    </div>
+            </>
+          }
+          panel={
+            <FeatureErrorBoundary feature="Terminal">
+              <Suspense fallback={null}>
+                <TerminalPanel />
+              </Suspense>
+            </FeatureErrorBoundary>
+          }
+          panelPosition={terminalPosition}
+        />
+      }
+      overlays={
+        <>
+          {isDocumentWindow && <DocumentWindowHooks />}
+          {windowLabel === "main" && <MainWindowHooks />}
+          <GenieShortcutsRunner />
+          <QuickOpenShortcutsRunner />
+          <ContentSearchShortcutsRunner />
+
+          <DropOverlay />
+          <QuickOpen windowLabel={windowLabel} />
+          <ContentSearch windowLabel={windowLabel} />
+          <GeniePicker />
+          <ApprovalDialog />
+        </>
+      }
+    />
   );
 }
 

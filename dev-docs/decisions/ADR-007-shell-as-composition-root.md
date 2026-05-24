@@ -1,6 +1,6 @@
 # ADR-007: Shell as composition root
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Accepted** | Date: 2026-05-24 | Spike landed: 2026-05-24
 
 ## Context
 
@@ -71,3 +71,55 @@ wiring of a window, nothing more.
 
 - Enables panel/overlay slot registration consumed by ADR-011 plugin manifests.
 - Pairs with ADR-014 (theme provider boundary lives at Shell root).
+
+## Spike outcome (2026-05-24)
+
+Implemented on branch `refactor/appshell-spike`:
+
+- `src/shell/AppShell.tsx` — 76 LOC, pure layout primitive.
+- `src/shell/EditorArea.tsx` — pure layout helper that owns the dynamic
+  panel-position (right vs bottom) logic for the terminal panel.
+- `src/shell/app-shell.css` — three layout rules, leans on existing
+  `html, body, #root { height: 100% }` global.
+- `src/App.tsx` — `MainLayout` body migrated to compose AppShell.
+
+**Verification gates — all pass:**
+
+- `grep -rn "from.*['\"]@/stores" src/shell/` → zero matches.
+- `grep -rn "useEditor\|useDocument\|useWorkspace" src/shell/` → zero
+  matches.
+- `wc -l src/shell/AppShell.tsx` → 76 (target < 200).
+- 15 new tests (`AppShell.test.tsx` 9 + `EditorArea.test.tsx` 6) green.
+- Full suite 18,827 tests pass.
+- `pnpm tsc --noEmit` clean; `pnpm lint` clean (0 errors, 2 pre-existing
+  warnings); `pnpm lint:design-tokens` clean; `pnpm lint:deps` 0 errors
+  (6 pre-existing warnings, none introduced).
+
+**Findings against the ADR's predictions:**
+
+- **App.tsx body reduction was modest.** Predicted ~80 LOC; actual 356
+  LOC (down from 398, −42 LOC). The remaining bulk is the 24 lifecycle
+  hook calls and the runner / DocumentWindowHooks / MainWindowHooks
+  composites — those are ADR-009-adjacent work (existing plan task T03),
+  deliberately out of this spike's scope. Once lifecycle composites land,
+  App.tsx will hit the ~80 LOC projection.
+- **Dynamic terminal positioning cleanly accommodated.** The "panels = a
+  Shell slot or a primary-area concern?" question resolved cleanly:
+  panel positioning lives in `EditorArea`, not in `AppShell`. The Shell
+  stays free of layout dynamics. This was the highest-risk question and
+  it answered well.
+- **`--sidebar-offset` CSS variable was dead.** Set in the original
+  `MainLayout` style prop, consumed nowhere. Dropped during the
+  refactor — pure cleanup, no behavior change.
+- **Chrome reservation mechanism.** TitleBar uses `position: absolute,
+  top: 0`. AppShell reserves 40px via `paddingTop` on the primary
+  region. No layout breakage.
+
+**Open issues / follow-ups:**
+
+- Manual smoke test of focus mode, typewriter mode, find bar open, and
+  terminal repositioning under window resize is still recommended before
+  release; jsdom-driven unit tests don't exercise the full layout flow.
+- The `100vh` → `100%` switch in the shell CSS depends on the global
+  `html, body, #root { height: 100% }` rule staying in place. Documented
+  in the CSS file header.

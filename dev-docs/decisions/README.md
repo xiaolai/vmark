@@ -13,7 +13,7 @@ architectural choice using the [MADR](https://adr.github.io/madr/) format.
 | [004](ADR-004-human-oriented-mcp-tools.md) | Human-oriented MCP tool design | Accepted | 2026-01-22 |
 | [005](ADR-005-cli-based-ai-provider-routing.md) | CLI-based AI provider routing | Accepted | 2026-01-10 |
 | [006](ADR-006-terminal-program-identity.md) | Terminal program identity | Accepted | — |
-| [007](ADR-007-shell-as-composition-root.md) | Shell as composition root | Proposed | 2026-05-24 |
+| [007](ADR-007-shell-as-composition-root.md) | Shell as composition root | Accepted | 2026-05-24 |
 | [008](ADR-008-workspace-as-single-facade.md) | Workspace as single facade | Proposed | 2026-05-24 |
 | [009](ADR-009-document-as-unit-of-state.md) | Document as the unit of state | Proposed | 2026-05-24 |
 | [010](ADR-010-editor-host-as-mode-agnostic-interface.md) | Editor host as mode-agnostic interface | Proposed | 2026-05-24 |
