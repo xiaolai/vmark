@@ -54,11 +54,28 @@ function exitEditing(view: EditorView, revert: boolean): boolean {
   if (editingPos === null) return false;
 
   const { state, dispatch } = view;
+
+  // Guard against stale editingPos: the position may now point past the doc,
+  // or at a different node type because the doc shifted between editing-start
+  // and exit. Without this, replaceWith below throws
+  // `Position N outside of fragment (...)`.
+  if (editingPos < 0 || editingPos >= state.doc.content.size) {
+    store.exitEditing();
+    return true;
+  }
   const node = state.doc.nodeAt(editingPos);
 
   if (!node) {
     store.exitEditing();
     return false;
+  }
+
+  if (node.type.name !== "codeBlock" && node.type.name !== "code_block") {
+    // The captured position no longer points at a code block (doc was
+    // restructured under us). Clear the editing flag without mutating
+    // unrelated content.
+    store.exitEditing();
+    return true;
   }
 
   let tr = state.tr;

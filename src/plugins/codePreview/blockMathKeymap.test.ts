@@ -210,6 +210,80 @@ describe("blockMathKeymap — empty code block", () => {
   });
 });
 
+describe("blockMathKeymap — stale editingPos guard (P4)", () => {
+  // Build a real plugin instance and exercise its handleKeyDown so we can
+  // verify it does not call replaceWith / does not corrupt the doc when
+  // editingPos points at a node that is no longer a codeBlock.
+  function buildPlugin() {
+    const ctx = {
+      name: blockMathKeymapExtension.name,
+      options: blockMathKeymapExtension.options,
+      storage: blockMathKeymapExtension.storage,
+       
+      editor: {} as any,
+      type: null,
+      parent: undefined,
+    };
+     
+    const plugins = (blockMathKeymapExtension.config as any).addProseMirrorPlugins?.call(ctx) ?? [];
+    return plugins[0];
+  }
+
+  beforeEach(() => {
+    const store = useBlockMathEditingStore.getState();
+    store.editingPos = null;
+    store.originalContent = null;
+    vi.mocked(store.exitEditing).mockClear();
+  });
+
+  it("does not throw when editingPos points at a paragraph (not a codeBlock)", () => {
+    // Doc: codeBlock("orig") + paragraph(""). codeBlock starts at 0; the
+    // paragraph starts at codeBlock.nodeSize. Point editingPos at the
+    // paragraph — simulating positions shifting out from under us.
+    const state = createEditorState("orig", "latex");
+    const paragraphPos = state.doc.firstChild!.nodeSize;
+    expect(state.doc.nodeAt(paragraphPos)?.type.name).toBe("paragraph");
+
+    const store = useBlockMathEditingStore.getState();
+    store.editingPos = paragraphPos;
+    store.originalContent = "orig";
+
+    const view = createMockView(state);
+    const plugin = buildPlugin();
+
+    const event = new KeyboardEvent("keydown", { key: "Escape" });
+    // Must NOT throw "Position N outside of fragment (<paragraph>)".
+    expect(() => plugin.props.handleKeyDown!(view, event)).not.toThrow();
+
+    // Plugin must clear store and not dispatch a destructive replaceWith.
+    expect(store.exitEditing).toHaveBeenCalled();
+    // Either no dispatch, OR a dispatch that does not touch the paragraph.
+    for (const tr of view.dispatch.mock.calls.map((c) => c[0])) {
+       
+      const steps = (tr as any).steps as Array<{ from?: number; to?: number }>;
+      for (const step of steps) {
+        if (typeof step.from === "number" && typeof step.to === "number") {
+          expect(step.to - step.from).toBeLessThanOrEqual(0);
+        }
+      }
+    }
+  });
+
+  it("does not throw when editingPos is past the end of the doc", () => {
+    const state = createEditorState("orig", "latex");
+    const store = useBlockMathEditingStore.getState();
+    store.editingPos = state.doc.content.size + 100;
+    store.originalContent = "orig";
+
+    const view = createMockView(state);
+    const plugin = buildPlugin();
+
+    const event = new KeyboardEvent("keydown", { key: "Escape" });
+    expect(() => plugin.props.handleKeyDown!(view, event)).not.toThrow();
+    expect(store.exitEditing).toHaveBeenCalled();
+  });
+});
+
 describe("blockMathKeymap — extension structure", () => {
   it("has the correct name", async () => {
     const { blockMathKeymapExtension } = await import("./blockMathKeymap");

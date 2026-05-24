@@ -221,6 +221,20 @@ function exitEditMode(view: EditorView | null, revert: boolean): void {
   }
 
   const { state, dispatch } = editorView;
+
+  // Guard: editingPos may be stale (doc shifted, node deleted, position past
+  // end). Without this, the replaceWith below can throw
+  // `Position N outside of fragment (...)` — the WYSIWYG crash class.
+  if (editingPos < 0 || editingPos >= state.doc.content.size) {
+    store.exitEditing();
+    dispatch(state.tr.setMeta(EDITING_STATE_CHANGED, true));
+    livePreviewToken++;
+    if (livePreviewTimeout) {
+      clearTimeout(livePreviewTimeout);
+      livePreviewTimeout = null;
+    }
+    return;
+  }
   const node = state.doc.nodeAt(editingPos);
 
   if (!node) {
@@ -228,6 +242,19 @@ function exitEditMode(view: EditorView | null, revert: boolean): void {
     dispatch(state.tr.setMeta(EDITING_STATE_CHANGED, true));
     livePreviewToken++;
     /* v8 ignore next 3 -- @preserve livePreviewTimeout is set only when a live-preview debounce timer is pending at the exact moment a stale-position cancel is triggered; this race window is unreachable in synchronous jsdom tests */
+    if (livePreviewTimeout) {
+      clearTimeout(livePreviewTimeout);
+      livePreviewTimeout = null;
+    }
+    return;
+  }
+
+  if (node.type.name !== "codeBlock" && node.type.name !== "code_block") {
+    // editingPos no longer points at a code block — abort to avoid mutating
+    // unrelated content.
+    store.exitEditing();
+    dispatch(state.tr.setMeta(EDITING_STATE_CHANGED, true));
+    livePreviewToken++;
     if (livePreviewTimeout) {
       clearTimeout(livePreviewTimeout);
       livePreviewTimeout = null;
