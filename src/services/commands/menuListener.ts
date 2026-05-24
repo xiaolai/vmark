@@ -42,10 +42,18 @@ export async function mountMenuCommands(
       ? binding.menuEvent
       : `menu:${binding.menuEvent}`;
     try {
-      const off = await currentWindow.listen<string>(event, async (e) => {
-        if (e.payload !== windowLabel) return;
+      const off = await currentWindow.listen<string | [unknown, string]>(event, async (e) => {
+        // Window-targeting filter — supports both string payload
+        // (single value === windowLabel) and tuple payload (second
+        // element is the target window label).
+        const payload = e.payload;
+        if (typeof payload === "string") {
+          if (payload !== windowLabel) return;
+        } else if (Array.isArray(payload)) {
+          if (payload[1] !== windowLabel) return;
+        }
         try {
-          await executeCommand(binding.commandId, e.payload, { windowLabel });
+          await executeCommand(binding.commandId, payload, { windowLabel });
         } catch (err) {
           menuError(`Command ${binding.commandId} threw:`, err);
         }

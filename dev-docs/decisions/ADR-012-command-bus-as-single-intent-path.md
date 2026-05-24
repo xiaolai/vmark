@@ -1,6 +1,6 @@
 # ADR-012: Command bus as the single intent path
 
-> Status: **Accepted (bridge + 1 of 6 hooks migrated)** | Date: 2026-05-24
+> Status: **Accepted (all 6 hooks routed through CommandBus)** | Date: 2026-05-24
 
 ## Context
 
