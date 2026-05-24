@@ -21,7 +21,7 @@
 import { message, save, open } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
-import { saveToPath } from "@/utils/saveToPath";
+import { saveToPath } from "@/services/persistence/saveToPath";
 import { joinPath, getDirectory } from "@/utils/pathUtils";
 
 /** Context describing a dirty document that may need saving before close. */

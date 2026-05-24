@@ -11,7 +11,7 @@
  */
 
 import { useDocumentStore } from "@/stores/documentStore";
-import { getActiveTabId } from "@/utils/activeDocument";
+import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 
 /**

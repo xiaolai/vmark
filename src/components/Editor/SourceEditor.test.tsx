@@ -218,7 +218,7 @@ vi.mock("@/utils/sourceEditorSearch", () => ({
   countMatches: (...args: unknown[]) => mockCountMatches(...args),
 }));
 
-vi.mock("@/utils/sourceEditorExtensions", () => ({
+vi.mock("@/services/assembly/sourceEditorExtensions", () => ({
   createSourceEditorExtensions: vi.fn(() => []),
   shortcutKeymapCompartment: {
     of: vi.fn((ext: unknown) => ext),
@@ -385,7 +385,7 @@ describe("SourceEditor", () => {
 
   describe("EditorView initial state", () => {
     it("creates EditorView with source editor extensions", async () => {
-      const { createSourceEditorExtensions } = await import("@/utils/sourceEditorExtensions");
+      const { createSourceEditorExtensions } = await import("@/services/assembly/sourceEditorExtensions");
       render(<SourceEditor />);
       expect(createSourceEditorExtensions).toHaveBeenCalledWith(
         expect.objectContaining({

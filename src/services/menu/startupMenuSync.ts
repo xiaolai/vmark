@@ -14,7 +14,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { menuSyncWarn } from "@/utils/debug";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { rebuildNativeMenu } from "@/utils/rebuildNativeMenu";
+import { rebuildNativeMenu } from "@/services/menu/rebuildNativeMenu";
 
 const startupLang = useSettingsStore.getState().general.language;
 if (startupLang && startupLang !== "en") {

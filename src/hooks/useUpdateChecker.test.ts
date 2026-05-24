@@ -92,7 +92,7 @@ vi.mock("./useUpdateOperations", () => ({
   clearPendingUpdate: (...args: unknown[]) => mocks.clearPendingUpdate(...args),
 }));
 
-vi.mock("@/utils/hotExit/restartWithHotExit", () => ({
+vi.mock("@/services/persistence/hotExit/restartWithHotExit", () => ({
   restartWithHotExit: (...args: unknown[]) => mocks.restartWithHotExit(...args),
 }));
 

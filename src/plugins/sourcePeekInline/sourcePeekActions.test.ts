@@ -64,7 +64,7 @@ vi.mock("@/stores/sourcePeekStore", () => ({
   },
 }));
 
-vi.mock("@/utils/sourcePeek", () => ({
+vi.mock("@/services/editor/sourcePeek", () => ({
   applySourcePeekMarkdown: vi.fn(),
   serializeSourcePeekRange: vi.fn(() => "# Hello"),
   getExpandedSourcePeekRange: vi.fn(() => ({ from: 0, to: 10 })),
@@ -91,7 +91,7 @@ import {
   revertAndCloseSourcePeek,
 } from "./sourcePeekActions";
 import { cleanupCMView } from "./sourcePeekEditor";
-import { applySourcePeekMarkdown, getExpandedSourcePeekRange } from "@/utils/sourcePeek";
+import { applySourcePeekMarkdown, getExpandedSourcePeekRange } from "@/services/editor/sourcePeek";
 
 // ---------------------------------------------------------------------------
 // Helpers

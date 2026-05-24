@@ -33,7 +33,7 @@ import { getReplaceableTab } from "@/hooks/useReplaceableTab";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { openFileInNewTabCore } from "@/hooks/useFileOpen";
-import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";

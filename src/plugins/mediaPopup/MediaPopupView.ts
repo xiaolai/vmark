@@ -28,7 +28,7 @@ import { dirname, join } from "@tauri-apps/api/path";
 import { mediaPopupWarn, mediaPopupError } from "@/utils/debug";
 import { useMediaPopupStore, type MediaNodeType } from "@/stores/mediaPopupStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { getActiveTabIdForCurrentWindow } from "@/utils/resolveMediaSrc";
+import { getActiveTabIdForCurrentWindow } from "@/services/media/resolveMediaSrc";
 import {
   calculatePopupPosition,
   getBoundaryRects,

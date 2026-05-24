@@ -53,7 +53,7 @@ import {
   createSourceEditorExtensions,
   shortcutKeymapCompartment,
   readOnlyCompartment,
-} from "@/utils/sourceEditorExtensions";
+} from "@/services/assembly/sourceEditorExtensions";
 import { consumePendingLintScroll } from "@/hooks/lintNavigation";
 import { consumePendingContentSearchNav, openFindBarWithQuery } from "@/hooks/contentSearchNavigation";
 

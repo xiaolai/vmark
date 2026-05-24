@@ -35,7 +35,7 @@
 import { bench, describe } from "vitest";
 import { Editor } from "@tiptap/core";
 import { EditorState } from "@tiptap/pm/state";
-import { createTiptapExtensions } from "@/utils/tiptapExtensions";
+import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
 import {
   generateMarkdown,
   generateMarkdownWithCodeBlocks,

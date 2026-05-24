@@ -16,7 +16,7 @@ vi.mock("@/utils/crashRecovery", () => ({
 
 // Mock hot exit coordination
 const mockWaitForRestoreComplete = vi.fn();
-vi.mock("@/utils/hotExit/hotExitCoordination", () => ({
+vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
   waitForRestoreComplete: () => mockWaitForRestoreComplete(),
 }));
 

@@ -24,6 +24,7 @@ import { useEffect, useRef } from "react";
 import { useSettingsStore, themes, type ThemeColors } from "@/stores/settingsStore";
 import { updateMermaidFontSize } from "@/plugins/mermaid";
 import { refreshPreviews } from "@/plugins/codePreview/tiptap";
+import { applyTheme, lightTheme, darkTheme } from "@/theme";
 
 export const fontStacks = {
   latin: {
@@ -367,6 +368,11 @@ export function useTheme() {
     // Guard against invalid theme key (e.g., from corrupted localStorage)
     const themeColors = themes[appearance.theme] ?? themes.paper;
     const isDark = themeColors.isDark ?? false;
+
+    // ADR-014: lay down typed-theme baseline before user-driven overrides.
+    // Existing applyCoreColors/applyModeColors layer settings-specific
+    // values (theme palette, font sizing) on top of this baseline.
+    applyTheme(isDark ? darkTheme : lightTheme, root);
 
     applyCoreColors(root, themeColors);
     applyModeColors(root, themeColors, isDark);

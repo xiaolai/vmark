@@ -15,7 +15,7 @@ import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { generateSlug, makeUniqueSlug, type HeadingWithId } from "@/utils/headingSlug";
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
-import { readClipboardUrl } from "@/utils/clipboardUrl";
+import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { findWordBoundaries } from "@/utils/wordSegmentation";
 
 /**

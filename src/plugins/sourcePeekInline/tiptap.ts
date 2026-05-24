@@ -18,7 +18,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
-import { applySourcePeekMarkdown, getExpandedSourcePeekRange } from "@/utils/sourcePeek";
+import { applySourcePeekMarkdown, getExpandedSourcePeekRange } from "@/services/editor/sourcePeek";
 import { createEditHeader } from "./sourcePeekHeader";
 import { createCodeMirrorEditor, cleanupCMView } from "./sourcePeekEditor";
 import {

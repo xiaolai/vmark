@@ -14,7 +14,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUnifiedHistoryStore } from "@/stores/unifiedHistoryStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { applySourcePeekMarkdown, serializeSourcePeekRange, getExpandedSourcePeekRange } from "@/utils/sourcePeek";
+import { applySourcePeekMarkdown, serializeSourcePeekRange, getExpandedSourcePeekRange } from "@/services/editor/sourcePeek";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { cleanupCMView } from "./sourcePeekEditor";

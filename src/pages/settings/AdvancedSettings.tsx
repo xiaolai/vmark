@@ -10,8 +10,8 @@ import { useTranslation } from "react-i18next";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { restartWithHotExit } from "@/utils/hotExit/restartWithHotExit";
-import type { SessionData } from "@/utils/hotExit/types";
+import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHotExit";
+import type { SessionData } from "@/services/persistence/hotExit/types";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 
 /**

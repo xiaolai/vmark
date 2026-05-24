@@ -100,7 +100,7 @@ vi.mock("@/stores/documentStore", () => ({
   },
 }));
 
-vi.mock("@/utils/resolveMediaSrc", () => ({
+vi.mock("@/services/media/resolveMediaSrc", () => ({
   getActiveTabIdForCurrentWindow: mockGetActiveTabIdForCurrentWindow,
 }));
 

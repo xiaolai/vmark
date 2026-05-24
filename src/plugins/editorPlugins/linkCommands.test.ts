@@ -59,7 +59,7 @@ vi.mock("@/plugins/syntaxReveal/marks", () => ({
 }));
 
 const mockReadClipboardUrl = vi.fn(() => Promise.resolve(null));
-vi.mock("@/utils/clipboardUrl", () => ({
+vi.mock("@/services/editor/clipboardUrl", () => ({
   readClipboardUrl: () => mockReadClipboardUrl(),
 }));
 

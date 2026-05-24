@@ -1,6 +1,6 @@
 # ADR-014: Theme tokens as typed data
 
-> Status: **Accepted (foundation)** | Date: 2026-05-24
+> Status: **Accepted (typed baseline wired)** | Date: 2026-05-24
 > Supersedes the first draft of this ADR.
 
 ## Context

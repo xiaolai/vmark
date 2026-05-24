@@ -29,7 +29,7 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { saveToPath } from "@/utils/saveToPath";
+import { saveToPath } from "@/services/persistence/saveToPath";
 import { isOperationInProgress } from "@/utils/reentryGuard";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { autoSaveLog, saveError } from "@/utils/debug";

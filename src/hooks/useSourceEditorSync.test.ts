@@ -13,7 +13,7 @@ const mockBrVisibilityReconfigure = vi.fn(() => "br-visibility-effect");
 const mockAutoPairReconfigure = vi.fn(() => "auto-pair-effect");
 const mockLineNumbersReconfigure = vi.fn(() => "line-numbers-effect");
 
-vi.mock("@/utils/sourceEditorExtensions", () => ({
+vi.mock("@/services/assembly/sourceEditorExtensions", () => ({
   lineWrapCompartment: { reconfigure: (...args: unknown[]) => mockLineWrapReconfigure(...args) },
   brVisibilityCompartment: { reconfigure: (...args: unknown[]) => mockBrVisibilityReconfigure(...args) },
   autoPairCompartment: { reconfigure: (...args: unknown[]) => mockAutoPairReconfigure(...args) },

@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleRequest } from "../handleRequest";
 
 const mockIsActiveDocReadOnly = vi.fn(() => false);
-vi.mock("@/utils/readOnlyGuard", () => ({
+vi.mock("@/services/editor/readOnlyGuard", () => ({
   isActiveDocReadOnly: () => mockIsActiveDocReadOnly(),
 }));
 

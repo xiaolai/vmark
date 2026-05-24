@@ -106,15 +106,15 @@ vi.mock("@/utils/cursorSync/tiptap", () => ({
   restoreCursorInTiptap: mocks.restoreCursorInTiptap,
 }));
 
-vi.mock("@/utils/tiptapView", () => ({
+vi.mock("@/services/editor/tiptapView", () => ({
   getTiptapEditorView: mocks.getTiptapEditorView,
 }));
 
-vi.mock("@/utils/tiptapFocus", () => ({
+vi.mock("@/services/editor/tiptapFocus", () => ({
   scheduleTiptapFocusAndRestore: mocks.scheduleTiptapFocusAndRestore,
 }));
 
-vi.mock("@/utils/tiptapExtensions", () => ({
+vi.mock("@/services/assembly/tiptapExtensions", () => ({
   createTiptapExtensions: mocks.createTiptapExtensions,
 }));
 

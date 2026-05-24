@@ -47,7 +47,7 @@ vi.mock("@/hooks/useFileOpen", () => ({
   openFileInNewTabCore: hoisted.openFileInNewTabCore,
 }));
 
-vi.mock("@/utils/largeFileRouting", () => ({
+vi.mock("@/services/navigation/largeFileRouting", () => ({
   routeOpenBySize: hoisted.routeOpenBySize,
 }));
 

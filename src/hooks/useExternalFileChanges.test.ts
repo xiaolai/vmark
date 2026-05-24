@@ -62,11 +62,11 @@ vi.mock("@/utils/pendingSaves", () => ({
   hasPendingSave: mocks.hasPendingSave,
 }));
 
-vi.mock("@/utils/saveToPath", () => ({
+vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: mocks.saveToPath,
 }));
 
-vi.mock("@/utils/reloadFromDisk", () => ({
+vi.mock("@/services/persistence/reloadFromDisk", () => ({
   reloadTabFromDisk: mocks.reloadTabFromDisk,
 }));
 

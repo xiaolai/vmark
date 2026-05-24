@@ -16,7 +16,7 @@ import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
-import { cleanupBeforeModeSwitch } from "@/utils/modeSwitchCleanup";
+import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 
 /**

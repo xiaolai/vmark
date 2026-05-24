@@ -120,7 +120,7 @@ vi.mock("@/utils/paths", () => ({
   isWithinRoot: (...args: unknown[]) => mockIsWithinRoot(...args),
 }));
 
-vi.mock("@/utils/hotExit/hotExitCoordination", () => ({
+vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
   waitForRestoreComplete: (...args: unknown[]) => mockWaitForRestoreComplete(...args),
   RESTORE_WAIT_TIMEOUT_MS: 5000,
 }));

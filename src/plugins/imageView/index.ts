@@ -27,7 +27,7 @@ import type { NodeView } from "@tiptap/pm/view";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
-import { normalizePathForAsset, getActiveTabIdForCurrentWindow } from "@/utils/resolveMediaSrc";
+import { normalizePathForAsset, getActiveTabIdForCurrentWindow } from "@/services/media/resolveMediaSrc";
 import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "./security";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { imageViewWarn, imagePreviewError } from "@/utils/debug";

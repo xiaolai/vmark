@@ -52,7 +52,7 @@ vi.mock("./useUpdateOperations", () => ({
 }));
 
 const mockRestartWithHotExit = vi.fn(() => Promise.resolve());
-vi.mock("@/utils/hotExit/restartWithHotExit", () => ({
+vi.mock("@/services/persistence/hotExit/restartWithHotExit", () => ({
   restartWithHotExit: () => mockRestartWithHotExit(),
 }));
 

@@ -116,7 +116,7 @@ vi.mock("@/utils/paths", () => ({
 }));
 
 const mockWaitForRestoreComplete = vi.fn(() => Promise.resolve(true));
-vi.mock("@/utils/hotExit/hotExitCoordination", () => ({
+vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
   waitForRestoreComplete: (...args: unknown[]) => mockWaitForRestoreComplete(...args),
   RESTORE_WAIT_TIMEOUT_MS: 5000,
 }));

@@ -5,10 +5,10 @@ import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabO
 import { message, save, ask } from "@tauri-apps/plugin-dialog";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { invoke } from "@tauri-apps/api/core";
-import { saveToPath } from "@/utils/saveToPath";
+import { saveToPath } from "@/services/persistence/saveToPath";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 
-vi.mock("@/utils/saveToPath", () => ({
+vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: vi.fn(),
 }));
 

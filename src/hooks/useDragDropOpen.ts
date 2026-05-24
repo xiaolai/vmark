@@ -40,7 +40,7 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
-import { routeOpenBySize } from "@/utils/largeFileRouting";
+import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 

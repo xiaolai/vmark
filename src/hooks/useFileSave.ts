@@ -25,7 +25,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
-import { saveToPath } from "@/utils/saveToPath";
+import { saveToPath } from "@/services/persistence/saveToPath";
 import {
   resolvePostSaveWorkspaceAction,
   resolveMissingFileSaveAction,

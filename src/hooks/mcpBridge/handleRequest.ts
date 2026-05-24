@@ -18,7 +18,7 @@
 
 import type { McpRequestEvent } from "./types";
 import { respond } from "./utils";
-import { isActiveDocReadOnly } from "@/utils/readOnlyGuard";
+import { isActiveDocReadOnly } from "@/services/editor/readOnlyGuard";
 import { dispatchV2, SUPPORTED_TOOL_PREFIXES } from "./v2/dispatch";
 import { v2ErrorString } from "./v2/types";
 

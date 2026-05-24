@@ -30,7 +30,7 @@ vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: vi.fn(),
 }));
 
-vi.mock("@/utils/saveToPath", () => ({
+vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: vi.fn(),
 }));
 
@@ -47,7 +47,7 @@ import { useAutoSave } from "./useAutoSave";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { saveToPath } from "@/utils/saveToPath";
+import { saveToPath } from "@/services/persistence/saveToPath";
 import { saveError } from "@/utils/debug";
 
 describe("useAutoSave — fault injection", () => {

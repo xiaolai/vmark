@@ -37,11 +37,11 @@ vi.mock("@/hooks/useTabOperations", () => ({
   closeTabsWithDirtyCheck: mocks.closeTabsWithDirtyCheck,
 }));
 
-vi.mock("@/utils/saveToPath", () => ({
+vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: mocks.saveToPath,
 }));
 
-vi.mock("@/utils/reloadFromDisk", () => ({
+vi.mock("@/services/persistence/reloadFromDisk", () => ({
   reloadTabFromDisk: mocks.reloadTabFromDisk,
 }));
 

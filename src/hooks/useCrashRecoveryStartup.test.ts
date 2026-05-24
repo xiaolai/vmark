@@ -24,7 +24,7 @@ const {
   mockUseWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("@/utils/hotExit/hotExitCoordination", () => ({
+vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
   waitForRestoreComplete: () => mockWaitForRestoreComplete(),
 }));
 

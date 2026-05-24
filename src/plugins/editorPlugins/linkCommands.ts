@@ -18,7 +18,7 @@ import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { expandedToggleMark } from "@/plugins/editorPlugins/expandedToggleMark";
 import { findMarkRange, findWordAtCursor } from "@/plugins/syntaxReveal/marks";
-import { readClipboardUrl } from "@/utils/clipboardUrl";
+import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { wikiLinkPopupWarn, linkCommandsError } from "@/utils/debug";
 
 /**

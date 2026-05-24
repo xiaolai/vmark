@@ -105,9 +105,9 @@ import { useFormatSettingsBridge } from "@/services/formats/formatSettingsBridge
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
-import { useHotExitCapture } from "@/utils/hotExit/useHotExitCapture";
-import { useHotExitRestore } from "@/utils/hotExit/useHotExitRestore";
-import { useHotExitStartup } from "@/utils/hotExit/useHotExitStartup";
+import { useHotExitCapture } from "@/services/persistence/hotExit/useHotExitCapture";
+import { useHotExitRestore } from "@/services/persistence/hotExit/useHotExitRestore";
+import { useHotExitStartup } from "@/services/persistence/hotExit/useHotExitStartup";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
 import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
 import { useCrashRecoveryWriter } from "@/hooks/useCrashRecoveryWriter";

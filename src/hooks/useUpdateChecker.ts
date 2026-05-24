@@ -36,7 +36,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateStore, type UpdateStatus } from "@/stores/updateStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUpdateOperationHandler, clearPendingUpdate } from "./useUpdateOperations";
-import { restartWithHotExit } from "@/utils/hotExit/restartWithHotExit";
+import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHotExit";
 import { updateCheckerLog } from "@/utils/debug";
 import i18n from "@/i18n";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";

@@ -32,43 +32,8 @@ module.exports = {
       from: {
         path: "^src/(utils|types|lib)/",
         pathNot: [
-          // Assembler files (wire plugins into editor configurations)
-          "src/utils/tiptapExtensions\\.ts$",
-          "src/utils/sourceEditorExtensions\\.ts$",
-          "src/utils/sourceEditorExtensions\\.test\\.ts$",
-          "src/utils/modeSwitchCleanup\\.ts$",
-          // File operation services (need store access for tab/document state)
-          "src/utils/activeDocument",
-          "src/utils/saveToPath",
-          "src/utils/newFile",
-          "src/utils/reloadFromDisk",
-          "src/utils/workspaceBootstrap",
-          // Large-file routing — reads settingsStore for autoSourceMode / warnAbove5MB
-          "src/utils/largeFileRouting",
-          // macOS quarantine auto-strip — reads settingsStore for clearMacQuarantineOnOpen toggle
-          "src/utils/macQuarantineNotice",
-          // Media path resolution (needs tab/document store for relative path resolution)
-          "src/utils/resolveMediaSrc",
-          // Startup wiring (rebuilds native menu with saved locale on boot)
-          "src/utils/startupMenuSync",
-          // Native menu rebuild pipeline (reads shortcuts, re-syncs recent files/workspaces)
-          "src/utils/rebuildNativeMenu",
-          // Editor services (bridge between editor internals and stores)
-          "src/utils/tiptapFocus",
-          "src/utils/sourcePeek",
-          "src/utils/extractContext",
-          "src/utils/menuListenerHelper",
-          "src/utils/clipboardUrl",
-          "src/utils/imageResize",
-          // Hot exit module (captures/restores full app state)
-          "src/utils/hotExit/",
           // Type bridging (imports plugin format types for unified type definitions)
           "src/types/cursorContext",
-          // Read-only guard (reads document store for read-only state)
-          "src/utils/readOnlyGuard",
-          // YAML/workflow open routing — reads settings for the workflow flag
-          // and writes largeFileSessionStore to mark the tab as forced-source
-          "src/utils/yamlOpenRouting",
           // CJK formatter (reads settings for formatting rules)
           "src/lib/cjkFormatter/",
           // Workflow snapshot renderer (mounts the same JobNode the

@@ -31,7 +31,7 @@ import {
 } from "@/utils/imageUtils";
 import { computeDataHash } from "@/utils/imageHash";
 import { findExistingImage, registerImageHash } from "@/utils/imageHashRegistry";
-import { resizeImageIfNeeded } from "@/utils/imageResize";
+import { resizeImageIfNeeded } from "@/services/media/imageResize";
 
 /**
  * Get the assets folder path relative to the document.

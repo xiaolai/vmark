@@ -52,7 +52,7 @@ vi.mock("@/utils/workspaceStorage", () => ({
 }));
 
 const mockCleanupBeforeModeSwitch = vi.fn();
-vi.mock("@/utils/modeSwitchCleanup", () => ({
+vi.mock("@/services/assembly/modeSwitchCleanup", () => ({
   cleanupBeforeModeSwitch: () => mockCleanupBeforeModeSwitch(),
 }));
 

@@ -21,9 +21,9 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { needsBootstrap } from "@/utils/workspaceBootstrap";
+import { needsBootstrap } from "@/services/persistence/workspaceBootstrap";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/utils/hotExit/hotExitCoordination";
+import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { workspaceWarn } from "@/utils/debug";
 

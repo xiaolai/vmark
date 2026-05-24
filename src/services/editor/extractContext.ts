@@ -7,7 +7,7 @@
 
 import type { EditorState } from "@tiptap/pm/state";
 import type { SourcePeekRange } from "@/stores/sourcePeekStore";
-import { serializeSourcePeekRange } from "@/utils/sourcePeek";
+import { serializeSourcePeekRange } from "@/services/editor/sourcePeek";
 
 export interface ContextResult {
   before: string;

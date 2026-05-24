@@ -9,7 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { useSettingsStore, type QuoteStyle } from "@/stores/settingsStore";
-import { rebuildNativeMenu } from "@/utils/rebuildNativeMenu";
+import { rebuildNativeMenu } from "@/services/menu/rebuildNativeMenu";
 import { SettingRow, Toggle, SettingsGroup, Select } from "./components";
 import { i18nWarn } from "@/utils/debug";
 

@@ -28,7 +28,7 @@ vi.mock("@/stores/wikiLinkPopupStore", () => ({
   },
 }));
 
-vi.mock("@/utils/clipboardUrl", () => ({
+vi.mock("@/services/editor/clipboardUrl", () => ({
   readClipboardUrl: vi.fn(() => Promise.resolve(null)),
 }));
 
@@ -43,7 +43,7 @@ vi.mock("./wysiwygAdapterUtils", () => ({
 
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
-import { readClipboardUrl } from "@/utils/clipboardUrl";
+import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
 import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";

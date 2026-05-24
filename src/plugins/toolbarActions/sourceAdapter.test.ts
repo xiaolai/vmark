@@ -19,7 +19,7 @@ vi.mock("@/stores/linkCreatePopupStore", () => ({
   useLinkCreatePopupStore: { getState: vi.fn(() => ({ isOpen: false, openPopup: vi.fn() })) },
 }));
 
-vi.mock("@/utils/clipboardUrl", () => ({
+vi.mock("@/services/editor/clipboardUrl", () => ({
   readClipboardUrl: vi.fn(() => Promise.resolve(null)),
 }));
 

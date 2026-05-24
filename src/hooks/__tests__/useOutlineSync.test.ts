@@ -12,7 +12,7 @@ vi.mock("@/utils/safeUnlisten", () => ({
   safeUnlisten: vi.fn(),
 }));
 
-vi.mock("@/utils/tiptapView", () => ({
+vi.mock("@/services/editor/tiptapView", () => ({
   getTiptapEditorDom: vi.fn((view) => view?._dom ?? null),
 }));
 

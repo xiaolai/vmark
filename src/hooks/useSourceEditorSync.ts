@@ -24,7 +24,7 @@ import {
   brVisibilityCompartment,
   autoPairCompartment,
   lineNumbersCompartment,
-} from "@/utils/sourceEditorExtensions";
+} from "@/services/assembly/sourceEditorExtensions";
 
 interface SyncConfig {
   viewRef: MutableRefObject<EditorView | null>;

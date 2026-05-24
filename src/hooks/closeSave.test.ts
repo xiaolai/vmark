@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { message, save, open } from "@tauri-apps/plugin-dialog";
-import { saveToPath } from "@/utils/saveToPath";
+import { saveToPath } from "@/services/persistence/saveToPath";
 import {
   promptSaveForDirtyDocument,
   promptSaveForMultipleDocuments,
   saveAllDocuments,
 } from "@/hooks/closeSave";
 
-vi.mock("@/utils/saveToPath", () => ({
+vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: vi.fn(),
 }));
 

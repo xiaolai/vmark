@@ -36,7 +36,7 @@ import { cleanupTabState } from "@/hooks/tabCleanup";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
-import { createUntitledTab } from "@/utils/newFile";
+import { createUntitledTab } from "@/services/navigation/newFile";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";

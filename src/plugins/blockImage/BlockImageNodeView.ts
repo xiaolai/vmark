@@ -27,7 +27,7 @@ import type { NodeView } from "@tiptap/pm/view";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { isExternalUrl } from "@/plugins/imageView/security";
-import { resolveMediaSrc } from "@/utils/resolveMediaSrc";
+import { resolveMediaSrc } from "@/services/media/resolveMediaSrc";
 import {
   attachMediaLoadHandlers,
   showMediaError,

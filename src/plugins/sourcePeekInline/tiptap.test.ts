@@ -33,7 +33,7 @@ vi.mock("@/stores/sourcePeekStore", () => ({
 // Mock dependencies
 const mockApplySourcePeekMarkdown = vi.fn();
 const mockGetExpandedSourcePeekRange = vi.fn(() => ({ from: 0, to: 10 }));
-vi.mock("@/utils/sourcePeek", () => ({
+vi.mock("@/services/editor/sourcePeek", () => ({
   applySourcePeekMarkdown: (...args: unknown[]) => mockApplySourcePeekMarkdown(...args),
   getExpandedSourcePeekRange: (...args: unknown[]) => mockGetExpandedSourcePeekRange(...args),
 }));

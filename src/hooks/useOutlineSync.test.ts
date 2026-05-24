@@ -24,7 +24,7 @@ vi.mock("@/utils/safeUnlisten", () => ({
 
 // Mock getTiptapEditorDom to return a real DOM element when view is provided
 let mockDom: HTMLElement | null = null;
-vi.mock("@/utils/tiptapView", () => ({
+vi.mock("@/services/editor/tiptapView", () => ({
   getTiptapEditorDom: (view: unknown) => (view ? mockDom : null),
 }));
 

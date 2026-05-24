@@ -22,7 +22,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { waitForRestoreComplete } from "@/utils/hotExit/hotExitCoordination";
+import { waitForRestoreComplete } from "@/services/persistence/hotExit/hotExitCoordination";
 import {
   readRecoverySnapshots,
   deleteStaleRecoveryFiles,

@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore, type ImageAutoResizeOption } from "@/stores/settingsStore";
-import { rebuildNativeMenu } from "@/utils/rebuildNativeMenu";
+import { rebuildNativeMenu } from "@/services/menu/rebuildNativeMenu";
 import { updateWorkspaceConfig } from "@/hooks/workspaceConfig";
 import { RefreshCw, ExternalLink } from "lucide-react";
 

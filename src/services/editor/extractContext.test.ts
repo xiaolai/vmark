@@ -3,7 +3,7 @@ import { Schema } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import type { SourcePeekRange } from "@/stores/sourcePeekStore";
 
-vi.mock("@/utils/sourcePeek", () => ({
+vi.mock("@/services/editor/sourcePeek", () => ({
   serializeSourcePeekRange: (state: EditorState, range: SourcePeekRange) =>
     state.doc.textBetween(range.from, range.to, "\n"),
 }));

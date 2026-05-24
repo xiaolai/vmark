@@ -42,12 +42,12 @@ vi.mock("@/plugins/markdownPaste/tiptap", () => ({
   createMarkdownPasteSlice: vi.fn(() => ({ content: [] })),
 }));
 
-vi.mock("@/utils/sourcePeek", () => ({
+vi.mock("@/services/editor/sourcePeek", () => ({
   getExpandedSourcePeekRange: vi.fn(() => ({ from: 0, to: 5 })),
   serializeSourcePeekRange: vi.fn(() => "hello"),
 }));
 
-vi.mock("@/utils/extractContext", () => ({
+vi.mock("@/services/editor/extractContext", () => ({
   extractSurroundingContext: vi.fn(() => ({ before: "", after: "" })),
 }));
 
@@ -711,7 +711,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("fills context variable in genie template", async () => {
     setupProviderAndEditor();
-    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    const { extractSurroundingContext } = await import("@/services/editor/extractContext");
     vi.mocked(extractSurroundingContext).mockReturnValue({
       before: "before text",
       after: "after text",
@@ -779,7 +779,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("invokes freeform with selection scope and includes surrounding context", async () => {
     setupProviderAndEditor();
-    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    const { extractSurroundingContext } = await import("@/services/editor/extractContext");
     vi.mocked(extractSurroundingContext).mockReturnValue({
       before: "paragraph above",
       after: "paragraph below",
@@ -810,7 +810,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("invokes freeform with only before context", async () => {
     setupProviderAndEditor();
-    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    const { extractSurroundingContext } = await import("@/services/editor/extractContext");
     vi.mocked(extractSurroundingContext).mockReturnValue({
       before: "only before",
       after: "",
@@ -838,7 +838,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("invokes freeform with only after context", async () => {
     setupProviderAndEditor();
-    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    const { extractSurroundingContext } = await import("@/services/editor/extractContext");
     vi.mocked(extractSurroundingContext).mockReturnValue({
       before: "",
       after: "only after",
@@ -1091,7 +1091,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("includes context in freeform prompt for selection scope", async () => {
     setupProviderAndEditor();
-    const { extractSurroundingContext } = await import("@/utils/extractContext");
+    const { extractSurroundingContext } = await import("@/services/editor/extractContext");
     vi.mocked(extractSurroundingContext).mockReturnValue({
       before: "prefix",
       after: "suffix",

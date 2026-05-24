@@ -21,7 +21,7 @@ vi.mock("@/utils/popupPosition", () => ({
   getViewportBounds: vi.fn(() => ({ top: 0, left: 0, width: 800, height: 600 })),
 }));
 
-vi.mock("@/utils/clipboardUrl", () => ({
+vi.mock("@/services/editor/clipboardUrl", () => ({
   readClipboardUrl: vi.fn(() => Promise.resolve(null)),
 }));
 
@@ -47,7 +47,7 @@ import {
   insertSourceBookmarkLink,
   insertLink,
 } from "./sourceAdapterLinks";
-import { readClipboardUrl } from "@/utils/clipboardUrl";
+import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { useHeadingPickerStore } from "@/stores/headingPickerStore";

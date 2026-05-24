@@ -26,7 +26,7 @@ const mockAttachMediaLoadHandlers = vi.fn(() => vi.fn());
 const mockShowMediaError = vi.fn();
 const mockClearMediaLoadState = vi.fn();
 
-vi.mock("@/utils/resolveMediaSrc", () => ({
+vi.mock("@/services/media/resolveMediaSrc", () => ({
   resolveMediaSrc: (...args: unknown[]) => mockResolveMediaSrc(...args),
 }));
 

@@ -213,7 +213,7 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     // never load these modules.
     const [{ useWorkflowEditStore }, { saveToPath }] = await Promise.all([
       import("@/stores/workflowEditStore"),
-      import("@/utils/saveToPath"),
+      import("@/services/persistence/saveToPath"),
     ]);
     const editStore = useWorkflowEditStore.getState();
     if (editStore.pendingPatches.length === 0) return;

@@ -66,7 +66,7 @@ vi.mock("@/hooks/useReplaceableTab", () => ({
 }));
 
 const mockCreateUntitledTab = vi.fn();
-vi.mock("@/utils/newFile", () => ({
+vi.mock("@/services/navigation/newFile", () => ({
   createUntitledTab: (...args: unknown[]) => mockCreateUntitledTab(...args),
 }));
 

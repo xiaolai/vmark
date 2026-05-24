@@ -17,7 +17,7 @@ import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils"
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
-import { readClipboardUrl } from "@/utils/clipboardUrl";
+import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected } from "./wysiwygAdapterUtils";
 import type { WysiwygToolbarContext } from "./types";

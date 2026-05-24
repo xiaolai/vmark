@@ -15,7 +15,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { imagePreviewError } from "@/utils/debug";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
-import { normalizePathForAsset } from "@/utils/resolveMediaSrc";
+import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
 
 /** Maximum thumbnail dimensions (used by the view for initial positioning). */
 export const MAX_THUMBNAIL_WIDTH = 200;

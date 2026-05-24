@@ -1,6 +1,6 @@
 # ADR-011: Plugin manifest contract
 
-> Status: **Accepted (foundation)** | Date: 2026-05-24
+> Status: **Accepted (manifest exports complete)** | Date: 2026-05-24
 
 ## Context
 

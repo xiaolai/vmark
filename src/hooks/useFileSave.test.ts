@@ -75,7 +75,7 @@ vi.mock("@/utils/reentryGuard", () => ({
   withReentryGuard: vi.fn(async (_wl: string, _op: string, fn: () => Promise<unknown>) => fn()),
 }));
 
-vi.mock("@/utils/saveToPath", () => ({
+vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: mockSaveToPath,
 }));
 

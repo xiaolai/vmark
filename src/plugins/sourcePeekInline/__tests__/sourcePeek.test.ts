@@ -7,7 +7,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { Schema, DOMParser } from "@tiptap/pm/model";
-import { getExpandedSourcePeekRange } from "@/utils/sourcePeek";
+import { getExpandedSourcePeekRange } from "@/services/editor/sourcePeek";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { canUseSourcePeek } from "../tiptap";
 

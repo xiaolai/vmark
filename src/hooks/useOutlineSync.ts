@@ -29,7 +29,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import type { Node } from "@tiptap/pm/model";
 import { outlineSyncError } from "@/utils/debug";
 import { useUIStore } from "@/stores/uiStore";
-import { getTiptapEditorDom } from "@/utils/tiptapView";
+import { getTiptapEditorDom } from "@/services/editor/tiptapView";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 
 type EditorViewGetter = () => EditorView | null;

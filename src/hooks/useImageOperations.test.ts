@@ -48,7 +48,7 @@ vi.mock("@/utils/imageHashRegistry", () => ({
 const mockResizeImageIfNeeded = vi.fn((data: Uint8Array) =>
   Promise.resolve({ data, wasResized: false })
 );
-vi.mock("@/utils/imageResize", () => ({
+vi.mock("@/services/media/imageResize", () => ({
   resizeImageIfNeeded: (...args: unknown[]) => mockResizeImageIfNeeded(...args),
 }));
 

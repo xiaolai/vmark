@@ -9,7 +9,7 @@
 
 import type { PluginManifest } from "@/plugins/registry";
 
-export const linkPopupManifest: PluginManifest = {
+export const manifest: PluginManifest = {
   id: "linkPopup",
   formats: ["markdown"],
   modes: ["wysiwyg", "source"],
