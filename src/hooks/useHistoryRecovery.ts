@@ -20,7 +20,7 @@ import {
   remove,
 } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { historyLog, historyError } from "@/utils/debug";
 import {

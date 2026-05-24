@@ -10,7 +10,7 @@
 // migrate them into the adapter as adapter-internal concerns.
 
 import { lazy, Suspense } from "react";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -50,7 +50,7 @@ const WorkflowSidePanel = lazy(() =>
  * migrates the global source-mode / forcedSource reads into this surface.
  */
 export function MarkdownEditorSurface({ tabId }: { tabId: string }) {
-  const globalSourceMode = useEditorStore((state) => state.sourceMode);
+  const globalSourceMode = useUIStore((state) => state.sourceMode);
   /* v8 ignore next 3 -- @preserve tabId is always truthy inside the Editor surface; defensive fallback for null isn't exercised in tests */
   const forcedSource = useLargeFileSessionStore((s) =>
     tabId ? Boolean(s.forcedSourceTabs[tabId]) : false,

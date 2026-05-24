@@ -32,8 +32,8 @@ vi.mock("@/plugins/mermaidPreview", () => ({
 let mockDiagramPreviewEnabled = true;
 const editorStoreSubscribers = new Set<(state: { diagramPreviewEnabled: boolean }) => void>();
 
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => ({ diagramPreviewEnabled: mockDiagramPreviewEnabled }),
     subscribe: (cb: (state: { diagramPreviewEnabled: boolean }) => void) => {
       editorStoreSubscribers.add(cb);

@@ -1,6 +1,6 @@
 # ADR-012: Command bus as the single intent path
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Accepted (foundation)** | Date: 2026-05-24
 
 ## Context
 
@@ -120,3 +120,42 @@ That is a dedicated effort, not a same-session task. **Approach**:
 
 This staged path avoids a multi-day branch and lets each migration get
 its own review.
+
+## Foundation landed (2026-05-24)
+
+`src/services/commands/CommandBus.ts` ships:
+
+- `registerCommand`, `unregisterCommand`, `getCommand`, `listCommands`
+- `executeCommand(id, args?, ctx?)` — returns `false` for unknown ids or
+  rejected `when()`; awaits the action body otherwise.
+- `searchCommands(query, ctx?)` — substring scoring with `when()`
+  filtering. Palette UIs may layer fuzzy matching on top.
+- `_resetCommandBus` for tests.
+
+`CommandDefinition` shape: `id`, `title`, optional `description`,
+`category`, `scope`, `when()`, mandatory `run()`. Matches the ADR
+proposal exactly.
+
+11 tests in `CommandBus.test.ts` cover registration (incl. duplicate
+rejection), execution (args, context, when-gating), search (scoring,
+empty query, when-filtering, description fallback).
+
+**What is NOT yet wired**:
+
+- The 6 legacy `use*MenuEvents` hooks still register their own
+  `listen("menu:{id}")` handlers — none of them route through
+  `executeCommand`. Migration is per-hook follow-up.
+- The existing `actionRegistry` data layer (`plugins/actions/*`)
+  continues to back the unified menu dispatcher. CommandBus is a
+  parallel surface; the bridge that lets actionRegistry-backed actions
+  also be invoked via `executeCommand` is the next sub-PR.
+- Command palette UI does not yet exist. `searchCommands` is ready for
+  it to consume.
+
+**Verification**:
+
+- `pnpm vitest run src/services/commands` — 11/11 pass.
+- `pnpm tsc --noEmit` clean.
+
+Bridging `actionRegistry → CommandBus` and migrating the six legacy
+hooks each get their own PRs.

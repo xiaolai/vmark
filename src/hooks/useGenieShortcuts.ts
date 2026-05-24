@@ -19,7 +19,7 @@ import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useGeniesStore } from "@/stores/geniesStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { initSuggestionTabWatcher } from "@/stores/aiSuggestionStore";
 import { useGenieInvocation } from "@/hooks/useGenieInvocation";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
@@ -49,7 +49,7 @@ async function loadAndSyncMenu(): Promise<void> {
 
 /** Detect scope from current editor selection state. */
 export function detectScope(): GenieScope | undefined {
-  if (useEditorStore.getState().sourceMode) return undefined;
+  if (useUIStore.getState().sourceMode) return undefined;
   const editor = useTiptapEditorStore.getState().editor;
   if (!editor) return undefined;
   return editor.state.selection.empty ? undefined : "selection";

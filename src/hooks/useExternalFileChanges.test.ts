@@ -44,7 +44,7 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("@/utils/imeToast", () => ({
+vi.mock("@/services/ime/imeToast", () => ({
   imeToast: {
     info: mocks.toastInfo,
     success: vi.fn(),

@@ -74,6 +74,13 @@ interface UIState {
   /** FileExplorer folder open state, keyed by absolute path. Preserved across
    * sidebar view switches (Files ↔ Outline ↔ History); cleared on app reload. */
   fileExplorerOpenState: Record<string, boolean>;
+  // Editor view flags — migrated from legacy editorStore per ADR-009.
+  focusModeEnabled: boolean;
+  typewriterModeEnabled: boolean;
+  sourceMode: boolean;
+  wordWrap: boolean;
+  showLineNumbers: boolean;
+  diagramPreviewEnabled: boolean;
 }
 
 interface UIActions {
@@ -106,6 +113,16 @@ interface UIActions {
   setFileExplorerNodeOpen: (id: string, open: boolean) => void;
   /** Replace the entire FileExplorer open-state map. */
   setFileExplorerOpenState: (next: Record<string, boolean>) => void;
+  // Editor view flag actions — migrated from legacy editorStore per ADR-009.
+  toggleFocusMode: () => void;
+  toggleTypewriterMode: () => void;
+  toggleSourceMode: () => void;
+  setSourceMode: (enabled: boolean) => void;
+  toggleWordWrap: () => void;
+  toggleLineNumbers: () => void;
+  toggleDiagramPreview: () => void;
+  /** Reset editor view flags to defaults — used in test cleanup. */
+  resetEditorFlags: () => void;
 }
 
 /** Manages transient UI state — sidebar, toolbar, terminal, status bar, and drag state. Use selectors, not destructuring. */
@@ -126,6 +143,35 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
   terminalWidth: TERMINAL_DEFAULT_WIDTH,
   effectiveTerminalPosition: "bottom",
   fileExplorerOpenState: {},
+  focusModeEnabled: false,
+  typewriterModeEnabled: false,
+  sourceMode: false,
+  wordWrap: true,
+  showLineNumbers: false,
+  diagramPreviewEnabled: false,
+
+  toggleFocusMode: () =>
+    set((state) => ({ focusModeEnabled: !state.focusModeEnabled })),
+  toggleTypewriterMode: () =>
+    set((state) => ({ typewriterModeEnabled: !state.typewriterModeEnabled })),
+  toggleSourceMode: () =>
+    set((state) => ({ sourceMode: !state.sourceMode })),
+  setSourceMode: (enabled) => set({ sourceMode: enabled }),
+  toggleWordWrap: () =>
+    set((state) => ({ wordWrap: !state.wordWrap })),
+  toggleLineNumbers: () =>
+    set((state) => ({ showLineNumbers: !state.showLineNumbers })),
+  toggleDiagramPreview: () =>
+    set((state) => ({ diagramPreviewEnabled: !state.diagramPreviewEnabled })),
+  resetEditorFlags: () =>
+    set({
+      focusModeEnabled: false,
+      typewriterModeEnabled: false,
+      sourceMode: false,
+      wordWrap: true,
+      showLineNumbers: false,
+      diagramPreviewEnabled: false,
+    }),
 
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
   toggleSidebarView: (mode) => set((state) => {

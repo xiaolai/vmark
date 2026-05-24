@@ -12,7 +12,7 @@ import { EditorView as CMView } from "@codemirror/view";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
 import { handleSelectionGet, handleSelectionSet } from "../selection";
@@ -45,7 +45,7 @@ function resetStores() {
   });
   useDocumentStore.setState({ documents: {} });
   useMcpCheckpointStore.setState({ checkpoints: [], hydrated: false });
-  useEditorStore.setState({ sourceMode: false });
+  useUIStore.setState({ sourceMode: false });
   useActiveEditorStore.setState({
     activeWysiwygEditor: null,
     activeSourceView: null,
@@ -94,7 +94,7 @@ function makeCm(
   });
   const view = new CMView({ state, parent });
   cmViews.push(view);
-  useEditorStore.setState({ sourceMode: true });
+  useUIStore.setState({ sourceMode: true });
   useActiveEditorStore.getState().setActiveSourceView(view, tabId);
   return view;
 }
@@ -389,7 +389,7 @@ describe("vmark.selection.set — source mode", () => {
 
   it("returns NO_EDITOR when source mode has no active view", async () => {
     seedTab("t-src-noed", "x", null);
-    useEditorStore.setState({ sourceMode: true });
+    useUIStore.setState({ sourceMode: true });
     // No source view injected.
 
     await handleSelectionSet("req-src-noed", { content: "y" });
@@ -402,7 +402,7 @@ describe("vmark.selection.set — source mode", () => {
 
   it("get returns NO_EDITOR when source mode has no active view", async () => {
     seedTab("t-src-noed-g", "x", null);
-    useEditorStore.setState({ sourceMode: true });
+    useUIStore.setState({ sourceMode: true });
 
     await handleSelectionGet("req-src-noed-g", {});
     const r = lastRespond();

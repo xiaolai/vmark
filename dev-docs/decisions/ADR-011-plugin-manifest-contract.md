@@ -1,6 +1,6 @@
 # ADR-011: Plugin manifest contract
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Accepted (foundation)** | Date: 2026-05-24
 
 ## Context
 
@@ -87,3 +87,39 @@ declare which formats they target; the format registry remains separate.
 - Plugin-local state slices follow the pattern enabled by ADR-013
   (service tier) for non-React logic.
 - Supersedes existing T10; constrains T11.
+
+## Foundation landed (2026-05-24)
+
+`src/plugins/registry.ts` ships:
+
+- `PluginManifest` type — `id`, `formats`, `modes`, optional `slots`,
+  `commands`, `dependsOn`, lazy `tiptap()` / `codemirror()` factories.
+- `registerPlugin`, `getPlugin`, `listPlugins`, `pluginsFor(mode, format)`
+  — registry operations.
+- `_resetRegistry` for tests.
+
+`src/plugins/linkPopup/manifest.ts` declares the first manifest as the
+demonstrator pattern. `linkPopup` is `modes: ["wysiwyg", "source"]`,
+`formats: ["markdown"]`, with a single overlay slot.
+
+5 tests in `registry.test.ts` cover registration, duplicate detection,
+mode/format filtering.
+
+**What is NOT yet wired**:
+
+- The remaining ~80 plugins do not yet export manifests. Each is a
+  one-line file (mechanical migration).
+- `editorPlugins.tiptap.ts` continues to compose plugins by hand.
+  Switching it to `pluginsFor("wysiwyg", "markdown").map(p => p.tiptap?.())`
+  is the migration target, but waits on every plugin having a manifest.
+- Cross-plugin import rule (`grep -rn "from.*['\"]@/plugins/"
+  src/plugins/`) not yet enforced — that's structural enforcement
+  that needs every plugin migrated first.
+
+**Verification**:
+
+- `pnpm vitest run src/plugins/registry.test.ts` — 5/5 pass.
+- `pnpm tsc --noEmit` clean.
+
+Per-plugin manifest exports and the registry-based composition switch
+are tracked as mechanical follow-up.

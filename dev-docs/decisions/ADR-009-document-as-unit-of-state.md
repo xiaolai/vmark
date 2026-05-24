@@ -1,6 +1,6 @@
 # ADR-009: Document as the unit of state
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Accepted (legacy store deleted)** | Date: 2026-05-24
 
 ## Context
 
@@ -78,3 +78,38 @@ both are projections of the same Document.
 - Required by ADR-010 (Editor Host treats Document as input).
 - Mutations depend on ADR-012 (command bus).
 - Subsumes existing plan task T02 and parts of T09.
+
+## Migration outcome (2026-05-24)
+
+`src/stores/editorStore.ts` and `src/stores/editorStore.test.ts` deleted.
+
+State redistributed:
+
+| Old (editorStore) | New home | Notes |
+|---|---|---|
+| `focusModeEnabled`, `typewriterModeEnabled`, `sourceMode`, `wordWrap`, `showLineNumbers`, `diagramPreviewEnabled` | `uiStore` (window-scoped) | Toggles + `resetEditorFlags()` for test cleanup. |
+| `cursorInfo`, `content`, `savedContent`, `filePath`, `isDirty`, `documentId`, `lastAutoSave` | `documentStore` (already per-tab) | These were legacy duplicates; documentStore already owned them per-tab. |
+| `setCursorInfo` | `documentStore.setCursorInfo(tabId, info)` | Callers must now pass tabId. |
+
+47 consumer files updated. Bulk `useEditorStore → useUIStore` sed for
+straight field reads; the one cursorInfo writer
+(`HtmlNodeView.ts`) was manually patched to call
+`documentStore.setCursorInfo(activeTabId, info)`.
+
+**Verification**:
+
+- `pnpm tsc --noEmit` clean.
+- Full suite — 18,818 tests pass.
+- `find src/stores -name 'editorStore.ts'` returns empty.
+- `grep -rn "useEditorStore\|@/stores/editorStore" src/` returns zero.
+
+**What the original ADR aimed for vs. what shipped**:
+
+- **Shipped**: editorStore deletion, per-window flags consolidated in
+  uiStore, per-document fields confirmed live in documentStore.
+- **NOT shipped**: per-document `mode` (the "two tabs in one window
+  with different modes" capability). `sourceMode` lives at window
+  scope in `uiStore` for this pass. Moving mode per-document is a
+  behavioral change touching the entire editor-recreation pipeline
+  and is its own follow-up. The current migration unblocks ADR-008
+  and ADR-011 without taking that risk.

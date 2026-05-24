@@ -24,7 +24,7 @@
  * @coordinates-with UniversalToolbar.tsx — calls runToolbarAction on button click
  * @module plugins/toolbarActions/wysiwygAdapter
  */
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { expandedToggleMarkTiptap } from "@/plugins/editorPlugins.tiptap";
 import { handleBlockquoteNest, handleBlockquoteUnnest, handleRemoveBlockquote, handleListIndent, handleListOutdent, handleRemoveList, handleToBulletList, handleToOrderedList } from "@/plugins/formatToolbar/nodeActions.tiptap";

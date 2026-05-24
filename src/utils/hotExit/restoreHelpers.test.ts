@@ -30,7 +30,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 vi.mock('@/utils/debug', () => ({
   hotExitLog: vi.fn(),
-  hotExitWarn: vi.fn(),
+  hotExitWarn: (...args: unknown[]) => mockHotExitWarn(...args),
 }));
 
 // --- Store mocks ---
@@ -42,6 +42,12 @@ const mockSetStatusBarVisible = vi.fn();
 const mockToggleTerminal = vi.fn();
 const mockSetTerminalHeight = vi.fn();
 
+const mockToggleSourceMode = vi.fn();
+const mockToggleFocusMode = vi.fn();
+const mockToggleTypewriterMode = vi.fn();
+
+// Per ADR-009: editor-view flags merged into uiStore. The legacy
+// editorStore is gone; one combined uiStore mock covers both surfaces.
 const uiStoreState = {
   sidebarVisible: true,
   terminalVisible: false,
@@ -51,17 +57,6 @@ const uiStoreState = {
   setStatusBarVisible: mockSetStatusBarVisible,
   toggleTerminal: mockToggleTerminal,
   setTerminalHeight: mockSetTerminalHeight,
-};
-
-vi.mock('@/stores/uiStore', () => ({
-  useUIStore: { getState: () => uiStoreState },
-}));
-
-const mockToggleSourceMode = vi.fn();
-const mockToggleFocusMode = vi.fn();
-const mockToggleTypewriterMode = vi.fn();
-
-const editorStoreState = {
   sourceMode: false,
   focusModeEnabled: false,
   typewriterModeEnabled: false,
@@ -70,8 +65,8 @@ const editorStoreState = {
   toggleTypewriterMode: mockToggleTypewriterMode,
 };
 
-vi.mock('@/stores/editorStore', () => ({
-  useEditorStore: { getState: () => editorStoreState },
+vi.mock('@/stores/uiStore', () => ({
+  useUIStore: { getState: () => uiStoreState },
 }));
 
 const mockCreateTab = vi.fn(() => 'new-tab-id');
@@ -121,6 +116,34 @@ vi.mock('@/stores/documentStore', () => ({
       removeDocument: mockRemoveDocument,
     }),
   },
+}));
+
+// Format registry mock — `restoreHelpers` validates persisted `format_id`
+// (and `active_schema_id`) against the live registry. The tests don't
+// bootstrap the real registry, so we stub it to "known IDs only" with
+// just enough shape to exercise the schema-renderer lookup.
+//
+// Tests covering tampered/stale session payloads override this
+// implementation per-test (e.g., return undefined for unknown ids,
+// or return a format with a known schemaRenderers map).
+const mockGetFormatById = vi.fn((id: string) => {
+  const known: Record<string, { schemaRenderers?: Record<string, unknown> }> = {
+    markdown: {},
+    json: { schemaRenderers: { "package-json": () => null } },
+    code: {},
+  };
+  return known[id];
+});
+
+vi.mock('@/lib/formats/registry', () => ({
+  getFormatById: (id: string) => mockGetFormatById(id),
+}));
+
+// Capture the named warning logger so tests can assert it was called
+// with the expected message (rule-violation surface). We re-import the
+// mocked `hotExitWarn` symbol below for direct .mock.calls inspection.
+const { mockHotExitWarn } = vi.hoisted(() => ({
+  mockHotExitWarn: vi.fn(),
 }));
 
 const mockClearDocument = vi.fn();
@@ -249,9 +272,9 @@ describe('restoreHelpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset editor/ui store defaults
-    editorStoreState.sourceMode = false;
-    editorStoreState.focusModeEnabled = false;
-    editorStoreState.typewriterModeEnabled = false;
+    uiStoreState.sourceMode = false;
+    uiStoreState.focusModeEnabled = false;
+    uiStoreState.typewriterModeEnabled = false;
     uiStoreState.sidebarVisible = true;
     uiStoreState.terminalVisible = false;
     // Reset unified history store internal state
@@ -440,7 +463,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should toggle source mode when saved differs from current', () => {
-      editorStoreState.sourceMode = false;
+      uiStoreState.sourceMode = false;
       const ws = makeWindowState({
         ui_state: makeUiState({ source_mode_enabled: true }),
       });
@@ -451,7 +474,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should NOT toggle source mode when values match', () => {
-      editorStoreState.sourceMode = true;
+      uiStoreState.sourceMode = true;
       const ws = makeWindowState({
         ui_state: makeUiState({ source_mode_enabled: true }),
       });
@@ -462,7 +485,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should toggle focus mode when saved differs from current', () => {
-      editorStoreState.focusModeEnabled = false;
+      uiStoreState.focusModeEnabled = false;
       const ws = makeWindowState({
         ui_state: makeUiState({ focus_mode_enabled: true }),
       });
@@ -473,7 +496,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should toggle typewriter mode when saved differs from current', () => {
-      editorStoreState.typewriterModeEnabled = false;
+      uiStoreState.typewriterModeEnabled = false;
       const ws = makeWindowState({
         ui_state: makeUiState({ typewriter_mode_enabled: true }),
       });
@@ -1383,6 +1406,41 @@ describe('restoreHelpers', () => {
       expect(mockSetTabFormatId).not.toHaveBeenCalled();
     });
 
+    // Security guard: a tampered or stale session file could carry a
+    // format_id that no longer exists in the registry. Silently passing
+    // it through to `setTabFormatId` would put the tab store in an
+    // inconsistent state. The validator must skip the call AND emit a
+    // warning so the bypass shows up in debug logs.
+    it('skips setTabFormatId when persisted format_id is not in the registry', async () => {
+      mockGetFormatById.mockImplementationOnce(() => undefined);
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-unknown',
+        tabs: [
+          makeTabState({
+            id: 'tab-unknown',
+            file_path: null,
+            format_id: 'definitely-not-registered',
+            document: makeDocState({ is_dirty: true, content: 'data' }),
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabFormatId).not.toHaveBeenCalled();
+      // Warning must name the rejected id and tab so the bypass is
+      // visible in logs — diagnoses both stale sessions and a future
+      // bug that drops the validation entirely.
+      const warnCall = mockHotExitWarn.mock.calls.find((c) =>
+        String(c[0]).includes('definitely-not-registered'),
+      );
+      expect(warnCall).toBeDefined();
+      expect(String(warnCall?.[0])).toContain('tab-unknown');
+    });
+
     it('does NOT call setTabFormatId when file_path is set (derivation is authoritative)', async () => {
       mockGetTabsByWindow.mockReturnValue([]);
       mockCreateTab.mockReturnValue('new-1');
@@ -1479,6 +1537,67 @@ describe('restoreHelpers', () => {
 
       expect(mockSetTabActiveSchemaId).not.toHaveBeenCalled();
     });
+
+    // Security guard: same shape as the format_id validator — a tampered
+    // session can name a schema id that doesn't exist on the resolved
+    // format. Skip the setter and warn so the inconsistency surfaces.
+    it('skips setTabActiveSchemaId when the schema id is not registered on the format', async () => {
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-bogus',
+        tabs: [
+          makeTabState({
+            id: 'tab-bogus',
+            file_path: '/package.json',
+            format_id: 'json',
+            // json format mock only declares "package-json"; anything else
+            // must be rejected by the schema-renderer existence check.
+            active_schema_id: 'definitely-not-a-real-schema',
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabActiveSchemaId).not.toHaveBeenCalled();
+      const warnCall = mockHotExitWarn.mock.calls.find((c) =>
+        String(c[0]).includes('definitely-not-a-real-schema'),
+      );
+      expect(warnCall).toBeDefined();
+      expect(String(warnCall?.[0])).toContain('tab-bogus');
+    });
+
+    // Fallback: when the registry cannot resolve a format (empty/stub
+    // registry, or the format was unregistered after save), validation
+    // is impossible — we trust the persisted schema value rather than
+    // silently drop it. Otherwise a missing bootstrap would erase user
+    // state on restart.
+    it('passes setTabActiveSchemaId through when the format cannot be resolved', async () => {
+      mockGetFormatById.mockImplementationOnce(() => undefined);
+      mockGetTabsByWindow.mockReturnValue([]);
+      mockCreateTab.mockReturnValue('new-1');
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-orphan',
+        tabs: [
+          makeTabState({
+            id: 'tab-orphan',
+            file_path: '/some.unknown',
+            format_id: 'not-bootstrapped',
+            active_schema_id: 'legacy-schema',
+          }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockSetTabActiveSchemaId).toHaveBeenCalledWith(
+        'new-1',
+        'legacy-schema',
+      );
+    });
   });
 
   // =========================================================================
@@ -1496,7 +1615,7 @@ describe('restoreHelpers', () => {
       });
 
       // sourceMode starts false, so toggle should be called
-      editorStoreState.sourceMode = false;
+      uiStoreState.sourceMode = false;
 
       await restoreWindowState('main', ws);
 

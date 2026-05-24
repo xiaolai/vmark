@@ -33,13 +33,13 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 }));
 
 let sourceMode = false;
-vi.mock("@/stores/editorStore", () => {
-  const useEditorStore = (selector?: (state: { sourceMode: boolean }) => unknown) => {
+vi.mock("@/stores/uiStore", () => {
+  const useUIStore = (selector?: (state: { sourceMode: boolean }) => unknown) => {
     const state = { sourceMode };
     return selector ? selector(state) : state;
   };
-  useEditorStore.getState = () => ({ sourceMode });
-  return { useEditorStore };
+  useUIStore.getState = () => ({ sourceMode });
+  return { useUIStore };
 });
 
 let activeWysiwygEditor: { view: object } | null = null;

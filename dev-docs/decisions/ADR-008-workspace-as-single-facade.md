@@ -1,6 +1,6 @@
 # ADR-008: Workspace as single facade
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Accepted (read-only facade)** | Date: 2026-05-24
 
 ## Context
 
@@ -73,3 +73,36 @@ behind a contract so they can be replaced without coordination.
 
 - Mutations depend on ADR-012 (command bus).
 - Service-tier helpers live in `services/workspace/` per ADR-013.
+
+## Foundation landed (2026-05-24) — read-only
+
+`src/workspace/useWorkspace.ts` ships:
+
+```ts
+const ws = useWorkspace();
+ws.config;            // WorkspaceConfig | null
+ws.openTabs;          // Tab[] for the current window
+ws.activeTabId;       // string | null
+ws.activeTab;         // Tab | null
+ws.recentFiles;       // RecentFile[]
+ws.recentWorkspaces;  // RecentWorkspace[]
+```
+
+Aggregates `tabStore`, `workspaceStore`, `recentFilesStore`,
+`recentWorkspacesStore`, scoped to the current window via
+`useWindowLabel()`.
+
+**Mutations are deliberately out of scope** — until ADR-012's command
+bus lands, existing call sites continue to dispatch through individual
+store actions. Once the bus exists, the pattern becomes
+`commandBus.execute("workspace.*", …)`. Adopting the facade in UI
+components is incremental.
+
+**Verification:**
+
+- 2 tests in `useWorkspace.test.tsx` (default empty state + reactive
+  recent-files update). Both pass.
+- `pnpm tsc --noEmit` clean.
+- Stable empty-array reference inside the hook prevents Zustand from
+  triggering infinite re-renders when no tabs exist for the current
+  window.

@@ -69,7 +69,6 @@ class ErrorBoundaryInner extends Component<
 }
 
 const ErrorBoundary = withTranslation("dialog")(ErrorBoundaryInner);
-import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSearchStore } from "@/stores/searchStore";
 import { useMenuEvents } from "@/hooks/useMenuEvents";
@@ -102,7 +101,7 @@ import { useMcpBridge } from "@/hooks/useMcpBridge";
 import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
 import { useImagePasteToast } from "@/hooks/useImagePasteToast";
 import { useFormatsUpgradeNudge } from "@/hooks/useFormatsUpgradeNudge";
-import { useFormatSettingsBridge } from "@/utils/formatSettingsBridge";
+import { useFormatSettingsBridge } from "@/services/formats/formatSettingsBridge";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
@@ -208,8 +207,8 @@ function MainWindowHooks() {
 }
 
 function MainLayout() {
-  const focusModeEnabled = useEditorStore((state) => state.focusModeEnabled);
-  const typewriterModeEnabled = useEditorStore(
+  const focusModeEnabled = useUIStore((state) => state.focusModeEnabled);
+  const typewriterModeEnabled = useUIStore(
     (state) => state.typewriterModeEnabled
   );
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);

@@ -42,8 +42,8 @@ vi.mock("@/stores/activeEditorStore", () => ({
 }));
 
 const mockEditorState: { sourceMode: boolean } = { sourceMode: false };
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: { getState: () => mockEditorState },
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: { getState: () => mockEditorState },
 }));
 
 const mockGetCurrentWindowLabel = vi.fn(() => "main");

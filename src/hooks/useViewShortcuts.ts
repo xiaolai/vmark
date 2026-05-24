@@ -17,9 +17,8 @@
  */
 
 import { useEffect } from "react";
-import { useEditorStore } from "@/stores/editorStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent, isMacPlatform } from "@/utils/shortcutMatch";
@@ -30,7 +29,7 @@ import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/lintStore";
 import { getActiveDocument, getActiveTabId } from "@/utils/activeDocument";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
 import { isYamlFileName } from "@/utils/dropPaths";
@@ -151,7 +150,7 @@ export function useViewShortcuts() {
       const focusModeKey = shortcuts.getShortcut("focusMode");
       if (matchesShortcutEvent(e, focusModeKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleFocusMode();
+        useUIStore.getState().toggleFocusMode();
         return;
       }
 
@@ -159,7 +158,7 @@ export function useViewShortcuts() {
       const typewriterModeKey = shortcuts.getShortcut("typewriterMode");
       if (matchesShortcutEvent(e, typewriterModeKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleTypewriterMode();
+        useUIStore.getState().toggleTypewriterMode();
         return;
       }
 
@@ -167,7 +166,7 @@ export function useViewShortcuts() {
       const wordWrapKey = shortcuts.getShortcut("wordWrap");
       if (matchesShortcutEvent(e, wordWrapKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleWordWrap();
+        useUIStore.getState().toggleWordWrap();
         return;
       }
 
@@ -175,7 +174,7 @@ export function useViewShortcuts() {
       const lineNumbersKey = shortcuts.getShortcut("lineNumbers");
       if (matchesShortcutEvent(e, lineNumbersKey)) {
         e.preventDefault();
-        useEditorStore.getState().toggleLineNumbers();
+        useUIStore.getState().toggleLineNumbers();
         return;
       }
 
@@ -210,7 +209,7 @@ export function useViewShortcuts() {
         // Prefer fresh content from the active editor over potentially stale doc store.
         // In Source mode: read from CM view. In WYSIWYG mode: serialize Tiptap content.
         let content: string | undefined;
-        const editorStoreState = useEditorStore.getState();
+        const editorStoreState = useUIStore.getState();
         const { activeSourceView } = useActiveEditorStore.getState();
 
         if (editorStoreState.sourceMode && activeSourceView) {

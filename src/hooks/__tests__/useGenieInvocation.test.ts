@@ -73,7 +73,7 @@ import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useAiInvocationStore } from "@/stores/aiInvocationStore";
 import { useAiProviderStore } from "@/stores/aiProviderStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
@@ -127,7 +127,7 @@ function resetStores() {
   });
   useAiInvocationStore.getState().cancel();
   useAiSuggestionStore.setState({ suggestions: new Map(), focusedSuggestionId: null });
-  useEditorStore.setState({ sourceMode: false, content: "" });
+  useUIStore.setState({ sourceMode: false, content: "" });
   useTabStore.setState({ activeTabId: { main: "tab-1" } });
   mockWindowLabel = "main";
 }
@@ -410,7 +410,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("blocks invokeGenie in source mode with toast", async () => {
     setupProviderAndEditor();
-    useEditorStore.setState({ sourceMode: true });
+    useUIStore.setState({ sourceMode: true });
 
     const { result } = renderHook(() => useGenieInvocation());
     await act(async () => {
@@ -424,7 +424,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("blocks invokeFreeform in source mode with toast", async () => {
     setupProviderAndEditor();
-    useEditorStore.setState({ sourceMode: true });
+    useUIStore.setState({ sourceMode: true });
 
     const { result } = renderHook(() => useGenieInvocation());
     await act(async () => {

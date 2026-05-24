@@ -13,7 +13,7 @@ vi.mock("@/contexts/WindowContext", () => ({
 }));
 
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
@@ -29,7 +29,7 @@ describe("SourceModeUpgrade", () => {
   beforeEach(() => {
     cleanup();
     useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
-    useEditorStore.getState().reset();
+    useUIStore.getState().resetEditorFlags();
     setActiveTab(null);
   });
 
@@ -54,7 +54,7 @@ describe("SourceModeUpgrade", () => {
     const user = userEvent.setup();
     setActiveTab("tab-1");
     useLargeFileSessionStore.getState().markForcedSource("tab-1");
-    useEditorStore.getState().setSourceMode(true);
+    useUIStore.getState().setSourceMode(true);
 
     render(<SourceModeUpgrade />);
     await user.click(
@@ -62,7 +62,7 @@ describe("SourceModeUpgrade", () => {
     );
 
     // Global sourceMode is preserved — only the tab's override is lifted.
-    expect(useEditorStore.getState().sourceMode).toBe(true);
+    expect(useUIStore.getState().sourceMode).toBe(true);
     expect(useLargeFileSessionStore.getState().isForcedSource("tab-1")).toBe(false);
   });
 

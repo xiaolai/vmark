@@ -14,7 +14,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { SettingRow, SettingsGroup, Toggle, Button, SearchInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 

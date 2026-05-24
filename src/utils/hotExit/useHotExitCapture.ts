@@ -11,7 +11,6 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useEditorStore } from '@/stores/editorStore';
 import { useUnifiedHistoryStore } from '@/stores/unifiedHistoryStore';
 import type { WindowState, TabState, CaptureRequest, CaptureResponse, CursorInfo } from './types';
 import { HOT_EXIT_EVENTS, MAIN_WINDOW_LABEL } from './types';
@@ -72,7 +71,7 @@ function toHotExitCheckpoint(checkpoint: StoreHistoryCheckpoint) {
 function getUiStateSafe() {
   try {
     const uiStore = useUIStore.getState();
-    const editorStore = useEditorStore.getState();
+    const editorStore = useUIStore.getState();
 
     return {
       sidebar_visible: uiStore.sidebarVisible,

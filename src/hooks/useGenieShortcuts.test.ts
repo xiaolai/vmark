@@ -29,8 +29,8 @@ vi.mock("@/stores/shortcutsStore", () => ({
 }));
 
 const editorStoreMock = { sourceMode: false as boolean };
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => editorStoreMock,
   },
 }));

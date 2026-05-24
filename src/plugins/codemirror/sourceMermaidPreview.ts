@@ -16,7 +16,7 @@
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { getMermaidPreviewView } from "@/plugins/mermaidPreview";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 
 const DIAGRAM_LANGUAGES = new Set(["mermaid", "markmap", "svg"]);
 
@@ -132,9 +132,9 @@ class SourceDiagramPreviewPlugin {
 
   constructor(view: EditorView) {
     this.view = view;
-    this.lastPreviewEnabled = useEditorStore.getState().diagramPreviewEnabled;
+    this.lastPreviewEnabled = useUIStore.getState().diagramPreviewEnabled;
     // Subscribe to store changes to react when diagramPreviewEnabled toggles
-    this.unsubscribe = useEditorStore.subscribe((state) => {
+    this.unsubscribe = useUIStore.subscribe((state) => {
       if (state.diagramPreviewEnabled !== this.lastPreviewEnabled) {
         this.lastPreviewEnabled = state.diagramPreviewEnabled;
         this.scheduleCheck();
@@ -160,7 +160,7 @@ class SourceDiagramPreviewPlugin {
 
   private checkDiagramAtCursor() {
     // Check if diagram preview is enabled
-    if (!useEditorStore.getState().diagramPreviewEnabled) {
+    if (!useUIStore.getState().diagramPreviewEnabled) {
       this.hidePreview();
       return;
     }

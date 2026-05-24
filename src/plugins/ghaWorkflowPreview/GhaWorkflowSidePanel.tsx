@@ -38,7 +38,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { WindowContext } from "@/contexts/WindowContext";
 import { useTranslation } from "react-i18next";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import "./gha-workflow-side-panel.css";
 
 // Lazy-loaded so the yaml package + mutators + workflowEditStore

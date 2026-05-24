@@ -34,12 +34,28 @@ vi.mock("@/stores/settingsStore", () => ({
   },
 }));
 
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => ({
       sourceMode: false,
       toggleSourceMode: mockToggleSourceMode,
+    }),
+  },
+}));
+
+// Per ADR-009: cursorInfo lives in documentStore (per-tab), not uiStore.
+vi.mock("@/stores/documentStore", () => ({
+  useDocumentStore: {
+    getState: () => ({
       setCursorInfo: mockSetCursorInfo,
+    }),
+  },
+}));
+
+vi.mock("@/stores/tabStore", () => ({
+  useTabStore: {
+    getState: () => ({
+      activeTabId: { main: "tab-1" },
     }),
   },
 }));
@@ -259,7 +275,9 @@ describe("HtmlNodeView (inline)", () => {
     it("sets cursor info when sourceLine is available", () => {
       createInlineView({ sourceLine: 42 });
       nodeView.dom.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+      // Per ADR-009: setCursorInfo signature is (tabId, info).
       expect(mockSetCursorInfo).toHaveBeenCalledWith(
+        "tab-1",
         expect.objectContaining({ sourceLine: 42 }),
       );
     });

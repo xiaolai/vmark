@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 
 const mockedStores = vi.hoisted(() => ({
   sourceState: {
@@ -115,7 +115,7 @@ function resetStores() {
     toolbarSessionFocusIndex: -1,
     toolbarDropdownOpen: false,
   });
-  useEditorStore.setState({
+  useUIStore.setState({
     sourceMode: false,
   });
   mockedStores.sourceState.context = null;
@@ -895,7 +895,7 @@ describe("UniversalToolbar", () => {
 
   describe("source mode toolbar context", () => {
     it("builds source surface toolbar context when sourceMode is true", async () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       useUIStore.setState({
         universalToolbarVisible: true,
         universalToolbarHasFocus: true,
@@ -984,7 +984,7 @@ describe("UniversalToolbar", () => {
 
   describe("handleAction — heading actions", () => {
     it("dispatches setSourceHeadingLevel for heading:N in source mode", async () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       const mockView = { focus: vi.fn() };
       mockedStores.sourceState.editorView = mockView as unknown as null;
       mockedStores.sourceState.context = { type: "paragraph" } as unknown as null;
@@ -1019,7 +1019,7 @@ describe("UniversalToolbar", () => {
     });
 
     it("dispatches setWysiwygHeadingLevel for heading:N in WYSIWYG mode", async () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       const mockView = { focus: vi.fn() };
       mockedStores.tiptapState.editorView = mockView as unknown as null;
       mockedStores.tiptapState.editor = { isActive: vi.fn() } as unknown as null;
@@ -1056,7 +1056,7 @@ describe("UniversalToolbar", () => {
       // This path is hard to trigger via UI since all heading actions use numeric levels,
       // but we test handleAction directly by triggering a dropdown item selection
       // The NaN guard (line 153) returns early without calling any adapter
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useUIStore.setState({
         universalToolbarVisible: true,
         universalToolbarHasFocus: true,
@@ -1071,7 +1071,7 @@ describe("UniversalToolbar", () => {
 
   describe("handleAction — regular (non-heading) actions", () => {
     it("dispatches performSourceToolbarAction for non-heading action in source mode", async () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       const mockView = { focus: vi.fn() };
       mockedStores.sourceState.editorView = mockView as unknown as null;
       mockedStores.sourceState.context = { type: "paragraph" } as unknown as null;
@@ -1103,7 +1103,7 @@ describe("UniversalToolbar", () => {
     });
 
     it("dispatches performWysiwygToolbarAction for non-heading action in WYSIWYG mode", async () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       const mockView = { focus: vi.fn() };
       mockedStores.tiptapState.editorView = mockView as unknown as null;
       mockedStores.tiptapState.editor = { isActive: vi.fn() } as unknown as null;
@@ -1138,7 +1138,7 @@ describe("UniversalToolbar", () => {
 
   describe("focusActiveEditor", () => {
     it("focuses source editor view when in source mode", async () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       const mockFocus = vi.fn();
       mockedStores.sourceState.editorView = { focus: mockFocus } as unknown as null;
 
@@ -1163,7 +1163,7 @@ describe("UniversalToolbar", () => {
     });
 
     it("focuses WYSIWYG editor view when not in source mode", async () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       const mockFocus = vi.fn();
       mockedStores.tiptapState.editorView = { focus: mockFocus } as unknown as null;
 
@@ -1187,7 +1187,7 @@ describe("UniversalToolbar", () => {
     });
 
     it("does not throw when editorView is null", async () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       mockedStores.tiptapState.editorView = null;
 
       useUIStore.setState({
@@ -1210,7 +1210,7 @@ describe("UniversalToolbar", () => {
 
   describe("focusActiveEditor on focus toggle off", () => {
     it("focuses editor when toolbar visible but focus toggled off and activeElement is inside toolbar", async () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       const mockFocus = vi.fn();
       mockedStores.tiptapState.editorView = { focus: mockFocus } as unknown as null;
 
@@ -1443,7 +1443,7 @@ describe("UniversalToolbar", () => {
       // but we can exercise it by invoking handleAction through the GroupDropdown onSelect prop.
       // Approach: open dropdown, then directly invoke the onSelect callback via a DOM approach.
       // Since handleAction is internal, we verify that no adapter is called.
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useUIStore.setState({
         universalToolbarVisible: true,
         universalToolbarHasFocus: true,

@@ -47,17 +47,19 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
   }),
 }));
 
-// Mock useEditorStore
-vi.mock("@/stores/editorStore", () => {
+// Mock useUIStore
+vi.mock("@/stores/uiStore", () => {
   const state = {
     content: "",
     setContent: vi.fn(),
     sourceMode: false,
     focusModeEnabled: false,
     typewriterModeEnabled: false,
+    // Per ADR-009: outline highlight lives in uiStore.
+    setActiveHeadingLine: vi.fn(),
   };
 
-  return { useEditorStore: createZustandMock(state) };
+  return { useUIStore: createZustandMock(state) };
 });
 
 vi.mock("@/stores/documentStore", () => {

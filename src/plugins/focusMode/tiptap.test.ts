@@ -23,8 +23,8 @@ vi.mock("@/utils/imeGuard", () => ({
 // Mock editorStore
 const mockEditorStoreState = { focusModeEnabled: false };
 const mockSubscribers: Array<(state: typeof mockEditorStoreState) => void> = [];
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => mockEditorStoreState,
     subscribe: (fn: (state: typeof mockEditorStoreState) => void) => {
       mockSubscribers.push(fn);

@@ -14,7 +14,6 @@
  * @module components/Editor/UniversalToolbar
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
-import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
@@ -48,7 +47,7 @@ export function UniversalToolbar() {
   const toolbarHasFocus = useUIStore((state) => state.universalToolbarHasFocus);
   const sessionFocusIndex = useUIStore((state) => state.toolbarSessionFocusIndex);
   const storeDropdownOpen = useUIStore((state) => state.toolbarDropdownOpen);
-  const sourceMode = useEditorStore((state) => state.sourceMode);
+  const sourceMode = useUIStore((state) => state.sourceMode);
   const wysiwygContext = useTiptapEditorStore((state) => state.context);
   const wysiwygView = useTiptapEditorStore((state) => state.editorView);
   const wysiwygEditor = useTiptapEditorStore((state) => state.editor);
@@ -99,7 +98,7 @@ export function UniversalToolbar() {
   );
 
   const focusActiveEditor = useCallback(() => {
-    const isSource = useEditorStore.getState().sourceMode;
+    const isSource = useUIStore.getState().sourceMode;
     if (isSource) {
       useSourceCursorContextStore.getState().editorView?.focus();
       return;
@@ -156,7 +155,7 @@ export function UniversalToolbar() {
       const level = Number(action.split(":")[1]);
       /* v8 ignore next -- @preserve reason: NaN guard for malformed heading action strings; valid heading IDs always produce a number */
       if (Number.isNaN(level)) return;
-      const isSource = useEditorStore.getState().sourceMode;
+      const isSource = useUIStore.getState().sourceMode;
       if (isSource) {
         const state = useSourceCursorContextStore.getState();
         setSourceHeadingLevel({
@@ -178,7 +177,7 @@ export function UniversalToolbar() {
       return;
     }
 
-    const isSource = useEditorStore.getState().sourceMode;
+    const isSource = useUIStore.getState().sourceMode;
     if (isSource) {
       const state = useSourceCursorContextStore.getState();
       performSourceToolbarAction(action, {

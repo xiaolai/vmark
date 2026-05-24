@@ -22,7 +22,7 @@
 import { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useSearchStore } from "@/stores/searchStore";
@@ -88,8 +88,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   cursorInfoRef.current = cursorInfo;
 
   // Use editor store for global settings
-  const wordWrap = useEditorStore((state) => state.wordWrap);
-  const showLineNumbers = useEditorStore((state) => state.showLineNumbers);
+  const wordWrap = useUIStore((state) => state.wordWrap);
+  const showLineNumbers = useUIStore((state) => state.showLineNumbers);
   const showBrTags = useSettingsStore((state) => state.markdown.showBrTags);
   const autoPairEnabled = useSettingsStore((state) => state.markdown.autoPairEnabled);
 
@@ -180,8 +180,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       }
     });
 
-    const initialWordWrap = useEditorStore.getState().wordWrap;
-    const initialShowLineNumbers = useEditorStore.getState().showLineNumbers;
+    const initialWordWrap = useUIStore.getState().wordWrap;
+    const initialShowLineNumbers = useUIStore.getState().showLineNumbers;
     const initialShowBrTags = useSettingsStore.getState().markdown.showBrTags;
     const initialAutoPair = useSettingsStore.getState().markdown.autoPairEnabled ?? true;
     const initialLintEnabled = useSettingsStore.getState().markdown.lintEnabled ?? true;

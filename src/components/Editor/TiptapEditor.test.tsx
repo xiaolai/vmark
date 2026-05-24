@@ -153,14 +153,14 @@ vi.mock("@/stores/activeEditorStore", () => ({
   },
 }));
 
-vi.mock("@/stores/editorStore", () => {
+vi.mock("@/stores/uiStore", () => {
   const state = { showLineNumbers: false };
   const store = ((selector: (s: typeof state) => unknown) => selector(state)) as unknown as {
     (selector: (s: typeof state) => unknown): unknown;
     getState: () => typeof state;
   };
   store.getState = () => state;
-  return { useEditorStore: store };
+  return { useUIStore: store };
 });
 
 vi.mock("@/stores/settingsStore", () => {
@@ -239,14 +239,14 @@ describe("TiptapEditorInner", () => {
 
   it("adds show-line-numbers class when showLineNumbers is true", () => {
     // Override editorStore mock for this test
-    vi.doMock("@/stores/editorStore", () => {
+    vi.doMock("@/stores/uiStore", () => {
       const state = { showLineNumbers: true };
       const store = ((sel: (s: typeof state) => unknown) => sel(state)) as unknown as {
         (sel: (s: typeof state) => unknown): unknown;
         getState: () => typeof state;
       };
       store.getState = () => state;
-      return { useEditorStore: store };
+      return { useUIStore: store };
     });
     // Re-render with the module-level mock already in place;
     // the component reads from the store selector, which we've mocked above.

@@ -32,7 +32,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeft, Plus } from "lucide-react";
-import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
@@ -99,7 +98,7 @@ export function StatusBar() {
   const isMissing = useDocumentIsMissing();
   const isDivergent = useDocumentIsDivergent();
   const autoSaveEnabled = useSettingsStore((state) => state.general.autoSaveEnabled);
-  const globalSourceMode = useEditorStore((state) => state.sourceMode);
+  const globalSourceMode = useUIStore((state) => state.sourceMode);
   const statusBarVisible = useUIStore((state) => state.statusBarVisible);
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);
   const terminalVisible = useUIStore((state) => state.terminalVisible);

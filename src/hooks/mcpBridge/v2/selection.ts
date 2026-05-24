@@ -36,7 +36,7 @@ import type { EditorView as CMView } from "@codemirror/view";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
@@ -115,7 +115,7 @@ function pickActiveEditor(focusedTabId: string): {
   tiptap: TiptapEditor | null;
   cm: CMView | null;
 } {
-  const sourceMode = useEditorStore.getState().sourceMode;
+  const sourceMode = useUIStore.getState().sourceMode;
   const active = useActiveEditorStore.getState();
   if (sourceMode) {
     const view =

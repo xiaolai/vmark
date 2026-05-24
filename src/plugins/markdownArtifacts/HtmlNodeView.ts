@@ -18,7 +18,9 @@
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { useSettingsStore, type HtmlRenderingMode } from "@/stores/settingsStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useTabStore } from "@/stores/tabStore";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
 import type { CursorInfo } from "@/types/cursorSync";
 
@@ -80,14 +82,19 @@ class BaseHtmlNodeView implements NodeView {
         contextBefore: "",
         contextAfter: "",
       };
-      useEditorStore.getState().setCursorInfo(cursorInfo);
+      // Per ADR-009: cursorInfo lives per-document; setCursorInfo takes tabId.
+      const windowLabel = "main"; // HtmlNodeView is editor-internal; single-window scope.
+      const activeTabId = useTabStore.getState().activeTabId[windowLabel];
+      if (activeTabId) {
+        useDocumentStore.getState().setCursorInfo(activeTabId, cursorInfo);
+      }
     }
 
     // Switch to source mode
-    const editorStore = useEditorStore.getState();
+    const uiStore = useUIStore.getState();
     /* v8 ignore next -- @preserve already-in-source-mode path skips toggle; tested path always enters from WYSIWYG */
-    if (!editorStore.sourceMode) {
-      editorStore.toggleSourceMode();
+    if (!uiStore.sourceMode) {
+      uiStore.toggleSourceMode();
     }
   };
 

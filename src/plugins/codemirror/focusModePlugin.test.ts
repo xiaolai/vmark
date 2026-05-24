@@ -15,8 +15,8 @@ const mockEditorStore = {
 };
 const mockSubscribe = vi.fn(() => vi.fn());
 
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => mockEditorStore,
     subscribe: (...args: unknown[]) => mockSubscribe(...args),
   },

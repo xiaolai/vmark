@@ -14,8 +14,8 @@ const mockEditorStore = {
   typewriterModeEnabled: false,
 };
 
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => mockEditorStore,
   },
 }));

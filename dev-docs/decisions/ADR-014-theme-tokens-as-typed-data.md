@@ -1,6 +1,6 @@
 # ADR-014: Theme tokens as typed data
 
-> Status: **Proposed (rewritten)** | Date: 2026-05-24
+> Status: **Accepted (foundation)** | Date: 2026-05-24
 > Supersedes the first draft of this ADR.
 
 ## Context
@@ -115,3 +115,30 @@ migrate every existing component in one go. Does NOT fix the
 Whether the generated CSS lives in `dist/` (build artifact, never
 committed) or `src/styles/` (committed for IDE convenience, git-ignored
 if needed). Decide during implementation.
+
+## Foundation landed (2026-05-24)
+
+`src/theme/` now contains:
+
+- `tokens.ts` — `ThemeTokens` type + shipping `lightTheme` and
+  `darkTheme` implementations. Values mirror `src/styles/index.css`;
+  this file is the new authoritative shape.
+- `applyTheme.ts` — runtime writer: walks the typed structure, writes
+  `--{kebab-case-path}` CSS vars on the target element. No codegen
+  build step (deferred).
+- `index.ts` — barrel.
+- `applyTheme.test.ts` — 5 tests covering flattening, kebab-case
+  conversion, and theme override behavior.
+
+**What is NOT yet wired**: `useTheme.ts` still owns the runtime
+override path that responds to user settings. The typed tokens exist
+alongside; the reskin (or a follow-up PR) migrates `useTheme.ts` to
+consume from `src/theme/`. This staging keeps the foundation
+non-destructive.
+
+**Verification**:
+
+- `pnpm vitest run src/theme` — 5/5 pass.
+- `pnpm tsc --noEmit` clean.
+- Type-checked: implementing a new theme requires every token to be
+  present (TypeScript enforces).

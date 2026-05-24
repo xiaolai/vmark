@@ -30,7 +30,7 @@
  */
 
 import { create } from "zustand";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { stripSupportedExtension } from "@/utils/dropPaths";

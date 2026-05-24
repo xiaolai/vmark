@@ -29,18 +29,19 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import type { GenieDefinition, GenieScope, GenieAction, AiResponseChunk } from "@/types/aiGenies";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { useAiProviderStore, REST_TYPES, KEY_OPTIONAL_REST } from "@/stores/aiProviderStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useAiInvocationStore } from "@/stores/aiInvocationStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useTabStore } from "@/stores/tabStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useGeniesStore } from "@/stores/geniesStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
-import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { getExpandedSourcePeekRange, serializeSourcePeekRange } from "@/utils/sourcePeek";
 import { extractSurroundingContext } from "@/utils/extractContext";
@@ -62,11 +63,14 @@ interface ExtractionResult {
 
 function extractContent(scope: GenieScope, contextRadius = 0): ExtractionResult | null {
   const editor = useTiptapEditorStore.getState().editor;
-  const sourceMode = useEditorStore.getState().sourceMode;
+  const sourceMode = useUIStore.getState().sourceMode;
 
   /* v8 ignore start -- callers guard against source mode; defensive only */
   if (sourceMode) {
-    const content = useEditorStore.getState().content;
+    // Per ADR-009: content lives per-document in documentStore.
+    const activeTabId = useTabStore.getState().activeTabId.main;
+    const doc = activeTabId ? useDocumentStore.getState().documents[activeTabId] : null;
+    const content = doc?.content ?? "";
     return { text: content, from: 0, to: content.length };
   }
   /* v8 ignore stop */
@@ -399,7 +403,7 @@ export function useGenieInvocation() {
       }
 
       // Block in Source Mode — suggestions can only apply via Tiptap
-      if (useEditorStore.getState().sourceMode) {
+      if (useUIStore.getState().sourceMode) {
         toast.info(i18n.t("dialog:toast.genieNotInSourceMode"));
         return;
       }
@@ -444,7 +448,7 @@ export function useGenieInvocation() {
   const invokeFreeform = useCallback(
     async (userPrompt: string, scope: GenieScope) => {
       // Block in Source Mode — suggestions can only apply via Tiptap
-      if (useEditorStore.getState().sourceMode) {
+      if (useUIStore.getState().sourceMode) {
         toast.info(i18n.t("dialog:toast.genieNotInSourceMode"));
         return;
       }

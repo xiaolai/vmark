@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Copy, Check, X, Zap, Loader2, FlaskConical } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTranslation } from "react-i18next";
 import type { RestProviderType } from "@/types/aiGenies";
 import { useAiProviderStore } from "@/stores/aiProviderStore";

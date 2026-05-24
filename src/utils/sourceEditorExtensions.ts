@@ -40,7 +40,7 @@ import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { search } from "@codemirror/search";
 import { selectNextOccurrenceSource, selectAllOccurrencesSource } from "@/plugins/codemirror/sourceSelectOccurrence";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import {
   sourceEditorTheme,
   codeHighlightStyle,
@@ -247,7 +247,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
       guardCodeMirrorKeyBinding({
         key: "Mod-Alt-w",
         run: () => {
-          useEditorStore.getState().toggleWordWrap();
+          useUIStore.getState().toggleWordWrap();
           return true;
         },
         preventDefault: true,

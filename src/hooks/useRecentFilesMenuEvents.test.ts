@@ -106,7 +106,7 @@ vi.mock("@/utils/safeUnlisten", () => ({
   safeUnlistenAll: () => [],
 }));
 
-vi.mock("@/utils/imeToast", () => ({
+vi.mock("@/services/ime/imeToast", () => ({
   imeToast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
 }));
 

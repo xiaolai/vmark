@@ -21,7 +21,7 @@ vi.mock("@codemirror/commands", () => ({
 }));
 
 import { useUnifiedHistoryStore } from "@/stores/unifiedHistoryStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
@@ -41,7 +41,7 @@ describe("useUnifiedHistory", () => {
   beforeEach(() => {
     // Reset all stores
     useUnifiedHistoryStore.getState().clearAll();
-    useEditorStore.setState({ sourceMode: false });
+    useUIStore.setState({ sourceMode: false });
     useTabStore.setState({ activeTabId: { main: "tab-1" } });
 
     // Set up a document in the store
@@ -76,13 +76,13 @@ describe("useUnifiedHistory", () => {
     });
 
     it("toggles source mode after creating checkpoint", () => {
-      const initialMode = useEditorStore.getState().sourceMode;
+      const initialMode = useUIStore.getState().sourceMode;
       toggleSourceModeWithCheckpoint("main");
-      expect(useEditorStore.getState().sourceMode).toBe(!initialMode);
+      expect(useUIStore.getState().sourceMode).toBe(!initialMode);
     });
 
     it("records source mode in checkpoint when already in source mode", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       toggleSourceModeWithCheckpoint("main");
 
       const history = useUnifiedHistoryStore.getState().documents["tab-1"];
@@ -91,23 +91,23 @@ describe("useUnifiedHistory", () => {
 
     it("falls back to toggle without checkpoint when no active tab", () => {
       useTabStore.setState({ activeTabId: {} });
-      const initialMode = useEditorStore.getState().sourceMode;
+      const initialMode = useUIStore.getState().sourceMode;
 
       toggleSourceModeWithCheckpoint("main");
 
       // Should still toggle mode
-      expect(useEditorStore.getState().sourceMode).toBe(!initialMode);
+      expect(useUIStore.getState().sourceMode).toBe(!initialMode);
       // But no checkpoint created
       expect(useUnifiedHistoryStore.getState().documents["tab-1"]).toBeUndefined();
     });
 
     it("falls back to toggle without checkpoint when document not found", () => {
       useDocumentStore.setState({ documents: {} });
-      const initialMode = useEditorStore.getState().sourceMode;
+      const initialMode = useUIStore.getState().sourceMode;
 
       toggleSourceModeWithCheckpoint("main");
 
-      expect(useEditorStore.getState().sourceMode).toBe(!initialMode);
+      expect(useUIStore.getState().sourceMode).toBe(!initialMode);
     });
 
     it("stores cursor info in checkpoint when available", () => {
@@ -132,14 +132,14 @@ describe("useUnifiedHistory", () => {
 
   describe("canNativeUndo", () => {
     it("returns false in source mode when no view is available", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       useActiveEditorStore.setState({ activeSourceView: null });
 
       expect(canNativeUndo()).toBe(false);
     });
 
     it("returns true in source mode when undoDepth > 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       mockUndoDepth.mockReturnValue(3);
       const mockView = { state: {} };
       useActiveEditorStore.setState({ activeSourceView: mockView as never });
@@ -148,7 +148,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false in source mode when undoDepth is 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       mockUndoDepth.mockReturnValue(0);
       const mockView = { state: {} };
       useActiveEditorStore.setState({ activeSourceView: mockView as never });
@@ -157,14 +157,14 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false in WYSIWYG mode when no editor is available", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({ editor: null });
 
       expect(canNativeUndo()).toBe(false);
     });
 
     it("returns true in WYSIWYG mode when editor can undo", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: { can: () => ({ undo: () => true, redo: () => false }) } as never,
       });
@@ -173,7 +173,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false in WYSIWYG mode when editor cannot undo", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: { can: () => ({ undo: () => false, redo: () => false }) } as never,
       });
@@ -184,14 +184,14 @@ describe("useUnifiedHistory", () => {
 
   describe("canNativeRedo", () => {
     it("returns false in source mode when no view is available", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       useActiveEditorStore.setState({ activeSourceView: null });
 
       expect(canNativeRedo()).toBe(false);
     });
 
     it("returns true in source mode when redoDepth > 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       mockRedoDepth.mockReturnValue(2);
       const mockView = { state: {} };
       useActiveEditorStore.setState({ activeSourceView: mockView as never });
@@ -200,7 +200,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false in WYSIWYG mode when editor cannot redo", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: { can: () => ({ undo: () => false, redo: () => false }) } as never,
       });
@@ -209,7 +209,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns true in WYSIWYG mode when editor can redo", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: { can: () => ({ undo: () => false, redo: () => true }) } as never,
       });
@@ -220,14 +220,14 @@ describe("useUnifiedHistory", () => {
 
   describe("doNativeUndo", () => {
     it("returns false in source mode when no view or depth 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       useActiveEditorStore.setState({ activeSourceView: null });
 
       expect(doNativeUndo()).toBe(false);
     });
 
     it("calls CM undo in source mode when depth > 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       mockUndoDepth.mockReturnValue(1);
       mockUndo.mockReturnValue(true);
       const mockView = { state: {} };
@@ -238,7 +238,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("calls tiptap undo in WYSIWYG mode", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       const mockCommands = { undo: vi.fn(() => true) };
       useTiptapEditorStore.setState({
         editor: {
@@ -252,7 +252,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false in WYSIWYG when editor cannot undo", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -266,14 +266,14 @@ describe("useUnifiedHistory", () => {
 
   describe("doNativeRedo", () => {
     it("returns false in source mode when no view", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       useActiveEditorStore.setState({ activeSourceView: null });
 
       expect(doNativeRedo()).toBe(false);
     });
 
     it("calls CM redo in source mode when depth > 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       mockRedoDepth.mockReturnValue(1);
       mockRedo.mockReturnValue(true);
       const mockView = { state: {} };
@@ -284,7 +284,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("calls tiptap redo in WYSIWYG mode", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       const mockCommands = { redo: vi.fn(() => true) };
       useTiptapEditorStore.setState({
         editor: {
@@ -317,7 +317,7 @@ describe("useUnifiedHistory", () => {
   describe("performUnifiedUndo", () => {
     it("returns true when native undo succeeds", () => {
       // Set up WYSIWYG mode with undoable editor
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => true, redo: () => false }),
@@ -330,7 +330,7 @@ describe("useUnifiedHistory", () => {
 
     it("falls back to checkpoint when native undo exhausted", () => {
       // No native undo available
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -353,7 +353,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false when no native undo and no checkpoint", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -365,7 +365,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false when no active tab", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({ editor: null });
       useTabStore.setState({ activeTabId: {} });
 
@@ -373,7 +373,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("pushes current state to redo stack before restoring", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -395,7 +395,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false when document not found", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -418,7 +418,7 @@ describe("useUnifiedHistory", () => {
 
   describe("performUnifiedRedo", () => {
     it("returns true when native redo succeeds", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => true }),
@@ -430,7 +430,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("falls back to checkpoint redo when native redo exhausted", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -452,7 +452,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false when no native redo and no redo checkpoint", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -464,7 +464,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false when no active tab", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({ editor: null });
       useTabStore.setState({ activeTabId: {} });
 
@@ -472,7 +472,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("pushes current state to undo stack before restoring", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -494,7 +494,7 @@ describe("useUnifiedHistory", () => {
     });
 
     it("returns false when document not found", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -516,7 +516,7 @@ describe("useUnifiedHistory", () => {
 
   describe("doNativeRedo — source mode edge cases", () => {
     it("returns false in source mode when redoDepth is 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       mockRedoDepth.mockReturnValue(0);
       const mockView = { state: {} };
       useActiveEditorStore.setState({ activeSourceView: mockView as never });
@@ -527,7 +527,7 @@ describe("useUnifiedHistory", () => {
 
   describe("doNativeUndo — source mode with null view", () => {
     it("returns false in source mode when view exists but undoDepth is 0", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       mockUndoDepth.mockReturnValue(0);
       const mockView = { state: {} };
       useActiveEditorStore.setState({ activeSourceView: mockView as never });
@@ -538,14 +538,14 @@ describe("useUnifiedHistory", () => {
 
   describe("doNativeRedo — WYSIWYG with null editor", () => {
     it("returns false in WYSIWYG mode when no editor", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({ editor: null });
 
       expect(doNativeRedo()).toBe(false);
     });
 
     it("returns false in WYSIWYG mode when editor cannot redo", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -559,7 +559,7 @@ describe("useUnifiedHistory", () => {
 
   describe("performUnifiedUndo — source mode checkpoint restore", () => {
     it("restores from checkpoint in source mode", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       useActiveEditorStore.setState({ activeSourceView: null });
 
       useUnifiedHistoryStore.getState().createCheckpoint("tab-1", {
@@ -578,7 +578,7 @@ describe("useUnifiedHistory", () => {
 
   describe("performUnifiedRedo — source mode checkpoint restore", () => {
     it("restores from redo checkpoint in source mode", () => {
-      useEditorStore.setState({ sourceMode: true });
+      useUIStore.setState({ sourceMode: true });
       useActiveEditorStore.setState({ activeSourceView: null });
 
       useUnifiedHistoryStore.getState().pushRedo("tab-1", {
@@ -597,7 +597,7 @@ describe("useUnifiedHistory", () => {
 
   describe("performUnifiedUndo — popUndo returns null guard (line 228)", () => {
     it("returns false when popUndo returns null despite canUndoCheckpoint being true", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),
@@ -627,7 +627,7 @@ describe("useUnifiedHistory", () => {
 
   describe("performUnifiedRedo — popRedo returns null guard (line 265)", () => {
     it("returns false when popRedo returns null despite canRedoCheckpoint being true", () => {
-      useEditorStore.setState({ sourceMode: false });
+      useUIStore.setState({ sourceMode: false });
       useTiptapEditorStore.setState({
         editor: {
           can: () => ({ undo: () => false, redo: () => false }),

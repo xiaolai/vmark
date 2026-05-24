@@ -21,7 +21,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { save } from "@tauri-apps/plugin-dialog";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTranslation } from "react-i18next";
 import { buildPdfExportHtml, type PdfOptions } from "./pdfHtmlTemplate";
 import { captureThemeCSS, isDarkTheme } from "./themeSnapshot";

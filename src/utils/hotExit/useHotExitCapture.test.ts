@@ -84,8 +84,8 @@ vi.mock("@/stores/uiStore", () => ({
   },
 }));
 
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => ({
       sourceMode: false,
       focusModeEnabled: false,

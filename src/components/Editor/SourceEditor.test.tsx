@@ -125,7 +125,7 @@ vi.mock("@/hooks/lintNavigation", () => ({
 }));
 
 // Mock stores
-vi.mock("@/stores/editorStore", () => {
+vi.mock("@/stores/uiStore", () => {
   const store = vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
     selector({ wordWrap: true, showLineNumbers: false })
   );
@@ -133,7 +133,7 @@ vi.mock("@/stores/editorStore", () => {
     wordWrap: true,
     showLineNumbers: false,
   });
-  return { useEditorStore: store };
+  return { useUIStore: store };
 });
 
 vi.mock("@/stores/settingsStore", () => {
@@ -879,9 +879,9 @@ describe("SourceEditor", () => {
 
   describe("showLineNumbers class (branch 26, line 269)", () => {
     it("includes show-line-numbers class when showLineNumbers is true", async () => {
-      const { useEditorStore } = await import("@/stores/editorStore");
+      const { useUIStore } = await import("@/stores/uiStore");
       // Override selector mock to return showLineNumbers: true
-      (useEditorStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (useUIStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
         (selector: (s: Record<string, unknown>) => unknown) =>
           selector({ wordWrap: true, showLineNumbers: true })
       );
@@ -891,7 +891,7 @@ describe("SourceEditor", () => {
       expect(editorDiv.className).toContain("show-line-numbers");
 
       // Restore original mock
-      (useEditorStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (useUIStore as unknown as ReturnType<typeof vi.fn>).mockImplementation(
         (selector: (s: Record<string, unknown>) => unknown) =>
           selector({ wordWrap: true, showLineNumbers: false })
       );

@@ -75,8 +75,8 @@ vi.mock("@/plugins/codemirror/sourceSelectOccurrence", () => ({
 const { editorStoreState } = vi.hoisted(() => ({
   editorStoreState: { toggleWordWrap: vi.fn() },
 }));
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: { getState: vi.fn(() => editorStoreState) },
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: { getState: vi.fn(() => editorStoreState) },
 }));
 
 vi.mock("@/utils/workspaceStorage", () => ({

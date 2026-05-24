@@ -10,8 +10,8 @@ import { DecorationSet } from "@tiptap/pm/view";
 // Mock editorStore
 const mockEditorState = { focusModeEnabled: false };
 
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => mockEditorState,
     subscribe: vi.fn(() => vi.fn()),
   },

@@ -49,7 +49,7 @@ import { createTiptapExtensions } from "@/utils/tiptapExtensions";
 import type { CursorInfo } from "@/stores/documentStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -151,7 +151,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
   const preserveLineBreaks = useSettingsStore((state) => state.markdown.preserveLineBreaks);
   const hardBreakStyleOnSave = useSettingsStore((state) => state.markdown.hardBreakStyleOnSave);
-  const showLineNumbers = useEditorStore((state) => state.showLineNumbers);
+  const showLineNumbers = useUIStore((state) => state.showLineNumbers);
   const cjkLetterSpacing = useSettingsStore((state) => state.appearance.cjkLetterSpacing);
   const lintEnabled = useSettingsStore((state) => state.markdown.lintEnabled);
   const windowLabel = useWindowLabel();

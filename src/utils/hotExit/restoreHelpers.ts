@@ -18,8 +18,8 @@ import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useEditorStore } from '@/stores/editorStore';
 import { useUnifiedHistoryStore } from '@/stores/unifiedHistoryStore';
+import { getFormatById } from '@/lib/formats/registry';
 import type { WindowState, HistoryCheckpoint, CursorInfo, TabState, DocumentState } from './types';
 import type { LineEnding } from '@/utils/linebreakDetection';
 import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/unifiedHistoryStore';
@@ -158,7 +158,7 @@ export async function restoreWindowState(windowLabel: string, windowState: Windo
 export function restoreUiState(windowState: WindowState): void {
   const { ui_state } = windowState;
   const uiStore = useUIStore.getState();
-  const editorStore = useEditorStore.getState();
+  const editorStore = useUIStore.getState();
 
   // Validate sidebar_view_mode before setting
   const viewMode = (ui_state.sidebar_view_mode === 'files' || ui_state.sidebar_view_mode === 'outline' || ui_state.sidebar_view_mode === 'history')
@@ -277,18 +277,46 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
     // to markdown. If the persisted format_id is not "markdown", explicitly
     // restore it. This guards untitled non-markdown sessions (e.g. an
     // unsaved JSON scratch tab) against silent format loss across restart.
+    //
+    // Validate against the format registry — a tampered or stale session
+    // file could carry a format_id that no longer (or never) exists. Falling
+    // through with an unknown id would inject inconsistent state into the
+    // tab store.
     if (
       tabState.file_path == null &&
       tabState.format_id &&
       tabState.format_id !== "markdown"
     ) {
-      tabStore.setTabFormatId(newTabId, tabState.format_id);
+      if (getFormatById(tabState.format_id)) {
+        tabStore.setTabFormatId(newTabId, tabState.format_id);
+      } else {
+        hotExitWarn(
+          `Skipping unknown format_id '${tabState.format_id}' for restored tab '${tabState.id}'`
+        );
+      }
     }
     if (tabState.editing_enabled === false) {
       tabStore.setTabEditingEnabled(newTabId, false);
     }
+    // Best-effort validation of the persisted schema id. We look up the
+    // effective format (the validated format_id, or markdown for untitled
+    // markdown tabs) and confirm the schema id matches one of its
+    // registered renderers. If the registry can't resolve the format
+    // (e.g. test environment without bootstrap, or the format was
+    // unregistered after this session was saved), we cannot validate —
+    // fall through and trust the persisted value rather than silently
+    // drop it.
     if (tabState.active_schema_id != null) {
-      tabStore.setTabActiveSchemaId(newTabId, tabState.active_schema_id);
+      const effectiveFormatId = tabState.format_id || "markdown";
+      const format = getFormatById(effectiveFormatId);
+      const renderers = format?.schemaRenderers;
+      if (renderers && !(tabState.active_schema_id in renderers)) {
+        hotExitWarn(
+          `Skipping unknown active_schema_id '${tabState.active_schema_id}' for restored tab '${tabState.id}' (format '${effectiveFormatId}')`
+        );
+      } else {
+        tabStore.setTabActiveSchemaId(newTabId, tabState.active_schema_id);
+      }
     }
 
     // Restore document state

@@ -22,14 +22,14 @@
 
 import { undo, redo, undoDepth, redoDepth } from "@codemirror/commands";
 import { useUnifiedHistoryStore, type HistoryCheckpoint } from "@/stores/unifiedHistoryStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
-import { imeToast } from "@/utils/imeToast";
+import { imeToast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 /**
  * Toggle source mode with checkpoint creation.
@@ -38,7 +38,7 @@ import i18n from "@/i18n";
  * @param windowLabel - The window label for multi-window support
  */
 export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
-  const editorStore = useEditorStore.getState();
+  const editorStore = useUIStore.getState();
   const documentStore = useDocumentStore.getState();
   const tabStore = useTabStore.getState();
   const historyStore = useUnifiedHistoryStore.getState();
@@ -109,7 +109,7 @@ export function toggleSourceModeWithCheckpoint(windowLabel: string): void {
  * Check if native undo is available in the current editor.
  */
 export function canNativeUndo(): boolean {
-  const sourceMode = useEditorStore.getState().sourceMode;
+  const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
     const view = useActiveEditorStore.getState().activeSourceView;
@@ -126,7 +126,7 @@ export function canNativeUndo(): boolean {
  * Check if native redo is available in the current editor.
  */
 export function canNativeRedo(): boolean {
-  const sourceMode = useEditorStore.getState().sourceMode;
+  const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
     const view = useActiveEditorStore.getState().activeSourceView;
@@ -146,7 +146,7 @@ export function canNativeRedo(): boolean {
  * Returns true if undo was performed.
  */
 export function doNativeUndo(): boolean {
-  const sourceMode = useEditorStore.getState().sourceMode;
+  const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
     const view = useActiveEditorStore.getState().activeSourceView;
@@ -164,7 +164,7 @@ export function doNativeUndo(): boolean {
  * Returns true if redo was performed.
  */
 export function doNativeRedo(): boolean {
-  const sourceMode = useEditorStore.getState().sourceMode;
+  const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
     const view = useActiveEditorStore.getState().activeSourceView;
@@ -236,7 +236,7 @@ export function performUnifiedUndo(windowLabel: string): boolean {
   const doc = documentStore.getDocument(tabId);
   if (!doc) return false;
 
-  const currentMode = useEditorStore.getState().sourceMode ? "source" : "wysiwyg";
+  const currentMode = useUIStore.getState().sourceMode ? "source" : "wysiwyg";
 
   // Save current state to redo stack before restoring
   historyStore.pushRedo(tabId, {
@@ -279,7 +279,7 @@ export function performUnifiedRedo(windowLabel: string): boolean {
   const doc = documentStore.getDocument(tabId);
   if (!doc) return false;
 
-  const currentMode = useEditorStore.getState().sourceMode ? "source" : "wysiwyg";
+  const currentMode = useUIStore.getState().sourceMode ? "source" : "wysiwyg";
 
   // Pop redo checkpoint first (before pushing to undo, which doesn't clear redo)
   const checkpoint = historyStore.popRedo(tabId);

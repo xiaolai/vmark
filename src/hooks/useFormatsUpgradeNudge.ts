@@ -22,7 +22,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { openSettingsWindow } from "@/utils/settingsWindow";
 

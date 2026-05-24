@@ -12,9 +12,8 @@
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useEditorStore } from "@/stores/editorStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cleanupBeforeModeSwitch } from "@/utils/modeSwitchCleanup";
@@ -22,7 +21,7 @@ import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import { useLintStore } from "@/stores/lintStore";
 import { getActiveDocument, getActiveTabId } from "@/utils/activeDocument";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
@@ -65,14 +64,14 @@ export function useViewMenuEvents(): void {
 
       const unlistenFocusMode = await currentWindow.listen<string>("menu:focus-mode", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleFocusMode();
+        useUIStore.getState().toggleFocusMode();
       });
       if (cancelled) { unlistenFocusMode(); return; }
       unlistenRefs.current.push(unlistenFocusMode);
 
       const unlistenTypewriterMode = await currentWindow.listen<string>("menu:typewriter-mode", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleTypewriterMode();
+        useUIStore.getState().toggleTypewriterMode();
       });
       if (cancelled) { unlistenTypewriterMode(); return; }
       unlistenRefs.current.push(unlistenTypewriterMode);
@@ -100,21 +99,21 @@ export function useViewMenuEvents(): void {
 
       const unlistenWordWrap = await currentWindow.listen<string>("menu:word-wrap", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleWordWrap();
+        useUIStore.getState().toggleWordWrap();
       });
       if (cancelled) { unlistenWordWrap(); return; }
       unlistenRefs.current.push(unlistenWordWrap);
 
       const unlistenLineNumbers = await currentWindow.listen<string>("menu:line-numbers", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleLineNumbers();
+        useUIStore.getState().toggleLineNumbers();
       });
       if (cancelled) { unlistenLineNumbers(); return; }
       unlistenRefs.current.push(unlistenLineNumbers);
 
       const unlistenDiagramPreview = await currentWindow.listen<string>("menu:diagram-preview", (event) => {
         if (event.payload !== windowLabel) return;
-        useEditorStore.getState().toggleDiagramPreview();
+        useUIStore.getState().toggleDiagramPreview();
       });
       if (cancelled) { unlistenDiagramPreview(); return; }
       unlistenRefs.current.push(unlistenDiagramPreview);
@@ -182,7 +181,7 @@ export function useViewMenuEvents(): void {
         // Prefer fresh content from the active editor over potentially stale doc store.
         // In Source mode: read from CM view. In WYSIWYG mode: serialize Tiptap content.
         let content: string | undefined;
-        const editorState = useEditorStore.getState();
+        const editorState = useUIStore.getState();
         const { activeSourceView } = useActiveEditorStore.getState();
 
         if (editorState.sourceMode && activeSourceView) {
