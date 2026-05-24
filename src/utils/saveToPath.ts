@@ -24,7 +24,7 @@
  * @module utils/saveToPath
  */
 import { invoke } from "@tauri-apps/api/core";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";

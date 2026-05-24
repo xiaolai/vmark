@@ -30,7 +30,7 @@ import { join, basename } from "@tauri-apps/api/path";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useTabStore } from "@/stores/tabStore";
 import { reconcilePathChange } from "@/utils/pathReconciliation";

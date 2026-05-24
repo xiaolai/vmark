@@ -35,7 +35,7 @@ import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflow
 import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
 import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
 import { yamlLintExtension } from "@/plugins/codemirror/sourceYamlLint";
-import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
+import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { search } from "@codemirror/search";

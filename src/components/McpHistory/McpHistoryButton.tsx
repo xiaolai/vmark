@@ -33,7 +33,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import "./mcp-history.css";
 
 const POPUP_WIDTH = 360;

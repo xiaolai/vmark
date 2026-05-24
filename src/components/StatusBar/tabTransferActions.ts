@@ -22,7 +22,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";

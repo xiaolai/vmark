@@ -1,6 +1,6 @@
 # ADR-013: Service tier as the cross-cutting seam
 
-> Status: **Proposed** | Date: 2026-05-24
+> Status: **Accepted** | Date: 2026-05-24 | First moves landed: 2026-05-24
 
 ## Context
 
@@ -77,3 +77,42 @@ beyond "one domain per folder."
 - Hosts ADR-008's workspace facade backend (`services/workspace/`).
 - Hosts ADR-009's document persistence (`services/persistence/`).
 - Supersedes and widens existing T08.
+
+## First-pass outcome (2026-05-24)
+
+Baseline drained from 9 entries to 2. First moves landed:
+
+| Old path | New path |
+|---|---|
+| `src/utils/imeToast.ts` | `src/services/ime/imeToast.ts` |
+| `src/utils/imeToastPinAction.tsx` | `src/services/ime/imeToastPinAction.tsx` |
+| `src/utils/workflowFeatureFlag.ts` | `src/services/featureFlags/workflowFeatureFlag.ts` |
+| `src/utils/formatSettingsBridge.ts` | `src/services/formats/formatSettingsBridge.ts` |
+
+Test files moved alongside. All `vi.mock("@/utils/...")` paths updated.
+The `AGENTS.md` three-tier rule added.
+
+**Verification:**
+
+- `pnpm lint:deps` — 0 errors (was 0 with baseline-ignore; baseline now
+  has 2 entries instead of 9, both queued for separate ADRs).
+- Full suite — 18,827 tests pass.
+- `pnpm tsc --noEmit` clean.
+
+**What remains in the baseline (for follow-up ADRs):**
+
+- `src/utils/sourceEditorExtensions.test.ts → src/plugins/sourceContextDetection/taskListActions.ts`
+  — test-only cross-plugin import; will resolve when `sourceEditorExtensions`
+  moves to `services/` (waits on ADR-009 which deletes `editorStore`).
+- `src/plugins/sourceContextDetection/tableActions.ts ↔ tableDetection.ts`
+  — circular dependency; tracked as the original plan's T12 work,
+  not part of ADR-013.
+
+**Files still in `utils/` that import stores or Tauri** — there are
+~15 more (e.g. `reloadFromDisk`, `saveToPath`, `crashRecovery`,
+`startupMenuSync`, `largeFileRouting`, `pdfExportWindow`, `linkOpen`,
+`largeFilePrompts`, `clipboardImagePath`, `errorDialog`,
+`macQuarantineNotice`, `activeDocument`, `resolveMediaSrc`). Each is
+explicitly allowlisted in `.dependency-cruiser.cjs` via `pathNot`.
+The next pass of ADR-013 moves these out of `utils/` and removes the
+allowlist; deliberately deferred to keep this PR scoped.

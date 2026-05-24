@@ -24,7 +24,7 @@ vi.mock("@/stores/settingsStore", () => ({
   },
 }));
 
-vi.mock("@/utils/imeToast", () => ({
+vi.mock("@/services/ime/imeToast", () => ({
   imeToast: { info: mocks.toastInfo },
 }));
 

@@ -29,7 +29,7 @@ import { useToolbarKeyboard } from "./useToolbarKeyboard";
 import { getInitialFocusIndex } from "./toolbarFocus";
 import { getNextFocusableIndex, getPrevFocusableIndex } from "./toolbarNavigation";
 import { GroupDropdown } from "./GroupDropdown";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTranslation } from "react-i18next";
 import { icons } from "@/utils/icons";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";

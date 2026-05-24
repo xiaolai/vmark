@@ -32,7 +32,7 @@ import {
   isVMarkFileName,
   stripSupportedExtension,
 } from "@/utils/dropPaths";
-import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
+import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
 import { fileExplorerError } from "@/utils/debug";
 

@@ -150,3 +150,14 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **Architecture overview**: See `dev-docs/architecture.md` for C4 diagram, entry points, data flows, and module map.
 
+  - **Three-tier source layout** (ADR-013):
+    | Tier | May import | Examples |
+    |---|---|---|
+    | `src/utils/` | stdlib, other `utils/` | Pure parsers, formatters, string helpers |
+    | `src/services/` | `utils/`, `stores/`, Tauri APIs | Persistence, IME toast, feature flags, format bridge |
+    | `src/hooks/` | `services/`, `stores/`, React APIs | React adapters over services |
+
+    `utils/` must be leaf-pure. If you find yourself adding `useXStore` or `@tauri-apps/*` imports inside `utils/`, the file belongs in `services/` instead. `services/` is organised by domain folder (`services/ime/`, `services/featureFlags/`, `services/formats/`).
+
+  - **Shell layer** (ADR-007): `src/shell/AppShell.tsx` is the composition root for the document window. It is pure layout: zero store imports, zero feature knowledge. New top-level surfaces (panels, overlays) become slot registrations, not edits to `App.tsx`.
+

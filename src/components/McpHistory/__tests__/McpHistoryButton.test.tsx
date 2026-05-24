@@ -16,7 +16,7 @@ const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
 }));
-vi.mock("@/utils/imeToast", () => ({
+vi.mock("@/services/ime/imeToast", () => ({
   imeToast: toastMock,
 }));
 

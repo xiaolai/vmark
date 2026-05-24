@@ -27,7 +27,7 @@ import { ValidationGutter } from "./ValidationGutter";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import type {
   FormatConfig,
   PreviewRenderer,

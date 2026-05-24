@@ -51,7 +51,7 @@ import {
   isSupportedFileName,
   isVMarkFileName,
 } from "@/utils/dropPaths";
-import { isWorkflowEnabled } from "@/utils/workflowFeatureFlag";
+import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import type { FileNode as FileNodeType } from "./types";
 import "./FileExplorer.css";
 

@@ -10,7 +10,7 @@
  */
 
 import type { StateStorage } from "zustand/middleware";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { safeStorageError } from "@/utils/debug";
 
 /** Tracks which store keys have already shown a quota warning. */

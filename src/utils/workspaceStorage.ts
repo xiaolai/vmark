@@ -17,7 +17,7 @@
  * @module utils/workspaceStorage
  */
 import type { StateStorage } from "zustand/middleware";
-import { imeToast as toast } from "@/utils/imeToast";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import { workspaceStorageWarn } from "@/utils/debug";
 
 /** Tracks which workspace keys have already shown a quota warning. */
