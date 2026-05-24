@@ -35,7 +35,14 @@ export function findInlineMathAtCursor(view: EditorView, pos: number): { from: n
       // Find closing $ (not escaped)
       let j = i + 1;
       while (j < lineText.length) {
-        if (lineText[j] === "$" && (j === start + 1 || lineText[j - 1] !== "\\")) {
+        if (lineText[j] === "$" && lineText[j - 1] !== "\\") {
+          // Empty `$$` is not inline math (remark-math agrees) — it is usually
+          // a half-typed block-math delimiter. Skip it so the popup does not
+          // open with an empty range that later writes back stale offsets.
+          if (j === start + 1) {
+            i = j + 1;
+            break;
+          }
           // Found a pair from start to j
           const mathFrom = lineStart + start;
           const mathTo = lineStart + j + 1;
@@ -184,6 +191,22 @@ export function insertInlineMath(view: EditorView): boolean {
       view.dispatch({
         changes: { from: mathRange.from, to: mathRange.to, insert: mathRange.content },
         selection: { anchor: mathRange.from + mathRange.content.length },
+      });
+      view.focus();
+      return true;
+    }
+
+    // Explicit unwrap for cursor sitting between an empty `$$` pair.
+    // findInlineMathAtCursor no longer treats this as math (it is a common
+    // half-typed block-math delimiter), but an explicit toolbar / shortcut
+    // invocation here should still toggle the pair off rather than inserting
+    // another `$$`.
+    const charBefore = from > 0 ? view.state.doc.sliceString(from - 1, from) : "";
+    const charAfter = from < view.state.doc.length ? view.state.doc.sliceString(from, from + 1) : "";
+    if (charBefore === "$" && charAfter === "$") {
+      view.dispatch({
+        changes: { from: from - 1, to: from + 1, insert: "" },
+        selection: { anchor: from - 1 },
       });
       view.focus();
       return true;
