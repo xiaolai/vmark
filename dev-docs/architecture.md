@@ -55,14 +55,26 @@ flowchart TB
 
 ### React Frontend (`src/`)
 
-| Directory          | Count       | Role                                                                       |
-| ------------------ | ----------- | -------------------------------------------------------------------------- |
-| `stores/`          | 39 stores   | Zustand state — documents, tabs, settings, editor, UI                      |
-| `hooks/`           | 67 hooks    | Side effects — file ops, menu events, auto-save, shortcuts                 |
-| `plugins/`         | 70 plugins  | ProseMirror/Tiptap/CodeMirror editor plugins                               |
-| `components/`      | 8 top-level | Editor, Sidebar, Tabs, StatusBar, TitleBar, FindBar, Terminal, GeniePicker |
-| `utils/`           | \~77 files  | Helpers, markdown pipeline, cursor sync, hot exit                          |
-| `hooks/mcpBridge/` | (subdir)    | Frontend handlers for MCP tool calls                                       |
+| Directory          | Count          | Role                                                                       |
+| ------------------ | -------------- | -------------------------------------------------------------------------- |
+| `stores/`          | 48 stores      | Zustand state — documents, tabs, settings, UI, AI, plugin-popup state      |
+| `hooks/`           | 100 hooks      | Side effects — file ops, menu events, auto-save, shortcuts, lifecycle composites |
+| `hooks/lifecycle/` | 4 composites   | Document / Workspace / Editor / Window lifecycle bundles (per ADR-T03)     |
+| `plugins/`         | 81 plugins     | ProseMirror/Tiptap/CodeMirror editor plugins + plugin registry             |
+| `components/`      | 13 top-level   | Editor, Sidebar, Tabs, StatusBar, TitleBar, FindBar, Terminal, CommandPalette, GeniePicker, QuickOpen, ContentSearch, WorkflowApproval, McpHistory |
+| `services/`        | 11 sub-domains | assembly, commands, editor, formats, featureFlags, ime, macos, media, menu, navigation, persistence — pure logic that *may* import stores |
+| `utils/`           | 106 files      | Helpers, markdown pipeline, cursor sync (must NOT import stores)           |
+| `lib/`             | 8 sub-dirs     | CJK formatter, ghaWorkflow, workflow routing, formats, lintEngine, etc.   |
+| `theme/`           | 4 files        | Typed `ThemeTokens` + `cssVars` accessor + `applyTheme()`                  |
+| `shell/`           | 6 files        | Pure layout primitives — AppShell, EditorArea (no store imports)           |
+| `workspace/`       | 2 files        | `useWorkspace()` facade over tab/workspace/recent stores                   |
+| `hooks/mcpBridge/` | (subdir)       | Frontend handlers for MCP tool calls                                       |
+
+**Tier rule** (enforced via dep-cruiser): `utils` → leaf-pure, no stores;
+`services` → may import stores + Tauri APIs but no React; `hooks` → may
+import services and stores and React APIs.
+
+last-counted: 2026-05-25
 
 ### MCP Sidecar (`vmark-mcp-server/src/`)
 
@@ -135,13 +147,17 @@ User triggers Genie (Cmd+G or menu)
 
 | Directory               | Files  | Role                         | Imports From                                    |
 | ----------------------- | ------ | ---------------------------- | ----------------------------------------------- |
-| `src/stores/`           | 39     | State management             | (leaf — nothing from components/plugins)        |
-| `src/hooks/`            | 67     | Side effects, event handling | stores, utils, Tauri API                        |
-| `src/plugins/`          | 70     | Editor extensions            | stores, utils, shared plugins                   |
-| `src/components/`       | 8 dirs | React UI                     | stores, hooks, plugins, utils                   |
-| `src/utils/`            | \~77   | Helpers + services           | stores (service utils), pure logic (core utils) |
-| `src/lib/`              | 3 dirs | CJK formatter, GHA workflow IR + parser + save pipeline, workflow routing | stores (settings)                               |
-| `src/types/`            | \~5    | Type definitions             | plugins (format types)                          |
+| `src/stores/`           | 48      | State management             | (leaf — nothing from components/plugins)        |
+| `src/hooks/`            | 100     | Side effects, event handling | services, stores, utils, Tauri API              |
+| `src/plugins/`          | 81      | Editor extensions            | services, stores, utils, shared plugins         |
+| `src/components/`       | 13 dirs | React UI                     | services, stores, hooks, plugins, utils         |
+| `src/services/`         | 11 dirs | Pure logic w/ store + Tauri access | stores, utils, Tauri API                  |
+| `src/utils/`            | 106     | Leaf-pure helpers            | stdlib only — NO stores, NO Tauri, NO React     |
+| `src/lib/`              | 8 dirs  | CJK formatter, GHA workflow IR + parser + save pipeline, workflow routing, formats adapters | stores (settings) |
+| `src/theme/`            | 4       | Typed ThemeTokens + cssVars accessor | none                                      |
+| `src/shell/`            | 6       | Pure layout primitives (AppShell, EditorArea) | none (no store imports)          |
+| `src/workspace/`        | 2       | Workspace facade hook        | stores                                          |
+| `src/types/`            | \~5     | Type definitions             | plugins (format types)                          |
 | `src-tauri/src/`        | 24     | Rust backend                 | (self-contained)                                |
 | `vmark-mcp-server/src/` | \~25   | MCP sidecar                  | (self-contained)                                |
 
@@ -178,4 +194,15 @@ See `.dependency-cruiser-known-violations.json` for baselined exceptions.
 | [ADR-003](decisions/ADR-003-tiptap-over-milkdown.md)          | Tiptap over Milkdown          | Thinner ProseMirror wrapper, better debugging       |
 | [ADR-004](decisions/ADR-004-human-oriented-mcp-tools.md)      | Human-oriented MCP tools      | Backward compatibility + AI introspection           |
 | [ADR-005](decisions/ADR-005-cli-based-ai-provider-routing.md) | CLI-based AI provider routing | Zero key management, subscription pricing           |
+| [ADR-006](decisions/ADR-006-terminal-program-identity.md)     | Terminal program identity     | Lockable terminal session per tab                   |
+| [ADR-007](decisions/ADR-007-shell-as-composition-root.md)     | Shell as composition root     | Pure-layout AppShell with named slots               |
+| [ADR-008](decisions/ADR-008-workspace-as-single-facade.md)    | Workspace single facade       | `useWorkspace()` over 4 stores                      |
+| [ADR-009](decisions/ADR-009-document-as-unit-of-state.md)     | Document as state unit        | editorStore deleted; per-doc mode                   |
+| [ADR-010](decisions/ADR-010-editor-host-as-mode-agnostic-interface.md) | Editor host (scoped down) | Per-feature operations.ts + thin controllers        |
+| [ADR-011](decisions/ADR-011-plugin-manifest-contract.md)      | Plugin manifest contract      | 75 manifests + registry composer                    |
+| [ADR-012](decisions/ADR-012-command-bus-as-single-intent-path.md) | Command bus               | All intent through executeCommand                   |
+| [ADR-013](decisions/ADR-013-service-tier-as-cross-cutting-seam.md) | Service tier              | utils-pure / services-store-aware / hooks-react     |
+| [ADR-014](decisions/ADR-014-theme-tokens-as-typed-data.md)    | Theme tokens as typed data    | TypeScript ThemeTokens → CSS vars                   |
+
+last-counted: 2026-05-25
 

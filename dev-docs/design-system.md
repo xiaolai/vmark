@@ -382,3 +382,13 @@ See `.claude/rules/` for enforcement:
 
 - `34-dark-theme.md` — dark theme rules
 
+
+---
+
+last-counted: 2026-05-25
+
+| Source | Count | Notes |
+|---|---|---|
+| `src/styles/index.css` | 163 raw `--*` declarations | Pre-T04 collapse target; ADR-014 typed mirror in `src/theme/tokens.ts` |
+| `src/theme/tokens.ts` | typed `ThemeTokens` interface | TypeScript source of truth; `applyTheme()` writes `--color-bg-primary` etc. |
+| `src/theme/cssVars.ts` | typed accessor | `cssVars.color.bg.primary` returns `"var(--color-bg-primary)"` for inline TSX styles |
