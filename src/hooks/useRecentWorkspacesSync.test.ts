@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useRecentWorkspacesSync } from "./useRecentWorkspacesSync";
-import { useRecentWorkspacesStore } from "@/stores/recentWorkspacesStore";
+import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({

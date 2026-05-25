@@ -13,7 +13,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRecentWorkspacesStore } from "@/stores/recentWorkspacesStore";
+import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { detectLinebreaks } from "@/utils/linebreakDetection";

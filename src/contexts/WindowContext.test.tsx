@@ -92,13 +92,10 @@ vi.mock("../stores/tabStore", () => ({
   },
 }));
 
-vi.mock("../stores/recentFilesStore", () => ({
+vi.mock("../stores/workspaceStore", () => ({
   useRecentFilesStore: {
     getState: () => ({ addFile: mockAddFile }),
   },
-}));
-
-vi.mock("../stores/workspaceStore", () => ({
   useWorkspaceStore: {
     getState: () => ({
       rootPath: mockWorkspaceState.rootPath,
@@ -107,6 +104,7 @@ vi.mock("../stores/workspaceStore", () => ({
     }),
     persist: { rehydrate: mockRehydrate },
   },
+
 }));
 
 vi.mock("../utils/workspaceStorage", () => ({

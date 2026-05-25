@@ -34,6 +34,10 @@ import {
   type WorkspaceIdentity,
 } from "@/utils/workspaceIdentity";
 import { windowScopedStorage } from "@/utils/workspaceStorage";
+import { createSafeStorage } from "@/utils/safeStorage";
+import { invoke } from "@tauri-apps/api/core";
+import { getFileName } from "@/utils/pathUtils";
+import { recentWarn } from "@/utils/debug";
 
 /** Workspace configuration — excluded folders, session restore tabs, file visibility, and trust identity. */
 export interface WorkspaceConfig {
@@ -238,3 +242,142 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 
 // Default excluded folders for reference
 export { DEFAULT_EXCLUDED_FOLDERS };
+
+// ============================================================================
+// Recent Files (T09 — formerly recentFilesStore.ts)
+// ============================================================================
+
+export interface RecentFile {
+  path: string;
+  name: string;
+  timestamp: number;
+}
+
+interface RecentFilesState {
+  files: RecentFile[];
+  maxFiles: number;
+  addFile: (path: string) => void;
+  removeFile: (path: string) => void;
+  clearAll: () => void;
+  syncToNativeMenu: () => void;
+}
+
+async function updateRecentFilesNativeMenu(files: RecentFile[]) {
+  try {
+    await invoke("update_recent_files", { files: files.map((f) => f.path) });
+  } catch (error) {
+    recentWarn("Failed to update recent files native menu:", error);
+  }
+}
+
+async function registerDockRecent(path: string) {
+  try {
+    await invoke("register_dock_recent", { path });
+  } catch {
+    /* macOS-only command; silent on other platforms */
+  }
+}
+
+/** Manages recently opened files (max 10) with persistence and native menu sync. */
+export const useRecentFilesStore = create<RecentFilesState>()(
+  persist(
+    (set, get) => ({
+      files: [],
+      maxFiles: 10,
+      addFile: (path: string) => {
+        const { files, maxFiles } = get();
+        const name = getFileName(path) || path;
+        const filtered = files.filter((f) => f.path !== path);
+        const newFiles = [
+          { path, name, timestamp: Date.now() },
+          ...filtered,
+        ].slice(0, maxFiles);
+        set({ files: newFiles });
+        updateRecentFilesNativeMenu(newFiles);
+        registerDockRecent(path);
+      },
+      removeFile: (path: string) => {
+        const newFiles = get().files.filter((f) => f.path !== path);
+        set({ files: newFiles });
+        updateRecentFilesNativeMenu(newFiles);
+      },
+      clearAll: () => {
+        set({ files: [] });
+        updateRecentFilesNativeMenu([]);
+      },
+      syncToNativeMenu: () => {
+        updateRecentFilesNativeMenu(get().files);
+      },
+    }),
+    {
+      name: "vmark-recent-files",
+      storage: createJSONStorage(() => createSafeStorage()),
+    },
+  ),
+);
+
+// ============================================================================
+// Recent Workspaces (T09 — formerly recentWorkspacesStore.ts)
+// ============================================================================
+
+export interface RecentWorkspace {
+  path: string;
+  name: string;
+  timestamp: number;
+}
+
+interface RecentWorkspacesState {
+  workspaces: RecentWorkspace[];
+  maxWorkspaces: number;
+  addWorkspace: (path: string) => void;
+  removeWorkspace: (path: string) => void;
+  clearAll: () => void;
+  syncToNativeMenu: () => void;
+}
+
+async function updateRecentWorkspacesNativeMenu(workspaces: RecentWorkspace[]) {
+  try {
+    await invoke("update_recent_workspaces", {
+      workspaces: workspaces.map((w) => w.path),
+    });
+  } catch (error) {
+    recentWarn("Failed to update recent workspaces native menu:", error);
+  }
+}
+
+/** Manages recently opened workspaces (max 10) with persistence and native menu sync. */
+export const useRecentWorkspacesStore = create<RecentWorkspacesState>()(
+  persist(
+    (set, get) => ({
+      workspaces: [],
+      maxWorkspaces: 10,
+      addWorkspace: (path: string) => {
+        const { workspaces, maxWorkspaces } = get();
+        const name = getFileName(path) || path;
+        const filtered = workspaces.filter((w) => w.path !== path);
+        const newWorkspaces = [
+          { path, name, timestamp: Date.now() },
+          ...filtered,
+        ].slice(0, maxWorkspaces);
+        set({ workspaces: newWorkspaces });
+        updateRecentWorkspacesNativeMenu(newWorkspaces);
+      },
+      removeWorkspace: (path: string) => {
+        const newWorkspaces = get().workspaces.filter((w) => w.path !== path);
+        set({ workspaces: newWorkspaces });
+        updateRecentWorkspacesNativeMenu(newWorkspaces);
+      },
+      clearAll: () => {
+        set({ workspaces: [] });
+        updateRecentWorkspacesNativeMenu([]);
+      },
+      syncToNativeMenu: () => {
+        updateRecentWorkspacesNativeMenu(get().workspaces);
+      },
+    }),
+    {
+      name: "vmark-recent-workspaces",
+      storage: createJSONStorage(() => createSafeStorage()),
+    },
+  ),
+);

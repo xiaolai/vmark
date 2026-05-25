@@ -59,7 +59,7 @@ vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: { getState: () => ({ loadContent: vi.fn() }) },
 }));
 
-vi.mock("@/stores/recentFilesStore", () => ({
+vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: { getState: () => ({ addFile: vi.fn() }) },
 }));
 

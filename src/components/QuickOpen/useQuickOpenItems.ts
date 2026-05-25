@@ -3,7 +3,7 @@
  * @coordinates-with fuzzyMatch.ts, quickOpenStore.ts, recentFilesStore, tabStore, workspaceStore
  */
 
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";

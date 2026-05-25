@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useWorkspace } from "./useWorkspace";
 import { useTabStore } from "@/stores/tabStore";
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { WindowContext } from "@/contexts/WindowContext";
 

@@ -48,6 +48,11 @@ vi.mock("@/stores/workspaceStore", () => ({
   useWorkspaceStore: {
     getState: vi.fn(),
   },
+  useRecentFilesStore: {
+    getState: vi.fn(() => ({
+      addFile: mockAddFile,
+    })),
+  },
 }));
 
 vi.mock("@/stores/tabStore", () => ({
@@ -61,14 +66,6 @@ vi.mock("@/stores/documentStore", () => ({
     getState: vi.fn(() => ({
       initDocument: mockInitDocument,
       setLineMetadata: mockSetLineMetadata,
-    })),
-  },
-}));
-
-vi.mock("@/stores/recentFilesStore", () => ({
-  useRecentFilesStore: {
-    getState: vi.fn(() => ({
-      addFile: mockAddFile,
     })),
   },
 }));

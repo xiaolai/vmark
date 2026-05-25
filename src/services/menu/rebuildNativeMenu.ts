@@ -57,8 +57,8 @@ export async function rebuildNativeMenu(): Promise<void> {
     : null;
   await invoke("refresh_genies_menu", { shortcuts: geniesAccel });
 
-  const { useRecentFilesStore } = await import("@/stores/recentFilesStore");
-  const { useRecentWorkspacesStore } = await import("@/stores/recentWorkspacesStore");
+  const { useRecentFilesStore } = await import("@/stores/workspaceStore");
+  const { useRecentWorkspacesStore } = await import("@/stores/workspaceStore");
   useRecentFilesStore.getState().syncToNativeMenu();
   useRecentWorkspacesStore.getState().syncToNativeMenu();
 }

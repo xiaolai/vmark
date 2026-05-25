@@ -26,14 +26,11 @@ vi.mock("@/stores/settingsStore", () => ({
 }));
 
 const recentFilesSyncMock = vi.fn();
-vi.mock("@/stores/recentFilesStore", () => ({
+const recentWorkspacesSyncMock = vi.fn();
+vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: {
     getState: () => ({ syncToNativeMenu: recentFilesSyncMock }),
   },
-}));
-
-const recentWorkspacesSyncMock = vi.fn();
-vi.mock("@/stores/recentWorkspacesStore", () => ({
   useRecentWorkspacesStore: {
     getState: () => ({ syncToNativeMenu: recentWorkspacesSyncMock }),
   },

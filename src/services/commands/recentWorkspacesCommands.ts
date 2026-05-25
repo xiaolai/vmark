@@ -10,7 +10,7 @@ import { exists, readTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { registerCommand } from "./CommandBus";
-import { useRecentWorkspacesStore } from "@/stores/recentWorkspacesStore";
+import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";

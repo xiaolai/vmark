@@ -20,8 +20,8 @@
 import { useContext } from "react";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
-import { useRecentFilesStore, type RecentFile } from "@/stores/recentFilesStore";
-import { useRecentWorkspacesStore, type RecentWorkspace } from "@/stores/recentWorkspacesStore";
+import { useRecentFilesStore, type RecentFile } from "@/stores/workspaceStore";
+import { useRecentWorkspacesStore, type RecentWorkspace } from "@/stores/workspaceStore";
 import { WindowContext } from "@/contexts/WindowContext";
 
 export interface WorkspaceView {

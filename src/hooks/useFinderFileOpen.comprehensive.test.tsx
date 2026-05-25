@@ -94,14 +94,11 @@ vi.mock("@/stores/documentStore", () => ({
   },
 }));
 
+const mockAddFile = vi.fn();
 vi.mock("@/stores/workspaceStore", () => ({
   useWorkspaceStore: {
     getState: () => ({ rootPath: null, isWorkspaceMode: false }),
   },
-}));
-
-const mockAddFile = vi.fn();
-vi.mock("@/stores/recentFilesStore", () => ({
   useRecentFilesStore: {
     getState: () => ({ addFile: mockAddFile }),
   },

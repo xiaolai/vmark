@@ -78,7 +78,7 @@ import {
 } from "./useFileOpen";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useRecentFilesStore } from "@/stores/workspaceStore";
 
 const WINDOW = "main";
 

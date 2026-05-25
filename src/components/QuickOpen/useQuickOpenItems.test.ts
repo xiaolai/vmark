@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/stores/recentFilesStore", () => ({
+vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: { getState: vi.fn(() => ({ files: [] })) },
+  useWorkspaceStore: { getState: vi.fn(() => ({ rootPath: null })) },
 }));
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: { getState: vi.fn(() => ({ getTabsByWindow: () => [] })) },
 }));
-vi.mock("@/stores/workspaceStore", () => ({
-  useWorkspaceStore: { getState: vi.fn(() => ({ rootPath: null })) },
-}));
 
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {

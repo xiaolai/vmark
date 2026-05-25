@@ -26,7 +26,7 @@ vi.mock("@/stores/tabStore", () => ({
   },
 }));
 
-vi.mock("@/stores/recentFilesStore", () => ({
+vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: {
     getState: vi.fn(),
   },
@@ -76,7 +76,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { createSnapshot } from "@/hooks/useHistoryOperations";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 

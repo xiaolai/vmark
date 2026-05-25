@@ -9,7 +9,7 @@
  */
 
 import { useEffect } from "react";
-import { useRecentWorkspacesStore } from "@/stores/recentWorkspacesStore";
+import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 
 /** Hook that syncs the recent workspaces list to the native macOS menu on mount. */
 export function useRecentWorkspacesSync() {

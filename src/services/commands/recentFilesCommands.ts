@@ -13,7 +13,7 @@ import i18n from "@/i18n";
 import { registerCommand } from "./CommandBus";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useFileLoadStore } from "@/stores/fileLoadStore";
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { withReentryGuard } from "@/utils/reentryGuard";

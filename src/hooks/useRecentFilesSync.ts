@@ -9,7 +9,7 @@
  */
 
 import { useEffect } from "react";
-import { useRecentFilesStore } from "@/stores/recentFilesStore";
+import { useRecentFilesStore } from "@/stores/workspaceStore";
 
 /** Hook that syncs the recent files list to the native macOS menu on mount. */
 export function useRecentFilesSync() {
