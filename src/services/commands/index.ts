@@ -19,3 +19,4 @@ export type {
   RankedCommand,
 } from "./CommandBus";
 export { resolveLocalizedString } from "./CommandBus";
+export { useCommandBootstrap } from "./useCommandBootstrap";
