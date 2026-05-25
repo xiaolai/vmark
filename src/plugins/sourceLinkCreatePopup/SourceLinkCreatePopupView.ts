@@ -280,14 +280,19 @@ export class SourceLinkCreatePopupView {
     const linkText = showTextInput ? (text.trim() || finalUrl) : null;
 
     try {
+      // Escape markdown-sensitive characters so user text containing
+      // brackets/parens/backslashes doesn't break the [text](url) syntax.
+      const escapeText = (s: string) => s.replace(/[\\\[\]]/g, "\\$&");
+      const escapeHref = (s: string) =>
+        s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+      const safeUrl = escapeHref(finalUrl);
+
       let markdown: string;
       if (showTextInput) {
-        // Insert [text](url)
-        markdown = `[${linkText}](${finalUrl})`;
+        markdown = `[${escapeText(linkText ?? finalUrl)}](${safeUrl})`;
       } else {
-        // Wrap existing text in [](url)
         const existingText = this.editorView.state.doc.sliceString(rangeFrom, rangeTo);
-        markdown = `[${existingText}](${finalUrl})`;
+        markdown = `[${escapeText(existingText)}](${safeUrl})`;
       }
 
       this.editorView.dispatch({

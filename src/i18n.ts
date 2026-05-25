@@ -58,7 +58,7 @@ i18n
       default: ["en"],
     },
     load: "currentOnly",
-    ns: ["common", "statusbar", "commands"],  // Boot-critical (incl. CommandBus titles); others loaded on demand by useTranslation(ns)
+    ns: ["common", "statusbar", "commands", "dialog"],  // Boot-critical (incl. CommandBus titles + early dialog messages)
     defaultNS: "common",
     interpolation: {
       escapeValue: false,

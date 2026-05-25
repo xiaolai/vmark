@@ -30,7 +30,7 @@
     "openRecent": "Open Recent File"
   },
   "workspace": {
-    "openFolder": "Open Workspace…",
+    "openFolder": "Open Workspace\u2026",
     "close": "Close Workspace",
     "clearRecent": "Clear Recent Workspaces",
     "openRecent": "Open Recent Workspace"
@@ -56,5 +56,12 @@
     "check": "Check Markdown",
     "next": "Next Lint Issue",
     "prev": "Previous Lint Issue"
+  },
+  "commandPalette": {
+    "placeholder": "Type a command",
+    "empty": "No matching commands"
+  },
+  "aria": {
+    "commandPalette": "Command palette"
   }
 }

@@ -18,6 +18,7 @@ import {
 } from "@/services/commands";
 import { useCommandPaletteStore } from "./commandPaletteStore";
 import { menuError } from "@/utils/debug";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import "./command-palette.css";
 
 /**
@@ -63,6 +64,10 @@ export function CommandPalette() {
   if (!isOpen) return null;
 
   const handleKeyDown = async (e: React.KeyboardEvent) => {
+    // Suppress key handling during IME composition so CJK input
+    // doesn't accidentally fire commands on Enter.
+    /* v8 ignore next -- @preserve IME guard not reachable in jsdom */
+    if (isImeKeyEvent(e.nativeEvent as KeyboardEvent)) return;
     if (e.key === "Escape") {
       e.preventDefault();
       close();
@@ -96,20 +101,20 @@ export function CommandPalette() {
         if (e.target === e.currentTarget) close();
       }}
     >
-      <div className="command-palette" role="dialog" aria-label={t("aria.commandPalette", { defaultValue: "Command palette" })}>
+      <div className="command-palette" role="dialog" aria-label={t("commands:aria.commandPalette")}>
         <input
           ref={inputRef}
           className="command-palette__input"
           type="text"
           value={query}
-          placeholder={t("commandPalette.placeholder", { defaultValue: "Type a command" })}
+          placeholder={t("commands:commandPalette.placeholder")}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
         />
         <ul className="command-palette__list" role="listbox">
           {ranked.length === 0 ? (
             <li className="command-palette__empty">
-              {t("commandPalette.empty", { defaultValue: "No matching commands" })}
+              {t("commands:commandPalette.empty")}
             </li>
           ) : (
             ranked.map((row, i) => (
