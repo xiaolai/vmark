@@ -160,8 +160,7 @@ vi.mock("./terminalKeyHandler", () => ({
   createTerminalKeyHandler: vi.fn(() => () => true),
 }));
 
-vi.mock("./terminalTheme", () => ({
-  buildXtermTheme: () => ({ background: "#fff" }),
+vi.mock("@/theme", () => ({
   buildXtermThemeForId: () => ({ background: "#fff" }),
 }));
 

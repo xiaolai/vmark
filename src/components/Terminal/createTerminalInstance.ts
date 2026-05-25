@@ -38,7 +38,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
-import { buildXtermTheme } from "@/theme";
+import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
 import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
 import { setupWebLinks } from "./setupWebLinks";
@@ -132,7 +132,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
   // Create terminal
   const term = new Terminal({
-    theme: buildXtermTheme(settings.themeId),
+    theme: buildXtermThemeForId(settings.themeId),
     fontFamily: resolveMonoFont(),
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,

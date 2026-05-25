@@ -27,12 +27,23 @@ function flatten(prefix: string, obj: Record<string, unknown>, out: Entries) {
   }
 }
 
-/** Convert a ThemeTokens object into an array of [cssVarName, value] pairs. */
+/** Convert a ThemeTokens object into an array of [cssVarName, value] pairs.
+ *
+ *  The entries are stable for a given ThemeTokens reference — themes
+ *  are immutable values, so we memoize per-reference (WeakMap). This
+ *  avoids re-walking ~100 fields on every applyTheme() call (which
+ *  fires on any appearance settings change, not just theme switch). */
+const entriesCache = new WeakMap<ThemeTokens, Entries>();
 export function tokensToCssEntries(theme: ThemeTokens): Entries {
+  const cached = entriesCache.get(theme);
+  if (cached) return cached;
   const out: Entries = [];
   flatten("--", theme as unknown as Record<string, unknown>, out);
-  // strip the leading "--" added by the prefix machinery + the joining hyphen
-  return out.map(([k, v]) => [k.replace(/^---/, "--"), v]);
+  const normalized = out.map(
+    ([k, v]) => [k.replace(/^---/, "--"), v] as [string, string],
+  );
+  entriesCache.set(theme, normalized);
+  return normalized;
 }
 
 /** Write theme tokens to CSS custom properties on the target element. */

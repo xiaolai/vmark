@@ -14,6 +14,7 @@ export const night: ThemeTokens = {
     semantic: { error: "#f85149", errorBg: "rgba(248, 81, 73, 0.15)", errorHover: "#b91c1c", warning: "#d29922", warningBg: "rgba(245, 158, 11, 0.1)", success: "#4ade80", successHover: "#15803d" },
     alert: { note: "#58a6ff", tip: "#3fb950", important: "#a371f7", warning: "#d29922", caution: "#f85149" },
     media: { video: "#2dd4bf", audio: "#818cf8", youtube: "#f87171", vimeo: "#4ac3f0", bilibili: "#fc9cb5" },
+    legacy: { codeText: "#d1d5db", mdChar: "#7aa874" },
   },
   terminal: {
     ansi: {

@@ -1,12 +1,11 @@
 /**
- * Theme-unification spike — Phase 0 (TEMPORARY, delete after Phase 2).
+ * buildXtermTheme regression test — locks the xterm ITheme output per
+ * vmark theme. Originally a Phase-0 spike for the theme-unification
+ * migration; kept as ongoing insurance against unintentional theme
+ * edits.
  *
- * Locks in the current xterm ITheme output for each of the 5 vmark
- * themes BEFORE we migrate buildXtermTheme() onto the typed
- * ThemeTokens path. The inline snapshot here is the frozen baseline
- * the post-migration code must match byte-for-byte.
- *
- * See dev-docs/grills/theme-unification-2026-05/README.md for context.
+ * Snapshots live at __snapshots__/buildXtermTheme.regression.test.ts.snap.
+ * To intentionally update them: `pnpm vitest run src/theme/buildXtermTheme.regression -u`.
  */
 
 import { describe, it, expect, vi } from "vitest";
@@ -17,7 +16,7 @@ import { buildXtermThemeForId, type ThemeId } from "@/theme";
 
 const themeIds: ThemeId[] = ["white", "paper", "mint", "sepia", "night"];
 
-describe("Phase-0 spike: ITheme baseline per theme", () => {
+describe("buildXtermTheme — ITheme baseline per theme", () => {
   for (const id of themeIds) {
     it(`${id} — non-empty 16-ANSI + base colors + scrollbar`, () => {
       const t = buildXtermThemeForId(id);

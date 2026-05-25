@@ -66,6 +66,16 @@ export type ThemeTokens = {
       vimeo: string;
       bilibili: string;
     };
+    /**
+     * Legacy `ThemeColors`-shape fields preserved so the adapter at
+     * `themeColorsAdapter.ts` can project them through without const-
+     * folding. Only dark themes populate `codeText`/`mdChar` today
+     * (originally night-only); leave optional so light themes can omit.
+     */
+    legacy?: {
+      codeText?: string;
+      mdChar?: string;
+    };
   };
   /**
    * Terminal-specific colors. The 16 ANSI palette flows to the xterm.js
@@ -121,6 +131,39 @@ export const lightShadows: ThemeTokens["shadow"] = {
 export const darkShadows: ThemeTokens["shadow"] = {
   ...lightShadows,
   popup: "0 4px 12px rgba(0, 0, 0, 0.4)",
+};
+
+/**
+ * Light-theme `color.semantic` block — identical across white / paper /
+ * mint / sepia. Extracted to keep "the warning color changed" a one-file
+ * edit instead of four. Night overrides this with its own dark values.
+ */
+export const semanticLight: ThemeTokens["color"]["semantic"] = {
+  error: "#cf222e",
+  errorBg: "#ffebe9",
+  errorHover: "#b91c1c",
+  warning: "#9a6700",
+  warningBg: "rgba(245, 158, 11, 0.1)",
+  success: "#16a34a",
+  successHover: "#15803d",
+};
+
+/** Light-theme `color.alert` block — identical across 4 light themes. */
+export const alertLight: ThemeTokens["color"]["alert"] = {
+  note: "#0969da",
+  tip: "#1a7f37",
+  important: "#8250df",
+  warning: "#9a6700",
+  caution: "#cf222e",
+};
+
+/** Light-theme `color.media` block — identical across all light themes. */
+export const mediaLight: ThemeTokens["color"]["media"] = {
+  video: "#0d9488",
+  audio: "#6366f1",
+  youtube: "#dc2626",
+  vimeo: "#00adef",
+  bilibili: "#fb7299",
 };
 
 // Legacy lightTheme / darkTheme aliases now live in `./index.ts` (and

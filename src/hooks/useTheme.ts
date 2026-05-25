@@ -24,7 +24,7 @@ import { useEffect, useRef } from "react";
 import { useSettingsStore, themes, type ThemeColors } from "@/stores/settingsStore";
 import { updateMermaidFontSize } from "@/plugins/mermaid";
 import { refreshPreviews } from "@/plugins/codePreview/tiptap";
-import { applyTheme, lightTheme, darkTheme } from "@/theme";
+import { applyTheme, themes as themeTokensCatalog } from "@/theme";
 
 export const fontStacks = {
   latin: {
@@ -372,7 +372,13 @@ export function useTheme() {
     // ADR-014: lay down typed-theme baseline before user-driven overrides.
     // Existing applyCoreColors/applyModeColors layer settings-specific
     // values (theme palette, font sizing) on top of this baseline.
-    applyTheme(isDark ? darkTheme : lightTheme, root);
+    //
+    // Audit fix (H1, 2026-05-25): pass the user's actual theme, not the
+    // hardcoded paper/night pair. Without this, App.tsx's typed `cssVars`
+    // consumers (drop overlay, etc.) rendered with paper's accent on
+    // white/mint/sepia and night's accent on night-only.
+    const activeTokens = themeTokensCatalog[appearance.theme] ?? themeTokensCatalog.paper;
+    applyTheme(activeTokens, root);
 
     applyCoreColors(root, themeColors);
     applyModeColors(root, themeColors, isDark);

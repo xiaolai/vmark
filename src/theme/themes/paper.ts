@@ -1,5 +1,5 @@
 import type { ThemeTokens } from "../tokens";
-import { sharedPrimitives, lightShadows } from "../tokens";
+import { sharedPrimitives, lightShadows, semanticLight, alertLight, mediaLight } from "../tokens";
 
 /** Paper theme — soft warm background, the default vmark theme. */
 export const paper: ThemeTokens = {
@@ -11,9 +11,9 @@ export const paper: ThemeTokens = {
     selection: "rgba(0, 102, 204, 0.2)",
     strong: "#3f5663",
     emphasis: "#5b0411",
-    semantic: { error: "#cf222e", errorBg: "#ffebe9", errorHover: "#b91c1c", warning: "#9a6700", warningBg: "rgba(245, 158, 11, 0.1)", success: "#16a34a", successHover: "#15803d" },
-    alert: { note: "#0969da", tip: "#1a7f37", important: "#8250df", warning: "#9a6700", caution: "#cf222e" },
-    media: { video: "#0d9488", audio: "#6366f1", youtube: "#dc2626", vimeo: "#00adef", bilibili: "#fb7299" },
+    semantic: semanticLight,
+    alert: alertLight,
+    media: mediaLight,
   },
   terminal: {
     ansi: {
@@ -24,8 +24,8 @@ export const paper: ThemeTokens = {
     },
     cursor: "#1a1a1a",
     cursorAccent: "#EEEDED",
-    selectionBackground: "rgba(0, 102, 204, 0.2)",
-    scrollbar: { idle: "rgba(0, 0, 0, 0.10)", hover: "rgba(0, 0, 0, 0.18)", active: "rgba(0, 0, 0, 0.25)" },
+    selectionBackground: "rgba(0,102,204,0.25)",
+    scrollbar: { idle: "rgba(0,0,0,0.10)", hover: "rgba(0,0,0,0.18)", active: "rgba(0,0,0,0.25)" },
   },
   ...sharedPrimitives,
   shadow: lightShadows,

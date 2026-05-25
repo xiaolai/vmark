@@ -20,19 +20,18 @@ import { themes, type ThemeId } from "./themes";
 /**
  * Build a complete xterm.js ITheme for a specific theme ID.
  *
- * The no-argument convenience (`buildXtermTheme()`) lived here in an
- * earlier draft but pulled `useSettingsStore`, creating a cycle:
- * settingsStore → @/theme → buildXtermTheme → settingsStore.
- * Callers now read `appearance.theme` themselves and pass the ID.
+ * Callers read `appearance.theme` themselves and pass the ID — this
+ * function deliberately does not import the settings store, to keep
+ * @/theme free of a back-edge into stores (avoids a dep-cruiser cycle:
+ * settingsStore → @/theme → buildXtermTheme → settingsStore).
+ *
+ * Guards against corrupted persisted themeId via `hasOwnProperty` — a
+ * raw `themes[id] ?? themes.paper` would let `id = "__proto__"` reach
+ * `Object.prototype` and skip the fallback (low impact but real).
  */
-export function buildXtermTheme(themeId: ThemeId): ITheme {
-  return buildXtermThemeForId(themeId);
-}
-
-/** Build a complete xterm.js ITheme for a specific theme ID. */
 export function buildXtermThemeForId(themeId: ThemeId): ITheme {
-  // Guard against corrupted persisted theme — fall back to paper
-  const theme = themes[themeId] ?? themes.paper;
+  const hasTheme = Object.prototype.hasOwnProperty.call(themes, themeId);
+  const theme = hasTheme ? themes[themeId] : themes.paper;
   const { terminal, color } = theme;
   const { ansi } = terminal;
 

@@ -47,12 +47,12 @@ export function themeTokensToColors(id: ThemeId, t: ThemeTokens): ThemeColors {
     out.isDark = true;
     out.textSecondary = t.color.text.secondary;
     out.selection = t.color.selection;
-    // Night had codeText and mdChar in the legacy shape — derive from
-    // ThemeTokens (closest mappings: text.primary tinted slightly for
-    // codeText; alert.tip works as a sensible default for mdChar since
-    // the legacy night used a green tone).
-    out.codeText = "#d1d5db";
-    out.mdChar = "#7aa874";
+    // Audit fix (H2, 2026-05-25): codeText/mdChar were previously
+    // hardcoded here. They now live on the typed source as
+    // ThemeTokens.color.legacy on the dark theme, so retinting a dark
+    // theme is a one-file edit per the architecture promise.
+    out.codeText = t.color.legacy?.codeText;
+    out.mdChar = t.color.legacy?.mdChar;
   }
   return out;
 }

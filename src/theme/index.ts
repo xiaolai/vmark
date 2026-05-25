@@ -1,5 +1,12 @@
-export type { ThemeTokens, AnsiPalette } from "./tokens";
-export { sharedPrimitives, lightShadows, darkShadows } from "./tokens";
+export type { ThemeTokens } from "./tokens";
+export {
+  sharedPrimitives,
+  lightShadows,
+  darkShadows,
+  semanticLight,
+  alertLight,
+  mediaLight,
+} from "./tokens";
 export { applyTheme, tokensToCssEntries } from "./applyTheme";
 export { cssVars } from "./cssVars";
 
@@ -13,6 +20,5 @@ export type { ThemeId } from "./themes";
 // import the named theme directly.
 export { paper as lightTheme } from "./themes/paper";
 export { night as darkTheme } from "./themes/night";
-export { buildXtermTheme, buildXtermThemeForId } from "./buildXtermTheme";
+export { buildXtermThemeForId } from "./buildXtermTheme";
 export { themesAsColors, themeTokensToColors } from "./themeColorsAdapter";
-export type { ThemeColors as ThemeColorsLegacy } from "./themeColorsAdapter";

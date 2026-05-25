@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Phase-0 spike: ITheme baseline per theme > mint — locked baseline snapshot 1`] = `
+exports[`buildXtermTheme — ITheme baseline per theme > mint — locked baseline snapshot 1`] = `
 {
   "background": "#CCE6D0",
   "black": "#2a3832",
@@ -20,16 +20,16 @@ exports[`Phase-0 spike: ITheme baseline per theme > mint — locked baseline sna
   "green": "#246428",
   "magenta": "#7b4a8a",
   "red": "#9e3020",
-  "scrollbarSliderActiveBackground": "rgba(0, 0, 0, 0.25)",
-  "scrollbarSliderBackground": "rgba(0, 0, 0, 0.10)",
-  "scrollbarSliderHoverBackground": "rgba(0, 0, 0, 0.18)",
-  "selectionBackground": "rgba(26, 107, 74, 0.2)",
+  "scrollbarSliderActiveBackground": "rgba(0,0,0,0.25)",
+  "scrollbarSliderBackground": "rgba(0,0,0,0.10)",
+  "scrollbarSliderHoverBackground": "rgba(0,0,0,0.18)",
+  "selectionBackground": "rgba(0,102,204,0.25)",
   "white": "#3d5240",
   "yellow": "#7a5c00",
 }
 `;
 
-exports[`Phase-0 spike: ITheme baseline per theme > night — locked baseline snapshot 1`] = `
+exports[`buildXtermTheme — ITheme baseline per theme > night — locked baseline snapshot 1`] = `
 {
   "background": "#23262b",
   "black": "#1a1d22",
@@ -58,7 +58,7 @@ exports[`Phase-0 spike: ITheme baseline per theme > night — locked baseline sn
 }
 `;
 
-exports[`Phase-0 spike: ITheme baseline per theme > paper — locked baseline snapshot 1`] = `
+exports[`buildXtermTheme — ITheme baseline per theme > paper — locked baseline snapshot 1`] = `
 {
   "background": "#EEEDED",
   "black": "#2e3436",
@@ -78,16 +78,16 @@ exports[`Phase-0 spike: ITheme baseline per theme > paper — locked baseline sn
   "green": "#387204",
   "magenta": "#7b4d82",
   "red": "#c33820",
-  "scrollbarSliderActiveBackground": "rgba(0, 0, 0, 0.25)",
-  "scrollbarSliderBackground": "rgba(0, 0, 0, 0.10)",
-  "scrollbarSliderHoverBackground": "rgba(0, 0, 0, 0.18)",
-  "selectionBackground": "rgba(0, 102, 204, 0.2)",
+  "scrollbarSliderActiveBackground": "rgba(0,0,0,0.25)",
+  "scrollbarSliderBackground": "rgba(0,0,0,0.10)",
+  "scrollbarSliderHoverBackground": "rgba(0,0,0,0.18)",
+  "selectionBackground": "rgba(0,102,204,0.25)",
   "white": "#595959",
   "yellow": "#806800",
 }
 `;
 
-exports[`Phase-0 spike: ITheme baseline per theme > sepia — locked baseline snapshot 1`] = `
+exports[`buildXtermTheme — ITheme baseline per theme > sepia — locked baseline snapshot 1`] = `
 {
   "background": "#F9F0DB",
   "black": "#3e3328",
@@ -107,16 +107,16 @@ exports[`Phase-0 spike: ITheme baseline per theme > sepia — locked baseline sn
   "green": "#4a6818",
   "magenta": "#8a5470",
   "red": "#b5421a",
-  "scrollbarSliderActiveBackground": "rgba(0, 0, 0, 0.25)",
-  "scrollbarSliderBackground": "rgba(0, 0, 0, 0.10)",
-  "scrollbarSliderHoverBackground": "rgba(0, 0, 0, 0.18)",
-  "selectionBackground": "rgba(139, 69, 19, 0.2)",
+  "scrollbarSliderActiveBackground": "rgba(0,0,0,0.25)",
+  "scrollbarSliderBackground": "rgba(0,0,0,0.10)",
+  "scrollbarSliderHoverBackground": "rgba(0,0,0,0.18)",
+  "selectionBackground": "rgba(0,102,204,0.25)",
   "white": "#5e5345",
   "yellow": "#7a5c00",
 }
 `;
 
-exports[`Phase-0 spike: ITheme baseline per theme > white — locked baseline snapshot 1`] = `
+exports[`buildXtermTheme — ITheme baseline per theme > white — locked baseline snapshot 1`] = `
 {
   "background": "#FFFFFF",
   "black": "#2e3436",
@@ -136,10 +136,10 @@ exports[`Phase-0 spike: ITheme baseline per theme > white — locked baseline sn
   "green": "#3d7a04",
   "magenta": "#75507b",
   "red": "#cc0000",
-  "scrollbarSliderActiveBackground": "rgba(0, 0, 0, 0.25)",
-  "scrollbarSliderBackground": "rgba(0, 0, 0, 0.10)",
-  "scrollbarSliderHoverBackground": "rgba(0, 0, 0, 0.18)",
-  "selectionBackground": "rgba(0, 102, 204, 0.2)",
+  "scrollbarSliderActiveBackground": "rgba(0,0,0,0.25)",
+  "scrollbarSliderBackground": "rgba(0,0,0,0.10)",
+  "scrollbarSliderHoverBackground": "rgba(0,0,0,0.18)",
+  "selectionBackground": "rgba(0,102,204,0.25)",
   "white": "#767676",
   "yellow": "#8a7000",
 }

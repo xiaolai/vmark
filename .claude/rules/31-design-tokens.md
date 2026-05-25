@@ -2,7 +2,14 @@
 
 Reference for CSS custom properties. Always use tokens over hardcoded values.
 
-**Source of truth:** `src/styles/index.css`
+**Source of truth (post-ADR-014):**
+- Typed theme catalog: `src/theme/themes/<id>.ts` (paper, white, mint, sepia, night) implementing `ThemeTokens` from `src/theme/tokens.ts`.
+- Runtime CSS-var writer: `src/theme/applyTheme.ts` (emits `--color-*`, `--space-*`, etc. for the typed pathway).
+- Legacy CSS vars + dynamic overrides driven by user settings: `src/styles/index.css` + `src/hooks/useTheme.ts`.
+
+Adding/retinting a theme is a single-file edit in `src/theme/themes/`. The
+table below mirrors the runtime CSS-var names that consumers see; the
+authoritative values for those names live in the typed catalog.
 
 ## Core Color Tokens
 
