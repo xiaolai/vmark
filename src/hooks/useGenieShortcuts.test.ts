@@ -19,7 +19,7 @@ const prosemirrorToTauriMock = vi.fn<(key: string) => string>(
   (key: string) => `TAURI(${key})`,
 );
 
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   useShortcutsStore: {
     getState: () => ({
       getAllShortcuts: getAllShortcutsMock,

@@ -14,7 +14,7 @@ import {
   getShortcutLabel,
   formatKeyForDisplay,
   prosemirrorToTauri,
-} from "./shortcutsStore";
+} from "./settingsStore";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({
@@ -476,7 +476,7 @@ describe("shortcutsStore", () => {
   describe("syncMenuShortcuts — differential path (Issue #825)", () => {
     it("invokes update_menu_accelerators, never rebuild_menu or refresh_genies_menu", async () => {
       const { invoke } = await import("@tauri-apps/api/core");
-      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      const { flushMenuShortcutsSync } = await import("./settingsStore");
       vi.mocked(invoke).mockClear();
 
       useShortcutsStore.getState().setShortcut("bold", "Mod-Shift-Alt-b");
@@ -490,7 +490,7 @@ describe("shortcutsStore", () => {
 
     it("coalesces rapid edits into a single native-menu update", async () => {
       const { invoke } = await import("@tauri-apps/api/core");
-      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      const { flushMenuShortcutsSync } = await import("./settingsStore");
       vi.mocked(invoke).mockClear();
 
       const { setShortcut } = useShortcutsStore.getState();
@@ -508,7 +508,7 @@ describe("shortcutsStore", () => {
 
     it("sends the final shortcut set after coalescing (last write wins)", async () => {
       const { invoke } = await import("@tauri-apps/api/core");
-      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      const { flushMenuShortcutsSync } = await import("./settingsStore");
       vi.mocked(invoke).mockClear();
 
       const { setShortcut } = useShortcutsStore.getState();
@@ -527,7 +527,7 @@ describe("shortcutsStore", () => {
 
     it("converts ProseMirror keys to Tauri accelerator format before sending", async () => {
       const { invoke } = await import("@tauri-apps/api/core");
-      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      const { flushMenuShortcutsSync } = await import("./settingsStore");
       vi.mocked(invoke).mockClear();
 
       useShortcutsStore.getState().setShortcut("bold", "Mod-b");
@@ -567,7 +567,7 @@ describe("shortcutsStore", () => {
       // payload could reach Rust last and revert the user's newer edit.
       // The in-flight chain must make the second invoke wait for the first.
       const { invoke } = await import("@tauri-apps/api/core");
-      const { flushMenuShortcutsSync } = await import("./shortcutsStore");
+      const { flushMenuShortcutsSync } = await import("./settingsStore");
 
       const order: string[] = [];
       let firstCalled = false;

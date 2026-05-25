@@ -22,7 +22,7 @@ import {
   useShortcutsStore,
   DEFAULT_SHORTCUTS,
   prosemirrorToTauri,
-} from "@/stores/shortcutsStore";
+} from "@/stores/settingsStore";
 
 /**
  * Build the {menuId → Tauri accelerator} map from the current shortcuts store.

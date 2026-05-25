@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   useShortcutsStore: {
     getState: () => ({ getShortcut: (id: string) => id === "quickOpen" ? "Mod-o" : "" }),
   },

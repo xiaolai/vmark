@@ -42,7 +42,7 @@ vi.mock("@/plugins/inlineNodeEditing/tiptap", () => ({
   },
 }));
 
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   useShortcutsStore: {
     getState: vi.fn(() => ({
       getShortcut: vi.fn(() => "Alt-Mod-m"),

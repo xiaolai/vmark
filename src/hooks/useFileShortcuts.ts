@@ -15,7 +15,7 @@
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";

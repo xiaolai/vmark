@@ -26,7 +26,7 @@ import type { KeyBinding } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 import { toggleBlockComment, selectLine } from "@codemirror/commands";
 import { useUIStore } from "@/stores/uiStore";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";

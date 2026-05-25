@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { buildSourceShortcutKeymap, getSourceBlockBounds } from "./sourceShortcuts";
 
 // Shared mock state — must be hoisted so the vi.mock factory can close over it

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { buildEditorKeymapBindings, editorKeymapExtension, expandedToggleMarkTiptap } from "./editorPlugins.tiptap";
 
 function resetShortcuts() {

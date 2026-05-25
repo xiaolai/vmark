@@ -15,7 +15,7 @@ import {
   getShortcutLabel,
   type ShortcutDefinition,
   type ShortcutCategory,
-} from "@/stores/shortcutsStore";
+} from "@/stores/settingsStore";
 import { KeyCapture } from "./KeyCapture";
 import { Button, SearchInput } from "./components";
 

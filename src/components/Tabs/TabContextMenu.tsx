@@ -32,7 +32,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useShortcutsStore, formatKeyForDisplay } from "@/stores/shortcutsStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";

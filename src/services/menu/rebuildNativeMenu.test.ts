@@ -12,7 +12,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 const getAllShortcutsMock = vi.fn();
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   useShortcutsStore: {
     getState: () => ({ getAllShortcuts: getAllShortcutsMock }),
   },

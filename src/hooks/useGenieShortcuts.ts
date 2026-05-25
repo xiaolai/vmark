@@ -14,7 +14,7 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
-import { useShortcutsStore, prosemirrorToTauri } from "@/stores/shortcutsStore";
+import { useShortcutsStore, prosemirrorToTauri } from "@/stores/settingsStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useGeniesStore } from "@/stores/geniesStore";
 import { useTabStore } from "@/stores/tabStore";

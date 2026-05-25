@@ -37,7 +37,7 @@ vi.mock("@/stores/workspaceStore", () => ({
 }));
 
 const mockGetShortcut = vi.fn((id: string) => `mock-${id}`);
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   useShortcutsStore: { getState: () => ({ getShortcut: mockGetShortcut }) },
 }));
 

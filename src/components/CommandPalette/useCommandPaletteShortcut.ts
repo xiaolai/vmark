@@ -3,7 +3,7 @@
  */
 
 import { useEffect } from "react";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useCommandPaletteStore } from "./commandPaletteStore";

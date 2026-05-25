@@ -9,7 +9,7 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { useQuickOpenStore } from "@/components/QuickOpen/quickOpenStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { isImeKeyEvent } from "@/utils/imeGuard";

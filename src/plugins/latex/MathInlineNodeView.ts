@@ -5,7 +5,7 @@ import { loadKatex, isKatexLoaded } from "./katexLoader";
 import { getMathPreviewView } from "@/plugins/mathPreview/MathPreviewView";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { inlineNodeEditingKey } from "@/plugins/inlineNodeEditing/tiptap";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { useInlineMathEditingStore } from "@/stores/inlineMathEditingStore";
 import { renderWarn } from "@/utils/debug";

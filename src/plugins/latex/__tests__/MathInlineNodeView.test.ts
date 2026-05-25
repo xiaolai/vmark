@@ -71,7 +71,7 @@ vi.mock("@/plugins/inlineNodeEditing/tiptap", () => ({
   },
 }));
 
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   useShortcutsStore: {
     getState: () => ({
       getShortcut: vi.fn(() => "Mod-m"),

@@ -21,7 +21,7 @@ import { Extension, type Editor as TiptapEditor } from "@tiptap/core";
 import { keydownHandler } from "@tiptap/pm/keymap";
 import { Plugin, PluginKey, type Command, type EditorState } from "@tiptap/pm/state";
 import { useUIStore } from "@/stores/uiStore";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { openSourcePeekInline, revertAndCloseSourcePeek } from "@/plugins/sourcePeekInline";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";

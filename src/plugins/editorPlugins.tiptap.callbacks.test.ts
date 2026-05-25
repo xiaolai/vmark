@@ -56,7 +56,7 @@ vi.mock("./editorPlugins/keymapUtils", async () => {
   };
 });
 
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { buildEditorKeymapBindings } from "./editorPlugins.tiptap";
 import { expandedToggleMark } from "./editorPlugins/expandedToggleMark";
 import { handleSmartLinkShortcut, handleUnlinkShortcut, handleWikiLinkShortcut } from "./editorPlugins/linkCommands";

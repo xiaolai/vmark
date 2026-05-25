@@ -35,7 +35,7 @@ vi.mock("@/utils/dateUtils", () => ({
   formatExactTime: (ts: number) => `time:${ts}`,
 }));
 
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   formatKeyForDisplay: (s: string) => s.toUpperCase(),
 }));
 

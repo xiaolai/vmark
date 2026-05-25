@@ -30,7 +30,7 @@ import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { formatExactTime } from "@/utils/dateUtils";
-import { formatKeyForDisplay } from "@/stores/shortcutsStore";
+import { formatKeyForDisplay } from "@/stores/settingsStore";
 import { UpdateIndicator } from "./UpdateIndicator";
 import { StatusBarCounts } from "./StatusBarCounts";
 import { McpHistoryButton } from "@/components/McpHistory";

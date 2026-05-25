@@ -153,22 +153,18 @@ vi.mock("@/stores/uiStore", () => {
   return { useUIStore: store };
 });
 
+const mockUnsubscribeShortcuts = vi.fn();
 vi.mock("@/stores/settingsStore", () => {
-  const store = vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
+  const settingsStore = vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
     selector({ markdown: { showBrTags: false, autoPairEnabled: true, enableRegexSearch: true } })
   );
-  (store as unknown as Record<string, unknown>).getState = () => ({
+  (settingsStore as unknown as Record<string, unknown>).getState = () => ({
     markdown: { showBrTags: false, autoPairEnabled: true, enableRegexSearch: true },
   });
-  return { useSettingsStore: store };
-});
-
-const mockUnsubscribeShortcuts = vi.fn();
-vi.mock("@/stores/shortcutsStore", () => {
-  const store = vi.fn();
-  (store as unknown as Record<string, unknown>).getState = () => ({});
-  (store as unknown as Record<string, unknown>).subscribe = vi.fn(() => mockUnsubscribeShortcuts);
-  return { useShortcutsStore: store };
+  const shortcutsStore = vi.fn();
+  (shortcutsStore as unknown as Record<string, unknown>).getState = () => ({});
+  (shortcutsStore as unknown as Record<string, unknown>).subscribe = vi.fn(() => mockUnsubscribeShortcuts);
+  return { useSettingsStore: settingsStore, useShortcutsStore: shortcutsStore };
 });
 
 // searchStore was merged into uiStore (T09). Tests that mutate search

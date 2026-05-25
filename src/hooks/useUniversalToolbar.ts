@@ -10,7 +10,7 @@
  */
 import { useEffect, useCallback } from "react";
 import { useUIStore } from "@/stores/uiStore";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 
 /**

@@ -6,7 +6,7 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatKeyForDisplay, getShortcutLabel, type ShortcutDefinition } from "@/stores/shortcutsStore";
+import { formatKeyForDisplay, getShortcutLabel, type ShortcutDefinition } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { Button } from "./components";
 

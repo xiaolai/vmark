@@ -21,7 +21,7 @@ import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { fileOpsError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";

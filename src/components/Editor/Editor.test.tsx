@@ -146,7 +146,25 @@ vi.mock("@/stores/settingsStore", () => {
     },
   };
 
-  return { useSettingsStore: createZustandMock(state) };
+  const shortcutsState = {
+    customBindings: {},
+    getAllShortcuts: () => ({}),
+    getShortcut: () => "",
+  };
+  const shortcutsMock = Object.assign(
+    (sel?: (s: Record<string, unknown>) => unknown) =>
+      sel ? sel(shortcutsState) : shortcutsState,
+    {
+      getState: () => shortcutsState,
+      subscribe: () => () => {},
+    },
+  );
+  return {
+    useSettingsStore: createZustandMock(state),
+    useShortcutsStore: shortcutsMock,
+    prosemirrorToTauri: (key: string) => key,
+    DEFAULT_SHORTCUTS: [],
+  };
 });
 
 function renderWithProvider(ui: React.ReactElement) {

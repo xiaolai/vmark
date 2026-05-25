@@ -70,7 +70,7 @@ vi.mock("../sourceShortcutsHelpers", () => ({
   doSortLinesDesc: () => true,
 }));
 
-import { useShortcutsStore } from "@/stores/shortcutsStore";
+import { useShortcutsStore } from "@/stores/settingsStore";
 import { buildSourceShortcutKeymap, getSourceBlockBounds } from "../sourceShortcuts";
 
 const viewInstances: EditorView[] = [];

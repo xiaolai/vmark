@@ -37,7 +37,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
   })),
 }));
 
-vi.mock("@/stores/shortcutsStore", () => ({
+vi.mock("@/stores/settingsStore", () => ({
   useShortcutsStore: {
     getState: vi.fn(() => ({
       getShortcut: vi.fn((id: string) => {
