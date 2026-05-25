@@ -37,7 +37,7 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "view.toggleSourceMode",
-    title: "Toggle Source Mode",
+    title: () => i18n.t("commands:view.toggleSourceMode"),
     category: "view",
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -48,63 +48,63 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "view.toggleFocusMode",
-    title: "Toggle Focus Mode",
+    title: () => i18n.t("commands:view.toggleFocusMode"),
     category: "view",
     run: () => useUIStore.getState().toggleFocusMode(),
   });
 
   registerCommand({
     id: "view.toggleTypewriterMode",
-    title: "Toggle Typewriter Mode",
+    title: () => i18n.t("commands:view.toggleTypewriterMode"),
     category: "view",
     run: () => useUIStore.getState().toggleTypewriterMode(),
   });
 
   registerCommand({
     id: "view.toggleOutline",
-    title: "Toggle Outline",
+    title: () => i18n.t("commands:view.toggleOutline"),
     category: "view",
     run: () => useUIStore.getState().toggleSidebarView("outline"),
   });
 
   registerCommand({
     id: "view.toggleFileExplorer",
-    title: "Toggle File Explorer",
+    title: () => i18n.t("commands:view.toggleFileExplorer"),
     category: "view",
     run: () => useUIStore.getState().toggleSidebarView("files"),
   });
 
   registerCommand({
     id: "view.toggleHistory",
-    title: "Toggle History",
+    title: () => i18n.t("commands:view.toggleHistory"),
     category: "view",
     run: () => useUIStore.getState().toggleSidebarView("history"),
   });
 
   registerCommand({
     id: "view.toggleWordWrap",
-    title: "Toggle Word Wrap",
+    title: () => i18n.t("commands:view.toggleWordWrap"),
     category: "view",
     run: () => useUIStore.getState().toggleWordWrap(),
   });
 
   registerCommand({
     id: "view.toggleLineNumbers",
-    title: "Toggle Line Numbers",
+    title: () => i18n.t("commands:view.toggleLineNumbers"),
     category: "view",
     run: () => useUIStore.getState().toggleLineNumbers(),
   });
 
   registerCommand({
     id: "view.toggleDiagramPreview",
-    title: "Toggle Diagram Preview",
+    title: () => i18n.t("commands:view.toggleDiagramPreview"),
     category: "view",
     run: () => useUIStore.getState().toggleDiagramPreview(),
   });
 
   registerCommand({
     id: "view.toggleFitTables",
-    title: "Fit Tables to Width",
+    title: () => i18n.t("commands:view.toggleFitTables"),
     category: "view",
     run: () => {
       const current = useSettingsStore.getState().markdown.tableFitToWidth;
@@ -114,7 +114,7 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "view.toggleReadOnly",
-    title: "Toggle Read-Only",
+    title: () => i18n.t("commands:view.toggleReadOnly"),
     category: "view",
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -125,21 +125,21 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "view.toggleTerminal",
-    title: "Toggle Terminal",
+    title: () => i18n.t("commands:view.toggleTerminal"),
     category: "view",
     run: () => requestToggleTerminal(),
   });
 
   registerCommand({
     id: "view.zoomActual",
-    title: "Actual Size",
+    title: () => i18n.t("commands:view.zoomActual"),
     category: "view",
     run: () => useSettingsStore.getState().updateAppearanceSetting("fontSize", DEFAULT_FONT_SIZE),
   });
 
   registerCommand({
     id: "view.zoomIn",
-    title: "Zoom In",
+    title: () => i18n.t("commands:view.zoomIn"),
     category: "view",
     run: () => {
       const current = useSettingsStore.getState().appearance.fontSize;
@@ -150,7 +150,7 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "view.zoomOut",
-    title: "Zoom Out",
+    title: () => i18n.t("commands:view.zoomOut"),
     category: "view",
     run: () => {
       const current = useSettingsStore.getState().appearance.fontSize;
@@ -161,7 +161,7 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "lint.check",
-    title: "Check Markdown",
+    title: () => i18n.t("commands:lint.check"),
     category: "lint",
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -219,7 +219,7 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "lint.next",
-    title: "Next Lint Issue",
+    title: () => i18n.t("commands:lint.next"),
     category: "lint",
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -233,7 +233,7 @@ export function registerViewCommands(): void {
 
   registerCommand({
     id: "lint.prev",
-    title: "Previous Lint Issue",
+    title: () => i18n.t("commands:lint.prev"),
     category: "lint",
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";

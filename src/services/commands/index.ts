@@ -15,5 +15,7 @@ export type {
   CommandDefinition,
   CommandContext,
   CommandScope,
+  LocalizedString,
   RankedCommand,
 } from "./CommandBus";
+export { resolveLocalizedString } from "./CommandBus";

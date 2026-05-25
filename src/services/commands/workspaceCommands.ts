@@ -28,7 +28,7 @@ export function registerWorkspaceCommands(): void {
 
   registerCommand({
     id: "workspace.openFolder",
-    title: "Open Workspace…",
+    title: () => i18n.t("commands:workspace.openFolder"),
     category: "workspace",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -92,7 +92,7 @@ export function registerWorkspaceCommands(): void {
 
   registerCommand({
     id: "workspace.close",
-    title: "Close Workspace",
+    title: () => i18n.t("commands:workspace.close"),
     category: "workspace",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";

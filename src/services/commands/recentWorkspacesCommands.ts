@@ -28,7 +28,7 @@ export function registerRecentWorkspacesCommands(): void {
 
   registerCommand({
     id: "workspace.clearRecent",
-    title: "Clear Recent Workspaces",
+    title: () => i18n.t("commands:workspace.clearRecent"),
     category: "workspace",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -51,7 +51,7 @@ export function registerRecentWorkspacesCommands(): void {
 
   registerCommand({
     id: "workspace.openRecent",
-    title: "Open Recent Workspace",
+    title: () => i18n.t("commands:workspace.openRecent"),
     category: "workspace",
     run: async (args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";

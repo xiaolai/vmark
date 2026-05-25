@@ -36,7 +36,7 @@ export function registerRecentFilesCommands(): void {
 
   registerCommand({
     id: "file.clearRecent",
-    title: "Clear Recent Files",
+    title: () => i18n.t("commands:file.clearRecent"),
     category: "file",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -60,7 +60,7 @@ export function registerRecentFilesCommands(): void {
 
   registerCommand({
     id: "file.openRecent",
-    title: "Open Recent File",
+    title: () => i18n.t("commands:file.openRecent"),
     category: "file",
     run: async (args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";

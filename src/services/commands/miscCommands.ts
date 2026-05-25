@@ -34,7 +34,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "app.preferences",
-    title: "Preferences",
+    title: () => i18n.t("commands:app.preferences"),
     category: "app",
     run: async () => {
       await openSettingsWindow();
@@ -43,7 +43,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "history.clearAll",
-    title: "Clear All History",
+    title: () => i18n.t("commands:history.clearAll"),
     category: "history",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -67,7 +67,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "history.clearWorkspace",
-    title: "Clear Workspace History",
+    title: () => i18n.t("commands:history.clearWorkspace"),
     category: "history",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -91,7 +91,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "image.cleanupOrphans",
-    title: "Clean Up Unused Images",
+    title: () => i18n.t("commands:image.cleanupOrphans"),
     category: "image",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
@@ -108,7 +108,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "help.vmarkHelp",
-    title: "VMark Help",
+    title: () => i18n.t("commands:help.vmarkHelp"),
     category: "help",
     run: async () => {
       await openUrl(HELP_URL);
@@ -117,7 +117,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "help.keyboardShortcuts",
-    title: "Keyboard Shortcuts",
+    title: () => i18n.t("commands:help.keyboardShortcuts"),
     category: "help",
     run: async () => {
       await openUrl(SHORTCUTS_URL);
@@ -126,7 +126,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "help.reportIssue",
-    title: "Report an Issue",
+    title: () => i18n.t("commands:help.reportIssue"),
     category: "help",
     run: async () => {
       await openUrl(REPORT_ISSUE_URL);
@@ -135,7 +135,7 @@ export function registerMiscCommands(): void {
 
   registerCommand({
     id: "genies.openFolder",
-    title: "Open Genies Folder",
+    title: () => i18n.t("commands:genies.openFolder"),
     category: "ai",
     run: async () => {
       try {

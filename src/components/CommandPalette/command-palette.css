@@ -1,0 +1,77 @@
+/*
+ * CommandPalette styles — overlay positioning + list layout.
+ * Visual tokens come from ADR-014 typed theme.
+ */
+
+.command-palette__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 15vh;
+  z-index: var(--z-popup);
+}
+
+.command-palette {
+  width: min(640px, 90vw);
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.command-palette__input {
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: var(--spacing-3);
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.command-palette__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.command-palette__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--spacing-2) var(--spacing-3);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+}
+
+.command-palette__row.is-selected {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
+.command-palette__title {
+  font-size: var(--font-size-md);
+}
+
+.command-palette__category {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-loose);
+}
+
+.command-palette__empty {
+  padding: var(--spacing-3);
+  color: var(--text-secondary);
+  text-align: center;
+}

@@ -22,12 +22,20 @@ export interface CommandContext {
   [key: string]: unknown;
 }
 
+/**
+ * Localized-string source. Pass a plain string for English-only labels,
+ * or a getter function that resolves through i18n at display time —
+ * useful when commands register synchronously before non-boot
+ * namespaces are loaded.
+ */
+export type LocalizedString = string | (() => string);
+
 export interface CommandDefinition {
   id: string;
   /** Human-readable label shown in palette / accessibility surfaces. */
-  title: string;
+  title: LocalizedString;
   /** Optional description for palette rows + tooltips. */
-  description?: string;
+  description?: LocalizedString;
   /** Optional category for grouping (palette section, menu group). */
   category?: string;
   /** Default scope; palette filters by current scope. */
@@ -36,6 +44,12 @@ export interface CommandDefinition {
   when?: (ctx: CommandContext) => boolean;
   /** Action body. May be async. */
   run: (args: unknown, ctx: CommandContext) => void | Promise<void>;
+}
+
+/** Resolve a LocalizedString to a plain string at the moment of display. */
+export function resolveLocalizedString(value: LocalizedString | undefined): string {
+  if (value === undefined) return "";
+  return typeof value === "function" ? value() : value;
 }
 
 export interface RankedCommand {
@@ -107,9 +121,9 @@ export function searchCommands(query: string, ctx: CommandContext = {}): RankedC
       results.push({ command, score: 0 });
       continue;
     }
-    const title = command.title.toLowerCase();
+    const title = resolveLocalizedString(command.title).toLowerCase();
     const id = command.id.toLowerCase();
-    const desc = (command.description ?? "").toLowerCase();
+    const desc = resolveLocalizedString(command.description).toLowerCase();
 
     let score = 0;
     if (title.startsWith(q)) score = 100;

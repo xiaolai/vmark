@@ -13,10 +13,25 @@ import { useTranslation } from "react-i18next";
 import {
   executeCommand,
   searchCommands,
+  resolveLocalizedString,
   type RankedCommand,
 } from "@/services/commands";
 import { useCommandPaletteStore } from "./commandPaletteStore";
+import { menuError } from "@/utils/debug";
 import "./command-palette.css";
+
+/**
+ * Run a command without swallowing its errors. Awaits the result and
+ * logs (rather than crashes the palette) on rejection so an action
+ * failure never produces an unhandled promise rejection.
+ */
+async function runCommand(id: string): Promise<void> {
+  try {
+    await executeCommand(id);
+  } catch (err) {
+    menuError(`Command ${id} threw:`, err);
+  }
+}
 
 export function CommandPalette() {
   const { t } = useTranslation();
@@ -47,7 +62,7 @@ export function CommandPalette() {
 
   if (!isOpen) return null;
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
       close();
@@ -67,8 +82,8 @@ export function CommandPalette() {
       e.preventDefault();
       const picked = ranked[selectedIndex]?.command;
       if (picked) {
-        void executeCommand(picked.id);
         close();
+        await runCommand(picked.id);
       }
       return;
     }
@@ -105,11 +120,13 @@ export function CommandPalette() {
                 className={`command-palette__row${i === selectedIndex ? " is-selected" : ""}`}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  void executeCommand(row.command.id);
                   close();
+                  void runCommand(row.command.id);
                 }}
               >
-                <span className="command-palette__title">{row.command.title}</span>
+                <span className="command-palette__title">
+                  {resolveLocalizedString(row.command.title)}
+                </span>
                 {row.command.category && (
                   <span className="command-palette__category">{row.command.category}</span>
                 )}

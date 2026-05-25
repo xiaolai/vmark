@@ -1,0 +1,60 @@
+{
+  "app": {
+    "preferences": "Preferences"
+  },
+  "history": {
+    "clearAll": "Clear All History",
+    "clearWorkspace": "Clear Workspace History"
+  },
+  "image": {
+    "cleanupOrphans": "Clean Up Unused Images"
+  },
+  "help": {
+    "vmarkHelp": "VMark Help",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "reportIssue": "Report an Issue"
+  },
+  "genies": {
+    "openFolder": "Open Genies Folder"
+  },
+  "export": {
+    "html": "Export as HTML",
+    "pdf": "Print to PDF",
+    "pdfNative": "Export as PDF",
+    "copyHtml": "Copy as HTML",
+    "pandocHint": "Install Pandoc",
+    "pandocFormat": "Export via Pandoc"
+  },
+  "file": {
+    "clearRecent": "Clear Recent Files",
+    "openRecent": "Open Recent File"
+  },
+  "workspace": {
+    "openFolder": "Open Workspace…",
+    "close": "Close Workspace",
+    "clearRecent": "Clear Recent Workspaces",
+    "openRecent": "Open Recent Workspace"
+  },
+  "view": {
+    "toggleSourceMode": "Toggle Source Mode",
+    "toggleFocusMode": "Toggle Focus Mode",
+    "toggleTypewriterMode": "Toggle Typewriter Mode",
+    "toggleOutline": "Toggle Outline",
+    "toggleFileExplorer": "Toggle File Explorer",
+    "toggleHistory": "Toggle History",
+    "toggleWordWrap": "Toggle Word Wrap",
+    "toggleLineNumbers": "Toggle Line Numbers",
+    "toggleDiagramPreview": "Toggle Diagram Preview",
+    "toggleFitTables": "Fit Tables to Width",
+    "toggleReadOnly": "Toggle Read-Only",
+    "toggleTerminal": "Toggle Terminal",
+    "zoomActual": "Actual Size",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out"
+  },
+  "lint": {
+    "check": "Check Markdown",
+    "next": "Next Lint Issue",
+    "prev": "Previous Lint Issue"
+  }
+}

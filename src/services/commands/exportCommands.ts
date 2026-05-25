@@ -8,6 +8,7 @@
  * @module services/commands/exportCommands
  */
 
+import i18n from "@/i18n";
 import { registerCommand } from "./CommandBus";
 import { menuError } from "@/utils/debug";
 import { getDirectory } from "@/utils/pathUtils";
@@ -35,7 +36,7 @@ export function registerExportCommands(): void {
 
   registerCommand({
     id: "export.html",
-    title: "Export as HTML",
+    title: () => i18n.t("commands:export.html"),
     category: "export",
     run: async (_args: Args, ctx: Ctx) => {
       await withDoc(ctx, async (doc) => {
@@ -58,7 +59,7 @@ export function registerExportCommands(): void {
 
   registerCommand({
     id: "export.pdf",
-    title: "Print to PDF",
+    title: () => i18n.t("commands:export.pdf"),
     category: "export",
     run: async (_args: Args, ctx: Ctx) => {
       await withDoc(ctx, async (doc) => {
@@ -74,7 +75,7 @@ export function registerExportCommands(): void {
 
   registerCommand({
     id: "export.pdfNative",
-    title: "Export as PDF",
+    title: () => i18n.t("commands:export.pdfNative"),
     category: "export",
     run: async (_args: Args, ctx: Ctx) => {
       await withDoc(ctx, async (doc) => {
@@ -95,7 +96,7 @@ export function registerExportCommands(): void {
 
   registerCommand({
     id: "export.copyHtml",
-    title: "Copy as HTML",
+    title: () => i18n.t("commands:export.copyHtml"),
     category: "export",
     run: async (_args: Args, ctx: Ctx) => {
       await withDoc(ctx, async (doc) => {
@@ -111,7 +112,7 @@ export function registerExportCommands(): void {
 
   registerCommand({
     id: "export.pandocHint",
-    title: "Install Pandoc",
+    title: () => i18n.t("commands:export.pandocHint"),
     category: "export",
     run: async () => {
       const { openUrl } = await import("@tauri-apps/plugin-opener");
@@ -134,7 +135,7 @@ export async function registerPandocFormatCommands(): Promise<readonly string[]>
     try {
       registerCommand({
         id,
-        title: `Export via Pandoc (${fmt})`,
+        title: () => `${i18n.t("commands:export.pandocFormat")} (${fmt})`,
         category: "export",
         run: async (_args: Args, ctx: Ctx) => {
           await withDoc(ctx, async (doc) => {
