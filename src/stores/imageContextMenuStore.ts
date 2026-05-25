@@ -1,52 +1,18 @@
 /**
- * Image Context Menu Store
- *
- * Purpose: State for the image right-click context menu — position, source
- *   URL, and node position for actions like copy/save/resize.
+ * Image Context Menu Store — backward-compat shim (T09).
+ * Routes to popupStore's `imageContextMenu` slice.
  *
  * @module stores/imageContextMenuStore
  */
 
-import { create } from "zustand";
+import { usePopupStore } from "./popupStore";
+import { createSliceShim } from "./_shimHelper";
 
-interface ImageContextMenuState {
-  isOpen: boolean;
-  position: { x: number; y: number } | null;
-  imageSrc: string;
-  imageNodePos: number;
-}
-
-interface ImageContextMenuActions {
+export const useImageContextMenuStore = createSliceShim("imageContextMenu", {
   openMenu: (data: {
     position: { x: number; y: number };
     imageSrc: string;
     imageNodePos: number;
-  }) => void;
-  closeMenu: () => void;
-}
-
-type ImageContextMenuStore = ImageContextMenuState & ImageContextMenuActions;
-
-const initialState: ImageContextMenuState = {
-  isOpen: false,
-  position: null,
-  imageSrc: "",
-  imageNodePos: -1,
-};
-
-/** Manages image right-click context menu state — position, source URL, and node position. Use selectors, not destructuring. */
-export const useImageContextMenuStore = create<ImageContextMenuStore>(
-  (set) => ({
-    ...initialState,
-
-    openMenu: (data) =>
-      set({
-        isOpen: true,
-        position: data.position,
-        imageSrc: data.imageSrc,
-        imageNodePos: data.imageNodePos,
-      }),
-
-    closeMenu: () => set(initialState),
-  })
-);
+  }) => usePopupStore.getState().imageContextOpenMenu(data),
+  closeMenu: () => usePopupStore.getState().imageContextCloseMenu(),
+});

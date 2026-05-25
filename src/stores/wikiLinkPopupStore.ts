@@ -1,51 +1,17 @@
 /**
- * Wiki Link Popup Store
- *
- * Purpose: State for the wiki link edit popup — manages the link target.
- *   Alias (display text) is edited inline in the editor, so this store
- *   only tracks the target field and node position.
+ * Wiki Link Popup Store — backward-compat shim (T09).
+ * Routes to popupStore's `wikiLinkPopup` slice.
  *
  * @module stores/wikiLinkPopupStore
  */
 
-import { create } from "zustand";
+import { usePopupStore } from "./popupStore";
+import { createSliceShim } from "./_shimHelper";
 import type { AnchorRect } from "@/utils/popupPosition";
 
-interface WikiLinkPopupState {
-  isOpen: boolean;
-  anchorRect: AnchorRect | null;
-  target: string;
-  nodePos: number | null;
-}
-
-interface WikiLinkPopupActions {
-  openPopup: (rect: AnchorRect, target: string, pos: number) => void;
-  closePopup: () => void;
-  updateTarget: (target: string) => void;
-}
-
-type WikiLinkPopupStore = WikiLinkPopupState & WikiLinkPopupActions;
-
-const initialState: WikiLinkPopupState = {
-  isOpen: false,
-  anchorRect: null,
-  target: "",
-  nodePos: null,
-};
-
-/** Manages wiki link edit popup state — target field and node position. Use selectors, not destructuring. */
-export const useWikiLinkPopupStore = create<WikiLinkPopupStore>((set) => ({
-  ...initialState,
-
-  openPopup: (rect, target, pos) =>
-    set({
-      isOpen: true,
-      anchorRect: rect,
-      target,
-      nodePos: pos,
-    }),
-
-  closePopup: () => set(initialState),
-
-  updateTarget: (target) => set({ target }),
-}));
+export const useWikiLinkPopupStore = createSliceShim("wikiLinkPopup", {
+  openPopup: (rect: AnchorRect, target: string, pos: number) =>
+    usePopupStore.getState().wikiLinkOpenPopup(rect, target, pos),
+  closePopup: () => usePopupStore.getState().wikiLinkClosePopup(),
+  updateTarget: (target: string) => usePopupStore.getState().wikiLinkUpdateTarget(target),
+});
