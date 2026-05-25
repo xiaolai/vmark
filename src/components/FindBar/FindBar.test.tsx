@@ -65,6 +65,10 @@ vi.mock("@/stores/uiStore", () => {
     searchToggleCaseSensitive: mockToggleCaseSensitive,
     searchToggleWholeWord: mockToggleWholeWord,
     searchToggleRegex: mockToggleRegex,
+    // FindBar.tsx:95 calls restoreStatusBar() on close. The action exists
+    // on the real store (uiStore.ts:342); stub it so the async close
+    // path doesn't throw an unhandled rejection post-teardown.
+    restoreStatusBar: vi.fn(),
   });
   return { useUIStore: store };
 });

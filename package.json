@@ -26,8 +26,9 @@
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
     "lint:console": "bash scripts/lint-console.sh",
     "lint:i18n": "tsx scripts/check-i18n-keys.ts",
+    "lint:themes": "bash scripts/check-theme-names.sh",
     "extract-menu-ids": "tsx scripts/extract-menu-ids.ts",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm test:coverage && pnpm build && pnpm size"
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm test:coverage && pnpm build && pnpm size"
   },
   "dependencies": {
     "@actions/expressions": "0.3.55",
