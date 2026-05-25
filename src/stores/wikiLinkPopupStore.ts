@@ -1,5 +1,5 @@
 /**
- * Wiki Link Popup Store — backward-compat shim (T09).
+ * Wiki Link Popup Store — slice projection of usePopupStore.
  * Routes to popupStore's `wikiLinkPopup` slice.
  *
  * @module stores/wikiLinkPopupStore

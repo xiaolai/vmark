@@ -5,7 +5,7 @@
  * Critical: Finder file open must wait for hot exit restore to complete
  * to prevent race conditions that could cause data loss.
  *
- * @module utils/hotExit/hotExitCoordination
+ * @module services/persistence/hotExit/hotExitCoordination
  */
 
 /** Standard timeout for startup hooks waiting on hot exit restore (ms). */

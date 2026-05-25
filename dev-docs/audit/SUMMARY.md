@@ -91,7 +91,7 @@ The most pervasive issue. Files over 300 lines:
 | 527 | `src/plugins/mermaidPreview/MermaidPreviewView.ts` |
 | 521 | `src/stores/settingsStore.ts` |
 | 503 | `src/plugins/codemirror/sourceShortcuts.ts` |
-| 497 | `src/utils/hotExit/useHotExitRestore.ts` |
+| 497 | `src/services/persistence/hotExit/useHotExitRestore.ts` |
 | ... | (+ ~15 more in the 300-470 range) |
 
 ### 2. Bare `console.*` in Production (~70+ calls)

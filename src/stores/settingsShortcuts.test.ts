@@ -48,6 +48,38 @@ describe("shortcutsStore", () => {
       expect(uniqueIds.size).toBe(ids.length);
     });
 
+    it("has no duplicate defaultKey bindings within the same scope", () => {
+      // Invariant: two shortcuts with the same key + same scope would silently
+      // block one another at runtime. Per `.claude/rules/41-keyboard-shortcuts.md`
+      // this must fail CI, not user discovery. Empty defaults are excluded —
+      // they mean "unbound by default", and unbinding never collides.
+      const keysByScope = new Map<string, Map<string, string>>();
+      const collisions: string[] = [];
+
+      function normalizeKey(key: string): string {
+        const parts = key.toLowerCase().split("-");
+        const modifiers = parts.slice(0, -1).sort();
+        const main = parts[parts.length - 1];
+        return [...modifiers, main].join("-");
+      }
+
+      for (const s of DEFAULT_SHORTCUTS) {
+        if (!s.defaultKey) continue;
+        const scope = s.scope ?? "editor";
+        const norm = normalizeKey(s.defaultKey);
+        const seen = keysByScope.get(scope) ?? new Map();
+        const prior = seen.get(norm);
+        if (prior) {
+          collisions.push(`scope=${scope} key="${s.defaultKey}": ${prior} ↔ ${s.id}`);
+        } else {
+          seen.set(norm, s.id);
+        }
+        keysByScope.set(scope, seen);
+      }
+
+      expect(collisions, `DEFAULT_SHORTCUTS contains duplicate bindings:\n  ${collisions.join("\n  ")}`).toEqual([]);
+    });
+
     it("all have required fields", () => {
       for (const shortcut of DEFAULT_SHORTCUTS) {
         expect(shortcut.id).toBeDefined();

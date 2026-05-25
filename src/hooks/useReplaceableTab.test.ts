@@ -25,8 +25,23 @@ vi.mock("@/utils/openPolicy", () => ({
   findReplaceableTab: mockFindReplaceableTab,
 }));
 
+// Match the real normalizePath signature: convert backslashes to forward
+// slashes, lowercase only the Windows drive letter (NOT the whole path),
+// strip trailing slash. The earlier full-lowercase mock diverged from
+// production behavior — case-different paths actually stay distinct on
+// case-sensitive filesystems.
 vi.mock("@/utils/paths", () => ({
-  normalizePath: vi.fn((path: string) => path.toLowerCase().replace(/\\/g, "/")),
+  normalizePath: vi.fn((path: string) => {
+    if (!path) return "";
+    let normalized = path.replace(/\\/g, "/");
+    if (/^[a-zA-Z]:/.test(normalized)) {
+      normalized = normalized[0].toLowerCase() + normalized.slice(1);
+    }
+    if (normalized.length > 1 && normalized.endsWith("/")) {
+      normalized = normalized.slice(0, -1);
+    }
+    return normalized;
+  }),
 }));
 
 import { getReplaceableTab, findExistingTabForPath } from "./useReplaceableTab";
@@ -225,7 +240,12 @@ describe("findExistingTabForPath", () => {
     expect(result).toBeNull();
   });
 
-  it("matches paths case-insensitively via normalizePath", () => {
+  it("treats case-different paths as distinct (no case folding by normalizePath)", () => {
+    // Real normalizePath only lowercases the Windows drive letter, not the
+    // full path. On case-sensitive filesystems (Linux, opt-in APFS), distinct
+    // files must be treated as distinct. On case-insensitive filesystems the
+    // same physical file opened twice via different case will produce two
+    // tabs — acceptable trade-off vs. data loss.
     vi.mocked(useTabStore.getState).mockReturnValue({
       getTabsByWindow: vi.fn(() => [{ id: "tab-1" }]),
     } as unknown as ReturnType<typeof useTabStore.getState>);
@@ -234,22 +254,23 @@ describe("findExistingTabForPath", () => {
       getDocument: vi.fn(() => ({ filePath: "/Path/To/File.md" })),
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
 
-    // normalizePath mock lowercases and normalizes slashes
     const result = findExistingTabForPath("main", "/path/to/file.md");
 
-    expect(result).toBe("tab-1");
+    expect(result).toBeNull();
   });
 
-  it("normalizes backslashes in file paths", () => {
+  it("normalizes backslashes and the Windows drive letter", () => {
     vi.mocked(useTabStore.getState).mockReturnValue({
       getTabsByWindow: vi.fn(() => [{ id: "tab-1" }]),
     } as unknown as ReturnType<typeof useTabStore.getState>);
 
     vi.mocked(useDocumentStore.getState).mockReturnValue({
+      // Drive letter "C", segments "Users/test/file.md"
       getDocument: vi.fn(() => ({ filePath: "C:\\Users\\test\\file.md" })),
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
 
-    const result = findExistingTabForPath("main", "c:/users/test/file.md");
+    // Drive letter case differs but the rest matches exactly.
+    const result = findExistingTabForPath("main", "c:/Users/test/file.md");
 
     expect(result).toBe("tab-1");
   });

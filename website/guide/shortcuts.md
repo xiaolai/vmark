@@ -171,7 +171,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Toggle Terminal | Ctrl + `` ` `` |
 | Toggle Diagram Preview | `Alt + Mod + P` |
 | Fit Tables to Width | _(customizable)_ |
-| Universal Toolbar | `Mod + Shift + P` |
+| Open Universal Toolbar | `Mod + Shift + B` |
 | Source Peek | `F5` |
 | Check Markdown | `Alt + Mod + V` |
 | Next Issue | `F2` |
@@ -183,6 +183,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 |--------|----------|
 | New File | `Mod + N` |
 | Quick Open | `Mod + O` _(fuzzy file browser)_ |
+| Open Command Palette | `Mod + Shift + P` |
 | Open File... | Menu only _(native file picker)_ |
 | Open Workspace | `Mod + Shift + O` |
 | Save | `Mod + S` |

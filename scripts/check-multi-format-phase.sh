@@ -110,7 +110,7 @@ case "$PHASE" in
     # targets a specific code pattern that proves the migration actually does
     # what the WI claims (file existence alone is meaningless — an empty
     # placeholder file would pass a `[[ -f … ]]` gate).
-    if grep -qE "^\s*format_id:\s*string" src/utils/hotExit/types.ts 2>/dev/null; then
+    if grep -qE "^\s*format_id:\s*string" src/services/persistence/hotExit/types.ts 2>/dev/null; then
       ok "TabState includes format_id field (WI-1A.13 TS)"
     else
       fail "TabState missing format_id field (WI-1A.13 TS incomplete)"
@@ -120,7 +120,7 @@ case "$PHASE" in
     else
       fail "Rust TabState missing pub format_id (WI-1A.13 Rust incomplete)"
     fi
-    if grep -qE "^export const SCHEMA_VERSION = 3" src/utils/hotExit/types.ts 2>/dev/null; then
+    if grep -qE "^export const SCHEMA_VERSION = 3" src/services/persistence/hotExit/types.ts 2>/dev/null; then
       ok "TS schema version bumped to 3"
     else
       fail "TS schema version not at 3 (WI-1A.13 incomplete)"
@@ -130,7 +130,7 @@ case "$PHASE" in
     else
       fail "Rust schema version not at 3 (WI-1A.13 incomplete)"
     fi
-    if grep -qE "migrateV2toV3" src/utils/hotExit/schemaMigration.ts 2>/dev/null; then
+    if grep -qE "migrateV2toV3" src/services/persistence/hotExit/schemaMigration.ts 2>/dev/null; then
       ok "TS migrateV2toV3 implemented"
     else
       fail "TS migrateV2toV3 missing (WI-1A.13 migration)"

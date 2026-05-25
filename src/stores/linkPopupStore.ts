@@ -1,5 +1,5 @@
 /**
- * Link Popup Store — backward-compat shim (T09).
+ * Link Popup Store — slice projection of usePopupStore.
  * Routes to popupStore's `linkPopup` slice.
  *
  * @module stores/linkPopupStore

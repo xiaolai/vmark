@@ -1,5 +1,5 @@
 /**
- * Inline Math Editing Store — backward-compat shim (T09).
+ * Inline Math Editing Store — slice projection of usePopupStore.
  * Routes to popupStore's `inlineMathEditing` slice.
  *
  * @module stores/inlineMathEditingStore

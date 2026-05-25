@@ -1,5 +1,5 @@
 /**
- * Footnote Popup Store — backward-compat shim (T09).
+ * Footnote Popup Store — slice projection of usePopupStore.
  * Routes to popupStore's `footnotePopup` slice.
  *
  * @module stores/footnotePopupStore

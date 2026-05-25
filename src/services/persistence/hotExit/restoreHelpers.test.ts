@@ -114,6 +114,9 @@ vi.mock("@/stores/documentStore", () => ({
       markDivergent: mockMarkDivergent,
       setCursorInfo: mockSetCursorInfo,
       removeDocument: mockRemoveDocument,
+      // Stubbed so tests that exercise the read-only branch don't crash;
+      // production action is documented at stores/documentStore.ts:89.
+      setReadOnly: vi.fn(),
     }),
   },
   useUnifiedHistoryStore: (() => {
@@ -913,6 +916,125 @@ describe('restoreHelpers', () => {
       expect(mockInitDocument).toHaveBeenCalledWith('tab-1', '', null);
       expect(mockLoadContent).toHaveBeenCalledWith('tab-1', '', null, expect.any(Object));
     });
+
+    // ------------------------------------------------------------------------
+    // Regression tests for audit-fix patches (2026-05-25)
+    // ------------------------------------------------------------------------
+
+    it('restores per-tab mode when persisted (ADR-009)', async () => {
+      const mockSetMode = vi.fn();
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+        setMode: mockSetMode,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const tab = makeTabState({
+        document: makeDocState({ mode: 'source' }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetMode).toHaveBeenCalledWith('tab-1', 'source');
+    });
+
+    it('does not call setMode when mode field is absent (pre-mode sessions)', async () => {
+      const mockSetMode = vi.fn();
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+        setMode: mockSetMode,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const tab = makeTabState({
+        document: makeDocState({}),  // no mode field
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetMode).not.toHaveBeenCalled();
+    });
+
+    it('does not call setMode for an invalid mode value (e.g. "split-pane")', async () => {
+      const mockSetMode = vi.fn();
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+        setMode: mockSetMode,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const tab = makeTabState({
+        // @ts-expect-error — exercising untyped persisted payload defense
+        document: makeDocState({ mode: 'split-pane' }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockSetMode).not.toHaveBeenCalled();
+    });
+
+    it('restores hardBreakStyle via loadContent meta when persisted', async () => {
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const tab = makeTabState({
+        document: makeDocState({
+          saved_content: 'x',
+          hard_break_style: 'twoSpaces',
+        }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockLoadContent).toHaveBeenCalledWith(
+        'tab-1',
+        'x',
+        expect.anything(),
+        expect.objectContaining({ hardBreakStyle: 'twoSpaces' }),
+      );
+    });
+
+    it('restores lastDiskContent via updateLastDiskContent when persisted', async () => {
+      const mockUpdateLastDiskContent = vi.fn();
+      const docStore = {
+        initDocument: mockInitDocument,
+        loadContent: mockLoadContent,
+        setContent: mockSetContent,
+        markMissing: mockMarkMissing,
+        markDivergent: mockMarkDivergent,
+        setCursorInfo: mockSetCursorInfo,
+        updateLastDiskContent: mockUpdateLastDiskContent,
+      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+
+      const tab = makeTabState({
+        document: makeDocState({
+          saved_content: 'saved',
+          last_disk_content: 'on-disk-normalized',
+        }),
+      });
+
+      await restoreDocumentState('tab-1', tab, docStore);
+
+      expect(mockUpdateLastDiskContent).toHaveBeenCalledWith('tab-1', 'on-disk-normalized');
+    });
   });
 
   // =========================================================================
@@ -1233,6 +1355,29 @@ describe('restoreHelpers', () => {
       expect(mockCreateTab).toHaveBeenCalledTimes(2);
       expect(mockCreateTab).toHaveBeenCalledWith('main', '/path/to/file.md');
       expect(mockCreateTab).toHaveBeenCalledWith('main', '/path/to/other.md');
+    });
+
+    it('treats case-different paths as distinct (no case folding)', async () => {
+      // Regression: earlier code lowercased on non-Linux for dedup, which
+      // incorrectly merged distinct files on case-sensitive APFS volumes.
+      // Both paths must be restored.
+      mockGetTabsByWindow.mockReturnValue([]);
+      let callCount = 0;
+      mockCreateTab.mockImplementation(() => `new-tab-${++callCount}`);
+
+      const ws = makeWindowState({
+        active_tab_id: 'tab-lower',
+        tabs: [
+          makeTabState({ id: 'tab-lower', file_path: '/docs/readme.md', title: 'readme.md' }),
+          makeTabState({ id: 'tab-upper', file_path: '/docs/README.md', title: 'README.md' }),
+        ],
+      });
+
+      await restoreTabs('main', ws);
+
+      expect(mockCreateTab).toHaveBeenCalledTimes(2);
+      expect(mockCreateTab).toHaveBeenCalledWith('main', '/docs/readme.md');
+      expect(mockCreateTab).toHaveBeenCalledWith('main', '/docs/README.md');
     });
 
     it('should not deduplicate untitled tabs (null file_path)', async () => {

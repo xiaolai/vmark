@@ -1,5 +1,5 @@
 /**
- * Math Popup Store — backward-compat shim (T09).
+ * Math Popup Store — slice projection of usePopupStore.
  * Routes to popupStore's `mathPopup` slice.
  *
  * @module stores/mathPopupStore

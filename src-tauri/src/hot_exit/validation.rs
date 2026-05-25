@@ -35,18 +35,19 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
         // 2. Remove duplicate file_path tabs (keep first occurrence)
         //    tabStore.createTab deduplicates by file_path, so duplicates cause
         //    restoreDocumentState to overwrite the first tab's content silently.
+        //
+        //    Compare paths exactly (no case folding). Earlier code lowercased
+        //    on non-Linux to handle case-insensitive HFS+/APFS/NTFS, but that
+        //    incorrectly merged distinct files on case-sensitive APFS volumes
+        //    — a data-availability bug strictly worse than the occasional
+        //    duplicate tab that exact comparison may produce on case-
+        //    insensitive filesystems. The TS-side validator at
+        //    src/services/persistence/hotExit/restoreHelpers.ts now matches.
         let mut seen_paths = HashSet::new();
         let pre_path_count = window.tabs.len();
         window.tabs.retain(|tab| {
             match &tab.file_path {
-                Some(path) => {
-                    let key = if cfg!(target_os = "linux") {
-                        path.clone()
-                    } else {
-                        path.to_lowercase()
-                    };
-                    seen_paths.insert(key)
-                }
+                Some(path) => seen_paths.insert(path.clone()),
                 None => true, // untitled tabs are never duplicates
             }
         });
@@ -128,6 +129,9 @@ mod tests {
                 is_read_only: false,
                 undo_history: Vec::new(),
                 redo_history: Vec::new(),
+                mode: None,
+                hard_break_style: None,
+                last_disk_content: None,
             },
             format_id: "markdown".to_string(),
             editing_enabled: true,
@@ -319,7 +323,13 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_file_path_case_sensitivity_is_platform_aware() {
+    fn case_different_paths_are_treated_as_distinct_on_all_platforms() {
+        // Regression: earlier code lowercased paths on non-Linux to handle
+        // case-insensitive HFS+/APFS/NTFS. That approach incorrectly merged
+        // distinct files on case-sensitive APFS volumes — a data-availability
+        // bug. The validator now compares paths exactly on every platform.
+        // The TS-side restore at src/services/persistence/hotExit/restoreHelpers.ts
+        // does the same.
         let mut session = make_session(vec![{
             let mut w = make_window("main", &[], Some("t1"));
             w.tabs = vec![
@@ -331,16 +341,15 @@ mod tests {
 
         let warnings = validate_and_repair(&mut session);
 
-        if cfg!(target_os = "linux") {
-            // Linux: case-sensitive — both tabs are distinct files
-            assert!(!warnings.iter().any(|w| w.contains("duplicate file_path")));
-            assert_eq!(session.windows[0].tabs.len(), 2);
-        } else {
-            // macOS/Windows: case-insensitive — treated as duplicates
-            assert!(warnings.iter().any(|w| w.contains("duplicate file_path")));
-            assert_eq!(session.windows[0].tabs.len(), 1);
-            assert_eq!(session.windows[0].tabs[0].id, "t1");
-        }
+        // Both tabs are kept on every platform — exact-match comparison.
+        assert!(!warnings.iter().any(|w| w.contains("duplicate file_path")));
+        assert_eq!(session.windows[0].tabs.len(), 2);
+        let ids: Vec<&str> = session.windows[0]
+            .tabs
+            .iter()
+            .map(|t| t.id.as_str())
+            .collect();
+        assert_eq!(ids, vec!["t1", "t2"]);
     }
 
     #[test]

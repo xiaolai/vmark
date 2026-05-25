@@ -1,5 +1,5 @@
 /**
- * Block Math Editing Store — backward-compat shim (T09).
+ * Block Math Editing Store — slice projection of usePopupStore.
  *
  * Routes to the merged popupStore's `blockMathEditing` slice. Preserves
  * the original `useBlockMathEditingStore` API so consumers don't change.

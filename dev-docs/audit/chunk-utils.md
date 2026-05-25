@@ -72,7 +72,7 @@
 
 | File | Lines |
 |---|---|
-| `src/utils/hotExit/useHotExitRestore.ts` | 497 |
+| `src/services/persistence/hotExit/useHotExitRestore.ts` | 497 |
 | `src/utils/markdownPipeline/mdastBlockConverters.ts` | 444 |
 | `src/utils/openPolicy.ts` | 433 |
 | `src/utils/textTransformations.ts` | 388 |
@@ -98,7 +98,7 @@
 
 ### [I2] Module-level mutable flag in `useHotExitRestore.ts` is a test hazard
 
-- **File:** `src/utils/hotExit/useHotExitRestore.ts:46`
+- **File:** `src/services/persistence/hotExit/useHotExitRestore.ts:46`
 - **Note:** `let mainWindowRestoreStarted = false` persists across test runs. Consider exporting a reset helper.
 
 ### [I3] `restartWithHotExit.ts` approaching 300-line limit (267 lines)

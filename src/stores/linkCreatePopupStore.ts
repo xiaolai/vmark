@@ -1,5 +1,5 @@
 /**
- * Link Create Popup Store — backward-compat shim (T09).
+ * Link Create Popup Store — slice projection of usePopupStore.
  * Routes to popupStore's `linkCreatePopup` slice.
  *
  * @module stores/linkCreatePopupStore

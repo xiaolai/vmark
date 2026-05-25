@@ -1,5 +1,5 @@
 /**
- * Drop Zone Store — backward-compat shim (T09).
+ * Drop Zone Store — slice projection of usePopupStore.
  * Routes to popupStore's `dropZone` slice.
  *
  * @module stores/dropZoneStore

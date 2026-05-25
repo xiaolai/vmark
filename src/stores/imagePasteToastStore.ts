@@ -1,5 +1,5 @@
 /**
- * Image Paste Toast Store — backward-compat shim (T09).
+ * Image Paste Toast Store — slice projection of usePopupStore.
  * Routes to popupStore's `imagePasteToast` slice.
  *
  * @module stores/imagePasteToastStore

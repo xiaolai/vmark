@@ -1,5 +1,5 @@
 /**
- * Genie Picker Store — backward-compat shim (T09).
+ * Genie Picker Store — slice projection of usePopupStore.
  * Routes to popupStore's `geniePicker` slice.
  *
  * @module stores/geniePickerStore

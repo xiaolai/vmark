@@ -1,5 +1,5 @@
 /**
- * Image Context Menu Store — backward-compat shim (T09).
+ * Image Context Menu Store — slice projection of usePopupStore.
  * Routes to popupStore's `imageContextMenu` slice.
  *
  * @module stores/imageContextMenuStore

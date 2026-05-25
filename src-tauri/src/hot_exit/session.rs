@@ -1,6 +1,6 @@
 //! Session data structures for hot exit
 //!
-//! These structs mirror the TypeScript types in src/utils/hotExit/types.ts
+//! These structs mirror the TypeScript types in src/services/persistence/hotExit/types.ts
 
 use serde::{Deserialize, Serialize};
 
@@ -91,6 +91,23 @@ pub struct DocumentState {
     /// Redo history checkpoints (cross-mode redo) - added in v2
     #[serde(default)]
     pub redo_history: Vec<HistoryCheckpoint>,
+    /// Per-document editor mode (ADR-009): "wysiwyg" | "source".
+    /// Optional; pre-existing sessions deserialize to None and are
+    /// restored as "wysiwyg" by the frontend restore path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    /// Hard-break style detected from file content:
+    /// "backslash" | "twoSpaces" | "mixed" | "unknown". Optional —
+    /// pre-existing sessions deserialize to None and fall back to
+    /// "unknown" (re-detect on next save).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hard_break_style: Option<String>,
+    /// Normalized on-disk content (post-line-ending/break normalization).
+    /// Optional. When absent, the restore path uses `saved_content` —
+    /// usually identical but can diverge if the save step applied
+    /// normalization.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_disk_content: Option<String>,
 }
 
 /// History checkpoint for cross-mode undo/redo

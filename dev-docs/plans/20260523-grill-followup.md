@@ -75,7 +75,7 @@ This plan therefore re-prioritizes: persistence + menu matrix + rev-6 of the mul
 | Format adapter directory | exists with `adapters/`, `registry.ts`, `extSync.test.ts`, `markdownLargeFile.ts`, `index.ts` | `src/lib/formats/` |
 | IME module | exists, 260 lines, has sibling `setupImeComposition.test.ts` | `src/components/Terminal/setupImeComposition.ts` |
 | Workflow expression tests | 16 `#[test]` / `#[cfg(test)]` attributes already present | `src-tauri/src/workflow/expressions.rs` |
-| Hot-exit format fields | `format_id`, `editing_enabled`, `active_schema_id` absent from `TabState` on both sides | `src/utils/hotExit/*.ts`, `src-tauri/src/hot_exit/*.rs` (grep empty) |
+| Hot-exit format fields | `format_id`, `editing_enabled`, `active_schema_id` absent from `TabState` on both sides | `src/services/persistence/hotExit/*.ts`, `src-tauri/src/hot_exit/*.rs` (grep empty) |
 | CI workflow label step | already wrapped in `|| true` | `.github/workflows/claude.yml:200` |
 
 ## Executive sequencing call
@@ -109,7 +109,7 @@ Phase 1 is serial-critical: rebaseline → persistence → menu matrix → revie
 **DoD (machine-checkable):**
 - `bash scripts/check-wi-linkage.sh dev-docs/plans/20260506-multi-format-rebrand.md --phase=1A` passes for all rev-6 WIs.
 - New `bash scripts/check-multi-format-phase.sh 1A` (created in WI-1.1) passes.
-- `pnpm test src/utils/hotExit src/hooks/useUnifiedMenuCommands` is green.
+- `pnpm test src/services/persistence/hotExit src/hooks/useUnifiedMenuCommands` is green.
 - `pnpm check:all` is green.
 - `/cc-suite:review-plan dev-docs/plans/20260506-multi-format-rebrand.md` returns READY TO BUILD or APPROVE-WITH-NOTES.
 
@@ -125,9 +125,9 @@ Phase 1 is serial-critical: rebaseline → persistence → menu matrix → revie
 
 ### WI-1.2 — Hot-exit persistence migration
 
-- **Files:** `src/utils/hotExit/types.ts`, `src/utils/hotExit/schemaMigration.ts` (new), `src/utils/hotExit/schemaMigration.test.ts` (new), `src/utils/hotExit/useHotExitCapture.ts`, `src/utils/hotExit/restoreHelpers.ts`, `src/utils/hotExit/useHotExitRestore.test.ts`, `src-tauri/src/hot_exit/session.rs`, `src-tauri/src/hot_exit/migration.rs` (new), `src-tauri/src/hot_exit/storage.rs`
+- **Files:** `src/services/persistence/hotExit/types.ts`, `src/services/persistence/hotExit/schemaMigration.ts` (new), `src/services/persistence/hotExit/schemaMigration.test.ts` (new), `src/services/persistence/hotExit/useHotExitCapture.ts`, `src/services/persistence/hotExit/restoreHelpers.ts`, `src/services/persistence/hotExit/useHotExitRestore.test.ts`, `src-tauri/src/hot_exit/session.rs`, `src-tauri/src/hot_exit/migration.rs` (new), `src-tauri/src/hot_exit/storage.rs`
 - **Scope:** Add `formatId`, `editingEnabled`, `activeSchemaId` to `TabState` (TS) and `TabState` (Rust). Bump session-schema version. Write a migration that backfills `formatId="markdown"` and `editingEnabled=true` for pre-v2 sessions. Reject future schema versions with a clear error.
-- **Acceptance:** v1 → v2 sessions migrate without data loss (covered by `schemaMigration.test.ts` table-driven cases including untitled, large-file, multi-window). Future-schema sessions return a typed error, not a panic. `pnpm test src/utils/hotExit` and `cargo test --manifest-path src-tauri/Cargo.toml hot_exit::migration` pass.
+- **Acceptance:** v1 → v2 sessions migrate without data loss (covered by `schemaMigration.test.ts` table-driven cases including untitled, large-file, multi-window). Future-schema sessions return a typed error, not a panic. `pnpm test src/services/persistence/hotExit` and `cargo test --manifest-path src-tauri/Cargo.toml hot_exit::migration` pass.
 - **Estimate:** 4 h
 - **Mode:** serial-critical
 

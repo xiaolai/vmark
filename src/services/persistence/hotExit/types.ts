@@ -79,6 +79,24 @@ export interface DocumentState {
   undo_history: HistoryCheckpoint[];
   /** Redo history checkpoints (cross-mode redo) - added in v2 */
   redo_history: HistoryCheckpoint[];
+  /**
+   * Per-document editor mode (ADR-009). Optional; older sessions written
+   * before this field existed are restored as "wysiwyg" by the restore path.
+   */
+  mode?: 'wysiwyg' | 'source';
+  /**
+   * Hard-break style detected from file content. Optional; older sessions
+   * restore with the documentStore default ("unknown"), which defers to
+   * detection on next save.
+   */
+  hard_break_style?: 'backslash' | 'twoSpaces' | 'mixed' | 'unknown';
+  /**
+   * Normalized content as it currently exists on disk. Optional. When
+   * absent, the restore path falls back to `saved_content` — workable but
+   * may cause the external-change detector to misfire if the file was
+   * normalized differently from the saved form.
+   */
+  last_disk_content?: string;
 }
 
 /**

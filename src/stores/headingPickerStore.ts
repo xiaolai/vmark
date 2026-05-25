@@ -1,5 +1,5 @@
 /**
- * Heading Picker Store — backward-compat shim (T09).
+ * Heading Picker Store — slice projection of usePopupStore.
  * Routes to popupStore's `headingPicker` slice.
  *
  * @module stores/headingPickerStore

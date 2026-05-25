@@ -10,7 +10,7 @@
  *   - pullWindowStateWithRetry: retry loop for Rust invoke
  *
  * @coordinates-with useHotExitRestore.ts — consumes these helpers
- * @module utils/hotExit/restoreHelpers
+ * @module services/persistence/hotExit/restoreHelpers
  */
 
 import { invoke } from '@tauri-apps/api/core';
@@ -157,8 +157,10 @@ export async function restoreWindowState(windowLabel: string, windowState: Windo
  */
 export function restoreUiState(windowState: WindowState): void {
   const { ui_state } = windowState;
+  // Post-ADR-009: sidebar UI flags AND editor-view flags (sourceMode,
+  // focusMode, typewriterMode) live on a single uiStore. The earlier
+  // duplicate `editorStore = useUIStore.getState()` alias is gone.
   const uiStore = useUIStore.getState();
-  const editorStore = useUIStore.getState();
 
   // Validate sidebar_view_mode before setting
   const viewMode = (ui_state.sidebar_view_mode === 'files' || ui_state.sidebar_view_mode === 'outline' || ui_state.sidebar_view_mode === 'history')
@@ -182,14 +184,14 @@ export function restoreUiState(windowState: WindowState): void {
   uiStore.setStatusBarVisible(ui_state.status_bar_visible);
 
   // Restore view modes
-  if (ui_state.source_mode_enabled !== editorStore.sourceMode) {
-    editorStore.toggleSourceMode();
+  if (ui_state.source_mode_enabled !== uiStore.sourceMode) {
+    uiStore.toggleSourceMode();
   }
-  if (ui_state.focus_mode_enabled !== editorStore.focusModeEnabled) {
-    editorStore.toggleFocusMode();
+  if (ui_state.focus_mode_enabled !== uiStore.focusModeEnabled) {
+    uiStore.toggleFocusMode();
   }
-  if (ui_state.typewriter_mode_enabled !== editorStore.typewriterModeEnabled) {
-    editorStore.toggleTypewriterMode();
+  if (ui_state.typewriter_mode_enabled !== uiStore.typewriterModeEnabled) {
+    uiStore.toggleTypewriterMode();
   }
 
   // Restore terminal visibility and height (if saved)
@@ -237,20 +239,27 @@ export async function restoreTabs(windowLabel: string, windowState: WindowState)
   const tabIdMap = new Map<string, string>();
 
   // Deduplicate tabs by file_path before restoring.
-  // tabStore.createTab deduplicates by file_path, so a second createTab with the same
-  // path returns the first tab's ID — causing restoreDocumentState to overwrite the
-  // first tab's content. We skip later duplicates here to prevent silent data loss.
+  // tabStore.createTab deduplicates by file_path, so a second createTab with
+  // the same path returns the first tab's ID — causing restoreDocumentState
+  // to overwrite the first tab's content. We skip later duplicates here to
+  // prevent silent data loss.
+  //
+  // Compare paths exactly (no case folding). Earlier code lowercased paths
+  // on non-Linux to handle case-insensitive HFS+/APFS/NTFS. That approach
+  // incorrectly merged distinct files on case-sensitive APFS volumes — a
+  // data-availability bug. Exact comparison may produce a duplicate tab on
+  // case-insensitive filesystems (same file opened twice under different
+  // casing), but that is strictly less severe.
   const seenFilePaths = new Set<string>();
   const deduplicatedTabs = meaningfulTabs.filter((tabState) => {
     if (!tabState.file_path) return true; // untitled tabs are never duplicates
-    const normalized = navigator.platform?.includes("Linux") ? tabState.file_path : tabState.file_path.toLowerCase();
-    if (seenFilePaths.has(normalized)) {
+    if (seenFilePaths.has(tabState.file_path)) {
       hotExitWarn(
         `Skipping duplicate tab '${tabState.id}' with file_path '${tabState.file_path}' during restore`
       );
       return false;
     }
-    seenFilePaths.add(normalized);
+    seenFilePaths.add(tabState.file_path);
     return true;
   });
 
@@ -357,13 +366,32 @@ export async function restoreDocumentState(
     ? fromHotExitLineEnding(docState.line_ending)
     : ('unknown' as LineEnding);
 
+  // Validate persisted hardBreakStyle against the documentStore's union.
+  // Pre-existing sessions write this as undefined and fall back to detection.
+  const hardBreakStyle =
+    docState.hard_break_style === 'backslash' ||
+    docState.hard_break_style === 'twoSpaces' ||
+    docState.hard_break_style === 'mixed' ||
+    docState.hard_break_style === 'unknown'
+      ? docState.hard_break_style
+      : undefined;
+
   // Initialize document with saved content first
   documentStore.initDocument(tabId, docState.saved_content, file_path);
 
   // Load saved content with metadata
   documentStore.loadContent(tabId, docState.saved_content, file_path, {
     lineEnding,
+    ...(hardBreakStyle ? { hardBreakStyle } : {}),
   });
+
+  // Restore the actual on-disk snapshot when present. Falling back to
+  // `saved_content` (loadContent's default) is workable but can fool the
+  // external-change detector when the saver normalized line endings or
+  // hard-break style differently from the in-memory saved content.
+  if (typeof docState.last_disk_content === 'string') {
+    documentStore.updateLastDiskContent(tabId, docState.last_disk_content);
+  }
 
   // If dirty, apply current content (different from saved)
   if (docState.is_dirty) {
@@ -379,6 +407,12 @@ export async function restoreDocumentState(
   }
   if (docState.is_read_only) {
     documentStore.setReadOnly(tabId, true);
+  }
+
+  // Restore per-doc mode (ADR-009). Pre-mode-persistence sessions leave
+  // this undefined; the documentStore default ("wysiwyg") then applies.
+  if (docState.mode === 'wysiwyg' || docState.mode === 'source') {
+    documentStore.setMode(tabId, docState.mode);
   }
 
   // Restore cursor info (using shared validation helper)

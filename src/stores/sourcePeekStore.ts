@@ -1,5 +1,5 @@
 /**
- * Source Peek Store — backward-compat shim (T09).
+ * Source Peek Store — slice projection of usePopupStore.
  * Routes to popupStore's `sourcePeek` slice.
  *
  * @module stores/sourcePeekStore

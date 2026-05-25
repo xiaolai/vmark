@@ -158,6 +158,9 @@ function captureDocumentState(
       untitled_number: untitledNumber,
       undo_history: undoHistory,
       redo_history: redoHistory,
+      mode: doc.mode,
+      hard_break_style: doc.hardBreakStyle,
+      last_disk_content: doc.lastDiskContent,
     };
   }
 

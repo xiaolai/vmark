@@ -23,6 +23,11 @@
  *   - sourcePeekStore           → state.sourcePeek
  *   - wikiLinkPopupStore        → state.wikiLinkPopup
  *
+ * Slice TYPE definitions and initial-state objects live in
+ * `./popupStore/slices.ts` so this composition root stays close to the
+ * project's ~300 LOC guideline. Action implementations remain here so
+ * `set` and `get` stay scoped to one factory call.
+ *
  * @module stores/popupStore
  */
 
@@ -32,272 +37,52 @@ import type { HeadingWithId } from "@/utils/headingSlug";
 import type { ImageDimensions } from "@/types/image";
 import type { ImagePathResult } from "@/utils/imagePathDetection";
 import type { GenieScope } from "@/types/aiGenies";
+import {
+  initialBlockMathEditing,
+  initialDropZone,
+  initialFootnotePopup,
+  initialGeniePicker,
+  initialHeadingPicker,
+  initialImageContextMenu,
+  initialImagePasteToast,
+  initialInlineMathEditing,
+  initialLinkCreatePopup,
+  initialLinkPopup,
+  initialMathPopup,
+  initialMediaPopup,
+  initialSourceMathPopup,
+  initialSourcePeek,
+  initialWikiLinkPopup,
+  type BlockMathEditingSlice,
+  type DropZoneSlice,
+  type FootnotePopupSlice,
+  type GeniePickerSlice,
+  type HeadingPickerSlice,
+  type ImageContextMenuSlice,
+  type ImagePasteToastSlice,
+  type InlineMathEditingSlice,
+  type InlineMathEditingCallbacks,
+  type LinkCreatePopupSlice,
+  type LinkPopupSlice,
+  type MathPopupSlice,
+  type MediaPopupSlice,
+  type MediaNodeType,
+  type OnHeadingSelectCallback,
+  type PickerMode,
+  type SourceMathPopupSlice,
+  type SourcePeekRange,
+  type SourcePeekSlice,
+  type WikiLinkPopupSlice,
+} from "./popupStore/slices";
 
-/* ─────────────────────── shared/exported types ───────────────────────── */
-
-export type MediaNodeType = "image" | "block_image" | "block_video" | "block_audio";
-
-export type PickerMode = "search" | "freeform" | "processing" | "preview" | "error";
-
-export interface InlineMathEditingCallbacks {
-  forceExit: () => void;
-  getNodePos: () => number | undefined;
-}
-
-export interface SourcePeekRange {
-  from: number;
-  to: number;
-}
-
-/* ───────────────────────────── slices ────────────────────────────────── */
-
-interface BlockMathEditingSlice {
-  editingPos: number | null;
-  originalContent: string | null;
-}
-const initialBlockMathEditing: BlockMathEditingSlice = {
-  editingPos: null,
-  originalContent: null,
+// Re-export shared types so consumers can keep importing from
+// "@/stores/popupStore" without changes.
+export type {
+  InlineMathEditingCallbacks,
+  MediaNodeType,
+  PickerMode,
+  SourcePeekRange,
 };
-
-interface DropZoneSlice {
-  isDragging: boolean;
-  hasImages: boolean;
-  imageCount: number;
-}
-const initialDropZone: DropZoneSlice = {
-  isDragging: false,
-  hasImages: false,
-  imageCount: 0,
-};
-
-interface FootnotePopupSlice {
-  isOpen: boolean;
-  label: string;
-  content: string;
-  anchorRect: AnchorRect | null;
-  definitionPos: number | null;
-  referencePos: number | null;
-  autoFocus: boolean;
-}
-const initialFootnotePopup: FootnotePopupSlice = {
-  isOpen: false,
-  label: "",
-  content: "",
-  anchorRect: null,
-  definitionPos: null,
-  referencePos: null,
-  autoFocus: false,
-};
-
-interface GeniePickerSlice {
-  isOpen: boolean;
-  filterScope: GenieScope | null;
-  mode: PickerMode;
-  submittedPrompt: string | null;
-  responseText: string;
-  pickerError: string | null;
-}
-const initialGeniePicker: GeniePickerSlice = {
-  isOpen: false,
-  filterScope: null,
-  mode: "search",
-  submittedPrompt: null,
-  responseText: "",
-  pickerError: null,
-};
-
-type OnHeadingSelectCallback = (id: string, text: string) => void;
-interface HeadingPickerSlice {
-  isOpen: boolean;
-  headings: HeadingWithId[];
-  anchorRect: AnchorRect | null;
-  containerBounds: BoundaryRects | null;
-  onSelect: OnHeadingSelectCallback | null;
-}
-const initialHeadingPicker: HeadingPickerSlice = {
-  isOpen: false,
-  headings: [],
-  anchorRect: null,
-  containerBounds: null,
-  onSelect: null,
-};
-
-interface ImageContextMenuSlice {
-  isOpen: boolean;
-  position: { x: number; y: number } | null;
-  imageSrc: string;
-  imageNodePos: number;
-}
-const initialImageContextMenu: ImageContextMenuSlice = {
-  isOpen: false,
-  position: null,
-  imageSrc: "",
-  imageNodePos: -1,
-};
-
-interface ImagePasteToastSlice {
-  isOpen: boolean;
-  imagePath: string;
-  imageType: "url" | "localPath";
-  imagePaths: string[];
-  imageResults: ImagePathResult[];
-  isMultiple: boolean;
-  imageCount: number;
-  anchorRect: AnchorRect | null;
-  editorDom: HTMLElement | null;
-  onConfirm: (() => void) | null;
-  onDismiss: (() => void) | null;
-}
-const initialImagePasteToast: ImagePasteToastSlice = {
-  isOpen: false,
-  imagePath: "",
-  imageType: "url",
-  imagePaths: [],
-  imageResults: [],
-  isMultiple: false,
-  imageCount: 0,
-  anchorRect: null,
-  editorDom: null,
-  onConfirm: null,
-  onDismiss: null,
-};
-
-interface InlineMathEditingSlice {
-  editingNodePos: number | null;
-  activeCallbacks: InlineMathEditingCallbacks | null;
-}
-const initialInlineMathEditing: InlineMathEditingSlice = {
-  editingNodePos: null,
-  activeCallbacks: null,
-};
-
-interface LinkCreatePopupSlice {
-  isOpen: boolean;
-  text: string;
-  url: string;
-  rangeFrom: number;
-  rangeTo: number;
-  anchorRect: AnchorRect | null;
-  showTextInput: boolean;
-}
-const initialLinkCreatePopup: LinkCreatePopupSlice = {
-  isOpen: false,
-  text: "",
-  url: "",
-  rangeFrom: 0,
-  rangeTo: 0,
-  anchorRect: null,
-  showTextInput: true,
-};
-
-interface LinkPopupSlice {
-  isOpen: boolean;
-  href: string;
-  linkFrom: number;
-  linkTo: number;
-  anchorRect: AnchorRect | null;
-}
-const initialLinkPopup: LinkPopupSlice = {
-  isOpen: false,
-  href: "",
-  linkFrom: 0,
-  linkTo: 0,
-  anchorRect: null,
-};
-
-interface MathPopupSlice {
-  isOpen: boolean;
-  anchorRect: AnchorRect | null;
-  latex: string;
-  nodePos: number | null;
-}
-const initialMathPopup: MathPopupSlice = {
-  isOpen: false,
-  anchorRect: null,
-  latex: "",
-  nodePos: null,
-};
-
-interface MediaPopupSlice {
-  isOpen: boolean;
-  mediaSrc: string;
-  mediaAlt: string;
-  mediaTitle: string;
-  mediaNodePos: number;
-  mediaNodeType: MediaNodeType;
-  mediaDimensions: ImageDimensions | null;
-  mediaPoster: string;
-  anchorRect: AnchorRect | null;
-}
-const initialMediaPopup: MediaPopupSlice = {
-  isOpen: false,
-  mediaSrc: "",
-  mediaAlt: "",
-  mediaTitle: "",
-  mediaNodePos: -1,
-  mediaNodeType: "block_video",
-  mediaDimensions: null,
-  mediaPoster: "",
-  anchorRect: null,
-};
-
-interface SourceMathPopupSlice {
-  isOpen: boolean;
-  anchorRect: AnchorRect | null;
-  latex: string;
-  originalLatex: string;
-  mathFrom: number;
-  mathTo: number;
-  isBlock: boolean;
-}
-const initialSourceMathPopup: SourceMathPopupSlice = {
-  isOpen: false,
-  anchorRect: null,
-  latex: "",
-  originalLatex: "",
-  mathFrom: 0,
-  mathTo: 0,
-  isBlock: false,
-};
-
-interface SourcePeekSlice {
-  isOpen: boolean;
-  editingPos: number | null;
-  range: SourcePeekRange | null;
-  markdown: string;
-  originalMarkdown: string | null;
-  livePreview: boolean;
-  parseError: string | null;
-  hasUnsavedChanges: boolean;
-  blockTypeName: string | null;
-}
-const initialSourcePeek: SourcePeekSlice = {
-  isOpen: false,
-  editingPos: null,
-  range: null,
-  markdown: "",
-  originalMarkdown: null,
-  livePreview: false,
-  parseError: null,
-  hasUnsavedChanges: false,
-  blockTypeName: null,
-};
-
-interface WikiLinkPopupSlice {
-  isOpen: boolean;
-  anchorRect: AnchorRect | null;
-  target: string;
-  nodePos: number | null;
-}
-const initialWikiLinkPopup: WikiLinkPopupSlice = {
-  isOpen: false,
-  anchorRect: null,
-  target: "",
-  nodePos: null,
-};
-
-/* ───────────────────────────── store shape ───────────────────────────── */
 
 interface PopupStoreState {
   blockMathEditing: BlockMathEditingSlice;
@@ -469,8 +254,6 @@ interface PopupStoreActions {
 }
 
 export type PopupStore = PopupStoreState & PopupStoreActions;
-
-/* ──────────────────────────── factory ─────────────────────────────────── */
 
 export const usePopupStore = create<PopupStore>((set, get) => ({
   blockMathEditing: initialBlockMathEditing,
