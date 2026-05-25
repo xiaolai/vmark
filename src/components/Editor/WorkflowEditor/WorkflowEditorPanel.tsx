@@ -22,7 +22,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { DiagnosticsBanner } from "./DiagnosticsBanner";
 import { JobForm } from "./JobForm";
 import { StepForm } from "./StepForm";
@@ -30,7 +30,6 @@ import { TriggerForm } from "./TriggerForm";
 import { SaveControls } from "./SaveControls";
 import { PermissionsForm } from "./PermissionsForm";
 import { ConcurrencyForm } from "./ConcurrencyForm";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
 import { applyPreviewPatches } from "@/lib/ghaWorkflow/save/previewIR";
 import "./workflow-editor.css";
 
@@ -46,8 +45,8 @@ export function WorkflowEditorPanel({
   onDiscard,
 }: WorkflowEditorPanelProps): ReactElement | null {
   const { t } = useTranslation("workflowEditor");
-  const selectedJobId = useWorkflowViewStore((s) => s.selectedJobId);
-  const selectedStepId = useWorkflowViewStore((s) => s.selectedStepId);
+  const selectedJobId = useWorkflowStore((s) => s.view.selectedJobId);
+  const selectedStepId = useWorkflowStore((s) => s.view.selectedStepId);
   // Form-generation counter — bumped on Discard so the JobForm /
   // StepForm remount, dropping any locally-typed-but-uncommitted
   // `useState` values. Without this, "Discard" cleared the patch queue
@@ -96,9 +95,9 @@ export function WorkflowEditorPanel({
   // delete, step.insert/delete/move) to the parsed IR so freshly-added
   // entities are visible before save (WI-C0). Non-structural edits
   // are tracked via local React state in the form components. The
-  // useWorkflowEditStore selector keeps this reactive — the panel
+  // useWorkflowStore selector keeps this reactive — the panel
   // re-renders when patches enqueue/dequeue.
-  const pendingPatches = useWorkflowEditStore((s) => s.pendingPatches);
+  const pendingPatches = useWorkflowStore((s) => s.edit.pendingPatches);
   const previewWorkflow = workflow
     ? applyPreviewPatches(workflow, pendingPatches)
     : null;
@@ -170,7 +169,7 @@ interface AddJobControlProps {
 function AddJobControl({ existingIds }: AddJobControlProps): ReactElement {
   const [open, setOpen] = useState(false);
   const [draftId, setDraftId] = useState("");
-  const queue = useWorkflowEditStore((s) => s.queuePatch);
+  const queue = useWorkflowStore((s) => s.queuePatch);
 
   const submit = () => {
     const id = draftId.trim();

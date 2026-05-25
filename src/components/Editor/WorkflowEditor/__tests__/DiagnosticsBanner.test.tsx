@@ -3,12 +3,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { Diagnostic } from "@/lib/ghaWorkflow/types";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { DiagnosticsBanner } from "../DiagnosticsBanner";
 
 beforeEach(() => {
-  useWorkflowViewStore.getState().reset();
+  useWorkflowStore.getState().resetView();
   useActiveEditorStore.setState({
     activeWysiwygEditor: null,
     activeSourceView: null,
@@ -87,7 +87,7 @@ describe("DiagnosticsBanner — interaction", () => {
     );
     const button = screen.getByRole("button", { name: /build references/i });
     fireEvent.click(button);
-    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
+    expect(useWorkflowStore.getState().view.selectedJobId).toBe("build");
   });
 
   it("renders non-clickable for diagnostics without a jobId or position", () => {
@@ -176,7 +176,7 @@ describe("DiagnosticsBanner — interaction", () => {
     fireEvent.click(screen.getByRole("button", { name: /ref unknown/i }));
     // Source jump dispatched, job NOT selected because position won.
     expect(dispatch).toHaveBeenCalled();
-    expect(useWorkflowViewStore.getState().selectedJobId).toBeNull();
+    expect(useWorkflowStore.getState().view.selectedJobId).toBeNull();
   });
 
   it("falls back to jobId when no source view is active", () => {
@@ -195,7 +195,7 @@ describe("DiagnosticsBanner — interaction", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /ref unknown/i }));
-    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
+    expect(useWorkflowStore.getState().view.selectedJobId).toBe("build");
   });
 
   it("collapses to a count chip when there are >5 diagnostics", () => {

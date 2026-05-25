@@ -8,7 +8,7 @@
 import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { ConcurrencyIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import "./workflow-editor.css";
 
 interface ConcurrencyFormProps {
@@ -19,7 +19,7 @@ export function ConcurrencyForm({
   concurrency,
 }: ConcurrencyFormProps): ReactElement {
   const { t } = useTranslation("workflowEditor");
-  const queue = useWorkflowEditStore((s) => s.queuePatch);
+  const queue = useWorkflowStore((s) => s.queuePatch);
   const [group, setGroup] = useState(concurrency?.group ?? "");
   // ConcurrencyIR.cancelInProgress can be boolean OR an expression
   // string (e.g., `${{ github.event_name == 'pull_request' }}`). The

@@ -387,14 +387,14 @@ export function useGenieInvocation() {
             toast.error(i18n.t("dialog:toast.workflowNeedsWorkspace", "Open a workspace first"));
             return;
           }
-          const { useWorkflowPreviewStore } = await import("@/stores/workflowPreviewStore");
+          const { useWorkflowStore } = await import("@/stores/workflowStore");
           const id = await invoke<string>("run_workflow", {
             yaml: genie.template,
             env: {},
             workspaceRoot,
             provider,
           });
-          useWorkflowPreviewStore.getState().setExecution(id);
+          useWorkflowStore.getState().setExecution(id);
           useGeniesStore.getState().addRecent(genie.metadata.name);
         } catch (err) {
           toast.error(String(err));

@@ -9,7 +9,7 @@
  *     No hardcoded colors. Token names: --bg-color, --bg-tertiary,
  *     --border-color, --accent-bg, --accent-primary, --text-color,
  *     --text-secondary, --popup-shadow.
- *   - Click handler routes through useWorkflowViewStore.getState() per
+ *   - Click handler routes through useWorkflowStore.getState() per
  *     AGENTS.md ("prefer useXStore.getState() inside callbacks") so
  *     this component doesn't re-render on every store change.
  *   - Outer container is `<div role="button">` rather than `<button>`
@@ -28,7 +28,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import type { JobIR, StepIR } from "@/lib/ghaWorkflow/types";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { useTranslation } from "react-i18next";
 import "./job-node.css";
@@ -95,7 +95,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
   const data = props.data;
   const job = data.job;
   const isSelected =
-    useWorkflowViewStore((s) => s.selectedJobId) === job.id;
+    useWorkflowStore((s) => s.view.selectedJobId) === job.id;
 
   const [expanded, setExpanded] = useState(false);
 
@@ -105,7 +105,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
   const hasSteps = job.steps.length > 0;
 
   const onActivate = () => {
-    useWorkflowViewStore.getState().selectJob(job.id);
+    useWorkflowStore.getState().selectJob(job.id);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -116,7 +116,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
     }
     if (e.key === "Escape") {
       e.preventDefault();
-      useWorkflowViewStore.getState().clearSelection();
+      useWorkflowStore.getState().clearSelection();
       // Hand focus back to the active source CodeMirror via the
       // activeEditorStore — using a global querySelector picked up
       // the first .cm-editor in the DOM, which in multi-window /

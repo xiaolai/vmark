@@ -10,8 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { JobForm } from "../JobForm";
 
 function makeJob(overrides: Partial<JobIR> = {}): JobIR {
@@ -28,11 +27,8 @@ function makeJob(overrides: Partial<JobIR> = {}): JobIR {
 }
 
 beforeEach(() => {
-  useWorkflowEditStore.setState({
-    pendingPatches: [],
-    preserveYamlFormatting: true,
-  });
-  useWorkflowViewStore.getState().reset();
+  useWorkflowStore.getState().resetEdit();
+  useWorkflowStore.getState().resetView();
 });
 
 afterEach(() => {
@@ -103,7 +99,7 @@ describe("JobForm — edits emit IRPatches", () => {
     const input = screen.getByLabelText(/name/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Build the App" } });
     fireEvent.blur(input);
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches.length).toBe(1);
     expect(patches[0]).toMatchObject({
       kind: "job.set",
@@ -118,7 +114,7 @@ describe("JobForm — edits emit IRPatches", () => {
     const input = screen.getByLabelText(/runs.?on/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "macos-latest" } });
     fireEvent.blur(input);
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches.length).toBe(1);
     expect(patches[0]).toMatchObject({
       kind: "job.set",
@@ -135,7 +131,7 @@ describe("JobForm — edits emit IRPatches", () => {
       target: { value: "self-hosted / linux / x64" },
     });
     fireEvent.blur(input);
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches.length).toBe(1);
     expect(patches[0]).toMatchObject({
       kind: "job.set",
@@ -150,7 +146,7 @@ describe("JobForm — edits emit IRPatches", () => {
     const input = screen.getByLabelText(/condition|^if/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "github.ref == 'refs/heads/main'" } });
     fireEvent.blur(input);
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches.length).toBe(1);
     expect(patches[0]).toMatchObject({
       kind: "job.set",
@@ -164,7 +160,7 @@ describe("JobForm — edits emit IRPatches", () => {
     render(<JobForm job={makeJob({ name: "Build" })} />);
     const input = screen.getByLabelText(/name/i) as HTMLInputElement;
     fireEvent.blur(input); // No change before blur.
-    expect(useWorkflowEditStore.getState().pendingPatches.length).toBe(0);
+    expect(useWorkflowStore.getState().edit.pendingPatches.length).toBe(0);
   });
 });
 
@@ -213,7 +209,7 @@ describe("JobForm — step navigation", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /checkout/i }));
-    const view = useWorkflowViewStore.getState();
+    const view = useWorkflowStore.getState().view;
     expect(view.selectedJobId).toBe("build");
     expect(view.selectedStepId).toBe("checkout");
   });

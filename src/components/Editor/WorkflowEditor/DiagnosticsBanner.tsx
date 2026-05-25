@@ -39,7 +39,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import type { Diagnostic, Severity } from "@/lib/ghaWorkflow/types";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import "./workflow-editor.css";
 
@@ -213,7 +213,7 @@ export function DiagnosticsBanner({
               return;
             }
             if (jobId) {
-              useWorkflowViewStore.getState().selectJob(jobId);
+              useWorkflowStore.getState().selectJob(jobId);
             }
           };
 

@@ -27,8 +27,7 @@ import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import "./workflow-editor.css";
 
 interface JobFormProps {
@@ -42,8 +41,8 @@ export function JobForm({ job }: JobFormProps): ReactElement {
   const [runsOn, setRunsOn] = useState(job.runsOn?.join(" / ") ?? "");
   const [ifCond, setIfCond] = useState(job.if ?? "");
 
-  const queue = useWorkflowEditStore((s) => s.queuePatch);
-  const cancel = useWorkflowEditStore((s) => s.cancelPatchForTarget);
+  const queue = useWorkflowStore((s) => s.queuePatch);
+  const cancel = useWorkflowStore((s) => s.cancelPatchForTarget);
 
   const commitIfChanged = (
     path: string,
@@ -100,7 +99,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
             );
             if (!ok) return;
             queue({ kind: "job.delete", jobId: job.id });
-            useWorkflowViewStore.getState().clearSelection();
+            useWorkflowStore.getState().clearSelection();
           }}
           aria-label={t("form.job.delete.label", {
             defaultValue: "Delete job",
@@ -216,7 +215,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
                     type="button"
                     className="workflow-form__step-row"
                     onClick={() =>
-                      useWorkflowViewStore.getState().selectStep(job.id, step.id)
+                      useWorkflowStore.getState().selectStep(job.id, step.id)
                     }
                   >
                     <span className="workflow-form__step-row-label">

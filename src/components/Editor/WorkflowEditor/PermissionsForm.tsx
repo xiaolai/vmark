@@ -21,7 +21,7 @@ import {
   camelToKebab,
   kebabToCamel,
 } from "@/lib/ghaWorkflow/permissions/scopes";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import "./workflow-editor.css";
 
 interface PermissionsFormProps {
@@ -44,7 +44,7 @@ export function PermissionsForm({
   permissions,
 }: PermissionsFormProps): ReactElement {
   const { t } = useTranslation("workflowEditor");
-  const queue = useWorkflowEditStore((s) => s.queuePatch);
+  const queue = useWorkflowStore((s) => s.queuePatch);
   const [mode, setMode] = useState<PresetMode>(() =>
     permissionsToMode(permissions),
   );

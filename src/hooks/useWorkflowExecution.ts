@@ -23,10 +23,9 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { useAiProviderStore } from "@/stores/aiProviderStore";
 import {
-  useWorkflowApprovalStore,
+  useWorkflowStore,
   type ApprovalRequestPayload,
-} from "@/stores/workflowApprovalStore";
-import { useWorkflowPreviewStore } from "@/stores/workflowPreviewStore";
+} from "@/stores/workflowStore";
 
 interface StepUpdateEvent {
   executionId: string;
@@ -57,15 +56,14 @@ export function useWorkflowExecution() {
   const subscribeOnce = useCallback(async () => {
     if (unlistenersRef.current.length > 0) return;
 
-    const previewStore = useWorkflowPreviewStore;
-    const approvalStore = useWorkflowApprovalStore;
+    const store = useWorkflowStore;
 
     const stepUnlisten = await listen<StepUpdateEvent>(
       "workflow:step-update",
       (e) => {
-        const current = previewStore.getState().executionId;
+        const current = store.getState().preview.executionId;
         if (current && e.payload.executionId !== current) return;
-        previewStore.getState().setStepStatus(e.payload.stepId, {
+        store.getState().setStepStatus(e.payload.stepId, {
           status: e.payload.status,
           output: e.payload.output,
           error: e.payload.error,
@@ -77,14 +75,14 @@ export function useWorkflowExecution() {
     const completeUnlisten = await listen<CompleteEvent>(
       "workflow:complete",
       (e) => {
-        const current = previewStore.getState().executionId;
+        const current = store.getState().preview.executionId;
         if (current && e.payload.executionId !== current) return;
-        previewStore.getState().setExecution(null);
+        store.getState().setExecution(null);
         // Dismiss any pending approval dialog — once the workflow is over
         // the user shouldn't be prompted for a step that no longer matters.
-        const pending = approvalStore.getState().pending;
+        const pending = store.getState().approval.pending;
         if (pending && pending.executionId === e.payload.executionId) {
-          approvalStore.getState().dismiss();
+          store.getState().dismissApproval();
         }
       },
     );
@@ -92,9 +90,9 @@ export function useWorkflowExecution() {
     const approvalUnlisten = await listen<ApprovalRequestPayload>(
       "workflow:approval-request",
       (e) => {
-        const current = previewStore.getState().executionId;
+        const current = store.getState().preview.executionId;
         if (current && e.payload.executionId !== current) return;
-        approvalStore.getState().enqueue(e.payload);
+        store.getState().enqueueApproval(e.payload);
       },
     );
 
@@ -143,7 +141,7 @@ export function useWorkflowExecution() {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    useWorkflowPreviewStore.getState().setExecution(id);
+    useWorkflowStore.getState().setExecution(id);
 
     try {
       const returnedId = await invoke<string>("run_workflow", {
@@ -158,13 +156,13 @@ export function useWorkflowExecution() {
       // invoke() rejected (concurrency guard, parse error, missing workspace).
       // Roll the store back so the UI doesn't show a fake "running" state
       // until the next workflow starts. Re-throw so the caller can surface it.
-      useWorkflowPreviewStore.getState().setExecution(null);
+      useWorkflowStore.getState().setExecution(null);
       throw err;
     }
   }, []);
 
   const cancel = useCallback(async () => {
-    const id = useWorkflowPreviewStore.getState().executionId;
+    const id = useWorkflowStore.getState().preview.executionId;
     if (!id) return;
     await invoke("cancel_workflow", { executionId: id });
   }, []);

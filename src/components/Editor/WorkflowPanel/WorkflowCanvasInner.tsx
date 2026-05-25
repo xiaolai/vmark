@@ -37,7 +37,7 @@ import "@xyflow/react/dist/style.css";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { toGraph, type JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { applyLayout } from "@/lib/ghaWorkflow/render/layout";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { JobNode } from "./JobNode";
 
 // Cross-validator audit round 2 fix: with JobNode now typed as
@@ -52,7 +52,7 @@ interface WorkflowCanvasInnerProps {
 }
 
 function CanvasInner({ workflow }: WorkflowCanvasInnerProps): ReactElement {
-  const direction = useWorkflowViewStore((s) => s.layoutDirection);
+  const direction = useWorkflowStore((s) => s.view.layoutDirection);
 
   const { nodes, edges } = useMemo(() => {
     const graph = toGraph(workflow);
@@ -60,7 +60,7 @@ function CanvasInner({ workflow }: WorkflowCanvasInnerProps): ReactElement {
   }, [workflow, direction]);
 
   const onPaneClick = useCallback(() => {
-    useWorkflowViewStore.getState().clearSelection();
+    useWorkflowStore.getState().clearSelection();
   }, []);
 
   return (

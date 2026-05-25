@@ -28,7 +28,7 @@ import {
   completeAtPosition,
   type CompletionItem,
 } from "@/lib/ghaWorkflow/completion/expressionCompletion";
-import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 
 /**
@@ -92,7 +92,7 @@ function toCmCompletion(item: CompletionItem): Completion {
 export function workflowCompletionSource(
   context: CompletionContext,
 ): CompletionResult | null {
-  const { workflow } = useGhaWorkflowPanelStore.getState();
+  const { workflow } = useWorkflowStore.getState().gha;
   if (!workflow) return null;
 
   const text = context.state.doc.toString();

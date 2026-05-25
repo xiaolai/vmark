@@ -4,14 +4,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, cleanup } from "@testing-library/react";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { SaveControls } from "../SaveControls";
 
 beforeEach(() => {
-  useWorkflowEditStore.setState({
-    pendingPatches: [],
-    preserveYamlFormatting: true,
-  });
+  useWorkflowStore.getState().resetEdit();
 });
 
 afterEach(() => {
@@ -36,13 +33,13 @@ describe("SaveControls — clean state", () => {
 
 describe("SaveControls — dirty state", () => {
   it("enables both buttons and shows count when patches exist", () => {
-    useWorkflowEditStore.getState().queuePatch({
+    useWorkflowStore.getState().queuePatch({
       kind: "workflow.set",
       path: "name",
       value: "x",
     });
     // Distinct target so dedup doesn't collapse them.
-    useWorkflowEditStore.getState().queuePatch({
+    useWorkflowStore.getState().queuePatch({
       kind: "workflow.set",
       path: "run-name",
       value: "y",
@@ -57,7 +54,7 @@ describe("SaveControls — dirty state", () => {
 
   it("calls onSave when Save is clicked", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
-    useWorkflowEditStore.getState().queuePatch({
+    useWorkflowStore.getState().queuePatch({
       kind: "workflow.set",
       path: "name",
       value: "x",
@@ -71,7 +68,7 @@ describe("SaveControls — dirty state", () => {
 
   it("calls onDiscard and clearPatches when Discard is clicked", () => {
     const onDiscard = vi.fn();
-    useWorkflowEditStore.getState().queuePatch({
+    useWorkflowStore.getState().queuePatch({
       kind: "workflow.set",
       path: "name",
       value: "x",
@@ -79,6 +76,6 @@ describe("SaveControls — dirty state", () => {
     render(<SaveControls onSave={async () => {}} onDiscard={onDiscard} />);
     fireEvent.click(screen.getByRole("button", { name: /discard/i }));
     expect(onDiscard).toHaveBeenCalled();
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([]);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
   });
 });

@@ -2,14 +2,11 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { PermissionsForm } from "../PermissionsForm";
 
 beforeEach(() => {
-  useWorkflowEditStore.setState({
-    pendingPatches: [],
-    preserveYamlFormatting: true,
-  });
+  useWorkflowStore.getState().resetEdit();
 });
 
 describe("PermissionsForm", () => {
@@ -30,7 +27,7 @@ describe("PermissionsForm", () => {
     fireEvent.change(screen.getByRole("combobox"), {
       target: { value: "write-all" },
     });
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches).toContainEqual({
       kind: "workflow.permissions.set",
       value: "write-all",
@@ -59,7 +56,7 @@ describe("PermissionsForm", () => {
       (s.parentElement?.textContent ?? "").includes("issues"),
     );
     fireEvent.change(issuesScope!, { target: { value: "write" } });
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches).toContainEqual({
       kind: "workflow.permissions.set",
       value: { contents: "read", issues: "write" },

@@ -22,10 +22,7 @@
 
 import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  selectWorkflowEditDirty,
-  useWorkflowEditStore,
-} from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import "./workflow-editor.css";
 
 interface SaveControlsProps {
@@ -39,14 +36,9 @@ export function SaveControls({
 }: SaveControlsProps): ReactElement {
   const { t } = useTranslation("workflowEditor");
 
-  const patches = useWorkflowEditStore((s) => s.pendingPatches);
-  const clear = useWorkflowEditStore((s) => s.clearPatches);
-  const dirty = selectWorkflowEditDirty({
-    pendingPatches: patches,
-    preserveYamlFormatting: true,
-    boundDocumentId: null,
-    patchesByDocument: {},
-  });
+  const patches = useWorkflowStore((s) => s.edit.pendingPatches);
+  const clear = useWorkflowStore((s) => s.clearPatches);
+  const dirty = patches.length > 0;
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (): Promise<void> => {

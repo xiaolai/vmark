@@ -15,7 +15,7 @@ import { ReactFlowProvider, type NodeProps, type Node } from "@xyflow/react";
 import type { ReactElement } from "react";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { JobNode } from "../JobNode";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 
 // JobNode now uses @xyflow/react's <Handle> for edge attachment, which
 // requires a ReactFlowProvider ancestor (xyflow's internal zustand
@@ -58,7 +58,7 @@ function makeNode(
 
 describe("JobNode", () => {
   beforeEach(() => {
-    useWorkflowViewStore.getState().reset();
+    useWorkflowStore.getState().resetView();
   });
 
   it("renders the job id when no name is set", () => {
@@ -110,12 +110,12 @@ describe("JobNode", () => {
 
   it("calls selectJob on click via the store", () => {
     const node = makeNode();
-    const spy = vi.spyOn(useWorkflowViewStore.getState(), "selectJob");
+    const spy = vi.spyOn(useWorkflowStore.getState(), "selectJob");
     render(<JobNode {...node} />);
     fireEvent.click(screen.getAllByRole("button")[0]);
     // Note: spy may not capture if the store action is destructured
     // from a frozen snapshot — verify via state instead.
-    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
+    expect(useWorkflowStore.getState().view.selectedJobId).toBe("build");
     spy.mockRestore();
   });
 
@@ -125,11 +125,11 @@ describe("JobNode", () => {
     const btn = screen.getAllByRole("button")[0];
     btn.focus();
     fireEvent.keyDown(btn, { key: "Enter" });
-    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
+    expect(useWorkflowStore.getState().view.selectedJobId).toBe("build");
   });
 
   it("applies aria-pressed when this node is selected", () => {
-    useWorkflowViewStore.getState().selectJob("build");
+    useWorkflowStore.getState().selectJob("build");
     const node = makeNode();
     render(<JobNode {...node} />);
     expect(screen.getAllByRole("button")[0].getAttribute("aria-pressed")).toBe(
@@ -229,7 +229,7 @@ describe("JobNode", () => {
     });
 
     it("expand chevron does not select the job (stops propagation)", () => {
-      useWorkflowViewStore.setState({ selectedJobId: null });
+      useWorkflowStore.setState((s) => ({ view: { ...s.view, selectedJobId: null } }));
       const node = makeNode(
         {},
         {
@@ -248,7 +248,7 @@ describe("JobNode", () => {
         .getAllByRole("button")
         .find((b) => b.className.includes("gha-job-node__expand"))!;
       fireEvent.click(expandBtn);
-      expect(useWorkflowViewStore.getState().selectedJobId).toBeNull();
+      expect(useWorkflowStore.getState().view.selectedJobId).toBeNull();
     });
 
     it("step preview prefers name, then uses, then run", () => {
@@ -292,13 +292,13 @@ describe("JobNode", () => {
 
   describe("keyboard — Escape clears selection", () => {
     it("clears selection when Escape is pressed on a focused node", () => {
-      useWorkflowViewStore.getState().selectJob("build");
+      useWorkflowStore.getState().selectJob("build");
       const node = makeNode();
       render(<JobNode {...node} />);
       const btn = screen.getAllByRole("button")[0];
       btn.focus();
       fireEvent.keyDown(btn, { key: "Escape" });
-      expect(useWorkflowViewStore.getState().selectedJobId).toBeNull();
+      expect(useWorkflowStore.getState().view.selectedJobId).toBeNull();
     });
   });
 });

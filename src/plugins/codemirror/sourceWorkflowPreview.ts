@@ -11,7 +11,7 @@
  */
 
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
-import { useWorkflowPreviewStore } from "@/stores/workflowPreviewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { parseWorkflow, isWorkflowYaml, WorkflowParseError, WorkflowValidationError } from "@/lib/workflow/parser";
 import { workflowLog, workflowWarn } from "@/utils/debug";
 
@@ -42,26 +42,26 @@ class SourceWorkflowPreviewPlugin {
 
   private parseAndUpdate(content: string) {
     if (!isWorkflowYaml(content)) {
-      useWorkflowPreviewStore.getState().setGraph(null);
-      useWorkflowPreviewStore.getState().closePanel();
+      useWorkflowStore.getState().setGraph(null);
+      useWorkflowStore.getState().previewClosePanel();
       return;
     }
 
     try {
       const graph = parseWorkflow(content);
       workflowLog("Parsed workflow:", graph.name, `(${graph.steps.length} steps)`);
-      useWorkflowPreviewStore.getState().setGraph(graph);
+      useWorkflowStore.getState().setGraph(graph);
       // Auto-open the panel if a valid workflow is detected
-      if (!useWorkflowPreviewStore.getState().panelOpen) {
-        useWorkflowPreviewStore.getState().openPanel();
+      if (!useWorkflowStore.getState().preview.panelOpen) {
+        useWorkflowStore.getState().previewOpenPanel();
       }
     } catch (e) {
       if (e instanceof WorkflowParseError || e instanceof WorkflowValidationError) {
         workflowWarn("Workflow parse error:", e.message);
-        useWorkflowPreviewStore.getState().setGraph(null, e.message);
+        useWorkflowStore.getState().setGraph(null, e.message);
       } else {
         workflowWarn("Unexpected parse error:", e instanceof Error ? e.message : String(e));
-        useWorkflowPreviewStore.getState().setGraph(
+        useWorkflowStore.getState().setGraph(
           null,
           e instanceof Error ? e.message : String(e),
         );
@@ -72,7 +72,7 @@ class SourceWorkflowPreviewPlugin {
   destroy() {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     // Reset store when leaving the workflow file
-    useWorkflowPreviewStore.getState().reset();
+    useWorkflowStore.getState().resetPreview();
   }
 }
 

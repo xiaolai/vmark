@@ -27,8 +27,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, ArrowUp } from "lucide-react";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { useActionMetadata } from "./useActionMetadata";
 import { ExpressionEditor } from "./ExpressionEditor";
 import "./workflow-editor.css";
@@ -79,10 +78,10 @@ export function StepForm({
 
   const goToStep = (stepId: string | null): void => {
     if (!stepId) return;
-    useWorkflowViewStore.getState().selectStep(jobId, stepId);
+    useWorkflowStore.getState().selectStep(jobId, stepId);
   };
   const backToJob = (): void => {
-    useWorkflowViewStore.getState().selectJob(jobId);
+    useWorkflowStore.getState().selectJob(jobId);
   };
 
   // Refs the parent uses to restore focus after a step→step navigation
@@ -134,7 +133,7 @@ export function StepForm({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // jobId is captured into goToStep via useWorkflowViewStore.getState();
+    // jobId is captured into goToStep via useWorkflowStore.getState();
     // we only need to refresh the listener when prev/next change.
   }, [prevStepId, nextStepId]);
 
@@ -145,8 +144,8 @@ export function StepForm({
   const [withRows, setWithRows] = useState<WithRow[]>(withRowsFromStep(step));
   const [expand, setExpand] = useState<ExpandTarget>(null);
 
-  const queue = useWorkflowEditStore((s) => s.queuePatch);
-  const cancel = useWorkflowEditStore((s) => s.cancelPatchForTarget);
+  const queue = useWorkflowStore((s) => s.queuePatch);
+  const cancel = useWorkflowStore((s) => s.cancelPatchForTarget);
 
   const handleExpandSave = (value: string): void => {
     if (!expand) return;

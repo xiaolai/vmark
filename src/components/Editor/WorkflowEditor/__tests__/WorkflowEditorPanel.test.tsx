@@ -9,8 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { WorkflowEditorPanel } from "../WorkflowEditorPanel";
 
 function makeWorkflow(): WorkflowIR {
@@ -53,11 +52,8 @@ function makeWorkflow(): WorkflowIR {
 }
 
 beforeEach(() => {
-  useWorkflowViewStore.getState().reset();
-  useWorkflowEditStore.setState({
-    pendingPatches: [],
-    preserveYamlFormatting: true,
-  });
+  useWorkflowStore.getState().resetView();
+  useWorkflowStore.getState().resetEdit();
 });
 
 afterEach(() => {
@@ -79,7 +75,7 @@ describe("WorkflowEditorPanel", () => {
   });
 
   it("renders the JobForm for the selected job", () => {
-    useWorkflowViewStore.getState().selectJob("build");
+    useWorkflowStore.getState().selectJob("build");
     render(
       <WorkflowEditorPanel
         workflow={makeWorkflow()}
@@ -92,7 +88,7 @@ describe("WorkflowEditorPanel", () => {
   });
 
   it("renders the StepForm for the selected step", () => {
-    useWorkflowViewStore.getState().selectStep("build", "test");
+    useWorkflowStore.getState().selectStep("build", "test");
     render(
       <WorkflowEditorPanel
         workflow={makeWorkflow()}
@@ -130,7 +126,7 @@ describe("WorkflowEditorPanel", () => {
   });
 
   it("Discard remounts the active form so mid-edit useState values reset (audit fix for WI-7.2)", () => {
-    useWorkflowViewStore.getState().selectJob("build");
+    useWorkflowStore.getState().selectJob("build");
     let discardCalled = false;
     const view = render(
       <WorkflowEditorPanel
@@ -148,7 +144,7 @@ describe("WorkflowEditorPanel", () => {
     });
     expect(nameInput.value).toBe("TYPED-BUT-UNCOMMITTED");
     // Queue a patch so the Discard button is enabled.
-    useWorkflowEditStore.getState().queuePatch({
+    useWorkflowStore.getState().queuePatch({
       kind: "workflow.set",
       path: "name",
       value: "x",
@@ -187,7 +183,7 @@ describe("WorkflowEditorPanel", () => {
         },
       ],
     };
-    useWorkflowViewStore.getState().selectJob("build");
+    useWorkflowStore.getState().selectJob("build");
     const view = render(
       <WorkflowEditorPanel
         workflow={wf}
@@ -199,7 +195,7 @@ describe("WorkflowEditorPanel", () => {
     nameInput.value = "TYPED-BUT-UNCOMMITTED";
     // Now switch selection. The form must remount and show "Deploy", not
     // the typed value, and not "Build".
-    useWorkflowViewStore.getState().selectJob("deploy");
+    useWorkflowStore.getState().selectJob("deploy");
     view.rerender(
       <WorkflowEditorPanel
         workflow={wf}
@@ -213,7 +209,7 @@ describe("WorkflowEditorPanel", () => {
 
   describe("focus restoration on step navigation", () => {
     it("focuses Next button after step→step transition", async () => {
-      useWorkflowViewStore.getState().selectStep("build", "checkout");
+      useWorkflowStore.getState().selectStep("build", "checkout");
       render(
         <WorkflowEditorPanel
           workflow={makeWorkflow()}
@@ -223,7 +219,7 @@ describe("WorkflowEditorPanel", () => {
       );
       // Trigger step→step nav. The effect inside the panel observes the
       // stepId transition and schedules a focus via requestAnimationFrame.
-      useWorkflowViewStore.getState().selectStep("build", "test");
+      useWorkflowStore.getState().selectStep("build", "test");
       await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
       // After nav, Back-to-job should be focused (Next disabled at last step,
       // Prev points back to previous step which IS available — so Prev or Back).
@@ -242,7 +238,7 @@ describe("WorkflowEditorPanel", () => {
       // Initial mount with NO step selected — body is the active element.
       // Now select a step for the first time. Should NOT trigger auto-focus.
       const focusedBefore = document.activeElement;
-      useWorkflowViewStore.getState().selectStep("build", "checkout");
+      useWorkflowStore.getState().selectStep("build", "checkout");
       await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
       // No nav button should have been focused.
       const focused = document.activeElement;

@@ -8,14 +8,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { TriggerIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { TriggerForm } from "../TriggerForm";
 
 beforeEach(() => {
-  useWorkflowEditStore.setState({
-    pendingPatches: [],
-    preserveYamlFormatting: true,
-  });
+  useWorkflowStore.getState().resetEdit();
 });
 
 afterEach(() => {
@@ -91,7 +88,7 @@ describe("TriggerForm — editing", () => {
     const input = screen.getByDisplayValue("main") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "main, develop, release/*" } });
     fireEvent.blur(input);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       {
         kind: "trigger.setFilters",
         event: "push",
@@ -108,7 +105,7 @@ describe("TriggerForm — editing", () => {
     const input = screen.getByDisplayValue("src/**") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.blur(input);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       {
         kind: "trigger.setFilters",
         event: "push",
@@ -126,7 +123,7 @@ describe("TriggerForm — editing", () => {
     );
     const input = screen.getByDisplayValue("main, develop") as HTMLInputElement;
     fireEvent.blur(input); // No change before blur.
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([]);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
   });
 
   it("emits patches for each filter family independently", () => {
@@ -147,7 +144,7 @@ describe("TriggerForm — editing", () => {
     fireEvent.blur(branches);
     fireEvent.change(types, { target: { value: "opened, synchronize" } });
     fireEvent.blur(types);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       {
         kind: "trigger.setFilters",
         event: "pull_request",

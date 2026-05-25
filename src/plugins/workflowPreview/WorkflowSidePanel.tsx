@@ -15,7 +15,7 @@
 import { useCallback, useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useWorkflowPreviewStore } from "@/stores/workflowPreviewStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -30,12 +30,12 @@ const DEFAULT_PANEL_WIDTH = 400;
 
 export function WorkflowSidePanel() {
   const { t } = useTranslation();
-  const panelOpen = useWorkflowPreviewStore((s) => s.panelOpen);
-  const graph = useWorkflowPreviewStore((s) => s.graph);
-  const parseError = useWorkflowPreviewStore((s) => s.parseError);
-  const activeStepId = useWorkflowPreviewStore((s) => s.activeStepId);
-  const stepStatuses = useWorkflowPreviewStore((s) => s.stepStatuses);
-  const executionId = useWorkflowPreviewStore((s) => s.executionId);
+  const panelOpen = useWorkflowStore((s) => s.preview.panelOpen);
+  const graph = useWorkflowStore((s) => s.preview.graph);
+  const parseError = useWorkflowStore((s) => s.preview.parseError);
+  const activeStepId = useWorkflowStore((s) => s.preview.activeStepId);
+  const stepStatuses = useWorkflowStore((s) => s.preview.stepStatuses);
+  const executionId = useWorkflowStore((s) => s.preview.executionId);
   const { start, cancel } = useWorkflowExecution();
 
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
@@ -61,7 +61,7 @@ export function WorkflowSidePanel() {
   useEffect(() => cleanup, [cleanup]);
 
   const handleNodeClick = useCallback((stepId: string, _yamlLine?: number) => {
-    useWorkflowPreviewStore.getState().setActiveStepId(stepId);
+    useWorkflowStore.getState().setActiveStepId(stepId);
   }, []);
 
   const handleRun = useCallback(async () => {

@@ -1,6 +1,6 @@
 /**
  * Purpose: Persistent side panel for standalone GitHub Actions workflow
- *   `.yml` files. Reads from `useGhaWorkflowPanelStore` (populated by the
+ *   `.yml` files. Reads from `useWorkflowStore.gha` (populated by the
  *   sourceGhaWorkflowPreview CodeMirror plugin) and mounts the
  *   interactive @xyflow/react canvas.
  *
@@ -31,11 +31,10 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useWorkflowViewStore } from "@/stores/workflowViewStore";
 import { WindowContext } from "@/contexts/WindowContext";
 import { useTranslation } from "react-i18next";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -60,9 +59,9 @@ const FALLBACK_PANEL_WIDTH = 480;
 
 export function GhaWorkflowSidePanel(): ReactElement | null {
   const { t } = useTranslation();
-  const panelOpen = useGhaWorkflowPanelStore((s) => s.panelOpen);
-  const workflow = useGhaWorkflowPanelStore((s) => s.workflow);
-  const parseError = useGhaWorkflowPanelStore((s) => s.parseError);
+  const panelOpen = useWorkflowStore((s) => s.gha.panelOpen);
+  const workflow = useWorkflowStore((s) => s.gha.workflow);
+  const parseError = useWorkflowStore((s) => s.gha.parseError);
 
   const [panelWidth, setPanelWidth] = useState(FALLBACK_PANEL_WIDTH);
   /**
@@ -180,24 +179,12 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     if (!tabId) return;
     const doc = useDocumentStore.getState().documents[tabId];
     const docId = doc?.filePath ?? `untitled:${tabId}`;
-    void import("@/stores/workflowEditStore")
-      .then(({ useWorkflowEditStore }) => {
-        const editStore = useWorkflowEditStore.getState();
-        const previousId = editStore.boundDocumentId;
-        editStore.bindToDocument(docId);
-        // When the bound document changes, reset the view-store
-        // selection too so common ids like "build"/"test" don't carry
-        // selection from the previous workflow into the new one
-        // (Codex round 5: workflowViewStore globals leak across docs).
-        if (previousId !== docId) {
-          useWorkflowViewStore.getState().reset();
-        }
-      })
-      .catch(() => {
-        // Chunk load failed (offline cache eviction, hash drift after
-        // deploy). The panel still works for read; bind retries on
-        // next render (footgun audit: unhandled rejection risk).
-      });
+    const store = useWorkflowStore.getState();
+    const previousId = store.edit.boundDocumentId;
+    store.bindToDocument(docId);
+    if (previousId !== docId) {
+      useWorkflowStore.getState().resetView();
+    }
   }, [panelOpen, workflow, windowCtx]);
 
   const handleSave = useCallback(async (): Promise<void> => {
@@ -211,12 +198,9 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     // Lazy-imports keep the yaml package + mutators + saveToPath out of
     // the eager App bundle. Forms-editor users pay the cost; viewers
     // never load these modules.
-    const [{ useWorkflowEditStore }, { saveToPath }] = await Promise.all([
-      import("@/stores/workflowEditStore"),
-      import("@/services/persistence/saveToPath"),
-    ]);
-    const editStore = useWorkflowEditStore.getState();
-    if (editStore.pendingPatches.length === 0) return;
+    const { saveToPath } = await import("@/services/persistence/saveToPath");
+    const editStore = useWorkflowStore.getState();
+    if (editStore.edit.pendingPatches.length === 0) return;
     try {
       const next = editStore.applyAndSerialize(tabDoc.content);
       if (tabDoc.filePath) {

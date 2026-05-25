@@ -22,7 +22,7 @@
 import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { TriggerIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import type { TriggerFilter } from "@/lib/ghaWorkflow/save/mutators";
 import {
   cronToReadable,
@@ -85,8 +85,8 @@ function FilterField({
   label,
 }: FilterFieldProps): ReactElement {
   const [value, setValue] = useState(current.join(", "));
-  const queue = useWorkflowEditStore((s) => s.queuePatch);
-  const cancel = useWorkflowEditStore((s) => s.cancelPatchForTarget);
+  const queue = useWorkflowStore((s) => s.queuePatch);
+  const cancel = useWorkflowStore((s) => s.cancelPatchForTarget);
 
   const commit = (): void => {
     const next = parseList(value);

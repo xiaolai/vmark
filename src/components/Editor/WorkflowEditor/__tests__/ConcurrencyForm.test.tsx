@@ -2,14 +2,11 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { ConcurrencyForm } from "../ConcurrencyForm";
 
 beforeEach(() => {
-  useWorkflowEditStore.setState({
-    pendingPatches: [],
-    preserveYamlFormatting: true,
-  });
+  useWorkflowStore.getState().resetEdit();
 });
 
 describe("ConcurrencyForm", () => {
@@ -32,7 +29,7 @@ describe("ConcurrencyForm", () => {
     const groupInput = screen.getByPlaceholderText(/github\.ref/);
     fireEvent.change(groupInput, { target: { value: "" } });
     fireEvent.blur(groupInput);
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches).toContainEqual({
       kind: "workflow.concurrency.set",
       value: null,
@@ -44,7 +41,7 @@ describe("ConcurrencyForm", () => {
     const groupInput = screen.getByPlaceholderText(/github\.ref/);
     fireEvent.change(groupInput, { target: { value: "deploy" } });
     fireEvent.blur(groupInput);
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     expect(patches).toContainEqual({
       kind: "workflow.concurrency.set",
       value: "deploy",
@@ -59,7 +56,7 @@ describe("ConcurrencyForm", () => {
     );
     const checkbox = screen.getByRole("checkbox");
     fireEvent.click(checkbox);
-    const patches = useWorkflowEditStore.getState().pendingPatches;
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
     const last = patches[patches.length - 1];
     expect(last).toEqual({
       kind: "workflow.concurrency.set",

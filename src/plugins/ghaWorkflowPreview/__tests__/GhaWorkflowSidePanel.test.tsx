@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { GhaWorkflowSidePanel } from "../GhaWorkflowSidePanel";
-import { useGhaWorkflowPanelStore } from "@/stores/ghaWorkflowPanelStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 
 beforeEach(() => {
   // jsdom shims required by @xyflow/react under WorkflowCanvas.
@@ -27,7 +27,7 @@ beforeEach(() => {
       dispatchEvent: vi.fn(),
     }),
   });
-  useGhaWorkflowPanelStore.getState().reset();
+  useWorkflowStore.getState().resetGha();
 });
 
 afterEach(() => {
@@ -57,7 +57,7 @@ describe("GhaWorkflowSidePanel", () => {
   });
 
   it("renders an empty-state container when panel is open but no IR is set", () => {
-    useGhaWorkflowPanelStore.getState().openPanel();
+    useWorkflowStore.getState().ghaOpenPanel();
     const { container } = render(<GhaWorkflowSidePanel />);
     expect(screen.getByRole("complementary")).toBeDefined();
     // Empty-state placeholder uses a known class; i18n key resolution
@@ -68,27 +68,27 @@ describe("GhaWorkflowSidePanel", () => {
   });
 
   it("renders the parse-error banner when parseError is set", () => {
-    useGhaWorkflowPanelStore.getState().openPanel();
-    useGhaWorkflowPanelStore
+    useWorkflowStore.getState().ghaOpenPanel();
+    useWorkflowStore
       .getState()
-      .setWorkflow(null, "Invalid YAML at line 5");
+      .setGhaWorkflow(null, "Invalid YAML at line 5");
     render(<GhaWorkflowSidePanel />);
     expect(screen.getByText(/Invalid YAML at line 5/)).toBeDefined();
   });
 
   it("renders the canvas when an IR is set", () => {
-    useGhaWorkflowPanelStore.getState().openPanel();
-    useGhaWorkflowPanelStore.getState().setWorkflow(sampleIr());
+    useWorkflowStore.getState().ghaOpenPanel();
+    useWorkflowStore.getState().setGhaWorkflow(sampleIr());
     render(<GhaWorkflowSidePanel />);
     expect(screen.getByRole("complementary")).toBeDefined();
   });
 
   it("returns to closed when panel is toggled off", () => {
-    useGhaWorkflowPanelStore.getState().openPanel();
-    useGhaWorkflowPanelStore.getState().setWorkflow(sampleIr());
+    useWorkflowStore.getState().ghaOpenPanel();
+    useWorkflowStore.getState().setGhaWorkflow(sampleIr());
     const { rerender, container } = render(<GhaWorkflowSidePanel />);
     expect(container.firstChild).not.toBeNull();
-    useGhaWorkflowPanelStore.getState().closePanel();
+    useWorkflowStore.getState().ghaClosePanel();
     rerender(<GhaWorkflowSidePanel />);
     expect(container.firstChild).toBeNull();
   });
@@ -101,8 +101,8 @@ describe("GhaWorkflowSidePanel", () => {
     // SET to a positive pixel value rather than asserting an exact
     // 50% — the precise value depends on environment, but the
     // contract is "this CSS var exists and is non-empty".
-    useGhaWorkflowPanelStore.getState().openPanel();
-    useGhaWorkflowPanelStore.getState().setWorkflow(sampleIr());
+    useWorkflowStore.getState().ghaOpenPanel();
+    useWorkflowStore.getState().setGhaWorkflow(sampleIr());
     const { container } = render(<GhaWorkflowSidePanel />);
     const panel = container.querySelector(".gha-workflow-side-panel");
     const parent = panel?.parentElement as HTMLElement | null;
@@ -117,8 +117,8 @@ describe("GhaWorkflowSidePanel", () => {
     // userResizedRef.current = true on the first delta. After that,
     // closing and reopening the panel must preserve the user's width
     // (no auto-50% reset).
-    useGhaWorkflowPanelStore.getState().openPanel();
-    useGhaWorkflowPanelStore.getState().setWorkflow(sampleIr());
+    useWorkflowStore.getState().ghaOpenPanel();
+    useWorkflowStore.getState().setGhaWorkflow(sampleIr());
     const { container, rerender } = render(<GhaWorkflowSidePanel />);
     const handle = container.querySelector(
       ".gha-workflow-side-panel__resize-handle",
@@ -138,9 +138,9 @@ describe("GhaWorkflowSidePanel", () => {
     const parent = handle.parentElement?.parentElement as HTMLElement | null;
     const widthAfterDrag = parent?.style.getPropertyValue("--gha-panel-width");
 
-    useGhaWorkflowPanelStore.getState().closePanel();
+    useWorkflowStore.getState().ghaClosePanel();
     rerender(<GhaWorkflowSidePanel />);
-    useGhaWorkflowPanelStore.getState().openPanel();
+    useWorkflowStore.getState().ghaOpenPanel();
     rerender(<GhaWorkflowSidePanel />);
 
     const widthAfterReopen = parent?.style.getPropertyValue(

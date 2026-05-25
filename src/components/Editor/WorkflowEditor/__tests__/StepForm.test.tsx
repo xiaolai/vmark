@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, cleanup, waitFor } from "@testing-library/react";
 import type { StepIR } from "@/lib/ghaWorkflow/types";
-import { useWorkflowEditStore } from "@/stores/workflowEditStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { __resetRegistryForTests } from "@/lib/ghaWorkflow/actions/registry";
 
 const invokeMock = vi.hoisted(() => vi.fn());
@@ -23,10 +23,7 @@ function makeStep(overrides: Partial<StepIR> = {}): StepIR {
 }
 
 beforeEach(() => {
-  useWorkflowEditStore.setState({
-    pendingPatches: [],
-    preserveYamlFormatting: true,
-  });
+  useWorkflowStore.getState().resetEdit();
   __resetRegistryForTests();
   invokeMock.mockReset();
 });
@@ -95,7 +92,7 @@ describe("StepForm — emits patches", () => {
     const input = screen.getByLabelText(/name/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Renamed" } });
     fireEvent.blur(input);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       { kind: "step.set", jobId: "build", stepIndex: 0, path: "name", value: "Renamed" },
     ]);
   });
@@ -116,7 +113,7 @@ describe("StepForm — emits patches", () => {
     const input = screen.getByLabelText(/^run/i) as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "echo b" } });
     fireEvent.blur(input);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       { kind: "step.set", jobId: "build", stepIndex: 2, path: "run", value: "echo b" },
     ]);
   });
@@ -132,7 +129,7 @@ describe("StepForm — emits patches", () => {
     const valueInput = screen.getByDisplayValue("20") as HTMLInputElement;
     fireEvent.change(valueInput, { target: { value: "22" } });
     fireEvent.blur(valueInput);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       {
         kind: "with.set",
         jobId: "build",
@@ -153,7 +150,7 @@ describe("StepForm — emits patches", () => {
     );
     const removeBtn = screen.getByRole("button", { name: /remove/i });
     fireEvent.click(removeBtn);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       { kind: "with.remove", jobId: "build", stepIndex: 0, key: "cache" },
     ]);
   });
@@ -163,7 +160,7 @@ describe("StepForm — emits patches", () => {
     const input = screen.getByLabelText(/working directory/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "./apps/web" } });
     fireEvent.blur(input);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       {
         kind: "step.set",
         jobId: "build",
@@ -179,7 +176,7 @@ describe("StepForm — emits patches", () => {
     const input = screen.getByLabelText(/condition|^if/i) as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "always()" } });
     fireEvent.blur(input);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       { kind: "step.set", jobId: "build", stepIndex: 0, path: "if", value: "always()" },
     ]);
   });
@@ -195,7 +192,7 @@ describe("StepForm — emits patches", () => {
     const keyInput = screen.getByDisplayValue("node-version") as HTMLInputElement;
     fireEvent.change(keyInput, { target: { value: "node-version-renamed" } });
     fireEvent.blur(keyInput);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       { kind: "with.remove", jobId: "build", stepIndex: 0, key: "node-version" },
       {
         kind: "with.set",
@@ -212,7 +209,7 @@ describe("StepForm — emits patches", () => {
     fireEvent.click(screen.getByRole("button", { name: /add input/i }));
     const removeBtns = screen.getAllByRole("button", { name: /remove/i });
     fireEvent.click(removeBtns[removeBtns.length - 1]);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([]);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
   });
 
   it("adds a new with-row + queues with.set when the user fills it in", () => {
@@ -229,7 +226,7 @@ describe("StepForm — emits patches", () => {
       target: { value: "https://npm.example.com" },
     });
     fireEvent.blur(valueInputs[valueInputs.length - 1]);
-    expect(useWorkflowEditStore.getState().pendingPatches).toEqual([
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
       {
         kind: "with.set",
         jobId: "build",
@@ -266,7 +263,7 @@ describe("StepForm — expression expand", () => {
     );
     // Modal closes; no patch queued because value didn't change.
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(useWorkflowEditStore.getState().pendingPatches.length).toBe(0);
+    expect(useWorkflowStore.getState().edit.pendingPatches.length).toBe(0);
   });
 
   it("Cancel closes the modal without queueing", () => {
@@ -274,7 +271,7 @@ describe("StepForm — expression expand", () => {
     fireEvent.click(screen.getByRole("button", { name: /expand if/i }));
     fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(useWorkflowEditStore.getState().pendingPatches.length).toBe(0);
+    expect(useWorkflowStore.getState().edit.pendingPatches.length).toBe(0);
   });
 });
 
@@ -548,8 +545,8 @@ describe("StepForm — step navigation", () => {
   });
 
   it("Next button calls selectStep with the next step id", async () => {
-    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
-    useWorkflowViewStore.getState().reset();
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    useWorkflowStore.getState().resetView();
     render(
       <StepForm
         jobId="build"
@@ -564,13 +561,13 @@ describe("StepForm — step navigation", () => {
       .getAllByRole("button")
       .find((b) => b.getAttribute("aria-label")?.includes("Next"))!;
     fireEvent.click(next);
-    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
-    expect(useWorkflowViewStore.getState().selectedStepId).toBe("step-2");
+    expect(useWorkflowStore.getState().view.selectedJobId).toBe("build");
+    expect(useWorkflowStore.getState().view.selectedStepId).toBe("step-2");
   });
 
   it("Back-to-job button clears selectedStepId but keeps the job", async () => {
-    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
-    useWorkflowViewStore.getState().selectStep("build", "step-1");
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    useWorkflowStore.getState().selectStep("build", "step-1");
     render(
       <StepForm
         jobId="build"
@@ -585,13 +582,13 @@ describe("StepForm — step navigation", () => {
       .getAllByRole("button")
       .find((b) => b.getAttribute("aria-label")?.includes("Back to job"))!;
     fireEvent.click(back);
-    expect(useWorkflowViewStore.getState().selectedJobId).toBe("build");
-    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+    expect(useWorkflowStore.getState().view.selectedJobId).toBe("build");
+    expect(useWorkflowStore.getState().view.selectedStepId).toBeNull();
   });
 
   it("Alt+ArrowRight on window navigates to the next step", async () => {
-    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
-    useWorkflowViewStore.getState().reset();
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    useWorkflowStore.getState().resetView();
     render(
       <StepForm
         jobId="build"
@@ -603,12 +600,12 @@ describe("StepForm — step navigation", () => {
       />,
     );
     fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
-    expect(useWorkflowViewStore.getState().selectedStepId).toBe("step-2");
+    expect(useWorkflowStore.getState().view.selectedStepId).toBe("step-2");
   });
 
   it("Alt+ArrowRight is ignored when focus is inside an editable field (preserves native word-jump)", async () => {
-    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
-    useWorkflowViewStore.getState().reset();
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    useWorkflowStore.getState().resetView();
     render(
       <StepForm
         jobId="build"
@@ -623,12 +620,12 @@ describe("StepForm — step navigation", () => {
     nameInput.focus();
     // Dispatch on the input element so e.target is the input, not body.
     fireEvent.keyDown(nameInput, { key: "ArrowRight", altKey: true });
-    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+    expect(useWorkflowStore.getState().view.selectedStepId).toBeNull();
   });
 
   it("Alt+ArrowRight is ignored when focus is inside a CodeMirror editor", async () => {
-    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
-    useWorkflowViewStore.getState().reset();
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    useWorkflowStore.getState().resetView();
     render(
       <StepForm
         jobId="build"
@@ -649,12 +646,12 @@ describe("StepForm — step navigation", () => {
     document.body.appendChild(cmHost);
     fireEvent.keyDown(inner, { key: "ArrowRight", altKey: true });
     document.body.removeChild(cmHost);
-    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+    expect(useWorkflowStore.getState().view.selectedStepId).toBeNull();
   });
 
   it("Alt+ArrowRight is ignored when defaultPrevented is already set", async () => {
-    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
-    useWorkflowViewStore.getState().reset();
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    useWorkflowStore.getState().resetView();
     render(
       <StepForm
         jobId="build"
@@ -672,12 +669,12 @@ describe("StepForm — step navigation", () => {
     window.addEventListener("keydown", blocker, { capture: true });
     fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     window.removeEventListener("keydown", blocker, { capture: true } as never);
-    expect(useWorkflowViewStore.getState().selectedStepId).toBeNull();
+    expect(useWorkflowStore.getState().view.selectedStepId).toBeNull();
   });
 
   it("Alt+ArrowLeft does nothing when prevStepId is null", async () => {
-    const { useWorkflowViewStore } = await import("@/stores/workflowViewStore");
-    useWorkflowViewStore.getState().selectStep("build", "step-1");
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    useWorkflowStore.getState().selectStep("build", "step-1");
     render(
       <StepForm
         jobId="build"
@@ -689,6 +686,6 @@ describe("StepForm — step navigation", () => {
       />,
     );
     fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
-    expect(useWorkflowViewStore.getState().selectedStepId).toBe("step-1");
+    expect(useWorkflowStore.getState().view.selectedStepId).toBe("step-1");
   });
 });

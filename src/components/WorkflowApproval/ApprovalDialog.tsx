@@ -16,24 +16,24 @@
 import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useWorkflowApprovalStore } from "@/stores/workflowApprovalStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
 
 import "./approval-dialog.css";
 
 export function ApprovalDialog() {
   const { t } = useTranslation();
-  const pending = useWorkflowApprovalStore((s) => s.pending);
+  const pending = useWorkflowStore((s) => s.approval.pending);
   const { respondApproval } = useWorkflowExecution();
 
   const respond = useCallback(
     async (approved: boolean) => {
-      const current = useWorkflowApprovalStore.getState().pending;
+      const current = useWorkflowStore.getState().approval.pending;
       if (!current) return;
       try {
         await respondApproval(current.executionId, current.stepId, approved);
       } finally {
-        useWorkflowApprovalStore.getState().dismiss();
+        useWorkflowStore.getState().dismissApproval();
       }
     },
     [respondApproval],
