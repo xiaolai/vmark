@@ -104,7 +104,7 @@ const mockMarkDivergent = vi.fn();
 const mockSetCursorInfo = vi.fn();
 const mockRemoveDocument = vi.fn();
 
-vi.mock('@/stores/documentStore', () => ({
+vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
       initDocument: mockInitDocument,
@@ -116,6 +116,33 @@ vi.mock('@/stores/documentStore', () => ({
       removeDocument: mockRemoveDocument,
     }),
   },
+  useUnifiedHistoryStore: (() => {
+    let storeState: Record<string, unknown> = { documents: {} };
+    return {
+      getState: () => ({
+        clearDocument: mockClearDocument,
+        documents: storeState.documents,
+        restoreFromPayload: vi.fn(),
+      }),
+      setState: (updater: unknown) => {
+        if (typeof updater === "function") {
+          const result = (updater as (s: typeof storeState) => typeof storeState)(storeState);
+          storeState = { ...storeState, ...result };
+        } else {
+          storeState = { ...storeState, ...(updater as Record<string, unknown>) };
+        }
+      },
+      subscribe: () => () => {},
+      _getInternalState: () => storeState,
+      _resetInternalState: () => {
+        storeState = { documents: {} };
+      },
+    };
+  })(),
+  useRevisionStore: { getState: () => ({ registerEdit: vi.fn() }) },
+  useLintStore: { getState: () => ({ clearDiagnostics: vi.fn() }), subscribe: () => () => {} },
+  useLargeFileSessionStore: { setState: vi.fn(), getState: () => ({ clearForcedSource: vi.fn(), markTabForcedSource: vi.fn() }), subscribe: () => () => {} },
+  useFileLoadStore: { setState: vi.fn(), getState: () => ({ active: false, startLoad: vi.fn(), finishLoad: vi.fn() }) },
 }));
 
 // Format registry mock — `restoreHelpers` validates persisted `format_id`
@@ -148,30 +175,6 @@ const { mockHotExitWarn } = vi.hoisted(() => ({
 
 const mockClearDocument = vi.fn();
 
-vi.mock('@/stores/unifiedHistoryStore', () => {
-  // Need real setState for restoreUnifiedHistory
-  let storeState: Record<string, unknown> = { documents: {} };
-  return {
-    useUnifiedHistoryStore: {
-      getState: () => ({
-        clearDocument: mockClearDocument,
-        documents: storeState.documents,
-      }),
-      setState: (updater: unknown) => {
-        if (typeof updater === 'function') {
-          const result = (updater as (s: typeof storeState) => typeof storeState)(storeState);
-          storeState = { ...storeState, ...result };
-        } else {
-          storeState = { ...storeState, ...(updater as Record<string, unknown>) };
-        }
-      },
-      // Expose for test assertions
-      _getInternalState: () => storeState,
-      _resetInternalState: () => { storeState = { documents: {} }; },
-    },
-  };
-});
-
 // ---------------------------------------------------------------------------
 // Import module under test AFTER mocks
 // ---------------------------------------------------------------------------
@@ -184,7 +187,7 @@ import {
   restoreDocumentState,
   restoreUnifiedHistory,
 } from './restoreHelpers';
-import { useUnifiedHistoryStore } from '@/stores/unifiedHistoryStore';
+import { useUnifiedHistoryStore } from '@/stores/documentStore';
 
 // ---------------------------------------------------------------------------
 // Test Helpers

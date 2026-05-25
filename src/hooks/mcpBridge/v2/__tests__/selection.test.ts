@@ -11,7 +11,7 @@ import { EditorView as CMView } from "@codemirror/view";
 
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
+import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useMcpStore } from "@/stores/mcpStore";

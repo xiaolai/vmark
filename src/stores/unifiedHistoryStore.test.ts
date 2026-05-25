@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { useUnifiedHistoryStore } from "./unifiedHistoryStore";
+import { useUnifiedHistoryStore } from "./documentStore";
 
 const TAB_A = "tab-a";
 const TAB_B = "tab-b";
@@ -21,7 +21,7 @@ function createCheckpointData(
   };
 }
 
-describe("unifiedHistoryStore", () => {
+describe("documentStore", () => {
   beforeEach(() => {
     // Reset store state before each test
     useUnifiedHistoryStore.getState().clearAll();

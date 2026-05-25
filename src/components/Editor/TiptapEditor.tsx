@@ -41,7 +41,7 @@ import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { initializeRevisionTracking } from "@/hooks/mcpBridge/revisionTracker";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
 import { registerActiveWysiwygFlusher } from "@/utils/wysiwygFlush";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";

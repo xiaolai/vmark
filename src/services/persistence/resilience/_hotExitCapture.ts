@@ -11,12 +11,12 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useUnifiedHistoryStore } from '@/stores/unifiedHistoryStore';
+import { useUnifiedHistoryStore } from '@/stores/documentStore';
 import type { WindowState, TabState, CaptureRequest, CaptureResponse, CursorInfo } from '../hotExit/types';
 import { HOT_EXIT_EVENTS, MAIN_WINDOW_LABEL } from '../hotExit/types';
 import { hotExitWarn, hotExitError } from '@/utils/debug';
 import type { LineEnding as StoreLineEnding } from '@/utils/linebreakDetection';
-import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/unifiedHistoryStore';
+import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/documentStore';
 import type { CursorInfo as StoreCursorInfo } from '@/stores/documentStore';
 
 /**

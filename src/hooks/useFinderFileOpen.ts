@@ -51,7 +51,7 @@ import { isWithinRoot } from "@/utils/paths";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 

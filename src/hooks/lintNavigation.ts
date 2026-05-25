@@ -11,7 +11,7 @@
  * @module utils/lintNavigation
  */
 
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { EditorView as CMEditorView } from "@codemirror/view";

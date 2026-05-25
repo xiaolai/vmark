@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { __resetRegistry, registerFormat } from "./registry";
 import { maybeMarkLargeMarkdownAsSource } from "./markdownLargeFile";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import type { FormatConfig } from "./types";
 
 const stubMd: FormatConfig = {

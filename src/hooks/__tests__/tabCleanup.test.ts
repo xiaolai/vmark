@@ -9,17 +9,14 @@ vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({ removeDocument: mockRemoveDocument }),
   },
-}));
-
-vi.mock("@/stores/unifiedHistoryStore", () => ({
   useUnifiedHistoryStore: {
     getState: () => ({ clearDocument: mockClearDocument }),
   },
-}));
-
-vi.mock("@/stores/lintStore", () => ({
   useLintStore: {
     getState: () => ({ clearDiagnostics: mockClearDiagnostics }),
+  },
+  useLargeFileSessionStore: {
+    getState: () => ({ clearForcedSource: vi.fn() }),
   },
 }));
 

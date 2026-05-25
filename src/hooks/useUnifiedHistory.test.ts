@@ -20,7 +20,7 @@ vi.mock("@codemirror/commands", () => ({
   redoDepth: (...args: unknown[]) => mockRedoDepth(...args),
 }));
 
-import { useUnifiedHistoryStore } from "@/stores/unifiedHistoryStore";
+import { useUnifiedHistoryStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";

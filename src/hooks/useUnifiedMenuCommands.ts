@@ -29,7 +29,7 @@ import { useEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useUIStore } from "@/stores/uiStore";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useEditorStore } from "@/stores/editorStore";
 import {

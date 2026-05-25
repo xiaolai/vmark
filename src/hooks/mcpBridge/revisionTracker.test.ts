@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { Editor } from "@tiptap/core";
 import type { Transaction } from "@tiptap/pm/state";
 import { initializeRevisionTracking } from "./revisionTracker";
-import { useRevisionStore } from "@/stores/revisionStore";
+import { useRevisionStore } from "@/stores/documentStore";
 
 /**
  * Minimal Tiptap-editor stand-in. initializeRevisionTracking only uses

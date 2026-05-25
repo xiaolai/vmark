@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useLargeFileSessionStore } from "./largeFileSessionStore";
+import { useLargeFileSessionStore } from "./documentStore";
 
-describe("largeFileSessionStore", () => {
+describe("documentStore", () => {
   beforeEach(() => {
     useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
   });

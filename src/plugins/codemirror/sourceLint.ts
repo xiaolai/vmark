@@ -17,7 +17,7 @@
 
 import { linter, forceLinting, type Diagnostic } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import i18n from "@/i18n";
 import { useEditorStore } from "@/stores/editorStore";

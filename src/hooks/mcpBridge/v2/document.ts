@@ -40,7 +40,7 @@
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore } from "@/stores/revisionStore";
+import { useRevisionStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";

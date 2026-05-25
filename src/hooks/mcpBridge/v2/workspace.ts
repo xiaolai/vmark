@@ -29,7 +29,7 @@
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore } from "@/stores/revisionStore";
+import { useRevisionStore } from "@/stores/documentStore";
 import { getFileName } from "@/utils/paths";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { respond } from "../utils";

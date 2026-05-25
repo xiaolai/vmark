@@ -39,6 +39,11 @@ vi.mock("@/utils/htmlToMarkdown", () => ({
 vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: {
     getState: vi.fn(() => ({ markdown: { pasteMode: "smart" } })),
+    subscribe: vi.fn(() => () => {}),
+  },
+  useShortcutsStore: {
+    getState: () => ({ getShortcut: () => "" }),
+    subscribe: vi.fn(() => () => {}),
   },
 }));
 

@@ -11,7 +11,7 @@
 
 import { lazy, Suspense } from "react";
 import { useUIStore } from "@/stores/uiStore";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useDocumentId } from "@/hooks/useDocumentState";

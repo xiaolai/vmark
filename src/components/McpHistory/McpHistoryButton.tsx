@@ -30,7 +30,7 @@ import { useMcpStore } from "@/stores/mcpStore";
 import type { MCPCheckpoint } from "@/stores/mcpStore";
 import { rewriteAll } from "@/stores/mcpCheckpointPersistence";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore } from "@/stores/revisionStore";
+import { useRevisionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { imeToast as toast } from "@/services/ime/imeToast";

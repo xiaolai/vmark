@@ -376,7 +376,7 @@ describe("handleOpen — dialog and routing", () => {
       return Promise.resolve();
     });
     mockReadTextFile.mockResolvedValue("# medium");
-    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    const { useFileLoadStore } = await import("@/stores/documentStore");
     useFileLoadStore.getState().endLoad();
 
     const { handleOpen } = await import("./useFileOpen");
@@ -400,7 +400,7 @@ describe("handleOpen — dialog and routing", () => {
       return Promise.resolve();
     });
     mockReadTextFile.mockRejectedValue(new Error("ENOENT"));
-    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    const { useFileLoadStore } = await import("@/stores/documentStore");
     useFileLoadStore.getState().endLoad();
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -427,7 +427,7 @@ describe("handleOpen — dialog and routing", () => {
     });
     mockReadTextFile.mockResolvedValue("# large");
     const { useLargeFileSessionStore } = await import(
-      "@/stores/largeFileSessionStore"
+      "@/stores/documentStore"
     );
     useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
 
@@ -497,7 +497,7 @@ describe("openFileInNewTabCore — size-tier routing", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.getState().resetSettings();
     const { useLargeFileSessionStore } = await import(
-      "@/stores/largeFileSessionStore"
+      "@/stores/documentStore"
     );
     useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
   });
@@ -519,7 +519,7 @@ describe("openFileInNewTabCore — size-tier routing", () => {
       return Promise.resolve();
     });
     mockReadTextFile.mockResolvedValue("# medium");
-    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    const { useFileLoadStore } = await import("@/stores/documentStore");
     useFileLoadStore.getState().endLoad();
 
     await openFileInNewTabCore(WINDOW, "/docs/medium.md");
@@ -554,7 +554,7 @@ describe("openFileInNewTabCore — size-tier routing", () => {
     expect(initDocSpy).toHaveBeenCalled();
     // Force-source is asserted via the session store being non-empty.
     const { useLargeFileSessionStore } = await import(
-      "@/stores/largeFileSessionStore"
+      "@/stores/documentStore"
     );
     const marks = Object.keys(useLargeFileSessionStore.getState().forcedSourceTabs);
     expect(marks.length).toBeGreaterThan(0);

@@ -35,7 +35,7 @@ import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { EditorView as CMView } from "@codemirror/view";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore } from "@/stores/revisionStore";
+import { useRevisionStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useMcpStore } from "@/stores/mcpStore";

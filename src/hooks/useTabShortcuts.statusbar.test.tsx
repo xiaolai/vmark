@@ -31,6 +31,7 @@ vi.mock("@/utils/shortcutMatch", () => ({
 
 // Mock shortcutsStore to return known shortcut keys
 vi.mock("@/stores/settingsStore", () => ({
+  useSettingsStore: { getState: () => ({ markdown: {} }), subscribe: () => () => {} },
   useShortcutsStore: {
     getState: () => ({
       getShortcut: (id: string) => {

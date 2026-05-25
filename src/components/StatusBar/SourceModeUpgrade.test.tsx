@@ -16,7 +16,7 @@ import { SourceModeUpgrade } from "./SourceModeUpgrade";
 import { useUIStore } from "@/stores/uiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 
 function setActiveTab(tabId: string | null) {
   useTabStore.setState((state) => ({

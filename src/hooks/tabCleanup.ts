@@ -1,8 +1,8 @@
 import { useDocumentStore } from "@/stores/documentStore";
-import { useUnifiedHistoryStore } from "@/stores/unifiedHistoryStore";
-import { useLintStore } from "@/stores/lintStore";
+import { useUnifiedHistoryStore } from "@/stores/documentStore";
+import { useLintStore } from "@/stores/documentStore";
 import { useAiSuggestionStore } from "@/stores/aiStore";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { clearPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
 import { clearPendingLintScroll } from "@/hooks/lintNavigation";
 

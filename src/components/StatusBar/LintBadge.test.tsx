@@ -19,7 +19,7 @@ vi.mock("@/stores/tabStore", () => ({
 const mockSelectNext = vi.fn();
 const mockDiagnostics = { diagnosticsByTab: {} as Record<string, unknown[]> };
 
-vi.mock("@/stores/lintStore", () => ({
+vi.mock("@/stores/documentStore", () => ({
   useLintStore: Object.assign(
     (selector: (state: typeof mockDiagnostics) => unknown) =>
       selector(mockDiagnostics),

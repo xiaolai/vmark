@@ -25,7 +25,7 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useTabStore } from "@/stores/tabStore";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { useWindowLabel } from "@/contexts/WindowContext";

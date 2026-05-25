@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
+import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
 import { useMcpStore } from "@/stores/mcpStore";
 import {
   handleDocumentRead,

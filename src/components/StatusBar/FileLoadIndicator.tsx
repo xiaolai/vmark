@@ -20,7 +20,7 @@
  */
 
 import { useTranslation } from "react-i18next";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { formatFileSize } from "@/utils/fileSizeThresholds";
 
 export function FileLoadIndicator() {

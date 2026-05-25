@@ -11,7 +11,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useUnifiedHistoryStore } from "@/stores/unifiedHistoryStore";
+import { useUnifiedHistoryStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { applySourcePeekMarkdown, serializeSourcePeekRange, getExpandedSourcePeekRange } from "@/services/editor/sourcePeek";

@@ -48,13 +48,8 @@ vi.mock("@/stores/documentStore", () => ({
       ),
     })),
   },
-}));
-
-vi.mock("@/stores/unifiedHistoryStore", () => ({
   useUnifiedHistoryStore: {
-    getState: vi.fn(() => ({
-      createCheckpoint: vi.fn(),
-    })),
+    getState: vi.fn(() => ({ createCheckpoint: vi.fn() })),
   },
 }));
 

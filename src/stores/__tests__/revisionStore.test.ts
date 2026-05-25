@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { useRevisionStore, generateRevisionId } from "../revisionStore";
+import { useRevisionStore, generateRevisionId } from "../documentStore";
 
 describe("revisionStore", () => {
   beforeEach(() => {

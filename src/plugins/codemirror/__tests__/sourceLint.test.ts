@@ -36,7 +36,7 @@ vi.mock("@codemirror/view", () => ({
 
 // ── Mock lintStore ───────────────────────────────────────────────────────────
 const mockClearDiagnostics = vi.fn();
-vi.mock("@/stores/lintStore", () => ({
+vi.mock("@/stores/documentStore", () => ({
   useLintStore: {
     getState: vi.fn(() => ({
       diagnosticsByTab: {},
@@ -61,7 +61,7 @@ import {
   createSourceLintExtension,
   triggerLintRefresh,
 } from "../sourceLint";
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 
 function makeDiag(overrides: Partial<LintDiagnostic> = {}): LintDiagnostic {

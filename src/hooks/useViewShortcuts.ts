@@ -27,7 +27,7 @@ import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeDocument";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";

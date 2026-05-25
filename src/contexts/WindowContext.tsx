@@ -71,7 +71,7 @@ import { windowCloseWarn, windowContextError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 

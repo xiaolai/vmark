@@ -58,6 +58,11 @@ vi.mock("@/stores/documentStore", () => ({
       removeDocument: mockRemoveDocument,
     }),
   },
+  useUnifiedHistoryStore: { getState: () => ({ documents: {}, clearDocument: vi.fn() }), subscribe: () => () => {} },
+  useRevisionStore: { getState: () => ({ registerEdit: vi.fn() }) },
+  useLintStore: { getState: () => ({ clearDiagnostics: vi.fn() }), subscribe: () => () => {} },
+  useLargeFileSessionStore: { getState: () => ({ clearForcedSource: vi.fn() }), subscribe: () => () => {} },
+  useFileLoadStore: { getState: () => ({ active: false }) },
 }));
 
 const mockGetWorkspaceState = vi.fn(() => ({ rootPath: "/workspace" as string | null }));

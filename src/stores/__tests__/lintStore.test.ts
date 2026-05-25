@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { useLintStore } from "../lintStore";
+import { useLintStore } from "../documentStore";
 import { useSettingsStore } from "../settingsStore";
 
 const existsMock = vi.hoisted(() => vi.fn());

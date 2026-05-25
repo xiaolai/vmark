@@ -161,6 +161,7 @@ vi.mock("@/stores/settingsStore", () => {
   (settingsStore as unknown as Record<string, unknown>).getState = () => ({
     markdown: { showBrTags: false, autoPairEnabled: true, enableRegexSearch: true },
   });
+  (settingsStore as unknown as Record<string, unknown>).subscribe = () => () => {};
   const shortcutsStore = vi.fn();
   (shortcutsStore as unknown as Record<string, unknown>).getState = () => ({});
   (shortcutsStore as unknown as Record<string, unknown>).subscribe = vi.fn(() => mockUnsubscribeShortcuts);

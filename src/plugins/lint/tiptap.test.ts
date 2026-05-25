@@ -22,7 +22,7 @@ import { Schema } from "@tiptap/pm/model";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import { LintExtension } from "./tiptap";
 

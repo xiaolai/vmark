@@ -86,6 +86,20 @@ vi.mock("@/stores/documentStore", () => ({
       clearMissing: mocks.clearMissing,
     }),
   },
+  useUnifiedHistoryStore: {
+    getState: () => ({ documents: {}, clearDocument: vi.fn() }),
+    subscribe: () => () => {},
+  },
+  useRevisionStore: { getState: () => ({ registerEdit: vi.fn() }) },
+  useLintStore: {
+    getState: () => ({ clearDiagnostics: vi.fn() }),
+    subscribe: () => () => {},
+  },
+  useLargeFileSessionStore: {
+    getState: () => ({ clearForcedSource: vi.fn() }),
+    subscribe: () => () => {},
+  },
+  useFileLoadStore: { getState: () => ({ active: false }) },
 }));
 
 vi.mock("@/components/StatusBar/tabTransferActions", () => ({

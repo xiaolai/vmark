@@ -18,11 +18,11 @@ import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useUnifiedHistoryStore } from '@/stores/unifiedHistoryStore';
+import { useUnifiedHistoryStore } from '@/stores/documentStore';
 import { getFormatById } from '@/lib/formats/registry';
 import type { WindowState, HistoryCheckpoint, CursorInfo, TabState, DocumentState } from './types';
 import type { LineEnding } from '@/utils/linebreakDetection';
-import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/unifiedHistoryStore';
+import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/documentStore';
 import type { CursorInfo as StoreCursorInfo } from '@/types/cursorSync';
 
 /** Maximum retries when pulling state (handles timing issues) */

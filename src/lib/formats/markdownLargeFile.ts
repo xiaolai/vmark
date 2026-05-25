@@ -9,7 +9,7 @@
 // multi-format plan. Other formats don't have a WYSIWYG path, so
 // "force source mode for large files" is a markdown-only concept.
 
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { dispatchEditor } from "./registry";
 
 // Mirror of MarkdownEditorSurface's accepted extensions. Used as the

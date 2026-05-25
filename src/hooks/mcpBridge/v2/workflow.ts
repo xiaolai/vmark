@@ -29,7 +29,7 @@
 
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useRevisionStore } from "@/stores/revisionStore";
+import { useRevisionStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import {
   isWorkflowYaml,

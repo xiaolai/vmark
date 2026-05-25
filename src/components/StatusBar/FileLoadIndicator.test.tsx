@@ -11,7 +11,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { FileLoadIndicator } from "./FileLoadIndicator";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 
 describe("FileLoadIndicator", () => {
   beforeEach(() => {

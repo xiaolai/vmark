@@ -51,7 +51,7 @@ import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabC
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
 import { FileLoadIndicator } from "./FileLoadIndicator";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";

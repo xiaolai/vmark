@@ -12,7 +12,7 @@
 
 import type { Editor } from "@tiptap/core";
 import type { Transaction } from "@tiptap/pm/state";
-import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
+import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
 
 /**
  * Hook the editor to update revisions on document changes.

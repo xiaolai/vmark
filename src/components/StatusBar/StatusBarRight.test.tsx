@@ -36,6 +36,11 @@ vi.mock("@/utils/dateUtils", () => ({
 }));
 
 vi.mock("@/stores/settingsStore", () => ({
+  useSettingsStore: { getState: () => ({ markdown: {} }), subscribe: () => () => {} },
+  useShortcutsStore: {
+    getState: () => ({ getShortcut: () => "" }),
+    subscribe: () => () => {},
+  },
   formatKeyForDisplay: (s: string) => s.toUpperCase(),
 }));
 

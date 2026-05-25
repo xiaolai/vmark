@@ -18,7 +18,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import "./lint.css";

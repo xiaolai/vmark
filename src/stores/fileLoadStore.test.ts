@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useFileLoadStore } from "./fileLoadStore";
+import { useFileLoadStore } from "./documentStore";
 
-describe("fileLoadStore", () => {
+describe("documentStore", () => {
   beforeEach(() => {
     useFileLoadStore.getState().endLoad();
   });

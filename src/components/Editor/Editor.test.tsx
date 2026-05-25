@@ -115,7 +115,32 @@ vi.mock("@/stores/documentStore", () => {
     initDocument: vi.fn(),
   };
 
-  return { useDocumentStore: createZustandMock(mockDocumentStore) };
+  return {
+    useDocumentStore: createZustandMock(mockDocumentStore),
+    useLargeFileSessionStore: createZustandMock({
+      forcedSourceTabs: {} as Record<string, boolean>,
+      isForcedSource: () => false,
+      markTabForcedSource: vi.fn(),
+      clearForcedSource: vi.fn(),
+    }),
+    useFileLoadStore: createZustandMock({
+      active: false,
+      startLoad: vi.fn(() => 0),
+      finishLoad: vi.fn(),
+      endLoad: vi.fn(),
+    }),
+    useRevisionStore: createZustandMock({ registerEdit: vi.fn() }),
+    useUnifiedHistoryStore: createZustandMock({
+      documents: {} as Record<string, unknown>,
+      createCheckpoint: vi.fn(),
+    }),
+    useLintStore: createZustandMock({
+      diagnosticsByTab: {} as Record<string, unknown[]>,
+      selectedIndexByTab: {} as Record<string, number>,
+      clearDiagnostics: vi.fn(),
+      clearAllDiagnostics: vi.fn(),
+    }),
+  };
 });
 
 vi.mock("@/stores/tabStore", () => {

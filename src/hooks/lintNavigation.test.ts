@@ -25,7 +25,7 @@ const mockLintState: {
   diagnosticsByTab: {},
   selectedIndexByTab: {},
 };
-vi.mock("@/stores/lintStore", () => ({
+vi.mock("@/stores/documentStore", () => ({
   useLintStore: { getState: () => mockLintState },
 }));
 

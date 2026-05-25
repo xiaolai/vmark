@@ -192,6 +192,12 @@ vi.mock("@/stores/documentStore", () => ({
       getDocument: () => ({ hardBreakStyle: "unknown" }),
     }),
   },
+  useRevisionStore: { getState: () => ({ registerEdit: vi.fn(), setRevision: vi.fn(), getRevision: vi.fn(() => null) }) },
+  generateRevisionId: () => "rev-test-id",
+  useLargeFileSessionStore: { getState: () => ({ isForcedSource: () => false }), subscribe: () => () => {} },
+  useUnifiedHistoryStore: { getState: () => ({ documents: {}, createCheckpoint: vi.fn() }), subscribe: () => () => {} },
+  useLintStore: { getState: () => ({ diagnosticsByTab: {}, selectedIndexByTab: {}, clearDiagnostics: vi.fn() }), subscribe: () => () => {} },
+  useFileLoadStore: { getState: () => ({ active: false }) },
 }));
 
 vi.mock("./ImageContextMenu", () => ({

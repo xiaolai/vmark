@@ -52,8 +52,8 @@ import { __testing__ } from "./useDragDropOpen";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 
 const { openFileInNewTab } = __testing__;
 const WINDOW = "main";

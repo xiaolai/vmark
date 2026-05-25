@@ -21,12 +21,12 @@
  */
 
 import { undo, redo, undoDepth, redoDepth } from "@codemirror/commands";
-import { useUnifiedHistoryStore, type HistoryCheckpoint } from "@/stores/unifiedHistoryStore";
+import { useUnifiedHistoryStore, type HistoryCheckpoint } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useEditorStore } from "@/stores/editorStore";
-import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
 import { imeToast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";

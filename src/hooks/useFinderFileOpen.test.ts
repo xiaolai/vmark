@@ -87,6 +87,40 @@ vi.mock("@/stores/documentStore", () => ({
       setLineMetadata: mockSetLineMetadata,
     }),
   },
+  useLargeFileSessionStore: (() => {
+    let forced: Record<string, boolean> = {};
+    return {
+      setState: (next: { forcedSourceTabs?: Record<string, boolean> } | ((s: unknown) => unknown)) => {
+        if (typeof next === "function") forced = (next(forced) as { forcedSourceTabs?: Record<string, boolean> }).forcedSourceTabs ?? forced;
+        else if (next.forcedSourceTabs !== undefined) forced = next.forcedSourceTabs;
+      },
+      getState: () => ({
+        forcedSourceTabs: forced,
+        markForcedSource: (id: string) => { forced[id] = true; },
+        markTabForcedSource: (id: string) => { forced[id] = true; },
+        isForcedSource: (id: string) => forced[id] === true,
+        clearForcedSource: (id: string) => { delete forced[id]; },
+      }),
+    };
+  })(),
+  useFileLoadStore: (() => {
+    let active = false;
+    return {
+      setState: vi.fn(),
+      getState: () => ({
+        active,
+        startLoad: () => { active = true; return 0; },
+        finishLoad: () => { active = false; },
+        endLoad: () => { active = false; },
+        isLoading: active,
+      }),
+    };
+  })(),
+  useRevisionStore: {
+    getState: () => ({ registerEdit: vi.fn() }),
+  },
+  useUnifiedHistoryStore: { getState: () => ({}) },
+  useLintStore: { getState: () => ({ clearDiagnostics: vi.fn(), clearAllDiagnostics: vi.fn() }) },
 }));
 
 let mockWorkspaceRootPath: string | null = null;
@@ -525,7 +559,7 @@ describe("useFinderFileOpen — size-tier routing", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.getState().resetSettings();
     const { useLargeFileSessionStore } = await import(
-      "@/stores/largeFileSessionStore"
+      "@/stores/documentStore"
     );
     useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
   });
@@ -621,7 +655,7 @@ describe("useFinderFileOpen — size-tier routing", () => {
     });
 
     const { useLargeFileSessionStore } = await import(
-      "@/stores/largeFileSessionStore"
+      "@/stores/documentStore"
     );
     await vi.waitFor(() => {
       expect(
@@ -639,7 +673,7 @@ describe("useFinderFileOpen — size-tier routing", () => {
       return Promise.resolve(null);
     });
     mockGetReplaceableTab.mockReturnValue({ tabId: "empty-tab" });
-    const { useFileLoadStore } = await import("@/stores/fileLoadStore");
+    const { useFileLoadStore } = await import("@/stores/documentStore");
     useFileLoadStore.getState().endLoad();
 
     renderHook(() => useFinderFileOpen());
@@ -679,7 +713,7 @@ describe("useFinderFileOpen — size-tier routing", () => {
     });
 
     const { useLargeFileSessionStore } = await import(
-      "@/stores/largeFileSessionStore"
+      "@/stores/documentStore"
     );
     await vi.waitFor(() => {
       expect(

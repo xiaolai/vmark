@@ -12,7 +12,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { registerCommand } from "./CommandBus";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";

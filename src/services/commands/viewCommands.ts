@@ -10,7 +10,7 @@ import { registerCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";

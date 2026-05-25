@@ -18,7 +18,7 @@
 import { useTranslation } from "react-i18next";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
-import { useLintStore } from "@/stores/lintStore";
+import { useLintStore } from "@/stores/documentStore";
 import "../../plugins/lint/lint.css";
 
 const EMPTY: readonly never[] = [];

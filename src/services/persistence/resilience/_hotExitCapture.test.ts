@@ -58,14 +58,8 @@ vi.mock("@/stores/documentStore", () => ({
       }),
     }),
   },
-}));
-
-vi.mock("@/stores/unifiedHistoryStore", () => ({
   useUnifiedHistoryStore: {
     getState: () => ({
-      // The SUT reads `state.documents[tabId]` directly. Provide an empty
-      // record so every tab id resolves to undefined (treated as "no
-      // history" and produces empty undo/redo arrays in the payload).
       documents: {},
     }),
   },

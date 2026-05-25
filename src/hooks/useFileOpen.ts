@@ -30,7 +30,7 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
-import { useFileLoadStore } from "@/stores/fileLoadStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 
 /**
