@@ -15,12 +15,17 @@
  */
 
 import type { ITheme } from "@xterm/xterm";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { themes, type ThemeId } from "./themes";
 
-/** Build a complete xterm.js ITheme from the current app theme. */
-export function buildXtermTheme(): ITheme {
-  const themeId = useSettingsStore.getState().appearance.theme as ThemeId;
+/**
+ * Build a complete xterm.js ITheme for a specific theme ID.
+ *
+ * The no-argument convenience (`buildXtermTheme()`) lived here in an
+ * earlier draft but pulled `useSettingsStore`, creating a cycle:
+ * settingsStore → @/theme → buildXtermTheme → settingsStore.
+ * Callers now read `appearance.theme` themselves and pass the ID.
+ */
+export function buildXtermTheme(themeId: ThemeId): ITheme {
   return buildXtermThemeForId(themeId);
 }
 

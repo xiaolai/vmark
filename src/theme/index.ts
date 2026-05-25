@@ -14,3 +14,5 @@ export type { ThemeId } from "./themes";
 export { paper as lightTheme } from "./themes/paper";
 export { night as darkTheme } from "./themes/night";
 export { buildXtermTheme, buildXtermThemeForId } from "./buildXtermTheme";
+export { themesAsColors, themeTokensToColors } from "./themeColorsAdapter";
+export type { ThemeColors as ThemeColorsLegacy } from "./themeColorsAdapter";

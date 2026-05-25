@@ -40,7 +40,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { deepMerge } from "@/utils/deepMerge";
 import { createSafeStorage } from "@/utils/safeStorage";
 import { resolveInitialLanguage } from "@/utils/localeDetect";
-import type { ThemeId, ThemeColors, SettingsState, SettingsActions } from "./settingsTypes";
+import type { SettingsState, SettingsActions } from "./settingsTypes";
 
 // Re-export all types for backward compatibility — consumers can keep
 // importing from "@/stores/settingsStore" without changes.
@@ -72,64 +72,12 @@ export type {
   SettingsActions,
 } from "./settingsTypes";
 
-/** Color palettes for each available theme. */
-export const themes: Record<ThemeId, ThemeColors> = {
-  white: {
-    background: "#FFFFFF",
-    foreground: "#1a1a1a",
-    link: "#0066cc",
-    secondary: "#f8f8f8",
-    border: "#eeeeee",
-    // Blue-gray for bold, dark wine for italic
-    strong: "#3f5663",
-    emphasis: "#5b0411",
-  },
-  paper: {
-    background: "#EEEDED",
-    foreground: "#1a1a1a",
-    link: "#0066cc",
-    secondary: "#e5e4e4",
-    border: "#d5d4d4",
-    // Blue-gray for bold, dark wine for italic
-    strong: "#3f5663",
-    emphasis: "#5b0411",
-  },
-  mint: {
-    background: "#CCE6D0",
-    foreground: "#2d3a35",
-    link: "#1a6b4a",
-    secondary: "#b8d9bd",
-    border: "#a8c9ad",
-    // Forest teal for bold, warm olive for italic
-    strong: "#1a5c4a",
-    emphasis: "#6b4423",
-  },
-  sepia: {
-    background: "#F9F0DB",
-    foreground: "#5c4b37",
-    link: "#8b4513",
-    secondary: "#f0e5cc",
-    border: "#e0d5bc",
-    // Deep brown for bold, terracotta for italic
-    strong: "#4a3728",
-    emphasis: "#8b3a2f",
-  },
-  night: {
-    background: "#23262b",
-    foreground: "#d6d9de",
-    link: "#5aa8ff",
-    secondary: "#2a2e34",
-    border: "#3a3f46",
-    isDark: true,
-    textSecondary: "#9aa0a6",
-    codeText: "#d1d5db",
-    selection: "rgba(90, 168, 255, 0.22)",
-    mdChar: "#7aa874",
-    // Light blue for bold, warm orange for italic
-    strong: "#6cb6ff",
-    emphasis: "#d19a66",
-  },
-};
+/**
+ * Color palettes for each available theme — derived from the typed
+ * ThemeTokens in src/theme/themes/ per theme-unification-2026-05.
+ * To retint a theme, edit src/theme/themes/<id>.ts, not this file.
+ */
+export { themesAsColors as themes } from "@/theme";
 
 const initialState: SettingsState = {
   general: {

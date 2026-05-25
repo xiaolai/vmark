@@ -249,13 +249,14 @@ export function useTerminalSessions(
       const cursorBlink = termSettings?.cursorBlink ?? true;
       const useWebGL = termSettings?.useWebGL ?? true;
       const macOptionIsMeta = termSettings?.macOptionIsMeta ?? true;
+      const themeId = useSettingsStore.getState().appearance.theme;
 
       // Create a shared ptyRef that we'll update as the pty changes
       const ptyRefForKeys: React.RefObject<IPty | null> = { current: null };
 
       const instance = createTerminalInstance({
         parentEl: parent,
-        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta },
+        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
       });

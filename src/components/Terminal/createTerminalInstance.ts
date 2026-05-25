@@ -99,6 +99,10 @@ export interface TerminalInstanceSettings {
   cursorBlink: boolean;
   useWebGL: boolean;
   macOptionIsMeta: boolean;
+  /** Active app theme — used to compose the xterm ITheme. The factory
+   *  no longer reads settingsStore directly to keep the @/theme module
+   *  free of a back-edge into stores (avoids a dep-cruiser cycle). */
+  themeId: import("@/theme").ThemeId;
 }
 
 interface CreateOptions {
@@ -128,7 +132,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
   // Create terminal
   const term = new Terminal({
-    theme: buildXtermTheme(),
+    theme: buildXtermTheme(settings.themeId),
     fontFamily: resolveMonoFont(),
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,
