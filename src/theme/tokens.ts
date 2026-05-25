@@ -5,17 +5,32 @@
  * the reskin replaces a theme by providing a new `ThemeTokens` value rather
  * than editing CSS.
  *
- * This file is foundation-only: it defines the type and shipping light/dark
- * implementations. The existing `useTheme.ts` runtime CSS-var writer continues
- * to own runtime overrides driven by user settings; migrating that layer to
- * consume from this typed structure is a follow-up.
- *
- * Values mirror `src/styles/index.css` so the typed structure is the
- * authoritative shape going forward; ad-hoc CSS-var additions in index.css
- * should also be added here.
+ * After theme-unification-2026-05, `ThemeTokens` is the single source of
+ * truth for app, editor, AND terminal theme colors. Adding a new vmark
+ * theme requires only a new file in `src/theme/themes/`.
  *
  * @module theme/tokens
  */
+
+/** 16-color ANSI palette consumed by the xterm.js terminal. */
+export interface AnsiPalette {
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
+}
 
 export type ThemeTokens = {
   color: {
@@ -24,6 +39,10 @@ export type ThemeTokens = {
     accent: { primary: string; bg: string };
     border: string;
     selection: string;
+    /** Bold-text tint. Per-theme (e.g. "blue-gray" on paper). */
+    strong: string;
+    /** Italic-text tint. Per-theme (e.g. "dark wine" on paper). */
+    emphasis: string;
     semantic: {
       error: string;
       errorBg: string;
@@ -48,43 +67,33 @@ export type ThemeTokens = {
       bilibili: string;
     };
   };
+  /**
+   * Terminal-specific colors. The 16 ANSI palette flows to the xterm.js
+   * `ITheme` via `buildXtermTheme()`; the scrollbar triple and cursor
+   * tints are also xterm `ITheme` fields. None of these are written as
+   * CSS vars by default — they are JS-side data consumed at xterm-
+   * instance creation. (If a future surface needs CSS access, expose
+   * via `applyTheme()` selectively.)
+   */
+  terminal: {
+    ansi: AnsiPalette;
+    cursor: string;
+    cursorAccent: string;
+    selectionBackground: string;
+    scrollbar: { idle: string; hover: string; active: string };
+  };
   space: Record<1 | 2 | 3 | 4 | 5 | 6 | 8 | 10, string>;
   radius: { sm: string; md: string; lg: string; pill: string };
   shadow: { sm: string; md: string; popup: string };
   font: { sans: string; mono: string };
 };
 
-export const lightTheme: ThemeTokens = {
-  color: {
-    bg: { primary: "#eeeded", secondary: "#e5e4e4", tertiary: "#f0f0f0" },
-    text: { primary: "#1a1a1a", secondary: "#666666", tertiary: "#999999" },
-    accent: { primary: "#0066cc", bg: "rgba(0, 102, 204, 0.1)" },
-    border: "#d5d4d4",
-    selection: "rgba(0, 102, 204, 0.2)",
-    semantic: {
-      error: "#cf222e",
-      errorBg: "#ffebe9",
-      errorHover: "#b91c1c",
-      warning: "#9a6700",
-      warningBg: "rgba(245, 158, 11, 0.1)",
-      success: "#16a34a",
-      successHover: "#15803d",
-    },
-    alert: {
-      note: "#0969da",
-      tip: "#1a7f37",
-      important: "#8250df",
-      warning: "#9a6700",
-      caution: "#cf222e",
-    },
-    media: {
-      video: "#0d9488",
-      audio: "#6366f1",
-      youtube: "#dc2626",
-      vimeo: "#00adef",
-      bilibili: "#fb7299",
-    },
-  },
+// ---------------------------------------------------------------------------
+// Shared static fragments — identical across themes, defined once.
+// ---------------------------------------------------------------------------
+
+/** Spatial/typographic primitives that don't vary by theme. */
+export const sharedPrimitives = {
   space: {
     1: "4px",
     2: "8px",
@@ -94,51 +103,31 @@ export const lightTheme: ThemeTokens = {
     6: "24px",
     8: "32px",
     10: "40px",
-  },
-  radius: { sm: "4px", md: "6px", lg: "8px", pill: "100px" },
-  shadow: {
-    sm: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    md: "0 2px 8px rgba(0, 0, 0, 0.12)",
-    popup: "0 4px 12px rgba(0, 0, 0, 0.15)",
-  },
+  } satisfies ThemeTokens["space"],
+  radius: { sm: "4px", md: "6px", lg: "8px", pill: "100px" } satisfies ThemeTokens["radius"],
   font: {
     sans: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "SF Pro SC", "SF Pro Text", "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Helvetica, Arial, sans-serif',
     mono: '"SauceCodePro NF", "Courier New", Consolas, monospace',
-  },
+  } satisfies ThemeTokens["font"],
+} as const;
+
+/** Shadow tokens for light themes; `night` overrides via deeper alpha. */
+export const lightShadows: ThemeTokens["shadow"] = {
+  sm: "0 1px 3px rgba(0, 0, 0, 0.1)",
+  md: "0 2px 8px rgba(0, 0, 0, 0.12)",
+  popup: "0 4px 12px rgba(0, 0, 0, 0.15)",
 };
 
-export const darkTheme: ThemeTokens = {
-  ...lightTheme,
-  color: {
-    ...lightTheme.color,
-    bg: { primary: "#1e1e1e", secondary: "#252525", tertiary: "#2a2a2a" },
-    text: { primary: "#e8e8e8", secondary: "#858585", tertiary: "#6a6a6a" },
-    border: "#3a3a3a",
-    accent: { primary: "#58a6ff", bg: "rgba(88, 166, 255, 0.12)" },
-    selection: "rgba(88, 166, 255, 0.2)",
-    semantic: {
-      ...lightTheme.color.semantic,
-      error: "#f85149",
-      errorBg: "rgba(248, 81, 73, 0.15)",
-      success: "#4ade80",
-    },
-    alert: {
-      note: "#58a6ff",
-      tip: "#3fb950",
-      important: "#a371f7",
-      warning: "#d29922",
-      caution: "#f85149",
-    },
-    media: {
-      video: "#2dd4bf",
-      audio: "#818cf8",
-      youtube: "#f87171",
-      vimeo: "#4ac3f0",
-      bilibili: "#fc9cb5",
-    },
-  },
-  shadow: {
-    ...lightTheme.shadow,
-    popup: "0 4px 12px rgba(0, 0, 0, 0.4)",
-  },
+export const darkShadows: ThemeTokens["shadow"] = {
+  ...lightShadows,
+  popup: "0 4px 12px rgba(0, 0, 0, 0.4)",
 };
+
+// ---------------------------------------------------------------------------
+// Legacy lightTheme / darkTheme — kept as paper/night aliases for the
+// existing applyTheme.test.ts. New code should import named themes from
+// `./themes/`.
+// ---------------------------------------------------------------------------
+
+export { paper as lightTheme } from "./themes/paper";
+export { night as darkTheme } from "./themes/night";

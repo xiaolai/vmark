@@ -24,6 +24,15 @@ src/stores/settingsStore.ts
 src/components/Terminal/terminalTheme.ts
 src/components/Terminal/terminalTheme.test.ts
 
+# Theme catalog files — typed theme definitions per ADR-014.
+# Each file IS a ThemeTokens value; its literals are the source of truth
+# for that theme. Edits here are how the reskin team retints vmark.
+src/theme/themes/paper.ts
+src/theme/themes/white.ts
+src/theme/themes/mint.ts
+src/theme/themes/sepia.ts
+src/theme/themes/night.ts
+
 # --- Domain-specific palettes (not UI tokens) ----------------------------
 # Code-syntax highlight palettes — separate concern from the design system.
 src/plugins/codemirror/source-syntax.css
