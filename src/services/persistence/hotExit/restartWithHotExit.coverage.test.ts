@@ -31,7 +31,7 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
   getCurrentWebviewWindow: () => ({ label: currentWindowLabel }),
 }));
 
-vi.mock('./useHotExitRestore', () => ({
+vi.mock('../resilience/_hotExitRestore', () => ({
   restoreMainWindowState: vi.fn().mockResolvedValue(undefined),
 }));
 

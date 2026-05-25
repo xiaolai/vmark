@@ -16,7 +16,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { SessionData } from './types';
 import { HOT_EXIT_EVENTS } from './types';
 import { migrateSession, canMigrate, needsMigration, SCHEMA_VERSION } from './schemaMigration';
-import { restoreMainWindowState } from './useHotExitRestore';
+import { restoreMainWindowState } from '../resilience/_hotExitRestore';
 import { hotExitLog, hotExitWarn, hotExitError } from '@/utils/debug';
 
 /** Default timeout for restore operation in milliseconds */

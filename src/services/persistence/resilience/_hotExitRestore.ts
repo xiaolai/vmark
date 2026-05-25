@@ -20,8 +20,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
 import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { HOT_EXIT_EVENTS } from './types';
-import { pullWindowStateWithRetry, restoreWindowState } from './restoreHelpers';
+import { HOT_EXIT_EVENTS } from '../hotExit/types';
+import { pullWindowStateWithRetry, restoreWindowState } from '../hotExit/restoreHelpers';
 
 /** Maximum retries when pulling state (handles timing issues) */
 const MAX_STATE_RETRIES = 5;

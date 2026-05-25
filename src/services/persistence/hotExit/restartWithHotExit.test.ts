@@ -10,7 +10,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { checkAndRestoreSession } from './restartWithHotExit';
 import { HOT_EXIT_EVENTS, SCHEMA_VERSION } from './types';
-import { restoreMainWindowState } from './useHotExitRestore';
+import { restoreMainWindowState } from '../resilience/_hotExitRestore';
 
 // Mock Tauri APIs
 vi.mock('@tauri-apps/api/core', () => ({
@@ -28,7 +28,7 @@ vi.mock('@tauri-apps/plugin-process', () => ({
 
 // Mock restoreMainWindowState to avoid store dependencies
 // The actual restore logic is tested in useHotExitRestore.test.ts
-vi.mock('./useHotExitRestore', () => ({
+vi.mock('../resilience/_hotExitRestore', () => ({
   restoreMainWindowState: vi.fn().mockResolvedValue(undefined),
 }));
 

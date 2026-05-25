@@ -69,3 +69,58 @@ Maps every known failure mode to its recovery path and test coverage.
 - **Yes**: Automated test exists and covers the path
 - **Partial**: Test exists but doesn't cover all edge cases
 - **No**: No automated test; recovery path exists but is unverified
+
+---
+
+## T07 — Document resilience state machine
+
+The four per-window persistence hooks (hot-exit capture/restore,
+crash-recovery writer/cleanup) and the two main-window startup hooks
+(hot-exit startup, crash-recovery startup) are unified behind
+`useDocumentResilience` in `src/services/persistence/resilience/`.
+
+States: `idle | restoring | ready | snapshotting | cleaning`.
+
+Transition table:
+
+| From         | To           | Trigger                                  |
+|--------------|--------------|------------------------------------------|
+| idle         | restoring    | hook mount, isMainWindow=true            |
+| idle         | ready        | hook mount, non-main (skip restore)      |
+| restoring    | ready        | restore complete (or no session found)   |
+| restoring    | cleaning     | restore aborted (corrupt JSON, unmount)  |
+| ready        | snapshotting | periodic snapshot timer fires            |
+| snapshotting | ready        | snapshot persisted                       |
+| ready        | cleaning     | save / close / unmount                   |
+| cleaning     | idle         | cleanup complete                         |
+| any          | same         | re-entry (no-op for guards)              |
+
+```
+                 ┌───────────┐
+        ┌────────►   ready   ◄────────┐
+        │        └─────┬─────┘        │
+        │              │              │
+        │              ▼              │
+        │      ┌──────────────┐       │
+        │      │ snapshotting │───────┘
+        │      └──────────────┘
+        │
+restoring
+    ▲
+    │ (mount, main)
+    │
+  idle ◄──── cleaning ◄──── ready (save/unmount)
+```
+
+Invariants enforced by the machine:
+
+- A snapshot cannot run while restoring (prevents torn writes during
+  startup race).
+- Cleaning cannot interrupt snapshotting (the snapshot writer always
+  completes its current iteration before cleanup runs).
+- A second restoring entry is rejected — the module-level guard in
+  `_hotExitRestore.ts` already prevents double-restore; the machine
+  documents that invariant explicitly.
+
+Per-test invariant coverage lives alongside each internal helper:
+`_crashRecoveryWriter.test.ts`, `_hotExitRestore.test.ts`, etc.

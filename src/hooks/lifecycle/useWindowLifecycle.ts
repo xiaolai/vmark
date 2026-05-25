@@ -23,19 +23,13 @@
 import { useWindowClose } from "@/hooks/useWindowClose";
 import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
-import { useHotExitCapture } from "@/services/persistence/hotExit/useHotExitCapture";
-import { useHotExitRestore } from "@/services/persistence/hotExit/useHotExitRestore";
-import { useCrashRecoveryWriter } from "@/hooks/useCrashRecoveryWriter";
-import { useCrashRecoveryCleanup } from "@/hooks/useCrashRecoveryCleanup";
+import { useDocumentResilience } from "@/services/persistence/resilience";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
 
 export function useWindowLifecycle(): void {
   useWindowClose();
   useWindowTitle();
   useWindowFileWatcher();
-  useHotExitCapture();
-  useHotExitRestore();
-  useCrashRecoveryWriter();
-  useCrashRecoveryCleanup();
+  useDocumentResilience(); // T07: capture + restore + snapshot writer + cleanup
   useMcpBridge();
 }

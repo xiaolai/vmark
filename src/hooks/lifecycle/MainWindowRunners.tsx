@@ -23,8 +23,7 @@
 import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
-import { useHotExitStartup } from "@/services/persistence/hotExit/useHotExitStartup";
-import { useCrashRecoveryStartup } from "@/hooks/useCrashRecoveryStartup";
+import { useResilienceStartup } from "@/services/persistence/resilience";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
 import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
@@ -36,8 +35,10 @@ function MainWindowLifecycle(): null {
   useUpdateChecker();
   useUpdateBroadcast();
   useUpdateListener();
-  useHotExitStartup();
-  useCrashRecoveryStartup();
+  // T07: main-window-only startup sequence (hot-exit session check +
+  // crash-recovery scan). useResilienceStartup enforces the
+  // hot-exit-before-crash-recovery order internally.
+  useResilienceStartup();
   useFinderFileOpen();
   return null;
 }

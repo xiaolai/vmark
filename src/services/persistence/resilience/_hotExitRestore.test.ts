@@ -39,7 +39,7 @@ vi.mock('@/utils/debug', () => ({
 
 const mockPullWindowStateWithRetry = vi.fn();
 const mockRestoreWindowState = vi.fn();
-vi.mock('./restoreHelpers', () => ({
+vi.mock('../hotExit/restoreHelpers', () => ({
   pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
   restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
 }));
@@ -49,8 +49,8 @@ vi.mock('./restoreHelpers', () => ({
 // ---------------------------------------------------------------------------
 
 // We need to dynamically import to reset the module-level flag between tests
-let restoreMainWindowState: typeof import('./useHotExitRestore').restoreMainWindowState;
-let useHotExitRestore: typeof import('./useHotExitRestore').useHotExitRestore;
+let restoreMainWindowState: typeof import('./_hotExitRestore').restoreMainWindowState;
+let useHotExitRestore: typeof import('./_hotExitRestore').useHotExitRestore;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -107,12 +107,12 @@ describe('useHotExitRestore', () => {
       hotExitLog: vi.fn(),
       hotExitWarn: vi.fn(),
     }));
-    vi.doMock('./restoreHelpers', () => ({
+    vi.doMock('../hotExit/restoreHelpers', () => ({
       pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
       restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
     }));
 
-    const mod = await import('./useHotExitRestore');
+    const mod = await import('./_hotExitRestore');
     restoreMainWindowState = mod.restoreMainWindowState;
     useHotExitRestore = mod.useHotExitRestore;
   });
@@ -184,12 +184,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
 
       await mod.restoreMainWindowState();
 
@@ -291,12 +291,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
       useHotExitRestore = mod.useHotExitRestore;
 
       const state = makeWindowState();
@@ -362,12 +362,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
       mockPullWindowStateWithRetry.mockResolvedValueOnce(null);
 
       renderHook(() => mod.useHotExitRestore());
@@ -405,12 +405,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
       mockPullWindowStateWithRetry.mockRejectedValueOnce(new Error('restore boom'));
 
       renderHook(() => mod.useHotExitRestore());
@@ -441,12 +441,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
       const state = makeWindowState();
       mockPullWindowStateWithRetry.mockResolvedValueOnce(state);
       mockInvoke.mockResolvedValueOnce(true); // allDone = true
@@ -476,12 +476,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
       mockPullWindowStateWithRetry.mockRejectedValueOnce('string error from secondary');
 
       renderHook(() => mod.useHotExitRestore());
@@ -564,12 +564,12 @@ describe('useHotExitRestore', () => {
         .mockReturnValueOnce(firstPullPromise)
         .mockResolvedValue(null);
 
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
 
       // Render twice (simulates strict mode double-invoke) — second call should be ignored
       renderHook(() => mod.useHotExitRestore());
@@ -624,12 +624,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
       // Make pull throw so emit gets called in catch block
       mockPullWindowStateWithRetry.mockRejectedValueOnce(new Error('pull error'));
       // Make emit also reject to cover the .catch path (line 142)
@@ -661,12 +661,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: vi.fn(),
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
       mockPullWindowStateWithRetry.mockResolvedValue(null);
 
       const { rerender } = renderHook(() => mod.useHotExitRestore());
@@ -719,12 +719,12 @@ describe('useHotExitRestore', () => {
         hotExitLog: vi.fn(),
         hotExitWarn: mockHotExitWarn,
       }));
-      vi.doMock('./restoreHelpers', () => ({
+      vi.doMock('../hotExit/restoreHelpers', () => ({
         pullWindowStateWithRetry: (...args: unknown[]) => mockPullWindowStateWithRetry(...args),
         restoreWindowState: (...args: unknown[]) => mockRestoreWindowState(...args),
       }));
 
-      const mod = await import('./useHotExitRestore');
+      const mod = await import('./_hotExitRestore');
 
       // First pull will never resolve (simulates in-flight restore)
       let resolveFirst!: (v: null) => void;

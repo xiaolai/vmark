@@ -107,7 +107,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({ label: "main", emit: vi.fn() }),
 }));
 
-import { captureWindowState } from "./useHotExitCapture";
+import { captureWindowState } from "./_hotExitCapture";
 
 function setTabs(windowLabel: string, tabs: StubTab[]) {
   tabsForWindow[windowLabel] = tabs;

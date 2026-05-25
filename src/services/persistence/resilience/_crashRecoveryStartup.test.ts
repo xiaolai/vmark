@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useCrashRecoveryStartup } from "../useCrashRecoveryStartup";
+import { useCrashRecoveryStartup } from "./_crashRecoveryStartup";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 
