@@ -44,18 +44,13 @@ vi.mock("@/stores/uiStore", () => {
 
 let activeWysiwygEditor: { view: object } | null = null;
 let activeSourceView: object | null = null;
-vi.mock("@/stores/activeEditorStore", () => ({
-  useActiveEditorStore: {
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: {
     getState: () => ({
-      activeWysiwygEditor,
-      activeSourceView,
+      active: { activeWysiwygEditor, activeSourceView },
+      tiptap: { editor: null, editorView: null, context: null },
+      source: { context: null, editorView: null },
     }),
-  },
-}));
-
-vi.mock("@/stores/sourceCursorContextStore", () => ({
-  useSourceCursorContextStore: {
-    getState: () => ({ context: null }),
   },
 }));
 

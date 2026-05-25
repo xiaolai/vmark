@@ -42,7 +42,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import {
   isWorkflowYaml,
@@ -172,7 +172,7 @@ function writeContent(
   // editor stays in sync. Editor transactions automatically bump the
   // revision via revisionTracker. For non-Markdown (workflow YAML)
   // tabs, the editor isn't bound — bump the revision manually.
-  const editor = useTiptapEditorStore.getState().editor;
+  const editor = useEditorStore.getState().tiptap.editor;
   if (editor && kind === "markdown") {
     try {
       const serializeOpts = getSerializeOptions();

@@ -16,7 +16,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
@@ -42,7 +42,7 @@ export async function respond(response: McpResponse): Promise<void> {
  * Get the current editor instance.
  */
 export function getEditor() {
-  return useTiptapEditorStore.getState().editor;
+  return useEditorStore.getState().tiptap.editor;
 }
 
 /**

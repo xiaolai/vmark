@@ -61,9 +61,9 @@ vi.mock("@/stores/aiSuggestionStore", () => ({
 
 // Mock tiptapEditorStore
 const mockEditorStoreState = { editorView: null as unknown };
-vi.mock("@/stores/tiptapEditorStore", () => ({
-  useTiptapEditorStore: {
-    getState: () => mockEditorStoreState,
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: {
+    getState: () => ({ tiptap: mockEditorStoreState }),
   },
 }));
 

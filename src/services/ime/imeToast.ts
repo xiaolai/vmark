@@ -31,7 +31,7 @@
  */
 
 import { toast } from "sonner";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { buildPinAction } from "./imeToastPinAction";
 
 /** Small delay after compositionend before flushing (ms).
@@ -43,7 +43,7 @@ const POST_COMPOSITION_DELAY_MS = 60;
 const FALLBACK_FLUSH_TIMEOUT_MS = 5000;
 
 function isEditorComposing(): boolean {
-  const { activeWysiwygEditor, activeSourceView } = useActiveEditorStore.getState();
+  const { activeWysiwygEditor, activeSourceView } = useEditorStore.getState().active;
 
   if (activeWysiwygEditor?.view?.composing) return true;
   if (activeSourceView?.composing) return true;

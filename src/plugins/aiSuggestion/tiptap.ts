@@ -24,7 +24,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 import { cleanMarkdownForClipboard } from "@/plugins/markdownCopy/tiptap";
@@ -147,7 +147,7 @@ function createButtons(suggestion: AiSuggestion): HTMLSpanElement {
   acceptBtn.onmousedown = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const view = useTiptapEditorStore.getState().editorView;
+    const view = useEditorStore.getState().tiptap.editorView;
     if (!view) return;
     applySuggestion(view, suggestion);
     useAiSuggestionStore.getState().removeSuggestion(suggestion.id);

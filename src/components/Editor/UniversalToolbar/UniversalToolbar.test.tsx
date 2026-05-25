@@ -26,30 +26,33 @@ const mockedStores = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/stores/sourceCursorContextStore", () => {
-  type StoreState = typeof mockedStores.sourceState;
-  type StoreHook = ((selector?: (state: StoreState) => unknown) => unknown) & {
-    getState: () => StoreState;
-    setState: (next: Partial<StoreState>) => void;
+// editorStore (T09): single store with slices source/tiptap/active.
+vi.mock("@/stores/editorStore", () => {
+  type Root = {
+    source: typeof mockedStores.sourceState;
+    tiptap: typeof mockedStores.tiptapState;
+    active: { activeWysiwygEditor: unknown; activeSourceView: unknown };
   };
-  const store = ((selector?: (state: StoreState) => unknown) =>
-    selector ? selector(mockedStores.sourceState) : mockedStores.sourceState) as unknown as StoreHook;
-  store.getState = () => mockedStores.sourceState;
-  store.setState = (next) => Object.assign(mockedStores.sourceState, next);
-  return { useSourceCursorContextStore: store };
-});
-
-vi.mock("@/stores/tiptapEditorStore", () => {
-  type StoreState = typeof mockedStores.tiptapState;
-  type StoreHook = ((selector?: (state: StoreState) => unknown) => unknown) & {
-    getState: () => StoreState;
-    setState: (next: Partial<StoreState>) => void;
+  const rootGetter = (): Root => ({
+    source: mockedStores.sourceState,
+    tiptap: mockedStores.tiptapState,
+    active: {
+      activeWysiwygEditor: mockedStores.tiptapState.editor,
+      activeSourceView: mockedStores.sourceState.editorView,
+    },
+  });
+  const store = ((selector?: (state: Root) => unknown) =>
+    selector ? selector(rootGetter()) : rootGetter()) as unknown as {
+    (selector?: (state: Root) => unknown): unknown;
+    getState: () => Root;
+    setState: (next: Partial<Root>) => void;
   };
-  const store = ((selector?: (state: StoreState) => unknown) =>
-    selector ? selector(mockedStores.tiptapState) : mockedStores.tiptapState) as unknown as StoreHook;
-  store.getState = () => mockedStores.tiptapState;
-  store.setState = (next) => Object.assign(mockedStores.tiptapState, next);
-  return { useTiptapEditorStore: store };
+  store.getState = rootGetter;
+  store.setState = (next) => {
+    if (next.source) Object.assign(mockedStores.sourceState, next.source);
+    if (next.tiptap) Object.assign(mockedStores.tiptapState, next.tiptap);
+  };
+  return { useEditorStore: store };
 });
 
 // Mock sonner toast

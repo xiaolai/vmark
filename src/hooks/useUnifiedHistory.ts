@@ -25,8 +25,7 @@ import { useUnifiedHistoryStore, type HistoryCheckpoint } from "@/stores/unified
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
 import { imeToast } from "@/services/ime/imeToast";
@@ -124,11 +123,11 @@ export function canNativeUndo(): boolean {
   const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
-    const view = useActiveEditorStore.getState().activeSourceView;
+    const view = useEditorStore.getState().active.activeSourceView;
     if (!view) return false;
     return undoDepth(view.state) > 0;
   } else {
-    const editor = useTiptapEditorStore.getState().editor;
+    const editor = useEditorStore.getState().tiptap.editor;
     if (!editor) return false;
     return editor.can().undo();
   }
@@ -141,11 +140,11 @@ export function canNativeRedo(): boolean {
   const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
-    const view = useActiveEditorStore.getState().activeSourceView;
+    const view = useEditorStore.getState().active.activeSourceView;
     if (!view) return false;
     return redoDepth(view.state) > 0;
   } else {
-    const editor = useTiptapEditorStore.getState().editor;
+    const editor = useEditorStore.getState().tiptap.editor;
     /* v8 ignore start -- editor is always set when this is called; null guard is defensive */
     if (!editor) return false;
     /* v8 ignore stop */
@@ -161,11 +160,11 @@ export function doNativeUndo(): boolean {
   const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
-    const view = useActiveEditorStore.getState().activeSourceView;
+    const view = useEditorStore.getState().active.activeSourceView;
     if (!view || undoDepth(view.state) === 0) return false;
     return undo(view);
   } else {
-    const editor = useTiptapEditorStore.getState().editor;
+    const editor = useEditorStore.getState().tiptap.editor;
     if (!editor || !editor.can().undo()) return false;
     return editor.commands.undo();
   }
@@ -179,11 +178,11 @@ export function doNativeRedo(): boolean {
   const sourceMode = useUIStore.getState().sourceMode;
 
   if (sourceMode) {
-    const view = useActiveEditorStore.getState().activeSourceView;
+    const view = useEditorStore.getState().active.activeSourceView;
     if (!view || redoDepth(view.state) === 0) return false;
     return redo(view);
   } else {
-    const editor = useTiptapEditorStore.getState().editor;
+    const editor = useEditorStore.getState().tiptap.editor;
     if (!editor || !editor.can().redo()) return false;
     return editor.commands.redo();
   }

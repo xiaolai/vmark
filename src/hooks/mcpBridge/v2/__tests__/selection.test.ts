@@ -13,7 +13,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useMcpStore } from "@/stores/mcpStore";
 import { handleSelectionGet, handleSelectionSet } from "../selection";
 
@@ -46,7 +46,7 @@ function resetStores() {
   useDocumentStore.setState({ documents: {} });
   useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
   useUIStore.setState({ sourceMode: false });
-  useActiveEditorStore.setState({
+  useEditorStore.setState({
     activeWysiwygEditor: null,
     activeSourceView: null,
   });
@@ -73,7 +73,7 @@ function makeTiptap(
     content: initialContent,
   });
   tiptapEditor.commands.setTextSelection({ from, to });
-  useActiveEditorStore
+  useEditorStore
     .getState()
     .setActiveWysiwygEditor(tiptapEditor, tabId);
   return tiptapEditor;
@@ -95,7 +95,7 @@ function makeCm(
   const view = new CMView({ state, parent });
   cmViews.push(view);
   useUIStore.setState({ sourceMode: true });
-  useActiveEditorStore.getState().setActiveSourceView(view, tabId);
+  useEditorStore.getState().setActiveSourceView(view, tabId);
   return view;
 }
 
@@ -194,7 +194,7 @@ describe("vmark.selection.get — WYSIWYG mode", () => {
 
   it("returns NO_EDITOR when active tab has no live editor", async () => {
     seedTab("t-no-ed", "x", null);
-    // No editor injected — useActiveEditorStore is reset to nulls.
+    // No editor injected — useEditorStore is reset to nulls.
 
     await handleSelectionGet("req-4", {});
 

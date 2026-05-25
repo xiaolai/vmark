@@ -33,8 +33,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
 import { isYamlFileName } from "@/utils/dropPaths";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
 
@@ -210,14 +209,14 @@ export function useViewShortcuts() {
         // In Source mode: read from CM view. In WYSIWYG mode: serialize Tiptap content.
         let content: string | undefined;
         const editorStoreState = useUIStore.getState();
-        const { activeSourceView } = useActiveEditorStore.getState();
+        const { activeSourceView } = useEditorStore.getState().active;
 
         if (editorStoreState.sourceMode && activeSourceView) {
           // Source mode — read directly from CM document
           content = activeSourceView.state.doc.toString();
         } else {
           // WYSIWYG mode — serialize Tiptap editor to markdown
-          const tiptapEditor = useTiptapEditorStore.getState().editor;
+          const tiptapEditor = useEditorStore.getState().tiptap.editor;
           if (tiptapEditor) {
             content = serializeMarkdown(tiptapEditor.state.schema, tiptapEditor.state.doc);
           }

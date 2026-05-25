@@ -4,15 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, cleanup } from "@testing-library/react";
 import type { Diagnostic } from "@/lib/ghaWorkflow/types";
 import { useWorkflowStore } from "@/stores/workflowStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { DiagnosticsBanner } from "../DiagnosticsBanner";
 
 beforeEach(() => {
   useWorkflowStore.getState().resetView();
-  useActiveEditorStore.setState({
-    activeWysiwygEditor: null,
-    activeSourceView: null,
-  });
+  useEditorStore.setState((s) => ({ active: { ...s.active, activeWysiwygEditor: null, activeSourceView: null } }));
 });
 
 afterEach(() => {
@@ -122,11 +119,7 @@ describe("DiagnosticsBanner — interaction", () => {
       dispatch,
       focus,
     };
-    useActiveEditorStore.setState({
-      activeWysiwygEditor: null,
-       
-      activeSourceView: fakeView as any,
-    });
+    useEditorStore.setState((s) => ({ active: { ...s.active, activeWysiwygEditor: null, activeSourceView: fakeView as any } }));
     render(
       <DiagnosticsBanner
         diagnostics={[
@@ -150,16 +143,18 @@ describe("DiagnosticsBanner — interaction", () => {
 
   it("position takes priority over jobId when both are present", () => {
     const dispatch = vi.fn();
-    useActiveEditorStore.setState({
-      activeWysiwygEditor: null,
-       
-      activeSourceView: {
-        dom: { isConnected: true },
-        state: { doc: { lines: 100, line: () => ({ from: 0, to: 10 }) } },
-        dispatch,
-        focus: vi.fn(),
-      } as any,
-    });
+    useEditorStore.setState((s) => ({
+      active: {
+        ...s.active,
+        activeWysiwygEditor: null,
+        activeSourceView: {
+          dom: { isConnected: true },
+          state: { doc: { lines: 100, line: () => ({ from: 0, to: 10 }) } },
+          dispatch,
+          focus: vi.fn(),
+        } as never,
+      },
+    }));
     render(
       <DiagnosticsBanner
         diagnostics={[
@@ -343,10 +338,7 @@ describe("DiagnosticsBanner — per-row collapse", () => {
       focus: vi.fn(),
       dom: { isConnected: true },
     };
-    useActiveEditorStore.setState({
-      activeWysiwygEditor: null,
-      activeSourceView: view as never,
-    });
+    useEditorStore.setState((s) => ({ active: { ...s.active, activeWysiwygEditor: null, activeSourceView: view as never } }));
     render(
       <DiagnosticsBanner
         diagnostics={[

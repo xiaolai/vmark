@@ -47,8 +47,7 @@ import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";
 import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
 import type { CursorInfo } from "@/stores/documentStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -332,7 +331,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
 
         const view = getTiptapEditorView(editor);
         if (view) {
-          useTiptapEditorStore.getState().setContext(extractTiptapContext(editor.state), view);
+          useEditorStore.getState().setTiptapContext(extractTiptapContext(editor.state), view);
         }
       }, 0);
 
@@ -422,7 +421,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       const view = getTiptapEditorView(editor);
       if (!view) return;
       scheduleCursorUpdate(getCursorInfoFromTiptap(view));
-      useTiptapEditorStore.getState().setContext(extractTiptapContext(editor.state), view);
+      useEditorStore.getState().setTiptapContext(extractTiptapContext(editor.state), view);
     },
   });
 
@@ -501,17 +500,17 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   // Register editor stores — only when visible
   useEffect(() => {
     if (!hidden) {
-      useTiptapEditorStore.getState().setEditor(editor ?? null);
+      useEditorStore.getState().setTiptapEditor(editor ?? null);
       if (editor) {
-        useActiveEditorStore
+        useEditorStore
           .getState()
           .setActiveWysiwygEditor(editor, activeTabId);
       }
     }
     return () => {
-      useTiptapEditorStore.getState().clear();
+      useEditorStore.getState().clearTiptap();
       if (editor) {
-        useActiveEditorStore.getState().clearWysiwygEditorIfMatch(editor);
+        useEditorStore.getState().clearWysiwygEditorIfMatch(editor);
       }
     };
   }, [editor, hidden, activeTabId]);

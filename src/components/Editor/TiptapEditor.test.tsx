@@ -135,7 +135,7 @@ vi.mock("@/contexts/WindowContext", () => ({
 }));
 
 vi.mock("@/stores/tiptapEditorStore", () => ({
-  useTiptapEditorStore: {
+  useEditorStore: {
     getState: () => ({
       setEditor: vi.fn(),
       setContext: vi.fn(),
@@ -145,7 +145,7 @@ vi.mock("@/stores/tiptapEditorStore", () => ({
 }));
 
 vi.mock("@/stores/activeEditorStore", () => ({
-  useActiveEditorStore: {
+  useEditorStore: {
     getState: () => ({
       setActiveWysiwygEditor: vi.fn(),
       clearWysiwygEditorIfMatch: vi.fn(),

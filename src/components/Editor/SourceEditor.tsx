@@ -38,9 +38,8 @@ import {
   getCursorInfoFromCodeMirror,
   restoreCursorInCodeMirror,
 } from "@/utils/cursorSync/codemirror";
-import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { computeSourceCursorContext } from "@/plugins/sourceContextDetection/cursorContext";
@@ -218,7 +217,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
 
     // Only register and focus when not hidden
     if (!hiddenRef.current) {
-      useActiveEditorStore.getState().setActiveSourceView(view, mountTabId);
+      useEditorStore.getState().setActiveSourceView(view, mountTabId);
     }
 
     const updateShortcutKeymap = () => {
@@ -232,7 +231,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     };
     updateShortcutKeymap();
     const unsubscribeShortcuts = useShortcutsStore.subscribe(updateShortcutKeymap);
-    useSourceCursorContextStore.getState().setContext(
+    useEditorStore.getState().setSourceContext(
       computeSourceCursorContext(view),
       view
     );
@@ -283,7 +282,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       if (focusTimeoutId !== null) clearTimeout(focusTimeoutId);
       searchCounter.cancel();
       unsubscribeShortcuts();
-      useActiveEditorStore.getState().clearSourceViewIfMatch(view);
+      useEditorStore.getState().clearSourceViewIfMatch(view);
       view.destroy();
       viewRef.current = null;
     };
@@ -314,7 +313,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     // Register as active source view, bound to the currently visible tab
     const { activeTabId: tabIds } = useTabStore.getState();
     const visibleTabId = tabIds[windowLabel] ?? undefined;
-    useActiveEditorStore.getState().setActiveSourceView(view, visibleTabId);
+    useEditorStore.getState().setActiveSourceView(view, visibleTabId);
 
     // Focus and restore cursor
     setTimeout(() => {

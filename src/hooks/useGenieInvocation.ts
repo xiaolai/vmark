@@ -39,7 +39,7 @@ import { useAiInvocationStore } from "@/stores/aiInvocationStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useGeniesStore } from "@/stores/geniesStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
@@ -62,7 +62,7 @@ interface ExtractionResult {
 }
 
 function extractContent(scope: GenieScope, contextRadius = 0): ExtractionResult | null {
-  const editor = useTiptapEditorStore.getState().editor;
+  const editor = useEditorStore.getState().tiptap.editor;
   const sourceMode = useUIStore.getState().sourceMode;
 
   /* v8 ignore start -- callers guard against source mode; defensive only */
@@ -279,7 +279,7 @@ export function useGenieInvocation() {
             const isInsert = action === "insert";
             if (autoApprove) {
               // Apply directly — skip ghost text preview
-              const editor = useTiptapEditorStore.getState().editor;
+              const editor = useEditorStore.getState().tiptap.editor;
               if (editor) {
                 const content = accumulated.trim();
                 const from = isInsert ? extraction.to : extraction.from;

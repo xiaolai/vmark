@@ -74,7 +74,7 @@ import { useAiInvocationStore } from "@/stores/aiInvocationStore";
 import { useAiProviderStore } from "@/stores/aiProviderStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
 import { useGenieInvocation } from "../useGenieInvocation";
@@ -147,7 +147,7 @@ function setupProviderAndEditor() {
 
   // Set up a fake editor
   const fakeEditor = makeFakeEditor();
-  useTiptapEditorStore.setState({ editor: fakeEditor as never });
+  useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
 
   return fakeEditor;
 }
@@ -475,7 +475,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("warns when no content can be extracted", async () => {
     setupProviderAndEditor();
-    useTiptapEditorStore.setState({ editor: null as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: null as never } }));
 
     const { result } = renderHook(() => useGenieInvocation());
     await act(async () => {
@@ -491,7 +491,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("shows error for unavailable CLI provider", async () => {
     const fakeEditor = makeFakeEditor();
-    useTiptapEditorStore.setState({ editor: fakeEditor as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
     useAiProviderStore.setState({
       activeProvider: "claude-cli",
       restProviders: [],
@@ -517,7 +517,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("invokes with null model/apiKey/endpoint for CLI provider", async () => {
     const fakeEditor = makeFakeEditor();
-    useTiptapEditorStore.setState({ editor: fakeEditor as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
     useAiProviderStore.setState({
       activeProvider: "claude-cli",
       restProviders: [],
@@ -581,7 +581,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("shows error for REST provider without API key", async () => {
     const fakeEditor = makeFakeEditor();
-    useTiptapEditorStore.setState({ editor: fakeEditor as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
     useAiProviderStore.setState({
       activeProvider: "openai",
       restProviders: [
@@ -603,7 +603,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("falls back to provider type when REST config has no name", async () => {
     const fakeEditor = makeFakeEditor();
-    useTiptapEditorStore.setState({ editor: fakeEditor as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
     useAiProviderStore.setState({
       activeProvider: "openai",
       restProviders: [
@@ -1030,7 +1030,7 @@ describe("useGenieInvocation — picker store wiring", () => {
     const fakeEditor = makeFakeEditor();
     // Override to have empty selection
     fakeEditor.state.selection = { from: 2, to: 2, empty: true } as never;
-    useTiptapEditorStore.setState({ editor: fakeEditor as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
     useAiProviderStore.setState({
       activeProvider: "openai",
       restProviders: [
@@ -1144,7 +1144,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
   it("warns when freeform extraction fails", async () => {
     setupProviderAndEditor();
-    useTiptapEditorStore.setState({ editor: null as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: null as never } }));
 
     const { result } = renderHook(() => useGenieInvocation());
     await act(async () => {
@@ -1173,7 +1173,7 @@ describe("useGenieInvocation — picker store wiring", () => {
     const requestId = useAiInvocationStore.getState().requestId;
 
     // Remove editor after streaming has started (simulates race condition)
-    useTiptapEditorStore.setState({ editor: null as never });
+    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: null as never } }));
 
     act(() => {
       listenCallback?.({

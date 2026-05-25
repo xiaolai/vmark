@@ -40,7 +40,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import type { Diagnostic, Severity } from "@/lib/ghaWorkflow/types";
 import { useWorkflowStore } from "@/stores/workflowStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import "./workflow-editor.css";
 
 interface DiagnosticsBannerProps {
@@ -70,7 +70,7 @@ const SEVERITY_ICON: Record<Severity, string> = {
  * active (caller can fall back to selection-based navigation).
  */
 function scrollSourceToPosition(line: number, col: number): boolean {
-  const { activeSourceView } = useActiveEditorStore.getState();
+  const { activeSourceView } = useEditorStore.getState().active;
   if (!activeSourceView || !activeSourceView.dom?.isConnected) return false;
   const doc = activeSourceView.state.doc;
   const targetLine = Math.max(1, Math.min(line, doc.lines));

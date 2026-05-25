@@ -29,7 +29,7 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 import type { JobIR, StepIR } from "@/lib/ghaWorkflow/types";
 import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { useWorkflowStore } from "@/stores/workflowStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useTranslation } from "react-i18next";
 import "./job-node.css";
 
@@ -122,7 +122,7 @@ export function JobNode(props: JobNodeProps): ReactElement {
       // the first .cm-editor in the DOM, which in multi-window /
       // multi-editor layouts could be the wrong editor (Codex audit
       // round 5 finding).
-      const view = useActiveEditorStore.getState().activeSourceView;
+      const view = useEditorStore.getState().active.activeSourceView;
       if (view?.dom?.isConnected) {
         view.focus();
       }

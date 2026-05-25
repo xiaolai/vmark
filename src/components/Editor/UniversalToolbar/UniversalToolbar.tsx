@@ -15,8 +15,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { useUIStore } from "@/stores/uiStore";
-import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { getToolbarButtonState, getToolbarItemState } from "@/plugins/toolbarActions/enableRules";
 import { getSourceMultiSelectionContext, getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
 import { performSourceToolbarAction, setSourceHeadingLevel } from "@/plugins/toolbarActions/sourceAdapter";
@@ -48,11 +47,11 @@ export function UniversalToolbar() {
   const sessionFocusIndex = useUIStore((state) => state.toolbarSessionFocusIndex);
   const storeDropdownOpen = useUIStore((state) => state.toolbarDropdownOpen);
   const sourceMode = useUIStore((state) => state.sourceMode);
-  const wysiwygContext = useTiptapEditorStore((state) => state.context);
-  const wysiwygView = useTiptapEditorStore((state) => state.editorView);
-  const wysiwygEditor = useTiptapEditorStore((state) => state.editor);
-  const sourceContext = useSourceCursorContextStore((state) => state.context);
-  const sourceView = useSourceCursorContextStore((state) => state.editorView);
+  const wysiwygContext = useEditorStore((state) => state.tiptap.context);
+  const wysiwygView = useEditorStore((state) => state.tiptap.editorView);
+  const wysiwygEditor = useEditorStore((state) => state.tiptap.editor);
+  const sourceContext = useEditorStore((state) => state.source.context);
+  const sourceView = useEditorStore((state) => state.source.editorView);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
@@ -100,10 +99,10 @@ export function UniversalToolbar() {
   const focusActiveEditor = useCallback(() => {
     const isSource = useUIStore.getState().sourceMode;
     if (isSource) {
-      useSourceCursorContextStore.getState().editorView?.focus();
+      useEditorStore.getState().source.editorView?.focus();
       return;
     }
-    useTiptapEditorStore.getState().editorView?.focus();
+    useEditorStore.getState().tiptap.editorView?.focus();
   }, []);
 
   // Close dropdown, optionally restore focus to toolbar button
@@ -157,7 +156,7 @@ export function UniversalToolbar() {
       if (Number.isNaN(level)) return;
       const isSource = useUIStore.getState().sourceMode;
       if (isSource) {
-        const state = useSourceCursorContextStore.getState();
+        const state = useEditorStore.getState().source;
         setSourceHeadingLevel({
           surface: "source",
           view: state.editorView,
@@ -165,7 +164,7 @@ export function UniversalToolbar() {
           multiSelection: getSourceMultiSelectionContext(state.editorView, state.context),
         }, level);
       } else {
-        const state = useTiptapEditorStore.getState();
+        const state = useEditorStore.getState().tiptap;
         setWysiwygHeadingLevel({
           surface: "wysiwyg",
           view: state.editorView,
@@ -179,7 +178,7 @@ export function UniversalToolbar() {
 
     const isSource = useUIStore.getState().sourceMode;
     if (isSource) {
-      const state = useSourceCursorContextStore.getState();
+      const state = useEditorStore.getState().source;
       performSourceToolbarAction(action, {
         surface: "source",
         view: state.editorView,
@@ -189,7 +188,7 @@ export function UniversalToolbar() {
       return;
     }
 
-    const state = useTiptapEditorStore.getState();
+    const state = useEditorStore.getState().tiptap;
     performWysiwygToolbarAction(action, {
       surface: "wysiwyg",
       view: state.editorView,

@@ -37,8 +37,8 @@ interface MockSourceView {
 const mockActiveEditorState: { activeSourceView: MockSourceView | null } = {
   activeSourceView: null,
 };
-vi.mock("@/stores/activeEditorStore", () => ({
-  useActiveEditorStore: { getState: () => mockActiveEditorState },
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: { getState: () => ({ active: mockActiveEditorState }) },
 }));
 
 const mockEditorState: { sourceMode: boolean } = { sourceMode: false };

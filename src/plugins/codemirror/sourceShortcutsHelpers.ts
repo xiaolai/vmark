@@ -30,7 +30,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { performSourceToolbarAction, setSourceHeadingLevel, formatCJKCurrentBlock } from "@/plugins/toolbarActions/sourceAdapter";
-import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { getSourceMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
 import { formatMarkdown, formatSelection } from "@/lib/cjkFormatter";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
@@ -45,7 +45,7 @@ import { toggleBlockquote as toggleBlockquoteAction } from "@/plugins/sourceCont
 
 /** Builds a SourceToolbarContext from the current CodeMirror view and cursor state. */
 export function buildSourceContext(view: EditorView) {
-  const cursorContext = useSourceCursorContextStore.getState().context;
+  const cursorContext = useEditorStore.getState().source.context;
   const multiSelection = getSourceMultiSelectionContext(view, cursorContext);
   return {
     surface: "source" as const,

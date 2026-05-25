@@ -11,8 +11,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/lintStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
-import { useTiptapEditorStore } from "@/stores/tiptapEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
@@ -172,12 +171,12 @@ export function registerViewCommands(): void {
 
       let content: string | undefined;
       const editorState = useUIStore.getState();
-      const { activeSourceView } = useActiveEditorStore.getState();
+      const { activeSourceView } = useEditorStore.getState().active;
 
       if (editorState.sourceMode && activeSourceView) {
         content = activeSourceView.state.doc.toString();
       } else {
-        const tiptapEditor = useTiptapEditorStore.getState().editor;
+        const tiptapEditor = useEditorStore.getState().tiptap.editor;
         if (tiptapEditor) {
           content = serializeMarkdown(tiptapEditor.state.schema, tiptapEditor.state.doc);
         }

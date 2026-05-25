@@ -26,7 +26,7 @@ vi.mock("@/stores/mcpCheckpointPersistence", () => ({
 
 // No editor available in tests — writeContent's fallback path runs.
 vi.mock("@/stores/tiptapEditorStore", () => ({
-  useTiptapEditorStore: {
+  useEditorStore: {
     getState: () => ({ editor: null }),
   },
 }));

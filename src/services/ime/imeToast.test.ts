@@ -22,17 +22,17 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("@/stores/activeEditorStore", () => ({
-  useActiveEditorStore: {
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: {
     getState: vi.fn(() => ({
-      activeWysiwygEditor: null,
-      activeSourceView: null,
+      active: { activeWysiwygEditor: null, activeSourceView: null },
+      
     })),
   },
 }));
 
 import { imeToast } from "./imeToast";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 
 function fireCompositionEnd() {
   document.dispatchEvent(new Event("compositionend"));
@@ -40,9 +40,9 @@ function fireCompositionEnd() {
 
 /** Set WYSIWYG editor composing state */
 function setComposing(composing: boolean) {
-  vi.mocked(useActiveEditorStore.getState).mockReturnValue({
-    activeWysiwygEditor: composing ? { view: { composing: true } } : null,
-    activeSourceView: null,
+  vi.mocked(useEditorStore.getState).mockReturnValue({
+    active: { activeWysiwygEditor: composing ? { view: { composing: true } } : null, activeSourceView: null },
+    
   } as never);
 }
 
@@ -82,17 +82,17 @@ describe("imeToast", () => {
   });
 
   it("defers success toast until compositionend when Source editor is composing", () => {
-    vi.mocked(useActiveEditorStore.getState).mockReturnValue({
-      activeWysiwygEditor: null,
-      activeSourceView: { composing: true },
+    vi.mocked(useEditorStore.getState).mockReturnValue({
+      active: { activeWysiwygEditor: null, activeSourceView: { composing: true } },
+      
     } as never);
 
     imeToast.success("deferred");
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
 
-    vi.mocked(useActiveEditorStore.getState).mockReturnValue({
-      activeWysiwygEditor: null,
-      activeSourceView: { composing: false },
+    vi.mocked(useEditorStore.getState).mockReturnValue({
+      active: { activeWysiwygEditor: null, activeSourceView: { composing: false } },
+      
     } as never);
     fireCompositionEnd();
     vi.advanceTimersByTime(60);

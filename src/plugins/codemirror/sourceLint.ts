@@ -20,7 +20,7 @@ import { EditorView } from "@codemirror/view";
 import { useLintStore } from "@/stores/lintStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import i18n from "@/i18n";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 
 /**
  * Convert a LintDiagnostic (0-based offset) to a CodeMirror Diagnostic.
@@ -72,7 +72,7 @@ export function createSourceLintExtension(tabId: string) {
  * Guards against calling forceLinting on a destroyed view (dom not connected).
  */
 export function triggerLintRefresh(): void {
-  const view = useActiveEditorStore.getState().activeSourceView;
+  const view = useEditorStore.getState().active.activeSourceView;
   if (view && view.dom?.isConnected) {
     forceLinting(view);
   }

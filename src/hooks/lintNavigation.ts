@@ -12,7 +12,7 @@
  */
 
 import { useLintStore } from "@/stores/lintStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
@@ -33,7 +33,7 @@ export function scrollToSelectedDiagnostic(tabId: string): void {
   const diag = diagnostics[selectedIndex];
   if (!diag) return;
 
-  const { activeSourceView } = useActiveEditorStore.getState();
+  const { activeSourceView } = useEditorStore.getState().active;
   const sourceMode = useUIStore.getState().sourceMode;
 
   if (activeSourceView && sourceMode && activeSourceView.dom?.isConnected) {

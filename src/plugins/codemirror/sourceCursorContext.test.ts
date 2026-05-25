@@ -30,7 +30,7 @@ vi.mock("@/plugins/sourceContextDetection/cursorContext", () => ({
 
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { createSourceCursorContextPlugin } from "./sourceCursorContext";
 
 const createdViews: EditorView[] = [];
@@ -38,7 +38,7 @@ const createdViews: EditorView[] = [];
 afterEach(() => {
   createdViews.forEach((v) => v.destroy());
   createdViews.length = 0;
-  useSourceCursorContextStore.getState().clearContext();
+  useEditorStore.getState().clearSourceContext();
 });
 
 function createView(content: string, cursorPos?: number): EditorView {
@@ -58,7 +58,7 @@ function createView(content: string, cursorPos?: number): EditorView {
 describe("createSourceCursorContextPlugin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useSourceCursorContextStore.getState().clearContext();
+    useEditorStore.getState().clearSourceContext();
   });
 
   it("returns an extension", () => {
@@ -96,8 +96,8 @@ describe("createSourceCursorContextPlugin", () => {
       selection: { anchor: 3 },
     });
 
-    const store = useSourceCursorContextStore.getState();
-    expect(store.editorView).toBe(view);
+    const store = useEditorStore.getState();
+    expect(store.source.editorView).toBe(view);
   });
 
   it("calls computeSourceCursorContext with the view", () => {
@@ -120,8 +120,8 @@ describe("createSourceCursorContextPlugin", () => {
     expect(mockComputeSourceCursorContext).toHaveBeenCalled();
 
     // Store now has view1
-    const store = useSourceCursorContextStore.getState();
-    expect(store.editorView).toBe(view1);
+    const store = useEditorStore.getState();
+    expect(store.source.editorView).toBe(view1);
   });
 
   it("handles empty document on doc change", () => {
@@ -145,29 +145,29 @@ describe("createSourceCursorContextPlugin", () => {
 
     // Trigger a viewport-only update by dispatching an empty annotation
     // This triggers the updateListener but with selectionSet=false, docChanged=false
-    // and store.editorView === update.view → should NOT call computeSourceCursorContext
+    // and store.source.editorView === update.view → should NOT call computeSourceCursorContext
     // CM6 doesn't easily produce a pure viewport update via dispatch, so we test
     // by checking the condition holds after the previous dispatch
-    const store = useSourceCursorContextStore.getState();
-    expect(store.editorView).toBe(view);
+    const store = useEditorStore.getState();
+    expect(store.source.editorView).toBe(view);
   });
 
   it("updates context when a second view dispatches (editorView differs)", () => {
     const view1 = createView("hello");
-    // view1 triggers update, store.editorView = view1
+    // view1 triggers update, store.source.editorView = view1
     view1.dispatch({ selection: { anchor: 2 } });
 
     // Verify store has view1
-    expect(useSourceCursorContextStore.getState().editorView).toBe(view1);
+    expect(useEditorStore.getState().source.editorView).toBe(view1);
     mockComputeSourceCursorContext.mockClear();
 
     // Create a second view and dispatch on it
     const view2 = createView("world");
-    // Explicitly dispatch to trigger updateListener — store.editorView is view1, not view2
+    // Explicitly dispatch to trigger updateListener — store.source.editorView is view1, not view2
     view2.dispatch({ selection: { anchor: 1 } });
 
-    // The listener should fire because store.editorView !== update.view
+    // The listener should fire because store.source.editorView !== update.view
     expect(mockComputeSourceCursorContext).toHaveBeenCalledWith(view2);
-    expect(useSourceCursorContextStore.getState().editorView).toBe(view2);
+    expect(useEditorStore.getState().source.editorView).toBe(view2);
   });
 });

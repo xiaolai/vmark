@@ -70,7 +70,7 @@ vi.mock("@/lib/cjkFormatter", () => ({
 }));
 
 vi.mock("@/stores/sourceCursorContextStore", () => ({
-  useSourceCursorContextStore: { getState: () => ({ context: {} }) },
+  useEditorStore: { getState: () => ({ context: {} }) },
 }));
 
 const mockPerformSourceToolbarAction = vi.fn();

@@ -179,24 +179,18 @@ function setSearchStoreState(next: Record<string, unknown>): void {
   searchStateHolder.current = next;
 }
 
+// editorStore (T09: merged activeEditor + tiptapEditor + sourceCursorContext)
 const mockSetActiveSourceView = vi.fn();
 const mockClearSourceViewIfMatch = vi.fn();
-vi.mock("@/stores/activeEditorStore", () => {
+const mockSetContext = vi.fn();
+vi.mock("@/stores/editorStore", () => {
   const store = vi.fn();
   (store as unknown as Record<string, unknown>).getState = () => ({
     setActiveSourceView: mockSetActiveSourceView,
     clearSourceViewIfMatch: mockClearSourceViewIfMatch,
+    setSourceContext: mockSetContext,
   });
-  return { useActiveEditorStore: store };
-});
-
-const mockSetContext = vi.fn();
-vi.mock("@/stores/sourceCursorContextStore", () => {
-  const store = vi.fn();
-  (store as unknown as Record<string, unknown>).getState = () => ({
-    setContext: mockSetContext,
-  });
-  return { useSourceCursorContextStore: store };
+  return { useEditorStore: store };
 });
 
 // Mock utilities

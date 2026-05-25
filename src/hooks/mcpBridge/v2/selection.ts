@@ -37,7 +37,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
@@ -116,7 +116,7 @@ function pickActiveEditor(focusedTabId: string): {
   cm: CMView | null;
 } {
   const sourceMode = useUIStore.getState().sourceMode;
-  const active = useActiveEditorStore.getState();
+  const active = useEditorStore.getState().active;
   if (sourceMode) {
     const view =
       active.activeSourceView && active.activeSourceTabId === focusedTabId

@@ -48,10 +48,10 @@ vi.mock("@/stores/lintStore", () => ({
 
 // ── Mock activeEditorStore ───────────────────────────────────────────────────
 const mockActiveEditorGetState = vi.fn(() => ({
-  activeSourceView: null,
+  active: { activeSourceView: null },
 }));
-vi.mock("@/stores/activeEditorStore", () => ({
-  useActiveEditorStore: {
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: {
     getState: (...args: unknown[]) => mockActiveEditorGetState(...args),
   },
 }));
@@ -83,7 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   capturedLintSource = null;
   capturedUpdateCallback = null;
-  mockActiveEditorGetState.mockReturnValue({ activeSourceView: null });
+  mockActiveEditorGetState.mockReturnValue({ active: { activeSourceView: null } });
 });
 
 // ─── diagnosticToCM ──────────────────────────────────────────────────────────
@@ -269,14 +269,14 @@ describe("createSourceLintExtension", () => {
 describe("triggerLintRefresh", () => {
   it("calls forceLinting when active source view exists with connected DOM", () => {
     const mockView = { dom: { isConnected: true } };
-    mockActiveEditorGetState.mockReturnValue({ activeSourceView: mockView });
+    mockActiveEditorGetState.mockReturnValue({ active: { activeSourceView: mockView } });
 
     triggerLintRefresh();
     expect(mockForceLinting).toHaveBeenCalledWith(mockView);
   });
 
   it("does not call forceLinting when no active source view", () => {
-    mockActiveEditorGetState.mockReturnValue({ activeSourceView: null });
+    mockActiveEditorGetState.mockReturnValue({ active: { activeSourceView: null } });
 
     triggerLintRefresh();
     expect(mockForceLinting).not.toHaveBeenCalled();
@@ -284,7 +284,7 @@ describe("triggerLintRefresh", () => {
 
   it("does not call forceLinting when DOM is disconnected", () => {
     const mockView = { dom: { isConnected: false } };
-    mockActiveEditorGetState.mockReturnValue({ activeSourceView: mockView });
+    mockActiveEditorGetState.mockReturnValue({ active: { activeSourceView: mockView } });
 
     triggerLintRefresh();
     expect(mockForceLinting).not.toHaveBeenCalled();
@@ -292,7 +292,7 @@ describe("triggerLintRefresh", () => {
 
   it("does not call forceLinting when dom is null", () => {
     const mockView = { dom: null };
-    mockActiveEditorGetState.mockReturnValue({ activeSourceView: mockView });
+    mockActiveEditorGetState.mockReturnValue({ active: { activeSourceView: mockView } });
 
     triggerLintRefresh();
     expect(mockForceLinting).not.toHaveBeenCalled();
@@ -300,14 +300,14 @@ describe("triggerLintRefresh", () => {
 
   it("does not call forceLinting when dom is undefined", () => {
     const mockView = { dom: undefined };
-    mockActiveEditorGetState.mockReturnValue({ activeSourceView: mockView });
+    mockActiveEditorGetState.mockReturnValue({ active: { activeSourceView: mockView } });
 
     triggerLintRefresh();
     expect(mockForceLinting).not.toHaveBeenCalled();
   });
 
   it("does not throw when view is undefined", () => {
-    mockActiveEditorGetState.mockReturnValue({ activeSourceView: undefined });
+    mockActiveEditorGetState.mockReturnValue({ active: { activeSourceView: undefined } });
 
     expect(() => triggerLintRefresh()).not.toThrow();
     expect(mockForceLinting).not.toHaveBeenCalled();

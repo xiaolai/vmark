@@ -56,7 +56,7 @@ vi.mock("@/stores/searchStore", () => ({
 }));
 
 vi.mock("@/stores/sourceCursorContextStore", () => ({
-  useSourceCursorContextStore: { getState: () => ({ context: {} }) },
+  useEditorStore: { getState: () => ({ context: {} }) },
 }));
 
 vi.mock("@/plugins/toolbarActions/sourceAdapter", () => ({

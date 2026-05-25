@@ -31,8 +31,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useUIStore } from "@/stores/uiStore";
 import { useLargeFileSessionStore } from "@/stores/largeFileSessionStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useActiveEditorStore } from "@/stores/activeEditorStore";
-import { useSourceCursorContextStore } from "@/stores/sourceCursorContextStore";
+import { useEditorStore } from "@/stores/editorStore";
 import {
   MENU_TO_ACTION,
   ACTION_DEFINITIONS,
@@ -167,7 +166,7 @@ function dispatchToWysiwygImpl(
   actionId: ActionId,
   params?: Record<string, unknown>
 ): boolean {
-  const editor = useActiveEditorStore.getState().activeWysiwygEditor;
+  const editor = useEditorStore.getState().active.activeWysiwygEditor;
   if (!editor) {
     return false;
   }
@@ -266,13 +265,13 @@ function dispatchToSourceImpl(
   actionId: ActionId,
   params?: Record<string, unknown>
 ): boolean {
-  const view = useActiveEditorStore.getState().activeSourceView;
+  const view = useEditorStore.getState().active.activeSourceView;
   if (!view) {
     return false;
   }
 
   // Capture context before queuing to avoid stale state if selection changes
-  const cursorContext = useSourceCursorContextStore.getState().context;
+  const cursorContext = useEditorStore.getState().source.context;
   const multiSelection = getSourceMultiSelectionContext(view, cursorContext);
 
   // Use IME guard for safe dispatching

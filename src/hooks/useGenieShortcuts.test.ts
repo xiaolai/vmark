@@ -38,9 +38,9 @@ vi.mock("@/stores/uiStore", () => ({
 const tiptapEditorStoreMock = {
   editor: null as null | { state: { selection: { empty: boolean } } },
 };
-vi.mock("@/stores/tiptapEditorStore", () => ({
-  useTiptapEditorStore: {
-    getState: () => tiptapEditorStoreMock,
+vi.mock("@/stores/editorStore", () => ({
+  useEditorStore: {
+    getState: () => ({ tiptap: tiptapEditorStoreMock }),
   },
 }));
 
