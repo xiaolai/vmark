@@ -104,4 +104,15 @@ describe("ContentSearch — focus trapping", () => {
     const prevented = !middle.dispatchEvent(event);
     expect(prevented).toBe(false);
   });
+
+  // WI-2.4 (a11y) — the search input's accessible name comes from
+  // t("contentSearch.label"), not the placeholder (which changes based on
+  // workspace state). This test locks that key → role-name mapping so an
+  // i18n drop doesn't silently degrade screen-reader UX.
+  it("exposes an accessible name on the search input (aria-label)", () => {
+    render(<ContentSearch windowLabel="main" />);
+    expect(
+      screen.getByRole("textbox", { name: /search across workspace files/i }),
+    ).toBeInTheDocument();
+  });
 });

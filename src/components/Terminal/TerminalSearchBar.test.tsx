@@ -29,6 +29,16 @@ describe("TerminalSearchBar", () => {
     expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
   });
 
+  // WI-2.4 (a11y) — accessible name on the search input. Placeholder text
+  // is not a reliable label for screen readers; aria-label is. This test
+  // locks the t("terminal.search.label") → role-name mapping.
+  it("exposes an accessible name on the search input (aria-label)", () => {
+    render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
+    expect(
+      screen.getByRole("textbox", { name: /search terminal output/i }),
+    ).toBeInTheDocument();
+  });
+
   it("searches on input change", () => {
     render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
     const input = screen.getByPlaceholderText("Search...");
