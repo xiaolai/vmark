@@ -129,7 +129,12 @@ vi.mock("@/stores/documentStore", () => {
       finishLoad: vi.fn(),
       endLoad: vi.fn(),
     }),
-    useRevisionStore: createZustandMock({ registerEdit: vi.fn() }),
+    useRevisionStore: createZustandMock({
+      registerEdit: vi.fn(),
+      setRevision: vi.fn(),
+      updateRevision: vi.fn(),
+    }),
+    generateRevisionId: () => "rev-test",
     useUnifiedHistoryStore: createZustandMock({
       documents: {} as Record<string, unknown>,
       createCheckpoint: vi.fn(),

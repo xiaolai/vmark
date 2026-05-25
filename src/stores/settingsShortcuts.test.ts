@@ -10,11 +10,13 @@ import {
   DEFAULT_SHORTCUTS,
   CATEGORY_ORDER,
   CATEGORY_LABELS,
-  getCategoryLabel,
-  getShortcutLabel,
   formatKeyForDisplay,
   prosemirrorToTauri,
 } from "./settingsStore";
+import {
+  getCategoryLabel,
+  getShortcutLabel,
+} from "./settingsShortcutLabels";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({

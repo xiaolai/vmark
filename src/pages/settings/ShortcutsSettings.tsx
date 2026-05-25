@@ -11,11 +11,13 @@ import {
   DEFAULT_SHORTCUTS,
   CATEGORY_ORDER,
   formatKeyForDisplay,
-  getCategoryLabel,
-  getShortcutLabel,
   type ShortcutDefinition,
   type ShortcutCategory,
 } from "@/stores/settingsStore";
+import {
+  getCategoryLabel,
+  getShortcutLabel,
+} from "@/stores/settingsShortcutLabels";
 import { KeyCapture } from "./KeyCapture";
 import { Button, SearchInput } from "./components";
 
