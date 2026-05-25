@@ -7,7 +7,7 @@
  *
  * @coordinates-with tableActions.tiptap.ts — toggleFitToWidth uses these helpers
  * @coordinates-with TiptapTableContextMenu.ts — reads state to show correct label
- * @module plugins/tableScroll/fitToWidth
+ * @module plugins/shared/tableFitToWidth
  */
 
 const FIT_CLASS = "table-fit-to-width";

@@ -11,7 +11,7 @@ import {
   isExternalUrl,
   validateImagePath,
   sanitizeImagePath,
-} from "./security";
+} from "./mediaSecurity";
 
 describe("imageView security", () => {
   describe("isRelativePath", () => {

@@ -29,7 +29,7 @@ vi.mock("@/services/media/resolveMediaSrc", () => ({
   resolveMediaSrc: (...args: unknown[]) => mockResolveMediaSrc(...args),
 }));
 
-vi.mock("@/plugins/imageView/security", () => ({
+vi.mock("@/plugins/shared/mediaSecurity", () => ({
   isExternalUrl: (...args: unknown[]) => mockIsExternalUrl(...args),
 }));
 

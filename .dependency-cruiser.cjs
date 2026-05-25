@@ -81,6 +81,14 @@ module.exports = {
           "src/plugins/sourcePeekInline/",
           "src/plugins/sourceLinkPopup/",
           "src/plugins/sourceImagePopup/",
+          // Source-twin popup needing its non-source sibling's operations
+          // (parallel to the sourceLinkPopup / sourceImagePopup pattern above).
+          "src/plugins/sourceLinkCreatePopup/",
+          // Source-twin popup needing the latex katexLoader.
+          "src/plugins/sourceMathPopup/",
+          // markdownArtifacts parses frontmatter; frontmatterPanel owns its
+          // node view. The parser→view coupling is the documented design.
+          "src/plugins/markdownArtifacts/",
           "src/plugins/htmlPaste/",
           "src/plugins/markdownPaste/",
           "src/plugins/aiSuggestion/",

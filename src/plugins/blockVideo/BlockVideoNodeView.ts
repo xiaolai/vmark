@@ -21,7 +21,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
-import { isExternalUrl } from "@/plugins/imageView/security";
+import { isExternalUrl } from "@/plugins/shared/mediaSecurity";
 import { resolveMediaSrc } from "@/services/media/resolveMediaSrc";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import {

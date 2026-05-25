@@ -10,7 +10,7 @@ import {
   isWrapperFitToWidth,
   setWrapperFitToWidth,
   toggleWrapperFitToWidth,
-} from "../fitToWidth";
+} from "../tableFitToWidth";
 
 describe("fitToWidth", () => {
   let wrapper: HTMLDivElement;

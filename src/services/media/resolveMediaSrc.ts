@@ -11,7 +11,7 @@
  *   - Windows path normalization handles backslash-to-forward-slash conversion
  *   - Security: relative paths are validated against directory traversal attacks
  *
- * @coordinates-with plugins/imageView/security.ts — path validation and URL classification
+ * @coordinates-with plugins/shared/mediaSecurity.ts — path validation and URL classification
  * @coordinates-with stores/documentStore.ts — document file path lookup
  * @coordinates-with stores/tabStore.ts — active tab lookup
  * @module utils/resolveMediaSrc
@@ -27,7 +27,7 @@ import {
   isExternalUrl,
   isRelativePath,
   validateImagePath,
-} from "@/plugins/imageView/security";
+} from "@/plugins/shared/mediaSecurity";
 import { imageViewWarn, resolveMediaError } from "@/utils/debug";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 

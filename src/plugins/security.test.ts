@@ -71,7 +71,7 @@ describe("Security: LaTeX", () => {
 describe("Security: Image Path Traversal", () => {
   it("should reject paths containing ..", async () => {
     // Import the validation function
-    const { validateImagePath } = await import("./imageView/security");
+    const { validateImagePath } = await import("./shared/mediaSecurity");
 
     // These should be rejected
     expect(validateImagePath("../../../etc/passwd")).toBe(false);

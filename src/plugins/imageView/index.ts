@@ -11,7 +11,7 @@
  *   - Click selects the image node, double-click opens the image editing popup
  *   - Context menu triggers the image context menu store
  *
- * @coordinates-with security.ts — path validation and URL classification
+ * @coordinates-with shared/mediaSecurity.ts — path validation and URL classification
  * @coordinates-with tiptap.ts — registers this NodeView for the image node type
  * @coordinates-with blockImage/BlockImageNodeView.ts — similar logic for block-level images
  * @coordinates-with utils/resolveMediaSrc.ts — shared path normalization and active tab helpers
@@ -28,7 +28,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { normalizePathForAsset, getActiveTabIdForCurrentWindow } from "@/services/media/resolveMediaSrc";
-import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "./security";
+import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "../shared/mediaSecurity";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { imageViewWarn, imagePreviewError } from "@/utils/debug";
 

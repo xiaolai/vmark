@@ -14,7 +14,7 @@ import { Schema, type Node } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 
-vi.mock("@/plugins/tableScroll/fitToWidth", () => ({
+vi.mock("@/plugins/shared/tableFitToWidth", () => ({
   isWrapperFitToWidth: vi.fn(() => false),
   toggleWrapperFitToWidth: vi.fn(),
 }));
@@ -36,7 +36,7 @@ import {
   isCurrentTableFitToWidth,
   toggleFitToWidth,
 } from "./tableActions.tiptap";
-import { isWrapperFitToWidth, toggleWrapperFitToWidth } from "@/plugins/tableScroll/fitToWidth";
+import { isWrapperFitToWidth, toggleWrapperFitToWidth } from "@/plugins/shared/tableFitToWidth";
 
 // ---------- schema with table nodes ----------
 

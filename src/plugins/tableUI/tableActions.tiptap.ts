@@ -17,7 +17,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import type { Node, ResolvedPos } from "@tiptap/pm/model";
 import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow } from "@tiptap/pm/tables";
 import type { Selection } from "@tiptap/pm/state";
-import { isWrapperFitToWidth, toggleWrapperFitToWidth } from "@/plugins/tableScroll/fitToWidth";
+import { isWrapperFitToWidth, toggleWrapperFitToWidth } from "@/plugins/shared/tableFitToWidth";
 import { tableActionsError } from "@/utils/debug";
 
 type SelectionConstructor = {

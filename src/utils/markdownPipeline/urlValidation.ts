@@ -12,7 +12,7 @@
  *   - Slash-before-colon detection prevents false blocking of paths like "path/to:file"
  *
  * @coordinates-with mdastInlineConverters.ts — calls isSafeUrl for link/image conversion
- * @coordinates-with imageView/security.ts — additional image-specific URL validation
+ * @coordinates-with shared/mediaSecurity.ts — additional image-specific URL validation
  * @module utils/markdownPipeline/urlValidation
  */
 
