@@ -17,6 +17,7 @@ import { linkPopupError } from "@/utils/debug";
 import { popupIcons } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 import type { EditorViewLike } from "@/plugins/shared/types";
+import { normalizeHref, isValidHref } from "./operations";
 
 /**
  * Link create popup view - manages the floating popup UI for creating links.
@@ -282,15 +283,16 @@ export class LinkCreatePopupView {
     const state = useLinkCreatePopupStore.getState();
     const { text, url, rangeFrom, rangeTo, showTextInput } = state;
 
-    // URL is required
-    const finalUrl = url.trim();
-    if (!finalUrl) {
-      // Focus URL input if empty
+    // ADR-010: route URL normalization + validation through shared
+    // operations module so source-mode controller stays consistent.
+    const finalUrl = normalizeHref(url);
+    if (!isValidHref(finalUrl)) {
+      // Focus URL input if empty/invalid
       this.urlInput.focus();
       return;
     }
 
-    // Get link text
+    // Get link text — falls back to the URL itself if user left text blank.
     const linkText = showTextInput ? text.trim() || finalUrl : null;
 
     try {

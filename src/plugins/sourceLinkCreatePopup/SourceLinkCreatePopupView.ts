@@ -17,6 +17,7 @@ import { sourceActionError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { normalizeHref, isValidHref } from "@/plugins/linkCreatePopup/operations";
 
 /**
  * Source link create popup view - manages the floating popup UI for creating links.
@@ -269,8 +270,9 @@ export class SourceLinkCreatePopupView {
     const state = useLinkCreatePopupStore.getState();
     const { text, url, rangeFrom, rangeTo, showTextInput } = state;
 
-    const finalUrl = url.trim();
-    if (!finalUrl) {
+    // ADR-010: shared URL normalization + validation via operations module.
+    const finalUrl = normalizeHref(url);
+    if (!isValidHref(finalUrl)) {
       this.urlInput.focus();
       return;
     }
