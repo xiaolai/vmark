@@ -123,11 +123,8 @@ export const darkShadows: ThemeTokens["shadow"] = {
   popup: "0 4px 12px rgba(0, 0, 0, 0.4)",
 };
 
-// ---------------------------------------------------------------------------
-// Legacy lightTheme / darkTheme — kept as paper/night aliases for the
-// existing applyTheme.test.ts. New code should import named themes from
-// `./themes/`.
-// ---------------------------------------------------------------------------
-
-export { paper as lightTheme } from "./themes/paper";
-export { night as darkTheme } from "./themes/night";
+// Legacy lightTheme / darkTheme aliases now live in `./index.ts` (and
+// indirectly via the themes/ barrel) — they can't live here because
+// tokens.ts is itself imported by themes/*.ts, and forwarding the
+// concrete theme values from this file would create a circular
+// evaluation: tokens.ts → themes/paper.ts → tokens.ts.

@@ -32,6 +32,7 @@ src/theme/themes/white.ts
 src/theme/themes/mint.ts
 src/theme/themes/sepia.ts
 src/theme/themes/night.ts
+src/theme/primitives.ts
 
 # --- Domain-specific palettes (not UI tokens) ----------------------------
 # Code-syntax highlight palettes — separate concern from the design system.
