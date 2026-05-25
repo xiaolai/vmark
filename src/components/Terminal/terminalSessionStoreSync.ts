@@ -21,7 +21,7 @@ import { useEffect } from "react";
 import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { buildXtermThemeForId } from "./terminalTheme";
+import { buildXtermThemeForId } from "@/theme";
 import type { TerminalInstance } from "./createTerminalInstance";
 
 /**

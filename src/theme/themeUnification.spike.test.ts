@@ -13,10 +13,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-import {
-  buildXtermThemeForId,
-} from "@/components/Terminal/terminalTheme";
-import type { ThemeId } from "@/stores/settingsStore";
+import { buildXtermThemeForId, type ThemeId } from "@/theme";
 
 const themeIds: ThemeId[] = ["white", "paper", "mint", "sepia", "night"];
 
