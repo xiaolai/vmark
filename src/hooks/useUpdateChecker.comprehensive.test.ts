@@ -66,7 +66,7 @@ vi.mock("@/utils/safeUnlisten", () => ({
 
 import { useUpdateChecker, shouldCheckNow } from "./useUpdateChecker";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useUpdateStore } from "@/stores/updateStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { useDocumentStore } from "@/stores/documentStore";
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -102,7 +102,7 @@ describe("useUpdateChecker hook", () => {
     listenHandlers.clear();
 
     // Reset stores to defaults
-    useUpdateStore.getState().reset();
+    useMcpStore.getState().resetUpdate();
     useSettingsStore.getState().updateUpdateSetting("autoCheckEnabled", true);
     useSettingsStore.getState().updateUpdateSetting("checkFrequency", "startup");
     useSettingsStore.getState().updateUpdateSetting("lastCheckTimestamp", null);
@@ -210,8 +210,8 @@ describe("useUpdateChecker hook", () => {
 
     // Simulate update available
     await act(async () => {
-      useUpdateStore.getState().setStatus("available");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setUpdateStatus("available");
+      useMcpStore.getState().setUpdateInfo({
         version: "2.0.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -219,7 +219,7 @@ describe("useUpdateChecker hook", () => {
       });
     });
 
-    expect(useUpdateStore.getState().dismissed).toBe(true);
+    expect(useMcpStore.getState().update.dismissed).toBe(true);
     expect(mockClearPendingUpdate).toHaveBeenCalled();
   });
 
@@ -229,9 +229,9 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
-      useUpdateStore.getState().setPendingUpdate({} as never);
-      useUpdateStore.getState().setStatus("available");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setPendingUpdate({} as never);
+      useMcpStore.getState().setUpdateStatus("available");
+      useMcpStore.getState().setUpdateInfo({
         version: "2.0.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -256,9 +256,9 @@ describe("useUpdateChecker hook", () => {
     await act(async () => {
       // Simulate receiving "available" from a remote broadcast — no local
       // pendingUpdate.
-      useUpdateStore.getState().setPendingUpdate(null);
-      useUpdateStore.getState().setStatus("available");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setPendingUpdate(null);
+      useMcpStore.getState().setUpdateStatus("available");
+      useMcpStore.getState().setUpdateInfo({
         version: "2.0.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -276,9 +276,9 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
-      useUpdateStore.getState().setPendingUpdate({} as never);
-      useUpdateStore.getState().setStatus("available");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setPendingUpdate({} as never);
+      useMcpStore.getState().setUpdateStatus("available");
+      useMcpStore.getState().setUpdateInfo({
         version: "2.0.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -337,12 +337,12 @@ describe("useUpdateChecker hook", () => {
 
     // First set to checking, then to ready
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
 
     await act(async () => {
-      useUpdateStore.getState().setStatus("ready");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setUpdateStatus("ready");
+      useMcpStore.getState().setUpdateInfo({
         version: "3.0.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -369,11 +369,11 @@ describe("useUpdateChecker hook", () => {
 
     // isManualCheck is now true — simulate checking -> up-to-date
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
 
     await act(async () => {
-      useUpdateStore.getState().setStatus("up-to-date");
+      useMcpStore.getState().setUpdateStatus("up-to-date");
     });
 
     expect(toast.success).toHaveBeenCalledWith(
@@ -389,11 +389,11 @@ describe("useUpdateChecker hook", () => {
 
     // Simulate automatic check -> up-to-date (isManualCheck stays false)
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
 
     await act(async () => {
-      useUpdateStore.getState().setStatus("up-to-date");
+      useMcpStore.getState().setUpdateStatus("up-to-date");
     });
 
     // toast should NOT be called for automatic checks
@@ -409,15 +409,15 @@ describe("useUpdateChecker hook", () => {
     // Simulate a successful check cycle: checking -> up-to-date
     // This exercises the retry count reset path (retryCount = 0 on success)
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
 
     await act(async () => {
-      useUpdateStore.getState().setStatus("up-to-date");
+      useMcpStore.getState().setUpdateStatus("up-to-date");
     });
 
     // Status should be up-to-date; no errors or retries
-    expect(useUpdateStore.getState().status).toBe("up-to-date");
+    expect(useMcpStore.getState().update.status).toBe("up-to-date");
   });
 
   it("resets auto-download flag when status goes back to idle", async () => {
@@ -427,9 +427,9 @@ describe("useUpdateChecker hook", () => {
 
     // Trigger auto-download
     await act(async () => {
-      useUpdateStore.getState().setPendingUpdate({} as never);
-      useUpdateStore.getState().setStatus("available");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setPendingUpdate({} as never);
+      useMcpStore.getState().setUpdateStatus("available");
+      useMcpStore.getState().setUpdateInfo({
         version: "2.0.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -441,14 +441,14 @@ describe("useUpdateChecker hook", () => {
 
     // Reset to idle
     await act(async () => {
-      useUpdateStore.getState().setStatus("idle");
+      useMcpStore.getState().setUpdateStatus("idle");
     });
 
     // Trigger again — should auto-download again since flag was reset
     await act(async () => {
-      useUpdateStore.getState().setPendingUpdate({} as never);
-      useUpdateStore.getState().setStatus("available");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setPendingUpdate({} as never);
+      useMcpStore.getState().setUpdateStatus("available");
+      useMcpStore.getState().setUpdateInfo({
         version: "2.1.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -545,11 +545,11 @@ describe("useUpdateChecker hook", () => {
 
     // Transition: idle -> checking -> error (triggers retry)
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
 
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
 
     // Retry timer fires after BASE_RETRY_DELAY_MS (5000ms)
@@ -576,10 +576,10 @@ describe("useUpdateChecker hook", () => {
 
     // First retry: checking -> error
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
     await act(async () => {
       vi.advanceTimersByTime(5100);
@@ -588,10 +588,10 @@ describe("useUpdateChecker hook", () => {
 
     // Second retry: checking -> error
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
     await act(async () => {
       vi.advanceTimersByTime(10100);
@@ -600,10 +600,10 @@ describe("useUpdateChecker hook", () => {
 
     // Third retry: checking -> error (maxed out)
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
     await act(async () => {
       vi.advanceTimersByTime(20100);
@@ -612,10 +612,10 @@ describe("useUpdateChecker hook", () => {
 
     // After max retries: checking -> error — no more retries
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
 
     // Should stop scheduling retries (max 3 reached); ensure no extra timers fire
@@ -650,10 +650,10 @@ describe("useUpdateChecker hook", () => {
     // Simulate an out-of-band manual check (e.g., from Settings) that
     // fails immediately.
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
 
     // Advance another sub-startup interval. We don't cross 2000ms total,
@@ -696,10 +696,10 @@ describe("useUpdateChecker hook", () => {
     // checking→error transition is the exhaustion event.
     const driveCheckingToError = async (advanceMs: number) => {
       await act(async () => {
-        useUpdateStore.getState().setStatus("checking");
+        useMcpStore.getState().setUpdateStatus("checking");
       });
       await act(async () => {
-        useUpdateStore.getState().setStatus("error");
+        useMcpStore.getState().setUpdateStatus("error");
       });
       await act(async () => {
         vi.advanceTimersByTime(advanceMs);
@@ -712,10 +712,10 @@ describe("useUpdateChecker hook", () => {
     await driveCheckingToError(20100);  // retry 3 (count 2 -> 3)
     // 4th transition is the exhaustion event (count 3, NOT < MAX) — fires toast.
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
 
     expect(toast.error).toHaveBeenCalledTimes(1);
@@ -728,16 +728,16 @@ describe("useUpdateChecker hook", () => {
     // its broadcast flips main's status checking→error) must NOT fire any
     // additional retry-exhausted toast — chain is no longer active.
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
 
     expect(toast.error).toHaveBeenCalledTimes(1);
@@ -749,10 +749,10 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
 
     const callsBefore = mockDoCheckForUpdates.mock.calls.length;
@@ -770,10 +770,10 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
     await act(async () => {
-      useUpdateStore.getState().setStatus("error");
+      useMcpStore.getState().setUpdateStatus("error");
     });
     await act(async () => {
       vi.advanceTimersByTime(5100);
@@ -792,9 +792,9 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
-      useUpdateStore.getState().setPendingUpdate({} as never);
-      useUpdateStore.getState().setStatus("available");
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setPendingUpdate({} as never);
+      useMcpStore.getState().setUpdateStatus("available");
+      useMcpStore.getState().setUpdateInfo({
         version: "2.0.0",
         notes: "test",
         pubDate: "2025-01-01",
@@ -887,12 +887,12 @@ describe("useUpdateChecker hook", () => {
 
     // Transition to checking first, then to ready without updateInfo
     await act(async () => {
-      useUpdateStore.getState().setStatus("checking");
+      useMcpStore.getState().setUpdateStatus("checking");
     });
 
     // Set status to ready but ensure updateInfo is null (default state)
     await act(async () => {
-      useUpdateStore.getState().setStatus("ready");
+      useMcpStore.getState().setUpdateStatus("ready");
     });
 
     // toast.success should NOT be called because updateInfo is null
@@ -909,16 +909,16 @@ describe("useUpdateChecker hook", () => {
     renderHook(() => useUpdateChecker());
 
     await act(async () => {
-      useUpdateStore.getState().setUpdateInfo({
+      useMcpStore.getState().setUpdateInfo({
         version: "3.0.0",
         notes: "test",
         pubDate: "2025-01-01",
         currentVersion: "1.0.0",
       });
-      useUpdateStore.getState().setStatus("available");
+      useMcpStore.getState().setUpdateStatus("available");
     });
 
-    expect(useUpdateStore.getState().dismissed).toBe(true);
+    expect(useMcpStore.getState().update.dismissed).toBe(true);
     expect(mockClearPendingUpdate).toHaveBeenCalled();
   });
 });

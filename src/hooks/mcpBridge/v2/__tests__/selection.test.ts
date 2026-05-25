@@ -14,7 +14,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { handleSelectionGet, handleSelectionSet } from "../selection";
 
 vi.mock("../../utils", () => ({
@@ -44,7 +44,7 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
-  useMcpCheckpointStore.setState({ checkpoints: [], hydrated: false });
+  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
   useUIStore.setState({ sourceMode: false });
   useActiveEditorStore.setState({
     activeWysiwygEditor: null,
@@ -344,9 +344,9 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
 
     await handleSelectionSet("req-cp", { content: "xiaolai" });
 
-    const cps = useMcpCheckpointStore
+    const cps = useMcpStore
       .getState()
-      .list({ filePath: "/notes.md" });
+      .checkpointList({ filePath: "/notes.md" });
     expect(cps).toHaveLength(1);
     expect(cps[0]).toMatchObject({
       tabId: "t-cp",

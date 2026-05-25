@@ -30,7 +30,7 @@ vi.mock("@/stores/mcpCheckpointPersistence", () => ({
 
 import { respond } from "../../utils";
 import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
 
 const WORKFLOW = `name: ci
 on:
@@ -51,7 +51,7 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
-  useMcpCheckpointStore.setState({ checkpoints: [], hydrated: false });
+  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
 }
 
 function seedWorkflowTab(tabId = "t-yaml") {
@@ -177,7 +177,7 @@ describe("vmark.workflow.apply_patch", () => {
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useRevisionStore.getState().getRevision()).toBe(before);
-    expect(useMcpCheckpointStore.getState().checkpoints).toHaveLength(0);
+    expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
   });
 
   it("pushes a checkpoint after a successful patch batch", async () => {
@@ -187,7 +187,7 @@ describe("vmark.workflow.apply_patch", () => {
         { kind: "workflow.set", path: "name", value: "renamed" },
       ],
     });
-    const cps = useMcpCheckpointStore.getState().list({
+    const cps = useMcpStore.getState().checkpointList({
       filePath: "/repo/.github/workflows/ci.yml",
     });
     expect(cps).toHaveLength(1);

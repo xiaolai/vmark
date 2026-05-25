@@ -16,7 +16,7 @@ vi.mock("@tauri-apps/api/path", () => ({
 
 vi.mock("@tauri-apps/plugin-fs", () => fsMocks);
 
-import { useMcpCheckpointStore } from "../mcpCheckpointStore";
+import { useMcpStore } from "../mcpStore";
 import {
   hydrateCheckpoints,
   appendCheckpoint,
@@ -24,7 +24,7 @@ import {
 } from "../mcpCheckpointPersistence";
 
 function reset() {
-  useMcpCheckpointStore.setState({ checkpoints: [], hydrated: false });
+  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
   fsMocks.exists.mockReset();
   fsMocks.readTextFile.mockReset();
   fsMocks.writeTextFile.mockReset();
@@ -60,11 +60,11 @@ describe("hydrateCheckpoints", () => {
     );
 
     await hydrateCheckpoints();
-    const list = useMcpCheckpointStore.getState().checkpoints;
+    const list = useMcpStore.getState().checkpoint.checkpoints;
     expect(list).toHaveLength(2);
     expect(list[0].id).toBe("cp-new");
     expect(list[1].id).toBe("cp-old");
-    expect(useMcpCheckpointStore.getState().hydrated).toBe(true);
+    expect(useMcpStore.getState().checkpoint.hydrated).toBe(true);
   });
 
   it("skips malformed lines without aborting hydrate", async () => {
@@ -74,7 +74,7 @@ describe("hydrateCheckpoints", () => {
     );
 
     await hydrateCheckpoints();
-    const list = useMcpCheckpointStore.getState().checkpoints;
+    const list = useMcpStore.getState().checkpoint.checkpoints;
     expect(list).toHaveLength(1);
     expect(list[0].id).toBe(sampleCp.id);
   });
@@ -82,8 +82,8 @@ describe("hydrateCheckpoints", () => {
   it("treats missing file as empty history", async () => {
     fsMocks.exists.mockResolvedValue(false);
     await hydrateCheckpoints();
-    expect(useMcpCheckpointStore.getState().checkpoints).toHaveLength(0);
-    expect(useMcpCheckpointStore.getState().hydrated).toBe(true);
+    expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
+    expect(useMcpStore.getState().checkpoint.hydrated).toBe(true);
   });
 
   it("noops when called twice (already hydrated)", async () => {
@@ -130,13 +130,16 @@ describe("rewriteAll", () => {
   beforeEach(reset);
 
   it("writes the in-memory checkpoints out as JSONL newest-first", async () => {
-    useMcpCheckpointStore.setState({
-      checkpoints: [
-        sampleCp,
-        { ...sampleCp, id: "cp-second", timestamp: sampleCp.timestamp - 1 },
-      ],
-      hydrated: true,
-    });
+    useMcpStore.setState((s) => ({
+      checkpoint: {
+        ...s.checkpoint,
+        checkpoints: [
+          sampleCp,
+          { ...sampleCp, id: "cp-second", timestamp: sampleCp.timestamp - 1 },
+        ],
+        hydrated: true,
+      },
+    }));
     await rewriteAll();
     const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1];
     expect(wrote).toContain("cp-test01");

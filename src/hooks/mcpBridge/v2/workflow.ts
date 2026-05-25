@@ -44,7 +44,7 @@ import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
 import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 
 const VALID_PATCH_KINDS: ReadonlySet<string> = new Set([
@@ -242,7 +242,7 @@ export async function handleWorkflowApplyPatch(
     revisionStore.updateRevision();
     const revisionAfter = revisionStore.getRevision();
 
-    const cpId = useMcpCheckpointStore.getState().push({
+    const cpId = useMcpStore.getState().checkpointPush({
       tabId: tabOrError.tabId,
       filePath: tabOrError.filePath,
       tool: "workflow.apply_patch",
@@ -251,7 +251,7 @@ export async function handleWorkflowApplyPatch(
       revisionBefore,
       revisionAfter,
     });
-    const cp = useMcpCheckpointStore.getState().get(cpId);
+    const cp = useMcpStore.getState().checkpointGet(cpId);
     if (cp) void appendCheckpoint(cp);
 
     await respond({

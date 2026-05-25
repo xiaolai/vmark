@@ -30,12 +30,12 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 import { useUpdateBroadcast, useUpdateListener, __resetUpdateSyncStateForTests } from "./useUpdateSync";
-import { useUpdateStore } from "../stores/updateStore";
+import { useMcpStore } from "../stores/mcpStore";
 
 const UPDATE_STATE_EVENT = "update:state-changed";
 
 function resetStore() {
-  useUpdateStore.getState().reset();
+  useMcpStore.getState().resetUpdate();
 }
 
 describe("useUpdateSync echo suppression", () => {
@@ -102,7 +102,7 @@ describe("useUpdateSync echo suppression", () => {
     });
 
     expect(emitMock).not.toHaveBeenCalled();
-    const state = useUpdateStore.getState();
+    const state = useMcpStore.getState().update;
     expect(state.status).toBe("error");
     expect(state.error).toBe("Failed to check for updates");
   });
@@ -125,7 +125,7 @@ describe("useUpdateSync echo suppression", () => {
 
     // Local code now changes state — must emit.
     await act(async () => {
-      useUpdateStore.getState().setStatus("up-to-date");
+      useMcpStore.getState().setUpdateStatus("up-to-date");
     });
 
     expect(emitMock).toHaveBeenCalledTimes(1);
@@ -158,7 +158,7 @@ describe("useUpdateSync echo suppression", () => {
     });
 
     expect(emitMock).not.toHaveBeenCalled();
-    const state = useUpdateStore.getState();
+    const state = useMcpStore.getState().update;
     expect(state.status).toBe("error");
     expect(state.error).toBe("boom");
   });

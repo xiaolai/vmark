@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/revisionStore";
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import {
   handleDocumentRead,
   handleDocumentWrite,
@@ -47,7 +47,7 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
-  useMcpCheckpointStore.setState({ checkpoints: [], hydrated: false });
+  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
 }
 
 function seedTab(tabId: string, content: string, filePath: string | null) {
@@ -194,7 +194,7 @@ describe("vmark.document.write — STALE concurrency", () => {
       tabId: "t-cp",
       content: "after",
     });
-    const cps = useMcpCheckpointStore.getState().list({
+    const cps = useMcpStore.getState().checkpointList({
       filePath: "/notes.md",
     });
     expect(cps).toHaveLength(1);
@@ -213,7 +213,7 @@ describe("vmark.document.write — STALE concurrency", () => {
       tabId: "t-noop",
       content: "same",
     });
-    expect(useMcpCheckpointStore.getState().checkpoints).toHaveLength(0);
+    expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
   });
 
   it("re-detects kind from the INCOMING content (empty-tab YAML write)", async () => {
@@ -391,7 +391,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
     // No content change → revision should not bump.
     expect(useRevisionStore.getState().getRevision()).toBe(before);
     // No checkpoint either.
-    expect(useMcpCheckpointStore.getState().checkpoints).toHaveLength(0);
+    expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
   });
 
   it("pushes a checkpoint after a successful transform", async () => {
@@ -400,7 +400,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
       tabId: "t-cp-tf",
       kind: "cjk-spacing",
     });
-    const cps = useMcpCheckpointStore.getState().list({
+    const cps = useMcpStore.getState().checkpointList({
       filePath: "/cjk.md",
     });
     expect(cps).toHaveLength(1);

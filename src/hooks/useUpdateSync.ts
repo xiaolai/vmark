@@ -32,7 +32,7 @@
 
 import { useEffect, useRef } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
-import { useUpdateStore, type UpdateStatus, type UpdateInfo, type DownloadProgress } from "@/stores/updateStore";
+import { useMcpStore, type UpdateStatus, type UpdateInfo, type DownloadProgress } from "@/stores/mcpStore";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { updateSyncWarn } from "@/utils/debug";
 
@@ -63,10 +63,10 @@ function snapshotJson(state: UpdateStatePayload): string {
  * Skips emits that originated from an incoming remote snapshot.
  */
 export function useUpdateBroadcast() {
-  const status = useUpdateStore((state) => state.status);
-  const updateInfo = useUpdateStore((state) => state.updateInfo);
-  const downloadProgress = useUpdateStore((state) => state.downloadProgress);
-  const error = useUpdateStore((state) => state.error);
+  const status = useMcpStore((state) => state.update.status);
+  const updateInfo = useMcpStore((state) => state.update.updateInfo);
+  const downloadProgress = useMcpStore((state) => state.update.downloadProgress);
+  const error = useMcpStore((state) => state.update.error);
 
   const prevState = useRef<UpdateStatePayload | null>(null);
 
@@ -120,7 +120,7 @@ export function useUpdateListener() {
       // effect runs exactly once.
       lastAppliedSnapshot = snapshotJson({ status, updateInfo, downloadProgress, error });
 
-      const { setStatus, setUpdateInfo, setDownloadProgress, setError } = useUpdateStore.getState();
+      const { setUpdateStatus: setStatus, setUpdateInfo, setDownloadProgress, setUpdateError: setError } = useMcpStore.getState();
 
       // Order matters: set info/progress first, then status (which may clear error)
       setUpdateInfo(updateInfo);

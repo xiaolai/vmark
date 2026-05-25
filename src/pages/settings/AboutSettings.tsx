@@ -10,7 +10,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
 import { SettingRow, SettingsGroup, Button, Toggle } from "./components";
-import { useUpdateStore } from "@/stores/updateStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
@@ -74,9 +74,9 @@ function Links() {
 
 function StatusIndicator() {
   const { t } = useTranslation("settings");
-  const status = useUpdateStore((state) => state.status);
-  const updateInfo = useUpdateStore((state) => state.updateInfo);
-  const error = useUpdateStore((state) => state.error);
+  const status = useMcpStore((state) => state.update.status);
+  const updateInfo = useMcpStore((state) => state.update.updateInfo);
+  const error = useMcpStore((state) => state.update.error);
 
   if (status === "checking") {
     return (
@@ -137,7 +137,7 @@ function StatusIndicator() {
 
 function DownloadProgress() {
   const { t } = useTranslation("settings");
-  const downloadProgress = useUpdateStore((state) => state.downloadProgress);
+  const downloadProgress = useMcpStore((state) => state.update.downloadProgress);
 
   if (!downloadProgress) return null;
 
@@ -166,9 +166,9 @@ function DownloadProgress() {
 
 function UpdateAvailableCard() {
   const { t } = useTranslation("settings");
-  const status = useUpdateStore((state) => state.status);
-  const updateInfo = useUpdateStore((state) => state.updateInfo);
-  const dismissed = useUpdateStore((state) => state.dismissed);
+  const status = useMcpStore((state) => state.update.status);
+  const updateInfo = useMcpStore((state) => state.update.updateInfo);
+  const dismissed = useMcpStore((state) => state.update.dismissed);
   const { downloadAndInstall, restartApp, skipVersion } = useUpdateOperations();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
@@ -290,7 +290,7 @@ function UpdateAvailableCard() {
 
 export function AboutSettings() {
   const { t } = useTranslation("settings");
-  const status = useUpdateStore((state) => state.status);
+  const status = useMcpStore((state) => state.update.status);
   const autoCheckEnabled = useSettingsStore((state) => state.update.autoCheckEnabled);
   const updateUpdateSetting = useSettingsStore((state) => state.updateUpdateSetting);
   const { checkForUpdates } = useUpdateOperations();

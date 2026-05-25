@@ -20,13 +20,15 @@ vi.mock("@/services/ime/imeToast", () => ({
   imeToast: toastMock,
 }));
 
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { McpHistoryButton } from "../McpHistoryButton";
 
 function reset() {
-  useMcpCheckpointStore.setState({ checkpoints: [], hydrated: false });
+  useMcpStore.setState((s) => ({
+    checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false },
+  }));
   useTabStore.setState({
     tabs: {
       main: [
@@ -49,7 +51,7 @@ function reset() {
 }
 
 function seedCheckpoint(overrides: Partial<{ contentBefore: string }> = {}) {
-  return useMcpCheckpointStore.getState().push({
+  return useMcpStore.getState().checkpointPush({
     tabId: "tab-1",
     filePath: "/notes.md",
     tool: "document.write",
@@ -111,7 +113,7 @@ describe("McpHistoryButton", () => {
   it("filters checkpoints by the focused tab's filePath", () => {
     seedCheckpoint({ contentBefore: "for-this-tab" });
     // Push a checkpoint for a different file path.
-    useMcpCheckpointStore.getState().push({
+    useMcpStore.getState().checkpointPush({
       tabId: "tab-2",
       filePath: "/other.md",
       tool: "document.write",
@@ -130,7 +132,7 @@ describe("McpHistoryButton", () => {
 
   it("clear button wipes history for the focused tab only", async () => {
     seedCheckpoint();
-    useMcpCheckpointStore.getState().push({
+    useMcpStore.getState().checkpointPush({
       tabId: "tab-2",
       filePath: "/other.md",
       tool: "document.write",
@@ -147,7 +149,7 @@ describe("McpHistoryButton", () => {
     await user.click(
       screen.getByRole("button", { name: /Clear history for this tab/i }),
     );
-    const remaining = useMcpCheckpointStore.getState().checkpoints;
+    const remaining = useMcpStore.getState().checkpoint.checkpoints;
     expect(remaining).toHaveLength(1);
     expect(remaining[0].filePath).toBe("/other.md");
   });

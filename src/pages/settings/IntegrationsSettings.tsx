@@ -11,7 +11,7 @@ import { SettingRow, Toggle, SettingsGroup, CopyButton } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpHealthCheck } from "@/hooks/useMcpHealthCheck";
-import { useMcpHealthStore } from "@/stores/mcpHealthStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { useAiProviderStore } from "@/stores/aiProviderStore";
 import { McpConfigInstaller } from "./McpConfigInstaller";
 import { RefreshCw, Users, ExternalLink } from "lucide-react";
@@ -54,7 +54,7 @@ export function IntegrationsSettings() {
 
   const { running, port, loading, error, start, stop } = useMcpServer();
   const { runHealthCheck, isChecking, version, toolCount, resourceCount } = useMcpHealthCheck();
-  const health = useMcpHealthStore((state) => state.health);
+  const health = useMcpStore((state) => state.health.health);
 
   const [clientCount, setClientCount] = useState(0);
 

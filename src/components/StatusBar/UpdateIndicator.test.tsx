@@ -7,9 +7,9 @@ const mockCheckForUpdates = vi.fn();
 const mockRestartApp = vi.fn();
 const mockOpenSettingsWindow = vi.fn();
 
-vi.mock("@/stores/updateStore", () => ({
-  useUpdateStore: vi.fn((selector: (state: Record<string, unknown>) => unknown) =>
-    selector(mockUpdateState)
+vi.mock("@/stores/mcpStore", () => ({
+  useMcpStore: vi.fn((selector: (state: Record<string, unknown>) => unknown) =>
+    selector({ update: mockUpdateState })
   ),
 }));
 

@@ -58,18 +58,20 @@ vi.mock("@/stores/settingsStore", () => ({
     }),
 }));
 
-vi.mock("@/stores/updateStore", () => {
+vi.mock("@/stores/mcpStore", () => {
   const storeData = () => ({
-    status: mocks.updateStatus,
-    updateInfo: mocks.updateInfo,
-    pendingUpdate: mocks.pendingUpdate,
-    dismiss: mocks.dismiss,
-    downloadProgress: null,
-    error: null,
+    update: {
+      status: mocks.updateStatus,
+      updateInfo: mocks.updateInfo,
+      pendingUpdate: mocks.pendingUpdate,
+      downloadProgress: null,
+      error: null,
+    },
+    dismissUpdate: mocks.dismiss,
   });
-  const useUpdateStore = (sel: (s: unknown) => unknown) => sel(storeData());
-  useUpdateStore.getState = storeData;
-  return { useUpdateStore };
+  const useMcpStore = (sel: (s: unknown) => unknown) => sel(storeData());
+  useMcpStore.getState = storeData;
+  return { useMcpStore };
 });
 
 vi.mock("@/stores/documentStore", () => ({

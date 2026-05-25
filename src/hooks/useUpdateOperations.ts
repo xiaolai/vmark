@@ -8,7 +8,7 @@
  *   created it. Cross-window emit is reserved for restart (no shared state).
  *
  * Pipeline: User clicks "Check now" in Settings → `checkForUpdates()` calls
- *   Tauri updater `check()` directly → updates local `useUpdateStore` →
+ *   Tauri updater `check()` directly → updates local `useMcpStore` →
  *   subsequent `downloadAndInstall()` uses the same window's pendingUpdate.
  *
  * Key decisions:
@@ -36,7 +36,7 @@
 import { useCallback } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { emit } from "@tauri-apps/api/event";
-import { useUpdateStore } from "@/stores/updateStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getVersion } from "@tauri-apps/api/app";
 import i18n from "@/i18n";
@@ -64,7 +64,7 @@ const inFlight: { check: Promise<boolean> | null; download: Promise<boolean> | n
 
 /**
  * Run the update check inline in the current window. Updates the local
- * `useUpdateStore` and stores `pendingUpdate` here so the same window can
+ * `useMcpStore` and stores `pendingUpdate` here so the same window can
  * later call download. Standalone (no React deps) so any caller — manual
  * button, auto-check on startup, the legacy cross-window listener — can
  * share the same code path.
@@ -78,10 +78,10 @@ export async function runUpdateCheck(): Promise<boolean> {
   if (inFlight.check) return inFlight.check;
 
   inFlight.check = (async () => {
-    const store = useUpdateStore.getState();
+    const store = useMcpStore.getState();
     const settings = useSettingsStore.getState();
 
-    store.setStatus("checking");
+    store.setUpdateStatus("checking");
 
     try {
       const update = await check();
@@ -95,14 +95,14 @@ export async function runUpdateCheck(): Promise<boolean> {
           pubDate: update.date ?? "",
           currentVersion,
         });
-        store.setStatus("available");
+        store.setUpdateStatus("available");
         // New update — clear any prior dismiss flag so the banner shows.
         store.clearDismissed();
         settings.updateUpdateSetting("lastCheckTimestamp", Date.now());
         return true;
       }
 
-      store.setStatus("up-to-date");
+      store.setUpdateStatus("up-to-date");
       store.setPendingUpdate(null);
       settings.updateUpdateSetting("lastCheckTimestamp", Date.now());
       return false;
@@ -111,7 +111,7 @@ export async function runUpdateCheck(): Promise<boolean> {
         err instanceof Error
           ? err.message
           : i18n.t("dialog:toast.updateCheckFailedGeneric");
-      store.setError(message);
+      store.setUpdateError(message);
       // Don't update lastCheckTimestamp on error — the check didn't complete.
       return false;
     } finally {
@@ -133,13 +133,13 @@ export async function runUpdateDownload(): Promise<boolean> {
   // resource — the underlying Tauri resource is not safe to download twice.
   if (inFlight.download) return inFlight.download;
 
-  const initial = useUpdateStore.getState();
-  const pendingUpdate = initial.pendingUpdate;
+  const initial = useMcpStore.getState();
+  const pendingUpdate = initial.update.pendingUpdate;
   if (!pendingUpdate) return false;
 
   inFlight.download = (async () => {
-    const store = useUpdateStore.getState();
-    store.setStatus("downloading");
+    const store = useMcpStore.getState();
+    store.setUpdateStatus("downloading");
     store.setDownloadProgress({ downloaded: 0, total: null });
 
     // Track progress in local variables to avoid stale state on rapid updates.
@@ -148,7 +148,7 @@ export async function runUpdateDownload(): Promise<boolean> {
 
     try {
       await pendingUpdate.downloadAndInstall((event) => {
-        const live = useUpdateStore.getState();
+        const live = useMcpStore.getState();
         switch (event.event) {
           case "Started":
             downloadedBytes = 0;
@@ -165,14 +165,14 @@ export async function runUpdateDownload(): Promise<boolean> {
         }
       });
 
-      useUpdateStore.getState().setStatus("ready");
+      useMcpStore.getState().setUpdateStatus("ready");
       return true;
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
           : i18n.t("dialog:toast.updateDownloadFailedGeneric");
-      useUpdateStore.getState().setError(message);
+      useMcpStore.getState().setUpdateError(message);
       return false;
     } finally {
       inFlight.download = null;
@@ -187,7 +187,7 @@ export async function runUpdateDownload(): Promise<boolean> {
  * Operations run in the calling window — pendingUpdate is window-local.
  */
 export function useUpdateOperations() {
-  const reset = useUpdateStore((state) => state.reset);
+  const reset = useMcpStore((state) => state.resetUpdate);
   const updateUpdateSetting = useSettingsStore((state) => state.updateUpdateSetting);
 
   /**
@@ -214,10 +214,10 @@ export function useUpdateOperations() {
    * (one extra HTTP HEAD if needed) and self-contained.
    */
   const downloadAndInstall = useCallback(async () => {
-    if (!useUpdateStore.getState().pendingUpdate) {
+    if (!useMcpStore.getState().update.pendingUpdate) {
       await runUpdateCheck();
     }
-    if (!useUpdateStore.getState().pendingUpdate) {
+    if (!useMcpStore.getState().update.pendingUpdate) {
       // Check ran but found no update (already up-to-date or errored).
       // The check itself surfaced the appropriate status — nothing to do.
       return;
@@ -266,13 +266,13 @@ export function useUpdateOperations() {
  * download fallback all share one code path.
  */
 export function useUpdateOperationHandler() {
-  const setError = useUpdateStore((state) => state.setError);
+  const setError = useMcpStore((state) => state.setUpdateError);
 
   const doCheckForUpdates = useCallback(async () => runUpdateCheck(), []);
 
   const doDownloadAndInstall = useCallback(async () => {
     const ok = await runUpdateDownload();
-    if (!ok && !useUpdateStore.getState().error) {
+    if (!ok && !useMcpStore.getState().update.error) {
       // No pendingUpdate held here either — surface a clear message.
       setError(i18n.t("dialog:toast.updateNoneToDownload"));
     }
@@ -289,5 +289,5 @@ export function useUpdateOperationHandler() {
  * Clear the pending update (e.g., when skipping)
  */
 export function clearPendingUpdate() {
-  useUpdateStore.getState().setPendingUpdate(null);
+  useMcpStore.getState().setPendingUpdate(null);
 }

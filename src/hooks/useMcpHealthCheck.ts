@@ -13,7 +13,7 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { useMcpHealthStore } from "@/stores/mcpHealthStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { useMcpServer } from "./useMcpServer";
 
 /** Health check result from sidecar */
@@ -44,13 +44,13 @@ export interface HealthCheckResult {
 export function useMcpHealthCheck() {
   const { t } = useTranslation("dialog");
   // Use individual selectors for reactive values
-  const isChecking = useMcpHealthStore((state) => state.isChecking);
-  const health = useMcpHealthStore((state) => state.health);
+  const isChecking = useMcpStore((state) => state.health.isChecking);
+  const health = useMcpStore((state) => state.health.health);
 
   const { running, port, refresh } = useMcpServer();
 
   const runHealthCheck = useCallback(async (): Promise<HealthCheckResult> => {
-    const { setHealth, setIsChecking } = useMcpHealthStore.getState();
+    const { setHealth, setIsChecking } = useMcpStore.getState();
     setIsChecking(true);
 
     try {
@@ -112,7 +112,7 @@ export function useMcpHealthCheck() {
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       // Use getState() to avoid stale closure issues
-      const currentHealth = useMcpHealthStore.getState().health;
+      const currentHealth = useMcpStore.getState().health.health;
       const result: HealthCheckResult = {
         success: false,
         version: currentHealth.version || "unknown",

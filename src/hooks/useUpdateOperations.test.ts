@@ -27,7 +27,7 @@ vi.mock("@tauri-apps/api/app", () => ({
 }));
 
 import { renderHook, act } from "@testing-library/react";
-import { useUpdateStore } from "@/stores/updateStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
   useUpdateOperations,
@@ -37,7 +37,7 @@ import {
 
 describe("useUpdateOperations", () => {
   beforeEach(() => {
-    useUpdateStore.getState().reset();
+    useMcpStore.getState().resetUpdate();
     mockEmit.mockClear();
   });
 
@@ -66,13 +66,13 @@ describe("useUpdateOperations", () => {
     expect(mockCheck).toHaveBeenCalled();
     expect(mockEmit).not.toHaveBeenCalledWith("update:request-check");
     // And the local store reflects the result.
-    expect(useUpdateStore.getState().status).toBe("up-to-date");
+    expect(useMcpStore.getState().update.status).toBe("up-to-date");
   });
 
   // downloadAndInstall: when this window holds pendingUpdate, run inline.
   it("downloadAndInstall runs inline when pendingUpdate is local", async () => {
     const mockDownloadAndInstall = vi.fn(async () => {});
-    useUpdateStore.getState().setPendingUpdate({
+    useMcpStore.getState().setPendingUpdate({
       downloadAndInstall: mockDownloadAndInstall,
     } as never);
 
@@ -94,7 +94,7 @@ describe("useUpdateOperations", () => {
   // self-sufficiently — no cross-window dependency for the user-visible
   // download operation.
   it("downloadAndInstall re-checks locally when no pendingUpdate (no cross-window emit)", async () => {
-    useUpdateStore.getState().setPendingUpdate(null);
+    useMcpStore.getState().setPendingUpdate(null);
 
     const mockDownloadAndInstall = vi.fn(async () => {});
     // mockCheck returns an Update on the re-check — runUpdateCheck stores it.
@@ -117,7 +117,7 @@ describe("useUpdateOperations", () => {
   });
 
   it("downloadAndInstall is a no-op when re-check finds no update", async () => {
-    useUpdateStore.getState().setPendingUpdate(null);
+    useMcpStore.getState().setPendingUpdate(null);
     mockCheck.mockResolvedValue(null); // no update available
 
     const { result } = renderHook(() => useUpdateOperations());
@@ -128,7 +128,7 @@ describe("useUpdateOperations", () => {
 
     expect(mockCheck).toHaveBeenCalled();
     // Status from the re-check propagates; no broken download attempt.
-    expect(useUpdateStore.getState().status).toBe("up-to-date");
+    expect(useMcpStore.getState().update.status).toBe("up-to-date");
     expect(mockEmit).not.toHaveBeenCalledWith("update:request-download");
   });
 
@@ -150,7 +150,7 @@ describe("useUpdateOperations", () => {
     });
 
     expect(useSettingsStore.getState().update.skipVersion).toBe("2.0.0");
-    expect(useUpdateStore.getState().status).toBe("idle");
+    expect(useMcpStore.getState().update.status).toBe("idle");
   });
 
   it("requestState emits request-state event", async () => {
@@ -206,7 +206,7 @@ describe("useUpdateOperations", () => {
     const mockDownloadAndInstall = vi.fn(
       () => new Promise<void>((r) => { resolveDownload = r; }),
     );
-    useUpdateStore.getState().setPendingUpdate({
+    useMcpStore.getState().setPendingUpdate({
       downloadAndInstall: mockDownloadAndInstall,
     } as never);
 
@@ -236,7 +236,7 @@ describe("useUpdateOperations", () => {
 
 describe("useUpdateOperationHandler", () => {
   beforeEach(() => {
-    useUpdateStore.getState().reset();
+    useMcpStore.getState().resetUpdate();
     mockCheck.mockReset();
     mockGetVersion.mockReset().mockResolvedValue("1.0.0");
   });
@@ -267,8 +267,8 @@ describe("useUpdateOperationHandler", () => {
       });
 
       expect(checkResult).toBe(true);
-      expect(useUpdateStore.getState().status).toBe("available");
-      expect(useUpdateStore.getState().updateInfo).toEqual({
+      expect(useMcpStore.getState().update.status).toBe("available");
+      expect(useMcpStore.getState().update.updateInfo).toEqual({
         version: "2.0.0",
         notes: "New features",
         pubDate: "2026-01-01",
@@ -287,8 +287,8 @@ describe("useUpdateOperationHandler", () => {
       });
 
       expect(checkResult).toBe(false);
-      expect(useUpdateStore.getState().status).toBe("up-to-date");
-      expect(useUpdateStore.getState().pendingUpdate).toBeNull();
+      expect(useMcpStore.getState().update.status).toBe("up-to-date");
+      expect(useMcpStore.getState().update.pendingUpdate).toBeNull();
     });
 
     it("sets error state when check fails", async () => {
@@ -302,8 +302,8 @@ describe("useUpdateOperationHandler", () => {
       });
 
       expect(checkResult).toBe(false);
-      expect(useUpdateStore.getState().status).toBe("error");
-      expect(useUpdateStore.getState().error).toBe("Network error");
+      expect(useMcpStore.getState().update.status).toBe("error");
+      expect(useMcpStore.getState().update.error).toBe("Network error");
     });
 
     it("handles non-Error thrown values", async () => {
@@ -315,7 +315,7 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doCheckForUpdates();
       });
 
-      expect(useUpdateStore.getState().error).toBe("Failed to check for updates");
+      expect(useMcpStore.getState().update.error).toBe("Failed to check for updates");
     });
 
     it("handles update with null body and date", async () => {
@@ -331,14 +331,14 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doCheckForUpdates();
       });
 
-      expect(useUpdateStore.getState().updateInfo?.notes).toBe("");
-      expect(useUpdateStore.getState().updateInfo?.pubDate).toBe("");
+      expect(useMcpStore.getState().update.updateInfo?.notes).toBe("");
+      expect(useMcpStore.getState().update.updateInfo?.pubDate).toBe("");
     });
 
     it("clears dismissed flag when update found", async () => {
       // Pre-dismiss
-      useUpdateStore.getState().dismiss();
-      expect(useUpdateStore.getState().dismissed).toBe(true);
+      useMcpStore.getState().dismissUpdate();
+      expect(useMcpStore.getState().update.dismissed).toBe(true);
 
       mockCheck.mockResolvedValue({ version: "2.0.0", body: "", date: "" });
 
@@ -348,7 +348,7 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doCheckForUpdates();
       });
 
-      expect(useUpdateStore.getState().dismissed).toBe(false);
+      expect(useMcpStore.getState().update.dismissed).toBe(false);
     });
 
     it("updates lastCheckTimestamp on successful check", async () => {
@@ -370,7 +370,7 @@ describe("useUpdateOperationHandler", () => {
 
   describe("doDownloadAndInstall", () => {
     it("sets error when no pending update", async () => {
-      useUpdateStore.getState().setPendingUpdate(null);
+      useMcpStore.getState().setPendingUpdate(null);
 
       const { result } = renderHook(() => useUpdateOperationHandler());
 
@@ -378,7 +378,7 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doDownloadAndInstall();
       });
 
-      expect(useUpdateStore.getState().error).toBe("No update available to download");
+      expect(useMcpStore.getState().update.error).toBe("No update available to download");
     });
 
     it("downloads and tracks progress", async () => {
@@ -390,7 +390,7 @@ describe("useUpdateOperationHandler", () => {
         onProgress({ event: "Finished", data: {} });
       });
 
-      useUpdateStore.getState().setPendingUpdate({
+      useMcpStore.getState().setPendingUpdate({
         downloadAndInstall: mockDownloadAndInstall,
       } as never);
 
@@ -400,7 +400,7 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doDownloadAndInstall();
       });
 
-      expect(useUpdateStore.getState().status).toBe("ready");
+      expect(useMcpStore.getState().update.status).toBe("ready");
       expect(mockDownloadAndInstall).toHaveBeenCalled();
     });
 
@@ -409,7 +409,7 @@ describe("useUpdateOperationHandler", () => {
         throw new Error("Download failed");
       });
 
-      useUpdateStore.getState().setPendingUpdate({
+      useMcpStore.getState().setPendingUpdate({
         downloadAndInstall: mockDownloadAndInstall,
       } as never);
 
@@ -419,8 +419,8 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doDownloadAndInstall();
       });
 
-      expect(useUpdateStore.getState().status).toBe("error");
-      expect(useUpdateStore.getState().error).toBe("Download failed");
+      expect(useMcpStore.getState().update.status).toBe("error");
+      expect(useMcpStore.getState().update.error).toBe("Download failed");
     });
 
     it("handles non-Error thrown values during download", async () => {
@@ -428,7 +428,7 @@ describe("useUpdateOperationHandler", () => {
         throw "unknown error";
       });
 
-      useUpdateStore.getState().setPendingUpdate({
+      useMcpStore.getState().setPendingUpdate({
         downloadAndInstall: mockDownloadAndInstall,
       } as never);
 
@@ -438,7 +438,7 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doDownloadAndInstall();
       });
 
-      expect(useUpdateStore.getState().error).toBe("Failed to download update");
+      expect(useMcpStore.getState().update.error).toBe("Failed to download update");
     });
 
     it("handles Started event with null contentLength", async () => {
@@ -447,7 +447,7 @@ describe("useUpdateOperationHandler", () => {
         onProgress({ event: "Finished", data: {} });
       });
 
-      useUpdateStore.getState().setPendingUpdate({
+      useMcpStore.getState().setPendingUpdate({
         downloadAndInstall: mockDownloadAndInstall,
       } as never);
 
@@ -457,18 +457,18 @@ describe("useUpdateOperationHandler", () => {
         await result.current.doDownloadAndInstall();
       });
 
-      expect(useUpdateStore.getState().status).toBe("ready");
+      expect(useMcpStore.getState().update.status).toBe("ready");
     });
   });
 });
 
 describe("clearPendingUpdate", () => {
   it("sets pending update to null", () => {
-    useUpdateStore.getState().setPendingUpdate({ version: "2.0.0" } as never);
-    expect(useUpdateStore.getState().pendingUpdate).not.toBeNull();
+    useMcpStore.getState().setPendingUpdate({ version: "2.0.0" } as never);
+    expect(useMcpStore.getState().update.pendingUpdate).not.toBeNull();
 
     clearPendingUpdate();
 
-    expect(useUpdateStore.getState().pendingUpdate).toBeNull();
+    expect(useMcpStore.getState().update.pendingUpdate).toBeNull();
   });
 });

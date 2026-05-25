@@ -33,7 +33,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useUpdateStore, type UpdateStatus } from "@/stores/updateStore";
+import { useMcpStore, type UpdateStatus } from "@/stores/mcpStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUpdateOperationHandler, clearPendingUpdate } from "./useUpdateOperations";
 import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHotExit";
@@ -108,10 +108,10 @@ export function useUpdateChecker() {
   const skipVersion = useSettingsStore((state) => state.update.skipVersion);
   const autoDownload = useSettingsStore((state) => state.update.autoDownload);
 
-  const status = useUpdateStore((state) => state.status);
-  const updateInfo = useUpdateStore((state) => state.updateInfo);
-  const pendingUpdate = useUpdateStore((state) => state.pendingUpdate);
-  const dismiss = useUpdateStore((state) => state.dismiss);
+  const status = useMcpStore((state) => state.update.status);
+  const updateInfo = useMcpStore((state) => state.update.updateInfo);
+  const pendingUpdate = useMcpStore((state) => state.update.pendingUpdate);
+  const dismiss = useMcpStore((state) => state.dismissUpdate);
 
   // Track previous status for toast notifications
   const prevStatusRef = useRef<UpdateStatus | null>(null);
@@ -182,7 +182,7 @@ export function useUpdateChecker() {
         break;
       case "error":
         if (prevStatus === "checking" && isManualCheck.current) {
-          const errMsg = useUpdateStore.getState().error;
+          const errMsg = useMcpStore.getState().update.error;
           // Pin: error messages from the updater can be long (URLs,
           // network details). Users may want to copy them.
           toast.error(
@@ -339,7 +339,7 @@ export function useUpdateChecker() {
       // Trigger a broadcast by getting current state and emitting
       // The useUpdateBroadcast hook will handle the actual broadcast
       // We just need to force a re-emit by touching the store
-      const currentState = useUpdateStore.getState();
+      const currentState = useMcpStore.getState().update;
       // Emit current state directly for immediate response
       emit("update:state-changed", {
         status: currentState.status,

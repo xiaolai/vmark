@@ -1,5 +1,5 @@
 /**
- * Purpose: Persist `useMcpCheckpointStore` to disk so version history
+ * Purpose: Persist `useMcpStore` to disk so version history
  *   survives restart. Append-only JSONL keeps push cheap (one fs write
  *   per checkpoint); on hydrate we read the entire file and apply the
  *   in-memory retention to bound size.
@@ -16,7 +16,7 @@
  *   - Non-blocking writes: appendCheckpoint is fire-and-forget with
  *     error logging — a failed disk write must not break the MCP path.
  *
- * @coordinates-with stores/mcpCheckpointStore.ts — in-memory state
+ * @coordinates-with stores/mcpStore.ts — in-memory state
  * @module stores/mcpCheckpointPersistence
  */
 
@@ -28,9 +28,9 @@ import {
   mkdir,
 } from "@tauri-apps/plugin-fs";
 import {
-  useMcpCheckpointStore,
+  useMcpStore,
   type MCPCheckpoint,
-} from "./mcpCheckpointStore";
+} from "./mcpStore";
 import { mcpBridgeError, mcpBridgeLog } from "@/utils/debug";
 
 const FILE_NAME = "mcp-checkpoints.jsonl";
@@ -58,7 +58,7 @@ async function resolvePath(): Promise<string> {
  * times; subsequent calls noop after the first successful hydrate.
  */
 export async function hydrateCheckpoints(): Promise<void> {
-  if (useMcpCheckpointStore.getState().hydrated) return;
+  if (useMcpStore.getState().checkpoint.hydrated) return;
   try {
     const path = await resolvePath();
     let text = "";
@@ -80,7 +80,7 @@ export async function hydrateCheckpoints(): Promise<void> {
     }
     // Sort newest-first to match the store's invariant.
     checkpoints.sort((a, b) => b.timestamp - a.timestamp);
-    useMcpCheckpointStore.getState().__setAll(checkpoints);
+    useMcpStore.getState().checkpointSetAll(checkpoints);
 
     // Compact the file back to the in-memory state so retention
     // applied on hydrate also lands on disk.
@@ -88,7 +88,7 @@ export async function hydrateCheckpoints(): Promise<void> {
   } catch (error) {
     mcpBridgeError("Failed to hydrate MCP checkpoints:", error);
   } finally {
-    useMcpCheckpointStore.getState().__markHydrated();
+    useMcpStore.getState().checkpointMarkHydrated();
   }
 }
 
@@ -123,9 +123,9 @@ export async function appendCheckpoint(
 export async function rewriteAll(): Promise<void> {
   try {
     const path = await resolvePath();
-    const lines = useMcpCheckpointStore
+    const lines = useMcpStore
       .getState()
-      .checkpoints.map((cp) => JSON.stringify(cp))
+      .checkpoint.checkpoints.map((cp) => JSON.stringify(cp))
       .join("\n");
     await writeTextFile(path, lines.length > 0 ? lines + "\n" : "");
   } catch (error) {

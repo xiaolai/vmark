@@ -27,7 +27,7 @@
  * @coordinates-with stores/activeEditorStore.ts — focused editor instances
  * @coordinates-with stores/editorStore.ts — sourceMode flag picks the dispatcher
  * @coordinates-with stores/revisionStore.ts — optimistic concurrency
- * @coordinates-with stores/mcpCheckpointStore.ts — selection.set checkpoints
+ * @coordinates-with stores/mcpStore.ts — selection.set checkpoints
  * @module hooks/mcpBridge/v2/selection
  */
 
@@ -38,7 +38,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveEditorStore } from "@/stores/activeEditorStore";
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import {
@@ -228,7 +228,7 @@ function recordSelectionCheckpoint(args: {
   selectedText: string;
   newText: string;
 }): void {
-  const id = useMcpCheckpointStore.getState().push({
+  const id = useMcpStore.getState().checkpointPush({
     tabId: args.tabId,
     filePath: args.filePath,
     tool: "selection.set",
@@ -237,7 +237,7 @@ function recordSelectionCheckpoint(args: {
     revisionBefore: args.revisionBefore,
     revisionAfter: args.revisionAfter,
   });
-  const cp = useMcpCheckpointStore.getState().get(id);
+  const cp = useMcpStore.getState().checkpointGet(id);
   if (cp) void appendCheckpoint(cp);
 }
 

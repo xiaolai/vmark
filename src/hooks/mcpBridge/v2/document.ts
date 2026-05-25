@@ -58,9 +58,9 @@ import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error } from "./types";
 import { HALF_TO_FULL } from "./cjkMaps";
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
-import type { CheckpointTool } from "@/stores/mcpCheckpointStore";
+import type { CheckpointTool } from "@/stores/mcpStore";
 
 interface ResolvedTab {
   tabId: string;
@@ -140,7 +140,7 @@ function recordCheckpoint(args: {
   revisionBefore: string;
   revisionAfter: string;
 }): void {
-  const id = useMcpCheckpointStore.getState().push({
+  const id = useMcpStore.getState().checkpointPush({
     tabId: args.resolved.tabId,
     filePath: args.resolved.filePath,
     tool: args.tool,
@@ -149,7 +149,7 @@ function recordCheckpoint(args: {
     revisionBefore: args.revisionBefore,
     revisionAfter: args.revisionAfter,
   });
-  const cp = useMcpCheckpointStore.getState().get(id);
+  const cp = useMcpStore.getState().checkpointGet(id);
   if (cp) void appendCheckpoint(cp);
 }
 

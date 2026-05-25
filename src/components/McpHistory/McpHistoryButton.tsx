@@ -16,7 +16,7 @@
  *     the same conflict semantic as a manual edit.
  *   - The popover uses position: fixed and the shared popup CSS tokens.
  *
- * @coordinates-with stores/mcpCheckpointStore.ts — checkpoint state
+ * @coordinates-with stores/mcpStore.ts — checkpoint state
  * @coordinates-with stores/mcpCheckpointPersistence.ts — disk rewrite on restore
  * @coordinates-with stores/documentStore.ts — setContent for restore
  * @coordinates-with stores/revisionStore.ts — bump on restore
@@ -26,8 +26,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { History, Undo2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useMcpCheckpointStore } from "@/stores/mcpCheckpointStore";
-import type { MCPCheckpoint } from "@/stores/mcpCheckpointStore";
+import { useMcpStore } from "@/stores/mcpStore";
+import type { MCPCheckpoint } from "@/stores/mcpStore";
 import { rewriteAll } from "@/stores/mcpCheckpointPersistence";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/revisionStore";
@@ -75,7 +75,7 @@ export function McpHistoryButton(): React.ReactElement {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Subscribe to the store so the badge count updates live.
-  const checkpoints = useMcpCheckpointStore((s) => s.checkpoints);
+  const checkpoints = useMcpStore((s) => s.checkpoint.checkpoints);
 
   const tabId = useTabStore((s) => s.activeTabId[getCurrentWindowLabel()]);
   const tabFilePath = useDocumentStore((s) =>
@@ -131,7 +131,7 @@ export function McpHistoryButton(): React.ReactElement {
           ? { tabId }
           : undefined;
     if (!filter) return;
-    useMcpCheckpointStore.getState().clear(filter);
+    useMcpStore.getState().checkpointClear(filter);
     void rewriteAll();
     toast.success(t("mcpHistoryCleared"));
   }, [tabId, tabFilePath, t]);

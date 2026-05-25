@@ -28,13 +28,13 @@ vi.mock("react-i18next", () => ({
 // --- Imports (after mocks) ---
 
 import { useMcpHealthCheck } from "../useMcpHealthCheck";
-import { useMcpHealthStore } from "@/stores/mcpHealthStore";
+import { useMcpStore } from "@/stores/mcpStore";
 
 // --- Setup ---
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useMcpHealthStore.getState().reset();
+  useMcpStore.getState().resetHealth();
   mcpServerState.running = false;
   mcpServerState.port = null;
 });
@@ -68,7 +68,7 @@ describe("useMcpHealthCheck — sidecar ok + bridge running", () => {
     expect(healthResult.bridgeRunning).toBe(true);
     expect(healthResult.bridgePort).toBe(12345);
 
-    const stored = useMcpHealthStore.getState().health;
+    const stored = useMcpStore.getState().health.health;
     expect(stored.version).toBe("0.4.0");
     expect(stored.toolCount).toBe(7);
     expect(stored.resourceCount).toBe(2);
@@ -103,7 +103,7 @@ describe("useMcpHealthCheck — sidecar ok + bridge not running", () => {
     expect(healthResult.bridgeRunning).toBe(false);
     expect(healthResult.bridgePort).toBeNull();
 
-    const stored = useMcpHealthStore.getState().health;
+    const stored = useMcpStore.getState().health.health;
     expect(stored.checkError).toBe("mcp.bridgeNotRunning");
     expect(stored.version).toBe("0.4.0");
     expect(stored.toolCount).toBe(4);
@@ -137,7 +137,7 @@ describe("useMcpHealthCheck — sidecar reports error", () => {
     expect(healthResult.bridgeRunning).toBe(true);
     expect(healthResult.bridgePort).toBe(9999);
 
-    const stored = useMcpHealthStore.getState().health;
+    const stored = useMcpStore.getState().health.health;
     expect(stored.checkError).toBe("boom");
     expect(stored.version).toBe("0.4.0");
     expect(stored.tools).toEqual([]);
@@ -161,7 +161,7 @@ describe("useMcpHealthCheck — sidecar reports error", () => {
     });
 
     expect(healthResult.error).toBe("mcp.healthCheckFailed");
-    expect(useMcpHealthStore.getState().health.checkError).toBe(
+    expect(useMcpStore.getState().health.health.checkError).toBe(
       "mcp.healthCheckFailed",
     );
   });
@@ -174,16 +174,19 @@ describe("useMcpHealthCheck — invoke throws", () => {
     mcpServerState.port = 4242;
 
     // Seed the store so the catch path has values to read via getState()
-    useMcpHealthStore.setState({
+    useMcpStore.setState((s) => ({
       health: {
-        version: "0.3.0",
-        toolCount: 5,
-        resourceCount: 3,
-        tools: ["doc.read", "doc.write", "doc.list"],
-        lastChecked: new Date("2026-01-01T00:00:00Z"),
-        checkError: null,
+        ...s.health,
+        health: {
+          version: "0.3.0",
+          toolCount: 5,
+          resourceCount: 3,
+          tools: ["doc.read", "doc.write", "doc.list"],
+          lastChecked: new Date("2026-01-01T00:00:00Z"),
+          checkError: null,
+        },
       },
-    });
+    }));
 
     mockInvoke.mockRejectedValue(new Error("offline"));
 
@@ -202,7 +205,7 @@ describe("useMcpHealthCheck — invoke throws", () => {
     expect(healthResult.bridgeRunning).toBe(true);
     expect(healthResult.bridgePort).toBe(4242);
 
-    const stored = useMcpHealthStore.getState().health;
+    const stored = useMcpStore.getState().health.health;
     // Catch path must NOT overwrite version/toolCount/resourceCount/tools
     expect(stored.version).toBe("0.3.0");
     expect(stored.toolCount).toBe(5);
@@ -239,7 +242,7 @@ describe("useMcpHealthCheck — isChecking lifecycle", () => {
 
     mockRefresh.mockResolvedValue({ running: true, port: 1 });
     mockInvoke.mockImplementation(async () => {
-      observedDuringCall = useMcpHealthStore.getState().isChecking;
+      observedDuringCall = useMcpStore.getState().health.isChecking;
       return {
         status: "ok",
         version: "0.4.0",
@@ -251,14 +254,14 @@ describe("useMcpHealthCheck — isChecking lifecycle", () => {
 
     const { result } = renderHook(() => useMcpHealthCheck());
 
-    expect(useMcpHealthStore.getState().isChecking).toBe(false);
+    expect(useMcpStore.getState().health.isChecking).toBe(false);
 
     await act(async () => {
       await result.current.runHealthCheck();
     });
 
     expect(observedDuringCall).toBe(true);
-    expect(useMcpHealthStore.getState().isChecking).toBe(false);
+    expect(useMcpStore.getState().health.isChecking).toBe(false);
   });
 
   it("clears isChecking even when invoke throws", async () => {
@@ -271,6 +274,6 @@ describe("useMcpHealthCheck — isChecking lifecycle", () => {
       await result.current.runHealthCheck();
     });
 
-    expect(useMcpHealthStore.getState().isChecking).toBe(false);
+    expect(useMcpStore.getState().health.isChecking).toBe(false);
   });
 });

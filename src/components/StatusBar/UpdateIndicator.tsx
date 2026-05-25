@@ -12,7 +12,7 @@
 
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Download, CheckCircle, AlertCircle } from "lucide-react";
-import { useUpdateStore, type UpdateStatus } from "@/stores/updateStore";
+import { useMcpStore, type UpdateStatus } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
 import { openSettingsWindow } from "@/utils/settingsWindow";
@@ -70,9 +70,9 @@ function getIndicatorConfig(status: UpdateStatus) {
 /** Renders an update status icon in the StatusBar (checking, downloading, ready, or error). */
 export function UpdateIndicator() {
   const { t } = useTranslation("statusbar");
-  const status = useUpdateStore((state) => state.status);
-  const updateInfo = useUpdateStore((state) => state.updateInfo);
-  const downloadProgress = useUpdateStore((state) => state.downloadProgress);
+  const status = useMcpStore((state) => state.update.status);
+  const updateInfo = useMcpStore((state) => state.update.updateInfo);
+  const downloadProgress = useMcpStore((state) => state.update.downloadProgress);
   const autoDownload = useSettingsStore((state) => state.update.autoDownload);
   const { checkForUpdates, restartApp } = useUpdateOperations();
 
