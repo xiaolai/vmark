@@ -12,7 +12,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpHealthCheck } from "@/hooks/useMcpHealthCheck";
 import { useMcpStore } from "@/stores/mcpStore";
-import { useAiProviderStore } from "@/stores/aiProviderStore";
+import { useAiProviderStore } from "@/stores/aiStore";
 import { McpConfigInstaller } from "./McpConfigInstaller";
 import { RefreshCw, Users, ExternalLink } from "lucide-react";
 import type { ProviderType } from "@/types/aiGenies";

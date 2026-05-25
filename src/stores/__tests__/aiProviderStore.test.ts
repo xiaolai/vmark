@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { useAiProviderStore, REST_TYPES, KEY_OPTIONAL_REST } from "../aiProviderStore";
+import { useAiProviderStore, REST_TYPES, KEY_OPTIONAL_REST } from "../aiStore";
 
 // Ensure invoke mock returns sane defaults for store initialization
 vi.mocked(invoke).mockImplementation(async (cmd: string) => {

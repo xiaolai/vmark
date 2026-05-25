@@ -23,7 +23,7 @@ import i18n from "@/i18n";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
-import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
+import { useAiSuggestionStore } from "@/stores/aiStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";

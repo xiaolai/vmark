@@ -104,23 +104,6 @@ vi.mock("@/components/QuickOpen/quickOpenStore", () => ({
   ),
 }));
 
-vi.mock("@/stores/geniesStore", () => {
-  const fullState = () => ({
-    ...geniesState,
-    loadGenies: mockLoadGenies,
-    getRecent: () => mockRecentGenies,
-  });
-  return {
-    useGeniesStore: Object.assign(
-      (selector: (s: ReturnType<typeof fullState>) => unknown) => selector(fullState()),
-      {
-        getState: fullState,
-        subscribe: vi.fn(() => () => {}),
-      }
-    ),
-  };
-});
-
 const mockInvokeGenie = vi.fn();
 const mockInvokeFreeform = vi.fn();
 
@@ -132,58 +115,64 @@ vi.mock("@/hooks/useGenieInvocation", () => ({
 }));
 
 let mockActiveProvider: string | null = null;
-
-vi.mock("@/stores/aiProviderStore", () => ({
-  useAiProviderStore: Object.assign(
-    (selector: (s: Record<string, unknown>) => unknown) =>
-      selector({
-        activeProvider: mockActiveProvider,
-        cliProviders: [{ type: "claude", name: "Claude Code" }],
-        restProviders: [],
-      }),
-    {
-      getState: () => ({
-        activeProvider: mockActiveProvider,
-        getActiveProviderName: () => "Claude Code",
-      }),
-      subscribe: vi.fn(() => () => {}),
-    }
-  ),
-}));
-
 let mockElapsedSeconds = 0;
 const mockAiCancel = vi.fn();
-
-vi.mock("@/stores/aiInvocationStore", () => ({
-  useAiInvocationStore: Object.assign(
-    (selector: (s: Record<string, unknown>) => unknown) =>
-      selector({ elapsedSeconds: mockElapsedSeconds }),
-    {
-      getState: () => ({
-        elapsedSeconds: mockElapsedSeconds,
-        cancel: mockAiCancel,
-      }),
-      subscribe: vi.fn(() => () => {}),
-    }
-  ),
-}));
-
 let mockFocusedSuggestionId: string | null = null;
 const mockAcceptSuggestion = vi.fn();
 
-vi.mock("@/stores/aiSuggestionStore", () => ({
-  useAiSuggestionStore: Object.assign(
-    (selector: (s: Record<string, unknown>) => unknown) =>
-      selector({ focusedSuggestionId: mockFocusedSuggestionId }),
-    {
-      getState: () => ({
-        focusedSuggestionId: mockFocusedSuggestionId,
-        acceptSuggestion: mockAcceptSuggestion,
-      }),
-      subscribe: vi.fn(() => () => {}),
-    }
-  ),
-}));
+vi.mock("@/stores/aiStore", () => {
+  const geniesFullState = () => ({
+    ...geniesState,
+    loadGenies: mockLoadGenies,
+    getRecent: () => mockRecentGenies,
+  });
+  return {
+    useGeniesStore: Object.assign(
+      (selector: (s: ReturnType<typeof geniesFullState>) => unknown) => selector(geniesFullState()),
+      {
+        getState: geniesFullState,
+        subscribe: vi.fn(() => () => {}),
+      },
+    ),
+    useAiProviderStore: Object.assign(
+      (selector: (s: Record<string, unknown>) => unknown) =>
+        selector({
+          activeProvider: mockActiveProvider,
+          cliProviders: [{ type: "claude", name: "Claude Code" }],
+          restProviders: [],
+        }),
+      {
+        getState: () => ({
+          activeProvider: mockActiveProvider,
+          getActiveProviderName: () => "Claude Code",
+        }),
+        subscribe: vi.fn(() => () => {}),
+      },
+    ),
+    useAiInvocationStore: Object.assign(
+      (selector: (s: Record<string, unknown>) => unknown) =>
+        selector({ elapsedSeconds: mockElapsedSeconds }),
+      {
+        getState: () => ({
+          elapsedSeconds: mockElapsedSeconds,
+          cancel: mockAiCancel,
+        }),
+        subscribe: vi.fn(() => () => {}),
+      },
+    ),
+    useAiSuggestionStore: Object.assign(
+      (selector: (s: Record<string, unknown>) => unknown) =>
+        selector({ focusedSuggestionId: mockFocusedSuggestionId }),
+      {
+        getState: () => ({
+          focusedSuggestionId: mockFocusedSuggestionId,
+          acceptSuggestion: mockAcceptSuggestion,
+        }),
+        subscribe: vi.fn(() => () => {}),
+      },
+    ),
+  };
+});
 
 const mockPromptHistoryReset = vi.fn();
 const mockHandleChange = vi.fn((value: string) => {

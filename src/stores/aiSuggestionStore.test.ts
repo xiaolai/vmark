@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { useAiSuggestionStore } from "./aiSuggestionStore";
+import { useAiSuggestionStore } from "./aiStore";
 import { AI_SUGGESTION_EVENTS } from "@/plugins/aiSuggestion/types";
 
 const TAB_ID = "test-tab-1";
 const TAB_ID_2 = "test-tab-2";
 
-describe("aiSuggestionStore", () => {
+describe("aiStore", () => {
   beforeEach(() => {
     useAiSuggestionStore.getState().clearAll();
     vi.clearAllMocks();

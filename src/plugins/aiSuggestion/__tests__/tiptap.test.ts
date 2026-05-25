@@ -52,7 +52,7 @@ const mockAiState = {
   getSuggestion: vi.fn(),
 };
 
-vi.mock("@/stores/aiSuggestionStore", () => ({
+vi.mock("@/stores/aiStore", () => ({
   useAiSuggestionStore: {
     getState: () => mockAiState,
     subscribe: vi.fn(() => vi.fn()),

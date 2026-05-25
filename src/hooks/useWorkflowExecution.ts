@@ -21,7 +21,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef } from "react";
 
-import { useAiProviderStore } from "@/stores/aiProviderStore";
+import { useAiProviderStore } from "@/stores/aiStore";
 import {
   useWorkflowStore,
   type ApprovalRequestPayload,

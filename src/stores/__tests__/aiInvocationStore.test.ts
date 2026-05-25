@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { useAiInvocationStore } from "../aiInvocationStore";
+import { useAiInvocationStore } from "../aiStore";
 
 describe("aiInvocationStore", () => {
   beforeEach(() => {

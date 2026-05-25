@@ -70,13 +70,13 @@ vi.mock("@/utils/workspaceStorage", () => ({
 
 import { toast } from "sonner";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
-import { useAiInvocationStore } from "@/stores/aiInvocationStore";
-import { useAiProviderStore } from "@/stores/aiProviderStore";
+import { useAiInvocationStore } from "@/stores/aiStore";
+import { useAiProviderStore } from "@/stores/aiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useTabStore } from "@/stores/tabStore";
-import { useAiSuggestionStore } from "@/stores/aiSuggestionStore";
+import { useAiSuggestionStore } from "@/stores/aiStore";
 import { useGenieInvocation } from "../useGenieInvocation";
 import { genieWarn } from "@/utils/debug";
 

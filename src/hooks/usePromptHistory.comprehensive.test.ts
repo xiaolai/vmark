@@ -11,7 +11,7 @@ import { renderHook, act } from "@testing-library/react";
 const mockEntries = ["hello world", "help me", "goodbye"];
 const mockAddEntry = vi.fn();
 
-vi.mock("@/stores/promptHistoryStore", () => ({
+vi.mock("@/stores/aiStore", () => ({
   usePromptHistoryStore: Object.assign(
     (selector: (s: { entries: string[] }) => unknown) =>
       selector({ entries: mockEntries }),

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { usePromptHistoryStore } from "../promptHistoryStore";
+import { usePromptHistoryStore } from "../aiStore";
 
 describe("promptHistoryStore", () => {
   beforeEach(() => {

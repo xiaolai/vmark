@@ -34,7 +34,7 @@ let mockState: {
   detectProviders: ReturnType<typeof vi.fn>;
 };
 
-vi.mock("@/stores/aiProviderStore", () => {
+vi.mock("@/stores/aiStore", () => {
   const store = (selector: (s: typeof mockState) => unknown) => selector(mockState);
   store.getState = () => mockState;
 

@@ -10,7 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTranslation } from "react-i18next";
 import type { RestProviderType } from "@/types/aiGenies";
-import { useAiProviderStore } from "@/stores/aiProviderStore";
+import { useAiProviderStore } from "@/stores/aiStore";
 import { ModelComboBox } from "./ModelComboBox";
 import { FieldInput } from "./components";
 

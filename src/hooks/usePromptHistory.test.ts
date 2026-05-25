@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 
-vi.mock("@/stores/promptHistoryStore", () => ({
+vi.mock("@/stores/aiStore", () => ({
   usePromptHistoryStore: Object.assign(
     (selector: (s: { entries: string[] }) => unknown) => selector({ entries: ["hello", "world"] }),
     {

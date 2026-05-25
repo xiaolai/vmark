@@ -44,7 +44,7 @@ import {
   useDocumentIsDivergent,
 } from "@/hooks/useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useAiInvocationStore } from "@/stores/aiInvocationStore";
+import { useAiInvocationStore } from "@/stores/aiStore";
 import { formatRelativeTime } from "@/utils/dateUtils";
 import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";

@@ -23,7 +23,7 @@ vi.mock("@/stores/lintStore", () => ({
   },
 }));
 
-vi.mock("@/stores/aiSuggestionStore", () => ({
+vi.mock("@/stores/aiStore", () => ({
   useAiSuggestionStore: {
     getState: () => ({ clearForTab: mockClearForTab }),
   },

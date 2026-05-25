@@ -16,7 +16,7 @@ import { isValidPosition, getDecorationClass, isButtonEvent } from "../tiptap";
 import {
   useAiSuggestionStore,
   resetAiSuggestionStore,
-} from "@/stores/aiSuggestionStore";
+} from "@/stores/aiStore";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { useGeniesStore } from "../geniesStore";
+import { useGeniesStore } from "../aiStore";
 import type { GenieDefinition } from "@/types/aiGenies";
 
 function makeGenie(overrides: Partial<GenieDefinition> & { name: string }): GenieDefinition {

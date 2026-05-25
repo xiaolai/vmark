@@ -9,7 +9,7 @@ import {
   useAiSuggestionStore,
   resetAiSuggestionStore,
   initSuggestionTabWatcher,
-} from "../aiSuggestionStore";
+} from "../aiStore";
 import { AI_SUGGESTION_EVENTS } from "@/plugins/aiSuggestion/types";
 import type { SuggestionType } from "@/plugins/aiSuggestion/types";
 

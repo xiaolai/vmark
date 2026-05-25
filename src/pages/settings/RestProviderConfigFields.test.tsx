@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { RestProviderConfigFields } from "./RestProviderConfigFields";
-import { useAiProviderStore } from "@/stores/aiProviderStore";
+import { useAiProviderStore } from "@/stores/aiStore";
 
 // Mock the store — we only care about getState().updateRestProvider
-vi.mock("@/stores/aiProviderStore", () => {
+vi.mock("@/stores/aiStore", () => {
   const updateRestProvider = vi.fn();
   return {
     useAiProviderStore: {

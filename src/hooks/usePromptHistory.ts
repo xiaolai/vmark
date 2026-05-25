@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { usePromptHistoryStore } from "@/stores/promptHistoryStore";
+import { usePromptHistoryStore } from "@/stores/aiStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
 /** Return type of usePromptHistory with display state, ghost text, key handlers, and dropdown controls. */
