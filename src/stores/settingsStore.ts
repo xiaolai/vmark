@@ -143,6 +143,7 @@ const initialState: SettingsState = {
   markdown: {
     preserveLineBreaks: false,
     showBrTags: false,
+    showInvisibles: false,
     enableRegexSearch: true,
     pasteMarkdownInWysiwyg: "auto",
     pasteMode: "smart", // Default: convert HTML to Markdown

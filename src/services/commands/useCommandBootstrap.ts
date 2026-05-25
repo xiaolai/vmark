@@ -67,6 +67,7 @@ const VIEW_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:diagram-preview", commandId: "view.toggleDiagramPreview" },
   { menuEvent: "menu:fit-tables", commandId: "view.toggleFitTables" },
   { menuEvent: "menu:read-only", commandId: "view.toggleReadOnly" },
+  { menuEvent: "menu:show-invisibles", commandId: "view.toggleShowInvisibles" },
   { menuEvent: "menu:toggle-terminal", commandId: "view.toggleTerminal" },
   { menuEvent: "menu:zoom-actual", commandId: "view.zoomActual" },
   { menuEvent: "menu:zoom-in", commandId: "view.zoomIn" },

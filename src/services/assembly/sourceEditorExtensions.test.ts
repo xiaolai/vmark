@@ -132,6 +132,8 @@ vi.mock("@/plugins/codemirror", () => ({
   structuralDeleteKeymap: { key: "Delete-structural", run: vi.fn() },
   listSmartIndentKeymap: { key: "Tab-list", run: vi.fn() },
   listSmartOutdentKeymap: { key: "Shift-Tab-list", run: vi.fn() },
+  createShowInvisiblesPlugin: vi.fn((enabled: boolean) => `showInvisibles:${enabled}`),
+  showInvisiblesTheme: "showInvisiblesTheme",
 }));
 
 vi.mock("@/plugins/codemirror/sourceShortcuts", () => ({
@@ -178,6 +180,7 @@ import {
   lineNumbersCompartment,
   shortcutKeymapCompartment,
   readOnlyCompartment,
+  showInvisiblesCompartment,
 } from "./sourceEditorExtensions";
 import { keymap } from "@codemirror/view";
 // selectNextOccurrenceSource and selectAllOccurrencesSource are hoisted mocks above
@@ -242,13 +245,14 @@ describe("createSourceEditorExtensions", () => {
 });
 
 describe("exported compartments", () => {
-  it("exports all six compartments", () => {
+  it("exports all seven compartments", () => {
     expect(lineWrapCompartment).toBeDefined();
     expect(brVisibilityCompartment).toBeDefined();
     expect(autoPairCompartment).toBeDefined();
     expect(lineNumbersCompartment).toBeDefined();
     expect(shortcutKeymapCompartment).toBeDefined();
     expect(readOnlyCompartment).toBeDefined();
+    expect(showInvisiblesCompartment).toBeDefined();
   });
 
   it("compartments have an 'of' method", () => {
@@ -258,6 +262,7 @@ describe("exported compartments", () => {
     expect(typeof lineNumbersCompartment.of).toBe("function");
     expect(typeof shortcutKeymapCompartment.of).toBe("function");
     expect(typeof readOnlyCompartment.of).toBe("function");
+    expect(typeof showInvisiblesCompartment.of).toBe("function");
   });
 });
 

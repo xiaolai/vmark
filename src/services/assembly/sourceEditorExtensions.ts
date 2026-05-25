@@ -45,6 +45,8 @@ import {
   sourceEditorTheme,
   codeHighlightStyle,
   createBrHidingPlugin,
+  createShowInvisiblesPlugin,
+  showInvisiblesTheme,
   createListBlankLinePlugin,
   createMarkdownAutoPairPlugin,
   markdownPairBackspace,
@@ -104,6 +106,7 @@ export const autoPairCompartment = new Compartment();
 export const lineNumbersCompartment = new Compartment();
 export const shortcutKeymapCompartment = new Compartment();
 export const readOnlyCompartment = new Compartment();
+export const showInvisiblesCompartment = new Compartment();
 
 // Custom brackets config for markdown (^, standard brackets)
 const markdownCloseBrackets = markdownLanguage.data.of({
@@ -118,6 +121,7 @@ interface ExtensionConfig {
   initialAutoPair: boolean;
   initialShowLineNumbers: boolean;
   initialReadOnly?: boolean;
+  initialShowInvisibles?: boolean;
   updateListener: Extension;
   /** Tab ID for per-tab lint diagnostics (required when lintEnabled is true) */
   tabId?: string;
@@ -131,7 +135,7 @@ interface ExtensionConfig {
  * Creates the array of CodeMirror extensions for the source editor.
  */
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
-  const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, updateListener, tabId, lintEnabled, filePath } = config;
+  const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, initialShowInvisibles = false, updateListener, tabId, lintEnabled, filePath } = config;
   // YAML detection is independent of the workflow feature flag — every
   // YAML file gets `lang-yaml` highlighting and parse-error linting.
   // Workflow-only extensions (preview, completion, goto, cursor sync)
@@ -146,6 +150,11 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     lineWrapCompartment.of(initialWordWrap ? EditorView.lineWrapping : []),
     // BR visibility (dynamic via compartment) - hide when showBrTags is false
     brVisibilityCompartment.of(createBrHidingPlugin(!initialShowBrTags)),
+    // Show invisible characters (dynamic via compartment)
+    showInvisiblesCompartment.of([
+      createShowInvisiblesPlugin(initialShowInvisibles),
+      showInvisiblesTheme,
+    ]),
     // Auto-pair brackets (dynamic via compartment)
     autoPairCompartment.of(initialAutoPair ? closeBrackets() : []),
     // Line numbers (dynamic via compartment)

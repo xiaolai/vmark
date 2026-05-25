@@ -171,6 +171,7 @@ menu:
   view.diagramPreview: "Alternar pré-visualização de diagrama"
   view.fitTables: "Ajustar tabelas à largura"
   view.readOnly: "Modo somente leitura"
+  view.showInvisibles: "Mostrar invisíveis"
   view.outline: "Alternar estrutura"
   view.fileExplorer: "Alternar explorador de arquivos"
   view.history: "Alternar histórico"

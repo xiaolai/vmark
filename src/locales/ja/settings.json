@@ -103,6 +103,8 @@
   "editor.hardBreakStyle.backslash": "バックスラッシュ（\\）",
   "editor.showBrTags.label": "<br>タグを表示",
   "editor.showBrTags.description": "エディターでHTMLの改行タグを視覚的に表示する",
+  "editor.showInvisibles.label": "不可視文字を表示",
+  "editor.showInvisibles.description": "空白 (·)、タブ (→)、ソフト改行 (↓)、ハード改行 (⏎) を可視化します。印刷時は非表示。",
   "editor.group.largeFiles": "大きなファイル",
   "editor.largeFile.autoSourceMode.label": "1 MB を超えるファイルをソースモードで開く",
   "editor.largeFile.autoSourceMode.description": "ソースモードで即座に開きます。ステータスバーからいつでもWYSIWYGに切り替えられます。",

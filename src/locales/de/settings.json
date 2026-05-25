@@ -103,6 +103,8 @@
   "editor.hardBreakStyle.backslash": "Backslash (\\)",
   "editor.showBrTags.label": "<br>-Tags anzeigen",
   "editor.showBrTags.description": "HTML-Zeilenumbruch-Tags im Editor sichtbar darstellen",
+  "editor.showInvisibles.label": "Unsichtbare anzeigen",
+  "editor.showInvisibles.description": "Leerzeichen (·), Tabs (→), weiche Zeilenumbrüche (↓) und harte Umbrüche (⏎) anzeigen. Beim Drucken ausgeblendet.",
   "editor.group.largeFiles": "Große Dateien",
   "editor.largeFile.autoSourceMode.label": "Dateien über 1 MB im Quelltextmodus öffnen",
   "editor.largeFile.autoSourceMode.description": "Öffnet sofort im Quelltextmodus. Wechseln Sie jederzeit über die Statusleiste zu WYSIWYG.",

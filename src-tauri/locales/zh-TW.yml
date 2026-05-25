@@ -171,6 +171,7 @@ menu:
   view.diagramPreview: "切換圖表預覽"
   view.fitTables: "表格配合寬度"
   view.readOnly: "唯讀模式"
+  view.showInvisibles: "顯示不可見字元"
   view.outline: "切換大綱"
   view.fileExplorer: "切換檔案總管"
   view.history: "切換歷史紀錄"

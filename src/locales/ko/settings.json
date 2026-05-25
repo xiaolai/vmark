@@ -103,6 +103,8 @@
   "editor.hardBreakStyle.backslash": "백슬래시 (\\)",
   "editor.showBrTags.label": "<br> 태그 표시",
   "editor.showBrTags.description": "편집기에서 HTML 줄 바꿈 태그를 시각적으로 표시합니다",
+  "editor.showInvisibles.label": "공백 문자 표시",
+  "editor.showInvisibles.description": "공백 (·), 탭 (→), 부드러운 줄바꿈 (↓), 단단한 줄바꿈 (⏎)을 표시합니다. 인쇄 시 숨겨집니다.",
   "editor.group.largeFiles": "큰 파일",
   "editor.largeFile.autoSourceMode.label": "1 MB 이상 파일을 소스 모드로 열기",
   "editor.largeFile.autoSourceMode.description": "소스 모드에서 즉시 열립니다. 상태 표시줄에서 언제든 WYSIWYG로 전환할 수 있습니다.",

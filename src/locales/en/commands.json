@@ -30,7 +30,7 @@
     "openRecent": "Open Recent File"
   },
   "workspace": {
-    "openFolder": "Open Workspace\u2026",
+    "openFolder": "Open Workspace…",
     "close": "Close Workspace",
     "clearRecent": "Clear Recent Workspaces",
     "openRecent": "Open Recent Workspace"
@@ -50,7 +50,8 @@
     "toggleTerminal": "Toggle Terminal",
     "zoomActual": "Actual Size",
     "zoomIn": "Zoom In",
-    "zoomOut": "Zoom Out"
+    "zoomOut": "Zoom Out",
+    "toggleShowInvisibles": "Toggle Invisibles"
   },
   "lint": {
     "check": "Check Markdown",

@@ -153,6 +153,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   const showLineNumbers = useUIStore((state) => state.showLineNumbers);
   const cjkLetterSpacing = useSettingsStore((state) => state.appearance.cjkLetterSpacing);
   const lintEnabled = useSettingsStore((state) => state.markdown.lintEnabled);
+  const showInvisibles = useSettingsStore((state) => state.markdown.showInvisibles);
   const windowLabel = useWindowLabel();
   /* v8 ignore next -- @preserve reason: runtime window label lookup; windowLabel always resolves in tests */
   const activeTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? undefined);
@@ -430,6 +431,21 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   // nulled by this component's own registration cleanup before the flush
   // cleanup runs (React runs effect cleanups in reverse registration order).
   editorRef.current = editor ?? null;
+
+  // Show-invisibles toggle — flip the extension storage flag and
+  // dispatch a transaction that the plugin's apply() picks up to
+  // rebuild decorations.
+  useEffect(() => {
+    if (!editor) return;
+    const allStorage = editor.storage as unknown as
+      | Record<string, { enabled?: boolean } | undefined>
+      | undefined;
+    const storage = allStorage?.showInvisibles;
+    if (storage) storage.enabled = showInvisibles;
+    const view = editor.view;
+    if (!view) return;
+    view.dispatch(view.state.tr.setMeta("showInvisibles", { enabled: showInvisibles }));
+  }, [editor, showInvisibles]);
 
   // Return null from getEditorView when hidden to prevent outline sync from stale editor
   const getEditorView = useCallback(

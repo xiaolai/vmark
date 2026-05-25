@@ -171,6 +171,7 @@ menu:
   view.diagramPreview: "Mostra/Nascondi anteprima diagramma"
   view.fitTables: "Adatta tabelle alla larghezza"
   view.readOnly: "Modalità sola lettura"
+  view.showInvisibles: "Mostra invisibili"
   view.outline: "Mostra/Nascondi struttura"
   view.fileExplorer: "Mostra/Nascondi file explorer"
   view.history: "Mostra/Nascondi cronologia"

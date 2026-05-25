@@ -103,6 +103,8 @@
   "editor.hardBreakStyle.backslash": "Barre oblique inversée (\\)",
   "editor.showBrTags.label": "Afficher les balises <br>",
   "editor.showBrTags.description": "Afficher visiblement les balises HTML de saut de ligne dans l'éditeur",
+  "editor.showInvisibles.label": "Afficher les invisibles",
+  "editor.showInvisibles.description": "Affiche les espaces (·), tabulations (→), sauts souples (↓) et durs (⏎). Masqué à l'impression.",
   "editor.group.largeFiles": "Fichiers volumineux",
   "editor.largeFile.autoSourceMode.label": "Ouvrir les fichiers de plus de 1 Mo en mode Source",
   "editor.largeFile.autoSourceMode.description": "Ouverture instantanée en mode Source. Basculez vers WYSIWYG à tout moment depuis la barre d'état.",

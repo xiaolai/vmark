@@ -150,6 +150,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "diagramPreview", label: "Toggle Diagram Preview", category: "view", defaultKey: "Alt-Mod-p", menuId: "diagram-preview", description: "Show/hide diagram preview" },
   { id: "fitTables", label: "Fit Tables to Width", category: "view", defaultKey: "", menuId: "fit-tables", description: "Force tables to fit editor width with word wrapping" },
   { id: "readOnly", label: "Toggle Read-Only Mode", category: "view", defaultKey: "F10", menuId: "read-only", description: "Lock/unlock document from editing" },
+  { id: "showInvisibles", label: "Toggle Invisibles", category: "view", defaultKey: "F3", menuId: "show-invisibles", description: "Show or hide whitespace glyphs (·, →, ↓, ⏎)" },
   { id: "validateMarkdown", label: "Check Markdown", category: "view", defaultKey: "Alt-Mod-v", menuId: "check-markdown", description: "Run markdown lint and show diagnostics" },
   { id: "lintNext", label: "Next Issue", category: "view", defaultKey: "F2", menuId: "lint-next", description: "Navigate to next lint diagnostic" },
   { id: "lintPrev", label: "Previous Issue", category: "view", defaultKey: "Shift-F2", menuId: "lint-prev", description: "Navigate to previous lint diagnostic" },

@@ -103,6 +103,8 @@
   "editor.hardBreakStyle.backslash": "反斜線（\\）",
   "editor.showBrTags.label": "顯示 <br> 標籤",
   "editor.showBrTags.description": "在編輯器中以可見方式顯示 HTML 換行標籤",
+  "editor.showInvisibles.label": "顯示不可見字元",
+  "editor.showInvisibles.description": "顯示空格 (·)、定位字元 (→)、軟換行 (↓) 與硬換行 (⏎)。列印時隱藏。",
   "editor.group.largeFiles": "大型檔案",
   "editor.largeFile.autoSourceMode.label": "超過 1 MB 的檔案以原始碼模式開啟",
   "editor.largeFile.autoSourceMode.description": "原始碼模式下瞬間開啟。隨時可從狀態列切換為所見即所得模式。",

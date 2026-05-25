@@ -142,6 +142,13 @@ export type CopyFormat = "default" | "markdown";
 export interface MarkdownSettings {
   preserveLineBreaks: boolean; // Don't collapse blank lines
   showBrTags: boolean; // Display <br> tags visibly
+  /**
+   * Render invisible characters: spaces as ·, tabs as → (Source only),
+   * soft line breaks as ↓ (Source only), hard breaks as ⏎, paragraph
+   * breaks as ¶. Off by default. Glyphs use low-opacity --md-char-color
+   * and are hidden in print media.
+   */
+  showInvisibles: boolean;
   enableRegexSearch: boolean; // Enable regex in Find & Replace
   pasteMarkdownInWysiwyg: MarkdownPasteMode; // Convert pasted markdown into rich text
   pasteMode: PasteMode; // How to handle clipboard content (smart/plain/rich)

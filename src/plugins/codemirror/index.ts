@@ -15,6 +15,7 @@ import "./source-blocks.css";
 import "./source-syntax.css";
 export { sourceEditorTheme, codeHighlightStyle } from "./theme";
 export { createBrHidingPlugin } from "./brHidingPlugin";
+export { createShowInvisiblesPlugin, showInvisiblesTheme } from "./showInvisibles";
 export { createListBlankLinePlugin } from "./listBlankLinePlugin";
 export { createMarkdownAutoPairPlugin, markdownPairBackspace } from "./markdownAutoPair";
 export { tabEscapeKeymap } from "./tabEscape";

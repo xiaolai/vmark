@@ -123,6 +123,16 @@ export function registerViewCommands(): void {
   });
 
   registerCommand({
+    id: "view.toggleShowInvisibles",
+    title: () => i18n.t("commands:view.toggleShowInvisibles"),
+    category: "view",
+    run: () => {
+      const current = useSettingsStore.getState().markdown.showInvisibles;
+      useSettingsStore.getState().updateMarkdownSetting("showInvisibles", !current);
+    },
+  });
+
+  registerCommand({
     id: "view.toggleTerminal",
     title: () => i18n.t("commands:view.toggleTerminal"),
     category: "view",

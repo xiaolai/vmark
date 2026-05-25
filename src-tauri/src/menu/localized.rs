@@ -559,6 +559,7 @@ pub fn create_localized_menu(
             &MenuItem::with_id(app, "diagram-preview", &t!("menu.view.diagramPreview").to_string(), true, accel("diagram-preview", "Alt+CmdOrCtrl+P"))?,
             &MenuItem::with_id(app, "fit-tables", &t!("menu.view.fitTables").to_string(), true, accel("fit-tables", ""))?,
             &MenuItem::with_id(app, "read-only", &t!("menu.view.readOnly").to_string(), true, accel("read-only", "F10"))?,
+            &MenuItem::with_id(app, "show-invisibles", &t!("menu.view.showInvisibles").to_string(), true, accel("show-invisibles", "F3"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "outline", &t!("menu.view.outline").to_string(), true, accel("outline", "Ctrl+Shift+1"))?,
             &MenuItem::with_id(app, "file-explorer", &t!("menu.view.fileExplorer").to_string(), true, accel("file-explorer", "Ctrl+Shift+2"))?,

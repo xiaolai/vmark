@@ -79,6 +79,7 @@ Typography, display, editing behavior, and whitespace settings.
 | Preserve consecutive line breaks | Keep multiple blank lines as-is instead of collapsing them | Off | On / Off |
 | Hard break style on save | How hard line breaks are represented in the saved Markdown file | Preserve existing | Two spaces (Recommended), Preserve existing, Backslash (`\`) |
 | Show `<br>` tags | Display HTML line break tags visibly in the editor | Off | On / Off |
+| Show invisibles | Visualize whitespace: spaces as `·`, tabs as `→` (Source only), soft line breaks as `↓` (Source only), hard line breaks as `⏎`. Hidden when printing. Toggle: `F3` or View → Show Invisibles. | Off | On / Off |
 
 ::: tip
 Two spaces is the most compatible hard break style — it works on GitHub, GitLab, and all major Markdown renderers. The backslash style may fail on Reddit, Jekyll, and some older parsers.

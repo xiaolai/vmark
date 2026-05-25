@@ -17,13 +17,14 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { closeBrackets } from "@codemirror/autocomplete";
-import { createBrHidingPlugin } from "@/plugins/codemirror";
+import { createBrHidingPlugin, createShowInvisiblesPlugin, showInvisiblesTheme } from "@/plugins/codemirror";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import {
   lineWrapCompartment,
   brVisibilityCompartment,
   autoPairCompartment,
   lineNumbersCompartment,
+  showInvisiblesCompartment,
 } from "@/services/assembly/sourceEditorExtensions";
 
 interface SyncConfig {
@@ -34,6 +35,7 @@ interface SyncConfig {
   showBrTags: boolean;
   autoPairEnabled: boolean | undefined;
   showLineNumbers: boolean;
+  showInvisibles: boolean;
   getCursorInfo?: () => unknown | null;
   /** When true, skip content sync to avoid polluting undo history on a hidden editor */
   hiddenRef?: MutableRefObject<boolean>;
@@ -242,14 +244,37 @@ export function useSourceEditorLineNumbersSync(
 }
 
 /**
+ * Sync show-invisibles setting changes to CodeMirror.
+ */
+export function useSourceEditorShowInvisiblesSync(
+  viewRef: MutableRefObject<EditorView | null>,
+  showInvisibles: boolean,
+): void {
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    runOrQueueCodeMirrorAction(view, () => {
+      view.dispatch({
+        effects: showInvisiblesCompartment.reconfigure([
+          createShowInvisiblesPlugin(showInvisibles),
+          showInvisiblesTheme,
+        ]),
+      });
+    });
+  }, [viewRef, showInvisibles]);
+}
+
+/**
  * Combined sync hook for all settings.
  */
 export function useSourceEditorSync(config: SyncConfig): void {
-  const { viewRef, isInternalChange, content, wordWrap, showBrTags, autoPairEnabled, showLineNumbers, getCursorInfo, hiddenRef } = config;
+  const { viewRef, isInternalChange, content, wordWrap, showBrTags, autoPairEnabled, showLineNumbers, showInvisibles, getCursorInfo, hiddenRef } = config;
 
   useSourceEditorContentSync(viewRef, isInternalChange, content, getCursorInfo, hiddenRef);
   useSourceEditorWordWrapSync(viewRef, wordWrap);
   useSourceEditorBrVisibilitySync(viewRef, showBrTags);
   useSourceEditorAutoPairSync(viewRef, autoPairEnabled);
   useSourceEditorLineNumbersSync(viewRef, showLineNumbers);
+  useSourceEditorShowInvisiblesSync(viewRef, showInvisibles);
 }

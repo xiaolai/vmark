@@ -41,6 +41,7 @@ import { markdownPasteExtension } from "@/plugins/markdownPaste/tiptap";
 import { htmlPasteExtension } from "@/plugins/htmlPaste/tiptap";
 import { codePasteExtension } from "@/plugins/codePaste/tiptap";
 import { markdownCopyExtension } from "@/plugins/markdownCopy/tiptap";
+import { showInvisiblesExtension } from "@/plugins/showInvisibles/tiptap";
 import { linkPopupExtension } from "@/plugins/linkPopup/tiptap";
 import { linkCreatePopupExtension } from "@/plugins/linkCreatePopup";
 import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
@@ -223,6 +224,8 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     inlineCodeBoundaryExtension,
     textDragDropExtension,
     inactiveSelectionExtension,
+    // Show-invisibles decorations (toggle via storage.enabled).
+    showInvisiblesExtension,
     // Lint decorations (block-level, WYSIWYG only)
     ...(lintEnabled && tabId
       ? [LintExtension.configure({ tabId })]

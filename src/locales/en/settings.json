@@ -112,6 +112,8 @@
   "editor.hardBreakStyle.backslash": "Backslash (\\)",
   "editor.showBrTags.label": "Show <br> tags",
   "editor.showBrTags.description": "Display HTML line break tags visibly in editor",
+  "editor.showInvisibles.label": "Show invisibles",
+  "editor.showInvisibles.description": "Visualize spaces (·), tabs (→), soft line breaks (↓), and hard breaks (⏎). Hidden when printing.",
 
   "editor.group.largeFiles": "Large files",
   "editor.largeFile.autoSourceMode.label": "Open files over 1 MB in Source mode",

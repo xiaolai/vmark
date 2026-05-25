@@ -301,6 +301,15 @@ export function EditorSettings() {
             onChange={(v) => updateMarkdownSetting("showBrTags", v)}
           />
         </SettingRow>
+        <SettingRow
+          label={t("editor.showInvisibles.label")}
+          description={t("editor.showInvisibles.description")}
+        >
+          <Toggle
+            checked={markdown.showInvisibles}
+            onChange={(v) => updateMarkdownSetting("showInvisibles", v)}
+          />
+        </SettingRow>
       </SettingsGroup>
 
       {/* Large files */}

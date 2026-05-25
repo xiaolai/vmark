@@ -103,6 +103,8 @@
   "editor.hardBreakStyle.backslash": "Barra invertida (\\)",
   "editor.showBrTags.label": "Mostrar tags <br>",
   "editor.showBrTags.description": "Exibir tags de quebra de linha HTML visivelmente no editor",
+  "editor.showInvisibles.label": "Mostrar invisíveis",
+  "editor.showInvisibles.description": "Visualiza espaços (·), tabs (→), quebras suaves (↓) e duras (⏎). Oculto na impressão.",
   "editor.group.largeFiles": "Arquivos grandes",
   "editor.largeFile.autoSourceMode.label": "Abrir arquivos acima de 1 MB no modo Fonte",
   "editor.largeFile.autoSourceMode.description": "Abre instantaneamente no modo Fonte. Mude para WYSIWYG a qualquer momento pela barra de status.",

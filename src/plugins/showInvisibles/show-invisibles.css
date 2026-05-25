@@ -1,0 +1,48 @@
+/* Show-invisibles glyphs for the WYSIWYG editor.
+ *
+ * Spaces: each marked space gets a class via Decoration.inline; the
+ * pseudo-element overlays a · glyph at the space position without
+ * removing the space character from the DOM (preserves serialization
+ * and cursor semantics).
+ *
+ * Hard breaks: widget decoration inserts a <span class="pm-invisible
+ * pm-invisible-hard-break"> with ⏎ as content; it renders inline
+ * before the <br>.
+ */
+
+.pm-invisible-space {
+  position: relative;
+}
+
+.pm-invisible-space::before {
+  content: "·";
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-char-color);
+  opacity: 0.5;
+  pointer-events: none;
+  font-style: normal;
+  font-weight: normal;
+}
+
+.pm-invisible {
+  color: var(--md-char-color);
+  opacity: 0.5;
+  pointer-events: none;
+  font-style: normal;
+  font-weight: normal;
+}
+
+.pm-invisible-hard-break {
+  margin-right: 1px;
+}
+
+@media print {
+  .pm-invisible,
+  .pm-invisible-space::before {
+    display: none !important;
+  }
+}

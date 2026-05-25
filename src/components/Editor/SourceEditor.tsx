@@ -89,6 +89,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const wordWrap = useUIStore((state) => state.wordWrap);
   const showLineNumbers = useUIStore((state) => state.showLineNumbers);
   const showBrTags = useSettingsStore((state) => state.markdown.showBrTags);
+  const showInvisibles = useSettingsStore((state) => state.markdown.showInvisibles);
   const autoPairEnabled = useSettingsStore((state) => state.markdown.autoPairEnabled);
 
   // Window label for tab ID resolution (stable per window)
@@ -181,6 +182,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     const initialWordWrap = useUIStore.getState().wordWrap;
     const initialShowLineNumbers = useUIStore.getState().showLineNumbers;
     const initialShowBrTags = useSettingsStore.getState().markdown.showBrTags;
+    const initialShowInvisibles = useSettingsStore.getState().markdown.showInvisibles;
     const initialAutoPair = useSettingsStore.getState().markdown.autoPairEnabled ?? true;
     const initialLintEnabled = useSettingsStore.getState().markdown.lintEnabled ?? true;
     // Capture tabId at mount time — SourceEditor remounts per tab so this is stable
@@ -200,6 +202,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
         initialShowBrTags,
         initialAutoPair,
         initialShowLineNumbers,
+        initialShowInvisibles,
         initialReadOnly: readOnly,
         updateListener,
         tabId: mountTabId,
@@ -371,6 +374,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     showBrTags,
     autoPairEnabled,
     showLineNumbers,
+    showInvisibles,
     getCursorInfo: () => cursorInfoRef.current,
     hiddenRef,
   });

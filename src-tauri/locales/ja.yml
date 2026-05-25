@@ -171,6 +171,7 @@ menu:
   view.diagramPreview: "ダイアグラムプレビューの切り替え"
   view.fitTables: "テーブルを幅に合わせる"
   view.readOnly: "読み取り専用モード"
+  view.showInvisibles: "不可視文字を表示"
   view.outline: "アウトラインの表示切替"
   view.fileExplorer: "ファイルエクスプローラーの表示切替"
   view.history: "履歴の表示切替"

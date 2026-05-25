@@ -250,6 +250,7 @@ const MENU_ICONS: &[(&str, &str)] = &[
     ("diagram-preview", "eye.square"),
     ("fit-tables", "arrow.left.and.right.righttriangle.left.righttriangle.right"),
     ("read-only", "lock"),
+    ("show-invisibles", "paragraphsign"),
     ("outline", "list.bullet.indent"),
     ("file-explorer", "folder"),
     ("view-history", "clock.arrow.circlepath"),

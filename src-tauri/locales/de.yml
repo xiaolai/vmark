@@ -171,6 +171,7 @@ menu:
   view.diagramPreview: "Diagramm-Vorschau umschalten"
   view.fitTables: "Tabellen an Breite anpassen"
   view.readOnly: "Nur-Lesen-Modus"
+  view.showInvisibles: "Unsichtbare Zeichen anzeigen"
   view.outline: "Gliederung umschalten"
   view.fileExplorer: "Datei-Explorer umschalten"
   view.history: "Verlauf umschalten"

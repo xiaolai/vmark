@@ -12,12 +12,14 @@ const mockLineWrapReconfigure = vi.fn(() => "line-wrap-effect");
 const mockBrVisibilityReconfigure = vi.fn(() => "br-visibility-effect");
 const mockAutoPairReconfigure = vi.fn(() => "auto-pair-effect");
 const mockLineNumbersReconfigure = vi.fn(() => "line-numbers-effect");
+const mockShowInvisiblesReconfigure = vi.fn(() => "show-invisibles-effect");
 
 vi.mock("@/services/assembly/sourceEditorExtensions", () => ({
   lineWrapCompartment: { reconfigure: (...args: unknown[]) => mockLineWrapReconfigure(...args) },
   brVisibilityCompartment: { reconfigure: (...args: unknown[]) => mockBrVisibilityReconfigure(...args) },
   autoPairCompartment: { reconfigure: (...args: unknown[]) => mockAutoPairReconfigure(...args) },
   lineNumbersCompartment: { reconfigure: (...args: unknown[]) => mockLineNumbersReconfigure(...args) },
+  showInvisiblesCompartment: { reconfigure: (...args: unknown[]) => mockShowInvisiblesReconfigure(...args) },
 }));
 
 // Mock imeGuard — run actions immediately
@@ -37,6 +39,8 @@ vi.mock("@codemirror/autocomplete", () => ({
 
 vi.mock("@/plugins/codemirror", () => ({
   createBrHidingPlugin: vi.fn((hide: boolean) => `brHiding-${hide}`),
+  createShowInvisiblesPlugin: vi.fn((enabled: boolean) => `showInvisibles-${enabled}`),
+  showInvisiblesTheme: "showInvisibles-theme",
 }));
 
 import { renderHook } from "@testing-library/react";
@@ -574,6 +578,7 @@ describe("useSourceEditorSync (combined)", () => {
     mockBrVisibilityReconfigure.mockClear();
     mockAutoPairReconfigure.mockClear();
     mockLineNumbersReconfigure.mockClear();
+    mockShowInvisiblesReconfigure.mockClear();
   });
 
   it("calls all sync hooks with the provided config", () => {
@@ -590,6 +595,7 @@ describe("useSourceEditorSync (combined)", () => {
         showBrTags: false,
         autoPairEnabled: true,
         showLineNumbers: true,
+        showInvisibles: true,
       })
     );
 
@@ -601,5 +607,10 @@ describe("useSourceEditorSync (combined)", () => {
     expect(mockAutoPairReconfigure).toHaveBeenCalledWith("closeBrackets-extension");
     // Line numbers should be enabled
     expect(mockLineNumbersReconfigure).toHaveBeenCalledWith("lineNumbers-extension");
+    // Show-invisibles compartment should be reconfigured with the new bundle
+    expect(mockShowInvisiblesReconfigure).toHaveBeenCalledWith([
+      "showInvisibles-true",
+      "showInvisibles-theme",
+    ]);
   });
 });

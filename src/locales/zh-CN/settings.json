@@ -103,6 +103,8 @@
   "editor.hardBreakStyle.backslash": "反斜杠 (\\)",
   "editor.showBrTags.label": "显示 <br> 标签",
   "editor.showBrTags.description": "在编辑器中可见地显示 HTML 换行标签",
+  "editor.showInvisibles.label": "显示不可见字符",
+  "editor.showInvisibles.description": "显示空格 (·)、制表符 (→)、软换行 (↓) 和硬换行 (⏎)。打印时隐藏。",
   "editor.group.largeFiles": "大文件",
   "editor.largeFile.autoSourceMode.label": "超过 1 MB 的文件自动以源码模式打开",
   "editor.largeFile.autoSourceMode.description": "源码模式下立即打开。随时可从状态栏切换到富文本模式。",

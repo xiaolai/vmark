@@ -171,6 +171,7 @@ menu:
   view.diagramPreview: "Toggle Diagram Preview"
   view.fitTables: "Fit Tables to Width"
   view.readOnly: "Read-Only Mode"
+  view.showInvisibles: "Show Invisibles"
   view.outline: "Toggle Outline"
   view.fileExplorer: "Toggle File Explorer"
   view.history: "Toggle History"
