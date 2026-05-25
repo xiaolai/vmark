@@ -110,7 +110,7 @@ export function ShortcutsSettings() {
                    hover:bg-[var(--bg-secondary)]/50 rounded transition-colors`}
       >
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-[var(--text-primary)]">
+          <div className="text-sm text-[var(--text-color)]">
             {getShortcutLabel(shortcut)}
           </div>
           {shortcut.description && (
@@ -138,7 +138,7 @@ export function ShortcutsSettings() {
           {customized && (
             <button
               onClick={() => resetShortcut(shortcut.id)}
-              className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]
+              className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-color)]
                          hover:bg-[var(--bg-secondary)] rounded transition-colors"
               title={t("shortcuts.resetToDefault")}
               aria-label={t("shortcuts.resetToDefault")}
@@ -170,7 +170,7 @@ export function ShortcutsSettings() {
     return (
       <div key={category} className="mb-6">
         {/* Category heading */}
-        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2 pb-1
+        <h3 className="text-sm font-semibold text-[var(--text-color)] mb-2 pb-1
                        border-b border-[var(--bg-tertiary)]">
           {getCategoryLabel(category)}
         </h3>

@@ -71,8 +71,8 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-[var(--bg-primary)] rounded-lg shadow-xl p-6 w-80 border border-[var(--border-color)]">
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+      <div className="bg-[var(--bg-color)] rounded-lg shadow-xl p-6 w-80 border border-[var(--border-color)]">
+        <h3 className="text-lg font-semibold text-[var(--text-color)] mb-2">
           {t("shortcuts.capture.title")}
         </h3>
         <p className="text-sm text-[var(--text-secondary)] mb-4">
@@ -82,7 +82,7 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
         {/* Key display */}
         <div className="bg-[var(--bg-secondary)] rounded-lg p-4 text-center mb-4 min-h-[60px] flex items-center justify-center">
           {capturedKey ? (
-            <span className="text-xl font-mono text-[var(--text-primary)]">
+            <span className="text-xl font-mono text-[var(--text-color)]">
               {formatKeyForDisplay(capturedKey)}
             </span>
           ) : (

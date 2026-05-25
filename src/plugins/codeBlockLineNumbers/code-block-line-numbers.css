@@ -183,7 +183,7 @@
 /* Search input */
 .code-lang-dropdown .code-lang-search {
   width: 100%;
-  padding: var(--spacing-2) var(--space-2-5);
+  padding: var(--space-2) var(--space-2-5);
   border: none;
   border-bottom: var(--border-thin) solid var(--border-color);
   background: transparent;
@@ -206,7 +206,7 @@
 .code-lang-dropdown .code-lang-list {
   max-height: 200px;
   overflow-y: auto;
-  padding: var(--spacing-1);
+  padding: var(--space-1);
 }
 
 /* Scrollbar for language list */
@@ -225,7 +225,7 @@
 
 /* Language item */
 .code-lang-dropdown .code-lang-item {
-  padding: var(--space-1-5) var(--spacing-2);
+  padding: var(--space-1-5) var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--text-color);

@@ -56,7 +56,7 @@
 /* Accept/Reject buttons container */
 .ai-suggestion-buttons {
   display: inline-flex;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
   margin-left: var(--space-1-5);
   vertical-align: middle;
 }

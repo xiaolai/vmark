@@ -29,7 +29,7 @@
 
 /* Search input */
 .quick-open-header {
-  padding: var(--spacing-3) var(--space-3-5) var(--spacing-2);
+  padding: var(--space-3) var(--space-3-5) var(--space-2);
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
@@ -56,7 +56,7 @@
 }
 
 .quick-open-empty {
-  padding: var(--space-4) var(--spacing-2);
+  padding: var(--space-4) var(--space-2);
   text-align: center;
   color: var(--text-tertiary);
   font-size: var(--font-size-base);
@@ -66,9 +66,9 @@
 .quick-open-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--space-2);
   height: 36px;
-  padding: 0 var(--spacing-2);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background var(--duration-fast);
@@ -139,14 +139,14 @@
 .quick-open-separator {
   height: 1px;
   background: var(--border-color);
-  margin: var(--spacing-1) var(--spacing-2);
+  margin: var(--space-1) var(--space-2);
 }
 
 /* Footer hint */
 .quick-open-footer {
   display: flex;
   align-items: center;
-  gap: var(--spacing-3);
+  gap: var(--space-3);
   padding: var(--space-1-5) var(--space-3-5);
   border-top: var(--border-thin) solid var(--border-color);
   font-size: var(--font-size-xs);
@@ -159,7 +159,7 @@
 
 .quick-open-kbd {
   display: inline-block;
-  padding: 0 var(--spacing-1);
+  padding: 0 var(--space-1);
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);

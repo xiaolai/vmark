@@ -128,7 +128,7 @@ export function FormatsSettings() {
         <div className="py-2.5">
           <div
             id={editorLabelId}
-            className="text-sm font-medium text-[var(--text-primary)] mb-1"
+            className="text-sm font-medium text-[var(--text-color)] mb-1"
           >
             {t("formats.externalEditor.label")}
           </div>

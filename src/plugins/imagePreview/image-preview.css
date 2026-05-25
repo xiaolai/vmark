@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
   padding: var(--space-1-5);
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
@@ -62,14 +62,14 @@
 .image-preview-loading {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  padding: var(--spacing-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   font-style: italic;
 }
 
 .image-preview-error {
   font-size: var(--font-size-xs);
   color: var(--error-color);
-  padding: var(--spacing-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   text-align: center;
 }
 

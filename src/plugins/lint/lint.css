@@ -59,7 +59,7 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 0 var(--spacing-1);
+  padding: 0 var(--space-1);
   height: 20px;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);

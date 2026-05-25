@@ -10,7 +10,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   white-space: nowrap;
-  padding-right: var(--spacing-1);
+  padding-right: var(--space-1);
   flex-shrink: 0;
   user-select: none;
 }
@@ -19,7 +19,7 @@
 .media-popup-poster {
   flex: 1;
   min-width: 0;
-  padding: var(--spacing-1) var(--spacing-2);
+  padding: var(--space-1) var(--space-2);
   border: none;
   background: transparent;
   color: var(--text-color);

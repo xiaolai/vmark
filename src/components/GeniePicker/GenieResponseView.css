@@ -13,7 +13,7 @@
 /* ---- Submitted prompt (dimmed) ---- */
 
 .genie-response-prompt {
-  padding: var(--spacing-2) var(--space-3-5) var(--spacing-1);
+  padding: var(--space-2) var(--space-3-5) var(--space-1);
   font-size: var(--font-size-sm);
   font-style: italic;
   color: var(--text-tertiary);
@@ -25,7 +25,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding: var(--spacing-2) var(--space-3-5);
+  padding: var(--space-2) var(--space-3-5);
   font-size: var(--font-size-base);
   color: var(--primary-color);
 }
@@ -46,7 +46,7 @@
 /* ---- Response text ---- */
 
 .genie-response-text {
-  padding: var(--spacing-2) var(--space-3-5);
+  padding: var(--space-2) var(--space-3-5);
   font-size: var(--font-size-base);
   color: var(--text-color);
   white-space: pre-wrap;
@@ -87,7 +87,7 @@
 .genie-response-btn {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
   padding: 3px var(--space-2-5);
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -150,7 +150,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-1-5);
-  padding: var(--spacing-2) var(--space-3-5);
+  padding: var(--space-2) var(--space-3-5);
   font-size: var(--font-size-base);
   color: var(--error-color);
   background: var(--error-bg);

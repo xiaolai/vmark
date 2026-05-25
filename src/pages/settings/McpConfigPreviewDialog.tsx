@@ -105,14 +105,14 @@ export function McpConfigPreviewDialog({
         role="dialog"
         aria-modal="true"
         aria-label={t("integrations.installMcp.previewAriaLabel")}
-        className="mx-auto bg-[var(--bg-primary)] border border-[var(--border-color)]
+        className="mx-auto bg-[var(--bg-color)] border border-[var(--border-color)]
                    rounded-lg shadow-lg w-[560px] max-w-[90vw] max-h-[80vh]
                    flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          <h3 className="text-sm font-semibold text-[var(--text-color)]">
             {t("integrations.installMcp.previewTitle", { provider: providerName })}
           </h3>
           <CloseButton onClick={onCancel} />
@@ -139,11 +139,11 @@ export function McpConfigPreviewDialog({
 
           {/* Proposed Content */}
           <div>
-            <div className="text-xs font-medium text-[var(--text-primary)] mb-1.5">
+            <div className="text-xs font-medium text-[var(--text-color)] mb-1.5">
               {t("integrations.installMcp.proposedConfig")}
             </div>
             <pre className="p-3 bg-[var(--bg-tertiary)] rounded-md text-xs font-mono
-                           text-[var(--text-primary)] overflow-auto max-h-48 whitespace-pre">
+                           text-[var(--text-color)] overflow-auto max-h-48 whitespace-pre">
               {preview.proposedContent}
             </pre>
           </div>
@@ -151,7 +151,7 @@ export function McpConfigPreviewDialog({
           {/* Current Content (if exists) */}
           {preview.currentContent && (
             <div>
-              <div className="text-xs font-medium text-[var(--text-primary)] mb-1.5">
+              <div className="text-xs font-medium text-[var(--text-color)] mb-1.5">
                 {t("integrations.installMcp.currentConfig")}
               </div>
               <pre className="p-3 bg-[var(--bg-tertiary)] rounded-md text-xs font-mono
@@ -214,7 +214,7 @@ function InfoRow({
         {label}
       </span>
       <span
-        className={`text-xs text-[var(--text-primary)] truncate ${
+        className={`text-xs text-[var(--text-color)] truncate ${
           mono ? "font-mono" : ""
         }`}
         title={fullValue || value}

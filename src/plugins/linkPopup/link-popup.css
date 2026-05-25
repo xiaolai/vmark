@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-half);
-  padding: var(--spacing-1);
+  padding: var(--space-1);
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
@@ -31,7 +31,7 @@
 /* URL Input - borderless */
 .link-popup-input {
   width: 200px;
-  padding: var(--spacing-1) var(--spacing-2);
+  padding: var(--space-1) var(--space-2);
   border: none;
   background: transparent;
   color: var(--text-color);

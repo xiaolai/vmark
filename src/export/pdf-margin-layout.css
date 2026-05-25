@@ -10,8 +10,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-1);
-  padding: var(--spacing-2) var(--spacing-1) var(--spacing-1);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-1) var(--space-1);
 }
 
 .margin-layout-top,
@@ -23,7 +23,7 @@
 .margin-layout-middle {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
 }
 
 /* The page rectangle — represents the content area */

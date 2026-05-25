@@ -26,8 +26,8 @@
 .file-explorer-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
-  padding: var(--spacing-1) var(--spacing-2);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
@@ -68,7 +68,7 @@
 .file-explorer-tree {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-1) var(--spacing-2) var(--spacing-1) 0;
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
 }
 
 .file-explorer-empty {
@@ -167,7 +167,7 @@
 .file-node-input {
   flex: 1;
   font-size: var(--font-size-base);
-  padding: var(--space-px) var(--spacing-1);
+  padding: var(--space-px) var(--space-1);
   border: none;
   border-radius: var(--radius-sm);
   background-color: var(--bg-color);

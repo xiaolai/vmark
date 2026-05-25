@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-1-5) var(--spacing-2) var(--space-1-5) var(--spacing-3);
+  padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3);
   border-bottom: var(--border-thin) solid var(--border-color);
   cursor: grab;
   flex-shrink: 0;
@@ -177,7 +177,7 @@
 .mermaid-preview-content {
   min-width: 200px;
   min-height: 100px;
-  padding: var(--spacing-3);
+  padding: var(--space-3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -207,14 +207,14 @@
 .mermaid-preview-error {
   color: var(--error-color);
   font-size: var(--font-size-sm);
-  margin-top: var(--spacing-2);
+  margin-top: var(--space-2);
   text-align: center;
 }
 
 .mermaid-preview-error-state {
   border: var(--border-thin) dashed var(--error-color);
   border-radius: var(--radius-sm);
-  padding: var(--spacing-3);
+  padding: var(--space-3);
   color: var(--text-secondary);
   font-size: var(--font-size-base);
   background: var(--error-bg);

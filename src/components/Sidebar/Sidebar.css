@@ -6,7 +6,7 @@
   background-color: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
-  padding-left: var(--spacing-2);
+  padding-left: var(--space-2);
   padding-right: 0;
 }
 
@@ -32,8 +32,8 @@
 .sidebar-header {
   display: flex;
   align-items: center;
-  padding: var(--spacing-2) var(--spacing-3) var(--spacing-2) 0;
-  gap: var(--spacing-2);
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  gap: var(--space-2);
 }
 
 .sidebar-btn {
@@ -96,7 +96,7 @@
 .sidebar-footer {
   display: flex;
   justify-content: flex-start;
-  padding: var(--spacing-1) var(--spacing-3) var(--space-1-5) 0;
+  padding: var(--space-1) var(--space-3) var(--space-1-5) 0;
   flex-shrink: 0;
 }
 
@@ -118,7 +118,7 @@
 }
 
 .sidebar-view {
-  padding: var(--spacing-2);
+  padding: var(--space-2);
 }
 
 .sidebar-empty {
@@ -130,7 +130,7 @@
 
 /* Files view */
 .files-view {
-  padding: 0 var(--spacing-2) var(--spacing-2);
+  padding: 0 var(--space-2) var(--space-2);
 }
 
 .files-section {
@@ -143,14 +143,14 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-tight);
-  padding: var(--spacing-2) var(--spacing-2) var(--spacing-1);
+  padding: var(--space-2) var(--space-2) var(--space-1);
 }
 
 .sidebar-file {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
-  padding: var(--space-1-5) var(--spacing-2);
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -173,7 +173,7 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
   font-size: var(--font-size-base);
   color: var(--text-color);
   overflow: hidden;
@@ -215,16 +215,16 @@
 
 /* Outline view */
 .outline-view {
-  padding: 0 var(--spacing-2) var(--spacing-2) 0;
+  padding: 0 var(--space-2) var(--space-2) 0;
 }
 
 /* Outline filter input */
 .outline-filter {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
-  padding: var(--spacing-1) var(--space-1-5);
-  margin-bottom: var(--spacing-1);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1-5);
+  margin-bottom: var(--space-1);
   border-radius: var(--radius-sm);
   background-color: var(--subtle-bg);
   transition: background-color var(--duration-base) ease;
@@ -290,7 +290,7 @@
 }
 
 .outline-children {
-  padding-left: var(--spacing-3);
+  padding-left: var(--space-3);
 }
 
 .outline-tree-item {
@@ -301,12 +301,12 @@
   display: flex;
   /* Long titles wrap to 2 lines (see .outline-text); align toggle with the first line. */
   align-items: flex-start;
-  padding: var(--spacing-1) var(--spacing-2);
+  padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-base);
   color: var(--text-color);
   cursor: pointer;
   border-radius: var(--radius-md);
-  gap: var(--spacing-1);
+  gap: var(--space-1);
 }
 
 .outline-item:hover {
@@ -405,11 +405,11 @@
 
 /* History view */
 .history-view {
-  padding: 0 var(--spacing-2) var(--spacing-2) 0;
+  padding: 0 var(--space-2) var(--space-2) 0;
 }
 
 .history-group {
-  margin-bottom: var(--spacing-3);
+  margin-bottom: var(--space-3);
 }
 
 .history-day {
@@ -418,14 +418,14 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-tight);
-  padding: var(--spacing-2) var(--spacing-2) var(--spacing-1);
+  padding: var(--space-2) var(--space-2) var(--space-1);
 }
 
 .history-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-1-5) var(--spacing-2);
+  padding: var(--space-1-5) var(--space-2);
   border-radius: var(--radius-md);
   cursor: default;
 }

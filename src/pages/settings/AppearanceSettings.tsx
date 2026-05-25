@@ -44,7 +44,7 @@ export function AppearanceSettings() {
               />
               <span className={`text-xs ${
                 appearance.theme === id
-                  ? "text-[var(--text-primary)]"
+                  ? "text-[var(--text-color)]"
                   : "text-[var(--text-tertiary)]"
               }`}>
                 {t(`appearance.theme.${id}`, id)}

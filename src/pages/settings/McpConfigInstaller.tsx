@@ -126,7 +126,7 @@ function ProviderRow({ diagnostic, onPreview, onRepair, onUninstall, loading }: 
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
           <DiagnosticIcon status={diagnostic.status} />
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-[var(--text-primary)] truncate">
+            <div className="text-sm font-medium text-[var(--text-color)] truncate">
               {diagnostic.name}
             </div>
             <div className="flex items-center gap-1">

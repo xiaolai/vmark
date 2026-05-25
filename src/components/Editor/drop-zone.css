@@ -5,7 +5,7 @@
 
 .drop-zone-indicator {
   position: absolute;
-  inset: var(--spacing-2);
+  inset: var(--space-2);
   z-index: var(--z-bar);
   pointer-events: none;
   display: flex;
@@ -32,7 +32,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-3);
+  gap: var(--space-3);
   color: var(--accent-primary, #4285f4);
 }
 

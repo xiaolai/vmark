@@ -57,7 +57,7 @@ export function AdvancedSettings() {
 
       <SettingsGroup title={t("advanced.group.linkProtocols")}>
         <div className="py-2.5">
-          <div className="text-sm font-medium text-[var(--text-primary)] mb-1">
+          <div className="text-sm font-medium text-[var(--text-color)] mb-1">
             {t("advanced.customProtocols.label")}
           </div>
           <div className="text-xs text-[var(--text-tertiary)] mb-2">

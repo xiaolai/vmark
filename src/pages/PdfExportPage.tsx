@@ -72,7 +72,7 @@ export function PdfExportPage() {
 
   if (error) {
     return (
-      <div className="relative flex h-screen bg-[var(--bg-primary)]">
+      <div className="relative flex h-screen bg-[var(--bg-color)]">
         <div data-tauri-drag-region className="absolute top-0 left-0 right-0 h-12" />
         <div className="flex items-center justify-center flex-1 pt-12">
           <p className="text-sm text-[var(--text-secondary)]">{error}</p>
@@ -83,7 +83,7 @@ export function PdfExportPage() {
 
   if (!renderedHtml) {
     return (
-      <div className="relative flex h-screen bg-[var(--bg-primary)]">
+      <div className="relative flex h-screen bg-[var(--bg-color)]">
         <div data-tauri-drag-region className="absolute top-0 left-0 right-0 h-12" />
         <div className="flex items-center justify-center flex-1 pt-12">
           <p className="text-sm text-[var(--text-secondary)]">{t("common:loading")}</p>
@@ -93,7 +93,7 @@ export function PdfExportPage() {
   }
 
   return (
-    <div className="relative flex h-screen bg-[var(--bg-primary)]">
+    <div className="relative flex h-screen bg-[var(--bg-color)]">
       <PdfExportContent
         renderedHtml={renderedHtml}
         defaultName={defaultName}
@@ -105,7 +105,7 @@ export function PdfExportPage() {
         data-tauri-drag-region
         className="absolute top-0 left-0 right-0 h-12 flex items-center justify-center pointer-events-none"
       >
-        <span className="text-sm font-medium text-[var(--text-primary)]">
+        <span className="text-sm font-medium text-[var(--text-color)]">
           {t("dialog:pdfExport.title")}
         </span>
       </div>

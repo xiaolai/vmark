@@ -29,7 +29,7 @@
   width: 100%;
   border: none;
   outline: none;
-  padding: var(--spacing-3);
+  padding: var(--space-3);
   background: transparent;
   color: var(--text-color);
   font-size: var(--font-size-lg);
@@ -48,7 +48,7 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: var(--spacing-2) var(--spacing-3);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   border-radius: var(--radius-sm);
   color: var(--text-color);
@@ -71,7 +71,7 @@
 }
 
 .command-palette__empty {
-  padding: var(--spacing-3);
+  padding: var(--space-3);
   color: var(--text-secondary);
   text-align: center;
 }

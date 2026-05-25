@@ -7,7 +7,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: var(--spacing-1);
+  padding-top: var(--space-1);
   z-index: var(--z-bar);
   box-sizing: border-box;
 }
@@ -28,7 +28,7 @@
   padding: var(--space-half) var(--space-1-5);
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
 }
 
 .title-bar-filename.unsaved {

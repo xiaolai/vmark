@@ -97,7 +97,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-1-5) var(--spacing-3);
+  padding: var(--space-1-5) var(--space-3);
   margin: 1rem 0 0 0;
   background-color: var(--bg-secondary);
   border: var(--border-thin) solid var(--border-color);
@@ -114,7 +114,7 @@
 .code-block-edit-actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
 }
 
 .code-block-edit-btn {
@@ -172,7 +172,7 @@
 
 .code-block-wrapper.code-block-editing pre {
   margin: 0;
-  padding: var(--spacing-3);
+  padding: var(--space-3);
   border: var(--border-thin) solid var(--border-color);
   border-top: none;
   border-bottom: none;
@@ -192,7 +192,7 @@
 
 /* Live preview during editing */
 .code-block-live-preview {
-  padding: var(--spacing-3);
+  padding: var(--space-3);
   margin: 0 0 1rem 0;
   background-color: var(--bg-color);
   border: var(--border-thin) solid var(--border-color);

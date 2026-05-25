@@ -38,9 +38,7 @@
   --text-secondary: #666666;
 
   /* Settings UI - additional aliases */
-  --bg-primary: var(--bg-color);
   --bg-tertiary: #f0f0f0;
-  --text-primary: var(--text-color);
   --text-tertiary: #999999;
   --accent-primary: #0066cc;
   --accent-bg: rgba(0, 102, 204, 0.1);
@@ -77,7 +75,6 @@
   --alert-tip: #1a7f37;
   --alert-important: #8250df;
   --alert-warning: #9a6700;
-  --alert-caution: var(--error-color);
 
   /* Highlight mark */
   --highlight-bg: #fff3a3;
@@ -114,9 +111,6 @@
   --subtle-bg-hover: rgba(0, 0, 0, 0.03);
 
   /* Spacing scale (common values) */
-  --spacing-1: 4px;
-  --spacing-2: 8px;
-  --spacing-3: 12px;
 
   /* Icon button sizes */
   --icon-size-sm: 22px;   /* StatusBar buttons */

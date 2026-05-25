@@ -5,7 +5,7 @@
  */
 
 .frontmatter-panel {
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--space-2);
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding: var(--spacing-1) var(--space-2-5);
+  padding: var(--space-1) var(--space-2-5);
   background: var(--bg-secondary);
   cursor: pointer;
   font-size: var(--font-size-sm);
@@ -75,7 +75,7 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
-  padding: var(--spacing-2) var(--space-2-5);
+  padding: var(--space-2) var(--space-2-5);
   outline: none;
 }
 

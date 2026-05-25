@@ -58,7 +58,7 @@
 .math-preview-error {
   font-size: var(--font-size-2xs);
   color: var(--error-color);
-  min-height: var(--spacing-3);
+  min-height: var(--space-3);
 }
 
 .math-preview-error:empty {

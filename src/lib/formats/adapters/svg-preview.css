@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: var(--spacing-3);
+  padding: var(--space-3);
   overflow: auto;
 }
 
@@ -26,8 +26,8 @@
 .svg-preview--invalid {
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--spacing-1);
-  padding: var(--spacing-3);
+  gap: var(--space-1);
+  padding: var(--space-3);
   background: var(--error-bg);
   color: var(--error-color);
   font-family: var(--font-sans);

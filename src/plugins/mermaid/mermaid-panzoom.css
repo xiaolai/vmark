@@ -112,7 +112,7 @@
 .mermaid-export-menu {
   position: fixed;
   z-index: var(--z-popup);
-  padding: var(--spacing-1);
+  padding: var(--space-1);
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-color);
@@ -124,7 +124,7 @@
 }
 
 .mermaid-export-menu-item {
-  padding: var(--spacing-1) var(--spacing-2);
+  padding: var(--space-1) var(--space-2);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;

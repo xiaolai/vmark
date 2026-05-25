@@ -207,7 +207,7 @@ export function SettingsPage() {
   ];
 
   return (
-    <div className="relative flex h-screen bg-[var(--bg-primary)]">
+    <div className="relative flex h-screen bg-[var(--bg-color)]">
       {/* Sidebar - full height */}
       <div
         className="w-52 shrink-0 border-r border-gray-200 dark:border-gray-700
@@ -257,7 +257,7 @@ export function SettingsPage() {
         className="absolute top-0 right-0 h-12 flex items-center justify-center pointer-events-none"
         style={{ left: "13rem" }}
       >
-        <span className="text-sm font-medium text-[var(--text-primary)]">
+        <span className="text-sm font-medium text-[var(--text-color)]">
           {t("title")}
         </span>
       </div>

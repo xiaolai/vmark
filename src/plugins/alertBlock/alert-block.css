@@ -8,7 +8,7 @@
 .alert-block {
   border-left: var(--border-thick) solid var(--alert-border);
   background-color: var(--alert-bg);
-  padding: var(--spacing-3) var(--list-indent);
+  padding: var(--space-3) var(--list-indent);
   margin: 0 0 var(--editor-block-spacing, var(--list-indent)) 0;
   border-radius: var(--radius-md);
 }
@@ -135,10 +135,10 @@
    CAUTION - Red
    =================== */
 .alert-caution {
-  --alert-border: var(--alert-caution);
+  --alert-border: var(--error-color);
   --alert-bg: rgba(207, 34, 46, 0.1);
-  --alert-bg: color-mix(in srgb, var(--alert-caution) 10%, transparent);
-  --alert-title: var(--alert-caution);
+  --alert-bg: color-mix(in srgb, var(--error-color) 10%, transparent);
+  --alert-title: var(--error-color);
 }
 
 .alert-caution .alert-title::before {

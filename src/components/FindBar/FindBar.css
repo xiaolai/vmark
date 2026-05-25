@@ -7,7 +7,7 @@
   min-height: var(--find-bar-height);
   z-index: var(--z-bar); /* Same level as StatusBar */
   background: var(--bg-color);
-  padding: 5px var(--spacing-3);
+  padding: 5px var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
@@ -16,7 +16,7 @@
 .find-bar-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: var(--space-2);
   row-gap: var(--space-1-5);
   flex-wrap: wrap;
   min-height: var(--space-7);
@@ -32,7 +32,7 @@
   border: none;
   border-bottom: var(--border-thin) solid var(--border-color, #e0e0e0);
   border-radius: 0;
-  padding: 0 var(--spacing-1);
+  padding: 0 var(--space-1);
 }
 
 .find-bar-input-group:focus-within {
@@ -50,9 +50,9 @@
   flex: 1;
   border: none;
   background: transparent;
-  padding: var(--spacing-1) var(--space-1-5);
+  padding: var(--space-1) var(--space-1-5);
   font-size: var(--font-size-base);
-  color: var(--text-primary, #333);
+  color: var(--text-color, #333);
   outline: none;
   box-shadow: none;
   min-width: 0;
@@ -78,7 +78,7 @@
 
 .find-bar-toggle {
   position: relative;
-  padding: var(--spacing-1) var(--space-1-5);
+  padding: var(--space-1) var(--space-1-5);
   font-size: var(--font-size-xs);
   font-weight: 500;
   font-family: var(--font-mono, monospace);
@@ -114,7 +114,7 @@
 .find-bar-nav {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
 }
 
 .find-bar-nav-btn {
@@ -174,7 +174,7 @@
 
 .find-bar-close:hover {
   background: var(--bg-tertiary, #eee);
-  color: var(--text-primary, #333);
+  color: var(--text-color, #333);
 }
 
 .find-bar-close svg {
@@ -184,7 +184,7 @@
 
 .find-bar-replace-actions {
   display: flex;
-  gap: var(--spacing-1);
+  gap: var(--space-1);
 }
 
 .find-bar-icon-btn {
@@ -198,7 +198,7 @@
   background: transparent;
   border: var(--border-thin) solid var(--border-color, #e0e0e0);
   border-radius: var(--radius-sm);
-  color: var(--text-primary, #333);
+  color: var(--text-color, #333);
   cursor: pointer;
   transition: all var(--duration-fast) ease;
 }

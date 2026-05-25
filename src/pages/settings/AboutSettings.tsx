@@ -41,7 +41,7 @@ function VersionInfo() {
     <div className="flex items-center gap-3">
       <img src={appIcon} alt="VMark" className="w-12 h-12" />
       <div>
-        <div className="text-lg font-semibold text-[var(--text-primary)]">VMark</div>
+        <div className="text-lg font-semibold text-[var(--text-color)]">VMark</div>
         <div className="text-sm text-[var(--text-secondary)]">{t("about.version", { version })}</div>
       </div>
     </div>
@@ -221,7 +221,7 @@ function UpdateAvailableCard() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-[var(--text-primary)]">
+              <span className="font-medium text-[var(--text-color)]">
                 {t("about.version", { version: updateInfo.version })}
               </span>
               {updateInfo.currentVersion && (

@@ -55,7 +55,7 @@ export function SettingRow({ label, description, children, disabled }: SettingRo
     <div className={`flex items-center justify-between py-2.5
                      ${disabled ? "opacity-50" : ""}`}>
       <div className="flex-1">
-        <div id={labelId} className="text-sm font-medium text-[var(--text-primary)]">
+        <div id={labelId} className="text-sm font-medium text-[var(--text-color)]">
           {label}
         </div>
         {description && (
@@ -119,7 +119,7 @@ export function SettingsGroup({
 }) {
   return (
     <div className={className}>
-      <div className="text-base font-semibold text-[var(--text-primary)] mb-3">
+      <div className="text-base font-semibold text-[var(--text-color)] mb-3">
         {title}
       </div>
       <div className="space-y-1">{children}</div>
@@ -148,7 +148,7 @@ export function Select<T extends string>({
       onChange={(e) => onChange(e.target.value as T)}
       {...ariaProps}
       className={`appearance-none px-2 pt-[1px] pb-0 pr-6 rounded border border-[var(--border-color)]
-                 bg-[var(--bg-primary)] text-sm text-[var(--text-primary)]
+                 bg-[var(--bg-color)] text-sm text-[var(--text-color)]
                  bg-[length:16px_16px] bg-[position:right_4px_center] bg-no-repeat
                  focus-visible:ring-2 focus-visible:ring-[var(--primary-color)]
                  ${disabled ? "cursor-not-allowed" : ""}`}
@@ -242,7 +242,7 @@ export function SearchInput({
       spellCheck={spellCheck}
       autoFocus={autoFocus}
       {...ariaProps}
-      className={`w-full px-0 py-1 text-sm bg-transparent text-[var(--text-primary)]
+      className={`w-full px-0 py-1 text-sm bg-transparent text-[var(--text-color)]
                   border-0 border-b border-[var(--border-color)]
                   placeholder:text-[var(--text-tertiary)]
                   outline-none focus:border-[var(--primary-color)]
@@ -334,7 +334,7 @@ export function CollapsibleGroup({
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-2
+        className="flex items-center gap-2 text-sm font-medium text-[var(--text-color)] mb-2
                    rounded hover:text-[var(--text-secondary)] transition-colors
                    focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1"
       >
@@ -396,14 +396,14 @@ export function TagInput({
   return (
     <div
       className="flex flex-wrap items-center gap-1.5 p-2 rounded border border-[var(--border-color)]
-                 bg-[var(--bg-primary)] min-h-[38px] cursor-text"
+                 bg-[var(--bg-color)] min-h-[38px] cursor-text"
       onClick={() => inputRef.current?.focus()}
     >
       {value.map((tag) => (
         <span
           key={tag}
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                     bg-[var(--bg-tertiary)] text-xs text-[var(--text-primary)]"
+                     bg-[var(--bg-tertiary)] text-xs text-[var(--text-color)]"
         >
           {tag}://
           <button
@@ -412,7 +412,7 @@ export function TagInput({
               e.stopPropagation();
               removeTag(tag);
             }}
-            className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]
+            className="text-[var(--text-tertiary)] hover:text-[var(--text-color)]
                        rounded-full focus-visible:ring-1 focus-visible:ring-[var(--primary-color)]"
             aria-label={t("removeTag", { tag })}
           >
@@ -431,7 +431,7 @@ export function TagInput({
         onBlur={() => inputValue && addTag(inputValue)}
         placeholder={value.length === 0 ? placeholder : ""}
         className="flex-1 min-w-[100px] bg-transparent border-none outline-none
-                   text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)]"
+                   text-sm text-[var(--text-color)] placeholder-[var(--text-tertiary)]"
       />
     </div>
   );
@@ -460,7 +460,7 @@ const buttonVariants: Record<ButtonVariant, string> = {
             hover:opacity-90`,
   secondary: `bg-transparent text-[var(--text-secondary)] border border-[var(--border-color)]
               hover:bg-[var(--hover-bg)]`,
-  tertiary: `bg-[var(--bg-tertiary)] text-[var(--text-primary)]
+  tertiary: `bg-[var(--bg-tertiary)] text-[var(--text-color)]
              hover:bg-[var(--hover-bg)]`,
   danger: `bg-transparent text-[var(--error-color)] border border-[var(--error-color)]/30
            hover:bg-[var(--error-bg)]`,
@@ -543,7 +543,7 @@ export function CopyButton({ text, size = "sm", className = "" }: CopyButtonProp
     <button
       onClick={handleCopy}
       className={`p-0.5 rounded hover:bg-[var(--hover-bg)] text-[var(--text-tertiary)]
-                  hover:text-[var(--text-primary)] transition-colors flex-shrink-0
+                  hover:text-[var(--text-color)] transition-colors flex-shrink-0
                   focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
                   ${className}`}
       title={copied ? t("copied") : t("copy")}
@@ -578,7 +578,7 @@ export function CloseButton({ onClick, className = "" }: CloseButtonProps) {
     <button
       onClick={onClick}
       className={`p-1 rounded hover:bg-[var(--hover-bg)] text-[var(--text-tertiary)]
-                  hover:text-[var(--text-primary)] transition-colors
+                  hover:text-[var(--text-color)] transition-colors
                   focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
                   ${className}`}
       title={t("close")}

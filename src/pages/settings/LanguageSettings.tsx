@@ -80,7 +80,7 @@ export function LanguageSettings() {
   };
 
   const selectClass = `px-2 py-1 rounded border border-[var(--border-color)]
-                       bg-[var(--bg-primary)] text-sm text-[var(--text-primary)]`;
+                       bg-[var(--bg-color)] text-sm text-[var(--text-color)]`;
 
   return (
     <div>

@@ -43,10 +43,10 @@
 
 /* CAUTION - Red */
 .cm-alert-caution {
-  --alert-border: var(--alert-caution);
+  --alert-border: var(--error-color);
   --alert-bg: rgba(207, 34, 46, 0.05);
-  --alert-bg: color-mix(in srgb, var(--alert-caution) 5%, transparent);
-  --alert-icon: var(--alert-caution);
+  --alert-bg: color-mix(in srgb, var(--error-color) 5%, transparent);
+  --alert-icon: var(--error-color);
 }
 
 /* ===================
@@ -96,7 +96,7 @@
 .cm-alert-line {
   position: relative;
   border-left: 3px solid var(--alert-border, var(--border-color));
-  padding-left: var(--spacing-2);
+  padding-left: var(--space-2);
   margin-left: -11px;
   background-color: var(--alert-bg, transparent);
 }
@@ -158,7 +158,7 @@
 .cm-details-line {
   position: relative;
   border-left: var(--border-medium) solid var(--border-color);
-  padding-left: var(--spacing-2);
+  padding-left: var(--space-2);
   margin-left: -10px;
   background-color: rgba(0, 0, 0, 0.015);
 }
@@ -297,7 +297,7 @@
 .cm-media-tag {
   position: relative;
   border-left: 3px solid var(--media-border, var(--border-color));
-  padding-left: var(--spacing-2);
+  padding-left: var(--space-2);
   margin-left: -11px;
   background-color: var(--media-bg, transparent);
 }
