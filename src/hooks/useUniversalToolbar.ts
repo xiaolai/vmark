@@ -10,7 +10,6 @@
  */
 import { useEffect, useCallback } from "react";
 import { useUIStore } from "@/stores/uiStore";
-import { useSearchStore } from "@/stores/searchStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 
@@ -31,7 +30,7 @@ export function useUniversalToolbar(): void {
     if (!ui.universalToolbarVisible) {
       // Opening UniversalToolbar: displace StatusBar and close FindBar
       ui.displaceStatusBar();
-      useSearchStore.getState().close();
+      useUIStore.getState().searchClose();
     }
     ui.toggleUniversalToolbar();
   }, []);
@@ -64,7 +63,7 @@ export function useUniversalToolbar(): void {
         e.preventDefault();
         e.stopPropagation();
         ui.clearToolbarSession();
-        if (!useSearchStore.getState().isOpen) {
+        if (!useUIStore.getState().search.isOpen) {
           ui.restoreStatusBar();
         }
         return;

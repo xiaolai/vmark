@@ -11,16 +11,19 @@ import { EditorView } from "@codemirror/view";
 
 // --- Mocks ---
 
-const mockSearchStore = {
+const mockSearchSlice = {
   isOpen: false,
   matchCount: 0,
-  open: vi.fn(),
-  findNext: vi.fn(),
-  findPrevious: vi.fn(),
+};
+const mockUIStore = {
+  search: mockSearchSlice,
+  searchOpen: vi.fn(),
+  searchFindNext: vi.fn(),
+  searchFindPrevious: vi.fn(),
 };
 
-vi.mock("@/stores/searchStore", () => ({
-  useSearchStore: { getState: () => mockSearchStore },
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: { getState: () => mockUIStore },
 }));
 
 vi.mock("@/stores/settingsStore", () => ({
@@ -205,8 +208,8 @@ function createView(content: string, cursorPos?: number, headPos?: number): Edit
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockSearchStore.isOpen = false;
-  mockSearchStore.matchCount = 0;
+  mockSearchSlice.isOpen = false;
+  mockSearchSlice.matchCount = 0;
 });
 
 afterEach(() => {
@@ -369,30 +372,30 @@ describe("openFindBar", () => {
   it("opens search and returns true", () => {
     const result = openFindBar();
     expect(result).toBe(true);
-    expect(mockSearchStore.open).toHaveBeenCalled();
+    expect(mockUIStore.searchOpen).toHaveBeenCalled();
   });
 });
 
 describe("findNextMatch", () => {
   it("calls findNext when search is open with matches", () => {
-    mockSearchStore.isOpen = true;
-    mockSearchStore.matchCount = 5;
+    mockSearchSlice.isOpen = true;
+    mockSearchSlice.matchCount = 5;
     const view = createView("test");
     const result = findNextMatch(view);
     expect(result).toBe(true);
-    expect(mockSearchStore.findNext).toHaveBeenCalled();
+    expect(mockUIStore.searchFindNext).toHaveBeenCalled();
   });
 
   it("returns false when search is not open", () => {
-    mockSearchStore.isOpen = false;
+    mockSearchSlice.isOpen = false;
     const view = createView("test");
     const result = findNextMatch(view);
     expect(result).toBe(false);
   });
 
   it("returns false when no matches", () => {
-    mockSearchStore.isOpen = true;
-    mockSearchStore.matchCount = 0;
+    mockSearchSlice.isOpen = true;
+    mockSearchSlice.matchCount = 0;
     const view = createView("test");
     const result = findNextMatch(view);
     expect(result).toBe(false);
@@ -401,16 +404,16 @@ describe("findNextMatch", () => {
 
 describe("findPreviousMatch", () => {
   it("calls findPrevious when search is open with matches", () => {
-    mockSearchStore.isOpen = true;
-    mockSearchStore.matchCount = 5;
+    mockSearchSlice.isOpen = true;
+    mockSearchSlice.matchCount = 5;
     const view = createView("test");
     const result = findPreviousMatch(view);
     expect(result).toBe(true);
-    expect(mockSearchStore.findPrevious).toHaveBeenCalled();
+    expect(mockUIStore.searchFindPrevious).toHaveBeenCalled();
   });
 
   it("returns false when search is not open", () => {
-    mockSearchStore.isOpen = false;
+    mockSearchSlice.isOpen = false;
     const view = createView("test");
     const result = findPreviousMatch(view);
     expect(result).toBe(false);

@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TerminalTabBar } from "./TerminalTabBar";
 import {
-  useTerminalSessionStore,
+  useUIStore,
   resetTerminalSessionStore,
-} from "@/stores/terminalSessionStore";
+} from "@/stores/uiStore";
 
 describe("TerminalTabBar", () => {
   let onClose: () => void;
@@ -18,7 +18,7 @@ describe("TerminalTabBar", () => {
   });
 
   function renderWithSession() {
-    useTerminalSessionStore.getState().createSession();
+    useUIStore.getState().terminalCreateSession();
     return render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
   }
 
@@ -39,25 +39,25 @@ describe("TerminalTabBar", () => {
     renderWithSession();
     const addBtn = screen.getByTitle("New Terminal");
     fireEvent.click(addBtn);
-    expect(useTerminalSessionStore.getState().sessions).toHaveLength(2);
+    expect(useUIStore.getState().terminal.sessions).toHaveLength(2);
   });
 
   it("switches active session on tab click", () => {
-    useTerminalSessionStore.getState().createSession();
-    useTerminalSessionStore.getState().createSession();
+    useUIStore.getState().terminalCreateSession();
+    useUIStore.getState().terminalCreateSession();
 
     render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
 
     const tab1 = screen.getByTitle("Terminal 1");
     fireEvent.click(tab1);
-    expect(useTerminalSessionStore.getState().activeSessionId).toBe(
-      useTerminalSessionStore.getState().sessions[0].id,
+    expect(useUIStore.getState().terminal.activeSessionId).toBe(
+      useUIStore.getState().terminal.sessions[0].id,
     );
   });
 
   it("disables + button at 5 sessions", () => {
     for (let i = 0; i < 5; i++) {
-      useTerminalSessionStore.getState().createSession();
+      useUIStore.getState().terminalCreateSession();
     }
     render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
 
@@ -74,21 +74,21 @@ describe("TerminalTabBar", () => {
   });
 
   it("displays first character for custom-named sessions", () => {
-    const session = useTerminalSessionStore.getState().createSession()!;
-    useTerminalSessionStore.getState().renameSession(session.id, "My Shell");
+    const session = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalRenameSession(session.id, "My Shell");
     render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
     expect(screen.getByText("M")).toBeInTheDocument();
   });
 
   it("displays '?' for empty-label sessions", () => {
-    const session = useTerminalSessionStore.getState().createSession()!;
-    useTerminalSessionStore.getState().renameSession(session.id, "");
+    const session = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalRenameSession(session.id, "");
     render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
     expect(screen.getByText("?")).toBeInTheDocument();
   });
 
   it("applies horizontal class when orientation is horizontal", () => {
-    useTerminalSessionStore.getState().createSession();
+    useUIStore.getState().terminalCreateSession();
     const { container } = render(
       <TerminalTabBar onClose={onClose} onRestart={onRestart} orientation="horizontal" />,
     );
@@ -96,7 +96,7 @@ describe("TerminalTabBar", () => {
   });
 
   it("does not apply horizontal class for vertical orientation (default)", () => {
-    useTerminalSessionStore.getState().createSession();
+    useUIStore.getState().terminalCreateSession();
     const { container } = render(
       <TerminalTabBar onClose={onClose} onRestart={onRestart} />,
     );
@@ -104,8 +104,8 @@ describe("TerminalTabBar", () => {
   });
 
   it("applies dead class to dead sessions", () => {
-    const session = useTerminalSessionStore.getState().createSession()!;
-    useTerminalSessionStore.getState().markSessionDead(session.id);
+    const session = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalMarkSessionDead(session.id);
     const { container } = render(
       <TerminalTabBar onClose={onClose} onRestart={onRestart} />,
     );
@@ -113,7 +113,7 @@ describe("TerminalTabBar", () => {
   });
 
   it("applies active class to active session", () => {
-    useTerminalSessionStore.getState().createSession();
+    useUIStore.getState().terminalCreateSession();
     const { container } = render(
       <TerminalTabBar onClose={onClose} onRestart={onRestart} />,
     );

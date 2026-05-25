@@ -20,9 +20,8 @@ import { useEffect } from "react";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useSearchStore } from "@/stores/searchStore";
-import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore } from "@/stores/shortcutsStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { fileOpsError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
@@ -77,7 +76,7 @@ export function useTabShortcuts() {
 
         if (!isCurrentlyVisible) {
           // Showing StatusBar: close other bars first
-          useSearchStore.getState().close();
+          useUIStore.getState().searchClose();
           ui.setUniversalToolbarVisible(false);
         }
         ui.setStatusBarVisible(!isCurrentlyVisible);

@@ -7,7 +7,7 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { useContentSearchStore } from "@/stores/contentSearchStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { ContentSearch } from "../ContentSearch";
 
@@ -28,20 +28,23 @@ function getFocusableElements() {
 
 describe("ContentSearch — focus trapping", () => {
   beforeEach(() => {
-    useContentSearchStore.setState({
-      isOpen: true,
-      query: "",
-      results: [],
-      selectedIndex: 0,
-      isSearching: false,
-      error: null,
-      totalMatches: 0,
-      totalFiles: 0,
-      caseSensitive: false,
-      wholeWord: false,
-      useRegex: false,
-      markdownOnly: false,
-    });
+    useUIStore.setState((s) => ({
+      contentSearch: {
+        ...s.contentSearch,
+        isOpen: true,
+        query: "",
+        results: [],
+        selectedIndex: 0,
+        isSearching: false,
+        error: null,
+        totalMatches: 0,
+        totalFiles: 0,
+        caseSensitive: false,
+        wholeWord: false,
+        useRegex: false,
+        markdownOnly: false,
+      },
+    }));
     useWorkspaceStore.setState({
       rootPath: "/test",
       isWorkspaceMode: true,

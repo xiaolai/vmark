@@ -23,10 +23,10 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
-  useContentSearchStore,
+  useUIStore,
   type FileSearchResult,
   type LineMatch,
-} from "@/stores/contentSearchStore";
+} from "@/stores/uiStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { openFileInNewTabCore } from "@/hooks/useFileOpen";
 import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
@@ -58,18 +58,18 @@ interface ContentSearchProps {
 /** Spotlight-style overlay for searching workspace file contents (Find in Files). */
 export function ContentSearch({ windowLabel }: ContentSearchProps) {
   const { t } = useTranslation("editor");
-  const isOpen = useContentSearchStore((s) => s.isOpen);
-  const query = useContentSearchStore((s) => s.query);
-  const results = useContentSearchStore((s) => s.results);
-  const selectedIndex = useContentSearchStore((s) => s.selectedIndex);
-  const isSearching = useContentSearchStore((s) => s.isSearching);
-  const error = useContentSearchStore((s) => s.error);
-  const totalMatches = useContentSearchStore((s) => s.totalMatches);
-  const totalFiles = useContentSearchStore((s) => s.totalFiles);
-  const caseSensitive = useContentSearchStore((s) => s.caseSensitive);
-  const wholeWord = useContentSearchStore((s) => s.wholeWord);
-  const useRegex = useContentSearchStore((s) => s.useRegex);
-  const markdownOnly = useContentSearchStore((s) => s.markdownOnly);
+  const isOpen = useUIStore((s) => s.contentSearch.isOpen);
+  const query = useUIStore((s) => s.contentSearch.query);
+  const results = useUIStore((s) => s.contentSearch.results);
+  const selectedIndex = useUIStore((s) => s.contentSearch.selectedIndex);
+  const isSearching = useUIStore((s) => s.contentSearch.isSearching);
+  const error = useUIStore((s) => s.contentSearch.error);
+  const totalMatches = useUIStore((s) => s.contentSearch.totalMatches);
+  const totalFiles = useUIStore((s) => s.contentSearch.totalFiles);
+  const caseSensitive = useUIStore((s) => s.contentSearch.caseSensitive);
+  const wholeWord = useUIStore((s) => s.contentSearch.wholeWord);
+  const useRegex = useUIStore((s) => s.contentSearch.useRegex);
+  const markdownOnly = useUIStore((s) => s.contentSearch.markdownOnly);
 
   const rootPath = useWorkspaceStore((s) => s.rootPath);
   const isWorkspaceMode = useWorkspaceStore((s) => s.isWorkspaceMode);
@@ -105,12 +105,12 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (query.trim().length < MIN_QUERY_LENGTH) {
-      useContentSearchStore.getState().clearResults();
+      useUIStore.getState().contentSearchClearResults();
       return;
     }
 
     debounceRef.current = setTimeout(() => {
-      useContentSearchStore.getState().search(rootPath, excludeFolders);
+      useUIStore.getState().contentSearchRun(rootPath, excludeFolders);
     }, DEBOUNCE_MS);
 
     return () => {
@@ -120,7 +120,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
   }, [isOpen, query, caseSensitive, wholeWord, useRegex, markdownOnly, rootPath]);
 
   const handleClose = useCallback(() => {
-    useContentSearchStore.getState().close();
+    useUIStore.getState().contentSearchClose();
   }, []);
 
   const handleSelectMatch = useCallback(
@@ -188,10 +188,10 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
         handleClose();
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        useContentSearchStore.getState().selectNext();
+        useUIStore.getState().contentSearchSelectNext();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        useContentSearchStore.getState().selectPrev();
+        useUIStore.getState().contentSearchSelectPrev();
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (flatIndex.length > 0 && selectedIndex < flatIndex.length) {
@@ -281,7 +281,9 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           data-match-index={currentFlatIdx}
           onClick={() => handleSelectMatch(file, match)}
           onMouseEnter={() =>
-            useContentSearchStore.setState({ selectedIndex: currentFlatIdx })
+            useUIStore.setState((s) => ({
+              contentSearch: { ...s.contentSearch, selectedIndex: currentFlatIdx },
+            }))
           }
         >
           <span className="content-search-line-num">{match.lineNumber}</span>
@@ -321,7 +323,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
               disabled={!isWorkspaceMode}
               value={query}
               onChange={(e) =>
-                useContentSearchStore.getState().setQuery(e.target.value)
+                useUIStore.getState().contentSearchSetQuery(e.target.value)
               }
               onCompositionStart={ime.onCompositionStart}
               onCompositionEnd={ime.onCompositionEnd}
@@ -331,9 +333,9 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
             <button
               className={`content-search-toggle${caseSensitive ? " content-search-toggle--active" : ""}`}
               onClick={() =>
-                useContentSearchStore
+                useUIStore
                   .getState()
-                  .setCaseSensitive(!caseSensitive)
+                  .contentSearchSetCaseSensitive(!caseSensitive)
               }
               aria-pressed={caseSensitive}
               aria-label={t("contentSearch.caseSensitive", "Case Sensitive")}
@@ -344,7 +346,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
             <button
               className={`content-search-toggle${wholeWord ? " content-search-toggle--active" : ""}`}
               onClick={() =>
-                useContentSearchStore.getState().setWholeWord(!wholeWord)
+                useUIStore.getState().contentSearchSetWholeWord(!wholeWord)
               }
               aria-pressed={wholeWord}
               aria-label={t("contentSearch.wholeWord", "Whole Word")}
@@ -355,7 +357,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
             <button
               className={`content-search-toggle${useRegex ? " content-search-toggle--active" : ""}`}
               onClick={() =>
-                useContentSearchStore.getState().setUseRegex(!useRegex)
+                useUIStore.getState().contentSearchSetUseRegex(!useRegex)
               }
               aria-pressed={useRegex}
               aria-label={t("contentSearch.regex", "Regular Expression")}
@@ -366,7 +368,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
             <button
               className={`content-search-toggle${markdownOnly ? " content-search-toggle--active" : ""}`}
               onClick={() =>
-                useContentSearchStore.getState().setMarkdownOnly(!markdownOnly)
+                useUIStore.getState().contentSearchSetMarkdownOnly(!markdownOnly)
               }
               aria-pressed={markdownOnly}
               aria-label={t("contentSearch.markdownOnly", "Markdown Files Only")}

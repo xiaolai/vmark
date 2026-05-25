@@ -12,7 +12,6 @@
 import { useEffect, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useSearchStore } from "@/stores/searchStore";
 import { useUIStore } from "@/stores/uiStore";
 import { safeUnlistenAll } from "@/utils/safeUnlisten";
 import { menuError } from "@/utils/debug";
@@ -38,24 +37,24 @@ export function useSearchCommands() {
       // Close other bars first for mutual exclusivity
       const unlistenFindReplace = await currentWindow.listen<string>("menu:find-replace", (event) => {
         if (event.payload !== windowLabel) return;
-        const search = useSearchStore.getState();
+        const search = useUIStore.getState().search;
         if (!search.isOpen) {
           // Opening FindBar: displace StatusBar and close UniversalToolbar
           useUIStore.getState().displaceStatusBar();
           useUIStore.getState().setUniversalToolbarVisible(false);
         }
-        search.toggle();
+        useUIStore.getState().searchToggle();
       });
       if (cancelled) { unlistenFindReplace(); return; }
       unlistenRefs.current.push(unlistenFindReplace);
 
       const unlistenFindNext = await currentWindow.listen<string>("menu:find-next", (event) => {
         if (event.payload !== windowLabel) return;
-        const { isOpen } = useSearchStore.getState();
+        const { isOpen } = useUIStore.getState().search;
         if (!isOpen) {
-          useSearchStore.getState().open();
+          useUIStore.getState().searchOpen();
         } else {
-          useSearchStore.getState().findNext();
+          useUIStore.getState().searchFindNext();
         }
       });
       if (cancelled) { unlistenFindNext(); return; }
@@ -63,11 +62,11 @@ export function useSearchCommands() {
 
       const unlistenFindPrev = await currentWindow.listen<string>("menu:find-prev", (event) => {
         if (event.payload !== windowLabel) return;
-        const { isOpen } = useSearchStore.getState();
+        const { isOpen } = useUIStore.getState().search;
         if (!isOpen) {
-          useSearchStore.getState().open();
+          useUIStore.getState().searchOpen();
         } else {
-          useSearchStore.getState().findPrevious();
+          useUIStore.getState().searchFindPrevious();
         }
       });
       if (cancelled) { unlistenFindPrev(); return; }

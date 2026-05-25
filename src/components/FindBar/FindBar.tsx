@@ -35,7 +35,6 @@ import {
   ReplaceAll,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useSearchStore } from "@/stores/searchStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
@@ -59,16 +58,16 @@ function preventSelectAllOnButtons(e: ReactKeyboardEvent) {
 /** Renders an inline search-and-replace bar with case, whole-word, and regex toggle support. */
 export function FindBar() {
   const { t } = useTranslation("editor");
-  const isOpen = useSearchStore((state) => state.isOpen);
-  const query = useSearchStore((state) => state.query);
-  const replaceText = useSearchStore((state) => state.replaceText);
-  const caseSensitive = useSearchStore((state) => state.caseSensitive);
-  const wholeWord = useSearchStore((state) => state.wholeWord);
-  const useRegex = useSearchStore((state) => state.useRegex);
-  const matchCount = useSearchStore((state) => state.matchCount);
+  const isOpen = useUIStore((state) => state.search.isOpen);
+  const query = useUIStore((state) => state.search.query);
+  const replaceText = useUIStore((state) => state.search.replaceText);
+  const caseSensitive = useUIStore((state) => state.search.caseSensitive);
+  const wholeWord = useUIStore((state) => state.search.wholeWord);
+  const useRegex = useUIStore((state) => state.search.useRegex);
+  const matchCount = useUIStore((state) => state.search.matchCount);
   /* v8 ignore next -- @preserve ?? fallback: enableRegexSearch is always set in tests */
   const enableRegexSearch = useSettingsStore((state) => state.markdown.enableRegexSearch ?? true);
-  const currentIndex = useSearchStore((state) => state.currentIndex);
+  const currentIndex = useUIStore((state) => state.search.currentIndex);
 
   const ime = useImeComposition();
   const findInputRef = useRef<HTMLInputElement>(null);
@@ -83,15 +82,15 @@ export function FindBar() {
   }, [isOpen]);
 
   const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    useSearchStore.getState().setQuery(e.target.value);
+    useUIStore.getState().searchSetQuery(e.target.value);
   }, []);
 
   const handleReplaceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    useSearchStore.getState().setReplaceText(e.target.value);
+    useUIStore.getState().searchSetReplaceText(e.target.value);
   }, []);
 
   const handleClose = useCallback(() => {
-    useSearchStore.getState().close();
+    useUIStore.getState().searchClose();
     if (!useUIStore.getState().universalToolbarVisible) {
       useUIStore.getState().restoreStatusBar();
     }
@@ -103,9 +102,9 @@ export function FindBar() {
     if (e.key === "Enter") {
       e.preventDefault();
       if (e.shiftKey) {
-        useSearchStore.getState().findPrevious();
+        useUIStore.getState().searchFindPrevious();
       } else {
-        useSearchStore.getState().findNext();
+        useUIStore.getState().searchFindNext();
       }
     } else if (e.key === "Escape") {
       handleClose();
@@ -121,7 +120,7 @@ export function FindBar() {
     /* v8 ignore start -- @preserve reason: else-if chain branches (Escape, Shift+Tab) not fully exercised in tests */
     if (e.key === "Enter") {
       e.preventDefault();
-      useSearchStore.getState().replaceCurrent();
+      useUIStore.getState().searchReplaceCurrent();
     } else if (e.key === "Escape") {
       handleClose();
     } else if (e.key === "Tab" && e.shiftKey) {
@@ -132,31 +131,31 @@ export function FindBar() {
   }, [ime, handleClose]);
 
   const handleFindNext = useCallback(() => {
-    useSearchStore.getState().findNext();
+    useUIStore.getState().searchFindNext();
   }, []);
 
   const handleFindPrevious = useCallback(() => {
-    useSearchStore.getState().findPrevious();
+    useUIStore.getState().searchFindPrevious();
   }, []);
 
   const handleToggleCaseSensitive = useCallback(() => {
-    useSearchStore.getState().toggleCaseSensitive();
+    useUIStore.getState().searchToggleCaseSensitive();
   }, []);
 
   const handleToggleWholeWord = useCallback(() => {
-    useSearchStore.getState().toggleWholeWord();
+    useUIStore.getState().searchToggleWholeWord();
   }, []);
 
   const handleToggleRegex = useCallback(() => {
-    useSearchStore.getState().toggleRegex();
+    useUIStore.getState().searchToggleRegex();
   }, []);
 
   const handleReplaceCurrent = useCallback(() => {
-    useSearchStore.getState().replaceCurrent();
+    useUIStore.getState().searchReplaceCurrent();
   }, []);
 
   const handleReplaceAll = useCallback(() => {
-    useSearchStore.getState().replaceAll();
+    useUIStore.getState().searchReplaceAll();
   }, []);
 
   if (!isOpen) return null;

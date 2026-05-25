@@ -27,7 +27,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { useSearchStore } from "@/stores/searchStore";
+import { useUIStore } from "@/stores/uiStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import { createQueryDebounce } from "./queryDebounce";
 import "./search.css";
@@ -139,7 +139,7 @@ export const searchExtension = Extension.create({
             return { matches: [] as Match[], currentIndex: -1, decorationSet: DecorationSet.empty };
           },
           apply(tr, value) {
-            const state = useSearchStore.getState();
+            const state = useUIStore.getState().search;
             const queryChanged =
               state.query !== lastQuery ||
               state.caseSensitive !== lastCaseSensitive ||
@@ -165,10 +165,10 @@ export const searchExtension = Extension.create({
               const initialIndex = matchCount > 0 ? 0 : -1;
               // Defer store update out of ProseMirror's apply() to avoid side-effects during state computation
               queueMicrotask(() => {
-                useSearchStore.getState().setMatches(matchCount, initialIndex);
+                useUIStore.getState().searchSetMatches(matchCount, initialIndex);
               });
 
-              const currentIndex = useSearchStore.getState().currentIndex;
+              const currentIndex = useUIStore.getState().search.currentIndex;
               let decorationSet = DecorationSet.empty;
               if (state.isOpen && state.query && matches.length > 0) {
                 const decorations = matches.map((match: Match, i: number) =>
@@ -221,7 +221,7 @@ export const searchExtension = Extension.create({
               matches = matches
                 .map((m: Match) => ({ from: tr.mapping.map(m.from), to: tr.mapping.map(m.to) }))
                 .filter((m: Match) => m.from < m.to);
-              const currentIndex = useSearchStore.getState().currentIndex;
+              const currentIndex = useUIStore.getState().search.currentIndex;
               // Adjust index if matches were lost due to mapping collapse
               const adjustedIndex = matches.length === 0
                 ? -1
@@ -229,12 +229,12 @@ export const searchExtension = Extension.create({
                   ? 0
                   : currentIndex;
               queueMicrotask(() => {
-                useSearchStore.getState().setMatches(matches.length, adjustedIndex);
+                useUIStore.getState().searchSetMatches(matches.length, adjustedIndex);
               });
               return { matches, currentIndex: adjustedIndex, decorationSet: mappedDecorationSet };
             }
 
-            const currentIndex = useSearchStore.getState().currentIndex;
+            const currentIndex = useUIStore.getState().search.currentIndex;
 
             // Path 4 — No structural change; only update decorations if active index changed.
             if (currentIndex !== value.currentIndex) {
@@ -265,7 +265,7 @@ export const searchExtension = Extension.create({
           let lastScrollKey = "";
 
           const scrollToMatch = () => {
-            const state = useSearchStore.getState();
+            const state = useUIStore.getState().search;
             if (!state.isOpen || state.currentIndex < 0) return;
 
             const scrollKey = `${state.query}|${state.caseSensitive}|${state.wholeWord}|${state.useRegex}|${state.currentIndex}`;
@@ -294,7 +294,7 @@ export const searchExtension = Extension.create({
 
           const handleReplaceCurrent = () => {
             if (editorView.editable === false) return;
-            const state = useSearchStore.getState();
+            const state = useUIStore.getState().search;
             if (!state.isOpen || state.currentIndex < 0) return;
 
             const pluginState = searchPluginKey.getState(editorView.state);
@@ -309,13 +309,13 @@ export const searchExtension = Extension.create({
             runOrQueueProseMirrorAction(editorView, () => editorView.dispatch(tr));
 
             requestAnimationFrame(() => {
-              useSearchStore.getState().findNext();
+              useUIStore.getState().searchFindNext();
             });
           };
 
           const handleReplaceAll = () => {
             if (editorView.editable === false) return;
-            const state = useSearchStore.getState();
+            const state = useUIStore.getState().search;
             if (!state.isOpen || !state.query) return;
 
             const pluginState = searchPluginKey.getState(editorView.state);
@@ -336,12 +336,12 @@ export const searchExtension = Extension.create({
           };
 
           let prevState = {
-            query: useSearchStore.getState().query,
-            caseSensitive: useSearchStore.getState().caseSensitive,
-            wholeWord: useSearchStore.getState().wholeWord,
-            useRegex: useSearchStore.getState().useRegex,
-            currentIndex: useSearchStore.getState().currentIndex,
-            isOpen: useSearchStore.getState().isOpen,
+            query: useUIStore.getState().search.query,
+            caseSensitive: useUIStore.getState().search.caseSensitive,
+            wholeWord: useUIStore.getState().search.wholeWord,
+            useRegex: useUIStore.getState().search.useRegex,
+            currentIndex: useUIStore.getState().search.currentIndex,
+            isOpen: useUIStore.getState().search.isOpen,
           };
 
           // Single debounce slot for query/options changes. Nav/open changes
@@ -357,7 +357,8 @@ export const searchExtension = Extension.create({
             requestAnimationFrame(scrollToMatch);
           };
 
-          const unsubscribe = useSearchStore.subscribe((state) => {
+          const unsubscribe = useUIStore.subscribe((root) => {
+            const state = root.search;
             const currentState = {
               query: state.query,
               caseSensitive: state.caseSensitive,

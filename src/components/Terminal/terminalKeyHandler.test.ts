@@ -5,11 +5,11 @@ const { mockSessions, mockSetActiveSession } = vi.hoisted(() => ({
   mockSetActiveSession: vi.fn(),
 }));
 
-vi.mock("@/stores/terminalSessionStore", () => ({
-  useTerminalSessionStore: {
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
     getState: () => ({
-      sessions: mockSessions(),
-      setActiveSession: mockSetActiveSession,
+      terminal: { sessions: mockSessions(), activeSessionId: null },
+      terminalSetActiveSession: mockSetActiveSession,
     }),
   },
 }));

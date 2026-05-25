@@ -47,7 +47,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
   }),
 }));
 
-// Mock useUIStore
+// Mock useUIStore (includes merged search/contentSearch/terminal slices for T09 consolidation)
 vi.mock("@/stores/uiStore", () => {
   const state = {
     content: "",
@@ -57,6 +57,38 @@ vi.mock("@/stores/uiStore", () => {
     typewriterModeEnabled: false,
     // Per ADR-009: outline highlight lives in uiStore.
     setActiveHeadingLine: vi.fn(),
+    // Merged slices (T09). Tests that exercise search behaviour replace
+    // these in setup; this default keeps the search plugin from crashing.
+    search: {
+      isOpen: false,
+      query: "",
+      replaceText: "",
+      caseSensitive: false,
+      wholeWord: false,
+      useRegex: false,
+      searchMarkdown: false,
+      matchCount: 0,
+      currentIndex: -1,
+    },
+    contentSearch: {
+      isOpen: false,
+      query: "",
+      caseSensitive: false,
+      wholeWord: false,
+      useRegex: false,
+      markdownOnly: true,
+      results: [],
+      selectedIndex: 0,
+      isSearching: false,
+      error: null,
+      totalMatches: 0,
+      totalFiles: 0,
+    },
+    terminal: {
+      sessions: [],
+      activeSessionId: null,
+    },
+    searchSetMatches: vi.fn(),
   };
 
   return { useUIStore: createZustandMock(state) };

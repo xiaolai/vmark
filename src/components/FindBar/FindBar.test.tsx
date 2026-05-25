@@ -49,23 +49,24 @@ let mockSearchState: Record<string, unknown> = {
   currentIndex: -1,
 };
 
-vi.mock("@/stores/searchStore", () => {
+vi.mock("@/stores/uiStore", () => {
   const store = vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
-    selector(mockSearchState)
+    selector({ search: mockSearchState })
   );
   (store as unknown as Record<string, unknown>).getState = () => ({
-    findNext: mockFindNext,
-    findPrevious: mockFindPrevious,
-    replaceCurrent: mockReplaceCurrent,
-    replaceAll: mockReplaceAll,
-    close: mockClose,
-    setQuery: mockSetQuery,
-    setReplaceText: mockSetReplaceText,
-    toggleCaseSensitive: mockToggleCaseSensitive,
-    toggleWholeWord: mockToggleWholeWord,
-    toggleRegex: mockToggleRegex,
+    search: mockSearchState,
+    searchFindNext: mockFindNext,
+    searchFindPrevious: mockFindPrevious,
+    searchReplaceCurrent: mockReplaceCurrent,
+    searchReplaceAll: mockReplaceAll,
+    searchClose: mockClose,
+    searchSetQuery: mockSetQuery,
+    searchSetReplaceText: mockSetReplaceText,
+    searchToggleCaseSensitive: mockToggleCaseSensitive,
+    searchToggleWholeWord: mockToggleWholeWord,
+    searchToggleRegex: mockToggleRegex,
   });
-  return { useSearchStore: store };
+  return { useUIStore: store };
 });
 
 let mockEnableRegex = true;

@@ -9,7 +9,7 @@
  * @module components/ContentSearch/contentSearchUtils
  */
 
-import type { FileSearchResult } from "@/stores/contentSearchStore";
+import type { FileSearchResult } from "@/stores/uiStore";
 
 /** Render line content with match ranges highlighted, returning React nodes. */
 export function renderHighlightedLine(

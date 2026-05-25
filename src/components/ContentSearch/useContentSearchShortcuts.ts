@@ -15,7 +15,7 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
-import { useContentSearchStore } from "@/stores/contentSearchStore";
+import { useUIStore } from "@/stores/uiStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
@@ -27,7 +27,7 @@ export function useContentSearchShortcuts(): void {
       const key = useShortcutsStore.getState().getShortcut("contentSearch");
       if (matchesShortcutEvent(e, key)) {
         e.preventDefault();
-        useContentSearchStore.getState().open();
+        useUIStore.getState().contentSearchOpen();
       }
     };
 
@@ -37,7 +37,7 @@ export function useContentSearchShortcuts(): void {
 
   useEffect(() => {
     const unlisten = listen("menu:find-in-files", () => {
-      useContentSearchStore.getState().open();
+      useUIStore.getState().contentSearchOpen();
     });
     return () => safeUnlistenAsync(unlisten);
   }, []);

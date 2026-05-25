@@ -47,7 +47,7 @@ export function buildCdCommand(path: string): string {
  * Hook that wires the three store→session sync effects. Subscriptions are
  * established on mount and torn down on unmount.
  */
-export function useTerminalSessionStoreSync(
+export function useUIStoreSync(
   sessionsRef: React.RefObject<Map<string, SyncableSessionEntry>>,
 ): void {
   // Theme sync

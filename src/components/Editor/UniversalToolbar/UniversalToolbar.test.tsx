@@ -13,7 +13,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
-import { useUIStore } from "@/stores/uiStore";
 
 const mockedStores = vi.hoisted(() => ({
   sourceState: {

@@ -36,7 +36,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
+import { useUIStore } from "@/stores/uiStore";
 import {
   createTerminalInstance,
   type TerminalInstance,
@@ -45,7 +45,7 @@ import { spawnPty, resolveTerminalCwd } from "./spawnPty";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
   buildCdCommand,
-  useTerminalSessionStoreSync,
+  useUIStoreSync,
 } from "./terminalSessionStoreSync";
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
@@ -101,7 +101,7 @@ export function useTerminalSessions(
 
   // Fit the active terminal
   const fit = useCallback(() => {
-    const activeId = useTerminalSessionStore.getState().activeSessionId;
+    const activeId = useUIStore.getState().terminal.activeSessionId;
     if (!activeId) return;
     const entry = sessionsRef.current.get(activeId);
     if (!entry) return;
@@ -128,7 +128,7 @@ export function useTerminalSessions(
 
   /** Get search addon of active session. */
   const getActiveSearchAddon = useCallback((): SearchAddon | null => {
-    const activeId = useTerminalSessionStore.getState().activeSessionId;
+    const activeId = useUIStore.getState().terminal.activeSessionId;
     if (!activeId) return null;
     const entry = sessionsRef.current.get(activeId);
     return entry?.instance.searchAddon ?? null;
@@ -136,7 +136,7 @@ export function useTerminalSessions(
 
   /** Get terminal + pty refs for context menu. */
   const getActiveTerminal = useCallback(() => {
-    const activeId = useTerminalSessionStore.getState().activeSessionId;
+    const activeId = useUIStore.getState().terminal.activeSessionId;
     if (!activeId) return null;
     const entry = sessionsRef.current.get(activeId);
     if (!entry) return null;
@@ -172,7 +172,7 @@ export function useTerminalSessions(
             e.instance.term.write("Press any key to restart...\r\n");
             e.pty = null;
             e.shellExited = true;
-            useTerminalSessionStore.getState().markSessionDead(sessionId);
+            useUIStore.getState().terminalMarkSessionDead(sessionId);
           }
         },
         disposed: () => {
@@ -191,7 +191,7 @@ export function useTerminalSessions(
       currentEntry.ptyRefForKeys.current = pty;
       currentEntry.spawnedCwd = cwd;
       currentEntry.shellSpawning = false;
-      useTerminalSessionStore.getState().markSessionAlive(sessionId);
+      useUIStore.getState().terminalMarkSessionAlive(sessionId);
 
       // If workspace changed while spawning, cd to the current root
       const currentRoot = useWorkspaceStore.getState().rootPath;
@@ -207,14 +207,14 @@ export function useTerminalSessions(
         e.instance.term.write(`\r\nFailed to start shell: ${errMsg}\r\n`);
         e.instance.term.write("Press any key to retry...\r\n");
         e.shellExited = true;
-        useTerminalSessionStore.getState().markSessionDead(sessionId);
+        useUIStore.getState().terminalMarkSessionDead(sessionId);
       }
     }
   }, []);
 
   /** Kill current PTY, clear terminal, respawn shell for the active session. */
   const restartActiveSession = useCallback(() => {
-    const activeId = useTerminalSessionStore.getState().activeSessionId;
+    const activeId = useUIStore.getState().terminal.activeSessionId;
     if (!activeId) return;
     const entry = sessionsRef.current.get(activeId);
     if (!entry || entry.disposed) return;
@@ -353,31 +353,31 @@ export function useTerminalSessions(
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
 
-    const state = useTerminalSessionStore.getState();
+    const state = useUIStore.getState();
 
-    if (state.sessions.length === 0) {
+    if (state.terminal.sessions.length === 0) {
       // First launch — create initial session
-      const session = state.createSession();
+      const session = state.terminalCreateSession();
       if (session) {
         createSession(session.id);
         switchVisibility(session.id);
       }
     } else {
       // Sessions already exist (e.g., hot-exit restore) — create instances
-      for (const s of state.sessions) {
+      for (const s of state.terminal.sessions) {
         createSession(s.id);
       }
-      switchVisibility(state.activeSessionId);
+      switchVisibility(state.terminal.activeSessionId);
     }
 
     // Subscribe to store changes
     let prevSessionIds = new Set(
-      useTerminalSessionStore.getState().sessions.map((s) => s.id),
+      useUIStore.getState().terminal.sessions.map((s) => s.id),
     );
-    let prevActiveId = useTerminalSessionStore.getState().activeSessionId;
+    let prevActiveId = useUIStore.getState().terminal.activeSessionId;
 
-    const unsubscribe = useTerminalSessionStore.subscribe((storeState) => {
-      const currentIds = new Set(storeState.sessions.map((s) => s.id));
+    const unsubscribe = useUIStore.subscribe((storeState) => {
+      const currentIds = new Set(storeState.terminal.sessions.map((s) => s.id));
 
       // Detect new sessions
       for (const id of currentIds) {
@@ -394,12 +394,12 @@ export function useTerminalSessions(
       }
 
       // Detect active session change
-      if (storeState.activeSessionId !== prevActiveId) {
-        switchVisibility(storeState.activeSessionId);
+      if (storeState.terminal.activeSessionId !== prevActiveId) {
+        switchVisibility(storeState.terminal.activeSessionId);
       }
 
       prevSessionIds = currentIds;
-      prevActiveId = storeState.activeSessionId;
+      prevActiveId = storeState.terminal.activeSessionId;
     });
 
     const sessions = sessionsRef.current;
@@ -426,7 +426,7 @@ export function useTerminalSessions(
 
   // Theme + workspace-root + terminal-settings sync, all in one call.
   // See terminalSessionStoreSync.ts for the per-effect design notes.
-  useTerminalSessionStoreSync(sessionsRef);
+  useUIStoreSync(sessionsRef);
 
   return {
     fit,

@@ -24,7 +24,7 @@ vi.mock("@/stores/searchStore", () => {
     findNext: vi.fn(),
   };
   return {
-    useSearchStore: {
+    useUIStore: {
       getState: () => state,
       subscribe: vi.fn(() => vi.fn()),
       setState: (partial: Record<string, unknown>) => Object.assign(state, partial),

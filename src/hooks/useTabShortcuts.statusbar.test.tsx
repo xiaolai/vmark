@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useSearchStore } from "@/stores/searchStore";
 
 // Track calls
 const mockCloseTabWithDirtyCheck = vi.fn(() => Promise.resolve(true));
@@ -106,7 +105,7 @@ describe("useTabShortcuts — status bar toggle", () => {
       statusBarVisible: false,
       universalToolbarVisible: true,
     });
-    useSearchStore.getState().open();
+    useUIStore.getState().searchOpen();
 
     matchTarget = "F7";
 
@@ -128,7 +127,7 @@ describe("useTabShortcuts — status bar toggle", () => {
 
     expect(useUIStore.getState().statusBarVisible).toBe(true);
     expect(useUIStore.getState().universalToolbarVisible).toBe(false);
-    expect(useSearchStore.getState().isOpen).toBe(false);
+    expect(useUIStore.getState().search.isOpen).toBe(false);
   });
 
   it("does nothing when not a document window", async () => {

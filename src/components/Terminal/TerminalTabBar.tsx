@@ -20,7 +20,7 @@
 import { useCallback } from "react";
 import { Plus, Trash2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
+import { useUIStore } from "@/stores/uiStore";
 import "./TerminalTabBar.css";
 
 interface TerminalTabBarProps {
@@ -39,15 +39,15 @@ function getTabDisplay(label: string): string {
 /** Renders numbered buttons for switching between terminal sessions plus create/close/restart controls. */
 export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }: TerminalTabBarProps) {
   const { t } = useTranslation("statusbar");
-  const sessions = useTerminalSessionStore((s) => s.sessions);
-  const activeId = useTerminalSessionStore((s) => s.activeSessionId);
+  const sessions = useUIStore((s) => s.terminal.sessions);
+  const activeId = useUIStore((s) => s.terminal.activeSessionId);
 
   const handleCreate = useCallback(() => {
-    useTerminalSessionStore.getState().createSession();
+    useUIStore.getState().terminalCreateSession();
   }, []);
 
   const handleSwitch = useCallback((id: string) => {
-    useTerminalSessionStore.getState().setActiveSession(id);
+    useUIStore.getState().terminalSetActiveSession(id);
   }, []);
 
   const isMaxed = sessions.length >= 5;

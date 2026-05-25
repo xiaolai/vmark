@@ -15,7 +15,6 @@
  * @module hooks/contentSearchNavigation
  */
 
-import { useSearchStore } from "@/stores/searchStore";
 import { useUIStore } from "@/stores/uiStore";
 
 interface PendingNav {
@@ -61,13 +60,13 @@ export function clearPendingContentSearchNav(tabId: string): void {
  * StatusBar and UniversalToolbar (same logic as useSearchCommands.ts).
  */
 export function openFindBarWithQuery(query: string): void {
-  const search = useSearchStore.getState();
+  const search = useUIStore.getState().search;
   if (!search.isOpen) {
     useUIStore.getState().displaceStatusBar();
     useUIStore.getState().setUniversalToolbarVisible(false);
   }
-  useSearchStore.getState().setQuery(query);
+  useUIStore.getState().searchSetQuery(query);
   if (!search.isOpen) {
-    useSearchStore.getState().open();
+    useUIStore.getState().searchOpen();
   }
 }

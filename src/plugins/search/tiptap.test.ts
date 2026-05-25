@@ -22,7 +22,10 @@ vi.mock("@/utils/imeGuard", () => ({
   runOrQueueProseMirrorAction: vi.fn((_view, action) => action()),
 }));
 
-// Mock searchStore
+// Mock uiStore (T09: searchStore merged in as the .search slice).
+// Tests mutate mockSearchState's fields in setup; the mock returns the
+// same object as state.search so the production code's read of
+// useUIStore.getState().search picks up the mutations.
 const mockSearchState = {
   isOpen: false,
   query: "",
@@ -36,12 +39,27 @@ const mockSearchState = {
   findNext: vi.fn(),
 };
 
-const mockSearchSubscribers: Array<(state: typeof mockSearchState) => void> = [];
+type MockRoot = {
+  search: typeof mockSearchState;
+  searchSetMatches: typeof mockSearchState.setMatches;
+  searchFindNext: typeof mockSearchState.findNext;
+};
+function mockRoot(): MockRoot {
+  return {
+    search: mockSearchState,
+    searchSetMatches: mockSearchState.setMatches,
+    searchFindNext: mockSearchState.findNext,
+  };
+}
 
-vi.mock("@/stores/searchStore", () => ({
-  useSearchStore: {
-    getState: () => mockSearchState,
-    subscribe: (fn: (state: typeof mockSearchState) => void) => {
+const mockSearchSubscribers: Array<
+  (state: MockRoot, prev?: MockRoot) => void
+> = [];
+
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: {
+    getState: () => mockRoot(),
+    subscribe: (fn: (state: MockRoot, prev: MockRoot) => void) => {
       mockSearchSubscribers.push(fn);
       return () => {
         const idx = mockSearchSubscribers.indexOf(fn);
@@ -924,7 +942,7 @@ describe("search plugin view lifecycle", () => {
     // Simulate search store state change
     mockSearchState.query = "hello";
     mockSearchState.isOpen = true;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     // Should have dispatched a transaction to trigger decoration rebuild
     expect(mockDispatch).toHaveBeenCalled();
@@ -947,7 +965,7 @@ describe("search plugin view lifecycle", () => {
     const viewResult = plugin.spec.view!(mockView as never);
 
     // Fire with same state — should NOT dispatch
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
     expect(mockDispatch).not.toHaveBeenCalled();
 
     viewResult.destroy!();
@@ -1261,7 +1279,7 @@ describe("search plugin view lifecycle", () => {
     // Need to change something so JSON.stringify differs
     mockSearchState.currentIndex = 0;
     mockSearchState.caseSensitive = true; // force state change
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     // Run rAF callbacks
     vi.runAllTimers();
@@ -1308,7 +1326,7 @@ describe("search plugin view lifecycle", () => {
 
     // Trigger a state change
     mockSearchState.caseSensitive = true;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     vi.runAllTimers();
 
@@ -1342,7 +1360,7 @@ describe("search plugin view lifecycle", () => {
     mockSearchState.isOpen = true;
     mockSearchState.query = "hello";
     mockSearchState.currentIndex = 0;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     // coordsAtPos should not be called when scrollContainer is not found
     // (the view dispatches a transaction, but scrollToMatch runs in rAF)
@@ -1387,7 +1405,7 @@ describe("search plugin view lifecycle", () => {
 
     // Change state to trigger subscription + scrollToMatch via rAF
     mockSearchState.caseSensitive = true;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     // rAF fires immediately due to spy — scrollToMatch runs
     // closest(".editor-content") returns null → line 184 early return
@@ -1396,7 +1414,7 @@ describe("search plugin view lifecycle", () => {
     // Now set currentIndex < 0 to trigger line 171 early return
     mockSearchState.currentIndex = -1;
     mockSearchState.caseSensitive = false;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
     expect(coordsAtPos).not.toHaveBeenCalled();
 
     viewResult.destroy!();
@@ -1449,19 +1467,19 @@ describe("search plugin view lifecycle", () => {
 
     // Step 1: Change isOpen=true → scrollToMatch fires, processes scrollKey, sets lastScrollKey
     mockSearchState.isOpen = true;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
     const callsAfterFirst = scrollToFn.mock.calls.length;
     expect(callsAfterFirst).toBeGreaterThan(0); // first scrollToMatch scrolled
 
     // Step 2: Close search (isOpen=false) → scrollToMatch fires → line 171 early return (isOpen=false)
     mockSearchState.isOpen = false;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     // Step 3: Open search again with SAME query/cs/ww/ur/idx
     // → scrollToMatch fires again → line 171 passes (isOpen=true)
     // → scrollKey = "hello|false|false|false|0" = lastScrollKey → line 174 fires!
     mockSearchState.isOpen = true;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     // scrollTo should NOT have been called again (line 174 returned early)
     expect(scrollToFn.mock.calls.length).toBe(callsAfterFirst);
@@ -1518,7 +1536,7 @@ describe("search plugin view lifecycle", () => {
     // line 174: new scrollKey → passes
     // line 177: pluginState.matches[99] is undefined → early return
     mockSearchState.isOpen = true;
-    mockSearchSubscribers[0]({ ...mockSearchState });
+    mockSearchSubscribers[0](mockRoot(), mockRoot());
 
     // No scroll should have happened (line 177 returned early)
     expect(scrollToFn).not.toHaveBeenCalled();

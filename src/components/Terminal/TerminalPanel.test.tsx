@@ -50,7 +50,6 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
 
 import { TerminalPanel } from "./TerminalPanel";
 import { useUIStore } from "@/stores/uiStore";
-import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 
 function makeFakeTerm(): Terminal {
   return {
@@ -75,10 +74,10 @@ describe("TerminalPanel — resetDisplay wiring (#856)", () => {
     } as Partial<ReturnType<typeof useUIStore.getState>> as never);
 
     // Ensure a session exists
-    useTerminalSessionStore.setState({
+    useUIStore.setState({
       sessions: [{ id: "s1", number: 1, status: "alive", revision: 0 }],
       activeSessionId: "s1",
-    } as Partial<ReturnType<typeof useTerminalSessionStore.getState>> as never);
+    } as Partial<ReturnType<typeof useUIStore.getState>> as never);
 
     mockUseTerminalSessions.mockReturnValue({
       fit: mockFit,

@@ -52,7 +52,7 @@ vi.mock("@/lib/cjkFormatter", () => ({
 }));
 
 vi.mock("@/stores/searchStore", () => ({
-  useSearchStore: { getState: () => ({}) },
+  useUIStore: { getState: () => ({}) },
 }));
 
 vi.mock("@/stores/sourceCursorContextStore", () => ({

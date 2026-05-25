@@ -25,7 +25,7 @@ import {
   sortLinesAscending,
   sortLinesDescending,
 } from "@/utils/textTransformations";
-import { useSearchStore } from "@/stores/searchStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -146,23 +146,23 @@ export function toggleList(view: EditorView, type: "bullet" | "ordered" | "task"
 
 /** Opens the find/replace bar via the search store. */
 export function openFindBar(): boolean {
-  useSearchStore.getState().open();
+  useUIStore.getState().searchOpen();
   return true;
 }
 
 /** Navigates to the next search match if the find bar is open. */
 export function findNextMatch(_view: EditorView): boolean {
-  const store = useSearchStore.getState();
-  if (!store.isOpen || store.matchCount === 0) return false;
-  store.findNext();
+  const root = useUIStore.getState();
+  if (!root.search.isOpen || root.search.matchCount === 0) return false;
+  root.searchFindNext();
   return true;
 }
 
 /** Navigates to the previous search match if the find bar is open. */
 export function findPreviousMatch(_view: EditorView): boolean {
-  const store = useSearchStore.getState();
-  if (!store.isOpen || store.matchCount === 0) return false;
-  store.findPrevious();
+  const root = useUIStore.getState();
+  if (!root.search.isOpen || root.search.matchCount === 0) return false;
+  root.searchFindPrevious();
   return true;
 }
 

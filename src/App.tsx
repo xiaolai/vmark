@@ -19,7 +19,6 @@ import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
 import { useUIStore } from "@/stores/uiStore";
-import { useSearchStore } from "@/stores/searchStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
 import { useTabModeSync } from "@/hooks/useTabModeSync";
@@ -141,7 +140,7 @@ function MainLayout() {
   const typewriterModeEnabled = useUIStore((state) => state.typewriterModeEnabled);
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
-  const findBarOpen = useSearchStore((state) => state.isOpen);
+  const findBarOpen = useUIStore((state) => state.search.isOpen);
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
 
   // T03 lifecycle composites — every per-document/per-window hook now

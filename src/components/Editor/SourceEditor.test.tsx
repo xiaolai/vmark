@@ -125,13 +125,30 @@ vi.mock("@/hooks/lintNavigation", () => ({
 }));
 
 // Mock stores
+const mockSetMatchesEarly = vi.fn();
+const searchStateHolder = {
+  current: {
+    isOpen: false,
+    query: "",
+    caseSensitive: false,
+    wholeWord: false,
+    useRegex: false,
+    currentIndex: -1,
+  } as Record<string, unknown>,
+};
 vi.mock("@/stores/uiStore", () => {
   const store = vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ wordWrap: true, showLineNumbers: false })
+    selector({
+      wordWrap: true,
+      showLineNumbers: false,
+      search: searchStateHolder.current,
+    }),
   );
   (store as unknown as Record<string, unknown>).getState = () => ({
     wordWrap: true,
     showLineNumbers: false,
+    search: searchStateHolder.current,
+    searchSetMatches: mockSetMatchesEarly,
   });
   return { useUIStore: store };
 });
@@ -154,22 +171,13 @@ vi.mock("@/stores/shortcutsStore", () => {
   return { useShortcutsStore: store };
 });
 
-const mockSetMatches = vi.fn();
-let searchStoreState = {
-  isOpen: false,
-  query: "",
-  caseSensitive: false,
-  wholeWord: false,
-  useRegex: false,
-  currentIndex: -1,
-  setMatches: mockSetMatches,
-};
-
-vi.mock("@/stores/searchStore", () => {
-  const store = vi.fn();
-  (store as unknown as Record<string, unknown>).getState = () => searchStoreState;
-  return { useSearchStore: store };
-});
+// searchStore was merged into uiStore (T09). Tests that mutate search
+// state in setup assign to the holder; the mocked store reads the holder
+// via reference each call.
+const mockSetMatches = mockSetMatchesEarly;
+function setSearchStoreState(next: Record<string, unknown>): void {
+  searchStateHolder.current = next;
+}
 
 const mockSetActiveSourceView = vi.fn();
 const mockClearSourceViewIfMatch = vi.fn();
@@ -251,7 +259,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   capturedUpdateListener = null;
-  searchStoreState = {
+  setSearchStoreState({
     isOpen: false,
     query: "",
     caseSensitive: false,
@@ -259,7 +267,7 @@ beforeEach(() => {
     useRegex: false,
     currentIndex: -1,
     setMatches: mockSetMatches,
-  };
+  });
 });
 
 afterEach(() => {
@@ -620,12 +628,12 @@ describe("SourceEditor", () => {
 
     describe("search match updates on doc change", () => {
       it("updates match count when search is open and query exists", () => {
-        searchStoreState = {
-          ...searchStoreState,
+        setSearchStoreState({
+          ...searchStateHolder.current,
           isOpen: true,
           query: "Hello",
           currentIndex: 0,
-        };
+        });
         mockCountMatches.mockReturnValue(1);
 
         render(<SourceEditor />);
@@ -650,12 +658,12 @@ describe("SourceEditor", () => {
       });
 
       it("resets index to -1 when no matches found", () => {
-        searchStoreState = {
-          ...searchStoreState,
+        setSearchStoreState({
+          ...searchStateHolder.current,
           isOpen: true,
           query: "missing",
           currentIndex: 2,
-        };
+        });
         mockCountMatches.mockReturnValue(0);
 
         render(<SourceEditor />);
@@ -673,12 +681,12 @@ describe("SourceEditor", () => {
       });
 
       it("resets index to 0 when current index exceeds match count", () => {
-        searchStoreState = {
-          ...searchStoreState,
+        setSearchStoreState({
+          ...searchStateHolder.current,
           isOpen: true,
           query: "H",
           currentIndex: 5,
-        };
+        });
         mockCountMatches.mockReturnValue(2);
 
         render(<SourceEditor />);
@@ -696,12 +704,12 @@ describe("SourceEditor", () => {
       });
 
       it("resets index to 0 when current index is negative and matches exist", () => {
-        searchStoreState = {
-          ...searchStoreState,
+        setSearchStoreState({
+          ...searchStateHolder.current,
           isOpen: true,
           query: "H",
           currentIndex: -1,
-        };
+        });
         mockCountMatches.mockReturnValue(3);
 
         render(<SourceEditor />);
@@ -719,11 +727,11 @@ describe("SourceEditor", () => {
       });
 
       it("does not update matches when search is not open", () => {
-        searchStoreState = {
-          ...searchStoreState,
+        setSearchStoreState({
+          ...searchStateHolder.current,
           isOpen: false,
           query: "Hello",
-        };
+        });
 
         render(<SourceEditor />);
 
@@ -738,11 +746,11 @@ describe("SourceEditor", () => {
       });
 
       it("does not update matches when query is empty", () => {
-        searchStoreState = {
-          ...searchStoreState,
+        setSearchStoreState({
+          ...searchStateHolder.current,
           isOpen: true,
           query: "",
-        };
+        });
 
         render(<SourceEditor />);
 

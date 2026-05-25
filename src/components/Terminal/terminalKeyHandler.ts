@@ -37,7 +37,7 @@
 import type { IPty } from "@/lib/pty";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
-import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
+import { useUIStore } from "@/stores/uiStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
@@ -143,7 +143,8 @@ export function createTerminalKeyHandler(
       case "1": case "2": case "3": case "4": case "5": {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
-        const { sessions, setActiveSession } = useTerminalSessionStore.getState();
+        const { sessions } = useUIStore.getState().terminal;
+        const setActiveSession = useUIStore.getState().terminalSetActiveSession;
         if (idx < sessions.length) {
           setActiveSession(sessions[idx].id);
         }

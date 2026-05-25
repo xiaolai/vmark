@@ -19,7 +19,7 @@ import {
   replaceNext,
   replaceAll,
 } from "@codemirror/search";
-import { useSearchStore } from "@/stores/searchStore";
+import { useUIStore } from "@/stores/uiStore";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { countMatches } from "@/utils/sourceEditorSearch";
 
@@ -56,7 +56,7 @@ function recomputeMatches(
   preserveIndex = false
 ): void {
   if (!state.query) {
-    useSearchStore.getState().setMatches(0, -1);
+    useUIStore.getState().searchSetMatches(0, -1);
     return;
   }
 
@@ -81,7 +81,7 @@ function recomputeMatches(
     newIndex = state.currentIndex;
   }
 
-  useSearchStore.getState().setMatches(matchCount, newIndex);
+  useUIStore.getState().searchSetMatches(matchCount, newIndex);
 }
 
 /**
@@ -98,7 +98,7 @@ export function useSourceEditorSearch(
       const view = viewRef.current;
       if (!view) return false;
 
-      const state = useSearchStore.getState();
+      const state = useUIStore.getState().search;
       if (state.isOpen && state.query) {
         recomputeMatches(view, state);
         const query = buildSearchQuery(state);
@@ -137,9 +137,11 @@ export function useSourceEditorSearch(
       isInitialized = true;
     }
 
-    const unsubscribe = useSearchStore.subscribe((state, prevState) => {
+    const unsubscribe = useUIStore.subscribe((root, prevRoot) => {
       const view = viewRef.current;
       if (!view) return;
+      const state = root.search;
+      const prevState = prevRoot.search;
 
       // Update search query when search params change
       if (
@@ -159,7 +161,7 @@ export function useSourceEditorSearch(
           runOrQueueCodeMirrorAction(view, () => {
             view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "" })) });
           });
-          useSearchStore.getState().setMatches(0, -1);
+          useUIStore.getState().searchSetMatches(0, -1);
         }
       }
 
@@ -191,7 +193,7 @@ export function useSourceEditorSearch(
       // Update match count after replace - double rAF for state to settle
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const state = useSearchStore.getState();
+          const state = useUIStore.getState().search;
           if (viewRef.current) {
             recomputeMatches(viewRef.current, state, true);
           }
@@ -207,7 +209,7 @@ export function useSourceEditorSearch(
       // Update match count after replace all - double rAF for state to settle
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const state = useSearchStore.getState();
+          const state = useUIStore.getState().search;
           if (viewRef.current) {
             recomputeMatches(viewRef.current, state);
           }

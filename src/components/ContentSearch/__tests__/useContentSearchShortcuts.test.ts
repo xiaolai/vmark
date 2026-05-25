@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useContentSearchShortcuts } from "../useContentSearchShortcuts";
-import { useContentSearchStore } from "@/stores/contentSearchStore";
+import { useUIStore } from "@/stores/uiStore";
 
 const mockListen = vi.fn().mockResolvedValue(() => {});
 vi.mock("@tauri-apps/api/event", () => ({
@@ -21,7 +21,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 describe("useContentSearchShortcuts", () => {
   beforeEach(() => {
     mockListen.mockClear();
-    useContentSearchStore.setState({ isOpen: false });
+    useUIStore.setState({ isOpen: false });
   });
 
   it("registers menu:find-in-files listener", () => {
@@ -45,6 +45,6 @@ describe("useContentSearchShortcuts", () => {
     const callback = call![1] as () => void;
     callback();
 
-    expect(useContentSearchStore.getState().isOpen).toBe(true);
+    expect(useUIStore.getState().contentSearch.isOpen).toBe(true);
   });
 });

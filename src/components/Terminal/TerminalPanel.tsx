@@ -36,7 +36,6 @@
 import { useRef, useEffect, useState, useCallback, type RefObject, type MutableRefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
-import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import { useTerminalSessions } from "./useTerminalSessions";
 import { useTerminalResize } from "./useTerminalResize";
 import { TerminalTabBar } from "./TerminalTabBar";
@@ -68,7 +67,7 @@ export function TerminalPanel() {
     setSearchVisible((v) => !v);
   }, []);
 
-  const activeSessionId = useTerminalSessionStore((s) => s.activeSessionId);
+  const activeSessionId = useUIStore((s) => s.terminal.activeSessionId);
 
   const { fit, getActiveTerminal, getActiveSearchAddon, restartActiveSession } =
     useTerminalSessions(activated ? containerRef : NULL_REF, { onSearch });
@@ -77,9 +76,9 @@ export function TerminalPanel() {
   // (e.g., user closed all tabs then re-opened the panel)
   useEffect(() => {
     if (!visible) return;
-    const store = useTerminalSessionStore.getState();
-    if (store.sessions.length === 0) {
-      store.createSession();
+    const store = useUIStore.getState();
+    if (store.terminal.sessions.length === 0) {
+      store.terminalCreateSession();
     }
   }, [visible]);
 
@@ -139,11 +138,11 @@ export function TerminalPanel() {
 
   // Tab bar actions
   const handleClose = useCallback(() => {
-    const store = useTerminalSessionStore.getState();
-    if (!store.activeSessionId) return;
+    const store = useUIStore.getState();
+    if (!store.terminal.activeSessionId) return;
 
-    const isLast = store.sessions.length <= 1;
-    store.removeSession(store.activeSessionId);
+    const isLast = store.terminal.sessions.length <= 1;
+    store.terminalRemoveSession(store.terminal.activeSessionId);
 
     // Last session — also hide the panel
     if (isLast) {

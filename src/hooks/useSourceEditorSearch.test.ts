@@ -43,7 +43,7 @@ vi.mock("@/utils/sourceEditorSearch", () => ({
 }));
 
 import { renderHook, act } from "@testing-library/react";
-import { useSearchStore } from "@/stores/searchStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useSourceEditorSearch } from "./useSourceEditorSearch";
 
 // Helper to create a mock EditorView
@@ -64,17 +64,20 @@ describe("useSourceEditorSearch", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     viewRef = { current: null };
-    // Reset search store
-    useSearchStore.setState({
-      isOpen: false,
-      query: "",
-      replaceText: "",
-      caseSensitive: false,
-      wholeWord: false,
-      useRegex: false,
-      matchCount: 0,
-      currentIndex: -1,
-    });
+    // Reset search slice
+    useUIStore.setState((s) => ({
+      search: {
+        ...s.search,
+        isOpen: false,
+        query: "",
+        replaceText: "",
+        caseSensitive: false,
+        wholeWord: false,
+        useRegex: false,
+        matchCount: 0,
+        currentIndex: -1,
+      },
+    }));
     mockCountMatches.mockReturnValue(0);
     mockFindNext.mockClear();
     mockFindPrevious.mockClear();
@@ -112,7 +115,7 @@ describe("useSourceEditorSearch", () => {
     const mockView = createMockView("test content");
     mockCountMatches.mockReturnValue(2);
 
-    useSearchStore.setState({ isOpen: true, query: "test" });
+    useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "test" } }));
 
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
@@ -133,7 +136,7 @@ describe("useSourceEditorSearch", () => {
     viewRef.current = mockView;
     mockCountMatches.mockReturnValue(1);
 
-    useSearchStore.setState({ isOpen: true, query: "test" });
+    useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "test" } }));
 
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
@@ -144,7 +147,7 @@ describe("useSourceEditorSearch", () => {
     const mockView = createMockView("test content");
     viewRef.current = mockView;
 
-    useSearchStore.setState({ isOpen: false, query: "" });
+    useUIStore.setState((s) => ({ search: { ...s.search, isOpen: false, query: "" } }));
 
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
@@ -159,7 +162,7 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.getState().setQuery("hello");
+      useUIStore.getState().searchSetQuery("hello");
     });
 
     expect(mockSetSearchQuery.of).toHaveBeenCalled();
@@ -175,19 +178,19 @@ describe("useSourceEditorSearch", () => {
 
     // First set a query
     act(() => {
-      useSearchStore.getState().setQuery("hello");
+      useUIStore.getState().searchSetQuery("hello");
     });
 
     mockSetSearchQuery.of.mockClear();
 
     // Then clear it
     act(() => {
-      useSearchStore.getState().setQuery("");
+      useUIStore.getState().searchSetQuery("");
     });
 
     expect(mockSetSearchQuery.of).toHaveBeenCalled();
-    expect(useSearchStore.getState().matchCount).toBe(0);
-    expect(useSearchStore.getState().currentIndex).toBe(-1);
+    expect(useUIStore.getState().search.matchCount).toBe(0);
+    expect(useUIStore.getState().search.currentIndex).toBe(-1);
   });
 
   it("calls findNext when currentIndex increases", () => {
@@ -198,11 +201,11 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.getState().setQuery("hello");
+      useUIStore.getState().searchSetQuery("hello");
     });
 
     act(() => {
-      useSearchStore.getState().findNext();
+      useUIStore.getState().searchFindNext();
     });
 
     expect(mockFindNext).toHaveBeenCalledWith(mockView);
@@ -217,11 +220,11 @@ describe("useSourceEditorSearch", () => {
 
     // Set up with matches at index 2
     act(() => {
-      useSearchStore.setState({ query: "hello", matchCount: 3, currentIndex: 2 });
+      useUIStore.setState((s) => ({ search: { ...s.search, query: "hello", matchCount: 3, currentIndex: 2 } }));
     });
 
     act(() => {
-      useSearchStore.getState().findPrevious();
+      useUIStore.getState().searchFindPrevious();
     });
 
     expect(mockFindPrevious).toHaveBeenCalledWith(mockView);
@@ -235,13 +238,13 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.setState({ isOpen: true, query: "hello" });
+      useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "hello" } }));
     });
 
     mockSetSearchQuery.of.mockClear();
 
     act(() => {
-      useSearchStore.getState().setReplaceText("goodbye");
+      useUIStore.getState().searchSetReplaceText("goodbye");
     });
 
     expect(mockSetSearchQuery.of).toHaveBeenCalled();
@@ -293,7 +296,7 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.getState().setQuery("hello");
+      useUIStore.getState().searchSetQuery("hello");
     });
 
     expect(mockSetSearchQuery.of).not.toHaveBeenCalled();
@@ -307,14 +310,14 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.getState().setQuery("hello");
+      useUIStore.getState().searchSetQuery("hello");
     });
 
     mockCountMatches.mockClear();
     mockCountMatches.mockReturnValue(1);
 
     act(() => {
-      useSearchStore.getState().toggleCaseSensitive();
+      useUIStore.getState().searchToggleCaseSensitive();
     });
 
     expect(mockCountMatches).toHaveBeenCalledWith(
@@ -334,13 +337,13 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.getState().setQuery("\\d+");
+      useUIStore.getState().searchSetQuery("\\d+");
     });
 
     mockCountMatches.mockClear();
 
     act(() => {
-      useSearchStore.getState().toggleRegex();
+      useUIStore.getState().searchToggleRegex();
     });
 
     expect(mockCountMatches).toHaveBeenCalled();
@@ -352,17 +355,17 @@ describe("useSourceEditorSearch", () => {
     mockCountMatches.mockReturnValue(1);
 
     // Start with a query
-    useSearchStore.setState({ isOpen: true, query: "hello", matchCount: 1, currentIndex: 0 });
+    useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "hello", matchCount: 1, currentIndex: 0 } }));
 
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     // Clear the query — this triggers the subscription handler which clears matches
     act(() => {
-      useSearchStore.getState().setQuery("");
+      useUIStore.getState().searchSetQuery("");
     });
 
-    expect(useSearchStore.getState().matchCount).toBe(0);
-    expect(useSearchStore.getState().currentIndex).toBe(-1);
+    expect(useUIStore.getState().search.matchCount).toBe(0);
+    expect(useUIStore.getState().search.currentIndex).toBe(-1);
   });
 
   it("safety timeout fires with isInitialized=true (line 123 false branch — polling succeeds before timeout)", () => {
@@ -371,7 +374,7 @@ describe("useSourceEditorSearch", () => {
     // Safety timeout fires at 500ms — isInitialized IS true → `if (!isInitialized)` false branch.
     const mockView = createMockView("test content");
     mockCountMatches.mockReturnValue(1);
-    useSearchStore.setState({ isOpen: true, query: "test" });
+    useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "test" } }));
 
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
@@ -400,7 +403,7 @@ describe("useSourceEditorSearch", () => {
     // View never becomes available → polling runs → timeout fires → clearInterval.
     // This specifically hits line 123 with !isInitialized === true.
     viewRef.current = null;
-    useSearchStore.setState({ isOpen: true, query: "test" });
+    useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "test" } }));
 
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
@@ -487,7 +490,7 @@ describe("useSourceEditorSearch", () => {
   it("clears polling interval after max wait time", () => {
     // View never becomes available
     viewRef.current = null;
-    useSearchStore.setState({ isOpen: true, query: "test" });
+    useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "test" } }));
 
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
@@ -516,14 +519,14 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.getState().setQuery("hello");
+      useUIStore.getState().searchSetQuery("hello");
     });
 
     mockCountMatches.mockClear();
     mockCountMatches.mockReturnValue(2);
 
     act(() => {
-      useSearchStore.getState().toggleWholeWord();
+      useUIStore.getState().searchToggleWholeWord();
     });
 
     expect(mockCountMatches).toHaveBeenCalledWith(
@@ -546,7 +549,7 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.setState({ isOpen: true, query: "hello", matchCount: 2, currentIndex: 0 });
+      useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "hello", matchCount: 2, currentIndex: 0 } }));
     });
 
     mockCountMatches.mockClear();
@@ -574,7 +577,7 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.setState({ isOpen: true, query: "hello", matchCount: 2, currentIndex: 0 });
+      useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "hello", matchCount: 2, currentIndex: 0 } }));
     });
 
     mockCountMatches.mockClear();
@@ -601,7 +604,7 @@ describe("useSourceEditorSearch", () => {
 
     // Set up initial state with 3 matches at index 1
     act(() => {
-      useSearchStore.setState({ isOpen: true, query: "hello", matchCount: 3, currentIndex: 1 });
+      useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "hello", matchCount: 3, currentIndex: 1 } }));
     });
 
     // After replace, still 2 matches — index 1 is still valid
@@ -612,7 +615,7 @@ describe("useSourceEditorSearch", () => {
     });
 
     // The recomputeMatches with preserveIndex=true should keep index at 1
-    const state = useSearchStore.getState();
+    const state = useUIStore.getState().search;
     expect(state.matchCount).toBe(2);
 
     mockRaf.mockRestore();
@@ -629,7 +632,7 @@ describe("useSourceEditorSearch", () => {
 
     // Set up initial state with 3 matches at index 2
     act(() => {
-      useSearchStore.setState({ isOpen: true, query: "hello", matchCount: 3, currentIndex: 2 });
+      useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "hello", matchCount: 3, currentIndex: 2 } }));
     });
 
     // After replace-all, only 1 match — index 2 is out of bounds
@@ -639,7 +642,7 @@ describe("useSourceEditorSearch", () => {
       window.dispatchEvent(new Event("search:replace-all"));
     });
 
-    const state = useSearchStore.getState();
+    const state = useUIStore.getState().search;
     expect(state.matchCount).toBe(1);
     expect(state.currentIndex).toBe(0);
 
@@ -656,7 +659,7 @@ describe("useSourceEditorSearch", () => {
     renderHook(() => useSourceEditorSearch(viewRef as never));
 
     act(() => {
-      useSearchStore.setState({ isOpen: true, query: "hello", matchCount: 2, currentIndex: 0 });
+      useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "hello", matchCount: 2, currentIndex: 0 } }));
     });
 
     mockCountMatches.mockReturnValue(0);
@@ -665,7 +668,7 @@ describe("useSourceEditorSearch", () => {
       window.dispatchEvent(new Event("search:replace-all"));
     });
 
-    const state = useSearchStore.getState();
+    const state = useUIStore.getState().search;
     expect(state.matchCount).toBe(0);
     expect(state.currentIndex).toBe(-1);
 
@@ -685,7 +688,7 @@ describe("useSourceEditorSearch", () => {
 
     // Set store to open with empty query, then fire replace-current
     act(() => {
-      useSearchStore.setState({ isOpen: true, query: "", matchCount: 0, currentIndex: -1 });
+      useUIStore.setState((s) => ({ search: { ...s.search, isOpen: true, query: "", matchCount: 0, currentIndex: -1 } }));
     });
 
     mockCountMatches.mockClear();
@@ -695,7 +698,7 @@ describe("useSourceEditorSearch", () => {
     });
 
     // recomputeMatches is called with state.query === "" → early return sets 0/-1
-    const state = useSearchStore.getState();
+    const state = useUIStore.getState().search;
     expect(state.matchCount).toBe(0);
     expect(state.currentIndex).toBe(-1);
     // countMatches should NOT be called when query is empty

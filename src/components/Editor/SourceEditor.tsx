@@ -25,7 +25,6 @@ import { EditorView, keymap } from "@codemirror/view";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore } from "@/stores/shortcutsStore";
-import { useSearchStore } from "@/stores/searchStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import {
@@ -129,7 +128,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     const searchCounter = createDebouncedSearchCounter(
       (content, _query, _caseSensitive, _wholeWord, _useRegex) => {
         // Re-read fresh state: search params may have changed during the debounce delay
-        const freshState = useSearchStore.getState();
+        const freshState = useUIStore.getState().search;
         if (!freshState.isOpen || !freshState.query) return;
         const matchCount = countMatches(content, freshState.query, freshState.caseSensitive, freshState.wholeWord, freshState.useRegex);
         // Keep currentIndex valid: reset to 0 if out of bounds or -1
@@ -139,7 +138,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
         } else if (newIndex < 0 || newIndex >= matchCount) {
           newIndex = 0;
         }
-        useSearchStore.getState().setMatches(matchCount, newIndex);
+        useUIStore.getState().searchSetMatches(matchCount, newIndex);
       }
     );
 
@@ -155,7 +154,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
           isInternalChange.current = false;
         });
         // Update match count when document changes and search is open (debounced)
-        const searchState = useSearchStore.getState();
+        const searchState = useUIStore.getState().search;
         if (searchState.isOpen && searchState.query) {
           searchCounter.schedule(
             newContent,

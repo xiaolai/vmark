@@ -11,7 +11,6 @@ import {
   consumePendingContentSearchNav,
   openFindBarWithQuery,
 } from "../contentSearchNavigation";
-import { useSearchStore } from "@/stores/searchStore";
 import { useUIStore } from "@/stores/uiStore";
 
 describe("contentSearchNavigation", () => {
@@ -57,7 +56,9 @@ describe("contentSearchNavigation", () => {
 
   describe("openFindBarWithQuery", () => {
     beforeEach(() => {
-      useSearchStore.setState({ isOpen: false, query: "" });
+      useUIStore.setState((s) => ({
+        search: { ...s.search, isOpen: false, query: "" },
+      }));
       useUIStore.setState({
         statusBarVisible: true,
         universalToolbarVisible: true,
@@ -66,8 +67,8 @@ describe("contentSearchNavigation", () => {
 
     it("sets query and opens FindBar", () => {
       openFindBarWithQuery("test query");
-      expect(useSearchStore.getState().query).toBe("test query");
-      expect(useSearchStore.getState().isOpen).toBe(true);
+      expect(useUIStore.getState().search.query).toBe("test query");
+      expect(useUIStore.getState().search.isOpen).toBe(true);
     });
 
     it("closes StatusBar and UniversalToolbar when opening", () => {
@@ -78,7 +79,9 @@ describe("contentSearchNavigation", () => {
     });
 
     it("does not close bars when FindBar is already open", () => {
-      useSearchStore.setState({ isOpen: true });
+      useUIStore.setState((s) => ({
+        search: { ...s.search, isOpen: true },
+      }));
       useUIStore.setState({
         statusBarVisible: true,
         universalToolbarVisible: true,
@@ -86,7 +89,7 @@ describe("contentSearchNavigation", () => {
 
       openFindBarWithQuery("updated");
 
-      expect(useSearchStore.getState().query).toBe("updated");
+      expect(useUIStore.getState().search.query).toBe("updated");
       // Bars should remain visible since FindBar was already open
       expect(useUIStore.getState().statusBarVisible).toBe(true);
       expect(useUIStore.getState().universalToolbarVisible).toBe(true);
