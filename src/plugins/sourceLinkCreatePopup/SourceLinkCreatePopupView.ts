@@ -282,7 +282,7 @@ export class SourceLinkCreatePopupView {
     try {
       // Escape markdown-sensitive characters so user text containing
       // brackets/parens/backslashes doesn't break the [text](url) syntax.
-      const escapeText = (s: string) => s.replace(/[\\\[\]]/g, "\\$&");
+      const escapeText = (s: string) => s.replace(/[\\[\]]/g, "\\$&");
       const escapeHref = (s: string) =>
         s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
       const safeUrl = escapeHref(finalUrl);

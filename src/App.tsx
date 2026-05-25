@@ -12,16 +12,33 @@ import { FindBar } from "@/components/FindBar";
 import { TitleBar } from "@/components/TitleBar";
 import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
 import { AppShell, EditorArea } from "@/shell";
+import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
+import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
+import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
+import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
+import { CommandPalette } from "@/components/CommandPalette";
+import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
+import { useUIStore } from "@/stores/uiStore";
+import { useSearchStore } from "@/stores/searchStore";
+import { useTheme } from "@/hooks/useTheme";
+import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
+import { useTabModeSync } from "@/hooks/useTabModeSync";
+import {
+  useWorkspaceLifecycle,
+  useEditorLifecycle,
+  DocumentWindowMount,
+  MainWindowRunners,
+} from "@/hooks/lifecycle";
+import { cssVars } from "@/theme";
+import { appError } from "@/utils/debug";
+
 const TerminalPanel = lazy(() =>
   import("@/components/Terminal").then((m) => ({ default: m.TerminalPanel }))
 );
-
 // Lazy-load page routes so non-document windows don't evaluate stores they don't need.
 // SettingsPage → aiProviderStore (credentials); must not evaluate in pdf-export window.
 const SettingsPage = lazy(() => import("@/pages/Settings").then(m => ({ default: m.SettingsPage })));
 const PdfExportPage = lazy(() => import("@/pages/PdfExportPage").then(m => ({ default: m.PdfExportPage })));
-import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
-import { appError } from "@/utils/debug";
 
 // Error Boundary to catch and display React errors
 interface ErrorBoundaryState {
@@ -69,59 +86,6 @@ class ErrorBoundaryInner extends Component<
 }
 
 const ErrorBoundary = withTranslation("dialog")(ErrorBoundaryInner);
-import { useUIStore } from "@/stores/uiStore";
-import { useSearchStore } from "@/stores/searchStore";
-import { useMenuEvents } from "@/hooks/useMenuEvents";
-import { useViewMenuEvents } from "@/hooks/useViewMenuEvents";
-import { useRecentFilesMenuEvents } from "@/hooks/useRecentFilesMenuEvents";
-import { useExportMenuEvents } from "@/hooks/useExportMenuEvents";
-import { useWorkspaceMenuEvents } from "@/hooks/useWorkspaceMenuEvents";
-import { useWorkspaceBootstrap } from "@/hooks/useWorkspaceBootstrap";
-import { useFileOperations } from "@/hooks/useFileOperations";
-import { useSearchCommands } from "@/hooks/useSearchCommands";
-import { useAutoSave } from "@/hooks/useAutoSave";
-import { useTheme } from "@/hooks/useTheme";
-import { useSettingsSync } from "@/hooks/useSettingsSync";
-import { useConfirmQuitSync } from "@/hooks/useConfirmQuitSync";
-import { useRecentFilesSync } from "@/hooks/useRecentFilesSync";
-import { useRecentWorkspacesSync } from "@/hooks/useRecentWorkspacesSync";
-import { useRecentWorkspacesMenuEvents } from "@/hooks/useRecentWorkspacesMenuEvents";
-import { useWindowClose } from "@/hooks/useWindowClose";
-import { useWindowTitle } from "@/hooks/useWindowTitle";
-import { useViewShortcuts } from "@/hooks/useViewShortcuts";
-import { useTabShortcuts } from "@/hooks/useTabShortcuts";
-import { useReloadGuard } from "@/hooks/useReloadGuard";
-import { useSelectAllScope } from "@/hooks/useSelectAllScope";
-import { useDragDropOpen } from "@/hooks/useDragDropOpen";
-import { useExternalFileChanges } from "@/hooks/useExternalFileChanges";
-import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
-import { useUniversalToolbar } from "@/hooks/useUniversalToolbar";
-import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
-import { useMcpBridge } from "@/hooks/useMcpBridge";
-import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
-import { useImagePasteToast } from "@/hooks/useImagePasteToast";
-import { useFormatsUpgradeNudge } from "@/hooks/useFormatsUpgradeNudge";
-import { useFormatSettingsBridge } from "@/services/formats/formatSettingsBridge";
-import { useUpdateChecker } from "@/hooks/useUpdateChecker";
-import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
-import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
-import { useHotExitCapture } from "@/services/persistence/hotExit/useHotExitCapture";
-import { useHotExitRestore } from "@/services/persistence/hotExit/useHotExitRestore";
-import { useHotExitStartup } from "@/services/persistence/hotExit/useHotExitStartup";
-import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
-import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
-import { useCrashRecoveryWriter } from "@/hooks/useCrashRecoveryWriter";
-import { useCrashRecoveryStartup } from "@/hooks/useCrashRecoveryStartup";
-import { useCrashRecoveryCleanup } from "@/hooks/useCrashRecoveryCleanup";
-import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
-import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
-import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
-import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
-import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
-import { useContentSearchShortcuts } from "@/components/ContentSearch/useContentSearchShortcuts";
-import { CommandPalette, useCommandPaletteShortcut } from "@/components/CommandPalette";
-import { useTabModeSync } from "@/hooks/useTabModeSync";
-import { cssVars } from "@/theme";
 
 // ADR-014 sample migration — visual values come from the typed accessor
 // in `@/theme`. Non-token literals (z-index, border width, viewport
@@ -169,97 +133,25 @@ function DropOverlay() {
   );
 }
 
-// Separate component for window lifecycle hooks to avoid conditional hook calls
-function DocumentWindowHooks() {
-  useWindowClose();
-  useWindowTitle();
-  useDragDropOpen(); // Open dropped markdown files
-  useWindowFileWatcher(); // Start file watcher for this window
-  useExternalFileChanges(); // Handle external file changes (auto-reload or prompt)
-  useHotExitCapture(); // Respond to hot exit capture requests
-  useHotExitRestore(); // Handle hot exit restore on restart
-  useCrashRecoveryWriter(); // Periodically snapshot dirty docs for crash recovery
-  useCrashRecoveryCleanup(); // Clean up recovery files on save/close/exit
-  useMcpBridge(); // Handle MCP bridge requests — each window has its own editor
-  useFormatSettingsBridge(); // Re-bootstrap registry on format-toggle change
-  return null;
-}
-
-// Wrapper so useGenieShortcuts can be called conditionally via mount/unmount
-function GenieShortcutsRunner() {
-  useGenieShortcuts();
-  return null;
-}
-
-function QuickOpenShortcutsRunner() {
-  useQuickOpenShortcuts();
-  return null;
-}
-
-function ContentSearchShortcutsRunner() {
-  useContentSearchShortcuts();
-  return null;
-}
-
-function CommandPaletteShortcutRunner() {
-  useCommandPaletteShortcut();
-  return null;
-}
-
-// Main window specific hooks (only for "main" window, not doc-*)
-function MainWindowHooks() {
-  useMcpAutoStart(); // Auto-start MCP server if enabled
-  useUpdateChecker(); // Check for updates on startup
-  useUpdateBroadcast(); // Broadcast update state to other windows
-  // Also listen — Settings now runs check/download locally and broadcasts
-  // back. Without this, a Settings-side check that finds a new version
-  // wouldn't update the StatusBar UpdateIndicator in the main window.
-  useUpdateListener();
-  useHotExitStartup(); // Check for saved session and restore if present (MUST run before Finder)
-  useCrashRecoveryStartup(); // Restore docs from crash recovery (waits for hot exit)
-  useFinderFileOpen(); // Handle files opened from Finder (waits for hot exit to complete)
-  return null;
-}
-
 function MainLayout() {
+  // Window context + store selectors. State reads only, not lifecycle hooks.
+  const isDocumentWindow = useIsDocumentWindow();
+  const windowLabel = useWindowLabel();
   const focusModeEnabled = useUIStore((state) => state.focusModeEnabled);
-  const typewriterModeEnabled = useUIStore(
-    (state) => state.typewriterModeEnabled
-  );
+  const typewriterModeEnabled = useUIStore((state) => state.typewriterModeEnabled);
   const sidebarVisible = useUIStore((state) => state.sidebarVisible);
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useSearchStore((state) => state.isOpen);
-  const isDocumentWindow = useIsDocumentWindow();
-  const windowLabel = useWindowLabel();
-
-  // Initialize hooks
-  useWorkspaceBootstrap(); // Load config from disk on startup (must be first)
-  useMenuEvents();
-  useViewMenuEvents();
-  useRecentFilesMenuEvents();
-  useExportMenuEvents();
-  useWorkspaceMenuEvents();
-  useFileOperations();
-  useSearchCommands();
-  useSettingsSync(); // Sync settings across windows
-  useConfirmQuitSync(); // Push confirmQuit setting to Rust
-  useTheme();
-  useAutoSave(); // Auto-save when dirty
-  useRecentFilesSync(); // Sync recent files to native menu
-  useRecentWorkspacesSync(); // Sync recent workspaces to native menu
-  useRecentWorkspacesMenuEvents(); // Handle recent workspace menu events
-  useViewShortcuts(); // F8, F9 view shortcuts
-  useTabShortcuts(); // Cmd+T, Cmd+W tab shortcuts
-  useReloadGuard(); // Prevent reload when dirty
-  useSelectAllScope(); // Scope Cmd+A to editor/terminal/inputs; suppress page-wide selection
-  useUniversalToolbar(); // Universal toolbar toggle (shortcut configurable)
-  useFileExplorerShortcuts(); // Toggle hidden files
-  useImagePasteToast(); // Image paste confirmation toast
-  useTerminalPosition(); // Auto-reposition terminal panel based on window shape
-  useTabModeSync(); // ADR-009: per-tab editor swap on tab switch
-  useFormatsUpgradeNudge(); // One-time toast surfacing the new opt-in formats
-
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
+
+  // T03 lifecycle composites — every per-document/per-window hook now
+  // lives in src/hooks/lifecycle/. Adding a shortcut or sync hook
+  // edits a composite, not App.tsx.
+  useWorkspaceLifecycle();
+  useEditorLifecycle();
+  useTheme();
+  useTerminalPosition();
+  useTabModeSync();
 
   const className = [
     focusModeEnabled && "focus-mode",
@@ -308,12 +200,8 @@ function MainLayout() {
       }
       overlays={
         <>
-          {isDocumentWindow && <DocumentWindowHooks />}
-          {windowLabel === "main" && <MainWindowHooks />}
-          <GenieShortcutsRunner />
-          <QuickOpenShortcutsRunner />
-          <ContentSearchShortcutsRunner />
-          <CommandPaletteShortcutRunner />
+          {isDocumentWindow && <DocumentWindowMount />}
+          {windowLabel === "main" && <MainWindowRunners />}
 
           <DropOverlay />
           <QuickOpen windowLabel={windowLabel} />
