@@ -9,10 +9,9 @@
     },
     "codex-cli": {
       "type": "stdio",
-      "command": "npx",
+      "command": "codex",
       "args": [
-        "-y",
-        "codex-mcp-server@1.4.10"
+        "mcp-server"
       ]
     }
   }
