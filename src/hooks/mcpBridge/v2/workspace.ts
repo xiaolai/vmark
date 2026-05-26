@@ -374,15 +374,21 @@ export async function handleWorkspaceFocusWindow(
       });
       return;
     }
-    // Tauri's window-focus API is async and lives on the `Window`
-    // object — request a focus via the existing webview helper.
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    const target = await WebviewWindow.getByLabel(windowLabel);
+    if (!target) {
+      await structuredError(id, {
+        error: "INTERNAL",
+        message: `Unknown windowLabel: ${windowLabel}`,
+      });
+      return;
+    }
     try {
-      await getCurrentWindow().setFocus();
+      await target.setFocus();
     } catch {
-      // Best-effort. Some platforms reject focus changes from non-user
-      // gestures; we surface success regardless because the alternative
-      // is an unhelpful error to the AI.
+      // Some platforms reject focus changes from non-user gestures;
+      // surface success regardless — the alternative is an unhelpful
+      // error to the AI.
     }
     await respond({ id, success: true, data: {} });
   } catch (error) {

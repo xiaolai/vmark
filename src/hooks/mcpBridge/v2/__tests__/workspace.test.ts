@@ -11,7 +11,17 @@ import {
   handleWorkspaceSwitchTab,
   handleWorkspaceSave,
   handleWorkspaceSaveAs,
+  handleWorkspaceFocusWindow,
 } from "../workspace";
+
+const setFocusMock = vi.fn(async () => {});
+const getByLabelMock = vi.fn(async (label: string) => {
+  if (label === "doc-1") return { setFocus: setFocusMock };
+  return null;
+});
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  WebviewWindow: { getByLabel: (label: string) => getByLabelMock(label) },
+}));
 
 vi.mock("../../utils", () => ({
   respond: vi.fn(),
@@ -260,5 +270,46 @@ describe("vmark.workspace.save / save_as", () => {
     expect(
       useDocumentStore.getState().documents["t-a"].filePath,
     ).toBe("/tmp/new.md");
+  });
+});
+
+describe("vmark.workspace.focus_window", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+  });
+
+  it("rejects non-string windowLabel as a structured INTERNAL error", async () => {
+    await handleWorkspaceFocusWindow("req-fw-1", {});
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({ error: "INTERNAL" });
+    expect(setFocusMock).not.toHaveBeenCalled();
+  });
+
+  it("focuses the window identified by the label", async () => {
+    await handleWorkspaceFocusWindow("req-fw-2", { windowLabel: "doc-1" });
+    expect(getByLabelMock).toHaveBeenCalledWith("doc-1");
+    expect(setFocusMock).toHaveBeenCalledTimes(1);
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+  });
+
+  it("returns a structured INTERNAL error when the label does not resolve to a window", async () => {
+    await handleWorkspaceFocusWindow("req-fw-3", { windowLabel: "ghost" });
+    expect(setFocusMock).not.toHaveBeenCalled();
+    const r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({
+      error: "INTERNAL",
+      message: expect.stringMatching(/ghost/),
+    });
+  });
+
+  it("treats a setFocus rejection as success (best-effort focus per the existing contract)", async () => {
+    setFocusMock.mockRejectedValueOnce(new Error("denied"));
+    await handleWorkspaceFocusWindow("req-fw-4", { windowLabel: "doc-1" });
+    const r = lastRespond();
+    expect(r.success).toBe(true);
   });
 });
