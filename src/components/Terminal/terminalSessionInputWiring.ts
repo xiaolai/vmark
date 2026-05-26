@@ -82,7 +82,7 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
     // Block ALL onData during composition + grace period.
     if (instance.composing) return;
 
-    // Post-grace dedup safety net (#525).
+    // Post-grace dedup safety net (#525, #948).
     if (
       instance.lastCommittedText &&
       Date.now() - instance.lastCommitTime < IME_DEDUP_WINDOW_MS
@@ -91,9 +91,24 @@ export function wireSessionInput({ sessionId, getEntry, startShell }: WireOption
         e.lastSeenCommitTime = instance.lastCommitTime;
         e.lastCommittedConsumed = 0;
       }
-      const remainder = instance.lastCommittedText.slice(e.lastCommittedConsumed);
+      const committed = instance.lastCommittedText;
+      // Path A (#525): chunked re-emission across segments of the
+      // committed string — match the unconsumed remainder.
+      const remainder = committed.slice(e.lastCommittedConsumed);
       if (data.length > 0 && (remainder === data || remainder.startsWith(data))) {
         e.lastCommittedConsumed += data.length;
+        return;
+      }
+      // Path B (#948): Linux + WebKitGTK re-emits the committed text
+      // 1–2× per commit, sometimes concatenated into one chunk
+      // ("你好你好"). Suppress whole-integer multiples of the
+      // committed string.
+      if (
+        data.length > 0 &&
+        committed.length > 0 &&
+        data.length % committed.length === 0 &&
+        data === committed.repeat(data.length / committed.length)
+      ) {
         return;
       }
     }

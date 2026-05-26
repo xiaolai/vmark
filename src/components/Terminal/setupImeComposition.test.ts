@@ -96,3 +96,76 @@ describe("setupImeComposition — macOS Pinyin punctuation conversion", () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 });
+
+describe("setupImeComposition — Linux fcitx5/WebKitGTK fresh commit path (#948)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("commits multi-char text when compositionstart never fired (fcitx5 path)", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    // No compositionstart — fcitx5 + rime on WebKitGTK skips it for
+    // committed text. The committed CJK arrives in compositionend.
+    fireComposition(textarea, "compositionend", "你好");
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith("你好");
+    expect(handle.lastCommittedText).toBe("你好");
+  });
+
+  it("drops a re-fired compositionend that re-states the most recent commit (macOS #659 path)", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    // First arrival: fresh fcitx5-style commit. onCommit fires once.
+    fireComposition(textarea, "compositionend", "你好");
+    expect(onCommit).toHaveBeenCalledTimes(1);
+
+    // Immediate re-fire of the same text: this is the macOS spurious
+    // double-fire shape (#659). Drop it.
+    fireComposition(textarea, "compositionend", "你好");
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a different compositionend text as a fresh commit even with no compositionstart", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    fireComposition(textarea, "compositionend", "你好");
+    fireComposition(textarea, "compositionend", "世界");
+
+    expect(onCommit).toHaveBeenCalledTimes(2);
+    expect(onCommit).toHaveBeenNthCalledWith(1, "你好");
+    expect(onCommit).toHaveBeenNthCalledWith(2, "世界");
+  });
+
+  it("ignores empty-data compositionend that has no preceding composition", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    const onCommit = vi.fn();
+    handle.onCompositionCommit = onCommit;
+
+    fireComposition(textarea, "compositionend", "");
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("still records the dedup anchor on a fresh commit even when onCompositionCommit is not set", () => {
+    const { container, textarea } = makeContainer();
+    const handle = setupImeComposition({ container });
+    // No onCompositionCommit assigned.
+
+    fireComposition(textarea, "compositionend", "你好");
+
+    expect(handle.lastCommittedText).toBe("你好");
+    expect(handle.lastCommitTime).toBeGreaterThan(0);
+  });
+});

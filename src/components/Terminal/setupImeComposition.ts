@@ -142,9 +142,30 @@ export function setupImeComposition({ container }: SetupOptions): ImeComposition
     const committedText = e.data;
     terminalLog("compositionend", committedText);
 
-    // Guard: spurious compositionend without preceding compositionstart
-    // (fcitx5+rime on Linux: #659).
-    if (!composing && !inGracePeriod) return;
+    // compositionend without a preceding compositionstart has two known
+    // shapes:
+    //   - macOS: after a real composition ends, the IME occasionally
+    //     re-fires compositionend with the same data (#659). Drop it.
+    //   - Linux + WebKitGTK + fcitx5/rime: compositionstart NEVER fires
+    //     for committed text; compositionend is the only signal. Treat
+    //     it as the authoritative commit (#948).
+    // Discriminate by the dedup buffer: a re-fire of recently-committed
+    // text is a duplicate; new text is a fresh commit.
+    if (!composing && !inGracePeriod) {
+      if (!committedText) return;
+      const isRecentDup =
+        lastCommittedText !== null &&
+        committedText === lastCommittedText &&
+        Date.now() - lastCommitTime < IME_COMPOSITION_GRACE_MS;
+      if (isRecentDup) return;
+      pendingCommitText = null;
+      lastCommittedText = committedText;
+      lastCommitTime = Date.now();
+      if (onCompositionCommit) {
+        onCompositionCommit(committedText);
+      }
+      return;
+    }
 
     // Single non-ASCII char (CJK punctuation/bracket) — flush immediately.
     // These don't trigger xterm's garbled space injection (#525).
