@@ -7,7 +7,15 @@
     "newDocsHint": "새 문서 {{count}}개의 저장 위치가 필요합니다.",
     "newDocsHint_plural": "새 문서 {{count}}개의 저장 위치가 필요합니다.",
     "openInNewWindow": "이 창에 저장되지 않은 변경 사항이 있습니다. 대신 새 창에서 워크스페이스를 여시겠습니까?",
+    "openInNewWindowOk": "새 창에서 열기",
+    "openInNewWindowCancel": "취소",
     "restartUnsaved": "저장되지 않은 문서가 {{count}}개 있습니다. 재시작하고 재실행 시 복원할까요?"
+  },
+  "clearHistory": {
+    "allTitle": "모든 기록 지우기",
+    "allMessage": "모든 문서 기록이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+    "workspaceTitle": "워크스페이스 기록 지우기",
+    "workspaceMessage": "워크스페이스 \"{{workspaceName}}\"의 모든 문서 기록을 삭제할까요?\n이 작업은 되돌릴 수 없습니다."
   },
   "windowClose": {
     "pinnedTitle": "창을 닫으시겠습니까?",

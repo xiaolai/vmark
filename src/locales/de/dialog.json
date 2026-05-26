@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}} neues Dokument benötigt einen Speicherort.",
     "newDocsHint_plural": "{{count}} neue Dokumente benötigen einen Speicherort.",
     "openInNewWindow": "Dieses Fenster hat nicht gespeicherte Änderungen. Den Arbeitsbereich stattdessen in einem neuen Fenster öffnen?",
+    "openInNewWindowOk": "In neuem Fenster öffnen",
+    "openInNewWindowCancel": "Abbrechen",
     "restartUnsaved": "Sie haben {{count}} nicht gespeicherte(s) Dokument(e). Neu starten und beim Neustart wiederherstellen?"
+  },
+  "clearHistory": {
+    "allTitle": "Gesamten Verlauf löschen",
+    "allMessage": "Dadurch wird der gesamte Dokumentverlauf dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "workspaceTitle": "Arbeitsbereichsverlauf löschen",
+    "workspaceMessage": "Verlauf für alle Dokumente im Arbeitsbereich \"{{workspaceName}}\" löschen?\nDies kann nicht rückgängig gemacht werden."
   },
   "windowClose": {
     "pinnedTitle": "Fenster schließen?",

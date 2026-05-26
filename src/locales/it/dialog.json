@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}} nuovo documento richiederà un percorso di salvataggio.",
     "newDocsHint_plural": "{{count}} nuovi documenti richiederanno un percorso di salvataggio.",
     "openInNewWindow": "Questa finestra ha modifiche non salvate. Aprire lo spazio di lavoro in una nuova finestra?",
+    "openInNewWindowOk": "Apri in nuova finestra",
+    "openInNewWindowCancel": "Annulla",
     "restartUnsaved": "Hai {{count}} documento(i) non salvato(i). Riavviare e ripristinare al riavvio?"
+  },
+  "clearHistory": {
+    "allTitle": "Cancella tutta la cronologia",
+    "allMessage": "Questo eliminerà definitivamente tutta la cronologia dei documenti. Questa azione non può essere annullata.",
+    "workspaceTitle": "Cancella cronologia dello spazio di lavoro",
+    "workspaceMessage": "Eliminare la cronologia di tutti i documenti nello spazio di lavoro «{{workspaceName}}»?\nQuesta azione non può essere annullata."
   },
   "windowClose": {
     "pinnedTitle": "Chiudi finestra?",

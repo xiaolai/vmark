@@ -1,0 +1,31 @@
+{
+  "app": { "preferences": "Preferencias" },
+  "history": { "clearAll": "Borrar todo el historial", "clearWorkspace": "Borrar el historial del espacio de trabajo" },
+  "image": { "cleanupOrphans": "Limpiar imágenes no utilizadas" },
+  "help": { "vmarkHelp": "Ayuda de VMark", "keyboardShortcuts": "Atajos de teclado", "reportIssue": "Informar de un problema" },
+  "genies": { "openFolder": "Abrir carpeta de genios" },
+  "export": { "html": "Exportar como HTML", "pdf": "Imprimir a PDF", "pdfNative": "Exportar como PDF", "copyHtml": "Copiar como HTML", "pandocHint": "Instalar Pandoc", "pandocFormat": "Exportar con Pandoc" },
+  "file": { "clearRecent": "Borrar archivos recientes", "openRecent": "Abrir archivo reciente" },
+  "workspace": { "openFolder": "Abrir espacio de trabajo…", "close": "Cerrar espacio de trabajo", "clearRecent": "Borrar espacios de trabajo recientes", "openRecent": "Abrir espacio de trabajo reciente" },
+  "view": {
+    "toggleSourceMode": "Alternar modo fuente",
+    "toggleFocusMode": "Alternar modo enfoque",
+    "toggleTypewriterMode": "Alternar modo máquina de escribir",
+    "toggleOutline": "Alternar esquema",
+    "toggleFileExplorer": "Alternar explorador de archivos",
+    "toggleHistory": "Alternar historial",
+    "toggleWordWrap": "Alternar ajuste de línea",
+    "toggleLineNumbers": "Alternar números de línea",
+    "toggleDiagramPreview": "Alternar vista previa de diagramas",
+    "toggleFitTables": "Ajustar tablas al ancho",
+    "toggleReadOnly": "Alternar solo lectura",
+    "toggleTerminal": "Alternar terminal",
+    "zoomActual": "Tamaño real",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "toggleShowInvisibles": "Alternar caracteres invisibles"
+  },
+  "lint": { "check": "Revisar Markdown", "next": "Siguiente problema de Lint", "prev": "Problema anterior de Lint" },
+  "commandPalette": { "placeholder": "Escribe un comando", "empty": "No hay comandos coincidentes" },
+  "aria": { "commandPalette": "Paleta de comandos" }
+}

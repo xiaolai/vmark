@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}} nouveau document nécessitera un emplacement d'enregistrement.",
     "newDocsHint_plural": "{{count}} nouveaux documents nécessiteront un emplacement d'enregistrement.",
     "openInNewWindow": "Cette fenêtre contient des modifications non enregistrées. Ouvrir l'espace de travail dans une nouvelle fenêtre ?",
+    "openInNewWindowOk": "Ouvrir dans une nouvelle fenêtre",
+    "openInNewWindowCancel": "Annuler",
     "restartUnsaved": "Vous avez {{count}} document(s) non enregistré(s). Redémarrer et restaurer au relancement ?"
+  },
+  "clearHistory": {
+    "allTitle": "Effacer tout l'historique",
+    "allMessage": "Cela supprimera définitivement tout l'historique des documents. Cette action est irréversible.",
+    "workspaceTitle": "Effacer l'historique de l'espace de travail",
+    "workspaceMessage": "Supprimer l'historique de tous les documents de l'espace de travail « {{workspaceName}} » ?\nCette action est irréversible."
   },
   "windowClose": {
     "pinnedTitle": "Fermer la fenêtre ?",

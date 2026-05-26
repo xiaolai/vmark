@@ -1,0 +1,68 @@
+{
+  "app": {
+    "preferences": "Preferências"
+  },
+  "history": {
+    "clearAll": "Limpar todo o histórico",
+    "clearWorkspace": "Limpar histórico do espaço de trabalho"
+  },
+  "image": {
+    "cleanupOrphans": "Limpar imagens não utilizadas"
+  },
+  "help": {
+    "vmarkHelp": "Ajuda do VMark",
+    "keyboardShortcuts": "Atalhos de teclado",
+    "reportIssue": "Relatar um problema"
+  },
+  "genies": {
+    "openFolder": "Abrir pasta de assistentes"
+  },
+  "export": {
+    "html": "Exportar como HTML",
+    "pdf": "Imprimir para PDF",
+    "pdfNative": "Exportar como PDF",
+    "copyHtml": "Copiar como HTML",
+    "pandocHint": "Instalar Pandoc",
+    "pandocFormat": "Exportar via Pandoc"
+  },
+  "file": {
+    "clearRecent": "Limpar arquivos recentes",
+    "openRecent": "Abrir arquivo recente"
+  },
+  "workspace": {
+    "openFolder": "Abrir espaço de trabalho…",
+    "close": "Fechar espaço de trabalho",
+    "clearRecent": "Limpar espaços de trabalho recentes",
+    "openRecent": "Abrir espaço de trabalho recente"
+  },
+  "view": {
+    "toggleSourceMode": "Alternar modo de código-fonte",
+    "toggleFocusMode": "Alternar modo de foco",
+    "toggleTypewriterMode": "Alternar modo máquina de escrever",
+    "toggleOutline": "Alternar sumário",
+    "toggleFileExplorer": "Alternar explorador de arquivos",
+    "toggleHistory": "Alternar histórico",
+    "toggleWordWrap": "Alternar quebra de linha",
+    "toggleLineNumbers": "Alternar números de linha",
+    "toggleDiagramPreview": "Alternar pré-visualização de diagramas",
+    "toggleFitTables": "Ajustar tabelas à largura",
+    "toggleReadOnly": "Alternar somente leitura",
+    "toggleTerminal": "Alternar terminal",
+    "zoomActual": "Tamanho real",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "toggleShowInvisibles": "Alternar caracteres invisíveis"
+  },
+  "lint": {
+    "check": "Verificar Markdown",
+    "next": "Próximo problema de Lint",
+    "prev": "Problema de Lint anterior"
+  },
+  "commandPalette": {
+    "placeholder": "Digite um comando",
+    "empty": "Nenhum comando correspondente"
+  },
+  "aria": {
+    "commandPalette": "Paleta de comandos"
+  }
+}

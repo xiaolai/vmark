@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}}個の新しいドキュメントの保存場所を指定する必要があります。",
     "newDocsHint_plural": "{{count}}個の新しいドキュメントの保存場所を指定する必要があります。",
     "openInNewWindow": "このウィンドウに未保存の変更があります。代わりに新しいウィンドウでワークスペースを開きますか？",
+    "openInNewWindowOk": "新しいウィンドウで開く",
+    "openInNewWindowCancel": "キャンセル",
     "restartUnsaved": "{{count}}個の未保存ドキュメントがあります。再起動後に復元しますか？"
+  },
+  "clearHistory": {
+    "allTitle": "すべての履歴を消去",
+    "allMessage": "すべてのドキュメント履歴を完全に削除します。この操作は元に戻せません。",
+    "workspaceTitle": "ワークスペースの履歴を消去",
+    "workspaceMessage": "ワークスペース「{{workspaceName}}」内のすべてのドキュメントの履歴を削除しますか？\nこの操作は元に戻せません。"
   },
   "windowClose": {
     "pinnedTitle": "ウィンドウを閉じますか?",

@@ -1,0 +1,60 @@
+{
+  "app": { "preferences": "環境設定" },
+  "history": {
+    "clearAll": "すべての履歴を消去",
+    "clearWorkspace": "ワークスペースの履歴を消去"
+  },
+  "image": { "cleanupOrphans": "未使用の画像を整理" },
+  "help": {
+    "vmarkHelp": "VMark ヘルプ",
+    "keyboardShortcuts": "キーボードショートカット",
+    "reportIssue": "問題を報告"
+  },
+  "genies": { "openFolder": "ジーニーフォルダを開く" },
+  "export": {
+    "html": "HTML として書き出し",
+    "pdf": "PDF に印刷",
+    "pdfNative": "PDF として書き出し",
+    "copyHtml": "HTML としてコピー",
+    "pandocHint": "Pandoc をインストール",
+    "pandocFormat": "Pandoc 経由で書き出し"
+  },
+  "file": {
+    "clearRecent": "最近のファイルを消去",
+    "openRecent": "最近のファイルを開く"
+  },
+  "workspace": {
+    "openFolder": "ワークスペースを開く…",
+    "close": "ワークスペースを閉じる",
+    "clearRecent": "最近のワークスペースを消去",
+    "openRecent": "最近のワークスペースを開く"
+  },
+  "view": {
+    "toggleSourceMode": "ソースモードを切り替え",
+    "toggleFocusMode": "フォーカスモードを切り替え",
+    "toggleTypewriterMode": "タイプライターモードを切り替え",
+    "toggleOutline": "アウトラインを切り替え",
+    "toggleFileExplorer": "ファイルエクスプローラーを切り替え",
+    "toggleHistory": "履歴を切り替え",
+    "toggleWordWrap": "ワードラップを切り替え",
+    "toggleLineNumbers": "行番号を切り替え",
+    "toggleDiagramPreview": "ダイアグラムプレビューを切り替え",
+    "toggleFitTables": "テーブルを幅に合わせる",
+    "toggleReadOnly": "読み取り専用を切り替え",
+    "toggleTerminal": "ターミナルを切り替え",
+    "zoomActual": "実際のサイズ",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "toggleShowInvisibles": "不可視文字を切り替え"
+  },
+  "lint": {
+    "check": "Markdown をチェック",
+    "next": "次の Lint 問題",
+    "prev": "前の Lint 問題"
+  },
+  "commandPalette": {
+    "placeholder": "コマンドを入力",
+    "empty": "一致するコマンドがありません"
+  },
+  "aria": { "commandPalette": "コマンドパレット" }
+}

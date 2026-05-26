@@ -1,0 +1,68 @@
+{
+  "app": {
+    "preferences": "偏好設定"
+  },
+  "history": {
+    "clearAll": "清除所有歷史紀錄",
+    "clearWorkspace": "清除工作區歷史紀錄"
+  },
+  "image": {
+    "cleanupOrphans": "清理未使用的圖片"
+  },
+  "help": {
+    "vmarkHelp": "VMark 說明",
+    "keyboardShortcuts": "鍵盤快速鍵",
+    "reportIssue": "回報問題"
+  },
+  "genies": {
+    "openFolder": "開啟精靈資料夾"
+  },
+  "export": {
+    "html": "匯出為 HTML",
+    "pdf": "列印為 PDF",
+    "pdfNative": "匯出為 PDF",
+    "copyHtml": "複製為 HTML",
+    "pandocHint": "安裝 Pandoc",
+    "pandocFormat": "透過 Pandoc 匯出"
+  },
+  "file": {
+    "clearRecent": "清除最近使用的檔案",
+    "openRecent": "開啟最近使用的檔案"
+  },
+  "workspace": {
+    "openFolder": "開啟工作區…",
+    "close": "關閉工作區",
+    "clearRecent": "清除最近使用的工作區",
+    "openRecent": "開啟最近使用的工作區"
+  },
+  "view": {
+    "toggleSourceMode": "切換原始碼模式",
+    "toggleFocusMode": "切換專注模式",
+    "toggleTypewriterMode": "切換打字機模式",
+    "toggleOutline": "切換大綱",
+    "toggleFileExplorer": "切換檔案總管",
+    "toggleHistory": "切換歷史紀錄",
+    "toggleWordWrap": "切換自動換行",
+    "toggleLineNumbers": "切換行號",
+    "toggleDiagramPreview": "切換圖表預覽",
+    "toggleFitTables": "表格符合寬度",
+    "toggleReadOnly": "切換唯讀模式",
+    "toggleTerminal": "切換終端機",
+    "zoomActual": "實際大小",
+    "zoomIn": "放大",
+    "zoomOut": "縮小",
+    "toggleShowInvisibles": "切換顯示隱形字元"
+  },
+  "lint": {
+    "check": "檢查 Markdown",
+    "next": "下一個 Lint 問題",
+    "prev": "上一個 Lint 問題"
+  },
+  "commandPalette": {
+    "placeholder": "輸入指令",
+    "empty": "沒有相符的指令"
+  },
+  "aria": {
+    "commandPalette": "指令面板"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "app": {
+    "preferences": "Préférences"
+  },
+  "history": {
+    "clearAll": "Effacer tout l'historique",
+    "clearWorkspace": "Effacer l'historique de l'espace de travail"
+  },
+  "image": {
+    "cleanupOrphans": "Nettoyer les images inutilisées"
+  },
+  "help": {
+    "vmarkHelp": "Aide VMark",
+    "keyboardShortcuts": "Raccourcis clavier",
+    "reportIssue": "Signaler un problème"
+  },
+  "genies": {
+    "openFolder": "Ouvrir le dossier des génies"
+  },
+  "export": {
+    "html": "Exporter en HTML",
+    "pdf": "Imprimer en PDF",
+    "pdfNative": "Exporter en PDF",
+    "copyHtml": "Copier en HTML",
+    "pandocHint": "Installer Pandoc",
+    "pandocFormat": "Exporter via Pandoc"
+  },
+  "file": {
+    "clearRecent": "Effacer les fichiers récents",
+    "openRecent": "Ouvrir un fichier récent"
+  },
+  "workspace": {
+    "openFolder": "Ouvrir un espace de travail…",
+    "close": "Fermer l'espace de travail",
+    "clearRecent": "Effacer les espaces de travail récents",
+    "openRecent": "Ouvrir un espace de travail récent"
+  },
+  "view": {
+    "toggleSourceMode": "Activer/désactiver le mode source",
+    "toggleFocusMode": "Activer/désactiver le mode focus",
+    "toggleTypewriterMode": "Activer/désactiver le mode machine à écrire",
+    "toggleOutline": "Afficher/masquer le plan",
+    "toggleFileExplorer": "Afficher/masquer l'explorateur de fichiers",
+    "toggleHistory": "Afficher/masquer l'historique",
+    "toggleWordWrap": "Activer/désactiver le retour à la ligne",
+    "toggleLineNumbers": "Afficher/masquer les numéros de ligne",
+    "toggleDiagramPreview": "Afficher/masquer l'aperçu du diagramme",
+    "toggleFitTables": "Ajuster les tableaux à la largeur",
+    "toggleReadOnly": "Activer/désactiver la lecture seule",
+    "toggleTerminal": "Afficher/masquer le terminal",
+    "zoomActual": "Taille réelle",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "toggleShowInvisibles": "Afficher/masquer les caractères invisibles"
+  },
+  "lint": {
+    "check": "Vérifier le Markdown",
+    "next": "Problème de lint suivant",
+    "prev": "Problème de lint précédent"
+  },
+  "commandPalette": {
+    "placeholder": "Saisir une commande",
+    "empty": "Aucune commande correspondante"
+  },
+  "aria": {
+    "commandPalette": "Palette de commandes"
+  }
+}

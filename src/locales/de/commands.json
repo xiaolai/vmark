@@ -1,0 +1,31 @@
+{
+  "app": { "preferences": "Einstellungen" },
+  "history": { "clearAll": "Gesamten Verlauf löschen", "clearWorkspace": "Arbeitsbereichsverlauf löschen" },
+  "image": { "cleanupOrphans": "Ungenutzte Bilder aufräumen" },
+  "help": { "vmarkHelp": "VMark-Hilfe", "keyboardShortcuts": "Tastaturkürzel", "reportIssue": "Problem melden" },
+  "genies": { "openFolder": "Genies-Ordner öffnen" },
+  "export": { "html": "Als HTML exportieren", "pdf": "Als PDF drucken", "pdfNative": "Als PDF exportieren", "copyHtml": "Als HTML kopieren", "pandocHint": "Pandoc installieren", "pandocFormat": "Über Pandoc exportieren" },
+  "file": { "clearRecent": "Zuletzt geöffnete Dateien löschen", "openRecent": "Zuletzt geöffnete Datei öffnen" },
+  "workspace": { "openFolder": "Arbeitsbereich öffnen…", "close": "Arbeitsbereich schließen", "clearRecent": "Zuletzt geöffnete Arbeitsbereiche löschen", "openRecent": "Zuletzt geöffneten Arbeitsbereich öffnen" },
+  "view": {
+    "toggleSourceMode": "Quelltextmodus umschalten",
+    "toggleFocusMode": "Fokusmodus umschalten",
+    "toggleTypewriterMode": "Schreibmaschinenmodus umschalten",
+    "toggleOutline": "Gliederung umschalten",
+    "toggleFileExplorer": "Datei-Explorer umschalten",
+    "toggleHistory": "Verlauf umschalten",
+    "toggleWordWrap": "Zeilenumbruch umschalten",
+    "toggleLineNumbers": "Zeilennummern umschalten",
+    "toggleDiagramPreview": "Diagrammvorschau umschalten",
+    "toggleFitTables": "Tabellen an Breite anpassen",
+    "toggleReadOnly": "Schreibschutz umschalten",
+    "toggleTerminal": "Terminal umschalten",
+    "zoomActual": "Originalgröße",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "toggleShowInvisibles": "Unsichtbare Zeichen umschalten"
+  },
+  "lint": { "check": "Markdown prüfen", "next": "Nächstes Lint-Problem", "prev": "Vorheriges Lint-Problem" },
+  "commandPalette": { "placeholder": "Befehl eingeben", "empty": "Keine passenden Befehle" },
+  "aria": { "commandPalette": "Befehlspalette" }
+}

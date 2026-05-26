@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}} 份新文件需要指定儲存位置。",
     "newDocsHint_plural": "{{count}} 份新文件需要指定儲存位置。",
     "openInNewWindow": "此視窗有未儲存的變更。是否改為在新視窗開啟工作區？",
+    "openInNewWindowOk": "在新視窗中開啟",
+    "openInNewWindowCancel": "取消",
     "restartUnsaved": "您有 {{count}} 份未儲存的文件。是否重新啟動並在重新開啟時還原？"
+  },
+  "clearHistory": {
+    "allTitle": "清除所有歷史紀錄",
+    "allMessage": "這將永久刪除所有文件的歷史紀錄。此操作無法復原。",
+    "workspaceTitle": "清除工作區歷史紀錄",
+    "workspaceMessage": "刪除工作區「{{workspaceName}}」中所有文件的歷史紀錄？\n此操作無法復原。"
   },
   "windowClose": {
     "pinnedTitle": "關閉視窗?",

@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}} documento nuevo necesitará una ubicación de guardado.",
     "newDocsHint_plural": "{{count}} documentos nuevos necesitarán una ubicación de guardado.",
     "openInNewWindow": "Esta ventana tiene cambios sin guardar. ¿Abrir el espacio de trabajo en una nueva ventana?",
+    "openInNewWindowOk": "Abrir en nueva ventana",
+    "openInNewWindowCancel": "Cancelar",
     "restartUnsaved": "Tienes {{count}} documento(s) sin guardar. ¿Reiniciar y restaurar al relanzar?"
+  },
+  "clearHistory": {
+    "allTitle": "Borrar todo el historial",
+    "allMessage": "Esto eliminará permanentemente todo el historial de documentos. Esta acción no se puede deshacer.",
+    "workspaceTitle": "Borrar el historial del espacio de trabajo",
+    "workspaceMessage": "¿Eliminar el historial de todos los documentos del espacio de trabajo «{{workspaceName}}»?\nEsta acción no se puede deshacer."
   },
   "windowClose": {
     "pinnedTitle": "¿Cerrar ventana?",

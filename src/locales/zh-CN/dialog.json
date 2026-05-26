@@ -7,7 +7,15 @@
     "newDocsHint": "{{count}} 个新文档需要选择保存位置。",
     "newDocsHint_plural": "{{count}} 个新文档需要选择保存位置。",
     "openInNewWindow": "此窗口有未保存的更改。改为在新窗口中打开工作区？",
+    "openInNewWindowOk": "在新窗口中打开",
+    "openInNewWindowCancel": "取消",
     "restartUnsaved": "您有 {{count}} 个未保存的文档。重启后恢复？"
+  },
+  "clearHistory": {
+    "allTitle": "清空所有历史记录",
+    "allMessage": "此操作将永久删除所有文档的历史记录,且无法撤销。",
+    "workspaceTitle": "清空工作区历史记录",
+    "workspaceMessage": "删除工作区「{{workspaceName}}」中所有文档的历史记录?\n此操作无法撤销。"
   },
   "windowClose": {
     "pinnedTitle": "关闭窗口?",

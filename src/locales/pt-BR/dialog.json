@@ -7,6 +7,8 @@
     "newDocsHint": "{{count}} novo documento precisará de um local para salvar.",
     "newDocsHint_plural": "{{count}} novos documentos precisarão de um local para salvar.",
     "openInNewWindow": "Esta janela tem alterações não salvas. Abrir o espaço de trabalho em uma nova janela?",
+    "openInNewWindowOk": "Abrir em nova janela",
+    "openInNewWindowCancel": "Cancelar",
     "restartUnsaved": "Você tem {{count}} documento(s) não salvo(s). Reiniciar e restaurar ao reabrir?"
   },
   "windowClose": {
@@ -38,6 +40,12 @@
   "clearRecentWorkspaces": {
     "title": "Limpar espaços de trabalho recentes",
     "message": "Limpar a lista de espaços de trabalho abertos recentemente?"
+  },
+  "clearHistory": {
+    "allTitle": "Limpar todo o histórico",
+    "allMessage": "Isso excluirá permanentemente todo o histórico dos documentos. Esta ação não pode ser desfeita.",
+    "workspaceTitle": "Limpar histórico do espaço de trabalho",
+    "workspaceMessage": "Excluir o histórico de todos os documentos no espaço de trabalho \"{{workspaceName}}\"?\nIsso não pode ser desfeito."
   },
   "fileNotFound": {
     "title": "Arquivo não encontrado",

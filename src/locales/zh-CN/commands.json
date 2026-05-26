@@ -1,0 +1,68 @@
+{
+  "app": {
+    "preferences": "偏好设置"
+  },
+  "history": {
+    "clearAll": "清空所有历史记录",
+    "clearWorkspace": "清空工作区历史记录"
+  },
+  "image": {
+    "cleanupOrphans": "清理未使用的图片"
+  },
+  "help": {
+    "vmarkHelp": "VMark 帮助",
+    "keyboardShortcuts": "键盘快捷键",
+    "reportIssue": "反馈问题"
+  },
+  "genies": {
+    "openFolder": "打开 Genies 文件夹"
+  },
+  "export": {
+    "html": "导出为 HTML",
+    "pdf": "打印为 PDF",
+    "pdfNative": "导出为 PDF",
+    "copyHtml": "复制为 HTML",
+    "pandocHint": "安装 Pandoc",
+    "pandocFormat": "通过 Pandoc 导出"
+  },
+  "file": {
+    "clearRecent": "清空最近文件",
+    "openRecent": "打开最近文件"
+  },
+  "workspace": {
+    "openFolder": "打开工作区……",
+    "close": "关闭工作区",
+    "clearRecent": "清空最近工作区",
+    "openRecent": "打开最近工作区"
+  },
+  "view": {
+    "toggleSourceMode": "切换源码模式",
+    "toggleFocusMode": "切换聚焦模式",
+    "toggleTypewriterMode": "切换打字机模式",
+    "toggleOutline": "切换大纲",
+    "toggleFileExplorer": "切换文件浏览器",
+    "toggleHistory": "切换历史记录",
+    "toggleWordWrap": "切换自动换行",
+    "toggleLineNumbers": "切换行号",
+    "toggleDiagramPreview": "切换图表预览",
+    "toggleFitTables": "表格适应宽度",
+    "toggleReadOnly": "切换只读模式",
+    "toggleTerminal": "切换终端",
+    "zoomActual": "实际大小",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "toggleShowInvisibles": "切换不可见字符"
+  },
+  "lint": {
+    "check": "检查 Markdown",
+    "next": "下一个 Lint 问题",
+    "prev": "上一个 Lint 问题"
+  },
+  "commandPalette": {
+    "placeholder": "输入命令",
+    "empty": "没有匹配的命令"
+  },
+  "aria": {
+    "commandPalette": "命令面板"
+  }
+}
