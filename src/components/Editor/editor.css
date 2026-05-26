@@ -27,9 +27,11 @@
   box-sizing: border-box; /* Include padding in width calculation */
 }
 
-/* Scrollbar styling for editor content (WYSIWYG mode) */
+/* Scrollbar styling for editor content (WYSIWYG mode)
+   Wider track (8px) so long documents are grabbable on click; the thumb
+   stays visually quiet by using --border-color until hover. (#946) */
 .editor-content::-webkit-scrollbar {
-  width: 2px;
+  width: 8px;
 }
 
 .editor-content::-webkit-scrollbar-track {
@@ -38,7 +40,7 @@
 
 .editor-content::-webkit-scrollbar-thumb {
   background-color: var(--border-color);
-  border-radius: 1px;
+  border-radius: var(--radius-sm);
 }
 
 .editor-content::-webkit-scrollbar-thumb:hover {
