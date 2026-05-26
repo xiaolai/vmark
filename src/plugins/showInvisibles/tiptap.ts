@@ -141,13 +141,13 @@ export const showInvisiblesExtension = Extension.create<unknown, ShowInvisiblesS
   },
 
   addProseMirrorPlugins() {
-    const ext = this;
+    const { storage } = this;
     return [
       new Plugin<DecorationSet>({
         key: showInvisiblesPluginKey,
         state: {
           init(_, { doc }) {
-            return buildDecorations(doc, ext.storage.enabled);
+            return buildDecorations(doc, storage.enabled);
           },
           apply(tr, old) {
             // Force-rebuild marker via meta — set by setShowInvisibles helper
@@ -157,7 +157,7 @@ export const showInvisiblesExtension = Extension.create<unknown, ShowInvisiblesS
             if (force && typeof force.enabled === "boolean") {
               return buildDecorations(tr.doc, force.enabled);
             }
-            if (!ext.storage.enabled) return DecorationSet.empty;
+            if (!storage.enabled) return DecorationSet.empty;
             if (tr.doc.content.size > SHOW_INVISIBLES_DOC_SIZE_LIMIT) {
               return DecorationSet.empty;
             }

@@ -135,6 +135,7 @@ export function StepForm({
     return () => window.removeEventListener("keydown", onKey);
     // jobId is captured into goToStep via useWorkflowStore.getState();
     // we only need to refresh the listener when prev/next change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prevStepId, nextStepId]);
 
   const [name, setName] = useState(step.name ?? "");

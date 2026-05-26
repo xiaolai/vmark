@@ -223,7 +223,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
           if (Array.isArray(providers)) {
             data.restProviders = providers.map(
 
-              ({ enabled, ...rest }: RestProviderConfig & { enabled?: boolean }) => rest
+              ({ enabled: _enabled, ...rest }: RestProviderConfig & { enabled?: boolean }) => rest
             );
           }
         }

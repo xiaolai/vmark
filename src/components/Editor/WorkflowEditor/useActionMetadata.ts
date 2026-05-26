@@ -131,7 +131,7 @@ export function useActionMetadata(
     return () => {
       mounted = false;
     };
-  }, [uses]);
+  }, [uses, isLocalCtx]);
 
   return result;
 }
