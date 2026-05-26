@@ -9,11 +9,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-half);
-  padding: var(--space-1);
+  padding: var(--popup-padding);
   border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--bg-color);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--popup-shadow);
   animation: link-popup-fade-in var(--duration-fast) ease-out;
 }
 

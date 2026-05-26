@@ -18,7 +18,7 @@
   overflow-x: hidden; /* Prevent horizontal overflow */
   padding-bottom: var(--bar-height); /* clearance for status-bar/find-bar */
   /* No horizontal padding - applied per-element so tables can span full width */
-  transition: padding-bottom 0.15s ease-out;
+  transition: padding-bottom var(--duration-base) ease-out;
   /* Flexbox centering for narrow editor width settings */
   display: flex;
   flex-direction: column;
@@ -435,7 +435,7 @@
   border: var(--border-thin) solid var(--table-border-color);
   border-bottom: 0;
   margin: 0;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-2-5);
   min-width: 3em; /* Prevent empty columns from collapsing to zero content width */
   line-height: var(--editor-line-height-px);
   background-color: var(--bg-secondary);
@@ -444,7 +444,7 @@
 .tiptap-editor td {
   border: var(--border-thin) solid var(--table-border-color);
   margin: 0;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-2-5);
   min-width: 3em;
   line-height: var(--editor-line-height-px);
 }
@@ -534,7 +534,7 @@
   height: auto;
   border-radius: var(--radius-sm);
   border: var(--border-thin) solid transparent;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--duration-base) ease;
   /* Prevent macOS Live Text from selecting text within images */
   user-select: none;
   -webkit-user-select: none;

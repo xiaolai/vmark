@@ -213,6 +213,13 @@
   color: var(--text-color);
 }
 
+.file-remove-btn:focus-visible {
+  opacity: 1;
+  outline: none;
+  background-color: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
 /* Outline view */
 .outline-view {
   padding: 0 var(--space-2) var(--space-2) 0;
@@ -475,6 +482,13 @@
   color: var(--text-color);
 }
 
+.history-revert-btn:focus-visible {
+  opacity: 1;
+  outline: none;
+  background-color: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
 .history-item-actions {
   display: flex;
   align-items: center;
@@ -502,5 +516,12 @@
 
 .history-delete-btn:hover {
   background-color: var(--hover-bg);
+  color: var(--error-color);
+}
+
+.history-delete-btn:focus-visible {
+  opacity: 1;
+  outline: none;
+  background-color: var(--accent-bg);
   color: var(--error-color);
 }
