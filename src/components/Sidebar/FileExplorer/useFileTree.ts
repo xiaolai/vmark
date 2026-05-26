@@ -15,6 +15,12 @@
  *     interference when multiple windows watch the same directory.
  *   - Folders are always included (even if empty) so users can right-click to
  *     add files into them.
+ *   - Window-focus refresh is a defensive safety net: macOS FSEvents (and
+ *     equivalent native watchers on other platforms) occasionally miss
+ *     externally-created files — Finder operations, externally-mounted
+ *     volumes, paths reached through symlinks. Re-listing the tree on focus
+ *     guarantees the user sees external changes the moment they switch
+ *     back to VMark, regardless of whether fs:changed fired.
  *
  * @coordinates-with FileExplorer.tsx — consumes the tree data and refresh callback
  * @coordinates-with utils/fsEventFilter.ts — determines if an fs event should trigger refresh
@@ -24,6 +30,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { basename } from "@tauri-apps/api/path";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { FileNode, FsChangeEvent, DirectoryEntry } from "./types";
 import { shouldRefreshTree } from "@/utils/fsEventFilter";
 import {
@@ -194,6 +201,34 @@ export function useFileTree(
       }
     };
   }, [rootPath, loadTree, watchId]);
+
+  // Defensive safety net (see header `Key decisions`): refresh the tree
+  // whenever the window regains focus. This catches externally-created
+  // files when the native watcher misses an event.
+  useEffect(() => {
+    if (!rootPath) return;
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+    getCurrentWebviewWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (focused) loadTree();
+      })
+      .then((u) => {
+        if (cancelled) {
+          u();
+        } else {
+          unlisten = u;
+        }
+      })
+      .catch((error: unknown) => {
+        fileExplorerError(" Failed to listen for window focus:",
+          error instanceof Error ? error.message : String(error));
+      });
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+  }, [rootPath, loadTree]);
 
   return { tree, isLoading, refresh: loadTree };
 }
