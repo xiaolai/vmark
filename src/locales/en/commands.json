@@ -58,6 +58,15 @@
     "next": "Next Lint Issue",
     "prev": "Previous Lint Issue"
   },
+  "format": {
+    "setPlainText": "Set File Type: Plain Text",
+    "setMarkdown": "Set File Type: Markdown",
+    "resetType": "Set File Type: Reset to Default",
+    "toast": {
+      "set": "Opening {{key}} files as {{format}}",
+      "reset": "Reset {{key}} files to the default editor"
+    }
+  },
   "commandPalette": {
     "placeholder": "Type a command",
     "empty": "No matching commands"

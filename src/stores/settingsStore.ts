@@ -215,6 +215,7 @@ const initialState: SettingsState = {
     codeViewers: false,
     externalEditor: "",
     upgradeNudgeShown: false,
+    associations: {},
   },
   showDevSection: false,
 };

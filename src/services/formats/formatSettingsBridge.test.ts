@@ -29,6 +29,7 @@ beforeEach(() => {
       codeViewers: false,
       externalEditor: "",
       upgradeNudgeShown: true,
+      associations: {},
     },
   });
   bootstrapFormats({
@@ -100,5 +101,33 @@ describe("installFormatSettingsSubscription", () => {
       .getState()
       .updateFormatsSetting("externalEditor", "/Applications/Cursor.app");
     expect(getFormatById("json")).toBe(jsonBefore);
+  });
+
+  it("recomputes tab formatId when an association changes (no registry rebuild)", () => {
+    // A .txt tab resolves to txt by default.
+    const tabId = useTabStore.getState().createTab("main", "/x/notes.txt");
+    expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("txt");
+    const jsonBefore = getFormatById("json"); // off → undefined
+
+    // Associate .txt → markdown. No category toggle flips, so the
+    // registry must NOT rebuild, but the tab must re-derive to markdown.
+    useSettingsStore.getState().updateFormatsSetting("associations", {
+      txt: "markdown",
+    });
+
+    expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("markdown");
+    // Registry untouched: json still absent (no rebootstrap happened).
+    expect(getFormatById("json")).toBe(jsonBefore);
+  });
+
+  it("reverts the tab when an association is cleared", () => {
+    const tabId = useTabStore.getState().createTab("main", "/x/notes.txt");
+    useSettingsStore.getState().updateFormatsSetting("associations", {
+      txt: "markdown",
+    });
+    expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("markdown");
+
+    useSettingsStore.getState().updateFormatsSetting("associations", {});
+    expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("txt");
   });
 });

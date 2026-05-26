@@ -58,6 +58,15 @@
     "next": "Problème de lint suivant",
     "prev": "Problème de lint précédent"
   },
+  "format": {
+    "setPlainText": "Définir le type de fichier : Texte brut",
+    "setMarkdown": "Définir le type de fichier : Markdown",
+    "resetType": "Définir le type de fichier : Réinitialiser",
+    "toast": {
+      "set": "Ouverture des fichiers {{key}} en tant que {{format}}",
+      "reset": "Fichiers {{key}} réinitialisés sur l'éditeur par défaut"
+    }
+  },
   "commandPalette": {
     "placeholder": "Saisir une commande",
     "empty": "Aucune commande correspondante"

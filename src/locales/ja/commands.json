@@ -1,16 +1,22 @@
 {
-  "app": { "preferences": "環境設定" },
+  "app": {
+    "preferences": "環境設定"
+  },
   "history": {
     "clearAll": "すべての履歴を消去",
     "clearWorkspace": "ワークスペースの履歴を消去"
   },
-  "image": { "cleanupOrphans": "未使用の画像を整理" },
+  "image": {
+    "cleanupOrphans": "未使用の画像を整理"
+  },
   "help": {
     "vmarkHelp": "VMark ヘルプ",
     "keyboardShortcuts": "キーボードショートカット",
     "reportIssue": "問題を報告"
   },
-  "genies": { "openFolder": "ジーニーフォルダを開く" },
+  "genies": {
+    "openFolder": "ジーニーフォルダを開く"
+  },
   "export": {
     "html": "HTML として書き出し",
     "pdf": "PDF に印刷",
@@ -52,9 +58,20 @@
     "next": "次の Lint 問題",
     "prev": "前の Lint 問題"
   },
+  "format": {
+    "setPlainText": "ファイル形式を設定：プレーンテキスト",
+    "setMarkdown": "ファイル形式を設定：Markdown",
+    "resetType": "ファイル形式を設定：デフォルトに戻す",
+    "toast": {
+      "set": "{{key}} ファイルを {{format}} として開きます",
+      "reset": "{{key}} ファイルをデフォルトのエディタに戻しました"
+    }
+  },
   "commandPalette": {
     "placeholder": "コマンドを入力",
     "empty": "一致するコマンドがありません"
   },
-  "aria": { "commandPalette": "コマンドパレット" }
+  "aria": {
+    "commandPalette": "コマンドパレット"
+  }
 }

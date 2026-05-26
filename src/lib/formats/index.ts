@@ -121,6 +121,9 @@ export {
   listFormats,
   getSupportedExtensions,
   registerFormat,
+  formatLookupKeys,
+  associationKey,
+  setFormatAssociationsProvider,
 } from "./registry";
 export type {
   FormatConfig,

@@ -283,6 +283,13 @@ export interface FormatsSettings {
   /** Internal: set true once the upgrade nudge toast has been shown so it
    *  never repeats. Not user-toggled — only updated by the nudge handler. */
   upgradeNudgeShown: boolean;
+  /** User format associations: lookup-key → formatId. The manual override
+   *  behind "Set File Type…". Keys are produced by `formatLookupKeys`
+   *  (full filename, dotfile stem, or bare extension — e.g. `txt`, `.env`,
+   *  `dockerfile`). Empty by default. Wins over the built-in extension map
+   *  so a user can render a `.txt` as markdown or force any file to plain
+   *  text. */
+  associations: Record<string, string>;
 }
 
 /** General settings — auto-save, document history, tab size, line endings, and quit behavior. */

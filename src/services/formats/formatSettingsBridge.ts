@@ -20,7 +20,7 @@
 import { useEffect } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
-import { rebootstrapFormats } from "@/lib/formats";
+import { rebootstrapFormats, setFormatAssociationsProvider } from "@/lib/formats";
 import type { FormatsSettings } from "@/stores/settingsTypes";
 
 type ToggleSnapshot = Pick<
@@ -49,15 +49,39 @@ function togglesEqual(a: ToggleSnapshot, b: ToggleSnapshot): boolean {
 /**
  * Install the subscription. Returns an unsubscribe fn — call from
  * tests; production callers can ignore (lifetime is the app process).
+ *
+ * Two distinct concerns ride this one subscription:
+ *   - Category toggles flipping → the registry must rebuild
+ *     (`rebootstrapFormats`), then every tab re-derives its formatId.
+ *   - Associations changing → the registry is unchanged (same formats
+ *     registered), but tabs must re-derive so the new association takes
+ *     effect. The registry reads associations live via the provider
+ *     installed below, so no rebuild is needed.
  */
 export function installFormatSettingsSubscription(): () => void {
-  let last = snapshot(useSettingsStore.getState().formats);
+  // The registry resolves associations lazily through this provider, so
+  // it always sees the current settings without importing the store.
+  setFormatAssociationsProvider(
+    () => useSettingsStore.getState().formats.associations ?? {},
+  );
+
+  let lastToggles = snapshot(useSettingsStore.getState().formats);
+  let lastAssociations = useSettingsStore.getState().formats.associations;
 
   return useSettingsStore.subscribe((state) => {
-    const next = snapshot(state.formats);
-    if (togglesEqual(last, next)) return;
-    last = next;
-    rebootstrapFormats(next);
+    const nextToggles = snapshot(state.formats);
+    const nextAssociations = state.formats.associations;
+
+    const togglesChanged = !togglesEqual(lastToggles, nextToggles);
+    // Reference comparison is sufficient: updateFormatsSetting replaces the
+    // whole object, so a real change always yields a new reference.
+    const associationsChanged = lastAssociations !== nextAssociations;
+    if (!togglesChanged && !associationsChanged) return;
+
+    lastToggles = nextToggles;
+    lastAssociations = nextAssociations;
+
+    if (togglesChanged) rebootstrapFormats(nextToggles);
     useTabStore.getState().recomputeAllFormatIds();
   });
 }

@@ -58,6 +58,15 @@
     "next": "下一个 Lint 问题",
     "prev": "上一个 Lint 问题"
   },
+  "format": {
+    "setPlainText": "设置文件类型：纯文本",
+    "setMarkdown": "设置文件类型：Markdown",
+    "resetType": "设置文件类型：恢复默认",
+    "toast": {
+      "set": "正在以 {{format}} 方式打开 {{key}} 文件",
+      "reset": "已将 {{key}} 文件恢复为默认编辑器"
+    }
+  },
   "commandPalette": {
     "placeholder": "输入命令",
     "empty": "没有匹配的命令"

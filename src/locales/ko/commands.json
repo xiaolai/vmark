@@ -58,6 +58,15 @@
     "next": "다음 Lint 문제",
     "prev": "이전 Lint 문제"
   },
+  "format": {
+    "setPlainText": "파일 형식 설정: 일반 텍스트",
+    "setMarkdown": "파일 형식 설정: Markdown",
+    "resetType": "파일 형식 설정: 기본값으로 재설정",
+    "toast": {
+      "set": "{{key}} 파일을 {{format}}(으)로 엽니다",
+      "reset": "{{key}} 파일을 기본 편집기로 재설정했습니다"
+    }
+  },
   "commandPalette": {
     "placeholder": "명령을 입력하세요",
     "empty": "일치하는 명령이 없습니다"

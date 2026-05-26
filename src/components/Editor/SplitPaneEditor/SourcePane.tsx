@@ -18,6 +18,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import { useDocumentStore } from "@/stores/documentStore";
+import { detectSourceLanguage } from "@/lib/formats/sourceLanguage";
 import type {
   FormatConfig,
   ValidationDiagnostic,
@@ -99,7 +100,18 @@ export function SourcePane({
   // WI-4.3 — readOnly defers to the per-tab editing override when set.
   const readOnly = formatConfig.adapters.readOnlyDefault && !editingEnabled;
   const validator = formatConfig.validator;
-  const loadLanguage = formatConfig.loadLanguage;
+  /* v8 ignore next 3 -- @preserve documentStore selector path; smoke-tested via mocked store */
+  const filePath = useDocumentStore(
+    (state) => state.documents?.[tabId]?.filePath ?? null,
+  );
+  // A format may ship its own language pack (json/yaml/code viewers). When
+  // it doesn't (plain text), fall back to filename-based highlighting so a
+  // `.env` / `Dockerfile` / `.sh` opened as plain text still gets colors.
+  // Routing already decided this is a source pane — highlighting only picks
+  // a language; it can never re-route a file to the markdown editor. The
+  // returned loaders are stable module references, so this is dep-safe.
+  const loadLanguage =
+    formatConfig.loadLanguage ?? detectSourceLanguage(filePath) ?? undefined;
 
   // One-time mount per (tabId, formatId, readOnly). Document persistence
   // wires via the documentStore.setContent action on every doc change.
@@ -230,7 +242,7 @@ export function SourcePane({
       data-testid="source-pane"
       data-tab-id={tabId}
       data-format-id={formatId}
-      data-language-loader={formatConfig.loadLanguage ? "lazy" : "none"}
+      data-language-loader={loadLanguage ? "lazy" : "none"}
     >
       <div
         ref={containerRef}

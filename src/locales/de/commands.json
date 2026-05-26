@@ -1,12 +1,40 @@
 {
-  "app": { "preferences": "Einstellungen" },
-  "history": { "clearAll": "Gesamten Verlauf löschen", "clearWorkspace": "Arbeitsbereichsverlauf löschen" },
-  "image": { "cleanupOrphans": "Ungenutzte Bilder aufräumen" },
-  "help": { "vmarkHelp": "VMark-Hilfe", "keyboardShortcuts": "Tastaturkürzel", "reportIssue": "Problem melden" },
-  "genies": { "openFolder": "Genies-Ordner öffnen" },
-  "export": { "html": "Als HTML exportieren", "pdf": "Als PDF drucken", "pdfNative": "Als PDF exportieren", "copyHtml": "Als HTML kopieren", "pandocHint": "Pandoc installieren", "pandocFormat": "Über Pandoc exportieren" },
-  "file": { "clearRecent": "Zuletzt geöffnete Dateien löschen", "openRecent": "Zuletzt geöffnete Datei öffnen" },
-  "workspace": { "openFolder": "Arbeitsbereich öffnen…", "close": "Arbeitsbereich schließen", "clearRecent": "Zuletzt geöffnete Arbeitsbereiche löschen", "openRecent": "Zuletzt geöffneten Arbeitsbereich öffnen" },
+  "app": {
+    "preferences": "Einstellungen"
+  },
+  "history": {
+    "clearAll": "Gesamten Verlauf löschen",
+    "clearWorkspace": "Arbeitsbereichsverlauf löschen"
+  },
+  "image": {
+    "cleanupOrphans": "Ungenutzte Bilder aufräumen"
+  },
+  "help": {
+    "vmarkHelp": "VMark-Hilfe",
+    "keyboardShortcuts": "Tastaturkürzel",
+    "reportIssue": "Problem melden"
+  },
+  "genies": {
+    "openFolder": "Genies-Ordner öffnen"
+  },
+  "export": {
+    "html": "Als HTML exportieren",
+    "pdf": "Als PDF drucken",
+    "pdfNative": "Als PDF exportieren",
+    "copyHtml": "Als HTML kopieren",
+    "pandocHint": "Pandoc installieren",
+    "pandocFormat": "Über Pandoc exportieren"
+  },
+  "file": {
+    "clearRecent": "Zuletzt geöffnete Dateien löschen",
+    "openRecent": "Zuletzt geöffnete Datei öffnen"
+  },
+  "workspace": {
+    "openFolder": "Arbeitsbereich öffnen…",
+    "close": "Arbeitsbereich schließen",
+    "clearRecent": "Zuletzt geöffnete Arbeitsbereiche löschen",
+    "openRecent": "Zuletzt geöffneten Arbeitsbereich öffnen"
+  },
   "view": {
     "toggleSourceMode": "Quelltextmodus umschalten",
     "toggleFocusMode": "Fokusmodus umschalten",
@@ -25,7 +53,25 @@
     "zoomOut": "Verkleinern",
     "toggleShowInvisibles": "Unsichtbare Zeichen umschalten"
   },
-  "lint": { "check": "Markdown prüfen", "next": "Nächstes Lint-Problem", "prev": "Vorheriges Lint-Problem" },
-  "commandPalette": { "placeholder": "Befehl eingeben", "empty": "Keine passenden Befehle" },
-  "aria": { "commandPalette": "Befehlspalette" }
+  "lint": {
+    "check": "Markdown prüfen",
+    "next": "Nächstes Lint-Problem",
+    "prev": "Vorheriges Lint-Problem"
+  },
+  "format": {
+    "setPlainText": "Dateityp festlegen: Nur-Text",
+    "setMarkdown": "Dateityp festlegen: Markdown",
+    "resetType": "Dateityp festlegen: Auf Standard zurücksetzen",
+    "toast": {
+      "set": "{{key}}-Dateien werden als {{format}} geöffnet",
+      "reset": "{{key}}-Dateien auf den Standard-Editor zurückgesetzt"
+    }
+  },
+  "commandPalette": {
+    "placeholder": "Befehl eingeben",
+    "empty": "Keine passenden Befehle"
+  },
+  "aria": {
+    "commandPalette": "Befehlspalette"
+  }
 }

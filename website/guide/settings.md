@@ -254,6 +254,10 @@ The GUI setting overrides any environment variables — explicit beats implicit.
 
 On the first launch after upgrading to multi-format support, VMark surfaces a non-blocking toast pointing to **Settings → Formats**. The nudge fires once per install — once shown (or dismissed), it never reappears.
 
+### File-type overrides
+
+Beyond the category toggles, you can override how an individual file family opens via the command palette — **Set File Type: Plain Text / Markdown / Reset to Default**. Overrides are stored per file family (by extension, or by dotfile stem for files like `.env`) and persist across sessions. See [How VMark decides a file's type](/guide/formats#how-vmark-decides-a-file-s-type).
+
 ## Language
 
 CJK (Chinese, Japanese, Korean) formatting rules. These rules are applied when you run **Format → Format CJK Selection** (`Cmd+Shift+F`) on a selection, or **Format → Format CJK Document** (`Alt+Cmd+Shift+F`) on the whole file.

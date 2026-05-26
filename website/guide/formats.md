@@ -75,6 +75,32 @@ Opens with a Python dependency tree — both PEP 621 (`[project]` + `[project.op
 - **Visual formats** (Mermaid, SVG, HTML) ship in the source pane with the rendered view in the right pane (debounced).
 - **Code formats** open as syntax-highlighted viewers; toggle to edit in place or open in your external editor (see below).
 
+## How VMark decides a file's type
+
+VMark treats **markdown as an allowlist, not a default**. The rule, in order:
+
+1. **A markdown-family extension** (`.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx`) opens in the rich markdown editor.
+2. **A registered non-markdown extension** (when its category is enabled — JSON, YAML, code viewers, etc.) opens in that format's source pane.
+3. **Everything else** — `.env`, `.env.local`, `Dockerfile`, `Makefile`, `.gitignore`, unknown extensions — opens in the **plain-text source pane**, never the markdown editor.
+
+This means a config file is never silently rendered as markdown. A `.env.local` opens as plain text, with its `KEY=value` lines, `#` comments, and underscores left exactly as typed.
+
+Dotfile families are recognized as a group: an override on `.env` covers `.env.local`, `.env.production`, and so on.
+
+### Syntax highlighting for plain files
+
+Even when a file opens as plain text, VMark colorizes it when it recognizes the type — `.env`/`.ini`/`.conf` (properties), `.sh`/`.bash` (shell), `Dockerfile`, `.toml`, `.sql`, `.diff`, and the usual languages. This is purely cosmetic; it never changes which editor the file opened in, and it works regardless of whether the code-viewer category is enabled.
+
+### Override: "Set File Type"
+
+The detection is the default, not a cage. Open the command palette and run:
+
+- **Set File Type: Plain Text** — force the current file family to open as plain text (e.g. stop a `.txt` you keep as raw notes from being rendered).
+- **Set File Type: Markdown** — render a non-`.md` file with the markdown editor (e.g. a `.txt` you actually write markdown in).
+- **Set File Type: Reset to Default** — drop the override.
+
+Overrides are remembered per file family (by extension, or by dotfile stem for files like `.env`) and persist across sessions. They take precedence over the built-in rules above.
+
 ## Find, save, content search
 
 - **Cmd+O** filters: a single "All Supported" preset covering every registered format. Save-As filters and the default save extension are derived from the active tab's format adapter, so saving a `.toml` file proposes `.toml` as the extension.

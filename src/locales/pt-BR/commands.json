@@ -58,6 +58,15 @@
     "next": "Próximo problema de Lint",
     "prev": "Problema de Lint anterior"
   },
+  "format": {
+    "setPlainText": "Definir tipo de arquivo: Texto sem formatação",
+    "setMarkdown": "Definir tipo de arquivo: Markdown",
+    "resetType": "Definir tipo de arquivo: Redefinir para padrão",
+    "toast": {
+      "set": "Abrindo arquivos {{key}} como {{format}}",
+      "reset": "Arquivos {{key}} redefinidos para o editor padrão"
+    }
+  },
   "commandPalette": {
     "placeholder": "Digite um comando",
     "empty": "Nenhum comando correspondente"

@@ -1,12 +1,40 @@
 {
-  "app": { "preferences": "Preferenze" },
-  "history": { "clearAll": "Cancella tutta la cronologia", "clearWorkspace": "Cancella cronologia dello spazio di lavoro" },
-  "image": { "cleanupOrphans": "Pulisci immagini inutilizzate" },
-  "help": { "vmarkHelp": "Guida di VMark", "keyboardShortcuts": "Scorciatoie da tastiera", "reportIssue": "Segnala un problema" },
-  "genies": { "openFolder": "Apri cartella dei geni" },
-  "export": { "html": "Esporta come HTML", "pdf": "Stampa in PDF", "pdfNative": "Esporta come PDF", "copyHtml": "Copia come HTML", "pandocHint": "Installa Pandoc", "pandocFormat": "Esporta tramite Pandoc" },
-  "file": { "clearRecent": "Cancella file recenti", "openRecent": "Apri file recente" },
-  "workspace": { "openFolder": "Apri spazio di lavoro…", "close": "Chiudi spazio di lavoro", "clearRecent": "Cancella spazi di lavoro recenti", "openRecent": "Apri spazio di lavoro recente" },
+  "app": {
+    "preferences": "Preferenze"
+  },
+  "history": {
+    "clearAll": "Cancella tutta la cronologia",
+    "clearWorkspace": "Cancella cronologia dello spazio di lavoro"
+  },
+  "image": {
+    "cleanupOrphans": "Pulisci immagini inutilizzate"
+  },
+  "help": {
+    "vmarkHelp": "Guida di VMark",
+    "keyboardShortcuts": "Scorciatoie da tastiera",
+    "reportIssue": "Segnala un problema"
+  },
+  "genies": {
+    "openFolder": "Apri cartella dei geni"
+  },
+  "export": {
+    "html": "Esporta come HTML",
+    "pdf": "Stampa in PDF",
+    "pdfNative": "Esporta come PDF",
+    "copyHtml": "Copia come HTML",
+    "pandocHint": "Installa Pandoc",
+    "pandocFormat": "Esporta tramite Pandoc"
+  },
+  "file": {
+    "clearRecent": "Cancella file recenti",
+    "openRecent": "Apri file recente"
+  },
+  "workspace": {
+    "openFolder": "Apri spazio di lavoro…",
+    "close": "Chiudi spazio di lavoro",
+    "clearRecent": "Cancella spazi di lavoro recenti",
+    "openRecent": "Apri spazio di lavoro recente"
+  },
   "view": {
     "toggleSourceMode": "Attiva/disattiva modalità sorgente",
     "toggleFocusMode": "Attiva/disattiva modalità focus",
@@ -25,7 +53,25 @@
     "zoomOut": "Riduci",
     "toggleShowInvisibles": "Attiva/disattiva caratteri invisibili"
   },
-  "lint": { "check": "Controlla Markdown", "next": "Problema lint successivo", "prev": "Problema lint precedente" },
-  "commandPalette": { "placeholder": "Digita un comando", "empty": "Nessun comando corrispondente" },
-  "aria": { "commandPalette": "Tavolozza comandi" }
+  "lint": {
+    "check": "Controlla Markdown",
+    "next": "Problema lint successivo",
+    "prev": "Problema lint precedente"
+  },
+  "format": {
+    "setPlainText": "Imposta tipo di file: Testo semplice",
+    "setMarkdown": "Imposta tipo di file: Markdown",
+    "resetType": "Imposta tipo di file: Ripristina predefinito",
+    "toast": {
+      "set": "Apertura dei file {{key}} come {{format}}",
+      "reset": "File {{key}} ripristinati all'editor predefinito"
+    }
+  },
+  "commandPalette": {
+    "placeholder": "Digita un comando",
+    "empty": "Nessun comando corrispondente"
+  },
+  "aria": {
+    "commandPalette": "Tavolozza comandi"
+  }
 }
