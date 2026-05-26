@@ -144,9 +144,10 @@ export interface MarkdownSettings {
   showBrTags: boolean; // Display <br> tags visibly
   /**
    * Render invisible characters: spaces as ·, tabs as → (Source only),
-   * soft line breaks as ↓ (Source only), hard breaks as ⏎, paragraph
-   * breaks as ¶. Off by default. Glyphs use low-opacity --md-char-color
-   * and are hidden in print media.
+   * soft line breaks as ↓ (Source only), and hard breaks as ⏎. Off by
+   * default. Glyphs use low-opacity --md-char-color and are hidden in
+   * print media. Inside fenced code blocks, break markers are
+   * suppressed (those newlines are literal code, not markdown breaks).
    */
   showInvisibles: boolean;
   enableRegexSearch: boolean; // Enable regex in Find & Replace

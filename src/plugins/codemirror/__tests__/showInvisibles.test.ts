@@ -111,4 +111,28 @@ describe("createShowInvisiblesPlugin (enabled)", () => {
     expect(view.dom.querySelectorAll(".cm-invisible-space").length).toBe(2);
     view.destroy();
   });
+
+  it("suppresses break markers inside fenced code blocks", () => {
+    const src = "intro\n```js\nlet a = 1;\nlet b = 2;\n```\ntail";
+    const view = mountView(src, true);
+    // "intro" line + "tail"-prev line should be soft break candidates;
+    // the three lines inside the fence + the two fence delimiter lines
+    // must NOT be marked.
+    const softLines = view.dom.querySelectorAll(".cm-invisible-soft-break");
+    // intro→fence-open is a soft break (intro is not inside the fence,
+    // so it stays marked). The next 4 candidate lines (```js, let a,
+    // let b, ```) are inside the fence and must be skipped. The closing
+    // fence's *next* line (tail) is the doc's last line so it isn't
+    // marked either. Net: exactly 1 soft-break marker on "intro".
+    expect(softLines.length).toBe(1);
+    view.destroy();
+  });
+
+  it("suppresses break markers inside tilde-fenced code blocks", () => {
+    const src = "intro\n~~~~\nx\ny\n~~~~\ntail";
+    const view = mountView(src, true);
+    const softLines = view.dom.querySelectorAll(".cm-invisible-soft-break");
+    expect(softLines.length).toBe(1);
+    view.destroy();
+  });
 });

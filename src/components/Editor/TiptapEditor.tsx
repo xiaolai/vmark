@@ -46,6 +46,7 @@ import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSy
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";
 import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
+import { setShowInvisibles } from "@/plugins/showInvisibles/tiptap";
 import type { CursorInfo } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -437,14 +438,19 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
   // rebuild decorations.
   useEffect(() => {
     if (!editor) return;
+    // Update the extension's storage flag so future doc-changed
+    // transactions see the new value in the plugin's apply() path.
     const allStorage = editor.storage as unknown as
       | Record<string, { enabled?: boolean } | undefined>
       | undefined;
     const storage = allStorage?.showInvisibles;
     if (storage) storage.enabled = showInvisibles;
+    // Force an immediate rebuild via the plugin's exported helper —
+    // this dispatches a tagged transaction the plugin recognises by
+    // PluginKey identity (a string meta key would silently no-op).
     const view = editor.view;
     if (!view) return;
-    view.dispatch(view.state.tr.setMeta("showInvisibles", { enabled: showInvisibles }));
+    setShowInvisibles(view, showInvisibles);
   }, [editor, showInvisibles]);
 
   // Return null from getEditorView when hidden to prevent outline sync from stale editor

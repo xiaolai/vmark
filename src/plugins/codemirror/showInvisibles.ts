@@ -76,6 +76,46 @@ function classifyLineEnd(
   return "soft";
 }
 
+/**
+ * Walk the document once and return the set of line numbers that fall
+ * inside a fenced code block (delimiters with ``` or ~~~ of length ≥ 3).
+ * Fence lines themselves are treated as code too — toggling soft/hard
+ * markers on fence delimiters would also be misleading.
+ *
+ * This is intentionally a cheap lexical scan, not a real markdown
+ * parser: it ignores indented code blocks (4-space rule) because those
+ * still flow as soft-break paragraphs in most authoring patterns. The
+ * goal here is just to avoid the worst false positives on fenced code.
+ */
+function findFencedLineNumbers(doc: { lines: number; line: (n: number) => { text: string } }): Set<number> {
+  const inside = new Set<number>();
+  let fenceChar: "`" | "~" | null = null;
+  let fenceLen = 0;
+  for (let n = 1; n <= doc.lines; n++) {
+    const text = doc.line(n).text;
+    const trimmed = text.replace(/^\s+/, "");
+    const m = /^(`{3,}|~{3,})/.exec(trimmed);
+    if (m) {
+      const ch = m[1][0] as "`" | "~";
+      const len = m[1].length;
+      if (!fenceChar) {
+        fenceChar = ch;
+        fenceLen = len;
+        inside.add(n);
+        continue;
+      }
+      if (ch === fenceChar && len >= fenceLen) {
+        inside.add(n);
+        fenceChar = null;
+        fenceLen = 0;
+        continue;
+      }
+    }
+    if (fenceChar) inside.add(n);
+  }
+  return inside;
+}
+
 export function createShowInvisiblesPlugin(enabled: boolean) {
   if (!enabled) return [];
 
@@ -96,13 +136,16 @@ export function createShowInvisiblesPlugin(enabled: boolean) {
       build(view: EditorView): DecorationSet {
         const builder = new RangeSetBuilder<Decoration>();
         const doc = view.state.doc;
+        const fencedLines = findFencedLineNumbers(doc);
 
-        // Iterate visible viewport ranges only — keeps large-document
-        // perf bounded. Within each range, walk line-by-line and add
-        // the line decoration (at line.from) BEFORE any char widget
-        // decorations on that line: RangeSetBuilder requires strictly
-        // non-decreasing `from`, and `line.from` is always <= any
-        // char position within the line.
+        // Iterate visible viewport ranges. visibleRanges is normalised
+        // to non-overlapping ascending ranges, but a single line CAN
+        // span multiple ranges (long wrapped line that crosses the
+        // viewport edge), so we dedupe line-start markers across ranges
+        // to avoid re-adding `line.from` after later positions — which
+        // would violate RangeSetBuilder's monotonic-`from` invariant.
+        const seenLineStarts = new Set<number>();
+
         for (const { from, to } of view.visibleRanges) {
           const firstLine = doc.lineAt(from).number;
           const lastLine = doc.lineAt(to).number;
@@ -110,16 +153,23 @@ export function createShowInvisiblesPlugin(enabled: boolean) {
           for (let n = firstLine; n <= lastLine; n++) {
             const line = doc.line(n);
 
-            // Line-end marker first (at line.from) so ordering is monotonic.
-            const hasNext = n < doc.lines;
-            const kind = classifyLineEnd(line.text, hasNext);
-            if (kind === "soft") {
-              builder.add(line.from, line.from, softBreakLine);
-            } else if (kind === "hard") {
-              builder.add(line.from, line.from, hardBreakLine);
+            // Line-end marker first (at line.from). Skip when inside a
+            // fenced code block — those newlines are literal code, not
+            // markdown breaks.
+            if (!seenLineStarts.has(n)) {
+              seenLineStarts.add(n);
+              if (!fencedLines.has(n)) {
+                const hasNext = n < doc.lines;
+                const kind = classifyLineEnd(line.text, hasNext);
+                if (kind === "soft") {
+                  builder.add(line.from, line.from, softBreakLine);
+                } else if (kind === "hard") {
+                  builder.add(line.from, line.from, hardBreakLine);
+                }
+              }
             }
 
-            // Then per-character widgets for spaces/tabs in the visible
+            // Per-character widgets for spaces/tabs in this range's
             // slice of this line.
             const lineEnd = Math.min(line.to, to);
             const startInLine = Math.max(from - line.from, 0);
