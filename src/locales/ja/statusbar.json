@@ -60,6 +60,7 @@
   "terminal.closeSession": "閉じる",
   "terminal.restartSession": "再起動",
   "terminal.contextMenu.copy": "コピー",
+  "terminal.contextMenu.copyUnwrapped": "折り返しを解除してコピー",
   "terminal.contextMenu.paste": "貼り付け",
   "terminal.contextMenu.selectAll": "すべて選択",
   "terminal.contextMenu.clear": "クリア",

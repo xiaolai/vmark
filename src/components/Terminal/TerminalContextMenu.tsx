@@ -21,12 +21,13 @@
  * @module components/Terminal/TerminalContextMenu
  */
 import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
-import { Copy, ClipboardPaste, Square, Trash2, RefreshCw } from "lucide-react";
+import { Copy, CopyMinus, ClipboardPaste, Square, Trash2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import type { IPty } from "@/lib/pty";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { unwrapTerminalSelection } from "./unwrapSelection";
 import "../Sidebar/FileExplorer/ContextMenu.css";
 
 interface MenuItem {
@@ -60,6 +61,7 @@ export function TerminalContextMenu({
 
   const items: MenuItem[] = [
     { id: "copy", label: t("terminal.contextMenu.copy"), icon: <Copy size={14} />, disabled: !hasSelection },
+    { id: "copyUnwrapped", label: t("terminal.contextMenu.copyUnwrapped"), icon: <CopyMinus size={14} />, disabled: !hasSelection },
     { id: "paste", label: t("terminal.contextMenu.paste"), icon: <ClipboardPaste size={14} /> },
     { id: "selectAll", label: t("terminal.contextMenu.selectAll"), icon: <Square size={14} /> },
     { id: "clear", label: t("terminal.contextMenu.clear"), icon: <Trash2 size={14} />, separatorBefore: true },
@@ -108,6 +110,15 @@ export function TerminalContextMenu({
         case "copy":
           if (term.hasSelection()) {
             await writeText(term.getSelection().trimEnd());
+            term.clearSelection();
+          }
+          break;
+        case "copyUnwrapped":
+          // Collapse the program's display-width line breaks back into
+          // logical paragraphs before copying (#950). Opt-in: the user
+          // chose this selection knowing it's one flow.
+          if (term.hasSelection()) {
+            await writeText(unwrapTerminalSelection(term.getSelection()));
             term.clearSelection();
           }
           break;

@@ -48,6 +48,7 @@ Press `Mod + F` to open the search bar. Type to search incrementally through the
 Right-click inside the terminal to access:
 
 - **Copy** — copy selected text (disabled when nothing is selected)
+- **Copy Unwrapped** — copy the selection with display-width line breaks removed. Some command-line programs (codex and other TUI apps) hard-wrap their output to the terminal width by inserting real newlines; a normal copy preserves those breaks. "Copy Unwrapped" joins wrapped lines back into continuous paragraphs (blank lines are kept as paragraph breaks). It is CJK-aware — Chinese/Japanese text joins without inserting spaces. Select the block you know is one logical flow, since VMark can't tell a wrap newline from an intentional one.
 - **Paste** — paste from clipboard into the shell
 - **Select All** — select the entire terminal buffer
 - **Clear** — clear visible output

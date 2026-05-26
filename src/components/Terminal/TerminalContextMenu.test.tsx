@@ -181,6 +181,55 @@ describe("TerminalContextMenu", () => {
       expect(term.focus).toHaveBeenCalled();
     });
 
+    it("copies the unwrapped selection on Copy Unwrapped click (#950)", async () => {
+      const term = makeTerm({
+        hasSelection: vi.fn(() => true),
+        getSelection: vi.fn(
+          () => "the market that\nhelp non-native English",
+        ),
+      });
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onClose={onClose}
+        />,
+      );
+
+      fireEvent.click(screen.getByText("Copy Unwrapped"));
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith(
+          "the market that help non-native English",
+        );
+      });
+      expect(term.clearSelection).toHaveBeenCalled();
+    });
+
+    it("does not copy on Copy Unwrapped click when the selection is empty at action time", async () => {
+      // Enabled at render, but the selection is gone when the action fires —
+      // the in-handler guard must skip the clipboard write.
+      const term = makeTerm({
+        hasSelection: vi
+          .fn()
+          .mockReturnValueOnce(true) // render-time: item enabled
+          .mockReturnValue(false), // action-time: nothing selected
+        getSelection: vi.fn(() => ""),
+      });
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onClose={onClose}
+        />,
+      );
+
+      fireEvent.click(screen.getByText("Copy Unwrapped"));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
     it("pastes from clipboard to PTY on Paste click", async () => {
       vi.mocked(readText).mockResolvedValue("pasted content");
       const mockWrite = vi.fn();

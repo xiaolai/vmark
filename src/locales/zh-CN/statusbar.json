@@ -60,6 +60,7 @@
   "terminal.closeSession": "关闭",
   "terminal.restartSession": "重启",
   "terminal.contextMenu.copy": "复制",
+  "terminal.contextMenu.copyUnwrapped": "复制（合并折行）",
   "terminal.contextMenu.paste": "粘贴",
   "terminal.contextMenu.selectAll": "全选",
   "terminal.contextMenu.clear": "清空",

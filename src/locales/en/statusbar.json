@@ -64,6 +64,7 @@
   "terminal.restartSession": "Restart",
 
   "terminal.contextMenu.copy": "Copy",
+  "terminal.contextMenu.copyUnwrapped": "Copy Unwrapped",
   "terminal.contextMenu.paste": "Paste",
   "terminal.contextMenu.selectAll": "Select All",
   "terminal.contextMenu.clear": "Clear",

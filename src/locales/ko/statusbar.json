@@ -60,6 +60,7 @@
   "terminal.closeSession": "닫기",
   "terminal.restartSession": "재시작",
   "terminal.contextMenu.copy": "복사",
+  "terminal.contextMenu.copyUnwrapped": "줄바꿈 해제하고 복사",
   "terminal.contextMenu.paste": "붙여넣기",
   "terminal.contextMenu.selectAll": "모두 선택",
   "terminal.contextMenu.clear": "지우기",

@@ -60,6 +60,7 @@
   "terminal.closeSession": "Chiudi",
   "terminal.restartSession": "Riavvia",
   "terminal.contextMenu.copy": "Copia",
+  "terminal.contextMenu.copyUnwrapped": "Copia senza ritorni a capo",
   "terminal.contextMenu.paste": "Incolla",
   "terminal.contextMenu.selectAll": "Seleziona tutto",
   "terminal.contextMenu.clear": "Cancella",
