@@ -38,13 +38,10 @@ import { handleSelectionGet, handleSelectionSet } from "./selection";
 
 /**
  * App version used in the `session.get_state` capabilities payload.
- *
- * Sourced from `package.json` at build time via Vite's `import.meta.env`
- * is the cleanest path, but VMark currently propagates the version
- * through other channels (Cargo, MCP CLI). For now we hard-code; a
- * follow-up wires this through the build pipeline.
+ * Injected from `package.json` at build time via `__VMARK_VERSION__`
+ * (see vite.config.ts).
  */
-const APP_VERSION = "0.7.0";
+const APP_VERSION = __VMARK_VERSION__;
 
 /**
  * Tool prefixes this dispatcher routes — single source of truth.

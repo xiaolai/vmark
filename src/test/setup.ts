@@ -2,6 +2,11 @@ import "@testing-library/jest-dom";
 import { vi } from "vitest";
 import React from "react";
 
+// Provide the build-time __VMARK_VERSION__ define for tests. Production
+// gets it from vite.config.ts's `define`; vitest does not run the
+// frontend Vite config, so we stub a stable test value here.
+vi.stubGlobal("__VMARK_VERSION__", "0.0.0-test");
+
 // ---------------------------------------------------------------------------
 // react-i18next global mock
 // Makes t(key, opts) return the English translation string with interpolations
