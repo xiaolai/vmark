@@ -230,6 +230,63 @@ describe("TerminalContextMenu", () => {
       expect(writeText).not.toHaveBeenCalled();
     });
 
+    it("still closes and refocuses when Copy fails (clipboard rejection, audit Round A H3)", async () => {
+      vi.mocked(writeText).mockRejectedValueOnce(new Error("clipboard denied"));
+      const term = makeTerm({
+        hasSelection: vi.fn(() => true),
+        getSelection: vi.fn(() => "anything"),
+      });
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onClose={onClose}
+        />,
+      );
+
+      fireEvent.click(screen.getByText("Copy"));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(term.focus).toHaveBeenCalled();
+    });
+
+    it("still closes and refocuses when Copy Unwrapped fails (audit Round A H3)", async () => {
+      vi.mocked(writeText).mockRejectedValueOnce(new Error("clipboard denied"));
+      const term = makeTerm({
+        hasSelection: vi.fn(() => true),
+        getSelection: vi.fn(() => "wrapped\ntext"),
+      });
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onClose={onClose}
+        />,
+      );
+
+      fireEvent.click(screen.getByText("Copy Unwrapped"));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(term.focus).toHaveBeenCalled();
+    });
+
+    it("still closes and refocuses when Paste fails (audit Round A H3)", async () => {
+      vi.mocked(readText).mockRejectedValueOnce(new Error("clipboard denied"));
+      const term = makeTerm();
+      render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          ptyRef={ptyRef}
+          onClose={onClose}
+        />,
+      );
+
+      fireEvent.click(screen.getByText("Paste"));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(term.focus).toHaveBeenCalled();
+    });
+
     it("pastes from clipboard to PTY on Paste click", async () => {
       vi.mocked(readText).mockResolvedValue("pasted content");
       const mockWrite = vi.fn();

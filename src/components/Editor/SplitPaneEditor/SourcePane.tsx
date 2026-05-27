@@ -6,7 +6,7 @@
 // language packs (loadLanguage), validators (linter → ValidationGutter),
 // and per-format extras (loadExtraExtensions).
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   Compartment,
   EditorState,
@@ -91,17 +91,37 @@ export function SourcePane({
   // skip echoing the store update back into the view (which would
   // collapse the cursor and reset undo position).
   const lastSyncedRef = useRef<string>("");
-  const [, setLanguageLoaded] = useState(false);
 
-  // Hold the callback props in refs so they don't show up as mount-effect
-  // dependencies. Parent code commonly passes inline (non-memoized)
-  // handlers — without this indirection every parent re-render would
-  // tear down and rebuild the CodeMirror view, blowing away undo history
-  // and the user's selection. (Audit finding H3.)
+  // Hold the diagnostics callback in a ref so it doesn't show up as a
+  // mount-effect dependency. Parent code commonly passes inline (non-
+  // memoized) handlers — without this indirection every parent re-render
+  // would tear down and rebuild the CodeMirror view, blowing away undo
+  // history and the user's selection. (Audit finding H3.)
   const onDiagnosticsRef = useRef(onDiagnostics);
-  const onJumpHandleReadyRef = useRef(onJumpHandleReady);
   onDiagnosticsRef.current = onDiagnostics;
-  onJumpHandleReadyRef.current = onJumpHandleReady;
+
+  // Stable jump-to-position handle, safe to re-emit whenever the parent's
+  // callback prop changes identity. Lives outside the mount effect so a
+  // late or swapped `onJumpHandleReady` still receives the handle (audit
+  // Round A H1). Reading `viewRef.current` defers binding until the view
+  // exists, so calls before mount no-op cleanly.
+  const jumpTo = useCallback((line: number, column: number) => {
+    const v = viewRef.current;
+    if (!v) return;
+    const totalLines = v.state.doc.lines;
+    const safeLine = Math.min(Math.max(1, line), Math.max(1, totalLines));
+    const lineInfo = v.state.doc.line(safeLine);
+    const pos = Math.min(
+      lineInfo.from + Math.max(0, column - 1),
+      lineInfo.to,
+    );
+    v.dispatch({ selection: { anchor: pos, head: pos } });
+    v.focus();
+  }, []);
+
+  useEffect(() => {
+    onJumpHandleReady?.(jumpTo);
+  }, [onJumpHandleReady, jumpTo]);
 
   /* v8 ignore next 4 -- @preserve documentStore selector path; smoke-tested via mocked store */
   const storeContent = useDocumentStore(
@@ -187,21 +207,9 @@ export function SourcePane({
     });
     viewRef.current = view;
 
-    // Expose an imperative jump-to-position handle so the validation
-    // gutter (parent) can move the cursor on row click.
-    onJumpHandleReadyRef.current?.((line: number, column: number) => {
-      const v = viewRef.current;
-      if (!v) return;
-      const totalLines = v.state.doc.lines;
-      const safeLine = Math.min(Math.max(1, line), Math.max(1, totalLines));
-      const lineInfo = v.state.doc.line(safeLine);
-      const pos = Math.min(
-        lineInfo.from + Math.max(0, column - 1),
-        lineInfo.to,
-      );
-      v.dispatch({ selection: { anchor: pos, head: pos } });
-      v.focus();
-    });
+    // Jump-handle emit moved out of the mount effect — see the separate
+    // `useEffect` below that re-emits whenever `onJumpHandleReady` changes
+    // identity (audit Round A H1).
 
     let cancelled = false;
     if (loadLanguage) {
@@ -212,7 +220,6 @@ export function SourcePane({
           viewRef.current.dispatch({
             effects: languageCompartmentRef.current.reconfigure(lang),
           });
-          setLanguageLoaded(true);
         })
         .catch(() => {
           /* v8 ignore next 2 -- @preserve language pack failures fall back to plain text */

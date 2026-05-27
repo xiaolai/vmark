@@ -88,6 +88,18 @@ describe("formatLookupKeys", () => {
   it("returns an empty array for a path that reduces to nothing", () => {
     expect(formatLookupKeys("/x/")).toEqual([]);
   });
+
+  it("strips query/fragment BEFORE finding the basename (audit Round B H1)", () => {
+    // Slashes inside the query value would otherwise confuse the basename
+    // split. Previously these resolved to the slice AFTER the intra-query
+    // slash (`["a"]`), which broke dispatch/association lookups.
+    expect(formatLookupKeys("/x/foo.md?next=/tmp/a")).toEqual(["foo.md", "md"]);
+    expect(formatLookupKeys("/x/foo.md#sec/2")).toEqual(["foo.md", "md"]);
+    expect(formatLookupKeys("file:///x/foo.md?cb=/tmp/y")).toEqual([
+      "foo.md",
+      "md",
+    ]);
+  });
 });
 
 describe("associationKey — canonical key to persist an override on", () => {

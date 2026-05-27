@@ -27,6 +27,7 @@ import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import type { IPty } from "@/lib/pty";
 import { isImeKeyEvent } from "@/utils/imeGuard";
+import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
 import "../Sidebar/FileExplorer/ContextMenu.css";
 
@@ -100,6 +101,12 @@ export function TerminalContextMenu({
     let y = position.y;
     if (x + rect.width > window.innerWidth - 10) x = window.innerWidth - rect.width - 10;
     if (y + rect.height > window.innerHeight - 10) y = window.innerHeight - rect.height - 10;
+    // Floor at a 10px viewport inset — a menu wider/taller than the viewport
+    // (small windows, very long localized labels) would otherwise compute a
+    // negative offset, parking the top-left corner off-screen and putting
+    // the first item out of reach. (Audit Round B M1.)
+    x = Math.max(10, x);
+    y = Math.max(10, y);
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
   }, [position]);
@@ -144,6 +151,15 @@ export function TerminalContextMenu({
             onResetDisplay?.();
             break;
         }
+      } catch (err) {
+        // Log clipboard / PTY failures via the project's clipboard channel
+        // (mirrors setupCopyOnSelect's failure path) so the catch absorbs
+        // the rejection — otherwise the unhandled-rejection guard would
+        // fire and the test runner would surface the noise. (Audit Round A H3.)
+        clipboardWarn(
+          "Terminal context-menu action failed:",
+          err instanceof Error ? err.message : String(err),
+        );
       } finally {
         onClose();
         term.focus();

@@ -231,11 +231,13 @@ export function __resetRegistry(): void {
  * spurious `gitignore` "extension".
  */
 export function formatLookupKeys(filePath: string): string[] {
-  const slash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
-  const base = (slash >= 0 ? filePath.slice(slash + 1) : filePath).replace(
-    /[?#].*$/,
-    "",
-  );
+  // Strip query/fragment BEFORE finding the basename — a slash inside a
+  // query value (e.g. `?next=/tmp/a`) would otherwise be picked up by
+  // lastIndexOf("/") and the "basename" would be the slice after that
+  // intra-query slash. (Audit Round B H1.)
+  const stripped = filePath.replace(/[?#].*$/, "");
+  const slash = Math.max(stripped.lastIndexOf("/"), stripped.lastIndexOf("\\"));
+  const base = slash >= 0 ? stripped.slice(slash + 1) : stripped;
   const lower = base.toLowerCase();
   if (!lower) return [];
 

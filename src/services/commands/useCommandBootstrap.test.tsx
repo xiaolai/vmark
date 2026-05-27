@@ -142,4 +142,33 @@ describe("useCommandBootstrap", () => {
     unmount();
     expect(off).toHaveBeenCalledTimes(1);
   });
+
+  it("invokes the unlistener when unmount races mountMenuCommands resolution (audit Round A H4)", async () => {
+    const off = vi.fn();
+    // Capture the resolver so we can defer resolution past unmount.
+    let resolveOff: ((fn: () => void) => void) | null = null;
+    mountMenuCommandsMock.mockImplementationOnce(
+      () =>
+        new Promise<() => void>((resolve) => {
+          resolveOff = resolve;
+        }),
+    );
+
+    const { unmount } = renderHook(() => useCommandBootstrap());
+    // Wait one microtask so the effect's async IIFE has started awaiting
+    // mountMenuCommands before we unmount.
+    await Promise.resolve();
+    unmount();
+
+    // Now resolve the deferred promise. Inside the IIFE: `cancelled` is
+    // true → `off()` is called to avoid a listener leak.
+    expect(resolveOff).not.toBeNull();
+    resolveOff!(off);
+    // Flush the awaited continuation and the synchronous off() call.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(off).toHaveBeenCalledTimes(1);
+  });
 });

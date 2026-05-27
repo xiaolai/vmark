@@ -220,6 +220,59 @@ describe("boldUnderscorePasteRegex (intraword guard)", () => {
   });
 });
 
+describe("Unicode-aware intraword guard (audit Round B H2)", () => {
+  // Cyrillic / Greek / Arabic snake_case identifiers must follow the same
+  // CommonMark rule as Latin: no emphasis when `_` is flanked by letters
+  // on both sides. Earlier the guard used `\w` (ASCII-only) and missed
+  // these scripts.
+
+  it("italic underscore rejects intraword Cyrillic", () => {
+    expect(pasteMatches(italicUnderscorePasteRegex, "привет_мир_тест")).toEqual([]);
+  });
+
+  it("italic underscore rejects intraword Greek", () => {
+    expect(pasteMatches(italicUnderscorePasteRegex, "γειά_σου_κόσμε")).toEqual([]);
+  });
+
+  it("italic underscore rejects intraword Arabic-script identifiers", () => {
+    expect(pasteMatches(italicUnderscorePasteRegex, "مرحبا_بالعالم_من")).toEqual([]);
+  });
+
+  it("bold underscore rejects intraword Cyrillic / Greek", () => {
+    expect(pasteMatches(boldUnderscorePasteRegex, "привет__мир__тест")).toEqual([]);
+    expect(pasteMatches(boldUnderscorePasteRegex, "γειά__σου__κόσμε")).toEqual([]);
+  });
+
+  it("still matches Cyrillic emphasis at proper word boundaries", () => {
+    expect(pasteMatches(italicUnderscorePasteRegex, "см. _важно_ в тексте")).toEqual([
+      "важно",
+    ]);
+    expect(pasteMatches(boldUnderscorePasteRegex, "см. __важно__ в тексте")).toEqual([
+      "важно",
+    ]);
+  });
+
+  it("CJK emphasis still works without spaces (the deliberate divergence is preserved)", () => {
+    expect(pasteMatches(italicUnderscorePasteRegex, "你好_世界_再见")).toEqual([
+      "世界",
+    ]);
+    expect(pasteMatches(boldUnderscorePasteRegex, "你好__世界__再见")).toEqual([
+      "世界",
+    ]);
+  });
+
+  it("treats Korean (Hangul) like Latin — word spacing required", () => {
+    // Korean uses inter-word spaces, so intraword `_안녕_` should NOT
+    // emphasize (consistent with the project's documented stance).
+    expect(pasteMatches(italicUnderscorePasteRegex, "안녕_하세요_세상")).toEqual([]);
+    // With proper boundaries (whitespace), it works like any letter-based
+    // language.
+    expect(pasteMatches(italicUnderscorePasteRegex, "안녕, _하세요_ 세상")).toEqual([
+      "하세요",
+    ]);
+  });
+});
+
 // --- Extension structure tests ---
 
 describe("CJKBold extension", () => {

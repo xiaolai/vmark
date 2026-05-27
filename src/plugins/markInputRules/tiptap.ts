@@ -23,17 +23,32 @@ export const boldStarInputRegex =
 export const boldStarPasteRegex =
   /(?<=^|[^*])(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))/g;
 
-/** Matches `__text__` with CJK-aware boundaries that REJECT intraword `_`.
- *  Per CommonMark, an underscore flanked by word characters on both sides
- *  does not emphasize (the rule that distinguishes `_` from `*`). `\w` in
- *  JavaScript is ASCII-only, so CJK characters still satisfy the
- *  non-word lookarounds and `你好__世界__` continues to match. */
-export const boldUnderscoreInputRegex =
-  /(?<=^|[^\w_])(__(?!\s+__)((?:[^_]+))__(?![\w_])(?!\s+__))$/;
+// --- Unicode-aware boundary fragments for underscore emphasis ---
+//
+// Per CommonMark, an underscore flanked by word characters on both sides
+// must not emphasize (the rule that distinguishes `_` from `*`). We extend
+// "word character" to the full Unicode letter+number set so Cyrillic /
+// Greek / Arabic / etc. snake_case identifiers and URL path segments are
+// also rejected (audit Round B H2). CJK letters are explicitly allowed
+// as a permitted boundary, preserving the project's deliberate CJK
+// divergence — CJK has no inter-word spacing, so `你好_世界_` is the
+// natural way to write emphasized CJK and must keep working.
+const CJK_SCRIPT = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Bopomofo}]";
+const NON_WORDISH = "[^\\p{L}\\p{N}_]";
+const ALLOWED_BEFORE = `(?<=^|${NON_WORDISH}|${CJK_SCRIPT})`;
+const ALLOWED_AFTER = `(?=$|${NON_WORDISH}|${CJK_SCRIPT})`;
 
-/** Paste rule regex for `__text__` bold with CJK-aware, intraword-safe boundaries. */
-export const boldUnderscorePasteRegex =
-  /(?<=^|[^\w_])(__(?!\s+__)((?:[^_]+))__(?![\w_])(?!\s+__))/g;
+/** Matches `__text__` with Unicode-aware boundaries that reject intraword `_`. */
+export const boldUnderscoreInputRegex = new RegExp(
+  `${ALLOWED_BEFORE}(__(?!\\s+__)((?:[^_]+))__${ALLOWED_AFTER}(?!\\s+__))$`,
+  "u",
+);
+
+/** Paste rule regex for `__text__` bold with Unicode-aware boundaries. */
+export const boldUnderscorePasteRegex = new RegExp(
+  `${ALLOWED_BEFORE}(__(?!\\s+__)((?:[^_]+))__${ALLOWED_AFTER}(?!\\s+__))`,
+  "gu",
+);
 
 // --- Italic regexes (CJK-aware) ---
 
@@ -45,18 +60,17 @@ export const italicStarInputRegex =
 export const italicStarPasteRegex =
   /(?<=^|[^*])(\*(?!\s+\*)((?:[^*]+))\*(?!\s+\*))/g;
 
-/** Matches `_text_` with CJK-aware boundaries that REJECT intraword `_`.
- *  Per CommonMark, an underscore flanked by word characters on both sides
- *  does not emphasize — so `foo_bar_baz` and the underscores inside URLs
- *  like `Pardon_of_January_6` never italicize. `\w` is ASCII-only in
- *  JavaScript regex, so CJK characters still pass the lookarounds and
- *  `你好_世界_` continues to match. */
-export const italicUnderscoreInputRegex =
-  /(?<=^|[^\w_])(_(?!\s+_)((?:[^_]+))_(?![\w_])(?!\s+_))$/;
+/** Matches `_text_` with Unicode-aware boundaries that reject intraword `_`. */
+export const italicUnderscoreInputRegex = new RegExp(
+  `${ALLOWED_BEFORE}(_(?!\\s+_)((?:[^_]+))_${ALLOWED_AFTER}(?!\\s+_))$`,
+  "u",
+);
 
-/** Paste rule regex for `_text_` italic with CJK-aware, intraword-safe boundaries. */
-export const italicUnderscorePasteRegex =
-  /(?<=^|[^\w_])(_(?!\s+_)((?:[^_]+))_(?![\w_])(?!\s+_))/g;
+/** Paste rule regex for `_text_` italic with Unicode-aware boundaries. */
+export const italicUnderscorePasteRegex = new RegExp(
+  `${ALLOWED_BEFORE}(_(?!\\s+_)((?:[^_]+))_${ALLOWED_AFTER}(?!\\s+_))`,
+  "gu",
+);
 
 // --- Extensions ---
 

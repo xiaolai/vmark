@@ -105,6 +105,37 @@ describe("format.setMarkdown", () => {
     await executeCommand("format.setMarkdown", {}, { windowLabel: "main" });
     expect(associations()).toEqual({ ".env": "txt", txt: "markdown" });
   });
+
+  it("is a no-op (no toast, no churn) when the association already equals the target (audit Round A H2)", async () => {
+    // Pre-seed: notes.txt already associated as markdown.
+    useSettingsStore.setState((s) => ({
+      formats: { ...s.formats, associations: { txt: "markdown" } },
+    }));
+    setActiveFile("/proj/notes.txt");
+    const beforeRef = useSettingsStore.getState().formats.associations;
+    toastInfo.mockClear();
+
+    await executeCommand("format.setMarkdown", {}, { windowLabel: "main" });
+
+    // No fresh write: the reference is the same (the bridge's reference
+    // comparison would otherwise trigger recomputeAllFormatIds globally).
+    expect(useSettingsStore.getState().formats.associations).toBe(beforeRef);
+    expect(toastInfo).not.toHaveBeenCalled();
+  });
+
+  it("setPlainText is a no-op when the association already equals txt (audit Round A H2)", async () => {
+    useSettingsStore.setState((s) => ({
+      formats: { ...s.formats, associations: { txt: "txt" } },
+    }));
+    setActiveFile("/proj/notes.txt");
+    const beforeRef = useSettingsStore.getState().formats.associations;
+    toastInfo.mockClear();
+
+    await executeCommand("format.setPlainText", {}, { windowLabel: "main" });
+
+    expect(useSettingsStore.getState().formats.associations).toBe(beforeRef);
+    expect(toastInfo).not.toHaveBeenCalled();
+  });
 });
 
 describe("format.resetType", () => {
