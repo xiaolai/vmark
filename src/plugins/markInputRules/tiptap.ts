@@ -22,13 +22,17 @@ export const boldStarInputRegex =
 export const boldStarPasteRegex =
   /(?<=^|[^*])(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))/g;
 
-/** Matches `__text__` preceded by any non-`_` character or start of text */
+/** Matches `__text__` with CJK-aware boundaries that REJECT intraword `_`.
+ *  Per CommonMark, an underscore flanked by word characters on both sides
+ *  does not emphasize (the rule that distinguishes `_` from `*`). `\w` in
+ *  JavaScript is ASCII-only, so CJK characters still satisfy the
+ *  non-word lookarounds and `你好__世界__` continues to match. */
 export const boldUnderscoreInputRegex =
-  /(?<=^|[^_])(__(?!\s+__)((?:[^_]+))__(?!\s+__))$/;
+  /(?<=^|[^\w_])(__(?!\s+__)((?:[^_]+))__(?![\w_])(?!\s+__))$/;
 
-/** Paste rule regex for `__text__` bold with CJK-aware lookbehind. */
+/** Paste rule regex for `__text__` bold with CJK-aware, intraword-safe boundaries. */
 export const boldUnderscorePasteRegex =
-  /(?<=^|[^_])(__(?!\s+__)((?:[^_]+))__(?!\s+__))/g;
+  /(?<=^|[^\w_])(__(?!\s+__)((?:[^_]+))__(?![\w_])(?!\s+__))/g;
 
 // --- Italic regexes (CJK-aware) ---
 
@@ -40,13 +44,18 @@ export const italicStarInputRegex =
 export const italicStarPasteRegex =
   /(?<=^|[^*])(\*(?!\s+\*)((?:[^*]+))\*(?!\s+\*))/g;
 
-/** Matches `_text_` preceded by any non-`_` character or start of text */
+/** Matches `_text_` with CJK-aware boundaries that REJECT intraword `_`.
+ *  Per CommonMark, an underscore flanked by word characters on both sides
+ *  does not emphasize — so `foo_bar_baz` and the underscores inside URLs
+ *  like `Pardon_of_January_6` never italicize. `\w` is ASCII-only in
+ *  JavaScript regex, so CJK characters still pass the lookarounds and
+ *  `你好_世界_` continues to match. */
 export const italicUnderscoreInputRegex =
-  /(?<=^|[^_])(_(?!\s+_)((?:[^_]+))_(?!\s+_))$/;
+  /(?<=^|[^\w_])(_(?!\s+_)((?:[^_]+))_(?![\w_])(?!\s+_))$/;
 
-/** Paste rule regex for `_text_` italic with CJK-aware lookbehind. */
+/** Paste rule regex for `_text_` italic with CJK-aware, intraword-safe boundaries. */
 export const italicUnderscorePasteRegex =
-  /(?<=^|[^_])(_(?!\s+_)((?:[^_]+))_(?!\s+_))/g;
+  /(?<=^|[^\w_])(_(?!\s+_)((?:[^_]+))_(?![\w_])(?!\s+_))/g;
 
 // --- Extensions ---
 

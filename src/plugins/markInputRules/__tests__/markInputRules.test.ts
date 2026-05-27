@@ -170,6 +170,54 @@ describe("italicUnderscorePasteRegex", () => {
   it("matches multiple occurrences", () => {
     expect(pasteMatches(italicUnderscorePasteRegex, "_a_ and _b_")).toEqual(["a", "b"]);
   });
+
+  // CommonMark intraword `_` rule — `_` flanked by word characters on both
+  // sides MUST NOT emphasize. The classic regression: pasting a Wikipedia
+  // URL whose path contains underscores between words (`Pardon_of_January_6
+  // _United_States...`) used to italicize "of", "6", "States", "attack"
+  // inside the auto-linked URL.
+  it("does NOT match intraword underscores (regression: URL with _word_)", () => {
+    const url =
+      "https://en.wikipedia.org/wiki/Pardon_of_January_6_United_States_Capitol_attack_defendants";
+    expect(pasteMatches(italicUnderscorePasteRegex, url)).toEqual([]);
+  });
+
+  it("does NOT match the classic `foo_bar_baz` snake-case identifier", () => {
+    expect(pasteMatches(italicUnderscorePasteRegex, "foo_bar_baz")).toEqual([]);
+  });
+
+  it("does NOT match when the closing underscore is followed by a word char", () => {
+    // Opening `_` after a non-word, but closing `_` runs into another word —
+    // CommonMark rejects this as intraword on the right side.
+    expect(pasteMatches(italicUnderscorePasteRegex, "see _word_more")).toEqual([]);
+  });
+
+  it("still matches at boundaries with punctuation / whitespace / CJK", () => {
+    expect(pasteMatches(italicUnderscorePasteRegex, "(see _key_!)")).toEqual(["key"]);
+    expect(pasteMatches(italicUnderscorePasteRegex, "你好_世界_,再见")).toEqual(["世界"]);
+  });
+});
+
+describe("italicUnderscoreInputRegex (intraword guard)", () => {
+  it("does NOT trigger italic when typing snake_case identifiers", () => {
+    expect(inputMatch(italicUnderscoreInputRegex, "foo_bar_")).toBeNull();
+  });
+
+  it("does NOT trigger italic when typing a URL path with underscores", () => {
+    expect(
+      inputMatch(italicUnderscoreInputRegex, "wiki/Pardon_of_"),
+    ).toBeNull();
+  });
+});
+
+describe("boldUnderscorePasteRegex (intraword guard)", () => {
+  it("does NOT match intraword `__bold__` flanked by word characters on both sides", () => {
+    expect(pasteMatches(boldUnderscorePasteRegex, "foo__bar__baz")).toEqual([]);
+  });
+
+  it("still matches `__bold__` at word boundaries", () => {
+    expect(pasteMatches(boldUnderscorePasteRegex, "see __key__ now")).toEqual(["key"]);
+  });
 });
 
 // --- Extension structure tests ---
