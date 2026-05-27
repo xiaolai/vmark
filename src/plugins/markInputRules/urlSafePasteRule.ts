@@ -49,31 +49,46 @@ export function findUrlRanges(text: string): UrlRange[] {
   return ranges;
 }
 
-/** True iff `[start, end)` intersects any of the supplied URL ranges. */
+/**
+ * True iff `[start, end)` intersects any of the supplied URL ranges.
+ * `urls` MUST be sorted by `start` ascending — `findUrlRanges` produces
+ * them in order, and matches arrive in order too, so a moving cursor
+ * reduces per-call work from O(matches × urls) to O(matches + urls).
+ */
 function overlapsAnyUrl(
   start: number,
   end: number,
   urls: readonly UrlRange[],
+  cursor: { i: number },
 ): boolean {
-  for (const url of urls) {
-    if (url.start < end && url.end > start) return true;
+  // Advance past URL ranges that end at or before this match starts —
+  // they can't overlap this or any later (rightward) match.
+  while (cursor.i < urls.length && urls[cursor.i].end <= start) {
+    cursor.i++;
   }
-  return false;
+  if (cursor.i >= urls.length) return false;
+  // The next-in-order URL range may or may not overlap; check its left edge.
+  return urls[cursor.i].start < end;
 }
 
 /**
  * Run `pattern` against `text` and return matches whose ranges do NOT overlap
  * any URL substring. The caller's regex object is not mutated — a fresh
  * `RegExp` is constructed from its `source`/`flags`, so global `lastIndex`
- * state can't leak across calls.
+ * state can't leak across calls. The `g` flag is forced because `exec`
+ * without it would loop forever on the same match.
  */
 export function findMatchesOutsideUrls(
   text: string,
   pattern: RegExp,
 ): RegExpExecArray[] {
   const urls = findUrlRanges(text);
-  const re = new RegExp(pattern.source, pattern.flags);
+  const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
+  const re = new RegExp(pattern.source, flags);
   const out: RegExpExecArray[] = [];
+  // Matches arrive left-to-right; URL ranges are likewise sorted. A single
+  // cursor amortizes the overlap check to O(matches + urls).
+  const urlCursor = { i: 0 };
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     /* v8 ignore next 4 -- @preserve emphasis patterns we ship require ≥1 inner char; guard is defensive against future callers passing a pattern that can match zero-width. */
@@ -83,7 +98,7 @@ export function findMatchesOutsideUrls(
     }
     const start = m.index;
     const end = start + m[0].length;
-    if (overlapsAnyUrl(start, end, urls)) continue;
+    if (overlapsAnyUrl(start, end, urls, urlCursor)) continue;
     out.push(m);
   }
   return out;

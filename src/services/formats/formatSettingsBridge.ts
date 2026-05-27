@@ -65,6 +65,15 @@ export function installFormatSettingsSubscription(): () => void {
     () => useSettingsStore.getState().formats.associations ?? {},
   );
 
+  // Recompute every open tab's formatId NOW. Hot-exit-restored tabs are
+  // created during a child component's effect (DocumentWindowMount), which
+  // by React's bottom-up effect order runs BEFORE this hook's effect — so
+  // any restored tab had its formatId derived against an empty associations
+  // map. Without this one-shot recompute the user's persisted overrides
+  // would be silently ignored on every cold start until they touched a
+  // setting. (Audit finding H1.)
+  useTabStore.getState().recomputeAllFormatIds();
+
   let lastToggles = snapshot(useSettingsStore.getState().formats);
   let lastAssociations = useSettingsStore.getState().formats.associations;
 

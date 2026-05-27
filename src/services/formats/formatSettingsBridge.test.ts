@@ -12,7 +12,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { installFormatSettingsSubscription } from "./formatSettingsBridge";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
-import { __resetRegistry, getFormatById } from "@/lib/formats/registry";
+import {
+  __resetRegistry,
+  __resetFormatAssociationsProvider,
+  getFormatById,
+} from "@/lib/formats/registry";
 import { bootstrapFormats, __resetBootstrap } from "@/lib/formats";
 
 let unsubscribe: (() => void) | null = null;
@@ -129,5 +133,32 @@ describe("installFormatSettingsSubscription", () => {
 
     useSettingsStore.getState().updateFormatsSetting("associations", {});
     expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("txt");
+  });
+
+  it("recomputes tabs created BEFORE install so persisted associations take effect on startup", () => {
+    // Simulate the hot-exit startup race: tabs (DocumentWindowMount, a
+    // child) are restored before useFormatSettingsBridge (parent effect)
+    // mounts. The bridge must recompute on install or the user's persisted
+    // overrides are silently ignored until they touch a setting.
+    unsubscribe?.();
+    unsubscribe = null;
+    // Reset the module-level provider so we get the empty-default behavior
+    // the real first-launch path sees (the provider is installed by the
+    // bridge, which hasn't mounted yet in this scenario).
+    __resetFormatAssociationsProvider();
+
+    // Seed an association FIRST, then create a tab while the bridge is
+    // NOT installed — the tab will derive formatId against an empty
+    // associations map (the provider's default).
+    useSettingsStore.setState((s) => ({
+      formats: { ...s.formats, associations: { txt: "markdown" } },
+    }));
+    const tabId = useTabStore.getState().createTab("main", "/x/notes.txt");
+    expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("txt");
+
+    // NOW install the bridge — it must wire the provider AND recompute the
+    // existing tab so persisted overrides take effect.
+    unsubscribe = installFormatSettingsSubscription();
+    expect(useTabStore.getState().findTabById(tabId)?.formatId).toBe("markdown");
   });
 });

@@ -106,41 +106,48 @@ export function TerminalContextMenu({
 
   const handleAction = useCallback(
     async (id: string) => {
-      switch (id) {
-        case "copy":
-          if (term.hasSelection()) {
-            await writeText(term.getSelection().trimEnd());
-            term.clearSelection();
+      // Always close the menu and restore focus — even when a clipboard
+      // call rejects (permission denial, headless test env). Without the
+      // finally, a thrown writeText/readText would leave the menu open
+      // and focus parked on whatever stole it. (Audit finding M1.)
+      try {
+        switch (id) {
+          case "copy":
+            if (term.hasSelection()) {
+              await writeText(term.getSelection().trimEnd());
+              term.clearSelection();
+            }
+            break;
+          case "copyUnwrapped":
+            // Collapse the program's display-width line breaks back into
+            // logical paragraphs before copying (#950). Opt-in: the user
+            // chose this selection knowing it's one flow.
+            if (term.hasSelection()) {
+              await writeText(unwrapTerminalSelection(term.getSelection()));
+              term.clearSelection();
+            }
+            break;
+          case "paste": {
+            const text = await readText();
+            if (text && ptyRef.current) {
+              ptyRef.current.write(text);
+            }
+            break;
           }
-          break;
-        case "copyUnwrapped":
-          // Collapse the program's display-width line breaks back into
-          // logical paragraphs before copying (#950). Opt-in: the user
-          // chose this selection knowing it's one flow.
-          if (term.hasSelection()) {
-            await writeText(unwrapTerminalSelection(term.getSelection()));
-            term.clearSelection();
-          }
-          break;
-        case "paste": {
-          const text = await readText();
-          if (text && ptyRef.current) {
-            ptyRef.current.write(text);
-          }
-          break;
+          case "selectAll":
+            term.selectAll();
+            break;
+          case "clear":
+            term.clear();
+            break;
+          case "resetDisplay":
+            onResetDisplay?.();
+            break;
         }
-        case "selectAll":
-          term.selectAll();
-          break;
-        case "clear":
-          term.clear();
-          break;
-        case "resetDisplay":
-          onResetDisplay?.();
-          break;
+      } finally {
+        onClose();
+        term.focus();
       }
-      onClose();
-      term.focus();
     },
     [term, ptyRef, onResetDisplay, onClose],
   );

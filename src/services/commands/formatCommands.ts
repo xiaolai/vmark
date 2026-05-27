@@ -51,9 +51,17 @@ function activeKey(ctx: Ctx): string | null {
   return filePath ? associationKey(filePath) : null;
 }
 
-/** Write (or clear, when formatId is null) one association, preserving the rest. */
-function setAssociation(key: string, formatId: string | null): void {
+/** Write (or clear, when formatId is null) one association, preserving the rest.
+ *  Early-returns when nothing semantically changes — a no-op assignment would
+ *  still trigger `recomputeAllFormatIds()` for every open tab via the
+ *  bridge's reference comparison. (Audit finding M2.) */
+function setAssociation(key: string, formatId: string | null): boolean {
   const current = useSettingsStore.getState().formats.associations ?? {};
+  if (formatId === null) {
+    if (!(key in current)) return false;
+  } else {
+    if (current[key] === formatId) return false;
+  }
   const next = { ...current };
   if (formatId === null) {
     delete next[key];
@@ -61,6 +69,7 @@ function setAssociation(key: string, formatId: string | null): void {
     next[key] = formatId;
   }
   useSettingsStore.getState().updateFormatsSetting("associations", next);
+  return true;
 }
 
 let registered = false;
@@ -75,8 +84,9 @@ export function registerFormatCommands(): void {
     run: (_args, ctx: Ctx) => {
       const key = activeKey(ctx);
       if (!key) return;
-      setAssociation(key, "txt");
-      toast.info(i18n.t("commands:format.toast.set", { key, format: formatName("txt") }));
+      if (setAssociation(key, "txt")) {
+        toast.info(i18n.t("commands:format.toast.set", { key, format: formatName("txt") }));
+      }
     },
   });
 
@@ -88,8 +98,9 @@ export function registerFormatCommands(): void {
     run: (_args, ctx: Ctx) => {
       const key = activeKey(ctx);
       if (!key) return;
-      setAssociation(key, "markdown");
-      toast.info(i18n.t("commands:format.toast.set", { key, format: formatName("markdown") }));
+      if (setAssociation(key, "markdown")) {
+        toast.info(i18n.t("commands:format.toast.set", { key, format: formatName("markdown") }));
+      }
     },
   });
 
@@ -101,8 +112,9 @@ export function registerFormatCommands(): void {
     run: (_args, ctx: Ctx) => {
       const key = activeKey(ctx);
       if (!key) return;
-      setAssociation(key, null);
-      toast.info(i18n.t("commands:format.toast.reset", { key }));
+      if (setAssociation(key, null)) {
+        toast.info(i18n.t("commands:format.toast.reset", { key }));
+      }
     },
   });
 

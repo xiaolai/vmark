@@ -93,6 +93,16 @@ export function SourcePane({
   const lastSyncedRef = useRef<string>("");
   const [, setLanguageLoaded] = useState(false);
 
+  // Hold the callback props in refs so they don't show up as mount-effect
+  // dependencies. Parent code commonly passes inline (non-memoized)
+  // handlers — without this indirection every parent re-render would
+  // tear down and rebuild the CodeMirror view, blowing away undo history
+  // and the user's selection. (Audit finding H3.)
+  const onDiagnosticsRef = useRef(onDiagnostics);
+  const onJumpHandleReadyRef = useRef(onJumpHandleReady);
+  onDiagnosticsRef.current = onDiagnostics;
+  onJumpHandleReadyRef.current = onJumpHandleReady;
+
   /* v8 ignore next 4 -- @preserve documentStore selector path; smoke-tested via mocked store */
   const storeContent = useDocumentStore(
     (state) => state.documents?.[tabId]?.content ?? "",
@@ -119,6 +129,13 @@ export function SourcePane({
     /* v8 ignore next -- @preserve null-host fallback for jsdom edges */
     if (!containerRef.current) return undefined;
 
+    // Clear stale diagnostics whenever the active format has no validator
+    // (e.g. switching from json → txt). Without this, the preview pane's
+    // "fix syntax errors" indicator would survive from the previous format
+    // since the validator-backed linter is the only thing that calls
+    // `onDiagnostics`. (Audit finding H4.)
+    if (!validator) onDiagnosticsRef.current?.([]);
+
     const persistOnUpdate = EditorView.updateListener.of((update) => {
       /* v8 ignore next -- @preserve no-op for non-doc updates */
       if (!update.docChanged) return;
@@ -138,7 +155,7 @@ export function SourcePane({
             useDocumentStore.getState().documents?.[tabId]?.filePath ??
             undefined;
           const diagnostics = validator(text, path ?? undefined);
-          onDiagnostics?.(diagnostics);
+          onDiagnosticsRef.current?.(diagnostics);
           return diagnostics.map((d) =>
             diagnosticToCodemirror(view.state.doc, d),
           );
@@ -172,21 +189,19 @@ export function SourcePane({
 
     // Expose an imperative jump-to-position handle so the validation
     // gutter (parent) can move the cursor on row click.
-    if (onJumpHandleReady) {
-      onJumpHandleReady((line: number, column: number) => {
-        const v = viewRef.current;
-        if (!v) return;
-        const totalLines = v.state.doc.lines;
-        const safeLine = Math.min(Math.max(1, line), Math.max(1, totalLines));
-        const lineInfo = v.state.doc.line(safeLine);
-        const pos = Math.min(
-          lineInfo.from + Math.max(0, column - 1),
-          lineInfo.to,
-        );
-        v.dispatch({ selection: { anchor: pos, head: pos } });
-        v.focus();
-      });
-    }
+    onJumpHandleReadyRef.current?.((line: number, column: number) => {
+      const v = viewRef.current;
+      if (!v) return;
+      const totalLines = v.state.doc.lines;
+      const safeLine = Math.min(Math.max(1, line), Math.max(1, totalLines));
+      const lineInfo = v.state.doc.line(safeLine);
+      const pos = Math.min(
+        lineInfo.from + Math.max(0, column - 1),
+        lineInfo.to,
+      );
+      v.dispatch({ selection: { anchor: pos, head: pos } });
+      v.focus();
+    });
 
     let cancelled = false;
     if (loadLanguage) {
@@ -211,7 +226,8 @@ export function SourcePane({
       viewRef.current = null;
     };
 
-  }, [tabId, formatId, readOnly, validator, loadLanguage, onDiagnostics, onJumpHandleReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks read via refs (see H3 comment above); excluding them from deps is intentional so the editor doesn't remount on every parent render.
+  }, [tabId, formatId, readOnly, validator, loadLanguage]);
 
   // Re-sync the editor when the store content diverges from the last
   // value we authored. Handles file-load races (initDocument arriving

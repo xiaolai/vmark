@@ -118,12 +118,21 @@ export function useCommandBootstrap(): void {
         menuError("Failed to expand Pandoc menu bindings:", err);
       }
 
-      const off = await mountMenuCommands(bindings);
-      if (cancelled) {
-        off();
-        return;
+      // mountMenuCommands wires the Tauri menu→command bridge. A rejection
+      // here is critical: every native menu item, accelerator, and palette
+      // entry stops routing. Without this catch the rejection becomes an
+      // unhandled-promise warning and the user sees no error — just
+      // silently dead menus. (Audit finding H6.)
+      try {
+        const off = await mountMenuCommands(bindings);
+        if (cancelled) {
+          off();
+          return;
+        }
+        unlisten = off;
+      } catch (err) {
+        menuError("Failed to mount menu commands:", err);
       }
-      unlisten = off;
     })();
 
     return () => {

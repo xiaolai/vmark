@@ -42,7 +42,10 @@ function joinSeparator(left: string, right: string): string {
  * separate paragraphs and are preserved as a single break.
  */
 export function unwrapTerminalSelection(text: string): string {
-  const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+$/, ""));
+  // Strip only the trailing ASCII space / tab padding that xterm reports
+  // for empty cells; meaningful Unicode whitespace such as the CJK
+  // ideographic space (U+3000) is preserved. (Audit finding L1.)
+  const lines = text.split(/\r?\n/).map((line) => line.replace(/[ \t]+$/, ""));
 
   const paragraphs: string[] = [];
   let current = "";
