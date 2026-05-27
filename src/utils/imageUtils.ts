@@ -33,11 +33,15 @@ export function getFilename(path: string): string {
 
 /**
  * Generate a unique filename using timestamp and random suffix.
- * Format: {basename}-{timestamp}-{random4}.{ext}
+ * Format: {basename}-{timestamp}-{random8}.{ext}
  */
 export function generateUniqueFilename(originalName: string): string {
   const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 6);
+  // 8 base-36 chars (~2.8×10¹² combinations). 4 chars (1.68M) tripped
+  // the 100-pick uniqueness test ~0.36% per run because a tight loop
+  // shares one Date.now() ms, leaving the suffix as the only
+  // differentiator — and the same collision surfaces in batch image paste.
+  const random = Math.random().toString(36).substring(2, 10);
 
   // Extract and sanitize base name
   const baseName = originalName

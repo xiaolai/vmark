@@ -82,7 +82,7 @@ describe("imageUtils", () => {
       // Should end with .png
       expect(result).toMatch(/\.png$/);
       // Should have timestamp and random suffix pattern
-      expect(result).toMatch(/^original-\d+-[a-z0-9]{4}\.png$/);
+      expect(result).toMatch(/^original-\d+-[a-z0-9]{8}\.png$/);
     });
 
     it("sanitizes special characters in filename", () => {
@@ -129,7 +129,7 @@ describe("imageUtils", () => {
       const result = generateUniqueFilename("noextension");
       // When no extension found, the whole filename becomes the "extension"
       // This is expected behavior - caller should provide proper filenames
-      expect(result).toMatch(/^noextension-\d+-[a-z0-9]{4}\.noextension$/);
+      expect(result).toMatch(/^noextension-\d+-[a-z0-9]{8}\.noextension$/);
     });
 
     it("falls back to png extension for empty filename (line 49)", () => {
