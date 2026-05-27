@@ -167,29 +167,59 @@ async fn try_read_session_file(
     }
 }
 
-/// Read session from disk, falling back to backup if main file is corrupt.
+/// Validate version, migrate if needed, and repair a session in one step.
+/// Returns `Ok(None)` when the session's schema version is unsupported,
+/// `Err` when migration fails, and `Ok(Some)` on success.
+///
+/// Used by the main-file arm of `read_session` so an unsupported version
+/// or a migration failure can fall through to the backup file instead of
+/// taking the user's recoverable backup off the table (audit #952).
+fn finalize_session(mut session: SessionData) -> Result<Option<SessionData>, String> {
+    if !super::migration::can_migrate(session.version) {
+        log::warn!(
+            "[HotExit] Session version {} not supported, discarding",
+            session.version
+        );
+        return Ok(None);
+    }
+    if super::migration::needs_migration(&session) {
+        session = super::migration::migrate_session(session)
+            .map_err(|e| format!("Migration failed: {}", e))?;
+    }
+    let warnings = validate_and_repair(&mut session);
+    for warning in &warnings {
+        log::warn!("[HotExit] Session repair: {}", warning);
+    }
+    Ok(Some(session))
+}
+
+/// Read session from disk, falling back to backup if main file is corrupt,
+/// at an unsupported version, or fails to migrate.
 pub async fn read_session(
     app: &tauri::AppHandle,
 ) -> Result<Option<SessionData>, String> {
     let session_path = get_session_path(app)?;
 
-    // Try main session file first
+    // Try main session file first.
+    //
+    // The "unsupported version" and "migration failed" arms used to early-
+    // return Ok(None) / propagate `?` — that meant a single bad main file
+    // could shadow a perfectly migratable backup. Both now fall through so
+    // the backup arm below gets a chance (audit #952).
     match try_read_session_file(&session_path).await {
-        Ok(Some(mut session)) => {
-            if !super::migration::can_migrate(session.version) {
-                log::warn!("[HotExit] Session version {} not supported, discarding", session.version);
-                return Ok(None);
+        Ok(Some(session)) => match finalize_session(session) {
+            Ok(Some(s)) => return Ok(Some(s)),
+            Ok(None) => {
+                // Unsupported main version — already logged inside finalize_session;
+                // fall through to the backup arm.
             }
-            if super::migration::needs_migration(&session) {
-                session = super::migration::migrate_session(session)
-                    .map_err(|e| format!("Migration failed: {}", e))?;
+            Err(e) => {
+                log::warn!(
+                    "[HotExit] Main session migration failed ({}), trying backup",
+                    e
+                );
             }
-            let warnings = validate_and_repair(&mut session);
-            for warning in &warnings {
-                log::warn!("[HotExit] Session repair: {}", warning);
-            }
-            return Ok(Some(session));
-        }
+        },
         Ok(None) => {
             // Main file doesn't exist — check backup before giving up
         }
@@ -398,17 +428,22 @@ mod tests {
     // -----------------------------------------------------------------------
 
     /// Simulate the read_session fallback logic using direct file paths.
-    /// This mirrors the logic in read_session() without requiring AppHandle.
+    /// This mirrors the logic in read_session() without requiring AppHandle —
+    /// in particular it uses the same finalize_session pipeline so the version /
+    /// migration fall-through introduced for audit #952 is testable here.
     async fn read_session_from_paths(
         session_path: &std::path::Path,
         backup_path: &std::path::Path,
     ) -> Result<Option<SessionData>, String> {
         // Try main session file first
         match try_read_session_file(session_path).await {
-            Ok(Some(mut session)) => {
-                let _warnings = validate_and_repair(&mut session);
-                return Ok(Some(session));
-            }
+            Ok(Some(session)) => match finalize_session(session) {
+                Ok(Some(s)) => return Ok(Some(s)),
+                Ok(None) | Err(_) => {
+                    // Unsupported version or migration failure — fall through
+                    // to backup arm, matching the production behavior.
+                }
+            },
             Ok(None) => {
                 // Main file doesn't exist — check backup
             }
@@ -584,6 +619,48 @@ mod tests {
         assert!(
             result.unwrap().is_none(),
             "Should return None when backup has wrong schema"
+        );
+    }
+
+    #[tokio::test]
+    async fn fallback_to_backup_when_main_has_unsupported_version() {
+        // Audit #952 regression: a main session at a too-new schema version
+        // used to take the user's recoverable backup off the table by
+        // returning Ok(None) instead of falling through. The fix routes the
+        // unsupported-version arm into the backup branch.
+        let dir = TempDir::new().unwrap();
+        let session_path = dir.path().join("session.json");
+        let backup_path = dir.path().join("session.prev.json");
+
+        // Main has version SCHEMA_VERSION + 1 (future, unmigratable).
+        let mut future_main = make_valid_session();
+        future_main.version = SCHEMA_VERSION + 1;
+        future_main.vmark_version = "main-future".to_string();
+        std::fs::write(
+            &session_path,
+            serde_json::to_string_pretty(&future_main).unwrap(),
+        )
+        .unwrap();
+
+        // Backup at current schema, fully valid.
+        let mut backup = make_valid_session();
+        backup.vmark_version = "backup-current".to_string();
+        std::fs::write(
+            &backup_path,
+            serde_json::to_string_pretty(&backup).unwrap(),
+        )
+        .unwrap();
+
+        let result = read_session_from_paths(&session_path, &backup_path).await;
+        let data = result.unwrap();
+        assert!(
+            data.is_some(),
+            "Expected backup to be restored when main is at unsupported version"
+        );
+        assert_eq!(
+            data.unwrap().vmark_version,
+            "backup-current",
+            "Expected backup session contents, not main"
         );
     }
 
