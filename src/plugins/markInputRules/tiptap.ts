@@ -10,7 +10,8 @@
  * @module plugins/markInputRules/tiptap
  */
 
-import { Mark, markInputRule, markPasteRule, mergeAttributes } from "@tiptap/core";
+import { Mark, markInputRule, mergeAttributes } from "@tiptap/core";
+import { urlSafeMarkPasteRule } from "./urlSafePasteRule";
 
 // --- Bold regexes (CJK-aware) ---
 
@@ -107,8 +108,8 @@ export const CJKBold = Mark.create({
 
   addPasteRules() {
     return [
-      markPasteRule({ find: boldStarPasteRegex, type: this.type }),
-      markPasteRule({ find: boldUnderscorePasteRegex, type: this.type }),
+      urlSafeMarkPasteRule({ find: boldStarPasteRegex, type: this.type }),
+      urlSafeMarkPasteRule({ find: boldUnderscorePasteRegex, type: this.type }),
     ];
   },
 });
@@ -161,8 +162,8 @@ export const CJKItalic = Mark.create({
 
   addPasteRules() {
     return [
-      markPasteRule({ find: italicStarPasteRegex, type: this.type }),
-      markPasteRule({ find: italicUnderscorePasteRegex, type: this.type }),
+      urlSafeMarkPasteRule({ find: italicStarPasteRegex, type: this.type }),
+      urlSafeMarkPasteRule({ find: italicUnderscorePasteRegex, type: this.type }),
     ];
   },
 });
