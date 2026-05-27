@@ -17,6 +17,7 @@ import { McpConfigInstaller } from "./McpConfigInstaller";
 import { RefreshCw, Users, ExternalLink } from "lucide-react";
 import type { ProviderType } from "@/types/aiGenies";
 import { RestProviderConfigFields } from "./RestProviderConfigFields";
+import { ProviderRadio } from "./ProviderRadio";
 
 function StatusBadge({ running, loading }: { running: boolean; loading: boolean }) {
   const { t } = useTranslation("settings");
@@ -269,37 +270,6 @@ export function IntegrationsSettings() {
 // AI Provider Settings
 // ============================================================================
 
-function ProviderRadio({
-  checked,
-  disabled,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={onChange}
-      className={`w-3.5 h-3.5 rounded-full border flex-shrink-0
-        flex items-center justify-center transition-colors
-        ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}
-        ${checked
-          ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]"
-          : "border-[var(--text-tertiary)] bg-transparent hover:border-[var(--text-secondary)]"
-        }`}
-    >
-      {checked && (
-        <span className="w-1.5 h-1.5 rounded-full bg-[var(--contrast-text)]" />
-      )}
-    </button>
-  );
-}
-
 function AiProviderSettings() {
   const { t } = useTranslation("settings");
   const cliProviders = useAiProviderStore((s) => s.cliProviders);
@@ -357,6 +327,7 @@ function AiProviderSettings() {
                 checked={activeProvider === p.type}
                 disabled={!p.available}
                 onChange={() => handleActivate(p.type)}
+                label={p.name}
               />
               <span className={
                 activeProvider === p.type
@@ -395,6 +366,7 @@ function AiProviderSettings() {
                 <ProviderRadio
                   checked={isActive}
                   onChange={() => handleActivate(p.type)}
+                  label={p.name}
                 />
                 <span className={
                   isActive
