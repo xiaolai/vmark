@@ -198,6 +198,17 @@
   outline: none;
 }
 
+/* Keyboard focus indicator (audit #954) — restored so a row focused via
+ * Tab / Arrow keys is visible even when it isn't the currently-selected
+ * file. `.file-node.selected` / `.active` style selection state only;
+ * focus and selection can diverge while arrowing through the tree. Uses
+ * the project's list-item focus pattern (33-focus-indicators.md §5):
+ * background highlight rather than a ring so it nests cleanly inside
+ * react-arborist's row geometry without clipping. */
+[role="treeitem"]:focus-visible > .file-node {
+  background-color: var(--accent-bg);
+}
+
 /* Drop indicator line */
 .file-explorer-tree [data-drop-position="before"]::before,
 .file-explorer-tree [data-drop-position="after"]::after {
