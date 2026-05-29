@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "Sessão não salva completamente",
+  "hotExit.partialCapture.description": "Algumas janelas não responderam a tempo, então suas alterações não salvas não foram capturadas: {{windows}}. Salve essas janelas manualmente antes de sair ou reiniciar.",
+  "hotExit.partialCapture.unknownWindows": "uma ou mais janelas",
   "save": "Salvar",
   "cancel": "Cancelar",
   "ok": "OK",

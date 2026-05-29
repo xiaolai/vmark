@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "Session non entièrement enregistrée",
+  "hotExit.partialCapture.description": "Certaines fenêtres n'ont pas répondu à temps, leurs modifications non enregistrées n'ont donc pas été capturées : {{windows}}. Enregistrez ces fenêtres manuellement avant de quitter ou de redémarrer.",
+  "hotExit.partialCapture.unknownWindows": "une ou plusieurs fenêtres",
   "save": "Enregistrer",
   "cancel": "Annuler",
   "ok": "OK",

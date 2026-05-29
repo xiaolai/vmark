@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "会话未完全保存",
+  "hotExit.partialCapture.description": "部分窗口未能及时响应，因此其未保存的更改未被捕获：{{windows}}。请在退出或重启前手动保存这些窗口。",
+  "hotExit.partialCapture.unknownWindows": "一个或多个窗口",
   "save": "保存",
   "cancel": "取消",
   "ok": "确定",

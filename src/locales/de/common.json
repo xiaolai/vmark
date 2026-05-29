@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "Sitzung nicht vollständig gespeichert",
+  "hotExit.partialCapture.description": "Einige Fenster haben nicht rechtzeitig reagiert, daher wurden ihre ungespeicherten Änderungen nicht erfasst: {{windows}}. Speichern Sie diese Fenster manuell, bevor Sie das Programm beenden oder neu starten.",
+  "hotExit.partialCapture.unknownWindows": "ein oder mehrere Fenster",
   "save": "Speichern",
   "cancel": "Abbrechen",
   "ok": "OK",

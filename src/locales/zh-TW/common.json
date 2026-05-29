@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "工作階段未完整儲存",
+  "hotExit.partialCapture.description": "部分視窗未能及時回應，因此其未儲存的變更未被擷取：{{windows}}。請在結束或重新啟動前手動儲存這些視窗。",
+  "hotExit.partialCapture.unknownWindows": "一個或多個視窗",
   "save": "儲存",
   "cancel": "取消",
   "ok": "確定",
