@@ -9,7 +9,9 @@
  *   - Uses tabSize from settings for consistent indentation
  *   - Shift+Tab removes up to tabSize spaces from the line start
  *   - Lower priority than tabEscape and listSmartIndent in the keymap chain
- *   - Handles all selection ranges for multi-cursor support
+ *   - Handles all selection ranges for multi-cursor support; Shift+Tab dedupes
+ *     by line so multiple cursors on one line produce a single outdent change
+ *     (no overlapping changes)
  *
  * @coordinates-with tabEscape.ts — higher-priority Tab handler for bracket/link escape
  * @coordinates-with listSmartIndent.ts — higher-priority Tab handler for list items
@@ -74,8 +76,13 @@ export const shiftTabIndentFallbackKeymap: KeyBinding = guardCodeMirrorKeyBindin
   run: (view) => {
     const { state } = view;
     const tabSize = getTabSize();
-    const changes: ChangeSpec[] = [];
 
+    // Dedupe by line: multiple cursors on the same line must yield ONE outdent
+    // change, not one per cursor. Two changes anchored at the same line.from
+    // overlap; rather than rely on CodeMirror silently merging them, collapse
+    // them here and remove the widest amount any cursor on the line warrants
+    // (matching the union of the per-cursor removals).
+    const removalByLine = new Map<number, number>();
     for (const range of state.selection.ranges) {
       const line = state.doc.lineAt(range.from);
       const textBefore = state.doc.sliceString(line.from, range.from);
@@ -84,8 +91,15 @@ export const shiftTabIndentFallbackKeymap: KeyBinding = guardCodeMirrorKeyBindin
       if (leadingSpaces === 0) continue;
 
       const spacesToRemove = Math.min(leadingSpaces, tabSize);
-      changes.push({ from: line.from, to: line.from + spacesToRemove, insert: "" });
+      const prev = removalByLine.get(line.from) ?? 0;
+      if (spacesToRemove > prev) removalByLine.set(line.from, spacesToRemove);
     }
+
+    const changes: ChangeSpec[] = [...removalByLine].map(([from, count]) => ({
+      from,
+      to: from + count,
+      insert: "",
+    }));
 
     if (changes.length > 0) {
       view.dispatch({ changes, scrollIntoView: true });

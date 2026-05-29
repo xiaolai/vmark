@@ -210,4 +210,12 @@ describe("shiftTabIndentFallbackKeymap", () => {
     // leadingSpaces = 4, removes 4
     expect(view.state.doc.toString()).toBe("hello world");
   });
+
+  it("outdents once (no overlapping-change crash) with two cursors on one line (#961)", () => {
+    // Two cursors at different offsets on the same indented line.
+    const view = createMultiCursorView("        code", [8, 12]);
+    expect(() => shiftTabIndentFallbackKeymap.run!(view)).not.toThrow();
+    // A single outdent of tabSize (4) — not two stacked removals.
+    expect(view.state.doc.toString()).toBe("    code");
+  });
 });
