@@ -394,10 +394,5 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   resetApproval: () => set({ approval: initialApproval }),
 }));
 
-/* ───────────────────────────── selectors ──────────────────────────────── */
-
-export const selectWorkflowEditDirty = (s: WorkflowStore): boolean =>
-  s.edit.pendingPatches.length > 0;
-
 /* re-export legacy patch type for compat */
 export type { IRPatch };
