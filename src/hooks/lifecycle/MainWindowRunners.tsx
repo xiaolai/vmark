@@ -24,6 +24,7 @@ import { useMcpAutoStart } from "@/hooks/useMcpAutoStart";
 import { useUpdateChecker } from "@/hooks/useUpdateChecker";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { useResilienceStartup } from "@/services/persistence/resilience";
+import { useHotExitCaptureWarning } from "@/services/persistence/hotExit/useHotExitCaptureWarning";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
 import { useGenieShortcuts } from "@/hooks/useGenieShortcuts";
 import { useQuickOpenShortcuts } from "@/hooks/useQuickOpenShortcuts";
@@ -39,6 +40,8 @@ function MainWindowLifecycle(): null {
   // crash-recovery scan). useResilienceStartup enforces the
   // hot-exit-before-crash-recovery order internally.
   useResilienceStartup();
+  // Warn the user if hot-exit capture dropped any window (#969).
+  useHotExitCaptureWarning();
   useFinderFileOpen();
   return null;
 }

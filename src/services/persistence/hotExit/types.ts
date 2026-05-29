@@ -169,6 +169,7 @@ export const HOT_EXIT_EVENTS = {
   CAPTURE_REQUEST: 'hot-exit:capture-request',
   CAPTURE_RESPONSE: 'hot-exit:capture-response',
   CAPTURE_TIMEOUT: 'hot-exit:capture-timeout',
+  PARTIAL_CAPTURE: 'hot-exit:partial-capture',
   RESTORE_START: 'hot-exit:restore-start',
   RESTORE_COMPLETE: 'hot-exit:restore-complete',
   RESTORE_FAILED: 'hot-exit:restore-failed',

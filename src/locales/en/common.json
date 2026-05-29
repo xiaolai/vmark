@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "Session not fully saved",
+  "hotExit.partialCapture.description": "Some windows didn't respond in time, so their unsaved changes were not captured: {{windows}}. Save those windows manually before quitting or restarting.",
+  "hotExit.partialCapture.unknownWindows": "one or more windows",
   "save": "Save",
   "cancel": "Cancel",
   "ok": "OK",
