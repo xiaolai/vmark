@@ -108,16 +108,21 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.PAT_TOKEN }}
 
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
       - uses: actions/setup-node@v6
         with:
           node-version: 22
+          cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: ./.github/actions/setup-tauri-deps
 
       - name: Install dependencies
-        run: npm install -g pnpm && pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Fix issue #${{ matrix.issue }}
         id: fix
