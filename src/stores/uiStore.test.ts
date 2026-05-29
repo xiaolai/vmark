@@ -177,14 +177,17 @@ describe("uiStore", () => {
   });
 
   describe("terminalWidth", () => {
-    it("clamps to min/max", () => {
+    it("enforces the pixel floor but not a fixed ceiling", () => {
       const store = useUIStore.getState();
 
+      // Below the floor → clamped up to the minimum.
       store.setTerminalWidth(50);
       expect(useUIStore.getState().terminalWidth).toBe(200);
 
+      // No fixed pixel ceiling at the store level — the proportional 50% cap
+      // is applied by the viewport-aware callers, so large values pass through.
       store.setTerminalWidth(1000);
-      expect(useUIStore.getState().terminalWidth).toBe(800);
+      expect(useUIStore.getState().terminalWidth).toBe(1000);
 
       store.setTerminalWidth(400);
       expect(useUIStore.getState().terminalWidth).toBe(400);
@@ -352,9 +355,11 @@ describe("uiStore", () => {
       expect(useUIStore.getState().terminalHeight).toBe(100);
     });
 
-    it("clamps to maximum height", () => {
+    it("does not impose a fixed maximum height", () => {
+      // The proportional 50% cap is enforced by the viewport-aware callers,
+      // not the store; large values pass through the floor-only clamp.
       useUIStore.getState().setTerminalHeight(1000);
-      expect(useUIStore.getState().terminalHeight).toBe(600);
+      expect(useUIStore.getState().terminalHeight).toBe(1000);
     });
 
     it("accepts values within range", () => {

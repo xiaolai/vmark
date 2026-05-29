@@ -9,7 +9,8 @@
  * zone a width threshold with 50px hysteresis prevents oscillation.
  *
  * Pixel dimensions are derived from `settingsStore.terminal.panelRatio`
- * multiplied by the available container dimension, clamped to min/max.
+ * multiplied by the available container dimension, clamped to the absolute
+ * pixel floor and a proportional ceiling of TERMINAL_MAX_RATIO (50%).
  *
  * Exports a pure `computeTerminalPosition()` for testing and a React hook
  * `useTerminalPosition()` that wires it to window resize events and settings.
@@ -25,9 +26,8 @@ import {
   useUIStore,
   type EffectiveTerminalPosition,
   TERMINAL_MIN_HEIGHT,
-  TERMINAL_MAX_HEIGHT,
   TERMINAL_MIN_WIDTH,
-  TERMINAL_MAX_WIDTH,
+  TERMINAL_MAX_RATIO,
 } from "@/stores/uiStore";
 
 // Width threshold for the ambiguous aspect-ratio zone
@@ -71,14 +71,15 @@ export function computeTerminalPosition(
 }
 
 /**
- * Compute pixel dimension from ratio, clamped to min/max.
+ * Compute pixel dimension from ratio, clamped to the absolute pixel floor and
+ * a proportional ceiling of TERMINAL_MAX_RATIO (50% of the available space).
  */
 function ratioToPixels(
   ratio: number,
   availableDimension: number,
-  min: number,
-  max: number
+  min: number
 ): number {
+  const max = availableDimension * TERMINAL_MAX_RATIO;
   return Math.round(Math.min(max, Math.max(min, availableDimension * ratio)));
 }
 
@@ -87,8 +88,8 @@ function ratioToPixels(
  */
 export function pixelsToRatio(pixels: number, availableDimension: number): number {
   if (availableDimension <= 0) return 0.4;
-  // Clamp ratio to 0.1–0.8
-  return Math.min(0.8, Math.max(0.1, pixels / availableDimension));
+  // Clamp ratio to 0.1–0.5 (TERMINAL_MAX_RATIO)
+  return Math.min(TERMINAL_MAX_RATIO, Math.max(0.1, pixels / availableDimension));
 }
 
 /**
@@ -140,8 +141,8 @@ export function useTerminalPosition() {
 
       // 2. Compute pixel dimensions from ratio
       const available = getAvailableDimension(pos, window.innerWidth, window.innerHeight, sidebarVisible, sidebarWidth);
-      const height = ratioToPixels(panelRatio, available, TERMINAL_MIN_HEIGHT, TERMINAL_MAX_HEIGHT);
-      const width = ratioToPixels(panelRatio, available, TERMINAL_MIN_WIDTH, TERMINAL_MAX_WIDTH);
+      const height = ratioToPixels(panelRatio, available, TERMINAL_MIN_HEIGHT);
+      const width = ratioToPixels(panelRatio, available, TERMINAL_MIN_WIDTH);
 
       // 3. Batch update uiStore
       const store = useUIStore.getState();

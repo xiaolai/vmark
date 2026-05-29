@@ -27,12 +27,20 @@ const SIDEBAR_MAX_WIDTH = 480;
 const SIDEBAR_DEFAULT_WIDTH = 260;
 
 export const TERMINAL_MIN_HEIGHT = 100;
-export const TERMINAL_MAX_HEIGHT = 600;
 const TERMINAL_DEFAULT_HEIGHT = 250;
 
 export const TERMINAL_MIN_WIDTH = 200;
-export const TERMINAL_MAX_WIDTH = 800;
 const TERMINAL_DEFAULT_WIDTH = 400;
+
+/**
+ * Maximum share of the available dimension the terminal panel may occupy.
+ * There is no fixed pixel ceiling — the cap is proportional (50% of the
+ * window's available width/height). This is enforced by the viewport-aware
+ * layers (useTerminalPosition for layout, useTerminalResize for drag), since
+ * the store itself does not know the window size. The store setters below
+ * only enforce the absolute pixel floor.
+ */
+export const TERMINAL_MAX_RATIO = 0.5;
 
 /* ─────────────────────────── search slice ─────────────────────────────── */
 
@@ -382,20 +390,13 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setDraggingFiles: (dragging) => set({ isDraggingFiles: dragging }),
   toggleTerminal: () =>
     set((state) => ({ terminalVisible: !state.terminalVisible })),
+  // Only the absolute pixel floor is enforced here; the proportional 50% cap
+  // (TERMINAL_MAX_RATIO) is applied by the viewport-aware callers that know the
+  // window size — useTerminalPosition (layout) and useTerminalResize (drag).
   setTerminalHeight: (h) =>
-    set({
-      terminalHeight: Math.min(
-        TERMINAL_MAX_HEIGHT,
-        Math.max(TERMINAL_MIN_HEIGHT, h),
-      ),
-    }),
+    set({ terminalHeight: Math.max(TERMINAL_MIN_HEIGHT, h) }),
   setTerminalWidth: (w) =>
-    set({
-      terminalWidth: Math.min(
-        TERMINAL_MAX_WIDTH,
-        Math.max(TERMINAL_MIN_WIDTH, w),
-      ),
-    }),
+    set({ terminalWidth: Math.max(TERMINAL_MIN_WIDTH, w) }),
   setEffectiveTerminalPosition: (pos) =>
     set({ effectiveTerminalPosition: pos }),
   setFileExplorerNodeOpen: (id, open) => {

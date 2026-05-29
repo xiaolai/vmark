@@ -66,9 +66,9 @@ describe("pixelsToRatio", () => {
     expect(pixelsToRatio(0, 1000)).toBe(0.1);
   });
 
-  it("clamps to 0.8 maximum", () => {
-    expect(pixelsToRatio(900, 1000)).toBe(0.8);
-    expect(pixelsToRatio(1000, 1000)).toBe(0.8);
+  it("clamps to 0.5 maximum", () => {
+    expect(pixelsToRatio(900, 1000)).toBe(0.5);
+    expect(pixelsToRatio(1000, 1000)).toBe(0.5);
   });
 
   it("returns 0.4 when available dimension is 0", () => {
@@ -133,14 +133,16 @@ describe("pixelsToRatio — edge cases", () => {
   it("handles exact boundary values", () => {
     // 100/1000 = 0.1 (minimum)
     expect(pixelsToRatio(100, 1000)).toBeCloseTo(0.1);
-    // 800/1000 = 0.8 (maximum)
-    expect(pixelsToRatio(800, 1000)).toBeCloseTo(0.8);
+    // 500/1000 = 0.5 (maximum)
+    expect(pixelsToRatio(500, 1000)).toBeCloseTo(0.5);
+    // 800/1000 = 0.8 → clamped down to the 0.5 maximum
+    expect(pixelsToRatio(800, 1000)).toBeCloseTo(0.5);
   });
 });
 
 describe("pixelsToRatio — additional precision", () => {
   it("handles very large pixel values", () => {
-    expect(pixelsToRatio(10000, 1000)).toBe(0.8);
+    expect(pixelsToRatio(10000, 1000)).toBe(0.5);
   });
 
   it("handles negative pixel values (clamped to 0.1)", () => {
@@ -260,9 +262,8 @@ vi.mock("@/stores/uiStore", () => {
   return {
     useUIStore: store,
     TERMINAL_MIN_HEIGHT: 100,
-    TERMINAL_MAX_HEIGHT: 600,
     TERMINAL_MIN_WIDTH: 200,
-    TERMINAL_MAX_WIDTH: 900,
+    TERMINAL_MAX_RATIO: 0.5,
   };
 });
 

@@ -11,6 +11,8 @@
  *   - Vertical: dragging up increases height (negative Y delta = taller).
  *   - Horizontal: dragging left increases width (negative X delta = wider).
  *   - Sets document.body cursor during drag and disables text selection.
+ *   - Caps the live size at 50% of available space (TERMINAL_MAX_RATIO); the
+ *     store setters only enforce the absolute pixel floor.
  *   - Calls onResize callback on every move to let the parent refit xterm.
  *   - On drag end, computes the ratio from final pixel / available dimension
  *     and persists it to settingsStore.
@@ -22,7 +24,7 @@
  * @module components/Terminal/useTerminalResize
  */
 import { useCallback, useRef, useEffect } from "react";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, TERMINAL_MAX_RATIO } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { pixelsToRatio, getAvailableDimension } from "./useTerminalPosition";
 
@@ -78,14 +80,24 @@ export function useTerminalResize(
       const handleMouseMove = (e: MouseEvent) => {
         if (!isResizing.current) return;
 
+        const ui = useUIStore.getState();
+        // Cap live drag at 50% of available space (TERMINAL_MAX_RATIO); the
+        // store setters only enforce the pixel floor.
+        const available = getAvailableDimension(
+          ui.effectiveTerminalPosition,
+          window.innerWidth, window.innerHeight,
+          ui.sidebarVisible, ui.sidebarWidth
+        );
+        const maxPixels = available * TERMINAL_MAX_RATIO;
+
         if (direction === "horizontal") {
           // Drag left = wider (negative X delta = more width)
           const delta = startPos.current - e.clientX;
-          useUIStore.getState().setTerminalWidth(startSize.current + delta);
+          ui.setTerminalWidth(Math.min(maxPixels, startSize.current + delta));
         } else {
           // Drag up = taller (negative Y delta = more height)
           const delta = startPos.current - e.clientY;
-          useUIStore.getState().setTerminalHeight(startSize.current + delta);
+          ui.setTerminalHeight(Math.min(maxPixels, startSize.current + delta));
         }
         onResize?.();
       };
