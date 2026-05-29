@@ -37,90 +37,91 @@ function findDiagramBlockAtCursor(
   pos: number
 ): DiagramBlock | null {
   const doc = view.state.doc;
-  const currentLine = doc.lineAt(pos);
+  const cursorLineNum = doc.lineAt(pos).number;
 
-  // Scan upward to find the opening code fence.
-  // Must pair fences correctly: skip closing fences that belong to
-  // inner blocks so we don't misidentify a close as an open (#277).
-  let fenceStart: { line: number; from: number } | null = null;
-  let language = "";
-  let fenceChar = "";
-  let closeFencesSkipped = 0;
+  // Forward pass from line 1, pairing fences by document order rather than by
+  // "has a language" — a plain ``` opener is indistinguishable from a close by
+  // that heuristic (#964). A fence closes the current block only when it uses
+  // the same character, is at least as long, and carries no info string
+  // (CommonMark); otherwise it is content. This correctly handles a block of
+  // one delimiter that contains lines of the other (e.g. ``` lines inside a
+  // ~~~mermaid block) and nested/sibling blocks (#277, #278).
+  let open: {
+    line: number;
+    from: number;
+    char: string;
+    len: number;
+    language: string;
+  } | null = null;
+  let block: {
+    fromLine: number;
+    from: number;
+    toLine: number;
+    to: number;
+    language: string;
+  } | null = null;
 
-  for (let i = currentLine.number; i >= 1; i--) {
+  for (let i = 1; i <= doc.lines; i++) {
     const line = doc.line(i);
-    const text = line.text.trimStart();
+    const match = line.text.trimStart().match(/^(`{3,}|~{3,})(.*)$/);
+    if (!match) continue;
 
-    const fenceMatch = text.match(/^(`{3,}|~{3,})(\w*)/);
-    if (fenceMatch) {
-      const hasLang = fenceMatch[2].length > 0;
-      const isCloseOnly = !hasLang && /^(`{3,}|~{3,})\s*$/.test(text);
+    const fence = match[1];
+    const rest = match[2].trim();
 
-      if (isCloseOnly) {
-        // This is a closing fence for a block above — skip it and its pair
-        closeFencesSkipped++;
-      } else if (closeFencesSkipped > 0) {
-        // This opening fence pairs with a skipped closing fence
-        closeFencesSkipped--;
-      } else {
-        // Found our opening fence
-        fenceStart = { line: i, from: line.from };
-        language = fenceMatch[2].toLowerCase();
-        fenceChar = fenceMatch[1][0]; // "`" or "~"
-        break;
-      }
+    if (!open) {
+      // Opening fence — capture delimiter run and info-string language.
+      open = {
+        line: i,
+        from: line.from,
+        char: fence[0],
+        len: fence.length,
+        /* v8 ignore next -- @preserve null-coalesce: the word-char match always succeeds */
+        language: (rest.match(/^\w*/)?.[0] ?? "").toLowerCase(),
+      };
+      continue;
     }
-  }
 
-  if (!fenceStart || !DIAGRAM_LANGUAGES.has(language)) {
-    return null;
-  }
+    // Inside a fence: a valid close needs the same char, >= length, no info.
+    const isClose =
+      fence[0] === open.char && fence.length >= open.len && rest === "";
+    if (!isClose) continue; // content line within the open fence
 
-  // Scan downward to find code fence end.
-  // Only accept a closing fence that uses the same character as the
-  // opening fence, per CommonMark spec (#278).
-  let fenceEnd: { line: number; to: number } | null = null;
-  const closingRegex = new RegExp(`^${fenceChar === "`" ? "`" : "~"}{3,}\\s*$`);
-
-  for (let i = currentLine.number; i <= doc.lines; i++) {
-    const line = doc.line(i);
-    const text = line.text.trimStart();
-
-    // Skip the opening fence line
-    if (i === fenceStart.line) continue;
-
-    // Check for closing fence of the same type
-    if (closingRegex.test(text)) {
-      fenceEnd = { line: i, to: line.to };
+    if (cursorLineNum >= open.line && cursorLineNum <= i) {
+      block = {
+        fromLine: open.line,
+        from: open.from,
+        toLine: i,
+        to: line.to,
+        language: open.language,
+      };
       break;
     }
+    open = null;
   }
 
-  // If no closing fence, treat as incomplete block
-  if (!fenceEnd) {
+  // No enclosing (closed) fence, or not a diagram language → no preview.
+  if (!block || !DIAGRAM_LANGUAGES.has(block.language)) {
     return null;
   }
 
-  // Verify cursor is actually inside the block (not on fence lines)
-  if (currentLine.number <= fenceStart.line || currentLine.number >= fenceEnd.line) {
-    // Cursor is on fence line - still show preview if within range
-    /* v8 ignore next -- @preserve Defensive guard: pos is always within [fenceStart.from, fenceEnd.to] when the cursor is on a fence line; the out-of-range case requires a cursor position that cannot exist on those lines */
-    if (pos < fenceStart.from || pos > fenceEnd.to) {
-      return null;
-    }
+  // Cursor on a fence line still previews as long as pos is within the block.
+  /* v8 ignore next -- @preserve Defensive guard: pos is always within [block.from, block.to] when cursorLineNum is inside the block range */
+  if (pos < block.from || pos > block.to) {
+    return null;
   }
 
-  // Extract content (lines between fences)
-  const contentStart = doc.line(fenceStart.line + 1).from;
-  const contentEnd = doc.line(fenceEnd.line - 1).to;
+  // Extract content (lines strictly between the fences).
+  const contentStart = doc.line(block.fromLine + 1).from;
+  const contentEnd = doc.line(block.toLine - 1).to;
 
   if (contentStart > contentEnd) {
     // Empty block
-    return { from: fenceStart.from, to: fenceEnd.to, content: "", language };
+    return { from: block.from, to: block.to, content: "", language: block.language };
   }
 
   const content = doc.sliceString(contentStart, contentEnd);
-  return { from: fenceStart.from, to: fenceEnd.to, content, language };
+  return { from: block.from, to: block.to, content, language: block.language };
 }
 
 class SourceDiagramPreviewPlugin {
