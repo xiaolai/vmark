@@ -348,36 +348,3 @@ export interface Diagnostic {
    */
   context?: Record<string, string | number | boolean>;
 }
-
-// ─── Type guards ──────────────────────────────────────────────────────
-
-export function isPermissionsObject(
-  v: PermissionsValue,
-): v is PermissionsIR {
-  return typeof v === "object" && v !== null;
-}
-
-export function isPermissionsAlias(
-  v: PermissionsValue,
-): v is "read-all" | "write-all" | "none" {
-  return v === "read-all" || v === "write-all" || v === "none";
-}
-
-/** A job is a reusable-workflow call (has `uses:`) rather than a step list. */
-export function isReusableJob(
-  job: JobIR,
-): job is JobIR & { uses: string; steps: [] } {
-  return typeof job.uses === "string" && job.steps.length === 0;
-}
-
-/** A step is a `uses:` step (action invocation). */
-export function isUsesStep(
-  step: StepIR,
-): step is StepIR & { uses: string } {
-  return typeof step.uses === "string";
-}
-
-/** A step is a `run:` step (shell command). */
-export function isRunStep(step: StepIR): step is StepIR & { run: string } {
-  return typeof step.run === "string";
-}
