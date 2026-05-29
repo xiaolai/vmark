@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "세션이 완전히 저장되지 않았습니다",
+  "hotExit.partialCapture.description": "일부 창이 제때 응답하지 않아 저장되지 않은 변경 사항이 캡처되지 않았습니다: {{windows}}. 종료하거나 다시 시작하기 전에 해당 창을 수동으로 저장하세요.",
+  "hotExit.partialCapture.unknownWindows": "하나 이상의 창",
   "save": "저장",
   "cancel": "취소",
   "ok": "확인",

@@ -514,15 +514,29 @@ pub fn restore_session_multi_window(
             }
             Err(e) => {
                 log::error!(
-                    "[HotExit] Failed to create window {}: {}",
+                    "[HotExit] Failed to create window {} — aborting restore to preserve session: {}",
                     label, e
                 );
-                // Remove from expected_labels so other windows can complete restore
-                // without being blocked by a window that was never created.
+                // Abort the whole restore rather than silently dropping this
+                // window's tabs (including any dirty in-memory documents).
+                // Clear the pending state (advance_and_clear bumps the
+                // generation, invalidating the stale timeout task) and close any
+                // already-created windows. Returning Err makes the frontend
+                // invoke throw, so session.json is NOT cleared and the full
+                // session is retried on the next launch (#968).
                 let pending = get_pending_restore_state();
                 let mut state = lock_pending_restore(&pending);
-                state.expected_labels.remove(label);
-                state.window_states.remove(label);
+                state.advance_and_clear();
+                drop(state);
+                for created in &windows_created {
+                    if let Some(w) = app.get_webview_window(created) {
+                        let _ = w.close();
+                    }
+                }
+                return Err(format!(
+                    "Failed to create window {} during multi-window restore: {}",
+                    label, e
+                ));
             }
         }
     }

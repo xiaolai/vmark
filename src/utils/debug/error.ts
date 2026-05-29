@@ -158,11 +158,6 @@ export const appError = isDev
   ? (...args: unknown[]) => console.error("[App]", ...args)
   : (...args: unknown[]) => prodError("[App]", ...args);
 
-/** Error logger for PDF Preview. */
-export const pdfPreviewError = isDev
-  ? (...args: unknown[]) => console.error("[PDF Preview]", ...args)
-  : (...args: unknown[]) => prodError("[PDF Preview]", ...args);
-
 /** Error logger for Print. */
 export const printError = isDev
   ? (...args: unknown[]) => console.error("[Print]", ...args)

@@ -111,6 +111,35 @@ describe("selectNextOccurrenceSource", () => {
     }
   });
 
+  it("does not select across tilde (~~~) fence boundaries (#963)", () => {
+    const text = "hello\n~~~\nhello inside fence\n~~~\nhello after";
+    // Select "hello" at 0-5 (before the tilde fence)
+    const state = createState(text, 0, 5);
+    const result = selectNextOccurrenceSource(state);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    const positions = result.selection.ranges.map((r) => ({ from: r.from, to: r.to }));
+    expect(positions).toContainEqual({ from: 0, to: 5 });
+    // The "hello" inside the tilde fence (at offset 10) must be skipped.
+    expect(positions.find((p) => p.from === 10)).toBeUndefined();
+  });
+
+  it("select-all stays within a tilde (~~~) fence when cursor is inside it (#963)", () => {
+    const text = "hello outside\n~~~\nhello inside hello\n~~~\nhello after";
+    // Cursor inside the fence on first "hello" (18-23)
+    const state = createState(text, 18, 23);
+    const result = selectAllOccurrencesSource(state);
+    expect(result).not.toBeNull();
+    if (!result) return;
+    const ranges = result.selection.ranges;
+    // Only the two in-fence "hello" matches, not the outside ones.
+    expect(ranges).toHaveLength(2);
+    for (const r of ranges) {
+      expect(r.from).toBeGreaterThanOrEqual(18);
+      expect(r.to).toBeLessThanOrEqual(36);
+    }
+  });
+
   it("adds next occurrence when called repeatedly", () => {
     // Simulate: user presses Cmd+D on "foo" → selects word → presses Cmd+D again
     const text = "foo bar foo baz foo";

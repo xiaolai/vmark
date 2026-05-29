@@ -169,30 +169,36 @@ describe('getParentProcessName', () => {
 
       getParentProcessName(4567, 'win32');
 
+      // PID is bound to $args[0] and passed positionally after `--`, not
+      // interpolated into the -Command string (#280).
       expect(mockExecFileSync).toHaveBeenCalledWith(
         'powershell',
-        ['-NoProfile', '-Command', '(Get-Process -Id 4567).ProcessName'],
+        ['-NoProfile', '-Command', '(Get-Process -Id $args[0]).ProcessName', '--', '4567'],
         expect.objectContaining({ encoding: 'utf8', timeout: 500 }),
       );
       expect(Array.isArray(mockExecFileSync.mock.calls[0][1])).toBe(true);
     });
 
-    it('win32: malicious ppid in PowerShell command is in argument array, not shell', () => {
+    it('win32: malicious ppid is a positional PowerShell argument, never in the command string', () => {
       mockExecFileSync.mockImplementation(() => {
         throw new Error('Get-Process error');
       });
 
-      // Even though ppid is interpolated into the PowerShell -Command string,
-      // execFileSync passes it as an array arg to powershell.exe — no shell expansion
       getParentProcessName('1; Remove-Item -Recurse C:\\' as unknown as number, 'win32');
 
       const args = mockExecFileSync.mock.calls[0][1] as string[];
-      // The -Command value contains the malicious string but it's ONE argument
-      expect(args).toHaveLength(3);
-      expect(args[0]).toBe('-NoProfile');
-      expect(args[1]).toBe('-Command');
-      // PowerShell will fail to parse this as a valid process ID
-      expect(args[2]).toContain('1; Remove-Item');
+      // The PID is passed positionally (bound to $args[0]) — execFileSync sends
+      // it to powershell.exe as a separate argument, never through a shell.
+      expect(args).toEqual([
+        '-NoProfile',
+        '-Command',
+        '(Get-Process -Id $args[0]).ProcessName',
+        '--',
+        '1; Remove-Item -Recurse C:\\',
+      ]);
+      // The -Command string holds only the $args[0] placeholder — the malicious
+      // value is NOT interpolated into it.
+      expect(args[2]).not.toContain('Remove-Item');
     });
   });
 

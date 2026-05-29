@@ -28,6 +28,18 @@ vi.mock("@/plugins/sourceContextDetection/tableDetection", () => ({
 }));
 
 vi.mock("@/utils/tableParser", () => ({
+  // Backslash-parity check — mirrors the real helper. An even run of `\` before
+  // the trailing `|` (including zero) ⇒ real delimiter.
+  endsWithDelimiterPipe: (content: string) => {
+    if (!content.endsWith("|")) return false;
+    let run = 0;
+    let i = content.length - 2;
+    while (i >= 0 && content[i] === "\\") {
+      run++;
+      i--;
+    }
+    return run % 2 === 0;
+  },
   splitTableCells: (content: string) => {
     // Simple split on unescaped pipe — mirrors the real logic for test purposes
     const cells: string[] = [];
@@ -252,6 +264,43 @@ describe("sourceTableCellHighlight", () => {
       view.dispatch({ selection: { anchor: 3 } });
       const specs = getDecorationSpecs(view);
       expect(specs.length).toBe(1);
+    });
+  });
+
+  // Exercises both branches of the trailing-delimiter strip (endsWithDelimiterPipe):
+  // a real delimiter after a literal backslash (strip) vs an escaped pipe (no strip).
+  describe("escaped/real trailing pipe (#962)", () => {
+    const info = (lines: string[], colIndex: number) => ({
+      start: 0,
+      end: 80,
+      startLine: 0,
+      endLine: 0,
+      rowIndex: 0,
+      colIndex,
+      colCount: 2,
+      lines,
+    });
+
+    it("strips a real delimiter pipe even when the last cell ends with a literal backslash", () => {
+      // Row: | a | b \\|  → cell 1 is " b \\" (b + literal backslash), trailing delimiter.
+      const content = "| a | b \\\\|";
+      mockGetSourceTableInfo.mockReturnValue(info([content], 1));
+      const view = tracked(content, 6);
+      const specs = getDecorationSpecs(view);
+      expect(specs).toHaveLength(1);
+      // Highlight covers " b \\" and stops before the trailing delimiter pipe.
+      expect(content.slice(specs[0].from, specs[0].to)).toBe(" b \\\\");
+      expect(content[specs[0].to]).toBe("|");
+    });
+
+    it("keeps an escaped pipe inside the last cell (no strip)", () => {
+      // Row: | a | b \|  → cell 1 is " b \|" (escaped pipe is cell content, no trailing delimiter).
+      const content = "| a | b \\|";
+      mockGetSourceTableInfo.mockReturnValue(info([content], 1));
+      const view = tracked(content, 6);
+      const specs = getDecorationSpecs(view);
+      expect(specs).toHaveLength(1);
+      expect(content.slice(specs[0].from, specs[0].to)).toBe(" b \\|");
     });
   });
 });

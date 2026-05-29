@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "セッションが完全に保存されませんでした",
+  "hotExit.partialCapture.description": "一部のウィンドウが時間内に応答しなかったため、未保存の変更が取得されませんでした: {{windows}}。終了または再起動する前に、それらのウィンドウを手動で保存してください。",
+  "hotExit.partialCapture.unknownWindows": "1 つ以上のウィンドウ",
   "save": "保存",
   "cancel": "キャンセル",
   "ok": "OK",

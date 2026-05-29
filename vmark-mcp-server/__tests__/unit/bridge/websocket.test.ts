@@ -630,7 +630,10 @@ describe('WebSocketBridge', () => {
       await queueBridge.disconnect();
     }, 10000);
 
-    it('should reject when queue is full', async () => {
+    it('should drop the oldest queued request when the queue is full', async () => {
+      // Overflow policy is drop-oldest (bounded memory, newest-wins): when the
+      // queue is full the oldest request is evicted and rejected, and the new
+      // request is accepted. The new request is NOT rejected on arrival.
       const queueBridge = new WebSocketBridge({
         port: TEST_PORT,
         autoReconnect: true,
@@ -645,16 +648,19 @@ describe('WebSocketBridge', () => {
       serverConnections[0].close();
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // Fill queue - catch to avoid unhandled rejections on disconnect
-      const p1 = queueBridge.send({ type: 'queued1' }).catch(() => {});
+      // Fill the queue to capacity (maxQueueSize = 2).
+      const p1 = queueBridge.send({ type: 'queued1' });
       const p2 = queueBridge.send({ type: 'queued2' }).catch(() => {});
 
-      // Third request should fail
-      await expect(queueBridge.send({ type: 'queued3' })).rejects.toThrow('Request queue full');
+      // Third send overflows: the oldest queued request (p1) is evicted and
+      // rejected, while queued3 is accepted into the queue.
+      const p3 = queueBridge.send({ type: 'queued3' }).catch(() => {});
+      await expect(p1).rejects.toThrow('queue overflow');
 
+      // queued3 was queued (not rejected on arrival) — it rejects only once the
+      // bridge is intentionally disconnected, proving it survived the overflow.
       await queueBridge.disconnect();
-      // Wait for queued promises to reject
-      await Promise.all([p1, p2]);
+      await Promise.all([p2, p3]);
     });
 
     it('should reject queued requests on intentional disconnect', async () => {
@@ -701,6 +707,46 @@ describe('WebSocketBridge', () => {
       await expect(noQueueBridge.send({ type: 'test' })).rejects.toThrow('Not connected');
 
       await noQueueBridge.disconnect();
+    });
+  });
+
+  describe('queue-wait timer / flush race (#959)', () => {
+    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    it('resolves a queued request that flush completes after the queue timer fires', async () => {
+      // Short queue-wait timeout so the timer fires while sendImmediate is
+      // still in flight (sendImmediate is stubbed to resolve later).
+      const raceBridge = new WebSocketBridge({ timeout: 20 });
+      const internal = raceBridge as unknown as {
+        queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
+        flushRequestQueue: () => Promise<void>;
+        sendImmediate: (r: BridgeRequest) => Promise<BridgeResponse>;
+      };
+
+      const success: BridgeResponse = { success: true, data: 'flushed' };
+      // Resolves AFTER the 20ms queue-wait timeout has elapsed.
+      internal.sendImmediate = async () => {
+        await delay(60);
+        return success;
+      };
+
+      const pending = internal.queueRequest({ type: 'vmark.session.get_state' });
+      await internal.flushRequestQueue();
+
+      // The queue-wait timer fired at ~20ms (queue already drained by flush);
+      // the request must still resolve with the success value, not reject.
+      await expect(pending).resolves.toMatchObject({ success: true, data: 'flushed' });
+    });
+
+    it('still rejects with a timeout when a queued request is never flushed', async () => {
+      const raceBridge = new WebSocketBridge({ timeout: 20 });
+      const internal = raceBridge as unknown as {
+        queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
+      };
+
+      await expect(
+        internal.queueRequest({ type: 'vmark.session.get_state' }),
+      ).rejects.toThrow(/timed out/);
     });
   });
 });

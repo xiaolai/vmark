@@ -529,12 +529,16 @@ export class WebSocketBridge implements Bridge {
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        // Remove from queue if still pending
+        // Only time out while the request is still queued. Once
+        // flushRequestQueue has taken ownership of it (idx === -1), the
+        // in-flight sendImmediate governs the wait via its own timeout —
+        // rejecting here would spuriously fail an operation that is still
+        // succeeding (#959).
         const idx = this.requestQueue.findIndex((q) => q.request === request);
         if (idx !== -1) {
           this.requestQueue.splice(idx, 1);
+          reject(new Error(`Queued request ${request.type} timed out`));
         }
-        reject(new Error(`Queued request ${request.type} timed out`));
       }, this.timeout);
 
       this.requestQueue.push({

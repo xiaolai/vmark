@@ -424,6 +424,39 @@ describe("sourceMermaidPreview", () => {
       // This test just verifies no crash
       expect(true).toBe(true);
     });
+
+    it("shows preview for a mermaid block that follows a plain code block (#964)", async () => {
+      mockIsVisible.mockReturnValue(false); // fresh preview → show() path
+      coordsSpy.mockReturnValue({ top: 100, left: 50, bottom: 120, right: 200 });
+      const content = "```\nplain code\n```\n```mermaid\ngraph TD\n```";
+      const pos = content.indexOf("graph TD");
+      const view = tracked(content, pos);
+      await flushRaf();
+
+      expect(mockShow).toHaveBeenCalledWith(
+        expect.stringContaining("graph TD"),
+        expect.any(Object),
+        view.dom,
+        "mermaid",
+      );
+    });
+
+    it("shows preview for a ~~~mermaid block whose content contains ``` lines (#964)", async () => {
+      mockIsVisible.mockReturnValue(false); // fresh preview → show() path
+      coordsSpy.mockReturnValue({ top: 100, left: 50, bottom: 120, right: 200 });
+      // The inner ``` lines are content of the tilde fence, not closing fences.
+      const content = "~~~mermaid\n```\nnot a real close\n```\ngraph TD\n~~~";
+      const pos = content.indexOf("graph TD");
+      const view = tracked(content, pos);
+      await flushRaf();
+
+      expect(mockShow).toHaveBeenCalledWith(
+        expect.stringContaining("graph TD"),
+        expect.any(Object),
+        view.dom,
+        "mermaid",
+      );
+    });
   });
 
   describe("update plugin method — selectionSet / docChanged branches (lines 145–148)", () => {

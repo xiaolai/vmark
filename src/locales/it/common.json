@@ -1,4 +1,7 @@
 {
+  "hotExit.partialCapture.title": "Sessione non salvata completamente",
+  "hotExit.partialCapture.description": "Alcune finestre non hanno risposto in tempo, quindi le loro modifiche non salvate non sono state acquisite: {{windows}}. Salva manualmente quelle finestre prima di uscire o riavviare.",
+  "hotExit.partialCapture.unknownWindows": "una o più finestre",
   "save": "Salva",
   "cancel": "Annulla",
   "ok": "OK",

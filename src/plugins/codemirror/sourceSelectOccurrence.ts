@@ -17,7 +17,10 @@ import type { EditorState, TransactionSpec } from "@codemirror/state";
 import { EditorSelection } from "@codemirror/state";
 import { findWordBoundaries } from "@/utils/wordSegmentation";
 
-const FENCE_OPEN_PATTERN = /^(\s*)(```+)(\w*)?/;
+// Matches a fenced-code opener: 3+ backticks OR 3+ tildes (CommonMark), with
+// an optional info string. Group 2 captures the delimiter run so the matching
+// close can require the same delimiter character.
+const FENCE_OPEN_PATTERN = /^(\s*)(`{3,}|~{3,})(\w*)?/;
 
 /* ------------------------------------------------------------------ */
 /*  Code fence boundary detection (position-based, no EditorView)     */
@@ -41,6 +44,7 @@ function getCodeFenceBounds(state: EditorState, pos: number): FenceBounds | null
   // Search backwards for opening fence
   let openLineNum: number | null = null;
   let fenceLength = 0;
+  let fenceChar = "`";
 
   for (let lineNum = cursorLine.number; lineNum >= 1; lineNum--) {
     const line = doc.line(lineNum);
@@ -48,6 +52,7 @@ function getCodeFenceBounds(state: EditorState, pos: number): FenceBounds | null
     if (match) {
       openLineNum = lineNum;
       fenceLength = match[2].length;
+      fenceChar = match[2][0];
       break;
     }
   }
@@ -66,8 +71,9 @@ function getCodeFenceBounds(state: EditorState, pos: number): FenceBounds | null
   // If cursor is on the opening line itself, it's not "inside" the fence
   if (cursorLine.number === openLineNum) return null;
 
-  // Search forwards for closing fence
-  const closePattern = new RegExp(`^\\s*\`{${fenceLength},}\\s*$`);
+  // Search forwards for closing fence — must use the SAME delimiter character
+  // as the opener (a tilde fence cannot be closed by a backtick line).
+  const closePattern = new RegExp(`^\\s*${fenceChar}{${fenceLength},}\\s*$`);
   for (let lineNum = openLineNum + 1; lineNum <= doc.lines; lineNum++) {
     const line = doc.line(lineNum);
     if (closePattern.test(line.text)) {
