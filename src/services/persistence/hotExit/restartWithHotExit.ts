@@ -16,6 +16,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { SessionData } from './types';
 import { HOT_EXIT_EVENTS } from './types';
 import { migrateSession, canMigrate, needsMigration, SCHEMA_VERSION } from './schemaMigration';
+import { hasSecondaryWindows } from './restoreDispatch';
 import { restoreMainWindowState } from '../resilience/_hotExitRestore';
 import { hotExitLog, hotExitWarn, hotExitError } from '@/utils/debug';
 
@@ -136,11 +137,11 @@ export async function checkAndRestoreSession(
       migratedSession = migrateSession(session);
     }
 
-    const hasSecondaryWindows = migratedSession.windows.some(w => !w.is_main_window);
+    const hasSecondary = hasSecondaryWindows(migratedSession);
 
     hotExitLog('Found saved session:', {
       windows: migratedSession.windows.length,
-      hasSecondaryWindows,
+      hasSecondaryWindows: hasSecondary,
       timestamp: formatTimestamp(migratedSession.timestamp),
       version: migratedSession.vmark_version,
       schemaVersion: migratedSession.version,
@@ -153,7 +154,7 @@ export async function checkAndRestoreSession(
     try {
       // Use multi-window restore if session has secondary windows
       // Otherwise use legacy single-window restore
-      if (hasSecondaryWindows) {
+      if (hasSecondary) {
         const result = await invoke<{ windows_created: string[] }>(
           HOT_EXIT_COMMANDS.RESTORE_MULTI,
           { session: migratedSession }

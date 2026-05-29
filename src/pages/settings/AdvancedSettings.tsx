@@ -11,6 +11,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import { SettingRow, SettingsGroup, Toggle, TagInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHotExit";
+import { restoreCommandFor } from "@/services/persistence/hotExit/restoreDispatch";
 import type { SessionData } from "@/services/persistence/hotExit/types";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 
@@ -193,8 +194,11 @@ export function AdvancedSettings() {
                     t("advanced.hotExit.restoreFailed")
                   );
                   if (session) {
+                    // Match the auto-restore flow: a multi-window session must
+                    // use the multi-window command, or secondary windows are
+                    // silently dropped (#970).
                     const result = await withErrorHandling(
-                      () => invoke<void>("hot_exit_restore", { session }),
+                      () => invoke<void>(restoreCommandFor(session), { session }),
                       t("advanced.hotExit.restoreFailed")
                     );
                     if (result !== null) {
