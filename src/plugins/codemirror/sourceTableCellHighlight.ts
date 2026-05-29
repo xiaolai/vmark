@@ -18,7 +18,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
-import { splitTableCells } from "@/utils/tableParser";
+import { splitTableCells, endsWithDelimiterPipe } from "@/utils/tableParser";
 
 /**
  * Get the character range of the current cell within the table row.
@@ -42,10 +42,12 @@ function getCellRange(
     offset += 1;
   }
 
-  // Normalize trailing whitespace then strip trailing pipe
+  // Normalize trailing whitespace then strip a real (non-escaped) trailing
+  // delimiter pipe. Uses backslash-parity (endsWithDelimiterPipe) rather than a
+  // naive `\\|` check so a literal backslash before a real delimiter (`\\|`) is
+  // not misread as an escaped pipe.
   content = content.trimEnd();
-  /* v8 ignore next -- @preserve else path: table row always ends with pipe in tests */
-  if (content.endsWith("|") && !content.endsWith("\\|")) {
+  if (endsWithDelimiterPipe(content)) {
     content = content.slice(0, -1);
   }
 
