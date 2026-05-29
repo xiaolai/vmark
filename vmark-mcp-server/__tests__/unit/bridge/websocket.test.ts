@@ -703,4 +703,44 @@ describe('WebSocketBridge', () => {
       await noQueueBridge.disconnect();
     });
   });
+
+  describe('queue-wait timer / flush race (#959)', () => {
+    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    it('resolves a queued request that flush completes after the queue timer fires', async () => {
+      // Short queue-wait timeout so the timer fires while sendImmediate is
+      // still in flight (sendImmediate is stubbed to resolve later).
+      const raceBridge = new WebSocketBridge({ timeout: 20 });
+      const internal = raceBridge as unknown as {
+        queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
+        flushRequestQueue: () => Promise<void>;
+        sendImmediate: (r: BridgeRequest) => Promise<BridgeResponse>;
+      };
+
+      const success: BridgeResponse = { success: true, data: 'flushed' };
+      // Resolves AFTER the 20ms queue-wait timeout has elapsed.
+      internal.sendImmediate = async () => {
+        await delay(60);
+        return success;
+      };
+
+      const pending = internal.queueRequest({ type: 'vmark.session.get_state' });
+      await internal.flushRequestQueue();
+
+      // The queue-wait timer fired at ~20ms (queue already drained by flush);
+      // the request must still resolve with the success value, not reject.
+      await expect(pending).resolves.toMatchObject({ success: true, data: 'flushed' });
+    });
+
+    it('still rejects with a timeout when a queued request is never flushed', async () => {
+      const raceBridge = new WebSocketBridge({ timeout: 20 });
+      const internal = raceBridge as unknown as {
+        queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
+      };
+
+      await expect(
+        internal.queueRequest({ type: 'vmark.session.get_state' }),
+      ).rejects.toThrow(/timed out/);
+    });
+  });
 });
