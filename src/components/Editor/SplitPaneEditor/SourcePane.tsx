@@ -233,7 +233,8 @@ export function SourcePane({
       viewRef.current = null;
     };
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks read via refs (see H3 comment above); excluding them from deps is intentional so the editor doesn't remount on every parent render.
+    // Callbacks read via refs (see H3 comment above) are intentionally excluded
+    // from this dep array so the editor doesn't remount on every parent render.
   }, [tabId, formatId, readOnly, validator, loadLanguage]);
 
   // Re-sync the editor when the store content diverges from the last
