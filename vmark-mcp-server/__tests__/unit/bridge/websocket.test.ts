@@ -630,7 +630,10 @@ describe('WebSocketBridge', () => {
       await queueBridge.disconnect();
     }, 10000);
 
-    it('should reject when queue is full', async () => {
+    it('should drop the oldest queued request when the queue is full', async () => {
+      // Overflow policy is drop-oldest (bounded memory, newest-wins): when the
+      // queue is full the oldest request is evicted and rejected, and the new
+      // request is accepted. The new request is NOT rejected on arrival.
       const queueBridge = new WebSocketBridge({
         port: TEST_PORT,
         autoReconnect: true,
@@ -645,16 +648,19 @@ describe('WebSocketBridge', () => {
       serverConnections[0].close();
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // Fill queue - catch to avoid unhandled rejections on disconnect
-      const p1 = queueBridge.send({ type: 'queued1' }).catch(() => {});
+      // Fill the queue to capacity (maxQueueSize = 2).
+      const p1 = queueBridge.send({ type: 'queued1' });
       const p2 = queueBridge.send({ type: 'queued2' }).catch(() => {});
 
-      // Third request should fail
-      await expect(queueBridge.send({ type: 'queued3' })).rejects.toThrow('Request queue full');
+      // Third send overflows: the oldest queued request (p1) is evicted and
+      // rejected, while queued3 is accepted into the queue.
+      const p3 = queueBridge.send({ type: 'queued3' }).catch(() => {});
+      await expect(p1).rejects.toThrow('queue overflow');
 
+      // queued3 was queued (not rejected on arrival) — it rejects only once the
+      // bridge is intentionally disconnected, proving it survived the overflow.
       await queueBridge.disconnect();
-      // Wait for queued promises to reject
-      await Promise.all([p1, p2]);
+      await Promise.all([p2, p3]);
     });
 
     it('should reject queued requests on intentional disconnect', async () => {
