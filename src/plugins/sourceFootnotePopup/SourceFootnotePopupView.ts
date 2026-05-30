@@ -9,7 +9,7 @@ import type { EditorView } from "@codemirror/view";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
-import { popupIcons } from "@/utils/popupComponents";
+import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import {
   saveFootnoteContent,
   gotoFootnoteTarget,
@@ -17,6 +17,11 @@ import {
 } from "./sourceFootnoteActions";
 
 const TEXTAREA_MAX_HEIGHT = 120;
+
+/** Build a source-footnote popup icon button with the popup's bespoke styling. */
+function buildSourceFootnoteBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
+  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-footnote-popup-btn" });
+}
 
 /**
  * Source footnote popup view.
@@ -49,11 +54,11 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     const spacer = document.createElement("div");
     spacer.style.flex = "1";
 
-    this.gotoBtn = this.buildIconButton(popupIcons.goto, i18n.t("editor:popup.footnote.goToDefinition"), this.handleGoto.bind(this));
+    this.gotoBtn = buildSourceFootnoteBtn(popupIcons.goto, i18n.t("editor:popup.footnote.goToDefinition"), this.handleGoto.bind(this));
     this.gotoBtn.classList.add("source-footnote-popup-btn-goto");
-    const saveBtn = this.buildIconButton(popupIcons.save, i18n.t("editor:popup.footnote.save"), this.handleSave.bind(this));
+    const saveBtn = buildSourceFootnoteBtn(popupIcons.save, i18n.t("editor:popup.footnote.save"), this.handleSave.bind(this));
     saveBtn.classList.add("source-footnote-popup-btn-save");
-    const deleteBtn = this.buildIconButton(popupIcons.delete, i18n.t("editor:popup.footnote.remove"), this.handleDelete.bind(this));
+    const deleteBtn = buildSourceFootnoteBtn(popupIcons.delete, i18n.t("editor:popup.footnote.remove"), this.handleDelete.bind(this));
     deleteBtn.classList.add("source-footnote-popup-btn-delete");
 
     headerRow.appendChild(this.labelSpan);
@@ -120,17 +125,6 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     this.textarea.value = "";
     this.labelSpan.textContent = "";
     this.openedOnReference = true;
-  }
-
-  private buildIconButton(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
-    const btn = document.createElement("button");
-    btn.className = "source-footnote-popup-btn";
-    btn.type = "button";
-    btn.title = title;
-    btn.setAttribute("aria-label", title);
-    btn.innerHTML = iconSvg;
-    btn.addEventListener("click", onClick);
-    return btn;
   }
 
   private autoResizeTextarea(): void {

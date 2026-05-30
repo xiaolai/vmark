@@ -61,7 +61,8 @@ vi.mock("@/utils/popupPosition", () => ({
   calculatePopupPosition: () => ({ top: 200, left: 150 }),
 }));
 
-vi.mock("@/utils/popupComponents", () => ({
+vi.mock("@/utils/popupComponents", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/popupComponents")>()),
   popupIcons: { open: "<svg></svg>", copy: "<svg></svg>", save: "<svg></svg>", delete: "<svg></svg>", close: "<svg></svg>", folder: "<svg></svg>", goto: "<svg></svg>", toggle: "<svg></svg>", link: "<svg></svg>", image: "<svg></svg>", blockImage: "<svg></svg>", inlineImage: "<svg></svg>", type: "<svg></svg>" },
   handlePopupTabNavigation: vi.fn(),
 }));

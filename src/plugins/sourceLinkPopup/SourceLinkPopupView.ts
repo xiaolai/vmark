@@ -9,8 +9,13 @@ import type { EditorView } from "@codemirror/view";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { popupIcons } from "@/utils/popupComponents";
+import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { copyLinkHref, openLink, removeLink, saveLinkChanges } from "./sourceLinkActions";
+
+/** Build a source-link popup icon button with the popup's bespoke styling. */
+function buildSourceLinkBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
+  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-link-popup-btn" });
+}
 
 /**
  * Source link popup view.
@@ -48,10 +53,10 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     this.hrefInput.addEventListener("input", this.handleHrefInput.bind(this));
 
     // Icon buttons: open, copy, delete
-    this.openBtn = this.buildIconButton(popupIcons.open, i18n.t("editor:popup.link.openLink"), this.handleOpen.bind(this));
+    this.openBtn = buildSourceLinkBtn(popupIcons.open, i18n.t("editor:popup.link.openLink"), this.handleOpen.bind(this));
     this.openBtn.classList.add("source-link-popup-btn-open");
-    const copyBtn = this.buildIconButton(popupIcons.copy, i18n.t("editor:popup.link.copyUrl"), this.handleCopy.bind(this));
-    const deleteBtn = this.buildIconButton(popupIcons.delete, i18n.t("editor:popup.link.remove"), this.handleRemove.bind(this));
+    const copyBtn = buildSourceLinkBtn(popupIcons.copy, i18n.t("editor:popup.link.copyUrl"), this.handleCopy.bind(this));
+    const deleteBtn = buildSourceLinkBtn(popupIcons.delete, i18n.t("editor:popup.link.remove"), this.handleRemove.bind(this));
     deleteBtn.classList.add("source-link-popup-btn-delete");
 
     hrefRow.appendChild(this.hrefInput);
@@ -113,17 +118,6 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     this.hrefInput.disabled = false;
     this.hrefInput.classList.remove("disabled");
     this.isBookmark = false;
-  }
-
-  private buildIconButton(iconSvg: string, title: string, onClick: () => void): HTMLElement {
-    const btn = document.createElement("button");
-    btn.className = "source-link-popup-btn";
-    btn.type = "button";
-    btn.title = title;
-    btn.setAttribute("aria-label", title);
-    btn.innerHTML = iconSvg;
-    btn.addEventListener("click", onClick);
-    return btn;
   }
 
   private handleInputKeydown(e: KeyboardEvent): void {

@@ -12,7 +12,7 @@ import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { sourceActionError } from "@/utils/debug";
-import { popupIcons } from "@/utils/popupComponents";
+import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
 import {
   copyWikiLinkTarget,
@@ -20,6 +20,11 @@ import {
   removeWikiLink,
   saveWikiLinkChanges,
 } from "./sourceWikiLinkActions";
+
+/** Build a source-wiki-link popup icon button with the popup's bespoke styling. */
+function buildSourceWikiLinkBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
+  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-wiki-link-popup-btn" });
+}
 
 /**
  * Convert an absolute file path to a wiki link target (workspace-relative, without .md).
@@ -75,11 +80,11 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     this.targetInput.addEventListener("input", this.handleTargetInput.bind(this));
 
     // Icon buttons: browse, open, copy, delete
-    const browseBtn = this.buildIconButton(popupIcons.folder, i18n.t("editor:popup.sourceWikiLink.browse"), this.handleBrowse.bind(this));
-    this.openBtn = this.buildIconButton(popupIcons.open, i18n.t("editor:popup.sourceWikiLink.open"), this.handleOpen.bind(this));
+    const browseBtn = buildSourceWikiLinkBtn(popupIcons.folder, i18n.t("editor:popup.sourceWikiLink.browse"), this.handleBrowse.bind(this));
+    this.openBtn = buildSourceWikiLinkBtn(popupIcons.open, i18n.t("editor:popup.sourceWikiLink.open"), this.handleOpen.bind(this));
     this.openBtn.classList.add("source-wiki-link-popup-btn-open");
-    const copyBtn = this.buildIconButton(popupIcons.copy, i18n.t("editor:popup.sourceWikiLink.copy"), this.handleCopy.bind(this));
-    const deleteBtn = this.buildIconButton(popupIcons.delete, i18n.t("editor:popup.sourceWikiLink.remove"), this.handleRemove.bind(this));
+    const copyBtn = buildSourceWikiLinkBtn(popupIcons.copy, i18n.t("editor:popup.sourceWikiLink.copy"), this.handleCopy.bind(this));
+    const deleteBtn = buildSourceWikiLinkBtn(popupIcons.delete, i18n.t("editor:popup.sourceWikiLink.remove"), this.handleRemove.bind(this));
     deleteBtn.classList.add("source-wiki-link-popup-btn-delete");
 
     targetRow.appendChild(this.targetInput);
@@ -119,17 +124,6 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
   protected onHide(): void {
     // Clear inputs
     this.targetInput.value = "";
-  }
-
-  private buildIconButton(iconSvg: string, title: string, onClick: () => void): HTMLElement {
-    const btn = document.createElement("button");
-    btn.className = "source-wiki-link-popup-btn";
-    btn.type = "button";
-    btn.title = title;
-    btn.setAttribute("aria-label", title);
-    btn.innerHTML = iconSvg;
-    btn.addEventListener("click", onClick);
-    return btn;
   }
 
   private updateOpenButtonState(target: string): void {

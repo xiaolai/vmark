@@ -14,10 +14,15 @@ import {
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { linkPopupError } from "@/utils/debug";
-import { popupIcons } from "@/utils/popupComponents";
+import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 import type { EditorViewLike } from "@/plugins/shared/types";
 import { normalizeHref, isValidHref } from "./operations";
+
+/** Build a link-create popup icon button with the popup's bespoke styling. */
+function buildLinkCreateBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
+  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "link-create-popup-btn" });
+}
 
 /**
  * Link create popup view - manages the floating popup UI for creating links.
@@ -102,9 +107,9 @@ export class LinkCreatePopupView {
     this.urlInput.addEventListener("input", this.handleUrlInput);
     this.urlInput.addEventListener("keydown", this.handleInputKeydown);
 
-    const saveBtn = this.buildIconButton(popupIcons.save, i18n.t("editor:popup.linkCreate.create"), this.handleSave);
+    const saveBtn = buildLinkCreateBtn(popupIcons.save, i18n.t("editor:popup.linkCreate.create"), this.handleSave);
     saveBtn.classList.add("link-create-popup-btn-save");
-    const cancelBtn = this.buildIconButton(popupIcons.close, i18n.t("editor:popup.linkCreate.cancel"), this.handleCancel);
+    const cancelBtn = buildLinkCreateBtn(popupIcons.close, i18n.t("editor:popup.linkCreate.cancel"), this.handleCancel);
     cancelBtn.classList.add("link-create-popup-btn-cancel");
 
     urlRow.appendChild(this.urlInput);
@@ -112,17 +117,6 @@ export class LinkCreatePopupView {
     urlRow.appendChild(cancelBtn);
 
     this.container.appendChild(urlRow);
-  }
-
-  private buildIconButton(iconSvg: string, title: string, onClick: () => void): HTMLElement {
-    const btn = document.createElement("button");
-    btn.className = "link-create-popup-btn";
-    btn.type = "button";
-    btn.title = title;
-    btn.setAttribute("aria-label", title);
-    btn.innerHTML = iconSvg;
-    btn.addEventListener("click", onClick);
-    return btn;
   }
 
   private getFocusableElements(): HTMLElement[] {

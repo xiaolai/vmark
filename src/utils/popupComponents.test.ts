@@ -140,6 +140,53 @@ describe("buildPopupIconButton", () => {
     });
     expect(btn.className).toBe("popup-icon-btn");
   });
+
+  it("uses raw iconSvg when provided (escape hatch)", () => {
+    const raw = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle></svg>`;
+    const btn = buildPopupIconButton({
+      iconSvg: raw,
+      title: "Custom",
+      onClick: () => {},
+    });
+    const svg = btn.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
+    expect(btn.querySelector("circle")).not.toBeNull();
+  });
+
+  it("prefers iconSvg over a named icon when both are given", () => {
+    const btn = buildPopupIconButton({
+      icon: "save",
+      iconSvg: `<svg data-raw="1"></svg>`,
+      title: "Custom",
+      onClick: () => {},
+    });
+    // The named "save" icon is a polyline; the raw override has no polyline.
+    expect(btn.querySelector("[data-raw='1']")).not.toBeNull();
+    expect(btn.querySelector("polyline")).toBeNull();
+  });
+
+  it("overrides the base class via baseClass (source-popup styling)", () => {
+    const btn = buildPopupIconButton({
+      iconSvg: "<svg></svg>",
+      title: "Open",
+      onClick: () => {},
+      baseClass: "source-link-popup-btn",
+    });
+    expect(btn.className).toBe("source-link-popup-btn");
+    expect(btn.classList.contains("popup-icon-btn")).toBe(false);
+  });
+
+  it("derives the variant suffix from baseClass", () => {
+    const btn = buildPopupIconButton({
+      iconSvg: "<svg></svg>",
+      title: "Delete",
+      onClick: () => {},
+      baseClass: "source-link-popup-btn",
+      variant: "danger",
+    });
+    expect(btn.className).toBe("source-link-popup-btn source-link-popup-btn--danger");
+  });
 });
 
 // ---- buildPopupInput ----

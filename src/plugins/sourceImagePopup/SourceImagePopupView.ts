@@ -9,8 +9,13 @@ import type { EditorView } from "@codemirror/view";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
-import { popupIcons } from "@/utils/popupComponents";
+import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { browseImage, copyImagePath, removeImage, saveImageChanges } from "./sourceImageActions";
+
+/** Build a source-image popup icon button with the popup's bespoke styling. */
+function buildSourceImageBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
+  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-image-popup-btn" });
+}
 
 /**
  * Source image popup view.
@@ -43,9 +48,9 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> 
     this.srcInput.addEventListener("input", this.handleSrcInput.bind(this));
 
     // Icon buttons: browse, copy, delete
-    const browseBtn = this.buildIconButton(popupIcons.folder, i18n.t("editor:popup.sourceImage.browse"), this.handleBrowse.bind(this));
-    const copyBtn = this.buildIconButton(popupIcons.copy, i18n.t("editor:popup.sourceImage.copy"), this.handleCopy.bind(this));
-    const deleteBtn = this.buildIconButton(popupIcons.delete, i18n.t("editor:popup.sourceImage.remove"), this.handleRemove.bind(this));
+    const browseBtn = buildSourceImageBtn(popupIcons.folder, i18n.t("editor:popup.sourceImage.browse"), this.handleBrowse.bind(this));
+    const copyBtn = buildSourceImageBtn(popupIcons.copy, i18n.t("editor:popup.sourceImage.copy"), this.handleCopy.bind(this));
+    const deleteBtn = buildSourceImageBtn(popupIcons.delete, i18n.t("editor:popup.sourceImage.remove"), this.handleRemove.bind(this));
     deleteBtn.classList.add("source-image-popup-btn-delete");
 
     srcRow.appendChild(this.srcInput);
@@ -97,17 +102,6 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> 
     // Clear inputs
     this.srcInput.value = "";
     this.altInput.value = "";
-  }
-
-  private buildIconButton(iconSvg: string, title: string, onClick: () => void): HTMLElement {
-    const btn = document.createElement("button");
-    btn.className = "source-image-popup-btn";
-    btn.type = "button";
-    btn.title = title;
-    btn.setAttribute("aria-label", title);
-    btn.innerHTML = iconSvg;
-    btn.addEventListener("click", onClick);
-    return btn;
   }
 
   private handleInputKeydown(e: KeyboardEvent): void {
