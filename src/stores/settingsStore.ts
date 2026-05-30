@@ -84,12 +84,18 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * Drop persisted top-level groups whose shape doesn't match the live defaults
- * (T4, persist-boundary zero-trust). Every settings group is a plain object;
- * a tampered or corrupt `localStorage` blob that puts a string/array/primitive
- * where a group object is expected would be overwritten verbatim by deepMerge
- * (which only recurses when both sides are objects) and crash consumers. Such
- * mismatched groups are skipped so the live defaults survive.
+ * Drop persisted branches whose shape doesn't match the live defaults (T4,
+ * persist-boundary zero-trust). Wherever the default is a plain object, the
+ * persisted value must also be a plain object — otherwise deepMerge (which only
+ * recurses when both sides are objects) would overwrite that object with a
+ * primitive/array and crash consumers. Mismatches are skipped so the live
+ * default survives.
+ *
+ * Recurses into nested object branches, so corruption at any depth is caught
+ * (e.g. `advanced.mcpServer: "evil"` or `formats.diagrams: 1`), not just at the
+ * top level. Keys absent from the defaults pass through unchanged (forward
+ * compatibility); non-object default branches (primitives, arrays) are trusted
+ * as-is since there is no sub-shape to validate.
  *
  * Exported for testing.
  */
@@ -99,10 +105,13 @@ export function sanitizePersistedSettings(
 ): Record<string, unknown> {
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(persisted)) {
-    if (isPlainObject(defaults[key]) && !isPlainObject(value)) {
-      continue; // group-shape mismatch — preserve the default
+    const def = defaults[key];
+    if (isPlainObject(def)) {
+      if (!isPlainObject(value)) continue; // shape mismatch — preserve the default
+      clean[key] = sanitizePersistedSettings(value, def); // recurse into nested branch
+    } else {
+      clean[key] = value;
     }
-    clean[key] = value;
   }
   return clean;
 }

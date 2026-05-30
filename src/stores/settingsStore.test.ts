@@ -35,6 +35,30 @@ describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
     );
     expect(out).toEqual({ unknownKey: "ok" });
   });
+
+  it("recurses into nested branches and drops nested shape mismatches", () => {
+    const nestedDefaults = {
+      advanced: { mcpServer: { port: 9223 }, customLinkProtocols: [] },
+      appearance: { fontSize: 18 },
+    };
+    const out = sanitizePersistedSettings(
+      {
+        advanced: {
+          mcpServer: "evil", // object expected → dropped
+          customLinkProtocols: ["x"], // array default → trusted as-is
+          extra: "kept", // unknown key → passes through
+        },
+        appearance: { fontSize: 22 },
+      },
+      nestedDefaults
+    );
+    expect(out).toEqual({
+      advanced: { customLinkProtocols: ["x"], extra: "kept" },
+      appearance: { fontSize: 22 },
+    });
+    // The dropped nested object means deepMerge keeps the default mcpServer.
+    expect((out.advanced as Record<string, unknown>).mcpServer).toBeUndefined();
+  });
 });
 
 describe("settingsStore MCP server settings", () => {
