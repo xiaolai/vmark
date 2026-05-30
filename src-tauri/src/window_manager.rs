@@ -90,6 +90,87 @@ pub fn queue_pending_file_opens(
     }
 }
 
+/// Combined Finder file-open state, guarded by a single mutex in `lib.rs`.
+///
+/// Keeping the readiness flag and the pending queue together lets the
+/// readiness *check* and the queue *insertion* happen in one critical
+/// section. That closes the TOCTOU (WI-0.8, C3) where
+/// `get_pending_file_opens` flips `frontend_ready` and drains the queue
+/// between an emit-side check and its queue insertion — which could otherwise
+/// drop or double-deliver a Finder open. Mirrors the single-lock discipline of
+/// `menu_events::check_ready_or_queue`.
+pub struct FileOpenState {
+    pub frontend_ready: bool,
+    pub pending: Vec<PendingFileOpen>,
+}
+
+impl FileOpenState {
+    pub const fn new() -> Self {
+        Self {
+            frontend_ready: false,
+            pending: Vec::new(),
+        }
+    }
+}
+
+impl Default for FileOpenState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Outcome of an atomic file-open decision. The caller performs the side
+/// effects (emit / create window) OUTSIDE the lock.
+pub enum FileOpenOutcome {
+    /// Frontend is ready — emit these payloads to the main window.
+    Emit(Vec<PendingFileOpen>),
+    /// Files were queued; if `create_window`, the caller must create a main
+    /// window so the queue gets drained once React mounts.
+    Queued { create_window: bool },
+}
+
+/// Decide what to do with a batch of opens and queue them if needed — all
+/// while the caller holds the `FileOpenState` lock. Pure over the passed
+/// state, so it is unit-testable without the global mutex.
+pub fn decide_file_open_locked(
+    state: &mut FileOpenState,
+    has_main_window: bool,
+    paths: Vec<String>,
+    workspace_root: Option<&str>,
+) -> FileOpenOutcome {
+    match determine_file_open_action(state.frontend_ready, has_main_window) {
+        FileOpenAction::EmitToMainWindow => {
+            let payloads = paths
+                .into_iter()
+                .map(|path| PendingFileOpen {
+                    path,
+                    workspace_root: workspace_root.map(String::from),
+                })
+                .collect();
+            FileOpenOutcome::Emit(payloads)
+        }
+        FileOpenAction::QueueAndCreateWindow => {
+            queue_pending_file_opens(&mut state.pending, paths, workspace_root);
+            FileOpenOutcome::Queued {
+                create_window: true,
+            }
+        }
+        FileOpenAction::QueueOnly => {
+            queue_pending_file_opens(&mut state.pending, paths, workspace_root);
+            FileOpenOutcome::Queued {
+                create_window: false,
+            }
+        }
+    }
+}
+
+/// Mark the frontend ready and drain the pending queue in one critical
+/// section (caller passes the locked state). Returns the drained opens.
+pub fn mark_ready_and_drain(state: &mut FileOpenState) -> Vec<PendingFileOpen> {
+    state.frontend_ready = true;
+    state.pending.drain(..).collect()
+}
+
 /// Cascade offset for new windows (logical pixels)
 const CASCADE_OFFSET: f64 = 25.0;
 /// Base position for first window
@@ -604,6 +685,78 @@ mod tests {
             determine_file_open_action(false, false),
             FileOpenAction::QueueOnly,
         );
+    }
+
+    // -- atomic decide / drain (WI-0.8, C3) ------------------------------------
+
+    fn paths(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn decide_emits_when_ready_with_window() {
+        let mut state = FileOpenState::new();
+        state.frontend_ready = true;
+        let outcome = decide_file_open_locked(&mut state, true, paths(&["/a.md"]), None);
+        match outcome {
+            FileOpenOutcome::Emit(p) => assert_eq!(p.len(), 1),
+            _ => panic!("expected Emit"),
+        }
+        // Emit path does NOT queue.
+        assert!(state.pending.is_empty());
+    }
+
+    #[test]
+    fn decide_queues_and_requests_window_when_ready_without_window() {
+        let mut state = FileOpenState::new();
+        state.frontend_ready = true;
+        let outcome = decide_file_open_locked(&mut state, false, paths(&["/a.md"]), Some("/ws"));
+        assert!(matches!(
+            outcome,
+            FileOpenOutcome::Queued { create_window: true }
+        ));
+        assert_eq!(state.pending.len(), 1);
+        assert_eq!(state.pending[0].workspace_root.as_deref(), Some("/ws"));
+    }
+
+    #[test]
+    fn decide_queues_only_when_not_ready() {
+        let mut state = FileOpenState::new();
+        let outcome = decide_file_open_locked(&mut state, true, paths(&["/a.md"]), None);
+        assert!(matches!(
+            outcome,
+            FileOpenOutcome::Queued { create_window: false }
+        ));
+        assert_eq!(state.pending.len(), 1);
+    }
+
+    #[test]
+    fn drain_during_cold_start_then_emit_after_ready_no_drop_no_double() {
+        // Models the interleaving the single lock now serializes: a cold-start
+        // open is queued; the frontend then marks ready + drains in one step;
+        // a subsequent open emits rather than re-queuing — so the first open is
+        // delivered exactly once (drain), the second exactly once (emit).
+        let mut state = FileOpenState::new();
+
+        // Open A arrives before the frontend is ready → queued.
+        let a = decide_file_open_locked(&mut state, true, paths(&["/A.md"]), None);
+        assert!(matches!(a, FileOpenOutcome::Queued { .. }));
+        assert_eq!(state.pending.len(), 1);
+
+        // Frontend becomes ready and drains atomically → receives A exactly once.
+        let drained = mark_ready_and_drain(&mut state);
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].path, "/A.md");
+        assert!(state.frontend_ready);
+        assert!(state.pending.is_empty());
+
+        // Open B after ready → emitted (not re-queued), so not dropped.
+        let b = decide_file_open_locked(&mut state, true, paths(&["/B.md"]), None);
+        match b {
+            FileOpenOutcome::Emit(p) => assert_eq!(p[0].path, "/B.md"),
+            _ => panic!("expected Emit"),
+        }
+        assert!(state.pending.is_empty());
     }
 
     // -- group_paths_by_workspace ----------------------------------------------
