@@ -270,8 +270,12 @@ export function useGenieInvocation() {
           return;
         }
 
-        accumulated += chunk.chunk;
-        useGeniePickerStore.getState().appendResponse(chunk.chunk);
+        // Defend the AI-response boundary (WI-4.1, T2): a chunk that omits the
+        // text field (e.g. a terminal done-frame) must not append the literal
+        // string "undefined" to the accumulated result.
+        const text = typeof chunk.chunk === "string" ? chunk.chunk : "";
+        accumulated += text;
+        useGeniePickerStore.getState().appendResponse(text);
 
         if (chunk.done) {
           // Apply accumulated result
