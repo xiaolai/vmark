@@ -347,7 +347,7 @@ export function insertSourceBookmarkLink(view: EditorView): boolean {
   } : undefined;
 
   // Get container bounds for proper popup positioning
-  const containerEl = view.dom.closest(".editor-container") as HTMLElement;
+  const containerEl = view.dom.closest(".editor-container") as HTMLElement | null;
   const containerBounds = containerEl
     ? getBoundaryRects(view.dom as HTMLElement, containerEl)
     : getViewportBounds();

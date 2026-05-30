@@ -128,7 +128,7 @@ export class FootnotePopupView {
 
     this.container.style.display = "flex";
 
-    const gotoBtn = this.container.querySelector(".footnote-popup-btn-goto") as HTMLElement;
+    const gotoBtn = this.container.querySelector(".footnote-popup-btn-goto") as HTMLElement | null;
     /* v8 ignore next -- @preserve else branch: goto button is always found in popup DOM */
     if (gotoBtn) gotoBtn.style.display = definitionPos !== null ? "flex" : "none";
 
@@ -194,7 +194,7 @@ export class FootnotePopupView {
   }
 
   private updatePosition(anchorRect: AnchorRect) {
-    const containerEl = this.view.dom.closest(".editor-container") as HTMLElement;
+    const containerEl = this.view.dom.closest(".editor-container") as HTMLElement | null;
     const bounds = containerEl
       ? getBoundaryRects(this.view.dom as HTMLElement, containerEl)
       : getViewportBounds();

@@ -95,7 +95,7 @@ export class ImagePreviewView {
   }
 
   updatePosition(anchorRect: AnchorRect) {
-    const containerEl = this.editorDom?.closest(".editor-container") as HTMLElement;
+    const containerEl = this.editorDom?.closest(".editor-container") as HTMLElement | null;
     const bounds = containerEl
       ? getBoundaryRects(this.editorDom as HTMLElement, containerEl)
       : getViewportBounds();

@@ -67,7 +67,7 @@ export function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
   };
 
   // Get container bounds for proper popup positioning
-  const containerEl = view.dom.closest(".editor-container") as HTMLElement;
+  const containerEl = view.dom.closest(".editor-container") as HTMLElement | null;
   /* v8 ignore start -- @preserve reason: editor without .editor-container ancestor not tested */
   const containerBounds = containerEl
     ? getBoundaryRects(view.dom as HTMLElement, containerEl)

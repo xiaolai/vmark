@@ -205,7 +205,7 @@ export class LinkCreatePopupView {
     });
 
     // Get boundaries
-    const containerEl = this.editorView.dom.closest(".editor-container") as HTMLElement;
+    const containerEl = this.editorView.dom.closest(".editor-container") as HTMLElement | null;
     const bounds = containerEl
       ? getBoundaryRects(this.editorView.dom as HTMLElement, containerEl)
       : getViewportBounds();

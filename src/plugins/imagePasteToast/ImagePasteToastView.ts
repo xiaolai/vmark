@@ -145,11 +145,11 @@ export class ImagePasteToastView {
     // Calculate bounds from editor container (like link popup)
     let bounds = getViewportBounds();
     if (editorDom) {
-      const containerEl = editorDom.closest(".editor-container") as HTMLElement;
+      const containerEl = editorDom.closest(".editor-container") as HTMLElement | null;
       if (containerEl) {
         // For CodeMirror (source mode), use .cm-content for horizontal bounds
         // because it has padding (0 2em) while .cm-editor spans full width
-        const cmContent = editorDom.querySelector(".cm-content") as HTMLElement;
+        const cmContent = editorDom.querySelector(".cm-content") as HTMLElement | null;
         const horizontalEl = cmContent || editorDom;
         bounds = getBoundaryRects(horizontalEl, containerEl);
       }
