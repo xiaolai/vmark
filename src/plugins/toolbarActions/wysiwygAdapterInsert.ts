@@ -22,6 +22,7 @@ import { DEFAULT_MERMAID_DIAGRAM } from "@/plugins/mermaid/constants";
 import { DEFAULT_MARKMAP_CONTENT } from "@/plugins/markmap/constants";
 import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected, getActiveFilePath } from "./wysiwygAdapterUtils";
+import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS } from "@/utils/mediaExtensions";
 import type { WysiwygToolbarContext } from "./types";
 
 const DEFAULT_MATH_BLOCK = "c = \\pm\\sqrt{a^2 + b^2}";
@@ -130,7 +131,7 @@ async function insertImageFromPicker(view: EditorView): Promise<boolean> {
     filters: [
       {
         name: "Images",
-        extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
+        extensions: [...IMAGE_EXTENSIONS],
       },
     ],
   });
@@ -353,14 +354,12 @@ export function insertInlineMath(context: WysiwygToolbarContext): boolean {
 
 // --- Media insertion (video / audio / YouTube) ---
 
-const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv"];
-const AUDIO_EXTENSIONS = ["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"];
 const INSERT_VIDEO_GUARD = "menu-insert-video";
 const INSERT_AUDIO_GUARD = "menu-insert-audio";
 
 async function insertVideoFromPicker(view: EditorView): Promise<boolean> {
   const selected = await open({
-    filters: [{ name: "Videos", extensions: VIDEO_EXTENSIONS }],
+    filters: [{ name: "Videos", extensions: [...VIDEO_EXTENSIONS] }],
   });
 
   const sourcePath = normalizeDialogPath(selected);
@@ -400,7 +399,7 @@ export function handleInsertVideo(context: WysiwygToolbarContext): boolean {
 
 async function insertAudioFromPicker(view: EditorView): Promise<boolean> {
   const selected = await open({
-    filters: [{ name: "Audio", extensions: AUDIO_EXTENSIONS }],
+    filters: [{ name: "Audio", extensions: [...AUDIO_EXTENSIONS] }],
   });
 
   const sourcePath = normalizeDialogPath(selected);

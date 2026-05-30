@@ -5,19 +5,13 @@
  * Used for smart image insertion from clipboard.
  */
 
+import { IMAGE_EXTENSIONS_DOTTED } from "./mediaExtensions";
+
 /**
- * Supported image file extensions.
+ * Supported image file extensions (dotted form). Single source of truth so
+ * every detection path agrees (WI-0.6, D3).
  */
-export const IMAGE_EXTENSIONS = [
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".bmp",
-  ".ico",
-];
+export const IMAGE_EXTENSIONS = IMAGE_EXTENSIONS_DOTTED;
 
 /**
  * Result of image path detection.

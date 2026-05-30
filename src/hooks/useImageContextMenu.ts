@@ -25,6 +25,7 @@ import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { imageContextMenuWarn, imageContextMenuError } from "@/utils/debug";
 import i18n from "@/i18n";
+import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
 
 type GetEditorView = () => EditorView | null;
 
@@ -78,7 +79,7 @@ export function useImageContextMenu(getEditorView: GetEditorView) {
               filters: [
                 {
                   name: "Images",
-                  extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
+                  extensions: [...IMAGE_EXTENSIONS],
                 },
               ],
             });

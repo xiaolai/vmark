@@ -26,12 +26,13 @@ import { copyMediaToAssets } from "@/hooks/useMediaOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { mediaPopupError } from "@/utils/debug";
+import {
+  IMAGE_EXTENSIONS,
+  VIDEO_EXTENSIONS,
+  AUDIO_EXTENSIONS,
+} from "@/utils/mediaExtensions";
 
 import type { MediaNodeType } from "@/stores/mediaPopupStore";
-
-const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"];
-const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv"];
-const AUDIO_EXTENSIONS = ["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"];
 
 /** Check if a media type is an image type. */
 function isImageType(type: MediaNodeType): boolean {
@@ -51,10 +52,10 @@ export async function browseAndReplaceMedia(
       const isVideo = mediaNodeType === "block_video";
 
       const filters = isImage
-        ? [{ name: "Images", extensions: IMAGE_EXTENSIONS }]
+        ? [{ name: "Images", extensions: [...IMAGE_EXTENSIONS] }]
         : isVideo
-          ? [{ name: "Videos", extensions: VIDEO_EXTENSIONS }]
-          : [{ name: "Audio", extensions: AUDIO_EXTENSIONS }];
+          ? [{ name: "Videos", extensions: [...VIDEO_EXTENSIONS] }]
+          : [{ name: "Audio", extensions: [...AUDIO_EXTENSIONS] }];
 
       const sourcePath = await open({ filters, multiple: false, directory: false });
 

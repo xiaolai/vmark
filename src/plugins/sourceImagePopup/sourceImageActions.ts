@@ -18,6 +18,7 @@ import { withReentryGuard } from "@/utils/reentryGuard";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { sourceActionError } from "@/utils/debug";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
+import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
 
 /**
  * Build image markdown syntax.
@@ -144,7 +145,7 @@ export async function browseImage(view: EditorView): Promise<boolean> {
         filters: [
           {
             name: "Images",
-            extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
+            extensions: [...IMAGE_EXTENSIONS],
           },
         ],
       });

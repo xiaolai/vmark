@@ -13,6 +13,7 @@ import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { sourceActionError } from "@/utils/debug";
 import { popupIcons } from "@/utils/popupComponents";
+import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
 import {
   copyWikiLinkTarget,
   openWikiLink,
@@ -170,7 +171,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
       const selected = await open({
         filters: [
           { name: "Markdown", extensions: ["md", "markdown"] },
-          { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "svg", "webp"] },
+          { name: "Images", extensions: [...IMAGE_EXTENSIONS] },
           { name: "Documents", extensions: ["pdf", "txt", "html"] },
           { name: "All Files", extensions: ["*"] },
         ],
