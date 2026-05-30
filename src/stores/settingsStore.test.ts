@@ -1,8 +1,40 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useSettingsStore } from "./settingsStore";
+import { useSettingsStore, sanitizePersistedSettings } from "./settingsStore";
 
 beforeEach(() => {
   useSettingsStore.getState().resetSettings();
+});
+
+describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
+  const defaults = {
+    appearance: { fontSize: 18 },
+    general: { autoSaveEnabled: true },
+  };
+
+  it("keeps well-formed object groups", () => {
+    const out = sanitizePersistedSettings(
+      { appearance: { fontSize: 22 }, general: { autoSaveEnabled: false } },
+      defaults
+    );
+    expect(out).toEqual({ appearance: { fontSize: 22 }, general: { autoSaveEnabled: false } });
+  });
+
+  it("drops a group that is a primitive/array where defaults expect an object", () => {
+    const out = sanitizePersistedSettings(
+      { appearance: "evil", general: ["nope"] },
+      defaults
+    );
+    // Both mismatched groups dropped — live defaults survive deepMerge.
+    expect(out).toEqual({});
+  });
+
+  it("drops a null group (cannot recurse) but passes unknown keys through", () => {
+    const out = sanitizePersistedSettings(
+      { appearance: null, unknownKey: "ok" },
+      defaults
+    );
+    expect(out).toEqual({ unknownKey: "ok" });
+  });
 });
 
 describe("settingsStore MCP server settings", () => {

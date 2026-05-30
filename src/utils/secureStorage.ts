@@ -40,18 +40,41 @@ export function _resetForTesting(): void {
 let usingFallback = false;
 
 /** Tauri store instance (lazy-loaded). */
-let storePromise: Promise<{ get: (key: string) => Promise<string | null>; set: (key: string, value: string) => Promise<void>; save: () => Promise<void>; delete: (key: string) => Promise<void> }> | null = null;
+let storePromise: Promise<SecureStore> | null = null;
 
-async function getStore() {
+interface SecureStore {
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string) => Promise<void>;
+  save: () => Promise<void>;
+  delete: (key: string) => Promise<void>;
+}
+
+/**
+ * Validate that the loaded plugin instance exposes the methods we rely on
+ * (T4): replaces a blind `as unknown as SecureStore` cast over a 3rd-party
+ * module. A shape mismatch (plugin API drift, broken mock) throws loudly so
+ * the caller falls back to localStorage rather than calling `undefined()`.
+ */
+function assertSecureStore(store: unknown): asserts store is SecureStore {
+  const s = store as Record<string, unknown> | null;
+  if (
+    typeof s !== "object" ||
+    s === null ||
+    typeof s.get !== "function" ||
+    typeof s.set !== "function" ||
+    typeof s.save !== "function" ||
+    typeof s.delete !== "function"
+  ) {
+    throw new Error("Tauri store plugin returned an unexpected shape");
+  }
+}
+
+async function getStore(): Promise<SecureStore> {
   if (!storePromise) {
     storePromise = import("@tauri-apps/plugin-store").then(async (mod) => {
       const store = await mod.load(".vmark-secure.json");
-      return store as unknown as {
-        get: (key: string) => Promise<string | null>;
-        set: (key: string, value: string) => Promise<void>;
-        save: () => Promise<void>;
-        delete: (key: string) => Promise<void>;
-      };
+      assertSecureStore(store);
+      return store;
     });
   }
   return storePromise;

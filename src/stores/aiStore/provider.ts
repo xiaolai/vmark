@@ -72,6 +72,51 @@ const DEFAULT_REST_PROVIDERS: RestProviderConfig[] = [
   },
 ];
 
+/**
+ * Shape-guard one persisted REST provider entry (T4). Coerces missing/
+ * wrong-typed string fields to `""` so a tampered or stale secure-store blob
+ * can't inject `undefined`/non-string fields downstream. Returns null for
+ * entries with no string `type` — the identity key is unusable without it.
+ */
+function sanitizeRestProvider(raw: unknown): RestProviderConfig | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.type !== "string") return null;
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  return {
+    type: r.type as RestProviderType,
+    name: str(r.name),
+    endpoint: str(r.endpoint),
+    apiKey: str(r.apiKey),
+    model: str(r.model),
+  };
+}
+
+/**
+ * Validate/normalize the persisted AI-provider blob at the migrate boundary
+ * (T4, zero-trust). Replaces a blind `as unknown as AiProviderState` cast:
+ * drops a non-array `restProviders` and malformed entries, and coerces
+ * `activeProvider` to `string | null`. A fully-malformed blob recovers to
+ * defaults (onRehydrateStorage backfills DEFAULT_REST_PROVIDERS).
+ *
+ * Exported for testing.
+ */
+export function sanitizeAiProviderPersist(data: Record<string, unknown>): {
+  activeProvider: ProviderType | null;
+  restProviders: RestProviderConfig[];
+} {
+  const activeProvider =
+    typeof data.activeProvider === "string"
+      ? (data.activeProvider as ProviderType)
+      : null;
+  const restProviders = Array.isArray(data.restProviders)
+    ? data.restProviders
+        .map(sanitizeRestProvider)
+        .filter((p): p is RestProviderConfig => p !== null)
+    : [];
+  return { activeProvider, restProviders };
+}
+
 /** REST provider type identifiers that require API key configuration. CLI types are everything else. */
 export const REST_TYPES = new Set<string>(["anthropic", "openai", "google-ai", "ollama-api"]);
 
@@ -217,7 +262,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
         };
       },
       migrate: (persisted, version) => {
-        const data = persisted as Record<string, unknown>;
+        const data = (persisted ?? {}) as Record<string, unknown>;
         if (version < 2) {
           const providers = data.restProviders;
           if (Array.isArray(providers)) {
@@ -227,7 +272,12 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
             );
           }
         }
-        return data as unknown as AiProviderState;
+        // T4: validate the persisted/3rd-party JSON shape before trusting it as
+        // AiProviderState (zero-trust at the persist boundary). The partialized
+        // shape is `{ activeProvider, restProviders }`; the rest of the store
+        // (cliProviders, detecting, actions) comes from the initializer via the
+        // default shallow merge.
+        return sanitizeAiProviderPersist(data) as unknown as AiProviderState;
       },
     }
   )
