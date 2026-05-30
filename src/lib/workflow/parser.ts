@@ -2,11 +2,11 @@
  * Workflow YAML Parser
  *
  * Purpose: Parse YAML workflow strings into WorkflowGraph data structures.
- * Uses js-yaml for YAML parsing, then validates and normalizes into the
+ * Uses the `yaml` library for parsing, then validates and normalizes into the
  * shared WorkflowGraph model.
  *
  * Key decisions:
- *   - Source line tracking via manual line scanning (js-yaml doesn't expose positions)
+ *   - Source line tracking via manual line scanning (parse positions not used here)
  *   - Sequential edges auto-generated when `needs:` is absent
  *   - Circular dependency detection via DFS
  *   - `isWorkflowYaml()` is a fast heuristic (regex, no full parse)
@@ -14,7 +14,7 @@
  * @module lib/workflow/parser
  */
 
-import jsYaml from "js-yaml";
+import { parse as parseYaml } from "yaml";
 import type {
   WorkflowGraph,
   WorkflowStep,
@@ -247,16 +247,17 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
   // Parse YAML
   let raw: unknown;
   try {
-    raw = jsYaml.load(yaml);
+    raw = parseYaml(yaml);
   } catch (e) {
-    const yamlMark =
-      typeof e === "object" && e !== null && "mark" in e
-        ? (e as { mark?: { line?: number; column?: number } }).mark
+    // `yaml` reports positions in `.linePos` as 1-based { line, col }.
+    const linePos =
+      typeof e === "object" && e !== null && "linePos" in e
+        ? (e as { linePos?: Array<{ line: number; col: number }> }).linePos?.[0]
         : undefined;
     throw new WorkflowParseError(
       `Invalid YAML: ${e instanceof Error ? e.message : String(e)}`,
-      yamlMark?.line != null ? yamlMark.line + 1 : undefined,
-      yamlMark?.column,
+      linePos?.line,
+      linePos?.col,
     );
   }
 

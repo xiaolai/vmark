@@ -58,23 +58,27 @@ version: 1
       expect(yamlValidator("")).toEqual([]);
     });
 
-    it("returns one error for malformed YAML with line/column", () => {
+    it("returns one error for malformed YAML with 1-based line/column (WI-2.7)", () => {
       const diags = yamlValidator(`
 name: test
 version: : 1
       `.trim());
       expect(diags).toHaveLength(1);
       expect(diags[0].severity).toBe("error");
-      expect(diags[0].line).toBeGreaterThan(0);
+      // `yaml` reports 1-based positions; the error is on the 2nd line.
+      expect(diags[0].line).toBe(2);
+      expect(diags[0].column).toBeGreaterThan(0);
     });
 
-    it("flags duplicate mapping keys", () => {
+    it("flags duplicate mapping keys (WI-2.7 — yaml lib throws like js-yaml did)", () => {
       const diags = yamlValidator(`
 foo: 1
 foo: 2
       `.trim());
-      // js-yaml flags duplicate keys with default schema
+      // The `yaml` library errors on duplicate keys by default, matching the
+      // previous js-yaml behavior the gutter relied on.
       expect(diags.length).toBeGreaterThanOrEqual(1);
+      expect(diags[0].line).toBeGreaterThan(0);
     });
 
     it("returns ruleId yaml/syntax", () => {

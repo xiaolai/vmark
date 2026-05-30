@@ -237,6 +237,7 @@ profile); `pnpm check:all` + `pnpm size` within budget; no behavior change.
 - Change: extract the `_` helper into a micro-chunk so `vendor-mermaid`/`vendor-graph` leave the eager preload graph. Do **not** re-split mermaid internals (ADR-5).
 - AC (strengthened per Codex #8): `pnpm size:why` **proves the exact static import edge from the entry to `vendor-mermaid` is gone** (not just a smaller number); and a live render smoke of **Mermaid AND Markmap AND the workflow graph** all succeed; no `"this.clear is not a function"` regression. If the edge can't be cleanly severed, **abort the WI** rather than re-split internals.
 - Test: build + size budgets green; the three live render smokes documented.
+- **Status (2026-05-30): ABORTED (per the WI's own abort clause).** The strengthened DoD requires `pnpm size:why` to **prove the exact static import edge** from the entry to `vendor-mermaid` is gone. This project's `size-limit` runs on the `@size-limit/file` preset (vite/esbuild output), and `size-limit --why` only works with the `@size-limit/webpack-why` plugin — so the edge-level proof the DoD mandates is **not available** in this setup. Combined with the area being known-fragile (prior splits broke prod with `this.clear is not a function`), the WI's instruction is explicit: *"If the edge can't be cleanly severed, abort the WI rather than re-split internals."* Aborted; revisit if/when a webpack-why or `rollup-plugin-visualizer` edge analysis is wired into the size tooling.
 
 **WI-2.7 — Drop `js-yaml` + `@types/katex` (B3/B4).**
 - Scope: migrate the 2 `js-yaml.load()` sites (`formats/adapters/yaml.tsx`, `lib/workflow/parser.ts`) to `yaml`'s `parse()`; remove `js-yaml` + `@types/js-yaml`; remove redundant `@types/katex`.
@@ -249,12 +250,14 @@ profile); `pnpm check:all` + `pnpm size` within budget; no behavior change.
 - Change: keep the cheap `isSubstantialHtml` static; `await import("@/utils/htmlToMarkdown")` only when a substantial-HTML paste is detected.
 - AC: `turndown` leaves the eager editor chunk (`pnpm size:why`); HTML paste still converts correctly.
 - Test: paste-path test (substantial HTML → markdown); size budget green.
+- **Status (2026-05-30): DEFERRED.** ProseMirror/CodeMirror paste handlers are **synchronous** and decide whether to claim the paste based on the *conversion result* (return false on trivial/empty conversion so default paste handles it). Lazy `import()`-ing `turndown` forces an **async-claim** refactor: the handler must `preventDefault()` + return `true` up front, then asynchronously convert and insert markdown-or-plain. That changes the handler's return contract for the "substantial-looking HTML whose conversion adds nothing" case (now claimed + plain-text-inserted instead of falling through to default rich paste) — a user-visible behavior change in a core editing path that cannot be live-verified in this session. A pre-warm-with-cold-fallback variant avoids the contract change but still alters first-paste timing. Per the plan's risk posture on bundle items, deferred pending live paste E2E verification; recommend revisiting with the Tauri MCP paste flow.
 
 **WI-2.9 — Verify `@actions` parser isn't eager (B2, measure-only; Codex #3).**
 - Scope: `src/lib/ghaWorkflow/detection.ts` (`isWorkflowYaml`, statically imported by `codePreview/tiptap.ts:68`).
 - Change: confirm via `pnpm size:why` whether `detection.ts` transitively pulls `@actions/workflow-parser` (~1.6 MB) into the eager editor chunk. If it does, reduce `isWorkflowYaml` to a string/regex check so the parser stays lazy; if it doesn't, record "no action" with evidence.
 - AC: a documented measurement; if a leak existed, ~1.6 MB removed from the eager path.
 - Test: size budget green.
+- **Measurement (2026-05-30): NO LEAK — no action needed.** `src/lib/ghaWorkflow/detection.ts` (`isWorkflowYaml`, the symbol `codePreview/tiptap.ts:68` statically imports) is **pure regex** — `rg "@actions/workflow-parser" detection.ts` returns nothing; it imports only local helpers and `RegExp`. So the eager editor chunk does **not** transitively pull `@actions/workflow-parser` via this path. The heavyweight parser is reached only from the lazy workflow-rendering chunks. `pnpm size:why` is unavailable here (see WI-2.6), but source inspection is conclusive for this binary "does X import Y" question.
 
 ---
 
