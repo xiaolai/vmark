@@ -17,8 +17,17 @@ import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { linter, type Diagnostic } from "@codemirror/lint";
+import { syntaxHighlighting } from "@codemirror/language";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useUIStore } from "@/stores/uiStore";
 import { detectSourceLanguage } from "@/lib/formats/sourceLanguage";
+// Reuse the markdown Source-mode theme + syntax palette so non-markdown
+// files (txt/json/yaml/code viewers) render with the same caret, selection,
+// mono font, and GitHub-style token colors instead of raw CodeMirror
+// defaults. The CSS import is a side-effect that ships the `.cm-hl-*`
+// color rules (scoped to `.source-editor`/`.source-pane`).
+import { sourceEditorTheme, codeHighlightStyle } from "@/plugins/codemirror/theme";
+import "@/plugins/codemirror/source-syntax.css";
 import type {
   FormatConfig,
   ValidationDiagnostic,
@@ -87,6 +96,15 @@ export function SourcePane({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const languageCompartmentRef = useRef(new Compartment());
+  // Line-number gutter lives in its own compartment so the View-menu toggle
+  // (Alt+Mod+L / uiStore.showLineNumbers) reconfigures it in place without
+  // tearing down the editor and losing undo history. Mirrors the markdown
+  // Source editor (lineNumbersCompartment in sourceEditorExtensions.ts).
+  const lineNumberCompartmentRef = useRef(new Compartment());
+  // Subscribe so a toggle re-renders this component and the effect below
+  // reconfigures the gutter compartment (which alone controls visibility —
+  // no CSS class is needed since the extension is added/removed in place).
+  const showLineNumbers = useUIStore((state) => state.showLineNumbers);
   // Track the doc string we last *wrote* via a transaction so we can
   // skip echoing the store update back into the view (which would
   // collapse the cursor and reset undo position).
@@ -183,11 +201,21 @@ export function SourcePane({
       : null;
 
     const baseExtensions: Extension[] = [
-      lineNumbers(),
+      // Gutter is compartmentalized so the line-numbers toggle reconfigures
+      // it without remounting. Initial state read from the store at mount.
+      lineNumberCompartmentRef.current.of(
+        useUIStore.getState().showLineNumbers ? lineNumbers() : [],
+      ),
       history(),
       highlightSelectionMatches(),
       keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
       EditorView.lineWrapping,
+      // Same caret/selection/mono-font theme + GitHub syntax palette the
+      // markdown Source editor uses, so non-markdown files are themed
+      // instead of raw CodeMirror. fallback:true colors tokens even when a
+      // language pack hasn't resolved yet.
+      syntaxHighlighting(codeHighlightStyle, { fallback: true }),
+      sourceEditorTheme,
       // Empty initial language — loadLanguage promise reconfigures
       // this compartment when ready.
       languageCompartmentRef.current.of([]),
@@ -236,6 +264,20 @@ export function SourcePane({
     // Callbacks read via refs (see H3 comment above) are intentionally excluded
     // from this dep array so the editor doesn't remount on every parent render.
   }, [tabId, formatId, readOnly, validator, loadLanguage]);
+
+  // Reconfigure the line-number gutter when the toggle flips. Kept out of
+  // the mount effect so toggling never tears down the view (preserves undo
+  // history, selection, and scroll position).
+  useEffect(() => {
+    const view = viewRef.current;
+    /* v8 ignore next -- @preserve unmounted-view fallback */
+    if (!view) return;
+    view.dispatch({
+      effects: lineNumberCompartmentRef.current.reconfigure(
+        showLineNumbers ? lineNumbers() : [],
+      ),
+    });
+  }, [showLineNumbers]);
 
   // Re-sync the editor when the store content diverges from the last
   // value we authored. Handles file-load races (initDocument arriving

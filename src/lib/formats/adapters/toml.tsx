@@ -11,9 +11,10 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
-import { JsonView, defaultStyles, darkStyles } from "react-json-view-lite";
+import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import { parse as parseToml } from "smol-toml";
+import { jsonViewStyles } from "./jsonViewStyles";
 import {
   CargoTomlSchemaRenderer,
   cargoTomlSchemaDetector,
@@ -92,7 +93,7 @@ function TomlTreePreview({ content, diagnostics }: PreviewRendererProps) {
 
   return (
     <div className="json-tree-preview" data-format="toml">
-      <JsonView data={parsed} style={isDark ? darkStyles : defaultStyles} />
+      <JsonView data={parsed} style={jsonViewStyles(isDark)} />
     </div>
   );
 }

@@ -36,10 +36,6 @@
   font-size: var(--font-size-md);
 }
 
-.dark-theme .mermaid-preview--invalid {
-  background: color-mix(in srgb, var(--error-color) 12%, transparent);
-}
-
 .mermaid-preview__hint {
   color: var(--text-secondary);
   font-family: var(--font-mono);

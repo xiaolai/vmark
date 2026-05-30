@@ -8,6 +8,9 @@ import { initSecureStorage } from "./utils/secureStorage";
 import { bootstrapFormats } from "./lib/formats";
 import { useSettingsStore } from "./stores/settingsStore";
 import "./styles/index.css";
+// Shared syntax-highlight palette (source-syntax.css + json-view-theme.css
+// both consume these vars). Global so the vars resolve wherever either renders.
+import "./styles/syntax-palette.css";
 // KaTeX CSS must load AFTER Tailwind (so preflight runs first).
 // KaTeX fixes must load AFTER KaTeX CSS to restore border-widths reset by Tailwind.
 import "katex/dist/katex.min.css";

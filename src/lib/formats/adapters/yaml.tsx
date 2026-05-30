@@ -10,9 +10,10 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
 import jsYaml from "js-yaml";
-import { JsonView, defaultStyles, darkStyles } from "react-json-view-lite";
+import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
+import { jsonViewStyles } from "./jsonViewStyles";
 import "./json-tree.css";
 import {
   isWorkflowYaml,
@@ -137,11 +138,7 @@ function GhaWorkflowSchemaRenderer({
   }
 
   return (
-    <div
-      className="yaml-workflow-preview"
-      data-schema="gha-workflow"
-      style={{ width: "100%", height: "100%" }}
-    >
+    <div className="yaml-workflow-preview" data-schema="gha-workflow">
       <WorkflowCanvas workflow={parseResult.ir} />
     </div>
   );
@@ -178,7 +175,7 @@ function YamlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   return (
     <div className="json-tree-preview" data-format="yaml">
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <JsonView data={parsed as any} style={isDark ? darkStyles : defaultStyles} />
+      <JsonView data={parsed as any} style={jsonViewStyles(isDark)} />
     </div>
   );
 }

@@ -34,10 +34,6 @@
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
-.dark-theme .html-preview__hint {
-  background: color-mix(in srgb, var(--error-color) 12%, transparent);
-}
-
 .html-preview__iframe {
   flex: 1 1 0%;
   width: 100%;

@@ -1,0 +1,41 @@
+/* Token-aligned value colors for the json / yaml / toml tree previews
+ * (react-json-view-lite). Colors come from the shared GitHub palette in
+ * styles/syntax-palette.css (the same --syntax-* vars the CodeMirror Source
+ * highlighter uses), so a file shows the SAME token colors whether viewed as
+ * source or as a data tree, and light/dark is handled in one place.
+ *
+ * Scoped under `.json-tree-preview` so these (specificity 0,2,0+) win over the
+ * library's own single-class value styles without !important. Only the
+ * value/key/punctuation "ink" is overridden; the library keeps ownership of
+ * the container, row indentation, and expand icons (theme-correct per the
+ * isDark base passed in jsonViewStyles.ts).
+ *
+ * @coordinates-with styles/syntax-palette.css — color source of truth
+ */
+
+/* Neutralize the library container's hardcoded background so the tree
+ * inherits the preview pane's --bg-color (unified surface). Structure/font
+ * stay with the library's own container class, which we keep alongside. */
+.json-tree-preview .vmark-json-view__container {
+  background: transparent;
+}
+
+.json-tree-preview .vmark-json-view__key {
+  color: var(--syntax-property);
+}
+
+.json-tree-preview .vmark-json-view__string {
+  color: var(--syntax-string);
+}
+
+.json-tree-preview .vmark-json-view__number {
+  color: var(--syntax-number);
+}
+
+.json-tree-preview .vmark-json-view__other {
+  color: var(--syntax-variable);
+}
+
+.json-tree-preview .vmark-json-view__punctuation {
+  color: var(--syntax-punctuation);
+}

@@ -1,13 +1,15 @@
 /**
  * Verifies that the JSON / YAML / TOML adapters select the correct
- * react-json-view-lite stylesheet based on the active theme:
- *   - light theme → defaultStyles
- *   - dark theme  → darkStyles
+ * react-json-view-lite base stylesheet based on the active theme:
+ *   - light theme → built on defaultStyles
+ *   - dark theme  → built on darkStyles
  *
- * The library is mocked to capture the `style` prop passed to <JsonView />.
- * That gives us a deterministic equality check without depending on the
- * library's internal class names. The mock has to be hoisted via vi.hoisted
- * so it's installed before the adapter modules import the library.
+ * The adapters wrap that base via jsonViewStyles() to recolor the value/key
+ * classes (token-aligned, see json-view-theme.css), so the `style` prop is no
+ * longer the library object by reference — it carries the base's identity
+ * marker (`__token`) plus our override class names. The library is mocked to
+ * capture the prop; the mock is hoisted via vi.hoisted so it installs before
+ * the adapter modules import the library.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -88,35 +90,43 @@ describe("adapter dark-theme style selection", () => {
   });
 
   for (const { label, format, content, path } of fixtures) {
-    it(`${label}: passes defaultStyles to <JsonView /> under light theme`, () => {
+    it(`${label}: builds the style on defaultStyles under light theme`, () => {
       setTheme("paper");
       const Preview = format.genericPreview!;
       render(<Preview content={content} path={path ?? null} diagnostics={[]} />);
       expect(jsonViewMock).toHaveBeenCalled();
       const style = jsonViewMock.mock.calls.at(-1)?.[0]?.style;
-      expect(style).toBe(defaultStyles);
+      // Carries the light base's identity marker...
+      expect(style.__token).toBe(defaultStyles.__token);
+      // ...and our token-aligned value overrides.
+      expect(style.stringValue).toBe("vmark-json-view__string");
     });
 
-    it(`${label}: passes darkStyles to <JsonView /> under dark theme`, () => {
+    it(`${label}: builds the style on darkStyles under dark theme`, () => {
       setTheme("night");
       const Preview = format.genericPreview!;
       render(<Preview content={content} path={path ?? null} diagnostics={[]} />);
       expect(jsonViewMock).toHaveBeenCalled();
       const style = jsonViewMock.mock.calls.at(-1)?.[0]?.style;
-      expect(style).toBe(darkStyles);
+      expect(style.__token).toBe(darkStyles.__token);
+      expect(style.stringValue).toBe("vmark-json-view__string");
     });
   }
 
-  it("re-renders with darkStyles after a light → dark theme switch (json)", () => {
+  it("rebuilds on the dark base after a light → dark theme switch (json)", () => {
     setTheme("paper");
     const Preview = jsonFormat.genericPreview!;
     const { rerender } = render(
       <Preview content='{"a":1}' path="/x/a.json" diagnostics={[]} />,
     );
-    expect(jsonViewMock.mock.calls.at(-1)?.[0]?.style).toBe(defaultStyles);
+    expect(jsonViewMock.mock.calls.at(-1)?.[0]?.style.__token).toBe(
+      defaultStyles.__token,
+    );
 
     setTheme("night");
     rerender(<Preview content='{"a":1}' path="/x/a.json" diagnostics={[]} />);
-    expect(jsonViewMock.mock.calls.at(-1)?.[0]?.style).toBe(darkStyles);
+    expect(jsonViewMock.mock.calls.at(-1)?.[0]?.style.__token).toBe(
+      darkStyles.__token,
+    );
   });
 });

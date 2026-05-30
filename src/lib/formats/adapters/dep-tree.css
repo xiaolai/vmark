@@ -112,10 +112,6 @@
   font-size: var(--font-size-md);
 }
 
-.dark-theme .dep-tree__parse-error {
-  background: color-mix(in srgb, var(--error-color) 12%, transparent);
-}
-
 .dep-tree__empty {
   padding: var(--space-3);
   color: var(--text-tertiary);

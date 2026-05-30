@@ -30,6 +30,7 @@ const checks = [
       /vmark-reader\.css$/,    // Export reader bundle defines its own tokens
       /hljs-syntax\.css$/,     // Syntax-highlight palette (GitHub theme)
       /source-syntax\.css$/,   // Syntax-highlight palette (CodeMirror)
+      /styles\/syntax-palette\.css$/, // Shared syntax palette (source + data trees)
     ],
   },
   {

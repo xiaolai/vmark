@@ -167,43 +167,48 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
           onOpenExternal={filePath ? handleOpenExternal : undefined}
         />
       )}
-      <div className="split-pane-editor__source">
-        <SourcePane
-          tabId={tabId}
-          formatId={formatConfig.id}
-          formatConfig={formatConfig}
-          onDiagnostics={setDiagnostics}
-          onJumpHandleReady={(jump) => {
-            jumpHandleRef.current = jump;
-          }}
-          editingEnabled={editingEnabled}
-        />
-        {diagnostics.length > 0 && (
-          <ValidationGutter diagnostics={diagnostics} onJump={handleJump} />
+      {/* Row body: source | resize | preview. Separated from the banner so
+          the banner spans full width on top — the editor is a column, the
+          body is the row. */}
+      <div className="split-pane-editor__body">
+        <div className="split-pane-editor__source">
+          <SourcePane
+            tabId={tabId}
+            formatId={formatConfig.id}
+            formatConfig={formatConfig}
+            onDiagnostics={setDiagnostics}
+            onJumpHandleReady={(jump) => {
+              jumpHandleRef.current = jump;
+            }}
+            editingEnabled={editingEnabled}
+          />
+          {diagnostics.length > 0 && (
+            <ValidationGutter diagnostics={diagnostics} onJump={handleJump} />
+          )}
+        </div>
+        {hasPreview && (
+          <div
+            className="split-pane-editor__resize-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("splitPane.resize")}
+            aria-valuemin={MIN_FRACTION * 100}
+            aria-valuemax={MAX_FRACTION * 100}
+            aria-valuenow={Math.round(fraction * 100)}
+            tabIndex={0}
+            onKeyDown={onKeyDown}
+          />
+        )}
+        {hasPreview && Preview && (
+          <div className="split-pane-editor__preview">
+            <Preview
+              content={content}
+              path={filePath}
+              diagnostics={diagnostics}
+            />
+          </div>
         )}
       </div>
-      {hasPreview && (
-        <div
-          className="split-pane-editor__resize-handle"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={t("splitPane.resize")}
-          aria-valuemin={MIN_FRACTION * 100}
-          aria-valuemax={MAX_FRACTION * 100}
-          aria-valuenow={Math.round(fraction * 100)}
-          tabIndex={0}
-          onKeyDown={onKeyDown}
-        />
-      )}
-      {hasPreview && Preview && (
-        <div className="split-pane-editor__preview">
-          <Preview
-            content={content}
-            path={filePath}
-            diagnostics={diagnostics}
-          />
-        </div>
-      )}
     </div>
   );
 }

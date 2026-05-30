@@ -1,138 +1,74 @@
 /**
  * Source mode syntax highlighting (CodeMirror decoration classes).
- * GitHub-style colors for light and dark themes.
+ * Colors come from the shared GitHub palette in styles/syntax-palette.css
+ * (one source of truth; light/dark handled there via the --syntax-* vars),
+ * so this file only maps grammar classes to palette roles. Scoped to both the
+ * markdown Source editor (.source-editor) and the non-markdown source pane
+ * (.source-pane).
  */
 
-/* Light theme */
-.source-editor .cm-hl-keyword {
-  color: #d73a49;
+:is(.source-editor, .source-pane) .cm-hl-keyword {
+  color: var(--syntax-keyword);
 }
 
-.source-editor .cm-hl-type {
-  color: #6f42c1;
+:is(.source-editor, .source-pane) .cm-hl-type {
+  color: var(--syntax-type);
 }
 
-.source-editor .cm-hl-function {
-  color: #6f42c1;
+:is(.source-editor, .source-pane) .cm-hl-function {
+  color: var(--syntax-function);
 }
 
-.source-editor .cm-hl-property {
-  color: #005cc5;
+:is(.source-editor, .source-pane) .cm-hl-property {
+  color: var(--syntax-property);
 }
 
-.source-editor .cm-hl-variable {
-  color: #24292e;
+:is(.source-editor, .source-pane) .cm-hl-variable {
+  color: var(--syntax-variable);
 }
 
-.source-editor .cm-hl-string {
-  color: #032f62;
+:is(.source-editor, .source-pane) .cm-hl-string {
+  color: var(--syntax-string);
 }
 
-.source-editor .cm-hl-number {
-  color: #005cc5;
+:is(.source-editor, .source-pane) .cm-hl-number {
+  color: var(--syntax-number);
 }
 
-.source-editor .cm-hl-operator {
-  color: #d73a49;
+:is(.source-editor, .source-pane) .cm-hl-operator {
+  color: var(--syntax-operator);
 }
 
-.source-editor .cm-hl-punctuation {
-  color: #24292e;
+:is(.source-editor, .source-pane) .cm-hl-punctuation {
+  color: var(--syntax-punctuation);
 }
 
-.source-editor .cm-hl-comment {
-  color: #6a737d;
+:is(.source-editor, .source-pane) .cm-hl-comment {
+  color: var(--syntax-comment);
   font-style: italic;
 }
 
-.source-editor .cm-hl-escape {
-  color: #005cc5;
+:is(.source-editor, .source-pane) .cm-hl-escape {
+  color: var(--syntax-escape);
 }
 
-.source-editor .cm-hl-constant {
-  color: #005cc5;
+:is(.source-editor, .source-pane) .cm-hl-constant {
+  color: var(--syntax-constant);
 }
 
-.source-editor .cm-hl-attribute {
-  color: #6f42c1;
+:is(.source-editor, .source-pane) .cm-hl-attribute {
+  color: var(--syntax-attribute);
 }
 
-.source-editor .cm-hl-tag {
-  color: #22863a;
+:is(.source-editor, .source-pane) .cm-hl-tag {
+  color: var(--syntax-tag);
 }
 
-.source-editor .cm-hl-link {
-  color: #032f62;
+:is(.source-editor, .source-pane) .cm-hl-link {
+  color: var(--syntax-link);
   text-decoration: underline;
 }
 
-.source-editor .cm-hl-invalid {
-  color: #cb2431;
-}
-
-/* Dark theme */
-.dark-theme .source-editor .cm-hl-keyword {
-  color: #ff7b72;
-}
-
-.dark-theme .source-editor .cm-hl-type {
-  color: #d2a8ff;
-}
-
-.dark-theme .source-editor .cm-hl-function {
-  color: #d2a8ff;
-}
-
-.dark-theme .source-editor .cm-hl-property {
-  color: #79c0ff;
-}
-
-.dark-theme .source-editor .cm-hl-variable {
-  color: #c9d1d9;
-}
-
-.dark-theme .source-editor .cm-hl-string {
-  color: #a5d6ff;
-}
-
-.dark-theme .source-editor .cm-hl-number {
-  color: #79c0ff;
-}
-
-.dark-theme .source-editor .cm-hl-operator {
-  color: #ff7b72;
-}
-
-.dark-theme .source-editor .cm-hl-punctuation {
-  color: #c9d1d9;
-}
-
-.dark-theme .source-editor .cm-hl-comment {
-  color: #8b949e;
-  font-style: italic;
-}
-
-.dark-theme .source-editor .cm-hl-escape {
-  color: #79c0ff;
-}
-
-.dark-theme .source-editor .cm-hl-constant {
-  color: #79c0ff;
-}
-
-.dark-theme .source-editor .cm-hl-attribute {
-  color: #d2a8ff;
-}
-
-.dark-theme .source-editor .cm-hl-tag {
-  color: #7ee787;
-}
-
-.dark-theme .source-editor .cm-hl-link {
-  color: #a5d6ff;
-  text-decoration: underline;
-}
-
-.dark-theme .source-editor .cm-hl-invalid {
-  color: #f85149;
+:is(.source-editor, .source-pane) .cm-hl-invalid {
+  color: var(--syntax-invalid);
 }

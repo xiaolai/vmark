@@ -1,0 +1,53 @@
+/* Shared GitHub-style syntax color palette — the single source of truth for
+ * token colors used by BOTH the CodeMirror Source highlighter
+ * (plugins/codemirror/source-syntax.css) and the data-tree previews
+ * (lib/formats/adapters/json-view-theme.css). Defining the palette once here
+ * means a JSON/YAML/TOML file shows identical colors whether viewed as source
+ * or as a tree, and a retint touches one file instead of drifting across two.
+ *
+ * Light values on :root; dark overrides on .dark-theme. Classified as a
+ * syntax-highlight palette (registered in scripts/check-design-tokens.mjs),
+ * NOT part of the UI design-token system. Imported globally in main.tsx so the
+ * variables resolve wherever either consumer renders.
+ *
+ * @coordinates-with plugins/codemirror/source-syntax.css — consumes these vars
+ * @coordinates-with lib/formats/adapters/json-view-theme.css — consumes these vars
+ */
+
+:root {
+  --syntax-keyword: #d73a49;
+  --syntax-type: #6f42c1;
+  --syntax-function: #6f42c1;
+  --syntax-property: #005cc5;
+  --syntax-variable: #24292e;
+  --syntax-string: #032f62;
+  --syntax-number: #005cc5;
+  --syntax-operator: #d73a49;
+  --syntax-punctuation: #24292e;
+  --syntax-comment: #6a737d;
+  --syntax-escape: #005cc5;
+  --syntax-constant: #005cc5;
+  --syntax-attribute: #6f42c1;
+  --syntax-tag: #22863a;
+  --syntax-link: #032f62;
+  --syntax-invalid: #cb2431;
+}
+
+.dark-theme {
+  --syntax-keyword: #ff7b72;
+  --syntax-type: #d2a8ff;
+  --syntax-function: #d2a8ff;
+  --syntax-property: #79c0ff;
+  --syntax-variable: #c9d1d9;
+  --syntax-string: #a5d6ff;
+  --syntax-number: #79c0ff;
+  --syntax-operator: #ff7b72;
+  --syntax-punctuation: #c9d1d9;
+  --syntax-comment: #8b949e;
+  --syntax-escape: #79c0ff;
+  --syntax-constant: #79c0ff;
+  --syntax-attribute: #d2a8ff;
+  --syntax-tag: #7ee787;
+  --syntax-link: #a5d6ff;
+  --syntax-invalid: #f85149;
+}
