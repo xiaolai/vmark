@@ -39,11 +39,6 @@ fn is_hidden_by_metadata(metadata: &fs::Metadata) -> bool {
     (attrs & FILE_ATTRIBUTE_HIDDEN != 0) || (attrs & FILE_ATTRIBUTE_SYSTEM != 0)
 }
 
-#[cfg(not(windows))]
-fn is_hidden_by_metadata(_: &fs::Metadata) -> bool {
-    false
-}
-
 /// Maximum directory entries to return (safety limit for huge directories).
 pub const MAX_DIR_ENTRIES: usize = 10_000;
 
@@ -52,10 +47,20 @@ pub const MAX_DIR_ENTRIES: usize = 10_000;
 /// Returns name, path, directory flag, and hidden flag for each entry.
 /// Individual entry errors (e.g., broken symlinks) are silently skipped.
 ///
+/// `async` + `spawn_blocking` so a large-directory expand (up to
+/// `MAX_DIR_ENTRIES` `readdir` results) runs off the IPC thread (O4 / WI-2.3).
+///
 /// # Errors
 /// Returns `Err` if the directory itself cannot be read.
 #[tauri::command]
-pub fn list_directory_entries(path: &str) -> Result<Vec<DirectoryEntry>, String> {
+pub async fn list_directory_entries(path: String) -> Result<Vec<DirectoryEntry>, String> {
+    tokio::task::spawn_blocking(move || list_directory_entries_blocking(&path))
+        .await
+        .map_err(|e| format!("Directory listing task failed: {e}"))?
+}
+
+/// Synchronous core of `list_directory_entries` (runs inside `spawn_blocking`).
+fn list_directory_entries_blocking(path: &str) -> Result<Vec<DirectoryEntry>, String> {
     let entries = fs::read_dir(path).map_err(|e| format!("Failed to read dir: {e}"))?;
     let mut results = Vec::new();
 
@@ -74,15 +79,32 @@ pub fn list_directory_entries(path: &str) -> Result<Vec<DirectoryEntry>, String>
         let name = entry.file_name().to_string_lossy().to_string();
         let path = entry.path().to_string_lossy().to_string();
 
+        // `file_type()` comes from the `readdir` `d_type` field on most
+        // platforms — cheap, no extra stat.
         let is_directory = entry
             .file_type()
             .map(|file_type| file_type.is_dir())
             .unwrap_or(false);
 
-        let is_hidden = entry
-            .metadata()
-            .map(|metadata| is_hidden_by_metadata(&metadata) || is_hidden_by_name(&name))
-            .unwrap_or_else(|_| is_hidden_by_name(&name));
+        // Avoid the per-entry `metadata()` stat where it isn't needed:
+        //   - dot-prefixed names are hidden by name on every OS;
+        //   - on Unix nothing else can mark a file hidden, so no stat at all;
+        //   - only non-dotfiles on Windows need a stat for HIDDEN/SYSTEM attrs.
+        let is_hidden = if is_hidden_by_name(&name) {
+            true
+        } else {
+            #[cfg(windows)]
+            {
+                entry
+                    .metadata()
+                    .map(|metadata| is_hidden_by_metadata(&metadata))
+                    .unwrap_or(false)
+            }
+            #[cfg(not(windows))]
+            {
+                false
+            }
+        };
 
         results.push(DirectoryEntry {
             name,
@@ -123,7 +145,7 @@ mod tests {
             fs::write(root.join(format!("file_{i}.md")), "content").unwrap();
         }
 
-        let entries = list_directory_entries(root.to_str().unwrap()).unwrap();
+        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
         assert_eq!(entries.len(), 5);
     }
 
@@ -135,7 +157,7 @@ mod tests {
         fs::write(root.join(".hidden.md"), "secret").unwrap();
         fs::write(root.join("visible.md"), "hello").unwrap();
 
-        let entries = list_directory_entries(root.to_str().unwrap()).unwrap();
+        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
 
         let hidden = entries.iter().find(|entry| entry.name == ".hidden.md");
         let visible = entries.iter().find(|entry| entry.name == "visible.md");
@@ -144,5 +166,18 @@ mod tests {
         assert!(visible.is_some());
         assert!(hidden.unwrap().is_hidden);
         assert!(!visible.unwrap().is_hidden);
+    }
+
+    #[test]
+    fn list_directory_entries_caps_at_max() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        // A few hundred entries is enough to exercise the loop without being slow.
+        for i in 0..600 {
+            fs::write(root.join(format!("f_{i}.md")), "x").unwrap();
+        }
+        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
+        assert_eq!(entries.len(), 600);
+        assert!(entries.len() <= MAX_DIR_ENTRIES);
     }
 }
