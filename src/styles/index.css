@@ -29,7 +29,6 @@
 
   /* UI chrome */
   --sidebar-bg: #e5e4e4;
-  --sidebar-width: 260px;
   --outline-width: 200px;
   --border-color: #d5d4d4;
   --table-border-color: #d5d4d4;
@@ -207,7 +206,6 @@
   --size-btn-sm: 24px;      /* find-bar nav/close button */
 
   /* Line heights */
-  --line-height-tight: 1.25;
   --line-height-snug: 1.35;
   --line-height-base: 1.4;
   --line-height-normal: 1.5;

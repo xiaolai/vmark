@@ -1,11 +1,7 @@
 /**
  * Source Link Popup Styles - Single-row layout
  * Row: href input + action buttons
- *
- * Uses shared source popup styles from source-popup-shared.css
  */
-
-@import "@/styles/source-popup-shared.css";
 
 .source-link-popup {
   position: absolute;

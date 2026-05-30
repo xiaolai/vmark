@@ -64,13 +64,6 @@
    Fit-to-Page Strategies
    =========================================== */
 
-/* Shrink strategy (default) */
-.export-surface[data-fit-strategy="shrink"] .table-overflow,
-.export-surface[data-fit-strategy="shrink"] .code-overflow {
-  transform-origin: top left;
-  /* Scale is set dynamically via JS */
-}
-
 /* Wrap strategy */
 .export-surface[data-fit-strategy="wrap"] table {
   width: 100% !important;
@@ -88,34 +81,6 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-}
-
-/* ===========================================
-   Export Preview Warning Banner
-   =========================================== */
-
-.export-warning-banner {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-bar);
-  padding: var(--space-2) var(--space-4);
-  background: var(--warning-bg, rgba(245, 158, 11, 0.1));
-  border-bottom: var(--border-thin) solid var(--warning-border, rgba(245, 158, 11, 0.3));
-  color: var(--warning-color, #9a6700);
-  font-size: var(--font-size-base);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.export-warning-banner svg {
-  flex-shrink: 0;
-}
-
-@media print {
-  .export-warning-banner {
-    display: none !important;
-  }
 }
 
 /* ===========================================

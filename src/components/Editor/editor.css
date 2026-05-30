@@ -119,14 +119,6 @@
   contain-intrinsic-size: auto 2.5em;
 }
 
-.tiptap-editor .ProseMirror .pm-selection-persist {
-  background-color: var(--selection-color, rgba(0, 102, 204, 0.2));
-}
-
-.tiptap-editor .ProseMirror.ProseMirror-focused .pm-selection-persist {
-  background-color: transparent;
-}
-
 @keyframes selection-pulse {
   0% {
     background-color: var(--selection-color, rgba(0, 102, 204, 0.35));
@@ -134,12 +126,6 @@
   100% {
     background-color: var(--selection-color, rgba(0, 102, 204, 0.15));
   }
-}
-
-.tiptap-editor .ProseMirror.pm-selection-pulse .pm-selection-persist,
-.tiptap-editor .ProseMirror.ProseMirror-focused.pm-selection-pulse .pm-selection-persist {
-  background-color: var(--selection-color, rgba(0, 102, 204, 0.35));
-  animation: selection-pulse 180ms ease-out;
 }
 
 .tiptap-editor .editor {
@@ -523,8 +509,7 @@
 .tiptap-editor .ProseMirror > .block-image + .table-scroll-wrapper,
 .tiptap-editor .ProseMirror > .table-scroll-wrapper + .block-image,
 .tiptap-editor .ProseMirror > .table-scroll-wrapper + .table-scroll-wrapper,
-.tiptap-editor .ProseMirror > .math-block + .math-block,
-.tiptap-editor .ProseMirror > .mermaid-block + .mermaid-block {
+.tiptap-editor .ProseMirror > .math-block + .math-block {
   margin-top: 0.5em;
 }
 
@@ -710,11 +695,6 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .tiptap-editor .ProseMirror.pm-selection-pulse .pm-selection-persist,
-  .tiptap-editor .ProseMirror.ProseMirror-focused.pm-selection-pulse .pm-selection-persist {
-    animation: none;
-  }
-
   .tiptap-editor .ProseMirror-gapcursor::after {
     animation: none;
   }

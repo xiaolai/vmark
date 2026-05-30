@@ -6,38 +6,6 @@
  * Uses design tokens — no hardcoded colors.
  */
 
-/* ── CodeMirror Source mode ──────────────────────────────────────────────── */
-
-/* Gutter dot indicators */
-.lint-gutter-error,
-.lint-gutter-warning {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-  margin: auto;
-  vertical-align: middle;
-}
-
-.lint-gutter-error {
-  background: var(--error-color);
-}
-
-.lint-gutter-warning {
-  background: var(--warning-color);
-}
-
-/* Line background highlights */
-.lint-line-error {
-  background: rgba(207, 34, 46, 0.04);
-  background: color-mix(in srgb, var(--error-color) 4%, transparent);
-}
-
-.lint-line-warning {
-  background: rgba(154, 103, 0, 0.06);
-  background: color-mix(in srgb, var(--warning-color) 6%, transparent);
-}
-
 /* ── ProseMirror WYSIWYG mode ────────────────────────────────────────────── */
 
 /* Block-level node decoration for lint diagnostics */

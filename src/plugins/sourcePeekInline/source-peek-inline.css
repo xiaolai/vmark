@@ -181,16 +181,6 @@
 }
 
 
-/* Error state */
-.source-peek-inline-error {
-  padding: var(--space-1-5) var(--space-2-5);
-  background: var(--error-bg);
-  color: var(--error-color);
-  font-size: var(--font-size-sm);
-  border-top: var(--border-thin) solid rgba(207, 34, 46, 0.3);
-  border-top: var(--border-thin) solid color-mix(in srgb, var(--error-color) 30%, transparent);
-}
-
 /* Unsaved changes indicator */
 .source-peek-inline-header.has-changes .source-peek-inline-title::after {
   content: '•';
@@ -201,11 +191,6 @@
 /* Dark theme adjustments */
 .dark-theme .source-peek-inline {
   box-shadow: var(--popup-shadow-dark);
-}
-
-.dark-theme .source-peek-inline-error {
-  background: rgba(207, 34, 46, 0.15);
-  background: color-mix(in srgb, var(--error-color) 15%, transparent);
 }
 
 /* Animation for appearing */
