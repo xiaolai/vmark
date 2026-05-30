@@ -158,11 +158,6 @@ export const imageContextMenuWarn = isDev
   ? (...args: unknown[]) => console.warn("[ImageContextMenu]", ...args)
   : (...args: unknown[]) => prodWarn("[ImageContextMenu]", ...args);
 
-/** Warn logger for Orphan Image Cleanup. */
-export const orphanCleanupWarn = isDev
-  ? (...args: unknown[]) => console.warn("[OrphanCleanup]", ...args)
-  : (...args: unknown[]) => prodWarn("[OrphanCleanup]", ...args);
-
 /** Warn logger for Confirm Quit. */
 export const confirmQuitWarn = isDev
   ? (...args: unknown[]) => console.warn("[ConfirmQuit]", ...args)

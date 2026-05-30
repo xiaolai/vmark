@@ -27,9 +27,6 @@ importers:
 
   .:
     dependencies:
-      '@actions/expressions':
-        specifier: 0.3.55
-        version: 0.3.55
       '@actions/languageservice':
         specifier: 0.3.55
         version: 0.3.55

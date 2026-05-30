@@ -31,7 +31,6 @@
     "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm test:coverage && pnpm build && pnpm size"
   },
   "dependencies": {
-    "@actions/expressions": "0.3.55",
     "@actions/languageservice": "0.3.55",
     "@actions/workflow-parser": "0.3.55",
     "@codemirror/autocomplete": "^6.20.0",
