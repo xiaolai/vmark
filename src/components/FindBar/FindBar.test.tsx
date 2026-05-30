@@ -389,6 +389,52 @@ describe("FindBar", () => {
       const btn = screen.getByTitle("Use Regular Expression");
       expect(btn.className).toContain("active");
     });
+
+    // WI-4.7 (a11y, A2) — toggle buttons must expose aria-pressed reflecting
+    // their active state so screen readers announce on/off, not class only.
+    it("case sensitive toggle exposes aria-pressed=false when inactive", () => {
+      mockSearchState.caseSensitive = false;
+      render(<FindBar />);
+      expect(screen.getByTitle("Match Case")).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("case sensitive toggle exposes aria-pressed=true when active", () => {
+      mockSearchState.caseSensitive = true;
+      render(<FindBar />);
+      expect(screen.getByTitle("Match Case")).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("whole word toggle exposes aria-pressed=false when inactive", () => {
+      mockSearchState.wholeWord = false;
+      render(<FindBar />);
+      expect(screen.getByTitle("Whole Word")).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("whole word toggle exposes aria-pressed=true when active", () => {
+      mockSearchState.wholeWord = true;
+      render(<FindBar />);
+      expect(screen.getByTitle("Whole Word")).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("regex toggle exposes aria-pressed=false when inactive", () => {
+      mockSearchState.useRegex = false;
+      mockEnableRegex = true;
+      render(<FindBar />);
+      expect(screen.getByTitle("Use Regular Expression")).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    it("regex toggle exposes aria-pressed=true when active", () => {
+      mockSearchState.useRegex = true;
+      mockEnableRegex = true;
+      render(<FindBar />);
+      expect(screen.getByTitle("Use Regular Expression")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
   });
 
   describe("IME composition guard", () => {
