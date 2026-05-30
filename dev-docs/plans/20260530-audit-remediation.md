@@ -112,6 +112,7 @@ the fixed paths.
 - AC: closing a tab while its file read is in flight leaves **no** document entry for that tab; normal open still initializes.
 - Test: (a) store unit test createTab → (tab removed) → initDocument → assert no orphan entry; **and (b) an integration test on the `useFileOpen` close-during-read path** (read in flight → tab closed → read resolves → assert no orphan), not just the store unit.
 - **Shipped (conformance note):** the **caller-side** re-check was chosen (`useFileOpen.ts:openFileInNewTabCore` re-checks `findTabById(tabId)` after the awaited read) — the sanctioned alternative, since a hard guard inside `initDocument` would break ~90 existing `initDocument`-without-tab unit tests. Test **(b)** ships (`useFileOpen.test.ts` "does not resurrect an orphan…"); test **(a)** does **not** (there is no store-level guard to test). AC-(a) is therefore intentionally unmet.
+- **Update (2026-05-30, remediation):** AC-(a) is now **met**. A store-level guard was added without the original test-breakage cost: `initDocument` consults an injected `setTabExistenceGuard` predicate (wired in `main.tsx` to `tabStore.findTabById`, permissive by default), so documentStore stays decoupled and the isolation tests keep passing. Faithful AC-(a) test added (`documentStore.test.ts` — real tabStore createTab → close → initDocument → no orphan). The guard also closes the previously-unguarded `WindowContext.loadPathIntoNewTab` open-race.
 
 **WI-0.3 — Fix genie workflow execution-id race (C2, High).**
 - Scope: `src/hooks/useGenieInvocation.ts:391-397`.
@@ -389,6 +390,13 @@ _(WI-5.3 — stabilize the flaky perf test — moved to **Phase -1** as WI-(-1).
 ### `dev-docs/audit/20260530-plan-audit-findings.md`). These were absent from the
 ### original plan; the disposition is recorded here so the audit ↔ plan ↔ shipped
 ### chain is complete. **T4 is a Medium follow-up; the rest are Low.**
+###
+### **UPDATE (2026-05-30, remediation pass):** these were subsequently
+### implemented — T4 (M1), workspace/hot-exit validators (M2), `cancel_workflow`
+### execution_id (C6), A4 ARIA, plus the safe slices of O8/D8. See the
+### "Remediation follow-up" table in `dev-docs/audit/20260530-plan-audit-findings.md`.
+### O8/D8 are partial-by-design (the unsafe/no-benefit consolidations were left,
+### with rationale). Only **L3** (WI-1.1 visual QA) remains — it needs the live app.
 - **T4 (Medium) — DEFERRED, follow-up.** `as unknown as` double-casts over persisted
   / 3rd-party JSON (`aiStore/provider.ts:230`, `settingsStore.ts:286-288`,
   `secureStorage.ts:49`). Not addressed by Phase 4. Recommended next: typed shape

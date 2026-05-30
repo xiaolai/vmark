@@ -58,3 +58,20 @@ audit ↔ plan ↔ shipped chain is fully accounted for (no code changes):
 - **M1** — implement T4 (typed validators for the 3 persisted/3rd-party JSON casts).
 - **M2** — implement the workspace-config + hot-exit restore validators.
 - **L3** — run the WI-1.1 visual QA in the live app (light + dark via `css-reference.md`).
+
+## Remediation follow-up (2026-05-30, implementation pass)
+
+The open follow-ups above (plus the deferred Low items, by request) were
+implemented. Each landed with a behavioral test; `cargo test` (597) and the
+frontend suite are green.
+
+| Item | Status | What shipped |
+|------|--------|--------------|
+| **M1 (T4)** | ✅ Implemented | Hand-written shape guards replace the 3 `as unknown as` casts: `sanitizeAiProviderPersist` (`aiStore/provider.ts` migrate), `sanitizePersistedSettings` (`settingsStore.ts` merge — drops group-shape mismatches before deepMerge), `assertSecureStore` (`secureStorage.ts` — validates the plugin shape, falls back to localStorage on mismatch). Unit-tested. |
+| **M2** | ✅ Implemented | `isValidWorkspaceConfig` (`openWorkspaceWithConfig.ts` — rejects malformed `read_workspace_config` payloads, opens with defaults; mirrors the real Rust struct: no `showAllFiles`, numeric `version`) and `isValidWindowState` (`restoreHelpers.ts` — top-level guard at `pullWindowStateWithRetry`, discards malformed hot-exit payloads without retry). Unit-tested. ADR-2's named set is now fully covered. |
+| **M3 (AC-a)** | ✅ Implemented | Store-level guard added via dependency injection: `setTabExistenceGuard` (wired in `main.tsx` to `tabStore.findTabById`); `initDocument` no-ops when the tab is gone. Decoupled from tabStore (no static import) so the 46 isolation tests stay permissive. Faithful AC-a test (real tabStore: createTab → close → initDocument → no orphan) added. Also covers the previously-unguarded `WindowContext` open-race. |
+| **C6 (L1)** | ✅ Implemented | `cancel_workflow` now honors `execution_id`: `WorkflowRunnerState.current_execution` tracks the running id; pure `decide_cancel` helper + Rust tests; `RunningGuard::drop` clears it. A stale cancel can no longer cancel a workflow that started after the target finished. |
+| **A4** | ✅ Implemented | ContentSearch + PromptHistory rows → `role=option`/`aria-selected`; ProviderSwitcher → `role=menu`/`menuitemradio` + focus-in on open + trigger `aria-haspopup`/`aria-expanded`; frontmatter panel header → `aria-expanded` (synced) + textarea `aria-label`; FileNode rename input → `aria-label`; UniversalToolbar AI-Prompts button folded into the roving-tabindex model (was keyboard-unreachable). No new i18n keys (reused existing). |
+| **O8** | ◑ Partial (calibrated) | Implemented the one genuine, safe win: `findAllOccurrences` now uses `nodesBetween` (bounded traversal) instead of a full-doc `descendants` walk. `stripMarkdown` regex passes and lint inline regexes were investigated and left as-is — they are engine-cached literals (no recompilation) and the lint `new RegExp` is necessarily dynamic; merging `stripMarkdown` passes would risk word-count correctness for zero measured benefit. |
+| **D8** | ◑ Partial (calibrated) | Routed the 3 inline `path.split("/").pop()` filename extractions through the cross-platform `getFileName`. The two `getFileName` functions were confirmed to have **genuinely different semantics** (display-verbatim vs. normalizing) and were left separate — merging would be a bug. The Rust `contains("..")` traversal checks were left local (security-sensitive, distinct contexts, the audit's `\`/symlink warning). |
+| **L3** | ⏳ Human-only | Still pending: the WI-1.1 dead-CSS removal needs live visual QA (light + dark via `dev-docs/css-reference.md`). Cannot be done autonomously — requires the running app. |
