@@ -17,15 +17,18 @@ import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
 /**
  * Hook the editor to update revisions on document changes.
  * Should be called once when the editor is initialized.
+ *
+ * `tabId` scopes the revision to this editor's document (WI-0.10, C5). The
+ * editor remounts per tab, so the active tab at mount is this editor's tab.
  */
-export function initializeRevisionTracking(editor: Editor): void {
+export function initializeRevisionTracking(editor: Editor, tabId: string): void {
   // Generate initial revision on document load
-  useRevisionStore.getState().setRevision(generateRevisionId());
+  useRevisionStore.getState().setRevision(tabId, generateRevisionId());
 
   // Update revision on document changes
   editor.on("transaction", ({ transaction }) => {
     if (shouldUpdateRevision(transaction)) {
-      useRevisionStore.getState().updateRevision();
+      useRevisionStore.getState().updateRevision(tabId);
     }
   });
 }

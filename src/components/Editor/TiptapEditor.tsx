@@ -275,7 +275,8 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
       // Wire MCP revision tracking so user edits bump the revision token that
       // optimistic-concurrency (STALE) checks in the MCP bridge depend on. The
       // transaction listener is bound to this editor and torn down with it.
-      initializeRevisionTracking(editor);
+      // Revision is keyed per tab (WI-0.10); this editor owns the active tab.
+      if (activeTabId) initializeRevisionTracking(editor, activeTabId);
 
       // Capture content at mount time — the closure value is stable for this editor instance.
       const contentSnapshot = content;

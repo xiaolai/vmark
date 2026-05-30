@@ -136,6 +136,7 @@ the fixed paths.
 - Change: determine whether `handleRequest.ts` still calls v1 `utils.ts`. **If dead** → mark for Phase-1 deletion, no fix. **If live** → fix `findTextMatches` PM-offset bug (UTF-16 `.length` vs PM positions for astral/emoji chars) + add emoji/CJK boundary tests.
 - AC: a documented determination + the chosen action; if live, an emoji insertion via MCP text-match lands at the correct PM position.
 - Test (live branch): `findTextMatches`/`getTextRange` tests with emoji + multi-textblock matches.
+- **Determination (2026-05-30):** `handleRequest.ts` fully delegates to `dispatchV2` (`v2/`); it imports only `respond` from `./utils`. `rg` across `src` (prod + tests) found **zero** callers of `findTextMatches`, `getTextRange`, `resolveNodeId`, `getDocumentContent` (and the `TextMatch`/`ResolvedNode` types, plus `getEditor`/`resolveWindowId`/`getActiveTabId`/`isAutoApproveEnabled`). The buggy `findTextMatches` is therefore **DEAD** → no fix. **Action: delete the dead helpers in Phase 1 (WI-1.4); keep the live `respond`.** No live branch, so no emoji boundary test is warranted.
 
 **WI-0.8 — Finder hot-open TOCTOU (C3, Medium; Codex #3).**
 - Scope: `src-tauri/src/lib.rs:92-97,916-977`.

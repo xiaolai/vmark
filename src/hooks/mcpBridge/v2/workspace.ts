@@ -177,7 +177,7 @@ export async function handleWorkspaceSave(
     useDocumentStore
       .getState()
       .markSaved(resolved.tabId, resolved.content);
-    const revision = useRevisionStore.getState().getRevision();
+    const revision = useRevisionStore.getState().getRevision(resolved.tabId);
     await respond({
       id,
       success: true,
@@ -254,7 +254,7 @@ export async function handleWorkspaceSaveAs(
     tabState.updateTabTitle(tabId, getFileName(filePath) || "Untitled");
     docState.setFilePath(tabId, filePath);
     docState.markSaved(tabId, doc.content);
-    const revision = useRevisionStore.getState().getRevision();
+    const revision = useRevisionStore.getState().getRevision(tabId);
     await respond({ id, success: true, data: { revision } });
   } catch (error) {
     await respond({

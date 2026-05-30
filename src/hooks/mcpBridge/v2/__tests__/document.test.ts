@@ -132,7 +132,7 @@ describe("vmark.document.write — STALE concurrency", () => {
     seedTab("t-w", "original", null);
     const stale = "rev-OLDOLDOL";
     // Force a known-current revision distinct from `stale`.
-    useRevisionStore.getState().setRevision(generateRevisionId());
+    useRevisionStore.getState().setRevision("t-w", generateRevisionId());
 
     await handleDocumentWrite("req-stale", {
       tabId: "t-w",
@@ -152,7 +152,7 @@ describe("vmark.document.write — STALE concurrency", () => {
 
   it("accepts writes whose expected_revision matches current", async () => {
     seedTab("t-w2", "before", null);
-    const current = useRevisionStore.getState().getRevision();
+    const current = useRevisionStore.getState().getRevision("t-w2");
     await handleDocumentWrite("req-ok", {
       tabId: "t-w2",
       content: "after",
@@ -163,6 +163,47 @@ describe("vmark.document.write — STALE concurrency", () => {
     expect(useDocumentStore.getState().documents["t-w2"].content).toBe(
       "after",
     );
+  });
+
+  // WI-0.10 — per-tab revision keying (C5). A write to a non-active tab must
+  // be validated against THAT tab's revision, not the active tab's.
+  it("validates expected_revision against the target tab, not the active one", async () => {
+    // Active tab is "t-active"; we write to the non-active "t-bg".
+    seedTab("t-active", "active doc", null);
+    useTabStore.setState((s) => ({
+      tabs: {
+        main: [
+          ...s.tabs.main,
+          { id: "t-bg", filePath: null, title: "bg", isPinned: false },
+        ],
+      },
+    }));
+    useDocumentStore.getState().initDocument("t-bg", "background doc", null);
+    useRevisionStore.getState().setRevision("t-active", "rev-ACTIVEXX");
+    useRevisionStore.getState().setRevision("t-bg", "rev-BGBGBGBG");
+
+    // Passing the ACTIVE tab's revision for a write to t-bg must be STALE.
+    await handleDocumentWrite("req-cross", {
+      tabId: "t-bg",
+      content: "should not land",
+      expected_revision: "rev-ACTIVEXX",
+    });
+    let r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({ error: "STALE" });
+    expect(useDocumentStore.getState().documents["t-bg"].content).toBe(
+      "background doc",
+    );
+
+    // Passing t-bg's OWN revision succeeds.
+    await handleDocumentWrite("req-cross-ok", {
+      tabId: "t-bg",
+      content: "landed",
+      expected_revision: "rev-BGBGBGBG",
+    });
+    r = lastRespond();
+    expect(r.success).toBe(true);
+    expect(useDocumentStore.getState().documents["t-bg"].content).toBe("landed");
   });
 
   it("allows writes without expected_revision (greenfield path)", async () => {
@@ -381,7 +422,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
 
   it("returns no-op when transform leaves content unchanged", async () => {
     seedTab("t-noop", "all ASCII text", null);
-    const before = useRevisionStore.getState().getRevision();
+    const before = useRevisionStore.getState().getRevision("t-noop");
     await handleDocumentTransform("req-noop", {
       tabId: "t-noop",
       kind: "cjk-spacing",
@@ -389,7 +430,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
     const r = lastRespond();
     expect(r.success).toBe(true);
     // No content change → revision should not bump.
-    expect(useRevisionStore.getState().getRevision()).toBe(before);
+    expect(useRevisionStore.getState().getRevision("t-noop")).toBe(before);
     // No checkpoint either.
     expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
   });

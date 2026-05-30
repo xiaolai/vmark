@@ -122,7 +122,7 @@ describe("vmark.session.get_state", () => {
     expect(state.windows[0].tabs[0].filePath).toBeNull();
   });
 
-  it("includes the current revision in every tab", () => {
+  it("includes each tab's own revision (per-tab, WI-0.10)", () => {
     useTabStore.setState({
       tabs: {
         main: [
@@ -136,11 +136,13 @@ describe("vmark.session.get_state", () => {
     });
     useDocumentStore.getState().initDocument("t1", "A", null);
     useDocumentStore.getState().initDocument("t2", "B", null);
+    // Distinct revisions per tab.
+    useRevisionStore.getState().setRevision("t1", "rev-AAAAAAAA");
+    useRevisionStore.getState().setRevision("t2", "rev-BBBBBBBB");
 
-    const expected = useRevisionStore.getState().getRevision();
     const state = buildSessionState("0.7.0");
-    expect(state.windows[0].tabs[0].revision).toBe(expected);
-    expect(state.windows[0].tabs[1].revision).toBe(expected);
+    expect(state.windows[0].tabs[0].revision).toBe("rev-AAAAAAAA");
+    expect(state.windows[0].tabs[1].revision).toBe("rev-BBBBBBBB");
   });
 
   it("handleSessionGetState calls respond with the structured payload", async () => {

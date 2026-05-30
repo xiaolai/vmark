@@ -8,10 +8,9 @@
  * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-6.
  *
  * Key decisions:
- *   - Revision is currently a global counter (revisionStore). All tabs
- *     share it. STALE detection still works correctly because any doc
- *     change bumps the global counter; it is conservative, not lossy.
- *     Per-doc revisions are a deliberate future enhancement.
+ *   - Revisions are keyed per tab (revisionStore, WI-0.10). Each SessionTab
+ *     reports its own tab's revision so STALE detection on a non-active tab
+ *     is validated against the correct document.
  *   - `kind` is computed by sniffing filePath + content via the existing
  *     workflow detection helpers — the AI shouldn't reimplement it.
  *
@@ -59,7 +58,7 @@ function detectKind(
 export function buildSessionState(appVersion: string): SessionState {
   const tabState = useTabStore.getState();
   const docState = useDocumentStore.getState();
-  const revision = useRevisionStore.getState().getRevision();
+  const revisionStore = useRevisionStore.getState();
   const focusedLabel = getCurrentWindowLabel();
 
   const windowLabels = Object.keys(tabState.tabs);
@@ -73,7 +72,7 @@ export function buildSessionState(appVersion: string): SessionState {
         filePath: tab.filePath,
         title: tab.title,
         dirty: doc?.isDirty ?? false,
-        revision,
+        revision: revisionStore.getRevision(tab.id),
         kind: detectKind(tab.filePath, content),
       };
     });

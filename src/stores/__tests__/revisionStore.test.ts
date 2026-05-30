@@ -1,17 +1,16 @@
 /**
- * Tests for revisionStore
+ * Tests for revisionStore (per-tab revisions, WI-0.10)
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { useRevisionStore, generateRevisionId } from "../documentStore";
 
+const TAB = "tab-1";
+const OTHER = "tab-2";
+
 describe("revisionStore", () => {
   beforeEach(() => {
-    // Reset store to initial state
-    useRevisionStore.setState({
-      currentRevision: generateRevisionId(),
-      lastUpdated: Date.now(),
-    });
+    useRevisionStore.setState({ revisions: {} });
   });
 
   describe("generateRevisionId", () => {
@@ -28,56 +27,69 @@ describe("revisionStore", () => {
   });
 
   describe("updateRevision", () => {
-    it("updates revision and returns new ID", () => {
+    it("updates a tab's revision and returns the new ID", () => {
       const store = useRevisionStore.getState();
-      const oldRevision = store.currentRevision;
-
-      const newRevision = store.updateRevision();
+      const oldRevision = store.getRevision(TAB);
+      const newRevision = store.updateRevision(TAB);
 
       expect(newRevision).not.toBe(oldRevision);
-      expect(useRevisionStore.getState().currentRevision).toBe(newRevision);
+      expect(useRevisionStore.getState().getRevision(TAB)).toBe(newRevision);
     });
 
-    it("updates lastUpdated timestamp", () => {
-      const beforeUpdate = Date.now();
-      useRevisionStore.getState().updateRevision();
-      const afterUpdate = Date.now();
-
-      const { lastUpdated } = useRevisionStore.getState();
-      expect(lastUpdated).toBeGreaterThanOrEqual(beforeUpdate);
-      expect(lastUpdated).toBeLessThanOrEqual(afterUpdate);
+    it("does not affect other tabs", () => {
+      const store = useRevisionStore.getState();
+      const otherBefore = store.getRevision(OTHER);
+      store.updateRevision(TAB);
+      expect(useRevisionStore.getState().getRevision(OTHER)).toBe(otherBefore);
     });
   });
 
   describe("setRevision", () => {
-    it("sets specific revision", () => {
-      const customRevision = "rev-custom123";
-      useRevisionStore.getState().setRevision(customRevision);
-
-      expect(useRevisionStore.getState().currentRevision).toBe(customRevision);
+    it("sets a specific revision for a tab", () => {
+      useRevisionStore.getState().setRevision(TAB, "rev-custom123");
+      expect(useRevisionStore.getState().getRevision(TAB)).toBe("rev-custom123");
     });
   });
 
   describe("getRevision", () => {
-    it("returns current revision", () => {
-      const { currentRevision, getRevision } = useRevisionStore.getState();
-      expect(getRevision()).toBe(currentRevision);
+    it("lazily initializes an unknown tab and returns it", () => {
+      const rev = useRevisionStore.getState().getRevision(TAB);
+      expect(rev).toMatch(/^rev-/);
+      // Stable across reads.
+      expect(useRevisionStore.getState().getRevision(TAB)).toBe(rev);
     });
   });
 
   describe("isCurrentRevision", () => {
-    it("returns true for current revision", () => {
-      const { currentRevision, isCurrentRevision } = useRevisionStore.getState();
-      expect(isCurrentRevision(currentRevision)).toBe(true);
+    it("returns true for the tab's current revision", () => {
+      const store = useRevisionStore.getState();
+      const rev = store.getRevision(TAB);
+      expect(store.isCurrentRevision(TAB, rev)).toBe(true);
     });
 
-    it("returns false for stale revision", () => {
-      const { currentRevision, updateRevision } = useRevisionStore.getState();
-      const staleRevision = currentRevision;
+    it("returns false for a stale revision", () => {
+      const store = useRevisionStore.getState();
+      const stale = store.getRevision(TAB);
+      store.updateRevision(TAB);
+      expect(useRevisionStore.getState().isCurrentRevision(TAB, stale)).toBe(false);
+    });
 
-      updateRevision();
+    it("scopes staleness per tab — two tabs at different revisions", () => {
+      const store = useRevisionStore.getState();
+      store.setRevision(TAB, "rev-AAAAAAAA");
+      store.setRevision(OTHER, "rev-BBBBBBBB");
+      expect(store.isCurrentRevision(TAB, "rev-AAAAAAAA")).toBe(true);
+      expect(store.isCurrentRevision(OTHER, "rev-AAAAAAAA")).toBe(false);
+      expect(store.isCurrentRevision(OTHER, "rev-BBBBBBBB")).toBe(true);
+    });
+  });
 
-      expect(useRevisionStore.getState().isCurrentRevision(staleRevision)).toBe(false);
+  describe("clearRevision", () => {
+    it("drops a tab's entry", () => {
+      const store = useRevisionStore.getState();
+      store.setRevision(TAB, "rev-keepkeep");
+      store.clearRevision(TAB);
+      expect(TAB in useRevisionStore.getState().revisions).toBe(false);
     });
   });
 });

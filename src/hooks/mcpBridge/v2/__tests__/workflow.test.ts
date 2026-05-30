@@ -169,14 +169,14 @@ describe("vmark.workflow.apply_patch", () => {
 
   it("does not bump revision when patches produce no change", async () => {
     seedWorkflowTab();
-    const before = useRevisionStore.getState().getRevision();
+    const before = useRevisionStore.getState().getRevision("t-yaml");
     // workflow.set with same value as the existing one — no-op.
     await handleWorkflowApplyPatch("req-6", {
       patches: [{ kind: "workflow.set", path: "name", value: "ci" }],
     });
     const r = lastRespond();
     expect(r.success).toBe(true);
-    expect(useRevisionStore.getState().getRevision()).toBe(before);
+    expect(useRevisionStore.getState().getRevision("t-yaml")).toBe(before);
     expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
   });
 

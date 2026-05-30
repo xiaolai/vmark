@@ -199,12 +199,12 @@ export async function handleWorkflowApplyPatch(
     const revisionStore = useRevisionStore.getState();
     if (
       expectedRevision !== undefined &&
-      !revisionStore.isCurrentRevision(expectedRevision)
+      !revisionStore.isCurrentRevision(tabOrError.tabId, expectedRevision)
     ) {
       await structuredError(id, {
         error: "STALE",
         message: "Document has changed since the last read",
-        current_revision: revisionStore.getRevision(),
+        current_revision: revisionStore.getRevision(tabOrError.tabId),
       });
       return;
     }
@@ -231,16 +231,16 @@ export async function handleWorkflowApplyPatch(
       await respond({
         id,
         success: true,
-        data: { revision: revisionStore.getRevision() },
+        data: { revision: revisionStore.getRevision(tabOrError.tabId) },
       });
       return;
     }
 
     const contentBefore = tabOrError.content;
-    const revisionBefore = revisionStore.getRevision();
+    const revisionBefore = revisionStore.getRevision(tabOrError.tabId);
     useDocumentStore.getState().setContent(tabOrError.tabId, nextContent);
-    revisionStore.updateRevision();
-    const revisionAfter = revisionStore.getRevision();
+    revisionStore.updateRevision(tabOrError.tabId);
+    const revisionAfter = revisionStore.getRevision(tabOrError.tabId);
 
     const cpId = useMcpStore.getState().checkpointPush({
       tabId: tabOrError.tabId,

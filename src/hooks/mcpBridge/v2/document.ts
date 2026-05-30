@@ -187,13 +187,13 @@ function writeContent(
     } catch {
       // Parser rejected — doc store already updated; force-bump
       // revision so callers see a fresh token.
-      revisionStore.updateRevision();
+      revisionStore.updateRevision(tabId);
     }
   } else {
-    revisionStore.updateRevision();
+    revisionStore.updateRevision(tabId);
   }
 
-  return { revision: revisionStore.getRevision() };
+  return { revision: revisionStore.getRevision(tabId) };
 }
 
 /**
@@ -214,7 +214,7 @@ export async function handleDocumentRead(
       });
       return;
     }
-    const revision = useRevisionStore.getState().getRevision();
+    const revision = useRevisionStore.getState().getRevision(resolved.tabId);
     await respond({
       id,
       success: true,
@@ -282,18 +282,18 @@ export async function handleDocumentWrite(
     const revisionStore = useRevisionStore.getState();
     if (
       expectedRevision !== undefined &&
-      !revisionStore.isCurrentRevision(expectedRevision)
+      !revisionStore.isCurrentRevision(resolved.tabId, expectedRevision)
     ) {
       await structuredError(id, {
         error: "STALE",
         message: "Document has changed since the last read",
-        current_revision: revisionStore.getRevision(),
+        current_revision: revisionStore.getRevision(resolved.tabId),
       });
       return;
     }
 
     const contentBefore = resolved.content;
-    const revisionBefore = revisionStore.getRevision();
+    const revisionBefore = revisionStore.getRevision(resolved.tabId);
     // Re-detect kind against the INCOMING content. resolveTab read the
     // current content, which is empty for fresh untitled tabs — that
     // would default kind=markdown and run YAML writes through Tiptap's
@@ -452,12 +452,12 @@ export async function handleDocumentTransform(
     const revisionStore = useRevisionStore.getState();
     if (
       expectedRevision !== undefined &&
-      !revisionStore.isCurrentRevision(expectedRevision)
+      !revisionStore.isCurrentRevision(resolved.tabId, expectedRevision)
     ) {
       await structuredError(id, {
         error: "STALE",
         message: "Document has changed since the last read",
-        current_revision: revisionStore.getRevision(),
+        current_revision: revisionStore.getRevision(resolved.tabId),
       });
       return;
     }
@@ -467,13 +467,13 @@ export async function handleDocumentTransform(
       await respond({
         id,
         success: true,
-        data: { revision: revisionStore.getRevision() },
+        data: { revision: revisionStore.getRevision(resolved.tabId) },
       });
       return;
     }
 
     const contentBefore = resolved.content;
-    const revisionBefore = revisionStore.getRevision();
+    const revisionBefore = revisionStore.getRevision(resolved.tabId);
     const result = writeContent(resolved.tabId, transformed, resolved.kind);
     if ("error" in result) {
       await structuredError(id, result);
