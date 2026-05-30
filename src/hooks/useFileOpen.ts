@@ -27,6 +27,7 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { createUntitledTab } from "@/services/navigation/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
@@ -75,7 +76,7 @@ export async function openFileInNewTabCore(
     !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
   let loadId: number | null = null;
   if (showIndicator) {
-    const filename = path.split("/").pop() ?? path;
+    const filename = getFileName(path) || path;
     loadId = useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
   }
 
@@ -225,7 +226,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
           !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
         let replaceLoadId: number | null = null;
         if (showIndicator) {
-          const filename = path.split("/").pop() ?? path;
+          const filename = getFileName(path) || path;
           replaceLoadId = useFileLoadStore
             .getState()
             .startLoad(filename, route.sizeBytes);

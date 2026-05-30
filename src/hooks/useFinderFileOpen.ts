@@ -48,6 +48,7 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import type { ReplaceableTabInfo } from "@/utils/openPolicy";
 import { isWithinRoot } from "@/utils/paths";
+import { getFileName } from "@/utils/pathUtils";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
@@ -277,7 +278,7 @@ export function useFinderFileOpen(): void {
       let indicatorLoadId: number | null = null;
       const activateIndicator = () => {
         if (!shouldShowIndicator) return;
-        const filename = path.split("/").pop() ?? path;
+        const filename = getFileName(path) || path;
         indicatorLoadId = useFileLoadStore
           .getState()
           .startLoad(filename, route.sizeBytes);
