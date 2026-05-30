@@ -116,6 +116,7 @@
   "headingPicker.empty.noMatch": "No headings match filter",
   "headingPicker.ariaLabel": "Heading picker",
 
+  "imageMenu.ariaLabel": "Image actions",
   "imageMenu.changeImage": "Change Image...",
   "imageMenu.deleteImage": "Delete Image",
   "imageMenu.copyPath": "Copy Image Path",

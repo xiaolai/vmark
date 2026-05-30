@@ -71,6 +71,7 @@
   "headingPicker.empty.heading": "（空の見出し）",
   "headingPicker.empty.noHeadings": "ドキュメントに見出しがありません",
   "headingPicker.empty.noMatch": "フィルターに一致する見出しがありません",
+  "imageMenu.ariaLabel": "画像の操作",
   "imageMenu.changeImage": "画像を変更...",
   "imageMenu.deleteImage": "画像を削除",
   "imageMenu.copyPath": "画像パスをコピー",
