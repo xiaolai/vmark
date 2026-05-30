@@ -22,7 +22,6 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
 use tauri::Manager;
-use tauri_plugin_dialog::{DialogExt, FilePath};
 
 /// Workspace identity and trust information for permission management.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -319,25 +318,6 @@ fn cleanup_old_vmark(root_path: &str) {
 // ============================================================================
 // Tauri commands
 // ============================================================================
-
-/// Open folder dialog and return selected path.
-#[tauri::command]
-pub async fn open_folder_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let (tx, rx) = std::sync::mpsc::channel::<Option<FilePath>>();
-
-    app.dialog()
-        .file()
-        .set_title("Open Workspace")
-        .pick_folder(move |folder| {
-            let _ = tx.send(folder);
-        });
-
-    match rx.recv() {
-        Ok(Some(path)) => Ok(Some(path.to_string())),
-        Ok(None) => Ok(None),
-        Err(e) => Err(format!("Dialog error: {e}")),
-    }
-}
 
 /// Read workspace config from app data, with one-time migration from legacy `.vmark/`.
 #[tauri::command]

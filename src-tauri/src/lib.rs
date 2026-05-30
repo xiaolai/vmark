@@ -635,21 +635,17 @@ pub fn run() {
             watcher::stop_watching,
             file_tree::list_directory_entries,
             file_ops::get_file_size_bytes,
-            workspace::open_folder_dialog,
             workspace::read_workspace_config,
             workspace::write_workspace_config,
             quarantine::strip_workspace_quarantine_cmd,
             mcp_server::mcp_bridge_start,
             mcp_server::mcp_bridge_stop,
-            mcp_server::mcp_server_start,
-            mcp_server::mcp_server_stop,
             mcp_server::mcp_server_status,
             mcp_server::mcp_sidecar_health,
             mcp_server::mcp_bridge_client_count,
             mcp_server::mcp_bridge_connected_clients,
             mcp_bridge::commands::mcp_bridge_respond,
             mcp_bridge::commands::mcp_bridge_heartbeat,
-            mcp_config::commands::mcp_config_get_status,
             mcp_config::commands::mcp_config_diagnose,
             mcp_config::commands::mcp_config_preview,
             mcp_config::commands::mcp_config_install,
@@ -690,12 +686,6 @@ pub fn run() {
             atomic_write_file,
             #[cfg(target_os = "macos")]
             register_dock_recent,
-            #[cfg(target_os = "macos")]
-            cli_install::cli_install_status,
-            #[cfg(target_os = "macos")]
-            cli_install::cli_install,
-            #[cfg(target_os = "macos")]
-            cli_install::cli_uninstall,
             #[cfg(target_os = "macos")]
             pdf_export::commands::export_pdf,
             #[cfg(target_os = "macos")]

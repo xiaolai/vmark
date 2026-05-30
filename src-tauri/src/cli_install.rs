@@ -60,7 +60,6 @@ pub struct CliStatus {
 
 /// Check whether `/usr/local/bin/vmark` exists and was installed by VMark.
 /// Uses exact content comparison (not substring match) for ownership detection.
-#[tauri::command]
 pub fn cli_install_status() -> Result<CliStatus, String> {
     let path = Path::new(CLI_PATH);
     if !path.exists() {
@@ -132,7 +131,6 @@ fn cli_parent_dir() -> &'static str {
 /// Writes script to a temp file first, then uses a single privileged shell command
 /// to create the target directory, move the file, and set permissions. This avoids
 /// shell quoting issues entirely — the temp file is written by Rust, not by shell.
-#[tauri::command]
 pub fn cli_install() -> Result<String, String> {
     let status = cli_install_status()?;
     if status.foreign {
@@ -179,7 +177,6 @@ pub fn cli_install() -> Result<String, String> {
 }
 
 /// Uninstall the `vmark` command using `osascript` for admin privileges.
-#[tauri::command]
 pub fn cli_uninstall() -> Result<String, String> {
     let status = cli_install_status()?;
     if !status.installed {
