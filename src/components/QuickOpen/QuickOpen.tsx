@@ -6,8 +6,8 @@
  * and a pinned "Browse..." row at the bottom.
  *
  * Follows the GeniePicker pattern: portal to document.body,
- * click-outside via setTimeout(0), IME guard, and data-index
- * scroll tracking.
+ * click-outside via useDismissOnOutsideOrEscape (deferred attach),
+ * IME guard, and data-index scroll tracking.
  *
  * @coordinates-with quickOpenStore.ts, useQuickOpenItems.ts, fuzzyMatch.ts
  */
@@ -33,6 +33,7 @@ import {
 } from "./useQuickOpenItems";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import "./QuickOpen.css";
 
 const EMPTY_FOLDERS: string[] = [];
@@ -191,22 +192,15 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
     [handleClose, totalCount, selectedIndex, rankedItems, handleSelectItem, handleBrowse, ime]
   );
 
-  // Click outside to close
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        handleClose();
-      }
-    };
-    const timeout = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
-    return () => {
-      clearTimeout(timeout);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, handleClose]);
+  // Click outside to close. Escape is handled by the component's own
+  // onKeyDown (preventDefault + state reset), so only the outside-click
+  // half is delegated here. Deferred attach prevents the opening click
+  // from immediately dismissing; bubble phase matches the original code.
+  useDismissOnOutsideOrEscape(isOpen, containerRef, handleClose, {
+    deferActivation: true,
+    escape: false,
+    capture: false,
+  });
 
   // Scroll selected into view
   useEffect(() => {

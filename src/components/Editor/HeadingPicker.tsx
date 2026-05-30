@@ -13,6 +13,7 @@ import { calculatePopupPosition, getViewportBounds } from "@/utils/popupPosition
 import type { HeadingWithId } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 
 const POPUP_WIDTH = 360;
 const POPUP_MAX_HEIGHT = 280;
@@ -145,27 +146,15 @@ export function HeadingPicker() {
     [filteredHeadings, selectedIndex, handleClose, handleSelect, ime]
   );
 
-  // Click outside to close
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (containerRef.current && !containerRef.current.contains(target)) {
-        handleClose();
-      }
-    };
-
-    // Delay to prevent immediate close from same click
-    const timeout = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
-
-    return () => {
-      clearTimeout(timeout);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, handleClose]);
+  // Click outside to close. Escape is handled by the component's own
+  // onKeyDown (preventDefault + Tab focus trap), so only the outside-click
+  // half is delegated here. Deferred attach prevents the opening click from
+  // immediately dismissing; bubble phase matches the original code.
+  useDismissOnOutsideOrEscape(isOpen, containerRef, handleClose, {
+    deferActivation: true,
+    escape: false,
+    capture: false,
+  });
 
   // Calculate popup position when opening
   useEffect(() => {

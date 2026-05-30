@@ -6,7 +6,8 @@
  * selects a match which opens the file at that line with FindBar pre-filled.
  *
  * Follows the QuickOpen pattern: portal to document.body, click-outside
- * via setTimeout(0), IME guard, data-index scroll tracking.
+ * via useDismissOnOutsideOrEscape (deferred attach), IME guard,
+ * data-index scroll tracking.
  *
  * @coordinates-with contentSearchStore.ts — search state
  * @coordinates-with contentSearchNavigation.ts — pending scroll on file open
@@ -33,6 +34,7 @@ import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
 import { useTabStore } from "@/stores/tabStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { contentSearchLog, contentSearchWarn } from "@/utils/debug";
 import { renderHighlightedLine, buildFlatIndex } from "./contentSearchUtils";
 import "./content-search.css";
@@ -205,25 +207,15 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     [handleClose, flatIndex, selectedIndex, results, handleSelectMatch, ime]
   );
 
-  // Click outside to close
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        handleClose();
-      }
-    };
-    const timeout = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
-    return () => {
-      clearTimeout(timeout);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, handleClose]);
+  // Click outside to close. Escape is handled by the component's own
+  // onKeyDown (preventDefault + Tab focus trap), so only the outside-click
+  // half is delegated here. Deferred attach prevents the opening click from
+  // immediately dismissing; bubble phase matches the original code.
+  useDismissOnOutsideOrEscape(isOpen, containerRef, handleClose, {
+    deferActivation: true,
+    escape: false,
+    capture: false,
+  });
 
   // Scroll selected match into view
   useEffect(() => {
