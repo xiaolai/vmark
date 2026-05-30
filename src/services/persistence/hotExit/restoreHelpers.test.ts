@@ -189,6 +189,7 @@ import {
   restoreTabs,
   restoreDocumentState,
   restoreUnifiedHistory,
+  isValidWindowState,
 } from './restoreHelpers';
 import { useUnifiedHistoryStore } from '@/stores/documentStore';
 
@@ -362,6 +363,40 @@ describe('restoreHelpers', () => {
 
       expect(result).toBeNull();
       expect(mockInvoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards a structurally malformed payload immediately, no retry (T1/ADR-2)', async () => {
+      // tabs is not an array — restoreWindowState would throw on `.tabs.filter`.
+      // A bad shape won't fix itself across retries, so it returns null on the
+      // first attempt rather than burning the retry budget.
+      mockInvoke.mockResolvedValue({ window_label: 'main', tabs: 'nope', ui_state: {}, active_tab_id: null });
+
+      const result = await pullWindowStateWithRetry('main', 5);
+
+      expect(result).toBeNull();
+      expect(mockInvoke).toHaveBeenCalledTimes(1);
+      expect(mockHotExitWarn).toHaveBeenCalled();
+    });
+  });
+
+  describe('isValidWindowState (T1/ADR-2 boundary guard)', () => {
+    it('accepts a well-formed window state', () => {
+      expect(isValidWindowState(makeWindowState())).toBe(true);
+      expect(isValidWindowState(makeWindowState({ active_tab_id: null, tabs: [] }))).toBe(true);
+    });
+
+    it('rejects null / non-object payloads', () => {
+      expect(isValidWindowState(null)).toBe(false);
+      expect(isValidWindowState('x')).toBe(false);
+      expect(isValidWindowState([])).toBe(false);
+    });
+
+    it('rejects missing/wrong-typed container fields', () => {
+      expect(isValidWindowState(makeWindowState({ tabs: undefined as never }))).toBe(false);
+      expect(isValidWindowState(makeWindowState({ ui_state: null as never }))).toBe(false);
+      expect(isValidWindowState(makeWindowState({ ui_state: [] as never }))).toBe(false);
+      expect(isValidWindowState(makeWindowState({ window_label: 5 as never }))).toBe(false);
+      expect(isValidWindowState(makeWindowState({ active_tab_id: 7 as never }))).toBe(false);
     });
   });
 

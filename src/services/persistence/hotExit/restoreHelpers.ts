@@ -40,6 +40,28 @@ const DEFAULT_SIDEBAR_WIDTH = 260;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Top-level shape guard for the `hot_exit_get_window_state` IPC payload
+ * (T1/ADR-2). The restore path indexes `windowState.ui_state.*` and calls
+ * `windowState.tabs.filter(...)` immediately, so a structurally malformed
+ * payload (tabs not an array, ui_state missing) would throw mid-restore and
+ * abort recovery. Per-field/per-tab validation already happens downstream
+ * (restoreUiState bounds-checks, restoreDocumentState narrows unions); this
+ * only guards the container shape. Exported for testing.
+ */
+export function isValidWindowState(raw: unknown): raw is WindowState {
+  if (typeof raw !== 'object' || raw === null) return false;
+  const w = raw as Record<string, unknown>;
+  return (
+    typeof w.window_label === 'string' &&
+    Array.isArray(w.tabs) &&
+    typeof w.ui_state === 'object' &&
+    w.ui_state !== null &&
+    !Array.isArray(w.ui_state) &&
+    (w.active_tab_id === null || typeof w.active_tab_id === 'string')
+  );
+}
+
+/**
  * Convert hot exit line ending format back to store format
  */
 function fromHotExitLineEnding(lineEnding: '\n' | '\r\n' | 'unknown'): LineEnding {
@@ -123,6 +145,14 @@ export async function pullWindowStateWithRetry(windowLabel: string, retries = MA
       );
 
       if (windowState) {
+        // Reject a structurally malformed payload loudly (T1/ADR-2). Unlike a
+        // null "not stored yet" result, a bad shape won't fix itself across
+        // retries — return null immediately so the caller falls back to the
+        // WindowContext init state instead of throwing mid-restore.
+        if (!isValidWindowState(windowState)) {
+          hotExitWarn(`Discarding malformed window state for '${windowLabel}'`);
+          return null;
+        }
         return windowState;
       }
 

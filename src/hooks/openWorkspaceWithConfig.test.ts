@@ -40,7 +40,12 @@ describe("openWorkspaceWithConfig", () => {
   });
 
   it("opens workspace with config when config exists", async () => {
-    const config = { version: 1, excludedFolders: [".git"] };
+    const config = {
+      version: 1,
+      excludeFolders: [".git"],
+      lastOpenTabs: [],
+      showHiddenFiles: false,
+    };
     mockInvoke.mockResolvedValueOnce(config);
 
     const result = await openWorkspaceWithConfig("/workspace/root");
@@ -79,14 +84,58 @@ describe("openWorkspaceWithConfig", () => {
   it("returns the config object from Rust", async () => {
     const config = {
       version: 1,
-      excludedFolders: [".git", "node_modules"],
+      excludeFolders: [".git", "node_modules"],
       lastOpenTabs: ["/workspace/root/file.md"],
+      showHiddenFiles: false,
     };
     mockInvoke.mockResolvedValueOnce(config);
 
     const result = await openWorkspaceWithConfig("/workspace/root");
 
     expect(result).toBe(config);
+  });
+
+  it("opens with defaults (no config) on a malformed non-null payload (T1/ADR-2)", async () => {
+    // tabs/folders wrong-typed and required fields missing — must be rejected
+    // loudly rather than propagated into the workspace store.
+    mockInvoke.mockResolvedValueOnce({ version: 1, excludeFolders: "evil" });
+
+    const result = await openWorkspaceWithConfig("/workspace/root");
+
+    expect(mockOpenWorkspace).toHaveBeenCalledWith("/workspace/root");
+    expect(result).toBeNull();
+  });
+});
+
+describe("isValidWorkspaceConfig (T1/ADR-2 boundary guard)", () => {
+  const valid = {
+    version: 1,
+    excludeFolders: [".git"],
+    lastOpenTabs: ["/a.md"],
+    showHiddenFiles: true,
+  };
+
+  it("accepts a well-formed config (ignoring frontend-only/optional fields)", async () => {
+    const { isValidWorkspaceConfig } = await import("./openWorkspaceWithConfig");
+    expect(isValidWorkspaceConfig(valid)).toBe(true);
+    // showAllFiles is frontend-only (Rust never emits it) — its absence is fine.
+    expect(isValidWorkspaceConfig({ ...valid, ai: { x: 1 } })).toBe(true);
+  });
+
+  it("rejects null, primitives, and arrays", async () => {
+    const { isValidWorkspaceConfig } = await import("./openWorkspaceWithConfig");
+    expect(isValidWorkspaceConfig(null)).toBe(false);
+    expect(isValidWorkspaceConfig("x")).toBe(false);
+    expect(isValidWorkspaceConfig([])).toBe(false);
+  });
+
+  it("rejects wrong-typed or missing required fields", async () => {
+    const { isValidWorkspaceConfig } = await import("./openWorkspaceWithConfig");
+    expect(isValidWorkspaceConfig({ ...valid, excludeFolders: [1, 2] })).toBe(false);
+    expect(isValidWorkspaceConfig({ ...valid, lastOpenTabs: "nope" })).toBe(false);
+    expect(isValidWorkspaceConfig({ ...valid, showHiddenFiles: "yes" })).toBe(false);
+    const { version: _v, ...noVersion } = valid;
+    expect(isValidWorkspaceConfig(noVersion)).toBe(false);
   });
 
   it("handles empty root path", async () => {
