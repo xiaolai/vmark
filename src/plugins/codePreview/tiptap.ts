@@ -66,6 +66,7 @@ import {
   createWorkflowPreviewWidget,
 } from "./renderers/renderWorkflowPreview";
 import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
+import { LruCache } from "@/utils/lruCache";
 import "./code-preview.css";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -95,7 +96,11 @@ function isPreviewable(language: string, content: string): boolean {
 // only the most-recently-mounted instance.
 const activeEditorViews = new Set<EditorView>();
 
-const previewCache = new Map<string, PreviewCacheEntry>();
+// Bounded so editing diagram/latex/svg blocks doesn't grow the cache
+// unbounded across a session (WI-4.4, R1). Entries are lightweight
+// (rendered string / pending promise), so LRU eviction needs no disposal.
+const PREVIEW_CACHE_MAX = 100;
+const previewCache = new LruCache<string, PreviewCacheEntry>(PREVIEW_CACHE_MAX);
 
 let themeObserverSetup = false;
 
