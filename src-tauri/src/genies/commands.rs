@@ -6,12 +6,11 @@ use super::types::{GenieContent, GenieEntry, GenieIoSpec, GenieMetadata};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::{command, AppHandle, Manager};
+use tauri::{command, AppHandle};
 
 /// Return the global genies directory path.
 pub fn global_genies_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    Ok(app_data.join("genies"))
+    Ok(crate::app_paths::app_data_dir(app)?.join("genies"))
 }
 
 /// Return the global genies directory path (Tauri command).

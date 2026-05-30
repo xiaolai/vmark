@@ -21,7 +21,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
-use tauri::Manager;
 
 /// Workspace identity and trust information for permission management.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,8 +107,7 @@ fn legacy_hash_root_path(root_path: &str) -> String {
 
 /// Get the workspaces directory inside app data.
 fn get_workspaces_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    Ok(app_data.join("workspaces"))
+    Ok(crate::app_paths::app_data_dir(app)?.join("workspaces"))
 }
 
 /// Get the path to a workspace config file in app data.
