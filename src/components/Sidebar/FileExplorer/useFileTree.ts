@@ -42,6 +42,7 @@ import {
 import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
 import { fileExplorerError } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 type LoadOptions = FileTreeFilterOptions;
 
@@ -190,7 +191,7 @@ export function useFileTree(
       }
     }).catch((error: unknown) => {
       fileExplorerError(" Failed to listen for fs changes:",
-        error instanceof Error ? error.message : String(error));
+        errorMessage(error));
     });
 
     return () => {
@@ -222,7 +223,7 @@ export function useFileTree(
       })
       .catch((error: unknown) => {
         fileExplorerError(" Failed to listen for window focus:",
-          error instanceof Error ? error.message : String(error));
+          errorMessage(error));
       });
     return () => {
       cancelled = true;

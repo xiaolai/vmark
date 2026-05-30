@@ -35,6 +35,7 @@ import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
@@ -65,7 +66,7 @@ export async function handleWorkspaceNew(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -93,7 +94,7 @@ export async function handleWorkspaceOpen(
     } catch (e) {
       await structuredError(id, {
         error: "INVALID_PATH",
-        message: `Failed to read ${filePath}: ${e instanceof Error ? e.message : String(e)}`,
+        message: `Failed to read ${filePath}: ${errorMessage(e)}`,
       });
       return;
     }
@@ -110,7 +111,7 @@ export async function handleWorkspaceOpen(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -187,7 +188,7 @@ export async function handleWorkspaceSave(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -260,7 +261,7 @@ export async function handleWorkspaceSaveAs(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -315,7 +316,7 @@ export async function handleWorkspaceClose(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -353,7 +354,7 @@ export async function handleWorkspaceSwitchTab(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -395,7 +396,7 @@ export async function handleWorkspaceFocusWindow(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }

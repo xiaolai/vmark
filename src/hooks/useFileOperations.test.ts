@@ -253,6 +253,8 @@ describe("openFileInNewTabCore", () => {
       closeTab: mockCloseTab,
       detachTab: mockDetachTab,
       getTabsByWindow: mockGetTabsByWindow,
+      // WI-0.2 close-during-open guard re-checks tab existence post-read.
+      findTabById: (id: string) => (id === "new-tab-id" ? { id } : null),
     } as unknown as ReturnType<typeof useTabStore.getState>);
 
     mockReadTextFile.mockResolvedValue("# Hello World");

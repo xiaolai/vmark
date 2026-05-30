@@ -20,6 +20,7 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { crashRecoveryLog } from "./debug";
+import { errorMessage } from "./errorMessage";
 
 export interface RecoverySnapshot {
   version: 1;
@@ -93,7 +94,7 @@ export async function writeRecoverySnapshot(
   } catch (error) {
     crashRecoveryLog(
       "Failed to write snapshot:",
-      error instanceof Error ? error.message : String(error)
+      errorMessage(error)
     );
     return false;
   }
@@ -132,7 +133,7 @@ export async function readRecoverySnapshots(): Promise<RecoverySnapshot[]> {
   } catch (error) {
     crashRecoveryLog(
       "Failed to read snapshots:",
-      error instanceof Error ? error.message : String(error)
+      errorMessage(error)
     );
     return [];
   }
@@ -154,7 +155,7 @@ export async function deleteRecoverySnapshot(tabId: string): Promise<void> {
   } catch (error) {
     crashRecoveryLog(
       "Failed to delete snapshot:",
-      error instanceof Error ? error.message : String(error)
+      errorMessage(error)
     );
   }
 }
@@ -208,7 +209,7 @@ export async function deleteStaleRecoveryFiles(
   } catch (error) {
     crashRecoveryLog(
       "Failed to delete stale files:",
-      error instanceof Error ? error.message : String(error)
+      errorMessage(error)
     );
   }
 }

@@ -39,6 +39,7 @@ import { WindowContext } from "@/contexts/WindowContext";
 import { useTranslation } from "react-i18next";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import "./gha-workflow-side-panel.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 // Lazy-loaded so the yaml package + mutators + workflowEditStore
 // don't land in the eager App bundle. The forms editor + save
@@ -225,7 +226,7 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
     } catch (error) {
       toast.error(
         `${t("workflowEditor:save.errorTitle")}: ${
-          error instanceof Error ? error.message : String(error)
+          errorMessage(error)
         }`,
       );
     }

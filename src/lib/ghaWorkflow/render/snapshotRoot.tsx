@@ -32,6 +32,7 @@ import { parse } from "@/lib/ghaWorkflow/parser";
 import { toGraph, type JobNodeData } from "./toGraph";
 import { applyLayout } from "./layout";
 import { diagramWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const NODE_TYPES: NodeTypes = { job: JobNode };
 const PRO_OPTIONS = { hideAttribution: true } as const;
@@ -119,7 +120,7 @@ function SnapshotCanvas({ payload }: SnapshotCanvasProps): ReactElement | null {
             .catch((err: unknown) => {
               diagramWarn(
                 "snapshotRoot toPng failed:",
-                err instanceof Error ? err.message : String(err),
+                errorMessage(err),
               );
               if (!cancelled) payload.resolve(null);
             });
@@ -222,7 +223,7 @@ export async function captureSnapshot(yaml: string): Promise<string | null> {
   } catch (e) {
     diagramWarn(
       "snapshotRoot parse failed:",
-      e instanceof Error ? e.message : String(e),
+      errorMessage(e),
     );
     return null;
   }

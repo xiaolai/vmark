@@ -21,6 +21,7 @@ import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { getWindowLabel } from "@/hooks/useWindowFocus";
 import { smartPasteWarn } from "@/utils/debug";
 import { isViewConnected } from "./smartPasteUtils";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Check if the clipboard event contains binary image data and handle it.
@@ -76,7 +77,7 @@ async function saveAndInsertImages(view: EditorView, files: File[], capturedFrom
       const relativePath = await saveImageToAssets(imageData, filename, filePath);
       insertParts.push(`![](${encodeMarkdownUrl(relativePath)})`);
     } catch (error) {
-      smartPasteWarn("Failed to save clipboard image:", error instanceof Error ? error.message : String(error));
+      smartPasteWarn("Failed to save clipboard image:", errorMessage(error));
     }
   }
 

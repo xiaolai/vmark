@@ -46,6 +46,7 @@ import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
 import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
+import { errorMessage } from "@/utils/errorMessage";
 
 const VALID_PATCH_KINDS: ReadonlySet<string> = new Set([
   "workflow.set",
@@ -220,7 +221,7 @@ export async function handleWorkflowApplyPatch(
       await structuredError(id, {
         error: "INVALID_PATCH",
         message: `Patch application failed: ${
-          e instanceof Error ? e.message : String(e)
+          errorMessage(e)
         }`,
       });
       return;
@@ -263,7 +264,7 @@ export async function handleWorkflowApplyPatch(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -307,7 +308,7 @@ export async function handleWorkflowValidate(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }

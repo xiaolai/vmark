@@ -61,6 +61,7 @@ import { HALF_TO_FULL } from "./cjkMaps";
 import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 import type { CheckpointTool } from "@/stores/mcpStore";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface ResolvedTab {
   tabId: string;
@@ -230,7 +231,7 @@ export async function handleDocumentRead(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -337,7 +338,7 @@ export async function handleDocumentWrite(
         useDocumentStore.getState().markSaved(resolved.tabId, args.content);
         saved = true;
       } catch (err) {
-        saveError = err instanceof Error ? err.message : String(err);
+        saveError = errorMessage(err);
       }
     }
 
@@ -355,7 +356,7 @@ export async function handleDocumentWrite(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -492,7 +493,7 @@ export async function handleDocumentTransform(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }

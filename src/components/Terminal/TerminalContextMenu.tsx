@@ -30,6 +30,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
 import "../Sidebar/FileExplorer/ContextMenu.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface MenuItem {
   id: string;
@@ -158,7 +159,7 @@ export function TerminalContextMenu({
         // fire and the test runner would surface the noise. (Audit Round A H3.)
         clipboardWarn(
           "Terminal context-menu action failed:",
-          err instanceof Error ? err.message : String(err),
+          errorMessage(err),
         );
       } finally {
         onClose();

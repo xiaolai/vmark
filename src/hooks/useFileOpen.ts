@@ -32,6 +32,7 @@ import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile"
 import { getSupportedExtensions } from "@/lib/formats/registry";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Open a file in a new tab (core logic).
@@ -121,7 +122,7 @@ export async function openFileInNewTabCore(
     // Clean up the orphaned tab — without initDocument, it renders blank.
     // Use detachTab (not closeTab) to avoid polluting the "reopen closed tab" history.
     useTabStore.getState().detachTab(windowLabel, tabId);
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg = errorMessage(error);
     // Pin: system errors include paths/codes worth reading carefully.
     toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
       pin: true,
@@ -270,7 +271,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
           if (replaceLoadId !== null) {
             useFileLoadStore.getState().endLoad(replaceLoadId);
           }
-          const msg = error instanceof Error ? error.message : String(error);
+          const msg = errorMessage(error);
           // Pin: system error includes paths and codes the user may want
           // to copy to investigate (permission denied, missing file, etc.)
           toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }), {

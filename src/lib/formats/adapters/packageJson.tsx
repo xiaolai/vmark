@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import { DepList } from "./DepList";
 import "./dep-tree.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 const PACKAGE_FILENAME_RE = /(^|[/\\])package\.json$/i;
 
@@ -76,7 +77,7 @@ export function collectPackageJsonDependencies(
       peer: [],
       optional: [],
       parseError:
-        error instanceof Error ? error.message : String(error),
+        errorMessage(error),
     };
   }
   const root = (parsed ?? {}) as Record<string, unknown>;

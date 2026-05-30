@@ -54,6 +54,7 @@ import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface OpenFilePayload {
   path: string;
@@ -129,7 +130,7 @@ export function useFinderFileOpen(): void {
      * empty tab or a silent no-op.
      */
     const toastOpenFailure = (error: unknown) => {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = errorMessage(error);
       // Pin: error message embeds a system error the user may want to read.
       toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
         pin: true,

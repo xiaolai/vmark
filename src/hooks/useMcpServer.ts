@@ -19,6 +19,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface McpServerStatus {
   running: boolean;
@@ -77,7 +78,7 @@ export function useMcpServer(): UseMcpServerResult {
       setError(null);
       return status;
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
       return null;
     }
   }, []);
@@ -92,7 +93,7 @@ export function useMcpServer(): UseMcpServerResult {
       setRunning(status.running);
       setPort(status.port);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = errorMessage(err);
       setError(message);
       throw err;
     } finally {
@@ -109,7 +110,7 @@ export function useMcpServer(): UseMcpServerResult {
       setRunning(status.running);
       setPort(status.port);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = errorMessage(err);
       setError(message);
       throw err;
     } finally {

@@ -55,6 +55,7 @@ import {
 import { respond } from "../utils";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error, V2ErrorCode } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface FocusedTab {
   tabId: string;
@@ -324,7 +325,7 @@ export async function handleSelectionGet(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }
@@ -475,7 +476,7 @@ export async function handleSelectionSet(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }

@@ -16,6 +16,7 @@ import { setupMermaidExport } from "@/plugins/mermaid/mermaidExport";
 import { sanitizeSvg } from "@/utils/sanitize";
 import { diagramWarn } from "@/utils/debug";
 import { installDoubleClickHandler, type PreviewCache } from "../previewHelpers";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Update live preview for Mermaid content.
@@ -66,7 +67,7 @@ export function createMermaidPreviewWidget(
           placeholder.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Failed to render diagram`;
         }
       }).catch((error: unknown) => {
-        diagramWarn("Mermaid preview render failed:", error instanceof Error ? error.message : String(error));
+        diagramWarn("Mermaid preview render failed:", errorMessage(error));
         placeholder.className = "code-block-preview mermaid-error";
         placeholder.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Failed to render diagram`;
       });

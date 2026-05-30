@@ -18,6 +18,7 @@ import {
   type PreviewCache,
 } from "../previewHelpers";
 import { renderWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Update live preview for LaTeX content.
@@ -78,7 +79,7 @@ export function createLatexPreviewWidget(
           placeholder.innerHTML = sanitizeKatex(rendered);
         })
         .catch((error: unknown) => {
-          renderWarn("LaTeX code block render failed:", error instanceof Error ? error.message : String(error));
+          renderWarn("LaTeX code block render failed:", errorMessage(error));
           previewCache.delete(cacheKey);
           placeholder.className = "code-block-preview latex-preview mermaid-error";
           placeholder.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Failed to render math`;

@@ -20,6 +20,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { createSafeStorage } from "@/utils/safeStorage";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { shortcutsWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Shortcut category for grouping in the settings UI. */
 export type ShortcutCategory =
@@ -336,7 +337,7 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
           return { success: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
         } catch (e) {
           /* v8 ignore start -- JSON.parse always throws Error instances; String(e) fallback is defensive */
-          return { success: false, errors: [`Parse error: ${e instanceof Error ? e.message : String(e)}`] };
+          return { success: false, errors: [`Parse error: ${errorMessage(e)}`] };
           /* v8 ignore stop */
         }
       },

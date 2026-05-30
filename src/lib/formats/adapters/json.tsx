@@ -28,6 +28,7 @@ import type {
   ValidationDiagnostic,
   Validator,
 } from "../types";
+import { errorMessage } from "@/utils/errorMessage";
 
 function isJsonlPath(filePath?: string): boolean {
   return Boolean(filePath?.toLowerCase().endsWith(".jsonl"));
@@ -47,7 +48,7 @@ interface JsonParseError {
  */
 function locateParseError(content: string, error: unknown): JsonParseError {
   const message =
-    error instanceof Error ? error.message : String(error);
+    errorMessage(error);
   // V8 form 1 (Node 22+): "... at position 23 (line 2 column 8)"
   const lcMatch = message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
   if (lcMatch) {
@@ -88,7 +89,7 @@ export const jsonValidator: Validator = (content, path) => {
         JSON.parse(raw);
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : String(error);
+          errorMessage(error);
         out.push({
           severity: "error",
           line: i + 1,

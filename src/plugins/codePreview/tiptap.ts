@@ -67,6 +67,7 @@ import {
 } from "./renderers/renderWorkflowPreview";
 import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
 import "./code-preview.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 const codePreviewPluginKey = new PluginKey("codePreview");
 const PREVIEW_ONLY_LANGUAGES = new Set(["latex", "mermaid", "markmap", "svg", "$$math$$"]);
@@ -113,7 +114,7 @@ function setupThemeObserver() {
           }
         }).catch((error: unknown) => {
           /* v8 ignore next -- @preserve non-Error rejections from updateMermaidTheme are theoretically possible but untestable without mocking the MutationObserver callback chain */
-          diagramWarn("Mermaid theme update failed:", error instanceof Error ? error.message : String(error));
+          diagramWarn("Mermaid theme update failed:", errorMessage(error));
         });
         /* v8 ignore start -- @preserve Symmetric with updateMermaidTheme above. Branch coverage is exercised by the markmap module's own tests; the MutationObserver-driven test in tiptap.test.ts can only hit the resolved path, leaving the no-op branch (themeChanged=false) and the .catch path uncoverable from this layer. */
         updateMarkmapTheme(isDark).then((themeChanged) => {
@@ -121,7 +122,7 @@ function setupThemeObserver() {
             previewCache.clear();
           }
         }).catch((error: unknown) => {
-          diagramWarn("Markmap theme update failed:", error instanceof Error ? error.message : String(error));
+          diagramWarn("Markmap theme update failed:", errorMessage(error));
         });
         /* v8 ignore stop */
       }
@@ -178,7 +179,7 @@ function updateLivePreview(
         updateSvgLivePreview(element, trimmed, currentToken, getToken);
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = errorMessage(error);
       diagramWarn("code preview live render failed:", msg);
       element.replaceChildren(
         Object.assign(document.createElement("div"), {

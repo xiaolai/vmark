@@ -24,6 +24,7 @@ import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected, getActiveFilePath } from "./wysiwygAdapterUtils";
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS } from "@/utils/mediaExtensions";
 import type { WysiwygToolbarContext } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 const DEFAULT_MATH_BLOCK = "c = \\pm\\sqrt{a^2 + b^2}";
 const INSERT_IMAGE_GUARD = "menu-insert-image";
@@ -169,7 +170,7 @@ export function handleInsertImage(context: WysiwygToolbarContext): boolean {
     await insertImageFromPicker(view);
   }).catch((error) => {
     /* v8 ignore start -- @preserve reason: image insertion error path not exercised in unit tests */
-    wysiwygAdapterWarn("Image insertion failed:", error instanceof Error ? error.message : String(error));
+    wysiwygAdapterWarn("Image insertion failed:", errorMessage(error));
     /* v8 ignore stop */
   });
 
@@ -391,7 +392,7 @@ export function handleInsertVideo(context: WysiwygToolbarContext): boolean {
   void withReentryGuard(windowLabel, INSERT_VIDEO_GUARD, async () => {
     await insertVideoFromPicker(view);
   }).catch((error) => {
-    wysiwygAdapterWarn("Video insertion failed:", error instanceof Error ? error.message : String(error));
+    wysiwygAdapterWarn("Video insertion failed:", errorMessage(error));
   });
 
   return true;
@@ -431,7 +432,7 @@ export function handleInsertAudio(context: WysiwygToolbarContext): boolean {
   void withReentryGuard(windowLabel, INSERT_AUDIO_GUARD, async () => {
     await insertAudioFromPicker(view);
   }).catch((error) => {
-    wysiwygAdapterWarn("Audio insertion failed:", error instanceof Error ? error.message : String(error));
+    wysiwygAdapterWarn("Audio insertion failed:", errorMessage(error));
   });
 
   return true;

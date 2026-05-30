@@ -30,6 +30,7 @@ import type {
   ValidationDiagnostic,
   Validator,
 } from "../types";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface YamlException extends Error {
   /** `yaml` library reports positions as 1-based { line, col } in `linePos`. */
@@ -47,7 +48,7 @@ export const yamlValidator: Validator = (content) => {
     const pos = err.linePos?.[0];
     const line = pos?.line ?? 1;
     const column = pos?.col ?? 1;
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return [
       {
         severity: "error",
@@ -109,7 +110,7 @@ function GhaWorkflowSchemaRenderer({
     } catch (error) {
       return {
         ok: false as const,
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage(error),
       };
     }
   }, [content, path]);

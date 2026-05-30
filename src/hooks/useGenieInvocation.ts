@@ -48,6 +48,7 @@ import { extractSurroundingContext } from "@/services/editor/extractContext";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { genieWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 // ============================================================================
 // Content Extraction
@@ -361,7 +362,7 @@ export function useGenieInvocation() {
           cliPath: cliInfo?.path ?? null,
         });
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
+        const message = errorMessage(e);
         useGeniePickerStore.getState().setPickerError(message);
         useAiInvocationStore.getState().setError(message);
         /* v8 ignore start -- ref cleanup timing depends on async listen resolution */

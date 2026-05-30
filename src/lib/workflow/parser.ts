@@ -24,6 +24,7 @@ import type {
   WorkflowLimits,
   StepType,
 } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 // ============================================================================
 // Error Classes
@@ -255,7 +256,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
         ? (e as { linePos?: Array<{ line: number; col: number }> }).linePos?.[0]
         : undefined;
     throw new WorkflowParseError(
-      `Invalid YAML: ${e instanceof Error ? e.message : String(e)}`,
+      `Invalid YAML: ${errorMessage(e)}`,
       linePos?.line,
       linePos?.col,
     );

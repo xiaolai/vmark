@@ -26,6 +26,7 @@ import {
 } from "vscode-languageserver-types";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import type { Diagnostic, DiagnosticCode, Severity } from "../types";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Lint a workflow YAML string. Returns our normalized Diagnostic[].
@@ -44,7 +45,7 @@ export async function lintWorkflow(yaml: string): Promise<Diagnostic[]> {
       {
         severity: "error",
         code: "GHA-PARSE-001",
-        message: `Lint failed: ${e instanceof Error ? e.message : String(e)}`,
+        message: `Lint failed: ${errorMessage(e)}`,
       },
     ];
   }

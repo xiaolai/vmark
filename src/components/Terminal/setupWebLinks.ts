@@ -18,6 +18,7 @@
 import type { Terminal } from "@xterm/xterm";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { terminalLog } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const SAFE_LINK_SCHEMES = ["http:", "https:", "mailto:"];
 
@@ -43,7 +44,7 @@ export function setupWebLinks(term: Terminal): void {
       openUrl(uri).catch((error: unknown) => {
         terminalLog(
           "Failed to open URL:",
-          error instanceof Error ? error.message : String(error),
+          errorMessage(error),
         );
       });
     /* v8 ignore start -- @preserve reason: dynamic import of a vi.mock'd module always resolves in tests; the import-failure catch is only reachable in production when the plugin binary is missing */
@@ -51,7 +52,7 @@ export function setupWebLinks(term: Terminal): void {
       openerPromise = null; // Reset on failure so next click retries
       terminalLog(
         "Failed to load opener plugin:",
-        error instanceof Error ? error.message : String(error),
+        errorMessage(error),
       );
     });
     /* v8 ignore stop */

@@ -37,6 +37,7 @@ import type {
   SessionTab,
   SessionWindow,
 } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 const MCP_PROTOCOL_VERSION = "0.1.0";
 
@@ -109,7 +110,7 @@ export async function handleSessionGetState(
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }

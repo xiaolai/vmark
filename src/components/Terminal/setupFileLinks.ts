@@ -23,6 +23,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { createFileLinkProvider } from "./fileLinkProvider";
 import { terminalLog } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const MAX_FILE_LINK_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -39,7 +40,7 @@ export function setupFileLinks(term: Terminal): void {
           return;
         }
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         terminalLog("stat failed for file link:", filePath, message);
         term.writeln(`\x1b[33m[Cannot open file: ${message}]\x1b[0m`);
         return;
@@ -49,7 +50,7 @@ export function setupFileLinks(term: Terminal): void {
         const tabId = useTabStore.getState().createTab(windowLabel, filePath);
         useDocumentStore.getState().initDocument(tabId, content, filePath);
       }).catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         terminalLog("File not readable:", message);
         term.writeln(`\x1b[33m[Cannot open file: ${message}]\x1b[0m`);
       });
@@ -57,7 +58,7 @@ export function setupFileLinks(term: Terminal): void {
     }).catch((error: unknown) => {
       terminalLog(
         "Failed to load fs plugin:",
-        error instanceof Error ? error.message : String(error),
+        errorMessage(error),
       );
     });
     /* v8 ignore stop */

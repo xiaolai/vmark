@@ -21,6 +21,7 @@ import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected } from "./wysiwygAdapterUtils";
 import type { WysiwygToolbarContext } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Apply a link mark with a specific href to a range.
@@ -189,7 +190,7 @@ export function openLinkEditor(context: WysiwygToolbarContext): boolean {
     }
   /* v8 ignore start -- @preserve reason: .catch() callback only fires on unexpected promise rejections; not triggered in tests */
   }).catch((error) => {
-    wysiwygAdapterWarn("Link insertion failed:", error instanceof Error ? error.message : String(error));
+    wysiwygAdapterWarn("Link insertion failed:", errorMessage(error));
   });
   /* v8 ignore stop */
 

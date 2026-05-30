@@ -34,6 +34,7 @@ import type {
   ValidationDiagnostic,
 } from "@/lib/formats/types";
 import "./split-pane-editor.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 export interface SplitPaneEditorProps {
   tabId: string;
@@ -139,7 +140,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
       // Bubble Rust-side rejections (forbidden override chars, missing
       // editor, spawn failure) to the user instead of silently dropping
       // the unhandled promise rejection.
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       toast.error(message);
     });
   }, [filePath]);

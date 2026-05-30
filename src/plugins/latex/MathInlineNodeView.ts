@@ -9,6 +9,7 @@ import { useShortcutsStore } from "@/stores/settingsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { useInlineMathEditingStore } from "@/stores/inlineMathEditingStore";
 import { renderWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * NodeView for inline math with inline editing support.
@@ -484,7 +485,7 @@ export class MathInlineNodeView implements NodeView {
         })
         .catch((error: unknown) => {
           if (currentToken !== this.renderToken) return;
-          renderWarn("Math inline render failed:", error instanceof Error ? error.message : String(error));
+          renderWarn("Math inline render failed:", errorMessage(error));
           this.previewDom.textContent = trimmed;
           this.dom.classList.add("math-error");
         });

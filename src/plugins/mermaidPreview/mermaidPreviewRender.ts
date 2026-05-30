@@ -11,6 +11,7 @@ import { cleanupDescendants } from "@/plugins/shared/diagramCleanup";
 import { renderSvgBlock } from "@/plugins/svg/svgRender";
 import { sanitizeSvg } from "@/utils/sanitize";
 import { diagramWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 export interface RenderContext {
   preview: HTMLElement;
@@ -77,7 +78,7 @@ export function renderPreview(content: string, ctx: RenderContext): number {
       })
       .catch((error: unknown) => {
         if (currentToken !== ctx.getCurrentToken()) return;
-        diagramWarn("Markmap render failed:", error instanceof Error ? error.message : String(error));
+        diagramWarn("Markmap render failed:", errorMessage(error));
         ctx.preview.innerHTML = "";
         ctx.preview.classList.add("mermaid-preview-error-state");
         ctx.error.textContent = "Preview failed";
@@ -105,7 +106,7 @@ export function renderPreview(content: string, ctx: RenderContext): number {
     })
     .catch((error: unknown) => {
       if (currentToken !== ctx.getCurrentToken()) return;
-      diagramWarn("Mermaid render failed:", error instanceof Error ? error.message : String(error));
+      diagramWarn("Mermaid render failed:", errorMessage(error));
       ctx.preview.innerHTML = "";
       ctx.preview.classList.add("mermaid-preview-error-state");
       ctx.error.textContent = "Preview failed";

@@ -18,6 +18,7 @@ import {
   getString,
   rangeOf,
 } from "./tokens";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Parse a GitHub Actions workflow YAML string into a typed
@@ -46,7 +47,7 @@ export function parse(yaml: string, fileName = "workflow.yml"): WorkflowIR {
     diagnostics.push({
       severity: "error",
       code: "GHA-PARSE-001",
-      message: `Parser threw: ${e instanceof Error ? e.message : String(e)}`,
+      message: `Parser threw: ${errorMessage(e)}`,
     });
     return emptyIR(diagnostics);
   }

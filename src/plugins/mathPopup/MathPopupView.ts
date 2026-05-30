@@ -17,6 +17,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { loadKatex } from "@/plugins/latex/katexLoader";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 import { renderWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const DEFAULT_POPUP_WIDTH = 360;
 const DEFAULT_POPUP_HEIGHT = 200;
@@ -196,7 +197,7 @@ export class MathPopupView {
       })
       .catch((error: unknown) => {
         if (token !== this.renderToken) return;
-        renderWarn("LaTeX preview failed:", error instanceof Error ? error.message : String(error));
+        renderWarn("LaTeX preview failed:", errorMessage(error));
         this.preview.textContent = trimmed;
         this.error.textContent = i18n.t("editor:popup.math.previewFailed");
       });
