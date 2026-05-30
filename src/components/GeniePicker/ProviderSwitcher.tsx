@@ -39,6 +39,16 @@ export function ProviderSwitcher({ onClose, onCloseAll }: ProviderSwitcherProps)
     }
   }, [cliProviders.length, detecting]);
 
+  // Move focus into the menu on open so keyboard users land inside it (A2/A4).
+  // Prefer the currently-active provider's item, falling back to the first.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const active = root.querySelector<HTMLButtonElement>('[aria-checked="true"]');
+    const first = root.querySelector<HTMLButtonElement>('[role^="menuitem"]');
+    (active ?? first)?.focus();
+  }, []);
+
   // Close on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -86,15 +96,17 @@ export function ProviderSwitcher({ onClose, onCloseAll }: ProviderSwitcherProps)
   );
 
   return (
-    <div ref={containerRef} className="provider-switcher">
+    <div ref={containerRef} className="provider-switcher" role="menu">
       {/* CLI providers */}
       {availableCli.length > 0 && (
-        <div className="provider-switcher-section">
+        <div className="provider-switcher-section" role="group" aria-label={t("provider.sectionCli")}>
           <div className="provider-switcher-label">{t("provider.sectionCli")}</div>
           {availableCli.map((p) => (
             <button
               key={p.type}
               type="button"
+              role="menuitemradio"
+              aria-checked={activeProvider === p.type}
               className="provider-switcher-item"
               onClick={() => handleSelect(p.type)}
             >
@@ -109,12 +121,14 @@ export function ProviderSwitcher({ onClose, onCloseAll }: ProviderSwitcherProps)
 
       {/* REST providers */}
       {readyRest.length > 0 && (
-        <div className="provider-switcher-section">
+        <div className="provider-switcher-section" role="group" aria-label={t("provider.sectionApi")}>
           <div className="provider-switcher-label">{t("provider.sectionApi")}</div>
           {readyRest.map((p) => (
             <button
               key={p.type}
               type="button"
+              role="menuitemradio"
+              aria-checked={activeProvider === p.type}
               className="provider-switcher-item"
               onClick={() => handleSelect(p.type)}
             >
@@ -136,6 +150,7 @@ export function ProviderSwitcher({ onClose, onCloseAll }: ProviderSwitcherProps)
       <div className="provider-switcher-footer">
         <button
           type="button"
+          role="menuitem"
           className="provider-switcher-settings"
           onClick={handleOpenSettings}
         >

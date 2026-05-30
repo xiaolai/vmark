@@ -482,6 +482,8 @@ export function GeniePicker() {
               <button
                 type="button"
                 className="provider-switcher-trigger"
+                aria-haspopup="menu"
+                aria-expanded={showProviderSwitcher}
                 onClick={() => setShowProviderSwitcher((v) => !v)}
               >
                 {t("picker.via", { name: activeProviderName })}

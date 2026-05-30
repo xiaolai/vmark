@@ -86,6 +86,7 @@ export function FileNode({ node, style, dragHandle, currentFilePath }: FileNodeP
         <input
           type="text"
           className="file-node-input"
+          aria-label={t("contextMenu.rename")}
           defaultValue={data.name}
           autoFocus
           onFocus={(e) => {

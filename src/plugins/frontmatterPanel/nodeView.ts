@@ -36,6 +36,7 @@ function createChevronSvg(): SVGElement {
 
 class FrontmatterNodeView implements NodeView {
   dom: HTMLElement;
+  private header!: HTMLElement;
   private textarea: HTMLTextAreaElement;
   private expanded = false;
   private committedValue: string;
@@ -57,6 +58,10 @@ class FrontmatterNodeView implements NodeView {
     header.className = "frontmatter-panel-header";
     header.setAttribute("role", "button");
     header.setAttribute("tabindex", "0");
+    // a11y (A4): announce collapsed/expanded state to assistive tech and keep
+    // it in sync as the panel toggles.
+    header.setAttribute("aria-expanded", "false");
+    this.header = header;
     header.appendChild(createChevronSvg());
     const label = document.createElement("span");
     label.textContent = i18n.t("editor:frontmatter.label");
@@ -76,6 +81,7 @@ class FrontmatterNodeView implements NodeView {
 
     this.textarea = document.createElement("textarea");
     this.textarea.className = "frontmatter-panel-textarea";
+    this.textarea.setAttribute("aria-label", i18n.t("editor:frontmatter.label"));
     this.textarea.value = this.committedValue;
     this.textarea.addEventListener("keydown", this.handleKeydown);
     this.textarea.addEventListener("blur", this.handleBlur);
@@ -114,6 +120,7 @@ class FrontmatterNodeView implements NodeView {
   private toggleExpanded = () => {
     this.expanded = !this.expanded;
     this.dom.classList.toggle("expanded", this.expanded);
+    this.header.setAttribute("aria-expanded", String(this.expanded));
     if (this.expanded) {
       requestAnimationFrame(() => {
         this.textarea.focus();
@@ -172,6 +179,7 @@ class FrontmatterNodeView implements NodeView {
   private collapse() {
     this.expanded = false;
     this.dom.classList.remove("expanded");
+    this.header.setAttribute("aria-expanded", "false");
     this.view.focus();
   }
 }

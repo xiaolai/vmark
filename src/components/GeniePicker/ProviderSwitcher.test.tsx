@@ -399,4 +399,30 @@ describe("ProviderSwitcher", () => {
       expect(detectProviders).not.toHaveBeenCalled();
     });
   });
+
+  // --------------------------------------------------------------------------
+  // Accessibility (A4)
+  // --------------------------------------------------------------------------
+
+  describe("accessibility", () => {
+    it("exposes a menu with menuitemradio items reflecting the active provider", () => {
+      render(<ProviderSwitcher onClose={onClose} onCloseAll={onCloseAll} />);
+
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      // Active provider is "claude" — its item is checked.
+      const claudeItem = screen.getByRole("menuitemradio", { name: /Claude Code/ });
+      expect(claudeItem).toHaveAttribute("aria-checked", "true");
+      const anthropicItem = screen.getByRole("menuitemradio", { name: /Anthropic/ });
+      expect(anthropicItem).toHaveAttribute("aria-checked", "false");
+      // Settings footer is a plain menuitem.
+      expect(screen.getByRole("menuitem", { name: /Settings/ })).toBeInTheDocument();
+    });
+
+    it("moves focus onto the active item when the menu opens", () => {
+      render(<ProviderSwitcher onClose={onClose} onCloseAll={onCloseAll} />);
+
+      const claudeItem = screen.getByRole("menuitemradio", { name: /Claude Code/ });
+      expect(document.activeElement).toBe(claudeItem);
+    });
+  });
 });

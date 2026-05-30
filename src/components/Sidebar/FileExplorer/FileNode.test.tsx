@@ -249,4 +249,14 @@ describe("FileNode — inline rename", () => {
 
     expect(reset).toHaveBeenCalled();
   });
+
+  // A4 — the rename input must be labeled so screen readers announce its
+  // purpose (it has no visible label).
+  it("labels the rename input for assistive tech", () => {
+    renderEditing({});
+    expect(screen.getByDisplayValue("file.md")).toHaveAttribute(
+      "aria-label",
+      "contextMenu.rename",
+    );
+  });
 });

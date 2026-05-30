@@ -65,17 +65,22 @@ export function PromptHistoryDropdown({
           <kbd className="genie-picker-kbd">Ctrl+R</kbd>
         </span>
       </div>
-      <div className="prompt-history-dropdown-list">
+      <div
+        className="prompt-history-dropdown-list"
+        role="listbox"
+        aria-label={t("history.title")}
+      >
         {entries.map((entry, index) => {
           const firstLine = entry.split("\n")[0];
+          const isSelected = index === selectedIndex;
           return (
             <div
               key={index}
               data-dropdown-index={index}
+              role="option"
+              aria-selected={isSelected}
               className={`prompt-history-dropdown-item${
-                index === selectedIndex
-                  ? " prompt-history-dropdown-item--selected"
-                  : ""
+                isSelected ? " prompt-history-dropdown-item--selected" : ""
               }`}
               onClick={() => onSelect(index)}
             >

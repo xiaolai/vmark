@@ -252,7 +252,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
   for (let fi = 0; fi < results.length; fi++) {
     const file = results[fi];
     renderedResults.push(
-      <div key={`file-${fi}`} className="content-search-file">
+      <div key={`file-${fi}`} className="content-search-file" role="presentation">
         <FileIcon />
         <span>{file.relativePath}</span>
         <span className="content-search-file-count">
@@ -271,6 +271,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           key={`match-${fi}-${mi}`}
           className={`content-search-match${isSelected ? " content-search-match--selected" : ""}`}
           data-match-index={currentFlatIdx}
+          role="option"
+          aria-selected={isSelected}
           onClick={() => handleSelectMatch(file, match)}
           onMouseEnter={() =>
             useUIStore.setState((s) => ({
