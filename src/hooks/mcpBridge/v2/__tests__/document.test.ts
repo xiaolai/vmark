@@ -46,6 +46,15 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
     writeTextFileMock(path, content),
 }));
 
+const registerPendingSaveMock = vi.fn(() => 1);
+const clearPendingSaveMock = vi.fn();
+vi.mock("@/utils/pendingSaves", () => ({
+  registerPendingSave: (path: string, content: string) =>
+    registerPendingSaveMock(path, content),
+  clearPendingSave: (path: string, token?: number) =>
+    clearPendingSaveMock(path, token),
+}));
+
 import { respond } from "../../utils";
 
 function resetStores() {
@@ -365,6 +374,8 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     vi.clearAllMocks();
     resetStores();
     writeTextFileMock.mockReset().mockResolvedValue(undefined);
+    registerPendingSaveMock.mockReset().mockReturnValue(1);
+    clearPendingSaveMock.mockReset();
   });
 
   it("persists to disk by default and reports saved=true", async () => {
@@ -425,6 +436,36 @@ describe("vmark.document.write — save-on-write (UX fix for buffered writes)", 
     expect(useDocumentStore.getState().documents["t-untitled"].content).toBe(
       "draft",
     );
+  });
+
+  it("registers and clears pending save around writeTextFile to suppress the external-change dialog", async () => {
+    seedTab("t-pending", "before", "/tmp/notes.md");
+    await handleDocumentWrite("req-pending", {
+      tabId: "t-pending",
+      content: "after",
+    });
+
+    expect(registerPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", "after");
+    expect(clearPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", 1);
+    // Ordering: register before write, clear after write.
+    const registerOrder = registerPendingSaveMock.mock.invocationCallOrder[0];
+    const writeOrder = writeTextFileMock.mock.invocationCallOrder[0];
+    const clearOrder = clearPendingSaveMock.mock.invocationCallOrder[0];
+    expect(registerOrder).toBeLessThan(writeOrder);
+    expect(writeOrder).toBeLessThan(clearOrder);
+  });
+
+  it("clears pending save even when writeTextFile rejects", async () => {
+    seedTab("t-pending-fail", "before", "/readonly/notes.md");
+    writeTextFileMock.mockRejectedValueOnce(new Error("EACCES"));
+
+    await handleDocumentWrite("req-pending-fail", {
+      tabId: "t-pending-fail",
+      content: "after",
+    });
+
+    expect(registerPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", "after");
+    expect(clearPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", 1);
   });
 
   it("FS write failure surfaces save_error (NOT save_skipped) without failing the write", async () => {

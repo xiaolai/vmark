@@ -38,6 +38,7 @@
  */
 
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
@@ -337,9 +338,14 @@ export async function handleDocumentWrite(
       saveSkipped = "untitled";
     } else {
       try {
-        await writeTextFile(resolved.filePath, args.content);
-        useDocumentStore.getState().markSaved(resolved.tabId, args.content);
-        saved = true;
+        const saveToken = registerPendingSave(resolved.filePath, args.content);
+        try {
+          await writeTextFile(resolved.filePath, args.content);
+          useDocumentStore.getState().markSaved(resolved.tabId, args.content);
+          saved = true;
+        } finally {
+          clearPendingSave(resolved.filePath, saveToken);
+        }
       } catch (err) {
         saveError = errorMessage(err);
       }
