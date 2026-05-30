@@ -111,6 +111,7 @@ the fixed paths.
 - Change: **minimal** guard (no new token machinery — Codex #5) — `initDocument` checks tab existence in `tabStore` at write time and no-ops if the tab is gone (or the caller re-checks immediately before the post-read write). Mirrors the `updateDoc` missing-key guard the sibling mutators already use.
 - AC: closing a tab while its file read is in flight leaves **no** document entry for that tab; normal open still initializes.
 - Test: (a) store unit test createTab → (tab removed) → initDocument → assert no orphan entry; **and (b) an integration test on the `useFileOpen` close-during-read path** (read in flight → tab closed → read resolves → assert no orphan), not just the store unit.
+- **Shipped (conformance note):** the **caller-side** re-check was chosen (`useFileOpen.ts:openFileInNewTabCore` re-checks `findTabById(tabId)` after the awaited read) — the sanctioned alternative, since a hard guard inside `initDocument` would break ~90 existing `initDocument`-without-tab unit tests. Test **(b)** ships (`useFileOpen.test.ts` "does not resurrect an orphan…"); test **(a)** does **not** (there is no store-level guard to test). AC-(a) is therefore intentionally unmet.
 
 **WI-0.3 — Fix genie workflow execution-id race (C2, High).**
 - Scope: `src/hooks/useGenieInvocation.ts:391-397`.
@@ -174,6 +175,7 @@ green; bundle size unchanged or smaller (`pnpm size`).
 - Change: delete; re-grep each class/var across `.ts/.tsx/.js/.html` (incl. `?raw` imports) to confirm zero hits before removal.
 - AC: visual QA in light+dark via `dev-docs/css-reference.md` shows no regressions; `pnpm check:all` green (incl. `lint:design-tokens`).
 - Test: CSS-only → visual QA (rule 10 exemption); document the QA in the WI.
+- **Shipped (conformance note):** every selector/var re-grepped to zero refs across `.ts/.tsx/.js/.html` before removal (3 stale audit claims caught and excluded: `.math-block*` and `--duration-slow` are LIVE; `.mermaid-block*` deferred — see WI text); 539 lines removed; `pnpm check:all` green. **The visual-QA half of the AC is NOT yet done** — it requires the live app and is a pending user step (open `css-reference.md`, check light + dark).
 
 **WI-1.2 — Dead Tauri commands (1B).**
 - Scope: remove `mcp_server_start`, `mcp_server_stop`, `mcp_config_get_status`, `open_folder_dialog` from `generate_handler!` and delete their fns; drop `#[tauri::command]`/registration from `cli_install*` (keep as `pub fn` for the menu handler).
@@ -314,6 +316,7 @@ a11y items manually keyboard-verified in the live app.
 - Change: hand-written shape guards at these boundaries; reject + log on mismatch (fail-loud per rule).
 - AC: a malformed payload is rejected with a clear error, not propagated as `undefined`.
 - Test: per-validator tests (valid/invalid/missing-field).
+- **Shipped (conformance note):** **2 of the 4 ADR-2 boundaries validated** — mcpBridge request stream (`mcpBridge/index.ts` `isValidMcpRequestRaw`, tested) and AI response chunks (`useGenieInvocation.ts` text coalesce, covered). **Workspace config** and **session/hot-exit restore** were NOT validated: `read_workspace_config` is already Rust-serde-shape-validated (the sole producer), so the frontend receives a typed `WorkspaceConfig` — treated as typed-trust per ADR-2's "everything else stays typed-trust." This narrows ADR-2's named set; revisit if either boundary gains a non-Rust producer.
 
 **WI-4.2 — Validate cross-tab settings `StorageEvent` (T3).**
 - Scope: `src/hooks/useSettingsSync.ts:50-69`.
@@ -337,6 +340,7 @@ a11y items manually keyboard-verified in the live app.
 - Scope: `ghaWorkflow/actions/registry.ts:89` (bound/clear `sessionCache`); `utils/pendingSaves.ts:41` + `saveToPath.ts:88` (clear in `finally`).
 - AC: caches bounded; no stale pending-save entry on write error.
 - Test: small unit tests for each.
+- **Shipped (conformance note):** `sessionCache` bounded (`registry.ts` → `LruCache(200)`, tested). For `pendingSaves`: the audit's R3 concern (write throwing before clear) is **already addressed** in current `saveToPath.ts` — the **error path** clears in the `catch` (`:96`) and the **success path** clears via a deliberate ~1000 ms `setTimeout` (`:144`) to let late watcher events match our write. A literal `finally` would clear immediately and break that watcher-matching window, so it was **not** added; every post-register path already clears (or schedules a clear). The AC's "clear in `finally`" is intentionally not literal.
 
 **WI-4.6 — ImageContextMenu keyboard support (A1, High a11y).**
 - Scope: `src/components/Editor/ImageContextMenu.tsx`.
@@ -380,6 +384,27 @@ _(WI-5.3 — stabilize the flaky perf test — moved to **Phase -1** as WI-(-1).
   large effort).
 - Rule-doc fix: `10-tdd.md` cites a non-existent `closeDecision.ts` — note for a
   docs pass, not part of this plan.
+
+### Deferred source-audit findings (added 2026-05-30 by the plan-audit; see
+### `dev-docs/audit/20260530-plan-audit-findings.md`). These were absent from the
+### original plan; the disposition is recorded here so the audit ↔ plan ↔ shipped
+### chain is complete. **T4 is a Medium follow-up; the rest are Low.**
+- **T4 (Medium) — DEFERRED, follow-up.** `as unknown as` double-casts over persisted
+  / 3rd-party JSON (`aiStore/provider.ts:230`, `settingsStore.ts:286-288`,
+  `secureStorage.ts:49`). Not addressed by Phase 4. Recommended next: typed shape
+  validators at these persist/migrate boundaries (zero-trust at boundaries, rule).
+- **O8 (Low) — DEFERRED.** Micro-optimizations (`stripMarkdown` regex passes,
+  `multiCursor` full-doc walk, `lint` regex-per-node). Optional; no measured hot path.
+- **D8 (Low) — DEFERRED.** `getFileName` ×2 (different semantics), inline
+  `.split("/").pop()`, footnote textarea dup, Rust `contains("..")` ×3. Consolidate
+  carefully (Windows `\` + symlink ordering) — not worth the regression risk now.
+- **A4 (Low) — DEFERRED.** Incremental ARIA (ContentSearch/PromptHistory `role=option`,
+  `frontmatterPanel` `aria-expanded`, ProviderSwitcher `aria-haspopup`, FileNode rename
+  `aria-label`). WI-4.6/4.7 covered the High/Medium a11y gaps; these are the tail.
+- **C6 (Low) — DEFERRED.** Defensive re-reads (`useExternalFileChanges`, `useAutoSave`
+  M5, `useSourceEditorSync` interval) and `cancel_workflow` honoring `execution_id`.
+  Low severity, mostly already mitigated; `cancel_workflow` execution-id is the one
+  worth a future fix.
 
 ## 5. Risk register
 - **WI-2.6 (mermaid lazy):** prior splits broke prod (`this.clear`). Mitigation:
