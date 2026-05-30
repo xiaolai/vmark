@@ -229,6 +229,32 @@ function changesIntersectRanges(tr: Transaction, ranges: CodeBlockRange[]): bool
   return false;
 }
 
+/**
+ * Returns true if any step in the transaction inserts a code-block node at any
+ * depth. Cheap — it inspects only the (small) inserted slices, not the whole
+ * document — so the prose-only fast path still re-scans when a code block is
+ * inserted, even nested inside a blockquote or list (O1 / WI-2.1).
+ */
+function transactionInsertsCodeBlock(tr: Transaction): boolean {
+  for (const step of tr.steps) {
+    const slice = (step as unknown as { slice?: { content?: { descendants?: unknown } } }).slice;
+    const content = slice?.content as
+      | { descendants: (fn: (node: { type: { name: string } }) => boolean | void) => void }
+      | undefined;
+    if (!content?.descendants) continue;
+    let found = false;
+    content.descendants((node) => {
+      if (node.type.name === "codeBlock" || node.type.name === "code_block") {
+        found = true;
+        return false;
+      }
+      return !found;
+    });
+    if (found) return true;
+  }
+  return false;
+}
+
 /** Exit editing mode */
 function exitEditMode(view: EditorView | null, revert: boolean): void {
   // Fall back to any active view if the caller didn't pass one (e.g. button
@@ -405,6 +431,39 @@ export const codePreviewExtension = Extension.create({
                     from: tr.mapping.map(r.from),
                     to: tr.mapping.map(r.to),
                   })),
+                };
+              }
+            }
+
+            // O1 fast path — prose-only docs. With zero tracked previewable
+            // code blocks the two fast paths above don't apply (both require a
+            // non-empty decoration set), so every keystroke would otherwise fall
+            // through to the full descendants() walk below. Confirm cheaply that
+            // no previewable block exists or was just inserted, then early-return
+            // the empty set without walking the whole document.
+            if (
+              tr.docChanged &&
+              !editingChanged &&
+              !settingsChanged &&
+              state.codeBlockRanges.length === 0
+            ) {
+              let hasPreviewableTopLevel = false;
+              newState.doc.forEach((node) => {
+                if (
+                  (node.type.name === "codeBlock" || node.type.name === "code_block") &&
+                  isPreviewable(
+                    (node.attrs.language ?? "").toLowerCase(),
+                    node.textContent,
+                  )
+                ) {
+                  hasPreviewableTopLevel = true;
+                }
+              });
+              if (!hasPreviewableTopLevel && !transactionInsertsCodeBlock(tr)) {
+                return {
+                  decorations: DecorationSet.empty,
+                  editingPos: state.editingPos,
+                  codeBlockRanges: [],
                 };
               }
             }
