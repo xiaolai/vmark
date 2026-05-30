@@ -31,6 +31,8 @@ import {
 } from "./keymapUtils";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import { findAnyMarkRangeAtCursor } from "@/plugins/syntaxReveal/marks";
+import { MultiSelection } from "@/plugins/multiCursor/MultiSelection";
+import { collapseMultiSelection } from "@/plugins/multiCursor/commands";
 import type { Command } from "@tiptap/pm/state";
 
 describe("toProseMirrorKey", () => {
@@ -175,7 +177,7 @@ describe("escapeMarkBoundary", () => {
   it("returns false when no mark range and no stored marks", () => {
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: null,
       },
       dispatch: vi.fn(),
@@ -187,7 +189,7 @@ describe("escapeMarkBoundary", () => {
   it("returns false when no mark range and stored marks is empty array", () => {
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: [],
       },
       dispatch: vi.fn(),
@@ -201,7 +203,7 @@ describe("escapeMarkBoundary", () => {
     const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: [{ type: "bold" }],
         tr: mockTr,
       },
@@ -221,7 +223,7 @@ describe("escapeMarkBoundary", () => {
     const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
     const view = {
       state: {
-        selection: { $from: { pos: 5 }, empty: true },
+        selection: { $from: { pos: 5 }, empty: true, ranges: [{}] },
         storedMarks: null,
         tr: mockTr,
       },
@@ -283,7 +285,7 @@ describe("escapeMarkBoundary", () => {
     const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: null,
         tr: mockTr,
       },
@@ -294,6 +296,91 @@ describe("escapeMarkBoundary", () => {
     expect(result).toBe(true);
     expect(mockTr.setStoredMarks).toHaveBeenCalledWith([]);
     expect(dispatchFn).toHaveBeenCalledWith(mockTr);
+  });
+
+  it("does not act on a multi-range (multi-cursor) selection, even with stored marks", () => {
+    // Regression: a multi-caret MultiSelection where every range is an empty
+    // caret reports empty===true (Selection.empty is true only when ALL ranges
+    // are empty), so it slips past the `!empty` guard. With a stored mark
+    // present, escapeMarkBoundary used to return true and swallow Escape —
+    // preempting the multi-cursor collapse, so the extra carets were never
+    // reduced. It must bail for multi-range selections and let the multi-cursor
+    // Escape handler collapse them.
+    const dispatchFn = vi.fn();
+    const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
+    const view = {
+      state: {
+        selection: {
+          $from: { pos: 1 },
+          empty: true, // primary range is a caret
+          ranges: [{}, {}], // multi-cursor: more than one range
+        },
+        storedMarks: [{ type: "bold" }], // would otherwise trigger the swallow
+        tr: mockTr,
+      },
+      dispatch: dispatchFn,
+    } as never;
+
+    expect(escapeMarkBoundary(view)).toBe(false);
+    expect(dispatchFn).not.toHaveBeenCalled();
+  });
+
+  it("real multi-caret MultiSelection + stored mark: does not swallow, and the multi-cursor handler then collapses it (#981 chain)", () => {
+    // Integration proof of the two-handler Escape chain with a REAL
+    // MultiSelection (not a mock). The swallow only happens when EVERY range is
+    // an empty caret — Selection.empty is true only when all ranges are empty,
+    // so a multi-cursor selection with any non-empty range has empty===false and
+    // escapeMarkBoundary already bails via `!empty`. For the all-carets case the
+    // editor keymap's escapeMarkBoundary must return false (no swallow) even with
+    // a stored mark at the primary caret, and the multi-cursor keymap's
+    // collapseMultiSelection must then reduce it to a plain TextSelection.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Schema } = require("@tiptap/pm/model");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EditorState, SelectionRange } = require("@tiptap/pm/state");
+
+    const testSchema = new Schema({
+      nodes: {
+        doc: { content: "paragraph+" },
+        paragraph: { content: "text*", group: "block" },
+        text: { inline: true },
+      },
+      marks: { bold: {} },
+    });
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("paragraph", null, [testSchema.text("hello world")]),
+    ]);
+    let state = EditorState.create({ doc, schema: testSchema });
+
+    // Two empty carets (pos 1 and pos 5) — the all-empty multi-caret case.
+    const primary = new SelectionRange(doc.resolve(1), doc.resolve(1));
+    const secondary = new SelectionRange(doc.resolve(5), doc.resolve(5));
+    const multiSel = new MultiSelection([primary, secondary], 0);
+    state = state.apply(
+      state.tr
+        .setSelection(multiSel)
+        .setStoredMarks([testSchema.marks.bold.create()])
+    );
+
+    // Preconditions: the trap shape — all-empty multi-caret + stored mark.
+    expect(state.selection.empty).toBe(true);
+    expect(state.selection.ranges.length).toBe(2);
+
+    // 1) The mark-escape helper must NOT handle it (no swallow, marks untouched).
+    const dispatch = vi.fn();
+    expect(escapeMarkBoundary({ state, dispatch } as never)).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+
+    // 2) The multi-cursor Escape handler then collapses it to a single,
+    //    non-MultiSelection caret. (Assert against MultiSelection — the
+    //    top-level import — rather than a require()'d TextSelection, which would
+    //    be a different module instance and break instanceof.)
+    const tr = collapseMultiSelection(state);
+    expect(tr).not.toBeNull();
+    const collapsed = state.apply(tr);
+    expect(collapsed.selection).not.toBeInstanceOf(MultiSelection);
+    expect(collapsed.selection.ranges.length).toBe(1);
+    expect(collapsed.selection.empty).toBe(true);
   });
 
   it("moves cursor to mark end when inside mark range using real state", () => {
