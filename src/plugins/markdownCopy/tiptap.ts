@@ -18,6 +18,7 @@ import { Fragment, Slice, type Schema, type Node as PMNode, type NodeType } from
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { clipboardWarn, markdownCopyWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const markdownCopyPluginKey = new PluginKey("markdownCopy");
 
@@ -153,7 +154,7 @@ export const markdownCopyExtension = Extension.create({
                 const text = getSelectionText(view);
                 if (text) {
                   navigator.clipboard.writeText(text).catch((error: unknown) => {
-                    clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
+                    clipboardWarn("Clipboard write failed:", errorMessage(error));
                   });
                 }
               });

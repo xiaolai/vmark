@@ -31,7 +31,6 @@
     "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm test:coverage && pnpm build && pnpm size"
   },
   "dependencies": {
-    "@actions/expressions": "0.3.55",
     "@actions/languageservice": "0.3.55",
     "@actions/workflow-parser": "0.3.55",
     "@codemirror/autocomplete": "^6.20.0",
@@ -96,7 +95,6 @@
     "html-to-image": "1.11.13",
     "i18next": "^25.8.18",
     "i18next-resources-to-backend": "^1.2.1",
-    "js-yaml": "^4.1.1",
     "katex": "^0.16.28",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.562.0",
@@ -158,8 +156,6 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/dagre": "^0.7.54",
-    "@types/js-yaml": "^4.0.9",
-    "@types/katex": "^0.16.8",
     "@types/mdast": "^4.0.4",
     "@types/node": "^22.19.7",
     "@types/react": "^19.2.9",

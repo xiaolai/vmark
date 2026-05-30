@@ -31,6 +31,7 @@ import {
 } from "@/utils/crashRecovery";
 import { crashRecoveryLog } from "@/utils/debug";
 import i18n from "@/i18n";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Restore documents from crash recovery snapshots on startup.
@@ -93,7 +94,7 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
         crashRecoveryLog(
           "Failed to restore snapshot:",
           snapshot.tabId,
-          error instanceof Error ? error.message : String(error)
+          errorMessage(error)
         );
       }
     }
@@ -139,7 +140,7 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
   } catch (error) {
     crashRecoveryLog(
       "Crash recovery failed:",
-      error instanceof Error ? error.message : String(error)
+      errorMessage(error)
     );
     toast.error(i18n.t("dialog:toast.crashRecoveryFailed"), { pin: true });
   }

@@ -21,6 +21,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { joinPath } from "@/utils/pathUtils";
 import { showError, FileErrors } from "@/utils/errorDialog";
 import { isMacPlatform } from "@/utils/shortcutMatch";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Timeout for waiting on assets (fonts, images, math, diagrams) */
 const ASSET_WAIT_TIMEOUT = 10000;
@@ -218,7 +219,7 @@ export async function exportToHtml(
     return true;
   } catch (error) {
     exportError("Failed to export HTML:", error);
-    const detail = error instanceof Error ? error.message : String(error);
+    const detail = errorMessage(error);
     await showError(FileErrors.exportFailed("HTML"), detail);
     return false;
   }

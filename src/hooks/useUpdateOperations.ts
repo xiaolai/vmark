@@ -69,7 +69,7 @@ const inFlight: { check: Promise<boolean> | null; download: Promise<boolean> | n
  * button, auto-check on startup, the legacy cross-window listener — can
  * share the same code path.
  */
-export async function runUpdateCheck(): Promise<boolean> {
+async function runUpdateCheck(): Promise<boolean> {
   // Single-flight: if a check is already in progress in this window, every
   // caller (manual button, auto-check, retry timer, cross-window listener)
   // shares the same result. Otherwise overlapping callers spawn parallel
@@ -127,7 +127,7 @@ export async function runUpdateCheck(): Promise<boolean> {
  * `pendingUpdate`. Returns false if no pendingUpdate is held here (caller
  * may decide to re-check or surface an error).
  */
-export async function runUpdateDownload(): Promise<boolean> {
+async function runUpdateDownload(): Promise<boolean> {
   // Single-flight: prevent two callers (manual click + auto-download effect)
   // from each invoking pendingUpdate.downloadAndInstall on the same Update
   // resource — the underlying Tauri resource is not safe to download twice.

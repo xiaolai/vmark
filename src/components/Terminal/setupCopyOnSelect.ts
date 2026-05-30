@@ -19,6 +19,7 @@ import type { Terminal } from "@xterm/xterm";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { clipboardWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const COPY_ON_SELECT_DEBOUNCE_MS = 150;
 
@@ -48,7 +49,7 @@ export function setupCopyOnSelect({ term, isComposing }: SetupOptions): () => vo
       writeText(text).catch((error: unknown) => {
         clipboardWarn(
           "Clipboard write failed:",
-          error instanceof Error ? error.message : String(error),
+          errorMessage(error),
         );
       });
     }, COPY_ON_SELECT_DEBOUNCE_MS);

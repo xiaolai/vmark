@@ -28,9 +28,8 @@ const STAR_RE = /(\*{1,2}) (.+?) \1/g;
 // Matches __ text __ or _ text _ style patterns
 const UNDER_RE = /(_{1,2}) (.+?) \1/g;
 
-export const noSpaceInEmphasis: LintRule = (source) => {
+export const noSpaceInEmphasis: LintRule = (_source, _mdast, { lines }) => {
   const diagnostics = [];
-  const lines = source.split("\n");
   const tracker = new CodeBlockTracker();
   let lineOffset = 0;
 

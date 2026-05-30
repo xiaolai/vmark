@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useMcpServer } from "./useMcpServer";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Health check result from sidecar */
 interface SidecarHealthInfo {
@@ -110,7 +111,7 @@ export function useMcpHealthCheck() {
         return result;
       }
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
+      const error = errorMessage(err);
       // Use getState() to avoid stale closure issues
       const currentHealth = useMcpStore.getState().health.health;
       const result: HealthCheckResult = {

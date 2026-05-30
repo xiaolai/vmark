@@ -40,6 +40,39 @@ const DEFAULT_SIDEBAR_WIDTH = 260;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Shape guard for the `hot_exit_get_window_state` IPC payload (T1/ADR-2). The
+ * restore path indexes `windowState.ui_state.*`, calls `windowState.tabs.filter`,
+ * and immediately dereferences each tab via `isEmptyUntitledTab` (`tab.file_path`,
+ * `tab.document.content`) — so a malformed container OR a malformed tab entry
+ * (`tabs: [null]`, a tab missing `document`) would throw mid-restore and abort
+ * recovery. This validates the container plus the early-deref shape of each tab
+ * (entry is an object with an object `document`). Deeper per-field narrowing
+ * (line endings, cursor, schema id) already happens downstream in
+ * restoreDocumentState/restoreUiState. Exported for testing.
+ */
+export function isValidWindowState(raw: unknown): raw is WindowState {
+  if (typeof raw !== 'object' || raw === null) return false;
+  const w = raw as Record<string, unknown>;
+  const uiOk =
+    typeof w.ui_state === 'object' && w.ui_state !== null && !Array.isArray(w.ui_state);
+  const tabsOk =
+    Array.isArray(w.tabs) &&
+    w.tabs.every(
+      (t) =>
+        typeof t === 'object' &&
+        t !== null &&
+        typeof (t as { document?: unknown }).document === 'object' &&
+        (t as { document?: unknown }).document !== null
+    );
+  return (
+    typeof w.window_label === 'string' &&
+    tabsOk &&
+    uiOk &&
+    (w.active_tab_id === null || typeof w.active_tab_id === 'string')
+  );
+}
+
+/**
  * Convert hot exit line ending format back to store format
  */
 function fromHotExitLineEnding(lineEnding: '\n' | '\r\n' | 'unknown'): LineEnding {
@@ -123,6 +156,14 @@ export async function pullWindowStateWithRetry(windowLabel: string, retries = MA
       );
 
       if (windowState) {
+        // Reject a structurally malformed payload loudly (T1/ADR-2). Unlike a
+        // null "not stored yet" result, a bad shape won't fix itself across
+        // retries — return null immediately so the caller falls back to the
+        // WindowContext init state instead of throwing mid-restore.
+        if (!isValidWindowState(windowState)) {
+          hotExitWarn(`Discarding malformed window state for '${windowLabel}'`);
+          return null;
+        }
         return windowState;
       }
 

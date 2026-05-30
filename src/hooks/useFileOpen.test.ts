@@ -126,6 +126,37 @@ describe("openFileInNewTabCore", () => {
     // Should not read the file since it was deduped
     expect(mockReadTextFile).not.toHaveBeenCalled();
   });
+
+  // WI-0.2 — orphan-document resurrection on close-during-open (C1)
+  it("does not resurrect an orphan document when the tab is closed during the read", async () => {
+    // Hold the read open so we can close the tab mid-flight.
+    let resolveRead!: (value: string) => void;
+    mockReadTextFile.mockReturnValue(
+      new Promise<string>((res) => {
+        resolveRead = res;
+      })
+    );
+
+    const promise = openFileInNewTabCore(WINDOW, "/docs/race.md");
+
+    // Wait until createTab has run (after the pre-read size check) while the
+    // read promise is still pending.
+    await vi.waitFor(() => {
+      expect(useTabStore.getState().getTabsByWindow(WINDOW).length).toBe(1);
+    });
+    const tabId = useTabStore.getState().getTabsByWindow(WINDOW)[0].id;
+
+    // User closes the tab while the file read is still in flight.
+    useTabStore.getState().detachTab(WINDOW, tabId);
+
+    // Read resolves AFTER the close.
+    resolveRead("# Hello");
+    await promise;
+
+    // The resolved read must NOT write a document entry for the gone tab.
+    expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
+    expect(Object.keys(useDocumentStore.getState().documents)).not.toContain(tabId);
+  });
 });
 
 describe("openFileInNewTab", () => {

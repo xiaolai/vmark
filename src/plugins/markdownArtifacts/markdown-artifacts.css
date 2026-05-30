@@ -12,11 +12,6 @@
   text-decoration: underline;
 }
 
-.tiptap-editor span.wiki-embed {
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
 .tiptap-editor .html-preview-inline {
   display: inline;
 }

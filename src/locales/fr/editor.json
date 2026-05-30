@@ -71,6 +71,7 @@
   "headingPicker.empty.heading": "(titre vide)",
   "headingPicker.empty.noHeadings": "Aucun titre dans le document",
   "headingPicker.empty.noMatch": "Aucun titre ne correspond au filtre",
+  "imageMenu.ariaLabel": "Actions d'image",
   "imageMenu.changeImage": "Modifier l'image...",
   "imageMenu.deleteImage": "Supprimer l'image",
   "imageMenu.copyPath": "Copier le chemin de l'image",

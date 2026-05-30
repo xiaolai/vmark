@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import { lintMarkdown } from "../../linter";
 import { noUnusedDefs } from "../noUnusedDefs";
 import type { Root, Definition } from "mdast";
+import type { LintLineIndex } from "../../types";
+
+// Empty-source line index for direct rule calls (orchestrator builds this in prod).
+const EMPTY_INDEX: LintLineIndex = { lines: [""], lineOffsets: [0] };
 
 describe("W03 noUnusedDefs", () => {
   it.each([
@@ -101,7 +105,7 @@ describe("W03 noUnusedDefs", () => {
       ],
     };
 
-    const diagnostics = noUnusedDefs("", mdast);
+    const diagnostics = noUnusedDefs("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(0);
   });
 
@@ -122,7 +126,7 @@ describe("W03 noUnusedDefs", () => {
     };
 
     // No references in source, so the definition should be flagged
-    const diagnostics = noUnusedDefs("", mdast);
+    const diagnostics = noUnusedDefs("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].messageParams.ref).toBe("myid");
   });
@@ -143,7 +147,7 @@ describe("W03 noUnusedDefs", () => {
       ],
     };
 
-    const diagnostics = noUnusedDefs("", mdast);
+    const diagnostics = noUnusedDefs("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].messageParams.ref).toBe("");
   });
@@ -165,7 +169,7 @@ describe("W03 noUnusedDefs", () => {
       ],
     };
 
-    const diagnostics = noUnusedDefs("", mdast);
+    const diagnostics = noUnusedDefs("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].offset).toBe(0);
   });

@@ -71,6 +71,7 @@
   "headingPicker.empty.heading": "(encabezado vacío)",
   "headingPicker.empty.noHeadings": "No hay encabezados en el documento",
   "headingPicker.empty.noMatch": "Ningún encabezado coincide con el filtro",
+  "imageMenu.ariaLabel": "Acciones de imagen",
   "imageMenu.changeImage": "Cambiar imagen...",
   "imageMenu.deleteImage": "Eliminar imagen",
   "imageMenu.copyPath": "Copiar ruta de imagen",

@@ -1,3 +1,5 @@
+import { debounce } from "./debounce";
+
 const SEARCH_COUNT_DEBOUNCE_MS = 300;
 
 type CountCallback = (
@@ -9,22 +11,14 @@ type CountCallback = (
 ) => void;
 
 export function createDebouncedSearchCounter(callback: CountCallback) {
-  let timerId: ReturnType<typeof setTimeout> | null = null;
-  let latestArgs: Parameters<CountCallback> | null = null;
+  const debounced = debounce(callback, SEARCH_COUNT_DEBOUNCE_MS);
 
   return {
     schedule(...args: Parameters<CountCallback>) {
-      latestArgs = args;
-      if (timerId) clearTimeout(timerId);
-      timerId = setTimeout(() => {
-        if (latestArgs) callback(...latestArgs);
-        timerId = null;
-      }, SEARCH_COUNT_DEBOUNCE_MS);
+      debounced(...args);
     },
     cancel() {
-      if (timerId) clearTimeout(timerId);
-      timerId = null;
-      latestArgs = null;
+      debounced.cancel();
     },
   };
 }

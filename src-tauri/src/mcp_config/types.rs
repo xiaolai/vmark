@@ -5,17 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Status of a single AI provider configuration
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ProviderStatus {
-    pub provider: String,
-    pub name: String,
-    pub path: String,
-    pub exists: bool,
-    #[serde(rename = "hasVmark")]
-    pub has_vmark: bool,
-}
-
 /// Preview of config changes before installation
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ConfigPreview {

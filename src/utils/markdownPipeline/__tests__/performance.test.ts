@@ -18,9 +18,11 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 
-// Skip performance tests in CI — timing thresholds are meaningless on shared runners
-const isCI = !!process.env.CI;
-const describePerf = isCI ? describe.skip : describe;
+// Opt-in only: timing thresholds flake under CPU contention (shared CI runners
+// AND a loaded local `check:all` run). Default-skip everywhere; run on demand
+// with `PERF=1 pnpm test ...`. (WI-(-1).1 — TQ4 flaky-gate stabilization)
+const perfEnabled = process.env.PERF === "1";
+const describePerf = perfEnabled ? describe : describe.skip;
 import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { parseMarkdown, serializeMarkdown } from "../adapter";

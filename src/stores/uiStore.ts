@@ -16,6 +16,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listFormats } from "@/lib/formats/registry";
+import { errorMessage } from "@/utils/errorMessage";
 
 /* ────────────────────────────── ui slice ──────────────────────────────── */
 
@@ -582,7 +583,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
           totalMatches: 0,
           totalFiles: 0,
           isSearching: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         },
       }));
     }

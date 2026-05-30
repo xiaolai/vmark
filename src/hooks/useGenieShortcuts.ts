@@ -26,6 +26,7 @@ import { matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import type { GenieDefinition, GenieMetadata, GenieScope } from "@/types/aiGenies";
 import { genieWarn, genieError } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Build menu-id → accelerator map for the genies menu. */
 export function getMenuShortcuts(): Record<string, string> | null {
@@ -92,7 +93,7 @@ export function useGenieShortcuts() {
     initSuggestionTabWatcher(useTabStore.subscribe);
     return () => {
       invoke("hide_genies_menu").catch((error: unknown) => {
-        genieWarn("Failed to hide genies menu:", error instanceof Error ? error.message : String(error));
+        genieWarn("Failed to hide genies menu:", errorMessage(error));
       });
     };
   }, []);

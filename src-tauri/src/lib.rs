@@ -9,7 +9,7 @@
 //! Key decisions:
 //!   - Window close is intercepted for document windows (main, doc-*) to allow
 //!     dirty-document prompts; non-document windows close immediately.
-//!   - File opens from Finder are queued in `PENDING_FILE_OPENS` until the frontend
+//!   - File opens from Finder are queued in `FILE_OPEN_STATE` until the frontend
 //!     signals readiness, solving a cold-start race condition. Only .md/.markdown
 //!     files are accepted; other extensions are skipped. Hot opens (app already
 //!     running) use `app.emit()` (global broadcast) — NOT `window.emit()` — so the
@@ -68,7 +68,6 @@ mod cli_install;
 mod pdf_export;
 
 use sha2::{Digest, Sha256};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{Listener, Manager};
 
@@ -81,19 +80,19 @@ pub struct PendingFileOpen {
     pub workspace_root: Option<String>,
 }
 
-static PENDING_FILE_OPENS: Mutex<Vec<PendingFileOpen>> = Mutex::new(Vec::new());
+/// Combined Finder file-open state — the readiness flag and the pending queue
+/// live behind ONE mutex so the readiness check and the queue insertion happen
+/// in a single critical section (WI-0.8, C3). See `window_manager::FileOpenState`.
+static FILE_OPEN_STATE: Mutex<window_manager::FileOpenState> =
+    Mutex::new(window_manager::FileOpenState::new());
 
-/// Tracks whether frontend has initialized (called get_pending_file_opens)
-/// After this, file opens should emit events instead of queueing
-static FRONTEND_READY: AtomicBool = AtomicBool::new(false);
-
-/// Get and clear pending file opens - called by frontend when ready
-/// Also marks frontend as ready so future file opens emit events
+/// Get and clear pending file opens - called by frontend when ready.
+/// Marks the frontend ready and drains the queue atomically (one lock) so a
+/// Finder open landing mid-call is never dropped or double-delivered.
 #[tauri::command]
 fn get_pending_file_opens() -> Vec<PendingFileOpen> {
-    FRONTEND_READY.store(true, Ordering::SeqCst);
-    let mut pending = PENDING_FILE_OPENS.lock().unwrap_or_else(|p| p.into_inner());
-    pending.drain(..).collect()
+    let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
+    window_manager::mark_ready_and_drain(&mut state)
 }
 
 /// Runtime-extend the fs plugin's read scope for a path the user asked to open.
@@ -613,6 +612,7 @@ pub fn run() {
             running: std::sync::atomic::AtomicBool::new(false),
             cancel_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             approvals: std::sync::Arc::new(workflow::approval::ApprovalRegistry::new()),
+            current_execution: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             get_pending_file_opens,
@@ -636,21 +636,17 @@ pub fn run() {
             watcher::stop_watching,
             file_tree::list_directory_entries,
             file_ops::get_file_size_bytes,
-            workspace::open_folder_dialog,
             workspace::read_workspace_config,
             workspace::write_workspace_config,
             quarantine::strip_workspace_quarantine_cmd,
             mcp_server::mcp_bridge_start,
             mcp_server::mcp_bridge_stop,
-            mcp_server::mcp_server_start,
-            mcp_server::mcp_server_stop,
             mcp_server::mcp_server_status,
             mcp_server::mcp_sidecar_health,
             mcp_server::mcp_bridge_client_count,
             mcp_server::mcp_bridge_connected_clients,
             mcp_bridge::commands::mcp_bridge_respond,
             mcp_bridge::commands::mcp_bridge_heartbeat,
-            mcp_config::commands::mcp_config_get_status,
             mcp_config::commands::mcp_config_diagnose,
             mcp_config::commands::mcp_config_preview,
             mcp_config::commands::mcp_config_install,
@@ -691,12 +687,6 @@ pub fn run() {
             atomic_write_file,
             #[cfg(target_os = "macos")]
             register_dock_recent,
-            #[cfg(target_os = "macos")]
-            cli_install::cli_install_status,
-            #[cfg(target_os = "macos")]
-            cli_install::cli_install,
-            #[cfg(target_os = "macos")]
-            cli_install::cli_uninstall,
             #[cfg(target_os = "macos")]
             pdf_export::commands::export_pdf,
             #[cfg(target_os = "macos")]
@@ -743,12 +733,12 @@ pub fn run() {
                     filter_supported_args(std::env::args().skip(1));
 
                 if !file_args.is_empty() {
-                    if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
+                    if let Ok(mut state) = FILE_OPEN_STATE.lock() {
                         for path_str in file_args {
                             allow_fs_read(app.handle(), &path_str);
                             let workspace_root =
                                 window_manager::get_workspace_root_for_file(&path_str);
-                            pending.push(PendingFileOpen {
+                            state.pending.push(PendingFileOpen {
                                 path: path_str,
                                 workspace_root,
                             });
@@ -860,7 +850,10 @@ pub fn run() {
                         if app.get_webview_window("main").is_none() {
                             // Reset readiness so any subsequent Opened events are queued
                             // until the new main window's React mounts and drains them.
-                            FRONTEND_READY.store(false, Ordering::SeqCst);
+                            FILE_OPEN_STATE
+                                .lock()
+                                .unwrap_or_else(|p| p.into_inner())
+                                .frontend_ready = false;
                             let _ = window_manager::create_main_window(app, ws.as_deref());
                         } else {
                             let _ = window_manager::create_document_window(
@@ -913,66 +906,80 @@ pub fn run() {
                             Some(workspace_key.as_str())
                         };
 
-                        let action = window_manager::determine_file_open_action(
-                            FRONTEND_READY.load(Ordering::SeqCst),
-                            app.get_webview_window("main").is_some(),
-                        );
+                        // Decide + queue atomically under one lock (WI-0.8, C3):
+                        // the readiness check and any queue insertion happen in a
+                        // single critical section, so a concurrent
+                        // get_pending_file_opens (which flips ready + drains under
+                        // the same lock) can't interleave to drop or double-deliver.
+                        let outcome = {
+                            let mut state =
+                                FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
+                            window_manager::decide_file_open_locked(
+                                &mut state,
+                                app.get_webview_window("main").is_some(),
+                                paths,
+                                ws,
+                            )
+                        };
 
-                        match action {
-                            window_manager::FileOpenAction::EmitToMainWindow => {
+                        match outcome {
+                            window_manager::FileOpenOutcome::Emit(payloads) => {
                                 use tauri::Emitter;
-                                log::info!("[Finder] Emitting to main window");
-                                // Use app.emit() (global broadcast) so the frontend's
-                                // global listen() in useFinderFileOpen receives it.
-                                // window.emit() sends a webview-specific event that is
-                                // NOT delivered to @tauri-apps/api/event listen() —
-                                // only to currentWindow.listen() — so the hook would
-                                // silently miss every hot open.
-                                if app.get_webview_window("main").is_some() {
-                                    for path in &paths {
-                                        let payload = PendingFileOpen {
-                                            path: path.clone(),
-                                            workspace_root: ws.map(String::from),
-                                        };
-                                        if let Err(e) = app.emit("app:open-file", payload) {
-                                            // Emit failed — fallback to queue so the file isn't lost
-                                            log::warn!("[Finder] emit failed, queueing: {e}");
-                                            FRONTEND_READY.store(false, Ordering::SeqCst);
-                                            if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
-                                                window_manager::queue_pending_file_opens(
-                                                    &mut pending, paths, ws,
-                                                );
-                                            }
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    // Window disappeared between decision and emit — queue and create
-                                    FRONTEND_READY.store(false, Ordering::SeqCst);
-                                    if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
-                                        window_manager::queue_pending_file_opens(
-                                            &mut pending, paths, ws,
-                                        );
+                                // The Emit decision was made under the lock based on
+                                // the main window existing THEN. `app.emit()` is a
+                                // GLOBAL broadcast that returns Ok even with no window
+                                // or listener present, so a window that vanished
+                                // between the decision and now would silently swallow
+                                // the open. Re-check before emitting and re-queue if
+                                // the window is gone (mirrors the previous behavior).
+                                if app.get_webview_window("main").is_none() {
+                                    log::info!(
+                                        "[Finder] main window vanished before emit — re-queueing"
+                                    );
+                                    {
+                                        let mut state = FILE_OPEN_STATE
+                                            .lock()
+                                            .unwrap_or_else(|p| p.into_inner());
+                                        state.frontend_ready = false;
+                                        state.pending.extend(payloads);
                                     }
                                     let _ = window_manager::create_main_window(app, None);
+                                } else {
+                                    log::info!("[Finder] Emitting to main window");
+                                    // app.emit() (global broadcast) so the frontend's
+                                    // global listen() in useFinderFileOpen receives it.
+                                    // window.emit() is webview-specific and is NOT
+                                    // delivered to @tauri-apps/api/event listen().
+                                    let mut failed: Vec<PendingFileOpen> = Vec::new();
+                                    for payload in payloads {
+                                        if let Err(e) = app.emit("app:open-file", payload.clone()) {
+                                            log::warn!("[Finder] emit failed, queueing: {e}");
+                                            failed.push(payload);
+                                        }
+                                    }
+                                    if !failed.is_empty() {
+                                        // Emit failed mid-flight — re-queue and reset
+                                        // readiness so the open isn't lost; create a
+                                        // main window if none remains to drain it.
+                                        {
+                                            let mut state = FILE_OPEN_STATE
+                                                .lock()
+                                                .unwrap_or_else(|p| p.into_inner());
+                                            state.frontend_ready = false;
+                                            state.pending.extend(failed);
+                                        }
+                                        if app.get_webview_window("main").is_none() {
+                                            let _ = window_manager::create_main_window(app, None);
+                                        }
+                                    }
                                 }
                             }
-                            window_manager::FileOpenAction::QueueAndCreateWindow => {
-                                log::info!("[Finder] Queueing files, creating main window");
-                                FRONTEND_READY.store(false, Ordering::SeqCst);
-                                if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
-                                    window_manager::queue_pending_file_opens(
-                                        &mut pending, paths, ws,
-                                    );
-                                }
-                                let _ = window_manager::create_main_window(app, None);
-                            }
-                            window_manager::FileOpenAction::QueueOnly => {
-                                log::info!("[Finder] Queueing files (frontend not ready)");
-                                if let Ok(mut pending) = PENDING_FILE_OPENS.lock() {
-                                    window_manager::queue_pending_file_opens(
-                                        &mut pending, paths, ws,
-                                    );
+                            window_manager::FileOpenOutcome::Queued { create_window } => {
+                                if create_window {
+                                    log::info!("[Finder] Queueing files, creating main window");
+                                    let _ = window_manager::create_main_window(app, None);
+                                } else {
+                                    log::info!("[Finder] Queueing files (frontend not ready)");
                                 }
                             }
                         }

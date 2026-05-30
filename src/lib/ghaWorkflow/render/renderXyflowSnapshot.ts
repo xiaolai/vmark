@@ -30,6 +30,7 @@
  */
 
 import { diagramWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const CONTAINER_ID = "vmark-workflow-snapshot-root";
 const CONTAINER_WIDTH = 800;
@@ -158,7 +159,7 @@ async function drainQueue(): Promise<void> {
       } catch (e) {
         diagramWarn(
           "Workflow snapshot render failed:",
-          e instanceof Error ? e.message : String(e),
+          errorMessage(e),
         );
         job.resolve(null);
       }

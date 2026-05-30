@@ -74,6 +74,7 @@ import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile"
 import { useFileLoadStore } from "@/stores/documentStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { cleanupTabState } from "@/hooks/tabCleanup";
+import { errorMessage } from "@/utils/errorMessage";
 
 async function applyTabTransferData(label: string, data: TabTransferPayload): Promise<void> {
   // Set up workspace: prefer transferred root, fall back to file's parent
@@ -114,7 +115,7 @@ async function removeTransferredTabData(label: string, tabId: string): Promise<v
     const win = getCurrentWebviewWindow();
     await invoke("close_window", { label: win.label }).catch((error: unknown) => {
       /* v8 ignore next -- @preserve String(error) fallback: invoke errors are always Error instances */
-      windowCloseWarn("Failed to close window:", error instanceof Error ? error.message : String(error));
+      windowCloseWarn("Failed to close window:", errorMessage(error));
     });
   }
 }

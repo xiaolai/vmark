@@ -42,13 +42,16 @@ fn parse_timeout(raw: &str) -> Option<u64> {
     if let Ok(n) = trimmed.parse::<u64>() {
         return Some(n);
     }
-    // Suffixed forms.
-    let (numeric, unit) = trimmed.split_at(trimmed.len() - 1);
+    // Suffixed forms. Peel the unit by its last *char*, not its last byte —
+    // a multibyte suffix ("300秒", a trailing emoji) makes `split_at(len-1)`
+    // slice mid-character and panic.
+    let unit = trimmed.chars().next_back()?;
+    let numeric = &trimmed[..trimmed.len() - unit.len_utf8()];
     let n: u64 = numeric.parse().ok()?;
     match unit {
-        "s" => Some(n),
-        "m" => Some(n.saturating_mul(60)),
-        "h" => Some(n.saturating_mul(3600)),
+        's' => Some(n),
+        'm' => Some(n.saturating_mul(60)),
+        'h' => Some(n.saturating_mul(3600)),
         _ => None,
     }
 }
@@ -388,6 +391,28 @@ mod tests {
         };
         let cfg = resolve_step_config(&step, None, &defaults);
         assert_eq!(cfg.max_tokens, Some(2000));
+    }
+
+    // === parse_timeout: multibyte suffix must not panic (WI-0.4, P2) ===
+
+    #[test]
+    fn timeout_multibyte_suffix_returns_none() {
+        // "300秒" — the unit char is multibyte; the old `split_at(len-1)`
+        // sliced mid-character and panicked. Must return None (unparseable).
+        assert_eq!(parse_timeout("300秒"), None);
+    }
+
+    #[test]
+    fn timeout_trailing_emoji_returns_none() {
+        assert_eq!(parse_timeout("300🎉"), None);
+    }
+
+    #[test]
+    fn timeout_known_suffixes_still_parse() {
+        assert_eq!(parse_timeout("45"), Some(45));
+        assert_eq!(parse_timeout("30s"), Some(30));
+        assert_eq!(parse_timeout("5m"), Some(300));
+        assert_eq!(parse_timeout("1h"), Some(3600));
     }
 
     #[test]

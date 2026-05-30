@@ -22,7 +22,9 @@ import { DEFAULT_MERMAID_DIAGRAM } from "@/plugins/mermaid/constants";
 import { DEFAULT_MARKMAP_CONTENT } from "@/plugins/markmap/constants";
 import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected, getActiveFilePath } from "./wysiwygAdapterUtils";
+import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS } from "@/utils/mediaExtensions";
 import type { WysiwygToolbarContext } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 const DEFAULT_MATH_BLOCK = "c = \\pm\\sqrt{a^2 + b^2}";
 const INSERT_IMAGE_GUARD = "menu-insert-image";
@@ -130,7 +132,7 @@ async function insertImageFromPicker(view: EditorView): Promise<boolean> {
     filters: [
       {
         name: "Images",
-        extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg"],
+        extensions: [...IMAGE_EXTENSIONS],
       },
     ],
   });
@@ -168,7 +170,7 @@ export function handleInsertImage(context: WysiwygToolbarContext): boolean {
     await insertImageFromPicker(view);
   }).catch((error) => {
     /* v8 ignore start -- @preserve reason: image insertion error path not exercised in unit tests */
-    wysiwygAdapterWarn("Image insertion failed:", error instanceof Error ? error.message : String(error));
+    wysiwygAdapterWarn("Image insertion failed:", errorMessage(error));
     /* v8 ignore stop */
   });
 
@@ -353,14 +355,12 @@ export function insertInlineMath(context: WysiwygToolbarContext): boolean {
 
 // --- Media insertion (video / audio / YouTube) ---
 
-const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv"];
-const AUDIO_EXTENSIONS = ["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"];
 const INSERT_VIDEO_GUARD = "menu-insert-video";
 const INSERT_AUDIO_GUARD = "menu-insert-audio";
 
 async function insertVideoFromPicker(view: EditorView): Promise<boolean> {
   const selected = await open({
-    filters: [{ name: "Videos", extensions: VIDEO_EXTENSIONS }],
+    filters: [{ name: "Videos", extensions: [...VIDEO_EXTENSIONS] }],
   });
 
   const sourcePath = normalizeDialogPath(selected);
@@ -392,7 +392,7 @@ export function handleInsertVideo(context: WysiwygToolbarContext): boolean {
   void withReentryGuard(windowLabel, INSERT_VIDEO_GUARD, async () => {
     await insertVideoFromPicker(view);
   }).catch((error) => {
-    wysiwygAdapterWarn("Video insertion failed:", error instanceof Error ? error.message : String(error));
+    wysiwygAdapterWarn("Video insertion failed:", errorMessage(error));
   });
 
   return true;
@@ -400,7 +400,7 @@ export function handleInsertVideo(context: WysiwygToolbarContext): boolean {
 
 async function insertAudioFromPicker(view: EditorView): Promise<boolean> {
   const selected = await open({
-    filters: [{ name: "Audio", extensions: AUDIO_EXTENSIONS }],
+    filters: [{ name: "Audio", extensions: [...AUDIO_EXTENSIONS] }],
   });
 
   const sourcePath = normalizeDialogPath(selected);
@@ -432,7 +432,7 @@ export function handleInsertAudio(context: WysiwygToolbarContext): boolean {
   void withReentryGuard(windowLabel, INSERT_AUDIO_GUARD, async () => {
     await insertAudioFromPicker(view);
   }).catch((error) => {
-    wysiwygAdapterWarn("Audio insertion failed:", error instanceof Error ? error.message : String(error));
+    wysiwygAdapterWarn("Audio insertion failed:", errorMessage(error));
   });
 
   return true;

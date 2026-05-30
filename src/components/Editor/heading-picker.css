@@ -44,11 +44,6 @@
   font-size: var(--font-size-sm);
 }
 
-/* Close button uses shared popup-icon-btn styles */
-.heading-picker-close {
-  flex-shrink: 0;
-}
-
 .heading-picker-list {
   flex: 1;
   overflow-y: auto;

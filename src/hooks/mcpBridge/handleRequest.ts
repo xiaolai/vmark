@@ -21,6 +21,7 @@ import { respond } from "./utils";
 import { isActiveDocReadOnly } from "@/services/editor/readOnlyGuard";
 import { dispatchV2, SUPPORTED_TOOL_PREFIXES } from "./v2/dispatch";
 import { v2ErrorString } from "./v2/types";
+import { errorMessage } from "@/utils/errorMessage";
 
 const READ_ONLY_BLOCKED = new Set<string>([
   "vmark.document.write",
@@ -61,7 +62,7 @@ export async function handleRequest(event: McpRequestEvent): Promise<void> {
     await respond({
       id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 }

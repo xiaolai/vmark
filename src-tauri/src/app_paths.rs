@@ -5,10 +5,11 @@
 //! - Legacy ~/.vmark/ directory cleanup
 //! - Atomic file operations to prevent race conditions
 
-use std::fs::{self, File};
+use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tauri::Manager;
+use tempfile::NamedTempFile;
 
 // ============================================================================
 // Constants
@@ -27,10 +28,16 @@ const LEGACY_MCP_SETTINGS_FILE: &str = "mcp-settings.json";
 // Public API (Tauri-dependent)
 // ============================================================================
 
+/// Resolve the app data directory, mapping the Tauri path error to a `String`.
+/// Replaces the repeated `app.path().app_data_dir().map_err(|e| e.to_string())?`
+/// across the backend (WI-3.6 / D7).
+pub fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path().app_data_dir().map_err(|e| e.to_string())
+}
+
 /// Get the path to the port file in the app data directory.
 pub fn get_port_file_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    Ok(app_data.join(MCP_PORT_FILE))
+    Ok(app_data_dir(app)?.join(MCP_PORT_FILE))
 }
 
 /// Best-effort cleanup of legacy ~/.vmark/ directory.
@@ -72,61 +79,43 @@ pub fn atomic_write_file(path: &Path, contents: &[u8]) -> Result<(), String> {
         format!("Cannot determine parent directory of {:?}", path)
     })?;
 
-    // Create temp file in same directory (for same-filesystem rename)
-    let temp_path = parent.join(format!(
-        ".{}.tmp.{}",
-        path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("file"),
-        std::process::id()
-    ));
+    // `NamedTempFile` in the SAME directory → same-filesystem atomic rename, and
+    // RAII cleanup: on any early `?` (write/sync/persist failure) the temp file
+    // is removed on drop, so a mid-write error never leaks a temp file (D7).
+    let mut temp = NamedTempFile::new_in(parent)
+        .map_err(|e| format!("Failed to create temp file in {:?}: {}", parent, e))?;
 
-    // Write to temp file
-    let mut temp_file = File::create(&temp_path).map_err(|e| {
-        format!("Failed to create temp file {:?}: {}", temp_path, e)
-    })?;
+    temp.write_all(contents)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
 
-    temp_file.write_all(contents).map_err(|e| {
-        let _ = fs::remove_file(&temp_path);
-        format!("Failed to write temp file {:?}: {}", temp_path, e)
-    })?;
+    // Sync to disk before the rename so a crash can't expose a zero-length file.
+    temp.as_file()
+        .sync_all()
+        .map_err(|e| format!("Failed to sync temp file: {}", e))?;
 
-    // Sync to disk before rename
-    temp_file.sync_all().map_err(|e| {
-        let _ = fs::remove_file(&temp_path);
-        format!("Failed to sync temp file {:?}: {}", temp_path, e)
-    })?;
-
-    // Atomic rename (on Unix) or replace (on Windows)
-    #[cfg(unix)]
-    {
-        fs::rename(&temp_path, path).map_err(|e| {
-            let _ = fs::remove_file(&temp_path);
-            format!(
-                "Failed to rename {:?} to {:?}: {}",
-                temp_path, path, e
-            )
-        })?;
-    }
-
-    #[cfg(windows)]
-    {
-        // Try rename first; if it fails because target exists, remove then retry.
-        // This avoids the TOCTOU race of check-then-remove-then-rename.
-        if let Err(_first_err) = fs::rename(&temp_path, path) {
-            // Remove target and retry (target may or may not exist)
+    // `persist` does the atomic rename over `path`. On Unix `rename` REPLACES an
+    // existing target, so persist failing there is a genuine error (permission,
+    // I/O, target-is-a-dir) — never "target exists". On Windows `rename` fails
+    // if the target exists, so there we remove-then-retry. Crucially, the
+    // remove-then-retry must be Windows-only: doing it on Unix for an arbitrary
+    // persist error would delete the user's existing file and then still fail to
+    // write the new one (data loss). On any failure the returned temp file is
+    // dropped → removed, so no temp leak.
+    match temp.persist(path) {
+        Ok(_) => Ok(()),
+        #[cfg(windows)]
+        Err(persist_err) => {
+            let temp = persist_err.file;
             let _ = fs::remove_file(path);
-            fs::rename(&temp_path, path).map_err(|e| {
-                let _ = fs::remove_file(&temp_path);
-                format!(
-                    "Failed to rename {:?} to {:?}: {}",
-                    temp_path, path, e
-                )
-            })?;
+            temp.persist(path)
+                .map(|_| ())
+                .map_err(|e| format!("Failed to persist {:?}: {}", path, e.error))
+        }
+        #[cfg(not(windows))]
+        Err(persist_err) => {
+            Err(format!("Failed to persist {:?}: {}", path, persist_err.error))
         }
     }
-
-    Ok(())
 }
 
 // ============================================================================

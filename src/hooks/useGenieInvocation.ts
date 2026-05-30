@@ -48,6 +48,7 @@ import { extractSurroundingContext } from "@/services/editor/extractContext";
 import { createMarkdownPasteSlice } from "@/plugins/markdownPaste/tiptap";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { genieWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 // ============================================================================
 // Content Extraction
@@ -269,15 +270,38 @@ export function useGenieInvocation() {
           return;
         }
 
-        accumulated += chunk.chunk;
-        useGeniePickerStore.getState().appendResponse(chunk.chunk);
+        // Defend the AI-response boundary (WI-4.1, T2): a chunk that omits the
+        // text field (e.g. a terminal done-frame) must not append the literal
+        // string "undefined" to the accumulated result.
+        const text = typeof chunk.chunk === "string" ? chunk.chunk : "";
+        accumulated += text;
+        useGeniePickerStore.getState().appendResponse(text);
 
         if (chunk.done) {
           // Apply accumulated result
           if (accumulated.trim()) {
             const autoApprove = useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
             const isInsert = action === "insert";
-            if (autoApprove) {
+            // Stale-target guard (WI-0.9, C4): if the user navigated to a
+            // different tab while the stream was arriving, the captured
+            // from/to positions belong to the originating doc. Applying them to
+            // the now-active editor would corrupt the wrong document. Preserve
+            // the result as a suggestion scoped to the originating tab instead.
+            const currentTabId =
+              useTabStore.getState().activeTabId[windowLabel] ?? "unknown";
+            const tabSwitched = currentTabId !== tabId;
+            if (autoApprove && tabSwitched) {
+              useAiSuggestionStore.getState().addSuggestion({
+                tabId,
+                type: isInsert ? "insert" : "replace",
+                from: isInsert ? extraction.to : extraction.from,
+                to: extraction.to,
+                newContent: accumulated.trim(),
+                originalContent: isInsert ? "" : extraction.text,
+              });
+              useGeniePickerStore.getState().closePicker();
+              useAiInvocationStore.getState().finish();
+            } else if (autoApprove) {
               // Apply directly — skip ghost text preview
               const editor = useEditorStore.getState().tiptap.editor;
               if (editor) {
@@ -342,7 +366,7 @@ export function useGenieInvocation() {
           cliPath: cliInfo?.path ?? null,
         });
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
+        const message = errorMessage(e);
         useGeniePickerStore.getState().setPickerError(message);
         useAiInvocationStore.getState().setError(message);
         /* v8 ignore start -- ref cleanup timing depends on async listen resolution */
@@ -388,13 +412,30 @@ export function useGenieInvocation() {
             return;
           }
           const { useWorkflowStore } = await import("@/stores/workflowStore");
-          const id = await invoke<string>("run_workflow", {
-            yaml: genie.template,
-            env: {},
-            workspaceRoot,
-            provider,
-          });
+          // Pre-generate the execution id and register it BEFORE invoking the
+          // runner (WI-0.3, C2). A fast workflow can emit step-update/complete
+          // events before invoke() resolves; if executionId is still unset when
+          // they arrive, they are processed against a null id and then wiped by
+          // a late setExecution — losing progress / sticking on "running".
+          // Mirrors useWorkflowExecution.start.
+          const id =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
           useWorkflowStore.getState().setExecution(id);
+          try {
+            await invoke<string>("run_workflow", {
+              yaml: genie.template,
+              env: {},
+              workspaceRoot,
+              provider,
+              executionId: id,
+            });
+          } catch (err) {
+            // Roll the store back so the UI doesn't show a fake "running" state.
+            useWorkflowStore.getState().setExecution(null);
+            throw err;
+          }
           useGeniesStore.getState().addRecent(genie.metadata.name);
         } catch (err) {
           toast.error(String(err));

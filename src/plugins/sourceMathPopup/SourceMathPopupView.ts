@@ -31,6 +31,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { renderWarn } from "@/utils/debug";
 import i18n from "@/i18n";
 import "./source-math-popup.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 type SourceMathPopupState = ReturnType<typeof useSourceMathPopupStore.getState>;
 
@@ -155,7 +156,7 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
       })
       .catch((err: unknown) => {
         if (token !== this.renderToken) return;
-        renderWarn("LaTeX preview failed:", err instanceof Error ? err.message : String(err));
+        renderWarn("LaTeX preview failed:", errorMessage(err));
         this.preview.textContent = trimmed;
         this.error.textContent = i18n.t("editor:popup.math.previewFailed");
       });

@@ -95,7 +95,10 @@ pub async fn create_snapshot(
 
 /// Restore all files from a snapshot.
 ///
-/// Reserved for the workflow-undo feature; not yet wired to a Tauri command.
+/// Reserved for the workflow-undo feature (roadmap: workflow-engine WI-5.4
+/// "File Snapshots for Undo"). The write side (`create_snapshot`) is already
+/// live in the runner; this read side is not yet wired to a Tauri command.
+/// Kept deliberately per audit-remediation WI-1.5.
 #[allow(dead_code)]
 pub async fn restore_snapshot(
     app_data_dir: &Path,
@@ -170,7 +173,8 @@ pub async fn restore_snapshot(
 
 /// List recent snapshots, sorted by timestamp descending.
 ///
-/// Reserved for the workflow-undo UI; not yet wired to a Tauri command.
+/// Reserved for the workflow-undo UI (roadmap: workflow-engine WI-5.4); not yet
+/// wired to a Tauri command. Kept deliberately per audit-remediation WI-1.5.
 #[allow(dead_code)]
 pub async fn list_snapshots(app_data_dir: &Path) -> Result<Vec<SnapshotInfo>, String> {
     let snapshots_dir = app_data_dir.join("workflow-snapshots");

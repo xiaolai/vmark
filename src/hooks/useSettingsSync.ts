@@ -53,14 +53,22 @@ export function handleSettingsStorageEvent(event: StorageEvent): void {
     const currentState = useSettingsStore.getState();
     const updates: Record<string, unknown> = {};
 
-    // Sync all setting groups
+    // Sync all setting groups. Validate each group's SHAPE before merging
+    // (WI-4.2, T3): a malformed cross-tab localStorage write must not inject a
+    // string/array/primitive where a settings group object is expected and
+    // corrupt live settings. Settings groups are always plain objects.
     for (const group of SYNC_GROUPS) {
-      if (parsed.state[group]) {
-        const newValue = parsed.state[group];
-        const currentValue = currentState[group as SyncGroup];
-        if (JSON.stringify(currentValue) !== JSON.stringify(newValue)) {
-          updates[group] = newValue;
-        }
+      const newValue = parsed.state[group];
+      if (
+        newValue == null ||
+        typeof newValue !== "object" ||
+        Array.isArray(newValue)
+      ) {
+        continue; // skip non-object groups — don't corrupt the live store
+      }
+      const currentValue = currentState[group as SyncGroup];
+      if (JSON.stringify(currentValue) !== JSON.stringify(newValue)) {
+        updates[group] = newValue;
       }
     }
 

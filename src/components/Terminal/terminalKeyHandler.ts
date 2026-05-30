@@ -41,6 +41,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Callbacks provided to the terminal key handler for non-shell actions. */
 export interface KeyHandlerCallbacks {
@@ -101,7 +102,7 @@ export function createTerminalKeyHandler(
       case "c": {
         if (term.hasSelection()) {
           writeText(term.getSelection().trimEnd()).catch((error: unknown) => {
-            clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
+            clipboardWarn("Clipboard write failed:", errorMessage(error));
           });
           term.clearSelection();
           return false;
@@ -118,7 +119,7 @@ export function createTerminalKeyHandler(
             ptyRef.current.write(text);
           }
         }).catch((error: unknown) => {
-          clipboardWarn("Clipboard read failed:", error instanceof Error ? error.message : String(error));
+          clipboardWarn("Clipboard read failed:", errorMessage(error));
         });
         return false;
       }

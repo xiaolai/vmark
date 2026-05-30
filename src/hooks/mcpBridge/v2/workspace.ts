@@ -33,8 +33,10 @@ import { useRevisionStore } from "@/stores/documentStore";
 import { getFileName } from "@/utils/paths";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
+import { errorMessage } from "@/utils/errorMessage";
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
@@ -54,20 +56,14 @@ export async function handleWorkspaceNew(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabStore = useTabStore.getState();
     const docStore = useDocumentStore.getState();
     const windowLabel = getWindowLabel(args);
     const tabId = tabStore.createTab(windowLabel, null);
     docStore.initDocument(tabId, "", null);
     await respond({ id, success: true, data: { tabId } });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /**
@@ -78,7 +74,7 @@ export async function handleWorkspaceOpen(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const filePath = args.filePath;
     if (typeof filePath !== "string" || filePath.length === 0) {
       await structuredError(id, {
@@ -93,7 +89,7 @@ export async function handleWorkspaceOpen(
     } catch (e) {
       await structuredError(id, {
         error: "INVALID_PATH",
-        message: `Failed to read ${filePath}: ${e instanceof Error ? e.message : String(e)}`,
+        message: `Failed to read ${filePath}: ${errorMessage(e)}`,
       });
       return;
     }
@@ -106,13 +102,7 @@ export async function handleWorkspaceOpen(
     // adapter (kind: split-pane), bypassing the markdown surface.
     docStore.initDocument(tabId, content, filePath);
     await respond({ id, success: true, data: { tabId } });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 interface SaveResolution {
@@ -165,7 +155,7 @@ export async function handleWorkspaceSave(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const resolved = resolveTabForSave(tabIdArg);
@@ -177,19 +167,13 @@ export async function handleWorkspaceSave(
     useDocumentStore
       .getState()
       .markSaved(resolved.tabId, resolved.content);
-    const revision = useRevisionStore.getState().getRevision();
+    const revision = useRevisionStore.getState().getRevision(resolved.tabId);
     await respond({
       id,
       success: true,
       data: { filePath: resolved.filePath, revision },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /**
@@ -201,7 +185,7 @@ export async function handleWorkspaceSaveAs(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const filePath = args.filePath;
     if (typeof filePath !== "string" || filePath.length === 0) {
       await structuredError(id, {
@@ -254,15 +238,9 @@ export async function handleWorkspaceSaveAs(
     tabState.updateTabTitle(tabId, getFileName(filePath) || "Untitled");
     docState.setFilePath(tabId, filePath);
     docState.markSaved(tabId, doc.content);
-    const revision = useRevisionStore.getState().getRevision();
+    const revision = useRevisionStore.getState().getRevision(tabId);
     await respond({ id, success: true, data: { revision } });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /**
@@ -276,7 +254,7 @@ export async function handleWorkspaceClose(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg = args.tabId;
     if (typeof tabIdArg !== "string") {
       await structuredError(id, {
@@ -311,13 +289,7 @@ export async function handleWorkspaceClose(
     }
     tabState.closeTab(windowLabel, tabIdArg);
     await respond({ id, success: true, data: { closed: true } });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /**
@@ -327,7 +299,7 @@ export async function handleWorkspaceSwitchTab(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg = args.tabId;
     if (typeof tabIdArg !== "string") {
       await structuredError(id, {
@@ -349,13 +321,7 @@ export async function handleWorkspaceSwitchTab(
     }
     tabState.setActiveTab(owner[0], tabIdArg);
     await respond({ id, success: true, data: {} });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /**
@@ -365,7 +331,7 @@ export async function handleWorkspaceFocusWindow(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const windowLabel = args.windowLabel;
     if (typeof windowLabel !== "string") {
       await structuredError(id, {
@@ -391,11 +357,5 @@ export async function handleWorkspaceFocusWindow(
       // error to the AI.
     }
     await respond({ id, success: true, data: {} });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }

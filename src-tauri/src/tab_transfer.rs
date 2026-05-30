@@ -101,18 +101,15 @@ pub fn find_drop_target_window(
         let Ok(size) = window.outer_size() else {
             continue;
         };
-        if size.width == 0 || size.height == 0 {
-            continue;
-        }
 
-        let left = position.x as f64;
-        let top = position.y as f64;
-        let right = left + size.width as f64;
-        let bottom = top + size.height as f64;
-        let contains =
-            screen_x >= left && screen_x <= right && screen_y >= top && screen_y <= bottom;
-
-        if contains {
+        if point_in_window_rect(
+            position.x,
+            position.y,
+            size.width,
+            size.height,
+            screen_x,
+            screen_y,
+        ) {
             let is_focused = window.is_focused().unwrap_or(false);
             if is_focused {
                 focused_match = Some(label.clone());
@@ -168,5 +165,66 @@ pub fn clear_unclaimed_transfer(window_label: &str) {
     let mut guard = registry();
     if let Some(map) = guard.as_mut() {
         map.remove(window_label);
+    }
+}
+
+/// Pure point-in-rect test for a window's outer bounds (WI-5.4, TQ5).
+///
+/// A zero-size window is never a drop target. Edges are inclusive — a point
+/// exactly on a border counts as inside (matches the original drop behavior).
+fn point_in_window_rect(
+    pos_x: i32,
+    pos_y: i32,
+    width: u32,
+    height: u32,
+    screen_x: f64,
+    screen_y: f64,
+) -> bool {
+    if width == 0 || height == 0 {
+        return false;
+    }
+    let left = pos_x as f64;
+    let top = pos_y as f64;
+    let right = left + width as f64;
+    let bottom = top + height as f64;
+    screen_x >= left && screen_x <= right && screen_y >= top && screen_y <= bottom
+}
+
+#[cfg(test)]
+mod tests {
+    use super::point_in_window_rect;
+
+    #[test]
+    fn point_inside_rect() {
+        // window at (100,100) size 800x600 → (500,400) is inside.
+        assert!(point_in_window_rect(100, 100, 800, 600, 500.0, 400.0));
+    }
+
+    #[test]
+    fn point_on_edge_is_inside() {
+        // Top-left and bottom-right corners are inclusive.
+        assert!(point_in_window_rect(100, 100, 800, 600, 100.0, 100.0));
+        assert!(point_in_window_rect(100, 100, 800, 600, 900.0, 700.0));
+    }
+
+    #[test]
+    fn point_outside_rect() {
+        assert!(!point_in_window_rect(100, 100, 800, 600, 50.0, 400.0)); // left of
+        assert!(!point_in_window_rect(100, 100, 800, 600, 901.0, 400.0)); // right of
+        assert!(!point_in_window_rect(100, 100, 800, 600, 500.0, 99.0)); // above
+        assert!(!point_in_window_rect(100, 100, 800, 600, 500.0, 701.0)); // below
+    }
+
+    #[test]
+    fn zero_size_window_never_matches() {
+        assert!(!point_in_window_rect(100, 100, 0, 600, 100.0, 100.0));
+        assert!(!point_in_window_rect(100, 100, 800, 0, 100.0, 100.0));
+    }
+
+    #[test]
+    fn negative_origin_window() {
+        // Windows can sit at negative coords on a multi-monitor setup.
+        assert!(point_in_window_rect(-200, -100, 400, 300, -50.0, 50.0));
+        assert!(!point_in_window_rect(-200, -100, 400, 300, 300.0, 50.0));
     }
 }

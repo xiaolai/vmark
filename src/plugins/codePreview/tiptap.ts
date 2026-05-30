@@ -41,6 +41,7 @@
 
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection, Transaction } from "@tiptap/pm/state";
+import { AttrStep } from "@tiptap/pm/transform";
 import type { EditorView } from "@tiptap/pm/view";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { updateMermaidTheme } from "../mermaid";
@@ -66,7 +67,9 @@ import {
   createWorkflowPreviewWidget,
 } from "./renderers/renderWorkflowPreview";
 import { isWorkflowYaml } from "@/lib/ghaWorkflow/detection";
+import { LruCache } from "@/utils/lruCache";
 import "./code-preview.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 const codePreviewPluginKey = new PluginKey("codePreview");
 const PREVIEW_ONLY_LANGUAGES = new Set(["latex", "mermaid", "markmap", "svg", "$$math$$"]);
@@ -94,7 +97,11 @@ function isPreviewable(language: string, content: string): boolean {
 // only the most-recently-mounted instance.
 const activeEditorViews = new Set<EditorView>();
 
-const previewCache = new Map<string, PreviewCacheEntry>();
+// Bounded so editing diagram/latex/svg blocks doesn't grow the cache
+// unbounded across a session (WI-4.4, R1). Entries are lightweight
+// (rendered string / pending promise), so LRU eviction needs no disposal.
+const PREVIEW_CACHE_MAX = 100;
+const previewCache = new LruCache<string, PreviewCacheEntry>(PREVIEW_CACHE_MAX);
 
 let themeObserverSetup = false;
 
@@ -113,7 +120,7 @@ function setupThemeObserver() {
           }
         }).catch((error: unknown) => {
           /* v8 ignore next -- @preserve non-Error rejections from updateMermaidTheme are theoretically possible but untestable without mocking the MutationObserver callback chain */
-          diagramWarn("Mermaid theme update failed:", error instanceof Error ? error.message : String(error));
+          diagramWarn("Mermaid theme update failed:", errorMessage(error));
         });
         /* v8 ignore start -- @preserve Symmetric with updateMermaidTheme above. Branch coverage is exercised by the markmap module's own tests; the MutationObserver-driven test in tiptap.test.ts can only hit the resolved path, leaving the no-op branch (themeChanged=false) and the .catch path uncoverable from this layer. */
         updateMarkmapTheme(isDark).then((themeChanged) => {
@@ -121,7 +128,7 @@ function setupThemeObserver() {
             previewCache.clear();
           }
         }).catch((error: unknown) => {
-          diagramWarn("Markmap theme update failed:", error instanceof Error ? error.message : String(error));
+          diagramWarn("Markmap theme update failed:", errorMessage(error));
         });
         /* v8 ignore stop */
       }
@@ -178,7 +185,7 @@ function updateLivePreview(
         updateSvgLivePreview(element, trimmed, currentToken, getToken);
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = errorMessage(error);
       diagramWarn("code preview live render failed:", msg);
       element.replaceChildren(
         Object.assign(document.createElement("div"), {
@@ -225,6 +232,42 @@ function changesIntersectRanges(tr: Transaction, ranges: CodeBlockRange[]): bool
       }
     });
     if (intersects) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns true if any step in the transaction could introduce or change a
+ * code-block node at any depth — used to decide whether the prose-only fast
+ * path may safely skip the full document scan (O1 / WI-2.1).
+ *
+ * Two cases, both cheap (no whole-document walk):
+ *  - inserted/markup slices that contain a code-block node (insert, paste,
+ *    `setNodeMarkup` via ReplaceAroundStep) — scanned via the step's slice;
+ *  - a pure attribute change (`AttrStep`, e.g. a code block's `language`
+ *    becoming `mermaid`) which carries NO slice — so we conservatively bail on
+ *    any AttrStep rather than miss a nested block becoming previewable.
+ */
+function transactionMayAffectCodeBlock(tr: Transaction): boolean {
+  for (const step of tr.steps) {
+    // Pure attribute change — no slice to scan; could flip a code block's
+    // language to a previewable one anywhere in the doc.
+    if (step instanceof AttrStep) return true;
+
+    const slice = (step as unknown as { slice?: { content?: { descendants?: unknown } } }).slice;
+    const content = slice?.content as
+      | { descendants: (fn: (node: { type: { name: string } }) => boolean | void) => void }
+      | undefined;
+    if (!content?.descendants) continue;
+    let found = false;
+    content.descendants((node) => {
+      if (node.type.name === "codeBlock" || node.type.name === "code_block") {
+        found = true;
+        return false;
+      }
+      return !found;
+    });
+    if (found) return true;
   }
   return false;
 }
@@ -405,6 +448,39 @@ export const codePreviewExtension = Extension.create({
                     from: tr.mapping.map(r.from),
                     to: tr.mapping.map(r.to),
                   })),
+                };
+              }
+            }
+
+            // O1 fast path — prose-only docs. With zero tracked previewable
+            // code blocks the two fast paths above don't apply (both require a
+            // non-empty decoration set), so every keystroke would otherwise fall
+            // through to the full descendants() walk below. Confirm cheaply that
+            // no previewable block exists or was just inserted, then early-return
+            // the empty set without walking the whole document.
+            if (
+              tr.docChanged &&
+              !editingChanged &&
+              !settingsChanged &&
+              state.codeBlockRanges.length === 0
+            ) {
+              let hasPreviewableTopLevel = false;
+              newState.doc.forEach((node) => {
+                if (
+                  (node.type.name === "codeBlock" || node.type.name === "code_block") &&
+                  isPreviewable(
+                    (node.attrs.language ?? "").toLowerCase(),
+                    node.textContent,
+                  )
+                ) {
+                  hasPreviewableTopLevel = true;
+                }
+              });
+              if (!hasPreviewableTopLevel && !transactionMayAffectCodeBlock(tr)) {
+                return {
+                  decorations: DecorationSet.empty,
+                  editingPos: state.editingPos,
+                  codeBlockRanges: [],
                 };
               }
             }

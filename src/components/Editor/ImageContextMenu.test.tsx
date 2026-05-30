@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 /**
  * ImageContextMenu test suite
@@ -229,5 +230,105 @@ describe("ImageContextMenu", () => {
     const { container } = render(<ImageContextMenu onAction={onAction} />);
     const menu = container.querySelector(".context-menu") as HTMLElement;
     expect(menu).toBeInTheDocument();
+  });
+
+  // ── Accessibility: ARIA roles ────────────────────────────────────
+
+  it("renders the container with role=menu and an accessible name", () => {
+    render(<ImageContextMenu onAction={onAction} />);
+    const menu = screen.getByRole("menu");
+    expect(menu).toBeInTheDocument();
+    expect(menu).toHaveAttribute("aria-label", "Image actions");
+  });
+
+  it("renders each item as a button with role=menuitem", () => {
+    render(<ImageContextMenu onAction={onAction} />);
+    const items = screen.getAllByRole("menuitem");
+    expect(items).toHaveLength(4);
+    for (const item of items) {
+      expect(item.tagName).toBe("BUTTON");
+      expect(item).toHaveAttribute("type", "button");
+    }
+  });
+
+  // ── Accessibility: roving tabindex + focus management ────────────
+
+  it("focuses the first item when the menu opens", () => {
+    render(<ImageContextMenu onAction={onAction} />);
+    expect(screen.getByText("Change Image...").closest("button")).toHaveFocus();
+  });
+
+  it("uses a roving tabindex (focused item = 0, others = -1)", () => {
+    render(<ImageContextMenu onAction={onAction} />);
+    const items = screen.getAllByRole("menuitem");
+    expect(items[0]).toHaveAttribute("tabindex", "0");
+    expect(items[1]).toHaveAttribute("tabindex", "-1");
+    expect(items[2]).toHaveAttribute("tabindex", "-1");
+    expect(items[3]).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("moves focus to the next item on ArrowDown", async () => {
+    const user = userEvent.setup();
+    render(<ImageContextMenu onAction={onAction} />);
+    // The first item is focused on open; keys dispatch to it and bubble
+    // to the container's onKeyDown handler.
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByText("Delete Image").closest("button")).toHaveFocus();
+  });
+
+  it("moves focus to the previous item on ArrowUp (wraps to last)", async () => {
+    const user = userEvent.setup();
+    render(<ImageContextMenu onAction={onAction} />);
+    // From first item, ArrowUp wraps to last item.
+    await user.keyboard("{ArrowUp}");
+    const items = screen.getAllByRole("menuitem");
+    expect(items[items.length - 1]).toHaveFocus();
+  });
+
+  it("jumps to the last item on End and back to first on Home", async () => {
+    const user = userEvent.setup();
+    render(<ImageContextMenu onAction={onAction} />);
+    const items = screen.getAllByRole("menuitem");
+
+    await user.keyboard("{End}");
+    expect(items[items.length - 1]).toHaveFocus();
+
+    await user.keyboard("{Home}");
+    expect(items[0]).toHaveFocus();
+  });
+
+  it("activates the focused item with Enter", async () => {
+    const user = userEvent.setup();
+    render(<ImageContextMenu onAction={onAction} />);
+    // Move to the Delete item, then activate via Enter.
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{Enter}");
+    expect(onAction).toHaveBeenCalledWith("delete");
+    expect(mocks.closeMenu).toHaveBeenCalled();
+  });
+
+  it("activates the focused item with Space", async () => {
+    const user = userEvent.setup();
+    render(<ImageContextMenu onAction={onAction} />);
+    // First item is focused on open; Space activates it.
+    await user.keyboard("[Space]");
+    expect(onAction).toHaveBeenCalledWith("change");
+    expect(mocks.closeMenu).toHaveBeenCalled();
+  });
+
+  it("closes the menu on Tab without activating an item", () => {
+    render(<ImageContextMenu onAction={onAction} />);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Tab" });
+    expect(mocks.closeMenu).toHaveBeenCalled();
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
+  it("ignores navigation keys during IME composition", () => {
+    mocks.isImeKeyEvent.mockReturnValue(true);
+    render(<ImageContextMenu onAction={onAction} />);
+    const items = screen.getAllByRole("menuitem");
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    // Focus stays on the first item (no navigation during composition).
+    expect(items[0]).toHaveAttribute("tabindex", "0");
   });
 });

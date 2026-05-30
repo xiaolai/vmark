@@ -26,6 +26,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ptyWarn, terminalLog } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 // ---------------------------------------------------------------------------
 // Public types — match the tauri-pty interface that spawnPty.ts expects
@@ -150,7 +151,7 @@ class VMarkPty implements IPty {
         this._cleanup();
         // Free the Rust-side session (FDs, memory)
         invoke("pty_close", { pid: this._pid }).catch((err) => {
-          terminalLog("pty_close failed:", err instanceof Error ? err.message : String(err));
+          terminalLog("pty_close failed:", errorMessage(err));
         });
       },
     );
@@ -159,7 +160,7 @@ class VMarkPty implements IPty {
     if (this._destroyed) {
       this._cleanup();
       await invoke("pty_kill", { pid: this._pid }).catch((err) => {
-        terminalLog("pty_kill (setup guard) failed:", err instanceof Error ? err.message : String(err));
+        terminalLog("pty_kill (setup guard) failed:", errorMessage(err));
       });
       return;
     }
@@ -177,7 +178,7 @@ class VMarkPty implements IPty {
     this._ready
       .then(() => invoke("pty_write", { pid: this._pid, data }))
       .catch((err) => {
-        ptyWarn("pty_write failed:", err instanceof Error ? err.message : String(err));
+        ptyWarn("pty_write failed:", errorMessage(err));
       });
   }
 
@@ -189,7 +190,7 @@ class VMarkPty implements IPty {
         invoke("pty_resize", { pid: this._pid, cols: columns, rows }),
       )
       .catch((err) => {
-        ptyWarn("pty_resize failed:", err instanceof Error ? err.message : String(err));
+        ptyWarn("pty_resize failed:", errorMessage(err));
       });
   }
 
@@ -199,7 +200,7 @@ class VMarkPty implements IPty {
     this._ready
       .then(() => invoke("pty_kill", { pid: this._pid }))
       .catch((err) => {
-        terminalLog("pty_kill failed:", err instanceof Error ? err.message : String(err));
+        terminalLog("pty_kill failed:", errorMessage(err));
       });
   }
 
@@ -207,7 +208,7 @@ class VMarkPty implements IPty {
     this._ready
       .then(() => invoke("pty_pause", { pid: this._pid }))
       .catch((err) => {
-        terminalLog("pty_pause failed:", err instanceof Error ? err.message : String(err));
+        terminalLog("pty_pause failed:", errorMessage(err));
       });
   }
 
@@ -215,7 +216,7 @@ class VMarkPty implements IPty {
     this._ready
       .then(() => invoke("pty_resume", { pid: this._pid }))
       .catch((err) => {
-        terminalLog("pty_resume failed:", err instanceof Error ? err.message : String(err));
+        terminalLog("pty_resume failed:", errorMessage(err));
       });
   }
 

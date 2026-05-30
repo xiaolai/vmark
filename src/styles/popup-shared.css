@@ -20,13 +20,6 @@
   animation: popup-fade-in var(--duration-fast) ease-out;
 }
 
-/* Vertical layout variant (for multi-field popups) */
-.popup-container--vertical {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-1-5);
-}
-
 @keyframes popup-fade-in {
   from {
     opacity: 0;
@@ -142,14 +135,6 @@
   color: var(--error-color);
 }
 
-/* Button row container */
-.popup-btn-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-half);
-  margin-left: auto;
-}
-
 /* Preview text */
 .popup-preview {
   min-height: 18px;
@@ -157,14 +142,6 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   font-family: var(--font-mono);
-}
-
-/* Input row (for horizontal layout with input + buttons) */
-.popup-input-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-half);
-  width: 100%;
 }
 
 /* Dark theme overrides */

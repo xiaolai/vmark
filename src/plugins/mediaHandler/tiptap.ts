@@ -25,6 +25,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
 import { mediaHandlerError } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const mediaHandlerPluginKey = new PluginKey("mediaHandler");
 
@@ -97,7 +98,7 @@ async function handleDroppedMediaFile(view: EditorView, file: File): Promise<voi
   } catch (error) {
     mediaHandlerError("Failed to handle dropped media file:", error);
     await message(
-      `Failed to save media file: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to save media file: ${errorMessage(error)}`,
       { title: "Error", kind: "error" }
     );
   }

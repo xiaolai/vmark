@@ -13,6 +13,7 @@ import i18n from "@/i18n";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { wikiLinkPopupWarn, wikiLinkPopupError } from "@/utils/debug";
+import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
 import {
   calculatePopupPosition,
   getBoundaryRects,
@@ -275,7 +276,7 @@ export class WikiLinkPopupView {
       const selected = await open({
         filters: [
           { name: "Markdown", extensions: ["md", "markdown"] },
-          { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "svg", "webp"] },
+          { name: "Images", extensions: [...IMAGE_EXTENSIONS] },
           { name: "Documents", extensions: ["pdf", "txt", "html"] },
           { name: "All Files", extensions: ["*"] },
         ],

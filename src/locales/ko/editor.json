@@ -71,6 +71,7 @@
   "headingPicker.empty.heading": "(빈 제목)",
   "headingPicker.empty.noHeadings": "문서에 제목 없음",
   "headingPicker.empty.noMatch": "필터와 일치하는 제목 없음",
+  "imageMenu.ariaLabel": "이미지 작업",
   "imageMenu.changeImage": "이미지 변경...",
   "imageMenu.deleteImage": "이미지 삭제",
   "imageMenu.copyPath": "이미지 경로 복사",

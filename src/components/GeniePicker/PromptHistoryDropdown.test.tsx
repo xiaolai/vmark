@@ -348,5 +348,23 @@ describe("PromptHistoryDropdown", () => {
 
       removeSpy.mockRestore();
     });
+
+    // A4 — list is a listbox; rows are options with aria-selected on the
+    // active row so screen readers announce selection.
+    it("exposes listbox/option roles with aria-selected on the active row", () => {
+      render(
+        <PromptHistoryDropdown
+          entries={["First", "Second", "Third"]}
+          selectedIndex={1}
+          onSelect={onSelect}
+          onClose={onClose}
+        />
+      );
+      expect(screen.getByRole("listbox")).toBeInTheDocument();
+      const options = screen.getAllByRole("option");
+      expect(options).toHaveLength(3);
+      expect(options[1]).toHaveAttribute("aria-selected", "true");
+      expect(options[0]).toHaveAttribute("aria-selected", "false");
+    });
   });
 });

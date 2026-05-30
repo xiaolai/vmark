@@ -22,6 +22,7 @@ import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { HOT_EXIT_EVENTS } from '../hotExit/types';
 import { pullWindowStateWithRetry, restoreWindowState } from '../hotExit/restoreHelpers';
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Maximum retries when pulling state (handles timing issues) */
 const MAX_STATE_RETRIES = 5;
@@ -101,7 +102,7 @@ export async function restoreMainWindowState(): Promise<void> {
   } catch (error) {
     resetMainRestoreGuard();
     hotExitWarn('Main window restore failed:', error);
-    emitRestoreFailed(error instanceof Error ? error.message : String(error));
+    emitRestoreFailed(errorMessage(error));
   }
 }
 
@@ -153,7 +154,7 @@ export function useHotExitRestore() {
         }
         /* v8 ignore stop */
         hotExitWarn(`Window '${windowLabel}' restore failed:`, error);
-        emitRestoreFailed(error instanceof Error ? error.message : String(error));
+        emitRestoreFailed(errorMessage(error));
       } finally {
         isRestoring.current = false;
       }

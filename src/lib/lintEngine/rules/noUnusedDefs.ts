@@ -14,16 +14,15 @@
 
 import { visit } from "unist-util-visit";
 import type { Root, Definition } from "mdast";
-import { createDiagnostic, type LintDiagnostic } from "../types";
+import { createDiagnostic, type LintDiagnostic, type LintLineIndex } from "../types";
 import { normalizeLabel } from "./labelUtils";
 
 /**
  * Scan source for full-reference patterns [text][label] and ![alt][label].
  * Returns a Set of normalized labels that appear as references.
  */
-function findReferencedLabels(source: string): Set<string> {
+function findReferencedLabels(lines: string[]): Set<string> {
   const usedLabels = new Set<string>();
-  const lines = source.split("\n");
   let inFencedBlock = false;
   let fenceChar = "";
   let fenceLen = 0;
@@ -90,11 +89,15 @@ function findReferencedLabels(source: string): Set<string> {
   return usedLabels;
 }
 
-export function noUnusedDefs(source: string, mdast: Root): LintDiagnostic[] {
+export function noUnusedDefs(
+  _source: string,
+  mdast: Root,
+  { lines }: LintLineIndex,
+): LintDiagnostic[] {
   const diagnostics: LintDiagnostic[] = [];
 
   // Get all referenced labels from source text
-  const usedLabels = findReferencedLabels(source);
+  const usedLabels = findReferencedLabels(lines);
 
   // Check each definition node from MDAST
   visit(mdast, "definition", (node: Definition) => {

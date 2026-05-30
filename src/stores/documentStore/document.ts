@@ -98,6 +98,28 @@ interface DocumentStore {
   getAllDirtyDocuments: () => string[]; // Returns tabIds
 }
 
+/**
+ * Tab-existence guard for `initDocument` (C1, defense-in-depth).
+ *
+ * documentStore stays decoupled from tabStore: the app wires a predicate at
+ * the composition root (`main.tsx`) via `setTabExistenceGuard`, rather than
+ * documentStore importing tabStore. The default is permissive (`null`), so
+ * pure store unit tests — and any context without tab tracking — behave
+ * exactly as before.
+ *
+ * When wired, `initDocument` no-ops if the tab was closed while its file read
+ * was in flight (the orphan-resurrection race), mirroring the `updateDoc`
+ * missing-key guard the sibling mutators already use. This is defense in depth
+ * behind the primary caller-side re-check in `useFileOpen`.
+ */
+let tabExistsGuard: ((tabId: string) => boolean) | null = null;
+
+/** Wire (or clear with `null`) the tab-existence predicate consulted by
+ *  `initDocument`. Called once at app startup; reset to `null` in tests. */
+export function setTabExistenceGuard(fn: ((tabId: string) => boolean) | null): void {
+  tabExistsGuard = fn;
+}
+
 const createInitialDocument = (content = "", filePath: string | null = null): DocumentState => ({
   content,
   savedContent: content,
@@ -154,6 +176,12 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: {},
 
   initDocument: (tabId, content = "", filePath = null, savedContent?) => {
+    // Defense-in-depth (C1): if the tab was closed while its file read was in
+    // flight, don't resurrect an orphan document entry. No-op when the guard
+    // is wired and reports the tab gone; permissive (proceed) when unwired.
+    if (tabExistsGuard && !tabExistsGuard(tabId)) {
+      return;
+    }
     const doc = createInitialDocument(content, filePath);
     if (savedContent !== undefined) {
       doc.savedContent = savedContent;

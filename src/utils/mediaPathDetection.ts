@@ -10,37 +10,15 @@
  * @module utils/mediaPathDetection
  */
 
-export const VIDEO_EXTENSIONS = [
-  ".mp4",
-  ".webm",
-  ".mov",
-  ".avi",
-  ".mkv",
-  ".m4v",
-  ".ogv",
-] as const;
+// Dotted media-extension lists — single source of truth (WI-0.6, D3).
+// Re-exported (VIDEO/AUDIO) to preserve this module's public surface.
+import {
+  IMAGE_EXTENSIONS_DOTTED as IMAGE_EXTENSIONS,
+  VIDEO_EXTENSIONS_DOTTED as VIDEO_EXTENSIONS,
+  AUDIO_EXTENSIONS_DOTTED as AUDIO_EXTENSIONS,
+} from "./mediaExtensions";
 
-export const AUDIO_EXTENSIONS = [
-  ".mp3",
-  ".m4a",
-  ".ogg",
-  ".wav",
-  ".flac",
-  ".aac",
-  ".opus",
-] as const;
-
-const IMAGE_EXTENSIONS = [
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".bmp",
-  ".ico",
-  ".avif",
-] as const;
+export { VIDEO_EXTENSIONS, AUDIO_EXTENSIONS };
 
 /**
  * Extract the file extension from a path or URL, ignoring query params.

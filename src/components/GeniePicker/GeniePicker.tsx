@@ -31,6 +31,7 @@ import { usePromptHistory } from "@/hooks/usePromptHistory";
 import type { GenieDefinition, GenieScope } from "@/types/aiGenies";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { useAiSuggestionStore } from "@/stores/aiStore";
 import { GenieChips } from "./GenieChips";
 import { GenieItem } from "./GenieItem";
@@ -297,25 +298,16 @@ export function GeniePicker() {
     }
   }, [promptHistory.displayValue, filter, flatList.length]);
 
-  // Click outside to close
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        handleClose();
-      }
-    };
-    const timeout = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
-    return () => {
-      clearTimeout(timeout);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, handleClose]);
+  // Click outside to close. Escape is handled by the component's own
+  // onKeyDown (mode-aware: resetToInput in processing/preview/error,
+  // close otherwise), so only the outside-click half is delegated here.
+  // Deferred attach prevents the opening click from immediately
+  // dismissing; bubble phase matches the original code.
+  useDismissOnOutsideOrEscape(isOpen, containerRef, handleClose, {
+    deferActivation: true,
+    escape: false,
+    capture: false,
+  });
 
   // Scroll selected item into view
   useEffect(() => {
@@ -490,6 +482,8 @@ export function GeniePicker() {
               <button
                 type="button"
                 className="provider-switcher-trigger"
+                aria-haspopup="menu"
+                aria-expanded={showProviderSwitcher}
                 onClick={() => setShowProviderSwitcher((v) => !v)}
               >
                 {t("picker.via", { name: activeProviderName })}

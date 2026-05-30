@@ -5,7 +5,7 @@
  * even when Mermaid's inline styles are stripped by sanitization.
  *
  * This file is imported by mermaid.css and shared across all
- * mermaid preview contexts (code-preview, mermaid-preview-popup, mermaid-block).
+ * mermaid preview contexts (code-preview, mermaid-preview-popup).
  */
 
 /* ========================================
@@ -23,11 +23,6 @@
 .mermaid-preview-content .node ellipse,
 .mermaid-preview-content .node polygon,
 .mermaid-preview-content .node path,
-.mermaid-block-preview .node rect,
-.mermaid-block-preview .node circle,
-.mermaid-block-preview .node ellipse,
-.mermaid-block-preview .node polygon,
-.mermaid-block-preview .node path,
 .code-block-live-preview.mermaid-live-preview .node rect,
 .code-block-live-preview.mermaid-live-preview .node circle,
 .code-block-live-preview.mermaid-live-preview .node ellipse,
@@ -40,7 +35,6 @@
 /* Subgraph/cluster background */
 .mermaid-preview .cluster rect,
 .mermaid-preview-content .cluster rect,
-.mermaid-block-preview .cluster rect,
 .code-block-live-preview.mermaid-live-preview .cluster rect {
   fill: var(--bg-secondary, #f5f5f5);
   stroke: var(--border-color, #d5d5d5);
@@ -73,11 +67,6 @@
 .dark-theme .mermaid-preview-content .node ellipse,
 .dark-theme .mermaid-preview-content .node polygon,
 .dark-theme .mermaid-preview-content .node path,
-.dark-theme .mermaid-block-preview .node rect,
-.dark-theme .mermaid-block-preview .node circle,
-.dark-theme .mermaid-block-preview .node ellipse,
-.dark-theme .mermaid-block-preview .node polygon,
-.dark-theme .mermaid-block-preview .node path,
 .dark-theme .code-block-live-preview.mermaid-live-preview .node rect,
 .dark-theme .code-block-live-preview.mermaid-live-preview .node circle,
 .dark-theme .code-block-live-preview.mermaid-live-preview .node ellipse,
@@ -89,7 +78,6 @@
 
 .dark-theme .mermaid-preview .cluster rect,
 .dark-theme .mermaid-preview-content .cluster rect,
-.dark-theme .mermaid-block-preview .cluster rect,
 .dark-theme .code-block-live-preview.mermaid-live-preview .cluster rect {
   fill: var(--bg-tertiary, #1f2937);
   stroke: var(--border-color, #4b5563);

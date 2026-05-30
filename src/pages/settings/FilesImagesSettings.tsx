@@ -14,6 +14,7 @@ import { useSettingsStore, type ImageAutoResizeOption } from "@/stores/settingsS
 import { rebuildNativeMenu } from "@/services/menu/rebuildNativeMenu";
 import { updateWorkspaceConfig } from "@/hooks/workspaceConfig";
 import { RefreshCw, ExternalLink } from "lucide-react";
+import { errorMessage } from "@/utils/errorMessage";
 
 export function FilesImagesSettings() {
   const { t } = useTranslation("settings");
@@ -272,14 +273,14 @@ function DocumentToolsSettings() {
           await rebuildNativeMenu();
         } catch (err) {
           if (mountedRef.current) {
-            setDetectError(err instanceof Error ? err.message : String(err));
+            setDetectError(errorMessage(err));
           }
         }
       }
     } catch (err) {
       if (!mountedRef.current) return;
       setPandoc(null);
-      setDetectError(err instanceof Error ? err.message : String(err));
+      setDetectError(errorMessage(err));
     } finally {
       if (mountedRef.current) setDetecting(false);
     }

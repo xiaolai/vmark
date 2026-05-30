@@ -33,6 +33,7 @@
 
 export {
   useDocumentStore,
+  setTabExistenceGuard,
   type DocumentState,
   type CursorInfo,
 } from "./documentStore/document";

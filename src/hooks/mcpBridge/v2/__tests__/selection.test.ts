@@ -251,7 +251,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
   it("rejects writes whose expected_revision is stale", async () => {
     seedTab("t-stale", "Hello world", null);
     makeTiptap("<p>Hello world</p>", 7, 12);
-    useRevisionStore.getState().setRevision(generateRevisionId());
+    useRevisionStore.getState().setRevision("t-stale", generateRevisionId());
     const stale = "rev-OLDOLDOL";
 
     await handleSelectionSet("req-stale", {
@@ -273,7 +273,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
   it("accepts writes whose expected_revision matches current", async () => {
     seedTab("t-ok", "Hello world", null);
     makeTiptap("<p>Hello world</p>", 7, 12);
-    const current = useRevisionStore.getState().getRevision();
+    const current = useRevisionStore.getState().getRevision("t-ok");
 
     await handleSelectionSet("req-ok", {
       content: "ok",

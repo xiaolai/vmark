@@ -405,11 +405,6 @@
   background: var(--accent-bg);
 }
 
-.provider-switcher-item--unavailable {
-  opacity: var(--opacity-muted);
-  cursor: not-allowed;
-}
-
 .provider-switcher-check {
   width: var(--size-icon-xs);
   height: var(--size-icon-xs);
@@ -422,19 +417,6 @@
 
 .provider-switcher-name {
   flex: 1;
-}
-
-.provider-switcher-badge {
-  font-size: var(--font-size-2xs);
-  padding: var(--space-px) 5px;
-  border-radius: var(--radius-pill);
-  border: var(--border-thin) solid var(--border-color);
-  color: var(--text-tertiary);
-}
-
-.provider-switcher-badge--available {
-  border-color: var(--success-color);
-  color: var(--success-color);
 }
 
 .provider-switcher-key {
@@ -501,11 +483,6 @@
 
 .dark-theme .provider-switcher {
   box-shadow: var(--popup-shadow-dark);
-}
-
-.dark-theme .provider-switcher-badge--available {
-  color: var(--success-color-dark);
-  border-color: var(--success-color-dark);
 }
 
 /* Reduced motion */

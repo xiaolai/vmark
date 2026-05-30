@@ -20,16 +20,17 @@
  * @coordinates-with createTerminalInstance.ts — provides resetDisplay()
  * @module components/Terminal/TerminalContextMenu
  */
-import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useLayoutEffect, useRef, useCallback } from "react";
 import { Copy, CopyMinus, ClipboardPaste, Square, Trash2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import type { IPty } from "@/lib/pty";
-import { isImeKeyEvent } from "@/utils/imeGuard";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
 import "../Sidebar/FileExplorer/ContextMenu.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface MenuItem {
   id: string;
@@ -71,25 +72,8 @@ export function TerminalContextMenu({
       : []),
   ];
 
-  // Close on click outside (capture phase) and Escape
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (isImeKeyEvent(e)) return;
-      if (e.key === "Escape") onClose();
-    };
-
-    document.addEventListener("mousedown", handleClickOutside, true);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside, true);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
+  // Close on click outside (capture phase) and Escape (IME-aware).
+  useDismissOnOutsideOrEscape(true, menuRef, onClose);
 
   // Adjust position to keep in viewport (useLayoutEffect to avoid flicker)
   useLayoutEffect(() => {
@@ -158,7 +142,7 @@ export function TerminalContextMenu({
         // fire and the test runner would surface the noise. (Audit Round A H3.)
         clipboardWarn(
           "Terminal context-menu action failed:",
-          err instanceof Error ? err.message : String(err),
+          errorMessage(err),
         );
       } finally {
         onClose();

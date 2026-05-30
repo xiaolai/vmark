@@ -9,6 +9,9 @@
 - `dev-docs/large-file-open-pipeline.md`: end-to-end pipeline for the large-file open UX — tiers, routing, forced Source mode, indeterminate indicator, and the perf tricks in TiptapEditor.
 - `dev-docs/plans/20260504-github-actions-workflow-viewer.md`: GitHub Actions workflow viewer + structured editor — IR pivot, ADRs, 10-phase plan with all phases complete. End-user docs at `website/guide/workflow-viewer.md`; perf benchmark at `src/bench/workflow.bench.ts`.
 - `dev-docs/house-cleaning/`: recurring framework for paying down measurable debt — daily (T1) / weekly (T2) / monthly (T3) / quarterly (T4) cadence with per-tier runbooks, ledger schema, and findings template. Complements the existing `audit/` chunk reports.
+- `dev-docs/audit/20260530-dead-code-and-optimization.md`: multi-round whole-repo audit (dead code, optimization, type safety, duplication, bundle weight, resource lifecycle, Rust panic-safety, concurrency/races, accessibility, test gaps). Grep-verified findings + a cross-round priority list. **Remediated by `dev-docs/plans/20260530-audit-remediation.md`** (branch `chore/audit-remediation`).
+- `dev-docs/plans/20260530-audit-remediation.md`: the 6-phase remediation plan for the audit above — WI breakdown, ADRs, Codex cross-model review, and recorded defer/abort decisions. Implemented end-to-end; Status header tracks what shipped vs. deferred (WI-2.6 abort, WI-2.8 defer, T4/O8/D8/A4/C6 deferred).
+- `dev-docs/audit/20260530-plan-audit-findings.md`: conformance audit of the shipped remediation against the plan + source audit — flags plan-vs-audit completeness gaps (T4 Medium follow-up) and partial-AC items (WI-0.2 store test, WI-4.1 2-of-4 validators, WI-1.1 visual QA pending).
 - `dev-docs/decisions/`: architecture decision records (ADRs).
   - `heading-ime-composition-fix.md`: How we fixed the WebKit heading IME split-block bug — 5 attempts, root cause analysis, and why prevention beats repair.
 

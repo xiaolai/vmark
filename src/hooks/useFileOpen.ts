@@ -27,11 +27,13 @@ import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
 import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
 import { createUntitledTab } from "@/services/navigation/newFile";
 import { detectLinebreaks } from "@/utils/linebreakDetection";
+import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Open a file in a new tab (core logic).
@@ -74,7 +76,7 @@ export async function openFileInNewTabCore(
     !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
   let loadId: number | null = null;
   if (showIndicator) {
-    const filename = path.split("/").pop() ?? path;
+    const filename = getFileName(path) || path;
     loadId = useFileLoadStore.getState().startLoad(filename, route.sizeBytes);
   }
 
@@ -82,6 +84,16 @@ export async function openFileInNewTabCore(
     perfStart("readTextFile");
     const content = await readTextFile(path);
     perfEnd("readTextFile", { size: content.length });
+
+    // Close-during-open guard (WI-0.2, C1): the tab can be closed while this
+    // read is in flight. Writing the document now would resurrect an orphan
+    // entry for a tab that no longer exists. Re-check existence post-await —
+    // mirrors the `updateDoc` missing-key guard the sibling mutators use.
+    if (!useTabStore.getState().findTabById(tabId)) {
+      perfMark("openFileInNewTab:tabClosedDuringRead");
+      if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
+      return;
+    }
 
     // WI-2.6 — YAML force-source bandaid retired. YAML files now route
     // through the YAML adapter (kind: split-pane) via the format
@@ -111,7 +123,7 @@ export async function openFileInNewTabCore(
     // Clean up the orphaned tab — without initDocument, it renders blank.
     // Use detachTab (not closeTab) to avoid polluting the "reopen closed tab" history.
     useTabStore.getState().detachTab(windowLabel, tabId);
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg = errorMessage(error);
     // Pin: system errors include paths/codes worth reading carefully.
     toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
       pin: true,
@@ -214,7 +226,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
           !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
         let replaceLoadId: number | null = null;
         if (showIndicator) {
-          const filename = path.split("/").pop() ?? path;
+          const filename = getFileName(path) || path;
           replaceLoadId = useFileLoadStore
             .getState()
             .startLoad(filename, route.sizeBytes);
@@ -260,7 +272,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
           if (replaceLoadId !== null) {
             useFileLoadStore.getState().endLoad(replaceLoadId);
           }
-          const msg = error instanceof Error ? error.message : String(error);
+          const msg = errorMessage(error);
           // Pin: system error includes paths and codes the user may want
           // to copy to investigate (permission denied, missing file, etc.)
           toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }), {

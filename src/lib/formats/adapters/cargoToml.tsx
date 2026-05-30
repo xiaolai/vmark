@@ -17,6 +17,7 @@ import type {
 } from "../types";
 import { DepList } from "./DepList";
 import "./dep-tree.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 // Cross-platform separator — accept both POSIX `/` and Windows `\`.
 // Anchored at end-of-string after stripping query/fragment so paths
@@ -90,7 +91,7 @@ export function collectCargoDependencies(
       dev: [],
       build: [],
       parseError:
-        error instanceof Error ? error.message : String(error),
+        errorMessage(error),
     };
   }
   const root = (parsed ?? {}) as Record<string, unknown>;

@@ -42,10 +42,12 @@ import {
 import { applyPatch, type IRPatch } from "@/lib/ghaWorkflow/save/mutators";
 import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
 import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
+import { errorMessage } from "@/utils/errorMessage";
 
 const VALID_PATCH_KINDS: ReadonlySet<string> = new Set([
   "workflow.set",
@@ -175,7 +177,7 @@ export async function handleWorkflowApplyPatch(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const expectedRevision =
@@ -199,12 +201,12 @@ export async function handleWorkflowApplyPatch(
     const revisionStore = useRevisionStore.getState();
     if (
       expectedRevision !== undefined &&
-      !revisionStore.isCurrentRevision(expectedRevision)
+      !revisionStore.isCurrentRevision(tabOrError.tabId, expectedRevision)
     ) {
       await structuredError(id, {
         error: "STALE",
         message: "Document has changed since the last read",
-        current_revision: revisionStore.getRevision(),
+        current_revision: revisionStore.getRevision(tabOrError.tabId),
       });
       return;
     }
@@ -220,7 +222,7 @@ export async function handleWorkflowApplyPatch(
       await structuredError(id, {
         error: "INVALID_PATCH",
         message: `Patch application failed: ${
-          e instanceof Error ? e.message : String(e)
+          errorMessage(e)
         }`,
       });
       return;
@@ -231,16 +233,16 @@ export async function handleWorkflowApplyPatch(
       await respond({
         id,
         success: true,
-        data: { revision: revisionStore.getRevision() },
+        data: { revision: revisionStore.getRevision(tabOrError.tabId) },
       });
       return;
     }
 
     const contentBefore = tabOrError.content;
-    const revisionBefore = revisionStore.getRevision();
+    const revisionBefore = revisionStore.getRevision(tabOrError.tabId);
     useDocumentStore.getState().setContent(tabOrError.tabId, nextContent);
-    revisionStore.updateRevision();
-    const revisionAfter = revisionStore.getRevision();
+    revisionStore.updateRevision(tabOrError.tabId);
+    const revisionAfter = revisionStore.getRevision(tabOrError.tabId);
 
     const cpId = useMcpStore.getState().checkpointPush({
       tabId: tabOrError.tabId,
@@ -259,13 +261,7 @@ export async function handleWorkflowApplyPatch(
       success: true,
       data: { revision: revisionAfter },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /**
@@ -278,7 +274,7 @@ export async function handleWorkflowValidate(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const tabOrError = resolveWorkflowTab(tabIdArg);
@@ -303,11 +299,5 @@ export async function handleWorkflowValidate(
         error: outcome.error,
       },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }

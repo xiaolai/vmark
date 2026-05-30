@@ -3,6 +3,12 @@
  * operations. Each meaningful edit bumps the revision so external readers
  * (the MCP server, in particular) can detect changes between reads.
  *
+ * Revisions are keyed **per tab** (WI-0.10, C5). A previous global revision
+ * meant an MCP `document.write` targeting a non-active tab was validated
+ * against the *active* tab's revision — causing false STALE rejections or
+ * missed staleness. Each tab now carries its own revision; an unknown tab is
+ * lazily initialized on first read so a read→write cycle stays consistent.
+ *
  * @module stores/documentStore/revision
  */
 
@@ -23,54 +29,80 @@ export function generateRevisionId(): string {
   return `rev-${randomString(8)}`;
 }
 
-interface RevisionState {
-  /** Current document revision */
-  currentRevision: string;
+interface RevisionEntry {
+  /** Current revision for this tab */
+  revision: string;
   /** Timestamp of last revision change */
   lastUpdated: number;
 }
 
-interface RevisionActions {
-  /** Update revision after a document change */
-  updateRevision: () => string;
-  /** Set a specific revision (used on document load) */
-  setRevision: (revision: string) => void;
-  /** Get the current revision */
-  getRevision: () => string;
-  /** Check if a revision matches current */
-  isCurrentRevision: (revision: string) => boolean;
+interface RevisionState {
+  /** Per-tab revision entries, keyed by tab id. */
+  revisions: Record<string, RevisionEntry>;
 }
 
-const initialRevision = generateRevisionId();
+interface RevisionActions {
+  /** Update a tab's revision after a document change; returns the new id. */
+  updateRevision: (tabId: string) => string;
+  /** Set a specific revision for a tab (used on document load). */
+  setRevision: (tabId: string, revision: string) => void;
+  /** Get a tab's current revision, lazily initializing an unknown tab. */
+  getRevision: (tabId: string) => string;
+  /** Check whether `revision` matches a tab's current revision. */
+  isCurrentRevision: (tabId: string, revision: string) => boolean;
+  /** Drop a tab's revision entry (called on tab close). */
+  clearRevision: (tabId: string) => void;
+}
 
-/** Manages document revision IDs for optimistic concurrency control in MCP operations. Use selectors, not destructuring. */
+/** Manages per-tab document revision IDs for optimistic concurrency control in MCP operations. Use selectors, not destructuring. */
 export const useRevisionStore = create<RevisionState & RevisionActions>(
   (set, get) => ({
-    currentRevision: initialRevision,
-    lastUpdated: Date.now(),
+    revisions: {},
 
-    updateRevision: () => {
+    updateRevision: (tabId: string) => {
       const newRevision = generateRevisionId();
-      set({
-        currentRevision: newRevision,
-        lastUpdated: Date.now(),
-      });
+      set((s) => ({
+        revisions: {
+          ...s.revisions,
+          [tabId]: { revision: newRevision, lastUpdated: Date.now() },
+        },
+      }));
       return newRevision;
     },
 
-    setRevision: (revision: string) => {
-      set({
-        currentRevision: revision,
-        lastUpdated: Date.now(),
+    setRevision: (tabId: string, revision: string) => {
+      set((s) => ({
+        revisions: {
+          ...s.revisions,
+          [tabId]: { revision, lastUpdated: Date.now() },
+        },
+      }));
+    },
+
+    getRevision: (tabId: string) => {
+      const existing = get().revisions[tabId];
+      if (existing) return existing.revision;
+      // Lazily initialize so a read→write cycle on a never-edited tab agrees.
+      const revision = generateRevisionId();
+      set((s) => ({
+        revisions: {
+          ...s.revisions,
+          [tabId]: { revision, lastUpdated: Date.now() },
+        },
+      }));
+      return revision;
+    },
+
+    isCurrentRevision: (tabId: string, revision: string) => {
+      return get().getRevision(tabId) === revision;
+    },
+
+    clearRevision: (tabId: string) => {
+      set((s) => {
+        if (!(tabId in s.revisions)) return s;
+        const { [tabId]: _, ...rest } = s.revisions;
+        return { revisions: rest };
       });
-    },
-
-    getRevision: () => {
-      return get().currentRevision;
-    },
-
-    isCurrentRevision: (revision: string) => {
-      return get().currentRevision === revision;
     },
   })
 );

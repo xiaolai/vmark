@@ -17,6 +17,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { joinPath } from "@/utils/pathUtils";
 import { exportError } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Pandoc detection result from Rust backend. */
 interface PandocInfo {
@@ -100,7 +101,7 @@ export async function exportViaPandoc(options: {
     return true;
   } catch (error) {
     exportError("Pandoc export failed:", error);
-    const detail = error instanceof Error ? error.message : String(error);
+    const detail = errorMessage(error);
     // Pin: pandoc errors are typically multi-line stderr output worth reading.
     toast.error(i18n.t("dialog:toast.pandocExportError", { error: detail }), {
       pin: true,

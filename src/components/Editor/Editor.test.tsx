@@ -133,6 +133,7 @@ vi.mock("@/stores/documentStore", () => {
       registerEdit: vi.fn(),
       setRevision: vi.fn(),
       updateRevision: vi.fn(),
+      getRevision: vi.fn(() => "rev-test"),
     }),
     generateRevisionId: () => "rev-test",
     useUnifiedHistoryStore: createZustandMock({

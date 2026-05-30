@@ -9,6 +9,9 @@ vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({ removeDocument: mockRemoveDocument }),
   },
+  useRevisionStore: {
+    getState: () => ({ clearRevision: vi.fn() }),
+  },
   useUnifiedHistoryStore: {
     getState: () => ({ clearDocument: mockClearDocument }),
   },

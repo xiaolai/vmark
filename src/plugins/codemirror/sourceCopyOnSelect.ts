@@ -19,6 +19,7 @@ import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cleanTextForClipboard } from "@/plugins/markdownCopy/tiptap";
 import { clipboardWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Creates a CodeMirror plugin that auto-copies selected text to clipboard. */
 export function createSourceCopyOnSelectPlugin(): Extension {
@@ -46,7 +47,7 @@ export function createSourceCopyOnSelectPlugin(): Extension {
           const text = cleanTextForClipboard(raw);
           if (text) {
             navigator.clipboard.writeText(text).catch((error: unknown) => {
-              clipboardWarn("Clipboard write failed:", error instanceof Error ? error.message : String(error));
+              clipboardWarn("Clipboard write failed:", errorMessage(error));
             });
           }
         });

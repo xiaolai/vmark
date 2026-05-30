@@ -21,6 +21,7 @@ import type {
 } from "../types";
 import { DepList as SharedDepList, type DepEntry } from "./DepList";
 import "./dep-tree.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 const PYPROJECT_FILENAME_RE = /(^|[/\\])pyproject\.toml$/i;
 
@@ -103,7 +104,7 @@ export function collectPyprojectDependencies(
       optionalGroups: {},
       poetryRuntime: [],
       poetryDev: [],
-      parseError: error instanceof Error ? error.message : String(error),
+      parseError: errorMessage(error),
     };
   }
   const root = (parsed ?? {}) as Record<string, unknown>;

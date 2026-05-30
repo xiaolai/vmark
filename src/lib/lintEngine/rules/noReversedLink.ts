@@ -25,9 +25,8 @@ function isInsideInlineCode(line: string, matchIndex: number): boolean {
 
 const REVERSED_LINK_RE = /\(([^)]+)\)\[([^\]]+)\]/g;
 
-export const noReversedLink: LintRule = (source) => {
+export const noReversedLink: LintRule = (_source, _mdast, { lines }) => {
   const diagnostics = [];
-  const lines = source.split("\n");
   const tracker = new CodeBlockTracker();
   let lineOffset = 0;
 

@@ -77,7 +77,7 @@ export function createSourceTypewriterPlugin() {
 
             // Find the scrollable container
             const scrollContainer =
-              (view.dom.closest(".editor-content") as HTMLElement) ||
+              (view.dom.closest(".editor-content") as HTMLElement | null) ||
               view.dom.parentElement;
             if (!scrollContainer) return;
 

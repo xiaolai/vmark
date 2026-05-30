@@ -7,6 +7,8 @@ import { registerAllPlugins } from "./plugins/manifests";
 import { initSecureStorage } from "./utils/secureStorage";
 import { bootstrapFormats } from "./lib/formats";
 import { useSettingsStore } from "./stores/settingsStore";
+import { setTabExistenceGuard } from "./stores/documentStore";
+import { useTabStore } from "./stores/tabStore";
 import "./styles/index.css";
 // Shared syntax-highlight palette (source-syntax.css + json-view-theme.css
 // both consume these vars). Global so the vars resolve wherever either renders.
@@ -23,6 +25,12 @@ const SECURE_KEYS = ["vmark-ai-providers"];
 
 async function bootstrap() {
   await initSecureStorage(SECURE_KEYS);
+
+  // C1 defense-in-depth: teach documentStore.initDocument to skip writes for
+  // tabs that no longer exist (closed mid-file-read). Wired here at the
+  // composition root so documentStore stays decoupled from tabStore and pure
+  // store unit tests remain permissive.
+  setTabExistenceGuard((tabId) => useTabStore.getState().findTabById(tabId) !== null);
 
   // ADR-011: register every plugin's manifest with the central registry
   // so palette / debug / dependency tooling sees the full plugin set.

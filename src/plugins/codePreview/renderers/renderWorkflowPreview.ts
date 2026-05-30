@@ -24,6 +24,7 @@ import { Decoration } from "@tiptap/pm/view";
 import { sanitizeSvg } from "@/utils/sanitize";
 import { diagramWarn } from "@/utils/debug";
 import { installDoubleClickHandler, type PreviewCache } from "../previewHelpers";
+import { errorMessage } from "@/utils/errorMessage";
 
 // Lazy-load the snapshot renderer only when a workflow code fence
 // actually requires rendering. This keeps xyflow + react-dom + the
@@ -54,7 +55,7 @@ async function renderWorkflowToSvg(yaml: string): Promise<string | null> {
   } catch (e) {
     diagramWarn(
       "Workflow preview: snapshot failed:",
-      e instanceof Error ? e.message : String(e),
+      errorMessage(e),
     );
     return null;
   }
@@ -118,7 +119,7 @@ export function createWorkflowPreviewWidget(
         .catch((error: unknown) => {
           diagramWarn(
             "Workflow preview render failed:",
-            error instanceof Error ? error.message : String(error),
+            errorMessage(error),
           );
           placeholder.className =
             "code-block-preview workflow-preview workflow-preview--error";

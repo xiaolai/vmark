@@ -86,14 +86,21 @@ export function UniversalToolbar() {
     [buttons, toolbarContext]
   );
 
+  // The AI-Prompts action button sits after the formatting groups and is
+  // folded into the roving-tabindex model as a trailing pseudo-button at index
+  // `buttons.length` (a11y/A4 — otherwise it is keyboard-unreachable: the
+  // toolbar is out of the tab order until focused, and arrow nav only spans the
+  // group buttons). It is always enabled and is an action (never a dropdown).
+  const genieFocusIndex = buttons.length;
+
   const isButtonFocusable = useCallback(
-    (index: number) => !buttonStates[index]?.disabled,
-    [buttonStates]
+    (index: number) => (index === genieFocusIndex ? true : !buttonStates[index]?.disabled),
+    [buttonStates, genieFocusIndex]
   );
 
   const isDropdownButton = useCallback(
-    (index: number) => buttons[index]?.type === "dropdown",
-    [buttons]
+    (index: number) => (index === genieFocusIndex ? false : buttons[index]?.type === "dropdown"),
+    [buttons, genieFocusIndex]
   );
 
   const focusActiveEditor = useCallback(() => {
@@ -200,12 +207,17 @@ export function UniversalToolbar() {
 
   // Keyboard navigation
   const { handleKeyDown, focusedIndex, setFocusedIndex } = useToolbarKeyboard({
-    buttonCount: buttons.length,
+    buttonCount: buttons.length + 1, // +1 for the trailing AI-Prompts button (A4)
     containerRef,
     isButtonFocusable,
     isDropdownButton,
     focusMode: toolbarHasFocus,
     onActivate: (index) => {
+      // Trailing AI-Prompts pseudo-button — open the genie picker (A4).
+      if (index === genieFocusIndex) {
+        useGeniePickerStore.getState().openPicker({ filterScope: "selection" });
+        return;
+      }
       const button = buttons[index];
       /* v8 ignore next -- @preserve reason: button is always defined for valid index; defensive null guard */
       if (!button) return;
@@ -275,9 +287,12 @@ export function UniversalToolbar() {
     (direction: "left" | "right" | "forward" | "backward") => {
       const isArrowNav = direction === "left" || direction === "right";
       const isNext = direction === "right" || direction === "forward";
+      // genieFocusIndex + 1 = full roving count (group buttons + the trailing
+      // AI-Prompts pseudo-button), so dropdown-exit nav can land on the Genie
+      // button too (A4).
       const newIndex = isNext
-        ? getNextFocusableIndex(focusedIndex, buttons.length, isButtonFocusable)
-        : getPrevFocusableIndex(focusedIndex, buttons.length, isButtonFocusable);
+        ? getNextFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable)
+        : getPrevFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable);
 
       setFocusedIndex(newIndex);
       useUIStore.getState().setToolbarSessionFocusIndex(newIndex);
@@ -306,7 +321,7 @@ export function UniversalToolbar() {
         )?.focus();
       });
     },
-    [closeMenu, focusedIndex, buttons, buttonStates, isButtonFocusable, isDropdownButton, setFocusedIndex]
+    [closeMenu, focusedIndex, buttons, genieFocusIndex, buttonStates, isButtonFocusable, isDropdownButton, setFocusedIndex]
   );
 
   // Update session focus index when user navigates
@@ -491,14 +506,23 @@ export function UniversalToolbar() {
 
       {/* AI Prompts button */}
       <div className="universal-toolbar-divider" />
+      {/* a11y (A4): folded into the roving-tabindex model as the trailing
+          pseudo-button at `genieFocusIndex` so arrow nav reaches it and it
+          stays out of the tab order when the toolbar is unfocused — see the
+          genieFocusIndex / buttonCount wiring above. */}
       <button
         type="button"
         className="universal-toolbar-btn"
         title={`${t("toolbar.aiPrompts")} (⌘Y)`}
         aria-label={t("toolbar.aiPrompts")}
-        tabIndex={-1}
+        data-focus-index={genieFocusIndex}
+        tabIndex={toolbarHasFocus && focusedIndex === genieFocusIndex ? 0 : -1}
         data-action="genie"
-        onClick={() => useGeniePickerStore.getState().openPicker({ filterScope: "selection" })}
+        onClick={() => {
+          setFocusedIndex(genieFocusIndex);
+          useUIStore.getState().setToolbarSessionFocusIndex(genieFocusIndex);
+          useGeniePickerStore.getState().openPicker({ filterScope: "selection" });
+        }}
       >
         <span
           className="universal-toolbar-icon"

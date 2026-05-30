@@ -295,3 +295,102 @@ fn metadata_from_flat(frontmatter_block: &str, name: String) -> GenieMetadata {
         tags: None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // WI-5.2 — genie frontmatter parser (TQ3 coverage gap).
+    use super::*;
+
+    #[test]
+    fn no_frontmatter_uses_filename_and_full_template() {
+        let r = parse_genie("Just a prompt body", "/g/improve-clarity.md").unwrap();
+        assert_eq!(r.metadata.name, "improve-clarity");
+        assert_eq!(r.metadata.scope, "selection");
+        assert_eq!(r.template, "Just a prompt body");
+    }
+
+    #[test]
+    fn strips_utf8_bom_before_parsing_frontmatter() {
+        let content = "\u{FEFF}---\ndescription: hi\n---\nBody";
+        let r = parse_genie(content, "/g/x.md").unwrap();
+        assert_eq!(r.metadata.description, "hi");
+        assert_eq!(r.template, "Body");
+    }
+
+    #[test]
+    fn four_dash_fence_is_not_treated_as_frontmatter() {
+        // "----" must NOT open a frontmatter block (the char after "---" must be
+        // a newline, not another dash).
+        let content = "----\ndescription: no\n----\nBody";
+        let r = parse_genie(content, "/g/dashes.md").unwrap();
+        assert_eq!(r.metadata.name, "dashes");
+        assert_eq!(r.metadata.description, "");
+        assert_eq!(r.template, content);
+    }
+
+    #[test]
+    fn missing_closing_fence_errors() {
+        let content = "---\ndescription: hi\nno closing fence";
+        let err = parse_genie(content, "/g/y.md").unwrap_err();
+        assert!(err.contains("No closing"));
+    }
+
+    #[test]
+    fn empty_frontmatter_yields_bare_v0_metadata() {
+        let content = "---\n---\nBody";
+        let r = parse_genie(content, "/g/empty.md").unwrap();
+        assert_eq!(r.metadata.name, "empty");
+        assert_eq!(r.metadata.scope, "selection");
+        assert_eq!(r.metadata.description, "");
+        assert_eq!(r.template, "Body");
+    }
+
+    #[test]
+    fn scalar_frontmatter_yields_bare_v0_metadata() {
+        // Frontmatter that parses as a YAML scalar (not a mapping).
+        let content = "---\njust a scalar\n---\nBody";
+        let r = parse_genie(content, "/g/scalar.md").unwrap();
+        assert_eq!(r.metadata.scope, "selection");
+        assert_eq!(r.template, "Body");
+    }
+
+    #[test]
+    fn malformed_yaml_falls_back_to_flat_parser() {
+        // `bad: [unclosed` is invalid YAML (unclosed flow sequence) → serde_yaml
+        // fails → the lenient flat key:value parser still extracts the good keys.
+        let content = "---\ndescription: hello\nscope: document\nbad: [unclosed\n---\nBody";
+        let r = parse_genie(content, "/g/flat.md").unwrap();
+        assert_eq!(r.metadata.scope, "document");
+        assert_eq!(r.metadata.description, "hello");
+        assert_eq!(r.template, "Body");
+    }
+
+    #[test]
+    fn parses_v1_nested_io_and_tags() {
+        let content =
+            "---\ngenie: v1\nscope: selection\ninput:\n  type: text\n  accept: md\ntags: [a, b]\n---\nBody";
+        let r = parse_genie(content, "/g/v1.md").unwrap();
+        assert_eq!(r.metadata.version.as_deref(), Some("v1"));
+        assert_eq!(r.metadata.input.as_ref().unwrap().io_type, "text");
+        assert_eq!(
+            r.metadata.tags.as_ref().unwrap(),
+            &vec!["a".to_string(), "b".to_string()]
+        );
+    }
+
+    #[test]
+    fn strips_control_chars_from_derived_name() {
+        let r = parse_genie("body", "/g/wei\u{1}rd.md").unwrap();
+        assert_eq!(r.metadata.name, "weird");
+    }
+
+    #[test]
+    fn invalid_action_and_scope_clamp_to_defaults() {
+        let content = "---\naction: explode\ncontext: 9\napproval: maybe\n---\nB";
+        let r = parse_genie(content, "/g/clamp.md").unwrap();
+        // Invalid enum values are dropped (None), not passed through.
+        assert_eq!(r.metadata.action, None);
+        assert_eq!(r.metadata.context, None); // 9 > 2 → filtered out
+        assert_eq!(r.metadata.approval, None);
+    }
+}

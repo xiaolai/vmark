@@ -17,6 +17,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { SettingRow, SettingsGroup, Toggle, Button, SearchInput } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { errorMessage } from "@/utils/errorMessage";
 
 export function FormatsSettings() {
   const { t } = useTranslation("settings");
@@ -57,7 +58,7 @@ export function FormatsSettings() {
       // The Tauri dialog plugin only throws on real failures (permission
       // denied, plugin not initialized). User-cancel returns null without
       // throwing — surface the unexpected ones instead of swallowing.
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       toast.error(message);
       return;
     }

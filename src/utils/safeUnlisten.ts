@@ -16,6 +16,7 @@
  */
 
 import { cleanupWarn } from "@/utils/debug";
+import { errorMessage } from "./errorMessage";
 
 /**
  * Safely call an unlisten function, catching any errors.
@@ -47,7 +48,7 @@ export function safeUnlistenAsync(
   unlistenPromise
     .then((unlisten) => safeUnlisten(unlisten))
     .catch((error: unknown) => {
-      cleanupWarn("Listener cleanup failed:", error instanceof Error ? error.message : String(error));
+      cleanupWarn("Listener cleanup failed:", errorMessage(error));
     });
 }
 

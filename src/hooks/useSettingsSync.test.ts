@@ -15,6 +15,27 @@ beforeEach(() => {
 });
 
 describe("useSettingsSync cross-window sync", () => {
+  // WI-4.2 — reject malformed cross-tab writes (T3)
+  describe("rejects malformed group shapes", () => {
+    it("does not corrupt live settings when a group is a non-object", () => {
+      const before = useSettingsStore.getState().appearance.theme;
+      // A malformed write injects a string where an object group is expected.
+      handleSettingsStorageEvent(
+        createStorageEvent({ appearance: "not-an-object" as never }),
+      );
+      // Live settings untouched.
+      expect(useSettingsStore.getState().appearance.theme).toBe(before);
+      expect(typeof useSettingsStore.getState().appearance).toBe("object");
+    });
+
+    it("ignores array and null groups", () => {
+      const before = useSettingsStore.getState().general.tabSize;
+      handleSettingsStorageEvent(createStorageEvent({ general: [1, 2, 3] as never }));
+      handleSettingsStorageEvent(createStorageEvent({ general: null as never }));
+      expect(useSettingsStore.getState().general.tabSize).toBe(before);
+    });
+  });
+
   describe("syncs all setting groups", () => {
     it("syncs appearance settings", () => {
       const newAppearance = {

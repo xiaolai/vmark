@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { useDocumentStore } from "./documentStore";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { useDocumentStore, setTabExistenceGuard } from "./documentStore";
+import { useTabStore } from "./tabStore";
 
 describe("documentStore", () => {
   const WINDOW_LABEL = "test-window";
@@ -550,5 +551,54 @@ describe("documentStore", () => {
       useDocumentStore.getState().setReadOnly("nonexistent", true);
       expect(useDocumentStore.getState().isReadOnly("nonexistent")).toBe(false);
     });
+  });
+});
+
+// WI-0.2 / C1 — store-level tab-existence guard (AC-a). Verifies the
+// defense-in-depth guard inside initDocument: a file read that resolves AFTER
+// its tab was closed must not resurrect an orphan document entry. Uses the
+// real tabStore wired through setTabExistenceGuard, exactly as main.tsx wires
+// it in production. Scoped here (not in the suite above) so the default-
+// permissive guard the other tests rely on is untouched.
+describe("initDocument tab-existence guard (C1, AC-a)", () => {
+  const WINDOW = "guard-window";
+
+  beforeEach(() => {
+    // Wire the real predicate, mirroring main.tsx.
+    setTabExistenceGuard((tabId) => useTabStore.getState().findTabById(tabId) !== null);
+  });
+
+  afterEach(() => {
+    // Restore permissive default so the rest of the suite is unaffected.
+    setTabExistenceGuard(null);
+    useTabStore.getState().removeWindow(WINDOW);
+    const docStore = useDocumentStore.getState();
+    Object.keys(docStore.documents).forEach((id) => docStore.removeDocument(id));
+  });
+
+  it("does not resurrect an orphan when the tab was closed before the read resolved", () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    // Tab closed while the file read is still in flight.
+    useTabStore.getState().closeTab(WINDOW, tabId);
+    expect(useTabStore.getState().findTabById(tabId)).toBeNull();
+
+    // The awaited read finally resolves and tries to initialize the document.
+    useDocumentStore.getState().initDocument(tabId, "late content", "/late.md");
+
+    expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
+  });
+
+  it("still initializes normally for a live tab", () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/live.md");
+
+    useDocumentStore.getState().initDocument(tabId, "hello", "/live.md");
+
+    expect(useDocumentStore.getState().getDocument(tabId)?.content).toBe("hello");
+  });
+
+  it("is permissive when no guard is wired (default behavior preserved)", () => {
+    setTabExistenceGuard(null);
+    useDocumentStore.getState().initDocument("no-guard-tab", "x");
+    expect(useDocumentStore.getState().getDocument("no-guard-tab")?.content).toBe("x");
   });
 });

@@ -16,7 +16,7 @@ use super::types::RawWorkflow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
@@ -39,10 +39,32 @@ impl RunningGuard {
 
 impl Drop for RunningGuard {
     fn drop(&mut self) {
-        self.app
-            .state::<WorkflowRunnerState>()
-            .running
-            .store(false, Ordering::SeqCst);
+        self.app.state::<WorkflowRunnerState>().clear_running();
+    }
+}
+
+/// Outcome of evaluating a cancel request against the currently-running
+/// execution. Pure (no Tauri/i18n dependency) so it is unit-testable.
+#[derive(Debug, PartialEq, Eq)]
+enum CancelDecision {
+    /// The requested id matches the running execution — fire the cancel.
+    Cancel,
+    /// Nothing is running, or a *different* execution is running. The
+    /// requested execution must not be cancelled.
+    NotRunning,
+}
+
+/// Decide whether a cancel request for `requested_id` should fire, given the
+/// id of the execution currently running (`current`, `None` when idle).
+///
+/// Honoring the execution id (C6) closes a TOCTOU window: execution A finishes
+/// and execution B starts before A's late `cancel_workflow(A)` arrives. A
+/// global `running`-only check would cancel B; matching the id drops the stale
+/// request instead.
+fn decide_cancel(current: Option<&str>, requested_id: &str) -> CancelDecision {
+    match current {
+        Some(id) if id == requested_id => CancelDecision::Cancel,
+        _ => CancelDecision::NotRunning,
     }
 }
 
@@ -63,6 +85,26 @@ pub struct WorkflowRunnerState {
     /// `respond_workflow_approval` looks the entry up and delivers the user's
     /// verdict; the runner awaits the matching receiver.
     pub approvals: Arc<ApprovalRegistry>,
+    /// Id of the execution currently running, or `None` when idle.
+    /// `run_workflow` sets it under the concurrency guard; `RunningGuard::drop`
+    /// clears it. `cancel_workflow` matches against it so a stale cancel for an
+    /// already-finished execution can't cancel whatever started next (C6).
+    pub current_execution: Arc<Mutex<Option<String>>>,
+}
+
+impl WorkflowRunnerState {
+    /// Release the concurrency flag and clear the published execution id.
+    /// Called by `RunningGuard::drop`; factored out (no `AppHandle`) so the
+    /// cancel-lifecycle clearing is unit-testable without a Tauri runtime.
+    fn clear_running(&self) {
+        self.running.store(false, Ordering::SeqCst);
+        // Clear the running execution id so a late cancel targeting the
+        // finished execution can no longer fire against whatever starts next.
+        *self
+            .current_execution
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
+    }
 }
 
 /// Execute a workflow from YAML string.
@@ -161,11 +203,16 @@ pub async fn run_workflow(
     let cancel_token = Arc::clone(&state.cancel_requested);
     let app_clone = app.clone();
 
-    // Create snapshot of files that may be modified
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to resolve app data directory: {}", e))?;
+    // Create snapshot of files that may be modified. This is the last fallible
+    // pre-spawn step; on error we must release the `running` concurrency flag
+    // (the RunningGuard that normally does this only exists once we spawn).
+    let app_data_dir = match app.path().app_data_dir() {
+        Ok(d) => d,
+        Err(e) => {
+            state.running.store(false, Ordering::SeqCst);
+            return Err(format!("Failed to resolve app data directory: {}", e));
+        }
+    };
     let snapshot_workspace = workspace.clone();
 
     // Collect file paths from save-file steps for snapshotting
@@ -207,6 +254,16 @@ pub async fn run_workflow(
     // Approval registry is per-app, shared across executions.
     let approvals = Arc::clone(&state.approvals);
 
+    // Publish the running execution id only now — after every fallible
+    // pre-spawn step has succeeded — so an early-return error path can never
+    // leave a stale id behind. From here, RunningGuard::drop clears it on every
+    // exit path of the spawned task. A cancel arriving right after invoke()
+    // resolves still matches, because we return execution_id immediately below.
+    *state
+        .current_execution
+        .lock()
+        .unwrap_or_else(|p| p.into_inner()) = Some(execution_id.clone());
+
     // Spawn runner as background task — return ID immediately.
     //
     // Wrapped in spawn_logged so a panic inside the runner is logged instead
@@ -240,18 +297,94 @@ pub async fn run_workflow(
 }
 
 /// Cancel a running workflow.
+///
+/// The cancel only fires when `execution_id` matches the execution currently
+/// running (C6). A request for any other id — typically a stale cancel for an
+/// execution that already finished — is rejected so it can't cancel a workflow
+/// that started in the meantime.
 #[tauri::command]
 pub async fn cancel_workflow(
     _app: AppHandle,
-    _execution_id: String,
+    execution_id: String,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<(), String> {
-    if !state.running.load(Ordering::SeqCst) {
-        return Err(rust_i18n::t!("errors.workflow.notRunning").to_string());
+    let current = state
+        .current_execution
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone();
+    match decide_cancel(current.as_deref(), &execution_id) {
+        CancelDecision::Cancel => {
+            state.cancel_requested.store(true, Ordering::SeqCst);
+            log::info!("Workflow cancellation requested for {}", execution_id);
+            Ok(())
+        }
+        CancelDecision::NotRunning => {
+            Err(rust_i18n::t!("errors.workflow.notRunning").to_string())
+        }
     }
-    state.cancel_requested.store(true, Ordering::SeqCst);
-    log::info!("Workflow cancellation requested");
-    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancel_fires_when_id_matches_running_execution() {
+        assert_eq!(decide_cancel(Some("exec-a"), "exec-a"), CancelDecision::Cancel);
+    }
+
+    #[test]
+    fn cancel_rejected_when_nothing_is_running() {
+        // A cancel arriving while idle must not arm the cancel flag.
+        assert_eq!(decide_cancel(None, "exec-a"), CancelDecision::NotRunning);
+    }
+
+    #[test]
+    fn cancel_rejected_when_a_different_execution_is_running() {
+        // The TOCTOU case: exec-a finished, exec-b started, late cancel(exec-a)
+        // arrives — it must NOT cancel exec-b.
+        assert_eq!(
+            decide_cancel(Some("exec-b"), "exec-a"),
+            CancelDecision::NotRunning
+        );
+    }
+
+    fn state_with(running: bool, exec: Option<&str>) -> WorkflowRunnerState {
+        WorkflowRunnerState {
+            running: AtomicBool::new(running),
+            cancel_requested: Arc::new(AtomicBool::new(false)),
+            approvals: Arc::new(ApprovalRegistry::new()),
+            current_execution: Arc::new(Mutex::new(exec.map(str::to_string))),
+        }
+    }
+
+    #[test]
+    fn clear_running_releases_flag_and_execution_id() {
+        // Mirrors what RunningGuard::drop does on every exit path: the running
+        // execution id and the concurrency flag are both released, so the next
+        // run starts clean and a stale cancel can no longer match.
+        let st = state_with(true, Some("exec-a"));
+        st.clear_running();
+        assert!(!st.running.load(Ordering::SeqCst));
+        assert!(st
+            .current_execution
+            .lock()
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn cancel_no_longer_matches_after_clear() {
+        // End-to-end of the cancel state transition: publish id → clear (as on
+        // drop / pre-spawn failure) → a cancel for that id is now rejected.
+        let st = state_with(true, Some("exec-a"));
+        let published = st.current_execution.lock().unwrap().clone();
+        assert_eq!(decide_cancel(published.as_deref(), "exec-a"), CancelDecision::Cancel);
+        st.clear_running();
+        let after = st.current_execution.lock().unwrap().clone();
+        assert_eq!(decide_cancel(after.as_deref(), "exec-a"), CancelDecision::NotRunning);
+    }
 }
 
 /// Respond to an outstanding approval request from the frontend dialog.

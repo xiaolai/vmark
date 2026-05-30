@@ -9,19 +9,22 @@
  * Async operations (mkdir, copyFile, etc.) are in hooks/useImageOperations.
  */
 
-export const ASSETS_FOLDER = "assets/images";
+import { IMAGE_EXTENSIONS } from "./mediaExtensions";
 
 /**
- * Supported image extensions.
+ * Supported image extensions (bare form). Re-exported from the single source
+ * of truth so every detection path agrees (WI-0.6, D3).
  */
-export const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"];
+export { IMAGE_EXTENSIONS };
+
+export const ASSETS_FOLDER = "assets/images";
 
 /**
  * Check if a filename has an image extension.
  */
 export function isImageFile(filename: string): boolean {
   const ext = filename.split(".").pop()?.toLowerCase();
-  return IMAGE_EXTENSIONS.includes(ext || "");
+  return (IMAGE_EXTENSIONS as readonly string[]).includes(ext || "");
 }
 
 /**

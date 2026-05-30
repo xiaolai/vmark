@@ -49,6 +49,7 @@ import {
 } from "./terminalSessionStoreSync";
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
+import { errorMessage } from "@/utils/errorMessage";
 
 const PTY_RESIZE_DEBOUNCE_MS = 100;
 
@@ -203,7 +204,7 @@ export function useTerminalSessions(
       const e = sessionsRef.current.get(sessionId);
       if (e && !e.disposed) {
         e.shellSpawning = false;
-        const errMsg = err instanceof Error ? err.message : String(err);
+        const errMsg = errorMessage(err);
         e.instance.term.write(`\r\nFailed to start shell: ${errMsg}\r\n`);
         e.instance.term.write("Press any key to retry...\r\n");
         e.shellExited = true;

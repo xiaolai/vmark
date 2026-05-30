@@ -1,6 +1,7 @@
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUnifiedHistoryStore } from "@/stores/documentStore";
 import { useLintStore } from "@/stores/documentStore";
+import { useRevisionStore } from "@/stores/documentStore";
 import { useAiSuggestionStore } from "@/stores/aiStore";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { clearPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
@@ -12,6 +13,7 @@ import { clearPendingLintScroll } from "@/hooks/lintNavigation";
  */
 export function cleanupTabState(tabId: string): void {
   useDocumentStore.getState().removeDocument(tabId);
+  useRevisionStore.getState().clearRevision(tabId);
   useUnifiedHistoryStore.getState().clearDocument(tabId);
   useLintStore.getState().clearDiagnostics(tabId);
   useAiSuggestionStore.getState().clearForTab(tabId);

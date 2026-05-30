@@ -1158,6 +1158,41 @@ describe("useGenieInvocation — picker store wiring", () => {
   // Streaming: done + autoApprove + editor null → error
   // =========================================================================
 
+  // WI-0.9 — genie streaming applies to stale target after navigation (C4)
+  it("does not auto-apply to a different tab when the tab switches mid-stream", async () => {
+    const fakeEditor = setupProviderAndEditor();
+    useSettingsStore.setState({
+      advanced: { mcpServer: { autoApproveEdits: true } } as never,
+    });
+    useTabStore.setState({ activeTabId: { main: "tab-1" } });
+
+    const { result } = renderHook(() => useGenieInvocation());
+    await act(async () => {
+      await result.current.invokeGenie(makeGenie());
+    });
+
+    const requestId = useAiInvocationStore.getState().requestId;
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "new content", done: false, error: null } });
+    });
+
+    // User navigates to a different tab while the stream is still arriving.
+    useTabStore.setState({ activeTabId: { main: "tab-2" } });
+
+    act(() => {
+      listenCallback?.({ payload: { requestId, chunk: "", done: true, error: null } });
+    });
+
+    // The edit must NOT be dispatched into the now-active (different) editor.
+    expect(fakeEditor.view.dispatch).not.toHaveBeenCalled();
+
+    // The work is preserved as a suggestion scoped to the ORIGINATING tab.
+    const suggestions = useAiSuggestionStore.getState().suggestions;
+    expect(suggestions.size).toBe(1);
+    const [, suggestion] = [...suggestions.entries()][0];
+    expect(suggestion.tabId).toBe("tab-1");
+  });
+
   it("sets error when editor is null during auto-approve apply", async () => {
     setupProviderAndEditor();
     useSettingsStore.setState({

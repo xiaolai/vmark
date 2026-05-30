@@ -15,6 +15,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { writeRecoverySnapshot } from "@/utils/crashRecovery";
 import { crashRecoveryLog } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const WRITE_INTERVAL_MS = 10_000;
 
@@ -98,7 +99,7 @@ async function writeDirtySnapshots(
     crashRecoveryLog(
       "Writer error:",
       /* v8 ignore next -- defensive: errors from Tauri invoke are always Error instances */
-      error instanceof Error ? error.message : String(error)
+      errorMessage(error)
     );
   } finally {
     writingRef.current = false;

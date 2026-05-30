@@ -41,19 +41,26 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previousFocusRef = useRef<Element | null>(null);
 
   const ranked: RankedCommand[] = useMemo(
     () => (isOpen ? searchCommands(query) : []),
     [isOpen, query],
   );
 
+  // Reset and focus on open; restore previous focus on close (a11y).
   useEffect(() => {
     if (isOpen) {
+      previousFocusRef.current = document.activeElement;
       setQuery("");
       setSelectedIndex(0);
       // Focus the input after the next render frame so the autoFocus
       // lands after the overlay paints.
       requestAnimationFrame(() => inputRef.current?.focus());
+    } else if (previousFocusRef.current) {
+      const el = previousFocusRef.current as HTMLElement;
+      if (typeof el.focus === "function") el.focus();
+      previousFocusRef.current = null;
     }
   }, [isOpen]);
 
@@ -101,7 +108,12 @@ export function CommandPalette() {
         if (e.target === e.currentTarget) close();
       }}
     >
-      <div className="command-palette" role="dialog" aria-label={t("commands:aria.commandPalette")}>
+      <div
+        className="command-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("commands:aria.commandPalette")}
+      >
         <input
           ref={inputRef}
           className="command-palette__input"
@@ -110,8 +122,14 @@ export function CommandPalette() {
           placeholder={t("commands:commandPalette.placeholder")}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          role="combobox"
+          aria-expanded={ranked.length > 0}
+          aria-controls="command-palette-list"
+          aria-activedescendant={
+            ranked.length > 0 ? `command-palette-item-${selectedIndex}` : undefined
+          }
         />
-        <ul className="command-palette__list" role="listbox">
+        <ul className="command-palette__list" id="command-palette-list" role="listbox">
           {ranked.length === 0 ? (
             <li className="command-palette__empty">
               {t("commands:commandPalette.empty")}
@@ -121,6 +139,7 @@ export function CommandPalette() {
               <li
                 key={row.command.id}
                 role="option"
+                id={`command-palette-item-${i}`}
                 aria-selected={i === selectedIndex}
                 className={`command-palette__row${i === selectedIndex ? " is-selected" : ""}`}
                 onMouseDown={(e) => {

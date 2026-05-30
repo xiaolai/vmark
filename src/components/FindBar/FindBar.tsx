@@ -176,6 +176,7 @@ export function FindBar() {
             <button
               className={`find-bar-toggle ${useRegex ? "active" : ""}`}
               onClick={handleToggleRegex}
+              aria-pressed={useRegex}
               title={t("findbar.toggleRegex")}
               aria-label={t("findbar.toggleRegex")}
             >
@@ -185,6 +186,7 @@ export function FindBar() {
           <button
             className={`find-bar-toggle ${caseSensitive ? "active" : ""}`}
             onClick={handleToggleCaseSensitive}
+            aria-pressed={caseSensitive}
             title={t("findbar.toggleCase")}
             aria-label={t("findbar.toggleCase")}
           >
@@ -193,6 +195,7 @@ export function FindBar() {
           <button
             className={`find-bar-toggle ${wholeWord ? "active" : ""}`}
             onClick={handleToggleWholeWord}
+            aria-pressed={wholeWord}
             title={t("findbar.toggleWholeWord")}
             aria-label={t("findbar.toggleWholeWord")}
           >

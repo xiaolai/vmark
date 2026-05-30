@@ -2,6 +2,8 @@
 // load-bearing STALE-revision concurrency path (ADR-4).
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { getSchema } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
@@ -24,10 +26,17 @@ vi.mock("@/stores/mcpCheckpointPersistence", () => ({
   appendCheckpoint: vi.fn(async () => undefined),
 }));
 
-// No editor available in tests — writeContent's fallback path runs.
-vi.mock("@/stores/tiptapEditorStore", () => ({
+// Configurable editor state — defaults to no editor (writeContent's fallback
+// path). Tests that exercise the active-vs-background dispatch guard mutate it.
+const { mockEditorState } = vi.hoisted(() => ({
+  mockEditorState: {
+    tiptap: { editor: null as unknown },
+    active: { activeWysiwygTabId: null as string | null },
+  },
+}));
+vi.mock("@/stores/editorStore", () => ({
   useEditorStore: {
-    getState: () => ({ editor: null }),
+    getState: () => mockEditorState,
   },
 }));
 
@@ -126,13 +135,81 @@ describe("vmark.document.write — STALE concurrency", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetStores();
+    mockEditorState.tiptap.editor = null;
+    mockEditorState.active.activeWysiwygTabId = null;
+  });
+
+  // A fake editor complete enough to REACH `view.dispatch` if the dispatch path
+  // is entered — so the guard test actually distinguishes dispatch vs no-dispatch.
+  function fakeEditor(dispatch: ReturnType<typeof vi.fn>) {
+    const tr = {
+      replaceWith: vi.fn().mockReturnThis(),
+      setMeta: vi.fn().mockReturnThis(),
+    };
+    return {
+      schema: getSchema([StarterKit]),
+      view: { state: { tr, doc: { content: { size: 1 } } }, dispatch },
+    };
+  }
+
+  // C5 follow-up — a write to a background markdown tab must not dispatch into
+  // the active editor (which would clobber the active doc).
+  it("does not dispatch into the active editor when writing a background markdown tab", async () => {
+    seedTab("t-active", "# active", "/a.md");
+    useTabStore.setState((s) => ({
+      tabs: {
+        main: [
+          ...s.tabs.main,
+          { id: "t-bg", filePath: "/bg.md", title: "bg", isPinned: false },
+        ],
+      },
+    }));
+    useDocumentStore.getState().initDocument("t-bg", "# bg", "/bg.md");
+
+    const dispatch = vi.fn();
+    // The live editor shows the ACTIVE tab (t-active), not the write target.
+    mockEditorState.tiptap.editor = fakeEditor(dispatch);
+    mockEditorState.active.activeWysiwygTabId = "t-active";
+
+    const revBefore = useRevisionStore.getState().getRevision("t-bg");
+    await handleDocumentWrite("req-bg", {
+      tabId: "t-bg",
+      content: "# new bg",
+      save: false,
+    });
+
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    // The active editor must NOT have been dispatched into.
+    expect(dispatch).not.toHaveBeenCalled();
+    // The background tab's content + its own revision still updated.
+    expect(useDocumentStore.getState().documents["t-bg"].content).toBe("# new bg");
+    expect(useRevisionStore.getState().getRevision("t-bg")).not.toBe(revBefore);
+  });
+
+  it("does dispatch into the editor when writing the ACTIVE markdown tab", async () => {
+    seedTab("t-active", "# active", "/a.md");
+    const dispatch = vi.fn();
+    mockEditorState.tiptap.editor = fakeEditor(dispatch);
+    mockEditorState.active.activeWysiwygTabId = "t-active";
+
+    await handleDocumentWrite("req-active", {
+      tabId: "t-active",
+      content: "# new active",
+      save: false,
+    });
+
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    // The active tab's write DOES re-render the live editor.
+    expect(dispatch).toHaveBeenCalled();
   });
 
   it("rejects writes whose expected_revision is stale", async () => {
     seedTab("t-w", "original", null);
     const stale = "rev-OLDOLDOL";
     // Force a known-current revision distinct from `stale`.
-    useRevisionStore.getState().setRevision(generateRevisionId());
+    useRevisionStore.getState().setRevision("t-w", generateRevisionId());
 
     await handleDocumentWrite("req-stale", {
       tabId: "t-w",
@@ -152,7 +229,7 @@ describe("vmark.document.write — STALE concurrency", () => {
 
   it("accepts writes whose expected_revision matches current", async () => {
     seedTab("t-w2", "before", null);
-    const current = useRevisionStore.getState().getRevision();
+    const current = useRevisionStore.getState().getRevision("t-w2");
     await handleDocumentWrite("req-ok", {
       tabId: "t-w2",
       content: "after",
@@ -163,6 +240,47 @@ describe("vmark.document.write — STALE concurrency", () => {
     expect(useDocumentStore.getState().documents["t-w2"].content).toBe(
       "after",
     );
+  });
+
+  // WI-0.10 — per-tab revision keying (C5). A write to a non-active tab must
+  // be validated against THAT tab's revision, not the active tab's.
+  it("validates expected_revision against the target tab, not the active one", async () => {
+    // Active tab is "t-active"; we write to the non-active "t-bg".
+    seedTab("t-active", "active doc", null);
+    useTabStore.setState((s) => ({
+      tabs: {
+        main: [
+          ...s.tabs.main,
+          { id: "t-bg", filePath: null, title: "bg", isPinned: false },
+        ],
+      },
+    }));
+    useDocumentStore.getState().initDocument("t-bg", "background doc", null);
+    useRevisionStore.getState().setRevision("t-active", "rev-ACTIVEXX");
+    useRevisionStore.getState().setRevision("t-bg", "rev-BGBGBGBG");
+
+    // Passing the ACTIVE tab's revision for a write to t-bg must be STALE.
+    await handleDocumentWrite("req-cross", {
+      tabId: "t-bg",
+      content: "should not land",
+      expected_revision: "rev-ACTIVEXX",
+    });
+    let r = lastRespond();
+    expect(r.success).toBe(false);
+    expect(parseStructuredError(r.error)).toMatchObject({ error: "STALE" });
+    expect(useDocumentStore.getState().documents["t-bg"].content).toBe(
+      "background doc",
+    );
+
+    // Passing t-bg's OWN revision succeeds.
+    await handleDocumentWrite("req-cross-ok", {
+      tabId: "t-bg",
+      content: "landed",
+      expected_revision: "rev-BGBGBGBG",
+    });
+    r = lastRespond();
+    expect(r.success).toBe(true);
+    expect(useDocumentStore.getState().documents["t-bg"].content).toBe("landed");
   });
 
   it("allows writes without expected_revision (greenfield path)", async () => {
@@ -381,7 +499,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
 
   it("returns no-op when transform leaves content unchanged", async () => {
     seedTab("t-noop", "all ASCII text", null);
-    const before = useRevisionStore.getState().getRevision();
+    const before = useRevisionStore.getState().getRevision("t-noop");
     await handleDocumentTransform("req-noop", {
       tabId: "t-noop",
       kind: "cjk-spacing",
@@ -389,7 +507,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
     const r = lastRespond();
     expect(r.success).toBe(true);
     // No content change → revision should not bump.
-    expect(useRevisionStore.getState().getRevision()).toBe(before);
+    expect(useRevisionStore.getState().getRevision("t-noop")).toBe(before);
     // No checkpoint either.
     expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
   });

@@ -124,7 +124,7 @@ export class MermaidPreviewView {
 
   private setupResizeHandlers() {
     const onMouseDown = (e: MouseEvent) => {
-      const handle = (e.target as HTMLElement).closest(".mermaid-preview-resize") as HTMLElement;
+      const handle = (e.target as HTMLElement).closest(".mermaid-preview-resize") as HTMLElement | null;
       /* v8 ignore next -- @preserve defensive guard: listener is only attached to resize handle elements */
       if (!handle) return;
 
@@ -195,7 +195,7 @@ export class MermaidPreviewView {
   private setupZoomHandlers() {
     this.boundZoomClick = (e: Event) => {
       const target = (e as MouseEvent).target as HTMLElement;
-      const btn = target.closest(".mermaid-preview-zoom-btn") as HTMLElement;
+      const btn = target.closest(".mermaid-preview-zoom-btn") as HTMLElement | null;
       if (!btn) return;
 
       const action = btn.dataset.action;
@@ -280,7 +280,7 @@ export class MermaidPreviewView {
     // Don't update position if user has dragged it
     if (this.hasDragged) return;
 
-    const containerEl = this.editorDom?.closest(".editor-container") as HTMLElement;
+    const containerEl = this.editorDom?.closest(".editor-container") as HTMLElement | null;
     const bounds = containerEl
       ? getBoundaryRects(this.editorDom as HTMLElement, containerEl)
       : getViewportBounds();

@@ -36,6 +36,7 @@ import { getSaveFileName } from "@/utils/exportNaming";
 import { isWithinRoot, getParentDir } from "@/utils/paths";
 import { saveAllDocuments, type CloseSaveContext } from "@/hooks/closeSave";
 import { fileOpsLog, fileOpsWarn, fileOpsError } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 /**
  * Open a native save dialog and return the chosen path (or null on cancel).
@@ -187,7 +188,7 @@ export async function handleSave(windowLabel: string): Promise<void> {
       } catch (error) {
         fileOpsError("Save dialog threw:", error);
         toast.error(
-          i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) }),
+          i18n.t("dialog:toast.saveDialogFailed", { error: errorMessage(error) }),
           { pin: true },
         );
         return;
@@ -254,7 +255,7 @@ export async function handleSaveAs(windowLabel: string): Promise<void> {
     } catch (error) {
       fileOpsError("Save As dialog threw:", error);
       toast.error(
-        i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) }),
+        i18n.t("dialog:toast.saveDialogFailed", { error: errorMessage(error) }),
         { pin: true },
       );
       return;
@@ -291,7 +292,7 @@ export async function handleMoveTo(windowLabel: string): Promise<void> {
     } catch (error) {
       fileOpsError("Move To dialog threw:", error);
       toast.error(
-        i18n.t("dialog:toast.saveDialogFailed", { error: error instanceof Error ? error.message : String(error) }),
+        i18n.t("dialog:toast.saveDialogFailed", { error: errorMessage(error) }),
         { pin: true },
       );
       return;

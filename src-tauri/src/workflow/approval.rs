@@ -36,7 +36,7 @@ impl ApprovalRegistry {
         let (tx, rx) = oneshot::channel();
         self.senders
             .lock()
-            .expect("approval registry mutex poisoned")
+            .unwrap_or_else(|p| p.into_inner())
             .insert(key, tx);
         rx
     }
@@ -48,7 +48,7 @@ impl ApprovalRegistry {
         let sender = self
             .senders
             .lock()
-            .expect("approval registry mutex poisoned")
+            .unwrap_or_else(|p| p.into_inner())
             .remove(key);
         match sender {
             Some(tx) => tx.send(approved).is_ok(),
@@ -62,7 +62,7 @@ impl ApprovalRegistry {
     pub fn drop_pending(&self, key: &ApprovalKey) {
         self.senders
             .lock()
-            .expect("approval registry mutex poisoned")
+            .unwrap_or_else(|p| p.into_inner())
             .remove(key);
     }
 }
@@ -130,5 +130,24 @@ mod tests {
         let _rx = reg.register(key.clone());
         reg.drop_pending(&key);
         assert!(!reg.respond(&key, true));
+    }
+
+    // --- poison tolerance (WI-0.5, P3) ---
+
+    #[test]
+    fn registry_tolerates_poisoned_lock() {
+        let reg = ApprovalRegistry::new();
+        // Poison the mutex by panicking while holding the lock.
+        let poisoned = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = reg.senders.lock().unwrap();
+            panic!("intentional poison");
+        }));
+        assert!(poisoned.is_err());
+
+        // Despite poisoning, the approval feature must keep working rather than
+        // cascade-panicking on the next lock.
+        let key = ("e1".to_string(), "s1".to_string());
+        let _rx = reg.register(key.clone());
+        assert!(reg.respond(&key, true));
     }
 }

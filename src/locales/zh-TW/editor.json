@@ -71,6 +71,7 @@
   "headingPicker.empty.heading": "（空白標題）",
   "headingPicker.empty.noHeadings": "文件中無標題",
   "headingPicker.empty.noMatch": "無符合篩選條件的標題",
+  "imageMenu.ariaLabel": "圖片操作",
   "imageMenu.changeImage": "變更圖片...",
   "imageMenu.deleteImage": "刪除圖片",
   "imageMenu.copyPath": "複製圖片路徑",

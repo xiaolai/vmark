@@ -38,6 +38,17 @@ import { mcpBridgeLog, mcpBridgeError } from "@/utils/debug";
 import { handleRequest } from "./handleRequest";
 import { hydrateCheckpoints } from "@/stores/mcpCheckpointPersistence";
 
+/** Runtime shape guard for the externally-driven MCP request payload (WI-4.1).
+ *  Exported for testing. */
+export function isValidMcpRequestRaw(raw: unknown): raw is McpRequestEventRaw {
+  return (
+    typeof raw === "object" &&
+    raw !== null &&
+    typeof (raw as { id?: unknown }).id === "string" &&
+    typeof (raw as { type?: unknown }).type === "string"
+  );
+}
+
 /**
  * Hook to enable MCP bridge request handling.
  * Should be used once in the main app component.
@@ -64,8 +75,16 @@ export function useMcpBridge(): void {
     }, 5000);
 
     listen<McpRequestEventRaw>("mcp-bridge:request", (event) => {
-      // Parse args_json to avoid Tauri IPC double-encoding issues
+      // Zero-trust at the externally-driven MCP request boundary (WI-4.1, T2):
+      // the payload is read off an IPC event whose shape is only typed at
+      // compile time. Validate `id`/`type` are strings before use so a
+      // malformed payload is dropped loudly rather than propagating
+      // `undefined` into a handler (and an undefined id can't even be replied to).
       const raw = event.payload;
+      if (!isValidMcpRequestRaw(raw)) {
+        mcpBridgeError("Dropping malformed MCP request payload:", raw);
+        return;
+      }
 
       mcpBridgeLog("Event received:", raw.type, raw.id);
 

@@ -40,8 +40,7 @@
  * (which keeps mermaid's measured 1.5).
  * Specificity: (0,2,2) beats editor's (0,2,1).
  */
-.code-block-preview.mermaid-preview foreignObject p,
-.mermaid-block-preview foreignObject p {
+.code-block-preview.mermaid-preview foreignObject p {
   line-height: inherit;
 }
 
@@ -63,89 +62,4 @@
   font-style: italic;
   padding: 1rem;
   text-align: center;
-}
-
-/* Mermaid block node - block style */
-.mermaid-block {
-  margin: 0 0 var(--editor-block-spacing, 1em) 0;
-  padding: 1rem;
-  background-color: var(--subtle-bg);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background-color var(--duration-base) ease;
-}
-
-.mermaid-block:hover {
-  background-color: var(--subtle-bg-hover);
-}
-
-/* Media border feature (setting-driven) */
-.media-border-always .mermaid-block {
-  border: var(--border-thin) solid var(--border-color);
-}
-
-.media-border-hover .mermaid-block:hover {
-  border: var(--border-thin) solid var(--border-color);
-}
-
-.mermaid-block.editing {
-  cursor: default;
-}
-
-.mermaid-block.ProseMirror-selectednode {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-.mermaid-block-preview {
-  min-height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
-  /* Scale container based on --mermaid-scale (set by JS from editor font size) */
-  zoom: var(--mermaid-scale, 1);
-}
-
-.mermaid-block-preview svg {
-  max-width: 100%;
-  height: auto;
-}
-
-.mermaid-block-placeholder {
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-.mermaid-block-loading {
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-.mermaid-block-editor {
-  display: none;
-  width: 100%;
-  min-height: 100px;
-  padding: 0.75rem;
-  font-family: var(--font-mono);
-  font-size: var(--editor-font-size-mono);
-  line-height: var(--line-height-normal);
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  resize: none;
-  outline: none;
-  text-align: left;
-}
-
-.mermaid-block-editor:focus-visible {
-  box-shadow: inset 2px 0 0 var(--primary-color);
-}
-
-.mermaid-block.editing .mermaid-block-editor {
-  display: block;
-}
-
-.mermaid-block.editing .mermaid-block-preview {
-  display: none;
 }

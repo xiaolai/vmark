@@ -248,7 +248,12 @@ fn contains_with_boundary(haystack: &str, needle: &str) -> bool {
         if before_ok && after_ok {
             return true;
         }
-        start = abs + 1;
+        // Advance past the whole match (a char boundary, since `needle` is a
+        // substring), not by one byte — `abs + 1` can land mid-character and
+        // panic when slicing a multibyte (CJK/emoji) heading. Headings don't
+        // overlap, so skipping the whole match cannot skip a distinct heading.
+        // `.max(1)` guards the degenerate empty-needle case against an infinite loop.
+        start = abs + nlen.max(1);
     }
     false
 }
@@ -364,5 +369,31 @@ mod tests {
         // "Chapter 1" SHOULD match "Chapter 1 — Overview" (space boundary)
         let p = pages(&["Chapter 1 — Overview\nBody"]);
         assert_eq!(find_heading_page(&p, "Chapter 1", 0), 0);
+    }
+
+    // --- contains_with_boundary: UTF-8 char-boundary safety (WI-0.1, P1) ---
+
+    #[test]
+    fn contains_with_boundary_cjk_rejected_match_does_not_panic() {
+        // The only occurrence of the CJK needle is preceded by an alphanumeric
+        // char, so the boundary check rejects it. The advance past the rejected
+        // match must land on a char boundary (not slice mid-character).
+        // Under the old `start = abs + 1`, this panicked slicing the 3-byte '第'.
+        assert!(!contains_with_boundary("A第一章", "第一章"));
+    }
+
+    #[test]
+    fn contains_with_boundary_finds_later_cjk_occurrence() {
+        // First occurrence (after 'A') is rejected; advancing past the whole
+        // match must still find the second, boundary-valid occurrence.
+        // Documents the non-overlapping invariant: headings don't overlap, so
+        // skipping the whole match cannot skip a *distinct* heading.
+        assert!(contains_with_boundary("A第一章 第一章", "第一章"));
+    }
+
+    #[test]
+    fn contains_with_boundary_ascii_unchanged() {
+        assert!(contains_with_boundary("Chapter 1 here", "Chapter 1"));
+        assert!(!contains_with_boundary("Chapter 10", "Chapter 1"));
     }
 }

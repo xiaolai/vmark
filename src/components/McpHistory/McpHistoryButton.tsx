@@ -64,7 +64,7 @@ function applyRestore({ tabId, cp }: RestoreContext): boolean {
   if (!doc) return false;
   if (doc.content === cp.contentBefore) return false;
   docStore.setContent(tabId, cp.contentBefore);
-  useRevisionStore.getState().updateRevision();
+  useRevisionStore.getState().updateRevision(tabId);
   return true;
 }
 

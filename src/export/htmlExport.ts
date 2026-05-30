@@ -53,6 +53,7 @@ import { getReaderCSS, getReaderJS } from "./reader";
 import { sanitizeExportHtml } from "./htmlSanitizer";
 import { generateIndexHtml, generateStandaloneHtml } from "./htmlTemplates";
 import { getEditorContentCSS } from "./htmlExportStyles";
+import { errorMessage } from "@/utils/errorMessage";
 
 // Re-export getEditorContentCSS so existing imports from "./htmlExport" still work
 export { getEditorContentCSS } from "./htmlExportStyles";
@@ -327,7 +328,7 @@ export async function exportHtml(
       missingCount: 0,
       totalSize,
       warnings,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     };
   }
 }

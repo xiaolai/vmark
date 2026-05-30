@@ -59,7 +59,7 @@ vi.mock("@/stores/documentStore", () => ({
     }),
   },
   useUnifiedHistoryStore: { getState: () => ({ documents: {}, clearDocument: vi.fn() }), subscribe: () => () => {} },
-  useRevisionStore: { getState: () => ({ registerEdit: vi.fn() }) },
+  useRevisionStore: { getState: () => ({ registerEdit: vi.fn(), clearRevision: vi.fn(), updateRevision: vi.fn(), setRevision: vi.fn(), getRevision: vi.fn(() => "rev-mock") }) },
   useLintStore: { getState: () => ({ clearDiagnostics: vi.fn() }), subscribe: () => () => {} },
   useLargeFileSessionStore: { getState: () => ({ clearForcedSource: vi.fn() }), subscribe: () => () => {} },
   useFileLoadStore: { getState: () => ({ active: false }) },

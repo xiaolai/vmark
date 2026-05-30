@@ -219,7 +219,7 @@ export class LanguageDropdown {
       case "Tab": {
         // Tab moves focus to the highlighted item in the list
         e.preventDefault();
-        const highlighted = ctx.list.querySelector(".code-lang-item.highlighted") as HTMLElement;
+        const highlighted = ctx.list.querySelector(".code-lang-item.highlighted") as HTMLElement | null;
         /* v8 ignore next -- @preserve reason: false branch (no highlighted item) falls to defensive items[0] guard */
         if (highlighted) {
           highlighted.focus();
@@ -233,7 +233,7 @@ export class LanguageDropdown {
       }
       case "Enter": {
         e.preventDefault();
-        const current = ctx.list.querySelector(".code-lang-item.highlighted") as HTMLElement;
+        const current = ctx.list.querySelector(".code-lang-item.highlighted") as HTMLElement | null;
         if (current) {
           this.pickLanguage(current.dataset.langId || "");
         }

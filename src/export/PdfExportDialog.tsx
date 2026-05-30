@@ -31,6 +31,7 @@ import { PdfSettingsSidebar } from "./PdfSettingsSidebar";
 import { pdfError } from "@/utils/debug";
 
 import "./pdf-export-dialog.css";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface PdfExportContentProps {
   renderedHtml: string;
@@ -151,7 +152,7 @@ export function PdfExportContent({
 
       onClose();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = errorMessage(error);
       // Pin: PDF export errors (Paged.js / WKWebView) include details users
       // want to read carefully (asset paths, render failures).
       toast.error(tDialog("toast.pdfExportFailed", { error: msg }), { pin: true });

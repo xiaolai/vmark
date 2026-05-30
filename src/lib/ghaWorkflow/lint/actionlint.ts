@@ -18,6 +18,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Diagnostic, DiagnosticCode } from "../types";
+import { errorMessage } from "@/utils/errorMessage";
 
 let cachedShellPath: string | null = null;
 
@@ -84,7 +85,7 @@ export async function lintWithActionlint(
     return {
       binaryAvailable: false,
       diagnostics: [],
-      error: e instanceof Error ? e.message : String(e),
+      error: errorMessage(e),
     };
   }
 

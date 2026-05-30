@@ -40,6 +40,7 @@ import {
 } from "@/utils/linebreaks";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { historyWarn, saveError } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 // Tracks whether we've already warned the user about snapshot failures
 // in this session — without this, every save during a broken history backend
@@ -115,7 +116,7 @@ export async function saveToPath(
     // a notification every interval. The next manual save (or an external
     // signal like the file becoming missing) will surface the problem.
     if (saveType === "manual") {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       // Pin: failure messages can be long (system errors include paths and
       // permission details). Users may want to copy them down.
       toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }), {

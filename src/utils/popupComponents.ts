@@ -52,10 +52,22 @@ export type PopupIconName = keyof typeof popupIcons;
 export type PopupIconButtonVariant = "default" | "primary" | "danger";
 
 export interface PopupIconButtonOptions {
-  icon: PopupIconName;
+  /** Named icon from {@link popupIcons}. Provide this OR {@link iconSvg}. */
+  icon?: PopupIconName;
+  /**
+   * Raw SVG markup escape hatch, used in place of a named {@link icon}.
+   * When present, this is used verbatim and {@link icon} is ignored.
+   */
+  iconSvg?: string;
   title: string;
   onClick: () => void;
   variant?: PopupIconButtonVariant;
+  /**
+   * Base CSS class for the button. Defaults to `popup-icon-btn`. Source-mode
+   * popups override this with their own per-popup class (e.g.
+   * `source-link-popup-btn`) so they keep their bespoke styling.
+   */
+  baseClass?: string;
   className?: string;
 }
 
@@ -67,23 +79,33 @@ export interface PopupIconButtonOptions {
  * - U-shaped underline focus indicator via CSS
  * - Hover state with background
  * - Optional variant (primary for save, danger for delete)
+ * - Raw-SVG (`iconSvg`) and custom `baseClass` escape hatches for popups
+ *   that supply their own icons / styling
  */
 export function buildPopupIconButton(
   options: PopupIconButtonOptions
 ): HTMLButtonElement {
-  const { icon, title, onClick, variant = "default", className = "" } = options;
+  const {
+    icon,
+    iconSvg,
+    title,
+    onClick,
+    variant = "default",
+    baseClass = "popup-icon-btn",
+    className = "",
+  } = options;
 
   const btn = document.createElement("button");
   btn.type = "button";
   btn.title = title;
   btn.setAttribute("aria-label", title);
-  btn.innerHTML = popupIcons[icon];
+  btn.innerHTML = iconSvg ?? (icon ? popupIcons[icon] : "");
   btn.addEventListener("click", onClick);
 
   // Build class list
-  const classes = ["popup-icon-btn"];
+  const classes = [baseClass];
   if (variant !== "default") {
-    classes.push(`popup-icon-btn--${variant}`);
+    classes.push(`${baseClass}--${variant}`);
   }
   if (className) {
     classes.push(className);

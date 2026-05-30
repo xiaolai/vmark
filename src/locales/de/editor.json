@@ -71,6 +71,7 @@
   "headingPicker.empty.heading": "(leere Überschrift)",
   "headingPicker.empty.noHeadings": "Keine Überschriften im Dokument",
   "headingPicker.empty.noMatch": "Keine Überschriften entsprechen dem Filter",
+  "imageMenu.ariaLabel": "Bildaktionen",
   "imageMenu.changeImage": "Bild ändern...",
   "imageMenu.deleteImage": "Bild löschen",
   "imageMenu.copyPath": "Bildpfad kopieren",

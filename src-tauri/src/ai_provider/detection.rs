@@ -6,6 +6,7 @@
 //! API-key environment variables for REST providers.
 
 use std::process::Command;
+use std::sync::Mutex;
 use tauri::command;
 
 use super::types::CliProviderEntry;
@@ -14,9 +15,37 @@ use super::types::CliProviderEntry;
 // CLI Provider Detection
 // ============================================================================
 
+/// Session-stable cache. Installed CLIs don't appear/disappear mid-session, so
+/// the first detection result is reused — repeated `detect_ai_providers` calls
+/// otherwise re-spawn `which`/`where` ×3 (subprocesses) every time (O2).
+static DETECTION_CACHE: Mutex<Option<Vec<CliProviderEntry>>> = Mutex::new(None);
+
 /// Detect which CLI AI providers are available on the system.
+///
+/// `async` + `spawn_blocking` so the subprocess (`which`/`where`) lookups run
+/// off the IPC thread instead of stalling it; the result is memoized for the
+/// process lifetime (O2 / WI-2.2).
 #[command]
-pub fn detect_ai_providers() -> Vec<CliProviderEntry> {
+pub async fn detect_ai_providers() -> Vec<CliProviderEntry> {
+    if let Some(cached) = DETECTION_CACHE
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone()
+    {
+        return cached;
+    }
+
+    let detected = tokio::task::spawn_blocking(|| detect_with(check_command))
+        .await
+        .unwrap_or_default();
+
+    *DETECTION_CACHE.lock().unwrap_or_else(|p| p.into_inner()) = Some(detected.clone());
+    detected
+}
+
+/// Pure detection over an injectable availability checker — keeps the provider
+/// table in one place and is unit-testable without spawning subprocesses.
+fn detect_with<F: Fn(&str) -> (bool, Option<String>)>(check: F) -> Vec<CliProviderEntry> {
     let providers = [
         ("claude", "Claude", "claude"),
         ("codex", "Codex", "codex"),
@@ -26,7 +55,7 @@ pub fn detect_ai_providers() -> Vec<CliProviderEntry> {
     providers
         .iter()
         .map(|(typ, name, cmd)| {
-            let (available, path) = check_command(cmd);
+            let (available, path) = check(cmd);
             CliProviderEntry {
                 provider_type: typ.to_string(),
                 name: name.to_string(),
@@ -281,6 +310,14 @@ fn check_command(cmd: &str) -> (bool, Option<String>) {
 /// and non-empty. The frontend uses this to pre-fill empty API key fields.
 #[command]
 pub fn read_env_api_keys() -> std::collections::HashMap<String, String> {
+    read_env_api_keys_with(|var| std::env::var(var).ok())
+}
+
+/// Pure core of `read_env_api_keys` over an injectable env getter — testable
+/// without mutating the process environment (WI-5.4, TQ5).
+fn read_env_api_keys_with<F: Fn(&str) -> Option<String>>(
+    get: F,
+) -> std::collections::HashMap<String, String> {
     let mapping: &[(&str, &[&str])] = &[
         ("anthropic", &["ANTHROPIC_API_KEY"]),
         ("openai", &["OPENAI_API_KEY"]),
@@ -290,7 +327,7 @@ pub fn read_env_api_keys() -> std::collections::HashMap<String, String> {
     let mut result = std::collections::HashMap::new();
     for (provider, vars) in mapping {
         for var in *vars {
-            if let Ok(val) = std::env::var(var) {
+            if let Some(val) = get(var) {
                 if !val.is_empty() {
                     result.insert(provider.to_string(), val);
                     break; // first match wins
@@ -299,4 +336,76 @@ pub fn read_env_api_keys() -> std::collections::HashMap<String, String> {
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detect_with_maps_all_three_providers() {
+        // Inject a checker that marks only `codex` available.
+        let entries = detect_with(|cmd| {
+            if cmd == "codex" {
+                (true, Some("/usr/local/bin/codex".to_string()))
+            } else {
+                (false, None)
+            }
+        });
+
+        assert_eq!(entries.len(), 3);
+        let types: Vec<&str> = entries.iter().map(|e| e.provider_type.as_str()).collect();
+        assert_eq!(types, ["claude", "codex", "gemini"]);
+
+        let codex = entries.iter().find(|e| e.provider_type == "codex").unwrap();
+        assert!(codex.available);
+        assert_eq!(codex.path.as_deref(), Some("/usr/local/bin/codex"));
+
+        let claude = entries.iter().find(|e| e.provider_type == "claude").unwrap();
+        assert!(!claude.available);
+        assert_eq!(claude.path, None);
+        assert_eq!(claude.command, "claude");
+        assert_eq!(claude.name, "Claude");
+    }
+
+    #[test]
+    fn env_keys_present_absent_and_empty() {
+        // anthropic present, openai absent, google empty → only anthropic.
+        let keys = read_env_api_keys_with(|var| match var {
+            "ANTHROPIC_API_KEY" => Some("sk-ant".to_string()),
+            "GOOGLE_API_KEY" => Some(String::new()), // empty → ignored
+            _ => None,
+        });
+        assert_eq!(keys.get("anthropic").map(String::as_str), Some("sk-ant"));
+        assert!(!keys.contains_key("openai"));
+        assert!(!keys.contains_key("google-ai"));
+    }
+
+    #[test]
+    fn google_falls_back_to_gemini_var() {
+        // GOOGLE_API_KEY unset/empty, GEMINI_API_KEY set → google-ai resolves.
+        let keys = read_env_api_keys_with(|var| match var {
+            "GOOGLE_API_KEY" => Some(String::new()),
+            "GEMINI_API_KEY" => Some("gm-key".to_string()),
+            _ => None,
+        });
+        assert_eq!(keys.get("google-ai").map(String::as_str), Some("gm-key"));
+    }
+
+    #[test]
+    fn google_prefers_google_var_over_gemini() {
+        let keys = read_env_api_keys_with(|var| match var {
+            "GOOGLE_API_KEY" => Some("goog".to_string()),
+            "GEMINI_API_KEY" => Some("gem".to_string()),
+            _ => None,
+        });
+        // First match wins → GOOGLE_API_KEY.
+        assert_eq!(keys.get("google-ai").map(String::as_str), Some("goog"));
+    }
+
+    #[test]
+    fn env_keys_none_when_all_absent() {
+        let keys = read_env_api_keys_with(|_| None);
+        assert!(keys.is_empty());
+    }
 }

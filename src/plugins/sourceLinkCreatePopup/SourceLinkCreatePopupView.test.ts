@@ -58,7 +58,8 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
-vi.mock("@/utils/popupComponents", () => ({
+vi.mock("@/utils/popupComponents", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/popupComponents")>()),
   popupIcons: {
     save: "<svg>save</svg>",
     close: "<svg>close</svg>",

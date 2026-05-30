@@ -13,6 +13,8 @@
  * @module plugins/search/queryDebounce
  */
 
+import { debounce } from "@/utils/debounce";
+
 /** Public surface returned by `createQueryDebounce`. */
 export interface QueryDebounceController {
   /** Schedule `fn` to run after `delayMs`, replacing any pending call. */
@@ -45,41 +47,25 @@ export interface QueryDebounceController {
  *     pending callback to fire after the editor view is gone.
  */
 export function createQueryDebounce(delayMs: number): QueryDebounceController {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let pending: (() => void) | null = null;
-
-  const clearTimer = (): void => {
-    if (timer !== null) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  };
+  // The "value" being debounced is the callback itself: each `schedule`
+  // replaces the pending callback and restarts the timer, so the last
+  // scheduled callback is the one that fires.
+  const debounced = debounce((fn: () => void) => fn(), delayMs);
 
   return {
     schedule(fn) {
-      clearTimer();
-      pending = fn;
-      timer = setTimeout(() => {
-        timer = null;
-        const callback = pending;
-        pending = null;
-        callback?.();
-      }, delayMs);
+      debounced(fn);
     },
     flushIfPending() {
-      if (pending === null) return false;
-      clearTimer();
-      const callback = pending;
-      pending = null;
-      callback();
+      if (!debounced.pending()) return false;
+      debounced.flush();
       return true;
     },
     cancel() {
-      clearTimer();
-      pending = null;
+      debounced.cancel();
     },
     hasPending() {
-      return pending !== null;
+      return debounced.pending();
     },
   };
 }

@@ -4,7 +4,7 @@
  * Displays document heading structure as a tree with a substring filter.
  */
 
-import { useState, useDeferredValue, useMemo, useRef, useCallback } from "react";
+import { memo, useState, useDeferredValue, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, ChevronDown, Search, X } from "lucide-react";
 import { emitTo } from "@tauri-apps/api/event";
@@ -21,16 +21,18 @@ import {
   type HeadingNode,
 } from "./outlineUtils";
 
-function OutlineItem({
+// Memoized so a cursor move (active-heading change) reconciles only the items
+// whose active state actually flips, not the whole tree (O5 / WI-2.4). Each
+// item self-subscribes to its own active state rather than receiving a shared
+// `activeIndex` prop (which would change for every item on every cursor move).
+const OutlineItem = memo(function OutlineItem({
   node,
-  activeIndex,
   collapsedSet,
   forceExpand,
   onToggle,
   onClick,
 }: {
   node: HeadingNode;
-  activeIndex: number;
   collapsedSet: Set<number>;
   forceExpand: boolean;
   onToggle: (index: number) => void;
@@ -40,7 +42,7 @@ function OutlineItem({
   const hasChildren = node.children.length > 0;
   // Filter results override collapsed state so matches stay visible.
   const isCollapsed = !forceExpand && collapsedSet.has(node.index);
-  const isActive = node.index === activeIndex;
+  const isActive = useUIStore((state) => state.activeHeadingLine === node.index);
 
   return (
     <li className="outline-tree-item">
@@ -82,7 +84,6 @@ function OutlineItem({
             <OutlineItem
               key={child.index}
               node={child}
-              activeIndex={activeIndex}
               collapsedSet={collapsedSet}
               forceExpand={forceExpand}
               onToggle={onToggle}
@@ -93,7 +94,7 @@ function OutlineItem({
       )}
     </li>
   );
-}
+});
 
 // Size thresholds for performance
 const MAX_CONTENT_FOR_OUTLINE = 500000; // ~500KB — allows outlines for large real-world documents
@@ -104,7 +105,9 @@ export function OutlineView() {
   const { t } = useTranslation("sidebar");
   const content = useDocumentContent();
   const deferredContent = useDeferredValue(content);
-  const activeHeadingIndex = useUIStore((state) => state.activeHeadingLine);
+  // NOTE: active-heading state is intentionally NOT subscribed here — each
+  // OutlineItem self-subscribes, so a cursor move doesn't re-render the whole
+  // OutlineView and its tree (O5 / WI-2.4).
 
   // Check if document is too large (used after hooks)
   const isTooLarge = deferredContent.length > MAX_CONTENT_FOR_OUTLINE;
@@ -153,8 +156,6 @@ export function OutlineView() {
     [tree, deferredFilterQuery]
   );
 
-  const activeIndex = activeHeadingIndex ?? -1;
-
   // Track collapsed state by heading identity (level:line:text).
   // Including line number prevents duplicate headings from collapsing together.
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
@@ -169,28 +170,33 @@ export function OutlineView() {
     return set;
   }, [headings, collapsedKeys]);
 
-  const handleToggle = (index: number) => {
-    const heading = headings[index];
-    if (!heading) return;
+  // Stable identities so memoized OutlineItems don't re-render when an
+  // unrelated OutlineView state change recreates these handlers (O5 / WI-2.4).
+  const handleToggle = useCallback(
+    (index: number) => {
+      const heading = headings[index];
+      if (!heading) return;
 
-    const key = `${heading.level}:${heading.line}:${heading.text}`;
-    setCollapsedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+      const key = `${heading.level}:${heading.line}:${heading.text}`;
+      setCollapsedKeys((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+        }
+        return next;
+      });
+    },
+    [headings]
+  );
 
-  const handleClick = (headingIndex: number) => {
+  const handleClick = useCallback((headingIndex: number) => {
     // Emit to current window only — prevents cross-window scroll in multi-window mode
     emitTo(getCurrentWindowLabel(), "outline:scroll-to-heading", { headingIndex }).catch(() => {/* event emission is best-effort */});
     // Update active heading immediately for responsive UI
     useUIStore.getState().setActiveHeadingLine(headingIndex);
-  };
+  }, []);
 
   const handleFilterKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape" && filterQuery.length > 0) {
@@ -247,7 +253,6 @@ export function OutlineView() {
             <OutlineItem
               key={node.index}
               node={node}
-              activeIndex={activeIndex}
               collapsedSet={collapsedSet}
               forceExpand={isFilterActive}
               onToggle={handleToggle}

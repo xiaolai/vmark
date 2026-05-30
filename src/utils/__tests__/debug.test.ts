@@ -51,7 +51,6 @@ import {
   titleBarWarn,
   genieWarn,
   imageContextMenuWarn,
-  orphanCleanupWarn,
   confirmQuitWarn,
   finderFileOpenWarn,
   imageHashWarn,
@@ -117,7 +116,6 @@ const allLoggers = {
   titleBarWarn,
   genieWarn,
   imageContextMenuWarn,
-  orphanCleanupWarn,
   confirmQuitWarn,
   finderFileOpenWarn,
   imageHashWarn,
@@ -150,7 +148,7 @@ describe("debug loggers — existence and type", () => {
   );
 
   it("exports all known loggers", () => {
-    expect(Object.keys(allLoggers).length).toBeGreaterThanOrEqual(59);
+    expect(Object.keys(allLoggers).length).toBeGreaterThanOrEqual(58);
   });
 });
 
@@ -206,7 +204,6 @@ describe("debug loggers — prefix conventions", () => {
     titleBarWarn:         { prefix: "[TitleBar]",            method: "warn" },
     genieWarn:            { prefix: "[Genie]",               method: "warn" },
     imageContextMenuWarn: { prefix: "[ImageContextMenu]",    method: "warn" },
-    orphanCleanupWarn:    { prefix: "[OrphanCleanup]",       method: "warn" },
     confirmQuitWarn:      { prefix: "[ConfirmQuit]",         method: "warn" },
     finderFileOpenWarn:   { prefix: "[FinderFileOpen]",      method: "warn" },
     imageHashWarn:        { prefix: "[ImageHashRegistry]",   method: "warn" },
@@ -434,7 +431,6 @@ describe("debug loggers — production mode (DEV=false)", () => {
     expect(() => prodDebug.menuDispatcherLog("event")).not.toThrow();
     expect(() => prodDebug.mcpBridgeLog("bridge")).not.toThrow();
     expect(() => prodDebug.imageHandlerWarn("handler")).not.toThrow();
-    expect(() => prodDebug.orphanCleanupWarn("cleanup")).not.toThrow();
     expect(() => prodDebug.windowContextError("init failed")).not.toThrow();
     expect(() => prodDebug.wysiwygAdapterError("transform failed")).not.toThrow();
 

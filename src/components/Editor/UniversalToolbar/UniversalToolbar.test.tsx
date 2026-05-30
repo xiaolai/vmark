@@ -310,6 +310,36 @@ describe("UniversalToolbar", () => {
         expect(btn).toHaveAttribute("tabindex", "-1");
       });
     });
+
+    // A4 — the AI-Prompts action button is folded into the roving model so it
+    // is keyboard-reachable (previously tabIndex={-1} and outside arrow nav).
+    it("End reaches the AI-Prompts button (it participates in roving)", async () => {
+      useUIStore.setState({
+        universalToolbarVisible: true,
+        universalToolbarHasFocus: true,
+        toolbarSessionFocusIndex: 0,
+      });
+      render(<UniversalToolbar />);
+
+      const toolbar = screen.getByRole("toolbar");
+      const genieBtn = document.querySelector<HTMLButtonElement>('[data-action="genie"]')!;
+      expect(genieBtn).toBeTruthy();
+      // It is the last roving stop — its focus index is the group count.
+      const groupButtons = document.querySelectorAll('.universal-toolbar-btn:not([data-action="genie"])');
+      expect(genieBtn.getAttribute("data-focus-index")).toBe(String(groupButtons.length));
+
+      await waitFor(() => {
+        expect(
+          screen.getAllByRole("button").find(b => b.getAttribute("tabindex") === "0")
+        ).toBeTruthy();
+      });
+
+      fireEvent.keyDown(toolbar, { key: "End" });
+
+      await waitFor(() => {
+        expect(genieBtn).toHaveAttribute("tabindex", "0");
+      });
+    });
   });
 
   describe("focus toggle per spec Section 1.2", () => {

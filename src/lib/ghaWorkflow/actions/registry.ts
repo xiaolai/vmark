@@ -24,6 +24,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { parseDocument } from "yaml";
+import { LruCache } from "@/utils/lruCache";
 import {
   isLocalUsesRef,
   resolveLocalUsesRef,
@@ -86,7 +87,10 @@ type FetchResult =
   | RustParseError
   | RustInvalidUses;
 
-const sessionCache = new Map<string, ActionMetadata | null>();
+// Bounded so a long session that references many distinct actions doesn't grow
+// the cache unboundedly (WI-4.5, R2). 200 distinct action refs is far beyond
+// any real workflow set; LRU evicts the rest.
+const sessionCache = new LruCache<string, ActionMetadata | null>(200);
 const inflight = new Map<string, Promise<ActionMetadata | null>>();
 
 /**

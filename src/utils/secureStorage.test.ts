@@ -76,6 +76,23 @@ describe("secureStorage", () => {
       storage.setItem("fb-write", "fb-value");
       expect(localStorage.getItem("fb-write")).toBe("fb-value");
     });
+
+    it("falls back to localStorage when the plugin returns a malformed shape (T4)", async () => {
+      // Plugin API drift / broken mock: `load` resolves to an object missing
+      // the methods we rely on. The shape guard must reject it loudly so we
+      // fall back rather than later invoking `undefined()`.
+      const { load } = await import("@tauri-apps/plugin-store");
+      (load as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ wat: true });
+      _resetForTesting();
+      localStorage.setItem("shape-key", '{"data":"v"}');
+
+      await initSecureStorage(["shape-key"]);
+
+      const storage = createSecureStorage();
+      expect(storage.getItem("shape-key")).toBe('{"data":"v"}');
+      // Fallback mode keeps localStorage as the persistence layer.
+      expect(localStorage.getItem("shape-key")).toBe('{"data":"v"}');
+    });
   });
 
   describe("createSecureStorage", () => {

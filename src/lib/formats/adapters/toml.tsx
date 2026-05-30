@@ -32,6 +32,7 @@ import type {
   ValidationDiagnostic,
   Validator,
 } from "../types";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface TomlError extends Error {
   line?: number;
@@ -50,7 +51,7 @@ export const tomlValidator: Validator = (content) => {
     const line = err.line && err.line > 0 ? err.line : 1;
     const column = err.column && err.column > 0 ? err.column : 1;
     const message =
-      error instanceof Error ? error.message : String(error);
+      errorMessage(error);
     return [
       {
         severity: "error",

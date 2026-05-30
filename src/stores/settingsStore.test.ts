@@ -1,8 +1,64 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useSettingsStore } from "./settingsStore";
+import { useSettingsStore, sanitizePersistedSettings } from "./settingsStore";
 
 beforeEach(() => {
   useSettingsStore.getState().resetSettings();
+});
+
+describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
+  const defaults = {
+    appearance: { fontSize: 18 },
+    general: { autoSaveEnabled: true },
+  };
+
+  it("keeps well-formed object groups", () => {
+    const out = sanitizePersistedSettings(
+      { appearance: { fontSize: 22 }, general: { autoSaveEnabled: false } },
+      defaults
+    );
+    expect(out).toEqual({ appearance: { fontSize: 22 }, general: { autoSaveEnabled: false } });
+  });
+
+  it("drops a group that is a primitive/array where defaults expect an object", () => {
+    const out = sanitizePersistedSettings(
+      { appearance: "evil", general: ["nope"] },
+      defaults
+    );
+    // Both mismatched groups dropped — live defaults survive deepMerge.
+    expect(out).toEqual({});
+  });
+
+  it("drops a null group (cannot recurse) but passes unknown keys through", () => {
+    const out = sanitizePersistedSettings(
+      { appearance: null, unknownKey: "ok" },
+      defaults
+    );
+    expect(out).toEqual({ unknownKey: "ok" });
+  });
+
+  it("recurses into nested branches and drops nested shape mismatches", () => {
+    const nestedDefaults = {
+      advanced: { mcpServer: { port: 9223 }, customLinkProtocols: [] },
+      appearance: { fontSize: 18 },
+    };
+    const out = sanitizePersistedSettings(
+      {
+        advanced: {
+          mcpServer: "evil", // object expected → dropped
+          customLinkProtocols: ["x"], // array default → trusted as-is
+          extra: "kept", // unknown key → passes through
+        },
+        appearance: { fontSize: 22 },
+      },
+      nestedDefaults
+    );
+    expect(out).toEqual({
+      advanced: { customLinkProtocols: ["x"], extra: "kept" },
+      appearance: { fontSize: 22 },
+    });
+    // The dropped nested object means deepMerge keeps the default mcpServer.
+    expect((out.advanced as Record<string, unknown>).mcpServer).toBeUndefined();
+  });
 });
 
 describe("settingsStore MCP server settings", () => {

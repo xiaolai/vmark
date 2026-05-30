@@ -55,12 +55,14 @@ import {
   shouldPreserveTwoSpaceBreaks,
 } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error } from "./types";
 import { HALF_TO_FULL } from "./cjkMaps";
 import { useMcpStore } from "@/stores/mcpStore";
 import { appendCheckpoint } from "@/stores/mcpCheckpointPersistence";
 import type { CheckpointTool } from "@/stores/mcpStore";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface ResolvedTab {
   tabId: string;
@@ -168,12 +170,20 @@ function writeContent(
 
   docState.setContent(tabId, content);
 
-  // For Markdown tabs, also re-render the Tiptap doc so the WYSIWYG
-  // editor stays in sync. Editor transactions automatically bump the
-  // revision via revisionTracker. For non-Markdown (workflow YAML)
-  // tabs, the editor isn't bound — bump the revision manually.
-  const editor = useEditorStore.getState().tiptap.editor;
-  if (editor && kind === "markdown") {
+  // For a Markdown tab that is the ACTIVE WYSIWYG editor, also re-render the
+  // Tiptap doc so the editor stays in sync; its transaction bumps THIS tab's
+  // revision via revisionTracker (the tracker is keyed to the active tab).
+  //
+  // Guard on `activeWysiwygTabId === tabId` (C5 follow-up): the live editor
+  // shows only the active tab, so a `document.write` to a *background* markdown
+  // tab must NOT dispatch into it — that would clobber the active document and
+  // bump the wrong tab's revision. For background tabs (and non-Markdown tabs
+  // with no bound editor) we update the doc store and bump the TARGET tab's
+  // revision directly.
+  const editorState = useEditorStore.getState();
+  const editor = editorState.tiptap.editor;
+  const isActiveWysiwygTab = editorState.active.activeWysiwygTabId === tabId;
+  if (editor && kind === "markdown" && isActiveWysiwygTab) {
     try {
       const serializeOpts = getSerializeOptions();
       const newDoc = parseMarkdown(editor.schema, content, {
@@ -187,13 +197,13 @@ function writeContent(
     } catch {
       // Parser rejected — doc store already updated; force-bump
       // revision so callers see a fresh token.
-      revisionStore.updateRevision();
+      revisionStore.updateRevision(tabId);
     }
   } else {
-    revisionStore.updateRevision();
+    revisionStore.updateRevision(tabId);
   }
 
-  return { revision: revisionStore.getRevision() };
+  return { revision: revisionStore.getRevision(tabId) };
 }
 
 /**
@@ -203,7 +213,7 @@ export async function handleDocumentRead(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const resolved = resolveTab(tabIdArg);
@@ -214,7 +224,7 @@ export async function handleDocumentRead(
       });
       return;
     }
-    const revision = useRevisionStore.getState().getRevision();
+    const revision = useRevisionStore.getState().getRevision(resolved.tabId);
     await respond({
       id,
       success: true,
@@ -226,13 +236,7 @@ export async function handleDocumentRead(
         dirty: resolved.dirty,
       },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /**
@@ -251,7 +255,7 @@ export async function handleDocumentWrite(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     if (typeof args.content !== "string") {
       await structuredError(id, {
         error: "INTERNAL",
@@ -282,18 +286,18 @@ export async function handleDocumentWrite(
     const revisionStore = useRevisionStore.getState();
     if (
       expectedRevision !== undefined &&
-      !revisionStore.isCurrentRevision(expectedRevision)
+      !revisionStore.isCurrentRevision(resolved.tabId, expectedRevision)
     ) {
       await structuredError(id, {
         error: "STALE",
         message: "Document has changed since the last read",
-        current_revision: revisionStore.getRevision(),
+        current_revision: revisionStore.getRevision(resolved.tabId),
       });
       return;
     }
 
     const contentBefore = resolved.content;
-    const revisionBefore = revisionStore.getRevision();
+    const revisionBefore = revisionStore.getRevision(resolved.tabId);
     // Re-detect kind against the INCOMING content. resolveTab read the
     // current content, which is empty for fresh untitled tabs — that
     // would default kind=markdown and run YAML writes through Tiptap's
@@ -337,7 +341,7 @@ export async function handleDocumentWrite(
         useDocumentStore.getState().markSaved(resolved.tabId, args.content);
         saved = true;
       } catch (err) {
-        saveError = err instanceof Error ? err.message : String(err);
+        saveError = errorMessage(err);
       }
     }
 
@@ -351,13 +355,7 @@ export async function handleDocumentWrite(
         ...(saveError !== undefined ? { save_error: saveError } : {}),
       },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 /** One-line summary of a `document.write` for the checkpoint panel. */
@@ -425,7 +423,7 @@ export async function handleDocumentTransform(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     if (!isTransformKind(args.kind)) {
       await structuredError(id, {
         error: "INTERNAL",
@@ -452,12 +450,12 @@ export async function handleDocumentTransform(
     const revisionStore = useRevisionStore.getState();
     if (
       expectedRevision !== undefined &&
-      !revisionStore.isCurrentRevision(expectedRevision)
+      !revisionStore.isCurrentRevision(resolved.tabId, expectedRevision)
     ) {
       await structuredError(id, {
         error: "STALE",
         message: "Document has changed since the last read",
-        current_revision: revisionStore.getRevision(),
+        current_revision: revisionStore.getRevision(resolved.tabId),
       });
       return;
     }
@@ -467,13 +465,13 @@ export async function handleDocumentTransform(
       await respond({
         id,
         success: true,
-        data: { revision: revisionStore.getRevision() },
+        data: { revision: revisionStore.getRevision(resolved.tabId) },
       });
       return;
     }
 
     const contentBefore = resolved.content;
-    const revisionBefore = revisionStore.getRevision();
+    const revisionBefore = revisionStore.getRevision(resolved.tabId);
     const result = writeContent(resolved.tabId, transformed, resolved.kind);
     if ("error" in result) {
       await structuredError(id, result);
@@ -488,11 +486,5 @@ export async function handleDocumentTransform(
       revisionAfter: result.revision,
     });
     await respond({ id, success: true, data: result });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }

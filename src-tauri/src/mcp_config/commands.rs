@@ -9,36 +9,9 @@ use super::config_io::{
 };
 use super::providers::{get_config_path, get_mcp_binary_path, get_provider_config, PROVIDERS};
 use super::types::{
-    ConfigPreview, DiagnosticStatus, InstallResult, ProviderDiagnostic, ProviderStatus,
-    UninstallResult,
+    ConfigPreview, DiagnosticStatus, InstallResult, ProviderDiagnostic, UninstallResult,
 };
 use std::fs;
-
-/// Get status of all AI providers
-#[tauri::command]
-pub fn mcp_config_get_status() -> Result<Vec<ProviderStatus>, String> {
-    let mut statuses = Vec::new();
-
-    for provider in PROVIDERS {
-        let path = get_config_path(provider)?;
-        let exists = path.exists();
-        let has_vmark = if exists {
-            read_existing_config(&path, provider.id).1
-        } else {
-            false
-        };
-
-        statuses.push(ProviderStatus {
-            provider: provider.id.to_string(),
-            name: provider.name.to_string(),
-            path: path.to_string_lossy().to_string(),
-            exists,
-            has_vmark,
-        });
-    }
-
-    Ok(statuses)
-}
 
 /// Diagnose MCP configuration for all AI providers
 /// Returns detailed diagnostics including path validation

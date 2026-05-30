@@ -79,6 +79,43 @@ export type {
  */
 export { themesAsColors as themes } from "@/theme";
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/**
+ * Drop persisted branches whose shape doesn't match the live defaults (T4,
+ * persist-boundary zero-trust). Wherever the default is a plain object, the
+ * persisted value must also be a plain object — otherwise deepMerge (which only
+ * recurses when both sides are objects) would overwrite that object with a
+ * primitive/array and crash consumers. Mismatches are skipped so the live
+ * default survives.
+ *
+ * Recurses into nested object branches, so corruption at any depth is caught
+ * (e.g. `advanced.mcpServer: "evil"` or `formats.diagrams: 1`), not just at the
+ * top level. Keys absent from the defaults pass through unchanged (forward
+ * compatibility); non-object default branches (primitives, arrays) are trusted
+ * as-is since there is no sub-shape to validate.
+ *
+ * Exported for testing.
+ */
+export function sanitizePersistedSettings(
+  persisted: Record<string, unknown>,
+  defaults: Record<string, unknown>
+): Record<string, unknown> {
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(persisted)) {
+    const def = defaults[key];
+    if (isPlainObject(def)) {
+      if (!isPlainObject(value)) continue; // shape mismatch — preserve the default
+      clean[key] = sanitizePersistedSettings(value, def); // recurse into nested branch
+    } else {
+      clean[key] = value;
+    }
+  }
+  return clean;
+}
+
 const initialState: SettingsState = {
   general: {
     autoSaveEnabled: true,
@@ -275,13 +312,24 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       storage: createJSONStorage(() => createSafeStorage()),
       // Deep merge to preserve new default properties when loading old localStorage
       merge: (persistedState, currentState) => {
-        const persisted = (persistedState ?? {}) as Record<string, unknown>;
-        // Migration: paragraphSpacing -> blockSpacing
-        const appearance = persisted.appearance as Record<string, unknown> | undefined;
+        const rawPersisted = (persistedState ?? {}) as Record<string, unknown>;
+        // Migration: paragraphSpacing -> blockSpacing. Runs on the raw blob
+        // before shape-sanitization, while `appearance` is still trusted as an
+        // object here (sanitization would drop it if it weren't).
+        const appearance = rawPersisted.appearance as Record<string, unknown> | undefined;
         if (appearance && "paragraphSpacing" in appearance && !("blockSpacing" in appearance)) {
           appearance.blockSpacing = appearance.paragraphSpacing;
           delete appearance.paragraphSpacing;
         }
+        // T4: validate the persisted shape before deep-merging into live state
+        // (zero-trust at the persist boundary). deepMerge overwrites — rather
+        // than recurses — when a persisted group is a non-object, so a corrupt
+        // localStorage blob (`appearance: "evil"`) would otherwise replace a
+        // settings-group object with a primitive and crash consumers.
+        const persisted = sanitizePersistedSettings(
+          rawPersisted,
+          currentState as unknown as Record<string, unknown>
+        );
         const merged = deepMerge(
           currentState as unknown as Record<string, unknown>,
           persisted

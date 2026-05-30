@@ -18,6 +18,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useTheme } from "@/hooks/useTheme";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { PdfExportContent } from "@/export/PdfExportDialog";
+import { errorMessage } from "@/utils/errorMessage";
 
 /** Handle Cmd+W to close PDF export window */
 function usePdfExportClose() {
@@ -60,7 +61,7 @@ export function PdfExportPage() {
     readTextFile(htmlPath)
       .then((html) => setRenderedHtml(html))
       .catch((e) => {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = errorMessage(e);
         setError(t("dialog:pdfExport.loadFailed", { error: msg }));
       });
   }, [t]);

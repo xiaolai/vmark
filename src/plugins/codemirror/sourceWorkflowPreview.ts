@@ -14,6 +14,7 @@ import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { parseWorkflow, isWorkflowYaml, WorkflowParseError, WorkflowValidationError } from "@/lib/workflow/parser";
 import { workflowLog, workflowWarn } from "@/utils/debug";
+import { errorMessage } from "@/utils/errorMessage";
 
 const DEBOUNCE_MS = 300;
 
@@ -60,10 +61,10 @@ class SourceWorkflowPreviewPlugin {
         workflowWarn("Workflow parse error:", e.message);
         useWorkflowStore.getState().setGraph(null, e.message);
       } else {
-        workflowWarn("Unexpected parse error:", e instanceof Error ? e.message : String(e));
+        workflowWarn("Unexpected parse error:", errorMessage(e));
         useWorkflowStore.getState().setGraph(
           null,
-          e instanceof Error ? e.message : String(e),
+          errorMessage(e),
         );
       }
     }

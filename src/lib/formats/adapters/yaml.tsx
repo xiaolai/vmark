@@ -1,7 +1,7 @@
 // WI-2.3 — YAML adapter.
 //
 // Real CodeMirror language (@codemirror/lang-yaml — installed since
-// Phase 1A) + js-yaml validator. Tree preview shares the
+// Phase 1A) + `yaml`-library validator. Tree preview shares the
 // react-json-view-lite component used by the JSON/TOML adapters.
 //
 // WI-2.4 wires GHA-workflow schemaDetector into this adapter.
@@ -9,7 +9,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
-import jsYaml from "js-yaml";
+import { parse as parseYaml } from "yaml";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
@@ -30,27 +30,25 @@ import type {
   ValidationDiagnostic,
   Validator,
 } from "../types";
+import { errorMessage } from "@/utils/errorMessage";
 
 interface YamlException extends Error {
-  mark?: { line: number; column: number };
-  reason?: string;
+  /** `yaml` library reports positions as 1-based { line, col } in `linePos`. */
+  linePos?: Array<{ line: number; col: number }>;
 }
 
 export const yamlValidator: Validator = (content) => {
   if (content.length === 0) return [];
   try {
-    jsYaml.load(content);
+    parseYaml(content);
     return [];
   } catch (error) {
     const err = error as YamlException;
-    // js-yaml marks are zero-based; convert to 1-based for the gutter.
-    const line = err.mark ? err.mark.line + 1 : 1;
-    const column = err.mark ? err.mark.column + 1 : 1;
-    const message = err.reason
-      ? err.reason
-      : err instanceof Error
-        ? err.message
-        : String(err);
+    // `yaml` positions are already 1-based — use directly for the gutter.
+    const pos = err.linePos?.[0];
+    const line = pos?.line ?? 1;
+    const column = pos?.col ?? 1;
+    const message = errorMessage(err);
     return [
       {
         severity: "error",
@@ -77,12 +75,12 @@ export const yamlValidator: Validator = (content) => {
 export const yamlSchemaDetector: SchemaDetector = (path, content) => {
   if (looksLikeWorkflowPath(path)) return "gha-workflow";
   // Cheap shape pre-filter before the parse — if the regex doesn't
-  // match, we can return null without paying for jsYaml.load.
+  // match, we can return null without paying for the YAML parse.
   if (!isWorkflowYaml(content)) return null;
   // Per ADR-5: content detection on syntactically invalid content
   // returns null. Run the parser; on failure, decline.
   try {
-    jsYaml.load(content);
+    parseYaml(content);
   } catch {
     return null;
   }
@@ -112,7 +110,7 @@ function GhaWorkflowSchemaRenderer({
     } catch (error) {
       return {
         ok: false as const,
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage(error),
       };
     }
   }, [content, path]);
@@ -149,7 +147,7 @@ function YamlTreePreview({ content, diagnostics }: PreviewRendererProps) {
   const isDark = useIsDarkTheme();
   const parsed = useMemo(() => {
     try {
-      return jsYaml.load(content);
+      return parseYaml(content);
     } catch {
       return null;
     }

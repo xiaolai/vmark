@@ -53,6 +53,7 @@ import {
   getSerializeOptions,
 } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error, V2ErrorCode } from "./types";
 
@@ -255,7 +256,7 @@ export async function handleSelectionGet(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const focused = resolveFocusedTab(tabIdArg);
@@ -281,7 +282,7 @@ export async function handleSelectionGet(
       return;
     }
 
-    const revision = useRevisionStore.getState().getRevision();
+    const revision = useRevisionStore.getState().getRevision(focused.tabId);
 
     if (mode === "wysiwyg" && tiptap) {
       const { from, to } = tiptap.state.selection;
@@ -320,13 +321,7 @@ export async function handleSelectionGet(
       });
       return;
     }
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +332,7 @@ export async function handleSelectionSet(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     if (typeof args.content !== "string") {
       await structuredError(id, "INTERNAL", "content must be a string");
       return;
@@ -375,15 +370,15 @@ export async function handleSelectionSet(
     const revisionStore = useRevisionStore.getState();
     if (
       expectedRevision !== undefined &&
-      !revisionStore.isCurrentRevision(expectedRevision)
+      !revisionStore.isCurrentRevision(focused.tabId, expectedRevision)
     ) {
       await structuredError(id, "STALE", "Document has changed since the last read", {
-        current_revision: revisionStore.getRevision(),
+        current_revision: revisionStore.getRevision(focused.tabId),
       });
       return;
     }
 
-    const revisionBefore = revisionStore.getRevision();
+    const revisionBefore = revisionStore.getRevision(focused.tabId);
 
     if (mode === "wysiwyg" && tiptap) {
       const selectedText = getTiptapSelectionText(tiptap);
@@ -409,8 +404,8 @@ export async function handleSelectionSet(
         opts,
       );
       useDocumentStore.getState().setContent(focused.tabId, contentAfter);
-      revisionStore.updateRevision();
-      const revisionAfter = revisionStore.getRevision();
+      revisionStore.updateRevision(focused.tabId);
+      const revisionAfter = revisionStore.getRevision(focused.tabId);
       if (contentAfter !== contentBefore) {
         recordSelectionCheckpoint({
           tabId: focused.tabId,
@@ -448,8 +443,8 @@ export async function handleSelectionSet(
       // production — idempotent because the content matches.
       const contentAfter = cm.state.doc.toString();
       useDocumentStore.getState().setContent(focused.tabId, contentAfter);
-      revisionStore.updateRevision();
-      const revisionAfter = revisionStore.getRevision();
+      revisionStore.updateRevision(focused.tabId);
+      const revisionAfter = revisionStore.getRevision(focused.tabId);
       if (contentAfter !== contentBefore) {
         recordSelectionCheckpoint({
           tabId: focused.tabId,
@@ -471,11 +466,5 @@ export async function handleSelectionSet(
       });
       return;
     }
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 }
