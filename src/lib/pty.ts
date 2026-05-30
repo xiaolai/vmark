@@ -16,7 +16,10 @@
  *     Uint8Array.
  *   - `kill()` eagerly cleans up event listeners and guards against mid-setup
  *     races via a `_destroyed` flag.
- *   - `pty_close` is called after exit to free the Rust-side session (FDs).
+ *   - `pty_close` frees the Rust-side session (FDs/channels/child handle). It
+ *     runs from the exit handler on natural exit; but because `kill()` (and the
+ *     mid-setup guard) tear down the exit listener first, those paths call
+ *     `pty_close` directly so the session is never leaked (#974).
  *
  * @coordinates-with src-tauri/src/pty.rs — Rust backend commands and events
  * @coordinates-with components/Terminal/spawnPty.ts — consumes this wrapper
@@ -162,6 +165,11 @@ class VMarkPty implements IPty {
       await invoke("pty_kill", { pid: this._pid }).catch((err) => {
         terminalLog("pty_kill (setup guard) failed:", errorMessage(err));
       });
+      // Listeners were torn down, so the exit handler won't free the session
+      // (#974). Close it explicitly here too.
+      await invoke("pty_close", { pid: this._pid }).catch((err) => {
+        terminalLog("pty_close (setup guard) failed:", errorMessage(err));
+      });
       return;
     }
 
@@ -197,10 +205,19 @@ class VMarkPty implements IPty {
   kill(): void {
     this._destroyed = true;
     this._cleanup();
+    // _cleanup() removed the pty:exit listener, so the natural exit handler
+    // that calls pty_close never runs (#974). Close the Rust session
+    // explicitly after pty_kill — in finally so a failed kill still frees the
+    // session map entry (FDs, channels, child handle).
     this._ready
       .then(() => invoke("pty_kill", { pid: this._pid }))
       .catch((err) => {
         terminalLog("pty_kill failed:", errorMessage(err));
+      })
+      .finally(() => {
+        invoke("pty_close", { pid: this._pid }).catch((err) => {
+          terminalLog("pty_close failed:", errorMessage(err));
+        });
       });
   }
 
