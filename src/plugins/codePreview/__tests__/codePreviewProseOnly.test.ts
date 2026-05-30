@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { EditorState } from "@tiptap/pm/state";
+import { AttrStep } from "@tiptap/pm/transform";
 import { Node as PMNode } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import { Editor, getSchema } from "@tiptap/core";
@@ -50,6 +51,29 @@ describe("codePreview prose-only fast path (O1)", () => {
       schema.text("graph TD; A-->B"),
     );
     state.apply(state.tr.insert(state.doc.content.size, codeBlock));
+    expect(descSpy).toHaveBeenCalled();
+  });
+
+  it("DOES re-scan on an AttrStep (a code block's language change to previewable)", () => {
+    // A non-previewable code block keeps codeBlockRanges at 0 (fast-path
+    // eligible). Changing its language via an AttrStep carries no slice, so the
+    // guard must bail on the AttrStep and run the full scan, or the new preview
+    // would be missed (audit finding — nested/attr-change case).
+    const { schema, plugins } = createProseOnlyState();
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("hi")),
+      schema.nodes.codeBlock.create({ language: "js" }, schema.text("a")),
+    ]);
+    const state = EditorState.create({ schema, doc, plugins });
+
+    let cbPos = -1;
+    state.doc.forEach((node, offset) => {
+      if (node.type.name === "codeBlock") cbPos = offset;
+    });
+    expect(cbPos).toBeGreaterThanOrEqual(0);
+
+    const descSpy = vi.spyOn(PMNode.prototype, "descendants");
+    state.apply(state.tr.step(new AttrStep(cbPos, "language", "mermaid")));
     expect(descSpy).toHaveBeenCalled();
   });
 });

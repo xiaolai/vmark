@@ -93,18 +93,27 @@ pub fn atomic_write_file(path: &Path, contents: &[u8]) -> Result<(), String> {
         .sync_all()
         .map_err(|e| format!("Failed to sync temp file: {}", e))?;
 
-    // `persist` does the atomic rename over `path`. On Unix it replaces an
-    // existing target; on Windows rename fails if the target exists, so fall
-    // back to remove-then-retry (mirrors the previous behavior). On any failure
-    // the returned temp file is dropped → removed, so no temp leak.
+    // `persist` does the atomic rename over `path`. On Unix `rename` REPLACES an
+    // existing target, so persist failing there is a genuine error (permission,
+    // I/O, target-is-a-dir) — never "target exists". On Windows `rename` fails
+    // if the target exists, so there we remove-then-retry. Crucially, the
+    // remove-then-retry must be Windows-only: doing it on Unix for an arbitrary
+    // persist error would delete the user's existing file and then still fail to
+    // write the new one (data loss). On any failure the returned temp file is
+    // dropped → removed, so no temp leak.
     match temp.persist(path) {
         Ok(_) => Ok(()),
+        #[cfg(windows)]
         Err(persist_err) => {
             let temp = persist_err.file;
             let _ = fs::remove_file(path);
             temp.persist(path)
                 .map(|_| ())
                 .map_err(|e| format!("Failed to persist {:?}: {}", path, e.error))
+        }
+        #[cfg(not(windows))]
+        Err(persist_err) => {
+            Err(format!("Failed to persist {:?}: {}", path, persist_err.error))
         }
     }
 }

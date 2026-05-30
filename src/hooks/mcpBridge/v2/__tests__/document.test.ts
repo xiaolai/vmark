@@ -2,6 +2,8 @@
 // load-bearing STALE-revision concurrency path (ADR-4).
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { getSchema } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
@@ -24,10 +26,17 @@ vi.mock("@/stores/mcpCheckpointPersistence", () => ({
   appendCheckpoint: vi.fn(async () => undefined),
 }));
 
-// No editor available in tests — writeContent's fallback path runs.
-vi.mock("@/stores/tiptapEditorStore", () => ({
+// Configurable editor state — defaults to no editor (writeContent's fallback
+// path). Tests that exercise the active-vs-background dispatch guard mutate it.
+const { mockEditorState } = vi.hoisted(() => ({
+  mockEditorState: {
+    tiptap: { editor: null as unknown },
+    active: { activeWysiwygTabId: null as string | null },
+  },
+}));
+vi.mock("@/stores/editorStore", () => ({
   useEditorStore: {
-    getState: () => ({ editor: null }),
+    getState: () => mockEditorState,
   },
 }));
 
@@ -126,6 +135,74 @@ describe("vmark.document.write — STALE concurrency", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetStores();
+    mockEditorState.tiptap.editor = null;
+    mockEditorState.active.activeWysiwygTabId = null;
+  });
+
+  // A fake editor complete enough to REACH `view.dispatch` if the dispatch path
+  // is entered — so the guard test actually distinguishes dispatch vs no-dispatch.
+  function fakeEditor(dispatch: ReturnType<typeof vi.fn>) {
+    const tr = {
+      replaceWith: vi.fn().mockReturnThis(),
+      setMeta: vi.fn().mockReturnThis(),
+    };
+    return {
+      schema: getSchema([StarterKit]),
+      view: { state: { tr, doc: { content: { size: 1 } } }, dispatch },
+    };
+  }
+
+  // C5 follow-up — a write to a background markdown tab must not dispatch into
+  // the active editor (which would clobber the active doc).
+  it("does not dispatch into the active editor when writing a background markdown tab", async () => {
+    seedTab("t-active", "# active", "/a.md");
+    useTabStore.setState((s) => ({
+      tabs: {
+        main: [
+          ...s.tabs.main,
+          { id: "t-bg", filePath: "/bg.md", title: "bg", isPinned: false },
+        ],
+      },
+    }));
+    useDocumentStore.getState().initDocument("t-bg", "# bg", "/bg.md");
+
+    const dispatch = vi.fn();
+    // The live editor shows the ACTIVE tab (t-active), not the write target.
+    mockEditorState.tiptap.editor = fakeEditor(dispatch);
+    mockEditorState.active.activeWysiwygTabId = "t-active";
+
+    const revBefore = useRevisionStore.getState().getRevision("t-bg");
+    await handleDocumentWrite("req-bg", {
+      tabId: "t-bg",
+      content: "# new bg",
+      save: false,
+    });
+
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    // The active editor must NOT have been dispatched into.
+    expect(dispatch).not.toHaveBeenCalled();
+    // The background tab's content + its own revision still updated.
+    expect(useDocumentStore.getState().documents["t-bg"].content).toBe("# new bg");
+    expect(useRevisionStore.getState().getRevision("t-bg")).not.toBe(revBefore);
+  });
+
+  it("does dispatch into the editor when writing the ACTIVE markdown tab", async () => {
+    seedTab("t-active", "# active", "/a.md");
+    const dispatch = vi.fn();
+    mockEditorState.tiptap.editor = fakeEditor(dispatch);
+    mockEditorState.active.activeWysiwygTabId = "t-active";
+
+    await handleDocumentWrite("req-active", {
+      tabId: "t-active",
+      content: "# new active",
+      save: false,
+    });
+
+    const r = lastRespond();
+    expect(r.success).toBe(true);
+    // The active tab's write DOES re-render the live editor.
+    expect(dispatch).toHaveBeenCalled();
   });
 
   it("rejects writes whose expected_revision is stale", async () => {

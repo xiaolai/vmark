@@ -12,7 +12,7 @@
 
 import type { Editor } from "@tiptap/core";
 import type { Transaction } from "@tiptap/pm/state";
-import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
+import { useRevisionStore } from "@/stores/documentStore";
 
 /**
  * Hook the editor to update revisions on document changes.
@@ -22,8 +22,12 @@ import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
  * editor remounts per tab, so the active tab at mount is this editor's tab.
  */
 export function initializeRevisionTracking(editor: Editor, tabId: string): void {
-  // Generate initial revision on document load
-  useRevisionStore.getState().setRevision(tabId, generateRevisionId());
+  // Ensure the tab has a revision WITHOUT resetting an existing one. The editor
+  // remounts on every tab switch; resetting here would invalidate a revision an
+  // MCP client already read for this tab (e.g. a lazily-initialized background
+  // tab), causing false STALE rejections. `getRevision` lazily initializes only
+  // when absent; real content changes bump it via the transaction listener below.
+  useRevisionStore.getState().getRevision(tabId);
 
   // Update revision on document changes
   editor.on("transaction", ({ transaction }) => {

@@ -170,12 +170,20 @@ function writeContent(
 
   docState.setContent(tabId, content);
 
-  // For Markdown tabs, also re-render the Tiptap doc so the WYSIWYG
-  // editor stays in sync. Editor transactions automatically bump the
-  // revision via revisionTracker. For non-Markdown (workflow YAML)
-  // tabs, the editor isn't bound — bump the revision manually.
-  const editor = useEditorStore.getState().tiptap.editor;
-  if (editor && kind === "markdown") {
+  // For a Markdown tab that is the ACTIVE WYSIWYG editor, also re-render the
+  // Tiptap doc so the editor stays in sync; its transaction bumps THIS tab's
+  // revision via revisionTracker (the tracker is keyed to the active tab).
+  //
+  // Guard on `activeWysiwygTabId === tabId` (C5 follow-up): the live editor
+  // shows only the active tab, so a `document.write` to a *background* markdown
+  // tab must NOT dispatch into it — that would clobber the active document and
+  // bump the wrong tab's revision. For background tabs (and non-Markdown tabs
+  // with no bound editor) we update the doc store and bump the TARGET tab's
+  // revision directly.
+  const editorState = useEditorStore.getState();
+  const editor = editorState.tiptap.editor;
+  const isActiveWysiwygTab = editorState.active.activeWysiwygTabId === tabId;
+  if (editor && kind === "markdown" && isActiveWysiwygTab) {
     try {
       const serializeOpts = getSerializeOptions();
       const newDoc = parseMarkdown(editor.schema, content, {

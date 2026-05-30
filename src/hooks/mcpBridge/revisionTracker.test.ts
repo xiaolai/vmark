@@ -32,11 +32,18 @@ beforeEach(() => {
 });
 
 describe("initializeRevisionTracking", () => {
-  it("replaces the tab's revision with a freshly generated id on init", () => {
+  it("keeps an existing tab revision on init (no false STALE on remount)", () => {
+    // A revision already exists for this tab (e.g. an MCP client read it while
+    // the tab was a background tab). Mounting the editor must NOT reset it.
     const { editor } = createMockEditor();
     initializeRevisionTracking(editor, TAB);
-    const rev = useRevisionStore.getState().getRevision(TAB);
-    expect(rev).not.toBe("test-sentinel");
+    expect(useRevisionStore.getState().getRevision(TAB)).toBe("test-sentinel");
+  });
+
+  it("lazily initializes a revision for a never-tracked tab on init", () => {
+    const { editor } = createMockEditor();
+    initializeRevisionTracking(editor, "fresh-tab");
+    const rev = useRevisionStore.getState().getRevision("fresh-tab");
     expect(rev).toMatch(/^rev-[A-Za-z0-9]{8}$/);
   });
 

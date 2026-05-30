@@ -924,31 +924,52 @@ pub fn run() {
                         match outcome {
                             window_manager::FileOpenOutcome::Emit(payloads) => {
                                 use tauri::Emitter;
-                                log::info!("[Finder] Emitting to main window");
-                                // app.emit() (global broadcast) so the frontend's
-                                // global listen() in useFinderFileOpen receives it.
-                                // window.emit() is webview-specific and is NOT
-                                // delivered to @tauri-apps/api/event listen().
-                                let mut failed: Vec<PendingFileOpen> = Vec::new();
-                                for payload in payloads {
-                                    if let Err(e) = app.emit("app:open-file", payload.clone()) {
-                                        log::warn!("[Finder] emit failed, queueing: {e}");
-                                        failed.push(payload);
-                                    }
-                                }
-                                if !failed.is_empty() {
-                                    // Window vanished mid-flight — re-queue and reset
-                                    // readiness so the open isn't lost; create a main
-                                    // window if none remains to drain it.
+                                // The Emit decision was made under the lock based on
+                                // the main window existing THEN. `app.emit()` is a
+                                // GLOBAL broadcast that returns Ok even with no window
+                                // or listener present, so a window that vanished
+                                // between the decision and now would silently swallow
+                                // the open. Re-check before emitting and re-queue if
+                                // the window is gone (mirrors the previous behavior).
+                                if app.get_webview_window("main").is_none() {
+                                    log::info!(
+                                        "[Finder] main window vanished before emit — re-queueing"
+                                    );
                                     {
                                         let mut state = FILE_OPEN_STATE
                                             .lock()
                                             .unwrap_or_else(|p| p.into_inner());
                                         state.frontend_ready = false;
-                                        state.pending.extend(failed);
+                                        state.pending.extend(payloads);
                                     }
-                                    if app.get_webview_window("main").is_none() {
-                                        let _ = window_manager::create_main_window(app, None);
+                                    let _ = window_manager::create_main_window(app, None);
+                                } else {
+                                    log::info!("[Finder] Emitting to main window");
+                                    // app.emit() (global broadcast) so the frontend's
+                                    // global listen() in useFinderFileOpen receives it.
+                                    // window.emit() is webview-specific and is NOT
+                                    // delivered to @tauri-apps/api/event listen().
+                                    let mut failed: Vec<PendingFileOpen> = Vec::new();
+                                    for payload in payloads {
+                                        if let Err(e) = app.emit("app:open-file", payload.clone()) {
+                                            log::warn!("[Finder] emit failed, queueing: {e}");
+                                            failed.push(payload);
+                                        }
+                                    }
+                                    if !failed.is_empty() {
+                                        // Emit failed mid-flight — re-queue and reset
+                                        // readiness so the open isn't lost; create a
+                                        // main window if none remains to drain it.
+                                        {
+                                            let mut state = FILE_OPEN_STATE
+                                                .lock()
+                                                .unwrap_or_else(|p| p.into_inner());
+                                            state.frontend_ready = false;
+                                            state.pending.extend(failed);
+                                        }
+                                        if app.get_webview_window("main").is_none() {
+                                            let _ = window_manager::create_main_window(app, None);
+                                        }
                                     }
                                 }
                             }

@@ -41,6 +41,7 @@
 
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection, Transaction } from "@tiptap/pm/state";
+import { AttrStep } from "@tiptap/pm/transform";
 import type { EditorView } from "@tiptap/pm/view";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { updateMermaidTheme } from "../mermaid";
@@ -236,13 +237,23 @@ function changesIntersectRanges(tr: Transaction, ranges: CodeBlockRange[]): bool
 }
 
 /**
- * Returns true if any step in the transaction inserts a code-block node at any
- * depth. Cheap — it inspects only the (small) inserted slices, not the whole
- * document — so the prose-only fast path still re-scans when a code block is
- * inserted, even nested inside a blockquote or list (O1 / WI-2.1).
+ * Returns true if any step in the transaction could introduce or change a
+ * code-block node at any depth — used to decide whether the prose-only fast
+ * path may safely skip the full document scan (O1 / WI-2.1).
+ *
+ * Two cases, both cheap (no whole-document walk):
+ *  - inserted/markup slices that contain a code-block node (insert, paste,
+ *    `setNodeMarkup` via ReplaceAroundStep) — scanned via the step's slice;
+ *  - a pure attribute change (`AttrStep`, e.g. a code block's `language`
+ *    becoming `mermaid`) which carries NO slice — so we conservatively bail on
+ *    any AttrStep rather than miss a nested block becoming previewable.
  */
-function transactionInsertsCodeBlock(tr: Transaction): boolean {
+function transactionMayAffectCodeBlock(tr: Transaction): boolean {
   for (const step of tr.steps) {
+    // Pure attribute change — no slice to scan; could flip a code block's
+    // language to a previewable one anywhere in the doc.
+    if (step instanceof AttrStep) return true;
+
     const slice = (step as unknown as { slice?: { content?: { descendants?: unknown } } }).slice;
     const content = slice?.content as
       | { descendants: (fn: (node: { type: { name: string } }) => boolean | void) => void }
@@ -465,7 +476,7 @@ export const codePreviewExtension = Extension.create({
                   hasPreviewableTopLevel = true;
                 }
               });
-              if (!hasPreviewableTopLevel && !transactionInsertsCodeBlock(tr)) {
+              if (!hasPreviewableTopLevel && !transactionMayAffectCodeBlock(tr)) {
                 return {
                   decorations: DecorationSet.empty,
                   editingPos: state.editingPos,
