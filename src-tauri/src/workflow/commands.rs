@@ -39,14 +39,7 @@ impl RunningGuard {
 
 impl Drop for RunningGuard {
     fn drop(&mut self) {
-        let state = self.app.state::<WorkflowRunnerState>();
-        state.running.store(false, Ordering::SeqCst);
-        // Clear the running execution id so a late cancel targeting the
-        // finished execution can no longer fire against whatever starts next.
-        *state
-            .current_execution
-            .lock()
-            .unwrap_or_else(|p| p.into_inner()) = None;
+        self.app.state::<WorkflowRunnerState>().clear_running();
     }
 }
 
@@ -97,6 +90,21 @@ pub struct WorkflowRunnerState {
     /// clears it. `cancel_workflow` matches against it so a stale cancel for an
     /// already-finished execution can't cancel whatever started next (C6).
     pub current_execution: Arc<Mutex<Option<String>>>,
+}
+
+impl WorkflowRunnerState {
+    /// Release the concurrency flag and clear the published execution id.
+    /// Called by `RunningGuard::drop`; factored out (no `AppHandle`) so the
+    /// cancel-lifecycle clearing is unit-testable without a Tauri runtime.
+    fn clear_running(&self) {
+        self.running.store(false, Ordering::SeqCst);
+        // Clear the running execution id so a late cancel targeting the
+        // finished execution can no longer fire against whatever starts next.
+        *self
+            .current_execution
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
+    }
 }
 
 /// Execute a workflow from YAML string.
@@ -195,20 +203,16 @@ pub async fn run_workflow(
     let cancel_token = Arc::clone(&state.cancel_requested);
     let app_clone = app.clone();
 
-    // Publish the running execution id before spawning so a cancel arriving
-    // immediately after invoke() resolves can match it. RunningGuard::drop
-    // clears it on every exit path. (Set after all early-return validation so
-    // a rejected run never leaves a stale id behind.)
-    *state
-        .current_execution
-        .lock()
-        .unwrap_or_else(|p| p.into_inner()) = Some(execution_id.clone());
-
-    // Create snapshot of files that may be modified
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to resolve app data directory: {}", e))?;
+    // Create snapshot of files that may be modified. This is the last fallible
+    // pre-spawn step; on error we must release the `running` concurrency flag
+    // (the RunningGuard that normally does this only exists once we spawn).
+    let app_data_dir = match app.path().app_data_dir() {
+        Ok(d) => d,
+        Err(e) => {
+            state.running.store(false, Ordering::SeqCst);
+            return Err(format!("Failed to resolve app data directory: {}", e));
+        }
+    };
     let snapshot_workspace = workspace.clone();
 
     // Collect file paths from save-file steps for snapshotting
@@ -249,6 +253,16 @@ pub async fn run_workflow(
 
     // Approval registry is per-app, shared across executions.
     let approvals = Arc::clone(&state.approvals);
+
+    // Publish the running execution id only now — after every fallible
+    // pre-spawn step has succeeded — so an early-return error path can never
+    // leave a stale id behind. From here, RunningGuard::drop clears it on every
+    // exit path of the spawned task. A cancel arriving right after invoke()
+    // resolves still matches, because we return execution_id immediately below.
+    *state
+        .current_execution
+        .lock()
+        .unwrap_or_else(|p| p.into_inner()) = Some(execution_id.clone());
 
     // Spawn runner as background task — return ID immediately.
     //
@@ -313,7 +327,7 @@ pub async fn cancel_workflow(
 
 #[cfg(test)]
 mod tests {
-    use super::{decide_cancel, CancelDecision};
+    use super::*;
 
     #[test]
     fn cancel_fires_when_id_matches_running_execution() {
@@ -334,6 +348,42 @@ mod tests {
             decide_cancel(Some("exec-b"), "exec-a"),
             CancelDecision::NotRunning
         );
+    }
+
+    fn state_with(running: bool, exec: Option<&str>) -> WorkflowRunnerState {
+        WorkflowRunnerState {
+            running: AtomicBool::new(running),
+            cancel_requested: Arc::new(AtomicBool::new(false)),
+            approvals: Arc::new(ApprovalRegistry::new()),
+            current_execution: Arc::new(Mutex::new(exec.map(str::to_string))),
+        }
+    }
+
+    #[test]
+    fn clear_running_releases_flag_and_execution_id() {
+        // Mirrors what RunningGuard::drop does on every exit path: the running
+        // execution id and the concurrency flag are both released, so the next
+        // run starts clean and a stale cancel can no longer match.
+        let st = state_with(true, Some("exec-a"));
+        st.clear_running();
+        assert!(!st.running.load(Ordering::SeqCst));
+        assert!(st
+            .current_execution
+            .lock()
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn cancel_no_longer_matches_after_clear() {
+        // End-to-end of the cancel state transition: publish id → clear (as on
+        // drop / pre-spawn failure) → a cancel for that id is now rejected.
+        let st = state_with(true, Some("exec-a"));
+        let published = st.current_execution.lock().unwrap().clone();
+        assert_eq!(decide_cancel(published.as_deref(), "exec-a"), CancelDecision::Cancel);
+        st.clear_running();
+        let after = st.current_execution.lock().unwrap().clone();
+        assert_eq!(decide_cancel(after.as_deref(), "exec-a"), CancelDecision::NotRunning);
     }
 }
 
