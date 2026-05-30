@@ -53,9 +53,9 @@ import {
   getSerializeOptions,
 } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error, V2ErrorCode } from "./types";
-import { errorMessage } from "@/utils/errorMessage";
 
 interface FocusedTab {
   tabId: string;
@@ -256,7 +256,7 @@ export async function handleSelectionGet(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const focused = resolveFocusedTab(tabIdArg);
@@ -321,13 +321,7 @@ export async function handleSelectionGet(
       });
       return;
     }
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +332,7 @@ export async function handleSelectionSet(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     if (typeof args.content !== "string") {
       await structuredError(id, "INTERNAL", "content must be a string");
       return;
@@ -472,11 +466,5 @@ export async function handleSelectionSet(
       });
       return;
     }
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }

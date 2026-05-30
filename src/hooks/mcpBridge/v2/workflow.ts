@@ -42,6 +42,7 @@ import {
 import { applyPatch, type IRPatch } from "@/lib/ghaWorkflow/save/mutators";
 import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
 import { useMcpStore } from "@/stores/mcpStore";
@@ -176,7 +177,7 @@ export async function handleWorkflowApplyPatch(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const expectedRevision =
@@ -260,13 +261,7 @@ export async function handleWorkflowApplyPatch(
       success: true,
       data: { revision: revisionAfter },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }
 
 /**
@@ -279,7 +274,7 @@ export async function handleWorkflowValidate(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const tabOrError = resolveWorkflowTab(tabIdArg);
@@ -304,11 +299,5 @@ export async function handleWorkflowValidate(
         error: outcome.error,
       },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }

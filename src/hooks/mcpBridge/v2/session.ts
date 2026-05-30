@@ -31,13 +31,13 @@ import {
   looksLikeWorkflowPath,
 } from "@/lib/ghaWorkflow/detection";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import type {
   DocumentKind,
   SessionState,
   SessionTab,
   SessionWindow,
 } from "./types";
-import { errorMessage } from "@/utils/errorMessage";
 
 const MCP_PROTOCOL_VERSION = "0.1.0";
 
@@ -103,14 +103,8 @@ export async function handleSessionGetState(
   id: string,
   appVersion: string,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const state = buildSessionState(appVersion);
     await respond({ id, success: true, data: state });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }

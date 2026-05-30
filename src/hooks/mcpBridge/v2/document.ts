@@ -55,6 +55,7 @@ import {
   shouldPreserveTwoSpaceBreaks,
 } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { respond } from "../utils";
+import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { DocumentKind, V2Error } from "./types";
 import { HALF_TO_FULL } from "./cjkMaps";
@@ -204,7 +205,7 @@ export async function handleDocumentRead(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     const tabIdArg =
       typeof args.tabId === "string" ? args.tabId : undefined;
     const resolved = resolveTab(tabIdArg);
@@ -227,13 +228,7 @@ export async function handleDocumentRead(
         dirty: resolved.dirty,
       },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }
 
 /**
@@ -252,7 +247,7 @@ export async function handleDocumentWrite(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     if (typeof args.content !== "string") {
       await structuredError(id, {
         error: "INTERNAL",
@@ -352,13 +347,7 @@ export async function handleDocumentWrite(
         ...(saveError !== undefined ? { save_error: saveError } : {}),
       },
     });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }
 
 /** One-line summary of a `document.write` for the checkpoint panel. */
@@ -426,7 +415,7 @@ export async function handleDocumentTransform(
   id: string,
   args: Record<string, unknown>,
 ): Promise<void> {
-  try {
+  return wrapHandler(id, async () => {
     if (!isTransformKind(args.kind)) {
       await structuredError(id, {
         error: "INTERNAL",
@@ -489,11 +478,5 @@ export async function handleDocumentTransform(
       revisionAfter: result.revision,
     });
     await respond({ id, success: true, data: result });
-  } catch (error) {
-    await respond({
-      id,
-      success: false,
-      error: errorMessage(error),
-    });
-  }
+  });
 }
