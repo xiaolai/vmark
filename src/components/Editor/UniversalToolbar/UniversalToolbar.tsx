@@ -287,9 +287,12 @@ export function UniversalToolbar() {
     (direction: "left" | "right" | "forward" | "backward") => {
       const isArrowNav = direction === "left" || direction === "right";
       const isNext = direction === "right" || direction === "forward";
+      // genieFocusIndex + 1 = full roving count (group buttons + the trailing
+      // AI-Prompts pseudo-button), so dropdown-exit nav can land on the Genie
+      // button too (A4).
       const newIndex = isNext
-        ? getNextFocusableIndex(focusedIndex, buttons.length, isButtonFocusable)
-        : getPrevFocusableIndex(focusedIndex, buttons.length, isButtonFocusable);
+        ? getNextFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable)
+        : getPrevFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable);
 
       setFocusedIndex(newIndex);
       useUIStore.getState().setToolbarSessionFocusIndex(newIndex);
@@ -318,7 +321,7 @@ export function UniversalToolbar() {
         )?.focus();
       });
     },
-    [closeMenu, focusedIndex, buttons, buttonStates, isButtonFocusable, isDropdownButton, setFocusedIndex]
+    [closeMenu, focusedIndex, buttons, genieFocusIndex, buttonStates, isButtonFocusable, isDropdownButton, setFocusedIndex]
   );
 
   // Update session focus index when user navigates
