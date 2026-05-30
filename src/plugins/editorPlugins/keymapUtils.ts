@@ -26,6 +26,12 @@ export function escapeMarkBoundary(view: EditorView): boolean {
   const { $from, empty } = selection;
 
   if (!empty) return false;
+  // Bail for multi-range (multi-cursor) selections. A MultiSelection whose
+  // primary is a caret reports empty===true, so it reaches here — but operating
+  // on its primary $from (and clearing stored marks) would return true and
+  // swallow Escape, preempting the multi-cursor keymap's own Escape handler that
+  // collapses the secondary ranges. Let that handler run instead.
+  if (selection.ranges.length > 1) return false;
 
   const pos = $from.pos;
   const anyMarkRange = findAnyMarkRangeAtCursor(

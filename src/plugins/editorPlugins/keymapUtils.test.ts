@@ -175,7 +175,7 @@ describe("escapeMarkBoundary", () => {
   it("returns false when no mark range and no stored marks", () => {
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: null,
       },
       dispatch: vi.fn(),
@@ -187,7 +187,7 @@ describe("escapeMarkBoundary", () => {
   it("returns false when no mark range and stored marks is empty array", () => {
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: [],
       },
       dispatch: vi.fn(),
@@ -201,7 +201,7 @@ describe("escapeMarkBoundary", () => {
     const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: [{ type: "bold" }],
         tr: mockTr,
       },
@@ -221,7 +221,7 @@ describe("escapeMarkBoundary", () => {
     const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
     const view = {
       state: {
-        selection: { $from: { pos: 5 }, empty: true },
+        selection: { $from: { pos: 5 }, empty: true, ranges: [{}] },
         storedMarks: null,
         tr: mockTr,
       },
@@ -283,7 +283,7 @@ describe("escapeMarkBoundary", () => {
     const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
     const view = {
       state: {
-        selection: { $from: { pos: 1 }, empty: true },
+        selection: { $from: { pos: 1 }, empty: true, ranges: [{}] },
         storedMarks: null,
         tr: mockTr,
       },
@@ -294,6 +294,32 @@ describe("escapeMarkBoundary", () => {
     expect(result).toBe(true);
     expect(mockTr.setStoredMarks).toHaveBeenCalledWith([]);
     expect(dispatchFn).toHaveBeenCalledWith(mockTr);
+  });
+
+  it("does not act on a multi-range (multi-cursor) selection, even with stored marks", () => {
+    // Regression: a MultiSelection whose primary is a caret reports empty===true,
+    // so it slips past the `!empty` guard. With a stored mark present,
+    // escapeMarkBoundary used to return true and swallow Escape — preempting the
+    // multi-cursor collapse so the secondary selection (e.g. over a list) never
+    // cleared. It must bail for multi-range selections and let the multi-cursor
+    // Escape handler reduce them.
+    const dispatchFn = vi.fn();
+    const mockTr = { setStoredMarks: vi.fn().mockReturnThis() };
+    const view = {
+      state: {
+        selection: {
+          $from: { pos: 1 },
+          empty: true, // primary range is a caret
+          ranges: [{}, {}], // multi-cursor: more than one range
+        },
+        storedMarks: [{ type: "bold" }], // would otherwise trigger the swallow
+        tr: mockTr,
+      },
+      dispatch: dispatchFn,
+    } as never;
+
+    expect(escapeMarkBoundary(view)).toBe(false);
+    expect(dispatchFn).not.toHaveBeenCalled();
   });
 
   it("moves cursor to mark end when inside mark range using real state", () => {
