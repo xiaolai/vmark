@@ -612,6 +612,7 @@ pub fn run() {
             running: std::sync::atomic::AtomicBool::new(false),
             cancel_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             approvals: std::sync::Arc::new(workflow::approval::ApprovalRegistry::new()),
+            current_execution: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             get_pending_file_opens,

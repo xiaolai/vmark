@@ -16,7 +16,7 @@ use super::types::RawWorkflow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
@@ -39,10 +39,39 @@ impl RunningGuard {
 
 impl Drop for RunningGuard {
     fn drop(&mut self) {
-        self.app
-            .state::<WorkflowRunnerState>()
-            .running
-            .store(false, Ordering::SeqCst);
+        let state = self.app.state::<WorkflowRunnerState>();
+        state.running.store(false, Ordering::SeqCst);
+        // Clear the running execution id so a late cancel targeting the
+        // finished execution can no longer fire against whatever starts next.
+        *state
+            .current_execution
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
+    }
+}
+
+/// Outcome of evaluating a cancel request against the currently-running
+/// execution. Pure (no Tauri/i18n dependency) so it is unit-testable.
+#[derive(Debug, PartialEq, Eq)]
+enum CancelDecision {
+    /// The requested id matches the running execution — fire the cancel.
+    Cancel,
+    /// Nothing is running, or a *different* execution is running. The
+    /// requested execution must not be cancelled.
+    NotRunning,
+}
+
+/// Decide whether a cancel request for `requested_id` should fire, given the
+/// id of the execution currently running (`current`, `None` when idle).
+///
+/// Honoring the execution id (C6) closes a TOCTOU window: execution A finishes
+/// and execution B starts before A's late `cancel_workflow(A)` arrives. A
+/// global `running`-only check would cancel B; matching the id drops the stale
+/// request instead.
+fn decide_cancel(current: Option<&str>, requested_id: &str) -> CancelDecision {
+    match current {
+        Some(id) if id == requested_id => CancelDecision::Cancel,
+        _ => CancelDecision::NotRunning,
     }
 }
 
@@ -63,6 +92,11 @@ pub struct WorkflowRunnerState {
     /// `respond_workflow_approval` looks the entry up and delivers the user's
     /// verdict; the runner awaits the matching receiver.
     pub approvals: Arc<ApprovalRegistry>,
+    /// Id of the execution currently running, or `None` when idle.
+    /// `run_workflow` sets it under the concurrency guard; `RunningGuard::drop`
+    /// clears it. `cancel_workflow` matches against it so a stale cancel for an
+    /// already-finished execution can't cancel whatever started next (C6).
+    pub current_execution: Arc<Mutex<Option<String>>>,
 }
 
 /// Execute a workflow from YAML string.
@@ -161,6 +195,15 @@ pub async fn run_workflow(
     let cancel_token = Arc::clone(&state.cancel_requested);
     let app_clone = app.clone();
 
+    // Publish the running execution id before spawning so a cancel arriving
+    // immediately after invoke() resolves can match it. RunningGuard::drop
+    // clears it on every exit path. (Set after all early-return validation so
+    // a rejected run never leaves a stale id behind.)
+    *state
+        .current_execution
+        .lock()
+        .unwrap_or_else(|p| p.into_inner()) = Some(execution_id.clone());
+
     // Create snapshot of files that may be modified
     let app_data_dir = app
         .path()
@@ -240,18 +283,58 @@ pub async fn run_workflow(
 }
 
 /// Cancel a running workflow.
+///
+/// The cancel only fires when `execution_id` matches the execution currently
+/// running (C6). A request for any other id — typically a stale cancel for an
+/// execution that already finished — is rejected so it can't cancel a workflow
+/// that started in the meantime.
 #[tauri::command]
 pub async fn cancel_workflow(
     _app: AppHandle,
-    _execution_id: String,
+    execution_id: String,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<(), String> {
-    if !state.running.load(Ordering::SeqCst) {
-        return Err(rust_i18n::t!("errors.workflow.notRunning").to_string());
+    let current = state
+        .current_execution
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone();
+    match decide_cancel(current.as_deref(), &execution_id) {
+        CancelDecision::Cancel => {
+            state.cancel_requested.store(true, Ordering::SeqCst);
+            log::info!("Workflow cancellation requested for {}", execution_id);
+            Ok(())
+        }
+        CancelDecision::NotRunning => {
+            Err(rust_i18n::t!("errors.workflow.notRunning").to_string())
+        }
     }
-    state.cancel_requested.store(true, Ordering::SeqCst);
-    log::info!("Workflow cancellation requested");
-    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{decide_cancel, CancelDecision};
+
+    #[test]
+    fn cancel_fires_when_id_matches_running_execution() {
+        assert_eq!(decide_cancel(Some("exec-a"), "exec-a"), CancelDecision::Cancel);
+    }
+
+    #[test]
+    fn cancel_rejected_when_nothing_is_running() {
+        // A cancel arriving while idle must not arm the cancel flag.
+        assert_eq!(decide_cancel(None, "exec-a"), CancelDecision::NotRunning);
+    }
+
+    #[test]
+    fn cancel_rejected_when_a_different_execution_is_running() {
+        // The TOCTOU case: exec-a finished, exec-b started, late cancel(exec-a)
+        // arrives — it must NOT cancel exec-b.
+        assert_eq!(
+            decide_cancel(Some("exec-b"), "exec-a"),
+            CancelDecision::NotRunning
+        );
+    }
 }
 
 /// Respond to an outstanding approval request from the frontend dialog.
