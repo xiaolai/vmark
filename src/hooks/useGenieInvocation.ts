@@ -388,13 +388,30 @@ export function useGenieInvocation() {
             return;
           }
           const { useWorkflowStore } = await import("@/stores/workflowStore");
-          const id = await invoke<string>("run_workflow", {
-            yaml: genie.template,
-            env: {},
-            workspaceRoot,
-            provider,
-          });
+          // Pre-generate the execution id and register it BEFORE invoking the
+          // runner (WI-0.3, C2). A fast workflow can emit step-update/complete
+          // events before invoke() resolves; if executionId is still unset when
+          // they arrive, they are processed against a null id and then wiped by
+          // a late setExecution — losing progress / sticking on "running".
+          // Mirrors useWorkflowExecution.start.
+          const id =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
           useWorkflowStore.getState().setExecution(id);
+          try {
+            await invoke<string>("run_workflow", {
+              yaml: genie.template,
+              env: {},
+              workspaceRoot,
+              provider,
+              executionId: id,
+            });
+          } catch (err) {
+            // Roll the store back so the UI doesn't show a fake "running" state.
+            useWorkflowStore.getState().setExecution(null);
+            throw err;
+          }
           useGeniesStore.getState().addRecent(genie.metadata.name);
         } catch (err) {
           toast.error(String(err));
