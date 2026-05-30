@@ -6,6 +6,7 @@
 //! API-key environment variables for REST providers.
 
 use std::process::Command;
+use std::sync::Mutex;
 use tauri::command;
 
 use super::types::CliProviderEntry;
@@ -14,9 +15,37 @@ use super::types::CliProviderEntry;
 // CLI Provider Detection
 // ============================================================================
 
+/// Session-stable cache. Installed CLIs don't appear/disappear mid-session, so
+/// the first detection result is reused — repeated `detect_ai_providers` calls
+/// otherwise re-spawn `which`/`where` ×3 (subprocesses) every time (O2).
+static DETECTION_CACHE: Mutex<Option<Vec<CliProviderEntry>>> = Mutex::new(None);
+
 /// Detect which CLI AI providers are available on the system.
+///
+/// `async` + `spawn_blocking` so the subprocess (`which`/`where`) lookups run
+/// off the IPC thread instead of stalling it; the result is memoized for the
+/// process lifetime (O2 / WI-2.2).
 #[command]
-pub fn detect_ai_providers() -> Vec<CliProviderEntry> {
+pub async fn detect_ai_providers() -> Vec<CliProviderEntry> {
+    if let Some(cached) = DETECTION_CACHE
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone()
+    {
+        return cached;
+    }
+
+    let detected = tokio::task::spawn_blocking(|| detect_with(check_command))
+        .await
+        .unwrap_or_default();
+
+    *DETECTION_CACHE.lock().unwrap_or_else(|p| p.into_inner()) = Some(detected.clone());
+    detected
+}
+
+/// Pure detection over an injectable availability checker — keeps the provider
+/// table in one place and is unit-testable without spawning subprocesses.
+fn detect_with<F: Fn(&str) -> (bool, Option<String>)>(check: F) -> Vec<CliProviderEntry> {
     let providers = [
         ("claude", "Claude", "claude"),
         ("codex", "Codex", "codex"),
@@ -26,7 +55,7 @@ pub fn detect_ai_providers() -> Vec<CliProviderEntry> {
     providers
         .iter()
         .map(|(typ, name, cmd)| {
-            let (available, path) = check_command(cmd);
+            let (available, path) = check(cmd);
             CliProviderEntry {
                 provider_type: typ.to_string(),
                 name: name.to_string(),
@@ -299,4 +328,35 @@ pub fn read_env_api_keys() -> std::collections::HashMap<String, String> {
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detect_with_maps_all_three_providers() {
+        // Inject a checker that marks only `codex` available.
+        let entries = detect_with(|cmd| {
+            if cmd == "codex" {
+                (true, Some("/usr/local/bin/codex".to_string()))
+            } else {
+                (false, None)
+            }
+        });
+
+        assert_eq!(entries.len(), 3);
+        let types: Vec<&str> = entries.iter().map(|e| e.provider_type.as_str()).collect();
+        assert_eq!(types, ["claude", "codex", "gemini"]);
+
+        let codex = entries.iter().find(|e| e.provider_type == "codex").unwrap();
+        assert!(codex.available);
+        assert_eq!(codex.path.as_deref(), Some("/usr/local/bin/codex"));
+
+        let claude = entries.iter().find(|e| e.provider_type == "claude").unwrap();
+        assert!(!claude.available);
+        assert_eq!(claude.path, None);
+        assert_eq!(claude.command, "claude");
+        assert_eq!(claude.name, "Claude");
+    }
 }

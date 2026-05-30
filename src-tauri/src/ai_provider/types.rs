@@ -9,7 +9,7 @@ use serde::Serialize;
 use super::sink::AiSink;
 
 /// Detected CLI AI provider with availability and resolved path.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CliProviderEntry {
     #[serde(rename = "type")]
     pub provider_type: String,
