@@ -1,7 +1,13 @@
 # Terminal — Road to Industrial-Best (Implementation Plan)
 
 > Created: 2026-05-31
-> Status: **Draft / Not started** — awaiting Phase 0 spikes + Codex cross-model review.
+> Status: **Phase 0 in progress.** WI-0.0 (DoD checker) and WI-0.1 (throughput
+> bench + spike docs) DONE on branch `terminal-industrial-best`. WI-0.2 / 0.3 /
+> 0.4 are **blocked on a running Tauri app** (the agent cannot run interactive
+> app flows per AGENTS.md) — repro steps in `dev-docs/grills/terminal/`. Phases
+> 1–6 are gated on those spikes + the Codex cross-model review below.
+> `bash scripts/check-terminal-phase.sh 0` currently fails on the two PENDING
+> spike verdicts (by design — the gate is doing its job).
 > Source audit: `dev-docs/audit/20260531-terminal-integration.md` (finding IDs
 > T1–T3, L1–L2, C1–C3, M1–M6, S1–S5 below reference that doc).
 > Phase-DoD checker: `scripts/check-terminal-phase.sh <N>` (to be created in WI-0.0,

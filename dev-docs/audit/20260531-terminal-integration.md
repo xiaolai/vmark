@@ -94,6 +94,20 @@ re-pack into a typed array. The watermark flow-control in `wirePtyFlowControl`
 (`spawnPty.ts:117`) exists primarily to stop xterm choking on this stream — it
 is treating a symptom.
 
+**Measured (WI-0.1, `src/bench/terminal.bench.ts`, 2026-05-31).** Quantified
+in-process — see `dev-docs/grills/terminal/throughput-baseline.md`:
+- **Wire size: a flat 3.66×** blow-up (binary → JSON number array), independent
+  of payload size. A 10 MB drain is physically transmitted as ~36.6 MB.
+- **Encode CPU (producer): 255× (256 KB) → 1148× (1 MB)** slower than binary
+  passthrough.
+- **Decode CPU (consumer): 202× (4 KB) → 783× (1 MB)** slower than
+  `new Uint8Array(arrayBuffer)`; round-trip 2284× at 256 KB.
+
+These are the isolated encode/parse CPU costs, not end-to-end latency (which the
+binary path also helps via 3.66× less data); the practical end-to-end win will
+be large but well below the CPU ratios. **The original "5–10×" estimate below
+understated the CPU component.**
+
 **Why it matters for "industrial best."** Native terminals push raw bytes from
 the PTY to the renderer. VS Code uses a binary protocol; Ghostty/WezTerm are
 zero-copy. Anything that emits fast (build tools, `claude-code` redraws, `htop`,
@@ -328,11 +342,13 @@ relevant if image-capable tooling matters later.
 
 Per the project's independence/calibration norms, explicit about the edges:
 
-- **T1 magnitude.** The JSON-number-array encoding is *certain* from the code
-  and the in-repo comment. I did **not** benchmark the actual user-visible lag
-  or CPU cost — the "5–10×" framing is an encoding-overhead estimate, not a
-  measurement. A `src/bench/`-style throughput probe (cat a 10 MB file, measure
-  wall-clock to drain) would quantify it before/after.
+- **T1 magnitude.** ~~Not benchmarked; "5–10×" is an estimate.~~ **Resolved
+  (2026-05-31):** the in-process encode/parse component is now measured —
+  `src/bench/terminal.bench.ts` / `dev-docs/grills/terminal/throughput-baseline.md`.
+  Flat 3.66× wire blow-up; 200–2284× encode/decode CPU. The "5–10×" estimate
+  understated the CPU cost. **Still pending:** the true end-to-end terminal
+  latency (IPC bridge + `term.write`) needs a manual app run (steps in the grill
+  doc) — the bench cannot spawn a real PTY.
 - **L1 orphan behavior.** I reasoned from `portable-pty 0.9` kill semantics +
   PTY master-drop SIGHUP delivery. I did **not** runtime-confirm which
   descendants survive. Quick empirical check: run `sleep 1000 &` (disowned) in a
