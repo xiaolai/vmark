@@ -66,9 +66,12 @@ export function findAllOccurrences(
   const rangeFrom = bounds?.from ?? 0;
   const rangeTo = bounds?.to ?? state.doc.content.size;
 
-  state.doc.descendants((node, pos) => {
+  // O8: traverse only the [rangeFrom, rangeTo] window instead of walking the
+  // whole document. When bounds are given (e.g. select-all-within-selection)
+  // this skips every node outside the range; with no bounds the window is the
+  // full doc, so behavior is identical to the previous descendants() walk.
+  state.doc.nodesBetween(rangeFrom, rangeTo, (node, pos) => {
     if (!node.isText) return;
-    if (pos > rangeTo || pos + node.nodeSize < rangeFrom) return;
 
     /* v8 ignore start -- @preserve text nodes always have text; empty string fallback is defensive */
     const text = node.text || "";
