@@ -193,6 +193,7 @@ green; bundle size unchanged or smaller (`pnpm size`).
 - Change: an explicit **finish-or-delete** decision. Default recommendation: **delete** both fns + the `create_snapshot` call that feeds them, unless workflow-undo is on the near-term roadmap — in which case file a tracking note and keep the `#[allow]`.
 - AC: a recorded decision; if deleted, `cargo check` clean and no dangling snapshot writes.
 - Test: `cargo test` green.
+- **Decision (2026-05-30): KEEP** (finish, don't delete). `create_snapshot` is **live** — wired into workflow pre-execution in `workflow/commands.rs:188` (snapshots every modified file before a run). `restore_snapshot`/`list_snapshots` are the read-side of a roadmapped feature: `dev-docs/plans/20260331-workflow-engine.md` **WI-5.4 "File Snapshots for Undo"**. Deleting would orphan a deliberate safety mechanism that already runs on every workflow execution. Per the plan's exception clause, the `#[allow(dead_code)]` stays and a tracking note is filed (added to `snapshots.rs` module docs pointing at workflow-engine WI-5.4).
 
 ---
 
