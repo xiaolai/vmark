@@ -2,7 +2,12 @@
 
 > Created: 2026-05-30
 > Revised: 2026-05-30 (post-Codex review — corrected WI-1.3/1.4 stale dead-code claims, added Phase -1 stability gate, restored dropped findings O3/B2/C3-C5/snapshot, tightened race-closure ACs and codemod scope; see §7)
-> Status: Reviewed (Codex REWORK addressed) — ready to start Phase -1. Nothing implemented yet.
+> Status: **Implemented (2026-05-30)** on branch `chore/audit-remediation`, one commit per WI.
+> Phases -1, 0, 1, 3, 4, 5 fully done; Phase 2 done except WI-2.6 (aborted per its DoD —
+> `size:why` unavailable in this vite/esbuild setup) and WI-2.8 (deferred — lazy-turndown
+> needs an async-claim paste refactor that changes a core-UX contract, unverifiable here).
+> WI-2.9 measured (no leak), WI-1.5/0.7 decisions recorded. Backend `cargo test` 594 green;
+> frontend `pnpm check:all` green.
 > Source: `dev-docs/audit/20260530-dead-code-and-optimization.md` (3-round, grep-verified audit). Finding IDs (P1, C1, D3, O1, …) below reference that doc.
 > Branch: (per-phase feature branches; see §6)
 
