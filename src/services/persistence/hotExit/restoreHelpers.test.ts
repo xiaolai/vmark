@@ -398,6 +398,17 @@ describe('restoreHelpers', () => {
       expect(isValidWindowState(makeWindowState({ window_label: 5 as never }))).toBe(false);
       expect(isValidWindowState(makeWindowState({ active_tab_id: 7 as never }))).toBe(false);
     });
+
+    it('rejects malformed tab entries that would crash early derefs', () => {
+      // isEmptyUntitledTab(null) → null.file_path would throw.
+      expect(isValidWindowState(makeWindowState({ tabs: [null] as never }))).toBe(false);
+      // tab.document.content would throw when document is missing.
+      expect(
+        isValidWindowState(makeWindowState({ tabs: [{ id: 't', file_path: null }] as never }))
+      ).toBe(false);
+      // a well-formed tab (with an object document) still passes.
+      expect(isValidWindowState(makeWindowState())).toBe(true);
+    });
   });
 
   // =========================================================================
