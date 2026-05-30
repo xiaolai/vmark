@@ -137,3 +137,74 @@ fn scan_genies_recursive(dir: &Path, base: &Path, entries: &mut Vec<GenieMenuEnt
     }
 }
 
+#[cfg(test)]
+mod tests {
+    // WI-5.4 — genie directory scanning (TQ5 coverage gap).
+    use super::*;
+    use std::collections::HashMap;
+    use std::ffi::OsStr;
+    use tempfile::tempdir;
+
+    #[test]
+    fn classify_recognizes_md_and_yaml_case_insensitively() {
+        assert_eq!(classify(Some(OsStr::new("md"))), Some(GenieKind::Markdown));
+        assert_eq!(classify(Some(OsStr::new("MD"))), Some(GenieKind::Markdown));
+        assert_eq!(classify(Some(OsStr::new("yml"))), Some(GenieKind::Workflow));
+        assert_eq!(classify(Some(OsStr::new("YAML"))), Some(GenieKind::Workflow));
+        assert_eq!(classify(Some(OsStr::new("txt"))), None);
+        assert_eq!(classify(None), None);
+    }
+
+    #[test]
+    fn scan_derives_categories_from_subdirs_and_skips_non_genies() {
+        let dir = tempdir().unwrap();
+        let base = dir.path();
+        std::fs::write(base.join("top.md"), "x").unwrap();
+        let sub = base.join("writing");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("clarity.md"), "x").unwrap();
+        std::fs::write(sub.join("flow.yml"), "x").unwrap();
+        std::fs::write(base.join("notgenie.txt"), "x").unwrap();
+
+        let mut entries = HashMap::new();
+        scan_genies_dir(base, base, "global", &mut entries);
+
+        // top.md + writing/clarity.md + writing/flow.yml; .txt skipped.
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries.get("top.md").unwrap().category, None);
+        assert_eq!(entries.get("top.md").unwrap().kind, GenieKind::Markdown);
+        let clarity = entries.get("writing/clarity.md").unwrap();
+        assert_eq!(clarity.category.as_deref(), Some("writing"));
+        assert_eq!(
+            entries.get("writing/flow.yml").unwrap().kind,
+            GenieKind::Workflow
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn scan_skips_symlinks() {
+        let dir = tempdir().unwrap();
+        let base = dir.path();
+        let real = base.join("real.md");
+        std::fs::write(&real, "x").unwrap();
+        std::os::unix::fs::symlink(&real, base.join("link.md")).unwrap();
+
+        let mut entries = HashMap::new();
+        scan_genies_dir(base, base, "global", &mut entries);
+        assert!(entries.contains_key("real.md"));
+        assert!(!entries.contains_key("link.md"));
+    }
+
+    #[test]
+    fn scan_menu_titles_are_sorted() {
+        let dir = tempdir().unwrap();
+        let base = dir.path();
+        std::fs::write(base.join("zebra.md"), "x").unwrap();
+        std::fs::write(base.join("alpha.md"), "x").unwrap();
+        let menu = scan_genies_with_titles(base);
+        let titles: Vec<&str> = menu.iter().map(|m| m.title.as_str()).collect();
+        assert_eq!(titles, vec!["alpha", "zebra"]);
+    }
+}
+

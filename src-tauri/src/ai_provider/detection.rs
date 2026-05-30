@@ -310,6 +310,14 @@ fn check_command(cmd: &str) -> (bool, Option<String>) {
 /// and non-empty. The frontend uses this to pre-fill empty API key fields.
 #[command]
 pub fn read_env_api_keys() -> std::collections::HashMap<String, String> {
+    read_env_api_keys_with(|var| std::env::var(var).ok())
+}
+
+/// Pure core of `read_env_api_keys` over an injectable env getter — testable
+/// without mutating the process environment (WI-5.4, TQ5).
+fn read_env_api_keys_with<F: Fn(&str) -> Option<String>>(
+    get: F,
+) -> std::collections::HashMap<String, String> {
     let mapping: &[(&str, &[&str])] = &[
         ("anthropic", &["ANTHROPIC_API_KEY"]),
         ("openai", &["OPENAI_API_KEY"]),
@@ -319,7 +327,7 @@ pub fn read_env_api_keys() -> std::collections::HashMap<String, String> {
     let mut result = std::collections::HashMap::new();
     for (provider, vars) in mapping {
         for var in *vars {
-            if let Ok(val) = std::env::var(var) {
+            if let Some(val) = get(var) {
                 if !val.is_empty() {
                     result.insert(provider.to_string(), val);
                     break; // first match wins
@@ -358,5 +366,46 @@ mod tests {
         assert_eq!(claude.path, None);
         assert_eq!(claude.command, "claude");
         assert_eq!(claude.name, "Claude");
+    }
+
+    #[test]
+    fn env_keys_present_absent_and_empty() {
+        // anthropic present, openai absent, google empty → only anthropic.
+        let keys = read_env_api_keys_with(|var| match var {
+            "ANTHROPIC_API_KEY" => Some("sk-ant".to_string()),
+            "GOOGLE_API_KEY" => Some(String::new()), // empty → ignored
+            _ => None,
+        });
+        assert_eq!(keys.get("anthropic").map(String::as_str), Some("sk-ant"));
+        assert!(!keys.contains_key("openai"));
+        assert!(!keys.contains_key("google-ai"));
+    }
+
+    #[test]
+    fn google_falls_back_to_gemini_var() {
+        // GOOGLE_API_KEY unset/empty, GEMINI_API_KEY set → google-ai resolves.
+        let keys = read_env_api_keys_with(|var| match var {
+            "GOOGLE_API_KEY" => Some(String::new()),
+            "GEMINI_API_KEY" => Some("gm-key".to_string()),
+            _ => None,
+        });
+        assert_eq!(keys.get("google-ai").map(String::as_str), Some("gm-key"));
+    }
+
+    #[test]
+    fn google_prefers_google_var_over_gemini() {
+        let keys = read_env_api_keys_with(|var| match var {
+            "GOOGLE_API_KEY" => Some("goog".to_string()),
+            "GEMINI_API_KEY" => Some("gem".to_string()),
+            _ => None,
+        });
+        // First match wins → GOOGLE_API_KEY.
+        assert_eq!(keys.get("google-ai").map(String::as_str), Some("goog"));
+    }
+
+    #[test]
+    fn env_keys_none_when_all_absent() {
+        let keys = read_env_api_keys_with(|_| None);
+        assert!(keys.is_empty());
     }
 }
