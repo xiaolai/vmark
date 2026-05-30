@@ -12,23 +12,24 @@
 
 import { visit } from "unist-util-visit";
 import type { Root, Definition } from "mdast";
-import { createDiagnostic, type LintDiagnostic } from "../types";
+import { createDiagnostic, type LintDiagnostic, type LintLineIndex } from "../types";
 import { normalizeLabel } from "./labelUtils";
 
 /**
- * Find offset for a given 1-based line + 1-based column in source.
+ * Matches all reference forms (hoisted to module scope so it isn't recompiled
+ * per line — reset `.lastIndex` before each line's scan):
+ *   Full:      [text][label]  — g1 = "[text]", g3 = "[label]", g4 = "label"
+ *   Collapsed: [text][]       — g1 = "[text]", g3 = "[]",      g4 = ""
+ *   Shortcut:  [text]         — g1 = "[text]", g3 = undefined
+ * Also matches image variants: ![alt][label], ![alt][], ![alt].
  */
-function offsetFromLineCol(source: string, line: number, column: number): number {
-  const lines = source.split("\n");
-  let offset = 0;
-  for (let i = 0; i < line - 1; i++) {
-    offset += lines[i].length + 1; // +1 for the newline char
-  }
-  offset += column - 1;
-  return offset;
-}
+const REF_PATTERN = /(!?\[([^\]\\]|\\.)*?\])(\[([^\]]*?)\])?/g;
 
-export function noUndefinedRefs(source: string, mdast: Root): LintDiagnostic[] {
+export function noUndefinedRefs(
+  _source: string,
+  mdast: Root,
+  { lines, lineOffsets }: LintLineIndex,
+): LintDiagnostic[] {
   const diagnostics: LintDiagnostic[] = [];
 
   // Collect all definition labels from MDAST (reliable — definitions always parse)
@@ -41,7 +42,6 @@ export function noUndefinedRefs(source: string, mdast: Root): LintDiagnostic[] {
   // Scan source text for reference-style links: [text][label] and ![alt][label]
   // Also handle collapsed refs: [text][] and ![alt][]
   // We skip references inside code spans and fenced code blocks.
-  const lines = source.split("\n");
   let inFencedBlock = false;
   let fenceChar = "";
   let fenceLen = 0;
@@ -76,15 +76,12 @@ export function noUndefinedRefs(source: string, mdast: Root): LintDiagnostic[] {
     // Strip inline code spans before scanning for refs
     const strippedLine = lineText.replace(/`[^`]*`/g, (m) => " ".repeat(m.length));
 
-    // Regex matches all reference forms:
-    //   Full:      [text][label]  — group 1 = "[text]", group 3 = "[label]", group 4 = "label"
-    //   Collapsed: [text][]       — group 1 = "[text]", group 3 = "[]",      group 4 = ""
-    //   Shortcut:  [text]         — group 1 = "[text]", group 3 = undefined
-    // Also matches image variants: ![alt][label], ![alt][], ![alt]
-    const refPattern = /(!?\[([^\]\\]|\\.)*?\])(\[([^\]]*?)\])?/g;
+    // Hoisted `REF_PATTERN` (module scope) — reset its lastIndex per line since
+    // the global-flag regex is reused across lines (O6 / WI-2.5).
+    REF_PATTERN.lastIndex = 0;
     let match: RegExpExecArray | null;
 
-    while ((match = refPattern.exec(strippedLine)) !== null) {
+    while ((match = REF_PATTERN.exec(strippedLine)) !== null) {
       const fullBracket = match[1]; // e.g. "[text]" or "![alt]"
       const hasBracket = match[3] !== undefined; // second [...] present
       const bracketContent = match[4]; // content of second [...]; "" for collapsed
@@ -110,7 +107,9 @@ export function noUndefinedRefs(source: string, mdast: Root): LintDiagnostic[] {
       if (!definedLabels.has(normalizedLabel)) {
         const fullMatch = match[0];
         const column = match.index + 1;
-        const offset = offsetFromLineCol(source, lineNum, column);
+        // O(1) offset via the precomputed per-line start offsets (O6 / WI-2.5)
+        // instead of re-scanning the source for every reference match.
+        const offset = lineOffsets[lineNum - 1] + column - 1;
         const endOffset = offset + fullMatch.length;
 
         diagnostics.push(

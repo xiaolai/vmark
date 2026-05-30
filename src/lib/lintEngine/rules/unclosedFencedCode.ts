@@ -13,8 +13,7 @@ import { createDiagnostic } from "../types";
 // Matches a potential fence line: 0-3 optional spaces then 3+ backticks or tildes
 const FENCE_OPEN_RE = /^([ ]{0,3})(`{3,}|~{3,})/;
 
-export const unclosedFencedCode: LintRule = (source) => {
-  const lines = source.split("\n");
+export const unclosedFencedCode: LintRule = (_source, _mdast, { lines }) => {
 
   let inFence = false;
   let fenceChar = "";

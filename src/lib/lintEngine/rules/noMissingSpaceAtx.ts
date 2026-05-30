@@ -17,9 +17,8 @@ import { CodeBlockTracker } from "./codeBlockTracker";
 // (all hashes, no following non-hash) is correctly excluded.
 const ATX_NO_SPACE_RE = /^([ ]{0,3})(#{1,6})(?!#)(\S)/;
 
-export const noMissingSpaceAtx: LintRule = (source) => {
+export const noMissingSpaceAtx: LintRule = (_source, _mdast, { lines }) => {
   const diagnostics = [];
-  const lines = source.split("\n");
   const tracker = new CodeBlockTracker();
   let lineOffset = 0;
 
