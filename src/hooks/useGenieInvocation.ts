@@ -277,7 +277,26 @@ export function useGenieInvocation() {
           if (accumulated.trim()) {
             const autoApprove = useSettingsStore.getState().advanced.mcpServer.autoApproveEdits;
             const isInsert = action === "insert";
-            if (autoApprove) {
+            // Stale-target guard (WI-0.9, C4): if the user navigated to a
+            // different tab while the stream was arriving, the captured
+            // from/to positions belong to the originating doc. Applying them to
+            // the now-active editor would corrupt the wrong document. Preserve
+            // the result as a suggestion scoped to the originating tab instead.
+            const currentTabId =
+              useTabStore.getState().activeTabId[windowLabel] ?? "unknown";
+            const tabSwitched = currentTabId !== tabId;
+            if (autoApprove && tabSwitched) {
+              useAiSuggestionStore.getState().addSuggestion({
+                tabId,
+                type: isInsert ? "insert" : "replace",
+                from: isInsert ? extraction.to : extraction.from,
+                to: extraction.to,
+                newContent: accumulated.trim(),
+                originalContent: isInsert ? "" : extraction.text,
+              });
+              useGeniePickerStore.getState().closePicker();
+              useAiInvocationStore.getState().finish();
+            } else if (autoApprove) {
               // Apply directly — skip ghost text preview
               const editor = useEditorStore.getState().tiptap.editor;
               if (editor) {
