@@ -83,6 +83,16 @@ export async function openFileInNewTabCore(
     const content = await readTextFile(path);
     perfEnd("readTextFile", { size: content.length });
 
+    // Close-during-open guard (WI-0.2, C1): the tab can be closed while this
+    // read is in flight. Writing the document now would resurrect an orphan
+    // entry for a tab that no longer exists. Re-check existence post-await —
+    // mirrors the `updateDoc` missing-key guard the sibling mutators use.
+    if (!useTabStore.getState().findTabById(tabId)) {
+      perfMark("openFileInNewTab:tabClosedDuringRead");
+      if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
+      return;
+    }
+
     // WI-2.6 — YAML force-source bandaid retired. YAML files now route
     // through the YAML adapter (kind: split-pane) via the format
     // registry, so they bypass the markdown WYSIWYG path entirely.
