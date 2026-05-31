@@ -274,8 +274,11 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
               selection: { anchor: lineInfo.from },
               effects: EditorView.scrollIntoView(lineInfo.from),
             });
-            // Pre-fill FindBar with the search query
-            setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+            // Pre-fill FindBar with the search query (only when there is one —
+            // a file-link line jump passes an empty query and just scrolls).
+            if (pendingNav.query) {
+              setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+            }
           }
         }
       }, 50);
@@ -344,7 +347,10 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
             selection: { anchor: lineInfo.from },
             effects: EditorView.scrollIntoView(lineInfo.from),
           });
-          setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+          // Only open FindBar when there's a query (file-link nav scrolls only).
+          if (pendingNav.query) {
+            setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+          }
         }
       }
     }, 50);

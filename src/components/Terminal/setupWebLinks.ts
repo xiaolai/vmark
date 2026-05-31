@@ -1,14 +1,16 @@
 /**
  * setupWebLinks
  *
- * Purpose: Wires the xterm.js WebLinksAddon with a click handler that
- * only opens safe URL schemes (http, https, mailto). Caches the dynamic
- * import of the opener plugin across clicks so the first click pays the
- * load cost once.
+ * Purpose: Wires URL opening for the terminal — both the WebLinksAddon
+ * (regex-detected URLs) and OSC 8 hyperlinks (explicit `\e]8;;URL\e\\` links
+ * emitted by `ls --hyperlink`, gcc, gh, etc., WI-4.2). Both routes share one
+ * allowlisted, lazily-loaded opener so only safe schemes are launched.
  *
  * Key decisions:
  *   - Allowlist of schemes prevents accidental file://, javascript:, or
  *     custom-protocol invocations from terminal output.
+ *   - OSC 8 links are rendered natively by xterm; activation is routed through
+ *     `term.options.linkHandler` to the same `openSafeUri` as regex links.
  *   - Cached `openerPromise` is invalidated on plugin import failure so
  *     the next click can retry.
  *
@@ -22,11 +24,12 @@ import { errorMessage } from "@/utils/errorMessage";
 
 const SAFE_LINK_SCHEMES = ["http:", "https:", "mailto:"];
 
-/** Attach the WebLinksAddon to a Terminal with a sandboxed click handler. */
+/** Attach the WebLinksAddon AND OSC 8 hyperlink handling, both sandboxed. */
 export function setupWebLinks(term: Terminal): void {
   let openerPromise: Promise<{ openUrl: (url: string) => Promise<void> }> | null = null;
 
-  term.loadAddon(new WebLinksAddon((_event, uri) => {
+  /** Open a URI iff its scheme is allowlisted, via the cached opener plugin. */
+  const openSafeUri = (uri: string): void => {
     try {
       const parsed = new URL(uri);
       if (!SAFE_LINK_SCHEMES.includes(parsed.protocol)) {
@@ -42,19 +45,22 @@ export function setupWebLinks(term: Terminal): void {
     }
     openerPromise.then(({ openUrl }) => {
       openUrl(uri).catch((error: unknown) => {
-        terminalLog(
-          "Failed to open URL:",
-          errorMessage(error),
-        );
+        terminalLog("Failed to open URL:", errorMessage(error));
       });
     /* v8 ignore start -- @preserve reason: dynamic import of a vi.mock'd module always resolves in tests; the import-failure catch is only reachable in production when the plugin binary is missing */
     }).catch((error: unknown) => {
       openerPromise = null; // Reset on failure so next click retries
-      terminalLog(
-        "Failed to load opener plugin:",
-        errorMessage(error),
-      );
+      terminalLog("Failed to load opener plugin:", errorMessage(error));
     });
     /* v8 ignore stop */
-  }));
+  };
+
+  // Regex-detected URLs.
+  term.loadAddon(new WebLinksAddon((_event, uri) => openSafeUri(uri)));
+
+  // OSC 8 explicit hyperlinks (WI-4.2) — xterm renders them; route activation
+  // through the same allowlisted opener.
+  term.options.linkHandler = {
+    activate: (_event, uri) => openSafeUri(uri),
+  };
 }

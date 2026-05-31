@@ -75,6 +75,23 @@
   opacity: 1;
 }
 
+/* Background-activity indicator (WI-4.3): a small accent dot top-right of a
+   non-active tab whose shell rang the bell. Cleared when the tab is focused. */
+.terminal-tab-activity {
+  position: relative;
+}
+
+.terminal-tab-activity::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+}
+
 .terminal-tab-bar-actions {
   display: flex;
   flex-direction: column;

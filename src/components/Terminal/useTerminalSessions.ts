@@ -269,6 +269,13 @@ export function useTerminalSessions(
         settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
+        onBell: () => {
+          // Mark background activity only when this session isn't the active one
+          // (WI-4.3); the active terminal needs no "look here" indicator.
+          if (useUIStore.getState().terminal.activeSessionId !== sessionId) {
+            useUIStore.getState().terminalMarkActivity(sessionId);
+          }
+        },
       });
 
       const entry: SessionEntry = {

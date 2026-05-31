@@ -289,6 +289,9 @@ Not committed here; logged so they aren't silently dropped (audit S/M items):
 - **S1** — Windows `windowsPty` reflow option (best-effort, macOS-primary).
 - **S3** — surface a hint when the `vmark` CLI (`EDITOR=vmark`) isn't on PATH.
 - **S5** — search result counter ("3/12") in `TerminalSearchBar`.
+- **M4-title** — OSC 0/2 title surfacing for the compact tab bar (tooltip or a
+  wider label mode), with a manual-rename-vs-auto policy (deferred from WI-4.3).
+- **A11y** — screen-reader announcement for the tab activity indicator.
 - **L1-graceful** — send the shell `SIGHUP` + short grace before `SIGKILL` on
   close (history save / EXIT traps / graceful HUP of non-disowned jobs).
   Respects `disown`/`nohup`. Minor UX polish, not a leak fix (per WI-0.4).
@@ -350,6 +353,11 @@ gate before Phase 1.
   separate, still-real limit. WI-1.4 instead narrowed the now-dead `number[]`
   types (`onData`/`PtyPayload` → `Uint8Array`) and dropped the obsolete
   `number[]`→`Uint8Array` coercion, keeping a minimal `instanceof` boundary guard.
+- **WI-4.3 — title→label DEFERRED; bell/activity DONE.** The bell→background-
+  activity tab indicator shipped (the valuable half of M4). OSC 0/2 title→label
+  is deferred: VMark's tab bar shows single-char/number labels, so a
+  live-changing title would flicker the tab and clobber user/default labels —
+  low value for this compact UI. Tracked in Phase 7 (L1-graceful sibling list).
 - _(WI-5.2 — scrollback persisted/addon removed: …)_
 
 ## 7. Pre-Phase-1 gate

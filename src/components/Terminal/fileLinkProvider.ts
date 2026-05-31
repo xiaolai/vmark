@@ -62,7 +62,7 @@ function resolvePath(raw: string, getCwd?: () => string | null): string {
  */
 export function createFileLinkProvider(
   term: Terminal,
-  onActivate: (filePath: string) => void,
+  onActivate: (filePath: string, line?: number, col?: number) => void,
   getCwd?: () => string | null,
 ): ILinkProvider {
   return {
@@ -92,11 +92,14 @@ export function createFileLinkProvider(
         };
 
         const resolved = resolvePath(rawPath, getCwd);
+        // Carry the parsed :line:col through so the editor can jump there (WI-4.1).
+        const line = match[2] ? parseInt(match[2], 10) : undefined;
+        const col = match[3] ? parseInt(match[3], 10) : undefined;
 
         links.push({
           range,
           text: resolved,
-          activate: () => onActivate(resolved),
+          activate: () => onActivate(resolved, line, col),
         });
       }
 

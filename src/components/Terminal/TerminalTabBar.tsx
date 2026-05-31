@@ -58,7 +58,7 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }:
         {sessions.map((s) => (
           <button
             key={s.id}
-            className={`terminal-tab ${s.id === activeId ? "terminal-tab-active" : ""} ${!s.isAlive ? "terminal-tab-dead" : ""}`}
+            className={`terminal-tab ${s.id === activeId ? "terminal-tab-active" : ""} ${!s.isAlive ? "terminal-tab-dead" : ""} ${s.hasActivity && s.id !== activeId ? "terminal-tab-activity" : ""}`}
             onClick={() => handleSwitch(s.id)}
             title={s.label}
             aria-label={s.label}

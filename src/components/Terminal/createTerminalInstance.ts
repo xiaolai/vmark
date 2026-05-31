@@ -114,6 +114,9 @@ interface CreateOptions {
   settings: TerminalInstanceSettings;
   ptyRef: React.RefObject<import("@/lib/pty").IPty | null>;
   onSearch: () => void;
+  /** Fired when the shell rings the bell (BEL / OSC) — drives the background
+   *  activity indicator (WI-4.3). */
+  onBell?: () => void;
 }
 
 // Suppress the "unused" lint when nothing in this file references the
@@ -125,7 +128,7 @@ void IME_COMPOSITION_GRACE_MS;
  * Appends a child div to parentEl and opens xterm in it.
  */
 export function createTerminalInstance(options: CreateOptions): TerminalInstance {
-  const { parentEl, settings, ptyRef, onSearch } = options;
+  const { parentEl, settings, ptyRef, onSearch, onBell } = options;
 
   // Create child container
   const container = document.createElement("div");
@@ -181,6 +184,9 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
   // OSC 7 cwd tracking — feeds relative file-link resolution (WI-2.1/2.3).
   const osc = setupOsc7(term);
+
+  // Bell → background-activity indicator (WI-4.3).
+  if (onBell) term.onBell(() => onBell());
 
   setupWebLinks(term);
   setupFileLinks(term, osc.getCwd);

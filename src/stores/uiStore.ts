@@ -130,6 +130,9 @@ export interface TerminalSession {
   id: string;
   label: string;
   isAlive: boolean;
+  /** A bell rang while this session was in the background (WI-4.3). Cleared
+   *  when the session becomes active. Drives the tab activity indicator. */
+  hasActivity?: boolean;
 }
 
 const MAX_TERMINAL_SESSIONS = 5;
@@ -263,6 +266,7 @@ interface UIActions {
   terminalSetActiveSession: (id: string) => void;
   terminalMarkSessionDead: (id: string) => void;
   terminalMarkSessionAlive: (id: string) => void;
+  terminalMarkActivity: (id: string) => void;
   terminalRenameSession: (id: string, label: string) => void;
 }
 
@@ -661,7 +665,18 @@ export const useUIStore = create<UIStore>((set, get) => ({
   terminalSetActiveSession: (id) => {
     const state = get().terminal;
     if (state.sessions.some((s) => s.id === id)) {
-      set((s) => ({ terminal: { ...s.terminal, activeSessionId: id } }));
+      // Activating a session clears its background-activity flag (WI-4.3).
+      set((s) => ({
+        terminal: {
+          ...s.terminal,
+          activeSessionId: id,
+          sessions: s.terminal.sessions.map((session) =>
+            session.id === id && session.hasActivity
+              ? { ...session, hasActivity: false }
+              : session,
+          ),
+        },
+      }));
     }
   },
   terminalMarkSessionDead: (id) => {
@@ -690,6 +705,16 @@ export const useUIStore = create<UIStore>((set, get) => ({
         ...s.terminal,
         sessions: s.terminal.sessions.map((session) =>
           session.id === id ? { ...session, label } : session,
+        ),
+      },
+    }));
+  },
+  terminalMarkActivity: (id) => {
+    set((s) => ({
+      terminal: {
+        ...s.terminal,
+        sessions: s.terminal.sessions.map((session) =>
+          session.id === id ? { ...session, hasActivity: true } : session,
         ),
       },
     }));

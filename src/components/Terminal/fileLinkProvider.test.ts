@@ -97,6 +97,32 @@ describe("createFileLinkProvider", () => {
     });
   });
 
+  it("passes parsed line and col to onActivate when the link is clicked (WI-4.1)", () => {
+    const term = makeTerm(" /Users/foo/bar.ts:42:8");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", 42, 8);
+        resolve();
+      });
+    });
+  });
+
+  it("activates with undefined line/col for a bare path (WI-4.1)", () => {
+    const term = makeTerm(" /Users/foo/bar.ts");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", undefined, undefined);
+        resolve();
+      });
+    });
+  });
+
   it("filters out non-file paths", () => {
     const term = makeTerm("version 1.0.0 released");
     const provider = createFileLinkProvider(term, onActivate);
@@ -135,7 +161,8 @@ describe("createFileLinkProvider", () => {
       provider.provideLinks(1, (links) => {
         expect(links).toHaveLength(1);
         links![0].activate(new MouseEvent("click"), "");
-        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts");
+        // Bare path → no line/col (WI-4.1 added the optional args).
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", undefined, undefined);
         resolve();
       });
     });

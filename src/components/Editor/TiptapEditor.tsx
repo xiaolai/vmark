@@ -648,8 +648,11 @@ export function TiptapEditorInner({ hidden = false, readOnly = false }: TiptapEd
                 .scrollIntoView()
             );
           }
-          // Pre-fill FindBar after a brief delay to let the scroll settle
-          setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+          // Pre-fill FindBar after a brief delay to let the scroll settle —
+          // only when there's a query (a file-link line jump just scrolls).
+          if (pendingNav.query) {
+            setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
+          }
         }
       }
     }
