@@ -292,6 +292,9 @@ Not committed here; logged so they aren't silently dropped (audit S/M items):
 - **M4-title** — OSC 0/2 title surfacing for the compact tab bar (tooltip or a
   wider label mode), with a manual-rename-vs-auto policy (deferred from WI-4.3).
 - **A11y** — screen-reader announcement for the tab activity indicator.
+- **C3-sessions** — terminal session-list restore on restart (deferred from
+  WI-5.1): needs id-counter + transient-reset + persist-subscription coordination
+  for the modest payoff of empty respawned tabs on a side panel.
 - **L1-graceful** — send the shell `SIGHUP` + short grace before `SIGKILL` on
   close (history save / EXIT traps / graceful HUP of non-disowned jobs).
   Respects `disown`/`nohup`. Minor UX polish, not a leak fix (per WI-0.4).
@@ -358,7 +361,16 @@ gate before Phase 1.
   is deferred: VMark's tab bar shows single-char/number labels, so a
   live-changing title would flicker the tab and clobber user/default labels —
   low value for this compact UI. Tracked in Phase 7 (L1-graceful sibling list).
-- _(WI-5.2 — scrollback persisted/addon removed: …)_
+- **WI-5.1 — DEFERRED (session-list persistence).** For VMark's side-panel
+  terminal, restored tabs come back empty (fresh shell, no scrollback, no
+  running process — the useful state can't be restored regardless), panel
+  size/ratio already persists via `settingsStore`, and a clean implementation
+  must coordinate id-counter management, transient-flag reset, a persist
+  subscription, and seed timing across the central `uiStore`. Disproportionate
+  cost for marginal value; moved to the deferred backlog (Phase 7).
+- **WI-5.2 — DONE: dead `SerializeAddon` removed.** It was constructed per
+  instance and never serialized (scrollback restore depended on WI-5.1, now
+  deferred). Removed from `createTerminalInstance` + its test mocks.
 
 ## 7. Pre-Phase-1 gate
 

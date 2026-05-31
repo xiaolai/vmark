@@ -78,9 +78,6 @@ vi.mock("@xterm/addon-search", () => ({
   SearchAddon: class { findNext = vi.fn(); findPrevious = vi.fn(); clearDecorations = vi.fn(); dispose = vi.fn(); },
 }));
 
-vi.mock("@xterm/addon-serialize", () => ({
-  SerializeAddon: class { serialize = vi.fn(() => ""); dispose = vi.fn(); },
-}));
 
 vi.mock("@xterm/addon-unicode11", () => ({
   Unicode11Addon: class { dispose = vi.fn(); },
@@ -194,12 +191,12 @@ describe("createTerminalInstance basics", () => {
     expect(inst.container.style.display).toBe("none");
   });
 
-  it("exposes term, fitAddon, searchAddon, serializeAddon", () => {
+  it("exposes term, fitAddon, searchAddon, getCwd", () => {
     const inst = makeInstance();
     expect(inst.term).toBeDefined();
     expect(inst.fitAddon).toBeDefined();
     expect(inst.searchAddon).toBeDefined();
-    expect(inst.serializeAddon).toBeDefined();
+    expect(inst.getCwd).toBeTypeOf("function");
   });
 
   it("opens terminal in the container", () => {

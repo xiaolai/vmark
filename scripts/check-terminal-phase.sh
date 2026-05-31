@@ -128,8 +128,11 @@ case "$PHASE" in
     assert_grep_re 'registerOscHandler\(\s*8|linkHandler' "$TERMDIR" "WI-4.2 OSC 8 handling wired"
     ;;
   5)
-    assert_grep "persist" "src/stores/uiStore.ts" "WI-5.1 terminal slice persisted"
-    # WI-5.2: either scrollback restore wired OR SerializeAddon removed entirely.
+    # WI-5.1 (session-list persistence) is DEFERRED: restored tabs would be empty
+    # (no scrollback/process) — marginal for a side-panel terminal; panel size
+    # already persists via settingsStore. DoD = the deferral is recorded.
+    assert_grep "WI-5.1" "dev-docs/plans/20260531-terminal-industrial-best.md" "WI-5.1 deferral recorded in plan"
+    # WI-5.2: dead SerializeAddon removed (it was loaded but never serialized).
     if grep -rqF "serializeAddon.serialize" "$TERMDIR" 2>/dev/null; then
       ok "WI-5.2 scrollback serialize wired"
     elif ! grep -rqF "SerializeAddon" "$TERMDIR" 2>/dev/null; then

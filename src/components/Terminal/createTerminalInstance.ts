@@ -2,8 +2,8 @@
  * createTerminalInstance
  *
  * Purpose: Factory function that creates a fully-configured xterm.js instance
- * with all addons loaded (fit, search, serialize, unicode11, webgl, web-links,
- * file-links) and custom key handling.
+ * with all addons loaded (fit, search, unicode11, webgl, web-links, file-links)
+ * plus OSC handlers (cwd) and custom key handling.
  *
  * Key decisions:
  *   - Each instance gets its own child div inside the parent container,
@@ -37,7 +37,6 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { SearchAddon } from "@xterm/addon-search";
-import { SerializeAddon } from "@xterm/addon-serialize";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
 import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
@@ -67,7 +66,6 @@ export interface TerminalInstance {
   term: Terminal;
   fitAddon: FitAddon;
   searchAddon: SearchAddon;
-  serializeAddon: SerializeAddon;
   container: HTMLDivElement;
   /** Whether an IME composition is active or in post-composition grace period. */
   composing: boolean;
@@ -161,8 +159,6 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   term.loadAddon(fitAddon);
   const searchAddon = new SearchAddon();
   term.loadAddon(searchAddon);
-  const serializeAddon = new SerializeAddon();
-  term.loadAddon(serializeAddon);
 
   // Open terminal — must come before the helpers that query DOM children
   // (IME textarea, WebGL canvases).
@@ -221,7 +217,6 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     term,
     fitAddon,
     searchAddon,
-    serializeAddon,
     container,
     dispose,
     resetDisplay: webgl.resetDisplay,

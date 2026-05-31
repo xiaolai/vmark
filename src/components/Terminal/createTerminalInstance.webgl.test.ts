@@ -96,9 +96,6 @@ vi.mock("@xterm/addon-search", () => ({
   SearchAddon: class { findNext = vi.fn(); findPrevious = vi.fn(); clearDecorations = vi.fn(); dispose = vi.fn(); },
 }));
 
-vi.mock("@xterm/addon-serialize", () => ({
-  SerializeAddon: class { serialize = vi.fn(() => ""); dispose = vi.fn(); },
-}));
 
 vi.mock("@xterm/addon-unicode11", () => ({
   Unicode11Addon: class { dispose = vi.fn(); },
