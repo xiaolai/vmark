@@ -91,24 +91,29 @@ case "$PHASE" in
     ;;
   1)
     assert_grep "Channel" "src-tauri/src/pty.rs" "WI-1.1 Channel transport in pty.rs"
-    assert_absent_code 'pty:data:' "src-tauri/src/pty.rs" "WI-1.1 no pty:data event emit remains"
+    # Plan DoD scopes this to the whole src-tauri/src tree, not just pty.rs.
+    assert_absent_code 'pty:data:' "src-tauri/src" "WI-1.1 no pty:data event emit remains (src-tauri/src)"
     assert_grep_re 'Vec<u8>|&\[u8\]' "src-tauri/src/pty.rs" "WI-1.3 pty_write accepts bytes"
     ;;
   2)
-    assert_grep "registerOscHandler" "$TERMDIR" "WI-2.1 OSC handler registered"
-    assert_grep_re "7" "$TERMDIR" "WI-2.1 OSC 7 (manual: confirm handler id 7)"
+    # Discriminating: registerOscHandler is absent today, so a bare match means
+    # WI-2.1 actually wired an OSC handler. id 7 is matched specifically.
+    assert_grep_re 'registerOscHandler\(\s*7' "$TERMDIR" "WI-2.1 OSC 7 handler registered"
     assert_grep "cwd" "$TERMDIR/fileLinkProvider.ts" "WI-2.3 live-cwd in file links"
     ;;
   3)
     assert_dir "src-tauri/resources/shell-integration" "WI-3.1 integration scripts dir"
     assert_grep "shell-integration" "src-tauri/tauri.conf.json" "WI-3.1 resources bundled"
     assert_grep "shellIntegration" "src/stores/settingsStore.ts" "WI-3.1 setting present"
-    assert_grep "133" "$TERMDIR" "WI-3.2 OSC 133 handler (manual: confirm id 133)"
+    assert_grep_re 'registerOscHandler\(\s*133' "$TERMDIR" "WI-3.2 OSC 133 handler registered"
     ;;
   4)
-    assert_grep_re "line.*col|col.*line" "$TERMDIR/fileLinkProvider.ts" "WI-4.1 line/col carried through"
-    assert_grep_re "onActivate.*line|line.*onActivate|activate:.*line" "$TERMDIR/setupFileLinks.ts" "WI-4.1 line plumbed to open (manual confirm)"
-    assert_grep_re "8|registerLinkProvider" "$TERMDIR" "WI-4.2 OSC 8 handling (manual: confirm id 8)"
+    # WI-4.1: onActivate must carry line/col — i.e. its signature gains a 2nd
+    # param (or an object arg). Today it is single-param `(filePath: string)`,
+    # so a comma / brace after the open paren means the change landed.
+    assert_grep_re 'onActivate:\s*\([^)]*,|onActivate:\s*\(\{' "$TERMDIR/fileLinkProvider.ts" "WI-4.1 line/col carried through onActivate"
+    # WI-4.2: OSC 8 via an OSC handler or xterm linkHandler — both absent today.
+    assert_grep_re 'registerOscHandler\(\s*8|linkHandler' "$TERMDIR" "WI-4.2 OSC 8 handling wired"
     ;;
   5)
     assert_grep "persist" "src/stores/uiStore.ts" "WI-5.1 terminal slice persisted"

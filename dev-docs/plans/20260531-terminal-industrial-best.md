@@ -150,6 +150,14 @@ WI linkage (rule 60 §2): commit `feat(terminal): <change> (WI-N.M)` **or** test
 header `// WI-N.M — <desc>`. Verify with
 `bash scripts/check-wi-linkage.sh dev-docs/plans/20260531-terminal-industrial-best.md --phase=N`.
 
+> **Linkage caveat.** `check-wi-linkage.sh` matches a WI-ID anywhere in a commit
+> message — it cannot tell *"implements WI-X"* from *"mentions WI-X"*. So a commit
+> that references a future WI in prose makes that WI read as "linked" before any
+> work exists (observed for WI-0.2/0.3/0.4, named in WI-0.1's commit body). Rule
+> 60 §2 only requires linkage for WIs in a **complete** phase; for an in-progress
+> phase the **authoritative** signal is `check-terminal-phase.sh <N>`, not the
+> linkage count. Don't read linkage as completion mid-phase.
+
 ---
 
 ### Phase 0 — Spikes & baselines (de-risk gate)
@@ -160,7 +168,7 @@ header `// WI-N.M — <desc>`. Verify with
 
 | WI | Goal | Output / DoD |
 |----|------|--------------|
-| WI-0.0 | Create `scripts/check-terminal-phase.sh` from the GHA template; fill per-phase assertions (below). | Script exists, `bash scripts/check-terminal-phase.sh 0` exits 0. |
+| WI-0.0 | Create `scripts/check-terminal-phase.sh` from the GHA template; fill per-phase assertions (below). | Script exists **and correctly evaluates phase 0**: it fails (exit 1) while the WI-0.2/0.3 spike verdicts are `PENDING`, and passes (exit 0) once they flip to `PASS`. (It is *meant* to exit 1 today — "phase 0 exits 0" is the Phase-0 **completion gate** below, gated on the spikes, not this checker's own DoD.) |
 | WI-0.1 | Throughput baseline harness. Drain a 10 MB output stream (`cat` a fixture) through the **current** JSON path; record wall-clock + main-thread CPU. | `dev-docs/grills/terminal/throughput-baseline.md` with numbers + a re-runnable probe (`src/bench/terminal.bench.ts` or a documented manual flow, since PTY needs a real app). |
 | WI-0.2 | **Spike (ADR-T1):** prove `tauri::ipc::Channel<&[u8]>` delivers binary to the webview as an `ArrayBuffer` and beats the JSON path on the WI-0.1 fixture. | `dev-docs/grills/terminal/channel-spike.md`: PASS/FAIL + measured delta. PASS unblocks Phase 1. |
 | WI-0.3 | **Spike (ADR-T3):** zsh integration injection emits OSC 133 A–D + OSC 7 on a real prompt **without** breaking a non-trivial user `.zshrc`. | `dev-docs/grills/terminal/shell-integration-spike.md`: PASS/FAIL + captured escape sequences. PASS unblocks Phase 3. |
