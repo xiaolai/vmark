@@ -31,6 +31,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { getFileName } from "@/utils/paths";
+import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { getCurrentWindowLabel } from "@/utils/workspaceStorage";
 import { respond } from "../utils";
 import { wrapHandler } from "./wrapHandler";
@@ -163,10 +164,15 @@ export async function handleWorkspaceSave(
       await structuredError(id, resolved);
       return;
     }
-    await writeTextFile(resolved.filePath, resolved.content);
-    useDocumentStore
-      .getState()
-      .markSaved(resolved.tabId, resolved.content);
+    const saveToken = registerPendingSave(resolved.filePath, resolved.content);
+    try {
+      await writeTextFile(resolved.filePath, resolved.content);
+      useDocumentStore
+        .getState()
+        .markSaved(resolved.tabId, resolved.content);
+    } finally {
+      clearPendingSave(resolved.filePath, saveToken);
+    }
     const revision = useRevisionStore.getState().getRevision(resolved.tabId);
     await respond({
       id,
@@ -233,7 +239,12 @@ export async function handleWorkspaceSaveAs(
       });
       return;
     }
-    await writeTextFile(filePath, doc.content);
+    const saveToken = registerPendingSave(filePath, doc.content);
+    try {
+      await writeTextFile(filePath, doc.content);
+    } finally {
+      clearPendingSave(filePath, saveToken);
+    }
     tabState.updateTabPath(tabId, filePath);
     tabState.updateTabTitle(tabId, getFileName(filePath) || "Untitled");
     docState.setFilePath(tabId, filePath);
