@@ -62,6 +62,7 @@ vi.mock("@xterm/xterm", () => ({
     attachCustomKeyEventHandler = vi.fn();
     registerLinkProvider = vi.fn();
     parser = { registerOscHandler: vi.fn() };
+    registerMarker = vi.fn(() => ({ line: 0, onDispose: vi.fn(), dispose: vi.fn() }));
     cols = 80;
     rows = 24;
     options = {};

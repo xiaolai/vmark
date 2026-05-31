@@ -44,7 +44,7 @@ import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposi
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
-import { setupOsc7 } from "./setupOsc";
+import { setupOsc7, setupOsc133, type CommandMark } from "./setupOsc";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -90,6 +90,9 @@ export interface TerminalInstance {
   resetDisplay: () => void;
   /** The shell's last-reported cwd via OSC 7, or null if never reported (WI-2.1). */
   getCwd: () => string | null;
+  /** Command marks from OSC 133 (prompt line + exit code) for prompt nav and
+   *  exit-status decorations (WI-3.2). Empty without shell integration. */
+  getCommands: () => CommandMark[];
   dispose: () => void;
 }
 
@@ -180,6 +183,8 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
 
   // OSC 7 cwd tracking — feeds relative file-link resolution (WI-2.1/2.3).
   const osc = setupOsc7(term);
+  // OSC 133 command boundaries — prompt nav + exit-status decorations (WI-3.2).
+  const osc133 = setupOsc133(term);
 
   // Bell → background-activity indicator (WI-4.3).
   if (onBell) term.onBell(() => onBell());
@@ -221,6 +226,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     dispose,
     resetDisplay: webgl.resetDisplay,
     getCwd: osc.getCwd,
+    getCommands: osc133.getCommands,
     get composing() { return ime.composing; },
     get inGracePeriod() { return ime.inGracePeriod; },
     get onCompositionCommit() { return ime.onCompositionCommit; },

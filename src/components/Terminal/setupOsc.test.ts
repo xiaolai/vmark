@@ -1,6 +1,7 @@
 // WI-2.1 — OSC 7 cwd parsing + handler registration
+// WI-3.2 — OSC 133 command-boundary tracking
 import { describe, it, expect, vi } from "vitest";
-import { parseOsc7Cwd, setupOsc7 } from "./setupOsc";
+import { parseOsc7Cwd, setupOsc7, setupOsc133 } from "./setupOsc";
 
 describe("parseOsc7Cwd", () => {
   it("extracts the path from a file:// URL with a host", () => {
@@ -66,5 +67,82 @@ describe("setupOsc7", () => {
     const { term } = makeTerm();
     setupOsc7(term);
     expect(term.parser.registerOscHandler).toHaveBeenCalledWith(7, expect.any(Function));
+  });
+});
+
+describe("setupOsc133", () => {
+  function makeTerm() {
+    let handler: ((data: string) => boolean) | null = null;
+    let nextLine = 0;
+    const disposers: Array<() => void> = [];
+    const term = {
+      parser: {
+        registerOscHandler: vi.fn((id: number, h: (d: string) => boolean) => {
+          if (id === 133) handler = h;
+          return { dispose: vi.fn() };
+        }),
+      },
+      registerMarker: vi.fn(() => {
+        const line = nextLine++;
+        return {
+          line,
+          onDispose: (cb: () => void) => disposers.push(cb),
+          dispose: vi.fn(),
+        };
+      }),
+    } as unknown as import("@xterm/xterm").Terminal;
+    return { term, fire: (d: string) => handler?.(d), disposers };
+  }
+
+  it("opens a command on A and records exit code on D", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    fire("A"); // prompt 1
+    fire("C"); // command 1 starts
+    expect(h.getCommands()).toHaveLength(1);
+    expect(h.getCommands()[0].exitCode).toBeUndefined();
+
+    fire("D;0"); // command 1 done (success)
+    fire("A");   // prompt 2
+    expect(h.getCommands()).toHaveLength(2);
+    expect(h.getCommands()[0].exitCode).toBe(0);
+  });
+
+  it("captures a non-zero exit code", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    fire("A");
+    fire("C");
+    fire("D;1");
+    expect(h.getCommands()[0].exitCode).toBe(1);
+  });
+
+  it("ignores a D with no preceding command (first precmd)", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    fire("D;0"); // no command open yet
+    expect(h.getCommands()).toHaveLength(0);
+  });
+
+  it("each command marker sits on its own line", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    fire("A");
+    fire("D;0");
+    fire("A");
+    const cmds = h.getCommands();
+    expect(cmds[0].marker.line).toBe(0);
+    expect(cmds[1].marker.line).toBe(1);
+  });
+
+  it("removes a command when its marker is disposed (scrolled out)", () => {
+    const { term, fire, disposers } = makeTerm();
+    const h = setupOsc133(term);
+    fire("A");
+    fire("A");
+    expect(h.getCommands()).toHaveLength(2);
+    disposers[0](); // first command's line scrolls out of scrollback
+    expect(h.getCommands()).toHaveLength(1);
+    expect(h.getCommands()[0].marker.line).toBe(1);
   });
 });

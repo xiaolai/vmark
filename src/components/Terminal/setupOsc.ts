@@ -2,9 +2,11 @@
  * setupOsc
  *
  * Purpose: Registers OSC (Operating System Command) escape-sequence handlers on
- * an xterm.js Terminal. Currently handles OSC 7 (current working directory),
- * which shells emit on every prompt when shell integration is active. The live
- * cwd feeds relative file-link resolution and "new terminal here" (WI-2.x).
+ * an xterm.js Terminal. Handles OSC 7 (current working directory) and OSC 133
+ * (FinalTerm command boundaries) — both emitted by the shell-integration rc
+ * (WI-3.1). OSC 7 feeds relative file-link resolution + "new terminal here"
+ * (WI-2.x); OSC 133 builds a list of command marks (prompt line + exit code)
+ * that drive prompt navigation (WI-3.3) and exit-status decorations (WI-3.4).
  *
  * Key decisions:
  *   - OSC 7 payload is `file://<host>/<path>`. We use the path regardless of
@@ -19,7 +21,7 @@
  * @coordinates-with fileLinkProvider.ts — consumes the live cwd for relative paths
  * @module components/Terminal/setupOsc
  */
-import type { Terminal } from "@xterm/xterm";
+import type { Terminal, IMarker } from "@xterm/xterm";
 
 /**
  * Parse an OSC 7 payload (`file://host/path`) into an absolute filesystem path.
@@ -51,4 +53,63 @@ export function setupOsc7(term: Terminal): OscHandle {
     return true; // handled — suppress xterm's unknown-OSC warning
   });
   return { getCwd: () => cwd };
+}
+
+/**
+ * A single shell command, located by an xterm Marker at its prompt line.
+ * The marker tracks the line as the buffer scrolls and self-removes when the
+ * line falls out of scrollback.
+ */
+export interface CommandMark {
+  /** Marker at the prompt line (OSC 133;A). */
+  marker: IMarker;
+  /** Exit code from OSC 133;D;<code>, or undefined while the command runs. */
+  exitCode?: number;
+}
+
+/** Live command-boundary state exposed by the OSC 133 handler. */
+export interface Osc133Handle {
+  /** Commands in buffer order (oldest first), excluding scrolled-out ones. */
+  getCommands: () => CommandMark[];
+}
+
+/**
+ * Register OSC 133 (FinalTerm) command-boundary handling. The integration rc
+ * (WI-3.1) emits, per prompt: `133;D;<code>` (previous command done), `133;A`
+ * (new prompt start). So on `A` we open a command mark at the prompt line; on
+ * `D;<code>` we record the exit code of the command being closed.
+ */
+export function setupOsc133(term: Terminal): Osc133Handle {
+  let commands: CommandMark[] = [];
+  let current: CommandMark | null = null;
+
+  term.parser.registerOscHandler(133, (data) => {
+    const sep = data.indexOf(";");
+    const type = sep === -1 ? data : data.slice(0, sep);
+    const rest = sep === -1 ? "" : data.slice(sep + 1);
+
+    if (type === "A") {
+      // New prompt — mark its line and start a fresh command.
+      const marker = term.registerMarker(0);
+      if (marker) {
+        const mark: CommandMark = { marker };
+        commands.push(mark);
+        current = mark;
+        // Self-remove when the line scrolls out of the buffer.
+        marker.onDispose(() => {
+          commands = commands.filter((c) => c !== mark);
+          if (current === mark) current = null;
+        });
+      }
+    } else if (type === "D") {
+      // Command finished — `rest` is its exit code (may be empty).
+      if (current && rest !== "") {
+        const code = parseInt(rest, 10);
+        if (!Number.isNaN(code)) current.exitCode = code;
+      }
+    }
+    return true; // handled
+  });
+
+  return { getCommands: () => commands };
 }

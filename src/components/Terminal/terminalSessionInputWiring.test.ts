@@ -32,6 +32,7 @@ function makeEntry(committedText: string | null, lastCommitTime: number) {
     container: {} as TerminalInstance["container"],
     resetDisplay: () => {},
     getCwd: () => null,
+    getCommands: () => [],
     dispose: () => {},
   };
   const entry: SessionInputState = {
