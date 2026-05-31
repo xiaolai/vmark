@@ -7,13 +7,18 @@
  *
  * Key decisions:
  *   - Constructor returns immediately; the actual spawn is async via `_ready`.
- *   - Event listeners are registered BEFORE `pty_start` is called, so no data
- *     is lost between spawn and first read.
+ *   - Output flows over a binary `tauri::ipc::Channel` (WI-1.1, ADR-T1): the
+ *     reader thread sends `InvokeResponseBody::Raw(bytes)`, which the webview
+ *     receives as an `ArrayBuffer` — NOT a JSON number array. This is ~3.66x
+ *     less wire data and orders of magnitude less encode/decode CPU than the
+ *     old `pty:data:` event path (see dev-docs/grills/terminal/). The Channel
+ *     is point-to-point, so output is no longer broadcast to every window.
+ *   - The data Channel's `onmessage` is wired BEFORE `pty_start` is invoked, so
+ *     the reader cannot emit before we are listening — no data-loss race
+ *     (this replaces the old two-phase listen-then-start dance for output).
+ *   - The exit signal stays a plain `pty:exit:{pid}` event (low-frequency).
  *   - `pause()` and `resume()` are real Tauri commands (not stubs), enabling
  *     the watermark-based flow control in spawnPty.ts.
- *   - Data arrives as `number[]` (JSON-serialized Vec<u8> from Rust) and is
- *     passed through as-is — the consumer (spawnPty.ts) handles coercion to
- *     Uint8Array.
  *   - `kill()` eagerly cleans up event listeners and guards against mid-setup
  *     races via a `_destroyed` flag.
  *   - `pty_close` frees the Rust-side session (FDs/channels/child handle). It
@@ -26,7 +31,7 @@
  * @module lib/pty
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ptyWarn, terminalLog } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -104,7 +109,7 @@ class VMarkPty implements IPty {
   private _onData = new EventEmitter<Uint8Array | number[]>();
   private _onExit = new EventEmitter<IPtyExitEvent>();
   private _ready: Promise<void>;
-  private _unlistenData: UnlistenFn | null = null;
+  private _dataChannel: Channel<ArrayBuffer | Uint8Array | number[]> | null = null;
   private _unlistenExit: UnlistenFn | null = null;
   private _destroyed = false;
 
@@ -140,13 +145,7 @@ class VMarkPty implements IPty {
       env: opts?.env ?? {},
     });
 
-    // Phase 2: register event listeners
-    this._unlistenData = await listen<number[]>(
-      `pty:data:${this._pid}`,
-      (event) => {
-        this._onData.fire(event.payload);
-      },
-    );
+    // Exit is a low-frequency signal — keep it as a plain event.
     this._unlistenExit = await listen<{ exit_code: number }>(
       `pty:exit:${this._pid}`,
       (event) => {
@@ -173,9 +172,17 @@ class VMarkPty implements IPty {
       return;
     }
 
-    // Phase 3: start the reader thread — listeners are ready, no data loss
+    // Binary output Channel. Wiring onmessage before pty_start means the reader
+    // cannot send before we are listening — no data-loss race (WI-1.1).
+    const channel = new Channel<ArrayBuffer | Uint8Array | number[]>();
+    channel.onmessage = (msg) => {
+      this._onData.fire(toUint8Array(msg));
+    };
+    this._dataChannel = channel;
+
+    // Start the reader thread, handing it the channel as `onBytes`.
     try {
-      await invoke("pty_start", { pid: this._pid });
+      await invoke("pty_start", { pid: this._pid, onBytes: channel });
     } catch (err) {
       this._cleanup();
       throw err;
@@ -238,11 +245,27 @@ class VMarkPty implements IPty {
   }
 
   private _cleanup(): void {
-    this._unlistenData?.();
-    this._unlistenData = null;
+    // The Channel has no "unlisten"; drop its onmessage so no further bytes
+    // reach the (disposed) consumer, and release the reference.
+    if (this._dataChannel) {
+      this._dataChannel.onmessage = () => {};
+      this._dataChannel = null;
+    }
     this._unlistenExit?.();
     this._unlistenExit = null;
   }
+}
+
+/** Coerce a Channel payload to a Uint8Array. Raw bodies arrive as ArrayBuffer;
+ *  the other branches are defensive (a typed-array view or a JSON number[]). */
+function toUint8Array(msg: ArrayBuffer | Uint8Array | number[]): Uint8Array {
+  if (msg instanceof Uint8Array) return msg;
+  if (msg instanceof ArrayBuffer) return new Uint8Array(msg);
+  if (ArrayBuffer.isView(msg)) {
+    const view = msg as ArrayBufferView;
+    return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+  }
+  return new Uint8Array(msg);
 }
 
 // ---------------------------------------------------------------------------
