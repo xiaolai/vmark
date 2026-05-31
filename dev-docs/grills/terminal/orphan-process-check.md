@@ -33,19 +33,27 @@ If they're reaped → **Phase 6 is aborted** with this finding recorded.
    ```
 5. Repeat the same for app **quit** (the `Drop` path, `pty.rs:100`).
 
-## Record results here
+## Results (2026-05-31, live dev app via Tauri MCP, force `pty_kill` + `pty_close`)
 
-| Scenario | Survived after tab close? | Survived after app quit? |
-|----------|:-------------------------:|:------------------------:|
-| `sleep 1000 &` (plain bg) | _?_ | _?_ |
-| `( sleep 1000 & disown )` | _?_ | _?_ |
-| `nohup … &` (detached) | _?_ | _?_ |
+Driven at the transport level (`pty_spawn` → write the markers → `pty_kill` +
+`pty_close`), which is the exact force-close path. `pgrep -fl 'sleep 424'`
+before and after:
+
+| Scenario | Survived after force-kill? |
+|----------|:--------------------------:|
+| `sleep 4242 &` (plain background job) | **No** — reaped |
+| `sleep 4243 & disown` (disowned) | **Yes** — orphaned |
+| `nohup sleep 4244 &` (detached) | **Yes** — orphaned |
+
+The plain background job received `SIGHUP` when the PTY master was dropped, but
+the **disowned** and **nohup** jobs survived as orphans. Confirms audit finding
+L1 / §8 exactly (foreground reaped; disowned/detached leak).
 
 ## Verdict
 
-> _Verdict: PENDING._
->
-> - If **any** disowned/detached child survives → Phase 6 RUNS (implement
->   session-leader spawn + `killpg` SIGHUP→grace→SIGKILL on Unix).
-> - If **all** are reaped by the master-drop SIGHUP → Phase 6 ABORTED; record
->   "standard behavior confirmed" and move the finding to the deferred backlog.
+VERDICT: ORPHANS CONFIRMED → **Phase 6 RUNS.**
+
+Implement session-leader spawn + `killpg` (SIGHUP → grace → SIGKILL) on Unix.
+Note: `disown` and `nohup` do **not** change the process group, so a
+`killpg(pgid, SIGKILL)` of the shell's group reaps both survivors (SIGKILL can't
+be ignored like `nohup`'s SIGHUP). Phase 6 will close this leak.
