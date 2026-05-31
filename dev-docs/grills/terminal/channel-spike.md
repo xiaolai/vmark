@@ -54,10 +54,32 @@ await invoke("pty_channel_probe", { onBytes: ch });
 ## Verdict
 
 Machine-readable verdict line (the Phase-0 checker greps `^VERDICT: PASS`).
-Change `PENDING` → `PASS` or `FAIL` after running the probe, and note the
-observed type, byteLength, and timing below it.
 
-VERDICT: PENDING
+VERDICT: PASS
+
+**Observed (2026-05-31, live dev app via Tauri MCP).** Added a throwaway
+`pty_channel_probe(on_bytes: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>)`
+that sends `InvokeResponseBody::Raw((0..=255).collect())`. The JS `onmessage`
+received:
+
+```json
+{"kind":"ArrayBuffer","len":256,"first":0,"last":255,"sample":[0,1,2,3]}
+```
+
+i.e. a **binary `ArrayBuffer`**, byte-identical, **not** a `number[]`. The key
+detail (from `tauri-2.11.0/src/ipc/mod.rs`): `impl<T: Serialize> IpcResponse`
+would send `Vec<u8>` as a JSON number array — the win comes specifically from
+wrapping bytes in `InvokeResponseBody::Raw`, which routes through the binary
+path. `Channel`'s default `TSend` is already `InvokeResponseBody`, so
+`Channel` / `Channel<InvokeResponseBody>` is the correct type.
+
+**Phase 1 implementation shape (confirmed):**
+- Rust: `pty_start(pid, on_bytes: tauri::ipc::Channel, ...)`; reader thread calls
+  `on_bytes.send(InvokeResponseBody::Raw(buf[..n].to_vec()))`. Point-to-point →
+  closes T2 (no `app.emit` broadcast).
+- JS (`lib/pty.ts`): `const ch = new Channel(); ch.onmessage = (buf) =>
+  onData(new Uint8Array(buf));` pass `{ onBytes: ch }` to the `pty_start` invoke.
+- Keep `pty:exit:{pid}` as a plain event (low-frequency).
 
 ## If PASS → Phase 1 implementation notes
 
