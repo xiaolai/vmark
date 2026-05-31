@@ -139,8 +139,12 @@ case "$PHASE" in
     fi
     ;;
   6)
-    assert_file "$GRILL/orphan-process-check.md" "WI-0.4 finding (decides if phase runs)"
-    assert_grep_re "killpg|setsid|process group|process_group" "src-tauri/src/pty.rs" "WI-6.1 process-group kill"
+    # Phase 6 was ABORTED per the WI-0.4 live verdict: the only force-kill
+    # survivors are intentionally-detached (disown/nohup) processes, which are
+    # meant to outlive the shell. DoD = the abort decision is recorded, NOT a
+    # killpg implementation.
+    assert_file "$GRILL/orphan-process-check.md" "WI-0.4 orphan finding recorded"
+    assert_grep "PHASE 6 ABORTED" "$GRILL/orphan-process-check.md" "Phase 6 abort decision recorded"
     ;;
   *)
     echo "Unknown phase: $PHASE"; exit 64 ;;

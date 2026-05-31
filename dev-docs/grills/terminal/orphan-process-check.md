@@ -51,9 +51,28 @@ L1 / §8 exactly (foreground reaped; disowned/detached leak).
 
 ## Verdict
 
-VERDICT: ORPHANS CONFIRMED → **Phase 6 RUNS.**
+VERDICT: PHASE 6 ABORTED — the survivors are *intentionally* detached, not a leak.
 
-Implement session-leader spawn + `killpg` (SIGHUP → grace → SIGKILL) on Unix.
-Note: `disown` and `nohup` do **not** change the process group, so a
-`killpg(pgid, SIGKILL)` of the shell's group reaps both survivors (SIGKILL can't
-be ignored like `nohup`'s SIGHUP). Phase 6 will close this leak.
+Initial reading was "orphans confirmed → run Phase 6." On closer analysis that
+reverses:
+
+- The **plain `&` job (4242) was reaped** — i.e. ordinary background children
+  of the shell already die on force-close. There is **no accidental leak**.
+- The only survivors are **`disown`** and **`nohup`** jobs. Surviving the
+  shell's death is the *entire documented purpose* of those commands. Every
+  reference terminal (VS Code, iTerm2, Terminal.app, WezTerm) lets `nohup` /
+  `disown` / `setsid` processes outlive a closed tab — that is the Unix
+  contract users rely on.
+- A `killpg(pgid, SIGKILL)` that force-killed them would **violate explicit user
+  intent and diverge from every standard terminal** — a correctness regression,
+  not a fix. The original WI-0.4 criterion ("any detached survivor → run Phase
+  6") was wrong: it conflated "survives" with "should be killed".
+
+**Decision:** do NOT implement the process-group force-kill. Current behavior is
+correct: non-detached children are reaped; deliberately-detached processes
+survive by design.
+
+**Optional future nicety (deferred, not a leak fix):** send the shell `SIGHUP`
+with a short grace before `SIGKILL` so it can run EXIT traps / save history /
+HUP its own non-disowned jobs gracefully. This respects `disown`/`nohup`
+(survivors stay) and is a minor UX polish, tracked in the deferred backlog.

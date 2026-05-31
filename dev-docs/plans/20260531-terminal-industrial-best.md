@@ -260,11 +260,15 @@ scrollback-restore test **or** zero `SerializeAddon` references outside tests
 
 ---
 
-### Phase 6 — Process-group lifecycle hardening (L1) — CONDITIONAL
+### Phase 6 — Process-group lifecycle hardening (L1) — **ABORTED**
 
-> **Runs only if WI-0.4 confirmed a surviving orphan.** If WI-0.4 showed the
-> master-drop SIGHUP already reaps children, this phase is **aborted** with the
-> finding recorded (per the audit's calibrated assessment).
+> **ABORTED (2026-05-31)** per the WI-0.4 live verdict. The force-kill path
+> already reaps ordinary children (plain `&` job died); the only survivors are
+> `disown`/`nohup`/`setsid` processes, which are *meant* to outlive the shell
+> and survive on every reference terminal. There is no accidental leak to fix,
+> and force-killing detached processes would regress user intent. A graceful
+> SIGHUP-before-SIGKILL is a deferred nicety (Phase 7). See §6 + the grill doc.
+> The WI below is retained for the record but is **not implemented**.
 
 | WI | Goal | Files | RED test |
 |----|------|-------|----------|
@@ -285,6 +289,9 @@ Not committed here; logged so they aren't silently dropped (audit S/M items):
 - **S1** — Windows `windowsPty` reflow option (best-effort, macOS-primary).
 - **S3** — surface a hint when the `vmark` CLI (`EDITOR=vmark`) isn't on PATH.
 - **S5** — search result counter ("3/12") in `TerminalSearchBar`.
+- **L1-graceful** — send the shell `SIGHUP` + short grace before `SIGKILL` on
+  close (history save / EXIT traps / graceful HUP of non-disowned jobs).
+  Respects `disown`/`nohup`. Minor UX polish, not a leak fix (per WI-0.4).
 
 ---
 
@@ -324,7 +331,13 @@ gate before Phase 1.
 - **WI-0.2 — Channel spike: PASS** (2026-05-31, live). `Channel<InvokeResponseBody>`
   + `Raw` → binary `ArrayBuffer` in the webview. See `grills/terminal/channel-spike.md`.
 - _(WI-0.3 verdict — zsh injection spike: …)_
-- _(WI-0.4 verdict — orphan repro → Phase 6 run/abort: …)_
+- **WI-0.4 — Phase 6 ABORTED** (2026-05-31, live). Force-kill reaped the plain
+  `&` job; only `disown`/`nohup` survived — which is their documented purpose
+  and matches every reference terminal. No accidental leak exists, and
+  force-killing detached processes would regress user intent. The original
+  "any survivor → run" criterion was wrong (conflated survives vs should-die).
+  A graceful SIGHUP-before-SIGKILL is a deferred nicety (Phase 7), not a fix.
+  See `grills/terminal/orphan-process-check.md`.
 - **WI-1.3 — NOT IMPLEMENTED (unnecessary).** `pty_write(String)` is already
   byte-transparent for every reachable input: all `pty.write()` callers pass JS
   strings (xterm `onData`, IME commits, clipboard text, control sequences like
