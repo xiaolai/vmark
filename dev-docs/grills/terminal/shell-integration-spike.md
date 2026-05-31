@@ -63,10 +63,30 @@ cd /tmp && printf 'probe\n' && ls    # then inspect captured bytes for \033]133 
 ## Verdict
 
 Machine-readable verdict line (the Phase-0 checker greps `^VERDICT: PASS`).
-Change `PENDING` → `PASS`/`FAIL` after running against a real zsh with a
-non-trivial rc, and paste the captured OSC sequences below it.
 
-VERDICT: PENDING
+VERDICT: PASS
+
+**Observed (2026-05-31, live dev app, real zsh `-i`, ZDOTDIR injection sourcing
+the user's real `~/.zshrc`).** Ran `echo SPIKE_OK` then `false`; captured OSC 133
+payloads:
+
+```
+["D;0", "A", "C", "D;0", "A", "C", "D;1", "A"]
+```
+
+- **A** (prompt start), **C** (command pre-exec), **D;<code>** (command done)
+  all fire, and **exit codes are correct** (`false` → `D;1`).
+- The user's `.zshrc` sourced fine; the shell did not break; `echo` round-tripped.
+- **B** (prompt end / input start) did NOT render: `PS1="%{$(__vmark_osc B)%}…"`
+  runs the command substitution once at assignment, not per prompt. **Fix for
+  WI-3.1:** emit B with `setopt PROMPT_SUBST` + `${...}` (or append a precmd
+  marker). A/C/D + exit codes — what prompt-nav (WI-3.3) and status decorations
+  (WI-3.4) need — are proven, so this is a refinement, not a blocker.
+
+**Mechanism confirmed:** `ZDOTDIR` → temp dir whose `.zshrc` sources
+`${USER_ZDOTDIR:-$HOME}/.zshrc` then appends `add-zsh-hook precmd/preexec`
+emitters. Non-destructive and works. bash (`--rcfile`) and fish (`conf.d`)
+follow the same shape in WI-3.1.
 
 ## Risks flagged for Phase 3
 
