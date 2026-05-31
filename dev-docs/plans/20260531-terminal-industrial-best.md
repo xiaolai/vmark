@@ -1,16 +1,26 @@
 # Terminal — Road to Industrial-Best (Implementation Plan)
 
 > Created: 2026-05-31
-> Status: **Phase 1 in progress** (branch `terminal-industrial-best`), driven
-> live against a running `pnpm tauri dev` app via Tauri MCP.
-> - Phase 0: WI-0.0, WI-0.1 DONE. **WI-0.2 (Channel) DONE — VERDICT: PASS**,
->   confirmed live (binary `ArrayBuffer`, byte-identical). WI-0.3 (zsh
->   integration) and WI-0.4 (orphan) still to run live.
-> - Phase 1: **WI-1.1 (binary Channel transport) + WI-1.2 (64 KB buffer) DONE
->   and live-verified** — real zsh, 49 chunks all `ArrayBuffer`, echo round-trip
->   correct, 55 unit tests green. WI-1.3 (`pty_write` bytes) and WI-1.4
->   (flow-control simplification) remain.
-> - Phases 2–6 not started. Codex cross-model review (rule 60 §6) still pending.
+> Status: **All phases complete** (branch `terminal-industrial-best`), driven and
+> live-verified against a running `pnpm tauri dev` app via Tauri MCP.
+> Final gates green: backend `cargo test` **601 passed**, frontend `pnpm test`
+> **19,249 passed**; `check-terminal-phase.sh 0..6` all exit 0.
+> - **Phase 0** (spikes): WI-0.0/0.1 done; WI-0.2 (Channel) PASS live; WI-0.3
+>   (zsh OSC 133) PASS live; WI-0.4 → orphans are intentionally-detached only.
+> - **Phase 1** (throughput): WI-1.1 binary Channel + WI-1.2 64 KB + WI-1.4 type
+>   narrowing done & live-verified; WI-1.3 N/A (input is always valid UTF-8).
+> - **Phase 2** (OSC 7 cwd): done & live-verified (`cd /tmp` → `/tmp`).
+> - **Phase 3** (shell integration): zsh WI-3.1–3.4 done & live-verified (OSC 133
+>   A/C/D + exit codes); bash/fish + OSC 133 B deferred (Phase 7).
+> - **Phase 4** (links/display): WI-4.1 line jump, WI-4.2 OSC 8, WI-4.3 bell
+>   activity done; OSC 0/2 title deferred.
+> - **Phase 5**: WI-5.2 dead SerializeAddon removed; WI-5.1 session persistence
+>   deferred (low value for a side panel).
+> - **Phase 6**: ABORTED — detached-process survival is intended behavior.
+> - **Pending**: Codex cross-model review (rule 60 §6); proper translations for
+>   the new `terminal.shellIntegration` i18n key (currently English in all
+>   locales); manual visual QA of decorations/bell in-app.
+> - Deferred items tracked in §3 Phase 7 and §6 decisions log.
 > Source audit: `dev-docs/audit/20260531-terminal-integration.md` (finding IDs
 > T1–T3, L1–L2, C1–C3, M1–M6, S1–S5 below reference that doc).
 > Phase-DoD checker: `scripts/check-terminal-phase.sh <N>` (to be created in WI-0.0,
