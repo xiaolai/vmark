@@ -61,12 +61,24 @@ assert_grep_re() {
   if grep -rqE -- "$pattern" "$target" 2>/dev/null; then ok "$label"; else fail "$label (regex '$pattern' not in $target)"; fi
 }
 
-# assert_absent <pattern> <file-or-dir> <label>  (fixed-string; comments tolerated by excluding // and #)
+# assert_absent_code <fixed-pattern> <file-or-dir> <label>
+# Passes when the pattern appears ONLY in comments (or not at all); fails if it
+# appears on a real code line.
+#
+# grep -rnH emits a uniform "path:lineno:content" prefix (the -r flag forces a
+# filename prefix even for a single file), so we must strip that prefix BEFORE
+# testing whether the remaining content is a comment. The previous version
+# tested the raw grep line against a comment regex and so never stripped
+# anything — the path prefix always defeated the anchor.
 assert_absent_code() {
   local pattern="$1"; local target="$2"; local label="$3"
-  # Strip line comments before matching so doc references don't trip the gate.
-  if grep -rnF -- "$pattern" "$target" 2>/dev/null | grep -vE '^\s*[0-9]*:?\s*(//|#|\*)' | grep -qF -- "$pattern"; then
-    fail "$label (pattern '$pattern' still present in code in $target)"
+  local code_hits
+  code_hits=$(grep -rnHF -- "$pattern" "$target" 2>/dev/null \
+    | sed -E 's/^[^:]+:[0-9]+://' \
+    | grep -vE '^[[:space:]]*(//|/\*|\*|#)' \
+    | grep -cF -- "$pattern")
+  if [[ "${code_hits:-0}" -gt 0 ]]; then
+    fail "$label (pattern '$pattern' on $code_hits non-comment line(s) in $target)"
   else
     ok "$label"
   fi
