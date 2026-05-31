@@ -372,6 +372,8 @@
   "terminal.webgl.description": "GPUアクセラレーションによるレンダリングを使用します。IME入力に問題がある場合は無効にしてください。ターミナルの再起動が必要です。",
   "terminal.macOptionIsMeta.label": "OptionをMetaキーとして使用",
   "terminal.macOptionIsMeta.description": "macOSのOptionキーをMetaとして扱い、Alt+Arrowで単語単位のナビゲーションを有効にします。デッドキーによるアクセント入力（Option+E/N/U）が必要な場合は無効にしてください。ターミナルの再起動が必要です。",
+  "terminal.shellIntegration.label": "Shell Integration",
+  "terminal.shellIntegration.description": "Inject command markers (zsh) so the terminal can offer prompt navigation, exit-status indicators, and current-directory tracking. Requires terminal restart.",
   "about.version": "バージョン {{version}}",
   "about.group.updates": "アップデート",
   "about.updateAvailable.group": "アップデートあり",

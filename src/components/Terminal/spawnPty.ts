@@ -209,6 +209,22 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     env.VMARK_WORKSPACE = workspaceRoot;
   }
 
+  // Shell integration (WI-3.1): inject OSC 133 command marks + OSC 7 cwd via a
+  // per-shell rc. The backend writes the rc and returns env overrides (e.g.
+  // ZDOTDIR for zsh), or null for shells without support. Best-effort — a
+  // failure leaves the terminal fully functional, just without integration.
+  if (useSettingsStore.getState().terminal.shellIntegration) {
+    try {
+      const overrides = await invoke<Record<string, string> | null>(
+        "prepare_shell_integration",
+        { shell },
+      );
+      if (overrides) Object.assign(env, overrides);
+    } catch {
+      // Integration is optional; ignore and spawn without it.
+    }
+  }
+
   const spawnOpts = { cols: term.cols || 80, rows: term.rows || 24, cwd, env };
   let pty: IPty;
   try {

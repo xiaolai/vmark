@@ -218,6 +218,7 @@ export interface TerminalSettings {
   copyOnSelect: boolean; // Default: false — auto-copy selected text to clipboard
   useWebGL: boolean;   // Default: true — use WebGL renderer (disable to troubleshoot IME issues)
   macOptionIsMeta: boolean; // Default: true — treat macOS Option as Meta for Alt+Arrow word navigation; disable for dead-key accent composition (Option+E/N/U)
+  shellIntegration: boolean; // Default: true — inject OSC 133 command marks + OSC 7 cwd (zsh) for prompt nav, exit-status decorations, cwd tracking
   position: TerminalPosition; // Default: "auto" — auto-reposition based on window aspect ratio
   panelRatio: number;  // Default: 0.4 — fraction of available space (0.1–0.8), persisted on drag end
 }

@@ -213,6 +213,13 @@ export function TerminalSettings() {
             onChange={(v) => updateTerminalSetting("macOptionIsMeta", v)}
           />
         </SettingRow>
+
+        <SettingRow label={t("terminal.shellIntegration.label")} description={t("terminal.shellIntegration.description")}>
+          <Toggle
+            checked={terminal.shellIntegration}
+            onChange={(v) => updateTerminalSetting("shellIntegration", v)}
+          />
+        </SettingRow>
       </SettingsGroup>
     </div>
   );

@@ -47,6 +47,7 @@ mod content_search;
 mod file_ops;
 mod file_tree;
 mod pty;
+mod shell_integration;
 mod hot_exit;
 mod pandoc;
 mod tab_transfer;
@@ -702,6 +703,7 @@ pub fn run() {
             pty::pty_close,
             pty::pty_pause,
             pty::pty_resume,
+            shell_integration::prepare_shell_integration,
         ])
         .setup(|app| {
             app.manage(pty::PtyState::default());
