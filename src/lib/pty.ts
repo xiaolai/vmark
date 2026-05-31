@@ -184,7 +184,15 @@ class VMarkPty implements IPty {
     try {
       await invoke("pty_start", { pid: this._pid, onBytes: channel });
     } catch (err) {
+      // pty_start failed after pty_spawn already created the Rust session —
+      // free it (FDs, child handle) so it doesn't leak (#974 class).
       this._cleanup();
+      await invoke("pty_kill", { pid: this._pid }).catch((e) =>
+        terminalLog("pty_kill (start-failure) failed:", errorMessage(e)),
+      );
+      await invoke("pty_close", { pid: this._pid }).catch((e) =>
+        terminalLog("pty_close (start-failure) failed:", errorMessage(e)),
+      );
       throw err;
     }
   }

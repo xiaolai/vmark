@@ -162,8 +162,9 @@ pub async fn pty_spawn(
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
-            rows,
-            cols,
+            // Clamp to ≥1: a 0 dimension yields an invalid/degenerate PTY.
+            rows: rows.max(1),
+            cols: cols.max(1),
             pixel_width: 0,
             pixel_height: 0,
         })
@@ -274,15 +275,23 @@ pub async fn pty_start<R: Runtime>(
                         Ok(n) => {
                             // Send raw bytes over the per-session Channel. Raw →
                             // ArrayBuffer in the webview (WI-1.1), point-to-point
-                            // (no app.emit broadcast → closes T2). Errors mean the
-                            // channel/webview is gone; stop reading.
+                            // (no app.emit broadcast → closes T2). A send error
+                            // means the webview/channel is gone; kill the child so
+                            // the child.wait() below returns instead of hanging on
+                            // a still-running shell, then stop reading.
                             if on_bytes
                                 .send(tauri::ipc::InvokeResponseBody::Raw(buf[..n].to_vec()))
                                 .is_err()
                             {
+                                if let Ok(mut killer) = session_for_panic.child_killer.lock() {
+                                    let _ = killer.kill();
+                                }
                                 break;
                             }
                         }
+                        // EINTR is transient (signal during read) — retry rather
+                        // than treat it as EOF and prematurely end the session.
+                        Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                         Err(_) => break,
                     }
                 }
@@ -338,8 +347,8 @@ pub async fn pty_resize(
     let master = session.master.lock().map_err(|e| e.to_string())?;
     master
         .resize(PtySize {
-            rows,
-            cols,
+            rows: rows.max(1),
+            cols: cols.max(1),
             pixel_width: 0,
             pixel_height: 0,
         })

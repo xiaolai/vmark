@@ -73,6 +73,10 @@ export interface CommandMark {
 export interface Osc133Handle {
   /** Commands in buffer order (oldest first), excluding scrolled-out ones. */
   getCommands: () => CommandMark[];
+  /** True between command pre-exec (133;C) and done (133;D) — i.e. a foreground
+   *  command is running and the shell is NOT idle at a prompt. False without
+   *  shell integration. */
+  isRunning: () => boolean;
 }
 
 /**
@@ -84,13 +88,18 @@ export interface Osc133Handle {
 export function setupOsc133(term: Terminal): Osc133Handle {
   let commands: CommandMark[] = [];
   let current: CommandMark | null = null;
+  let running = false;
 
   term.parser.registerOscHandler(133, (data) => {
     const sep = data.indexOf(";");
     const type = sep === -1 ? data : data.slice(0, sep);
     const rest = sep === -1 ? "" : data.slice(sep + 1);
 
-    if (type === "A") {
+    if (type === "C") {
+      // Command started executing — shell is busy until the matching D.
+      running = true;
+    } else if (type === "A") {
+      running = false;
       // New prompt — mark its line and start a fresh command.
       const marker = term.registerMarker(0);
       if (marker) {
@@ -104,7 +113,8 @@ export function setupOsc133(term: Terminal): Osc133Handle {
         });
       }
     } else if (type === "D") {
-      // Command finished — `rest` is its exit code (may be empty).
+      // Command finished — back to idle; `rest` is the exit code (may be empty).
+      running = false;
       if (current && rest !== "") {
         const code = parseInt(rest, 10);
         if (!Number.isNaN(code)) {
@@ -116,7 +126,7 @@ export function setupOsc133(term: Terminal): Osc133Handle {
     return true; // handled
   });
 
-  return { getCommands: () => commands };
+  return { getCommands: () => commands, isRunning: () => running };
 }
 
 /**

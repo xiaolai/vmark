@@ -72,6 +72,19 @@ describe("createFileLinkProvider", () => {
     });
   });
 
+  it("does NOT link a relative path that escapes the base (path traversal, audit-fix)", () => {
+    const term = makeTerm("see ../../../../etc/secrets.env");
+    const provider = createFileLinkProvider(term, onActivate, () => "/workspace/pkg");
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        // The escaping path must not become a clickable link.
+        expect(links).toBeUndefined();
+        resolve();
+      });
+    });
+  });
+
   it("falls back to workspace root when live cwd is null (WI-2.3)", () => {
     const term = makeTerm("found ./src/main.ts");
     const provider = createFileLinkProvider(term, onActivate, () => null);
@@ -192,29 +205,26 @@ describe("createFileLinkProvider", () => {
     });
   });
 
-  it("rejects ../ relative path that escapes workspace root", () => {
+  it("does NOT link a ../ relative path that escapes workspace root (path traversal)", () => {
     const term = makeTerm("found ../src/components/App.tsx");
     const provider = createFileLinkProvider(term, onActivate);
 
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
-        expect(links).toHaveLength(1);
-        // ../src/components/App.tsx from /workspace resolves outside workspace — rejected
-        expect(links![0].text).toBe("../src/components/App.tsx");
+        // Escapes /workspace → must not become a clickable link.
+        expect(links).toBeUndefined();
         resolve();
       });
     });
   });
 
-  it("rejects relative path with ../ that escapes workspace root", () => {
+  it("does NOT link a ../../ path that escapes to a sensitive file (path traversal)", () => {
     const term = makeTerm("found ../../etc/passwd.txt");
     const provider = createFileLinkProvider(term, onActivate);
 
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
-        expect(links).toHaveLength(1);
-        // Should return the raw relative path, not a resolved escape
-        expect(links![0].text).toBe("../../etc/passwd.txt");
+        expect(links).toBeUndefined();
         resolve();
       });
     });
@@ -272,7 +282,7 @@ describe("createFileLinkProvider", () => {
     });
   });
 
-  it("returns relative path as-is when no workspace root", () => {
+  it("does NOT link a relative path when there is no base (no workspace, no cwd)", () => {
     mockGetState.mockReturnValueOnce({ rootPath: null });
 
     const term = makeTerm("found ./src/main.ts");
@@ -280,8 +290,8 @@ describe("createFileLinkProvider", () => {
 
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
-        expect(links).toHaveLength(1);
-        expect(links![0].text).toBe("src/main.ts");
+        // Nothing to anchor a relative path against → no clickable link.
+        expect(links).toBeUndefined();
         resolve();
       });
     });

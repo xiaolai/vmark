@@ -62,6 +62,8 @@ interface SessionEntry {
   shellExited: boolean;
   shellSpawning: boolean;
   disposed: boolean;
+  /** Incremented on every (re)spawn; lets a stale PTY's onExit be ignored. */
+  spawnGen: number;
   pendingRafId: number | null;
   /**
    * Last observed `instance.lastCommitTime`. When it changes, a new IME
@@ -158,6 +160,10 @@ export function useTerminalSessions(
     entry.shellSpawning = true;
 
     entry.shellExited = false;
+    // Spawn generation: bumped on every (re)spawn. A killed PTY's onExit fires
+    // asynchronously and could otherwise mark a freshly-restarted session dead
+    // — the guard below ignores exits from a superseded generation.
+    const gen = ++entry.spawnGen;
     // WI-2.2: a newly opened terminal inherits a live sibling's cwd (OSC 7) so
     // it starts where the user currently is, not back at the workspace root.
     // First terminal / no live sibling → workspace-or-file resolution.
@@ -175,12 +181,17 @@ export function useTerminalSessions(
         cwd,
         onExit: (exitCode) => {
           const e = sessionsRef.current.get(sessionId);
-          if (e && !e.disposed) {
+          // Ignore a stale exit from a PTY that has already been superseded by
+          // a restart (different generation) — it must not kill the new shell.
+          if (e && !e.disposed && e.spawnGen === gen) {
             e.instance.term.write(
               `\r\n[Process exited with code ${exitCode}]\r\n`,
             );
             e.instance.term.write("Press any key to restart...\r\n");
             e.pty = null;
+            // Clear the key-handler's PTY ref too, so keystrokes after exit
+            // don't write to the dead process.
+            e.ptyRefForKeys.current = null;
             e.shellExited = true;
             useUIStore.getState().terminalMarkSessionDead(sessionId);
           }
@@ -287,6 +298,7 @@ export function useTerminalSessions(
         shellExited: false,
         shellSpawning: false,
         disposed: false,
+        spawnGen: 0,
         pendingRafId: null,
         lastSeenCommitTime: 0,
         lastCommittedConsumed: 0,

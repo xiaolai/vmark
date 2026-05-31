@@ -62,6 +62,29 @@ describe("createTerminalKeyHandler", () => {
     ptyRef = { current: mockPty as unknown as IPty };
   });
 
+  it("passes Ctrl-only keys through to the shell on macOS (readline) (audit-fix)", () => {
+    vi.stubGlobal("navigator", { platform: "MacIntel" });
+    const clear = vi.fn();
+    const selectAll = vi.fn();
+    const term = makeTerm({ hasSelection: vi.fn(() => false), clear, selectAll });
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    // Ctrl+A (beginning-of-line), Ctrl+K (kill-line), Ctrl+W (kill-word), etc.
+    // must reach the shell (return true), not be intercepted as host shortcuts.
+    for (const key of ["a", "k", "w", "u", "e"]) {
+      expect(handler(makeEvent(key, false, { ctrlKey: true }))).toBe(true);
+    }
+    expect(selectAll).not.toHaveBeenCalled();
+    expect(clear).not.toHaveBeenCalled();
+  });
+
+  it("still handles Cmd shortcuts on macOS (Cmd+K clears)", () => {
+    vi.stubGlobal("navigator", { platform: "MacIntel" });
+    const term = makeTerm({});
+    const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
+    expect(handler(makeEvent("k", true))).toBe(false); // Cmd+K
+    expect(term.clear).toHaveBeenCalled();
+  });
+
   it("invokes onPromptNav('prev') on Cmd+ArrowUp (WI-3.3)", () => {
     const onPromptNav = vi.fn();
     const term = makeTerm({});

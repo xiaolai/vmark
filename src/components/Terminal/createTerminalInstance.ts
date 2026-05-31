@@ -93,6 +93,9 @@ export interface TerminalInstance {
   /** Command marks from OSC 133 (prompt line + exit code) for prompt nav and
    *  exit-status decorations (WI-3.2). Empty without shell integration. */
   getCommands: () => CommandMark[];
+  /** True while a foreground command is running (OSC 133 C→D). False without
+   *  shell integration. Used to avoid injecting `cd` into a busy shell. */
+  isShellBusy: () => boolean;
   dispose: () => void;
 }
 
@@ -228,6 +231,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     resetDisplay: webgl.resetDisplay,
     getCwd: osc.getCwd,
     getCommands: osc133.getCommands,
+    isShellBusy: osc133.isRunning,
     get composing() { return ime.composing; },
     get inGracePeriod() { return ime.inGracePeriod; },
     get onCompositionCommit() { return ime.onCompositionCommit; },

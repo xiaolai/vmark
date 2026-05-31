@@ -92,6 +92,13 @@ export function createTerminalKeyHandler(
       return false;
     }
 
+    // On macOS, Ctrl is a shell/readline modifier (Ctrl+A line-start, Ctrl+K
+    // kill-line, Ctrl+R, Ctrl+W, …) — only Cmd triggers VMark host shortcuts.
+    // Let Ctrl-only combos pass straight through to the PTY so those keys keep
+    // working; Cmd combos still match below. (Windows/Linux keep Ctrl as the
+    // host modifier — pre-existing behavior.)
+    if (isMacPlatform() && event.ctrlKey && !event.metaKey) return true;
+
     const isMod = event.metaKey || event.ctrlKey;
     if (!isMod) return true;
 

@@ -1285,7 +1285,8 @@ describe("createTerminalInstance — web link opener plugin load failure", () =>
     webLinkHandler(new MouseEvent("click"), "https://example.com");
 
     await vi.waitFor(() => {
-      expect(mockOpenUrl).toHaveBeenCalledWith("https://example.com");
+      // Opened as the parsed/normalized href (bare domain gains a trailing /).
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://example.com/");
     });
   });
 
@@ -1322,6 +1323,28 @@ describe("createTerminalInstance — web link opener plugin load failure", () =>
     );
   });
 
+  it("opens OSC 8 hyperlinks via the allowlisted linkHandler (WI-4.2, audit-fix)", async () => {
+    mockOpenUrl.mockResolvedValue(undefined);
+    const inst = makeInstance();
+    const linkHandler = (inst.term.options as {
+      linkHandler?: { activate: (e: MouseEvent, uri: string) => void };
+    }).linkHandler;
+    expect(linkHandler).toBeDefined();
+    linkHandler!.activate(new MouseEvent("click"), "https://osc8.example.com");
+    await vi.waitFor(() => {
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://osc8.example.com/");
+    });
+  });
+
+  it("blocks unsafe OSC 8 schemes via the linkHandler (WI-4.2, audit-fix)", () => {
+    const inst = makeInstance();
+    const linkHandler = (inst.term.options as {
+      linkHandler?: { activate: (e: MouseEvent, uri: string) => void };
+    }).linkHandler;
+    linkHandler!.activate(new MouseEvent("click"), "javascript:alert(1)");
+    expect(mockOpenUrl).not.toHaveBeenCalled();
+  });
+
   it("caches opener import across multiple clicks", async () => {
     mockOpenUrl.mockResolvedValue(undefined);
 
@@ -1329,8 +1352,8 @@ describe("createTerminalInstance — web link opener plugin load failure", () =>
     webLinkHandler(new MouseEvent("click"), "https://second.com");
 
     await vi.waitFor(() => {
-      expect(mockOpenUrl).toHaveBeenCalledWith("https://first.com");
-      expect(mockOpenUrl).toHaveBeenCalledWith("https://second.com");
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://first.com/");
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://second.com/");
     });
   });
 });

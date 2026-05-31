@@ -135,7 +135,7 @@ export interface TerminalSession {
   hasActivity?: boolean;
 }
 
-const MAX_TERMINAL_SESSIONS = 5;
+export const MAX_TERMINAL_SESSIONS = 5;
 
 interface TerminalSlice {
   sessions: TerminalSession[];

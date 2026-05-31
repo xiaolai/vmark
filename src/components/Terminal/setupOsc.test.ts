@@ -148,6 +148,18 @@ describe("setupOsc133", () => {
     expect(h.getCommands()[0].marker.line).toBe(1);
   });
 
+  it("tracks command-running state across C and D (audit-fix)", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    expect(h.isRunning()).toBe(false);
+    fire("A"); // prompt — idle
+    expect(h.isRunning()).toBe(false);
+    fire("C"); // command starts — busy
+    expect(h.isRunning()).toBe(true);
+    fire("D;0"); // command done — idle
+    expect(h.isRunning()).toBe(false);
+  });
+
   it("creates an exit-status decoration on D (WI-3.4)", () => {
     const { term, fire } = makeTerm();
     const h = setupOsc133(term);

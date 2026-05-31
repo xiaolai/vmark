@@ -223,6 +223,8 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     } catch {
       // Integration is optional; ignore and spawn without it.
     }
+    // The session may have been disposed while awaiting shell integration.
+    if (disposed()) throw new Error("disposed before spawn");
   }
 
   const spawnOpts = { cols: term.cols || 80, rows: term.rows || 24, cwd, env };

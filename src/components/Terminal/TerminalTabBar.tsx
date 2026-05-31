@@ -20,7 +20,7 @@
 import { useCallback } from "react";
 import { Plus, Trash2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, MAX_TERMINAL_SESSIONS } from "@/stores/uiStore";
 import "./TerminalTabBar.css";
 
 interface TerminalTabBarProps {
@@ -30,10 +30,13 @@ interface TerminalTabBarProps {
   orientation?: "vertical" | "horizontal";
 }
 
-/** Extract display number from "Terminal N" labels, or first char for custom names. */
+/** Extract display number from "Terminal N" labels, or first char for custom names.
+ *  Uses Array.from so a leading emoji/CJK surrogate pair isn't split. */
 function getTabDisplay(label: string): string {
   const m = label.match(/^Terminal (\d+)$/);
-  return m ? m[1] : (label.charAt(0).toUpperCase() || "?");
+  if (m) return m[1];
+  const first = Array.from(label.trim())[0];
+  return first ? first.toUpperCase() : "?";
 }
 
 /** Renders numbered buttons for switching between terminal sessions plus create/close/restart controls. */
@@ -50,7 +53,7 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }:
     useUIStore.getState().terminalSetActiveSession(id);
   }, []);
 
-  const isMaxed = sessions.length >= 5;
+  const isMaxed = sessions.length >= MAX_TERMINAL_SESSIONS;
 
   return (
     <div className={`terminal-tab-bar ${orientation === "horizontal" ? "terminal-tab-bar--horizontal" : ""}`}>

@@ -82,6 +82,11 @@ export function useUIStoreSync(
       const sessions = sessionsRef.current;
       if (!sessions) return;
       for (const [, entry] of sessions) {
+        // Never inject `cd` into a shell that's running a foreground command
+        // (e.g. vim, less) — the Ctrl+U + cd would corrupt it. Skip; a later
+        // workspace change (or none) will cd once it's idle. Requires shell
+        // integration; without it isShellBusy() is always false (prior behavior).
+        if (entry.instance.isShellBusy()) continue;
         // Prefer the shell's live cwd (OSC 7) over the spawn-time cwd, so a
         // session the user already cd'd into newRoot isn't redundantly cd'd
         // again (WI-2.2).

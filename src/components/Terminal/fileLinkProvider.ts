@@ -42,17 +42,20 @@ function looksLikeFilePath(path: string): boolean {
 
 /** Resolve a possibly-relative path against a base directory.
  * Prefers the shell's live cwd (OSC 7, WI-2.3); falls back to the workspace
- * root. Normalizes the result and rejects paths that escape the base via `..`. */
-function resolvePath(raw: string, getCwd?: () => string | null): string {
+ * root. Returns null for a relative path with no base, or one that escapes the
+ * base via `..` — so terminal output like `../../../etc/passwd` is NOT turned
+ * into a clickable link (path-traversal guard). */
+function resolvePath(raw: string, getCwd?: () => string | null): string | null {
   if (raw.startsWith("/")) return raw;
   const clean = raw.replace(/^\.\//, '');
   // Live cwd wins over workspace root: a path like `./build/x.ts` is relative
   // to where the shell actually is, not where the workspace was opened.
   const base = getCwd?.() ?? useWorkspaceStore.getState().rootPath;
-  if (!base) return clean;
-  // Normalize to resolve .. segments, then verify prefix
+  // No base to anchor a relative path → don't create a link we can't resolve.
+  if (!base) return null;
+  // Normalize to resolve .. segments, then verify the result stays under base.
   const resolved = new URL(clean, 'file://' + base + '/').pathname;
-  if (!resolved.startsWith(base + '/') && resolved !== base) return clean;
+  if (!resolved.startsWith(base + '/') && resolved !== base) return null;
   return resolved;
 }
 
@@ -92,6 +95,8 @@ export function createFileLinkProvider(
         };
 
         const resolved = resolvePath(rawPath, getCwd);
+        // Skip paths we can't safely anchor or that escape the base (traversal).
+        if (!resolved) continue;
         // Carry the parsed :line:col through so the editor can jump there (WI-4.1).
         const line = match[2] ? parseInt(match[2], 10) : undefined;
         const col = match[3] ? parseInt(match[3], 10) : undefined;

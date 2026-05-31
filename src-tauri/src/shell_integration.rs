@@ -47,8 +47,14 @@ pub async fn prepare_shell_integration<R: Runtime>(
         .map_err(|e| format!("Failed to resolve app data dir: {e}"))?;
     let dir = base.join("shell-integration").join("zsh");
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create integration dir: {e}"))?;
-    std::fs::write(dir.join(".zshrc"), ZSH_INTEGRATION)
+    // Atomic write: a concurrent spawn could otherwise source a half-written
+    // .zshrc. Write a temp file then rename (atomic on the same filesystem).
+    let rc = dir.join(".zshrc");
+    let tmp = dir.join(".zshrc.tmp");
+    std::fs::write(&tmp, ZSH_INTEGRATION)
         .map_err(|e| format!("Failed to write integration rc: {e}"))?;
+    std::fs::rename(&tmp, &rc)
+        .map_err(|e| format!("Failed to install integration rc: {e}"))?;
 
     let mut env = BTreeMap::new();
     env.insert("ZDOTDIR".to_string(), dir.to_string_lossy().into_owned());

@@ -33,6 +33,7 @@ function makeEntry(committedText: string | null, lastCommitTime: number) {
     resetDisplay: () => {},
     getCwd: () => null,
     getCommands: () => [],
+    isShellBusy: () => false,
     dispose: () => {},
   };
   const entry: SessionInputState = {

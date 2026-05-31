@@ -30,21 +30,31 @@ export function setupWebLinks(term: Terminal): void {
 
   /** Open a URI iff its scheme is allowlisted, via the cached opener plugin. */
   const openSafeUri = (uri: string): void => {
+    // Reject control chars (terminal output can smuggle them) before parsing.
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f\u007f]/.test(uri)) {
+      terminalLog("Blocked URL with control characters");
+      return;
+    }
+    let parsed: URL;
     try {
-      const parsed = new URL(uri);
-      if (!SAFE_LINK_SCHEMES.includes(parsed.protocol)) {
-        terminalLog("Blocked unsafe URL scheme:", parsed.protocol, uri);
-        return;
-      }
+      parsed = new URL(uri);
     } catch {
       // Not a valid absolute URL — skip
+      return;
+    }
+    if (!SAFE_LINK_SCHEMES.includes(parsed.protocol)) {
+      terminalLog("Blocked unsafe URL scheme:", parsed.protocol, uri);
       return;
     }
     if (!openerPromise) {
       openerPromise = import("@tauri-apps/plugin-opener");
     }
+    // Open the parsed/normalized href, not the raw string, so the launcher
+    // sees exactly what the scheme check validated.
+    const href = parsed.href;
     openerPromise.then(({ openUrl }) => {
-      openUrl(uri).catch((error: unknown) => {
+      openUrl(href).catch((error: unknown) => {
         terminalLog("Failed to open URL:", errorMessage(error));
       });
     /* v8 ignore start -- @preserve reason: dynamic import of a vi.mock'd module always resolves in tests; the import-failure catch is only reachable in production when the plugin binary is missing */
