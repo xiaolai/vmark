@@ -112,6 +112,8 @@ class VMarkPty implements IPty {
   private _dataChannel: Channel<ArrayBuffer | Uint8Array | number[]> | null = null;
   private _unlistenExit: UnlistenFn | null = null;
   private _destroyed = false;
+  /** Guards _freeRustSession so racing teardown paths can't double kill/close. */
+  private _freed = false;
 
   get pid(): number {
     return this._pid;
@@ -145,56 +147,60 @@ class VMarkPty implements IPty {
       env: opts?.env ?? {},
     });
 
-    // Exit is a low-frequency signal — keep it as a plain event.
-    this._unlistenExit = await listen<{ exit_code: number }>(
-      `pty:exit:${this._pid}`,
-      (event) => {
-        this._onExit.fire({ exitCode: event.payload.exit_code });
-        this._cleanup();
-        // Free the Rust-side session (FDs, memory)
-        invoke("pty_close", { pid: this._pid }).catch((err) => {
-          terminalLog("pty_close failed:", errorMessage(err));
-        });
-      },
-    );
-
-    // Guard: if kill() was called while setup was in flight, abort
-    if (this._destroyed) {
-      this._cleanup();
-      await invoke("pty_kill", { pid: this._pid }).catch((err) => {
-        terminalLog("pty_kill (setup guard) failed:", errorMessage(err));
-      });
-      // Listeners were torn down, so the exit handler won't free the session
-      // (#974). Close it explicitly here too.
-      await invoke("pty_close", { pid: this._pid }).catch((err) => {
-        terminalLog("pty_close (setup guard) failed:", errorMessage(err));
-      });
-      return;
-    }
-
-    // Binary output Channel. Wiring onmessage before pty_start means the reader
-    // cannot send before we are listening — no data-loss race (WI-1.1).
-    const channel = new Channel<ArrayBuffer | Uint8Array | number[]>();
-    channel.onmessage = (msg) => {
-      this._onData.fire(toUint8Array(msg));
-    };
-    this._dataChannel = channel;
-
-    // Start the reader thread, handing it the channel as `onBytes`.
+    // Everything after pty_spawn must free the Rust session on ANY failure
+    // (listen, channel wiring, or pty_start) — otherwise the session created by
+    // pty_spawn leaks its FDs/child handle (#974 class).
     try {
+      // Exit is a low-frequency signal — keep it as a plain event.
+      this._unlistenExit = await listen<{ exit_code: number }>(
+        `pty:exit:${this._pid}`,
+        (event) => {
+          this._onExit.fire({ exitCode: event.payload.exit_code });
+          this._cleanup();
+          // Free the Rust-side session (FDs, memory)
+          invoke("pty_close", { pid: this._pid }).catch((err) => {
+            terminalLog("pty_close failed:", errorMessage(err));
+          });
+        },
+      );
+
+      // Guard: if kill() was called while setup was in flight, abort.
+      if (this._destroyed) {
+        this._cleanup();
+        await this._freeRustSession();
+        return;
+      }
+
+      // Binary output Channel. Wiring onmessage before pty_start means the
+      // reader cannot send before we are listening — no data-loss race (WI-1.1).
+      const channel = new Channel<ArrayBuffer | Uint8Array | number[]>();
+      channel.onmessage = (msg) => {
+        this._onData.fire(toUint8Array(msg));
+      };
+      this._dataChannel = channel;
+
+      // Start the reader thread, handing it the channel as `onBytes`.
       await invoke("pty_start", { pid: this._pid, onBytes: channel });
     } catch (err) {
-      // pty_start failed after pty_spawn already created the Rust session —
-      // free it (FDs, child handle) so it doesn't leak (#974 class).
       this._cleanup();
-      await invoke("pty_kill", { pid: this._pid }).catch((e) =>
-        terminalLog("pty_kill (start-failure) failed:", errorMessage(e)),
-      );
-      await invoke("pty_close", { pid: this._pid }).catch((e) =>
-        terminalLog("pty_close (start-failure) failed:", errorMessage(e)),
-      );
+      await this._freeRustSession();
       throw err;
     }
+  }
+
+  /** Best-effort, idempotent free of the Rust-side session (kill the child,
+   *  drop the map entry). Safe to call on any setup-failure / teardown / kill
+   *  path; the `_freed` guard prevents a double pty_kill/pty_close when several
+   *  paths race (e.g. kill() during setup). */
+  private async _freeRustSession(): Promise<void> {
+    if (this._freed) return;
+    this._freed = true;
+    await invoke("pty_kill", { pid: this._pid }).catch((e) =>
+      terminalLog("pty_kill failed:", errorMessage(e)),
+    );
+    await invoke("pty_close", { pid: this._pid }).catch((e) =>
+      terminalLog("pty_close failed:", errorMessage(e)),
+    );
   }
 
   write(data: string): void {
@@ -220,19 +226,16 @@ class VMarkPty implements IPty {
   kill(): void {
     this._destroyed = true;
     this._cleanup();
-    // _cleanup() removed the pty:exit listener, so the natural exit handler
-    // that calls pty_close never runs (#974). Close the Rust session
-    // explicitly after pty_kill — in finally so a failed kill still frees the
-    // session map entry (FDs, channels, child handle).
+    // _cleanup() removed the pty:exit listener, so the natural exit handler that
+    // calls pty_close never runs (#974). Free the Rust session explicitly. The
+    // _freed guard inside _freeRustSession makes this idempotent: if setup was
+    // racing and its destroyed-guard already freed the session, this is a no-op
+    // (no double pty_kill/pty_close). If _ready rejected (setup failed), _setup
+    // already freed it, so swallow the rejection.
     this._ready
-      .then(() => invoke("pty_kill", { pid: this._pid }))
+      .then(() => this._freeRustSession())
       .catch((err) => {
-        terminalLog("pty_kill failed:", errorMessage(err));
-      })
-      .finally(() => {
-        invoke("pty_close", { pid: this._pid }).catch((err) => {
-          terminalLog("pty_close failed:", errorMessage(err));
-        });
+        terminalLog("kill after setup failure:", errorMessage(err));
       });
   }
 

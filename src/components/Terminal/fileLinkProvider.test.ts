@@ -85,6 +85,20 @@ describe("createFileLinkProvider", () => {
     });
   });
 
+  it("resolves a relative link when the base path contains spaces (audit-fix)", () => {
+    const term = makeTerm("found ./build/x.ts");
+    const provider = createFileLinkProvider(term, onActivate, () => "/Users/me/My Project");
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        // Must not be skipped due to percent-encoding of the space in the base.
+        expect(links![0].text).toBe("/Users/me/My Project/build/x.ts");
+        resolve();
+      });
+    });
+  });
+
   it("falls back to workspace root when live cwd is null (WI-2.3)", () => {
     const term = makeTerm("found ./src/main.ts");
     const provider = createFileLinkProvider(term, onActivate, () => null);

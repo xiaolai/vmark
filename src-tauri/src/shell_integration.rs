@@ -15,7 +15,11 @@
 //! @module shell_integration
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager, Runtime};
+
+/// Per-process counter for unique temp filenames (avoids concurrent-spawn races).
+static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// zsh integration rc, embedded at compile time.
 const ZSH_INTEGRATION: &str = include_str!("../resources/shell-integration/vmark.zsh");
@@ -48,9 +52,15 @@ pub async fn prepare_shell_integration<R: Runtime>(
     let dir = base.join("shell-integration").join("zsh");
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create integration dir: {e}"))?;
     // Atomic write: a concurrent spawn could otherwise source a half-written
-    // .zshrc. Write a temp file then rename (atomic on the same filesystem).
+    // .zshrc. Write a per-call unique temp file then rename (atomic on the same
+    // filesystem). A unique name keeps two concurrent calls from clobbering each
+    // other's temp file before the rename.
     let rc = dir.join(".zshrc");
-    let tmp = dir.join(".zshrc.tmp");
+    let tmp = dir.join(format!(
+        ".zshrc.tmp.{}.{}",
+        std::process::id(),
+        TMP_SEQ.fetch_add(1, Ordering::Relaxed),
+    ));
     std::fs::write(&tmp, ZSH_INTEGRATION)
         .map_err(|e| format!("Failed to write integration rc: {e}"))?;
     std::fs::rename(&tmp, &rc)

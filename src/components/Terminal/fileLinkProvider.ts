@@ -53,8 +53,15 @@ function resolvePath(raw: string, getCwd?: () => string | null): string | null {
   const base = getCwd?.() ?? useWorkspaceStore.getState().rootPath;
   // No base to anchor a relative path → don't create a link we can't resolve.
   if (!base) return null;
-  // Normalize to resolve .. segments, then verify the result stays under base.
-  const resolved = new URL(clean, 'file://' + base + '/').pathname;
+  // Normalize to resolve .. segments. Decode the result before comparing: a
+  // base with spaces/CJK ("/Users/me/My Project") otherwise yields a
+  // percent-encoded pathname that would never match the raw base (false skip).
+  let resolved: string;
+  try {
+    resolved = decodeURIComponent(new URL(clean, 'file://' + base + '/').pathname);
+  } catch {
+    return null; // malformed escape sequence — don't link it
+  }
   if (!resolved.startsWith(base + '/') && resolved !== base) return null;
   return resolved;
 }
