@@ -30,10 +30,12 @@
  *     to access the workspace root.
  *   - The disposed() callback lets the caller abort if the session was removed
  *     while the async spawn was in flight.
- *   - Watermark-based flow control pauses the PTY when xterm.js can't keep up
- *     with rapid output (e.g. AI tool redraws), preventing lag and freezes.
- *   - PTY data is coerced to Uint8Array before passing to xterm.js because
- *     Tauri event IPC serializes Rust Vec<u8> as a JSON number array, not a typed array.
+ *   - Watermark-based flow control pauses the PTY when xterm.js's parser can't
+ *     keep up with rapid output (e.g. AI tool redraws), preventing lag/freezes.
+ *     Retained after WI-1.1: the binary Channel removed the IPC-encoding
+ *     bottleneck, but xterm's parse/render rate is a separate limit this guards.
+ *   - PTY output arrives as a Uint8Array (the binary Channel delivers an
+ *     ArrayBuffer, coerced once in lib/pty.ts), passed straight to xterm.js.
  *
  * @coordinates-with useTerminalSessions.ts — calls spawnPty when starting a shell
  * @coordinates-with createTerminalInstance.ts — provides the xterm Terminal instance
@@ -100,11 +102,12 @@ export const LOW_WATERMARK = 2;
 /**
  * Wire PTY → xterm with watermark-based flow control.
  * Fast producers (e.g. claude-code with rapid ANSI redraws) can overwhelm
- * xterm.js. We pause the PTY when too many write callbacks are pending,
- * and resume when the parser catches up.
+ * xterm.js's PARSER (not the transport — output is now binary, WI-1.1). We pause
+ * the PTY when too many write callbacks are pending, and resume when the parser
+ * catches up. This backpressure guards the parse/render rate, so it is retained.
  */
-/** Runtime PTY data: real Uint8Array or JSON-deserialized number[] from Tauri IPC. */
-export type PtyPayload = Uint8Array | number[];
+/** Runtime PTY data: a Uint8Array (the binary Channel always delivers bytes). */
+export type PtyPayload = Uint8Array;
 
 /** Minimal PTY interface for flow control wiring (testable without full IPty). */
 export interface FlowControlPty {
@@ -123,12 +126,11 @@ export function wirePtyFlowControl(
   let pendingCallbacks = 0;
   let paused = false;
 
-  pty.onData((rawData) => {
+  pty.onData((data) => {
     if (disposed()) return;
-    // Tauri event IPC serializes Rust Vec<u8> as a JSON number array.
-    // xterm.js needs a real Uint8Array for correct UTF-8 multibyte decoding (CJK, emoji, etc.).
-    if (!(rawData instanceof Uint8Array) && !Array.isArray(rawData)) return;
-    const data = rawData instanceof Uint8Array ? rawData : new Uint8Array(rawData);
+    // Zero-trust at the boundary: the binary Channel delivers a Uint8Array, but
+    // drop anything else rather than crash on a malformed payload.
+    if (!(data instanceof Uint8Array)) return;
     written += data.length;
 
     if (written > CALLBACK_BYTE_LIMIT) {

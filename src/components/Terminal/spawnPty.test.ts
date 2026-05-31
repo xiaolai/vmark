@@ -171,11 +171,6 @@ describe("wirePtyFlowControl", () => {
     dataHandler(new Uint8Array(size));
   }
 
-  /** Send raw data (as received from Tauri IPC) through the PTY data handler. */
-  function sendRaw(data: PtyPayload): void {
-    dataHandler(data);
-  }
-
   it("writes small chunks directly without callback (fast path)", () => {
     wirePtyFlowControl(mockPty, mockTerm, () => false);
 
@@ -258,29 +253,17 @@ describe("wirePtyFlowControl", () => {
     expect(writeCallbacks).toHaveLength(1); // no new callback
   });
 
-  it("converts plain number array to Uint8Array for correct UTF-8 decoding", () => {
+  it("passes the binary Uint8Array through to xterm unchanged", () => {
     wirePtyFlowControl(mockPty, mockTerm, () => false);
 
-    // Tauri IPC serializes Vec<u8> as a JSON array of numbers.
-    // "中" in UTF-8 is [228, 184, 173].
-    const cjkBytes = [228, 184, 173];
-    sendRaw(cjkBytes);
-
-    expect(mockTerm.write).toHaveBeenCalledTimes(1);
-    const written = vi.mocked(mockTerm.write).mock.calls[0][0];
-    expect(written).toBeInstanceOf(Uint8Array);
-    expect(Array.from(written as Uint8Array)).toEqual(cjkBytes);
-  });
-
-  it("passes Uint8Array through unchanged", () => {
-    wirePtyFlowControl(mockPty, mockTerm, () => false);
-
+    // The binary Channel delivers a Uint8Array (CJK "中" = [228,184,173]);
+    // it must reach xterm by reference, with no copy/re-encode (WI-1.4).
     const original = new Uint8Array([228, 184, 173]);
-    sendRaw(original);
+    dataHandler(original);
 
     expect(mockTerm.write).toHaveBeenCalledTimes(1);
     const written = vi.mocked(mockTerm.write).mock.calls[0][0];
-    expect(written).toBe(original); // exact same reference
+    expect(written).toBe(original); // exact same reference — no coercion
   });
 
   it("drops invalid payload types silently", () => {

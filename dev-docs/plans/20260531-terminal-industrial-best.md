@@ -321,10 +321,22 @@ gate before Phase 1.
 
 ## 6. Decisions log (filled as the plan executes)
 
-- _(WI-0.2 verdict — Channel spike: …)_
+- **WI-0.2 — Channel spike: PASS** (2026-05-31, live). `Channel<InvokeResponseBody>`
+  + `Raw` → binary `ArrayBuffer` in the webview. See `grills/terminal/channel-spike.md`.
 - _(WI-0.3 verdict — zsh injection spike: …)_
 - _(WI-0.4 verdict — orphan repro → Phase 6 run/abort: …)_
-- _(WI-1.4 — flow-control kept/removed + rationale: …)_
+- **WI-1.3 — NOT IMPLEMENTED (unnecessary).** `pty_write(String)` is already
+  byte-transparent for every reachable input: all `pty.write()` callers pass JS
+  strings (xterm `onData`, IME commits, clipboard text, control sequences like
+  `\x1b[13;2u`, `cd` commands), which are always valid UTF-8. There is no
+  non-UTF-8 input path in this architecture (xterm/clipboard only yield strings),
+  so `Vec<u8>` would add encode-on-JS + `number[]`-IPC cost for an unreachable
+  case. First-principles override of the audit's L2 (itself rated "low impact").
+- **WI-1.4 — flow control KEPT** (not retired). WI-1.1 removed the IPC-encoding
+  bottleneck, but the watermark control guards xterm's *parser/render* rate — a
+  separate, still-real limit. WI-1.4 instead narrowed the now-dead `number[]`
+  types (`onData`/`PtyPayload` → `Uint8Array`) and dropped the obsolete
+  `number[]`→`Uint8Array` coercion, keeping a minimal `instanceof` boundary guard.
 - _(WI-5.2 — scrollback persisted/addon removed: …)_
 
 ## 7. Pre-Phase-1 gate

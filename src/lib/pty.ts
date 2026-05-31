@@ -62,7 +62,7 @@ export interface IPty {
   readonly pid: number;
   cols: number;
   rows: number;
-  readonly onData: IEvent<Uint8Array | number[]>;
+  readonly onData: IEvent<Uint8Array>;
   readonly onExit: IEvent<IPtyExitEvent>;
   write(data: string): void;
   resize(columns: number, rows: number): void;
@@ -106,7 +106,7 @@ class VMarkPty implements IPty {
   cols: number;
   rows: number;
 
-  private _onData = new EventEmitter<Uint8Array | number[]>();
+  private _onData = new EventEmitter<Uint8Array>();
   private _onExit = new EventEmitter<IPtyExitEvent>();
   private _ready: Promise<void>;
   private _dataChannel: Channel<ArrayBuffer | Uint8Array | number[]> | null = null;
@@ -123,7 +123,7 @@ class VMarkPty implements IPty {
     this._ready = this._setup(file, args, opts);
   }
 
-  get onData(): IEvent<Uint8Array | number[]> {
+  get onData(): IEvent<Uint8Array> {
     return this._onData.event;
   }
   get onExit(): IEvent<IPtyExitEvent> {
