@@ -1,13 +1,16 @@
 # Terminal — Road to Industrial-Best (Implementation Plan)
 
 > Created: 2026-05-31
-> Status: **Phase 0 in progress.** WI-0.0 (DoD checker) and WI-0.1 (throughput
-> bench + spike docs) DONE on branch `terminal-industrial-best`. WI-0.2 / 0.3 /
-> 0.4 are **blocked on a running Tauri app** (the agent cannot run interactive
-> app flows per AGENTS.md) — repro steps in `dev-docs/grills/terminal/`. Phases
-> 1–6 are gated on those spikes + the Codex cross-model review below.
-> `bash scripts/check-terminal-phase.sh 0` currently fails on the two PENDING
-> spike verdicts (by design — the gate is doing its job).
+> Status: **Phase 1 in progress** (branch `terminal-industrial-best`), driven
+> live against a running `pnpm tauri dev` app via Tauri MCP.
+> - Phase 0: WI-0.0, WI-0.1 DONE. **WI-0.2 (Channel) DONE — VERDICT: PASS**,
+>   confirmed live (binary `ArrayBuffer`, byte-identical). WI-0.3 (zsh
+>   integration) and WI-0.4 (orphan) still to run live.
+> - Phase 1: **WI-1.1 (binary Channel transport) + WI-1.2 (64 KB buffer) DONE
+>   and live-verified** — real zsh, 49 chunks all `ArrayBuffer`, echo round-trip
+>   correct, 55 unit tests green. WI-1.3 (`pty_write` bytes) and WI-1.4
+>   (flow-control simplification) remain.
+> - Phases 2–6 not started. Codex cross-model review (rule 60 §6) still pending.
 > Source audit: `dev-docs/audit/20260531-terminal-integration.md` (finding IDs
 > T1–T3, L1–L2, C1–C3, M1–M6, S1–S5 below reference that doc).
 > Phase-DoD checker: `scripts/check-terminal-phase.sh <N>` (to be created in WI-0.0,
