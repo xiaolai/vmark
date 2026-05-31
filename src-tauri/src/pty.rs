@@ -2,18 +2,24 @@
 //!
 //! Purpose: Spawns and manages pseudo-terminal sessions for VMark's built-in
 //! terminal. Each PTY reader runs on a dedicated OS thread so blocking I/O
-//! never starves the tokio async runtime. Data is pushed to the frontend via
-//! Tauri events instead of polling.
+//! never starves the tokio async runtime. Output bytes are pushed to the
+//! frontend over a per-session binary `Channel`; the exit signal is a Tauri
+//! event. Neither path polls.
 //!
 //! Key decisions:
 //!   - Reader threads are plain `std::thread`, NOT `tokio::spawn_blocking`.
 //!     PTY reads are long-lived (lifetime of the shell), so they should not
 //!     consume the tokio blocking thread pool.
+//!   - Output transport is a `tauri::ipc::Channel<InvokeResponseBody>` (WI-1.1,
+//!     ADR-T1): the reader sends `InvokeResponseBody::Raw(bytes)`, delivered to
+//!     the webview as a binary `ArrayBuffer` (not a JSON number array) and
+//!     point-to-point (no `app.emit` broadcast to every window).
 //!   - Pause/resume uses `Condvar` so a paused reader truly sleeps (zero CPU)
 //!     instead of busy-waiting.
 //!   - Two-phase startup: `pty_spawn` creates the session, `pty_start` begins
-//!     the reader thread. The frontend registers event listeners between the
-//!     two calls, eliminating data-loss races.
+//!     the reader thread. The frontend wires the output Channel's `onmessage`
+//!     and the `pty:exit:{pid}` listener before calling `pty_start`, so no
+//!     output or exit signal is lost (no data-loss race).
 //!   - Child exit is detected in the reader thread (after the read loop ends)
 //!     via `child.wait()`, then emitted as a `pty:exit:{pid}` event.
 //!   - Sessions are removed from the map via `pty_close` (called by the
@@ -22,7 +28,7 @@
 //!     underlying operations are fast syscalls, not async I/O.
 //!
 //! @coordinates-with lib.rs — commands registered in generate_handler![]
-//! @coordinates-with src/lib/pty.ts — frontend wrapper that consumes these events
+//! @coordinates-with src/lib/pty.ts — frontend wrapper (output Channel + exit event)
 //! @module pty
 
 use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
@@ -156,8 +162,9 @@ pub async fn pty_spawn(
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
-            rows,
-            cols,
+            // Clamp to ≥1: a 0 dimension yields an invalid/degenerate PTY.
+            rows: rows.max(1),
+            cols: cols.max(1),
             pixel_width: 0,
             pixel_height: 0,
         })
@@ -207,11 +214,14 @@ pub async fn pty_spawn(
 }
 
 /// Start the reader thread for a PTY session.
-/// Must be called exactly once per session, after event listeners are ready.
-/// Emits `pty:data:{pid}` for output and `pty:exit:{pid}` on child exit.
+/// Must be called exactly once per session, after the caller has wired the
+/// `on_bytes` Channel and the `pty:exit:{pid}` listener.
+/// Sends output bytes over `on_bytes` (Raw → ArrayBuffer); emits
+/// `pty:exit:{pid}` on child exit.
 #[tauri::command]
 pub async fn pty_start<R: Runtime>(
     pid: u32,
+    on_bytes: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>,
     state: tauri::State<'_, PtyState>,
     app: AppHandle<R>,
 ) -> Result<(), String> {
@@ -231,7 +241,6 @@ pub async fn pty_start<R: Runtime>(
     let pause_ctl = session.pause_ctl.clone();
     let shutdown = session.shutdown.clone();
 
-    let data_event = format!("pty:data:{pid}");
     let exit_event = format!("pty:exit:{pid}");
 
     // Reader thread body wrapped in catch_unwind so a panic doesn't crash
@@ -250,7 +259,9 @@ pub async fn pty_start<R: Runtime>(
         .spawn(move || {
             let pid_for_log = pid;
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                let mut buf = vec![0u8; 4096];
+                // 64 KB buffer (WI-1.2): far fewer reads/sends per burst than the
+                // old 4 KB, which compounds with the binary Channel (WI-1.1).
+                let mut buf = vec![0u8; 65536];
                 loop {
                     if shutdown.load(Ordering::Acquire) {
                         break;
@@ -262,8 +273,25 @@ pub async fn pty_start<R: Runtime>(
                     match reader.read(&mut buf) {
                         Ok(0) => break,
                         Ok(n) => {
-                            let _ = app.emit(&data_event, buf[..n].to_vec());
+                            // Send raw bytes over the per-session Channel. Raw →
+                            // ArrayBuffer in the webview (WI-1.1), point-to-point
+                            // (no app.emit broadcast → closes T2). A send error
+                            // means the webview/channel is gone; kill the child so
+                            // the child.wait() below returns instead of hanging on
+                            // a still-running shell, then stop reading.
+                            if on_bytes
+                                .send(tauri::ipc::InvokeResponseBody::Raw(buf[..n].to_vec()))
+                                .is_err()
+                            {
+                                if let Ok(mut killer) = session_for_panic.child_killer.lock() {
+                                    let _ = killer.kill();
+                                }
+                                break;
+                            }
                         }
+                        // EINTR is transient (signal during read) — retry rather
+                        // than treat it as EOF and prematurely end the session.
+                        Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                         Err(_) => break,
                     }
                 }
@@ -319,8 +347,8 @@ pub async fn pty_resize(
     let master = session.master.lock().map_err(|e| e.to_string())?;
     master
         .resize(PtySize {
-            rows,
-            cols,
+            rows: rows.max(1),
+            cols: cols.max(1),
             pixel_width: 0,
             pixel_height: 0,
         })

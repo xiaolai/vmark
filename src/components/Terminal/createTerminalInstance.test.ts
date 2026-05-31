@@ -61,6 +61,8 @@ vi.mock("@xterm/xterm", () => ({
     writeln = vi.fn();
     attachCustomKeyEventHandler = vi.fn();
     registerLinkProvider = vi.fn();
+    parser = { registerOscHandler: vi.fn() };
+    registerMarker = vi.fn(() => ({ line: 0, onDispose: vi.fn(), dispose: vi.fn() }));
     cols = 80;
     rows = 24;
     options = {};
@@ -77,9 +79,6 @@ vi.mock("@xterm/addon-search", () => ({
   SearchAddon: class { findNext = vi.fn(); findPrevious = vi.fn(); clearDecorations = vi.fn(); dispose = vi.fn(); },
 }));
 
-vi.mock("@xterm/addon-serialize", () => ({
-  SerializeAddon: class { serialize = vi.fn(() => ""); dispose = vi.fn(); },
-}));
 
 vi.mock("@xterm/addon-unicode11", () => ({
   Unicode11Addon: class { dispose = vi.fn(); },
@@ -193,12 +192,12 @@ describe("createTerminalInstance basics", () => {
     expect(inst.container.style.display).toBe("none");
   });
 
-  it("exposes term, fitAddon, searchAddon, serializeAddon", () => {
+  it("exposes term, fitAddon, searchAddon, getCwd", () => {
     const inst = makeInstance();
     expect(inst.term).toBeDefined();
     expect(inst.fitAddon).toBeDefined();
     expect(inst.searchAddon).toBeDefined();
-    expect(inst.serializeAddon).toBeDefined();
+    expect(inst.getCwd).toBeTypeOf("function");
   });
 
   it("opens terminal in the container", () => {
@@ -1286,7 +1285,8 @@ describe("createTerminalInstance — web link opener plugin load failure", () =>
     webLinkHandler(new MouseEvent("click"), "https://example.com");
 
     await vi.waitFor(() => {
-      expect(mockOpenUrl).toHaveBeenCalledWith("https://example.com");
+      // Opened as the parsed/normalized href (bare domain gains a trailing /).
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://example.com/");
     });
   });
 
@@ -1323,6 +1323,28 @@ describe("createTerminalInstance — web link opener plugin load failure", () =>
     );
   });
 
+  it("opens OSC 8 hyperlinks via the allowlisted linkHandler (WI-4.2, audit-fix)", async () => {
+    mockOpenUrl.mockResolvedValue(undefined);
+    const inst = makeInstance();
+    const linkHandler = (inst.term.options as {
+      linkHandler?: { activate: (e: MouseEvent, uri: string) => void };
+    }).linkHandler;
+    expect(linkHandler).toBeDefined();
+    linkHandler!.activate(new MouseEvent("click"), "https://osc8.example.com");
+    await vi.waitFor(() => {
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://osc8.example.com/");
+    });
+  });
+
+  it("blocks unsafe OSC 8 schemes via the linkHandler (WI-4.2, audit-fix)", () => {
+    const inst = makeInstance();
+    const linkHandler = (inst.term.options as {
+      linkHandler?: { activate: (e: MouseEvent, uri: string) => void };
+    }).linkHandler;
+    linkHandler!.activate(new MouseEvent("click"), "javascript:alert(1)");
+    expect(mockOpenUrl).not.toHaveBeenCalled();
+  });
+
   it("caches opener import across multiple clicks", async () => {
     mockOpenUrl.mockResolvedValue(undefined);
 
@@ -1330,8 +1352,8 @@ describe("createTerminalInstance — web link opener plugin load failure", () =>
     webLinkHandler(new MouseEvent("click"), "https://second.com");
 
     await vi.waitFor(() => {
-      expect(mockOpenUrl).toHaveBeenCalledWith("https://first.com");
-      expect(mockOpenUrl).toHaveBeenCalledWith("https://second.com");
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://first.com/");
+      expect(mockOpenUrl).toHaveBeenCalledWith("https://second.com/");
     });
   });
 });

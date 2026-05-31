@@ -2,8 +2,8 @@
  * createTerminalInstance
  *
  * Purpose: Factory function that creates a fully-configured xterm.js instance
- * with all addons loaded (fit, search, serialize, unicode11, webgl, web-links,
- * file-links) and custom key handling.
+ * with all addons loaded (fit, search, unicode11, webgl, web-links, file-links)
+ * plus OSC handlers (cwd) and custom key handling.
  *
  * Key decisions:
  *   - Each instance gets its own child div inside the parent container,
@@ -24,6 +24,7 @@
  *         dual-layer context-loss recovery, MutationObserver, resetDisplay
  *       * setupWebLinks        — sandboxed web-link click handler
  *       * setupFileLinks       — file-link click handler with size guard
+ *       * setupOsc7            — OSC 7 cwd tracking (exposes getCwd)
  *       * setupCopyOnSelect    — debounced clipboard write on selection
  *
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
@@ -36,7 +37,6 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { SearchAddon } from "@xterm/addon-search";
-import { SerializeAddon } from "@xterm/addon-serialize";
 import { createTerminalKeyHandler } from "./terminalKeyHandler";
 import { buildXtermThemeForId } from "@/theme";
 import { setupWebglRenderer } from "./setupWebglRenderer";
@@ -44,6 +44,7 @@ import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposi
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
+import { setupOsc7, setupOsc133, scrollToAdjacentCommand, type CommandMark } from "./setupOsc";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -65,7 +66,6 @@ export interface TerminalInstance {
   term: Terminal;
   fitAddon: FitAddon;
   searchAddon: SearchAddon;
-  serializeAddon: SerializeAddon;
   container: HTMLDivElement;
   /** Whether an IME composition is active or in post-composition grace period. */
   composing: boolean;
@@ -88,6 +88,14 @@ export interface TerminalInstance {
    * just refreshes the viewport via the DOM renderer.
    */
   resetDisplay: () => void;
+  /** The shell's last-reported cwd via OSC 7, or null if never reported (WI-2.1). */
+  getCwd: () => string | null;
+  /** Command marks from OSC 133 (prompt line + exit code) for prompt nav and
+   *  exit-status decorations (WI-3.2). Empty without shell integration. */
+  getCommands: () => CommandMark[];
+  /** True while a foreground command is running (OSC 133 C→D). False without
+   *  shell integration. Used to avoid injecting `cd` into a busy shell. */
+  isShellBusy: () => boolean;
   dispose: () => void;
 }
 
@@ -110,6 +118,9 @@ interface CreateOptions {
   settings: TerminalInstanceSettings;
   ptyRef: React.RefObject<import("@/lib/pty").IPty | null>;
   onSearch: () => void;
+  /** Fired when the shell rings the bell (BEL / OSC) — drives the background
+   *  activity indicator (WI-4.3). */
+  onBell?: () => void;
 }
 
 // Suppress the "unused" lint when nothing in this file references the
@@ -121,7 +132,7 @@ void IME_COMPOSITION_GRACE_MS;
  * Appends a child div to parentEl and opens xterm in it.
  */
 export function createTerminalInstance(options: CreateOptions): TerminalInstance {
-  const { parentEl, settings, ptyRef, onSearch } = options;
+  const { parentEl, settings, ptyRef, onSearch, onBell } = options;
 
   // Create child container
   const container = document.createElement("div");
@@ -154,8 +165,6 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   term.loadAddon(fitAddon);
   const searchAddon = new SearchAddon();
   term.loadAddon(searchAddon);
-  const serializeAddon = new SerializeAddon();
-  term.loadAddon(serializeAddon);
 
   // Open terminal — must come before the helpers that query DOM children
   // (IME textarea, WebGL canvases).
@@ -175,12 +184,21 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     enabled: !!settings.useWebGL,
   });
 
+  // OSC 7 cwd tracking — feeds relative file-link resolution (WI-2.1/2.3).
+  const osc = setupOsc7(term);
+  // OSC 133 command boundaries — prompt nav + exit-status decorations (WI-3.2).
+  const osc133 = setupOsc133(term);
+
+  // Bell → background-activity indicator (WI-4.3).
+  if (onBell) term.onBell(() => onBell());
+
   setupWebLinks(term);
-  setupFileLinks(term);
+  setupFileLinks(term, osc.getCwd);
 
   term.attachCustomKeyEventHandler(
     createTerminalKeyHandler(term, ptyRef, {
       onSearch,
+      onPromptNav: (dir) => scrollToAdjacentCommand(term, osc133.getCommands(), dir),
       // Closes over `ime.composing` (live getter) so the key handler
       // sees the post-`compositionend` grace window, not just active
       // composition. Without this, Shift+Enter / Cmd+C / etc. fired
@@ -208,10 +226,12 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     term,
     fitAddon,
     searchAddon,
-    serializeAddon,
     container,
     dispose,
     resetDisplay: webgl.resetDisplay,
+    getCwd: osc.getCwd,
+    getCommands: osc133.getCommands,
+    isShellBusy: osc133.isRunning,
     get composing() { return ime.composing; },
     get inGracePeriod() { return ime.inGracePeriod; },
     get onCompositionCommit() { return ime.onCompositionCommit; },

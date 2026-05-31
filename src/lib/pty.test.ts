@@ -4,13 +4,16 @@
 // itself (after pty_kill), and the setup-time guard path must too.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { invokeMock, listenMock } = vi.hoisted(() => ({
-  invokeMock: vi.fn(),
-  listenMock: vi.fn(),
-}));
+const { invokeMock, listenMock, MockChannel } = vi.hoisted(() => {
+  class MockChannel {
+    onmessage: ((msg: unknown) => void) | null = null;
+  }
+  return { invokeMock: vi.fn(), listenMock: vi.fn(), MockChannel };
+});
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
+  Channel: MockChannel,
 }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => listenMock(...args),
@@ -41,7 +44,7 @@ describe("VMarkPty.kill() — #974 session leak", () => {
     const pty = spawn("bash", []);
     // Wait for setup to finish (reader started = ready).
     await vi.waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("pty_start", { pid: PID });
+      expect(invokeMock).toHaveBeenCalledWith("pty_start", expect.objectContaining({ pid: PID }));
     });
 
     pty.kill();

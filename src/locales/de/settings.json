@@ -372,6 +372,8 @@
   "terminal.webgl.description": "GPU-beschleunigtes Rendering verwenden. Deaktivieren, wenn IME-Eingabeprobleme auftreten. Erfordert Terminal-Neustart.",
   "terminal.macOptionIsMeta.label": "Option als Meta-Taste",
   "terminal.macOptionIsMeta.description": "macOS-Option-Taste als Meta behandeln für Alt+Arrow-Wortnavigation. Deaktivieren, wenn Sie Akzentkomposition mit Tottasten benötigen (Option+E/N/U). Erfordert Terminal-Neustart.",
+  "terminal.shellIntegration.label": "Shell Integration",
+  "terminal.shellIntegration.description": "Inject command markers (zsh) so the terminal can offer prompt navigation, exit-status indicators, and current-directory tracking. Requires terminal restart.",
   "about.version": "Version {{version}}",
   "about.group.updates": "Updates",
   "about.updateAvailable.group": "Update verfügbar",

@@ -372,6 +372,8 @@
   "terminal.webgl.description": "Usar renderização acelerada por GPU. Desative se tiver problemas de entrada IME. Requer reinicialização do terminal.",
   "terminal.macOptionIsMeta.label": "Option como tecla Meta",
   "terminal.macOptionIsMeta.description": "Tratar a tecla Option do macOS como Meta para navegação por palavras com Alt+Arrow. Desative se precisar de composição de acentos com teclas mortas (Option+E/N/U). Requer reinicialização do terminal.",
+  "terminal.shellIntegration.label": "Shell Integration",
+  "terminal.shellIntegration.description": "Inject command markers (zsh) so the terminal can offer prompt navigation, exit-status indicators, and current-directory tracking. Requires terminal restart.",
   "about.version": "Versão {{version}}",
   "about.group.updates": "Atualizações",
   "about.updateAvailable.group": "Atualização disponível",

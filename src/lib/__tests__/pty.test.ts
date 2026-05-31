@@ -12,9 +12,27 @@ const mockInvoke = vi.fn();
 const mockListen = vi.fn();
 const mockUnlisten = vi.fn();
 
+// Minimal stand-in for @tauri-apps/api/core Channel: holds the onmessage
+// callback so tests can drive PTY output through it (WI-1.1 binary transport).
+// vi.hoisted so the class exists before the hoisted vi.mock factory runs.
+const { MockChannel } = vi.hoisted(() => {
+  class MockChannel {
+    onmessage: ((msg: unknown) => void) | null = null;
+  }
+  return { MockChannel };
+});
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => mockInvoke(...args),
+  Channel: MockChannel,
 }));
+
+type DataChannel = { onmessage: ((msg: unknown) => void) | null };
+/** Pull the Channel passed to pty_start out of the recorded invoke calls. */
+function getDataChannel(): DataChannel {
+  const call = mockInvoke.mock.calls.find((c) => c[0] === "pty_start");
+  return (call?.[1] as { onBytes: DataChannel }).onBytes;
+}
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => mockListen(...args),
@@ -61,11 +79,17 @@ describe("spawn", () => {
     });
 
     expect(pty.pid).toBe(7);
-    // Order: spawn → listen data → listen exit → start
+    // Order: spawn → listen exit → start. Output is a binary Channel passed
+    // INTO pty_start (no pty:data event listener), wired before the reader
+    // starts, so there is no data-loss race (WI-1.1).
     expect(calls[0]).toBe("pty_spawn");
-    expect(calls[1]).toBe("listen:pty:data:7");
-    expect(calls[2]).toBe("listen:pty:exit:7");
-    expect(calls[3]).toBe("pty_start");
+    expect(calls[1]).toBe("listen:pty:exit:7");
+    expect(calls[2]).toBe("pty_start");
+    expect(calls).not.toContain("listen:pty:data:7");
+    // pty_start receives the data Channel as `onBytes`.
+    const startCall = mockInvoke.mock.calls.find((c) => c[0] === "pty_start");
+    expect(startCall?.[1]).toMatchObject({ pid: 7 });
+    expect((startCall?.[1] as { onBytes: unknown }).onBytes).toBeInstanceOf(MockChannel);
   });
 
   it("passes spawn options correctly", async () => {
@@ -88,23 +112,39 @@ describe("spawn", () => {
 });
 
 describe("onData", () => {
-  it("fires listeners when data event arrives", async () => {
-    let dataHandler: ((event: { payload: number[] }) => void) | null = null;
+  it("fires listeners with a Uint8Array when the channel delivers bytes", async () => {
     mockInvoke.mockResolvedValue(1);
-    mockListen.mockImplementation((event: string, handler: (e: unknown) => void) => {
-      if (event.startsWith("pty:data:")) dataHandler = handler;
-      return Promise.resolve(mockUnlisten);
-    });
+    mockListen.mockResolvedValue(mockUnlisten);
 
     const pty = spawn("/bin/sh", []);
     const received: unknown[] = [];
     pty.onData((data) => received.push(data));
 
-    await vi.waitFor(() => expect(dataHandler).not.toBeNull());
+    // Wait until pty_start has run so the data channel exists.
+    await vi.waitFor(() => expect(getDataChannel()).toBeInstanceOf(MockChannel));
 
-    dataHandler!({ payload: [104, 101, 108, 108, 111] });
+    // The Rust side sends Raw bytes → the JS Channel delivers an ArrayBuffer.
+    const buf = new Uint8Array([104, 101, 108, 108, 111]).buffer;
+    getDataChannel().onmessage!(buf);
+
     expect(received).toHaveLength(1);
-    expect(received[0]).toEqual([104, 101, 108, 108, 111]);
+    expect(received[0]).toBeInstanceOf(Uint8Array);
+    expect(Array.from(received[0] as Uint8Array)).toEqual([104, 101, 108, 108, 111]);
+  });
+
+  it("passes through a Uint8Array unchanged if the channel delivers one", async () => {
+    mockInvoke.mockResolvedValue(1);
+    mockListen.mockResolvedValue(mockUnlisten);
+
+    const pty = spawn("/bin/sh", []);
+    const received: unknown[] = [];
+    pty.onData((data) => received.push(data));
+
+    await vi.waitFor(() => expect(getDataChannel()).toBeInstanceOf(MockChannel));
+
+    getDataChannel().onmessage!(new Uint8Array([1, 2, 3]));
+    expect(received[0]).toBeInstanceOf(Uint8Array);
+    expect(Array.from(received[0] as Uint8Array)).toEqual([1, 2, 3]);
   });
 });
 
@@ -125,8 +165,9 @@ describe("onExit", () => {
 
     exitHandler!({ payload: { exit_code: 0 } });
     expect(exits).toEqual([{ exitCode: 0 }]);
-    // Listeners should be cleaned up
-    expect(mockUnlisten).toHaveBeenCalledTimes(2); // data + exit
+    // Only the exit listener needs unlistening now — output is a Channel (no
+    // unlisten); WI-1.1 clears its onmessage instead.
+    expect(mockUnlisten).toHaveBeenCalledTimes(1);
     // pty_close should be called to free Rust-side session
     await vi.waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("pty_close", { pid: 1 });
@@ -165,8 +206,8 @@ describe("write / resize / kill / pause / resume", () => {
     await vi.waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("pty_kill", { pid: 5 });
     });
-    // Listeners cleaned up eagerly on kill
-    expect(mockUnlisten).toHaveBeenCalledTimes(2);
+    // Exit listener cleaned up eagerly on kill (data channel has no unlisten).
+    expect(mockUnlisten).toHaveBeenCalledTimes(1);
   });
 
   it("pause invokes pty_pause", async () => {

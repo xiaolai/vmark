@@ -58,6 +58,59 @@ describe("createFileLinkProvider", () => {
     });
   });
 
+  it("resolves relative paths against the live cwd, overriding workspace root (WI-2.3)", () => {
+    const term = makeTerm("found ./build/x.ts");
+    // Shell has cd'd into a subdir; getCwd reflects that, not the workspace root.
+    const provider = createFileLinkProvider(term, onActivate, () => "/workspace/pkg");
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/workspace/pkg/build/x.ts");
+        resolve();
+      });
+    });
+  });
+
+  it("does NOT link a relative path that escapes the base (path traversal, audit-fix)", () => {
+    const term = makeTerm("see ../../../../etc/secrets.env");
+    const provider = createFileLinkProvider(term, onActivate, () => "/workspace/pkg");
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        // The escaping path must not become a clickable link.
+        expect(links).toBeUndefined();
+        resolve();
+      });
+    });
+  });
+
+  it("resolves a relative link when the base path contains spaces (audit-fix)", () => {
+    const term = makeTerm("found ./build/x.ts");
+    const provider = createFileLinkProvider(term, onActivate, () => "/Users/me/My Project");
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        // Must not be skipped due to percent-encoding of the space in the base.
+        expect(links![0].text).toBe("/Users/me/My Project/build/x.ts");
+        resolve();
+      });
+    });
+  });
+
+  it("falls back to workspace root when live cwd is null (WI-2.3)", () => {
+    const term = makeTerm("found ./src/main.ts");
+    const provider = createFileLinkProvider(term, onActivate, () => null);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links![0].text).toBe("/workspace/src/main.ts");
+        resolve();
+      });
+    });
+  });
+
   it("detects paths with :line:col suffix", () => {
     const term = makeTerm(" /Users/foo/bar.ts:10:5");
     const provider = createFileLinkProvider(term, onActivate);
@@ -66,6 +119,32 @@ describe("createFileLinkProvider", () => {
       provider.provideLinks(1, (links) => {
         expect(links).toHaveLength(1);
         expect(links![0].text).toBe("/Users/foo/bar.ts");
+        resolve();
+      });
+    });
+  });
+
+  it("passes parsed line and col to onActivate when the link is clicked (WI-4.1)", () => {
+    const term = makeTerm(" /Users/foo/bar.ts:42:8");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", 42, 8);
+        resolve();
+      });
+    });
+  });
+
+  it("activates with undefined line/col for a bare path (WI-4.1)", () => {
+    const term = makeTerm(" /Users/foo/bar.ts");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", undefined, undefined);
         resolve();
       });
     });
@@ -109,7 +188,8 @@ describe("createFileLinkProvider", () => {
       provider.provideLinks(1, (links) => {
         expect(links).toHaveLength(1);
         links![0].activate(new MouseEvent("click"), "");
-        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts");
+        // Bare path → no line/col (WI-4.1 added the optional args).
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", undefined, undefined);
         resolve();
       });
     });
@@ -139,29 +219,26 @@ describe("createFileLinkProvider", () => {
     });
   });
 
-  it("rejects ../ relative path that escapes workspace root", () => {
+  it("does NOT link a ../ relative path that escapes workspace root (path traversal)", () => {
     const term = makeTerm("found ../src/components/App.tsx");
     const provider = createFileLinkProvider(term, onActivate);
 
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
-        expect(links).toHaveLength(1);
-        // ../src/components/App.tsx from /workspace resolves outside workspace — rejected
-        expect(links![0].text).toBe("../src/components/App.tsx");
+        // Escapes /workspace → must not become a clickable link.
+        expect(links).toBeUndefined();
         resolve();
       });
     });
   });
 
-  it("rejects relative path with ../ that escapes workspace root", () => {
+  it("does NOT link a ../../ path that escapes to a sensitive file (path traversal)", () => {
     const term = makeTerm("found ../../etc/passwd.txt");
     const provider = createFileLinkProvider(term, onActivate);
 
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
-        expect(links).toHaveLength(1);
-        // Should return the raw relative path, not a resolved escape
-        expect(links![0].text).toBe("../../etc/passwd.txt");
+        expect(links).toBeUndefined();
         resolve();
       });
     });
@@ -219,7 +296,7 @@ describe("createFileLinkProvider", () => {
     });
   });
 
-  it("returns relative path as-is when no workspace root", () => {
+  it("does NOT link a relative path when there is no base (no workspace, no cwd)", () => {
     mockGetState.mockReturnValueOnce({ rootPath: null });
 
     const term = makeTerm("found ./src/main.ts");
@@ -227,8 +304,8 @@ describe("createFileLinkProvider", () => {
 
     return new Promise<void>((resolve) => {
       provider.provideLinks(1, (links) => {
-        expect(links).toHaveLength(1);
-        expect(links![0].text).toBe("src/main.ts");
+        // Nothing to anchor a relative path against → no clickable link.
+        expect(links).toBeUndefined();
         resolve();
       });
     });

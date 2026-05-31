@@ -215,6 +215,7 @@ const initialState: SettingsState = {
     copyOnSelect: false,
     useWebGL: true,
     macOptionIsMeta: true,
+    shellIntegration: true,
     position: "auto",
     panelRatio: 0.4,
   },

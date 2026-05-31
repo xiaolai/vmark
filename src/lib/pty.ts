@@ -7,13 +7,18 @@
  *
  * Key decisions:
  *   - Constructor returns immediately; the actual spawn is async via `_ready`.
- *   - Event listeners are registered BEFORE `pty_start` is called, so no data
- *     is lost between spawn and first read.
+ *   - Output flows over a binary `tauri::ipc::Channel` (WI-1.1, ADR-T1): the
+ *     reader thread sends `InvokeResponseBody::Raw(bytes)`, which the webview
+ *     receives as an `ArrayBuffer` — NOT a JSON number array. This is ~3.66x
+ *     less wire data and orders of magnitude less encode/decode CPU than the
+ *     old `pty:data:` event path (see dev-docs/grills/terminal/). The Channel
+ *     is point-to-point, so output is no longer broadcast to every window.
+ *   - The data Channel's `onmessage` is wired BEFORE `pty_start` is invoked, so
+ *     the reader cannot emit before we are listening — no data-loss race
+ *     (this replaces the old two-phase listen-then-start dance for output).
+ *   - The exit signal stays a plain `pty:exit:{pid}` event (low-frequency).
  *   - `pause()` and `resume()` are real Tauri commands (not stubs), enabling
  *     the watermark-based flow control in spawnPty.ts.
- *   - Data arrives as `number[]` (JSON-serialized Vec<u8> from Rust) and is
- *     passed through as-is — the consumer (spawnPty.ts) handles coercion to
- *     Uint8Array.
  *   - `kill()` eagerly cleans up event listeners and guards against mid-setup
  *     races via a `_destroyed` flag.
  *   - `pty_close` frees the Rust-side session (FDs/channels/child handle). It
@@ -26,7 +31,7 @@
  * @module lib/pty
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ptyWarn, terminalLog } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -57,7 +62,7 @@ export interface IPty {
   readonly pid: number;
   cols: number;
   rows: number;
-  readonly onData: IEvent<Uint8Array | number[]>;
+  readonly onData: IEvent<Uint8Array>;
   readonly onExit: IEvent<IPtyExitEvent>;
   write(data: string): void;
   resize(columns: number, rows: number): void;
@@ -101,12 +106,14 @@ class VMarkPty implements IPty {
   cols: number;
   rows: number;
 
-  private _onData = new EventEmitter<Uint8Array | number[]>();
+  private _onData = new EventEmitter<Uint8Array>();
   private _onExit = new EventEmitter<IPtyExitEvent>();
   private _ready: Promise<void>;
-  private _unlistenData: UnlistenFn | null = null;
+  private _dataChannel: Channel<ArrayBuffer | Uint8Array | number[]> | null = null;
   private _unlistenExit: UnlistenFn | null = null;
   private _destroyed = false;
+  /** Guards _freeRustSession so racing teardown paths can't double kill/close. */
+  private _freed = false;
 
   get pid(): number {
     return this._pid;
@@ -118,7 +125,7 @@ class VMarkPty implements IPty {
     this._ready = this._setup(file, args, opts);
   }
 
-  get onData(): IEvent<Uint8Array | number[]> {
+  get onData(): IEvent<Uint8Array> {
     return this._onData.event;
   }
   get onExit(): IEvent<IPtyExitEvent> {
@@ -140,46 +147,60 @@ class VMarkPty implements IPty {
       env: opts?.env ?? {},
     });
 
-    // Phase 2: register event listeners
-    this._unlistenData = await listen<number[]>(
-      `pty:data:${this._pid}`,
-      (event) => {
-        this._onData.fire(event.payload);
-      },
-    );
-    this._unlistenExit = await listen<{ exit_code: number }>(
-      `pty:exit:${this._pid}`,
-      (event) => {
-        this._onExit.fire({ exitCode: event.payload.exit_code });
-        this._cleanup();
-        // Free the Rust-side session (FDs, memory)
-        invoke("pty_close", { pid: this._pid }).catch((err) => {
-          terminalLog("pty_close failed:", errorMessage(err));
-        });
-      },
-    );
-
-    // Guard: if kill() was called while setup was in flight, abort
-    if (this._destroyed) {
-      this._cleanup();
-      await invoke("pty_kill", { pid: this._pid }).catch((err) => {
-        terminalLog("pty_kill (setup guard) failed:", errorMessage(err));
-      });
-      // Listeners were torn down, so the exit handler won't free the session
-      // (#974). Close it explicitly here too.
-      await invoke("pty_close", { pid: this._pid }).catch((err) => {
-        terminalLog("pty_close (setup guard) failed:", errorMessage(err));
-      });
-      return;
-    }
-
-    // Phase 3: start the reader thread — listeners are ready, no data loss
+    // Everything after pty_spawn must free the Rust session on ANY failure
+    // (listen, channel wiring, or pty_start) — otherwise the session created by
+    // pty_spawn leaks its FDs/child handle (#974 class).
     try {
-      await invoke("pty_start", { pid: this._pid });
+      // Exit is a low-frequency signal — keep it as a plain event.
+      this._unlistenExit = await listen<{ exit_code: number }>(
+        `pty:exit:${this._pid}`,
+        (event) => {
+          this._onExit.fire({ exitCode: event.payload.exit_code });
+          this._cleanup();
+          // Free the Rust-side session (FDs, memory)
+          invoke("pty_close", { pid: this._pid }).catch((err) => {
+            terminalLog("pty_close failed:", errorMessage(err));
+          });
+        },
+      );
+
+      // Guard: if kill() was called while setup was in flight, abort.
+      if (this._destroyed) {
+        this._cleanup();
+        await this._freeRustSession();
+        return;
+      }
+
+      // Binary output Channel. Wiring onmessage before pty_start means the
+      // reader cannot send before we are listening — no data-loss race (WI-1.1).
+      const channel = new Channel<ArrayBuffer | Uint8Array | number[]>();
+      channel.onmessage = (msg) => {
+        this._onData.fire(toUint8Array(msg));
+      };
+      this._dataChannel = channel;
+
+      // Start the reader thread, handing it the channel as `onBytes`.
+      await invoke("pty_start", { pid: this._pid, onBytes: channel });
     } catch (err) {
       this._cleanup();
+      await this._freeRustSession();
       throw err;
     }
+  }
+
+  /** Best-effort, idempotent free of the Rust-side session (kill the child,
+   *  drop the map entry). Safe to call on any setup-failure / teardown / kill
+   *  path; the `_freed` guard prevents a double pty_kill/pty_close when several
+   *  paths race (e.g. kill() during setup). */
+  private async _freeRustSession(): Promise<void> {
+    if (this._freed) return;
+    this._freed = true;
+    await invoke("pty_kill", { pid: this._pid }).catch((e) =>
+      terminalLog("pty_kill failed:", errorMessage(e)),
+    );
+    await invoke("pty_close", { pid: this._pid }).catch((e) =>
+      terminalLog("pty_close failed:", errorMessage(e)),
+    );
   }
 
   write(data: string): void {
@@ -205,19 +226,16 @@ class VMarkPty implements IPty {
   kill(): void {
     this._destroyed = true;
     this._cleanup();
-    // _cleanup() removed the pty:exit listener, so the natural exit handler
-    // that calls pty_close never runs (#974). Close the Rust session
-    // explicitly after pty_kill — in finally so a failed kill still frees the
-    // session map entry (FDs, channels, child handle).
+    // _cleanup() removed the pty:exit listener, so the natural exit handler that
+    // calls pty_close never runs (#974). Free the Rust session explicitly. The
+    // _freed guard inside _freeRustSession makes this idempotent: if setup was
+    // racing and its destroyed-guard already freed the session, this is a no-op
+    // (no double pty_kill/pty_close). If _ready rejected (setup failed), _setup
+    // already freed it, so swallow the rejection.
     this._ready
-      .then(() => invoke("pty_kill", { pid: this._pid }))
+      .then(() => this._freeRustSession())
       .catch((err) => {
-        terminalLog("pty_kill failed:", errorMessage(err));
-      })
-      .finally(() => {
-        invoke("pty_close", { pid: this._pid }).catch((err) => {
-          terminalLog("pty_close failed:", errorMessage(err));
-        });
+        terminalLog("kill after setup failure:", errorMessage(err));
       });
   }
 
@@ -238,11 +256,27 @@ class VMarkPty implements IPty {
   }
 
   private _cleanup(): void {
-    this._unlistenData?.();
-    this._unlistenData = null;
+    // The Channel has no "unlisten"; drop its onmessage so no further bytes
+    // reach the (disposed) consumer, and release the reference.
+    if (this._dataChannel) {
+      this._dataChannel.onmessage = () => {};
+      this._dataChannel = null;
+    }
     this._unlistenExit?.();
     this._unlistenExit = null;
   }
+}
+
+/** Coerce a Channel payload to a Uint8Array. Raw bodies arrive as ArrayBuffer;
+ *  the other branches are defensive (a typed-array view or a JSON number[]). */
+function toUint8Array(msg: ArrayBuffer | Uint8Array | number[]): Uint8Array {
+  if (msg instanceof Uint8Array) return msg;
+  if (msg instanceof ArrayBuffer) return new Uint8Array(msg);
+  if (ArrayBuffer.isView(msg)) {
+    const view = msg as ArrayBufferView;
+    return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+  }
+  return new Uint8Array(msg);
 }
 
 // ---------------------------------------------------------------------------

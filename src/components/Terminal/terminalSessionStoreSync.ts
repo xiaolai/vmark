@@ -8,8 +8,9 @@
  *
  * Behavior preserved verbatim from the original inline implementation:
  *   - Theme changes update each session's term.options.theme.
- *   - Workspace-root changes inject a `cd` command into every alive PTY
- *     whose spawnedCwd is stale; PTY-less or exited sessions are skipped.
+ *   - Workspace-root changes inject a `cd` command into every alive PTY whose
+ *     current cwd differs from the new root — the live OSC 7 cwd when known,
+ *     else the spawn-time cwd (WI-2.2); PTY-less or exited sessions are skipped.
  *   - Terminal-setting changes update fontSize/lineHeight/cursorStyle/
  *     cursorBlink/macOptionIsMeta on each xterm; a font change also
  *     re-fits the addon to repaint at the new metrics.
@@ -81,7 +82,16 @@ export function useUIStoreSync(
       const sessions = sessionsRef.current;
       if (!sessions) return;
       for (const [, entry] of sessions) {
-        if (entry.pty && !entry.shellExited && entry.spawnedCwd !== newRoot) {
+        // Never inject `cd` into a shell that's running a foreground command
+        // (e.g. vim, less) — the Ctrl+U + cd would corrupt it. Skip; a later
+        // workspace change (or none) will cd once it's idle. Requires shell
+        // integration; without it isShellBusy() is always false (prior behavior).
+        if (entry.instance.isShellBusy()) continue;
+        // Prefer the shell's live cwd (OSC 7) over the spawn-time cwd, so a
+        // session the user already cd'd into newRoot isn't redundantly cd'd
+        // again (WI-2.2).
+        const currentCwd = entry.instance.getCwd() ?? entry.spawnedCwd;
+        if (entry.pty && !entry.shellExited && currentCwd !== newRoot) {
           entry.pty.write(cdCommand);
           entry.spawnedCwd = newRoot;
         }

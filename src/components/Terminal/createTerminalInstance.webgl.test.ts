@@ -79,6 +79,8 @@ vi.mock("@xterm/xterm", () => ({
     refresh = vi.fn();
     attachCustomKeyEventHandler = vi.fn();
     registerLinkProvider = vi.fn();
+    parser = { registerOscHandler: vi.fn() };
+    registerMarker = vi.fn(() => ({ line: 0, onDispose: vi.fn(), dispose: vi.fn() }));
     cols = 80;
     rows = 24;
     options = {};
@@ -95,9 +97,6 @@ vi.mock("@xterm/addon-search", () => ({
   SearchAddon: class { findNext = vi.fn(); findPrevious = vi.fn(); clearDecorations = vi.fn(); dispose = vi.fn(); },
 }));
 
-vi.mock("@xterm/addon-serialize", () => ({
-  SerializeAddon: class { serialize = vi.fn(() => ""); dispose = vi.fn(); },
-}));
 
 vi.mock("@xterm/addon-unicode11", () => ({
   Unicode11Addon: class { dispose = vi.fn(); },

@@ -288,6 +288,21 @@ describe("terminal slice actions", () => {
     expect(b.id).toBeTruthy();
   });
 
+  it("terminalMarkActivity flags a session, and activating it clears the flag (WI-4.3)", () => {
+    const a = useUIStore.getState().terminalCreateSession()!;
+    const b = useUIStore.getState().terminalCreateSession()!;
+    // b is active (most recent). Mark activity on the background session a.
+    useUIStore.getState().terminalMarkActivity(a.id);
+    let sessions = useUIStore.getState().terminal.sessions;
+    expect(sessions.find((s) => s.id === a.id)?.hasActivity).toBe(true);
+    expect(sessions.find((s) => s.id === b.id)?.hasActivity).toBeFalsy();
+
+    // Activating a clears its activity flag.
+    useUIStore.getState().terminalSetActiveSession(a.id);
+    sessions = useUIStore.getState().terminal.sessions;
+    expect(sessions.find((s) => s.id === a.id)?.hasActivity).toBe(false);
+  });
+
   it("terminalMarkSessionDead / Alive flip the isAlive flag", () => {
     const s = useUIStore.getState().terminalCreateSession()!;
     useUIStore.getState().terminalMarkSessionDead(s.id);

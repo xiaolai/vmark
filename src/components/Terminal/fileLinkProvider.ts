@@ -8,8 +8,9 @@
  * Key decisions:
  *   - Only paths that look like real files (contain a slash and have an
  *     extension) are linked, reducing false positives on random output.
- *   - Relative paths are resolved against useWorkspaceStore.rootPath so
- *     clicking "src/main.ts" opens the correct absolute path.
+ *   - Relative paths resolve against the shell's live cwd (OSC 7, WI-2.3) when
+ *     available, falling back to useWorkspaceStore.rootPath — so clicking
+ *     "src/main.ts" opens the correct file even after the user `cd`s around.
  *   - Implements xterm's ILinkProvider interface for native hover + click
  *     behavior without custom DOM manipulation.
  *
@@ -39,16 +40,29 @@ function looksLikeFilePath(path: string): boolean {
   return path.includes("/") && /\.\w{1,10}$/.test(path);
 }
 
-/** Resolve a possibly-relative path against the workspace root.
- * Normalizes the result and rejects paths that escape the workspace via `..`. */
-function resolvePath(raw: string): string {
+/** Resolve a possibly-relative path against a base directory.
+ * Prefers the shell's live cwd (OSC 7, WI-2.3); falls back to the workspace
+ * root. Returns null for a relative path with no base, or one that escapes the
+ * base via `..` — so terminal output like `../../../etc/passwd` is NOT turned
+ * into a clickable link (path-traversal guard). */
+function resolvePath(raw: string, getCwd?: () => string | null): string | null {
   if (raw.startsWith("/")) return raw;
   const clean = raw.replace(/^\.\//, '');
-  const root = useWorkspaceStore.getState().rootPath;
-  if (!root) return clean;
-  // Normalize to resolve .. segments, then verify prefix
-  const resolved = new URL(clean, 'file://' + root + '/').pathname;
-  if (!resolved.startsWith(root + '/') && resolved !== root) return clean;
+  // Live cwd wins over workspace root: a path like `./build/x.ts` is relative
+  // to where the shell actually is, not where the workspace was opened.
+  const base = getCwd?.() ?? useWorkspaceStore.getState().rootPath;
+  // No base to anchor a relative path → don't create a link we can't resolve.
+  if (!base) return null;
+  // Normalize to resolve .. segments. Decode the result before comparing: a
+  // base with spaces/CJK ("/Users/me/My Project") otherwise yields a
+  // percent-encoded pathname that would never match the raw base (false skip).
+  let resolved: string;
+  try {
+    resolved = decodeURIComponent(new URL(clean, 'file://' + base + '/').pathname);
+  } catch {
+    return null; // malformed escape sequence — don't link it
+  }
+  if (!resolved.startsWith(base + '/') && resolved !== base) return null;
   return resolved;
 }
 
@@ -58,7 +72,8 @@ function resolvePath(raw: string): string {
  */
 export function createFileLinkProvider(
   term: Terminal,
-  onActivate: (filePath: string) => void,
+  onActivate: (filePath: string, line?: number, col?: number) => void,
+  getCwd?: () => string | null,
 ): ILinkProvider {
   return {
     provideLinks(bufferLineNumber: number, callback: (links: ILink[] | undefined) => void) {
@@ -86,12 +101,17 @@ export function createFileLinkProvider(
           end: { x: matchEnd + 1, y: bufferLineNumber },
         };
 
-        const resolved = resolvePath(rawPath);
+        const resolved = resolvePath(rawPath, getCwd);
+        // Skip paths we can't safely anchor or that escape the base (traversal).
+        if (!resolved) continue;
+        // Carry the parsed :line:col through so the editor can jump there (WI-4.1).
+        const line = match[2] ? parseInt(match[2], 10) : undefined;
+        const col = match[3] ? parseInt(match[3], 10) : undefined;
 
         links.push({
           range,
           text: resolved,
-          activate: () => onActivate(resolved),
+          activate: () => onActivate(resolved, line, col),
         });
       }
 

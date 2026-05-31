@@ -29,9 +29,11 @@ function makeEntry(committedText: string | null, lastCommitTime: number) {
     lastCommitTime,
     fitAddon: {} as TerminalInstance["fitAddon"],
     searchAddon: {} as TerminalInstance["searchAddon"],
-    serializeAddon: {} as TerminalInstance["serializeAddon"],
     container: {} as TerminalInstance["container"],
     resetDisplay: () => {},
+    getCwd: () => null,
+    getCommands: () => [],
+    isShellBusy: () => false,
     dispose: () => {},
   };
   const entry: SessionInputState = {

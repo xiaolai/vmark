@@ -11,6 +11,8 @@
  *   - Cmd+K → clear terminal scrollback and viewport.
  *   - Cmd+F → toggle search bar in the terminal panel.
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
+ *   - Cmd/Ctrl+Up/Down → jump to previous/next command prompt (WI-3.3, requires
+ *     shell integration; no-op when there are no command marks).
  *   - Shift+Enter → emits the CSI-u sequence "\x1b[13;2u" (codepoint 13 with
  *     modifier 2 = Shift) so CLI tools that key off TERM_PROGRAM=WezTerm
  *     (Claude Code, etc.) actually receive a distinguishable newline signal.
@@ -53,6 +55,8 @@ export interface KeyHandlerCallbacks {
    * leak past the IME guard and fire shortcuts during CJK commit.
    */
   isComposing: () => boolean;
+  /** Jump to the previous/next command prompt (WI-3.3, shell integration). */
+  onPromptNav?: (direction: "prev" | "next") => void;
 }
 
 /**
@@ -88,8 +92,28 @@ export function createTerminalKeyHandler(
       return false;
     }
 
+    // On macOS, Ctrl is a shell/readline modifier (Ctrl+A line-start, Ctrl+K
+    // kill-line, Ctrl+R, Ctrl+W, …) — only Cmd triggers VMark host shortcuts.
+    // Let Ctrl-only combos pass straight through to the PTY so those keys keep
+    // working; Cmd combos still match below. (Windows/Linux keep Ctrl as the
+    // host modifier — pre-existing behavior.)
+    if (isMacPlatform() && event.ctrlKey && !event.metaKey) return true;
+
     const isMod = event.metaKey || event.ctrlKey;
     if (!isMod) return true;
+
+    // Prompt navigation (WI-3.3): Cmd/Ctrl + Up/Down jumps between command
+    // prompts (requires shell integration; no-op otherwise). Plain arrows fall
+    // through to the shell for history.
+    if (
+      callbacks.onPromptNav
+      && !event.shiftKey
+      && (event.key === "ArrowUp" || event.key === "ArrowDown")
+    ) {
+      event.preventDefault();
+      callbacks.onPromptNav(event.key === "ArrowUp" ? "prev" : "next");
+      return false;
+    }
 
     if (event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "c") {
       // macOS: Cmd+C handles copy, so Ctrl+C should always pass through for SIGINT.
