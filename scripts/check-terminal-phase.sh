@@ -105,7 +105,10 @@ case "$PHASE" in
     assert_grep "Channel" "src-tauri/src/pty.rs" "WI-1.1 Channel transport in pty.rs"
     # Plan DoD scopes this to the whole src-tauri/src tree, not just pty.rs.
     assert_absent_code 'pty:data:' "src-tauri/src" "WI-1.1 no pty:data event emit remains (src-tauri/src)"
-    assert_grep_re 'Vec<u8>|&\[u8\]' "src-tauri/src/pty.rs" "WI-1.3 pty_write accepts bytes"
+    # WI-1.3 (pty_write bytes) is N/A — input is exclusively valid-UTF-8 JS
+    # strings, so pty_write(String) is already byte-transparent. DoD = decision
+    # recorded (see plan §6).
+    assert_grep "WI-1.3 — NOT IMPLEMENTED" "dev-docs/plans/20260531-terminal-industrial-best.md" "WI-1.3 N/A decision recorded"
     ;;
   2)
     # Discriminating: registerOscHandler is absent today, so a bare match means
