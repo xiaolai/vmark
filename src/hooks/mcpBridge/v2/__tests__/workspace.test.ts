@@ -40,6 +40,15 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   writeTextFile: (path: string, content: string) => writeMock(path, content),
 }));
 
+const registerPendingSaveMock = vi.fn(() => 1);
+const clearPendingSaveMock = vi.fn();
+vi.mock("@/utils/pendingSaves", () => ({
+  registerPendingSave: (path: string, content: string) =>
+    registerPendingSaveMock(path, content),
+  clearPendingSave: (path: string, token?: number) =>
+    clearPendingSaveMock(path, token),
+}));
+
 import { respond } from "../../utils";
 import {
   handleWorkspaceOpen,
@@ -203,6 +212,9 @@ describe("vmark.workspace.save / save_as", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetStores();
+    writeMock.mockReset().mockResolvedValue(undefined);
+    registerPendingSaveMock.mockReset().mockReturnValue(1);
+    clearPendingSaveMock.mockReset();
   });
 
   it("save writes the doc content to its existing filePath", async () => {
@@ -270,6 +282,109 @@ describe("vmark.workspace.save / save_as", () => {
     expect(
       useDocumentStore.getState().documents["t-a"].filePath,
     ).toBe("/tmp/new.md");
+  });
+
+  it("save registers and clears pending save around writeTextFile to suppress the external-change dialog", async () => {
+    useTabStore.setState({
+      tabs: {
+        main: [
+          {
+            id: "t-ps",
+            filePath: "/tmp/notes.md",
+            title: "notes",
+            isPinned: false,
+          },
+        ],
+      },
+      activeTabId: { main: "t-ps" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-ps", "hi", "/tmp/notes.md");
+    useDocumentStore.getState().setContent("t-ps", "updated");
+
+    await handleWorkspaceSave("req-ps", {});
+
+    expect(registerPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", "updated");
+    expect(clearPendingSaveMock).toHaveBeenCalledWith("/tmp/notes.md", 1);
+    const registerOrder = registerPendingSaveMock.mock.invocationCallOrder[0];
+    const writeOrder = writeMock.mock.invocationCallOrder[0];
+    const clearOrder = clearPendingSaveMock.mock.invocationCallOrder[0];
+    expect(registerOrder).toBeLessThan(writeOrder);
+    expect(writeOrder).toBeLessThan(clearOrder);
+  });
+
+  it("save clears pending save even when writeTextFile rejects", async () => {
+    useTabStore.setState({
+      tabs: {
+        main: [
+          {
+            id: "t-ps-fail",
+            filePath: "/readonly/notes.md",
+            title: "notes",
+            isPinned: false,
+          },
+        ],
+      },
+      activeTabId: { main: "t-ps-fail" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-ps-fail", "x", "/readonly/notes.md");
+    writeMock.mockRejectedValueOnce(new Error("EACCES"));
+
+    await handleWorkspaceSave("req-ps-fail", {});
+
+    expect(registerPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", "x");
+    expect(clearPendingSaveMock).toHaveBeenCalledWith("/readonly/notes.md", 1);
+  });
+
+  it("save_as registers and clears pending save around writeTextFile to suppress the external-change dialog", async () => {
+    useTabStore.setState({
+      tabs: {
+        main: [{ id: "t-as", filePath: null, title: "u", isPinned: false }],
+      },
+      activeTabId: { main: "t-as" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-as", "hello", null);
+
+    await handleWorkspaceSaveAs("req-as", {
+      tabId: "t-as",
+      filePath: "/tmp/new.md",
+    });
+
+    expect(registerPendingSaveMock).toHaveBeenCalledWith("/tmp/new.md", "hello");
+    expect(clearPendingSaveMock).toHaveBeenCalledWith("/tmp/new.md", 1);
+    const registerOrder = registerPendingSaveMock.mock.invocationCallOrder[0];
+    const writeOrder = writeMock.mock.invocationCallOrder[0];
+    const clearOrder = clearPendingSaveMock.mock.invocationCallOrder[0];
+    expect(registerOrder).toBeLessThan(writeOrder);
+    expect(writeOrder).toBeLessThan(clearOrder);
+  });
+
+  it("save_as clears pending save even when writeTextFile rejects", async () => {
+    useTabStore.setState({
+      tabs: {
+        main: [{ id: "t-as-fail", filePath: null, title: "u", isPinned: false }],
+      },
+      activeTabId: { main: "t-as-fail" },
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+    useDocumentStore.getState().initDocument("t-as-fail", "hello", null);
+    writeMock.mockRejectedValueOnce(new Error("EACCES"));
+
+    await expect(
+      handleWorkspaceSaveAs("req-as-fail", {
+        tabId: "t-as-fail",
+        filePath: "/readonly/new.md",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(registerPendingSaveMock).toHaveBeenCalledWith("/readonly/new.md", "hello");
+    expect(clearPendingSaveMock).toHaveBeenCalledWith("/readonly/new.md", 1);
   });
 });
 
