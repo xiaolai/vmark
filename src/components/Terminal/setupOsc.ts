@@ -21,7 +21,7 @@
  * @coordinates-with fileLinkProvider.ts — consumes the live cwd for relative paths
  * @module components/Terminal/setupOsc
  */
-import type { Terminal, IMarker } from "@xterm/xterm";
+import type { Terminal, IMarker, IDecoration } from "@xterm/xterm";
 
 /**
  * Parse an OSC 7 payload (`file://host/path`) into an absolute filesystem path.
@@ -65,6 +65,8 @@ export interface CommandMark {
   marker: IMarker;
   /** Exit code from OSC 133;D;<code>, or undefined while the command runs. */
   exitCode?: number;
+  /** Exit-status gutter decoration (WI-3.4), created once the code is known. */
+  decoration?: IDecoration;
 }
 
 /** Live command-boundary state exposed by the OSC 133 handler. */
@@ -105,11 +107,53 @@ export function setupOsc133(term: Terminal): Osc133Handle {
       // Command finished — `rest` is its exit code (may be empty).
       if (current && rest !== "") {
         const code = parseInt(rest, 10);
-        if (!Number.isNaN(code)) current.exitCode = code;
+        if (!Number.isNaN(code)) {
+          current.exitCode = code;
+          decorateCommand(term, current); // WI-3.4 exit-status gutter mark
+        }
       }
     }
     return true; // handled
   });
 
   return { getCommands: () => commands };
+}
+
+/**
+ * Add an exit-status gutter decoration to a command's prompt line (WI-3.4):
+ * a thin left bar, green for success / red for failure. Styled via CSS classes
+ * (tokens) in terminal-panel.css. The decoration is tied to the marker and is
+ * disposed automatically when the marker scrolls out.
+ */
+function decorateCommand(term: Terminal, cmd: CommandMark): void {
+  if (cmd.decoration || cmd.exitCode === undefined) return;
+  const decoration = term.registerDecoration({ marker: cmd.marker });
+  if (!decoration) return;
+  cmd.decoration = decoration;
+  const ok = cmd.exitCode === 0;
+  decoration.onRender((el: HTMLElement) => {
+    el.classList.add("vmark-cmd-status", ok ? "vmark-cmd-ok" : "vmark-cmd-fail");
+  });
+}
+
+/**
+ * Scroll the terminal to the previous/next command prompt relative to the
+ * current viewport (WI-3.3). No-op when there are no command marks.
+ */
+export function scrollToAdjacentCommand(
+  term: Terminal,
+  commands: CommandMark[],
+  direction: "prev" | "next",
+): void {
+  const lines = commands
+    .map((c) => c.marker.line)
+    .filter((l) => l >= 0)
+    .sort((a, b) => a - b);
+  if (lines.length === 0) return;
+  const top = term.buffer.active.viewportY;
+  const target =
+    direction === "prev"
+      ? [...lines].reverse().find((l) => l < top)
+      : lines.find((l) => l > top);
+  if (target !== undefined) term.scrollToLine(target);
 }

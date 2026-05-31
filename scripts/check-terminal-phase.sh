@@ -115,7 +115,9 @@ case "$PHASE" in
     ;;
   3)
     assert_dir "src-tauri/resources/shell-integration" "WI-3.1 integration scripts dir"
-    assert_grep "shell-integration" "src-tauri/tauri.conf.json" "WI-3.1 resources bundled"
+    # The script is embedded at compile time via include_str! (no runtime resource
+    # bundling / path resolution needed) — see ADR-T3 deviation in plan §6.
+    assert_grep "include_str!" "src-tauri/src/shell_integration.rs" "WI-3.1 integration script embedded"
     assert_grep "shellIntegration" "src/stores/settingsStore.ts" "WI-3.1 setting present"
     assert_grep_re 'registerOscHandler\(\s*133' "$TERMDIR" "WI-3.2 OSC 133 handler registered"
     ;;

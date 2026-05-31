@@ -89,3 +89,18 @@
 .terminal-container .xterm .xterm-scrollable-element > .scrollbar > .slider {
   border-radius: 2px;
 }
+
+/* Exit-status gutter decorations (WI-3.4). xterm positions the decoration
+   element on the command's prompt line; we render a thin left bar colored by
+   exit code — green for success, red for failure. Non-intrusive: 2px wide,
+   does not obscure cell text. */
+.vmark-cmd-status {
+  width: var(--border-medium) !important;
+  left: 0;
+}
+.vmark-cmd-ok {
+  background: var(--success-color);
+}
+.vmark-cmd-fail {
+  background: var(--error-color);
+}

@@ -1,7 +1,8 @@
 // WI-2.1 — OSC 7 cwd parsing + handler registration
 // WI-3.2 — OSC 133 command-boundary tracking
 import { describe, it, expect, vi } from "vitest";
-import { parseOsc7Cwd, setupOsc7, setupOsc133 } from "./setupOsc";
+import { parseOsc7Cwd, setupOsc7, setupOsc133, scrollToAdjacentCommand } from "./setupOsc";
+import type { CommandMark } from "./setupOsc";
 
 describe("parseOsc7Cwd", () => {
   it("extracts the path from a file:// URL with a host", () => {
@@ -90,6 +91,7 @@ describe("setupOsc133", () => {
           dispose: vi.fn(),
         };
       }),
+      registerDecoration: vi.fn(() => ({ onRender: vi.fn(), dispose: vi.fn() })),
     } as unknown as import("@xterm/xterm").Terminal;
     return { term, fire: (d: string) => handler?.(d), disposers };
   }
@@ -144,5 +146,51 @@ describe("setupOsc133", () => {
     disposers[0](); // first command's line scrolls out of scrollback
     expect(h.getCommands()).toHaveLength(1);
     expect(h.getCommands()[0].marker.line).toBe(1);
+  });
+
+  it("creates an exit-status decoration on D (WI-3.4)", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    fire("A");
+    fire("C");
+    fire("D;1");
+    expect(term.registerDecoration).toHaveBeenCalledTimes(1);
+    expect(h.getCommands()[0].decoration).toBeDefined();
+  });
+});
+
+describe("scrollToAdjacentCommand (WI-3.3)", () => {
+  function makeTerm(viewportY: number) {
+    return {
+      buffer: { active: { viewportY } },
+      scrollToLine: vi.fn(),
+    } as unknown as import("@xterm/xterm").Terminal;
+  }
+  function cmds(...lines: number[]): CommandMark[] {
+    return lines.map((line) => ({ marker: { line } as unknown as CommandMark["marker"] }));
+  }
+
+  it("jumps to the nearest prompt above the viewport for 'prev'", () => {
+    const term = makeTerm(50);
+    scrollToAdjacentCommand(term, cmds(10, 30, 70), "prev");
+    expect(term.scrollToLine).toHaveBeenCalledWith(30);
+  });
+
+  it("jumps to the nearest prompt below the viewport for 'next'", () => {
+    const term = makeTerm(50);
+    scrollToAdjacentCommand(term, cmds(10, 30, 70), "next");
+    expect(term.scrollToLine).toHaveBeenCalledWith(70);
+  });
+
+  it("is a no-op when there are no commands", () => {
+    const term = makeTerm(50);
+    scrollToAdjacentCommand(term, [], "prev");
+    expect(term.scrollToLine).not.toHaveBeenCalled();
+  });
+
+  it("ignores disposed markers (line -1)", () => {
+    const term = makeTerm(50);
+    scrollToAdjacentCommand(term, cmds(-1, 30), "prev");
+    expect(term.scrollToLine).toHaveBeenCalledWith(30);
   });
 });

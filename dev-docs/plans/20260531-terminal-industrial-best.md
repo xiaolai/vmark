@@ -289,6 +289,9 @@ Not committed here; logged so they aren't silently dropped (audit S/M items):
 - **S1** — Windows `windowsPty` reflow option (best-effort, macOS-primary).
 - **S3** — surface a hint when the `vmark` CLI (`EDITOR=vmark`) isn't on PATH.
 - **S5** — search result counter ("3/12") in `TerminalSearchBar`.
+- **WI-3-bash-fish** — bash (`--rcfile`) and fish (`conf.d`/`XDG`) shell
+  integration (zsh shipped in WI-3.1); + OSC 133 `B` prompt-end mark via
+  `PROMPT_SUBST`.
 - **M4-title** — OSC 0/2 title surfacing for the compact tab bar (tooltip or a
   wider label mode), with a manual-rename-vs-auto policy (deferred from WI-4.3).
 - **A11y** — screen-reader announcement for the tab activity indicator.
@@ -356,6 +359,19 @@ gate before Phase 1.
   separate, still-real limit. WI-1.4 instead narrowed the now-dead `number[]`
   types (`onData`/`PtyPayload` → `Uint8Array`) and dropped the obsolete
   `number[]`→`Uint8Array` coercion, keeping a minimal `instanceof` boundary guard.
+- **WI-3.1 — ADR-T3 deviation: embedded, not bundled.** The zsh rc is embedded
+  via Rust `include_str!` (compile-time) rather than shipped as a runtime Tauri
+  resource. Cleaner: no `tauri.conf.json` bundling, no resource-path resolution,
+  no capability config — `prepare_shell_integration` writes it to app-data on
+  demand. zsh-only (bash `--rcfile` / fish `conf.d` deferred to Phase 7).
+- **WI-3.3 — prompt nav is terminal-scoped, not a menu shortcut.** `Cmd/Ctrl+↑/↓`
+  is handled in `terminalKeyHandler` (like the existing `Cmd+K/F/1-5`), NOT via
+  the menu/`shortcutsStore` 3-file sync — consistent with how the terminal owns
+  its shortcuts. Documented in `website/guide/terminal.md` (not `shortcuts.md`).
+- **WI-3.4 — exit-status decorations** via xterm `registerDecoration` on the
+  command marker, created on OSC 133;D, styled (green/red bar) by CSS tokens.
+- **WI-3 bash/fish — DEFERRED** to Phase 7 (zsh-first per WI-0.3 + macOS-primary).
+  OSC 133 `B` (prompt-end) mark also deferred (needs PROMPT_SUBST; A/C/D suffice).
 - **WI-4.3 — title→label DEFERRED; bell/activity DONE.** The bell→background-
   activity tab indicator shipped (the valuable half of M4). OSC 0/2 title→label
   is deferred: VMark's tab bar shows single-char/number labels, so a

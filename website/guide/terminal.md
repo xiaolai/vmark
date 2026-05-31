@@ -108,8 +108,28 @@ Open **Settings → Terminal** to configure:
 | Line Height | 1.0 – 2.0 | 1.2 | All |
 | Copy on Select | On / Off | Off | All |
 | Mac Option as Meta | On / Off | Off | macOS |
+| Shell Integration | On / Off | On | macOS (zsh) |
 
 Changes apply immediately to all open sessions. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts.
+
+## Shell integration
+
+When **Shell Integration** is on (zsh, macOS), VMark injects lightweight command
+markers into the shell so the terminal understands where each command starts and
+ends. It is non-destructive — your real `~/.zshrc` is sourced first, then the
+markers are appended via `add-zsh-hook`, so your prompt, theme, and aliases are
+untouched. It unlocks:
+
+- **Prompt navigation** — `Cmd + ↑` / `Cmd + ↓` jumps to the previous / next
+  command prompt in the scrollback.
+- **Exit-status decorations** — a thin gutter bar marks each command line green
+  (success) or red (failure).
+- **Live working-directory tracking** — relative file paths in output resolve
+  against the shell's current directory, and new terminals open there.
+
+bash and fish are not yet integrated; they run normally without these features.
+Turn the setting off to disable injection entirely. Changes apply to newly
+spawned sessions (restart the terminal to apply).
 
 ## Persistence
 

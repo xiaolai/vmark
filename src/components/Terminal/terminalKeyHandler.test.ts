@@ -62,6 +62,31 @@ describe("createTerminalKeyHandler", () => {
     ptyRef = { current: mockPty as unknown as IPty };
   });
 
+  it("invokes onPromptNav('prev') on Cmd+ArrowUp (WI-3.3)", () => {
+    const onPromptNav = vi.fn();
+    const term = makeTerm({});
+    const handler = createTerminalKeyHandler(term, ptyRef, { ...callbacks, onPromptNav });
+    const result = handler(makeEvent("ArrowUp"));
+    expect(result).toBe(false);
+    expect(onPromptNav).toHaveBeenCalledWith("prev");
+  });
+
+  it("invokes onPromptNav('next') on Cmd+ArrowDown (WI-3.3)", () => {
+    const onPromptNav = vi.fn();
+    const term = makeTerm({});
+    const handler = createTerminalKeyHandler(term, ptyRef, { ...callbacks, onPromptNav });
+    expect(handler(makeEvent("ArrowDown"))).toBe(false);
+    expect(onPromptNav).toHaveBeenCalledWith("next");
+  });
+
+  it("passes Cmd+Shift+ArrowUp through (not prompt nav)", () => {
+    const onPromptNav = vi.fn();
+    const term = makeTerm({});
+    const handler = createTerminalKeyHandler(term, ptyRef, { ...callbacks, onPromptNav });
+    handler(makeEvent("ArrowUp", true, { shiftKey: true }));
+    expect(onPromptNav).not.toHaveBeenCalled();
+  });
+
   it("copies selection on Cmd+C when selection exists", () => {
     const term = makeTerm({
       hasSelection: vi.fn(() => true),

@@ -44,7 +44,7 @@ import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposi
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
-import { setupOsc7, setupOsc133, type CommandMark } from "./setupOsc";
+import { setupOsc7, setupOsc133, scrollToAdjacentCommand, type CommandMark } from "./setupOsc";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -195,6 +195,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
   term.attachCustomKeyEventHandler(
     createTerminalKeyHandler(term, ptyRef, {
       onSearch,
+      onPromptNav: (dir) => scrollToAdjacentCommand(term, osc133.getCommands(), dir),
       // Closes over `ime.composing` (live getter) so the key handler
       // sees the post-`compositionend` grace window, not just active
       // composition. Without this, Shift+Enter / Cmd+C / etc. fired
