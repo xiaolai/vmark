@@ -58,6 +58,32 @@ describe("createFileLinkProvider", () => {
     });
   });
 
+  it("resolves relative paths against the live cwd, overriding workspace root (WI-2.3)", () => {
+    const term = makeTerm("found ./build/x.ts");
+    // Shell has cd'd into a subdir; getCwd reflects that, not the workspace root.
+    const provider = createFileLinkProvider(term, onActivate, () => "/workspace/pkg");
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/workspace/pkg/build/x.ts");
+        resolve();
+      });
+    });
+  });
+
+  it("falls back to workspace root when live cwd is null (WI-2.3)", () => {
+    const term = makeTerm("found ./src/main.ts");
+    const provider = createFileLinkProvider(term, onActivate, () => null);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links![0].text).toBe("/workspace/src/main.ts");
+        resolve();
+      });
+    });
+  });
+
   it("detects paths with :line:col suffix", () => {
     const term = makeTerm(" /Users/foo/bar.ts:10:5");
     const provider = createFileLinkProvider(term, onActivate);

@@ -24,6 +24,7 @@
  *         dual-layer context-loss recovery, MutationObserver, resetDisplay
  *       * setupWebLinks        — sandboxed web-link click handler
  *       * setupFileLinks       — file-link click handler with size guard
+ *       * setupOsc7            — OSC 7 cwd tracking (exposes getCwd)
  *       * setupCopyOnSelect    — debounced clipboard write on selection
  *
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
@@ -44,6 +45,7 @@ import { setupImeComposition, IME_COMPOSITION_GRACE_MS } from "./setupImeComposi
 import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
+import { setupOsc7 } from "./setupOsc";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -88,6 +90,8 @@ export interface TerminalInstance {
    * just refreshes the viewport via the DOM renderer.
    */
   resetDisplay: () => void;
+  /** The shell's last-reported cwd via OSC 7, or null if never reported (WI-2.1). */
+  getCwd: () => string | null;
   dispose: () => void;
 }
 
@@ -175,8 +179,11 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     enabled: !!settings.useWebGL,
   });
 
+  // OSC 7 cwd tracking — feeds relative file-link resolution (WI-2.1/2.3).
+  const osc = setupOsc7(term);
+
   setupWebLinks(term);
-  setupFileLinks(term);
+  setupFileLinks(term, osc.getCwd);
 
   term.attachCustomKeyEventHandler(
     createTerminalKeyHandler(term, ptyRef, {
@@ -212,6 +219,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     container,
     dispose,
     resetDisplay: webgl.resetDisplay,
+    getCwd: osc.getCwd,
     get composing() { return ime.composing; },
     get inGracePeriod() { return ime.inGracePeriod; },
     get onCompositionCommit() { return ime.onCompositionCommit; },

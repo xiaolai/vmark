@@ -158,7 +158,16 @@ export function useTerminalSessions(
     entry.shellSpawning = true;
 
     entry.shellExited = false;
-    const cwd = resolveTerminalCwd();
+    // WI-2.2: a newly opened terminal inherits a live sibling's cwd (OSC 7) so
+    // it starts where the user currently is, not back at the workspace root.
+    // First terminal / no live sibling → workspace-or-file resolution.
+    let inheritedCwd: string | undefined;
+    for (const [id, sib] of sessionsRef.current) {
+      if (id === sessionId || sib.disposed || !sib.pty || sib.shellExited) continue;
+      const live = sib.instance.getCwd();
+      if (live) { inheritedCwd = live; break; }
+    }
+    const cwd = inheritedCwd ?? resolveTerminalCwd();
 
     try {
       const pty = await spawnPty({

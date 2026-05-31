@@ -27,8 +27,9 @@ import { errorMessage } from "@/utils/errorMessage";
 
 const MAX_FILE_LINK_SIZE = 10 * 1024 * 1024; // 10 MB
 
-/** Attach the file-link provider to a Terminal. */
-export function setupFileLinks(term: Terminal): void {
+/** Attach the file-link provider to a Terminal. `getCwd` supplies the shell's
+ *  live cwd (OSC 7) so relative paths resolve against it (WI-2.3). */
+export function setupFileLinks(term: Terminal, getCwd?: () => string | null): void {
   term.registerLinkProvider(createFileLinkProvider(term, (filePath) => {
     import("@tauri-apps/plugin-fs").then(async ({ readTextFile, stat }) => {
       try {
@@ -62,5 +63,5 @@ export function setupFileLinks(term: Terminal): void {
       );
     });
     /* v8 ignore stop */
-  }));
+  }, getCwd));
 }

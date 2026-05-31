@@ -8,8 +8,9 @@
  * Key decisions:
  *   - Only paths that look like real files (contain a slash and have an
  *     extension) are linked, reducing false positives on random output.
- *   - Relative paths are resolved against useWorkspaceStore.rootPath so
- *     clicking "src/main.ts" opens the correct absolute path.
+ *   - Relative paths resolve against the shell's live cwd (OSC 7, WI-2.3) when
+ *     available, falling back to useWorkspaceStore.rootPath — so clicking
+ *     "src/main.ts" opens the correct file even after the user `cd`s around.
  *   - Implements xterm's ILinkProvider interface for native hover + click
  *     behavior without custom DOM manipulation.
  *
@@ -39,16 +40,19 @@ function looksLikeFilePath(path: string): boolean {
   return path.includes("/") && /\.\w{1,10}$/.test(path);
 }
 
-/** Resolve a possibly-relative path against the workspace root.
- * Normalizes the result and rejects paths that escape the workspace via `..`. */
-function resolvePath(raw: string): string {
+/** Resolve a possibly-relative path against a base directory.
+ * Prefers the shell's live cwd (OSC 7, WI-2.3); falls back to the workspace
+ * root. Normalizes the result and rejects paths that escape the base via `..`. */
+function resolvePath(raw: string, getCwd?: () => string | null): string {
   if (raw.startsWith("/")) return raw;
   const clean = raw.replace(/^\.\//, '');
-  const root = useWorkspaceStore.getState().rootPath;
-  if (!root) return clean;
+  // Live cwd wins over workspace root: a path like `./build/x.ts` is relative
+  // to where the shell actually is, not where the workspace was opened.
+  const base = getCwd?.() ?? useWorkspaceStore.getState().rootPath;
+  if (!base) return clean;
   // Normalize to resolve .. segments, then verify prefix
-  const resolved = new URL(clean, 'file://' + root + '/').pathname;
-  if (!resolved.startsWith(root + '/') && resolved !== root) return clean;
+  const resolved = new URL(clean, 'file://' + base + '/').pathname;
+  if (!resolved.startsWith(base + '/') && resolved !== base) return clean;
   return resolved;
 }
 
@@ -59,6 +63,7 @@ function resolvePath(raw: string): string {
 export function createFileLinkProvider(
   term: Terminal,
   onActivate: (filePath: string) => void,
+  getCwd?: () => string | null,
 ): ILinkProvider {
   return {
     provideLinks(bufferLineNumber: number, callback: (links: ILink[] | undefined) => void) {
@@ -86,7 +91,7 @@ export function createFileLinkProvider(
           end: { x: matchEnd + 1, y: bufferLineNumber },
         };
 
-        const resolved = resolvePath(rawPath);
+        const resolved = resolvePath(rawPath, getCwd);
 
         links.push({
           range,
