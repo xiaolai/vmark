@@ -159,6 +159,20 @@ function applyVars(root: HTMLElement, vars: Record<string, string>) {
 // Pure computation functions — exported for testing, no DOM access
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve the monospace font stack for a given `monoFont` setting key. Pure —
+ * no DOM access. This is the same mapping `buildFontStack` applies to the
+ * editor's `--font-mono`, exposed on its own so the live terminal-font sync can
+ * read the new font straight from the setting instead of round-tripping through
+ * the CSS var (which `useTheme` only writes in a later effect).
+ */
+export function resolveMonoFontStack(monoFont: string): string {
+  return (
+    fontStacks.mono[monoFont as keyof typeof fontStacks.mono] ||
+    fontStacks.mono.system
+  );
+}
+
 /** Build font stacks from font key selections. Pure — no DOM access. */
 export function buildFontStack(
   latinFont: string,

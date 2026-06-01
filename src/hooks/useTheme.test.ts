@@ -13,6 +13,7 @@ import { describe, it, expect } from "vitest";
 import {
   fontStacks,
   buildFontStack,
+  resolveMonoFontStack,
   computeTypographyVars,
   computeCoreColorVars,
   computeModeColorVars,
@@ -59,6 +60,21 @@ describe("buildFontStack", () => {
     const latinIdx = result.sans.indexOf("Georgia");
     const cjkIdx = result.sans.indexOf("Kaiti SC");
     expect(latinIdx).toBeLessThan(cjkIdx);
+  });
+});
+
+describe("resolveMonoFontStack", () => {
+  it("resolves a known mono font key to its stack", () => {
+    expect(resolveMonoFontStack("jetbrains")).toContain("JetBrains Mono");
+  });
+
+  it("falls back to the system mono stack for an unknown key", () => {
+    expect(resolveMonoFontStack("nonexistent")).toBe(fontStacks.mono.system);
+    expect(resolveMonoFontStack("nonexistent")).toContain("ui-monospace");
+  });
+
+  it("matches the mono stack buildFontStack produces for the same key", () => {
+    expect(resolveMonoFontStack("sfmono")).toBe(buildFontStack("system", "system", "sfmono").mono);
   });
 });
 

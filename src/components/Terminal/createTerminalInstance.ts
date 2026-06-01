@@ -55,10 +55,12 @@ export { IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
 /** Milliseconds after onCompositionCommit during which duplicate onData is suppressed. */
 export const IME_DEDUP_WINDOW_MS = 150;
 
-/** Resolve --font-mono CSS variable to actual font family names.
- *  Exported so live-sync (terminalSessionStoreSync) can re-resolve the font
- *  when the app theme changes the --font-mono variable (G6/WI-4.1). */
-export function resolveMonoFont(): string {
+/** Resolve the --font-mono CSS variable to actual font family names, used at
+ *  terminal creation (the var is already applied by then). Live mono-font
+ *  changes are handled by terminalSessionStoreSync, which resolves the stack
+ *  straight from the monoFont setting via resolveMonoFontStack (the CSS var
+ *  lags inside the store subscriber). */
+function resolveMonoFont(): string {
   const style = getComputedStyle(document.documentElement);
   const mono = style.getPropertyValue("--font-mono").trim();
   return mono || "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";

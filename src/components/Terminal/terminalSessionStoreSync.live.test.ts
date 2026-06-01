@@ -4,17 +4,20 @@
  * Covers:
  *   - screenReaderMode change applies to live sessions (G3/WI-3.1)
  *   - scrollback change applies to live sessions (G7/WI-4.2)
- *   - fontFamily re-resolves from --font-mono on a theme change (G6/WI-4.1)
+ *   - fontFamily re-applies on a theme change, resolved from the monoFont
+ *     setting (G6/WI-4.1)
+ *   - fontFamily updates on a monoFont-only change (the stale-read fix)
  *
- * Drives the real useSettingsStore; @/theme and createTerminalInstance's
- * resolveMonoFont are mocked so the effects have stable, observable outputs.
+ * Drives the real useSettingsStore; @/theme and @/hooks/useTheme's
+ * resolveMonoFontStack are mocked so the effects have stable, observable
+ * outputs.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { RefObject } from "react";
 
-const { mockResolveMonoFont, mockBuildTheme } = vi.hoisted(() => ({
-  mockResolveMonoFont: vi.fn(() => "MockMono, monospace"),
+const { mockResolveMonoFontStack, mockBuildTheme } = vi.hoisted(() => ({
+  mockResolveMonoFontStack: vi.fn((mono: string) => `Mock(${mono}), monospace`),
   mockBuildTheme: vi.fn((id: string) => ({ background: `#theme-${id}` })),
 }));
 
@@ -22,8 +25,8 @@ vi.mock("@/theme", () => ({
   buildXtermThemeForId: (...args: unknown[]) => mockBuildTheme(...(args as [string])),
 }));
 
-vi.mock("./createTerminalInstance", () => ({
-  resolveMonoFont: () => mockResolveMonoFont(),
+vi.mock("@/hooks/useTheme", () => ({
+  resolveMonoFontStack: (mono: string) => mockResolveMonoFontStack(mono),
 }));
 
 import { useUIStoreSync, type SyncableSessionEntry } from "./terminalSessionStoreSync";
@@ -75,16 +78,28 @@ describe("terminalSessionStoreSync live effects", () => {
     expect(entry.instance.term.options.scrollback).toBe(50000);
   });
 
-  it("re-resolves fontFamily on a theme change (G6)", () => {
+  it("re-applies fontFamily (from the monoFont setting) on a theme change (G6)", () => {
     renderHook(() => useUIStoreSync(sessionsRef));
-    mockResolveMonoFont.mockReturnValue("ThemeFont, monospace");
 
+    const mono = useSettingsStore.getState().appearance.monoFont;
     // Pick a theme different from the current one to trigger the theme block.
     const current = useSettingsStore.getState().appearance.theme;
     const next = current === "paper" ? "night" : "paper";
     useSettingsStore.getState().updateAppearanceSetting("theme", next as any);
 
-    expect(entry.instance.term.options.fontFamily).toBe("ThemeFont, monospace");
+    expect(mockResolveMonoFontStack).toHaveBeenCalledWith(mono);
+    expect(entry.instance.term.options.fontFamily).toBe(`Mock(${mono}), monospace`);
     expect(entry.instance.term.options.theme).toEqual({ background: `#theme-${next}` });
+  });
+
+  it("updates fontFamily on a monoFont-only change — no theme change (G6, stale-read fix)", () => {
+    renderHook(() => useUIStoreSync(sessionsRef));
+
+    useSettingsStore.getState().updateAppearanceSetting("monoFont", "sfmono");
+
+    expect(mockResolveMonoFontStack).toHaveBeenCalledWith("sfmono");
+    expect(entry.instance.term.options.fontFamily).toBe("Mock(sfmono), monospace");
+    // No theme change → the theme option is never written.
+    expect(entry.instance.term.options.theme).toBeUndefined();
   });
 });

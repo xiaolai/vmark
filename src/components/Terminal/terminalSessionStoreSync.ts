@@ -7,8 +7,10 @@
  * useTerminalSessions to keep that hook as an orchestrator.
  *
  * Behavior preserved verbatim from the original inline implementation:
- *   - Theme changes update each session's term.options.theme AND re-resolve
- *     fontFamily from --font-mono (G6/WI-4.1).
+ *   - Theme or monoFont changes update each session's term.options.theme and/or
+ *     fontFamily, resolving the mono stack straight from the monoFont setting
+ *     (not the --font-mono CSS var, which useTheme writes only in a later
+ *     effect, so it would lag a monoFont-only change) (G6/WI-4.1).
  *   - Workspace-root changes inject a `cd` command into every alive PTY whose
  *     current cwd differs from the new root — the live OSC 7 cwd when known,
  *     else the spawn-time cwd (WI-2.2); PTY-less or exited sessions are skipped.
@@ -25,7 +27,8 @@ import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { buildXtermThemeForId } from "@/theme";
-import { resolveMonoFont, type TerminalInstance } from "./createTerminalInstance";
+import { resolveMonoFontStack } from "@/hooks/useTheme";
+import type { TerminalInstance } from "./createTerminalInstance";
 
 /**
  * Minimum shape of a session entry that the sync effects need. Kept narrow
@@ -63,14 +66,15 @@ export function useUIStoreSync(
       const monoFont = state.appearance.monoFont;
       const themeChanged = themeId !== prevTheme;
       const monoChanged = monoFont !== prevMono;
-      // The mono font derives from the --font-mono CSS var, which both a theme
-      // switch and the monoFont setting update (via useTheme) — re-resolve on
-      // either so running sessions repaint with the new font (G6/WI-4.1).
       if (!themeChanged && !monoChanged) return;
       prevTheme = themeId;
       prevMono = monoFont;
       const newTheme = themeChanged ? buildXtermThemeForId(themeId) : null;
-      const newFont = resolveMonoFont();
+      // Resolve the mono stack straight from the setting (G6/WI-4.1). This
+      // subscriber fires synchronously inside the store `set`, before useTheme's
+      // effect writes --font-mono, so reading that CSS var here would yield the
+      // PREVIOUS font on a monoFont-only change.
+      const newFont = resolveMonoFontStack(monoFont);
       const sessions = sessionsRef.current;
       if (!sessions) return;
       for (const [, entry] of sessions) {
