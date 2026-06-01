@@ -30,6 +30,10 @@ These shortcuts work when the terminal panel is focused:
 | Clear | `Mod + K` |
 | Search | `Mod + F` |
 | Toggle Terminal | `` Ctrl + ` `` |
+| Previous command prompt | `Mod + ↑` |
+| Next command prompt | `Mod + ↓` |
+
+Prompt navigation (`Mod + ↑` / `Mod + ↓`) requires shell integration — see [Shell integration](#shell-integration) below.
 
 ::: tip
 `Mod + C` without a text selection sends SIGINT to the running process — the same as pressing Ctrl+C in a regular terminal.
@@ -58,9 +62,10 @@ Right-click inside the terminal to access:
 
 ## Clickable Links
 
-The terminal detects two kinds of links in command output:
+The terminal detects three kinds of links in command output:
 
 - **Web URLs** — click to open in your default browser
+- **OSC 8 hyperlinks** — explicit terminal hyperlinks emitted by tools like `ls --hyperlink=auto`, `gh`, and modern compilers. The visible text and the underlying URL can differ; clicking opens the URL.
 - **File paths** — click to open the file in the editor (supports `:line:col` suffixes and relative paths resolved against the workspace root)
 
 ## Shell Environment
@@ -121,7 +126,7 @@ Open **Settings → Terminal** to configure:
 | Terminal bell | Off / Visual / Audible | Visual |
 | Minimum contrast | Off / WCAG AA (4.5:1) / WCAG AAA (7:1) / Maximum | WCAG AA (4.5:1) |
 
-Changes apply immediately to all open sessions. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts (macOS only). **Shell Integration** is available on macOS and Linux (hidden on Windows). **Scrollback** controls how many lines of output each session retains in its scroll history — higher values use more memory. **Screen Reader Mode** exposes terminal output to assistive technology such as VoiceOver; it is off by default for performance. **Terminal bell** chooses how a bell (BEL) is signalled — a visual background-activity mark on the session tab, a soft audible beep, or nothing. **Minimum contrast** lifts faint terminal text to a readable contrast ratio against its background; raise it for accessibility or set it to Off to disable the lift.
+Changes apply immediately to all open sessions. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts (macOS only). **Shell Integration** is available on macOS and Linux (hidden on Windows). **Scrollback** controls how many lines of output each session retains in its scroll history — higher values use more memory. **Screen Reader Mode** exposes terminal output to assistive technology such as VoiceOver; it is off by default for performance. **Terminal bell** chooses how a bell (BEL) is signalled — a visual background-activity mark on the session tab, a soft audible beep (which also flags a background session's tab so you can find it), or nothing. **Minimum contrast** lifts faint terminal text to a readable contrast ratio against its background; raise it for accessibility or set it to Off to disable the lift.
 
 ## Shell integration
 

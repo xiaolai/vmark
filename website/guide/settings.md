@@ -351,7 +351,7 @@ Two macOS/Unix-only toggles also appear here: **Option as Meta Key** (macOS only
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Terminal bell | How a terminal bell (BEL) is signalled. **Visual** marks background activity on the session tab; **Audible** plays a soft beep; **Off** ignores it. Applies live to running sessions | Visual | Off, Visual, Audible |
+| Terminal bell | How a terminal bell (BEL) is signalled. **Visual** marks background activity on the session tab; **Audible** plays a soft beep and (for a background session) also flags the tab so you can locate it; **Off** ignores it. Applies live to running sessions | Visual | Off, Visual, Audible |
 | Minimum contrast | Lift faint terminal text to a minimum contrast ratio against its background. Raise it for readability; **Off** disables the lift. Applies live to running sessions | WCAG AA (4.5:1) | Off, WCAG AA (4.5:1), WCAG AAA (7:1), Maximum |
 
 See [Integrated Terminal](/guide/terminal) for more about sessions, keyboard shortcuts, and shell environment.

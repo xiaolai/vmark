@@ -319,6 +319,10 @@ When the integrated terminal is focused:
 | Paste | `Mod + V` |
 | Clear | `Mod + K` |
 | Search | `Mod + F` |
+| Previous command prompt | `Mod + ↑` |
+| Next command prompt | `Mod + ↓` |
+
+Prompt navigation jumps between command prompts in the scrollback and requires shell integration (zsh).
 
 When the terminal search bar is open:
 
