@@ -27,7 +27,6 @@
  * @module components/Sidebar/FileExplorer/useFileTree
  */
 import { useState, useEffect, useCallback, useRef } from "react";
-import { basename } from "@tauri-apps/api/path";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -232,12 +231,4 @@ export function useFileTree(
   }, [rootPath, loadTree]);
 
   return { tree, isLoading, refresh: loadTree };
-}
-
-/**
- * Extract directory from file path
- */
-export async function getDirectory(filePath: string): Promise<string> {
-  const name = await basename(filePath);
-  return filePath.slice(0, -name.length - 1); // Remove /filename
 }

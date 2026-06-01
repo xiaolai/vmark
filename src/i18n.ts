@@ -29,7 +29,7 @@ import { setWorkspaceStorageMessageResolver } from "@/utils/workspaceStorage";
 const localeModules = import.meta.glob("./locales/*/*.json");
 
 /** Supported locale codes — used to validate persisted settings and fallback to "en". */
-export const SUPPORTED_LOCALES = new Set(
+const SUPPORTED_LOCALES = new Set(
   Object.keys(localeModules)
     .map((p) => p.split("/")[2]) // "./locales/{lang}/common.json" → lang
     .filter(Boolean)

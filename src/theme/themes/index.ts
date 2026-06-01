@@ -21,7 +21,6 @@ import { mint } from "./mint";
 import { sepia } from "./sepia";
 import { night } from "./night";
 
-export { paper, white, mint, sepia, night };
 
 export type ThemeId = "white" | "paper" | "mint" | "sepia" | "night";
 

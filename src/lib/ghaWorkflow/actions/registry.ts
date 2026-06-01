@@ -125,7 +125,7 @@ export function parseUsesRef(uses: string): ActionRef | null {
  * If either is missing the function returns null (no fallback to
  * cwd to avoid leaking arbitrary file reads).
  */
-export async function getLocalActionMetadata(
+async function getLocalActionMetadata(
   uses: string,
   workflowFile: string,
   wsRoot: string,

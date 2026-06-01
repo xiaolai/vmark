@@ -16,9 +16,9 @@ import { useUIStore } from "@/stores/uiStore";
 export const MIN_SIDEBAR_WIDTH = 150;
 export const MAX_SIDEBAR_WIDTH = 500;
 /** Keyboard resize step per arrow press */
-export const KEYBOARD_RESIZE_STEP = 8;
+const KEYBOARD_RESIZE_STEP = 8;
 /** Larger step when Shift is held */
-export const KEYBOARD_RESIZE_STEP_LARGE = 32;
+const KEYBOARD_RESIZE_STEP_LARGE = 32;
 
 /**
  * Hook for handling sidebar resize via drag (mouse) and keyboard arrows.

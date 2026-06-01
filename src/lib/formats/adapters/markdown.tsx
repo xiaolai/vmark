@@ -22,12 +22,6 @@ import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSi
 import { registerFormat } from "../registry";
 import type { FormatConfig } from "../types";
 
-// Re-export the markdown-adapter-internal large-file helper. The
-// implementation lives in src/lib/formats/markdownLargeFile.ts (a leaf
-// module) so entry-point hooks can import it without pulling in the
-// MarkdownEditorSurface React tree. See WI-1A.6.
-export { maybeMarkLargeMarkdownAsSource } from "../markdownLargeFile";
-
 /* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
 const SourceEditor = lazy(() =>
   import("@/components/Editor/SourceEditor").then((m) => ({

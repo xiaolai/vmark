@@ -36,7 +36,7 @@ const AUTO_DISMISS_MS = 5000;
 /**
  * Image paste toast view - manages the floating toast UI.
  */
-export class ImagePasteToastView {
+class ImagePasteToastView {
   private container: HTMLElement;
   private unsubscribe: () => void;
   private autoDismissTimer: number | null = null;

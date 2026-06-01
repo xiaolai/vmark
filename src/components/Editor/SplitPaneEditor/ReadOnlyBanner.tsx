@@ -61,5 +61,3 @@ export function ReadOnlyBanner({
     </div>
   );
 }
-
-export default ReadOnlyBanner;

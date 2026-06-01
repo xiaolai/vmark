@@ -15,7 +15,6 @@
  */
 
 import { classifyHref, openFilepathLink } from "@/utils/linkOpen";
-import { navigateToHeadingById } from "@/utils/headingSlug";
 import { linkPopupError } from "@/utils/debug";
 
 export type LinkAction =
@@ -64,6 +63,3 @@ export async function openLink(
       break;
   }
 }
-
-/** Re-export so consumers can use one navigation primitive. */
-export { navigateToHeadingById };

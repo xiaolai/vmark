@@ -212,6 +212,3 @@ export const CJKLetterSpacing = Extension.create<CJKLetterSpacingOptions>({
     ];
   },
 });
-
-/** Default export of the CJK letter spacing extension. */
-export default CJKLetterSpacing;

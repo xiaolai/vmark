@@ -36,7 +36,11 @@ export function setWorkspaceStorageMessageResolver(
   resolveQuotaMessage = resolver;
 }
 
-/** Test-only: clear the per-key warned-keys cache between tests. */
+/**
+ * Test-only: clear the per-key warned-keys cache between tests.
+ * @public — accessed dynamically via `("__resetQuotaWarnedKeys" in mod)` in tests,
+ * which static analysis (knip) cannot trace; tag prevents a false unused-export report.
+ */
 export function __resetQuotaWarnedKeys(): void {
   quotaWarnedKeys.clear();
 }

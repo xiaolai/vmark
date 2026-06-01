@@ -80,30 +80,6 @@ export function pluginsFor(mode: Mode, format: FormatId): PluginManifest[] {
   );
 }
 
-/**
- * Compose every Tiptap extension declared by registered manifests for a
- * given format. Used by the editor assembler to derive its extension list
- * from the registry instead of hand-composing each one.
- *
- * Plugins without a `tiptap` factory are skipped — they participate in
- * the registry for metadata (commands, slots) but contribute no editor
- * extension.
- */
-export function composeTiptapExtensions(format: FormatId): TiptapExtension[] {
-  return pluginsFor("wysiwyg", format)
-    .filter((p): p is PluginManifest & { tiptap: () => TiptapExtension } => Boolean(p.tiptap))
-    .map((p) => p.tiptap());
-}
-
-/**
- * Compose every CodeMirror extension declared by registered manifests for
- * a given format. Mirror of composeTiptapExtensions() for source mode.
- */
-export function composeCodeMirrorExtensions(format: FormatId): CMExtension[] {
-  return pluginsFor("source", format)
-    .filter((p): p is PluginManifest & { codemirror: () => CMExtension } => Boolean(p.codemirror))
-    .map((p) => p.codemirror());
-}
 
 /** Test-only reset. */
 export function _resetRegistry(): void {

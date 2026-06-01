@@ -47,7 +47,11 @@ import { errorMessage } from "@/utils/errorMessage";
 // would spam toasts.
 let snapshotWarningShown = false;
 
-/** Test-only: reset module-level session flags. */
+/**
+ * Test-only: reset module-level session flags.
+ * @public — accessed dynamically via `("__resetSessionFlags" in mod)` in tests,
+ * which static analysis (knip) cannot trace; tag prevents a false unused-export report.
+ */
 export function __resetSessionFlags(): void {
   snapshotWarningShown = false;
 }

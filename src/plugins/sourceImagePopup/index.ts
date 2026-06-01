@@ -6,4 +6,3 @@
 
 import "./source-image-popup.css";
 export { createSourceImagePopupPlugin } from "./sourceImagePopupPlugin";
-export { SourceImagePopupView } from "./SourceImagePopupView";

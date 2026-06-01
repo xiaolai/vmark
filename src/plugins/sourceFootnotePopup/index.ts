@@ -6,5 +6,4 @@
 
 import "./source-footnote-popup.css";
 export { createSourceFootnotePopupPlugin } from "./sourceFootnotePopupPlugin";
-export { SourceFootnotePopupView } from "./SourceFootnotePopupView";
 export * from "./sourceFootnoteActions";

@@ -77,7 +77,7 @@ class SourceWorkflowPreviewPlugin {
   }
 }
 
-export function createSourceWorkflowPreviewPlugin() {
+function createSourceWorkflowPreviewPlugin() {
   return ViewPlugin.fromClass(SourceWorkflowPreviewPlugin);
 }
 

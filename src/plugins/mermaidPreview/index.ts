@@ -5,4 +5,4 @@
  */
 
 import "./mermaid-preview.css";
-export { MermaidPreviewView, getMermaidPreviewView } from "./MermaidPreviewView";
+export { getMermaidPreviewView } from "./MermaidPreviewView";

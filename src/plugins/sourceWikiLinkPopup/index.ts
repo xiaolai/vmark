@@ -6,5 +6,4 @@
 
 import "./source-wiki-link-popup.css";
 export { createSourceWikiLinkPopupPlugin } from "./sourceWikiLinkPopupPlugin";
-export { SourceWikiLinkPopupView } from "./SourceWikiLinkPopupView";
 export * from "./sourceWikiLinkActions";

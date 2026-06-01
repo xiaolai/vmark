@@ -100,5 +100,3 @@ export function ValidationGutter({ diagnostics, onJump }: ValidationGutterProps)
     </div>
   );
 }
-
-export default ValidationGutter;

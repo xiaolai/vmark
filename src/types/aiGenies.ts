@@ -70,10 +70,6 @@ export interface GenieMetadataV1 extends GenieMetadata {
   tags?: string[];
 }
 
-/** Type guard: is this a v1 Genie with typed I/O? */
-export function isGenieV1(meta: GenieMetadata): meta is GenieMetadataV1 {
-  return "version" in meta && (meta as GenieMetadataV1).version === "v1";
-}
 
 // ============================================================================
 // Provider Types

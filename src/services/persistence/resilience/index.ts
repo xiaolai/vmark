@@ -5,12 +5,5 @@
  * The _* internal helpers are not exported.
  */
 
-export {
-  useDocumentResilience,
-  useResilienceStartup,
-} from "./useDocumentResilience";
+export { useDocumentResilience, useResilienceStartup } from "./useDocumentResilience";
 export type { ResilienceState, ResilienceMachine } from "./machine";
-export {
-  createResilienceMachine,
-  isLegalTransition,
-} from "./machine";

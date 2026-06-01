@@ -11,7 +11,6 @@ import { Blockquote } from "@tiptap/extension-blockquote";
 import { BulletList } from "@tiptap/extension-bullet-list";
 import { OrderedList } from "@tiptap/extension-ordered-list";
 import { HorizontalRule } from "@tiptap/extension-horizontal-rule";
-import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { withSourceLine } from "./sourceLineAttr";
 import { withHeadingId } from "./headingIdAttr";
@@ -31,7 +30,5 @@ export const BulletListWithSourceLine = withSourceLine(BulletList);
 export const OrderedListWithSourceLine = withSourceLine(OrderedList);
 /** Horizontal rule extension with sourceLine attribute for cursor sync. */
 export const HorizontalRuleWithSourceLine = withSourceLine(HorizontalRule);
-/** Table extension with sourceLine attribute for cursor sync. */
-export const TableWithSourceLine = withSourceLine(Table);
 /** Table row extension with sourceLine attribute for cursor sync. */
 export const TableRowWithSourceLine = withSourceLine(TableRow);

@@ -20,7 +20,6 @@ import {
 } from "./horizontalMovement";
 import { handleMultiCursorEnter } from "./enterHandling";
 
-export { handleMultiCursorEnter };
 
 /**
  * Handle text input at all cursor positions.

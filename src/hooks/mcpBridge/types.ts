@@ -34,10 +34,6 @@ export interface McpResponse {
 
 /** Shared operation mode for MCP bridge handlers. */
 export type OperationMode = "apply" | "suggest" | "dryRun";
-/** All valid operation mode values as a const tuple. */
-export const OPERATION_MODES = ["apply", "suggest", "dryRun"] as const;
 
 /** Match policy for diff/replace operations. */
 export type MatchPolicy = "first" | "all" | "nth" | "error_if_multiple";
-/** All valid match policy values as a const tuple. */
-export const MATCH_POLICIES = ["first", "all", "nth", "error_if_multiple"] as const;

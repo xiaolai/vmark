@@ -318,5 +318,3 @@ export function SourcePane({
     </div>
   );
 }
-
-export default SourcePane;

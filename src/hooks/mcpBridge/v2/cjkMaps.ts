@@ -18,7 +18,3 @@ export const HALF_TO_FULL: Record<string, string> = {
   "(": "（",
   ")": "）",
 };
-
-export const FULL_TO_HALF: Record<string, string> = Object.fromEntries(
-  Object.entries(HALF_TO_FULL).map(([k, v]) => [v, k]),
-);

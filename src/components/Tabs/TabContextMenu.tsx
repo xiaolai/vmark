@@ -256,5 +256,3 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
     </div>
   );
 }
-
-export default TabContextMenu;

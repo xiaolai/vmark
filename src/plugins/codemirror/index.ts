@@ -37,16 +37,8 @@ export { sourceDiagramPreviewExtensions } from "./sourceMermaidPreview";
 export { sourceAlertDecorationExtensions } from "./sourceAlertDecoration";
 export { sourceDetailsDecorationExtensions } from "./sourceDetailsDecoration";
 export { sourceMediaDecorationExtensions } from "./sourceMediaDecoration";
-export {
-  visualLineUpKeymap,
-  visualLineDownKeymap,
-  visualLineUpSelectKeymap,
-  visualLineDownSelectKeymap,
-  smartHomeKeymap,
-  smartHomeSelectKeymap,
-} from "./visualLineNav";
+export { visualLineUpKeymap, visualLineDownKeymap, visualLineUpSelectKeymap, visualLineDownSelectKeymap, smartHomeKeymap, smartHomeSelectKeymap } from "./visualLineNav";
 export { structuralBackspaceKeymap, structuralDeleteKeymap } from "./structuralCharProtection";
 export { listSmartIndentKeymap, listSmartOutdentKeymap } from "./listSmartIndent";
 export { createSourceCopyOnSelectPlugin } from "./sourceCopyOnSelect";
-export { createSourceLintExtension, diagnosticToCM, triggerLintRefresh } from "./sourceLint";
 export { inactiveSelectionExtensions as sourceInactiveSelectionExtensions } from "./inactiveSelectionPlugin";

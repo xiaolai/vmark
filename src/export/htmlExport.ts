@@ -55,9 +55,6 @@ import { generateIndexHtml, generateStandaloneHtml } from "./htmlTemplates";
 import { getEditorContentCSS } from "./htmlExportStyles";
 import { errorMessage } from "@/utils/errorMessage";
 
-// Re-export getEditorContentCSS so existing imports from "./htmlExport" still work
-export { getEditorContentCSS } from "./htmlExportStyles";
-
 /** Configuration for HTML folder export. */
 export interface HtmlExportOptions {
   /** Document title */
@@ -330,30 +327,5 @@ export async function exportHtml(
       warnings,
       error: errorMessage(error),
     };
-  }
-}
-
-/**
- * Copy HTML to clipboard.
- *
- * @param html - The rendered HTML content
- * @param includeStyles - Whether to include styles
- */
-export async function copyHtmlToClipboard(
-  html: string,
-  includeStyles: boolean = false
-): Promise<void> {
-  const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
-
-  // Sanitize HTML first
-  const sanitizedHtml = sanitizeExportHtml(html);
-
-  if (includeStyles) {
-    const themeCSS = captureThemeCSS();
-    const contentCSS = getEditorContentCSS();
-    const styledHtml = `<style>${themeCSS}\n${contentCSS}</style>\n${sanitizedHtml}`;
-    await writeText(styledHtml);
-  } else {
-    await writeText(sanitizedHtml);
   }
 }

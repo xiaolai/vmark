@@ -213,5 +213,3 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
     </div>
   );
 }
-
-export default SplitPaneEditor;

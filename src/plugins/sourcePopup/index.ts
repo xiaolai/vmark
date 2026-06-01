@@ -11,23 +11,7 @@ export type {
   PopupPositionConfig,
 } from "./SourcePopupView";
 
-export {
-  createSourcePopupPlugin,
-  createPositionBasedDetector,
-} from "./createSourcePopupPlugin";
+export { createSourcePopupPlugin } from "./createSourcePopupPlugin";
 export type { PopupTriggerConfig } from "./createSourcePopupPlugin";
 
-export {
-  getAnchorRectFromRange,
-  getEditorBounds,
-  getEditorContainer,
-  getPopupHost,
-  getPopupHostForDom,
-  toHostCoords,
-  toHostCoordsForDom,
-  isPositionVisible,
-  getLineNumber,
-  scrollIntoViewIfNeeded,
-  posToLineCol,
-  lineColToPos,
-} from "./sourcePopupUtils";
+export { getPopupHost, getPopupHostForDom, toHostCoords, toHostCoordsForDom } from "./sourcePopupUtils";

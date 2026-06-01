@@ -15,7 +15,7 @@ import { getKatexCSS } from "./pdfHtmlTemplate";
 /**
  * Escape HTML special characters.
  */
-export function escapeHtml(text: string): string {
+function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

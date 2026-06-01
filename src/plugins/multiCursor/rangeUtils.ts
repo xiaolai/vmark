@@ -125,7 +125,7 @@ export function sortAndDedupeRanges(
  * @param merge - Whether to merge overlapping ranges
  * @returns Normalized ranges
  */
-export function normalizeRanges(
+function normalizeRanges(
   ranges: readonly SelectionRange[],
   doc: Node,
   merge = false

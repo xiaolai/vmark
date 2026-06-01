@@ -9,7 +9,7 @@ import { multiCursorPlugin } from "../multiCursorPlugin";
 import { MultiSelection } from "../MultiSelection";
 
 /** Minimal schema: single paragraph with text. */
-export const schema = new Schema({
+const schema = new Schema({
   nodes: {
     doc: { content: "paragraph+" },
     paragraph: { content: "text*" },

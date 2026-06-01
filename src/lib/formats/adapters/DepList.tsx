@@ -59,5 +59,3 @@ export function DepList({ title, deps }: DepListProps) {
     </section>
   );
 }
-
-export default DepList;

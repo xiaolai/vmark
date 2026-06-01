@@ -33,5 +33,3 @@ export async function renderLatex(
     return `<pre class="math-error">${escapeHtml(content)}</pre>`;
   }
 }
-
-export { mathInlineExtension } from "./tiptapInlineMath";

@@ -337,7 +337,7 @@ export function tokenizeQuotes(text: string): QuoteToken[] {
 /**
  * Pair quote tokens using stack-based algorithm
  */
-export function pairQuotes(text: string, tokens: QuoteToken[]): PairingResult {
+function pairQuotes(text: string, tokens: QuoteToken[]): PairingResult {
   const pairs: QuotePair[] = [];
   const orphans: QuoteToken[] = [];
   const doubleStack: QuoteToken[] = [];

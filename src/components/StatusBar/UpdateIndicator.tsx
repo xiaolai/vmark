@@ -129,5 +129,3 @@ export function UpdateIndicator() {
     </button>
   );
 }
-
-export default UpdateIndicator;

@@ -33,7 +33,7 @@ export interface ThemeColors {
 const DARK_THEMES = new Set<ThemeId>(["night"]);
 
 /** Project a ThemeTokens into the legacy ThemeColors surface. */
-export function themeTokensToColors(id: ThemeId, t: ThemeTokens): ThemeColors {
+function themeTokensToColors(id: ThemeId, t: ThemeTokens): ThemeColors {
   const out: ThemeColors = {
     background: t.color.bg.primary,
     foreground: t.color.text.primary,

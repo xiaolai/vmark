@@ -5,4 +5,4 @@
  */
 
 import "./image-paste-toast.css";
-export { ImagePasteToastView, initImagePasteToast, destroyImagePasteToast } from "./ImagePasteToastView";
+export { initImagePasteToast, destroyImagePasteToast } from "./ImagePasteToastView";

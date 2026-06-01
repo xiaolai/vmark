@@ -18,8 +18,7 @@
  * @module lib/cjkFormatter
  */
 
-export { formatMarkdown, formatSelection, formatFile } from "./formatter";
-export { containsCJK, removeTrailingSpaces, collapseNewlines } from "./rules";
-export { verifyIntegrity } from "./integrity";
+export { formatMarkdown, formatSelection } from "./formatter";
+export { removeTrailingSpaces, collapseNewlines } from "./rules";
 export type { IntegrityResult } from "./integrity";
 export type { CJKFormattingSettings } from "@/stores/settingsStore";

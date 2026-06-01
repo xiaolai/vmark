@@ -181,5 +181,3 @@ export const Tab = memo(function Tab({
     </>
   );
 });
-
-export default Tab;
