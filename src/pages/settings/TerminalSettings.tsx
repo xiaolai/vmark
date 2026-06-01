@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useSettingsStore, type TerminalPosition, type TerminalCursorStyle } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
 import { terminalSettingsWarn } from "@/utils/debug";
+import { isMacPlatform, isWindowsPlatform } from "@/utils/platform";
 
 const panelSizeOptions = [
   { value: "0.1", label: "10%" },
@@ -74,6 +75,13 @@ export function TerminalSettings() {
   const { t } = useTranslation("settings");
   const terminal = useSettingsStore((state) => state.terminal);
   const updateTerminalSetting = useSettingsStore((state) => state.updateTerminalSetting);
+
+  // Platform gating (D1): `macOptionIsMeta` is genuinely macOS-only (the
+  // Option/Meta tradeoff only exists on macOS). `shellIntegration` injects
+  // OSC marks for Unix shells (zsh) — keep it on macOS and Linux, hide on
+  // Windows where it does not apply.
+  const isMac = isMacPlatform();
+  const isWindows = isWindowsPlatform();
 
   const [shells, setShells] = useState<string[]>([]);
   const [defaultShell, setDefaultShell] = useState<string>("");
@@ -215,19 +223,23 @@ export function TerminalSettings() {
           />
         </SettingRow>
 
-        <SettingRow label={t("terminal.macOptionIsMeta.label")} description={t("terminal.macOptionIsMeta.description")}>
-          <Toggle
-            checked={terminal.macOptionIsMeta}
-            onChange={(v) => updateTerminalSetting("macOptionIsMeta", v)}
-          />
-        </SettingRow>
+        {isMac && (
+          <SettingRow label={t("terminal.macOptionIsMeta.label")} description={t("terminal.macOptionIsMeta.description")}>
+            <Toggle
+              checked={terminal.macOptionIsMeta}
+              onChange={(v) => updateTerminalSetting("macOptionIsMeta", v)}
+            />
+          </SettingRow>
+        )}
 
-        <SettingRow label={t("terminal.shellIntegration.label")} description={t("terminal.shellIntegration.description")}>
-          <Toggle
-            checked={terminal.shellIntegration}
-            onChange={(v) => updateTerminalSetting("shellIntegration", v)}
-          />
-        </SettingRow>
+        {!isWindows && (
+          <SettingRow label={t("terminal.shellIntegration.label")} description={t("terminal.shellIntegration.description")}>
+            <Toggle
+              checked={terminal.shellIntegration}
+              onChange={(v) => updateTerminalSetting("shellIntegration", v)}
+            />
+          </SettingRow>
+        )}
 
         <SettingRow label={t("terminal.scrollback.label")} description={t("terminal.scrollback.description")}>
           <Select

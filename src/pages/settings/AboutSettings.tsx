@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import { SettingRow, SettingsGroup, Button, Toggle } from "./components";
+import { SettingRow, SettingsGroup, Button, Toggle, Select } from "./components";
+import type { UpdateCheckFrequency } from "@/stores/settingsTypes";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
@@ -292,6 +293,8 @@ export function AboutSettings() {
   const { t } = useTranslation("settings");
   const status = useMcpStore((state) => state.update.status);
   const autoCheckEnabled = useSettingsStore((state) => state.update.autoCheckEnabled);
+  const checkFrequency = useSettingsStore((state) => state.update.checkFrequency);
+  const autoDownload = useSettingsStore((state) => state.update.autoDownload);
   const updateUpdateSetting = useSettingsStore((state) => state.updateUpdateSetting);
   const { checkForUpdates } = useUpdateOperations();
   const [isChecking, setIsChecking] = useState(false);
@@ -334,6 +337,32 @@ export function AboutSettings() {
           <Toggle
             checked={autoCheckEnabled}
             onChange={(v) => updateUpdateSetting("autoCheckEnabled", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("about.checkFrequency.label")}
+          description={t("about.checkFrequency.description")}
+          disabled={!autoCheckEnabled}
+        >
+          <Select<UpdateCheckFrequency>
+            value={checkFrequency}
+            options={[
+              { value: "startup", label: t("about.checkFrequency.startup") },
+              { value: "daily", label: t("about.checkFrequency.daily") },
+              { value: "weekly", label: t("about.checkFrequency.weekly") },
+              { value: "manual", label: t("about.checkFrequency.manual") },
+            ]}
+            onChange={(v) => updateUpdateSetting("checkFrequency", v)}
+            disabled={!autoCheckEnabled}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("about.autoDownload.label")}
+          description={t("about.autoDownload.description")}
+        >
+          <Toggle
+            checked={autoDownload}
+            onChange={(v) => updateUpdateSetting("autoDownload", v)}
           />
         </SettingRow>
         <SettingRow label={t("about.checkForUpdates.label")}>

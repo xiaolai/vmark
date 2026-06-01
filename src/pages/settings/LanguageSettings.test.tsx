@@ -1,0 +1,65 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { LanguageSettings } from "./LanguageSettings";
+import { useSettingsStore } from "@/stores/settingsStore";
+
+function getToggleByLabel(label: string) {
+  const toggles = screen.getAllByRole("switch");
+  const match = toggles.find((t) => {
+    const labelId = t.getAttribute("aria-labelledby");
+    return labelId ? document.getElementById(labelId)?.textContent === label : false;
+  });
+  if (!match) throw new Error(`No toggle found with label "${label}"`);
+  return match;
+}
+
+describe("LanguageSettings — CJK orphans (WI-2)", () => {
+  beforeEach(() => {
+    useSettingsStore.setState({
+      cjkFormatting: {
+        ...useSettingsStore.getState().cjkFormatting,
+        smartQuoteConversion: true,
+        contextualQuotes: true,
+        quoteToggleMode: "simple",
+        skipReferenceSections: false,
+      },
+    });
+  });
+
+  it("renders the three previously-unexposed CJK controls", () => {
+    render(<LanguageSettings />);
+    expect(screen.getByText("Contextual quotes")).toBeInTheDocument();
+    expect(screen.getByText("Quote toggle behavior")).toBeInTheDocument();
+    expect(screen.getByText("Skip reference sections")).toBeInTheDocument();
+  });
+
+  it("clicking contextualQuotes toggle updates the store", () => {
+    render(<LanguageSettings />);
+    fireEvent.click(getToggleByLabel("Contextual quotes"));
+    expect(useSettingsStore.getState().cjkFormatting.contextualQuotes).toBe(false);
+  });
+
+  it("contextualQuotes toggle is disabled when smartQuoteConversion is off", () => {
+    useSettingsStore.setState({
+      cjkFormatting: {
+        ...useSettingsStore.getState().cjkFormatting,
+        smartQuoteConversion: false,
+      },
+    });
+    render(<LanguageSettings />);
+    expect(getToggleByLabel("Contextual quotes")).toBeDisabled();
+  });
+
+  it("changing quoteToggleMode select updates the store", () => {
+    render(<LanguageSettings />);
+    const select = screen.getByDisplayValue("Simple (straight ↔ preferred)");
+    fireEvent.change(select, { target: { value: "full-cycle" } });
+    expect(useSettingsStore.getState().cjkFormatting.quoteToggleMode).toBe("full-cycle");
+  });
+
+  it("clicking skipReferenceSections toggle updates the store", () => {
+    render(<LanguageSettings />);
+    fireEvent.click(getToggleByLabel("Skip reference sections"));
+    expect(useSettingsStore.getState().cjkFormatting.skipReferenceSections).toBe(true);
+  });
+});

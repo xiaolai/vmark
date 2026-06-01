@@ -235,6 +235,30 @@ export function LanguageSettings() {
             />
           </SettingRow>
           <SettingRow
+            label={t("language.contextualQuotes.label")}
+            description={t("language.contextualQuotes.description")}
+            disabled={!cjkFormatting.smartQuoteConversion}
+          >
+            <Toggle
+              checked={cjkFormatting.contextualQuotes}
+              onChange={(v) => updateCJKSetting("contextualQuotes", v)}
+              disabled={!cjkFormatting.smartQuoteConversion}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t("language.quoteToggleMode.label")}
+            description={t("language.quoteToggleMode.description")}
+          >
+            <Select<"simple" | "full-cycle">
+              value={cjkFormatting.quoteToggleMode}
+              options={[
+                { value: "simple", label: t("language.quoteToggleMode.simple") },
+                { value: "full-cycle", label: t("language.quoteToggleMode.fullCycle") },
+              ]}
+              onChange={(v) => updateCJKSetting("quoteToggleMode", v)}
+            />
+          </SettingRow>
+          <SettingRow
             label={t("language.quoteSpacing.label")}
             description={t("language.quoteSpacing.description")}
           >
@@ -314,6 +338,19 @@ export function LanguageSettings() {
             <Toggle
               checked={cjkFormatting.newlineCollapsing}
               onChange={(v) => updateCJKSetting("newlineCollapsing", v)}
+            />
+          </SettingRow>
+        </SettingsGroup>
+
+        {/* Section Handling */}
+        <SettingsGroup title={t("language.group.sectionHandling")} className="">
+          <SettingRow
+            label={t("language.skipReferenceSections.label")}
+            description={t("language.skipReferenceSections.description")}
+          >
+            <Toggle
+              checked={cjkFormatting.skipReferenceSections}
+              onChange={(v) => updateCJKSetting("skipReferenceSections", v)}
             />
           </SettingRow>
         </SettingsGroup>
