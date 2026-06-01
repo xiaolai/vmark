@@ -30,20 +30,8 @@ import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { SettingsSearchContext } from "./settings/SettingsSearchContext";
 import { SettingsSearchResults, type SearchablePanel } from "./settings/SettingsSearchResults";
 import { SearchInput } from "./settings/components";
+import { SETTINGS_PANELS, SEARCHABLE_PANEL_IDS, type Section } from "./settings/panels";
 import "./settings/settings-search.css";
-
-// Settings sections
-import { AppearanceSettings } from "./settings/AppearanceSettings";
-import { EditorSettings } from "./settings/EditorSettings";
-import { FilesImagesSettings } from "./settings/FilesImagesSettings";
-import { FormatsSettings } from "./settings/FormatsSettings";
-import { IntegrationsSettings } from "./settings/IntegrationsSettings";
-import { LanguageSettings } from "./settings/LanguageSettings";
-import { MarkdownSettings } from "./settings/MarkdownSettings";
-import { ShortcutsSettings } from "./settings/ShortcutsSettings";
-import { AboutSettings } from "./settings/AboutSettings";
-import { TerminalSettings } from "./settings/TerminalSettings";
-import { AdvancedSettings } from "./settings/AdvancedSettings";
 
 // Hook to handle Cmd+W for settings window
 function useSettingsClose() {
@@ -79,19 +67,6 @@ function useDevSectionShortcut() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 }
-
-type Section =
-  | "about"
-  | "appearance"
-  | "editor"
-  | "files"
-  | "formats"
-  | "integrations"
-  | "language"
-  | "markdown"
-  | "shortcuts"
-  | "terminal"
-  | "advanced";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -216,24 +191,18 @@ export function SettingsPage() {
       : []),
   ];
 
-  // Panels included in global search — every SettingRow-based panel. Shortcuts
-  // is excluded: it has its own dedicated search and is keybindings, not
-  // settings rows.
-  const panelComponents: Record<string, React.ComponentType> = {
-    appearance: AppearanceSettings,
-    editor: EditorSettings,
-    files: FilesImagesSettings,
-    formats: FormatsSettings,
-    integrations: IntegrationsSettings,
-    language: LanguageSettings,
-    markdown: MarkdownSettings,
-    terminal: TerminalSettings,
-    about: AboutSettings,
-    ...(showDevSection ? { advanced: AdvancedSettings } : {}),
-  };
-  const searchablePanels: SearchablePanel[] = Object.entries(panelComponents).map(
-    ([id, Component]) => ({ id, label: t(`nav.${id}`), Component })
-  );
+  // Panels included in global search, from the shared registry. `advanced` is
+  // appended only when the dev section is visible.
+  const searchableIds: Section[] = showDevSection
+    ? [...SEARCHABLE_PANEL_IDS, "advanced"]
+    : SEARCHABLE_PANEL_IDS;
+  const searchablePanels: SearchablePanel[] = searchableIds.map((id) => ({
+    id,
+    label: t(`nav.${id}`),
+    Component: SETTINGS_PANELS[id],
+  }));
+
+  const ActivePanel = SETTINGS_PANELS[section];
 
   return (
     <div className="relative flex h-screen bg-[var(--bg-color)]">
@@ -286,19 +255,7 @@ export function SettingsPage() {
             {searching ? (
               <SettingsSearchResults panels={searchablePanels} query={normalizedQuery} />
             ) : (
-              <>
-                {section === "about" && <AboutSettings />}
-                {section === "appearance" && <AppearanceSettings />}
-                {section === "editor" && <EditorSettings />}
-                {section === "files" && <FilesImagesSettings />}
-                {section === "formats" && <FormatsSettings />}
-                {section === "integrations" && <IntegrationsSettings />}
-                {section === "language" && <LanguageSettings />}
-                {section === "markdown" && <MarkdownSettings />}
-                {section === "shortcuts" && <ShortcutsSettings />}
-                {section === "terminal" && <TerminalSettings />}
-                {section === "advanced" && <AdvancedSettings />}
-              </>
+              <ActivePanel />
             )}
           </div>
         </SettingsSearchContext.Provider>
