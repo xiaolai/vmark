@@ -1,0 +1,59 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "unresolved": "error",
+    "binaries": "error",
+    "exports": "warn",
+    "nsExports": "warn",
+    "types": "warn",
+    "nsTypes": "warn",
+    "duplicates": "warn",
+    "enumMembers": "warn"
+  },
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "src/bench/**/*.bench.ts",
+        "scripts/*.{ts,mjs}",
+        ".claude/hooks/*.mjs"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "scripts/**/*.{ts,mjs}",
+        ".claude/hooks/**/*.mjs"
+      ],
+      "ignoreDependencies": [
+        "tailwindcss",
+        "@tauri-apps/cli",
+        "@hypothesi/tauri-mcp-server",
+        "@xterm/addon-serialize"
+      ]
+    },
+    "vmark-mcp-server": {
+      "project": [
+        "src/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "esbuild",
+        "@yao-pkg/pkg"
+      ]
+    },
+    "website": {
+      "entry": [
+        ".vitepress/**/*.vue"
+      ],
+      "project": ".vitepress/**/*.{ts,vue}",
+      "ignoreDependencies": [
+        "cytoscape",
+        "cytoscape-cose-bilkent",
+        "dayjs",
+        "debug",
+        "@braintree/sanitize-url"
+      ]
+    }
+  }
+}

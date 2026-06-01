@@ -28,7 +28,9 @@
     "lint:i18n": "tsx scripts/check-i18n-keys.ts",
     "lint:themes": "bash scripts/check-theme-names.sh",
     "extract-menu-ids": "tsx scripts/extract-menu-ids.ts",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm test:coverage && pnpm build && pnpm size"
+    "knip": "knip",
+    "knip:files": "knip --include files,dependencies",
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm knip && pnpm test:coverage && pnpm build && pnpm size"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.55",
@@ -168,6 +170,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "knip": "6.15.0",
     "markdownlint-cli2": "^0.21.0",
     "mdast-util-math": "^3.0.0",
     "size-limit": "^12.1.0",
