@@ -12,7 +12,12 @@
 # (.zprofile/.zlogin are login-shell files; the terminal runs interactive
 # non-login, so they are intentionally out of scope.)
 ZDOTDIR="${USER_ZDOTDIR:-$HOME}"
-[ -f "$ZDOTDIR/.zshenv" ] && source "$ZDOTDIR/.zshenv"
+# zsh always reads ~/.zshenv first — and that is the usual place a custom
+# ZDOTDIR is bootstrapped — but our injected ZDOTDIR makes zsh skip it, so its
+# env exports would be lost. Source it explicitly, then the resolved ZDOTDIR's
+# files (deduped so $HOME/.zshenv isn't sourced twice).
+[ -f "$HOME/.zshenv" ] && source "$HOME/.zshenv"
+[ "$ZDOTDIR" != "$HOME" ] && [ -f "$ZDOTDIR/.zshenv" ] && source "$ZDOTDIR/.zshenv"
 [ -f "$ZDOTDIR/.zshrc" ] && source "$ZDOTDIR/.zshrc"
 
 # OSC emitter. 133;A=prompt-start, 133;C=command pre-exec, 133;D;<code>=done.

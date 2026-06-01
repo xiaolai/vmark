@@ -123,6 +123,9 @@ mod tests {
         assert!(ZSH_INTEGRATION.contains("USER_ZDOTDIR"));
         assert!(ZSH_INTEGRATION.contains("source \"$ZDOTDIR/.zshrc\""));
         assert!(ZSH_INTEGRATION.contains(".zshenv"));
+        // Bootstrap: ~/.zshenv (where a custom ZDOTDIR is typically set) is read
+        // explicitly since our injected ZDOTDIR makes zsh skip it (Codex audit).
+        assert!(ZSH_INTEGRATION.contains("$HOME/.zshenv"));
     }
 
     #[test]

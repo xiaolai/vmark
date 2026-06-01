@@ -52,22 +52,28 @@ export function buildCdCommand(path: string): string {
 export function useUIStoreSync(
   sessionsRef: React.RefObject<Map<string, SyncableSessionEntry>>,
 ): void {
-  // Theme sync
+  // Theme + mono-font sync
   useEffect(() => {
-    let prevTheme = useSettingsStore.getState().appearance.theme;
+    const appearance = () => useSettingsStore.getState().appearance;
+    let prevTheme = appearance().theme;
+    let prevMono = appearance().monoFont;
     return useSettingsStore.subscribe((state) => {
       const themeId = state.appearance.theme;
-      if (themeId === prevTheme) return;
+      const monoFont = state.appearance.monoFont;
+      const themeChanged = themeId !== prevTheme;
+      const monoChanged = monoFont !== prevMono;
+      // The mono font derives from the --font-mono CSS var, which both a theme
+      // switch and the monoFont setting update (via useTheme) — re-resolve on
+      // either so running sessions repaint with the new font (G6/WI-4.1).
+      if (!themeChanged && !monoChanged) return;
       prevTheme = themeId;
-      const newTheme = buildXtermThemeForId(themeId);
-      // The mono font derives from the --font-mono CSS var, which a theme
-      // change can update — re-resolve it so running sessions repaint with
-      // the theme's font (G6/WI-4.1).
+      prevMono = monoFont;
+      const newTheme = themeChanged ? buildXtermThemeForId(themeId) : null;
       const newFont = resolveMonoFont();
       const sessions = sessionsRef.current;
       if (!sessions) return;
       for (const [, entry] of sessions) {
-        entry.instance.term.options.theme = newTheme;
+        if (newTheme) entry.instance.term.options.theme = newTheme;
         entry.instance.term.options.fontFamily = newFont;
       }
     });
