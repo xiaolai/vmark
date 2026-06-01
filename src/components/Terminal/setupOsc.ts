@@ -122,6 +122,9 @@ export function setupOsc133(term: Terminal): Osc133Handle {
           decorateCommand(term, current); // WI-3.4 exit-status gutter mark
         }
       }
+      // Close the command: its exit code is immutable until the next prompt, so
+      // a stray repeat `D;<code>` can't overwrite it. `current` reopens on `A`.
+      current = null;
     }
     return true; // handled
   });

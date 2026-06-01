@@ -182,16 +182,18 @@ describe("setupOsc133", () => {
     expect(term.registerDecoration).not.toHaveBeenCalled();
   });
 
-  it("does not create a second decoration on a double 133;D for one command", () => {
+  it("a repeat 133;D does not overwrite a finished command's exit code or redecorate", () => {
     const { term, fire } = makeTerm();
     const h = setupOsc133(term);
     fire("A");
     fire("C");
-    fire("D;0"); // first done — decorates once
+    fire("D;0"); // first done — exit 0, decorates once
     expect(term.registerDecoration).toHaveBeenCalledTimes(1);
     expect(h.getCommands()[0].exitCode).toBe(0);
-    // A duplicate D for the same (still-current) command must not redecorate.
-    expect(() => fire("D;0")).not.toThrow();
+    // A stray repeat D with a DIFFERENT code must be ignored: the command is
+    // already closed, and its exit code is immutable until the next prompt (A).
+    expect(() => fire("D;1")).not.toThrow();
+    expect(h.getCommands()[0].exitCode).toBe(0); // NOT overwritten to 1
     expect(term.registerDecoration).toHaveBeenCalledTimes(1);
     expect(h.getCommands()).toHaveLength(1);
     expect(h.isRunning()).toBe(false);
