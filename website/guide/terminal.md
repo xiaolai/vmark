@@ -116,9 +116,11 @@ Changes apply immediately to all open sessions. **Mac Option as Meta** routes th
 
 When **Shell Integration** is on (zsh, macOS), VMark injects lightweight command
 markers into the shell so the terminal understands where each command starts and
-ends. It is non-destructive — your real `~/.zshrc` is sourced first, then the
+ends. It is non-destructive — your real config is sourced first, then the
 markers are appended via `add-zsh-hook`, so your prompt, theme, and aliases are
-untouched. It unlocks:
+untouched. Custom `$ZDOTDIR` setups are honored: VMark resolves your real
+`ZDOTDIR` from a login shell and sources your `.zshenv` and `.zshrc` from there
+(not just `$HOME`). It unlocks:
 
 - **Prompt navigation** — `Cmd + ↑` / `Cmd + ↓` jumps to the previous / next
   command prompt in the scrollback.

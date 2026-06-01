@@ -15,6 +15,7 @@
 //! @module shell_integration
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -66,9 +67,26 @@ pub async fn prepare_shell_integration<R: Runtime>(
     std::fs::rename(&tmp, &rc)
         .map_err(|e| format!("Failed to install integration rc: {e}"))?;
 
+    // `ZDOTDIR` points at the VMark integration dir so zsh reads our rc;
+    // `USER_ZDOTDIR` carries the user's real ZDOTDIR (resolved from a login
+    // shell — the GUI process env is minimal) so `vmark.zsh` can source their
+    // config instead of falling back to `$HOME` (terminal gap G1, WI-1.2).
+    Ok(Some(build_zsh_env(&dir, crate::ai_provider::login_shell_zdotdir())))
+}
+
+/// Build the env overrides for the zsh integration. `USER_ZDOTDIR` is included
+/// only when the user has a non-empty custom `ZDOTDIR`; when omitted,
+/// `vmark.zsh`'s `${USER_ZDOTDIR:-$HOME}` fallback is correct.
+fn build_zsh_env(integration_dir: &Path, user_zdotdir: Option<String>) -> BTreeMap<String, String> {
     let mut env = BTreeMap::new();
-    env.insert("ZDOTDIR".to_string(), dir.to_string_lossy().into_owned());
-    Ok(Some(env))
+    env.insert(
+        "ZDOTDIR".to_string(),
+        integration_dir.to_string_lossy().into_owned(),
+    );
+    if let Some(z) = user_zdotdir.filter(|s| !s.is_empty()) {
+        env.insert("USER_ZDOTDIR".to_string(), z);
+    }
+    env
 }
 
 #[cfg(test)]
@@ -91,7 +109,31 @@ mod tests {
         assert!(ZSH_INTEGRATION.contains("133;C"));
         assert!(ZSH_INTEGRATION.contains("133;D"));
         assert!(ZSH_INTEGRATION.contains("add-zsh-hook"));
-        // Non-destructive: sources the user's real rc.
+        // Non-destructive: restores the user's ZDOTDIR and sources their real
+        // rc + env (terminal gap G1 / WI-1.2).
+        assert!(ZSH_INTEGRATION.contains("USER_ZDOTDIR"));
         assert!(ZSH_INTEGRATION.contains("source \"$ZDOTDIR/.zshrc\""));
+        assert!(ZSH_INTEGRATION.contains(".zshenv"));
+    }
+
+    #[test]
+    fn build_zsh_env_includes_user_zdotdir_when_resolved() {
+        let env = build_zsh_env(Path::new("/vmark/zsh"), Some("/home/x/.config/zsh".into()));
+        assert_eq!(env.get("ZDOTDIR").map(String::as_str), Some("/vmark/zsh"));
+        assert_eq!(
+            env.get("USER_ZDOTDIR").map(String::as_str),
+            Some("/home/x/.config/zsh")
+        );
+    }
+
+    #[test]
+    fn build_zsh_env_omits_user_zdotdir_when_unset_or_empty() {
+        // Unset → vmark.zsh's `${USER_ZDOTDIR:-$HOME}` fallback handles it.
+        let none = build_zsh_env(Path::new("/vmark/zsh"), None);
+        assert_eq!(none.get("ZDOTDIR").map(String::as_str), Some("/vmark/zsh"));
+        assert!(!none.contains_key("USER_ZDOTDIR"));
+        // Empty string is treated as unset.
+        let empty = build_zsh_env(Path::new("/vmark/zsh"), Some(String::new()));
+        assert!(!empty.contains_key("USER_ZDOTDIR"));
     }
 }

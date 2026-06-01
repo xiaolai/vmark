@@ -6,8 +6,13 @@
 # command-boundary marks + OSC 7 cwd so VMark can offer prompt navigation,
 # exit-status decorations, and live cwd tracking.
 
-# Restore the user's ZDOTDIR and source their real rc first.
+# Restore the user's ZDOTDIR and source their real env + rc first. Because we
+# point ZDOTDIR at the VMark dir, zsh never reads the user's own .zshenv/.zshrc
+# on its own — source them here so a custom $ZDOTDIR config still applies (G1).
+# (.zprofile/.zlogin are login-shell files; the terminal runs interactive
+# non-login, so they are intentionally out of scope.)
 ZDOTDIR="${USER_ZDOTDIR:-$HOME}"
+[ -f "$ZDOTDIR/.zshenv" ] && source "$ZDOTDIR/.zshenv"
 [ -f "$ZDOTDIR/.zshrc" ] && source "$ZDOTDIR/.zshrc"
 
 # OSC emitter. 133;A=prompt-start, 133;C=command pre-exec, 133;D;<code>=done.

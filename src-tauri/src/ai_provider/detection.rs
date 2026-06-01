@@ -112,64 +112,102 @@ pub(crate) fn login_shell_path() -> String {
                 format!("echo {START}${{PATH}}{END}")
             };
 
-            let output = Command::new(&shell)
-                .args(["-lic", &cmd])
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .ok()
-                .and_then(|mut child| {
-                    // Drain stdout in a background thread to prevent pipe-buffer deadlock.
-                    // If the shell writes more than the OS pipe buffer (~64 KB), it blocks
-                    // on write while we block on try_wait() — a classic deadlock.
-                    let stdout_pipe = child.stdout.take();
-                    let reader = std::thread::spawn(move || -> Vec<u8> {
-                        let mut buf = Vec::new();
-                        if let Some(mut pipe) = stdout_pipe {
-                            use std::io::Read;
-                            let _ = pipe.read_to_end(&mut buf);
-                        }
-                        buf
-                    });
+            run_login_shell_capture(&shell, &cmd)
+                .and_then(|raw| parse_sentinel(&raw, START, END))
+                .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default())
+        })
+        .clone()
+}
 
-                    // Wait with a 5-second timeout to avoid blocking indefinitely
-                    // if the shell hangs (broken .zshrc, password prompt, etc.)
-                    let timeout = std::time::Duration::from_secs(5);
-                    let start = std::time::Instant::now();
-                    loop {
-                        match child.try_wait() {
-                            Ok(Some(status)) => {
-                                let buf = reader.join().ok()?;
-                                if status.success() {
-                                    return Some(String::from_utf8_lossy(&buf).to_string());
-                                }
-                                return None;
-                            }
-                            Ok(None) => {
-                                if start.elapsed() > timeout {
-                                    let _ = child.kill();
-                                    let _ = child.wait();
-                                    // Reader thread will see broken pipe and exit
-                                    log::warn!("[VMark] login_shell_path timed out after {}s", timeout.as_secs());
-                                    return None;
-                                }
-                                std::thread::sleep(std::time::Duration::from_millis(50));
-                            }
-                            Err(_) => return None,
-                        }
-                    }
-                });
+/// Extract the text between the first `start` sentinel and the next `end`
+/// sentinel after it, trimmed. Returns `None` if either sentinel is absent.
+fn parse_sentinel(raw: &str, start: &str, end: &str) -> Option<String> {
+    let s = raw.find(start)? + start.len();
+    let e = raw[s..].find(end)? + s;
+    Some(raw[s..e].trim().to_string())
+}
 
-            if let Some(raw) = output {
-                if let Some(start) = raw.find(START) {
-                    if let Some(end) = raw.find(END) {
-                        let path = &raw[start + START.len()..end];
-                        return path.trim().to_string();
-                    }
-                }
+/// Run `<shell> -lic <cmd>`, draining stdout on a background thread to avoid the
+/// pipe-buffer deadlock (a shell that writes > the ~64 KB pipe buffer blocks on
+/// write while we block on `try_wait`), with a 5 s timeout. Returns raw stdout on
+/// success, or `None` on spawn failure, non-zero exit, or timeout. Shared by
+/// `login_shell_path` and `query_login_shell_zdotdir`.
+fn run_login_shell_capture(shell: &str, cmd: &str) -> Option<String> {
+    let mut child = Command::new(shell)
+        .args(["-lic", cmd])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()?;
+
+    let stdout_pipe = child.stdout.take();
+    let reader = std::thread::spawn(move || -> Vec<u8> {
+        let mut buf = Vec::new();
+        if let Some(mut pipe) = stdout_pipe {
+            use std::io::Read;
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        buf
+    });
+
+    let timeout = std::time::Duration::from_secs(5);
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let buf = reader.join().ok()?;
+                return status
+                    .success()
+                    .then(|| String::from_utf8_lossy(&buf).to_string());
             }
-            std::env::var("PATH").unwrap_or_default()
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    log::warn!(
+                        "[VMark] login shell capture timed out after {}s",
+                        timeout.as_secs()
+                    );
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(_) => return None,
+        }
+    }
+}
+
+/// Resolve the user's effective `ZDOTDIR` by asking a login shell. macOS GUI
+/// apps inherit a minimal environment, so reading `$ZDOTDIR` from this process is
+/// unreliable — the user's real value is only visible inside their login shell.
+/// Returns `None` when unset/empty or the shell fails. Uncached so it is
+/// unit-testable; the session cache lives in [`login_shell_zdotdir`].
+fn query_login_shell_zdotdir(shell: &str) -> Option<String> {
+    const START: &str = "__VMARK_ZDOTDIR_START__";
+    const END: &str = "__VMARK_ZDOTDIR_END__";
+    // Sentinels live in the format string and the value is a printf arg, so this
+    // works across sh/zsh/bash/fish without `${...}` brace syntax.
+    let cmd = format!("printf '{START}%s{END}' \"$ZDOTDIR\"");
+    let raw = run_login_shell_capture(shell, &cmd)?;
+    parse_sentinel(&raw, START, END).filter(|v| !v.is_empty())
+}
+
+/// Session-cached [`query_login_shell_zdotdir`] over `$SHELL`. The user's
+/// `ZDOTDIR` does not change mid-session. Used by shell integration so the
+/// injected zsh rc can re-point `ZDOTDIR` at the user's real config
+/// (see `shell_integration.rs` / `vmark.zsh`).
+pub(crate) fn login_shell_zdotdir() -> Option<String> {
+    use std::sync::OnceLock;
+    static CACHED: OnceLock<Option<String>> = OnceLock::new();
+    CACHED
+        .get_or_init(|| {
+            // zsh integration is Unix-only; skip the shell spawn on Windows.
+            if cfg!(target_os = "windows") {
+                return None;
+            }
+            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+            query_login_shell_zdotdir(&shell)
         })
         .clone()
 }
@@ -407,5 +445,45 @@ mod tests {
     fn env_keys_none_when_all_absent() {
         let keys = read_env_api_keys_with(|_| None);
         assert!(keys.is_empty());
+    }
+
+    // --- WI-1.1: login-shell ZDOTDIR resolution (terminal gap G1) ---
+
+    #[test]
+    fn parse_sentinel_extracts_trimmed_value() {
+        assert_eq!(
+            parse_sentinel("noise<S>  /home/x/.zsh  <E>tail", "<S>", "<E>"),
+            Some("/home/x/.zsh".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_sentinel_none_when_markers_missing() {
+        assert_eq!(parse_sentinel("<S>only start, no end", "<S>", "<E>"), None);
+        assert_eq!(parse_sentinel("no markers at all", "<S>", "<E>"), None);
+    }
+
+    #[test]
+    fn parse_sentinel_empty_between_markers() {
+        // Unset ZDOTDIR prints START immediately followed by END → empty value.
+        assert_eq!(parse_sentinel("<S><E>", "<S>", "<E>"), Some(String::new()));
+    }
+
+    #[test]
+    fn zdotdir_none_for_nonexistent_shell() {
+        // Spawn failure must degrade to None, never panic.
+        assert_eq!(query_login_shell_zdotdir("/no/such/shell/vmark-xyz"), None);
+    }
+
+    #[test]
+    fn zdotdir_none_when_unset_in_login_shell() {
+        // With ZDOTDIR unset in this process's env, /bin/sh echoes an empty value
+        // between the sentinels, which resolves to None (filtered empty). This
+        // exercises the full spawn→capture→parse pipeline on the unset path.
+        // (The non-empty path is covered by parse_sentinel_* + the manual e2e in
+        // the plan's checklist, avoiding racy/edition-fragile env mutation here.)
+        if std::env::var_os("ZDOTDIR").is_none() {
+            assert_eq!(query_login_shell_zdotdir("/bin/sh"), None);
+        }
     }
 }
