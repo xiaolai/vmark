@@ -159,9 +159,12 @@
 - **Dependencies:** none. **Risks:** none. **Rollback:** delete script. **Est:** S.
 
 #### WI-1.1: Resolve the user's login-shell `ZDOTDIR` (Rust)
-- **Goal:** add cached `login_shell_zdotdir() -> Option<String>` mirroring
+- **Goal:** add `login_shell_zdotdir() -> Option<String>` mirroring
   `login_shell_path()` (sentinel echo via `$SHELL -lic`, stdout drained in a thread,
-  `OnceLock` cache, timeout, graceful failure → `None`).
+  `OnceLock` cache, timeout, graceful failure → `None`). **Per Codex review:** split a
+  pure, uncached `query_login_shell_zdotdir(shell)` (+ a sentinel-parse helper shared
+  with `login_shell_path`) from the thin `OnceLock<Option<String>>` wrapper, so tests
+  hit the helper directly and never depend on a frozen cache.
 - **Acceptance (measurable):** unit test: given a fake `$SHELL` script that prints a
   known `ZDOTDIR`, the resolver returns it; given an unset `ZDOTDIR`, returns `None`;
   given a failing/timing-out shell, returns `None` (no panic, no hang).
@@ -185,10 +188,15 @@
   (Extract the env-map build into a pure fn taking the resolved value, so it's
   testable without spawning a shell.)
 - **Touched areas:** `shell_integration.rs` (env-map builder + call to WI-1.1),
-  `lib.rs` (no new command unless surfaced). `vmark.zsh` unchanged (already reads
-  `USER_ZDOTDIR`).
-- **Dependencies:** WI-1.1. **Risks:** none beyond WI-1.1. **Rollback:** drop the
-  `USER_ZDOTDIR` insert (reverts to today). **Est:** S.
+  `lib.rs` (no new command unless surfaced). `vmark.zsh`: also source
+  `$USER_ZDOTDIR/.zshenv` (before `.zshrc`) — **per Codex review**, since pointing
+  `ZDOTDIR` at the vmark dir means zsh never reads the user's real `.zshenv`. Login
+  files (`.zprofile`/`.zlogin`) are **out of scope** (the terminal runs an
+  interactive non-login shell).
+- **Dependencies:** WI-1.1. **Risks:** sourcing `.zshenv` late (at `.zshrc` time)
+  vs zsh's natural order — acceptable for interactive use (env vars still land).
+  **Rollback:** drop the `USER_ZDOTDIR` insert + the `.zshenv` source line.
+  **Est:** S.
 
 #### WI-1.3: Docs
 - **Goal:** `website/guide/terminal.md` notes shell integration preserves custom
@@ -205,17 +213,22 @@ terminal with integration on (Manual Checklist).
 
 ### Phase 2 — G2 paste safety + G5 security tests (P1)
 
-#### WI-2.1: Route paste through `term.paste()`
-- **Goal:** Cmd+V calls `term.paste(text)` instead of `ptyRef.write(text)`.
-- **Acceptance:** unit test: with bracketed-paste mode active, a multiline paste is
-  delivered wrapped (via a `term.paste` spy / fake that records the call); raw
-  `ptyRef.write` is **not** used for paste. Double-paste guard preserved.
-- **Tests (first):** `src/components/Terminal/terminalKeyHandler.test.ts` —
-  `paste routes through term.paste, not raw pty write`.
-- **Touched areas:** `terminalKeyHandler.ts` (the `case "v"` block, ~line 137-149).
-- **Dependencies:** none. **Risks:** `term.paste` semantics differ from raw write
-  for non-bracketed shells (mitigate: `term.paste` degrades to a plain write when the
-  app hasn't enabled bracketed mode — same bytes as today). **Rollback:** restore raw
+#### WI-2.1: Route ALL paste through `term.paste()`
+- **Goal:** both paste paths call `term.paste(text)` instead of `ptyRef.write(text)`:
+  Cmd+V (`terminalKeyHandler.ts`) **and right-click paste** (`TerminalContextMenu.tsx`
+  — **per Codex review**, this path also writes raw PTY bytes today).
+- **Acceptance:** unit tests: each paste path calls `term.paste(text)` and does **not**
+  call `pty.write` directly; empty clipboard → no-op; existing Cmd+V `preventDefault`
+  double-paste guard preserved. (Bracketed-paste *wrapping* lives inside xterm, so we
+  assert the call routing, not byte identity — `term.paste` normalizes `\n`→`\r`,
+  which is terminal-correct.)
+- **Tests (first):** `terminalKeyHandler.test.ts` — `Cmd+V routes through term.paste,
+  not raw pty write`; `TerminalContextMenu.test.tsx` — `right-click paste routes
+  through term.paste`.
+- **Touched areas:** `terminalKeyHandler.ts` (`case "v"`, ~137-149),
+  `TerminalContextMenu.tsx` (paste action, ~121).
+- **Dependencies:** none. **Risks:** `term.paste` normalizes newlines (terminal-correct,
+  not "same bytes"); confirm both paths have a `term` handle. **Rollback:** restore raw
   write. **Est:** S.
 
 #### WI-2.2: `setupWebLinks.test.ts` (security)
@@ -257,18 +270,26 @@ multiline content under a bracketed-paste-aware shell (Manual Checklist).
 - **Dependencies:** none. **Risks:** perf if default-on (mitigate: default off, D3).
 - **Rollback:** remove setting + option. **Est:** M.
 
-#### WI-3.2: OSC 0/1/2 → per-session tab title
-- **Goal:** register OSC 0/1/2 handlers in `setupOsc.ts`; store program title per
-  session; `TerminalTabBar` shows it unless user-renamed (D4).
-- **Acceptance:** unit test: feeding `\e]2;mytitle\a` sets the session's program
-  title; tab renders `mytitle`; a user-renamed session ignores the program title.
-- **Tests (first):** `setupOsc.test.ts` — `OSC 2 sets program title`,
-  `OSC 0/1 set title`, `malformed/empty title ignored`; `TerminalTabBar.test.tsx` —
-  `tab shows program title unless renamed`.
-- **Touched areas:** `setupOsc.ts` (handlers + callback), session state (store),
-  `useTerminalSessions.ts` (wire callback), `TerminalTabBar.tsx` (render).
-- **Dependencies:** none. **Risks:** title precedence ambiguity (resolved by D4).
-- **Rollback:** unregister handlers; tab falls back to default name. **Est:** M.
+#### WI-3.2: Program title → per-session tab title (via `term.onTitleChange`)
+- **Goal:** **per Codex review**, use xterm's built-in `term.onTitleChange((title)=>…)`
+  (xterm already handles OSC 0/2 internally — do NOT register custom OSC handlers, which
+  would shadow the built-in via LIFO). OSC 1 is icon-name, not title → out of scope.
+  Store the program title per session; `TerminalTabBar` shows it unless the user
+  renamed the session (D4).
+- **Store shape (per Codex review):** `TerminalSession` (`uiStore.ts:129`) currently has
+  `id/label/isAlive/hasActivity`; rename overwrites `label` (`uiStore.ts:702`). Add
+  `programTitle?: string` + `isUserRenamed?: boolean` (set true in the rename action);
+  the tab shows `isUserRenamed ? label : (programTitle ?? label)`.
+- **Acceptance:** unit test: a session whose terminal fires `onTitleChange("mytitle")`
+  gets `programTitle="mytitle"` and the tab renders it; a renamed session
+  (`isUserRenamed`) keeps its `label`; empty title ignored.
+- **Tests (first):** store test — `setTerminalProgramTitle` + rename sets
+  `isUserRenamed`; `TerminalTabBar.test.tsx` — `tab shows programTitle unless renamed`.
+- **Touched areas:** `createTerminalInstance.ts` or `useTerminalSessions.ts` (wire
+  `onTitleChange`), `uiStore.ts` (state + action + rename flag), `TerminalTabBar.tsx`
+  (render precedence).
+- **Dependencies:** none. **Risks:** precedence (D4). **Rollback:** drop the
+  `onTitleChange` wire + store fields; tab falls back to `label`. **Est:** M.
 
 **Phase 3 DoD:** `check-terminal-gaps-phase.sh 3` = 0; `pnpm check:all` green; manual:
 VoiceOver announces terminal output with the setting on; `printf '\e]2;hi\a'` retitles
@@ -294,14 +315,16 @@ the tab (Manual Checklist).
 - **Touched:** `settingsStore.ts`, `createTerminalInstance.ts`,
   `terminalSessionStoreSync.ts`, `TerminalSettings.tsx`, locales, docs. **Est:** M.
 
-#### WI-4.3: Reader I/O error logging + distinct exit (Rust)
-- **Goal:** log read errors (kind/errno) before the loop breaks; signal reader-error
-  vs child-exit distinctly instead of `unwrap_or(1)`.
-- **Acceptance:** Rust test that a simulated read error path logs/returns the
-  distinct signal (use a seam: extract the exit-code derivation into a testable fn).
-- **Tests (first):** `pty.rs` `#[cfg(test)]` — `reader_error_distinguished_from_exit`.
-- **Touched:** `pty.rs:292-298`. **Dep:** none. **Risks:** exit-event contract change
-  (mitigate: additive field). **Est:** M.
+#### WI-4.3: Reader I/O error logging (Rust)
+- **Goal:** log read errors (`io::Error` kind) via `log::warn!` before the reader loop
+  breaks. **Per Codex review:** a *distinct exit signal* (vs `unwrap_or(1)`) needs a
+  cross-layer contract change (Rust `PtyExitEvent` → `lib/pty.ts:155` → `spawnPty.ts`)
+  — **deferred** to a separate WI. This WI is the logging win only.
+- **Acceptance:** Rust test confirms a read error is logged, not silently swallowed
+  (small seam/helper); exit-code behavior unchanged.
+- **Tests (first):** `pty.rs` `#[cfg(test)]` — `reader_io_error_is_logged`.
+- **Touched:** `pty.rs:292-298`. **Dep:** none. **Risks:** none (logging-only).
+  **Est:** S.
 
 #### WI-4.4: `wait()` killed children (Rust)
 - **Goal:** `Drop` and per-session kill `wait()` the child after `kill()` to reap zombies.
