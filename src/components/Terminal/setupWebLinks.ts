@@ -36,6 +36,12 @@ export function setupWebLinks(term: Terminal): void {
       terminalLog("Blocked URL with control characters");
       return;
     }
+    // Also reject percent-encoded controls (e.g. %0d%0a → CRLF injection into a
+    // mailto: handler) that the raw check above can't see (Codex audit).
+    if (/%(?:0[0-9a-f]|1[0-9a-f]|7f)/i.test(uri)) {
+      terminalLog("Blocked URL with encoded control characters");
+      return;
+    }
     let parsed: URL;
     try {
       parsed = new URL(uri);

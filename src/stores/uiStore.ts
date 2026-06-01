@@ -719,11 +719,23 @@ export const useUIStore = create<UIStore>((set, get) => ({
     }));
   },
   terminalSetProgramTitle: (id, title) => {
+    // A program controls this via OSC 0/2 — strip control chars, collapse
+    // whitespace, and cap length so a hostile/garbled title can't bloat the
+    // store or corrupt the tab UI / screen-reader output (Codex audit).
+    const clean = Array.from(title)
+      .filter((ch) => {
+        const c = ch.codePointAt(0) ?? 0;
+        return c > 0x1f && c !== 0x7f; // drop C0 control chars + DEL
+      })
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 256);
     set((s) => ({
       terminal: {
         ...s.terminal,
         sessions: s.terminal.sessions.map((session) =>
-          session.id === id ? { ...session, programTitle: title } : session,
+          session.id === id ? { ...session, programTitle: clean } : session,
         ),
       },
     }));

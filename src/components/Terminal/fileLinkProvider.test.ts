@@ -72,6 +72,20 @@ describe("createFileLinkProvider", () => {
     });
   });
 
+  it("resolves a relative path under a cwd containing URL-syntactic chars (#, audit-fix)", () => {
+    // A cwd like /tmp/a#b must not be truncated at the URL fragment when
+    // resolving ./x.ts against it (Codex audit).
+    const term = makeTerm("found ./x.ts");
+    const provider = createFileLinkProvider(term, onActivate, () => "/tmp/a#b");
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/tmp/a#b/x.ts");
+        resolve();
+      });
+    });
+  });
+
   it("does NOT link a relative path that escapes the base (path traversal, audit-fix)", () => {
     const term = makeTerm("see ../../../../etc/secrets.env");
     const provider = createFileLinkProvider(term, onActivate, () => "/workspace/pkg");

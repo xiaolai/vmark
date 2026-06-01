@@ -335,4 +335,16 @@ describe("terminal slice actions", () => {
     useUIStore.getState().terminalSetProgramTitle("does-not-exist", "vim");
     expect(useUIStore.getState().terminal.sessions[0].programTitle).toBeUndefined();
   });
+
+  it("terminalSetProgramTitle strips control chars, collapses whitespace, and caps length (audit-fix)", () => {
+    const s = useUIStore.getState().terminalCreateSession()!;
+    // A hostile program can emit control chars / huge titles via OSC 0/2.
+    const NUL = String.fromCharCode(0);
+    const ESC = String.fromCharCode(27);
+    const DEL = String.fromCharCode(127);
+    useUIStore.getState().terminalSetProgramTitle(s.id, `ok${NUL}${ESC}[31m  bad${DEL}`);
+    expect(useUIStore.getState().terminal.sessions[0].programTitle).toBe("ok[31m bad");
+    useUIStore.getState().terminalSetProgramTitle(s.id, "x".repeat(500));
+    expect(useUIStore.getState().terminal.sessions[0].programTitle).toHaveLength(256);
+  });
 });

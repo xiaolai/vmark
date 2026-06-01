@@ -193,23 +193,33 @@ fn query_login_shell_zdotdir(shell: &str) -> Option<String> {
     parse_sentinel(&raw, START, END).filter(|v| !v.is_empty())
 }
 
-/// Session-cached [`query_login_shell_zdotdir`] over `$SHELL`. The user's
-/// `ZDOTDIR` does not change mid-session. Used by shell integration so the
-/// injected zsh rc can re-point `ZDOTDIR` at the user's real config
-/// (see `shell_integration.rs` / `vmark.zsh`).
-pub(crate) fn login_shell_zdotdir() -> Option<String> {
-    use std::sync::OnceLock;
-    static CACHED: OnceLock<Option<String>> = OnceLock::new();
-    CACHED
-        .get_or_init(|| {
-            // zsh integration is Unix-only; skip the shell spawn on Windows.
-            if cfg!(target_os = "windows") {
-                return None;
-            }
-            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-            query_login_shell_zdotdir(&shell)
-        })
-        .clone()
+/// Resolve the user's `ZDOTDIR` via the GIVEN login shell, cached per shell.
+/// Callers pass the shell actually being spawned (e.g. the user-configured
+/// terminal shell) — NOT the process `$SHELL`, which in a minimal GUI env can
+/// be `/bin/sh` and would misresolve. The user's `ZDOTDIR` does not change
+/// mid-session, so the per-shell result is cached. Used by shell integration so
+/// the injected zsh rc can re-point `ZDOTDIR` at the user's real config (see
+/// `shell_integration.rs` / `vmark.zsh`).
+pub(crate) fn login_shell_zdotdir(shell: &str) -> Option<String> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(c) = cache.lock() {
+        if let Some(v) = c.get(shell) {
+            return v.clone();
+        }
+    }
+    // zsh integration is Unix-only; skip the shell spawn on Windows.
+    let result = if cfg!(target_os = "windows") {
+        None
+    } else {
+        query_login_shell_zdotdir(shell)
+    };
+    if let Ok(mut c) = cache.lock() {
+        c.insert(shell.to_string(), result.clone());
+    }
+    result
 }
 
 /// Spawn PowerShell to get the full PATH including `$PROFILE` additions.
@@ -485,5 +495,29 @@ mod tests {
         if std::env::var_os("ZDOTDIR").is_none() {
             assert_eq!(query_login_shell_zdotdir("/bin/sh"), None);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn zdotdir_round_trips_via_fake_login_shell() {
+        use std::io::Write;
+        use std::os::unix::fs::PermissionsExt;
+        // A fake "shell" that ignores its args and prints the sentinel-wrapped
+        // value — exercises the full spawn→capture→parse→non-empty path (closing
+        // the WI-1.1 coverage gap) without racy/edition-fragile env mutation.
+        let dir = tempfile::tempdir().unwrap();
+        let shell = dir.path().join("fakezsh");
+        let mut f = std::fs::File::create(&shell).unwrap();
+        write!(
+            f,
+            "#!/bin/sh\nprintf '__VMARK_ZDOTDIR_START__/home/x/.config/zsh__VMARK_ZDOTDIR_END__'\n"
+        )
+        .unwrap();
+        drop(f);
+        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(
+            query_login_shell_zdotdir(shell.to_str().unwrap()).as_deref(),
+            Some("/home/x/.config/zsh"),
+        );
     }
 }

@@ -60,7 +60,12 @@ pub async fn prepare_shell_integration<R: Runtime>(
     // `USER_ZDOTDIR` carries the user's real ZDOTDIR (resolved from a login
     // shell — the GUI process env is minimal) so `vmark.zsh` can source their
     // config instead of falling back to `$HOME` (terminal gap G1, WI-1.2).
-    Ok(Some(build_zsh_env(&dir, crate::ai_provider::login_shell_zdotdir())))
+    // Resolve via the SHELL being spawned (zsh here), not the process $SHELL,
+    // which in a minimal GUI env may be /bin/sh and misresolve (Codex audit).
+    Ok(Some(build_zsh_env(
+        &dir,
+        crate::ai_provider::login_shell_zdotdir(&shell),
+    )))
 }
 
 /// Build the env overrides for the zsh integration. `USER_ZDOTDIR` is included

@@ -165,7 +165,9 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     // the foreground to meet WCAG AA against the actual background color.
     minimumContrastRatio: 4.5,
     allowProposedApi: true,
-    scrollback: settings.scrollback,
+    // Clamp defensively: the settings UI offers bounded presets, but corrupt
+    // persisted state could carry an extreme value that bloats memory (Codex audit).
+    scrollback: Math.min(Math.max(settings.scrollback, 100), 200_000),
   });
 
   // Built-in addons

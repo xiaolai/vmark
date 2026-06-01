@@ -22,7 +22,15 @@ ZDOTDIR="${USER_ZDOTDIR:-$HOME}"
 
 # OSC emitter. 133;A=prompt-start, 133;C=command pre-exec, 133;D;<code>=done.
 __vmark_osc() { printf '\033]%s\007' "$1"; }
-__vmark_precmd()  { __vmark_osc "133;D;$?"; __vmark_osc "133;A"; __vmark_osc "7;file://${HOST}${PWD}"; }
+__vmark_precmd()  {
+  __vmark_osc "133;D;$?"  # capture exit code before anything else runs
+  __vmark_osc "133;A"
+  # Percent-encode the URL-syntactic chars so the consumer's `new URL()` parser
+  # doesn't truncate at # (fragment) / ? (query) or choke on a literal %. Encode
+  # % first to avoid double-encoding; space/UTF-8 are handled by URL itself.
+  local p=${PWD//'%'/%25}; p=${p//'#'/%23}; p=${p//'?'/%3F}
+  __vmark_osc "7;file://${HOST}${p}"
+}
 __vmark_preexec() { __vmark_osc "133;C"; }
 
 # add-zsh-hook appends, so these run after any framework (oh-my-zsh, p10k) hooks

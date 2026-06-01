@@ -404,6 +404,32 @@ describe("createTerminalInstance — scrollback (G7/WI-4.2)", () => {
     expect((inst.term as any)._constructorOptions.scrollback).toBe(10000);
     inst.dispose();
   });
+
+  it("clamps an out-of-range scrollback (corrupt persisted state, audit-fix)", () => {
+    const mk = (scrollback: number) => {
+      const inst = createTerminalInstance({
+        parentEl: document.createElement("div"),
+        settings: {
+          fontSize: 14,
+          lineHeight: 1.2,
+          cursorStyle: "block",
+          cursorBlink: true,
+          useWebGL: false,
+          macOptionIsMeta: true,
+          screenReaderMode: false,
+          scrollback,
+        },
+        ptyRef: { current: null },
+        onSearch: vi.fn(),
+      });
+      const v = (inst.term as unknown as { _constructorOptions: { scrollback: number } })
+        ._constructorOptions.scrollback;
+      inst.dispose();
+      return v;
+    };
+    expect(mk(5_000_000)).toBe(200_000); // extreme → capped
+    expect(mk(0)).toBe(100); // too small → floored
+  });
 });
 
 describe("createTerminalInstance — different settings", () => {

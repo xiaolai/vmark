@@ -58,7 +58,11 @@ function resolvePath(raw: string, getCwd?: () => string | null): string | null {
   // percent-encoded pathname that would never match the raw base (false skip).
   let resolved: string;
   try {
-    resolved = decodeURIComponent(new URL(clean, 'file://' + base + '/').pathname);
+    // Percent-encode the URL-syntactic chars in both the base cwd and the
+    // relative segment so a path like "/tmp/a#b" isn't truncated at the fragment
+    // (mirrors the OSC 7 emitter); URL handles spaces/CJK, decode reverses both.
+    const enc = (s: string) => s.replace(/%/g, '%25').replace(/#/g, '%23').replace(/\?/g, '%3F');
+    resolved = decodeURIComponent(new URL(enc(clean), 'file://' + enc(base) + '/').pathname);
   } catch {
     return null; // malformed escape sequence — don't link it
   }

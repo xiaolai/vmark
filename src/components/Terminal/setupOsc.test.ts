@@ -21,6 +21,12 @@ describe("parseOsc7Cwd", () => {
     );
   });
 
+  it("decodes the URL-syntactic chars the emitter now encodes (#, ?, %)", () => {
+    // vmark.zsh percent-encodes #/?/% so new URL() doesn't truncate at the
+    // fragment/query — the parser must round-trip them (Codex audit).
+    expect(parseOsc7Cwd("file://h/tmp/a%23b%3Fc%25d")).toBe("/tmp/a#b?c%d");
+  });
+
   it("returns null for non-file payloads", () => {
     expect(parseOsc7Cwd("https://example.com")).toBeNull();
     expect(parseOsc7Cwd("/just/a/path")).toBeNull();
