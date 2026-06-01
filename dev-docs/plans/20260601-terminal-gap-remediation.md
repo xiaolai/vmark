@@ -1,7 +1,15 @@
 # Terminal — Gap Remediation (Implementation Plan)
 
 > Created: 2026-06-01
-> Status: **Draft — not started.**
+> Status: **Phases 1–2 complete** (branch `terminal-gap-remediation`); Phases 3–4
+> pending. Codex plan review done (rule 60 §6) — corrections folded in (paste paths,
+> `onTitleChange`, ZDOTDIR test seam, `.zshenv`).
+> - **Phase 1 (G1, P0):** done. `login_shell_zdotdir` + `USER_ZDOTDIR` wiring +
+>   `vmark.zsh` sources user `.zshenv`/`.zshrc`. `cargo test` 608; DoD `1` → 12/0.
+> - **Phase 2 (G2,G5, P1):** done. Paste via `term.paste()` (both paths);
+>   `setupWebLinks.test.ts` + `setupFileLinks.test.ts`. 423 terminal tests; DoD `2` → 5/0.
+> - **Gate:** `pnpm check:all` exit 0 + `cargo test` 608 at the Phase-2 boundary.
+> - **Phase 3 (G3,G4, P2)** and **Phase 4 (G6–G10 + coverage, P3):** not started.
 > Source audit: [`dev-docs/audit/20260601-terminal-gaps.md`](../audit/20260601-terminal-gaps.md)
 > (gap IDs **G1–G10** + §3 coverage + §6 deferred referenced below).
 > Predecessor: [`20260531-terminal-industrial-best.md`](20260531-terminal-industrial-best.md)
