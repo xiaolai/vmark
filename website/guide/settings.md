@@ -4,6 +4,8 @@ VMark's settings panel lets you customize every aspect of the editor. Open it wi
 
 The settings window has a sidebar with sections grouped by topic — the most-used sections appear first, with About and Advanced at the bottom. Changes take effect immediately — there is no save button.
 
+Use the **search box** at the top of the sidebar to filter settings across every panel by name or description — matching rows are stacked together so you don't need to know which category a setting lives in. To restore everything to factory defaults, use **Reset to Defaults** in the About section.
+
 ## Appearance
 
 Controls the visual theme and window behavior.
@@ -32,6 +34,12 @@ Choose one of five color themes. The active theme is indicated by a ring around 
 |---------|-------------|---------|
 | Show filename in titlebar | Display the current file name in the macOS window title bar | Off |
 | Auto-hide status bar | Automatically hide the status bar when you are not interacting with it | Off |
+
+### Focus Mode
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Dim level | How strongly non-focused content is dimmed in Focus Mode. **Standard** keeps the default color-only dimming; **Strong** and **Stronger** add progressively lower opacity on top | Standard | Standard, Strong, Stronger |
 
 ## Editor
 
@@ -94,7 +102,7 @@ Paste behavior, layout, and HTML rendering settings.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Enable regex in search | Show a regex toggle button in the Find & Replace bar | On | On / Off |
-| Paste mode | How VMark routes content from the clipboard | Smart | Smart, Plain |
+| Paste mode | How content from the clipboard is processed when pasting. **Smart** converts HTML to Markdown and detects Markdown syntax; **Plain** always pastes plain text; **Rich** keeps the original HTML formatting | Smart | Smart, Plain, Rich |
 | Markdown paste in WYSIWYG | When pasting text that looks like Markdown into the WYSIWYG editor, automatically convert it to rich content | Auto | Auto, Off |
 
 ### Layout
@@ -162,7 +170,10 @@ These settings only apply when a workspace (folder) is open.
 | Auto-resize on paste | Automatically resize large images before saving to the assets folder. The value is the maximum dimension in pixels | Off | Off, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copy to assets folder | Copy pasted or dropped images into the document's assets folder instead of embedding them | On | On / Off |
 | Clean up unused images on close | Automatically delete images from the assets folder that are no longer referenced in the document when you close it | Off | On / Off |
-| Inline image threshold | Maximum size (MB) for embedding images as base64 data URLs in HTML/PDF export. Larger files are linked instead | 1.0 MB | 0.1 – 10 MB |
+
+::: tip
+Enable **Auto-resize on paste** if you frequently paste screenshots or photos — it keeps your assets folder lightweight without manual resizing.
+:::
 
 ### Large Files
 
@@ -172,18 +183,6 @@ These settings only apply when a workspace (folder) is open.
 | Auto Source mode | Automatically open files above the threshold in Source mode (skips WYSIWYG to keep performance smooth) | On | On / Off |
 
 See [Large Files](/guide/large-files) for the full breakdown of how large files are handled.
-
-### Updates
-
-| Setting | Description | Default | Options |
-|---------|-------------|---------|---------|
-| Check frequency | When to check for new VMark releases | On startup | On startup, Daily, Weekly, Manual |
-| Auto-download updates | Download release artifacts in the background once an update is detected | Off | On / Off |
-| Skip a version | Suppresses the update prompt for a specific version (set per-update from the prompt itself) | None | — |
-
-::: tip
-Enable **Auto-resize on paste** if you frequently paste screenshots or photos — it keeps your assets folder lightweight without manual resizing.
-:::
 
 ### Document Tools
 
@@ -258,6 +257,8 @@ On the first launch after upgrading to multi-format support, VMark surfaces a no
 
 Beyond the category toggles, you can override how an individual file family opens via the command palette — **Set File Type: Plain Text / Markdown / Reset to Default**. Overrides are stored per file family (by extension, or by dotfile stem for files like `.env`) and persist across sessions. See [How VMark decides a file's type](/guide/formats#how-vmark-decides-a-file-s-type).
 
+The **Formats** panel lists every override you've set, each as `key → format`. Remove a single entry with its `×` button, or use **Clear all** to drop them in one go — removed entries fall back to the built-in rule.
+
 ## Language
 
 CJK (Chinese, Japanese, Korean) formatting rules. These rules are applied when you run **Format → Format CJK Selection** (`Cmd+Shift+F`) on a selection, or **Format → Format CJK Document** (`Alt+Cmd+Shift+F`) on the whole file.
@@ -293,10 +294,18 @@ The Language section contains 20+ fine-grained formatting toggles. For a full ex
 | Fix em-dash spacing | Ensure proper spacing around em-dashes | On |
 | Convert straight quotes | Convert straight `"` and `'` to smart (curly) quotes | On |
 | Quote style | Target style for smart quote conversion | Curly `""` `''` |
+| Contextual quotes | Use curly quotes around CJK text but keep straight quotes in pure Latin text. Only available when Convert straight quotes is on | On |
+| Quote toggle behavior | How the quote-style toggle command cycles between styles — **Simple** swaps straight ↔ your preferred style; **Full cycle** rotates through all styles | Simple |
 | Fix double quote spacing | Normalize spacing around double quotes | On |
 | Fix single quote spacing | Normalize spacing around single quotes | On |
 | CJK corner quotes | Convert curly quotes to corner brackets `「」` for Traditional Chinese and Japanese text. Only available when quote style is Curly | Off |
 | Nested corner quotes | Convert nested single quotes to `『』` inside `「」` | Off |
+
+### Section Handling
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Skip reference sections | Leave `## References` and `## Further Reading` sections unformatted when running CJK formatting — useful for academic documents where citation text should stay verbatim | Off | On / Off |
 
 ### Cleanup
 
@@ -336,6 +345,15 @@ Configure the integrated terminal panel. Open the terminal with `` Ctrl + ` ``.
 | Scrollback | Number of lines of output each session keeps in its scroll history. Higher values use more memory | 5,000 | 1,000 / 5,000 / 10,000 / 50,000 |
 | Screen Reader Mode | Expose terminal output to assistive technology (VoiceOver). Off by default for performance | Off | On / Off |
 
+Two macOS/Unix-only toggles also appear here: **Option as Meta Key** (macOS only — treat the Option key as Meta for `Alt`-prefixed shortcuts) and **Shell Integration** (hidden on Windows — inject OSC marks for prompt navigation, exit-status decorations, and cwd tracking in zsh).
+
+#### Accessibility
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Terminal bell | How a terminal bell (BEL) is signalled. **Visual** marks background activity on the session tab; **Audible** plays a soft beep; **Off** ignores it. Applies live to running sessions | Visual | Off, Visual, Audible |
+| Minimum contrast | Lift faint terminal text to a minimum contrast ratio against its background. Raise it for readability; **Off** disables the lift. Applies live to running sessions | WCAG AA (4.5:1) | Off, WCAG AA (4.5:1), WCAG AAA (7:1), Maximum |
+
 See [Integrated Terminal](/guide/terminal) for more about sessions, keyboard shortcuts, and shell environment.
 
 ## About
@@ -344,12 +362,20 @@ Displays app version, links to the website and GitHub repository, and update man
 
 ### Updates
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| Automatic updates | Check for updates automatically on startup | On |
-| Check Now | Manually trigger an update check | — |
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Automatic updates | Periodically check for new versions | On | On / Off |
+| Check frequency | How often to check for updates. Only available when automatic updates are on | On startup | On startup, Daily, Weekly, Manual only |
+| Download updates automatically | Download new versions in the background when available | Off | On / Off |
+| Check Now | Manually trigger an update check | — | — |
 
 When an update is available, a card appears showing the new version number, release date, and release notes. You can **Download** the update, **Skip** this version, or — once downloaded — **Restart to Update**.
+
+### Reset
+
+| Setting | Description |
+|---------|-------------|
+| Reset to Defaults | Restore every setting to its default value. A confirmation prompt appears first — this cannot be undone |
 
 ## Advanced
 

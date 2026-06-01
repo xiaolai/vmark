@@ -203,7 +203,7 @@ When **CJK Corner Quotes** is enabled, curly quotes around CJK content are conve
 
 ### Reference-Section Skip
 
-The CJK formatter detects "References" / "参考文献" / "参考资料" / "Bibliography" headings and skips reformatting in those sections — citation-formatted text often relies on specific punctuation that the CJK rules would otherwise normalize.
+When **Skip reference sections** is enabled in Settings → Language → Section Handling (off by default), the CJK formatter detects "References" / "Further Reading" / "参考文献" / "参考资料" / "Bibliography" headings and skips reformatting in those sections — citation-formatted text often relies on specific punctuation that the CJK rules would otherwise normalize. Turn it on for academic documents; leave it off to format the whole file.
 
 ### Integrity Verification
 
