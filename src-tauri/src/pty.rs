@@ -111,6 +111,12 @@ impl Drop for PtyState {
         for (pid, session) in sessions {
             session.shutdown.store(true, Ordering::Release);
             session.pause_ctl.resume();
+            // We only hold the `ChildKiller` here; the `Child` itself was moved
+            // into the reader thread in `pty_start` (and `ChildKiller` does not
+            // expose `wait()`). Reaping is therefore intentionally NOT done here:
+            // the kill makes the reader's `read()` return, its loop breaks, and
+            // the reader thread's `child.wait()` reaps the child — no zombie, no
+            // redundant wait at this site (WI-4.4 / G9).
             if let Ok(mut killer) = session.child_killer.lock() {
                 if let Err(e) = killer.kill() {
                     log::warn!("[pty] Failed to kill PTY {pid} during cleanup: {e}");
@@ -292,7 +298,16 @@ pub async fn pty_start<R: Runtime>(
                         // EINTR is transient (signal during read) — retry rather
                         // than treat it as EOF and prematurely end the session.
                         Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                        Err(_) => break,
+                        // Any other read error ends the session. Log it before
+                        // breaking so a terminal that dies on a read error leaves
+                        // a diagnostic (WI-4.3 / G8) instead of vanishing silently.
+                        Err(e) => {
+                            log::warn!(
+                                "[pty] reader {pid_for_log} read error ({:?}): {e}",
+                                e.kind(),
+                            );
+                            break;
+                        }
                     }
                 }
                 let exit_code = child.wait().map(|s| s.exit_code()).unwrap_or(1);

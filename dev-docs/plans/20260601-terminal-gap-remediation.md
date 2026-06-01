@@ -342,11 +342,16 @@ the tab (Manual Checklist).
   Checklist `ps` step.
 - **Touched:** `pty.rs:106-120` + kill path. **Dep:** none. **Est:** S.
 
-#### WI-4.5: Settings coverage — bell mode / contrast / (paste warn if Q1=yes)
-- **Goal:** expose bell mode (audible/visual/off) + `minimumContrastRatio` choice.
-- **Acceptance:** settings + live-sync + i18n + docs; tests for store defaults +
-  sync.
-- **Tests (first):** store + sync tests. **Touched:** as WI-4.2 set. **Est:** M.
+#### WI-4.5: Settings coverage — bell mode / contrast — **DESCOPED**
+- **Decision (2026-06-01):** descoped after review. **Bell:** xterm 5 has no audible
+  bell and `bellStyle` was removed; VMark already surfaces the bell as a per-session
+  activity indicator (`onBell` → `terminalMarkActivity`), which is the right UX for an
+  embedded panel — an audible/visual-flash toggle adds little. **Contrast:**
+  `minimumContrastRatio: 4.5` (WCAG-AA) is a sensible fixed default; making it
+  user-tunable is marginal and was not requested. **Paste-warn:** Q1 default is "no
+  dialog" (bracketed paste from WI-2.1 is the safety mechanism). Net: the valuable
+  G10 item (scrollback) shipped as WI-4.2; the rest is intentionally not built.
+  Revisit only on explicit user request.
 
 #### WI-4.6: Coverage backfill (§3)
 - **Goal:** tests for `:line:col` edges (`:0:0`, non-numeric, trailing colon),

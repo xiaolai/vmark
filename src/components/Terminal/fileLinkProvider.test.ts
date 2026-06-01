@@ -329,4 +329,85 @@ describe("createFileLinkProvider", () => {
       });
     });
   });
+
+  // --- WI-4.6 coverage backfill: :line:col edge cases ---
+
+  it("passes line=0 and col=0 through for a :0:0 suffix", () => {
+    // Zero is a valid \d+ capture; parseInt yields 0 (falsy, but defined).
+    const term = makeTerm(" /Users/foo/bar.ts:0:0");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/Users/foo/bar.ts");
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", 0, 0);
+        resolve();
+      });
+    });
+  });
+
+  it("ignores a non-numeric suffix (path:abc), linking the bare path", () => {
+    // `:abc` does not match `:(\d+)` so the suffix is not part of the path text,
+    // and no line/col is parsed.
+    const term = makeTerm(" /Users/foo/bar.ts:abc");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/Users/foo/bar.ts");
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", undefined, undefined);
+        resolve();
+      });
+    });
+  });
+
+  it("parses line but not col for a trailing-colon suffix (path:10:)", () => {
+    // The trailing `:` has no digits after it, so col stays undefined.
+    const term = makeTerm(" /Users/foo/bar.ts:10:");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/Users/foo/bar.ts");
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", 10, undefined);
+        resolve();
+      });
+    });
+  });
+
+  it("parses a very large line number (:999999)", () => {
+    const term = makeTerm(" /Users/foo/bar.ts:999999");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/Users/foo/bar.ts");
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", 999999, undefined);
+        resolve();
+      });
+    });
+  });
+
+  it("links a bare absolute path with no suffix and undefined line/col", () => {
+    const term = makeTerm(" /Users/foo/bar.ts");
+    const provider = createFileLinkProvider(term, onActivate);
+
+    return new Promise<void>((resolve) => {
+      provider.provideLinks(1, (links) => {
+        expect(links).toHaveLength(1);
+        expect(links![0].text).toBe("/Users/foo/bar.ts");
+        links![0].activate(null as unknown as MouseEvent, links![0].text);
+        expect(onActivate).toHaveBeenCalledWith("/Users/foo/bar.ts", undefined, undefined);
+        resolve();
+      });
+    });
+  });
 });

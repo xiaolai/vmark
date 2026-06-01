@@ -169,6 +169,57 @@ describe("setupOsc133", () => {
     expect(term.registerDecoration).toHaveBeenCalledTimes(1);
     expect(h.getCommands()[0].decoration).toBeDefined();
   });
+
+  // --- WI-4.6 coverage backfill: out-of-order / malformed OSC 133 ---
+
+  it("ignores a 133;D arriving before any 133;A without crashing", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    // D before any prompt opened — `current` is null, must be a safe no-op.
+    expect(() => fire("D;0")).not.toThrow();
+    expect(h.getCommands()).toHaveLength(0);
+    expect(h.isRunning()).toBe(false);
+    expect(term.registerDecoration).not.toHaveBeenCalled();
+  });
+
+  it("does not create a second decoration on a double 133;D for one command", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    fire("A");
+    fire("C");
+    fire("D;0"); // first done — decorates once
+    expect(term.registerDecoration).toHaveBeenCalledTimes(1);
+    expect(h.getCommands()[0].exitCode).toBe(0);
+    // A duplicate D for the same (still-current) command must not redecorate.
+    expect(() => fire("D;0")).not.toThrow();
+    expect(term.registerDecoration).toHaveBeenCalledTimes(1);
+    expect(h.getCommands()).toHaveLength(1);
+    expect(h.isRunning()).toBe(false);
+  });
+
+  it("rejects a non-numeric exit code (133;D;abc), leaving exitCode undefined", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    fire("A");
+    fire("C");
+    // `abc` parses to NaN and must NOT be stored as the exit code.
+    expect(() => fire("D;abc")).not.toThrow();
+    expect(h.getCommands()[0].exitCode).toBeUndefined();
+    expect(Number.isNaN(h.getCommands()[0].exitCode as number)).toBe(false);
+    // No code → no decoration created.
+    expect(term.registerDecoration).not.toHaveBeenCalled();
+    expect(h.isRunning()).toBe(false);
+  });
+
+  it("handles 133;C without a prior 133;A — marks running, no command", () => {
+    const { term, fire } = makeTerm();
+    const h = setupOsc133(term);
+    // C before any prompt — sets running but opens no command mark.
+    expect(() => fire("C")).not.toThrow();
+    expect(h.isRunning()).toBe(true);
+    expect(h.getCommands()).toHaveLength(0);
+    expect(term.registerMarker).not.toHaveBeenCalled();
+  });
 });
 
 describe("scrollToAdjacentCommand (WI-3.3)", () => {

@@ -60,8 +60,25 @@ case "$PHASE" in
     [[ -f src/components/Terminal/setupFileLinks.test.ts ]] && ok "WI-2.3 setupFileLinks.test.ts present" || fail "WI-2.3 setupFileLinks.test.ts missing"
     assert_grep "javascript:" "src/components/Terminal/setupWebLinks.test.ts" "WI-2.2 asserts dangerous-scheme rejection"
     ;;
-  3|4)
-    echo "  (phase $PHASE assertions added when that phase lands)"
+  3)
+    # G3 screenReaderMode + G4 program-title tab.
+    assert_grep "screenReaderMode" "src/stores/settingsStore.ts" "WI-3.1 screenReaderMode default"
+    assert_grep "screenReaderMode" "src/components/Terminal/createTerminalInstance.ts" "WI-3.1 applied to xterm"
+    assert_grep "screenReaderMode" "src/components/Terminal/terminalSessionStoreSync.ts" "WI-3.1 live-synced"
+    assert_grep "screenReaderMode" "src/pages/settings/TerminalSettings.tsx" "WI-3.1 settings UI"
+    assert_grep "terminal.screenReaderMode.label" "src/locales/en/settings.json" "WI-3.1 i18n key"
+    assert_grep "terminalSetProgramTitle" "src/stores/uiStore.ts" "WI-3.2 program-title action"
+    assert_grep "isUserRenamed" "src/stores/uiStore.ts" "WI-3.2 rename-source flag"
+    assert_grep "onTitleChange" "src/components/Terminal/useTerminalSessions.ts" "WI-3.2 onTitleChange wired"
+    assert_grep "programTitle" "src/components/Terminal/TerminalTabBar.tsx" "WI-3.2 tab renders program title"
+    ;;
+  4)
+    # G6 fontFamily sync, G7 scrollback, G8 reader logging, G9 reaping doc, WI-4.6 coverage.
+    assert_grep "resolveMonoFont()" "src/components/Terminal/terminalSessionStoreSync.ts" "WI-4.1 fontFamily live-sync"
+    assert_grep "scrollback" "src/stores/settingsStore.ts" "WI-4.2 scrollback default"
+    assert_grep "settings.scrollback" "src/components/Terminal/createTerminalInstance.ts" "WI-4.2 scrollback not hardcoded"
+    assert_grep "reader" "src-tauri/src/pty.rs" "WI-4.3 reader present"
+    assert_grep "write_rc_atomic" "src-tauri/src/shell_integration.rs" "WI-4.6 atomic-write helper + test"
     ;;
   *)
     echo "Unknown phase: $PHASE"; exit 64 ;;

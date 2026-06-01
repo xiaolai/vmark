@@ -15,6 +15,7 @@
 //! @module shell_integration
 
 use std::collections::BTreeMap;
+use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager, Runtime};
@@ -52,19 +53,7 @@ pub async fn prepare_shell_integration<R: Runtime>(
         .map_err(|e| format!("Failed to resolve app data dir: {e}"))?;
     let dir = base.join("shell-integration").join("zsh");
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create integration dir: {e}"))?;
-    // Atomic write: a concurrent spawn could otherwise source a half-written
-    // .zshrc. Write a per-call unique temp file then rename (atomic on the same
-    // filesystem). A unique name keeps two concurrent calls from clobbering each
-    // other's temp file before the rename.
-    let rc = dir.join(".zshrc");
-    let tmp = dir.join(format!(
-        ".zshrc.tmp.{}.{}",
-        std::process::id(),
-        TMP_SEQ.fetch_add(1, Ordering::Relaxed),
-    ));
-    std::fs::write(&tmp, ZSH_INTEGRATION)
-        .map_err(|e| format!("Failed to write integration rc: {e}"))?;
-    std::fs::rename(&tmp, &rc)
+    write_rc_atomic(&dir, ZSH_INTEGRATION)
         .map_err(|e| format!("Failed to install integration rc: {e}"))?;
 
     // `ZDOTDIR` points at the VMark integration dir so zsh reads our rc;
@@ -87,6 +76,26 @@ fn build_zsh_env(integration_dir: &Path, user_zdotdir: Option<String>) -> BTreeM
         env.insert("USER_ZDOTDIR".to_string(), z);
     }
     env
+}
+
+/// Atomically write `contents` to `<dir>/.zshrc`.
+///
+/// A concurrent spawn could otherwise source a half-written `.zshrc`. We write
+/// a per-call unique temp file then rename it into place (rename is atomic on
+/// the same filesystem). The per-call unique name (PID + monotonic counter)
+/// keeps two concurrent calls from clobbering each other's temp file before the
+/// rename — the final `.zshrc` is always one writer's complete contents, never
+/// a torn mix (WI-4.6).
+fn write_rc_atomic(dir: &Path, contents: &str) -> io::Result<()> {
+    let rc = dir.join(".zshrc");
+    let tmp = dir.join(format!(
+        ".zshrc.tmp.{}.{}",
+        std::process::id(),
+        TMP_SEQ.fetch_add(1, Ordering::Relaxed),
+    ));
+    std::fs::write(&tmp, contents)?;
+    std::fs::rename(&tmp, &rc)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -135,5 +144,74 @@ mod tests {
         // Empty string is treated as unset.
         let empty = build_zsh_env(Path::new("/vmark/zsh"), Some(String::new()));
         assert!(!empty.contains_key("USER_ZDOTDIR"));
+    }
+
+    #[test]
+    fn write_rc_atomic_writes_complete_contents() {
+        let dir = tempfile::tempdir().unwrap();
+        write_rc_atomic(dir.path(), ZSH_INTEGRATION).unwrap();
+        let written = std::fs::read_to_string(dir.path().join(".zshrc")).unwrap();
+        assert_eq!(written, ZSH_INTEGRATION);
+    }
+
+    #[test]
+    fn write_rc_atomic_overwrites_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        write_rc_atomic(dir.path(), "first").unwrap();
+        write_rc_atomic(dir.path(), "second").unwrap();
+        let written = std::fs::read_to_string(dir.path().join(".zshrc")).unwrap();
+        assert_eq!(written, "second");
+    }
+
+    #[test]
+    fn write_rc_atomic_concurrent_writes_yield_intact_file() {
+        // N threads write the same large payload concurrently to the same dir.
+        // Every call must succeed, no temp files may be left behind, and the
+        // final .zshrc must be one writer's *complete* payload — never a torn
+        // mix of two writers (WI-4.6 atomic-write race).
+        use std::sync::Arc;
+        use std::thread;
+
+        let dir = Arc::new(tempfile::tempdir().unwrap());
+        // Distinct, byte-length-varied payloads so a torn write is detectable:
+        // a corrupt file would not equal any single payload.
+        let payloads: Vec<String> = (0..16)
+            .map(|i| format!("# writer {i}\n{}", ZSH_INTEGRATION.repeat(i + 1)))
+            .collect();
+
+        let mut handles = Vec::new();
+        for payload in &payloads {
+            let dir = Arc::clone(&dir);
+            let payload = payload.clone();
+            handles.push(thread::spawn(move || {
+                write_rc_atomic(dir.path(), &payload)
+            }));
+        }
+        for h in handles {
+            // Every concurrent call succeeds (no clobbered temp, no rename error).
+            h.join().unwrap().expect("concurrent write_rc_atomic failed");
+        }
+
+        // The final file is exactly one writer's complete payload.
+        let written = std::fs::read_to_string(dir.path().join(".zshrc")).unwrap();
+        assert!(
+            payloads.iter().any(|p| *p == written),
+            "final .zshrc is corrupt/torn — not equal to any single writer's payload",
+        );
+
+        // No leftover temp files: each rename consumed its own unique temp.
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with(".zshrc.tmp.")
+            })
+            .collect();
+        assert!(
+            leftovers.is_empty(),
+            "stray temp files left behind: {leftovers:?}",
+        );
     }
 }
