@@ -253,12 +253,9 @@ pub async fn pty_start<R: Runtime>(
     // the whole process. We must keep the explicit thread name (`pty-reader-{pid}`)
     // for log filtering, so we use Builder directly rather than spawn_thread_logged.
     //
-    // Capture identifiers needed inside the panic-recovery branch BEFORE the
-    // closure consumes `child`/`app`/`exit_event` — on a panic we still need
-    // to emit a synthetic `pty:exit:{pid}` so the frontend doesn't sit
-    // forever waiting for an exit event that the panicked thread never sent.
-    let app_for_panic = app.clone();
-    let exit_event_for_panic = exit_event.clone();
+    // `child.wait()` and the exit emit live OUTSIDE the catch_unwind below so
+    // they run on BOTH the normal and the (defensive) panic path — the child is
+    // always reaped, never a zombie, and the frontend always gets its exit.
     let session_for_panic = session.clone();
     std::thread::Builder::new()
         .name(format!("pty-reader-{pid}"))
@@ -310,27 +307,24 @@ pub async fn pty_start<R: Runtime>(
                         }
                     }
                 }
-                let exit_code = child.wait().map(|s| s.exit_code()).unwrap_or(1);
-                let _ = app.emit(&exit_event, PtyExitEvent { exit_code });
             }));
+            // On panic the read loop bailed early and the shell may still be
+            // running — kill it so the wait() below returns instead of blocking.
+            // (The loop has no panic-able operation; this is defense in depth.)
             if let Err(payload) = result {
                 log::error!(
                     "[task:pty-reader-{}] reader thread panicked: {}",
                     pid_for_log,
                     crate::task::panic_payload_message(&payload),
                 );
-                // Best-effort: kill the child (the panicked reader can't
-                // wait() on it) and emit a synthetic exit so the frontend
-                // transitions out of "running" instead of hanging on the
-                // missing exit event.
                 if let Ok(mut killer) = session_for_panic.child_killer.lock() {
                     let _ = killer.kill();
                 }
-                let _ = app_for_panic.emit(
-                    &exit_event_for_panic,
-                    PtyExitEvent { exit_code: 1 },
-                );
             }
+            // Reap the child and emit exit on BOTH the normal and panic paths —
+            // guarantees no zombie even if the reader panicked (audit follow-up).
+            let exit_code = child.wait().map(|s| s.exit_code()).unwrap_or(1);
+            let _ = app.emit(&exit_event, PtyExitEvent { exit_code });
         })
         .map_err(|e| format!("Failed to spawn reader thread: {e}"))?;
 

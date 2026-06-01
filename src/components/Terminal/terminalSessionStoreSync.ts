@@ -145,7 +145,9 @@ export function useUIStoreSync(
           opts.screenReaderMode = curr.screenReaderMode;
         }
         if (scrollbackChanged) {
-          opts.scrollback = curr.scrollback;
+          // Clamp like creation does — corrupt persisted state could carry an
+          // extreme value (Codex audit).
+          opts.scrollback = Math.min(Math.max(curr.scrollback, 100), 200_000);
         }
         if (fontChanged) {
           try { entry.instance.fitAddon.fit(); } catch { /* ignore */ }
