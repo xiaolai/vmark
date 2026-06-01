@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { useSettingsStore, type TerminalPosition, type TerminalCursorStyle } from "@/stores/settingsStore";
+import { useSettingsStore, type TerminalPosition, type TerminalCursorStyle, type TerminalBellMode } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
 import { terminalSettingsWarn } from "@/utils/debug";
 import { isMacPlatform, isWindowsPlatform } from "@/utils/platform";
@@ -253,6 +253,33 @@ export function TerminalSettings() {
           <Toggle
             checked={terminal.screenReaderMode}
             onChange={(v) => updateTerminalSetting("screenReaderMode", v)}
+          />
+        </SettingRow>
+      </SettingsGroup>
+
+      <SettingsGroup title={t("terminal.group.accessibility")}>
+        <SettingRow label={t("terminal.bellMode.label")} description={t("terminal.bellMode.description")}>
+          <Select<TerminalBellMode>
+            value={terminal.bellMode ?? "visual"}
+            options={[
+              { value: "off", label: t("terminal.bellMode.off") },
+              { value: "visual", label: t("terminal.bellMode.visual") },
+              { value: "audible", label: t("terminal.bellMode.audible") },
+            ]}
+            onChange={(v) => updateTerminalSetting("bellMode", v)}
+          />
+        </SettingRow>
+
+        <SettingRow label={t("terminal.contrast.label")} description={t("terminal.contrast.description")}>
+          <Select
+            value={String(terminal.minimumContrastRatio ?? 4.5)}
+            options={[
+              { value: "1", label: t("terminal.contrast.off") },
+              { value: "4.5", label: t("terminal.contrast.aa") },
+              { value: "7", label: t("terminal.contrast.aaa") },
+              { value: "21", label: t("terminal.contrast.max") },
+            ]}
+            onChange={(v) => updateTerminalSetting("minimumContrastRatio", Number(v))}
           />
         </SettingRow>
       </SettingsGroup>

@@ -51,6 +51,11 @@ export type AutoPairCJKStyle = "off" | "auto";
 // Appearance
 // ---------------------------------------------------------------------------
 
+/** How strongly Focus Mode dims non-focused content (on top of the color
+ *  shift): "standard" keeps the color-only look, "strong"/"stronger" add
+ *  progressively lower opacity. */
+export type FocusModeDim = "standard" | "strong" | "stronger";
+
 /** Visual appearance preferences — theme, fonts, spacing, and editor width. */
 export interface AppearanceSettings {
   theme: ThemeId;
@@ -64,6 +69,7 @@ export interface AppearanceSettings {
   editorWidth: number; // Max content width in em (0 = unlimited)
   showFilenameInTitlebar: boolean; // Show filename in window titlebar
   autoHideStatusBar: boolean; // Auto-hide status bar when not interacting
+  focusModeDim: FocusModeDim; // How strongly Focus Mode dims non-focused content
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +208,9 @@ export interface McpServerSettings {
 export type TerminalPosition = "auto" | "bottom" | "right";
 /** Terminal cursor shape. */
 export type TerminalCursorStyle = "block" | "underline" | "bar";
+/** How a terminal bell (BEL) is signalled: off, a visual background-activity
+ *  indicator, or an audible beep. */
+export type TerminalBellMode = "off" | "visual" | "audible";
 
 /** Terminal emulator preferences — shell, font, cursor, renderer, and panel layout. */
 export interface TerminalSettings {
@@ -215,6 +224,8 @@ export interface TerminalSettings {
   macOptionIsMeta: boolean; // Default: true — treat macOS Option as Meta for Alt+Arrow word navigation; disable for dead-key accent composition (Option+E/N/U)
   shellIntegration: boolean; // Default: true — inject OSC 133 command marks + OSC 7 cwd (zsh) for prompt nav, exit-status decorations, cwd tracking
   screenReaderMode: boolean; // Default: false — expose terminal output to assistive tech (VoiceOver); off by default for performance (G3/WI-3.1)
+  bellMode: TerminalBellMode; // Default: "visual" — how the terminal bell is signalled (off/visual indicator/audible beep)
+  minimumContrastRatio: number; // Default: 4.5 (WCAG AA) — xterm foreground-lift floor (1 = off … 21 = max)
   scrollback: number; // Default: 5000 — number of scrollback lines retained per session (G7/WI-4.2)
   position: TerminalPosition; // Default: "auto" — auto-reposition based on window aspect ratio
   panelRatio: number;  // Default: 0.4 — fraction of available space (0.1–0.8), persisted on drag end

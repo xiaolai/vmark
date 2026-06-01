@@ -1,6 +1,7 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { TerminalSettings } from "./TerminalSettings";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 // list_available_shells / get_default_shell are invoked on mount.
 vi.mock("@tauri-apps/api/core", () => ({
@@ -38,5 +39,40 @@ describe("TerminalSettings platform gating (D1)", () => {
     render(<TerminalSettings />);
     expect(screen.queryByText("Option as Meta Key")).not.toBeInTheDocument();
     expect(screen.queryByText("Shell Integration")).not.toBeInTheDocument();
+  });
+});
+
+describe("TerminalSettings accessibility controls (WI-11)", () => {
+  afterEach(() => setPlatform(original));
+
+  beforeEach(() => {
+    // Ensure a known terminal baseline for the accessibility-control assertions.
+    useSettingsStore.setState({
+      terminal: {
+        ...useSettingsStore.getState().terminal,
+        bellMode: "visual",
+        minimumContrastRatio: 4.5,
+      },
+    });
+  });
+
+  it("renders bell mode and minimum contrast controls", () => {
+    render(<TerminalSettings />);
+    expect(screen.getByText("Terminal bell")).toBeInTheDocument();
+    expect(screen.getByText("Minimum contrast")).toBeInTheDocument();
+  });
+
+  it("changing bell mode updates the store", () => {
+    render(<TerminalSettings />);
+    const select = screen.getByDisplayValue("Visual (background activity)");
+    fireEvent.change(select, { target: { value: "audible" } });
+    expect(useSettingsStore.getState().terminal.bellMode).toBe("audible");
+  });
+
+  it("changing minimum contrast updates the store", () => {
+    render(<TerminalSettings />);
+    const select = screen.getByDisplayValue("WCAG AA (4.5:1)");
+    fireEvent.change(select, { target: { value: "7" } });
+    expect(useSettingsStore.getState().terminal.minimumContrastRatio).toBe(7);
   });
 });

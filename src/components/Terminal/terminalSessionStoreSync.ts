@@ -13,8 +13,9 @@
  *     current cwd differs from the new root — the live OSC 7 cwd when known,
  *     else the spawn-time cwd (WI-2.2); PTY-less or exited sessions are skipped.
  *   - Terminal-setting changes update fontSize/lineHeight/cursorStyle/
- *     cursorBlink/macOptionIsMeta/screenReaderMode/scrollback on each xterm;
- *     a font change also re-fits the addon to repaint at the new metrics.
+ *     cursorBlink/macOptionIsMeta/screenReaderMode/scrollback/
+ *     minimumContrastRatio on each xterm; a font change also re-fits the
+ *     addon to repaint at the new metrics.
  *
  * @coordinates-with useTerminalSessions.ts — sole caller
  * @module components/Terminal/terminalSessionStoreSync
@@ -123,7 +124,8 @@ export function useUIStoreSync(
       const metaChanged = curr.macOptionIsMeta !== prev.macOptionIsMeta;
       const screenReaderChanged = curr.screenReaderMode !== prev.screenReaderMode;
       const scrollbackChanged = curr.scrollback !== prev.scrollback;
-      if (!fontChanged && !cursorChanged && !metaChanged && !screenReaderChanged && !scrollbackChanged) return;
+      const contrastChanged = curr.minimumContrastRatio !== prev.minimumContrastRatio;
+      if (!fontChanged && !cursorChanged && !metaChanged && !screenReaderChanged && !scrollbackChanged && !contrastChanged) return;
       prev = curr;
 
       const sessions = sessionsRef.current;
@@ -148,6 +150,10 @@ export function useUIStoreSync(
           // Clamp like creation does — corrupt persisted state could carry an
           // extreme value (Codex audit).
           opts.scrollback = Math.min(Math.max(curr.scrollback, 100), 200_000);
+        }
+        if (contrastChanged) {
+          // xterm accepts 1–21; clamp like creation does.
+          opts.minimumContrastRatio = Math.min(Math.max(curr.minimumContrastRatio, 1), 21);
         }
         if (fontChanged) {
           try { entry.instance.fitAddon.fit(); } catch { /* ignore */ }

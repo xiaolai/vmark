@@ -9,9 +9,13 @@
   transition: color var(--duration-medium) ease, opacity var(--duration-medium) ease, border-color var(--duration-medium) ease;
 }
 
-/* Dim all top-level blocks that don't have focus */
+/* Dim all top-level blocks that don't have focus. The color shift is the
+ * baseline; --focus-dim-opacity (settings: Focus Mode dim level) adds optional
+ * opacity on top — 1 by default, so behavior is unchanged unless the user
+ * picks a stronger level. */
 .focus-mode .tiptap-editor .ProseMirror > *:not(.md-focus) {
   color: var(--blur-text-color);
+  opacity: var(--focus-dim-opacity, 1);
 }
 
 /* Dim images in non-focused blocks */
@@ -84,6 +88,7 @@
 /* Dim all blurred lines */
 .focus-mode .source-editor .cm-line.cm-blur {
   color: var(--blur-text-color);
+  opacity: var(--focus-dim-opacity, 1);
 }
 
 /* Dim syntax highlighting in blurred lines */

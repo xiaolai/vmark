@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { useSettingsStore, themes, type ThemeColors } from "@/stores/settingsStore";
+import { useSettingsStore, themes, type ThemeColors, type FocusModeDim } from "@/stores/settingsStore";
 import { updateMermaidFontSize } from "@/plugins/mermaid";
 import { refreshPreviews } from "@/plugins/codePreview/tiptap";
 import { applyTheme, themes as themeTokensCatalog } from "@/theme";
@@ -357,6 +357,14 @@ function applyTypography(
   }));
 }
 
+/** Focus Mode dim level → opacity for non-focused content. "standard" keeps
+ *  the historical color-only dimming (opacity 1). Exported for testing. */
+export const FOCUS_DIM_OPACITY: Record<FocusModeDim, string> = {
+  standard: "1",
+  strong: "0.65",
+  stronger: "0.45",
+};
+
 /** Hook that applies CSS design tokens (fonts, sizes, colors, dark/light mode) from appearance settings. */
 export function useTheme() {
   const appearance = useSettingsStore((state) => state.appearance);
@@ -393,6 +401,13 @@ export function useTheme() {
       appearance.cjkLetterSpacing ?? "0",
       appearance.editorWidth ?? 50,
       blockFontSize
+    );
+
+    // Focus Mode dim level → opacity applied to non-focused content on top of
+    // the color shift. "standard" = 1 (color-only, current look).
+    root.style.setProperty(
+      "--focus-dim-opacity",
+      FOCUS_DIM_OPACITY[appearance.focusModeDim] ?? "1"
     );
 
     // Update Mermaid font size when editor font size changes

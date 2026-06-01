@@ -51,6 +51,7 @@ export type {
   ThemeId,
   ThemeColors,
   AppearanceSettings,
+  FocusModeDim,
   CJKFormattingSettings,
   MediaBorderStyle,
   MediaAlignment,
@@ -64,6 +65,7 @@ export type {
   CopyFormat,
   TerminalPosition,
   TerminalCursorStyle,
+  TerminalBellMode,
   TerminalSettings,
   MarkdownSettings,
   ImageAutoResizeOption,
@@ -147,6 +149,7 @@ const initialState: SettingsState = {
     editorWidth: 50, // em units, 0 = unlimited (50em ≈ 900px at 18px font)
     showFilenameInTitlebar: false,
     autoHideStatusBar: false,
+    focusModeDim: "standard", // color-only dimming by default (current behavior)
   },
   cjkFormatting: {
     // Group 1: Universal
@@ -218,6 +221,8 @@ const initialState: SettingsState = {
     macOptionIsMeta: true,
     shellIntegration: true,
     screenReaderMode: false,
+    bellMode: "visual",
+    minimumContrastRatio: 4.5,
     scrollback: 5000,
     position: "auto",
     panelRatio: 0.4,
@@ -285,6 +290,7 @@ export const CLAMP_RANGES: Partial<Record<ObjectSections, Record<string, [number
     lineHeight: [1, 2.5],
     scrollback: [100, 200_000],
     panelRatio: [0.1, 0.8],
+    minimumContrastRatio: [1, 21],
   },
   general: {
     autoSaveInterval: [5, 3600],

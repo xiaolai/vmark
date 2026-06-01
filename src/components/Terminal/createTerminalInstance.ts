@@ -11,9 +11,10 @@
  *     when switching sessions.
  *   - macOptionIsMeta is enabled so macOS Option+Arrow keys generate
  *     proper Alt-modifier escape sequences for word movement (#660).
- *   - minimumContrastRatio is set to 4.5 (WCAG AA) so xterm dynamically
- *     lifts foreground per-cell when an app paints low-contrast bg+fg
- *     (e.g. Claude Code's chalk.bgCyan.black tag on a light theme).
+ *   - minimumContrastRatio (settings.minimumContrastRatio, default 4.5 = WCAG
+ *     AA) makes xterm dynamically lift foreground per-cell when an app paints
+ *     low-contrast bg+fg (e.g. Claude Code's chalk.bgCyan.black tag on a light
+ *     theme). User-adjustable for accessibility; clamped to xterm's 1–21 range.
  *   - Theme colors are resolved via buildXtermTheme() from terminalTheme.ts;
  *     runtime theme changes are handled by useTerminalSessions.
  *   - Lifecycle concerns are split into focused helpers, each returning a
@@ -112,6 +113,9 @@ export interface TerminalInstanceSettings {
   /** Expose terminal output to assistive tech (VoiceOver). Off by default for
    *  performance; live-settable (G3/WI-3.1). */
   screenReaderMode: boolean;
+  /** xterm foreground-lift floor (WCAG): 1 = off … 4.5 = AA … 21 = max.
+   *  Live-settable. */
+  minimumContrastRatio: number;
   /** Number of scrollback lines retained (G7/WI-4.2). */
   scrollback: number;
   /** Active app theme — used to compose the xterm ITheme. The factory
@@ -162,8 +166,16 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     // (e.g. Claude Code statusline: `chalk.bgCyan.black`). Light-theme ANSI
     // palettes are tuned for colors-as-foreground, so a dark cyan bg paired
     // with a dark-charcoal fg leaves text unreadable. xterm dynamically lifts
-    // the foreground to meet WCAG AA against the actual background color.
-    minimumContrastRatio: 4.5,
+    // the foreground to meet the configured ratio against the actual
+    // background color (default 4.5 = WCAG AA; user-adjustable for a11y).
+    // Fall back to 4.5 when unset; clamp to xterm's valid 1–21 range.
+    minimumContrastRatio: Math.min(
+      Math.max(
+        Number.isFinite(settings.minimumContrastRatio) ? settings.minimumContrastRatio : 4.5,
+        1
+      ),
+      21
+    ),
     allowProposedApi: true,
     // Clamp defensively: the settings UI offers bounded presets, but corrupt
     // persisted state could carry an extreme value that bloats memory (Codex audit).

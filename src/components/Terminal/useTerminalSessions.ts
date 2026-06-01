@@ -41,6 +41,7 @@ import {
   createTerminalInstance,
   type TerminalInstance,
 } from "./createTerminalInstance";
+import { resolveBellAction, playTerminalBell } from "./terminalBell";
 import { spawnPty, resolveTerminalCwd } from "./spawnPty";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
@@ -271,6 +272,7 @@ export function useTerminalSessions(
       const useWebGL = termSettings?.useWebGL ?? true;
       const macOptionIsMeta = termSettings?.macOptionIsMeta ?? true;
       const screenReaderMode = termSettings?.screenReaderMode ?? false;
+      const minimumContrastRatio = termSettings?.minimumContrastRatio ?? 4.5;
       const scrollback = termSettings?.scrollback ?? 5000;
       const themeId = useSettingsStore.getState().appearance.theme;
 
@@ -279,13 +281,18 @@ export function useTerminalSessions(
 
       const instance = createTerminalInstance({
         parentEl: parent,
-        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, scrollback, themeId },
+        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, minimumContrastRatio, scrollback, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
         onBell: () => {
-          // Mark background activity only when this session isn't the active one
-          // (WI-4.3); the active terminal needs no "look here" indicator.
-          if (useUIStore.getState().terminal.activeSessionId !== sessionId) {
+          // Bell mode is read live so changing the setting affects running
+          // sessions without re-creating them (WI-4.3 + a11y bell mode).
+          const bellMode = useSettingsStore.getState().terminal?.bellMode ?? "visual";
+          const isActive = useUIStore.getState().terminal.activeSessionId === sessionId;
+          const action = resolveBellAction(bellMode, isActive);
+          if (action === "sound") {
+            playTerminalBell();
+          } else if (action === "activity") {
             useUIStore.getState().terminalMarkActivity(sessionId);
           }
         },

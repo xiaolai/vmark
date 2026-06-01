@@ -9,8 +9,9 @@ import {
   useSettingsStore,
   themes,
   type ThemeId,
+  type FocusModeDim,
 } from "@/stores/settingsStore";
-import { SettingRow, SettingsGroup, Toggle } from "./components";
+import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
 
 export function AppearanceSettings() {
   const { t } = useTranslation("settings");
@@ -72,6 +73,24 @@ export function AppearanceSettings() {
           <Toggle
             checked={appearance.autoHideStatusBar ?? false}
             onChange={(v) => updateSetting("autoHideStatusBar", v)}
+          />
+        </SettingRow>
+      </SettingsGroup>
+
+      {/* Focus Mode */}
+      <SettingsGroup title={t("appearance.group.focusMode")}>
+        <SettingRow
+          label={t("appearance.focusModeDim.label")}
+          description={t("appearance.focusModeDim.description")}
+        >
+          <Select<FocusModeDim>
+            value={appearance.focusModeDim ?? "standard"}
+            options={[
+              { value: "standard", label: t("appearance.focusModeDim.standard") },
+              { value: "strong", label: t("appearance.focusModeDim.strong") },
+              { value: "stronger", label: t("appearance.focusModeDim.stronger") },
+            ]}
+            onChange={(v) => updateSetting("focusModeDim", v)}
           />
         </SettingRow>
       </SettingsGroup>

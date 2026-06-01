@@ -129,6 +129,7 @@
   --editor-line-height-px: 32.4px;     /* 18 * 1.8 */
   --editor-block-spacing: 1em;         /* blockSpacing=1 → margin = lineHeight*(1-1)+1 = 1em */
   --editor-content-padding: 36px;      /* fontSize * 2 */
+  --focus-dim-opacity: 1;              /* Focus Mode dim level; useTheme.ts overrides */
   --cjk-letter-spacing: 0.05em;        /* Default CJK spacing */
   --editor-width: 50em;                /* Default editor width */
 
