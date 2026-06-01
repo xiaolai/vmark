@@ -46,6 +46,8 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - For E2E, use Tauri MCP tools. **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
 
+  - **Tauri MCP automation port = 9323.** The `tauri-plugin-mcp-bridge` (debug-only) is pinned to `127.0.0.1:9323` in `src-tauri/src/lib.rs`. Connect with `tauri_driver_session` action `start`, `port: 9323`. Do **not** rely on the default 9223 — that is VMark's own MCP bridge (sidecar ↔ webview, for AI clients) and is auth-protected, so commands sent there drop with "Connection closed".
+
   - **Internationalization (i18n)**: All user-facing strings must use `t()` (React) or `t!()` (Rust).
     Never hardcode English strings in UI code. Translation keys use flat dot-separated camelCase
     (e.g., `sidebar.newFile`, `dialog.save.title`). New strings require adding keys to

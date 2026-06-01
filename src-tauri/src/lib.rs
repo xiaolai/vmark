@@ -782,11 +782,22 @@ pub fn run() {
             }
         });
 
-    // Tauri MCP bridge plugin for automation/screenshots (dev only)
+    // Tauri MCP bridge plugin for automation/screenshots (dev only).
+    //
+    // Pin a dedicated base port (9323) and bind localhost-only. Without this,
+    // the plugin defaults to scanning up from 0.0.0.0:9223 — the same port
+    // VMark's *own* MCP server (mcp_bridge, for AI clients) already uses. The
+    // two then race for 9223, so the automation bridge slides to a different,
+    // unpredictable port on every launch and `tauri_driver_session` (which
+    // defaults to 9223) lands on VMark's auth-protected server instead — every
+    // command then drops with "Connection closed". A separate base port keeps
+    // the automation channel deterministic and clear of the public MCP port.
     #[cfg(debug_assertions)]
     {
         builder = builder.plugin(
             tauri_plugin_mcp_bridge::Builder::new()
+                .bind_address("127.0.0.1")
+                .base_port(9323)
                 .build(),
         );
     }
