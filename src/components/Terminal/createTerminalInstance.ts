@@ -54,8 +54,10 @@ export { IME_COMPOSITION_GRACE_MS } from "./setupImeComposition";
 /** Milliseconds after onCompositionCommit during which duplicate onData is suppressed. */
 export const IME_DEDUP_WINDOW_MS = 150;
 
-/** Resolve --font-mono CSS variable to actual font family names. */
-function resolveMonoFont(): string {
+/** Resolve --font-mono CSS variable to actual font family names.
+ *  Exported so live-sync (terminalSessionStoreSync) can re-resolve the font
+ *  when the app theme changes the --font-mono variable (G6/WI-4.1). */
+export function resolveMonoFont(): string {
   const style = getComputedStyle(document.documentElement);
   const mono = style.getPropertyValue("--font-mono").trim();
   return mono || "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
@@ -107,6 +109,11 @@ export interface TerminalInstanceSettings {
   cursorBlink: boolean;
   useWebGL: boolean;
   macOptionIsMeta: boolean;
+  /** Expose terminal output to assistive tech (VoiceOver). Off by default for
+   *  performance; live-settable (G3/WI-3.1). */
+  screenReaderMode: boolean;
+  /** Number of scrollback lines retained (G7/WI-4.2). */
+  scrollback: number;
   /** Active app theme — used to compose the xterm ITheme. The factory
    *  no longer reads settingsStore directly to keep the @/theme module
    *  free of a back-edge into stores (avoids a dep-cruiser cycle). */
@@ -150,6 +157,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     cursorStyle: settings.cursorStyle,
     cursorBlink: settings.cursorBlink,
     macOptionIsMeta: settings.macOptionIsMeta,
+    screenReaderMode: settings.screenReaderMode,
     // Per-cell foreground lift when an app paints a filled tag
     // (e.g. Claude Code statusline: `chalk.bgCyan.black`). Light-theme ANSI
     // palettes are tuned for colors-as-foreground, so a dark cyan bg paired
@@ -157,7 +165,7 @@ export function createTerminalInstance(options: CreateOptions): TerminalInstance
     // the foreground to meet WCAG AA against the actual background color.
     minimumContrastRatio: 4.5,
     allowProposedApi: true,
-    scrollback: 5000,
+    scrollback: settings.scrollback,
   });
 
   // Built-in addons

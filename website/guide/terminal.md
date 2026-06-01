@@ -17,6 +17,8 @@ The terminal supports up to 5 concurrent sessions, each with its own shell proce
 
 When you close the last session the panel hides but the session stays alive — reopen with `` Ctrl + ` `` and you are back where you left off. If a shell process exits, press any key to restart it.
 
+Each tab reflects the running program's title (set by tools that emit a terminal title, such as `vim` or `ssh`) unless you have manually renamed the session — a manual rename always wins.
+
 ## Keyboard Shortcuts
 
 These shortcuts work when the terminal panel is focused:
@@ -109,8 +111,10 @@ Open **Settings → Terminal** to configure:
 | Copy on Select | On / Off | Off | All |
 | Mac Option as Meta | On / Off | Off | macOS |
 | Shell Integration | On / Off | On | macOS (zsh) |
+| Scrollback | 1,000 / 5,000 / 10,000 / 50,000 lines | 5,000 | All |
+| Screen Reader Mode | On / Off | Off | All |
 
-Changes apply immediately to all open sessions. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts.
+Changes apply immediately to all open sessions. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts. **Scrollback** controls how many lines of output each session retains in its scroll history — higher values use more memory. **Screen Reader Mode** exposes terminal output to assistive technology such as VoiceOver; it is off by default for performance.
 
 ## Shell integration
 

@@ -119,4 +119,28 @@ describe("TerminalTabBar", () => {
     );
     expect(container.querySelector(".terminal-tab-active")).toBeTruthy();
   });
+
+  it("shows the program title (first char) when not renamed (G4/WI-3.2)", () => {
+    const s = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalSetProgramTitle(s.id, "vim");
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    // Program title wins over the default "Terminal 1" label.
+    expect(screen.getByText("V")).toBeInTheDocument();
+    expect(screen.getByTitle("vim")).toBeInTheDocument();
+  });
+
+  it("user-renamed label wins over a later program title (G4/WI-3.2)", () => {
+    const s = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalRenameSession(s.id, "My Shell");
+    useUIStore.getState().terminalSetProgramTitle(s.id, "vim");
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    expect(screen.getByText("M")).toBeInTheDocument();
+    expect(screen.getByTitle("My Shell")).toBeInTheDocument();
+  });
+
+  it("falls back to the default label when there is no program title", () => {
+    useUIStore.getState().terminalCreateSession();
+    render(<TerminalTabBar onClose={onClose} onRestart={onRestart} />);
+    expect(screen.getByTitle("Terminal 1")).toBeInTheDocument();
+  });
 });

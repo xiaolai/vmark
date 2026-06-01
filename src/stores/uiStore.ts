@@ -133,6 +133,12 @@ export interface TerminalSession {
   /** A bell rang while this session was in the background (WI-4.3). Cleared
    *  when the session becomes active. Drives the tab activity indicator. */
   hasActivity?: boolean;
+  /** Program-reported title from xterm's onTitleChange (OSC 0/2) (G4/WI-3.2).
+   *  Shown on the tab unless the user manually renamed the session. */
+  programTitle?: string;
+  /** True once the user manually renamed the session — program titles then
+   *  no longer override the user-chosen label (G4/WI-3.2). */
+  isUserRenamed?: boolean;
 }
 
 export const MAX_TERMINAL_SESSIONS = 5;
@@ -268,6 +274,7 @@ interface UIActions {
   terminalMarkSessionAlive: (id: string) => void;
   terminalMarkActivity: (id: string) => void;
   terminalRenameSession: (id: string, label: string) => void;
+  terminalSetProgramTitle: (id: string, title: string) => void;
 }
 
 export type UIStore = UIState & UIActions;
@@ -704,7 +711,19 @@ export const useUIStore = create<UIStore>((set, get) => ({
       terminal: {
         ...s.terminal,
         sessions: s.terminal.sessions.map((session) =>
-          session.id === id ? { ...session, label } : session,
+          // isUserRenamed locks the label so a later program title (G4/WI-3.2)
+          // can't override the user's explicit choice.
+          session.id === id ? { ...session, label, isUserRenamed: true } : session,
+        ),
+      },
+    }));
+  },
+  terminalSetProgramTitle: (id, title) => {
+    set((s) => ({
+      terminal: {
+        ...s.terminal,
+        sessions: s.terminal.sessions.map((session) =>
+          session.id === id ? { ...session, programTitle: title } : session,
         ),
       },
     }));

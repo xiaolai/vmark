@@ -316,4 +316,23 @@ describe("terminal slice actions", () => {
     useUIStore.getState().terminalRenameSession(s.id, "renamed");
     expect(useUIStore.getState().terminal.sessions[0].label).toBe("renamed");
   });
+
+  it("terminalRenameSession sets isUserRenamed so program title can't override (G4/WI-3.2)", () => {
+    const s = useUIStore.getState().terminalCreateSession()!;
+    expect(useUIStore.getState().terminal.sessions[0].isUserRenamed).toBeFalsy();
+    useUIStore.getState().terminalRenameSession(s.id, "renamed");
+    expect(useUIStore.getState().terminal.sessions[0].isUserRenamed).toBe(true);
+  });
+
+  it("terminalSetProgramTitle stores the program title on the session (G4/WI-3.2)", () => {
+    const s = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalSetProgramTitle(s.id, "vim");
+    expect(useUIStore.getState().terminal.sessions[0].programTitle).toBe("vim");
+  });
+
+  it("terminalSetProgramTitle is a no-op for an unknown session id", () => {
+    const s = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalSetProgramTitle("does-not-exist", "vim");
+    expect(useUIStore.getState().terminal.sessions[0].programTitle).toBeUndefined();
+  });
 });

@@ -10,6 +10,8 @@
  *   - Maximum 5 sessions enforced by disabling the "+" button.
  *   - getTabDisplay extracts the number from "Terminal N" labels for
  *     compact display; custom names show first character.
+ *   - The tab shows the program-reported title (OSC 0/2 via onTitleChange)
+ *     unless the user manually renamed the session — user intent wins (G4).
  *   - Dead sessions (process exited) get a visual indicator via CSS class.
  *   - Uses getState() pattern for session creation to avoid stale closures.
  *
@@ -58,17 +60,22 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }:
   return (
     <div className={`terminal-tab-bar ${orientation === "horizontal" ? "terminal-tab-bar--horizontal" : ""}`}>
       <div className="terminal-tab-bar-tabs">
-        {sessions.map((s) => (
-          <button
-            key={s.id}
-            className={`terminal-tab ${s.id === activeId ? "terminal-tab-active" : ""} ${!s.isAlive ? "terminal-tab-dead" : ""} ${s.hasActivity && s.id !== activeId ? "terminal-tab-activity" : ""}`}
-            onClick={() => handleSwitch(s.id)}
-            title={s.label}
-            aria-label={s.label}
-          >
-            {getTabDisplay(s.label)}
-          </button>
-        ))}
+        {sessions.map((s) => {
+          // Program title (OSC 0/2) shows unless the user manually renamed the
+          // session — explicit user intent wins over program output (G4/WI-3.2).
+          const name = s.isUserRenamed ? s.label : (s.programTitle || s.label);
+          return (
+            <button
+              key={s.id}
+              className={`terminal-tab ${s.id === activeId ? "terminal-tab-active" : ""} ${!s.isAlive ? "terminal-tab-dead" : ""} ${s.hasActivity && s.id !== activeId ? "terminal-tab-activity" : ""}`}
+              onClick={() => handleSwitch(s.id)}
+              title={name}
+              aria-label={name}
+            >
+              {getTabDisplay(name)}
+            </button>
+          );
+        })}
 
         <button
           className="terminal-tab-bar-btn"

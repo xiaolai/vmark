@@ -76,3 +76,35 @@ describe("settingsStore — largeFile section", () => {
     });
   });
 });
+
+describe("settingsStore — terminal.screenReaderMode (G3/WI-3.1)", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetSettings();
+  });
+
+  it("defaults to false (off for performance)", () => {
+    expect(useSettingsStore.getState().terminal.screenReaderMode).toBe(false);
+  });
+
+  it("updateTerminalSetting toggles screenReaderMode without affecting other keys", () => {
+    const beforeShell = useSettingsStore.getState().terminal.shell;
+    useSettingsStore.getState().updateTerminalSetting("screenReaderMode", true);
+    expect(useSettingsStore.getState().terminal.screenReaderMode).toBe(true);
+    expect(useSettingsStore.getState().terminal.shell).toBe(beforeShell);
+  });
+});
+
+describe("settingsStore — terminal.scrollback (G7/WI-4.2)", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().resetSettings();
+  });
+
+  it("defaults to 5000", () => {
+    expect(useSettingsStore.getState().terminal.scrollback).toBe(5000);
+  });
+
+  it("updateTerminalSetting changes scrollback to a preset value", () => {
+    useSettingsStore.getState().updateTerminalSetting("scrollback", 10000);
+    expect(useSettingsStore.getState().terminal.scrollback).toBe(10000);
+  });
+});

@@ -393,6 +393,10 @@
   "terminal.macOptionIsMeta.description": "Treat macOS Option key as Meta for Alt+Arrow word navigation. Disable if you need dead-key accent composition (Option+E/N/U).",
   "terminal.shellIntegration.label": "Shell Integration",
   "terminal.shellIntegration.description": "Inject command markers (zsh) so the terminal can offer prompt navigation, exit-status indicators, and current-directory tracking. Requires terminal restart.",
+  "terminal.scrollback.label": "Scrollback",
+  "terminal.scrollback.description": "Number of lines of output the terminal keeps in its scroll history. Higher values use more memory.",
+  "terminal.screenReaderMode.label": "Screen Reader Mode",
+  "terminal.screenReaderMode.description": "Expose terminal output to assistive technology (VoiceOver). Off by default for performance.",
 
   "about.version": "Version {{version}}",
   "about.group.updates": "Updates",

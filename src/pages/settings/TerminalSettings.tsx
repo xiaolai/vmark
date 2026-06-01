@@ -27,6 +27,14 @@ const panelSizeOptions = [
   { value: "0.8", label: "80%" },
 ];
 
+// scrollbackOptions are raw numeric labels — no translation needed (G7/WI-4.2)
+const scrollbackOptions = [
+  { value: "1000", label: "1,000" },
+  { value: "5000", label: "5,000" },
+  { value: "10000", label: "10,000" },
+  { value: "50000", label: "50,000" },
+];
+
 // fontSizeOptions are raw numeric labels — no translation needed
 const fontSizeOptions = [
   { value: "10", label: "10px" },
@@ -218,6 +226,21 @@ export function TerminalSettings() {
           <Toggle
             checked={terminal.shellIntegration}
             onChange={(v) => updateTerminalSetting("shellIntegration", v)}
+          />
+        </SettingRow>
+
+        <SettingRow label={t("terminal.scrollback.label")} description={t("terminal.scrollback.description")}>
+          <Select
+            value={String(terminal.scrollback)}
+            options={scrollbackOptions}
+            onChange={(v) => updateTerminalSetting("scrollback", Number(v))}
+          />
+        </SettingRow>
+
+        <SettingRow label={t("terminal.screenReaderMode.label")} description={t("terminal.screenReaderMode.description")}>
+          <Toggle
+            checked={terminal.screenReaderMode}
+            onChange={(v) => updateTerminalSetting("screenReaderMode", v)}
           />
         </SettingRow>
       </SettingsGroup>

@@ -333,6 +333,8 @@ Configure the integrated terminal panel. Open the terminal with `` Ctrl + ` ``.
 | Cursor Blink | Whether the terminal cursor blinks | On | On / Off |
 | Copy on Select | Automatically copy selected terminal text to the clipboard | Off | On / Off |
 | WebGL Renderer | Use GPU-accelerated rendering for the terminal. Disable if you experience IME input issues. Requires a terminal restart | On | On / Off |
+| Scrollback | Number of lines of output each session keeps in its scroll history. Higher values use more memory | 5,000 | 1,000 / 5,000 / 10,000 / 50,000 |
+| Screen Reader Mode | Expose terminal output to assistive technology (VoiceOver). Off by default for performance | Off | On / Off |
 
 See [Integrated Terminal](/guide/terminal) for more about sessions, keyboard shortcuts, and shell environment.
 

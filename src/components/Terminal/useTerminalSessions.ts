@@ -270,6 +270,8 @@ export function useTerminalSessions(
       const cursorBlink = termSettings?.cursorBlink ?? true;
       const useWebGL = termSettings?.useWebGL ?? true;
       const macOptionIsMeta = termSettings?.macOptionIsMeta ?? true;
+      const screenReaderMode = termSettings?.screenReaderMode ?? false;
+      const scrollback = termSettings?.scrollback ?? 5000;
       const themeId = useSettingsStore.getState().appearance.theme;
 
       // Create a shared ptyRef that we'll update as the pty changes
@@ -277,7 +279,7 @@ export function useTerminalSessions(
 
       const instance = createTerminalInstance({
         parentEl: parent,
-        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, themeId },
+        settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, scrollback, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
         onBell: () => {
@@ -287,6 +289,14 @@ export function useTerminalSessions(
             useUIStore.getState().terminalMarkActivity(sessionId);
           }
         },
+      });
+
+      // Program title → per-session tab title (G4/WI-3.2). xterm parses OSC
+      // 0/2 internally and exposes onTitleChange; registering our own OSC
+      // handler would shadow the built-in (LIFO). The returned IDisposable is
+      // owned by term.dispose() — no manual cleanup needed.
+      instance.term.onTitleChange((title) => {
+        if (title) useUIStore.getState().terminalSetProgramTitle(sessionId, title);
       });
 
       const entry: SessionEntry = {

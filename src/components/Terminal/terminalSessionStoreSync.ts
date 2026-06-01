@@ -7,13 +7,14 @@
  * useTerminalSessions to keep that hook as an orchestrator.
  *
  * Behavior preserved verbatim from the original inline implementation:
- *   - Theme changes update each session's term.options.theme.
+ *   - Theme changes update each session's term.options.theme AND re-resolve
+ *     fontFamily from --font-mono (G6/WI-4.1).
  *   - Workspace-root changes inject a `cd` command into every alive PTY whose
  *     current cwd differs from the new root — the live OSC 7 cwd when known,
  *     else the spawn-time cwd (WI-2.2); PTY-less or exited sessions are skipped.
  *   - Terminal-setting changes update fontSize/lineHeight/cursorStyle/
- *     cursorBlink/macOptionIsMeta on each xterm; a font change also
- *     re-fits the addon to repaint at the new metrics.
+ *     cursorBlink/macOptionIsMeta/screenReaderMode/scrollback on each xterm;
+ *     a font change also re-fits the addon to repaint at the new metrics.
  *
  * @coordinates-with useTerminalSessions.ts — sole caller
  * @module components/Terminal/terminalSessionStoreSync
@@ -23,7 +24,7 @@ import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { buildXtermThemeForId } from "@/theme";
-import type { TerminalInstance } from "./createTerminalInstance";
+import { resolveMonoFont, type TerminalInstance } from "./createTerminalInstance";
 
 /**
  * Minimum shape of a session entry that the sync effects need. Kept narrow
@@ -59,10 +60,15 @@ export function useUIStoreSync(
       if (themeId === prevTheme) return;
       prevTheme = themeId;
       const newTheme = buildXtermThemeForId(themeId);
+      // The mono font derives from the --font-mono CSS var, which a theme
+      // change can update — re-resolve it so running sessions repaint with
+      // the theme's font (G6/WI-4.1).
+      const newFont = resolveMonoFont();
       const sessions = sessionsRef.current;
       if (!sessions) return;
       for (const [, entry] of sessions) {
         entry.instance.term.options.theme = newTheme;
+        entry.instance.term.options.fontFamily = newFont;
       }
     });
   }, [sessionsRef]);
@@ -109,7 +115,9 @@ export function useUIStoreSync(
       const fontChanged = curr.fontSize !== prev.fontSize || curr.lineHeight !== prev.lineHeight;
       const cursorChanged = curr.cursorStyle !== prev.cursorStyle || curr.cursorBlink !== prev.cursorBlink;
       const metaChanged = curr.macOptionIsMeta !== prev.macOptionIsMeta;
-      if (!fontChanged && !cursorChanged && !metaChanged) return;
+      const screenReaderChanged = curr.screenReaderMode !== prev.screenReaderMode;
+      const scrollbackChanged = curr.scrollback !== prev.scrollback;
+      if (!fontChanged && !cursorChanged && !metaChanged && !screenReaderChanged && !scrollbackChanged) return;
       prev = curr;
 
       const sessions = sessionsRef.current;
@@ -126,6 +134,12 @@ export function useUIStoreSync(
         }
         if (metaChanged) {
           opts.macOptionIsMeta = curr.macOptionIsMeta;
+        }
+        if (screenReaderChanged) {
+          opts.screenReaderMode = curr.screenReaderMode;
+        }
+        if (scrollbackChanged) {
+          opts.scrollback = curr.scrollback;
         }
         if (fontChanged) {
           try { entry.instance.fitAddon.fit(); } catch { /* ignore */ }

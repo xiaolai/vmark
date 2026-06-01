@@ -362,6 +362,50 @@ describe("createTerminalInstance — macOptionIsMeta (#660)", () => {
   });
 });
 
+describe("createTerminalInstance — screenReaderMode (G3/WI-3.1)", () => {
+  it("passes screenReaderMode from settings to the xterm constructor", () => {
+    const parentEl = document.createElement("div");
+    const inst = createTerminalInstance({
+      parentEl,
+      settings: {
+        fontSize: 14,
+        lineHeight: 1.2,
+        cursorStyle: "block",
+        cursorBlink: true,
+        useWebGL: false,
+        macOptionIsMeta: true,
+        screenReaderMode: true,
+      },
+      ptyRef: { current: null },
+      onSearch: vi.fn(),
+    });
+    expect((inst.term as any)._constructorOptions.screenReaderMode).toBe(true);
+    inst.dispose();
+  });
+});
+
+describe("createTerminalInstance — scrollback (G7/WI-4.2)", () => {
+  it("passes scrollback from settings to the xterm constructor", () => {
+    const parentEl = document.createElement("div");
+    const inst = createTerminalInstance({
+      parentEl,
+      settings: {
+        fontSize: 14,
+        lineHeight: 1.2,
+        cursorStyle: "block",
+        cursorBlink: true,
+        useWebGL: false,
+        macOptionIsMeta: true,
+        scrollback: 10000,
+      },
+      ptyRef: { current: null },
+      onSearch: vi.fn(),
+    });
+    expect((inst.term as any)._constructorOptions.scrollback).toBe(10000);
+    inst.dispose();
+  });
+});
+
 describe("createTerminalInstance — different settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();

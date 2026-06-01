@@ -219,6 +219,8 @@ export interface TerminalSettings {
   useWebGL: boolean;   // Default: true — use WebGL renderer (disable to troubleshoot IME issues)
   macOptionIsMeta: boolean; // Default: true — treat macOS Option as Meta for Alt+Arrow word navigation; disable for dead-key accent composition (Option+E/N/U)
   shellIntegration: boolean; // Default: true — inject OSC 133 command marks + OSC 7 cwd (zsh) for prompt nav, exit-status decorations, cwd tracking
+  screenReaderMode: boolean; // Default: false — expose terminal output to assistive tech (VoiceOver); off by default for performance (G3/WI-3.1)
+  scrollback: number; // Default: 5000 — number of scrollback lines retained per session (G7/WI-4.2)
   position: TerminalPosition; // Default: "auto" — auto-reposition based on window aspect ratio
   panelRatio: number;  // Default: 0.4 — fraction of available space (0.1–0.8), persisted on drag end
 }

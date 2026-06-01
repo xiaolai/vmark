@@ -216,6 +216,8 @@ const initialState: SettingsState = {
     useWebGL: true,
     macOptionIsMeta: true,
     shellIntegration: true,
+    screenReaderMode: false,
+    scrollback: 5000,
     position: "auto",
     panelRatio: 0.4,
   },
