@@ -17,6 +17,9 @@
  *     diverse conventions across Simplified Chinese, Traditional Chinese, and
  *     Japanese typography.
  *   - paragraphSpacing → blockSpacing migration handled in merge function.
+ *   - Bounded numeric settings (CLAMP_RANGES) are clamped both on every set
+ *     and at the persist boundary, so corrupt/devtools values can't render
+ *     the editor broken (D4).
  *
  * Known limitations:
  *   - No per-document or per-workspace setting overrides — all settings are global.
@@ -201,8 +204,6 @@ const initialState: SettingsState = {
   },
   image: {
     autoResizeMax: 0, // Off by default
-    autoResizeCustom: 1600,
-    inlineThreshold: 1.0, // 1.0× line height
     copyToAssets: true,
     cleanupOrphansOnClose: false, // Off by default - user must opt in
   },
@@ -263,13 +264,68 @@ const initialState: SettingsState = {
 // Object sections that can be updated with createSectionUpdater
 type ObjectSections = "general" | "appearance" | "cjkFormatting" | "markdown" | "image" | "terminal" | "advanced" | "update" | "largeFile" | "formats";
 
+/**
+ * Inclusive [min, max] bounds for numeric settings that render visibly broken
+ * when out of range (D4). The UI only offers bounded presets, so these never
+ * fire for normal use — they exist to defend against corrupt persisted state
+ * or devtools/localStorage edits (e.g. `appearance.fontSize: 999`). Applied
+ * both on every programmatic set (createSectionUpdater) and at the persist
+ * boundary (clampMergedSettings in `merge`). Fields not listed are unbounded
+ * or non-numeric. Exported for testing.
+ */
+export const CLAMP_RANGES: Partial<Record<ObjectSections, Record<string, [number, number]>>> = {
+  appearance: {
+    fontSize: [8, 48],
+    lineHeight: [1, 3],
+    blockSpacing: [0, 3],
+    editorWidth: [0, 200],
+  },
+  terminal: {
+    fontSize: [8, 32],
+    lineHeight: [1, 2.5],
+    scrollback: [100, 200_000],
+    panelRatio: [0.1, 0.8],
+  },
+  general: {
+    autoSaveInterval: [5, 3600],
+    historyMaxSnapshots: [1, 1000],
+    historyMaxAgeDays: [0, 3650],
+    historyMergeWindow: [0, 3600],
+    historyMaxFileSize: [0, 1_048_576],
+    tabSize: [1, 8],
+  },
+};
+
+/** Clamp a single value if its (section, key) has a known numeric range. */
+function clampSettingValue<V>(section: ObjectSections, key: PropertyKey, value: V): V {
+  if (typeof value !== "number" || !Number.isFinite(value)) return value;
+  const range = CLAMP_RANGES[section]?.[key as string];
+  if (!range) return value;
+  return Math.min(Math.max(value, range[0]), range[1]) as V;
+}
+
+/** Clamp every bounded numeric field on a merged settings object in place.
+ *  Exported for testing. */
+export function clampMergedSettings(merged: Record<string, unknown>): void {
+  for (const [section, ranges] of Object.entries(CLAMP_RANGES)) {
+    const group = merged[section];
+    if (!isPlainObject(group)) continue;
+    for (const [key, [min, max]] of Object.entries(ranges)) {
+      const v = group[key];
+      if (typeof v === "number" && Number.isFinite(v)) {
+        group[key] = Math.min(Math.max(v, min), max);
+      }
+    }
+  }
+}
+
 // Helper to create section updaters - reduces duplication
 const createSectionUpdater = <T extends ObjectSections>(
   set: (fn: (state: SettingsState) => Partial<SettingsState>) => void,
   section: T
 ) => <K extends keyof SettingsState[T]>(key: K, value: SettingsState[T][K]) =>
   set((state) => ({
-    [section]: { ...state[section], [key]: value },
+    [section]: { ...state[section], [key]: clampSettingValue(section, key, value) },
   }));
 
 /** Central persistent store for all user-configurable settings with deep-merge migration. Use selectors, not destructuring. */
@@ -344,6 +400,9 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         if (Array.isArray(persistedProtocols)) {
           merged.advanced.customLinkProtocols = [...new Set([...defaultProtocols, ...persistedProtocols])];
         }
+        // D4: clamp bounded numeric fields so a corrupt persisted value
+        // (e.g. `appearance.fontSize: 999`) can't render the editor broken.
+        clampMergedSettings(merged as unknown as Record<string, unknown>);
         return merged;
       },
     }

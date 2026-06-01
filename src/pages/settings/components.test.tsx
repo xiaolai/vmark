@@ -519,6 +519,30 @@ describe("CollapsibleGroup", () => {
     expect(screen.getByText("Extra settings")).toBeInTheDocument();
   });
 
+  it("moves focus to the first control when expanded (D5)", async () => {
+    const user = userEvent.setup();
+    render(
+      <CollapsibleGroup title="Advanced">
+        <button>First control</button>
+      </CollapsibleGroup>,
+    );
+
+    await user.click(screen.getByText("Advanced"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "First control" })).toHaveFocus(),
+    );
+  });
+
+  it("does not steal focus on mount when defaultOpen", () => {
+    render(
+      <CollapsibleGroup title="Open" defaultOpen>
+        <button>Inner</button>
+      </CollapsibleGroup>,
+    );
+
+    expect(screen.getByRole("button", { name: "Inner" })).not.toHaveFocus();
+  });
+
   it("does not render description when omitted", () => {
     render(
       <CollapsibleGroup title="Advanced">

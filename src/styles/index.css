@@ -121,12 +121,12 @@
 
   /* Editor typography - computed dynamically in useTheme.ts.
      Static fallbacks ensure print and SSR work correctly.
-     Defaults match settingsStore defaults: fontSize=18, lineHeight=1.6, blockSpacing=1 */
+     Defaults match settingsStore defaults: fontSize=18, lineHeight=1.8, blockSpacing=1 */
   --editor-font-size: 18px;
   --editor-font-size-sm: 16.2px;       /* 18 * 0.9 */
   --editor-font-size-mono: 15.3px;     /* 18 * 0.85 */
-  --editor-line-height: 1.6;
-  --editor-line-height-px: 28.8px;     /* 18 * 1.6 */
+  --editor-line-height: 1.8;
+  --editor-line-height-px: 32.4px;     /* 18 * 1.8 */
   --editor-block-spacing: 1em;         /* blockSpacing=1 → margin = lineHeight*(1-1)+1 = 1em */
   --editor-content-padding: 36px;      /* fontSize * 2 */
   --cjk-letter-spacing: 0.05em;        /* Default CJK spacing */

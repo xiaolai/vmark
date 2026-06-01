@@ -177,15 +177,10 @@ export interface MarkdownSettings {
 /** Image auto-resize max dimension in pixels (0 = disabled). */
 export type ImageAutoResizeOption = 0 | 800 | 1200 | 1920 | 2560;
 
-/** Image handling preferences — auto-resize, inline threshold, and asset management. */
+/** Image handling preferences — auto-resize and asset management. */
 export interface ImageSettings {
   // Auto-resize: max dimension in pixels (0 = disabled)
   autoResizeMax: ImageAutoResizeOption;
-  // Custom max dimension (used when autoResizeMax is not in predefined options)
-  autoResizeCustom: number;
-  // Inline threshold: max image size relative to line height (1.0 = 100% of line height)
-  // Images larger than this are inserted as block images
-  inlineThreshold: number;
   // Whether to copy images to assets folder on paste/drop
   copyToAssets: boolean;
   // Auto-cleanup orphaned images when closing a document

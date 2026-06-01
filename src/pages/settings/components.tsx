@@ -341,6 +341,22 @@ export function CollapsibleGroup({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // D5: when the user expands the group, move focus to the first revealed
+  // control instead of leaving it on the chevron. Skip the initial mount so a
+  // `defaultOpen` group doesn't steal focus on render.
+  const mountedRef = useRef(false);
+  React.useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    if (!open) return;
+    const first = contentRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    first?.focus();
+  }, [open]);
   return (
     <div className="mb-6">
       <button
@@ -360,7 +376,7 @@ export function CollapsibleGroup({
           {description}
         </p>
       )}
-      {open && <div className="ml-6">{children}</div>}
+      {open && <div ref={contentRef} className="ml-6">{children}</div>}
     </div>
   );
 }
