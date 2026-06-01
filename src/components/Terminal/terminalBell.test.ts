@@ -2,19 +2,22 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { resolveBellAction, playTerminalBell } from "./terminalBell";
 
 describe("resolveBellAction (WI-11)", () => {
-  it("off → none, regardless of active session", () => {
-    expect(resolveBellAction("off", true)).toBe("none");
-    expect(resolveBellAction("off", false)).toBe("none");
+  it("off → nothing, regardless of active session", () => {
+    expect(resolveBellAction("off", true)).toEqual({ sound: false, markActivity: false });
+    expect(resolveBellAction("off", false)).toEqual({ sound: false, markActivity: false });
   });
 
-  it("audible → sound, regardless of active session", () => {
-    expect(resolveBellAction("audible", true)).toBe("sound");
-    expect(resolveBellAction("audible", false)).toBe("sound");
+  it("audible active → beep only (no dot — it's on screen)", () => {
+    expect(resolveBellAction("audible", true)).toEqual({ sound: true, markActivity: false });
+  });
+
+  it("audible background → beep AND activity dot so it can be located", () => {
+    expect(resolveBellAction("audible", false)).toEqual({ sound: true, markActivity: true });
   });
 
   it("visual → activity only when the session is not active", () => {
-    expect(resolveBellAction("visual", false)).toBe("activity");
-    expect(resolveBellAction("visual", true)).toBe("none");
+    expect(resolveBellAction("visual", false)).toEqual({ sound: false, markActivity: true });
+    expect(resolveBellAction("visual", true)).toEqual({ sound: false, markActivity: false });
   });
 });
 

@@ -290,11 +290,8 @@ export function useTerminalSessions(
           const bellMode = useSettingsStore.getState().terminal?.bellMode ?? "visual";
           const isActive = useUIStore.getState().terminal.activeSessionId === sessionId;
           const action = resolveBellAction(bellMode, isActive);
-          if (action === "sound") {
-            playTerminalBell();
-          } else if (action === "activity") {
-            useUIStore.getState().terminalMarkActivity(sessionId);
-          }
+          if (action.sound) playTerminalBell();
+          if (action.markActivity) useUIStore.getState().terminalMarkActivity(sessionId);
         },
       });
 

@@ -12,24 +12,32 @@
 
 import type { TerminalBellMode } from "@/stores/settingsStore";
 
-/** What an incoming bell should trigger. */
-export type BellAction = "none" | "sound" | "activity";
+/** What an incoming bell should trigger. Both flags can be true: an audible
+ *  bell from a *background* session both beeps and flags activity on its tab,
+ *  so the user can hear it AND locate which session rang. */
+export interface BellAction {
+  /** Play the audible beep. */
+  sound: boolean;
+  /** Flag background activity on the session's tab. */
+  markActivity: boolean;
+}
 
 /**
  * Resolve a bell into an action.
  * - "off"     → nothing.
- * - "audible" → a beep (regardless of which session is active).
- * - "visual"  → a background-activity indicator, but only when the ringing
- *   session is NOT the active one (the active terminal needs no "look here").
+ * - "audible" → a beep; for a background session also flag activity so it can
+ *   be located (the active session is already on screen — beep only).
+ * - "visual"  → flag activity, but only for a background session (the active
+ *   terminal needs no "look here" indicator).
  */
 export function resolveBellAction(
   mode: TerminalBellMode,
   isActiveSession: boolean
 ): BellAction {
-  if (mode === "off") return "none";
-  if (mode === "audible") return "sound";
-  // visual
-  return isActiveSession ? "none" : "activity";
+  return {
+    sound: mode === "audible",
+    markActivity: mode !== "off" && !isActiveSession,
+  };
 }
 
 /**
