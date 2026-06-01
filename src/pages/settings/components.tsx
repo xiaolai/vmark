@@ -38,6 +38,7 @@ import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { useSettingsSearchQuery, matchesSettingsQuery } from "./SettingsSearchContext";
 
 interface SettingRowProps {
   label: string;
@@ -51,9 +52,20 @@ export function SettingRow({ label, description, children, disabled }: SettingRo
   const labelId = `${id}-label`;
   const descId = `${id}-desc`;
 
+  // Settings search (D2): when a query is active, the dialog stacks every
+  // panel and each row hides itself unless its label/description matches.
+  // The hiding is done in CSS via `data-search-visible` so non-search
+  // rendering pays nothing. See settings-search.css.
+  const query = useSettingsSearchQuery();
+  const visible = matchesSettingsQuery(query, label, description);
+
   return (
-    <div className={`flex items-center justify-between py-2.5
-                     ${disabled ? "opacity-50" : ""}`}>
+    <div
+      data-setting-row
+      data-search-visible={visible}
+      className={`flex items-center justify-between py-2.5
+                     ${disabled ? "opacity-50" : ""}`}
+    >
       <div className="flex-1">
         <div id={labelId} className="text-sm font-medium text-[var(--text-color)]">
           {label}
@@ -118,7 +130,7 @@ export function SettingsGroup({
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={`settings-search-group ${className}`}>
       <div className="text-base font-semibold text-[var(--text-color)] mb-3">
         {title}
       </div>

@@ -1,0 +1,32 @@
+/*
+ * Settings search filtering (D2).
+ *
+ * All rules are scoped under `[data-settings-searching]`, so normal
+ * (non-search) rendering is completely unaffected — the data attributes on
+ * SettingRow/SettingsGroup are inert until the dialog enters search mode.
+ *
+ * Hiding is purely declarative via `:has()` (supported in the WKWebView /
+ * modern Chromium the app ships on):
+ *   - rows whose label/description don't match are hidden;
+ *   - a group with no matching row hides (including its title);
+ *   - a stacked panel with no matching row hides (including its heading).
+ */
+
+/* Hide non-matching rows. Two attribute selectors + the scoping ancestor
+   outrank the row's own `flex` display utility. */
+[data-settings-searching] [data-setting-row][data-search-visible="false"] {
+  display: none;
+}
+
+/* Hide a group that has no visible row. Nested groups collapse independently;
+   an outer group with a visible row deep inside stays. */
+[data-settings-searching]
+  .settings-search-group:not(:has([data-setting-row][data-search-visible="true"])) {
+  display: none;
+}
+
+/* Hide a whole stacked panel (category heading + body) with no visible row. */
+[data-settings-searching]
+  [data-settings-panel]:not(:has([data-setting-row][data-search-visible="true"])) {
+  display: none;
+}

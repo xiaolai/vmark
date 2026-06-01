@@ -76,4 +76,31 @@ describe("MarkdownSettings", () => {
 
     expect(useSettingsStore.getState().markdown.tableFitToWidth).toBe(false);
   });
+
+  describe("pasteMode control (WI-4)", () => {
+    beforeEach(() => {
+      useSettingsStore.setState({
+        markdown: { ...useSettingsStore.getState().markdown, pasteMode: "smart" },
+      });
+    });
+
+    it("renders the clipboard paste handling control", () => {
+      render(<MarkdownSettings />);
+      expect(screen.getByText("Clipboard paste handling")).toBeInTheDocument();
+    });
+
+    it("reflects the stored pasteMode value", () => {
+      render(<MarkdownSettings />);
+      expect(
+        screen.getByDisplayValue("Smart (convert HTML, detect markdown)")
+      ).toBeInTheDocument();
+    });
+
+    it("changing the select updates the store", () => {
+      render(<MarkdownSettings />);
+      const select = screen.getByDisplayValue("Smart (convert HTML, detect markdown)");
+      fireEvent.change(select, { target: { value: "plain" } });
+      expect(useSettingsStore.getState().markdown.pasteMode).toBe("plain");
+    });
+  });
 });

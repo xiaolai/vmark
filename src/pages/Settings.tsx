@@ -27,6 +27,10 @@ import { useTheme } from "@/hooks/useTheme";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
+import { SettingsSearchContext } from "./settings/SettingsSearchContext";
+import { SettingsSearchResults, type SearchablePanel } from "./settings/SettingsSearchResults";
+import { SearchInput } from "./settings/components";
+import "./settings/settings-search.css";
 
 // Settings sections
 import { AppearanceSettings } from "./settings/AppearanceSettings";
@@ -152,6 +156,12 @@ export function SettingsPage() {
   const [section, setSection] = useState<Section>(getInitialSection);
   const showDevSection = useSettingsStore((state) => state.showDevSection);
 
+  // Settings search (D2): a non-empty query stacks every searchable panel and
+  // filters rows by label/description via SettingsSearchContext + CSS.
+  const [searchQuery, setSearchQuery] = useState("");
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const searching = normalizedQuery.length > 0;
+
   // Apply theme to this window
   useTheme();
   // Handle Cmd+W to close settings
@@ -206,6 +216,25 @@ export function SettingsPage() {
       : []),
   ];
 
+  // Panels included in global search — every SettingRow-based panel. Shortcuts
+  // is excluded: it has its own dedicated search and is keybindings, not
+  // settings rows.
+  const panelComponents: Record<string, React.ComponentType> = {
+    appearance: AppearanceSettings,
+    editor: EditorSettings,
+    files: FilesImagesSettings,
+    formats: FormatsSettings,
+    integrations: IntegrationsSettings,
+    language: LanguageSettings,
+    markdown: MarkdownSettings,
+    terminal: TerminalSettings,
+    about: AboutSettings,
+    ...(showDevSection ? { advanced: AdvancedSettings } : {}),
+  };
+  const searchablePanels: SearchablePanel[] = Object.entries(panelComponents).map(
+    ([id, Component]) => ({ id, label: t(`nav.${id}`), Component })
+  );
+
   return (
     <div className="relative flex h-screen bg-[var(--bg-color)]">
       {/* Sidebar - full height */}
@@ -215,6 +244,16 @@ export function SettingsPage() {
       >
         {/* Drag region for sidebar area */}
         <div data-tauri-drag-region className="h-12 shrink-0" />
+        {/* Search box */}
+        <div className="px-3 pb-2">
+          <SearchInput
+            type="search"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={t("search.placeholder")}
+            aria-label={t("search.placeholder")}
+          />
+        </div>
         {/* Nav items */}
         <div className="flex-1 overflow-auto px-3 pb-3">
           <div className="space-y-1">
@@ -223,8 +262,11 @@ export function SettingsPage() {
                 key={item.id}
                 icon={item.icon}
                 label={item.label}
-                active={section === item.id}
-                onClick={() => setSection(item.id)}
+                active={!searching && section === item.id}
+                onClick={() => {
+                  setSearchQuery("");
+                  setSection(item.id);
+                }}
               />
             ))}
           </div>
@@ -236,19 +278,30 @@ export function SettingsPage() {
         {/* Drag region for content area */}
         <div data-tauri-drag-region className="h-12 shrink-0" />
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
-          {section === "about" && <AboutSettings />}
-          {section === "appearance" && <AppearanceSettings />}
-          {section === "editor" && <EditorSettings />}
-          {section === "files" && <FilesImagesSettings />}
-          {section === "formats" && <FormatsSettings />}
-          {section === "integrations" && <IntegrationsSettings />}
-          {section === "language" && <LanguageSettings />}
-          {section === "markdown" && <MarkdownSettings />}
-          {section === "shortcuts" && <ShortcutsSettings />}
-          {section === "terminal" && <TerminalSettings />}
-          {section === "advanced" && <AdvancedSettings />}
-        </div>
+        <SettingsSearchContext.Provider value={normalizedQuery}>
+          <div
+            className="flex-1 overflow-auto p-6"
+            data-settings-searching={searching ? "" : undefined}
+          >
+            {searching ? (
+              <SettingsSearchResults panels={searchablePanels} query={normalizedQuery} />
+            ) : (
+              <>
+                {section === "about" && <AboutSettings />}
+                {section === "appearance" && <AppearanceSettings />}
+                {section === "editor" && <EditorSettings />}
+                {section === "files" && <FilesImagesSettings />}
+                {section === "formats" && <FormatsSettings />}
+                {section === "integrations" && <IntegrationsSettings />}
+                {section === "language" && <LanguageSettings />}
+                {section === "markdown" && <MarkdownSettings />}
+                {section === "shortcuts" && <ShortcutsSettings />}
+                {section === "terminal" && <TerminalSettings />}
+                {section === "advanced" && <AdvancedSettings />}
+              </>
+            )}
+          </div>
+        </SettingsSearchContext.Provider>
       </div>
 
       {/* Centered title overlay — offset past w-52 sidebar so it centers over the content pane */}

@@ -13,6 +13,7 @@ import {
   type BlockFontSize,
   type HtmlRenderingMode,
   type MarkdownPasteMode,
+  type PasteMode,
 } from "@/stores/settingsStore";
 import { SettingRow, Toggle, SettingsGroup, Select } from "./components";
 
@@ -45,6 +46,20 @@ export function MarkdownSettings() {
               { value: "off", label: t("markdown.smartPaste.off") },
             ]}
             onChange={(v) => updateSetting("pasteMarkdownInWysiwyg", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("markdown.pasteMode.label")}
+          description={t("markdown.pasteMode.description")}
+        >
+          <Select<PasteMode>
+            value={markdown.pasteMode}
+            options={[
+              { value: "smart", label: t("markdown.pasteMode.smart") },
+              { value: "plain", label: t("markdown.pasteMode.plain") },
+              { value: "rich", label: t("markdown.pasteMode.rich") },
+            ]}
+            onChange={(v) => updateSetting("pasteMode", v)}
           />
         </SettingRow>
       </SettingsGroup>

@@ -296,6 +296,7 @@ export function AboutSettings() {
   const checkFrequency = useSettingsStore((state) => state.update.checkFrequency);
   const autoDownload = useSettingsStore((state) => state.update.autoDownload);
   const updateUpdateSetting = useSettingsStore((state) => state.updateUpdateSetting);
+  const resetSettings = useSettingsStore((state) => state.resetSettings);
   const { checkForUpdates } = useUpdateOperations();
   const [isChecking, setIsChecking] = useState(false);
 
@@ -376,6 +377,25 @@ export function AboutSettings() {
               {isChecking || status === "checking" ? t("about.checking") : t("about.checkNow")}
             </Button>
           </div>
+        </SettingRow>
+      </SettingsGroup>
+
+      {/* Reset all settings to defaults (D3) */}
+      <SettingsGroup title={t("about.group.reset")}>
+        <SettingRow
+          label={t("about.resetSettings.label")}
+          description={t("about.resetSettings.description")}
+        >
+          <Button
+            variant="danger"
+            onClick={() => {
+              if (confirm(t("about.resetSettings.confirm"))) {
+                resetSettings();
+              }
+            }}
+          >
+            {t("about.resetSettings.button")}
+          </Button>
         </SettingRow>
       </SettingsGroup>
     </div>

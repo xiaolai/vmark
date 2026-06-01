@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AboutSettings } from "./AboutSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -65,5 +65,31 @@ describe("AboutSettings — update controls (WI-3)", () => {
     });
     render(<AboutSettings />);
     expect(screen.getByDisplayValue("On startup")).toBeDisabled();
+  });
+});
+
+describe("AboutSettings — reset to defaults (WI-6 / D3)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("does not reset when the confirmation is dismissed", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    useSettingsStore.setState({
+      appearance: { ...useSettingsStore.getState().appearance, fontSize: 42 },
+    });
+    render(<AboutSettings />);
+    fireEvent.click(screen.getByText("Reset to Defaults"));
+    expect(useSettingsStore.getState().appearance.fontSize).toBe(42);
+  });
+
+  it("resets all settings to defaults when confirmed", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    useSettingsStore.setState({
+      appearance: { ...useSettingsStore.getState().appearance, fontSize: 42 },
+    });
+    render(<AboutSettings />);
+    fireEvent.click(screen.getByText("Reset to Defaults"));
+    expect(useSettingsStore.getState().appearance.fontSize).toBe(18);
   });
 });
