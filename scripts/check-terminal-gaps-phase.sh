@@ -52,7 +52,15 @@ case "$PHASE" in
     assert_grep ".zshenv" "$ZSH" "WI-1.2 vmark.zsh sources user .zshenv"
     assert_grep "ZDOTDIR" "website/guide/terminal.md" "WI-1.3 docs mention ZDOTDIR handling"
     ;;
-  2|3|4)
+  2)
+    # G2 — paste routed through term.paste (both paths); G5 — link security tests.
+    assert_grep "term.paste(text)" "src/components/Terminal/terminalKeyHandler.ts" "WI-2.1 Cmd+V uses term.paste"
+    assert_grep "term.paste(text)" "src/components/Terminal/TerminalContextMenu.tsx" "WI-2.1 right-click paste uses term.paste"
+    [[ -f src/components/Terminal/setupWebLinks.test.ts ]] && ok "WI-2.2 setupWebLinks.test.ts present" || fail "WI-2.2 setupWebLinks.test.ts missing"
+    [[ -f src/components/Terminal/setupFileLinks.test.ts ]] && ok "WI-2.3 setupFileLinks.test.ts present" || fail "WI-2.3 setupFileLinks.test.ts missing"
+    assert_grep "javascript:" "src/components/Terminal/setupWebLinks.test.ts" "WI-2.2 asserts dangerous-scheme rejection"
+    ;;
+  3|4)
     echo "  (phase $PHASE assertions added when that phase lands)"
     ;;
   *)

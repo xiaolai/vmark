@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TerminalContextMenu } from "./TerminalContextMenu";
 import type { Terminal } from "@xterm/xterm";
-import type { IPty } from "@/lib/pty";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
@@ -19,18 +18,17 @@ function makeTerm(overrides: Partial<Terminal> = {}): Terminal {
     selectAll: vi.fn(),
     clear: vi.fn(),
     focus: vi.fn(),
+    paste: vi.fn(),
     ...overrides,
   } as unknown as Terminal;
 }
 
 describe("TerminalContextMenu", () => {
   let onClose: () => void;
-  let ptyRef: React.RefObject<IPty | null>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     onClose = vi.fn<() => void>();
-    ptyRef = { current: { write: vi.fn() } as unknown as IPty };
   });
 
   it("renders all menu items", () => {
@@ -39,7 +37,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -56,7 +53,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -71,7 +67,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -86,7 +81,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -101,7 +95,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -116,7 +109,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -133,7 +125,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -148,7 +139,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -167,7 +157,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -192,7 +181,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -220,7 +208,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -240,7 +227,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -260,7 +246,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -277,7 +262,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -287,56 +271,32 @@ describe("TerminalContextMenu", () => {
       expect(term.focus).toHaveBeenCalled();
     });
 
-    it("pastes from clipboard to PTY on Paste click", async () => {
+    it("pastes from clipboard via term.paste on Paste click", async () => {
+      // Routed through term.paste (bracketed-paste aware), not a raw PTY write (G2).
       vi.mocked(readText).mockResolvedValue("pasted content");
-      const mockWrite = vi.fn();
-      const localPtyRef = { current: { write: mockWrite } as unknown as IPty };
       const term = makeTerm();
       render(
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={localPtyRef}
           onClose={onClose}
         />,
       );
 
       fireEvent.click(screen.getByText("Paste"));
       await waitFor(() => {
-        expect(mockWrite).toHaveBeenCalledWith("pasted content");
+        expect(term.paste).toHaveBeenCalledWith("pasted content");
       });
       expect(onClose).toHaveBeenCalled();
     });
 
-    it("does not write to PTY when ptyRef is null on Paste", async () => {
-      vi.mocked(readText).mockResolvedValue("text");
-      const nullPtyRef = { current: null };
-      const term = makeTerm();
-      render(
-        <TerminalContextMenu
-          position={{ x: 100, y: 100 }}
-          term={term}
-          ptyRef={nullPtyRef}
-          onClose={onClose}
-        />,
-      );
-
-      fireEvent.click(screen.getByText("Paste"));
-      await waitFor(() => {
-        expect(onClose).toHaveBeenCalled();
-      });
-    });
-
-    it("does not write to PTY when clipboard is empty on Paste", async () => {
+    it("does not paste when clipboard is empty on Paste", async () => {
       vi.mocked(readText).mockResolvedValue("");
-      const mockWrite = vi.fn();
-      const localPtyRef = { current: { write: mockWrite } as unknown as IPty };
       const term = makeTerm();
       render(
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={localPtyRef}
           onClose={onClose}
         />,
       );
@@ -345,7 +305,7 @@ describe("TerminalContextMenu", () => {
       await waitFor(() => {
         expect(onClose).toHaveBeenCalled();
       });
-      expect(mockWrite).not.toHaveBeenCalled();
+      expect(term.paste).not.toHaveBeenCalled();
     });
 
     it("selects all on Select All click", () => {
@@ -354,7 +314,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -371,7 +330,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -389,7 +347,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onResetDisplay={onResetDisplay}
           onClose={onClose}
         />,
@@ -409,7 +366,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onResetDisplay={vi.fn()}
           onClose={onClose}
         />,
@@ -424,7 +380,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -438,7 +393,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -448,7 +402,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onResetDisplay={vi.fn()}
           onClose={onClose}
         />,
@@ -463,7 +416,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -487,7 +439,6 @@ describe("TerminalContextMenu", () => {
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
-        ptyRef={ptyRef}
         onClose={onClose}
       />,
     );
@@ -520,7 +471,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 480, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -550,7 +500,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 190 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );
@@ -580,7 +529,6 @@ describe("TerminalContextMenu", () => {
         <TerminalContextMenu
           position={{ x: 100, y: 100 }}
           term={term}
-          ptyRef={ptyRef}
           onClose={onClose}
         />,
       );

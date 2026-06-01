@@ -6,8 +6,8 @@
  *
  * Key decisions:
  *   - Copy is disabled when no text is selected (greyed out).
- *   - Paste writes directly to the PTY (not the terminal buffer) so the
- *     shell receives the input as if typed.
+ *   - Paste routes through `term.paste()` so xterm applies bracketed-paste
+ *     wrapping when the app enabled it (multiline paste won't auto-execute, G2).
  *   - Reuses the FileExplorer ContextMenu.css for consistent macOS-style
  *     appearance across all context menus.
  *   - Viewport adjustment keeps the menu from overflowing screen edges.
@@ -25,7 +25,6 @@ import { Copy, CopyMinus, ClipboardPaste, Square, Trash2, RefreshCw } from "luci
 import { useTranslation } from "react-i18next";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
-import type { IPty } from "@/lib/pty";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
 import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
@@ -43,7 +42,6 @@ interface MenuItem {
 interface TerminalContextMenuProps {
   position: { x: number; y: number };
   term: Terminal;
-  ptyRef: React.RefObject<IPty | null>;
   /** Optional: clears the WebGL texture atlas and re-paints the viewport (#856). */
   onResetDisplay?: () => void;
   onClose: () => void;
@@ -53,7 +51,6 @@ interface TerminalContextMenuProps {
 export function TerminalContextMenu({
   position,
   term,
-  ptyRef,
   onResetDisplay,
   onClose,
 }: TerminalContextMenuProps) {
@@ -119,9 +116,11 @@ export function TerminalContextMenu({
             }
             break;
           case "paste": {
+            // Route through term.paste so xterm wraps it per bracketed-paste
+            // mode (multiline paste won't auto-execute) — G2.
             const text = await readText();
-            if (text && ptyRef.current) {
-              ptyRef.current.write(text);
+            if (text) {
+              term.paste(text);
             }
             break;
           }
@@ -149,7 +148,7 @@ export function TerminalContextMenu({
         term.focus();
       }
     },
-    [term, ptyRef, onResetDisplay, onClose],
+    [term, onResetDisplay, onClose],
   );
 
   return (

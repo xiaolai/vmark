@@ -27,6 +27,7 @@ function makeTerm(overrides: Partial<Terminal> = {}): Terminal {
     getSelection: vi.fn(() => ""),
     clearSelection: vi.fn(),
     clear: vi.fn(),
+    paste: vi.fn(),
     ...overrides,
   } as unknown as Terminal;
 }
@@ -139,10 +140,12 @@ describe("createTerminalKeyHandler", () => {
     const result = handler(makeEvent("v"));
 
     expect(result).toBe(false);
-    // Wait for async paste
+    // Wait for async paste — routed through term.paste (bracketed-paste aware),
+    // not a raw PTY write (G2).
     await vi.waitFor(() => {
-      expect(mockPty.write).toHaveBeenCalledWith("pasted");
+      expect(term.paste).toHaveBeenCalledWith("pasted");
     });
+    expect(mockPty.write).not.toHaveBeenCalledWith("pasted");
   });
 
   it("clears terminal on Cmd+K", () => {
@@ -403,7 +406,8 @@ describe("createTerminalKeyHandler", () => {
     expect(handler(plain)).toBe(true);
   });
 
-  it("Cmd+V with null ptyRef does not throw", async () => {
+  it("Cmd+V with null ptyRef still pastes via term (does not throw)", async () => {
+    // Paste routes through term.paste now, so it works regardless of ptyRef.
     vi.mocked(readText).mockResolvedValue("text");
     const term = makeTerm();
     const nullPtyRef = { current: null } as React.RefObject<IPty | null>;
@@ -411,13 +415,12 @@ describe("createTerminalKeyHandler", () => {
     const result = handler(makeEvent("v"));
 
     expect(result).toBe(false);
-    // Should not throw, just resolve without writing
     await vi.waitFor(() => {
-      expect(readText).toHaveBeenCalled();
+      expect(term.paste).toHaveBeenCalledWith("text");
     });
   });
 
-  it("Cmd+V with empty clipboard does not write to pty", async () => {
+  it("Cmd+V with empty clipboard does not paste", async () => {
     vi.mocked(readText).mockResolvedValue("");
     const term = makeTerm();
     const handler = createTerminalKeyHandler(term, ptyRef, callbacks);
@@ -426,6 +429,7 @@ describe("createTerminalKeyHandler", () => {
     await vi.waitFor(() => {
       expect(readText).toHaveBeenCalled();
     });
+    expect(term.paste).not.toHaveBeenCalled();
     expect(mockPty.write).not.toHaveBeenCalled();
   });
 

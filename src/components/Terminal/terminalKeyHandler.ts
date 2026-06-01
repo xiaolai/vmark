@@ -138,9 +138,11 @@ export function createTerminalKeyHandler(
         // Prevent the browser's native paste on xterm's hidden textarea,
         // which would cause a second write to PTY (double-paste bug).
         event.preventDefault();
+        // Route through term.paste so xterm applies bracketed-paste wrapping
+        // when the app enabled it — multiline paste won't auto-execute (G2).
         readText().then((text) => {
-          if (text && ptyRef.current) {
-            ptyRef.current.write(text);
+          if (text) {
+            term.paste(text);
           }
         }).catch((error: unknown) => {
           clipboardWarn("Clipboard read failed:", errorMessage(error));
