@@ -331,7 +331,7 @@ describe("terminal slice actions", () => {
   });
 
   it("terminalSetProgramTitle is a no-op for an unknown session id", () => {
-    const s = useUIStore.getState().terminalCreateSession()!;
+    useUIStore.getState().terminalCreateSession();
     useUIStore.getState().terminalSetProgramTitle("does-not-exist", "vim");
     expect(useUIStore.getState().terminal.sessions[0].programTitle).toBeUndefined();
   });
