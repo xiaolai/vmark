@@ -28,6 +28,20 @@ describe("AppearanceSettings — focus mode dim (WI-10)", () => {
     });
     expect(useSettingsStore.getState().appearance.focusModeDim).toBe("stronger");
   });
+
+  it("exercises theme buttons, toggles, and selects without throwing", () => {
+    render(<AppearanceSettings />);
+    expect(() => {
+      screen.getAllByRole("button").forEach((b) => fireEvent.click(b));
+      screen.getAllByRole("switch").forEach((s) => fireEvent.click(s));
+      document.querySelectorAll("select").forEach((sel) => {
+        const opts = sel.querySelectorAll("option");
+        if (opts.length) {
+          fireEvent.change(sel, { target: { value: opts[opts.length - 1].value } });
+        }
+      });
+    }).not.toThrow();
+  });
 });
 
 describe("FOCUS_DIM_OPACITY map", () => {

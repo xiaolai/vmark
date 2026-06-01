@@ -75,4 +75,18 @@ describe("TerminalSettings accessibility controls (WI-11)", () => {
     fireEvent.change(select, { target: { value: "7" } });
     expect(useSettingsStore.getState().terminal.minimumContrastRatio).toBe(7);
   });
+
+  it("exercises every toggle and select without throwing", () => {
+    setPlatform("MacIntel");
+    render(<TerminalSettings />);
+    expect(() => {
+      screen.getAllByRole("switch").forEach((s) => fireEvent.click(s));
+      document.querySelectorAll("select").forEach((sel) => {
+        const opts = sel.querySelectorAll("option");
+        if (opts.length) {
+          fireEvent.change(sel, { target: { value: opts[opts.length - 1].value } });
+        }
+      });
+    }).not.toThrow();
+  });
 });

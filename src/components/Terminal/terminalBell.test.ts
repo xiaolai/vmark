@@ -63,5 +63,10 @@ describe("playTerminalBell", () => {
     expect(ctx.createOscillator).toHaveBeenCalled();
     expect(osc.start).toHaveBeenCalled();
     expect(osc.stop).toHaveBeenCalled();
+
+    // Fire the onended handler to close the context.
+    expect(typeof osc.onended).toBe("function");
+    osc.onended?.();
+    expect(ctx.close).toHaveBeenCalled();
   });
 });

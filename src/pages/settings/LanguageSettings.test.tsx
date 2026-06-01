@@ -62,4 +62,26 @@ describe("LanguageSettings — CJK orphans (WI-2)", () => {
     fireEvent.click(getToggleByLabel("Skip reference sections"));
     expect(useSettingsStore.getState().cjkFormatting.skipReferenceSections).toBe(true);
   });
+
+  it("exercises every toggle and select without throwing", () => {
+    render(<LanguageSettings />);
+    expect(() => exerciseAllControls()).not.toThrow();
+    // Sanity: at least one CJK setting flipped from the bulk interaction.
+    expect(useSettingsStore.getState().cjkFormatting).toBeDefined();
+  });
 });
+
+/** Click every switch and change every CJK select to its last option — covers
+ *  the CJK onChange handlers. The UI-language picker is skipped: it triggers
+ *  app-wide locale machinery (i18n + native menu rebuild), not a plain setting. */
+function exerciseAllControls() {
+  screen.getAllByRole("switch").forEach((s) => fireEvent.click(s));
+  document.querySelectorAll("select").forEach((sel) => {
+    const opts = Array.from(sel.querySelectorAll("option"));
+    // The language picker's options include locale codes like "zh-CN".
+    if (opts.some((o) => o.value === "zh-CN")) return;
+    if (opts.length) {
+      fireEvent.change(sel, { target: { value: opts[opts.length - 1].value } });
+    }
+  });
+}

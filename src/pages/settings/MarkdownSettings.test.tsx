@@ -103,4 +103,17 @@ describe("MarkdownSettings", () => {
       expect(useSettingsStore.getState().markdown.pasteMode).toBe("plain");
     });
   });
+
+  it("exercises every toggle and select without throwing", () => {
+    render(<MarkdownSettings />);
+    expect(() => {
+      screen.getAllByRole("switch").forEach((s) => fireEvent.click(s));
+      document.querySelectorAll("select").forEach((sel) => {
+        const opts = sel.querySelectorAll("option");
+        if (opts.length) {
+          fireEvent.change(sel, { target: { value: opts[opts.length - 1].value } });
+        }
+      });
+    }).not.toThrow();
+  });
 });
