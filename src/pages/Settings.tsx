@@ -27,6 +27,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
+import { isMacPlatform } from "@/utils/platform";
 import { SettingsSearchContext } from "./settings/SettingsSearchContext";
 import { SettingsSearchResults, type SearchablePanel } from "./settings/SettingsSearchResults";
 import { SearchInput } from "./settings/components";
@@ -118,6 +119,7 @@ function isValidSection(value: string): value is Section {
 
 export function SettingsPage() {
   const { t } = useTranslation("settings");
+  const isMac = isMacPlatform();
   // Read initial section from URL query params
   const getInitialSection = (): Section => {
     const params = new URLSearchParams(window.location.search);
@@ -211,8 +213,7 @@ export function SettingsPage() {
         className="w-52 shrink-0 border-r border-gray-200 dark:border-gray-700
                    bg-[var(--bg-secondary)] flex flex-col"
       >
-        {/* Drag region for sidebar area */}
-        <div data-tauri-drag-region className="h-12 shrink-0" />
+        {isMac && <div data-tauri-drag-region className="h-12 shrink-0" />}
         {/* Search box */}
         <div className="px-3 pb-2">
           <SearchInput
@@ -244,8 +245,7 @@ export function SettingsPage() {
 
       {/* Content area */}
       <div className="flex-1 flex flex-col">
-        {/* Drag region for content area */}
-        <div data-tauri-drag-region className="h-12 shrink-0" />
+        {isMac && <div data-tauri-drag-region className="h-12 shrink-0" />}
         {/* Content */}
         <SettingsSearchContext.Provider value={normalizedQuery}>
           <div
@@ -261,16 +261,17 @@ export function SettingsPage() {
         </SettingsSearchContext.Provider>
       </div>
 
-      {/* Centered title overlay — offset past w-52 sidebar so it centers over the content pane */}
-      <div
-        data-tauri-drag-region
-        className="absolute top-0 right-0 h-12 flex items-center justify-center pointer-events-none"
-        style={{ left: "13rem" }}
-      >
-        <span className="text-sm font-medium text-[var(--text-color)]">
-          {t("title")}
-        </span>
-      </div>
+      {isMac && (
+        <div
+          data-tauri-drag-region
+          className="absolute top-0 right-0 h-12 flex items-center justify-center pointer-events-none"
+          style={{ left: "13rem" }}
+        >
+          <span className="text-sm font-medium text-[var(--text-color)]">
+            {t("title")}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

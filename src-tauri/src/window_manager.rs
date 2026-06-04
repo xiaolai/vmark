@@ -23,7 +23,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{menu::Menu, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::PendingFileOpen;
 
@@ -535,6 +535,13 @@ pub fn show_settings_window(app: &AppHandle) -> Result<String, tauri::Error> {
     show_settings_window_section(app, None)
 }
 
+/// Tauri command wrapper for frontend Settings entry points.
+#[tauri::command]
+pub fn open_settings_window(app: AppHandle, section: Option<String>) -> Result<String, String> {
+    show_settings_window_section(&app, section.as_deref().filter(|s| !s.is_empty()))
+        .map_err(|e| e.to_string())
+}
+
 /// Create or focus the settings window, optionally navigating to a specific section.
 /// If settings window exists, focuses it and navigates to the section.
 /// Otherwise creates a new one with the section in the URL.
@@ -573,9 +580,13 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
         None => "/settings".to_string(),
     };
 
-    // Create new settings window
-    // Note: Don't use .center() here as the window-state plugin may override it.
-    // Instead, we build the window visible:false, then set size/position, then show.
+    // Create new settings window.
+    //
+    // On Linux/GTK, creating the window hidden and then changing size/position
+    // before show can leave the native titlebar hit-test region stale until the
+    // first maximize/unmaximize cycle. Create non-macOS settings windows with
+    // their final geometry up front so close/minimize/maximize respond
+    // immediately.
     let mut builder = WebviewWindowBuilder::new(
         app,
         SETTINGS_LABEL,
@@ -585,25 +596,36 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
     .inner_size(SETTINGS_WIDTH, SETTINGS_HEIGHT)
     .min_inner_size(SETTINGS_MIN_WIDTH, SETTINGS_MIN_HEIGHT)
     .resizable(true)
-    .visible(false) // Start hidden to avoid flash
     .focused(true);
 
     #[cfg(target_os = "macos")]
     {
         builder = builder
             .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .hidden_title(true);
+            .hidden_title(true)
+            .visible(false);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder = builder
+            .menu(Menu::new(app)?)
+            .center()
+            .visible(true);
     }
 
     let window = builder.build()?;
 
-    // Override any restored state by explicitly setting size and centering
-    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
-        width: SETTINGS_WIDTH,
-        height: SETTINGS_HEIGHT,
-    }));
-    let _ = window.center();
-    let _ = window.show();
+    #[cfg(target_os = "macos")]
+    {
+        // Override any restored state by explicitly setting size and centering.
+        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+            width: SETTINGS_WIDTH,
+            height: SETTINGS_HEIGHT,
+        }));
+        let _ = window.center();
+        let _ = window.show();
+    }
 
     Ok(SETTINGS_LABEL.to_string())
 }
