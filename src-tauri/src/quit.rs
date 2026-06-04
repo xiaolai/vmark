@@ -47,6 +47,40 @@ pub fn is_document_window_label(label: &str) -> bool {
     label == "main" || label.starts_with("doc-")
 }
 
+#[derive(Debug, PartialEq)]
+pub enum ExitRequestAction {
+    AllowExit,
+    PreventAndStartQuit,
+    PreventAndKeepAlive,
+}
+
+/// Decide how to handle Tauri's process-level exit request.
+///
+/// macOS keeps the app alive when the last window closes so the Dock icon can
+/// reopen a document window. Linux/Windows should exit when no document windows
+/// remain, matching normal desktop and CLI-launched app behavior.
+pub fn decide_exit_request_action(
+    exit_allowed: bool,
+    has_document_windows: bool,
+    keep_alive_without_documents: bool,
+) -> ExitRequestAction {
+    if exit_allowed {
+        return ExitRequestAction::AllowExit;
+    }
+    if has_document_windows {
+        return ExitRequestAction::PreventAndStartQuit;
+    }
+    if keep_alive_without_documents {
+        ExitRequestAction::PreventAndKeepAlive
+    } else {
+        ExitRequestAction::AllowExit
+    }
+}
+
+pub fn keep_alive_without_document_windows() -> bool {
+    cfg!(target_os = "macos")
+}
+
 /// Return `true` when the app is ready to terminate (set just before `app.exit(0)`).
 pub fn is_exit_allowed() -> bool {
     EXIT_ALLOWED.load(Ordering::SeqCst)
@@ -216,6 +250,34 @@ mod tests {
         assert!(is_document_window_label("doc-0"));
         assert!(is_document_window_label("doc-123"));
         assert!(!is_document_window_label("settings"));
+    }
+
+    #[test]
+    fn exit_request_allows_when_already_allowed() {
+        assert_eq!(
+            decide_exit_request_action(true, true, true),
+            ExitRequestAction::AllowExit
+        );
+    }
+
+    #[test]
+    fn exit_request_with_documents_starts_coordinated_quit() {
+        assert_eq!(
+            decide_exit_request_action(false, true, false),
+            ExitRequestAction::PreventAndStartQuit
+        );
+    }
+
+    #[test]
+    fn exit_request_without_documents_keeps_alive_only_when_requested() {
+        assert_eq!(
+            decide_exit_request_action(false, false, true),
+            ExitRequestAction::PreventAndKeepAlive
+        );
+        assert_eq!(
+            decide_exit_request_action(false, false, false),
+            ExitRequestAction::AllowExit
+        );
     }
 
     #[test]
