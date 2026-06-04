@@ -591,18 +591,6 @@ pub fn create_localized_menu(
         ],
     )?;
 
-    #[cfg(not(target_os = "macos"))]
-    let window_menu = Submenu::with_id_and_items(
-        app,
-        "window-menu",
-        &t!("menu.window").to_string(),
-        true,
-        &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
-        ],
-    )?;
-
     // ========================================================================
     // Help menu
     // ========================================================================
@@ -665,7 +653,6 @@ pub fn create_localized_menu(
             &format_menu,
             &insert_menu,
             &view_menu,
-            &window_menu,
             &help_menu,
         ],
     )
