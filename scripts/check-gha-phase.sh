@@ -135,14 +135,15 @@ phase_1() {
 
   # WI-1.5 — workflow router. Originally a separate module under
   # src/lib/workflowRouting/, but production never imported it: the
-  # routing decision is made directly by sourceEditorExtensions
-  # (.yml extension) + sourceGhaWorkflowPreview (workflow shape).
+  # routing decision is made directly by the .yml extension gate
+  # (isYamlFileName, defined in src/utils/dropPaths.ts) + the
+  # workflow-shape gate (isWorkflowYaml, in src/lib/ghaWorkflow/detection.ts).
   # Removed as dead code in the Codex audit round 5; the gate now
   # checks the actual decision points instead.
   assert_grep "isYamlFileName" \
-    "src/utils/sourceEditorExtensions.ts" "WI-1.5 routing — yaml extension gate"
+    "src/utils/dropPaths.ts" "WI-1.5 routing — yaml extension gate"
   assert_grep "isWorkflowYaml" \
-    "src/plugins/codemirror/sourceGhaWorkflowPreview.ts" \
+    "src/lib/ghaWorkflow/detection.ts" \
     "WI-1.5 routing — workflow-shape gate"
 
   # WI-1.6 — fixture corpus (≥20 per plan)
@@ -208,13 +209,16 @@ phase_8() {
     fi
   done
 
-  # WI-8.3 — workflowEditStore + save pipeline
-  assert_file "src/stores/workflowEditStore.ts"                        "WI-8.3 edit store"
-  assert_file "src/stores/__tests__/workflowEditStore.test.ts"         "WI-8.3 edit store tests"
+  # WI-8.3 — edit store + save pipeline. The standalone workflowEditStore
+  # was consolidated into the unified src/stores/workflowStore.ts (view +
+  # edit slices); its edit-slice API (queuePatch/applyAndSerialize/...) is
+  # unchanged. Tests live beside the source as workflowStore.test.ts.
+  assert_file "src/stores/workflowStore.ts"                            "WI-8.3 edit store"
+  assert_file "src/stores/workflowStore.test.ts"                       "WI-8.3 edit store tests"
   assert_grep "applyAndSerialize" \
-    "src/stores/workflowEditStore.ts" "WI-8.3 save pipeline exposed"
+    "src/stores/workflowStore.ts" "WI-8.3 save pipeline exposed"
   assert_grep "preserveYamlFormatting" \
-    "src/stores/workflowEditStore.ts" "WI-8.3 preserve-formatting toggle"
+    "src/stores/workflowStore.ts" "WI-8.3 preserve-formatting toggle"
 
   echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"
 }
@@ -229,8 +233,9 @@ phase_7() {
   assert_file "src/components/Editor/WorkflowEditor/StepForm.tsx"      "WI-7.1 StepForm"
   assert_file "src/components/Editor/WorkflowEditor/TriggerForm.tsx"   "WI-7.1 TriggerForm"
 
-  # WI-7.2 — Edit pipeline (forms emit IRPatch via workflowEditStore)
-  assert_grep "useWorkflowEditStore" \
+  # WI-7.2 — Edit pipeline (forms emit IRPatch via the unified workflowStore,
+  # which absorbed the former workflowEditStore edit slice).
+  assert_grep "useWorkflowStore" \
     "src/components/Editor/WorkflowEditor/JobForm.tsx" "WI-7.2 JobForm uses edit store"
 
   echo "  ⓘ remember: 'pnpm check:all' must pass before phase tick"

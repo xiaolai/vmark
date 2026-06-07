@@ -74,7 +74,7 @@ case "$PHASE" in
     ;;
   4)
     # G6 fontFamily sync, G7 scrollback, G8 reader logging, G9 reaping doc, WI-4.6 coverage.
-    assert_grep "resolveMonoFont()" "src/components/Terminal/terminalSessionStoreSync.ts" "WI-4.1 fontFamily live-sync"
+    assert_grep "resolveMonoFontStack(" "src/components/Terminal/terminalSessionStoreSync.ts" "WI-4.1 fontFamily live-sync"
     assert_grep "scrollback" "src/stores/settingsStore.ts" "WI-4.2 scrollback default"
     assert_grep "settings.scrollback" "src/components/Terminal/createTerminalInstance.ts" "WI-4.2 scrollback not hardcoded"
     assert_grep "reader" "src-tauri/src/pty.rs" "WI-4.3 reader present"
