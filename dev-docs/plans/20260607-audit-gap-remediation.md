@@ -14,14 +14,14 @@ verification. Manual a11y/XSS/visual passes via Tauri MCP in Phase 6.
 
 ## Work items (mapped to audit §C)
 
-### Phase 1 — Safe, high-value, TDD
-- **RW-1** (L5) — `errorMessage.test.ts` for the 71-site helper.
-- **RW-2** (L4) — Genie UI tests: `ApprovalDialog`, `WorkflowSidePanel`, `WorkflowNode`.
-- **RW-3** (L18) — Replace 2 production `.expect()` in `lib.rs`; migrate 5 `console.warn` to debug loggers.
-- **RW-4** (L15) — Per-tool `version` keys in `capabilities/*.json`.
-- **RW-5** (L17) — `iframe` support in Source media popup.
-- **RW-6** (L10) — Workflow runner `if:` expression evaluation + tests.
-- **RW-7** (L3) — Wire GHA workflow export (`toMermaid`/`toImage`) to a UI action.
+### Phase 1 — Safe, high-value, TDD ✅ DONE (gate green, 8 commits)
+- **RW-1** (L5) ✅ — `errorMessage.test.ts` (8 tests). `bede06f1`.
+- **RW-2** (L4) ✅ — Genie UI tests (29 tests) + **bug fix**: ApprovalDialog fail-loud on IPC rejection. `da16d417`.
+- **RW-3** (L18) ✅ — lib.rs build `.expect()` → logged exit; hex-header expect documented as infallible; perfLog off `console.warn`. (Audit's "5 console.warn" was stale — only 1 was real.) `35476565`.
+- **RW-4** (L15) ✅ — version marker in capability `description` (schema has no `version` field). `54eae94f`.
+- **RW-5** (L17) ✅ — `iframe` detection in Source media popup. `4a36e06d`.
+- **RW-6** (L10) ✅ — `condition.rs` evaluator (literals, success/failure/always, comparisons, &&/||/!, refs) + fail-loud. `ec897899`. Known limit: `failure()`/`always()` latent until runner dependency-skip is revisited.
+- **RW-7** (L3) ✅ — `WorkflowExportControl` on the canvas (Mermaid/SVG/PNG). `4cafa8af`.
 
 ### Phase 2 — Content / docs
 - **RW-8** (L1) — Bundled sample workflow + `examples.rs` integration test + `tauri.conf.json` bundle entry.
