@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractFootnoteIds, findFootnoteDefinition, isValidFootnoteId } from "./operations";
+import { extractFootnoteIds, findFootnoteDefinition } from "./operations";
 
 describe("extractFootnoteIds", () => {
   it("returns empty array when no refs exist", () => {
@@ -38,19 +38,5 @@ describe("findFootnoteDefinition", () => {
   it("handles CRLF line endings", () => {
     const crlf = "[^id]: hello\r\nrest";
     expect(findFootnoteDefinition(crlf, "id")).toBe("hello");
-  });
-});
-
-describe("isValidFootnoteId", () => {
-  it.each([
-    ["foo", true],
-    ["foo-bar", true],
-    ["1", true],
-    ["", false],
-    ["has space", false],
-    ["has\ttab", false],
-    ["has]bracket", false],
-  ])("isValidFootnoteId(%j) -> %s", (input, expected) => {
-    expect(isValidFootnoteId(input)).toBe(expected);
   });
 });

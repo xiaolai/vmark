@@ -28,8 +28,3 @@ export function findFootnoteDefinition(markdown: string, id: string): string | n
   }
   return null;
 }
-
-/** Footnote ids may not contain whitespace or `]` per CommonMark + GFM. */
-export function isValidFootnoteId(id: string): boolean {
-  return id.length > 0 && !/[\s\]]/.test(id);
-}
