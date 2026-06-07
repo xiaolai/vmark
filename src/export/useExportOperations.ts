@@ -240,7 +240,7 @@ export interface ExportToPdfOptions {
  * On non-macOS platforms, print is not supported (menu item hidden).
  */
 export async function exportToPdf(options: ExportToPdfOptions): Promise<void> {
-  const { markdown } = options;
+  const { markdown, sourceFilePath } = options;
 
   const trimmedContent = markdown.trim();
   if (!trimmedContent) {
@@ -253,7 +253,7 @@ export async function exportToPdf(options: ExportToPdfOptions): Promise<void> {
     return;
   }
 
-  await exportToPdfBrowser(markdown);
+  await exportToPdfBrowser(markdown, sourceFilePath ?? null);
 }
 
 /**
@@ -340,12 +340,19 @@ export function pickPrintHtmlSource(
   return { kind: "empty" };
 }
 
-async function exportToPdfBrowser(markdown: string): Promise<void> {
+// fix(#999) — inline local images as data-URIs before print/PDF so the
+// off-screen WKWebView (no Tauri asset:// handler) can render them.
+async function exportToPdfBrowser(
+  markdown: string,
+  sourceFilePath: string | null = null,
+): Promise<void> {
   try {
     // Read HTML directly from the live editor DOM for instant print in
     // WYSIWYG mode. This bypasses ExportSurface (used by Export PDF) for
-    // speed — trade-off is that local images use asset:// URLs which the
-    // off-screen WKWebView can resolve via file URL access. For
+    // speed. Local images in the live DOM use asset:// URLs which the
+    // off-screen WKWebView created by `print_document` cannot resolve (it
+    // loads a plain file URL and has no Tauri asset protocol handler), so
+    // they must be inlined as data URIs below (issue #999). For
     // visual-parity export, use Export PDF.
     //
     // In Source mode there is no `.ProseMirror` element, so the source
@@ -362,6 +369,17 @@ async function exportToPdfBrowser(markdown: string): Promise<void> {
       toast.error(i18n.t("dialog:toast.noEditorContentToPrint"));
       return;
     }
+
+    // Inline local images (relative/absolute/asset:// paths) as data URIs so
+    // the off-screen print WKWebView can load them; remote http(s) URLs pass
+    // through untouched. Resolved relative to the source document's directory.
+    const { resolveResources, getDocumentBaseDir } = await import("./resourceResolver");
+    const baseDir = await getDocumentBaseDir(sourceFilePath);
+    const { html: resolvedHtml } = await resolveResources(html, {
+      baseDir,
+      mode: "single",
+    });
+    html = resolvedHtml;
 
     const themeCSS = captureThemeCSS();
     const { getEditorContentCSS } = await import("./htmlExportStyles");

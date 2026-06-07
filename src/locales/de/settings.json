@@ -73,6 +73,8 @@
   "editor.tabSize.description": "Anzahl der eingefügten Leerzeichen beim Drücken von Tab",
   "editor.tabSize.2spaces": "2 Leerzeichen",
   "editor.tabSize.4spaces": "4 Leerzeichen",
+  "editor.openInNewTab.label": "Dateien in neuem Tab öffnen",
+  "editor.openInNewTab.description": "Vorhandene Dateien in einem neuen Tab öffnen, statt den aktuellen leeren Tab wiederzuverwenden",
   "editor.autoPair.label": "Automatisches Paaren aktivieren",
   "editor.autoPair.description": "Schließende Klammern und Anführungszeichen automatisch einfügen",
   "editor.cjkBrackets.label": "CJK-Klammern",

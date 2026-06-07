@@ -224,6 +224,97 @@ describe("resolveOpenAction", () => {
     });
   });
 
+  // fix(#946) — openInNewTab opt-in: open existing files in a new tab instead
+  // of replacing the clean untitled tab.
+  describe("with openInNewTab enabled", () => {
+    it("returns create_tab instead of replace_tab when a replaceable tab exists", () => {
+      const context: OpenActionContext = {
+        filePath: "/some/folder/file.md",
+        workspaceRoot: null,
+        isWorkspaceMode: false,
+        existingTabId: null,
+        replaceableTab: { tabId: "untitled-tab" },
+        openInNewTab: true,
+      };
+
+      const result = resolveOpenAction(context);
+
+      expect(result).toEqual({
+        action: "create_tab",
+        filePath: "/some/folder/file.md",
+      });
+    });
+
+    it("returns create_tab for file outside workspace when a replaceable tab exists", () => {
+      const context: OpenActionContext = {
+        filePath: "/other/folder/file.md",
+        workspaceRoot: "/workspace/project",
+        isWorkspaceMode: true,
+        existingTabId: null,
+        replaceableTab: { tabId: "untitled-tab" },
+        openInNewTab: true,
+      };
+
+      const result = resolveOpenAction(context);
+
+      expect(result).toEqual({
+        action: "create_tab",
+        filePath: "/other/folder/file.md",
+      });
+    });
+
+    it("still activates an existing tab even with openInNewTab", () => {
+      const context: OpenActionContext = {
+        filePath: "/some/folder/file.md",
+        workspaceRoot: null,
+        isWorkspaceMode: false,
+        existingTabId: "existing-tab",
+        replaceableTab: { tabId: "untitled-tab" },
+        openInNewTab: true,
+      };
+
+      const result = resolveOpenAction(context);
+
+      expect(result).toEqual({
+        action: "activate_tab",
+        tabId: "existing-tab",
+      });
+    });
+
+    it("opens a new window when no replaceable tab exists and not in workspace", () => {
+      const context: OpenActionContext = {
+        filePath: "/some/folder/file.md",
+        workspaceRoot: null,
+        isWorkspaceMode: false,
+        existingTabId: null,
+        replaceableTab: null,
+        openInNewTab: true,
+      };
+
+      const result = resolveOpenAction(context);
+
+      expect(result).toEqual({
+        action: "open_workspace_in_new_window",
+        filePath: "/some/folder/file.md",
+        workspaceRoot: "/some/folder",
+      });
+    });
+
+    it("defaults to current behavior (replace_tab) when openInNewTab is omitted", () => {
+      const context: OpenActionContext = {
+        filePath: "/some/folder/file.md",
+        workspaceRoot: null,
+        isWorkspaceMode: false,
+        existingTabId: null,
+        replaceableTab: { tabId: "untitled-tab" },
+      };
+
+      const result = resolveOpenAction(context);
+
+      expect(result.action).toBe("replace_tab");
+    });
+  });
+
   describe("edge cases", () => {
     it("handles Windows-style paths", () => {
       const context: OpenActionContext = {

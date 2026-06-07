@@ -21,6 +21,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
@@ -193,12 +194,16 @@ export async function handleOpen(windowLabel: string): Promise<void> {
     // Check for replaceable tab (single clean untitled tab)
     const replaceableTab = getReplaceableTab(windowLabel);
 
+    // fix(#946) — honor the "open files in a new tab" preference
+    const openInNewTab = useSettingsStore.getState().general.openInNewTab;
+
     const decision = resolveOpenAction({
       filePath: path,
       workspaceRoot: rootPath,
       isWorkspaceMode,
       existingTabId,
       replaceableTab,
+      openInNewTab,
     });
 
     perfMark("handleOpen:resolvedAction", { action: decision.action });

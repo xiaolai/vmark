@@ -73,6 +73,8 @@
   "editor.tabSize.description": "Tab 키를 눌렀을 때 삽입되는 공백 수",
   "editor.tabSize.2spaces": "공백 2개",
   "editor.tabSize.4spaces": "공백 4개",
+  "editor.openInNewTab.label": "파일을 새 탭에서 열기",
+  "editor.openInNewTab.description": "기존 파일을 현재 빈 탭에 다시 사용하지 않고 새 탭에서 엽니다",
   "editor.autoPair.label": "자동 쌍 입력 사용",
   "editor.autoPair.description": "닫는 괄호와 따옴표를 자동으로 삽입합니다",
   "editor.cjkBrackets.label": "CJK 괄호",

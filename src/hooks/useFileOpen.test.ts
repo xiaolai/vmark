@@ -338,6 +338,26 @@ describe("handleOpen — dialog and routing", () => {
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/new.md");
   });
 
+  // fix(#946) — handleOpen forwards general.openInNewTab into the open policy
+  it("passes the openInNewTab setting into resolveOpenAction", async () => {
+    mockOpen.mockResolvedValue("/docs/pref.md");
+    mockFindExistingTabForPath.mockReturnValue(null);
+    mockResolveOpenAction.mockReturnValue({ action: "create_tab" });
+    mockReadTextFile.mockResolvedValue("# Pref");
+
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.getState().updateGeneralSetting("openInNewTab", true);
+
+    const { handleOpen } = await import("./useFileOpen");
+    await handleOpen(WINDOW);
+
+    expect(mockResolveOpenAction).toHaveBeenCalledWith(
+      expect.objectContaining({ openInNewTab: true })
+    );
+
+    useSettingsStore.getState().updateGeneralSetting("openInNewTab", false);
+  });
+
   it("replaces tab when action is replace_tab", async () => {
     mockOpen.mockResolvedValue("/docs/replace.md");
     mockResolveOpenAction.mockReturnValue({

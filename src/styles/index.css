@@ -281,10 +281,14 @@ body {
   background-color: var(--selection-color);
 }
 
-/* Scrollbar styling - thin scrollbars */
+/* fix(#946) — grabbable overlay-style scrollbars (was a 1px hairline) */
+/* Scrollbar styling — grabbable but unobtrusive overlay feel.
+ * 10px wide so the thumb is easy to grab on long documents, while a
+ * transparent track and a translucent, padded thumb keep it visually quiet
+ * (macOS overlay-scrollbar feel). Tokens drive both themes. */
 ::-webkit-scrollbar {
-  width: 1px;
-  height: 4px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -292,12 +296,21 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
+  /* color-mix keeps the resting thumb subtle; the padding-style transparent
+   * border + background-clip inset the visible thumb so it reads as a slim
+   * pill rather than filling the full 10px gutter. */
+  background-color: color-mix(in srgb, var(--md-char-color) 45%, transparent);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--radius-lg);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--md-char-color);
+  background-color: var(--md-char-color);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Window drag region */

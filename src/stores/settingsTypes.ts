@@ -359,6 +359,11 @@ export interface GeneralSettings {
   lineEndingsOnSave: LineEndingOnSave; // Preserve or normalize line endings
   // Quit behavior
   confirmQuit: boolean; // Require double Cmd+Q to quit (default: true)
+  // Tab behavior
+  // fix(#946) — when true, opening an existing file uses a new tab instead of
+  // replacing the current clean untitled tab. Default false preserves the
+  // legacy "reuse the empty tab" behavior so existing users are unaffected.
+  openInNewTab: boolean;
   // i18n
   language: string; // Default: "en" — UI language (BCP 47 tag, e.g. "en", "zh-CN", "zh-TW")
 }

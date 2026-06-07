@@ -168,6 +168,29 @@ describe("settingsStore confirmQuit", () => {
   });
 });
 
+// fix(#946) — opening existing files in a new tab is an opt-in preference.
+describe("settingsStore openInNewTab", () => {
+  it("defaults openInNewTab to false (legacy reuse-empty-tab behavior)", () => {
+    expect(useSettingsStore.getState().general.openInNewTab).toBe(false);
+  });
+
+  it("toggles openInNewTab on and off", () => {
+    useSettingsStore.getState().updateGeneralSetting("openInNewTab", true);
+    expect(useSettingsStore.getState().general.openInNewTab).toBe(true);
+
+    useSettingsStore.getState().updateGeneralSetting("openInNewTab", false);
+    expect(useSettingsStore.getState().general.openInNewTab).toBe(false);
+  });
+
+  it("resets openInNewTab to false on resetSettings", () => {
+    useSettingsStore.getState().updateGeneralSetting("openInNewTab", true);
+    expect(useSettingsStore.getState().general.openInNewTab).toBe(true);
+
+    useSettingsStore.getState().resetSettings();
+    expect(useSettingsStore.getState().general.openInNewTab).toBe(false);
+  });
+});
+
 describe("settingsStore history settings", () => {
   it("defaults historyMergeWindow to 30", () => {
     expect(useSettingsStore.getState().general.historyMergeWindow).toBe(30);
