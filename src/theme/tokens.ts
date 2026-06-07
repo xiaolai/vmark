@@ -67,14 +67,36 @@ export type ThemeTokens = {
       bilibili: string;
     };
     /**
-     * Legacy `ThemeColors`-shape fields preserved so the adapter at
-     * `themeColorsAdapter.ts` can project them through without const-
-     * folding. Only dark themes populate `codeText`/`mdChar` today
-     * (originally night-only); leave optional so light themes can omit.
+     * Legacy CSS-var override values that the runtime `useTheme.ts` adapter
+     * emits under the historical (non-`--color-*`) var names — the names the
+     * app's CSS actually consumes (`--accent-bg`, `--blur-text-color`, …).
+     *
+     * These are NOT derivable from the structured fields above because they
+     * intentionally diverge (e.g. night's `--accent-bg` is `rgba(90,168,255,…)`
+     * while `color.accent.bg` is `rgba(88,166,255,…)`, and night's
+     * `--error-color-hover` differs from `color.semantic.errorHover`). Holding
+     * them here keeps the typed catalog the single source of truth per
+     * ADR-014 — `useTheme.ts` reads these instead of carrying its own
+     * standalone `darkModeColors` const.
+     *
+     * `codeText`/`mdChar` are also projected by `themeColorsAdapter.ts` into
+     * the legacy `ThemeColors` surface. The rest are dark-mode-only override
+     * values; light themes leave them undefined (light shares one static
+     * fragment — see `legacyDarkExtra` / the light branch in `useTheme.ts`).
      */
     legacy?: {
       codeText?: string;
       mdChar?: string;
+      /** Dark-mode-only `--*` override values (night). */
+      blurText?: string;
+      accentBg?: string;
+      sourceModeBg?: string;
+      errorColorHover?: string;
+      successColorHover?: string;
+      highlightBg?: string;
+      highlightText?: string;
+      blockBgSubtle?: string;
+      blockBgSubtleHover?: string;
     };
   };
   /**
@@ -165,6 +187,54 @@ export const mediaLight: ThemeTokens["color"]["media"] = {
   vimeo: "#00adef",
   bilibili: "#fb7299",
 };
+
+/**
+ * Legacy light-mode CSS-var override values, emitted under the historical
+ * `--*` names that the app's CSS consumes. Identical across all four light
+ * themes (white / paper / mint / sepia), so it lives here once rather than
+ * per-theme. `useTheme.ts`'s light branch reads this instead of carrying a
+ * standalone `lightModeColors` const — keeping `src/theme/` the single
+ * source of truth (ADR-014).
+ *
+ * Per-theme light values (`--text-secondary`, `--strong-color`, etc.) are
+ * NOT here — those come from each theme's structured fields. This fragment
+ * is only the genuinely-shared static overrides.
+ */
+export const legacyLight = {
+  "--text-secondary": "#666666",
+  "--code-text-color": "#1a1a1a",
+  "--selection-color": "rgba(0, 102, 204, 0.2)",
+  "--md-char-color": "#777777",
+  "--meta-content-color": "#777777",
+  "--strong-color": "rgb(63, 86, 99)",
+  "--emphasis-color": "rgb(91, 4, 17)",
+  "--blur-text-color": "#c8c8c8",
+  "--text-tertiary": "#999999",
+  "--accent-bg": "rgba(0, 102, 204, 0.1)",
+  "--source-mode-bg": "rgba(0, 0, 0, 0.02)",
+  "--error-color": "#cf222e",
+  "--error-color-hover": "#b91c1c",
+  "--error-bg": "#ffebe9",
+  "--success-color": "#16a34a",
+  "--success-color-hover": "#15803d",
+  "--warning-color": "#9a6700",
+  "--warning-bg": "rgba(245, 158, 11, 0.1)",
+  "--warning-border": "rgba(245, 158, 11, 0.3)",
+  "--warning-bg-hover": "rgba(245, 158, 11, 0.15)",
+  "--warning-bg-active": "rgba(245, 158, 11, 0.2)",
+  "--contrast-text": "white",
+  "--hover-bg": "rgba(0, 0, 0, 0.04)",
+  "--hover-bg-strong": "rgba(0, 0, 0, 0.08)",
+  "--subtle-bg": "rgba(0, 0, 0, 0.02)",
+  "--subtle-bg-hover": "rgba(0, 0, 0, 0.03)",
+  "--alert-note": "#0969da",
+  "--alert-tip": "#1a7f37",
+  "--alert-important": "#8250df",
+  "--alert-warning": "#9a6700",
+  "--alert-caution": "#cf222e",
+  "--highlight-bg": "#fff3a3",
+  "--highlight-text": "inherit",
+} as const;
 
 // Legacy lightTheme / darkTheme aliases now live in `./index.ts` (and
 // indirectly via the themes/ barrel) — they can't live here because

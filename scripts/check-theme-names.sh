@@ -34,7 +34,7 @@ set -euo pipefail
 # bounded by non-alphanumeric chars on both sides, AND quoted (single,
 # double, or backtick) — bare prose mentions don't count.
 # Pattern: a quote, then the exact theme word, then a quote.
-THEME_NAMES='"(paper|white|mint|sepia|night)"|'\''(paper|white|mint|sepia|night)'\''|`(paper|white|mint|sepia|night)`'
+THEME_NAMES='"(paper|white|mint|sepia|night|solarized)"|'\''(paper|white|mint|sepia|night|solarized)'\''|`(paper|white|mint|sepia|night|solarized)`'
 
 # Allow-listed paths. Listed as regex alternation for grep -E.
 #   - Theme module owns the catalog + the runtime mapping.

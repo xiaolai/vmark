@@ -49,6 +49,7 @@
   "appearance.theme.mint": "Mint",
   "appearance.theme.sepia": "Sepia",
   "appearance.theme.night": "Night",
+  "appearance.theme.solarized": "Solarized",
   "appearance.group.window": "Window",
   "appearance.showFilenameInTitlebar.label": "Show filename in titlebar",
   "appearance.showFilenameInTitlebar.description": "Display the current file name in the window title",

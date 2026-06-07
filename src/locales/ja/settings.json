@@ -34,6 +34,7 @@
   "appearance.theme.mint": "ミント",
   "appearance.theme.sepia": "セピア",
   "appearance.theme.night": "ナイト",
+  "appearance.theme.solarized": "Solarized",
   "appearance.group.window": "ウィンドウ",
   "appearance.showFilenameInTitlebar.label": "タイトルバーにファイル名を表示",
   "appearance.showFilenameInTitlebar.description": "ウィンドウタイトルに現在のファイル名を表示する",

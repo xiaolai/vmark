@@ -34,6 +34,7 @@
   "appearance.theme.mint": "Menta",
   "appearance.theme.sepia": "Sépia",
   "appearance.theme.night": "Noturno",
+  "appearance.theme.solarized": "Solarized",
   "appearance.group.window": "Janela",
   "appearance.showFilenameInTitlebar.label": "Mostrar nome do arquivo na barra de título",
   "appearance.showFilenameInTitlebar.description": "Exibir o nome do arquivo atual no título da janela",

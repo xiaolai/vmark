@@ -20,9 +20,10 @@ import { white } from "./white";
 import { mint } from "./mint";
 import { sepia } from "./sepia";
 import { night } from "./night";
+import { solarized } from "./solarized";
 
 
-export type ThemeId = "white" | "paper" | "mint" | "sepia" | "night";
+export type ThemeId = "white" | "paper" | "mint" | "sepia" | "night" | "solarized";
 
 export const themes: Record<ThemeId, ThemeTokens> = {
   white,
@@ -30,4 +31,5 @@ export const themes: Record<ThemeId, ThemeTokens> = {
   mint,
   sepia,
   night,
+  solarized,
 };
