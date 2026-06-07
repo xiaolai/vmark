@@ -1,7 +1,7 @@
 # Workflow Engine: YAML Workflows + React Flow Visualization
 
 > Created: 2026-03-31
-> Status: Draft
+> Status: Superseded by `20260418-genie-in-workflow.md` + `20260504-github-actions-workflow-viewer.md` (webhook steps intentionally deferred).
 > Branch: `feature/workflow-engine-plan`
 
 ## Executive Summary

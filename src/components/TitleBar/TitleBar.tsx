@@ -19,6 +19,7 @@
  *     when off, renders an empty draggable bar.
  *   - Dirty, missing, and unsaved states have distinct visual indicators.
  *   - IME composition is respected — Enter/Escape during composition are ignored.
+ *   - Root element is a `banner` ARIA landmark (labelled `aria.appTitleBar`).
  *
  * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
  * @module components/TitleBar/TitleBar

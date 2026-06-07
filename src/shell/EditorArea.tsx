@@ -10,6 +10,9 @@
  * 40px bottom bar always hugs the editor. The panel arranges around
  * that column based on panelPosition.
  *
+ * The `main` ARIA landmark wraps only the editor (not the bottom bar) so
+ * StatusBar's `contentinfo` landmark stays a top-level sibling.
+ *
  * @module shell/EditorArea
  */
 

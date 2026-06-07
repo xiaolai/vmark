@@ -23,6 +23,8 @@
  * compile-time + DOM-shape correctness is covered by
  * WorkflowCanvas.test.tsx.
  *
+ * @coordinates-with WorkflowExportControl.tsx — mounted as an overlay; sole
+ *   UI entry point for the ghaWorkflow/export functions
  * @module components/Editor/WorkflowPanel/WorkflowCanvas
  */
 

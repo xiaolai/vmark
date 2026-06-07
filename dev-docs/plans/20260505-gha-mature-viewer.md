@@ -1,6 +1,8 @@
 # GHA mature viewer — gap-closing plan
 
-> Status: Phase A in progress (started 2026-05-05). Phase B + C pending.
+> Status: Shipped (Phases A, B, C all complete). WI-5.2 (if-path eval) deferred.
+> Note: add/delete-job is a panel-button action, not a canvas context-menu item;
+> cron description is an in-house formatter, not the `cronstrue` dependency.
 > Builds on `20260504-github-actions-workflow-viewer.md` (10 phases shipped).
 > Closes 10 of 19 mature-tooling gaps identified in the post-ship analysis.
 > Six items deferred (ADR / scope decisions): #4 if-path eval (WI-5.2 deferred),

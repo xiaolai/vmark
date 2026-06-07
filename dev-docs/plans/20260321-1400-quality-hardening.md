@@ -1,5 +1,7 @@
 # Quality Hardening Plan
 
+> **Status:** Shipped, except WI-003 (2 outstanding `expect()` calls) and WI-010 (residual `console.warn`).
+
 ---
 title: "Comprehensive Quality Hardening"
 created_at: "2026-03-21 14:00 CST"

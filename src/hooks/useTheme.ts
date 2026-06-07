@@ -14,9 +14,13 @@
  *   - Mermaid and code preview plugins notified of font size changes
  *   - Dark theme toggled via `.dark-theme` class on documentElement
  *   - Static defaults in :root for print/SSR; this hook overrides at runtime
+ *   - Dark/light legacy color values are derived from the typed theme catalog
+ *     (`legacyLight` + per-theme `color.legacy`) — this hook no longer carries
+ *     its own `darkModeColors`/`lightModeColors` literals
  *
  * @coordinates-with settingsStore.ts — reads appearance settings
  * @coordinates-with index.css — static token defaults (overridden here)
+ * @coordinates-with theme/tokens.ts, theme/themes/* — source of legacy color values
  * @module hooks/useTheme
  */
 

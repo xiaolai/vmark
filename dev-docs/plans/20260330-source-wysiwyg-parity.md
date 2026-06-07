@@ -1,5 +1,7 @@
 # Source Mode ↔ WYSIWYG Parity Plan (v2 — post-Codex review)
 
+> **Status:** Effectively complete — all work items shipped except WI-4 (iframe-popup edit parity), which remains open.
+
 ---
 title: "Source Mode ↔ WYSIWYG Feature Parity"
 created_at: "2026-03-30 CST"

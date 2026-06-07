@@ -24,6 +24,8 @@
 //!     (Windows), always returning absolute paths.
 //!   - `machine_id_hash()` generates a stable anonymous device identifier via
 //!     SHA-256(hostname + OS + arch), sent as `X-Machine-Id` header on update checks.
+//!   - AI provider API keys are persisted in the OS keychain via the `secure_store`
+//!     module, never in plaintext config.
 //!
 //! Known limitations:
 //!   - ExitRequested handling must carefully distinguish OS quit from user quit
