@@ -33,7 +33,9 @@ import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { WorkflowExportControl } from "./WorkflowExportControl";
 import "./workflow-canvas.css";
 
-const WorkflowCanvasInner = lazy(() => import("./WorkflowCanvasInner"));
+const WorkflowCanvasInner = lazy(() =>
+  import("./WorkflowCanvasInner").then((m) => ({ default: m.WorkflowCanvasInner })),
+);
 
 interface WorkflowCanvasProps {
   workflow: WorkflowIR;

@@ -92,6 +92,3 @@ export function WorkflowCanvasInner(
     </ReactFlowProvider>
   );
 }
-
-// Default export — required by React.lazy at the call site.
-export default WorkflowCanvasInner;

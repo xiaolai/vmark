@@ -395,5 +395,3 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     />
   );
 }
-
-export default SourceEditor;
