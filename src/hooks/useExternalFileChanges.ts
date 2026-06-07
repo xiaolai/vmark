@@ -16,6 +16,10 @@
  *     prevents false-positive "file deleted" on atomic write renames
  *   - handleModifyEvent() is shared by modify/create and rename-fallback
  *   - Deleted files get isMissing flag (no auto-close — user may want to save)
+ *   - `remove` events are verified before marking missing: Windows atomic
+ *     saves (MoveFileEx) and sync daemons fire spurious `remove`s for files
+ *     that still exist, so the handler skips our own pending saves and
+ *     re-reads disk before flagging the doc missing (issue 995)
  *   - Divergent docs auto-recover when disk content matches editor content —
  *     e.g. git checkout restoring the same content the user has locally
  *   - After "Keep my changes", lastDiskContent is refreshed to current disk
@@ -435,7 +439,23 @@ export function useExternalFileChanges(): void {
 
           // Handle file deletion
           if (kind === "remove") {
-            handleDeletion(tabId);
+            // fix(#995) — Windows atomic saves (NamedTempFile::persist →
+            // MoveFileEx) and sync daemons emit `remove` events for files that
+            // still exist. Mirror the rename-fallback guard: skip our own
+            // pending saves, then re-verify the file is truly gone before
+            // marking it missing. Otherwise VMark's own auto-save marks its
+            // file missing → "auto-save paused" that never clears.
+            if (hasPendingSave(normalizedPath)) continue;
+            try {
+              const diskContent = await readTextFile(changedPath);
+              // File still exists — spurious remove. Run modify-style checks
+              // (filters our own save, handles real external edits).
+              if (matchesPendingSave(changedPath, diskContent)) continue;
+              await handleModifyEvent(tabId, changedPath, diskContent);
+            } catch {
+              // File truly gone — mark missing.
+              handleDeletion(tabId);
+            }
             continue;
           }
 

@@ -355,6 +355,8 @@ describe("useExternalFileChanges — remove events", () => {
 
   it("marks file as missing on remove event", async () => {
     seedStores();
+    // Genuine deletion: file no longer readable and not one of our saves.
+    mocks.readTextFile.mockRejectedValue(new Error("file not found"));
 
     const callback = await setupHookAndCallback();
 
@@ -369,6 +371,53 @@ describe("useExternalFileChanges — remove events", () => {
 
     const doc = useDocumentStore.getState().documents["tab-1"];
     expect(doc?.isMissing).toBe(true);
+  });
+
+  // fix(#995) — Windows atomic-save emits a `remove` for the target during
+  // NamedTempFile::persist (MoveFileEx). The remove branch must skip our own
+  // pending saves so VMark's auto-save doesn't mark its own file missing.
+  it("does not mark missing on remove when it is our own pending save", async () => {
+    seedStores();
+    mocks.hasPendingSave.mockReturnValue(true);
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/test.md"],
+        kind: "remove",
+      },
+    });
+
+    const doc = useDocumentStore.getState().documents["tab-1"];
+    expect(doc?.isMissing).toBe(false);
+    // We never even read disk — the pending-save short-circuit fires first.
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+  });
+
+  // fix(#995) — Windows watchers fire spurious `remove` events for files that
+  // still exist on disk (atomic rename, sync daemons). Re-verify existence
+  // before marking missing; if the file is still readable, treat as modify.
+  it("does not mark missing on remove when the file still exists on disk", async () => {
+    seedStores({ lastDiskContent: "# old content" });
+    mocks.hasPendingSave.mockReturnValue(false);
+    mocks.readTextFile.mockResolvedValue("# old content");
+
+    const callback = await setupHookAndCallback();
+
+    await callback({
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/test.md"],
+        kind: "remove",
+      },
+    });
+
+    const doc = useDocumentStore.getState().documents["tab-1"];
+    expect(doc?.isMissing).toBe(false);
   });
 });
 
