@@ -67,13 +67,23 @@ function classifyTier(bytes) {
 }
 
 // ─── Arg / env parsing ───────────────────────────────────────────────────────
+// audit-fix — validate CLI args
+function takeValue(argv, i, flag) {
+  const next = argv[i + 1];
+  if (next === undefined || next.startsWith("-")) {
+    process.stderr.write(`error: ${flag} requires a value\n`);
+    process.exit(1);
+  }
+  return next;
+}
+
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--sizes") out.sizes = argv[++i];
-    else if (a === "--out") out.out = argv[++i];
-    else if (a === "--seed") out.seed = argv[++i];
+    if (a === "--sizes") out.sizes = takeValue(argv, i++, a);
+    else if (a === "--out") out.out = takeValue(argv, i++, a);
+    else if (a === "--seed") out.seed = takeValue(argv, i++, a);
     else if (a === "--help" || a === "-h") out.help = true;
   }
   return out;
@@ -109,7 +119,18 @@ const outDir = resolve(
   ROOT,
   args.out ?? process.env.VMARK_CORPUS_OUT ?? "tmp/large-file-corpus",
 );
-const seed = Number(args.seed ?? process.env.VMARK_CORPUS_SEED ?? 1) >>> 0;
+// audit-fix — validate CLI args
+function parseSeed(raw) {
+  if (raw === undefined) return 1;
+  const str = String(raw).trim();
+  if (!/^[+-]?\d+$/.test(str)) {
+    process.stderr.write(`error: --seed must be an integer (got "${str}")\n`);
+    process.exit(1);
+  }
+  return Number(str) >>> 0;
+}
+
+const seed = parseSeed(args.seed ?? process.env.VMARK_CORPUS_SEED);
 
 // ─── Deterministic content generation (seeded LCG, no Math.random) ───────────
 // Numerical Recipes LCG constants. Stable, fast, reproducible.

@@ -79,12 +79,22 @@ function formatSize(bytes) {
 }
 
 // ─── Resolve the list of fixture files ───────────────────────────────────────
+// audit-fix — validate CLI args
+function takeValue(argv, i, flag) {
+  const next = argv[i + 1];
+  if (next === undefined || next.startsWith("-")) {
+    process.stderr.write(`error: ${flag} requires a value\n`);
+    process.exit(1);
+  }
+  return next;
+}
+
 function parseArgs(argv) {
   const out = { files: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--manifest") out.manifest = argv[++i];
-    else if (a === "--dir") out.dir = argv[++i];
+    if (a === "--manifest") out.manifest = takeValue(argv, i++, a);
+    else if (a === "--dir") out.dir = takeValue(argv, i++, a);
     else if (a === "--help" || a === "-h") out.help = true;
     else out.files.push(a);
   }
@@ -105,12 +115,36 @@ if (args.help) {
   process.exit(0);
 }
 
+// audit-fix(r2) — validate that a `--manifest` file / `--dir` directory exists
+// (and is the right kind) before use, so a typo produces a clear message
+// instead of a cryptic downstream ENOENT / ENOTDIR.
+function requirePath(p, flag, kind) {
+  const abs = resolve(ROOT, p);
+  let st;
+  try {
+    st = statSync(abs);
+  } catch {
+    process.stderr.write(`error: ${flag} ${p} does not exist\n`);
+    process.exit(1);
+  }
+  if (kind === "file" && !st.isFile()) {
+    process.stderr.write(`error: ${flag} ${p} is not a file\n`);
+    process.exit(1);
+  }
+  if (kind === "dir" && !st.isDirectory()) {
+    process.stderr.write(`error: ${flag} ${p} is not a directory\n`);
+    process.exit(1);
+  }
+  return abs;
+}
+
 let fixtures = [];
 if (args.manifest) {
-  const manifest = JSON.parse(readFileSync(resolve(ROOT, args.manifest), "utf8"));
+  const manifestPath = requirePath(args.manifest, "--manifest", "file");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   fixtures = manifest.files.map((f) => f.path);
 } else if (args.dir) {
-  const dir = resolve(ROOT, args.dir);
+  const dir = requirePath(args.dir, "--dir", "dir");
   fixtures = readdirSync(dir)
     .filter((f) => f.endsWith(".md"))
     .map((f) => join(dir, f));
@@ -138,7 +172,9 @@ if (fixtures.length === 0) {
 }
 
 // ─── Run the bench per fixture, collect results ──────────────────────────────
-const VITEST = resolve(ROOT, "node_modules/.bin/vitest");
+// audit-fix — cross-platform vitest spawn: use `pnpm exec` so the right
+// platform-specific shim (vitest / vitest.cmd) resolves on Windows too.
+const PNPM = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const tmpRoot = mkdtempSync(join(tmpdir(), "vmark-openlat-"));
 
 /** Extract a benchmark's mean/p99 (ms) by name from vitest's JSON report. */
@@ -161,8 +197,8 @@ for (const fixture of fixtures) {
 
   const jsonOut = join(tmpRoot, `bench-${rows.length}.json`);
   const res = spawnSync(
-    VITEST,
-    ["bench", BENCH_FILE, "--run", `--outputJson=${jsonOut}`],
+    PNPM,
+    ["exec", "vitest", "bench", BENCH_FILE, "--run", `--outputJson=${jsonOut}`],
     {
       cwd: ROOT,
       env: { ...process.env, VMARK_BENCH_LARGE_FILE: fixture },
