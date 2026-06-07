@@ -5,6 +5,7 @@
 
 pub mod approval;
 pub mod commands;
+pub mod condition;
 pub mod expressions;
 pub mod genie_step;
 pub mod runner;

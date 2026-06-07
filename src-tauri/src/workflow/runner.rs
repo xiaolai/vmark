@@ -15,6 +15,7 @@
 //!   - Steps ordered by topological sort on `needs:` dependencies
 
 use super::approval::{ApprovalRegistry, ApprovalRequest};
+use super::condition::evaluate_condition;
 use super::expressions::{self, WorkflowOutputs};
 use super::genie_step::{self, LoadedGenie, ProviderConfig};
 use super::sandbox::validate_path;
@@ -301,25 +302,44 @@ pub async fn run_workflow_sequential(
             continue;
         }
 
-        // Evaluate condition (if: field) — skip step if condition is literally "false"
+        // Evaluate condition (if: field). Fail-loud (RW-6 / L10): an
+        // unparseable condition fails the step, never silently passes.
         if let Some(condition) = &step.condition {
-            let trimmed = condition.trim().to_lowercase();
-            if trimmed == "false" || trimmed == "0" {
-                emit_event(
-                    app,
-                    "workflow:step-update",
-                    StepStatusEvent {
-                        execution_id: execution_id.to_string(),
-                        step_id: step_id.clone(),
-                        status: "skipped".to_string(),
-                        output: None,
-                        error: Some(format!("Condition not met: {}", condition)),
-                        duration: None,
-                    },
-                );
-                continue;
+            match evaluate_condition(condition, &outputs, &merged_env, failed) {
+                Ok(true) => {} // proceed
+                Ok(false) => {
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id: step_id.clone(),
+                            status: "skipped".to_string(),
+                            output: None,
+                            error: Some(format!("Condition not met: {}", condition)),
+                            duration: None,
+                        },
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    failed = true;
+                    failed_step = step_id.clone();
+                    emit_event(
+                        app,
+                        "workflow:step-update",
+                        StepStatusEvent {
+                            execution_id: execution_id.to_string(),
+                            step_id,
+                            status: "error".to_string(),
+                            output: None,
+                            error: Some(format!("Condition evaluation failed: {}", e)),
+                            duration: None,
+                        },
+                    );
+                    continue;
+                }
             }
-            // TODO: full expression evaluation for conditions like `step.output.length > 100`
         }
 
         // Emit running status
