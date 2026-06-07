@@ -65,7 +65,7 @@ export function registerExportCommands(): void {
       await withDoc(ctx, async (doc) => {
         try {
           const { exportToPdf } = await import("@/export/useExportOperations");
-          await exportToPdf({ markdown: doc.content });
+          await exportToPdf({ markdown: doc.content, sourceFilePath: doc.filePath });
         } catch (error) {
           menuError("Failed to print:", error);
         }
