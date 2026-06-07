@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
+import { workflowError } from "@/utils/debug";
 
 import "./approval-dialog.css";
 
@@ -26,12 +27,17 @@ export function ApprovalDialog() {
   const pending = useWorkflowStore((s) => s.approval.pending);
   const { respondApproval } = useWorkflowExecution();
 
+  // RW-2 (L4) — fail-loud on approval IPC rejection
   const respond = useCallback(
     async (approved: boolean) => {
       const current = useWorkflowStore.getState().approval.pending;
       if (!current) return;
       try {
         await respondApproval(current.executionId, current.stepId, approved);
+      } catch (error) {
+        // The IPC verdict failed. Log loudly instead of letting the
+        // fire-and-forget caller surface an unhandled rejection.
+        workflowError("Failed to respond to workflow approval:", error);
       } finally {
         useWorkflowStore.getState().dismissApproval();
       }

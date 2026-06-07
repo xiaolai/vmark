@@ -213,4 +213,9 @@ export const finderFileOpenError = isDev
   ? (...args: unknown[]) => console.error("[FinderFileOpen]", ...args)
   : (...args: unknown[]) => prodError("[FinderFileOpen]", ...args);
 
+/** Error logger for Workflow execution. */
+export const workflowError = isDev
+  ? (...args: unknown[]) => console.error("[Workflow]", ...args)
+  : (...args: unknown[]) => prodError("[Workflow]", ...args);
+
 /* v8 ignore stop */
