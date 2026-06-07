@@ -4,7 +4,10 @@
  * Purpose: Renders a modal when the runner emits `workflow:approval-request`.
  * Shows the genie summary, the resolved model, and a 500-char prompt preview.
  * The user clicks Approve or Deny; the verdict goes back through
- * `respond_workflow_approval` and dismisses the dialog.
+ * `respond_workflow_approval`. The dialog dismisses only on a successful
+ * verdict — on rejection it stays open (buttons re-enable) so the user can
+ * retry, since the backend request is still pending. A re-entrancy guard
+ * ignores repeated clicks / Escape while a verdict is in flight.
  *
  * Esc = Deny (consistent with VMark's other dialogs).
  *
@@ -13,7 +16,7 @@
  * @module components/WorkflowApproval/ApprovalDialog
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useWorkflowStore } from "@/stores/workflowStore";
@@ -27,19 +30,33 @@ export function ApprovalDialog() {
   const pending = useWorkflowStore((s) => s.approval.pending);
   const { respondApproval } = useWorkflowExecution();
 
+  // audit-fix — re-entrancy guard: ignore further verdicts/Escape while a
+  // response is in flight, so double-clicks can't send duplicate verdicts.
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+
   // RW-2 (L4) — fail-loud on approval IPC rejection
   const respond = useCallback(
     async (approved: boolean) => {
       const current = useWorkflowStore.getState().approval.pending;
       if (!current) return;
+      // audit-fix — bail if a verdict is already in flight.
+      if (submittingRef.current) return;
+      submittingRef.current = true;
+      setSubmitting(true);
       try {
         await respondApproval(current.executionId, current.stepId, approved);
+        // audit-fix — only dismiss on success; a rejected verdict leaves the
+        // backend request pending, so keep the dialog open for retry.
+        useWorkflowStore.getState().dismissApproval();
       } catch (error) {
         // The IPC verdict failed. Log loudly instead of letting the
-        // fire-and-forget caller surface an unhandled rejection.
+        // fire-and-forget caller surface an unhandled rejection. The dialog
+        // stays open and the buttons re-enable so the user can retry.
         workflowError("Failed to respond to workflow approval:", error);
       } finally {
-        useWorkflowStore.getState().dismissApproval();
+        submittingRef.current = false;
+        setSubmitting(false);
       }
     },
     [respondApproval],
@@ -95,6 +112,7 @@ export function ApprovalDialog() {
             type="button"
             className="approval-dialog__btn approval-dialog__btn--deny"
             onClick={() => void respond(false)}
+            disabled={submitting}
           >
             {t("workflow:approval.deny", "Deny")}
           </button>
@@ -102,6 +120,7 @@ export function ApprovalDialog() {
             type="button"
             className="approval-dialog__btn approval-dialog__btn--approve"
             onClick={() => void respond(true)}
+            disabled={submitting}
             autoFocus
           >
             {t("workflow:approval.approve", "Approve")}

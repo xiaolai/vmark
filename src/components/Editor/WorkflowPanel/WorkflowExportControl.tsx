@@ -14,6 +14,9 @@
  *   - exportCanvas reads the live `.react-flow__viewport` from the DOM;
  *     this control just names the format. It must therefore mount inside
  *     the same canvas wrapper as React Flow.
+ *   - An in-flight guard prevents rapid repeated clicks from triggering
+ *     duplicate clipboard writes, save dialogs, or toasts; the trigger and
+ *     menu items disable while an export runs.
  *
  * @coordinates-with src/lib/ghaWorkflow/export/toMermaid.ts
  * @coordinates-with src/lib/ghaWorkflow/export/saveExport.ts
@@ -63,6 +66,10 @@ export function WorkflowExportControl({
   const { t } = useTranslation("workflowEditor");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  // audit-fix — in-flight guard: rapid repeated clicks must not trigger
+  // duplicate clipboard writes, save dialogs, or toasts.
+  const exportingRef = useRef(false);
+  const [exporting, setExporting] = useState(false);
 
   // Close on outside click or Escape (rules/50 §2 — store refs, clean up
   // on unmount). The handlers are stable so a single effect suffices.
@@ -84,19 +91,32 @@ export function WorkflowExportControl({
 
   const handleMermaid = useCallback(async () => {
     setOpen(false);
-    const ok = await copyMermaid(toMermaid(workflow));
-    if (ok) {
-      toast.success(t("panel.exportMermaid"), {
-        description: t("panel.exportMermaidLossy"),
-      });
-    } else {
-      toast.error(t("panel.exportError"));
+    // audit-fix — bail if an export is already running.
+    if (exportingRef.current) return;
+    exportingRef.current = true;
+    setExporting(true);
+    try {
+      const ok = await copyMermaid(toMermaid(workflow));
+      if (ok) {
+        toast.success(t("panel.exportMermaid"), {
+          description: t("panel.exportMermaidLossy"),
+        });
+      } else {
+        toast.error(t("panel.exportError"));
+      }
+    } finally {
+      exportingRef.current = false;
+      setExporting(false);
     }
   }, [workflow, t]);
 
   const handleImage = useCallback(
     async (format: "svg" | "png") => {
       setOpen(false);
+      // audit-fix — bail if an export is already running.
+      if (exportingRef.current) return;
+      exportingRef.current = true;
+      setExporting(true);
       try {
         const result = await saveImage(format);
         if (result === "saved") {
@@ -109,6 +129,9 @@ export function WorkflowExportControl({
         }
       } catch (error) {
         toast.error(`${t("panel.exportError")}: ${errorMessage(error)}`);
+      } finally {
+        exportingRef.current = false;
+        setExporting(false);
       }
     },
     [t],
@@ -123,6 +146,7 @@ export function WorkflowExportControl({
         aria-expanded={open}
         aria-label={t("panel.exportLabel")}
         title={t("panel.exportLabel")}
+        disabled={exporting}
         onClick={() => setOpen((v) => !v)}
       >
         {EXPORT_ICON}
@@ -133,6 +157,7 @@ export function WorkflowExportControl({
             type="button"
             role="menuitem"
             className="workflow-export-control__item"
+            disabled={exporting}
             onClick={handleMermaid}
           >
             {t("panel.exportMermaid")}
@@ -141,6 +166,7 @@ export function WorkflowExportControl({
             type="button"
             role="menuitem"
             className="workflow-export-control__item"
+            disabled={exporting}
             onClick={() => handleImage("svg")}
           >
             {t("panel.exportSvg")}
@@ -149,6 +175,7 @@ export function WorkflowExportControl({
             type="button"
             role="menuitem"
             className="workflow-export-control__item"
+            disabled={exporting}
             onClick={() => handleImage("png")}
           >
             {t("panel.exportPng")}

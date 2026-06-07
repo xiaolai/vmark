@@ -1,4 +1,5 @@
 // RW-6 (L10) — workflow if: expression evaluation
+// audit-fix — cap condition parser recursion depth
 //
 //! Boolean condition evaluator for workflow steps' `if:` field.
 //!
@@ -50,7 +51,7 @@ pub fn evaluate_condition(
         env,
         any_failed,
     };
-    let value = parser.parse_expr(0)?;
+    let value = parser.parse_expr(0, 0)?;
     if parser.pos != parser.tokens.len() {
         return Err(format!(
             "Unexpected trailing tokens in condition: {}",
@@ -298,6 +299,17 @@ fn peek(chars: &[char], idx: usize) -> Option<char> {
 
 // === Parser (Pratt) ===
 
+/// Maximum nesting depth for the recursive-descent / Pratt parser.
+///
+/// Every prefix `!`, parenthesized group, and binary sub-expression recurses,
+/// so a crafted condition (e.g. thousands of nested parens or a long run of
+/// `!`) could otherwise blow the stack — a DoS via a malicious workflow file.
+/// Real conditions never nest more than a handful of levels; 100 is comfortably
+/// above any legitimate use yet well below the native stack-overflow threshold.
+/// On overflow the parser returns `Err`, which the runner surfaces as a step
+/// failure (fail-loud), never as a silent pass.
+const MAX_PARSE_DEPTH: usize = 100;
+
 struct Parser<'a> {
     tokens: Vec<Token>,
     pos: usize,
@@ -330,8 +342,14 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_expr(&mut self, min_bp: u8) -> Result<Value, String> {
-        let mut lhs = self.parse_prefix()?;
+    fn parse_expr(&mut self, min_bp: u8, depth: usize) -> Result<Value, String> {
+        if depth > MAX_PARSE_DEPTH {
+            return Err(format!(
+                "Condition nesting too deep (max {})",
+                MAX_PARSE_DEPTH
+            ));
+        }
+        let mut lhs = self.parse_prefix(depth + 1)?;
 
         while let Some(tok) = self.peek_tok() {
             let Some(bp) = Self::binary_bp(tok) else {
@@ -341,21 +359,27 @@ impl Parser<'_> {
                 break;
             }
             let op = self.advance().expect("peeked token exists");
-            let rhs = self.parse_expr(bp + 1)?;
+            let rhs = self.parse_expr(bp + 1, depth + 1)?;
             lhs = self.apply_binary(&op, lhs, rhs)?;
         }
 
         Ok(lhs)
     }
 
-    fn parse_prefix(&mut self) -> Result<Value, String> {
+    fn parse_prefix(&mut self, depth: usize) -> Result<Value, String> {
+        if depth > MAX_PARSE_DEPTH {
+            return Err(format!(
+                "Condition nesting too deep (max {})",
+                MAX_PARSE_DEPTH
+            ));
+        }
         match self.advance() {
             Some(Token::Not) => {
-                let v = self.parse_prefix()?;
+                let v = self.parse_prefix(depth + 1)?;
                 Ok(Value::Bool(!v.truthy()))
             }
             Some(Token::LParen) => {
-                let v = self.parse_expr(0)?;
+                let v = self.parse_expr(0, depth + 1)?;
                 match self.advance() {
                     Some(Token::RParen) => Ok(v),
                     _ => Err("Expected ')'".to_string()),
@@ -675,5 +699,35 @@ mod tests {
     #[test]
     fn unterminated_string_errors() {
         assert!(eval("'unterminated", false).is_err());
+    }
+
+    // === recursion-depth cap (DoS guard) ===
+
+    #[test]
+    fn deeply_nested_parens_errors_not_overflows() {
+        // Far beyond MAX_PARSE_DEPTH: a crafted workflow could otherwise
+        // stack-overflow the backend. Must return Err, never panic/abort.
+        let depth = 5000;
+        let cond = format!("{}true{}", "(".repeat(depth), ")".repeat(depth));
+        let r = eval(&cond, false);
+        assert!(r.is_err(), "expected Err for deep parens, got {:?}", r);
+    }
+
+    #[test]
+    fn long_not_run_errors_not_overflows() {
+        // A long run of prefix `!` recurses via parse_prefix on every `!`.
+        let cond = format!("{}true", "!".repeat(5000));
+        let r = eval(&cond, false);
+        assert!(r.is_err(), "expected Err for long `!` run, got {:?}", r);
+    }
+
+    #[test]
+    fn normal_nesting_still_evaluates() {
+        // A few legitimate levels must keep working.
+        assert!(eval("(((true)))", false).unwrap());
+        assert!(eval("!!!false", false).unwrap());
+        assert!(eval("((true && false) || (true && true))", false).unwrap());
+        // true && (false||false) => false; ||false => false; !false => true
+        assert!(eval("!(true && (false || false) || false)", false).unwrap());
     }
 }

@@ -6,7 +6,7 @@
 // have their own unit tests; here we only verify the UI dispatch.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 
@@ -84,5 +84,30 @@ describe("WorkflowExportControl", () => {
     await user.click(screen.getByRole("button", { name: /export/i }));
     await user.click(screen.getByRole("menuitem", { name: /png/i }));
     expect(mockSaveImage).toHaveBeenCalledWith("png");
+  });
+
+  // audit-fix — rapid repeated clicks must not trigger duplicate exports.
+  it("ignores a rapid double-click while an export is in flight", async () => {
+    const user = userEvent.setup();
+    // Hold the export open so the second click lands while it is in flight.
+    let release: () => void = () => {};
+    mockCopyMermaid.mockImplementationOnce(
+      () => new Promise<boolean>((resolve) => {
+        release = () => resolve(true);
+      }),
+    );
+
+    render(<WorkflowExportControl workflow={ir()} />);
+    await user.click(screen.getByRole("button", { name: /export/i }));
+
+    const item = screen.getByRole("menuitem", { name: /mermaid/i });
+    // Fire two clicks back-to-back before the in-flight promise resolves.
+    fireEvent.click(item);
+    fireEvent.click(item);
+
+    release();
+    await waitFor(() => {
+      expect(mockCopyMermaid).toHaveBeenCalledTimes(1);
+    });
   });
 });

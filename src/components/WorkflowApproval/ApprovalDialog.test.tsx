@@ -142,8 +142,10 @@ describe("ApprovalDialog", () => {
     });
 
     // RW-2 (L4) — a rejecting IPC verdict must be caught and logged (fail
-    // loud), not dropped as an unhandled rejection. The dialog still dismisses.
-    it("logs and dismisses (no unhandled rejection) when respondApproval rejects", async () => {
+    // loud), not dropped as an unhandled rejection.
+    // audit-fix — on rejection the dialog must STAY OPEN (the backend request
+    // is still pending) and the buttons must re-enable so the user can retry.
+    it("logs, stays open, and re-enables buttons when respondApproval rejects", async () => {
       const unhandled = vi.fn();
       process.on("unhandledRejection", unhandled);
 
@@ -160,15 +162,47 @@ describe("ApprovalDialog", () => {
           expect.any(Error),
         );
       });
-      // The dialog still dismisses on the failure path.
+      // The dialog stays open on the failure path — the request is still
+      // pending and must remain retryable.
+      expect(useWorkflowStore.getState().approval.pending).not.toBeNull();
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      // Buttons re-enable so the user can retry.
       await waitFor(() => {
-        expect(useWorkflowStore.getState().approval.pending).toBeNull();
+        expect(screen.getByRole("button", { name: /approve/i })).not.toBeDisabled();
+        expect(screen.getByRole("button", { name: /deny/i })).not.toBeDisabled();
       });
 
       // Give any (mistaken) unhandled rejection a tick to surface.
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(unhandled).not.toHaveBeenCalled();
       process.off("unhandledRejection", unhandled);
+    });
+
+    // audit-fix — re-entrancy: a second click while a verdict is in flight
+    // must be ignored so we never send duplicate verdicts.
+    it("ignores a second click while a verdict is in flight", async () => {
+      let release: () => void = () => {};
+      mockRespondApproval.mockImplementationOnce(
+        () => new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+      );
+      enqueue({ executionId: "exec-re", stepId: "step-re" });
+      render(<ApprovalDialog />);
+
+      const approve = screen.getByRole("button", { name: /approve/i });
+      fireEvent.click(approve);
+      // Button disables while the first verdict is in flight.
+      await waitFor(() => expect(approve).toBeDisabled());
+      // Further clicks (and Escape) are ignored.
+      fireEvent.click(approve);
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      release();
+      await waitFor(() => {
+        expect(useWorkflowStore.getState().approval.pending).toBeNull();
+      });
+      expect(mockRespondApproval).toHaveBeenCalledTimes(1);
     });
   });
 
