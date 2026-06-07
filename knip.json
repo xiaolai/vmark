@@ -52,7 +52,11 @@
         "cytoscape-cose-bilkent",
         "dayjs",
         "debug",
-        "@braintree/sanitize-url"
+        "@braintree/sanitize-url",
+        "mermaid"
+      ],
+      "ignoreBinaries": [
+        "vitepress"
       ]
     }
   }
