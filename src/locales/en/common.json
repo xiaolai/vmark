@@ -31,6 +31,7 @@
 
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.appTitleBar": "Application title bar",
   "aria.sidebarResize": "Resize sidebar (use Left and Right arrow keys)",
 
   "untitled": "Untitled",

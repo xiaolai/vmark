@@ -400,6 +400,9 @@ importers:
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@22.19.7)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.98.0)(tsx@4.21.0)(yaml@2.8.4)
+      vitest-axe:
+        specifier: 0.1.0
+        version: 0.1.0(vitest@4.0.18(@types/node@22.19.7)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.98.0)(tsx@4.21.0)(yaml@2.8.4))
 
   vmark-mcp-server:
     dependencies:
@@ -2586,6 +2589,10 @@ packages:
   ast-v8-to-istanbul@0.3.10:
     resolution: {integrity: sha512-p4K7vMz2ZSk3wN8l5o3y2bJAoZXT3VuJI5OLTATY/01CYWumWvwkUw0SqDBnNq6IiTO3qDa1eSQDibAV8g7XOQ==}
 
+  axe-core@4.12.0:
+    resolution: {integrity: sha512-FTavr/7Ba0IptwGOPxnQvdyW2tAsdLBMTBXz7rKH6xJ2skpyxpBxyHkDdBs4lf69yRqYpkqCdfhnwS8YULGOmg==}
+    engines: {node: '>=4'}
+
   b4a@1.7.3:
     resolution: {integrity: sha512-5Q2mfq2WfGuFp3uS//0s6baOJLMoVduPYVeNmDYxu5OUA1/cBfvr2RIS7vi62LdNj/urk1hfmj867I3qt6uZ7Q==}
     peerDependencies:
@@ -2713,6 +2720,10 @@ packages:
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
+
+  chalk@5.6.2:
+    resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
+    engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
 
   character-entities-legacy@3.0.0:
     resolution: {integrity: sha512-RpPp0asT/6ufRm//AJVwpViZbGM/MkjQFxJccQRHmISF/22NBtsHqAWmL+/pmkPWoIUJdWyeVleTl1wydHATVQ==}
@@ -5085,6 +5096,11 @@ packages:
         optional: true
       yaml:
         optional: true
+
+  vitest-axe@0.1.0:
+    resolution: {integrity: sha512-jvtXxeQPg8R/2ANTY8QicA5pvvdRP4F0FsVUAHANJ46YCDASie/cuhlSzu0DGcLmZvGBSBNsNuK3HqfaeknyvA==}
+    peerDependencies:
+      vitest: '>=0.16.0'
 
   vitest@4.0.16:
     resolution: {integrity: sha512-E4t7DJ9pESL6E3I8nFjPa4xGUd3PmiWDLsDztS2qXSJWfHtbQnwAWylaBvSNY48I3vr8PTqIZlyK8TE3V3CA4Q==}
@@ -7548,6 +7564,8 @@ snapshots:
       estree-walker: 3.0.3
       js-tokens: 9.0.1
 
+  axe-core@4.12.0: {}
+
   b4a@1.7.3: {}
 
   bail@2.0.2: {}
@@ -7673,6 +7691,8 @@ snapshots:
     dependencies:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
+
+  chalk@5.6.2: {}
 
   character-entities-legacy@3.0.0: {}
 
@@ -10549,6 +10569,16 @@ snapshots:
       sass: 1.98.0
       tsx: 4.21.0
       yaml: 2.8.4
+
+  vitest-axe@0.1.0(vitest@4.0.18(@types/node@22.19.7)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.98.0)(tsx@4.21.0)(yaml@2.8.4)):
+    dependencies:
+      aria-query: 5.3.2
+      axe-core: 4.12.0
+      chalk: 5.6.2
+      dom-accessibility-api: 0.5.16
+      lodash-es: 4.18.1
+      redent: 3.0.0
+      vitest: 4.0.18(@types/node@22.19.7)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.98.0)(tsx@4.21.0)(yaml@2.8.4)
 
   vitest@4.0.16(@types/node@22.19.3)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.30.2)(sass@1.98.0)(tsx@4.21.0)(yaml@2.9.0):
     dependencies:

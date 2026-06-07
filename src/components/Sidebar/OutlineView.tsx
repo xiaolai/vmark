@@ -208,7 +208,7 @@ export function OutlineView() {
   // Skip outline for very large documents to prevent performance issues
   if (isTooLarge) {
     return (
-      <div className="sidebar-view outline-view">
+      <div className="sidebar-view outline-view" role="complementary" aria-label={t("outline.documentOutline")}>
         <div className="sidebar-empty">{t("outline.tooLarge")}</div>
       </div>
     );
@@ -217,14 +217,14 @@ export function OutlineView() {
   // No headings at all → don't show the filter input.
   if (headings.length === 0) {
     return (
-      <div className="sidebar-view outline-view">
+      <div className="sidebar-view outline-view" role="complementary" aria-label={t("outline.documentOutline")}>
         <div className="sidebar-empty">{t("outline.noHeadings")}</div>
       </div>
     );
   }
 
   return (
-    <div className="sidebar-view outline-view">
+    <div className="sidebar-view outline-view" role="complementary" aria-label={t("outline.documentOutline")}>
       <div className="outline-filter">
         <Search size={12} className="outline-filter-icon" aria-hidden="true" />
         <input

@@ -35,6 +35,7 @@
   "tabActions": "Tab-Aktionen",
   "aria.sidebar": "Sidebar",
   "aria.mainContent": "Main content",
+  "aria.appTitleBar": "Application title bar",
   "aria.sidebarResize": "Seitenleiste skalieren (Pfeiltasten links und rechts)",
   "resize": "Größe ändern",
   "unknown": "Unbekannt",

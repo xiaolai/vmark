@@ -50,8 +50,6 @@ export function EditorArea({
       }}
     >
       <div
-        role="main"
-        aria-label={t("aria.mainContent")}
         style={{
           flex: 1,
           display: "flex",
@@ -60,7 +58,16 @@ export function EditorArea({
           minWidth: 0,
         }}
       >
-        <div style={{ flex: 1, minHeight: 0, minWidth: 0 }}>{editor}</div>
+        {/* `role="main"` wraps only the editor so the bottom bar's
+            contentinfo landmark (StatusBar) stays a top-level sibling, not
+            nested inside main (axe landmark-contentinfo-is-top-level). */}
+        <div
+          role="main"
+          aria-label={t("aria.mainContent")}
+          style={{ flex: 1, minHeight: 0, minWidth: 0 }}
+        >
+          {editor}
+        </div>
         <div
           style={{
             position: "relative",

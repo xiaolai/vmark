@@ -1,6 +1,13 @@
 import "@testing-library/jest-dom";
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 import React from "react";
+
+// vitest-axe matchers (RW-15 / L11): register `toHaveNoViolations` globally so
+// a11y tests can assert `expect(await axe(el)).toHaveNoViolations()`.
+// `extend-expect` augments Vi.Assertion with the matcher's type signature.
+import "vitest-axe/extend-expect";
+import * as axeMatchers from "vitest-axe/matchers";
+expect.extend(axeMatchers);
 
 // Provide the build-time __VMARK_VERSION__ define for tests. Production
 // gets it from vite.config.ts's `define`; vitest does not run the
