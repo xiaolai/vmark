@@ -65,6 +65,29 @@ jobs:
             exit 1
           fi
 
+  # Perf bench smoke: ensure src/bench/*.bench.ts execute without error so the
+  # suite can't silently rot. SMOKE, not a threshold gate — `vitest bench` makes
+  # no timing assertions, so this fails only on real compile/runtime errors, not
+  # timing variance. ubuntu-latest only; no OS-matrix multiplication needed.
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm bench
+
   # Detect if Rust code changed — skip rust-test for frontend-only PRs
   changes:
     runs-on: ubuntu-latest
