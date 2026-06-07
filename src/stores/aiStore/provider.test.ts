@@ -4,6 +4,23 @@
 // partialize strips keys, and hydrateAndMigrateApiKeys migrates + hydrates.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+
+const aiProviderError = vi.fn();
+vi.mock("@/utils/debug", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/debug")>()),
+  aiProviderError: (...args: unknown[]) => aiProviderError(...args),
+}));
+
+// audit-fix(r2) — surface keychain write failures via a user-visible toast.
+const toastError = vi.fn();
+vi.mock("@/services/ime/imeToast", () => ({
+  imeToast: { error: (...args: unknown[]) => toastError(...args) },
+}));
+// i18n.t returns the key so assertions can match on it without locale data.
+vi.mock("@/i18n", () => ({
+  default: { t: (key: string) => key },
+}));
+
 import {
   sanitizeAiProviderPersist,
   hydrateAndMigrateApiKeys,
@@ -144,6 +161,33 @@ describe("hydrateAndMigrateApiKeys (RW-16 keychain hydration + migration)", () =
     expect(mockInvoke).not.toHaveBeenCalledWith("set_secret", expect.anything());
   });
 
+  it("preserves the in-memory key when the keychain read throws (no blanking)", async () => {
+    // A live session key must survive a transient keychain read failure during
+    // hydration — overwriting it with "" would silently drop the user's key.
+    useAiProviderStore.setState({
+      restProviders: [
+        {
+          type: "openai",
+          name: "OpenAI",
+          endpoint: "https://api.openai.com",
+          apiKey: "sk-in-memory",
+          model: "gpt-4o",
+        },
+      ],
+    });
+    mockInvoke.mockImplementation(async (cmd) => {
+      if (cmd === "get_secret") throw new Error("keychain locked");
+      return undefined;
+    });
+
+    await hydrateAndMigrateApiKeys();
+
+    expect(
+      useAiProviderStore.getState().restProviders.find((p) => p.type === "openai")
+        ?.apiKey
+    ).toBe("sk-in-memory");
+  });
+
   it("keeps in-memory key empty when keychain has none", async () => {
     useAiProviderStore.setState({
       restProviders: [
@@ -164,5 +208,73 @@ describe("hydrateAndMigrateApiKeys (RW-16 keychain hydration + migration)", () =
       useAiProviderStore.getState().restProviders.find((p) => p.type === "openai")
         ?.apiKey
     ).toBe("");
+  });
+});
+
+describe("updateRestProvider (audit-fix: surface keychain write failures)", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+    aiProviderError.mockReset();
+    toastError.mockReset();
+    useAiProviderStore.setState({
+      restProviders: [
+        {
+          type: "openai",
+          name: "OpenAI",
+          endpoint: "https://api.openai.com",
+          apiKey: "",
+          model: "gpt-4o",
+        },
+      ],
+    });
+  });
+
+  it("logs an error when the keychain write rejects (key would be lost on restart)", async () => {
+    mockInvoke.mockRejectedValue(new Error("keychain denied"));
+
+    useAiProviderStore.getState().updateRestProvider("openai", {
+      apiKey: "sk-new",
+    });
+    // In-memory state updates immediately (optimistic).
+    expect(
+      useAiProviderStore.getState().restProviders.find((p) => p.type === "openai")
+        ?.apiKey
+    ).toBe("sk-new");
+
+    // The keychain write is fire-and-handle; flush the microtask queue.
+    await vi.waitFor(() => expect(aiProviderError).toHaveBeenCalled());
+    expect(aiProviderError).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to persist API key to keychain"),
+      "openai"
+    );
+  });
+
+  it("surfaces a user-visible toast when the keychain write fails", async () => {
+    mockInvoke.mockRejectedValue(new Error("keychain denied"));
+
+    useAiProviderStore.getState().updateRestProvider("openai", {
+      apiKey: "sk-new",
+    });
+
+    // The failure must reach the user, not just the dev log.
+    await vi.waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(toastError).toHaveBeenCalledWith("ai:provider.keySaveError");
+  });
+
+  it("does not log an error or toast when the keychain write succeeds", async () => {
+    mockInvoke.mockResolvedValue(undefined);
+
+    useAiProviderStore.getState().updateRestProvider("openai", {
+      apiKey: "sk-new",
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(aiProviderError).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalled();
+    expect(mockInvoke).toHaveBeenCalledWith("set_secret", {
+      key: "apikey.openai",
+      value: "sk-new",
+    });
   });
 });

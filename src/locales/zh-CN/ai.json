@@ -27,5 +27,6 @@
   "history.empty": "无历史记录",
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "设置..."
+  "provider.settings": "设置...",
+  "provider.keySaveError": "无法将 API 密钥保存到钥匙串，重启后将丢失。"
 }

@@ -203,6 +203,11 @@ export const genieError = isDev
   ? (...args: unknown[]) => console.error("[Genie]", ...args)
   : (...args: unknown[]) => prodError("[Genie]", ...args);
 
+/** Error logger for AI Provider keychain/key handling. */
+export const aiProviderError = isDev
+  ? (...args: unknown[]) => console.error("[AIProvider]", ...args)
+  : (...args: unknown[]) => prodError("[AIProvider]", ...args);
+
 /** Error logger for Image Context Menu. */
 export const imageContextMenuError = isDev
   ? (...args: unknown[]) => console.error("[ImageContextMenu]", ...args)

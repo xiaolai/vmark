@@ -28,6 +28,7 @@
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
   "provider.settings": "Paramètres...",
+  "provider.keySaveError": "Échec de l'enregistrement de la clé API dans le trousseau. Elle sera perdue au redémarrage.",
   "picker": {
     "via": "via {{name}}"
   }

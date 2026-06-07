@@ -16,11 +16,13 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { createSecureStorage } from "@/utils/secureStorage";
 import {
-  loadApiKeys,
+  loadApiKeysWithStatus,
   migrateLegacyApiKeys,
   setApiKey,
 } from "@/services/secrets/apiKeySecrets";
-import { aiProviderLog, aiProviderWarn } from "@/utils/debug";
+import { aiProviderError, aiProviderLog, aiProviderWarn } from "@/utils/debug";
+import { imeToast } from "@/services/ime/imeToast";
+import i18n from "@/i18n";
 import type {
   CliProviderInfo,
   RestProviderConfig,
@@ -135,6 +137,26 @@ export const KEY_OPTIONAL_REST = new Set<string>(["ollama-api"]);
 // Race guard counter for detectProviders
 let _detectId = 0;
 
+/**
+ * audit-fix(r2) — surface a keychain write failure to the user.
+ *
+ * Dev-logs the failure (for diagnostics) AND raises a visible error toast so a
+ * user whose API key failed to persist learns it now, instead of silently
+ * losing the key on the next restart. Kept side-effecting and non-throwing so
+ * it can be called from the fire-and-forget `setApiKey().then(...)` path.
+ */
+function reportKeySaveFailure(type: RestProviderType): void {
+  aiProviderError(
+    "Failed to persist API key to keychain (in-memory only; will be lost on restart):",
+    type
+  );
+  imeToast.error(
+    i18n.t("ai:provider.keySaveError", {
+      defaultValue: "Failed to save API key to keychain. It will be lost when you restart.",
+    })
+  );
+}
+
 /** Manages available AI providers (CLI and REST), detection, and active selection with persistence. Use selectors, not destructuring. */
 export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
   persist(
@@ -218,8 +240,14 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
         }));
         // RW-16 (L8): the API key is a secret — persist it to the OS keychain,
         // never to the plaintext store. Other fields ride the normal persist.
+        // audit-fix(r2) — surface keychain write failures to the user via a
+        // toast (not dev-log-only): a silent failure leaves the new key only in
+        // memory (lost on restart) while the UI shows it as saved. The write
+        // stays fire-and-forget so the sync action never blocks on the keychain.
         if (Object.prototype.hasOwnProperty.call(updates, "apiKey")) {
-          void setApiKey(type, updates.apiKey ?? "");
+          void setApiKey(type, updates.apiKey ?? "").then((ok) => {
+            if (!ok) reportKeySaveFailure(type);
+          });
         }
       },
 
@@ -338,11 +366,16 @@ export async function hydrateAndMigrateApiKeys(): Promise<void> {
   }
 
   // Phase 2: load keychain keys into memory (authoritative for the session).
-  const keys = await loadApiKeys(types);
+  // audit-fix — status-aware: only overwrite the in-memory key when the read
+  // succeeded. `present` → use the keychain value; `absent` → clear to ""
+  // (genuinely unset). On `error` (or an unread type) preserve whatever is
+  // already in memory so a transient keychain failure can't blank a live key.
+  const statuses = await loadApiKeysWithStatus(types);
   useAiProviderStore.setState((state) => ({
-    restProviders: state.restProviders.map((p) => ({
-      ...p,
-      apiKey: keys[p.type] ?? "",
-    })),
+    restProviders: state.restProviders.map((p) => {
+      const res = statuses[p.type];
+      if (!res || res.status === "error") return p; // preserve in-memory key
+      return { ...p, apiKey: res.status === "present" ? res.value : "" };
+    }),
   }));
 }

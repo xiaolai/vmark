@@ -12,12 +12,10 @@
   "picker.via": "{{name}} 경유",
   "picker.footerCycleScope": "범위 순환",
   "picker.footerNavigate": "이동",
-
   "chips.polish": "다듬기",
   "chips.condense": "요약",
   "chips.grammar": "문법",
   "chips.rephrase": "다시 쓰기",
-
   "response.thinking": "생각 중... {{seconds}}초",
   "response.accept": "수락",
   "response.reject": "거부",
@@ -25,11 +23,10 @@
   "response.cancel": "취소",
   "response.dismiss": "닫기",
   "response.unknownError": "알 수 없는 오류",
-
   "history.title": "프롬프트 기록",
   "history.empty": "기록 없음",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "설정..."
+  "provider.settings": "설정...",
+  "provider.keySaveError": "API 키를 키체인에 저장하지 못했습니다. 다시 시작하면 사라집니다."
 }

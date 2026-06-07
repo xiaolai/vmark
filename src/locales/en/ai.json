@@ -31,5 +31,6 @@
 
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "Settings..."
+  "provider.settings": "Settings...",
+  "provider.keySaveError": "Failed to save API key to keychain. It will be lost when you restart."
 }
