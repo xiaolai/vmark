@@ -73,6 +73,8 @@
   "editor.tabSize.description": "Nombre d'espaces insérés lors de l'appui sur Tab",
   "editor.tabSize.2spaces": "2 espaces",
   "editor.tabSize.4spaces": "4 espaces",
+  "editor.openInNewTab.label": "Ouvrir les fichiers dans un nouvel onglet",
+  "editor.openInNewTab.description": "Ouvrir les fichiers existants dans un nouvel onglet au lieu de réutiliser l'onglet vide actuel",
   "editor.autoPair.label": "Activer la fermeture automatique",
   "editor.autoPair.description": "Insérer automatiquement les parenthèses et guillemets fermants",
   "editor.cjkBrackets.label": "Parenthèses CJK",

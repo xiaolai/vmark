@@ -179,6 +179,16 @@ export function EditorSettings() {
             onChange={(v) => updateGeneralSetting("tabSize", Number(v))}
           />
         </SettingRow>
+        {/* fix(#946) — open existing files in a new tab */}
+        <SettingRow
+          label={t("editor.openInNewTab.label")}
+          description={t("editor.openInNewTab.description")}
+        >
+          <Toggle
+            checked={general.openInNewTab}
+            onChange={(v) => updateGeneralSetting("openInNewTab", v)}
+          />
+        </SettingRow>
         <SettingRow
           label={t("editor.autoPair.label")}
           description={t("editor.autoPair.description")}

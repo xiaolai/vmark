@@ -73,6 +73,8 @@
   "editor.tabSize.description": "Tabキーを押したときに挿入するスペース数",
   "editor.tabSize.2spaces": "2スペース",
   "editor.tabSize.4spaces": "4スペース",
+  "editor.openInNewTab.label": "ファイルを新しいタブで開く",
+  "editor.openInNewTab.description": "既存のファイルを現在の空のタブに開く代わりに新しいタブで開きます",
   "editor.autoPair.label": "自動ペアリングを有効にする",
   "editor.autoPair.description": "閉じ括弧と引用符を自動的に挿入する",
   "editor.cjkBrackets.label": "CJK括弧",

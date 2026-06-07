@@ -73,6 +73,8 @@
   "editor.tabSize.description": "Número de espaços inseridos ao pressionar Tab",
   "editor.tabSize.2spaces": "2 espaços",
   "editor.tabSize.4spaces": "4 espaços",
+  "editor.openInNewTab.label": "Abrir arquivos em uma nova aba",
+  "editor.openInNewTab.description": "Abrir arquivos existentes em uma nova aba em vez de reutilizar a aba vazia atual",
   "editor.autoPair.label": "Ativar emparelhamento automático",
   "editor.autoPair.description": "Inserir automaticamente colchetes e aspas de fechamento",
   "editor.cjkBrackets.label": "Colchetes CJK",

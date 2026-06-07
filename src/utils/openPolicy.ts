@@ -41,6 +41,12 @@ export interface OpenActionContext {
   existingTabId: string | null;
   /** Info about a replaceable tab (single clean untitled tab), or null if none */
   replaceableTab: ReplaceableTabInfo | null;
+  /**
+   * fix(#946) — when true, prefer opening in a new tab over reusing the clean
+   * untitled tab. Sourced from `general.openInNewTab`. Optional/falsy keeps the
+   * legacy replace-the-empty-tab behavior, so existing users are unaffected.
+   */
+  openInNewTab?: boolean;
 }
 
 /**
@@ -59,8 +65,10 @@ export type OpenActionResult =
  * Decision logic:
  * 1. If file already has an open tab, activate it
  * 2. If in workspace mode and file is within workspace, create new tab
- * 3. If there's a replaceable tab (single clean untitled), replace it
- * 4. Otherwise, open in new window
+ * 3. If `openInNewTab` is set and a replaceable tab exists, create a new tab
+ *    (preserve the clean untitled tab) — fix(#946)
+ * 4. If there's a replaceable tab (single clean untitled), replace it
+ * 5. Otherwise, open in new window
  *
  * @param context - Current workspace and file context
  * @returns Action to take for opening the file
@@ -96,7 +104,7 @@ export type OpenActionResult =
  * }); // { action: "open_workspace_in_new_window", ... }
  */
 export function resolveOpenAction(context: OpenActionContext): OpenActionResult {
-  const { filePath, workspaceRoot, isWorkspaceMode, existingTabId, replaceableTab } = context;
+  const { filePath, workspaceRoot, isWorkspaceMode, existingTabId, replaceableTab, openInNewTab } = context;
 
   // Guard: empty path
   if (!filePath) {
@@ -119,6 +127,13 @@ export function resolveOpenAction(context: OpenActionContext): OpenActionResult 
   const newWorkspaceRoot = resolveWorkspaceRootForExternalFile(filePath);
   if (!newWorkspaceRoot) {
     return { action: "no_op", reason: "cannot_resolve_workspace_root" };
+  }
+
+  // fix(#946) — with "open in new tab" enabled, an external file that would
+  // otherwise replace the clean untitled tab opens as a new tab in the current
+  // window instead, so the empty tab is preserved.
+  if (replaceableTab && openInNewTab) {
+    return { action: "create_tab", filePath };
   }
 
   // If there's a replaceable tab (single clean untitled), replace it instead of new window

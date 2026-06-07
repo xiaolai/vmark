@@ -73,6 +73,8 @@
   "editor.tabSize.description": "按 Tab 时插入的空格数",
   "editor.tabSize.2spaces": "2 个空格",
   "editor.tabSize.4spaces": "4 个空格",
+  "editor.openInNewTab.label": "在新标签页中打开文件",
+  "editor.openInNewTab.description": "在新标签页中打开现有文件，而不是复用当前的空标签页",
   "editor.autoPair.label": "启用自动配对",
   "editor.autoPair.description": "自动插入结束括号和引号",
   "editor.cjkBrackets.label": "CJK 括号",

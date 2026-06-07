@@ -133,6 +133,9 @@ const initialState: SettingsState = {
     tabSize: 2,
     lineEndingsOnSave: "preserve",
     confirmQuit: true,
+    // fix(#946) — opt-in: open existing files in a new tab. Off by default
+    // to keep the legacy "reuse the empty untitled tab" behavior.
+    openInNewTab: false,
     // First-run default derived from OS locale; persisted value from zustand/persist
     // overrides this via the merge hook below, so existing users are untouched.
     language: resolveInitialLanguage(),

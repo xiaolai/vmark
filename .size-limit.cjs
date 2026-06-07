@@ -175,9 +175,11 @@ module.exports = [
   },
   {
     // Settings route. Lazy via App.tsx.
+    // Bumped 90 → 92 kB: fix(#946) adds the openInNewTab toggle (+label/description)
+    // to EditorSettings, nudging this chunk ~150 B over the old 90 kB ceiling.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "90 kB",
+    limit: "92 kB",
     brotli: false,
   },
   {

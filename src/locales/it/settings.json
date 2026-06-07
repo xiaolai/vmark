@@ -73,6 +73,8 @@
   "editor.tabSize.description": "Numero di spazi inseriti alla pressione di Tab",
   "editor.tabSize.2spaces": "2 spazi",
   "editor.tabSize.4spaces": "4 spazi",
+  "editor.openInNewTab.label": "Apri i file in una nuova scheda",
+  "editor.openInNewTab.description": "Apri i file esistenti in una nuova scheda invece di riutilizzare la scheda vuota corrente",
   "editor.autoPair.label": "Abilita chiusura automatica",
   "editor.autoPair.description": "Inserisce automaticamente parentesi e virgolette chiuse",
   "editor.cjkBrackets.label": "Parentesi CJK",

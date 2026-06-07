@@ -73,6 +73,8 @@
   "editor.tabSize.description": "按下 Tab 鍵時插入的空格數",
   "editor.tabSize.2spaces": "2 個空格",
   "editor.tabSize.4spaces": "4 個空格",
+  "editor.openInNewTab.label": "在新分頁中開啟檔案",
+  "editor.openInNewTab.description": "在新分頁中開啟現有檔案，而不是重複使用目前的空白分頁",
   "editor.autoPair.label": "啟用自動配對",
   "editor.autoPair.description": "自動插入對應的括號與引號",
   "editor.cjkBrackets.label": "中日韓括號",

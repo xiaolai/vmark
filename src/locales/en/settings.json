@@ -95,6 +95,8 @@
   "editor.tabSize.description": "Number of spaces inserted when pressing Tab",
   "editor.tabSize.2spaces": "2 spaces",
   "editor.tabSize.4spaces": "4 spaces",
+  "editor.openInNewTab.label": "Open files in a new tab",
+  "editor.openInNewTab.description": "Open existing files in a new tab instead of reusing the current empty tab",
   "editor.autoPair.label": "Enable auto-pairing",
   "editor.autoPair.description": "Automatically insert closing brackets and quotes",
   "editor.cjkBrackets.label": "CJK brackets",

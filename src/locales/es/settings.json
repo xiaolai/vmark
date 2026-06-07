@@ -73,6 +73,8 @@
   "editor.tabSize.description": "Número de espacios insertados al presionar Tab",
   "editor.tabSize.2spaces": "2 espacios",
   "editor.tabSize.4spaces": "4 espacios",
+  "editor.openInNewTab.label": "Abrir archivos en una pestaña nueva",
+  "editor.openInNewTab.description": "Abrir los archivos existentes en una pestaña nueva en lugar de reutilizar la pestaña vacía actual",
   "editor.autoPair.label": "Activar emparejamiento automático",
   "editor.autoPair.description": "Insertar automáticamente corchetes y comillas de cierre",
   "editor.cjkBrackets.label": "Corchetes CJK",
