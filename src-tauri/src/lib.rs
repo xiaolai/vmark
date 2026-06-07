@@ -593,7 +593,9 @@ pub fn run() {
             let mid = machine_id_hash();
             tauri_plugin_updater::Builder::new()
                 .header("X-Machine-Id", mid)
-                .expect("valid ASCII hex header")
+                // Infallible: `mid` is a lowercase hex string from `format!("{:x}", Sha256::digest(..))`,
+                // so it only ever contains [0-9a-f] — always a valid ASCII HTTP header value.
+                .expect("machine id hash is always valid ASCII hex")
                 .build()
         })
         .plugin(tauri_plugin_process::init())
@@ -803,9 +805,14 @@ pub fn run() {
     }
 
     // CRITICAL: Use .build().run() pattern for app-level event handling
-    builder
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
+    let app = match builder.build(tauri::generate_context!()) {
+        Ok(app) => app,
+        Err(e) => {
+            log::error!("fatal: failed to build tauri application: {e}");
+            std::process::exit(1);
+        }
+    };
+    app
         .run(|app, event| {
             match event {
                 // CRITICAL: Prevent quit on last window close (macOS behavior)

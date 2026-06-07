@@ -114,8 +114,9 @@ describe("perfLog — enabled", () => {
 
     perfEnd("nonexistent");
 
-    expect(console.warn).toHaveBeenCalledWith(
-      "[PERF] No start time for: nonexistent",
+    expect(console.log).toHaveBeenCalledWith(
+      "%c[PERF] No start time for: nonexistent",
+      "color: #cf222e",
     );
   });
 
@@ -156,8 +157,9 @@ describe("perfLog — enabled", () => {
     perfEnd("once");
     perfEnd("once"); // second call — no start time
 
-    expect(console.warn).toHaveBeenCalledWith(
-      "[PERF] No start time for: once",
+    expect(console.log).toHaveBeenCalledWith(
+      "%c[PERF] No start time for: once",
+      "color: #cf222e",
     );
   });
 });
