@@ -23,11 +23,12 @@ verification. Manual a11y/XSS/visual passes via Tauri MCP in Phase 6.
 - **RW-6** (L10) ✅ — `condition.rs` evaluator (literals, success/failure/always, comparisons, &&/||/!, refs) + fail-loud. `ec897899`. Known limit: `failure()`/`always()` latent until runner dependency-skip is revisited.
 - **RW-7** (L3) ✅ — `WorkflowExportControl` on the canvas (Mermaid/SVG/PNG). `4cafa8af`.
 
-### Phase 2 — Content / docs
-- **RW-8** (L1) — Bundled sample workflow + `examples.rs` integration test + `tauri.conf.json` bundle entry.
-- **RW-9** (L2) — `website/guide/workflows.md` + sidebar + `ai-genies.md` cross-section.
-- **RW-10** (L19) — Large-file perf harness (corpus gen + `measure-open-latency`).
-- **RW-11** (L20) — i18n announce artifacts (announcement doc + blog post).
+### Phase 2 — Content / docs ✅ DONE (gates green, 3 commits)
+- **RW-8** (L1) ✅ — `triage-and-translate.yml` sample + bundle entry + `examples.rs` (4 tests). `f0787ebd`.
+- **RW-9** (L2) ✅ — `workflows.md` canonical (+ `workflow-genies.md` redirect — docs *did* exist under that name; audit L2 was partly wrong) + sidebar + ai-genies cross-section. `76248ab6`.
+- **RW-10** (L19) ✅ — corpus gen + measure-open-latency scripts + package.json. `23c2b908`.
+- **RW-11** (L20) ✅ — i18n launch blog + GA announce artifact. `76248ab6`.
+- Follow-up: workflows.md + i18n blog need a 9-locale translate-docs pass.
 
 ### Phase 3 — Infra / quality
 - **RW-12** (L14) — Perf bench step in CI.
