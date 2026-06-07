@@ -1,6 +1,6 @@
 # MCP Pruning — Four Tools, Hard Cut
 
-**Status:** Draft (Phase 1 in progress)
+**Status:** Shipped (both phases, v0.8.2). Note: dispatchers live in `mcpBridge/v2/`, not `dispatchers/`.
 **Owner:** Xiaolai
 **Branch:** `refactor/mcp-prune-to-four-tools`
 **Stacks on:** `feature/gh-actions-workflow-viewer` (uses `IRPatch` types from `src/lib/ghaWorkflow/save/mutators`)

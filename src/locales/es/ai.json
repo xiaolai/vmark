@@ -12,12 +12,10 @@
   "picker.via": "mediante {{name}}",
   "picker.footerCycleScope": "cambiar ámbito",
   "picker.footerNavigate": "navegar",
-
   "chips.polish": "Pulir",
   "chips.condense": "Condensar",
   "chips.grammar": "Gramática",
   "chips.rephrase": "Reformular",
-
   "response.thinking": "Pensando... {{seconds}}s",
   "response.accept": "Aceptar",
   "response.reject": "Rechazar",
@@ -25,11 +23,10 @@
   "response.cancel": "Cancelar",
   "response.dismiss": "Descartar",
   "response.unknownError": "Error desconocido",
-
   "history.title": "Historial de indicaciones",
   "history.empty": "Sin historial",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "Ajustes..."
+  "provider.settings": "Ajustes...",
+  "provider.keySaveError": "No se pudo guardar la clave de API en el llavero. Se perderá al reiniciar."
 }

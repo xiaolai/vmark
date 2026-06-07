@@ -23,11 +23,14 @@
  * compile-time + DOM-shape correctness is covered by
  * WorkflowCanvas.test.tsx.
  *
+ * @coordinates-with WorkflowExportControl.tsx — mounted as an overlay; sole
+ *   UI entry point for the ghaWorkflow/export functions
  * @module components/Editor/WorkflowPanel/WorkflowCanvas
  */
 
 import { Suspense, lazy, type ReactElement } from "react";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
+import { WorkflowExportControl } from "./WorkflowExportControl";
 import "./workflow-canvas.css";
 
 const WorkflowCanvasInner = lazy(() => import("./WorkflowCanvasInner"));
@@ -37,9 +40,16 @@ interface WorkflowCanvasProps {
 }
 
 export function WorkflowCanvas(props: WorkflowCanvasProps): ReactElement {
+  // The export control is an absolutely-positioned overlay anchored to
+  // the canvas wrapper (which is position: relative). It is the only UI
+  // entry point for the ghaWorkflow/export functions (RW-7, L3) and is
+  // mounted here so both the inline panel and the side panel surface it.
   return (
-    <Suspense fallback={null}>
-      <WorkflowCanvasInner {...props} />
-    </Suspense>
+    <>
+      <WorkflowExportControl workflow={props.workflow} />
+      <Suspense fallback={null}>
+        <WorkflowCanvasInner {...props} />
+      </Suspense>
+    </>
   );
 }

@@ -50,7 +50,9 @@ export function perfEnd(label: string, details?: Record<string, unknown>): void 
   if (!PERF_ENABLED()) return;
   const start = startTimes.get(label);
   if (start === undefined) {
-    console.warn(`[PERF] No start time for: ${label}`);
+    // Diagnostic warning, styled like the rest of perfLog's %c output (red).
+    // Stays inside the PERF_ENABLED() gate above, so zero overhead unless opted in.
+    console.log(`%c[PERF] No start time for: ${label}`, "color: #cf222e");
     return;
   }
   const elapsed = performance.now() - start;

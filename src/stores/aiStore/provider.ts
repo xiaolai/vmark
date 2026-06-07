@@ -1,9 +1,13 @@
 /**
  * AI Provider store — REST + CLI provider configs with persistence.
  *
- * REST provider configs persist to secure storage (`vmark-ai-providers`).
- * CLI providers are detected at runtime via `detect_ai_providers`.
+ * REST provider configs (endpoint, model, name) persist to `tauri-plugin-store`
+ * (`vmark-ai-providers`). API keys are NOT persisted there — RW-16 (L8) routes
+ * them through the OS keychain (`services/secrets/apiKeySecrets`); the store
+ * holds keys only in memory for the active session. CLI providers are detected
+ * at runtime via `detect_ai_providers`.
  *
+ * @coordinates-with src/services/secrets/apiKeySecrets — keychain key store
  * @module stores/aiStore/provider
  */
 
@@ -11,7 +15,14 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { createSecureStorage } from "@/utils/secureStorage";
-import { aiProviderLog, aiProviderWarn } from "@/utils/debug";
+import {
+  loadApiKeysWithStatus,
+  migrateLegacyApiKeys,
+  setApiKey,
+} from "@/services/secrets/apiKeySecrets";
+import { aiProviderError, aiProviderLog, aiProviderWarn } from "@/utils/debug";
+import { imeToast } from "@/services/ime/imeToast";
+import i18n from "@/i18n";
 import type {
   CliProviderInfo,
   RestProviderConfig,
@@ -126,6 +137,26 @@ export const KEY_OPTIONAL_REST = new Set<string>(["ollama-api"]);
 // Race guard counter for detectProviders
 let _detectId = 0;
 
+/**
+ * audit-fix(r2) — surface a keychain write failure to the user.
+ *
+ * Dev-logs the failure (for diagnostics) AND raises a visible error toast so a
+ * user whose API key failed to persist learns it now, instead of silently
+ * losing the key on the next restart. Kept side-effecting and non-throwing so
+ * it can be called from the fire-and-forget `setApiKey().then(...)` path.
+ */
+function reportKeySaveFailure(type: RestProviderType): void {
+  aiProviderError(
+    "Failed to persist API key to keychain (in-memory only; will be lost on restart):",
+    type
+  );
+  imeToast.error(
+    i18n.t("ai:provider.keySaveError", {
+      defaultValue: "Failed to save API key to keychain. It will be lost when you restart.",
+    })
+  );
+}
+
 /** Manages available AI providers (CLI and REST), detection, and active selection with persistence. Use selectors, not destructuring. */
 export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
   persist(
@@ -207,6 +238,17 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
             p.type === type ? { ...p, ...updates } : p
           ),
         }));
+        // RW-16 (L8): the API key is a secret — persist it to the OS keychain,
+        // never to the plaintext store. Other fields ride the normal persist.
+        // audit-fix(r2) — surface keychain write failures to the user via a
+        // toast (not dev-log-only): a silent failure leaves the new key only in
+        // memory (lost on restart) while the UI shows it as saved. The write
+        // stays fire-and-forget so the sync action never blocks on the keychain.
+        if (Object.prototype.hasOwnProperty.call(updates, "apiKey")) {
+          void setApiKey(type, updates.apiKey ?? "").then((ok) => {
+            if (!ok) reportKeySaveFailure(type);
+          });
+        }
       },
 
       loadEnvApiKeys: async () => {
@@ -243,7 +285,12 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
       storage: createJSONStorage(() => createSecureStorage()),
       partialize: (state) => ({
         activeProvider: state.activeProvider,
-        restProviders: state.restProviders,
+        // RW-16 (L8): never persist API keys to the plaintext store. Strip
+        // `apiKey` from every entry; the keychain is the source of truth and
+        // keys are rehydrated into memory by hydrateAndMigrateApiKeys.
+        restProviders: state.restProviders.map(
+          ({ apiKey: _apiKey, ...rest }) => ({ ...rest, apiKey: "" })
+        ),
       }),
       onRehydrateStorage: () => {
         return () => {
@@ -257,8 +304,14 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
               restProviders: [...restProviders, ...newDefaults],
             });
           }
-          useAiProviderStore.getState().loadEnvApiKeys();
-          useAiProviderStore.getState().detectProviders();
+          // RW-16 (L8): migrate any plaintext keys that survived in the old
+          // persisted blob into the keychain, then load keychain keys into the
+          // in-memory store. Runs before loadEnvApiKeys so env keys only fill
+          // genuinely-empty fields.
+          void hydrateAndMigrateApiKeys().finally(() => {
+            useAiProviderStore.getState().loadEnvApiKeys();
+            useAiProviderStore.getState().detectProviders();
+          });
         };
       },
       migrate: (persisted, version) => {
@@ -282,3 +335,47 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
     }
   )
 );
+
+/**
+ * RW-16 (L8): one-time migration + keychain hydration of API keys.
+ *
+ * Runs after persist rehydration. Two phases, both safe to repeat:
+ *   1. Migrate: any plaintext key that survived in the rehydrated state (an
+ *      old persisted blob written before keys moved to the keychain) is lifted
+ *      into the keychain — only when the keychain slot for that type is still
+ *      empty, so a newer keychain value is never clobbered.
+ *   2. Hydrate: read every provider's key from the keychain into the in-memory
+ *      store, which is the live session source.
+ *
+ * After this, the persist layer re-saves with `apiKey: ""` (see partialize),
+ * so the plaintext store no longer holds secrets. Never throws.
+ *
+ * Exported for testing.
+ */
+export async function hydrateAndMigrateApiKeys(): Promise<void> {
+  const { restProviders } = useAiProviderStore.getState();
+  const types = restProviders.map((p) => p.type);
+
+  // Phase 1: migrate any plaintext keys left in the rehydrated state.
+  const legacy: Record<string, string> = {};
+  for (const p of restProviders) {
+    if (p.apiKey) legacy[p.type] = p.apiKey;
+  }
+  if (Object.keys(legacy).length > 0) {
+    await migrateLegacyApiKeys(legacy);
+  }
+
+  // Phase 2: load keychain keys into memory (authoritative for the session).
+  // audit-fix — status-aware: only overwrite the in-memory key when the read
+  // succeeded. `present` → use the keychain value; `absent` → clear to ""
+  // (genuinely unset). On `error` (or an unread type) preserve whatever is
+  // already in memory so a transient keychain failure can't blank a live key.
+  const statuses = await loadApiKeysWithStatus(types);
+  useAiProviderStore.setState((state) => ({
+    restProviders: state.restProviders.map((p) => {
+      const res = statuses[p.type];
+      if (!res || res.status === "error") return p; // preserve in-memory key
+      return { ...p, apiKey: res.status === "present" ? res.value : "" };
+    }),
+  }));
+}

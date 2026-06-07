@@ -321,7 +321,10 @@ describe("computeModeColorVars", () => {
         // no textSecondary, codeText, etc.
       };
       const { vars } = computeModeColorVars(minimal, true);
-      expect(vars["--text-secondary"]).toBe("#858585"); // dark default
+      // Dark fallback now derives from the `night` typed theme (ADR-014:
+      // single source of truth). Real themes always supply textSecondary,
+      // so this fallback is only hit by synthetic minimal inputs.
+      expect(vars["--text-secondary"]).toBe("#9aa0a6"); // night.color.text.secondary
       expect(vars["--code-text-color"]).toBe("#d4d4d4"); // falls back to foreground
     });
 

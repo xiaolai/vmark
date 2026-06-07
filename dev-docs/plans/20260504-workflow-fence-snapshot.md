@@ -1,6 +1,6 @@
 # Workflow Fence Snapshot — xyflow inline render
 
-**Status:** Draft (Phase 1 in progress)
+**Status:** Phase 1 done; Phase 2 deferred. Note: `toMermaid` moved to `export/`.
 **Owner:** Xiaolai
 **Branch:** `feat/workflow-fence-xyflow-snapshot`
 **Stacks on:** `refactor/mcp-prune-to-four-tools` (which stacks on `feature/gh-actions-workflow-viewer`)

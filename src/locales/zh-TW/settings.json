@@ -34,6 +34,7 @@
   "appearance.theme.mint": "薄荷",
   "appearance.theme.sepia": "褐色",
   "appearance.theme.night": "夜間",
+  "appearance.theme.solarized": "Solarized",
   "appearance.group.window": "視窗",
   "appearance.showFilenameInTitlebar.label": "在標題列顯示檔案名稱",
   "appearance.showFilenameInTitlebar.description": "在視窗標題中顯示目前檔案名稱",

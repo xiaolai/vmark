@@ -142,6 +142,8 @@ Split all 7 named TypeScript targets behind backward-compatible barrels:
 
 Every split was behavior-preserving; every importer continued to resolve via the original path.
 
+> Note: the three `mcpBridge` barrels listed above (`batchOpHandlers`, `suggestionHandlers`, `sectionHandlers`) were later deleted by commit `f25d2d5f`; their callers now import the split files directly.
+
 ### Phase C — test-suite audit
 
 Findings (see commentary above): the test suite is already in good shape. No wiring-only test files identified after spot-checking. Superficial file-name duplicates (`linkPopup`, `mathPreview`, `mediaPopup`, `mermaidPreview`, `sourceImagePreview`) are complementary — one file focuses on low-level handlers, the other on user-visible behavior, with ≤4 overlapping test names per pair. Zero flaky tests across three consecutive runs. No snapshot-for-logic patterns present.

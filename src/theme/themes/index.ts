@@ -7,7 +7,9 @@
  * Adding a theme:
  *   1. Add `src/theme/themes/<name>.ts` exporting a `ThemeTokens` value.
  *   2. Append the name to the `themes` map below.
- *   3. Add the ID to `ThemeId` in `settingsTypes.ts`.
+ *
+ * `ThemeId` is derived from `themes` (single source of truth — see below);
+ * `settingsTypes.ts` imports it, so there is no second union to keep in sync.
  *
  * Nothing else in the codebase should need editing.
  *
@@ -20,14 +22,20 @@ import { white } from "./white";
 import { mint } from "./mint";
 import { sepia } from "./sepia";
 import { night } from "./night";
+import { solarized } from "./solarized";
 
 
-export type ThemeId = "white" | "paper" | "mint" | "sepia" | "night";
-
-export const themes: Record<ThemeId, ThemeTokens> = {
+export const themes = {
   white,
   paper,
   mint,
   sepia,
   night,
-};
+  solarized,
+} satisfies Record<string, ThemeTokens>;
+
+// audit-fix — single-source ThemeId
+/** Available theme identifiers — derived from the `themes` catalog so the
+ *  union can never drift from the registered set. `settingsTypes.ts` imports
+ *  this instead of redeclaring the union. */
+export type ThemeId = keyof typeof themes;

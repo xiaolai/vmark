@@ -25,6 +25,7 @@
  *   - Folders default to collapsed (openByDefault=false). Open/closed state is persisted
  *     across Files ↔ Outline ↔ History view switches via useFileExplorerOpenState, which
  *     snapshots uiStore at mount and mirrors toggles back.
+ *   - Root element is a `navigation` ARIA landmark (labelled `aria.fileExplorer`).
  *
  * @coordinates-with useFileTree.ts — loads directory tree and watches for fs changes
  * @coordinates-with useExplorerOperations.ts — CRUD operations on files and folders
@@ -382,7 +383,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // Show empty state if no workspace is open
   if (!rootPath) {
     return (
-      <div className="file-explorer">
+      <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")}>
         <div className="file-explorer-empty">
           {t("noWorkspace")}
         </div>
@@ -392,14 +393,14 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
 
   if (isLoading && tree.length === 0) {
     return (
-      <div className="file-explorer">
+      <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")}>
         <div className="file-explorer-empty">{t("loading")}</div>
       </div>
     );
   }
 
   return (
-    <div className="file-explorer" ref={containerRef}>
+    <div className="file-explorer" role="navigation" aria-label={t("aria.fileExplorer")} ref={containerRef}>
       {/* Workspace header when in workspace mode */}
       {isWorkspaceMode && workspaceName && (
         <div className="file-explorer-workspace-header">

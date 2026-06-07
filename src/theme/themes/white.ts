@@ -3,6 +3,7 @@ import { sharedPrimitives, lightShadows, semanticLight, alertLight, mediaLight }
 
 /** White theme — pure-white background. Highest contrast. */
 export const white: ThemeTokens = {
+  isDark: false,
   color: {
     bg: { primary: "#FFFFFF", secondary: "#f8f8f8", tertiary: "#f0f0f0" },
     text: { primary: "#1a1a1a", secondary: "#666666", tertiary: "#999999" },

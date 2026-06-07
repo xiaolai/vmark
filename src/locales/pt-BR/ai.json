@@ -28,6 +28,7 @@
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
   "provider.settings": "Configurações...",
+  "provider.keySaveError": "Falha ao salvar a chave de API no chaveiro. Ela será perdida ao reiniciar.",
   "picker": {
     "via": "via {{name}}"
   }

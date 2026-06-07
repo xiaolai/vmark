@@ -3,12 +3,14 @@
 Reference for CSS custom properties. Always use tokens over hardcoded values.
 
 **Source of truth (post-ADR-014):**
-- Typed theme catalog: `src/theme/themes/<id>.ts` (paper, white, mint, sepia, night) implementing `ThemeTokens` from `src/theme/tokens.ts`.
+- Typed theme catalog: `src/theme/themes/<id>.ts` (paper, white, mint, sepia, night, solarized) implementing `ThemeTokens` from `src/theme/tokens.ts`.
 - Runtime CSS-var writer: `src/theme/applyTheme.ts` (emits `--color-*`, `--space-*`, etc. for the typed pathway).
-- Legacy CSS vars + dynamic overrides driven by user settings: `src/styles/index.css` + `src/hooks/useTheme.ts`.
+- Legacy CSS-var values (the `--bg-color` / `--accent-bg` / `--alert-note` names the app's CSS actually consumes) also flow from the typed catalog: the per-theme dark overrides live on `ThemeTokens.color.legacy` (night, solarized), and the shared light-mode statics live in `legacyLight` (`src/theme/tokens.ts`). `useTheme.ts` reads both from the catalog — it no longer carries its own `darkModeColors`/`lightModeColors` literals.
+- Dynamic per-user overrides (font size, line-height, editor width) are still computed in `src/hooks/useTheme.ts`; static fallbacks remain in `src/styles/index.css`.
 
-Adding/retinting a theme is a single-file edit in `src/theme/themes/`. The
-table below mirrors the runtime CSS-var names that consumers see; the
+Adding/retinting a theme is a single-file edit in `src/theme/themes/` (plus
+appending the ID to `themes/index.ts` and the `ThemeId` union). The table
+below mirrors the runtime CSS-var names that consumers see; the
 authoritative values for those names live in the typed catalog.
 
 ## Core Color Tokens

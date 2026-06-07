@@ -24,6 +24,8 @@
 //!     (Windows), always returning absolute paths.
 //!   - `machine_id_hash()` generates a stable anonymous device identifier via
 //!     SHA-256(hostname + OS + arch), sent as `X-Machine-Id` header on update checks.
+//!   - AI provider API keys are persisted in the OS keychain via the `secure_store`
+//!     module, never in plaintext config.
 //!
 //! Known limitations:
 //!   - ExitRequested handling must carefully distinguish OS quit from user quit
@@ -38,7 +40,7 @@ mod mcp_config;
 mod mcp_server;
 mod menu;
 mod menu_events;
-mod genies;
+pub mod genies;
 mod quit;
 mod watcher;
 mod window_manager;
@@ -51,10 +53,11 @@ mod shell_integration;
 mod hot_exit;
 mod pandoc;
 mod tab_transfer;
-mod workflow;
+pub mod workflow;
 mod gha_workflow;
 mod quarantine;
 mod external_editor;
+mod secure_store;
 mod task;
 
 #[cfg(target_os = "macos")]
@@ -593,7 +596,9 @@ pub fn run() {
             let mid = machine_id_hash();
             tauri_plugin_updater::Builder::new()
                 .header("X-Machine-Id", mid)
-                .expect("valid ASCII hex header")
+                // Infallible: `mid` is a lowercase hex string from `format!("{:x}", Sha256::digest(..))`,
+                // so it only ever contains [0-9a-f] — always a valid ASCII HTTP header value.
+                .expect("machine id hash is always valid ASCII hex")
                 .build()
         })
         .plugin(tauri_plugin_process::init())
@@ -679,6 +684,9 @@ pub fn run() {
             ai_provider::detect_ai_providers,
             ai_provider::run_ai_prompt,
             ai_provider::read_env_api_keys,
+            secure_store::set_secret,
+            secure_store::get_secret,
+            secure_store::delete_secret,
             ai_provider::test_api_key,
             ai_provider::list_models,
             ai_provider::validate_model,
@@ -803,9 +811,14 @@ pub fn run() {
     }
 
     // CRITICAL: Use .build().run() pattern for app-level event handling
-    builder
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
+    let app = match builder.build(tauri::generate_context!()) {
+        Ok(app) => app,
+        Err(e) => {
+            log::error!("fatal: failed to build tauri application: {e}");
+            std::process::exit(1);
+        }
+    };
+    app
         .run(|app, event| {
             match event {
                 // CRITICAL: Prevent quit on last window close (macOS behavior)

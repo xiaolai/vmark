@@ -12,12 +12,10 @@
   "picker.via": "透過 {{name}}",
   "picker.footerCycleScope": "循環範圍",
   "picker.footerNavigate": "導覽",
-
   "chips.polish": "潤飾",
   "chips.condense": "精簡",
   "chips.grammar": "文法",
   "chips.rephrase": "改寫",
-
   "response.thinking": "思考中... {{seconds}} 秒",
   "response.accept": "接受",
   "response.reject": "拒絕",
@@ -25,11 +23,10 @@
   "response.cancel": "取消",
   "response.dismiss": "關閉",
   "response.unknownError": "未知錯誤",
-
   "history.title": "提示歷史紀錄",
   "history.empty": "無歷史紀錄",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "設定..."
+  "provider.settings": "設定...",
+  "provider.keySaveError": "無法將 API 金鑰儲存至鑰匙圈，重新啟動後將會遺失。"
 }

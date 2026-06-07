@@ -71,8 +71,8 @@ case "$PHASE" in
       | grep -v -E '\.test\.|\.bench\.' \
       | grep -v -E 'src/lib/formats/adapters/markdown\.tsx$' \
       | grep -v -E 'src/lib/formats/markdownLargeFile\.ts$' \
-      | grep -v -E 'src/stores/largeFileSessionStore\.ts$' \
-      | grep -v -E 'src/utils/largeFileRouting\.ts$' \
+      | grep -v -E 'src/stores/documentStore/largeFileSession\.ts$' \
+      | grep -v -E 'src/services/navigation/largeFileRouting\.ts$' \
       | grep -v -E 'src/utils/yamlOpenRouting\.ts$' \
       || true)
     if [[ -z "$OFFENDERS" ]]; then
@@ -95,8 +95,16 @@ case "$PHASE" in
     # WI-1A.9 — txt adapter
     [[ -f src/lib/formats/adapters/txt.ts ]] && ok "txt adapter present" || fail "txt adapter missing"
 
-    # WI-1A.11 — stubs
-    [[ -f src/lib/formats/adapters/stubs.ts ]] && ok "stubs adapter present" || fail "stubs adapter missing"
+    # WI-1A.11 — stubs were placeholder adapters for not-yet-shipped
+    # formats. They were correctly DELETED at Phase 4 graduation once every
+    # real adapter shipped (see the Phase 4 "stubs.ts deleted" gate). The
+    # graduated end-state is that bootstrap registers the real adapters, so
+    # assert that instead of requiring the removed placeholder file.
+    if grep -qE "register(Markdown|Txt|Json|Yaml|Toml|Mermaid|Svg|Html|Code)" src/lib/formats/index.ts; then
+      ok "real adapters registered in bootstrap (stubs graduated)"
+    else
+      fail "bootstrap does not register real adapters"
+    fi
 
     # WI-1A.12 — Tab.formatId
     if grep -q "formatId: string" src/stores/tabStore.ts; then
@@ -237,10 +245,12 @@ case "$PHASE" in
       fail "Drag-drop still markdown-only"
     fi
 
-    # WI-1B.6 + 1B.7 — maybeForceSourceForYaml removed from finder + recent
+    # WI-1B.6 + 1B.7 — maybeForceSourceForYaml removed from finder + recent.
+    # The recent-files menu handler moved from src/hooks/useRecentFilesMenuEvents.ts
+    # to src/services/commands/recentFilesCommands.ts.
     if ! grep -q "maybeForceSourceForYaml" src/hooks/useFinderFileOpen.ts \
-      && ! grep -q "maybeForceSourceForYaml" src/hooks/useRecentFilesMenuEvents.ts; then
-      ok "maybeForceSourceForYaml removed from useFinderFileOpen + useRecentFilesMenuEvents"
+      && ! grep -q "maybeForceSourceForYaml" src/services/commands/recentFilesCommands.ts; then
+      ok "maybeForceSourceForYaml removed from useFinderFileOpen + recentFilesCommands"
     else
       fail "maybeForceSourceForYaml still called from finder/recent"
     fi
@@ -260,8 +270,9 @@ case "$PHASE" in
       fail "useFileSave still hardcodes .md"
     fi
 
-    # WI-1B.10 — newFile.createUntitledTab(formatId?)
-    if grep -q "_formatId\|formatId.*=.*\"markdown\"" src/utils/newFile.ts; then
+    # WI-1B.10 — newFile.createUntitledTab(formatId?). newFile.ts moved from
+    # src/utils/ to src/services/navigation/.
+    if grep -q "_formatId\|formatId.*=.*\"markdown\"" src/services/navigation/newFile.ts; then
       ok "createUntitledTab accepts formatId"
     else
       fail "createUntitledTab not migrated"
@@ -275,12 +286,14 @@ case "$PHASE" in
       fail "tauri.conf.json fileAssociations still markdown-only"
     fi
 
-    # WI-1B.13 — content search consults registry
-    if grep -q "listFormats" src/stores/contentSearchStore.ts \
-      && ! grep -qE "^import.*MARKDOWN_EXTENSIONS" src/stores/contentSearchStore.ts; then
-      ok "contentSearchStore uses listFormats() filtered by contentSearchIndexed"
+    # WI-1B.13 — content search consults registry. The content-search scope
+    # logic was consolidated from the standalone contentSearchStore.ts into
+    # src/stores/uiStore.ts.
+    if grep -q "listFormats" src/stores/uiStore.ts \
+      && ! grep -qE "^import.*MARKDOWN_EXTENSIONS" src/stores/uiStore.ts; then
+      ok "content-search scope (uiStore) uses listFormats() filtered by contentSearchIndexed"
     else
-      fail "contentSearchStore still imports MARKDOWN_EXTENSIONS"
+      fail "content-search scope still imports MARKDOWN_EXTENSIONS"
     fi
     ;;
 

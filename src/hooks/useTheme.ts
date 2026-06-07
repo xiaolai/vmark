@@ -14,9 +14,13 @@
  *   - Mermaid and code preview plugins notified of font size changes
  *   - Dark theme toggled via `.dark-theme` class on documentElement
  *   - Static defaults in :root for print/SSR; this hook overrides at runtime
+ *   - Dark/light legacy color values are derived from the typed theme catalog
+ *     (`legacyLight` + per-theme `color.legacy`) — this hook no longer carries
+ *     its own `darkModeColors`/`lightModeColors` literals
  *
  * @coordinates-with settingsStore.ts — reads appearance settings
  * @coordinates-with index.css — static token defaults (overridden here)
+ * @coordinates-with theme/tokens.ts, theme/themes/* — source of legacy color values
  * @module hooks/useTheme
  */
 
@@ -25,6 +29,8 @@ import { useSettingsStore, themes, type ThemeColors, type FocusModeDim } from "@
 import { updateMermaidFontSize } from "@/plugins/mermaid";
 import { refreshPreviews } from "@/plugins/codePreview/tiptap";
 import { applyTheme, themes as themeTokensCatalog } from "@/theme";
+import { legacyLight } from "@/theme/tokens";
+import { night } from "@/theme/themes/night";
 
 export const fontStacks = {
   latin: {
@@ -61,91 +67,56 @@ export const fontStacks = {
   },
 };
 
-/** Light mode color defaults */
-const lightModeColors = {
-  "--text-secondary": "#666666",
-  "--code-text-color": "#1a1a1a",
-  "--selection-color": "rgba(0, 102, 204, 0.2)",
-  "--md-char-color": "#777777",
-  "--meta-content-color": "#777777",
-  "--strong-color": "rgb(63, 86, 99)",
-  "--emphasis-color": "rgb(91, 4, 17)",
-  "--blur-text-color": "#c8c8c8",
-  "--text-tertiary": "#999999",
-  "--accent-bg": "rgba(0, 102, 204, 0.1)",
-  "--source-mode-bg": "rgba(0, 0, 0, 0.02)",
-  "--error-color": "#cf222e",
-  "--error-color-hover": "#b91c1c",
-  "--error-bg": "#ffebe9",
-  // Success states
-  "--success-color": "#16a34a",
-  "--success-color-hover": "#15803d",
-  // Warning states
-  "--warning-color": "#9a6700",
-  "--warning-bg": "rgba(245, 158, 11, 0.1)",
-  "--warning-border": "rgba(245, 158, 11, 0.3)",
-  "--warning-bg-hover": "rgba(245, 158, 11, 0.15)",
-  "--warning-bg-active": "rgba(245, 158, 11, 0.2)",
-  // Contrast text (for colored backgrounds)
-  "--contrast-text": "white",
-  // Hover/subtle backgrounds
-  "--hover-bg": "rgba(0, 0, 0, 0.04)",
-  "--hover-bg-strong": "rgba(0, 0, 0, 0.08)",
-  "--subtle-bg": "rgba(0, 0, 0, 0.02)",
-  "--subtle-bg-hover": "rgba(0, 0, 0, 0.03)",
-  // Alert block colors
-  "--alert-note": "#0969da",
-  "--alert-tip": "#1a7f37",
-  "--alert-important": "#8250df",
-  "--alert-warning": "#9a6700",
-  "--alert-caution": "#cf222e",
-  // Highlight mark
-  "--highlight-bg": "#fff3a3",
-  "--highlight-text": "inherit",
-};
+/**
+ * Light mode color defaults — re-exported from the typed catalog
+ * (`legacyLight` in `src/theme/tokens.ts`). Identical across all light
+ * themes, so it lives once in the catalog layer rather than being
+ * hand-maintained here. ADR-014: `src/theme/` is the single source of truth.
+ */
+const lightModeColors = legacyLight;
 
-/** Dark mode color defaults */
+/**
+ * Dark mode color defaults, derived from the `night` typed theme. Values that
+ * are structurally available (semantic, alert, bg/text scales) read straight
+ * from `night`; values that intentionally diverge from the structured fields
+ * live in `night.color.legacy` (see that file's comment). This keeps the
+ * emitted `--*` vars byte-identical to the historical literals while making
+ * the typed catalog the single source of truth.
+ *
+ * Note: `--warning-*`, `--hover-bg*`, `--subtle-bg*`, and `--contrast-text`
+ * are intentionally absent — the dark branch of `computeModeColorVars` never
+ * emitted them (dark mode inherits the light/`:root` values for those), and
+ * that behavior is preserved.
+ */
+const nightLegacy = night.color.legacy ?? {};
 const darkModeColors = {
-  "--text-secondary": "#858585",
-  "--code-text-color": "#d6d9de", // Falls back to foreground
-  "--selection-color": "rgba(79, 193, 255, 0.2)",
-  "--md-char-color": "#6a9955",
-  "--meta-content-color": "#6a9955",
-  "--strong-color": "#569cd6",
-  "--emphasis-color": "#ce9178",
-  "--blur-text-color": "#6b7078",
-  "--bg-tertiary": "#32363d",
-  "--text-tertiary": "#6b7078",
-  "--accent-bg": "rgba(90, 168, 255, 0.12)",
-  "--source-mode-bg": "rgba(255, 255, 255, 0.02)",
-  "--error-color": "#f85149",
-  "--error-color-hover": "#fca5a5",
-  "--error-bg": "rgba(248, 81, 73, 0.15)",
+  "--text-secondary": night.color.text.secondary,
+  "--code-text-color": nightLegacy.codeText ?? night.color.text.primary,
+  "--selection-color": night.color.selection,
+  "--md-char-color": nightLegacy.mdChar ?? "#6a9955",
+  "--meta-content-color": nightLegacy.mdChar ?? "#6a9955",
+  "--strong-color": night.color.strong,
+  "--emphasis-color": night.color.emphasis,
+  "--blur-text-color": nightLegacy.blurText ?? "#6b7078",
+  "--bg-tertiary": night.color.bg.tertiary,
+  "--text-tertiary": night.color.text.tertiary,
+  "--accent-bg": nightLegacy.accentBg ?? night.color.accent.bg,
+  "--source-mode-bg": nightLegacy.sourceModeBg ?? "rgba(255, 255, 255, 0.02)",
+  "--error-color": night.color.semantic.error,
+  "--error-color-hover": nightLegacy.errorColorHover ?? night.color.semantic.errorHover,
+  "--error-bg": night.color.semantic.errorBg,
   // Success states (adjusted for dark mode)
-  "--success-color": "#4ade80",
-  "--success-color-hover": "#86efac",
-  // Warning states (adjusted for dark mode)
-  "--warning-color": "#d29922",
-  "--warning-bg": "rgba(245, 158, 11, 0.15)",
-  "--warning-border": "rgba(245, 158, 11, 0.4)",
-  "--warning-bg-hover": "rgba(245, 158, 11, 0.2)",
-  "--warning-bg-active": "rgba(245, 158, 11, 0.25)",
-  // Contrast text (for colored backgrounds)
-  "--contrast-text": "white",
-  // Hover/subtle backgrounds (inverted for dark mode)
-  "--hover-bg": "rgba(255, 255, 255, 0.06)",
-  "--hover-bg-strong": "rgba(255, 255, 255, 0.1)",
-  "--subtle-bg": "rgba(255, 255, 255, 0.03)",
-  "--subtle-bg-hover": "rgba(255, 255, 255, 0.05)",
+  "--success-color": night.color.semantic.success,
+  "--success-color-hover": nightLegacy.successColorHover ?? night.color.semantic.successHover,
   // Alert block colors (lighter for dark mode)
-  "--alert-note": "#58a6ff",
-  "--alert-tip": "#3fb950",
-  "--alert-important": "#a371f7",
-  "--alert-warning": "#d29922",
-  "--alert-caution": "#f85149",
+  "--alert-note": night.color.alert.note,
+  "--alert-tip": night.color.alert.tip,
+  "--alert-important": night.color.alert.important,
+  "--alert-warning": night.color.alert.warning,
+  "--alert-caution": night.color.alert.caution,
   // Highlight mark (darker background for dark mode)
-  "--highlight-bg": "#5c5c00",
-  "--highlight-text": "#fff3a3",
+  "--highlight-bg": nightLegacy.highlightBg ?? "#5c5c00",
+  "--highlight-text": nightLegacy.highlightText ?? "#fff3a3",
 };
 
 /** Apply CSS variables from a config object */
@@ -234,28 +205,28 @@ export function computeModeColorVars(
         "--meta-content-color": colors.mdChar ?? darkModeColors["--meta-content-color"],
         "--strong-color": colors.strong ?? darkModeColors["--strong-color"],
         "--emphasis-color": colors.emphasis ?? darkModeColors["--emphasis-color"],
-        "--blur-text-color": darkModeColors["--blur-text-color"],
-        "--bg-tertiary": darkModeColors["--bg-tertiary"],
-        "--text-tertiary": darkModeColors["--text-tertiary"],
-        "--accent-bg": darkModeColors["--accent-bg"],
-        "--source-mode-bg": darkModeColors["--source-mode-bg"],
-        "--error-color": darkModeColors["--error-color"],
-        "--error-color-hover": darkModeColors["--error-color-hover"],
-        "--error-bg": darkModeColors["--error-bg"],
-        "--success-color": darkModeColors["--success-color"],
-        "--success-color-hover": darkModeColors["--success-color-hover"],
+        "--blur-text-color": colors.blurText ?? darkModeColors["--blur-text-color"],
+        "--bg-tertiary": colors.bgTertiary ?? darkModeColors["--bg-tertiary"],
+        "--text-tertiary": colors.textTertiary ?? darkModeColors["--text-tertiary"],
+        "--accent-bg": colors.accentBg ?? darkModeColors["--accent-bg"],
+        "--source-mode-bg": colors.sourceModeBg ?? darkModeColors["--source-mode-bg"],
+        "--error-color": colors.errorColor ?? darkModeColors["--error-color"],
+        "--error-color-hover": colors.errorColorHover ?? darkModeColors["--error-color-hover"],
+        "--error-bg": colors.errorBg ?? darkModeColors["--error-bg"],
+        "--success-color": colors.successColor ?? darkModeColors["--success-color"],
+        "--success-color-hover": colors.successColorHover ?? darkModeColors["--success-color-hover"],
         // Alert block colors
-        "--alert-note": darkModeColors["--alert-note"],
-        "--alert-tip": darkModeColors["--alert-tip"],
-        "--alert-important": darkModeColors["--alert-important"],
-        "--alert-warning": darkModeColors["--alert-warning"],
-        "--alert-caution": darkModeColors["--alert-caution"],
+        "--alert-note": colors.alertNote ?? darkModeColors["--alert-note"],
+        "--alert-tip": colors.alertTip ?? darkModeColors["--alert-tip"],
+        "--alert-important": colors.alertImportant ?? darkModeColors["--alert-important"],
+        "--alert-warning": colors.alertWarning ?? darkModeColors["--alert-warning"],
+        "--alert-caution": colors.alertCaution ?? darkModeColors["--alert-caution"],
         // Highlight mark
-        "--highlight-bg": darkModeColors["--highlight-bg"],
-        "--highlight-text": darkModeColors["--highlight-text"],
+        "--highlight-bg": colors.highlightBg ?? darkModeColors["--highlight-bg"],
+        "--highlight-text": colors.highlightText ?? darkModeColors["--highlight-text"],
         // Subtle block background for dark mode (light overlay)
-        "--block-bg-subtle": "rgba(255, 255, 255, 0.03)",
-        "--block-bg-subtle-hover": "rgba(255, 255, 255, 0.05)",
+        "--block-bg-subtle": colors.blockBgSubtle ?? nightLegacy.blockBgSubtle ?? "rgba(255, 255, 255, 0.03)",
+        "--block-bg-subtle-hover": colors.blockBgSubtleHover ?? nightLegacy.blockBgSubtleHover ?? "rgba(255, 255, 255, 0.05)",
       },
     };
   }

@@ -18,6 +18,10 @@ export const en = {
           items: [
             { text: "All posts", link: "/blog/" },
             {
+              text: "VMark speaks your language (2026-06)",
+              link: "/blog/2026-06-i18n-launch",
+            },
+            {
               text: "Multi-format launch (2026-05)",
               link: "/blog/2026-05-multi-format-launch",
             },
@@ -47,7 +51,7 @@ export const en = {
             { text: "Workspace Management", link: "/guide/workspace-management" },
             { text: "CJK Formatting", link: "/guide/cjk-formatting" },
             { text: "AI Genies", link: "/guide/ai-genies" },
-            { text: "Workflow Genies", link: "/guide/workflow-genies" },
+            { text: "Genie Workflows", link: "/guide/workflows" },
             { text: "AI Providers", link: "/guide/ai-providers" },
             { text: "MCP Setup", link: "/guide/mcp-setup" },
             { text: "MCP Tools Reference", link: "/guide/mcp-tools" },

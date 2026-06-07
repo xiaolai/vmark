@@ -203,6 +203,11 @@ export const genieError = isDev
   ? (...args: unknown[]) => console.error("[Genie]", ...args)
   : (...args: unknown[]) => prodError("[Genie]", ...args);
 
+/** Error logger for AI Provider keychain/key handling. */
+export const aiProviderError = isDev
+  ? (...args: unknown[]) => console.error("[AIProvider]", ...args)
+  : (...args: unknown[]) => prodError("[AIProvider]", ...args);
+
 /** Error logger for Image Context Menu. */
 export const imageContextMenuError = isDev
   ? (...args: unknown[]) => console.error("[ImageContextMenu]", ...args)
@@ -212,5 +217,10 @@ export const imageContextMenuError = isDev
 export const finderFileOpenError = isDev
   ? (...args: unknown[]) => console.error("[FinderFileOpen]", ...args)
   : (...args: unknown[]) => prodError("[FinderFileOpen]", ...args);
+
+/** Error logger for Workflow execution. */
+export const workflowError = isDev
+  ? (...args: unknown[]) => console.error("[Workflow]", ...args)
+  : (...args: unknown[]) => prodError("[Workflow]", ...args);
 
 /* v8 ignore stop */

@@ -511,6 +511,14 @@ When a Genie rewrites multiple paragraphs, each replacement is its own independe
 
 The suggestion UI also has an MCP surface — external AI agents connected through the [MCP server](/guide/mcp-tools) can emit `suggestion.accept` / `suggestion.reject` actions to manipulate the same state.
 
+## Genies in Workflows
+
+A single genie runs one prompt. When you need to chain several AI steps — outline, then draft, then polish — and route the output of one stage into the next, use a **genie workflow**: a YAML file that orchestrates multiple genie calls with explicit data flow, optional approval gates, per-step models, and a live execution diagram.
+
+Because workflow steps fill a genie's `{{content}}` placeholder from a `with: { input: "..." }` map, **the genies you write here run unchanged inside workflows** — no conversion needed.
+
+See [Genie Workflows](/guide/workflows) for the full YAML schema, expression syntax, approvals, and how to run one.
+
 ## Limitations
 
 - Genies only work in **WYSIWYG mode**. In source mode, a toast notification explains this.

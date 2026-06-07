@@ -12,12 +12,10 @@
   "picker.via": "{{name}} 経由",
   "picker.footerCycleScope": "スコープを切り替え",
   "picker.footerNavigate": "移動",
-
   "chips.polish": "推敲",
   "chips.condense": "要約",
   "chips.grammar": "文法",
   "chips.rephrase": "言い換え",
-
   "response.thinking": "考え中... {{seconds}}秒",
   "response.accept": "承認",
   "response.reject": "却下",
@@ -25,11 +23,10 @@
   "response.cancel": "キャンセル",
   "response.dismiss": "閉じる",
   "response.unknownError": "不明なエラー",
-
   "history.title": "プロンプト履歴",
   "history.empty": "履歴なし",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "設定..."
+  "provider.settings": "設定...",
+  "provider.keySaveError": "APIキーをキーチェーンに保存できませんでした。再起動すると失われます。"
 }

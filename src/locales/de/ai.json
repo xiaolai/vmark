@@ -12,12 +12,10 @@
   "picker.via": "über {{name}}",
   "picker.footerCycleScope": "Bereich wechseln",
   "picker.footerNavigate": "navigieren",
-
   "chips.polish": "Polieren",
   "chips.condense": "Zusammenfassen",
   "chips.grammar": "Grammatik",
   "chips.rephrase": "Umformulieren",
-
   "response.thinking": "Denkt nach... {{seconds}}s",
   "response.accept": "Akzeptieren",
   "response.reject": "Ablehnen",
@@ -25,11 +23,10 @@
   "response.cancel": "Abbrechen",
   "response.dismiss": "Schließen",
   "response.unknownError": "Unbekannter Fehler",
-
   "history.title": "Prompt-Verlauf",
   "history.empty": "Kein Verlauf",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "Einstellungen..."
+  "provider.settings": "Einstellungen...",
+  "provider.keySaveError": "Der API-Schlüssel konnte nicht im Schlüsselbund gespeichert werden. Er geht beim Neustart verloren."
 }

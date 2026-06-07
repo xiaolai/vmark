@@ -34,6 +34,7 @@
   "appearance.theme.mint": "민트",
   "appearance.theme.sepia": "세피아",
   "appearance.theme.night": "나이트",
+  "appearance.theme.solarized": "Solarized",
   "appearance.group.window": "창",
   "appearance.showFilenameInTitlebar.label": "제목 표시줄에 파일 이름 표시",
   "appearance.showFilenameInTitlebar.description": "창 제목에 현재 파일 이름을 표시합니다",

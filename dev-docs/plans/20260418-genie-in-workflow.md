@@ -2,7 +2,7 @@
 title: "Genie Execution Inside YAML Workflows"
 created_at: "2026-04-18"
 mode: "full-plan"
-status: "Complete"
+status: "Complete (Phase 6 docs+sample and 3 UI test files finished later under the 2026-06-07 audit-gap-remediation — RW-2/RW-8/RW-9)"
 supersedes_sections_of: "dev-docs/plans/20260331-workflow-engine.md#WI-5.2"
 owner: "xiaolai"
 feature_flag: "settings.advanced.workflowEngine (isWorkflowEnabled())"

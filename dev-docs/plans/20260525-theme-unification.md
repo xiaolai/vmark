@@ -1,6 +1,12 @@
 # Theme & Token Unification
 
-> **Status**: Phase 0 (spike) | **Date**: 2026-05-25 | **Owner**: hands-off automated workflow
+> **Status**: Phases 0–2 done; Phase 3 (3.2/3.3 done, 3.5 deferred), Phase 5 (5.1 done) | **Date**: 2026-05-25 (updated 2026-06-07) | **Owner**: hands-off automated workflow
+>
+> **2026-06-07 update (RW-18 / audit L16)**:
+> - **WI-3.2 / WI-3.3 done** — the runtime dark-mode override block left `useTheme.ts`. Night's overrides now live on `ThemeTokens.color.legacy` in `src/theme/themes/night.ts`; the shared light-mode statics live in `legacyLight` (`src/theme/tokens.ts`). `useTheme.ts` derives its `darkModeColors`/`lightModeColors` from the catalog. **Behavior-preserving** — the emitted legacy `--*` vars are byte-identical (locked by `src/theme/emittedCssVars.regression.test.ts`).
+> - **WI-5.1 done** — added a 6th theme, `solarized` (Solarized Dark), as a single new `src/theme/themes/solarized.ts` + ID registration. Proves the per-theme dark-legacy projection (`themeColorsAdapter.ts`) so a 2nd dark theme renders its own values, not night's. `themesAsColors` now maps over `themes` (zero edits to add a theme there).
+> - **WI-3.5 deferred** — merging `terminal.fontSize`/`lineHeight` into editor appearance is a visible UX change (terminal 13px → editor 18px) requiring a product decision + persist migration, not a behavior-preserving refactor. Flagged for manual sign-off.
+> - **WI-4.2 not actionable as mechanical** — the dead aliases (`--bg-primary`, `--text-primary`) already have zero consumers; the remaining `--spacing-*` is a documented semantic token layer per `31-design-tokens.md`, not a redundant alias chain. Nothing safe to codemod.
 >
 > **Scope**: comprehensive — Option B (delete `terminalTheme.ts.ansiPalettes`, terminal becomes pure `ThemeTokens` consumer); merge `terminal.fontSize`/`terminal.lineHeight` into editor settings; gitignored screenshot harness.
 

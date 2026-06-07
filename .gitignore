@@ -152,3 +152,6 @@ temp/
 
 # Theme-unification screenshot baselines (regenerate with scripts/screenshot-themes.mjs)
 dev-docs/baselines/*.png
+
+# E2E smoke harness screenshot artifacts (regenerate with `pnpm e2e:smoke`)
+e2e/artifacts/

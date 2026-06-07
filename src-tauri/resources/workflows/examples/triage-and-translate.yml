@@ -1,0 +1,48 @@
+# RW-8 (L1) — bundled sample workflow + integration test
+#
+# Sample workflow (WI-6.1) proving the v0-genie -> workflow path.
+#
+# Chains two bundled v0 genies via `needs:` and feeds the result to a
+# built-in action step:
+#
+#   rewrite-in-english  (genie/rewrite-in-english, v0)
+#     -> translate      (genie/translate, v0)
+#       -> save         (action/save-file)
+#
+# Demonstrates:
+#   - genie/<name> step type (runs a bundled markdown genie's prompt template)
+#   - ADR-2 template aliasing: each step supplies `with: { input: ... }`, while
+#     the genie templates use `{{content}}`; the runner aliases `{{content}}`
+#     to `with.content` -> `with.input`, so v0 genies run unmodified.
+#   - `needs:` dependency ordering between steps
+#   - `${{ steps.X.outputs.text }}` expression wiring one step's output into
+#     the next step's input
+#
+# To customize: copy this file into your global genies directory
+# (~/Library/Application Support/app.vmark/genies/ on macOS) and edit the
+# steps, models, or `with:` parameters.
+
+name: Triage and Translate
+description: Rewrite rough notes into clean English, then translate the result.
+
+defaults:
+  approval: auto
+
+steps:
+  - id: rewrite
+    uses: genie/rewrite-in-english
+    with:
+      input: "Replace this seed text with the notes you want rewritten before running."
+
+  - id: translate
+    uses: genie/translate
+    needs: rewrite
+    with:
+      input: ${{ steps.rewrite.outputs.text }}
+
+  - id: save
+    uses: action/save-file
+    needs: translate
+    with:
+      path: triage-and-translate.out.md
+      content: ${{ steps.translate.outputs.text }}

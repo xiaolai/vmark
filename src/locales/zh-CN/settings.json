@@ -34,6 +34,7 @@
   "appearance.theme.mint": "薄荷",
   "appearance.theme.sepia": "棕褐色",
   "appearance.theme.night": "夜间",
+  "appearance.theme.solarized": "Solarized",
   "appearance.group.window": "窗口",
   "appearance.showFilenameInTitlebar.label": "在标题栏显示文件名",
   "appearance.showFilenameInTitlebar.description": "在窗口标题中显示当前文件名",

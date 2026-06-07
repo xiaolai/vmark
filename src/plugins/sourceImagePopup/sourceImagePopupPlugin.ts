@@ -66,7 +66,11 @@ function findImageAtPos(view: EditorView, pos: number): MediaRange | null {
 
 /**
  * Find HTML media tag at cursor position.
- * Detects: <video>, <audio> tags (single-line).
+ * Detects: <video>, <audio>, and <iframe> embeds (single-line).
+ *
+ * RW-5 (L17) — iframe parity in Source media popup: an `<iframe>` video
+ * embed is treated as `block_video` so it edits its `src` like other media,
+ * mirroring the existing video/audio regex+store pattern (no new MediaNodeType).
  */
 function findHtmlMediaAtPos(view: EditorView, pos: number): MediaRange | null {
   const doc = view.state.doc;
@@ -77,8 +81,10 @@ function findHtmlMediaAtPos(view: EditorView, pos: number): MediaRange | null {
   const mediaPatterns: Array<{ regex: RegExp; type: "block_video" | "block_audio" }> = [
     { regex: /<video\b[^>]*>.*?<\/video>/gi, type: "block_video" },
     { regex: /<audio\b[^>]*>.*?<\/audio>/gi, type: "block_audio" },
+    { regex: /<iframe\b[^>]*>.*?<\/iframe>/gi, type: "block_video" },
     { regex: /<video\b[^>]*\/?>/gi, type: "block_video" },
     { regex: /<audio\b[^>]*\/?>/gi, type: "block_audio" },
+    { regex: /<iframe\b[^>]*\/?>/gi, type: "block_video" },
   ];
 
   for (const { regex, type } of mediaPatterns) {

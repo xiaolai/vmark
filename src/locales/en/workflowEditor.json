@@ -24,6 +24,8 @@
   "panel.shell.resize": "Resize panes",
   "panel.viewerAriaLabel": "GitHub Actions workflow viewer",
   "panel.openInPanel": "Open in side panel",
+  "panel.exportLabel": "Export workflow diagram",
+  "panel.exportError": "Export failed",
   "panel.exportSvg": "Export as SVG",
   "panel.exportPng": "Export as PNG",
   "panel.exportMermaid": "Copy as Mermaid",

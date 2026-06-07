@@ -141,5 +141,7 @@
   "form.trigger.cron.modDowRange": " on {{from}}-{{to}}",
   "form.trigger.cron.modDowList": " on {{days}}",
   "form.step.with.required": "required",
-  "form.step.with.defaultValue": "(default: {{value}})"
+  "form.step.with.defaultValue": "(default: {{value}})",
+  "panel.exportLabel": "Export workflow diagram",
+  "panel.exportError": "Export failed"
 }

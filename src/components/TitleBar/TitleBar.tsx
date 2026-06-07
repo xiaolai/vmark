@@ -19,6 +19,7 @@
  *     when off, renders an empty draggable bar.
  *   - Dirty, missing, and unsaved states have distinct visual indicators.
  *   - IME composition is respected — Enter/Escape during composition are ignored.
+ *   - Root element is a `banner` ARIA landmark (labelled `aria.appTitleBar`).
  *
  * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
  * @module components/TitleBar/TitleBar
@@ -128,7 +129,7 @@ export function TitleBar() {
   // Don't show filename when setting is off
   if (!showFilename) {
     return (
-      <div className="title-bar" data-tauri-drag-region>
+      <div className="title-bar" role="banner" aria-label={t("aria.appTitleBar")} data-tauri-drag-region>
         <div className="title-bar-content" data-tauri-drag-region />
       </div>
     );
@@ -138,7 +139,7 @@ export function TitleBar() {
   const dragRegion = isEditing ? {} : { "data-tauri-drag-region": true };
 
   return (
-    <div className="title-bar" {...dragRegion}>
+    <div className="title-bar" role="banner" aria-label={t("aria.appTitleBar")} {...dragRegion}>
       <div className="title-bar-content" {...dragRegion}>
         {isEditing ? (
           <input

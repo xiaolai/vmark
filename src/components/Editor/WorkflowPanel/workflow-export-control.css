@@ -1,0 +1,88 @@
+/* RW-7 (L3) — wire GHA workflow export to UI.
+ *
+ * Overlay export control anchored to the top-right of the canvas
+ * wrapper (which is position: relative — see workflow-canvas.css).
+ */
+
+.workflow-export-control {
+  position: absolute;
+  top: var(--spacing-2);
+  right: var(--spacing-2);
+  z-index: var(--z-toolbar);
+}
+
+.workflow-export-control__trigger {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-color);
+  color: var(--text-color);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: background var(--duration-base), color var(--duration-base);
+}
+
+.workflow-export-control__trigger:hover {
+  background: var(--bg-tertiary);
+}
+
+.workflow-export-control__trigger:focus-visible {
+  outline: none;
+  position: absolute;
+}
+
+.workflow-export-control__trigger:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: var(--space-1);
+  right: var(--space-1);
+  height: var(--border-thick);
+  border-bottom: var(--border-medium) solid var(--accent-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.workflow-export-control__menu {
+  position: absolute;
+  top: calc(var(--icon-size-sm) + var(--space-1));
+  right: 0;
+  min-width: var(--space-15);
+  display: flex;
+  flex-direction: column;
+  padding: var(--popup-padding);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  box-shadow: var(--popup-shadow);
+}
+
+.dark-theme .workflow-export-control__menu {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.workflow-export-control__item {
+  text-align: left;
+  white-space: nowrap;
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+}
+
+.workflow-export-control__item:hover {
+  background: var(--hover-bg);
+}
+
+.workflow-export-control__item:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}

@@ -12,12 +12,10 @@
   "picker.via": "tramite {{name}}",
   "picker.footerCycleScope": "scorri ambito",
   "picker.footerNavigate": "naviga",
-
   "chips.polish": "Rifinisci",
   "chips.condense": "Sintetizza",
   "chips.grammar": "Grammatica",
   "chips.rephrase": "Riformula",
-
   "response.thinking": "In elaborazione... {{seconds}}s",
   "response.accept": "Accetta",
   "response.reject": "Rifiuta",
@@ -25,11 +23,10 @@
   "response.cancel": "Annulla",
   "response.dismiss": "Ignora",
   "response.unknownError": "Errore sconosciuto",
-
   "history.title": "Cronologia prompt",
   "history.empty": "Nessuna cronologia",
-
   "provider.sectionCli": "CLI",
   "provider.sectionApi": "API",
-  "provider.settings": "Impostazioni..."
+  "provider.settings": "Impostazioni...",
+  "provider.keySaveError": "Impossibile salvare la chiave API nel portachiavi. Andrà persa al riavvio."
 }

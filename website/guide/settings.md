@@ -12,7 +12,7 @@ Controls the visual theme and window behavior.
 
 ### Theme
 
-Choose one of five color themes. The active theme is indicated by a ring around its swatch.
+Choose one of six color themes. The active theme is indicated by a ring around its swatch.
 
 | Theme | Background | Style |
 |-------|-----------|-------|
@@ -21,6 +21,7 @@ Choose one of five color themes. The active theme is indicated by a ring around 
 | Mint | `#CCE6D0` | Soft green, easy on the eyes |
 | Sepia | `#F9F0DB` | Warm yellowish, book-like |
 | Night | `#23262B` | Dark mode |
+| Solarized | `#002B36` | Dark, Solarized Dark palette |
 
 ### Language
 

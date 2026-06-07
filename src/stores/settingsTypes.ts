@@ -9,13 +9,18 @@
  */
 
 import type { HardBreakStyleOnSave, LineEndingOnSave } from "@/utils/linebreakDetection";
+import type { ThemeId } from "@/theme/themes";
 
 // ---------------------------------------------------------------------------
 // Theme types
 // ---------------------------------------------------------------------------
 
-/** Available theme identifiers for the editor color scheme. */
-export type ThemeId = "white" | "paper" | "mint" | "sepia" | "night";
+// audit-fix — single-source ThemeId
+/** Available theme identifiers for the editor color scheme. Re-exported here
+ *  for backward compatibility; the canonical union lives in the theme module
+ *  (`@/theme/themes`, derived from the `themes` catalog). Imported (not
+ *  re-exported) so `ThemeId` is also bound locally for `AppearanceSettings`. */
+export type { ThemeId };
 
 /** Color palette for a single theme — background, foreground, link, and optional dark-mode overrides. */
 export interface ThemeColors {
@@ -32,6 +37,28 @@ export interface ThemeColors {
   mdChar?: string;
   strong?: string;
   emphasis?: string;
+  // Per-theme dark-mode legacy `--*` overrides (projected from
+  // ThemeTokens.color.legacy). Let a second dark theme render its own
+  // values instead of falling back to night's. See themeColorsAdapter.ts.
+  bgTertiary?: string;
+  textTertiary?: string;
+  blurText?: string;
+  accentBg?: string;
+  sourceModeBg?: string;
+  errorColor?: string;
+  errorColorHover?: string;
+  errorBg?: string;
+  successColor?: string;
+  successColorHover?: string;
+  alertNote?: string;
+  alertTip?: string;
+  alertImportant?: string;
+  alertWarning?: string;
+  alertCaution?: string;
+  highlightBg?: string;
+  highlightText?: string;
+  blockBgSubtle?: string;
+  blockBgSubtleHover?: string;
 }
 
 // ---------------------------------------------------------------------------
