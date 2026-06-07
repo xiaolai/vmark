@@ -163,6 +163,24 @@ describe("detectImageTrigger (via plugin config)", () => {
 
     expect(result).toEqual({ from: 0, to: 14 });
   });
+
+  // RW-5 (L17) — iframe parity in Source media popup
+  it("detects an <iframe> embed at cursor", () => {
+    const doc = '<iframe src="https://www.youtube.com/embed/abc" width="560" height="315"></iframe>';
+    const view = createView(doc, 20); // inside the iframe tag
+    const result = detectTrigger(view);
+
+    expect(result).toEqual({ from: 0, to: doc.length });
+  });
+
+  // RW-5 (L17) — iframe parity in Source media popup
+  it("detects a self-closing <iframe ... /> embed at cursor", () => {
+    const doc = '<iframe src="https://player.vimeo.com/video/123" />';
+    const view = createView(doc, 10);
+    const result = detectTrigger(view);
+
+    expect(result).toEqual({ from: 0, to: doc.length });
+  });
 });
 
 describe("detectTriggerAtPos (via plugin config)", () => {
@@ -250,5 +268,21 @@ describe("extractImageData (via plugin config)", () => {
 
     expect(result.mediaSrc).toBe("img.png");
     expect(result.mediaAlt).toBe("alt");
+  });
+
+  // RW-5 (L17) — iframe parity in Source media popup
+  it("extracts the src from an <iframe> embed", () => {
+    const doc = '<iframe src="https://www.youtube.com/embed/abc" width="560"></iframe>';
+    const view = createView(doc, 20);
+    const result = extractData(view, { from: 0, to: doc.length }) as {
+      mediaSrc: string;
+      mediaAlt: string;
+      mediaNodePos: number;
+      mediaNodeType: string;
+    };
+
+    expect(result.mediaSrc).toBe("https://www.youtube.com/embed/abc");
+    expect(result.mediaNodePos).toBe(0);
+    expect(result.mediaNodeType).toBe("block_video");
   });
 });
