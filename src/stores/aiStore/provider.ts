@@ -1,9 +1,13 @@
 /**
  * AI Provider store — REST + CLI provider configs with persistence.
  *
- * REST provider configs persist to secure storage (`vmark-ai-providers`).
- * CLI providers are detected at runtime via `detect_ai_providers`.
+ * REST provider configs (endpoint, model, name) persist to `tauri-plugin-store`
+ * (`vmark-ai-providers`). API keys are NOT persisted there — RW-16 (L8) routes
+ * them through the OS keychain (`services/secrets/apiKeySecrets`); the store
+ * holds keys only in memory for the active session. CLI providers are detected
+ * at runtime via `detect_ai_providers`.
  *
+ * @coordinates-with src/services/secrets/apiKeySecrets — keychain key store
  * @module stores/aiStore/provider
  */
 
@@ -11,6 +15,11 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { createSecureStorage } from "@/utils/secureStorage";
+import {
+  loadApiKeys,
+  migrateLegacyApiKeys,
+  setApiKey,
+} from "@/services/secrets/apiKeySecrets";
 import { aiProviderLog, aiProviderWarn } from "@/utils/debug";
 import type {
   CliProviderInfo,
@@ -207,6 +216,11 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
             p.type === type ? { ...p, ...updates } : p
           ),
         }));
+        // RW-16 (L8): the API key is a secret — persist it to the OS keychain,
+        // never to the plaintext store. Other fields ride the normal persist.
+        if (Object.prototype.hasOwnProperty.call(updates, "apiKey")) {
+          void setApiKey(type, updates.apiKey ?? "");
+        }
       },
 
       loadEnvApiKeys: async () => {
@@ -243,7 +257,12 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
       storage: createJSONStorage(() => createSecureStorage()),
       partialize: (state) => ({
         activeProvider: state.activeProvider,
-        restProviders: state.restProviders,
+        // RW-16 (L8): never persist API keys to the plaintext store. Strip
+        // `apiKey` from every entry; the keychain is the source of truth and
+        // keys are rehydrated into memory by hydrateAndMigrateApiKeys.
+        restProviders: state.restProviders.map(
+          ({ apiKey: _apiKey, ...rest }) => ({ ...rest, apiKey: "" })
+        ),
       }),
       onRehydrateStorage: () => {
         return () => {
@@ -257,8 +276,14 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
               restProviders: [...restProviders, ...newDefaults],
             });
           }
-          useAiProviderStore.getState().loadEnvApiKeys();
-          useAiProviderStore.getState().detectProviders();
+          // RW-16 (L8): migrate any plaintext keys that survived in the old
+          // persisted blob into the keychain, then load keychain keys into the
+          // in-memory store. Runs before loadEnvApiKeys so env keys only fill
+          // genuinely-empty fields.
+          void hydrateAndMigrateApiKeys().finally(() => {
+            useAiProviderStore.getState().loadEnvApiKeys();
+            useAiProviderStore.getState().detectProviders();
+          });
         };
       },
       migrate: (persisted, version) => {
@@ -282,3 +307,42 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
     }
   )
 );
+
+/**
+ * RW-16 (L8): one-time migration + keychain hydration of API keys.
+ *
+ * Runs after persist rehydration. Two phases, both safe to repeat:
+ *   1. Migrate: any plaintext key that survived in the rehydrated state (an
+ *      old persisted blob written before keys moved to the keychain) is lifted
+ *      into the keychain — only when the keychain slot for that type is still
+ *      empty, so a newer keychain value is never clobbered.
+ *   2. Hydrate: read every provider's key from the keychain into the in-memory
+ *      store, which is the live session source.
+ *
+ * After this, the persist layer re-saves with `apiKey: ""` (see partialize),
+ * so the plaintext store no longer holds secrets. Never throws.
+ *
+ * Exported for testing.
+ */
+export async function hydrateAndMigrateApiKeys(): Promise<void> {
+  const { restProviders } = useAiProviderStore.getState();
+  const types = restProviders.map((p) => p.type);
+
+  // Phase 1: migrate any plaintext keys left in the rehydrated state.
+  const legacy: Record<string, string> = {};
+  for (const p of restProviders) {
+    if (p.apiKey) legacy[p.type] = p.apiKey;
+  }
+  if (Object.keys(legacy).length > 0) {
+    await migrateLegacyApiKeys(legacy);
+  }
+
+  // Phase 2: load keychain keys into memory (authoritative for the session).
+  const keys = await loadApiKeys(types);
+  useAiProviderStore.setState((state) => ({
+    restProviders: state.restProviders.map((p) => ({
+      ...p,
+      apiKey: keys[p.type] ?? "",
+    })),
+  }));
+}

@@ -55,6 +55,7 @@ pub mod workflow;
 mod gha_workflow;
 mod quarantine;
 mod external_editor;
+mod secure_store;
 mod task;
 
 #[cfg(target_os = "macos")]
@@ -681,6 +682,9 @@ pub fn run() {
             ai_provider::detect_ai_providers,
             ai_provider::run_ai_prompt,
             ai_provider::read_env_api_keys,
+            secure_store::set_secret,
+            secure_store::get_secret,
+            secure_store::delete_secret,
             ai_provider::test_api_key,
             ai_provider::list_models,
             ai_provider::validate_model,

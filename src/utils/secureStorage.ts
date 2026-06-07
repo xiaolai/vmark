@@ -1,21 +1,25 @@
 /**
- * App Storage Adapter for Zustand Persist (sensitive data)
+ * App Storage Adapter for Zustand Persist (non-secret config)
  *
- * Purpose: Stores sensitive data (API keys) outside localStorage using
- *   Tauri's store plugin. Data goes to the app data directory (~/.config/app.vmark/)
- *   instead of browser localStorage, so it's not visible in DevTools.
+ * Purpose: Stores Zustand-persisted config (AI provider endpoints, model
+ *   names, active selection) outside localStorage using Tauri's store plugin.
+ *   Data goes to the app data directory (~/.config/app.vmark/) instead of
+ *   browser localStorage, so it's not visible in DevTools.
  *
- * IMPORTANT: This is NOT OS-backed encrypted storage (Keychain/Credential Manager).
- *   tauri-plugin-store persists to a plain JSON file. The security improvement
- *   is: (1) keys removed from DevTools-accessible localStorage, (2) data stored
- *   in OS-protected app data directory. For true secret management, a future
- *   migration to tauri-plugin-stronghold or OS keychain APIs would be needed.
+ * IMPORTANT: This is NOT OS-backed encrypted storage — tauri-plugin-store
+ *   persists to a plain JSON file. As of RW-16 (L8), API keys NO LONGER flow
+ *   through this adapter: they are stored in the OS keychain via
+ *   `services/secrets/apiKeySecrets` + the `*_secret` Tauri commands, and the
+ *   aiProvider store strips `apiKey` from its persisted blob. This adapter now
+ *   carries only non-secret config; the residual security benefit is keeping
+ *   that config out of DevTools-accessible localStorage.
  *
  * Migration: On first use, migrates data from localStorage to Tauri store,
  *   then clears the localStorage entry.
  *
  * @coordinates-with @tauri-apps/plugin-store — Tauri store plugin
- * @coordinates-with src/stores/aiProviderStore.ts — primary consumer
+ * @coordinates-with src/stores/aiStore/provider.ts — primary consumer
+ * @coordinates-with src/services/secrets/apiKeySecrets — keychain key store (secrets)
  * @module utils/secureStorage
  */
 
