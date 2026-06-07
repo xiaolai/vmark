@@ -348,7 +348,7 @@ Configure the integrated terminal panel. Open the terminal with `` Ctrl + ` ``.
 
 Two macOS/Unix-only toggles also appear here: **Option as Meta Key** (macOS only — treat the Option key as Meta for `Alt`-prefixed shortcuts) and **Shell Integration** (hidden on Windows — inject OSC marks for prompt navigation, exit-status decorations, and cwd tracking in zsh).
 
-#### Accessibility
+### Accessibility
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
