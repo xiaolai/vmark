@@ -6,6 +6,8 @@
 pub mod approval;
 pub mod commands;
 pub mod condition;
+#[cfg(test)]
+mod examples;
 pub mod expressions;
 pub mod genie_step;
 pub mod runner;

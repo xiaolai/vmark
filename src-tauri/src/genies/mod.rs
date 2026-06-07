@@ -12,6 +12,8 @@ pub mod types;
 // Re-export public API used by other modules (lib.rs, menu/dynamic.rs)
 pub use commands::global_genies_dir;
 pub use install::install_default_genies;
+#[cfg(test)]
+pub use install::default_genie_names;
 pub use parsing::parse_genie as parse_genie_for_runner;
 pub use scanning::scan_genies_with_titles;
 pub use types::GenieMenuEntry;

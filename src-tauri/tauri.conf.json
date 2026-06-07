@@ -99,6 +99,9 @@
     "externalBin": [
       "binaries/vmark-mcp-server"
     ],
+    "resources": [
+      "resources/workflows/**/*"
+    ],
     "macOS": {
       "entitlements": "sidecar-entitlements.plist",
       "minimumSystemVersion": "10.15",

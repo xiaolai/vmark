@@ -72,6 +72,20 @@ const DEFAULT_GENIES: &[DefaultGenie] = &[
     },
 ];
 
+/// Genie names (file stems) for every bundled default genie.
+///
+/// The name is the file stem of each `DEFAULT_GENIES` path — i.e. the token a
+/// `uses: genie/<name>` workflow step references. This is the single source of
+/// truth for "which genies ship with the app", used to validate that bundled
+/// sample workflows only reference genies that actually exist.
+#[cfg(test)]
+pub fn default_genie_names() -> Vec<&'static str> {
+    DEFAULT_GENIES
+        .iter()
+        .filter_map(|g| std::path::Path::new(g.path).file_stem().and_then(|s| s.to_str()))
+        .collect()
+}
+
 /// Install default genies into `<appDataDir>/genies/` if they don't already exist.
 pub fn install_default_genies(app: &AppHandle) -> Result<(), String> {
     let base = global_genies_dir(app)?;
