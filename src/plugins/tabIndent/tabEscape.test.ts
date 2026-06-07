@@ -9,7 +9,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { Schema, Node } from "@tiptap/pm/model";
 import { EditorState, TextSelection, SelectionRange } from "@tiptap/pm/state";
 import {
-  isAtMarkEnd,
   isInLink,
   getMarkEndPos,
   getLinkEndPos,
@@ -62,83 +61,9 @@ function italicText(text: string): Node {
   return testSchema.text(text, [testSchema.mark("italic")]);
 }
 
-function codeText(text: string): Node {
-  return testSchema.text(text, [testSchema.mark("code")]);
-}
-
-function strikeText(text: string): Node {
-  return testSchema.text(text, [testSchema.mark("strike")]);
-}
-
 function linkedText(text: string, href: string): Node {
   return testSchema.text(text, [testSchema.mark("link", { href })]);
 }
-
-describe("isAtMarkEnd", () => {
-  it("returns true when cursor is at end of bold text", () => {
-    // "hello **bold** world" - cursor at end of "bold"
-    const document = doc(p("hello ", boldText("bold"), " world"));
-    const state = createState(document, 11); // After "bold", before space
-
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-
-  it("returns true when cursor is at end of italic text", () => {
-    const document = doc(p("hello ", italicText("italic"), " world"));
-    const state = createState(document, 13); // After "italic"
-
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-
-  it("returns true when cursor is at end of code text", () => {
-    const document = doc(p("hello ", codeText("code"), " world"));
-    const state = createState(document, 11); // After "code"
-
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-
-  it("returns true when cursor is at end of strike text", () => {
-    const document = doc(p("hello ", strikeText("strike"), " world"));
-    const state = createState(document, 13); // After "strike"
-
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-
-  it("returns false when cursor is in middle of marked text", () => {
-    const document = doc(p("hello ", boldText("bold"), " world"));
-    const state = createState(document, 9); // In middle of "bold"
-
-    expect(isAtMarkEnd(state)).toBe(false);
-  });
-
-  it("returns false when cursor is at start of marked text", () => {
-    const document = doc(p("hello ", boldText("bold"), " world"));
-    const state = createState(document, 7); // At start of "bold"
-
-    expect(isAtMarkEnd(state)).toBe(false);
-  });
-
-  it("returns false when cursor is in plain text", () => {
-    const document = doc(p("hello world"));
-    const state = createState(document, 6); // In "hello"
-
-    expect(isAtMarkEnd(state)).toBe(false);
-  });
-
-  it("returns false when there is a selection", () => {
-    const document = doc(p("hello ", boldText("bold"), " world"));
-    const state = createState(document, 9, 11); // Selection inside bold
-
-    expect(isAtMarkEnd(state)).toBe(false);
-  });
-
-  it("returns true when mark ends at document boundary", () => {
-    const document = doc(p("hello ", boldText("bold")));
-    const state = createState(document, 11); // At very end
-
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-});
 
 describe("isInLink", () => {
   it("returns true when cursor is inside link", () => {
@@ -346,24 +271,8 @@ describe("canTabEscape", () => {
     expect(result?.targetPos).toBe(11); // Same position — marks will be cleared
   });
 
-  it("getMarksAfter returns nodeAfter.marks at node boundary (textOffset=0, index>0)", () => {
-    // This exercises the branch: $pos.textOffset === 0 && index > 0
-    // Set up: "plain " then "bold" — cursor at start of "bold" (textOffset=0, index=1)
-    const document = doc(p("plain ", boldText("bold"), " end"));
-    // Position 7 = start of paragraph content after "plain " (6 chars), offset into para = 6
-    // Para starts at pos 1. "plain " is 6 chars, so bold starts at pos 7.
-    // At pos 7, we're at the boundary: textOffset=0 within the second node, index=1
-    const state = createState(document, 7);
-    // isAtMarkEnd checks if mark ends here. Since we're at START of bold, it returns false.
-    // But getMarksAfter is called internally and returns nodeAfter.marks for the bold node.
-    // The result should be false because the mark doesn't END here.
-    expect(isAtMarkEnd(state)).toBe(false);
-    // However, the marks at cursor should include bold (since cursor is at start of bold text)
-    // This confirms the boundary was reached correctly
-  });
-
   it("canTabEscape at start of bold text returns null (cursor at mark boundary)", () => {
-    // cursor at the very start of bold text: getMarksAfter returns bold node marks (index>0, textOffset=0)
+    // cursor at the very start of bold text (boundary: index>0, textOffset=0)
     const document = doc(p("hello ", boldText("bold"), " world"));
     // "hello " = 6 chars, para offset = 1 -> bold starts at pos 7
     const state = createState(document, 7);
@@ -381,57 +290,6 @@ describe("canTabEscape", () => {
     expect(result).not.toBeNull();
     expect(result?.type).toBe("link");
     expect(result?.targetPos).toBe(11); // Jump to end
-  });
-});
-
-describe("isAtMarkEnd — non-escapable mark (line 40 continue)", () => {
-  it("returns false when cursor is at end of link mark (not in ESCAPABLE_MARKS)", () => {
-    // Link is not in ESCAPABLE_MARKS, so the loop continues past it
-    const document = doc(p("hello ", linkedText("link", "https://example.com"), " world"));
-    const state = createState(document, 11); // After "link"
-
-    expect(isAtMarkEnd(state)).toBe(false);
-  });
-});
-
-describe("getMarksAfter — index >= parent.childCount (line 68)", () => {
-  it("returns empty when index >= childCount", () => {
-    // Create a paragraph with only bold text and place cursor at end of paragraph
-    // At the very end, index might be >= childCount
-    const document = doc(p(boldText("bold")));
-    // Position 5 = end of "bold" in paragraph that starts at 1
-    // parent.content.size = 4, parentOffset = 4
-    // Since parentOffset >= parent.content.size, getMarksAfter returns [] (line 62)
-    const state = createState(document, 5);
-
-    // isAtMarkEnd returns true because mark ends at document boundary
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-});
-
-describe("getMarksAfter — next node's marks (lines 85-89)", () => {
-  it("returns next node marks when cursor is at end of text node boundary (index+1 < childCount)", () => {
-    // Two adjacent text nodes: "hello" (plain) then "bold" (bold)
-    // When cursor is at end of "hello" and the next child exists but textOffset = text.length
-    // This exercises lines 85-86: return parent.child(index + 1).marks
-    const document = doc(p("hello", boldText("bold"), "end"));
-    // Position 6 = end of "hello" (5 chars), para starts at 1
-    // textOffset = 5 = "hello".length, index = 0
-    // nodeAfter = "hello" (text node), textOffset < nodeAfter.text!.length is false
-    // So it falls through to line 85: index + 1 < parent.childCount → return parent.child(1).marks
-    const state = createState(document, 6);
-
-    // At this position, marks don't include bold (cursor is between plain and bold)
-    expect(isAtMarkEnd(state)).toBe(false);
-  });
-
-  it("returns empty array when at end of last node (line 89)", () => {
-    // Only one text node, cursor at end: textOffset = text.length, index+1 >= childCount
-    // This exercises line 89: return []
-    const document = doc(p("hello"));
-    const state = createState(document, 6); // End of paragraph
-
-    expect(isAtMarkEnd(state)).toBe(false);
   });
 });
 
@@ -577,34 +435,6 @@ describe("canTabEscape — link at end returning current pos (line 354)", () => 
   });
 });
 
-describe("getMarksAfter — edge cases for uncovered branches", () => {
-  it("handles cursor at end of a single text node (lines 85-89 fallback)", () => {
-    // Single bold text node, cursor at the end of it.
-    // parentOffset < parent.content.size (bold text has content)
-    // index = 0, nodeAfter = boldText
-    // textOffset = text.length → falls through to line 85
-    // index + 1 = 1 >= childCount = 1 → returns [] (line 89)
-    const document = doc(p(boldText("x")));
-    // pos 2 = after "x" but still inside paragraph (content.size = 1)
-    const state = createState(document, 2);
-
-    // This should return true — at end of bold mark with no next node
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-
-  it("handles cursor at end of first text node with next node (line 85-86)", () => {
-    // Two children: bold "ab" then plain " rest"
-    // Cursor at end of "ab" (textOffset = 2 = text.length)
-    // index = 0, index + 1 = 1 < childCount = 2 → returns parent.child(1).marks (line 86)
-    const document = doc(p(boldText("ab"), " rest"));
-    // pos 1 + 2 = 3 → end of "ab"
-    const state = createState(document, 3);
-
-    // Next node is plain text with no bold mark → mark ends here → true
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-});
-
 describe("canTabEscape — isInEscapableMark true but getMarkEndPos returns null (line 363)", () => {
   it("returns null when in escapable mark but getMarkEndPos returns null", () => {
     // This is hard to trigger naturally since getMarkEndPos should always find a mark
@@ -695,44 +525,6 @@ describe("calculateEscapeForPosition — mark child without matching mark (line 
     const result = canTabEscape(stateWithMulti);
     // Should find the bold mark and escape
     expect(result).toBeInstanceOf(MultiSelection);
-  });
-});
-
-describe("getMarksAfter — index >= parent.childCount (line 68 true branch)", () => {
-  it("exercises the index >= childCount guard with a text+inline boundary", () => {
-    // To hit line 68 (index >= parent.childCount), we need parentOffset < content.size
-    // (so line 62 doesn't return early) but index >= childCount.
-    // This is an unusual ProseMirror state. We verify behavior at the boundary
-    // between two consecutive bold nodes where the second is at the child boundary.
-    const document = doc(p(boldText("a"), boldText("b")));
-    // ProseMirror may merge adjacent bold nodes. With separate bold marks,
-    // position 2 (between "a" and "b") has parentOffset=1, content.size=2.
-    // index at this position should be 0 or 1 depending on merge behavior.
-    const state = createState(document, 2);
-    // We just verify isAtMarkEnd returns a boolean without error
-    expect(typeof isAtMarkEnd(state)).toBe("boolean");
-  });
-});
-
-describe("getMarksAfter — line 85-89 next node marks vs empty array", () => {
-  it("returns empty when at end of last text node and index+1 >= childCount (line 89)", () => {
-    // Single bold text "xyz", cursor at end: textOffset = 3 = text.length
-    // index = 0, index + 1 = 1 >= childCount = 1 → returns [] (line 89)
-    const document = doc(p(boldText("xyz")));
-    const state = createState(document, 4); // end of "xyz"
-    // Mark ends at document boundary, so isAtMarkEnd should be true
-    expect(isAtMarkEnd(state)).toBe(true);
-  });
-
-  it("returns next node's marks when index+1 < childCount (line 85-86)", () => {
-    // Three adjacent text nodes: bold "a", italic "b", plain "c"
-    // Cursor at end of "a" (textOffset = 1 = text.length), index = 0
-    // index + 1 = 1 < childCount = 3 → returns parent.child(1).marks (italic)
-    // Since italic is different from bold, the bold mark ends here
-    const document = doc(p(boldText("a"), italicText("b"), "c"));
-    // pos 2 = after "a" in paragraph
-    const state = createState(document, 2);
-    expect(isAtMarkEnd(state)).toBe(true);
   });
 });
 

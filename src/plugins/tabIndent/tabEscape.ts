@@ -7,7 +7,6 @@
 
 import type { EditorState } from "@tiptap/pm/state";
 import { SelectionRange } from "@tiptap/pm/state";
-import type { Mark, ResolvedPos } from "@tiptap/pm/model";
 import { MultiSelection } from "@/plugins/multiCursor/MultiSelection";
 
 /** Mark types that Tab can escape from */
@@ -16,84 +15,6 @@ const ESCAPABLE_MARKS = new Set(["bold", "italic", "code", "strike"]);
 export interface TabEscapeResult {
   type: "mark" | "link";
   targetPos: number;
-}
-
-/**
- * Check if cursor is at the end of an inline mark (bold, italic, code, strike).
- * Returns true only when:
- * - There is no selection (cursor only)
- * - Cursor is at a position where the mark ends
- *
- * @deprecated Unused by canTabEscape — kept for test coverage and potential future use.
- */
-export function isAtMarkEnd(state: EditorState): boolean {
-  const { selection } = state;
-  const { from, to, $from } = selection;
-
-  // Only handle cursor, not selection
-  if (from !== to) return false;
-
-  // Get marks at cursor position
-  const marks = $from.marks();
-  if (marks.length === 0) return false;
-
-  // Check if any escapable mark ends at this position
-  for (const mark of marks) {
-    if (!ESCAPABLE_MARKS.has(mark.type.name)) continue;
-
-    // Check if this mark ends here by looking at the next position
-    const afterMarks = getMarksAfter($from);
-
-    // If the mark is not in the marks after, we're at the end
-    if (!afterMarks.some((m) => m.type.name === mark.type.name)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Get marks that would be active if we moved one position forward.
- */
-function getMarksAfter($pos: ResolvedPos): readonly Mark[] {
-  const { parent, parentOffset } = $pos;
-
-  // If at end of parent, no marks after
-  if (parentOffset >= parent.content.size) {
-    return [];
-  }
-
-  // Get the node after the cursor
-  const index = $pos.index();
-  /* v8 ignore next 3 -- @preserve defensive guard: index >= childCount only possible in invalid PM state when parentOffset < content.size */
-  if (index >= parent.childCount) {
-    return [];
-  }
-
-  const nodeAfter = parent.child(index);
-
-  // If we're at the boundary between nodes, get the next node's marks
-  if ($pos.textOffset === 0 && index > 0) {
-    // We're at the start of a node, previous node's marks don't apply
-    return nodeAfter.marks;
-  }
-
-  // If there's text after in the same node, marks continue
-  /* v8 ignore next -- @preserve false branch (textOffset >= text.length with isText=true) only reachable at exact end of text node, which ProseMirror handles via the boundary checks above */
-  if (nodeAfter.isText && $pos.textOffset < nodeAfter.text!.length) {
-    return nodeAfter.marks;
-  }
-
-  // Otherwise, get the next node's marks
-  /* v8 ignore next -- @preserve only reachable with non-text inline nodes (e.g. hardbreak) not present in any test schema */
-  if (index + 1 < parent.childCount) {
-    /* v8 ignore next -- @preserve */
-    return parent.child(index + 1).marks;
-  }
-
-  /* v8 ignore next -- @preserve only reachable when index === 0 and nodeAfter is non-text with no next sibling */
-  return [];
 }
 
 /**
