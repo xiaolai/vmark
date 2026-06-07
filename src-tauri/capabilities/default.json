@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for document windows only. Settings and PDF-export windows have separate, restricted capability files. SECURITY NOTE: Filesystem permissions use broad path patterns because VMark is a document editor that must access user-chosen files anywhere on disk. Path traversal attacks are mitigated at the application layer via validateImagePath() in src/plugins/imageView/security.ts. Windows drive letter patterns are in a separate windows.json capability file.",
+  "description": "[capability-version: 0.8.2] Capability for document windows only. Settings and PDF-export windows have separate, restricted capability files. SECURITY NOTE: Filesystem permissions use broad path patterns because VMark is a document editor that must access user-chosen files anywhere on disk. Path traversal attacks are mitigated at the application layer via validateImagePath() in src/plugins/imageView/security.ts. Windows drive letter patterns are in a separate windows.json capability file.",
   "windows": ["main", "doc-*"],
   "permissions": [
     "core:default",

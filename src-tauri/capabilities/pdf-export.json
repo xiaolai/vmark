@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "pdf-export-window",
-  "description": "PDF Export window capability — dialog for save location, print API, read-only access to app temp files. No shell, PTY, MCP, or broad filesystem access.",
+  "description": "[capability-version: 0.8.2] PDF Export window capability — dialog for save location, print API, read-only access to app temp files. No shell, PTY, MCP, or broad filesystem access.",
   "windows": ["pdf-export"],
   "permissions": [
     "core:default",
