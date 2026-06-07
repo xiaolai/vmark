@@ -1,0 +1,40 @@
+# cargo-mutants configuration (audit L13 / RW-14, hardening v1-017 / v2-016).
+#
+# Scopes mutation testing to a few high-value, pure-logic modules that have
+# real branching and solid existing unit tests. A run mutates ONLY these files,
+# keeping the loop fast and the signal high — instead of mutating the whole
+# Tauri backend (most of which is I/O / FFI glue that mutation testing can't
+# meaningfully evaluate without a running app).
+#
+# Run it (binary is NOT required for `cargo test`/`cargo check`):
+#   cargo install cargo-mutants
+#   cargo mutants --manifest-path src-tauri/Cargo.toml
+#
+# See dev-docs/testing-hardening.md for the rationale and how to widen scope.
+
+# Only mutate these files. Globs are matched against paths relative to the
+# package root (src-tauri/).
+examine_globs = [
+    "src/workflow/expressions.rs",
+    "src/workflow/condition.rs",
+    "src/genies/parsing.rs",
+]
+
+# Belt-and-suspenders: never mutate generated, test, or platform-FFI code even
+# if a future examine_globs edit accidentally widens scope.
+exclude_globs = [
+    "src/**/tests.rs",
+    "src/**/*_test.rs",
+    "fuzz/**",
+]
+
+# Skip mutating inside #[cfg(test)] / #[test] blocks — we want to mutate the
+# code under test, not the tests themselves.
+exclude_re = [
+    "#\\[test\\]",
+]
+
+# Give each test build+run a generous-but-bounded timeout so a mutation that
+# induces an infinite loop is reported as "timeout" rather than hanging the run.
+timeout_multiplier = 3.0
+minimum_test_timeout = 60

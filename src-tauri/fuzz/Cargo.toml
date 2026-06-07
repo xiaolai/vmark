@@ -1,0 +1,47 @@
+# cargo-fuzz crate for VMark parser fuzzing (audit L13 / RW-14, hardening v2-017).
+#
+# This crate is DELIBERATELY isolated from the main build:
+#   * The parent package (../Cargo.toml) has no [workspace] table, so it never
+#     auto-includes this directory. `cargo test/check --manifest-path
+#     src-tauri/Cargo.toml` ignores it entirely.
+#   * The empty `[workspace]` table below makes this crate its own workspace
+#     root, so even if a [workspace] is added to the parent later, cargo-fuzz's
+#     nightly-only, libfuzzer-linked targets never leak into the normal build.
+#
+# Run it (requires nightly + the cargo-fuzz binary, neither needed for normal
+# `cargo test`/`cargo check`):
+#   cargo install cargo-fuzz
+#   cargo +nightly fuzz run resolve_expression
+#   cargo +nightly fuzz run parse_genie
+
+[package]
+name = "vmark-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Empty workspace table => this crate is its own workspace root.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.vmark_lib]
+path = ".."
+
+[[bin]]
+name = "resolve_expression"
+path = "fuzz_targets/resolve_expression.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_genie"
+path = "fuzz_targets/parse_genie.rs"
+test = false
+doc = false
+bench = false

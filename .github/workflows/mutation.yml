@@ -1,0 +1,61 @@
+name: Mutation Testing
+
+# Opt-in mutation testing for the Rust backend (audit L13 / RW-14,
+# hardening v1-017 / v2-016). Deliberately NOT run on every PR — it is slow
+# and non-blocking. Scoped to a few pure-logic modules via src-tauri/mutants.toml.
+#
+# See dev-docs/testing-hardening.md.
+
+on:
+  # Manual trigger from the Actions tab.
+  workflow_dispatch:
+  # Weekly cadence: Monday 06:00 UTC.
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Never block anything: this is a signal source, not a gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-tauri-deps
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-mutants-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: rust-mutants-${{ runner.os }}-
+
+      - name: Create sidecar stub for Tauri build script
+        shell: bash
+        run: touch "src-tauri/binaries/vmark-mcp-server-x86_64-unknown-linux-gnu"
+
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants --locked
+
+      - name: Run scoped mutation testing
+        # Scope is defined in src-tauri/mutants.toml (examine_globs).
+        run: cargo mutants --manifest-path src-tauri/Cargo.toml
+
+      - name: Upload mutants report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-report
+          path: src-tauri/mutants.out/
+          if-no-files-found: ignore
