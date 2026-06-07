@@ -17,6 +17,8 @@
     "bench": "vitest bench src/bench/",
     "bench:editor": "vitest bench src/bench/editor.bench.ts",
     "bench:markdown": "vitest bench src/bench/markdown.bench.ts",
+    "perf:largefile:gen": "node scripts/gen-large-file-corpus.mjs",
+    "perf:largefile": "node scripts/measure-open-latency.mjs --dir tmp/large-file-corpus",
     "size": "size-limit",
     "size:why": "size-limit --why",
     "lint": "eslint src",
