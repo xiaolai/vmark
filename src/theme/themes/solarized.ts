@@ -12,6 +12,7 @@ import { sharedPrimitives, darkShadows } from "../tokens";
  * `night`'s structure so the runtime emits a full var set.
  */
 export const solarized: ThemeTokens = {
+  isDark: true,
   color: {
     // base03 #002b36, base02 #073642, base01 #586e75
     bg: { primary: "#002b36", secondary: "#073642", tertiary: "#0a3a47" },

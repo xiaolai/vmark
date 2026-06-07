@@ -33,6 +33,14 @@ export interface AnsiPalette {
 }
 
 export type ThemeTokens = {
+  // audit-fix — derive isDark from catalog
+  /**
+   * Whether this theme is dark. The single source of truth for dark/light
+   * classification — `themeColorsAdapter.ts` reads this instead of holding a
+   * second hardcoded `DARK_THEMES` set, so adding another dark theme can't
+   * silently misclassify it.
+   */
+  isDark: boolean;
   color: {
     bg: { primary: string; secondary: string; tertiary: string };
     text: { primary: string; secondary: string; tertiary: string };

@@ -13,6 +13,7 @@ import { sharedPrimitives, lightShadows } from "../../tokens";
  * shipping theme.
  */
 export const highContrast: ThemeTokens = {
+  isDark: false,
   color: {
     bg: { primary: "#FFFFFF", secondary: "#FFFFFF", tertiary: "#FFFFFF" },
     text: { primary: "#000000", secondary: "#000000", tertiary: "#333333" },

@@ -3,6 +3,7 @@ import { sharedPrimitives, lightShadows, semanticLight, alertLight, mediaLight }
 
 /** Paper theme — soft warm background, the default vmark theme. */
 export const paper: ThemeTokens = {
+  isDark: false,
   color: {
     bg: { primary: "#EEEDED", secondary: "#e5e4e4", tertiary: "#f0f0f0" },
     text: { primary: "#1a1a1a", secondary: "#666666", tertiary: "#999999" },

@@ -3,6 +3,7 @@ import { sharedPrimitives, lightShadows, semanticLight, alertLight, mediaLight }
 
 /** Mint theme — green-tinted background. */
 export const mint: ThemeTokens = {
+  isDark: false,
   color: {
     bg: { primary: "#CCE6D0", secondary: "#b8d9bd", tertiary: "#a8c9ad" },
     text: { primary: "#2d3a35", secondary: "#666666", tertiary: "#999999" },

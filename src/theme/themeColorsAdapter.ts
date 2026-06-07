@@ -52,10 +52,9 @@ export interface ThemeColors {
   blockBgSubtleHover?: string;
 }
 
-const DARK_THEMES = new Set<ThemeId>(["night", "solarized"]);
-
+// audit-fix — derive isDark from catalog
 /** Project a ThemeTokens into the legacy ThemeColors surface. */
-function themeTokensToColors(id: ThemeId, t: ThemeTokens): ThemeColors {
+function themeTokensToColors(t: ThemeTokens): ThemeColors {
   const out: ThemeColors = {
     background: t.color.bg.primary,
     foreground: t.color.text.primary,
@@ -65,7 +64,7 @@ function themeTokensToColors(id: ThemeId, t: ThemeTokens): ThemeColors {
     strong: t.color.strong,
     emphasis: t.color.emphasis,
   };
-  if (DARK_THEMES.has(id)) {
+  if (t.isDark) {
     out.isDark = true;
     out.textSecondary = t.color.text.secondary;
     out.selection = t.color.selection;
@@ -107,6 +106,6 @@ function themeTokensToColors(id: ThemeId, t: ThemeTokens): ThemeColors {
 export const themesAsColors: Record<ThemeId, ThemeColors> = Object.fromEntries(
   (Object.keys(themes) as ThemeId[]).map((id) => [
     id,
-    themeTokensToColors(id, themes[id]),
+    themeTokensToColors(themes[id]),
   ]),
 ) as Record<ThemeId, ThemeColors>;

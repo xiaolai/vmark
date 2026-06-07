@@ -3,6 +3,7 @@ import { sharedPrimitives, darkShadows } from "../tokens";
 
 /** Night theme — the dark theme. */
 export const night: ThemeTokens = {
+  isDark: true,
   color: {
     bg: { primary: "#23262b", secondary: "#2a2e34", tertiary: "#32363d" },
     text: { primary: "#d6d9de", secondary: "#9aa0a6", tertiary: "#6b7078" },

@@ -3,6 +3,7 @@ import { sharedPrimitives, lightShadows, semanticLight, alertLight, mediaLight }
 
 /** Sepia theme — warm beige background. */
 export const sepia: ThemeTokens = {
+  isDark: false,
   color: {
     bg: { primary: "#F9F0DB", secondary: "#f0e5cc", tertiary: "#e0d5bc" },
     text: { primary: "#5c4b37", secondary: "#666666", tertiary: "#999999" },
