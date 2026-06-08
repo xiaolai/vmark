@@ -591,12 +591,6 @@ pub fn create_localized_menu(
         ],
     )?;
 
-    // fix(#992) — On Linux/Windows the menu bar is per-window and rendered
-    // in-window; minimize/maximize are already reachable from the native
-    // titlebar, so a dedicated "Window" submenu adds nothing and showed up
-    // as an apparently-empty top-level menu (issue #992). The Window menu is
-    // therefore macOS-only; non-macOS omits it from the menu bar below.
-
     // ========================================================================
     // Help menu
     // ========================================================================
@@ -650,7 +644,6 @@ pub fn create_localized_menu(
         ],
     );
 
-    // fix(#992) — non-macOS menu bar omits the Window submenu (see note above).
     #[cfg(not(target_os = "macos"))]
     Menu::with_items(
         app,

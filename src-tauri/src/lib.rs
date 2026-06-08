@@ -633,6 +633,7 @@ pub fn run() {
             window_manager::open_file_in_new_window,
             window_manager::open_workspace_in_new_window,
             window_manager::open_workspace_with_files_in_new_window,
+            window_manager::open_settings_window,
             window_manager::close_window,
             window_manager::force_quit,
             window_manager::request_quit,
@@ -821,33 +822,40 @@ pub fn run() {
     app
         .run(|app, event| {
             match event {
-                // CRITICAL: Prevent quit on last window close (macOS behavior)
-                // App should only quit via Cmd+Q or menu Quit
+                // CRITICAL: Preserve macOS last-window-close behavior while
+                // letting Linux/Windows CLI launches terminate when no document
+                // windows remain.
                 tauri::RunEvent::ExitRequested { api, code, .. } => {
                     log::debug!("[Tauri] ExitRequested received, code={:?}", code);
 
-                    // If we explicitly allowed exit (we're done with coordinated quit), allow it through.
-                    // IMPORTANT: Quit can be "in progress" while we still need to block OS quit requests.
-                    if quit::is_exit_allowed() {
-                        log::debug!("[Tauri] ExitRequested: exit allowed, allowing exit");
-                        return;
-                    }
-
-                    // Prevent exit for last-window-close scenario (macOS behavior)
-                    api.prevent_exit();
-                    log::debug!("[Tauri] ExitRequested: prevent_exit() called");
-
-                    // Only start coordinated quit if there are document windows
                     let has_doc_windows = app
                         .webview_windows()
                         .keys()
                         .any(|label| quit::is_document_window_label(label));
 
-                    if has_doc_windows {
-                        log::debug!("[Tauri] ExitRequested: starting quit flow");
-                        quit::start_quit(app);
+                    match quit::decide_exit_request_action(
+                        quit::is_exit_allowed(),
+                        has_doc_windows,
+                        quit::keep_alive_without_document_windows(),
+                    ) {
+                        quit::ExitRequestAction::AllowExit => {
+                            log::debug!("[Tauri] ExitRequested: allowing exit");
+                            if !quit::is_exit_allowed() {
+                                mcp_server::cleanup(app);
+                            }
+                        }
+                        quit::ExitRequestAction::PreventAndStartQuit => {
+                            api.prevent_exit();
+                            log::debug!("[Tauri] ExitRequested: starting quit flow");
+                            quit::start_quit(app);
+                        }
+                        quit::ExitRequestAction::PreventAndKeepAlive => {
+                            api.prevent_exit();
+                            log::debug!(
+                                "[Tauri] ExitRequested: keeping app alive without document windows"
+                            );
+                        }
                     }
-                    // If no document windows, just stay alive (macOS dock behavior)
                 }
                 tauri::RunEvent::WindowEvent {
                     label,
@@ -857,21 +865,6 @@ pub fn run() {
                     quit::handle_window_destroyed(app, &label);
                     menu_events::clear_window_ready(&label);
                     tab_transfer::clear_unclaimed_transfer(&label);
-
-                    // fix(#992) — Linux/Windows have no "app stays alive with no
-                    // windows" (dock) convention: once the last window is gone
-                    // the process must exit. The coordinated-quit flow only
-                    // fires for document windows, so closing a lone utility
-                    // window (e.g. Settings) left the process running. When no
-                    // webview windows remain, exit. macOS deliberately keeps the
-                    // app alive (handled by the Reopen/dock path), so this is
-                    // cfg-gated out there.
-                    #[cfg(not(target_os = "macos"))]
-                    {
-                        if app.webview_windows().is_empty() {
-                            quit::finalize_quit(app);
-                        }
-                    }
                 }
                 // macOS: Clicking dock icon when no windows visible -> create main window
                 #[cfg(target_os = "macos")]
