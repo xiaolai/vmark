@@ -597,32 +597,7 @@ pub fn show_settings_window_section(app: &AppHandle, section: Option<&str>) -> R
 
     let window = builder.build()?;
 
-    // fix(#992) — On Linux/Windows the menu bar is per-window; the app menu set
-    // via `app.set_menu()` is inherited by every new window, so the Settings
-    // utility window wrongly carried the full application menu bar. Strip it on
-    // non-macOS. On macOS the menu is app-wide (no per-window menu), so this is
-    // a no-op there and the call is cfg-gated out to avoid touching that path.
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = window.remove_menu();
-    }
-
     // Override any restored state by explicitly setting size and centering
-    //
-    // fix(#992) — DEFERRED / NEEDS-LINUX-VERIFICATION: issue #992 reports that on
-    // Linux the Settings native titlebar buttons (close/min/max) don't respond
-    // until the window is maximized+restored once. This is consistent with a
-    // known GTK/compositor quirk where a window shown hidden and then
-    // resized/centered post-build doesn't have its decoration input region
-    // committed until it receives a fresh "configure" event (which a
-    // maximize/restore forces). The suspect is precisely this build-hidden →
-    // set_size → center → show sequence (document windows set geometry in the
-    // builder instead and are not reported to have the problem). A candidate
-    // Linux-scoped fix is to apply size/position via the builder before build()
-    // on non-macOS so the window is born at final geometry and needs no
-    // post-show reconfigure — but it cannot be validated from macOS and risks
-    // regressing placement against the window-state plugin, so it is left
-    // unchanged here pending verification on a real Linux session.
     let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
         width: SETTINGS_WIDTH,
         height: SETTINGS_HEIGHT,

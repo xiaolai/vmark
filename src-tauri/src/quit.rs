@@ -135,12 +135,7 @@ pub fn request_quit(app: &AppHandle) {
 }
 
 /// Final quit: allow exit, clean up MCP, and terminate the process.
-///
-/// fix(#992) — exposed `pub(crate)` so the non-macOS last-window-closed path in
-/// `lib.rs` can terminate the process directly (Linux/Windows have no dock
-/// "stay alive with no windows" behavior). The EXIT_ALLOWED guard it sets makes
-/// the subsequent `RunEvent::ExitRequested` pass through cleanly.
-pub(crate) fn finalize_quit(app: &AppHandle) {
+fn finalize_quit(app: &AppHandle) {
     set_exit_allowed(true);
     mcp_server::cleanup(app);
     app.exit(0);

@@ -857,21 +857,6 @@ pub fn run() {
                     quit::handle_window_destroyed(app, &label);
                     menu_events::clear_window_ready(&label);
                     tab_transfer::clear_unclaimed_transfer(&label);
-
-                    // fix(#992) — Linux/Windows have no "app stays alive with no
-                    // windows" (dock) convention: once the last window is gone
-                    // the process must exit. The coordinated-quit flow only
-                    // fires for document windows, so closing a lone utility
-                    // window (e.g. Settings) left the process running. When no
-                    // webview windows remain, exit. macOS deliberately keeps the
-                    // app alive (handled by the Reopen/dock path), so this is
-                    // cfg-gated out there.
-                    #[cfg(not(target_os = "macos"))]
-                    {
-                        if app.webview_windows().is_empty() {
-                            quit::finalize_quit(app);
-                        }
-                    }
                 }
                 // macOS: Clicking dock icon when no windows visible -> create main window
                 #[cfg(target_os = "macos")]
