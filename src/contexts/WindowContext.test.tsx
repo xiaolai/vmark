@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { useUIStore } from "../stores/uiStore";
 
 // --- Mocks (must precede imports) ---
 
@@ -591,6 +592,29 @@ describe("WindowContext", () => {
       // The else-branch blank-tab fallback must be skipped in workspace mode
       expect(mockCreateTab).not.toHaveBeenCalled();
       expect(mockInitDocument).not.toHaveBeenCalled();
+    });
+
+    it("reveals the file explorer when opening a workspace from a URL param (#1005)", async () => {
+      // Regression: the new-window Open Workspace flow opened the workspace in
+      // the store but never showed the file tree, so a new window looked empty.
+      useUIStore.setState({ sidebarVisible: false, sidebarViewMode: "outline" });
+
+      Object.defineProperty(globalThis, "location", {
+        value: { search: "?workspaceRoot=/projects/myapp" },
+        writable: true,
+        configurable: true,
+      });
+
+      render(
+        <WindowProvider>
+          <div data-testid="child">content</div>
+        </WindowProvider>,
+      );
+
+      await waitFor(() => {
+        expect(useUIStore.getState().sidebarVisible).toBe(true);
+        expect(useUIStore.getState().sidebarViewMode).toBe("files");
+      });
     });
 
     it("handles multiple files from files URL param", async () => {
