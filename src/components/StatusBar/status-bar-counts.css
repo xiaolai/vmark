@@ -1,0 +1,43 @@
+/* ┌─────────────────────────────────────────────────────────────┐ */
+/* │ Status-bar word/char counts — clickable trigger             │ */
+/* │ Wraps the two inline count spans in a transparent button    │ */
+/* │ that toggles the WordCountPopover. Focus = U-underline.     │ */
+/* └─────────────────────────────────────────────────────────────┘ */
+
+.status-counts-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-half) var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--duration-base) ease;
+}
+
+.status-counts-trigger:hover {
+  background: var(--hover-bg);
+}
+
+.dark-theme .status-counts-trigger:hover {
+  background: var(--hover-bg-dark);
+}
+
+.status-counts-trigger:focus-visible {
+  outline: none;
+}
+
+.status-counts-trigger:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-half);
+  left: var(--space-1);
+  right: var(--space-1);
+  height: var(--border-medium);
+  border-bottom: var(--border-medium) solid var(--accent-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}

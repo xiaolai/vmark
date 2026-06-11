@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { stripMarkdown, countWordsFromPlain, countCharsFromPlain } from "./statusTextMetrics";
+import {
+  stripMarkdown,
+  countWordsFromPlain,
+  countCharsFromPlain,
+  computeTextMetrics,
+} from "./statusTextMetrics";
 
 describe("stripMarkdown", () => {
   it("strips heading markers", () => {
@@ -138,5 +143,90 @@ describe("countCharsFromPlain", () => {
 
   it("handles mixed content", () => {
     expect(countCharsFromPlain("hello 你好")).toBe(7);
+  });
+});
+
+describe("computeTextMetrics", () => {
+  it("returns all-zero metrics for empty string", () => {
+    expect(computeTextMetrics("")).toEqual({
+      words: 0,
+      charsWithSpaces: 0,
+      charsNoSpaces: 0,
+      cjkChars: 0,
+      charsNoPunctuation: 0,
+    });
+  });
+
+  it("counts pure English prose", () => {
+    const m = computeTextMetrics("hello world");
+    expect(m.words).toBe(2);
+    expect(m.charsWithSpaces).toBe(11); // includes the space
+    expect(m.charsNoSpaces).toBe(10);
+    expect(m.cjkChars).toBe(0);
+    expect(m.charsNoPunctuation).toBe(10);
+  });
+
+  it("counts pure Chinese with CJK punctuation", () => {
+    // "你好，世界！" — 4 Han chars, 2 fullwidth punctuation marks (，！)
+    const m = computeTextMetrics("你好，世界！");
+    expect(m.cjkChars).toBe(4);
+    expect(m.charsWithSpaces).toBe(6); // 4 Han + 2 punctuation
+    expect(m.charsNoSpaces).toBe(6); // no spaces present
+    expect(m.charsNoPunctuation).toBe(4); // ，！ excluded
+    // alfaaz tokenizes each CJK glyph (including fullwidth punctuation) as a
+    // word: 你 好 ， 世 界 ！ → 5 (we keep alfaaz's behavior as-is).
+    expect(m.words).toBe(5);
+  });
+
+  it("counts Japanese hiragana and katakana as CJK", () => {
+    // ひらがな (4 hiragana) + カタカナ (4 katakana) + 日本 (2 Han)
+    const m = computeTextMetrics("ひらがなカタカナ日本");
+    expect(m.cjkChars).toBe(10);
+  });
+
+  it("counts mixed CJK + Latin", () => {
+    // "Hi 你好" — 2 Latin word chars in "Hi", space, 2 Han
+    const m = computeTextMetrics("Hi 你好");
+    expect(m.charsWithSpaces).toBe(5); // H i <space> 你 好
+    expect(m.charsNoSpaces).toBe(4);
+    expect(m.cjkChars).toBe(2);
+    expect(m.charsNoPunctuation).toBe(4); // no punctuation
+    expect(m.words).toBe(3); // "Hi" + 你 + 好
+  });
+
+  it("excludes ASCII and CJK punctuation and symbols from charsNoPunctuation", () => {
+    // "a, b! (c) — $5 + 3%"
+    const m = computeTextMetrics("a, b! (c) — $5 + 3%");
+    // Non-whitespace chars: a , b ! ( c ) — $ 5 + 3 %  = 13
+    expect(m.charsNoSpaces).toBe(13);
+    // Strip punctuation (\p{P}: , ! ( ) —) and symbols (\p{S}: $ + %):
+    // remaining alphanumerics: a b c 5 3 = 5
+    expect(m.charsNoPunctuation).toBe(5);
+  });
+
+  it("counts astral/emoji code points correctly (not UTF-16 length)", () => {
+    // "👍🏽a" — a thumbs-up + skin-tone modifier (2 code points) + "a"
+    const m = computeTextMetrics("👍🏽a");
+    // Array.from yields 3 code points; .length would yield 5 (UTF-16 units).
+    expect(m.charsWithSpaces).toBe(3);
+    expect(m.charsNoSpaces).toBe(3);
+    expect(m.cjkChars).toBe(0);
+    // Emoji are \p{S} (symbols) → excluded from charsNoPunctuation, leaving "a".
+    expect(m.charsNoPunctuation).toBe(1);
+  });
+
+  it("treats every CJK char as one word (alfaaz semantics)", () => {
+    const m = computeTextMetrics("中文字数统计");
+    expect(m.cjkChars).toBe(6);
+    expect(m.words).toBe(6);
+  });
+
+  it("handles whitespace-only input", () => {
+    const m = computeTextMetrics("   \n\t  ");
+    expect(m.words).toBe(0);
+    expect(m.charsWithSpaces).toBe(7);
+    expect(m.charsNoSpaces).toBe(0);
+    expect(m.cjkChars).toBe(0);
+    expect(m.charsNoPunctuation).toBe(0);
   });
 });

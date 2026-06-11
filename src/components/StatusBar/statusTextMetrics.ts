@@ -27,3 +27,58 @@ export function countWordsFromPlain(plainText: string): number {
 export function countCharsFromPlain(plainText: string): number {
   return plainText.replace(/\s/g, "").length;
 }
+
+/**
+ * Full word/character breakdown for a piece of plain text. Callers pass
+ * already-`stripMarkdown`'d text so the numbers match what the reader sees,
+ * not the raw markdown source.
+ *
+ * All character counts are code-point correct (`Array.from` / spread), so
+ * astral characters and emoji count as one each — `String.prototype.length`
+ * would over-count them by their UTF-16 surrogate-pair length.
+ */
+export interface TextMetrics {
+  /** Word count via alfaaz. Each CJK character counts as one word. */
+  words: number;
+  /** Every character, whitespace included (code-point count). */
+  charsWithSpaces: number;
+  /** Characters with all whitespace (`\s`) removed. */
+  charsNoSpaces: number;
+  /**
+   * CJK character count — the meaningful 字数 for Chinese/Japanese writers.
+   * Matches Han ideographs plus Hiragana and Katakana.
+   */
+  cjkChars: number;
+  /**
+   * Characters excluding whitespace AND punctuation/symbols. Both Unicode
+   * punctuation (`\p{P}`, e.g. `,` `。` `，` `！`) and symbols (`\p{S}`, e.g.
+   * `$` `+` `%` and emoji) are removed, so this is a "letters & digits only"
+   * count — the closest match to a writer's intuitive "real characters".
+   */
+  charsNoPunctuation: number;
+}
+
+// CJK scripts that count toward 字数: Han ideographs + Japanese kana.
+const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu;
+// Unicode punctuation and symbols (covers ASCII + fullwidth CJK marks + emoji).
+const PUNCT_OR_SYMBOL_RE = /[\p{P}\p{S}]/gu;
+
+/** Compute the full {@link TextMetrics} breakdown for stripped plain text. */
+export function computeTextMetrics(plainText: string): TextMetrics {
+  const codePoints = Array.from(plainText);
+  const charsWithSpaces = codePoints.length;
+  const noSpaces = plainText.replace(/\s/g, "");
+  const charsNoSpaces = Array.from(noSpaces).length;
+  const cjkChars = (plainText.match(CJK_RE) ?? []).length;
+  const charsNoPunctuation = Array.from(
+    noSpaces.replace(PUNCT_OR_SYMBOL_RE, "")
+  ).length;
+
+  return {
+    words: countWordsFromPlain(plainText),
+    charsWithSpaces,
+    charsNoSpaces,
+    cjkChars,
+    charsNoPunctuation,
+  };
+}

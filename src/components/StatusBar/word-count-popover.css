@@ -1,0 +1,74 @@
+/* ┌─────────────────────────────────────────────────────────────┐ */
+/* │ Word Count — metrics breakdown popover                      │ */
+/* │ Anchored above the status bar. Reuses popup-shared.css      │ */
+/* │ surface conventions (border, radius, shadow, fade-in).      │ */
+/* │ Trigger lives in StatusBarCounts (the inline counts).       │ */
+/* └─────────────────────────────────────────────────────────────┘ */
+
+.word-count-popover {
+  position: fixed;
+  z-index: var(--z-popup);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popup-fade-in var(--duration-fast) ease-out;
+}
+
+.dark-theme .word-count-popover {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.word-count-popover__header {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  font-size: var(--font-size-sm);
+}
+
+.word-count-popover__title {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.word-count-popover__list {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  display: flex;
+  flex-direction: column;
+}
+
+.word-count-popover__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1-5) var(--space-1);
+}
+
+.word-count-popover__row + .word-count-popover__row {
+  border-top: var(--border-hairline) solid var(--border-color);
+}
+
+.word-count-popover__label {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.word-count-popover__value {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word-count-popover {
+    animation: none;
+  }
+}
