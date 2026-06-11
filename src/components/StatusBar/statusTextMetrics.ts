@@ -1,3 +1,4 @@
+// audit-fix — strip punctuation before alfaaz; code-point-correct char count
 import { countWords as alfaazCount } from "alfaaz";
 
 /** Strip markdown formatting to get plain text for word counting. */
@@ -18,14 +19,32 @@ export function stripMarkdown(text: string): string {
     .trim();
 }
 
-/** Count words using alfaaz (handles CJK and other languages). */
+// CJK scripts that count toward 字数: Han ideographs + Japanese kana.
+const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu;
+// Unicode punctuation and symbols (covers ASCII + fullwidth CJK marks + emoji).
+const PUNCT_OR_SYMBOL_RE = /[\p{P}\p{S}]/gu;
+
+/**
+ * Count words using alfaaz (handles CJK and other languages).
+ *
+ * Punctuation and symbols are stripped first: alfaaz tokenizes each glyph it
+ * sees as a word, so fullwidth CJK marks (`，` `！`) and ASCII punctuation would
+ * otherwise inflate the count. Stripping them matches the writer's intent — a
+ * word count without punctuation.
+ */
 export function countWordsFromPlain(plainText: string): number {
-  return alfaazCount(plainText);
+  return alfaazCount(plainText.replace(PUNCT_OR_SYMBOL_RE, ""));
 }
 
-/** Count non-whitespace characters. */
+/**
+ * Count non-whitespace characters, code-point correct.
+ *
+ * Uses `Array.from` so astral characters and emoji count as one each, matching
+ * {@link computeTextMetrics}; `String.prototype.length` over-counts them by
+ * their UTF-16 surrogate-pair length.
+ */
 export function countCharsFromPlain(plainText: string): number {
-  return plainText.replace(/\s/g, "").length;
+  return Array.from(plainText.replace(/\s/g, "")).length;
 }
 
 /**
@@ -38,7 +57,10 @@ export function countCharsFromPlain(plainText: string): number {
  * would over-count them by their UTF-16 surrogate-pair length.
  */
 export interface TextMetrics {
-  /** Word count via alfaaz. Each CJK character counts as one word. */
+  /**
+   * Word count via alfaaz, with punctuation/symbols stripped first. Each CJK
+   * character counts as one word; punctuation marks are not counted.
+   */
   words: number;
   /** Every character, whitespace included (code-point count). */
   charsWithSpaces: number;
@@ -58,11 +80,6 @@ export interface TextMetrics {
   charsNoPunctuation: number;
 }
 
-// CJK scripts that count toward 字数: Han ideographs + Japanese kana.
-const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu;
-// Unicode punctuation and symbols (covers ASCII + fullwidth CJK marks + emoji).
-const PUNCT_OR_SYMBOL_RE = /[\p{P}\p{S}]/gu;
-
 /** Compute the full {@link TextMetrics} breakdown for stripped plain text. */
 export function computeTextMetrics(plainText: string): TextMetrics {
   const codePoints = Array.from(plainText);
@@ -75,6 +92,8 @@ export function computeTextMetrics(plainText: string): TextMetrics {
   ).length;
 
   return {
+    // countWordsFromPlain strips punctuation/symbols itself, so fullwidth CJK
+    // marks and ASCII punctuation aren't counted as words.
     words: countWordsFromPlain(plainText),
     charsWithSpaces,
     charsNoSpaces,

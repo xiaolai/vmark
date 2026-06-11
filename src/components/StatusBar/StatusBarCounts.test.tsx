@@ -187,5 +187,29 @@ describe("StatusBarCounts", () => {
       await user.keyboard("{Escape}");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+
+    it("closes the popover when the trigger is clicked a second time", async () => {
+      // Regression: the trigger is inside the dismiss wrapper, so clicking it
+      // while open is "inside" — it must not be eaten by outside-click dismiss
+      // and then reopened. A second trigger click must close cleanly.
+      const user = userEvent.setup();
+      mockContent = "hi";
+      render(<StatusBarCounts />);
+      const trigger = screen.getByRole("button", { name: /word count/i });
+      await user.click(trigger);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      await user.click(trigger);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("closes the popover on an outside click", async () => {
+      const user = userEvent.setup();
+      mockContent = "hi";
+      render(<StatusBarCounts />);
+      await user.click(screen.getByRole("button", { name: /word count/i }));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      await user.click(document.body);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
   });
 });

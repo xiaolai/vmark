@@ -1,38 +1,35 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-
-// alfaaz is a native-ish module; stub with a whitespace splitter that also
-// treats each CJK char as its own word (matches the real library closely
-// enough for these UI tests).
-vi.mock("alfaaz", () => ({
-  countWords: (text: string) => {
-    const cjk = (text.match(/[一-鿿]/g) ?? []).length;
-    const latin = text.replace(/[一-鿿]/g, " ").trim();
-    const latinWords = latin ? latin.split(/\s+/).length : 0;
-    return cjk + latinWords;
-  },
-}));
-
 import { WordCountPopover } from "./WordCountPopover";
+import type { TextMetrics } from "./statusTextMetrics";
 
-function renderPopover(props: Partial<React.ComponentProps<typeof WordCountPopover>> = {}) {
-  const onClose = props.onClose ?? vi.fn();
+function metrics(overrides: Partial<TextMetrics> = {}): TextMetrics {
+  return {
+    words: 0,
+    charsWithSpaces: 0,
+    charsNoSpaces: 0,
+    cjkChars: 0,
+    charsNoPunctuation: 0,
+    ...overrides,
+  };
+}
+
+function renderPopover(
+  props: Partial<React.ComponentProps<typeof WordCountPopover>> = {},
+) {
   render(
     <WordCountPopover
       anchorRef={{ current: document.createElement("div") }}
-      content={props.content ?? "hello world"}
-      selectedText={props.selectedText ?? ""}
+      totals={props.totals ?? metrics()}
+      selected={props.selected ?? metrics()}
       hasSelection={props.hasSelection ?? false}
-      onClose={onClose}
     />,
   );
-  return { onClose };
 }
 
 describe("WordCountPopover", () => {
   it("renders a dialog with all metric rows", () => {
-    renderPopover({ content: "hello world" });
+    renderPopover();
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeInTheDocument();
     // Labels (from statusbar locale)
@@ -44,8 +41,10 @@ describe("WordCountPopover", () => {
   });
 
   it("shows total-only values when there is no selection", () => {
-    renderPopover({ content: "hello world", hasSelection: false });
-    // 2 words, 11 chars with spaces, 10 without
+    renderPopover({
+      totals: metrics({ words: 2, charsWithSpaces: 11, charsNoSpaces: 10 }),
+      hasSelection: false,
+    });
     expect(screen.getByTestId("metric-words")).toHaveTextContent("2");
     expect(screen.getByTestId("metric-charsWithSpaces")).toHaveTextContent("11");
     expect(screen.getByTestId("metric-charsNoSpaces")).toHaveTextContent("10");
@@ -53,30 +52,15 @@ describe("WordCountPopover", () => {
 
   it("shows selected / total per row when a selection exists", () => {
     renderPopover({
-      content: "alpha beta gamma",
-      selectedText: "alpha beta",
+      totals: metrics({ words: 3 }),
+      selected: metrics({ words: 2 }),
       hasSelection: true,
     });
-    // selected words 2 / total 3
     expect(screen.getByTestId("metric-words")).toHaveTextContent("2 / 3");
   });
 
-  it("counts CJK characters (字数) for Chinese content", () => {
-    renderPopover({ content: "你好世界" });
+  it("renders the CJK character count (字数) it is given", () => {
+    renderPopover({ totals: metrics({ cjkChars: 4 }) });
     expect(screen.getByTestId("metric-cjkChars")).toHaveTextContent("4");
-  });
-
-  it("dismisses on Escape", async () => {
-    const user = userEvent.setup();
-    const { onClose } = renderPopover();
-    await user.keyboard("{Escape}");
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it("dismisses on outside click", async () => {
-    const user = userEvent.setup();
-    const { onClose } = renderPopover();
-    await user.click(document.body);
-    expect(onClose).toHaveBeenCalled();
   });
 });

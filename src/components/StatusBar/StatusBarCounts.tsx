@@ -10,6 +10,13 @@
  *   - Owns useDocumentContent() and useDocumentSelectedText() subscriptions
  *   - Selection counts are computed via stripMarkdown so a selection in
  *     Source mode (raw markdown) yields the same count as in WYSIWYG.
+ *   - Computes the full TextMetrics ONCE (totals + selected, memoized) and
+ *     drives both the inline display and the WordCountPopover from them, so
+ *     inline and popover figures never diverge and the strip+compute work
+ *     isn't duplicated.
+ *   - Owns the popover dismiss: trigger + popover live inside one wrapper, and
+ *     useDismissOnOutsideOrEscape gates on the wrapper, so clicking the trigger
+ *     while open counts as "inside" and the trigger toggle closes cleanly.
  *   - useDeferredValue keeps typing responsive when content is large.
  *   - Renders two <span> elements inside a button that toggles the
  *     WordCountPopover (full metrics breakdown, geared toward CJK 字数).
@@ -20,10 +27,12 @@
  * @module components/StatusBar/StatusBarCounts
  */
 
-import { memo, useDeferredValue, useMemo, useRef, useState } from "react";
+// audit-fix — compute metrics once; own popover dismiss via wrapper ref
+import { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentContent, useDocumentSelectedText } from "@/hooks/useDocumentState";
-import { countCharsFromPlain, countWordsFromPlain, stripMarkdown } from "./statusTextMetrics";
+import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
+import { computeTextMetrics, stripMarkdown } from "./statusTextMetrics";
 import { WordCountPopover } from "./WordCountPopover";
 import "./status-bar-counts.css";
 
@@ -35,21 +44,15 @@ export const StatusBarCounts = memo(function StatusBarCounts() {
   const deferredContent = useDeferredValue(content);
   const deferredSelected = useDeferredValue(selectedText);
 
-  const strippedContent = useMemo(() => stripMarkdown(deferredContent), [deferredContent]);
-  const totalWords = useMemo(() => countWordsFromPlain(strippedContent), [strippedContent]);
-  const totalChars = useMemo(() => countCharsFromPlain(strippedContent), [strippedContent]);
-
-  const strippedSelected = useMemo(
-    () => stripMarkdown(deferredSelected),
+  // Compute the full metric breakdown ONCE for totals and selection. Both the
+  // inline display and the popover read from these, so they can never diverge.
+  const totals = useMemo(
+    () => computeTextMetrics(stripMarkdown(deferredContent)),
+    [deferredContent]
+  );
+  const selected = useMemo(
+    () => computeTextMetrics(stripMarkdown(deferredSelected)),
     [deferredSelected]
-  );
-  const selectedWords = useMemo(
-    () => countWordsFromPlain(strippedSelected),
-    [strippedSelected]
-  );
-  const selectedChars = useMemo(
-    () => countCharsFromPlain(strippedSelected),
-    [strippedSelected]
   );
 
   // Detect selection from raw, trimmed text. Whitespace-only selections
@@ -60,9 +63,19 @@ export const StatusBarCounts = memo(function StatusBarCounts() {
 
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // The wrapper contains BOTH the trigger and the popover. Because position:
+  // fixed doesn't change the DOM tree, the popover is still a descendant, so
+  // wrapper.contains(popover) is true — clicks on the trigger or the popover
+  // count as "inside" and only genuine outside clicks dismiss.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+
+  useDismissOnOutsideOrEscape(open, wrapperRef, close, {
+    deferActivation: true,
+  });
 
   return (
-    <>
+    <div ref={wrapperRef} className="status-counts-wrapper">
       <button
         ref={triggerRef}
         type="button"
@@ -75,24 +88,26 @@ export const StatusBarCounts = memo(function StatusBarCounts() {
       >
         <span className="status-item">
           {hasSelection
-            ? t("wordsSelected", { selected: selectedWords, total: totalWords })
-            : t("words", { count: totalWords })}
+            ? t("wordsSelected", { selected: selected.words, total: totals.words })
+            : t("words", { count: totals.words })}
         </span>
         <span className="status-item">
           {hasSelection
-            ? t("charsSelected", { selected: selectedChars, total: totalChars })
-            : t("chars", { count: totalChars })}
+            ? t("charsSelected", {
+                selected: selected.charsNoSpaces,
+                total: totals.charsNoSpaces,
+              })
+            : t("chars", { count: totals.charsNoSpaces })}
         </span>
       </button>
       {open && (
         <WordCountPopover
           anchorRef={triggerRef}
-          content={deferredContent}
-          selectedText={deferredSelected}
+          totals={totals}
+          selected={selected}
           hasSelection={hasSelection}
-          onClose={() => setOpen(false)}
         />
       )}
-    </>
+    </div>
   );
 });

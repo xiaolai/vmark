@@ -4,6 +4,13 @@
 /* │ that toggles the WordCountPopover. Focus = U-underline.     │ */
 /* └─────────────────────────────────────────────────────────────┘ */
 
+/* Wrapper owns dismiss; display:contents keeps the trigger's layout identical
+   to when it was a bare child of the status bar, while still making the
+   fixed-positioned popover a DOM descendant for outside-click detection. */
+.status-counts-wrapper {
+  display: contents;
+}
+
 .status-counts-trigger {
   position: relative;
   display: inline-flex;

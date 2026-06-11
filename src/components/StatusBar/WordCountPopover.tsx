@@ -9,23 +9,22 @@
  * Key decisions:
  *   - Anchored ABOVE the status bar via position: fixed (the status bar sits
  *     at the bottom of the window), mirroring McpHistoryButton's popover.
- *   - Receives raw content/selection strings and strips markdown + computes
- *     metrics itself, so the trigger (StatusBarCounts) stays a thin toggle.
+ *   - Pure presentational: receives precomputed TextMetrics (totals + selected)
+ *     from StatusBarCounts, so strip+compute happens once at the source and the
+ *     inline counts and this breakdown never diverge.
  *   - When a selection exists, each row shows "selected / total"; otherwise a
  *     single total — matching the inline counts' selected/total convention.
- *   - Dismiss is delegated to useDismissOnOutsideOrEscape (deferred activation
- *     so the opening click doesn't immediately close it).
+ *   - Open state and dismiss (outside click / Escape) are owned by
+ *     StatusBarCounts, whose wrapper element contains both trigger and popover.
  *
- * @coordinates-with StatusBarCounts.tsx — owns the open state + anchor ref
- * @coordinates-with statusTextMetrics.ts — computeTextMetrics + stripMarkdown
+ * @coordinates-with StatusBarCounts.tsx — owns open state, anchor ref, dismiss
+ * @coordinates-with statusTextMetrics.ts — TextMetrics shape
  * @module components/StatusBar/WordCountPopover
  */
 
-import { useMemo, useRef } from "react";
+// audit-fix — pure presentational; metrics + dismiss owned by StatusBarCounts
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
-import { computeTextMetrics, stripMarkdown } from "./statusTextMetrics";
 import type { TextMetrics } from "./statusTextMetrics";
 import "./word-count-popover.css";
 
@@ -34,14 +33,12 @@ const POPUP_WIDTH = 260;
 interface WordCountPopoverProps {
   /** The trigger element, used to position the popover above it. */
   anchorRef: RefObject<HTMLElement | null>;
-  /** Raw (markdown) document content. */
-  content: string;
-  /** Raw (markdown) selected text. */
-  selectedText: string;
+  /** Precomputed metrics for the whole document. */
+  totals: TextMetrics;
+  /** Precomputed metrics for the current selection. */
+  selected: TextMetrics;
   /** Whether a real (non-whitespace) selection is active. */
   hasSelection: boolean;
-  /** Called when the popover should close (Escape / outside click). */
-  onClose: () => void;
 }
 
 /** One metric to render: an i18n label key and its metric field. */
@@ -56,26 +53,11 @@ const METRIC_ROWS: ReadonlyArray<{ key: string; field: keyof TextMetrics }> = [
 /** Metrics breakdown popover anchored above the status bar. */
 export function WordCountPopover({
   anchorRef,
-  content,
-  selectedText,
+  totals,
+  selected,
   hasSelection,
-  onClose,
 }: WordCountPopoverProps): React.ReactElement {
   const { t } = useTranslation("statusbar");
-  const popoverRef = useRef<HTMLDivElement>(null);
-
-  useDismissOnOutsideOrEscape(true, popoverRef, onClose, {
-    deferActivation: true,
-  });
-
-  const totals = useMemo(
-    () => computeTextMetrics(stripMarkdown(content)),
-    [content],
-  );
-  const selected = useMemo(
-    () => computeTextMetrics(stripMarkdown(selectedText)),
-    [selectedText],
-  );
 
   const position = (): React.CSSProperties => {
     const rect = anchorRef.current?.getBoundingClientRect();
@@ -89,7 +71,6 @@ export function WordCountPopover({
 
   return (
     <div
-      ref={popoverRef}
       className="word-count-popover"
       style={position()}
       role="dialog"

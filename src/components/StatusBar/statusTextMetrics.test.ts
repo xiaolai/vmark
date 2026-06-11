@@ -118,6 +118,25 @@ describe("countWordsFromPlain", () => {
     const result = countWordsFromPlain("hello    world");
     expect(result).toBe(2);
   });
+
+  it("does not count CJK punctuation as words", () => {
+    // A lone fullwidth comma is punctuation, not a word.
+    expect(countWordsFromPlain("，")).toBe(0);
+  });
+
+  it("counts CJK glyphs but not the punctuation between them", () => {
+    // 你 好 世 界 = 4 words; ，！ are stripped, not counted.
+    expect(countWordsFromPlain("你好，世界！")).toBe(4);
+  });
+
+  it("does not count ASCII punctuation as words", () => {
+    // "Hello, world!" — comma/bang stripped → 2 words, not inflated.
+    expect(countWordsFromPlain("Hello, world!")).toBe(2);
+  });
+
+  it("returns 0 for a punctuation-only selection", () => {
+    expect(countWordsFromPlain("，！。?!.,")).toBe(0);
+  });
 });
 
 describe("countCharsFromPlain", () => {
@@ -143,6 +162,12 @@ describe("countCharsFromPlain", () => {
 
   it("handles mixed content", () => {
     expect(countCharsFromPlain("hello 你好")).toBe(7);
+  });
+
+  it("counts astral/emoji code points as one each (not UTF-16 length)", () => {
+    // "😀a" — emoji is a single code point but 2 UTF-16 units; .length would
+    // yield 3, Array.from yields 2.
+    expect(countCharsFromPlain("😀a")).toBe(2);
   });
 });
 
@@ -173,9 +198,9 @@ describe("computeTextMetrics", () => {
     expect(m.charsWithSpaces).toBe(6); // 4 Han + 2 punctuation
     expect(m.charsNoSpaces).toBe(6); // no spaces present
     expect(m.charsNoPunctuation).toBe(4); // ，！ excluded
-    // alfaaz tokenizes each CJK glyph (including fullwidth punctuation) as a
-    // word: 你 好 ， 世 界 ！ → 5 (we keep alfaaz's behavior as-is).
-    expect(m.words).toBe(5);
+    // Punctuation is stripped before alfaaz, so only the 4 Han glyphs count:
+    // 你 好 世 界 → 4 words (fullwidth ，！ are not counted).
+    expect(m.words).toBe(4);
   });
 
   it("counts Japanese hiragana and katakana as CJK", () => {
@@ -219,6 +244,16 @@ describe("computeTextMetrics", () => {
     const m = computeTextMetrics("中文字数统计");
     expect(m.cjkChars).toBe(6);
     expect(m.words).toBe(6);
+  });
+
+  it("counts a mixed CJK + Latin sample without counting punctuation as words", () => {
+    // "你好世界测试 hello world, ok!" — live-verified breakdown.
+    const m = computeTextMetrics("你好世界测试 hello world, ok!");
+    expect(m.cjkChars).toBe(6);
+    expect(m.charsNoSpaces).toBe(20);
+    expect(m.charsNoPunctuation).toBe(18); // , and ! excluded
+    // 6 CJK glyphs + hello + world + ok = 9 words; , and ! are not counted.
+    expect(m.words).toBe(9);
   });
 
   it("handles whitespace-only input", () => {
