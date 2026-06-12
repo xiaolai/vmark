@@ -5,9 +5,8 @@
  * tab restoration), close the current workspace.
  */
 
-import { invoke } from "@tauri-apps/api/core";
 import { readTextFile } from "@tauri-apps/plugin-fs";
-import { ask, open } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { registerCommand } from "./CommandBus";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -43,31 +42,10 @@ export function registerWorkspaceCommands(): void {
         const path = typeof selected === "string" ? selected : selected[0];
         if (!path) return;
 
-        const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
-        const dirtyTabs = tabs.filter((tab) => {
-          const doc = useDocumentStore.getState().getDocument(tab.id);
-          return doc?.isDirty;
-        });
-
-        if (dirtyTabs.length > 0) {
-          const confirmed = await ask(
-            i18n.t("dialog:unsavedChanges.openInNewWindow"),
-            {
-              title: i18n.t("dialog:unsavedChanges.title"),
-              kind: "warning",
-              okLabel: i18n.t("dialog:unsavedChanges.openInNewWindowOk"),
-              cancelLabel: i18n.t("dialog:unsavedChanges.openInNewWindowCancel"),
-            }
-          );
-          if (confirmed) {
-            await invoke("open_workspace_in_new_window", {
-              workspaceRoot: path,
-              filePath: null,
-            });
-          }
-          return;
-        }
-
+        // Open the selected workspace in the CURRENT window. This is safe even
+        // with unsaved changes — opening a workspace doesn't close existing tabs,
+        // so dirty docs survive. (#1005: the old binary "Open in New Window?"
+        // dialog had no current-window option and duplicated its title on Linux.)
         const existing = await openWorkspaceWithConfig(path);
         useUIStore.getState().showSidebarWithView("files");
         useRecentWorkspacesStore.getState().addWorkspace(path);
@@ -102,4 +80,9 @@ export function registerWorkspaceCommands(): void {
   });
 
   registered = true;
+}
+
+/** Test-only: clears the one-time registration guard so a fresh bus re-registers. */
+export function __resetWorkspaceCommandsRegistration(): void {
+  registered = false;
 }
