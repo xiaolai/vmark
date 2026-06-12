@@ -329,43 +329,7 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     // Toggles between install/uninstall based on current status.
     #[cfg(target_os = "macos")]
     if id == "install-cli" {
-        use tauri_plugin_dialog::DialogExt;
-        let app = app.clone();
-        // Use spawn_blocking because cli_install/uninstall call Command::output() (blocking I/O).
-        // Wrapped in spawn_logged so a panic inside the install flow doesn't silently
-        // disappear, leaving the user with no feedback.
-        crate::task::spawn_logged("menu-cli-install", async move {
-            let result: Result<String, String> = tauri::async_runtime::spawn_blocking(|| {
-                let status = crate::cli_install::cli_install_status()?;
-                if status.foreign {
-                    return Err(crate::cli_install::CliInstallError::ForeignFile.into());
-                }
-                if status.installed {
-                    crate::cli_install::cli_uninstall()
-                } else {
-                    crate::cli_install::cli_install()
-                }
-            })
-            .await
-            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-
-            match result {
-                Ok(msg) => {
-                    let display = if msg.contains("installed at") {
-                        format!("{}\n\nYou can now run 'vmark' from the terminal.", msg)
-                    } else {
-                        msg
-                    };
-                    app.dialog().message(display).title("Shell Command").blocking_show();
-                }
-                Err(e) => {
-                    // Don't show dialog when user cancelled the admin prompt
-                    if e != crate::cli_install::CliInstallError::Cancelled.to_string() {
-                        app.dialog().message(e).title("Shell Command").blocking_show();
-                    }
-                }
-            }
-        });
+        crate::cli_install::dialog::run_install_toggle(app.clone());
         return;
     }
 

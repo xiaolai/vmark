@@ -9,7 +9,10 @@
 use serde::Serialize;
 use std::path::Path;
 
-const CLI_PATH: &str = "/usr/local/bin/vmark";
+/// Menu-action orchestration + localized result dialog (audit 20260612).
+pub mod dialog;
+
+pub const CLI_PATH: &str = "/usr/local/bin/vmark";
 
 /// Shell script content installed to /usr/local/bin/vmark.
 /// Uses bundle ID (`-b app.vmark`) instead of app name for stable targeting
@@ -47,6 +50,17 @@ impl From<CliInstallError> for String {
     fn from(e: CliInstallError) -> String {
         e.to_string()
     }
+}
+
+/// Structured success outcome so the caller localizes the dialog text
+/// instead of string-matching English Ok messages across the module
+/// boundary (audit 20260612 deferred i18n).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CliCommandOutcome {
+    Installed,
+    AlreadyInstalled,
+    Removed,
+    NotInstalled,
 }
 
 /// Status of the `/usr/local/bin/vmark` shell command installation.
@@ -131,13 +145,13 @@ fn cli_parent_dir() -> &'static str {
 /// Writes script to a temp file first, then uses a single privileged shell command
 /// to create the target directory, move the file, and set permissions. This avoids
 /// shell quoting issues entirely — the temp file is written by Rust, not by shell.
-pub fn cli_install() -> Result<String, String> {
+pub fn cli_install() -> Result<CliCommandOutcome, String> {
     let status = cli_install_status()?;
     if status.foreign {
         return Err(CliInstallError::ForeignFile.into());
     }
     if status.installed {
-        return Ok(format!("'vmark' command is already installed at {}", CLI_PATH));
+        return Ok(CliCommandOutcome::AlreadyInstalled);
     }
 
     // Write script to a temp file (no quoting needed — Rust handles the write)
@@ -173,23 +187,23 @@ pub fn cli_install() -> Result<String, String> {
         return Err(rust_i18n::t!("errors.cli.mismatch").to_string());
     }
 
-    Ok(format!("'vmark' command installed at {}", CLI_PATH))
+    Ok(CliCommandOutcome::Installed)
 }
 
 /// Uninstall the `vmark` command using `osascript` for admin privileges.
-pub fn cli_uninstall() -> Result<String, String> {
+pub fn cli_uninstall() -> Result<CliCommandOutcome, String> {
     let status = cli_install_status()?;
     if !status.installed {
         if status.foreign {
             return Err(CliInstallError::ForeignFile.into());
         }
-        return Ok("'vmark' command is not installed.".to_string());
+        return Ok(CliCommandOutcome::NotInstalled);
     }
 
     let shell_cmd = format!("rm {}", shell_single_quote(CLI_PATH));
     run_admin_shell(&shell_cmd).map_err(String::from)?;
 
-    Ok(format!("'vmark' command removed from {}", CLI_PATH))
+    Ok(CliCommandOutcome::Removed)
 }
 
 #[cfg(test)]

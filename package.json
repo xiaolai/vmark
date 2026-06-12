@@ -22,6 +22,7 @@
     "e2e:smoke": "node e2e/smoke.mjs",
     "size": "size-limit",
     "lint:eager": "node scripts/check-eager-chunks.mjs",
+    "lint:file-size": "node scripts/check-file-size.mjs",
     "size:why": "size-limit --why",
     "lint": "eslint src",
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",
@@ -35,7 +36,7 @@
     "knip": "knip",
     "knip:files": "knip --include files,dependencies",
     "test:sidecar": "pnpm --dir vmark-mcp-server test",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm build && pnpm lint:eager && pnpm size"
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm lint:file-size && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm build && pnpm lint:eager && pnpm size"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.55",

@@ -260,3 +260,11 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "El inicio del sidecar MCP ya está en curso"
   mcp.configMismatch: "Validación de configuración fallida: el contenido escrito no coincide"
+
+cli:
+  dialogTitle: "Comando de shell"
+  installed: "Comando 'vmark' instalado en %{path}"
+  alreadyInstalled: "El comando 'vmark' ya está instalado en %{path}"
+  removed: "Comando 'vmark' eliminado de %{path}"
+  notInstalled: "El comando 'vmark' no está instalado."
+  runHint: "Ahora puedes ejecutar 'vmark' desde la terminal."
