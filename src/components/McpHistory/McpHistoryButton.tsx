@@ -28,7 +28,7 @@ import { History, Undo2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMcpStore } from "@/stores/mcpStore";
 import type { MCPCheckpoint } from "@/stores/mcpStore";
-import { rewriteAll } from "@/stores/mcpCheckpointPersistence";
+import { clearCheckpointsOnDisk } from "@/stores/mcpCheckpointPersistence";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -132,7 +132,10 @@ export function McpHistoryButton(): React.ReactElement {
           : undefined;
     if (!filter) return;
     useMcpStore.getState().checkpointClear(filter);
-    void rewriteAll();
+    // Targeted on-disk removal (not a rewrite-from-memory) so a clear in
+    // this window can't wipe checkpoints another window appended (audit
+    // 20260612 deferred / cross-model review).
+    void clearCheckpointsOnDisk(filter);
     toast.success(t("mcpHistoryCleared"));
   }, [tabId, tabFilePath, t]);
 

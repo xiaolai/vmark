@@ -21,6 +21,7 @@ import {
   hydrateCheckpoints,
   appendCheckpoint,
   rewriteAll,
+  clearCheckpointsOnDisk,
 } from "../mcpCheckpointPersistence";
 
 function reset() {
@@ -211,5 +212,78 @@ describe("rewriteAll", () => {
     await rewriteAll();
     const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1];
     expect(wrote).toBe("");
+  });
+
+  it("preserves on-disk checkpoints another window appended (multi-window union)", async () => {
+    // This window's memory has only cp-mine; the file already holds
+    // cp-other appended by a different window. Compaction must keep both.
+    useMcpStore.setState((s) => ({
+      checkpoint: {
+        ...s.checkpoint,
+        checkpoints: [{ ...sampleCp, id: "cp-mine" }],
+        hydrated: true,
+      },
+    }));
+    fsMocks.exists.mockResolvedValue(true);
+    fsMocks.readTextFile.mockResolvedValue(
+      `${JSON.stringify({ ...sampleCp, id: "cp-other", tabId: "tab-2" })}\n`,
+    );
+    await rewriteAll();
+    const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1] as string;
+    expect(wrote).toContain("cp-mine");
+    expect(wrote).toContain("cp-other");
+  });
+});
+
+describe("clearCheckpointsOnDisk (multi-window safe)", () => {
+  beforeEach(reset);
+
+  it("removes only checkpoints matching the filePath filter, keeping the rest", async () => {
+    fsMocks.exists.mockResolvedValue(true);
+    const mine = { ...sampleCp, id: "cp-mine", filePath: "/notes.md" };
+    const other = { ...sampleCp, id: "cp-other", filePath: "/other.md" };
+    fsMocks.readTextFile.mockResolvedValue(
+      `${JSON.stringify(mine)}\n${JSON.stringify(other)}\n`,
+    );
+    await clearCheckpointsOnDisk({ filePath: "/notes.md" });
+    const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1] as string;
+    expect(wrote).not.toContain("cp-mine");
+    expect(wrote).toContain("cp-other");
+  });
+
+  it("removes only checkpoints matching the tabId filter", async () => {
+    fsMocks.exists.mockResolvedValue(true);
+    const a = { ...sampleCp, id: "cp-a", tabId: "tab-1" };
+    const b = { ...sampleCp, id: "cp-b", tabId: "tab-2" };
+    fsMocks.readTextFile.mockResolvedValue(
+      `${JSON.stringify(a)}\n${JSON.stringify(b)}\n`,
+    );
+    await clearCheckpointsOnDisk({ tabId: "tab-2" });
+    const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1] as string;
+    expect(wrote).toContain("cp-a");
+    expect(wrote).not.toContain("cp-b");
+  });
+
+  it("is a no-op when the file does not exist", async () => {
+    fsMocks.exists.mockResolvedValue(false);
+    await clearCheckpointsOnDisk({ tabId: "tab-1" });
+    expect(fsMocks.writeTextFile).not.toHaveBeenCalled();
+  });
+
+  it("drops malformed lines while clearing", async () => {
+    fsMocks.exists.mockResolvedValue(true);
+    fsMocks.readTextFile.mockResolvedValue(
+      `garbage\n${JSON.stringify({ ...sampleCp, id: "cp-keep", tabId: "tab-9" })}\n`,
+    );
+    await clearCheckpointsOnDisk({ tabId: "tab-1" });
+    const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1] as string;
+    expect(wrote).toContain("cp-keep");
+    expect(wrote).not.toContain("garbage");
+  });
+
+  it("swallows fs errors", async () => {
+    fsMocks.exists.mockResolvedValue(true);
+    fsMocks.readTextFile.mockRejectedValue(new Error("disk error"));
+    await expect(clearCheckpointsOnDisk({ tabId: "tab-1" })).resolves.toBeUndefined();
   });
 });
