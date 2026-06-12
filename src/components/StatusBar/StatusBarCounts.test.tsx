@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 // Mock document state hooks
 let mockContent = "";
@@ -135,6 +136,80 @@ describe("StatusBarCounts", () => {
       // total: "intro bold word outro" -> 4 words, 18 non-ws chars
       expect(screen.getByText("2 / 4 words")).toBeInTheDocument();
       expect(screen.getByText("8 / 18 chars")).toBeInTheDocument();
+    });
+  });
+
+  describe("word count popover trigger", () => {
+    it("renders the counts inside a button with popover ARIA", () => {
+      mockContent = "hello world";
+      render(<StatusBarCounts />);
+      const trigger = screen.getByRole("button", { name: /word count/i });
+      expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("opens the popover on click and renders metrics", async () => {
+      const user = userEvent.setup();
+      mockContent = "hello world";
+      render(<StatusBarCounts />);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /word count/i }));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByText("Words")).toBeInTheDocument();
+      expect(screen.getByText(/CJK characters/)).toBeInTheDocument();
+    });
+
+    it("toggles aria-expanded when open", async () => {
+      const user = userEvent.setup();
+      mockContent = "hi";
+      render(<StatusBarCounts />);
+      const trigger = screen.getByRole("button", { name: /word count/i });
+      await user.click(trigger);
+      expect(trigger).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("opens via keyboard (Enter)", async () => {
+      const user = userEvent.setup();
+      mockContent = "hi";
+      render(<StatusBarCounts />);
+      const trigger = screen.getByRole("button", { name: /word count/i });
+      trigger.focus();
+      await user.keyboard("{Enter}");
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    it("closes the popover on Escape", async () => {
+      const user = userEvent.setup();
+      mockContent = "hi";
+      render(<StatusBarCounts />);
+      await user.click(screen.getByRole("button", { name: /word count/i }));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("closes the popover when the trigger is clicked a second time", async () => {
+      // Regression: the trigger is inside the dismiss wrapper, so clicking it
+      // while open is "inside" — it must not be eaten by outside-click dismiss
+      // and then reopened. A second trigger click must close cleanly.
+      const user = userEvent.setup();
+      mockContent = "hi";
+      render(<StatusBarCounts />);
+      const trigger = screen.getByRole("button", { name: /word count/i });
+      await user.click(trigger);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      await user.click(trigger);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("closes the popover on an outside click", async () => {
+      const user = userEvent.setup();
+      mockContent = "hi";
+      render(<StatusBarCounts />);
+      await user.click(screen.getByRole("button", { name: /word count/i }));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      await user.click(document.body);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 });
