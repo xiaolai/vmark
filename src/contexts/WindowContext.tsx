@@ -55,7 +55,9 @@ import i18n from "@/i18n";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 import { useRecentFilesStore } from "../stores/workspaceStore";
+import { useRecentWorkspacesStore } from "../stores/workspaceStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
+import { useUIStore } from "../stores/uiStore";
 import { detectLinebreaks } from "../utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "../hooks/openWorkspaceWithConfig";
 import {
@@ -237,10 +239,18 @@ export function WindowProvider({ children }: WindowProviderProps) {
               }
             }
 
-            // If workspace root is provided, open it first and load config from disk
+            // If workspace root is provided, open it, reveal the file explorer,
+            // and remember it — mirroring the same-window Open Workspace flow so a
+            // new window actually lands in the selected workspace (#1005). Without
+            // showSidebarWithView the workspace opened "headless" (no file tree).
+            let workspaceConfig: Awaited<
+              ReturnType<typeof openWorkspaceWithConfig>
+            > = null;
             if (workspaceRootParam) {
               try {
-                await openWorkspaceWithConfig(workspaceRootParam);
+                workspaceConfig = await openWorkspaceWithConfig(workspaceRootParam);
+                useUIStore.getState().showSidebarWithView("files");
+                useRecentWorkspacesStore.getState().addWorkspace(workspaceRootParam);
               } catch (e) {
                 windowContextError("Failed to open workspace from URL param:", e);
               }
@@ -324,7 +334,13 @@ export function WindowProvider({ children }: WindowProviderProps) {
               }
             } else if (filePath) {
               await loadPathIntoNewTab(filePath);
-            } else if (!workspaceRootParam) {
+            } else if (workspaceRootParam) {
+              // Restore the workspace's last open tabs in the new window (#1005),
+              // matching the same-window Open Workspace behavior.
+              for (const restorePath of workspaceConfig?.lastOpenTabs ?? []) {
+                await loadPathIntoNewTab(restorePath);
+              }
+            } else {
               // No file AND no workspace context: fresh new-file UX — create
               // a blank untitled tab so the window has a live document.
               // In workspace mode we deliberately skip this; the file explorer
