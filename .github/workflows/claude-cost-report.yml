@@ -1,11 +1,14 @@
 name: Claude Daily Cost Report
 
+# RETIRED 2026-06-13: cost tracking moved to claudepot. The daily schedule
+# is disabled so this no longer spawns rolling cost-report issues; the
+# manual trigger is kept as a fallback. Remove this workflow (and the
+# `data`-branch ledger) once claudepot fully replaces it.
 on:
-  schedule:
-    # Daily at noon UTC (3h after audit at 9am)
-    - cron: "0 12 * * *"
+  # schedule:  # disabled — see claudepot
+  #   - cron: "0 12 * * *"
 
-  # Allow manual trigger
+  # Manual trigger only (fallback)
   workflow_dispatch:
 
 permissions:
