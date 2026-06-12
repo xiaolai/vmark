@@ -12,6 +12,8 @@
  * Key decisions:
  *   - useMcpBridge parses each request's `args_json` (handling Tauri's
  *     snake_case/camelCase IPC quirk) before forwarding to handleRequest.
+ *   - Duplicate deliveries of the same request id (Rust wake-and-retry)
+ *     are dropped via requestDedup before dispatch — first sighting wins.
  *   - handleRequest applies the read-only guard (READ_ONLY_BLOCKED +
  *     isActiveDocReadOnly()), then routes through dispatchV2 — the pruned
  *     5-tool surface (vmark.session / workspace / document / workflow /
@@ -36,6 +38,7 @@ import type { McpRequestEvent, McpRequestEventRaw } from "./types";
 import { respond } from "./utils";
 import { mcpBridgeLog, mcpBridgeError } from "@/utils/debug";
 import { handleRequest } from "./handleRequest";
+import { shouldProcessRequest } from "./requestDedup";
 import { hydrateCheckpoints } from "@/stores/mcpCheckpointPersistence";
 
 /** Runtime shape guard for the externally-driven MCP request payload (WI-4.1).
@@ -87,6 +90,13 @@ export function useMcpBridge(): void {
       }
 
       mcpBridgeLog("Event received:", raw.type, raw.id);
+
+      // The Rust bridge's App Nap wake-and-retry re-emits the SAME request
+      // id; on wake both deliveries fire. Execute only the first (audit H20).
+      if (!shouldProcessRequest(raw.id)) {
+        mcpBridgeLog("Dropping duplicate MCP request delivery:", raw.type, raw.id);
+        return;
+      }
 
       // Try both snake_case and camelCase (Tauri might convert)
       const argsJsonStr = raw.args_json ?? raw.argsJson ?? "{}";
