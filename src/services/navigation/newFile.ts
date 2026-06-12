@@ -31,17 +31,11 @@ export function createUntitledTab(
   const tabId = useTabStore.getState().createTab(windowLabel, null);
   useDocumentStore.getState().initDocument(tabId, "", null);
   // Default tabStore.deriveFormatId(null) returns "markdown". Override
-  // only when the caller asked for a different (registered) format.
+  // only when the caller asked for a different (registered) format —
+  // via the store's own action, not a hand-rolled setState that
+  // duplicates state-shape knowledge (audit 20260612).
   if (formatId !== "markdown" && getFormatById(formatId)) {
-    useTabStore.setState((state) => {
-      const newTabs = { ...state.tabs };
-      for (const win of Object.keys(newTabs)) {
-        newTabs[win] = newTabs[win].map((t) =>
-          t.id === tabId ? { ...t, formatId } : t,
-        );
-      }
-      return { tabs: newTabs };
-    });
+    useTabStore.getState().setTabFormatId(tabId, formatId);
   }
   return tabId;
 }

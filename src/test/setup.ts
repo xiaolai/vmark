@@ -280,12 +280,6 @@ vi.mock("@xterm/addon-search", () => ({
   })),
 }));
 
-vi.mock("@xterm/addon-serialize", () => ({
-  SerializeAddon: vi.fn(() => ({
-    serialize: vi.fn(() => ""),
-    dispose: vi.fn(),
-  })),
-}));
 
 vi.mock("@tauri-apps/api/path", () => ({
   homeDir: vi.fn(() => Promise.resolve("/Users/test")),

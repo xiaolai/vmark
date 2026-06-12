@@ -24,7 +24,7 @@ VMark is the plain-text workspace where humans and AI collaborate. Both parties 
 - **Tab Escape** — Auto-pair brackets/quotes, press Tab to jump past closing characters
 - **CJK Done Right** — 20+ formatting rules for Chinese, Japanese, Korean text
 - **10 Languages** — English · 简体中文 · 繁體中文 · 日本語 · 한국어 · Deutsch · Español · Français · Italiano · Português (Brasil). Auto-detected on first launch.
-- **5 Themes** — White, Paper, Mint, Sepia, Night
+- **6 Themes** — White, Paper, Mint, Sepia, Night, Solarized
 - **Local-First** — No cloud, no accounts, no analytics. Documents stay on your machine.
 - **122 Shortcuts** — All customizable in Settings
 

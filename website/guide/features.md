@@ -316,7 +316,7 @@ Lint results are ephemeral and cleared when you edit the document. Re-run the ch
 
 A formatting toolbar anchored at the bottom of the editor, providing quick access to all formatting actions in both WYSIWYG and Source modes.
 
-- **Toggle:** `Mod + Shift + P` opens the toolbar and gives it focus. Press it again to return focus to the editor while keeping the toolbar visible.
+- **Toggle:** `Mod + Shift + B` opens the toolbar and gives it focus. Press it again to return focus to the editor while keeping the toolbar visible.
 - **Keyboard navigation:** Use `Left`/`Right` arrows to move between groups. `Enter` or `Space` opens a dropdown menu. Arrow keys navigate within menus.
 - **Two-step Escape:** If a dropdown menu is open, `Escape` closes the menu first. Press `Escape` again to close the entire toolbar.
 - **Session memory:** The toolbar remembers which button was last focused during the current session, so re-focusing picks up where you left off.
@@ -484,13 +484,14 @@ VMark automatically checks for updates and can download and install them in-app:
 
 ### Themes
 
-Five built-in color themes:
+Six built-in color themes:
 
 - White (clean, minimal)
 - Paper (warm off-white)
 - Mint (soft green tint)
 - Sepia (vintage look)
 - Night (dark mode)
+- Solarized (dark, Solarized palette)
 
 ### Fonts
 

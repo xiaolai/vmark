@@ -26,16 +26,26 @@
  *      be `await import(...)`).
  *
  * NOTE: filenames in dist/assets/ include content hashes (e.g.
- * `vendor-mermaid-2D5fMZtm.js`). The globs strip the hash. The single
- * exception is `index-BUAvxpLj*.js` which uses the full prefix because
- * three different `index-*` chunks exist and we want to lock onto the
- * smallest one (the actual entry chunk).
+ * `vendor-mermaid-2D5fMZtm.js`). The globs strip the hash. The entry chunk
+ * is named `entry-<hash>.js` via rollupOptions.output.entryFileNames so it
+ * can be budgeted without a rot-prone hash-pinned glob (audit 20260612 H9 —
+ * the previous `index-BUAvxpLj*` glob silently stopped matching and the
+ * entry chunk went unbudgeted).
  *
  * @module .size-limit.cjs
  */
 
 module.exports = [
   // --- EAGERLY PRELOADED CHUNKS (cold-start cost) ---
+  {
+    // The application entry chunk itself (app code that isn't in a vendor
+    // or App chunk). 1219 kB at audit 20260612; budget with modest headroom
+    // so regressions surface instead of migrating here invisibly.
+    name: "EAGER: entry",
+    path: "dist/assets/entry-*.js",
+    limit: "1300 kB",
+    brotli: false,
+  },
 
   {
     // React + react-dom + react-router. Preloaded by index.html.
@@ -101,21 +111,18 @@ module.exports = [
     brotli: false,
   },
   {
-    // Mermaid + @mermaid-js/* + d3-* + dagre-d3-es + khroma. Eagerly
-    // preloaded because vendor-mermaid exports a small `_` helper that
-    // the entry chunk statically imports — see dev-docs/archive/
-    // large-file-performance-investigation.md and the B1 fix that split
-    // plain `dagre` out. 1694 kB after the split. Reducing further means
-    // moving that `_` helper out of vendor-mermaid into a small util chunk.
-    name: "EAGER: vendor-mermaid",
+    // Mermaid + @mermaid-js/* + d3-* + dagre-d3-es + khroma. LAZY since
+    // the preload-helper pinning (see vite.config.ts manualChunks): loads
+    // on first diagram render, not at cold start. ~1694 kB.
+    name: "LAZY: vendor-mermaid",
     path: "dist/assets/vendor-mermaid-*.js",
     limit: "1750 kB",
     brotli: false,
   },
   {
     // cytoscape + cose-base + layout-base. Pulled in by mermaid for some
-    // diagram types. Eagerly preloaded today via the vendor-mermaid graph.
-    name: "EAGER: vendor-graph",
+    // diagram types — LAZY, rides vendor-mermaid's dynamic import.
+    name: "LAZY: vendor-graph",
     path: "dist/assets/vendor-graph-*.js",
     limit: "660 kB",
     brotli: false,

@@ -49,6 +49,46 @@ pub fn validate_path(path: &str, workspace_root: &Path) -> Result<PathBuf, Strin
         return Ok(canonical);
     }
 
+    // The target doesn't exist yet (e.g. save-file to a new location), but
+    // an EXISTING ancestor could be a symlink pointing outside the
+    // workspace — `workspace/links/new.txt` with `links -> /etc` passed the
+    // lexical prefix check above while actually writing to /etc. Resolve
+    // the deepest existing ancestor and re-check containment
+    // (audit 20260612).
+    let mut existing = normalized.clone();
+    let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    // Walk up only within the workspace root — if even the root doesn't
+    // exist (tests, races), fall through to the lexical result below.
+    while !existing.exists() && existing != workspace_root {
+        match (existing.file_name(), existing.parent()) {
+            (Some(name), Some(parent)) => {
+                tail.push(name.to_os_string());
+                existing = parent.to_path_buf();
+            }
+            _ => break,
+        }
+    }
+    if existing.exists() {
+        let canonical_ancestor = existing
+            .canonicalize()
+            .map_err(|e| format!("Failed to resolve '{}': {}", existing.display(), e))?;
+        let canonical_root = workspace_root
+            .canonicalize()
+            .unwrap_or_else(|_| workspace_root.to_path_buf());
+        if !canonical_ancestor.starts_with(&canonical_root) {
+            return Err(format!(
+                "Path '{}' resolves via symlink to '{}' which is outside the workspace",
+                path,
+                canonical_ancestor.display()
+            ));
+        }
+        let mut rebuilt = canonical_ancestor;
+        for name in tail.iter().rev() {
+            rebuilt.push(name);
+        }
+        return Ok(rebuilt);
+    }
+
     Ok(normalized)
 }
 
@@ -132,5 +172,30 @@ mod tests {
         assert!(result.is_ok());
         // Empty path resolves to workspace root itself
         assert_eq!(result.unwrap(), PathBuf::from("/workspace/project"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_symlinked_dir_escape_rejected_for_nonexistent_target() {
+        // audit 20260612: workspace/links -> outside; links/new.txt must not
+        // pass validation even though the target file does not exist yet.
+        let ws = tempfile::tempdir().expect("ws");
+        let outside = tempfile::tempdir().expect("outside");
+        let link = ws.path().join("links");
+        std::os::unix::fs::symlink(outside.path(), &link).expect("symlink");
+
+        let result = validate_path("links/new.txt", ws.path());
+        assert!(
+            result.is_err(),
+            "expected escape rejection, got {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_nonexistent_nested_path_within_workspace_allowed() {
+        let ws = tempfile::tempdir().expect("ws");
+        let result = validate_path("sub/dir/new.txt", ws.path());
+        assert!(result.is_ok(), "expected ok, got {:?}", result);
     }
 }

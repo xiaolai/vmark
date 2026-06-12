@@ -106,23 +106,13 @@ pub(crate) fn get_write_lock() -> Arc<tokio::sync::Mutex<()>> {
 }
 
 /// Generate a random hex auth token for MCP bridge authentication.
-/// Uses RandomState (SipHash seeded from OS entropy) for unpredictable tokens
-/// without adding a `rand` or `getrandom` dependency.
+/// 32 bytes of CSPRNG entropy via two v4 UUIDs (uuid -> getrandom) —
+/// SipHash/RandomState is not a cryptographic RNG and an auth token is a
+/// cryptographic secret (audit 20260612).
 pub(crate) fn generate_auth_token() -> String {
-    use std::collections::hash_map::RandomState;
-    use std::fmt::Write;
-    use std::hash::{BuildHasher, Hasher};
-
-    let mut hex = String::with_capacity(64);
-    // Generate 4 independent random u64s (32 bytes total)
-    for _ in 0..4 {
-        let state = RandomState::new();
-        let mut hasher = state.build_hasher();
-        hasher.write_u64(std::process::id() as u64);
-        let val = hasher.finish();
-        let _ = write!(hex, "{:016x}", val);
-    }
-    hex
+    let a = uuid::Uuid::new_v4();
+    let b = uuid::Uuid::new_v4();
+    format!("{}{}", a.simple(), b.simple())
 }
 
 /// Write the port and auth token to the port file for MCP sidecar discovery.

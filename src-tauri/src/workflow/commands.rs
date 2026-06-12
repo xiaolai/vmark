@@ -156,7 +156,7 @@ pub async fn run_workflow(
         );
     }
 
-    let workflow: RawWorkflow = match serde_yaml::from_str(&yaml) {
+    let workflow: RawWorkflow = match serde_yaml_ng::from_str(&yaml) {
         Ok(w) => w,
         Err(e) => {
             state.running.store(false, Ordering::SeqCst);

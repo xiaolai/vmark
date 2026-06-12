@@ -21,6 +21,7 @@
     "perf:largefile": "node scripts/measure-open-latency.mjs --dir tmp/large-file-corpus",
     "e2e:smoke": "node e2e/smoke.mjs",
     "size": "size-limit",
+    "lint:eager": "node scripts/check-eager-chunks.mjs",
     "size:why": "size-limit --why",
     "lint": "eslint src",
     "lint:selection-styles": "node scripts/check-selection-styles.mjs",
@@ -34,7 +35,7 @@
     "knip": "knip",
     "knip:files": "knip --include files,dependencies",
     "test:sidecar": "pnpm --dir vmark-mcp-server test",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm build && pnpm size"
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:i18n && pnpm lint:themes && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm build && pnpm lint:eager && pnpm size"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.55",
@@ -58,6 +59,7 @@
     "@codemirror/search": "^6.6.0",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.11",
+    "@dagrejs/dagre": "^3.0.0",
     "@joplin/turndown-plugin-gfm": "^1.0.64",
     "@lezer/highlight": "^1.2.3",
     "@panzoom/panzoom": "^4.6.1",
@@ -87,7 +89,6 @@
     "@tiptap/starter-kit": "^3.18.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-search": "^0.16.0",
-    "@xterm/addon-serialize": "^0.14.0",
     "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/addon-webgl": "^0.19.0",
@@ -95,7 +96,6 @@
     "@xyflow/react": "12.10.2",
     "alfaaz": "^1.1.0",
     "codemirror-lang-mermaid": "0.5.0",
-    "dagre": "^0.8.5",
     "dompurify": "^3.4.2",
     "highlight.js": "^11.11.1",
     "html-to-image": "1.11.13",
@@ -161,7 +161,6 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/dagre": "^0.7.54",
     "@types/mdast": "^4.0.4",
     "@types/node": "^22.19.7",
     "@types/react": "^19.2.9",

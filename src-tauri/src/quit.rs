@@ -183,10 +183,11 @@ pub fn start_quit(app: &AppHandle) {
     set_exit_allowed(false);
 
     let mut targets = HashSet::new();
+    let mut document_windows = Vec::new();
     for (label, window) in app.webview_windows() {
         if is_document_window_label(&label) {
             targets.insert(label.clone());
-            let _ = window.emit("app:quit-requested", label);
+            document_windows.push((label, window));
         } else {
             // Close non-document windows immediately
             let _ = window.close();
@@ -198,7 +199,15 @@ pub fn start_quit(app: &AppHandle) {
         return;
     }
 
+    // Register the full target set BEFORE emitting close requests — a window
+    // replying before registration completed would race the quit bookkeeping
+    // (safe today only by accident of the single-threaded event loop;
+    // audit 20260612).
     set_quit_targets(targets);
+
+    for (label, window) in document_windows {
+        let _ = window.emit("app:quit-requested", label);
+    }
 }
 
 /// Cancel an in-progress quit (e.g., user cancelled save prompt).

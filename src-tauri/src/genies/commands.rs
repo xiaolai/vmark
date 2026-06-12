@@ -75,11 +75,11 @@ pub fn read_genie(app: AppHandle, path: String) -> Result<GenieContent, String> 
 /// the description (filename is the canonical display name); the body is the
 /// full YAML so the runner can submit it.
 fn parse_workflow_genie(content: &str, path: &str) -> Result<GenieContent, String> {
-    let value: serde_yaml::Value = serde_yaml::from_str(content)
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(content)
         .map_err(|e| format!("Failed to parse YAML genie {}: {}", path, e))?;
     let map = value.as_mapping();
     let description = map
-        .and_then(|m| m.get(serde_yaml::Value::String("description".to_string())))
+        .and_then(|m| m.get(serde_yaml_ng::Value::String("description".to_string())))
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
@@ -87,7 +87,7 @@ fn parse_workflow_genie(content: &str, path: &str) -> Result<GenieContent, Strin
     // `description:` is present, so workflow authors who use `name:` for the
     // human-readable label still get something in the picker.
     let description = if description.is_empty() {
-        map.and_then(|m| m.get(serde_yaml::Value::String("name".to_string())))
+        map.and_then(|m| m.get(serde_yaml_ng::Value::String("name".to_string())))
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string()

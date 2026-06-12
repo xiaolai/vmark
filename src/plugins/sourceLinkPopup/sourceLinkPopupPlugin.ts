@@ -8,11 +8,12 @@
 import { type Extension } from "@codemirror/state";
 import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
-import { sourceLinkError, sourceActionError } from "@/utils/debug";
+import { sourceLinkError } from "@/utils/debug";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { SourceLinkPopupView } from "./SourceLinkPopupView";
 import { findMarkdownLinkAtPosition } from "@/utils/markdownLinkPatterns";
 import { extractMarkdownHeadings } from "@/plugins/toolbarActions/sourceAdapterLinks";
+import { openExternalLink } from "@/services/navigation/linkOpen";
 
 /**
  * Link range result from detection.
@@ -136,13 +137,12 @@ function createCmdClickPlugin(): Extension {
           return;
         }
 
-        // External link — open in browser
-        /* v8 ignore next 4 -- @preserve reason: dynamic import and error handler not tested in unit tests */
-        import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-          openUrl(href).catch((error: unknown) => {
-            sourceLinkError("Failed to open link:", error);
-          });
-        }).catch((e: unknown) => sourceActionError("Failed:", e));
+        // External link — open in browser (scheme-allowlisted opener,
+        // audit 20260612)
+        /* v8 ignore next 3 -- @preserve reason: error handler not tested in unit tests */
+        openExternalLink(href).catch((error: unknown) => {
+          sourceLinkError("Failed to open link:", error);
+        });
       };
     }
   );

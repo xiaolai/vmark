@@ -15,7 +15,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
-import { classifyHref, openFilepathLink } from "@/services/navigation/linkOpen";
+import { classifyHref, openExternalLink, openFilepathLink } from "@/services/navigation/linkOpen";
 import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
 
 /** Link popup store state (extends base with link-specific fields) */
@@ -200,12 +200,10 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     }
 
     if (kind === "external") {
-      import("@tauri-apps/plugin-opener").then(({ openUrl }) => {
-        /* v8 ignore next -- @preserve openUrl failure is a Tauri runtime error; not testable in jsdom */
-        openUrl(href).catch((error: unknown) => {
-          linkPopupError("Failed to open link:", error);
-        });
-      }).catch(linkPopupError);
+      // Scheme-allowlisted opener (audit 20260612).
+      openExternalLink(href).catch((error: unknown) => {
+        linkPopupError("Failed to open link:", error);
+      });
       return;
     }
 
