@@ -10,12 +10,13 @@
  *   - Custom handlers for image/link to use angle brackets for URLs with spaces
  *     instead of percent-encoding (more readable, CommonMark compliant)
  *   - tocToMarkdown handler serializes `toc` MDAST nodes back to `[TOC]` text
- *   - Post-processes &#x20; entities back to spaces (remark-stringify adds these
- *     near line breaks but they are unnecessary for our use case)
- *   - Strips unnecessary backslash escapes ($, [, ], *, _, `, !, (, ))
- *     that remark-stringify adds defensively in plain text nodes;
- *     buildCodeRanges treats only unescaped backticks as code-span
- *     boundaries so `\`` inside text doesn't shield other escapes
+ *   - A verified cosmetic pass converts serializer-emitted &#x20; entities
+ *     back to spaces and strips defensive backslash escapes ($, [, ], *, _,
+ *     `, !, (, )) — but only when re-parsing the cleaned output yields the
+ *     exact same mdast as the conservative output. This guarantees the
+ *     cosmetic pass can never change document meaning (audit H6/H7: the old
+ *     unverified pass corrupted literal &#x20; in code blocks and turned
+ *     escaped text like \_bar\_ into real emphasis on round trip).
  *   - hardBreakStyle option converts `\` breaks to two-space breaks
  *
  * @coordinates-with parser.ts — plugins must match between parser and serializer
@@ -31,6 +32,7 @@ import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
 import type { Root, Image, Link, Parents } from "mdast";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks, tocToMarkdown } from "./plugins";
+import { parseMarkdownToMdast } from "./parser";
 import type { MarkdownPipelineOptions } from "./types";
 
 // Type for mdast-util-to-markdown state (simplified for our handlers)
@@ -229,22 +231,147 @@ function replaceOutsideCode(
   });
 }
 
-function stripUnnecessaryEscapes(
+/** One pending cosmetic replacement on the serialized string. */
+interface CosmeticEdit {
+  start: number;
+  end: number;
+  replacement: string;
+}
+
+const SPACE_ENTITY = "&#x20;";
+
+/**
+ * Collect &#x20; entities that look serializer-emitted: a single entity at a
+ * line boundary, outside code, and not part of user text (which arrives
+ * escaped as \&#x20;). Runs of two or more entities are left alone — turning
+ * them into literal spaces could create hard breaks or indented code.
+ */
+function collectEntityEdits(
   markdown: string,
   ranges: Array<[number, number]>
-): string {
-  return markdown.replace(SAFE_UNESCAPE_RE, (match, char: string, offset: number) => {
-    if (isInsideCodeRange(ranges, offset)) return match;
+): CosmeticEdit[] {
+  const edits: CosmeticEdit[] = [];
+  const re = /&#x20;/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(markdown))) {
+    const start = m.index;
+    const end = start + SPACE_ENTITY.length;
+    if (isInsideCodeRange(ranges, start)) continue;
+    if (markdown[start - 1] === "\\") continue;
+    if (markdown.startsWith(SPACE_ENTITY, end)) continue;
+    if (start >= SPACE_ENTITY.length && markdown.endsWith(SPACE_ENTITY, start)) continue;
+    const atLineStart = start === 0 || markdown[start - 1] === "\n";
+    const next = markdown[end];
+    const atLineEnd =
+      end === markdown.length ||
+      next === "\n" ||
+      next === "\r" ||
+      // trailing space before a backslash hard break
+      (next === "\\" && (markdown[end + 1] === "\n" || markdown[end + 1] === "\r"));
+    if (atLineStart || atLineEnd) {
+      edits.push({ start, end, replacement: " " });
+    }
+  }
+  return edits;
+}
 
+/** Collect candidate escape strips, applying the same guards as before. */
+function collectEscapeEdits(
+  markdown: string,
+  ranges: Array<[number, number]>
+): CosmeticEdit[] {
+  const edits: CosmeticEdit[] = [];
+  const re = new RegExp(SAFE_UNESCAPE_RE.source, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(markdown))) {
+    const offset = m.index;
+    if (isInsideCodeRange(ranges, offset)) continue;
+    const char = m[1];
     const lineStart = markdown.lastIndexOf("\n", offset - 1) + 1;
     const beforeOnLine = markdown.slice(lineStart, offset).trimStart();
+    if (beforeOnLine === "" && BLOCK_START_CHARS.has(char)) continue;
+    edits.push({ start: offset, end: offset + 2, replacement: char });
+  }
+  return edits;
+}
 
-    if (beforeOnLine === "" && BLOCK_START_CHARS.has(char)) {
-      return match;
+/** Apply non-overlapping, ascending edits to a string. */
+function applyEdits(markdown: string, edits: CosmeticEdit[]): string {
+  let out = "";
+  let cursor = 0;
+  for (const e of edits) {
+    out += markdown.slice(cursor, e.start) + e.replacement;
+    cursor = e.end;
+  }
+  return out + markdown.slice(cursor);
+}
+
+/**
+ * Right-trim the final text child of each paragraph/heading. Serializer-
+ * emitted trailing-space entities decode to spaces the next parse would trim
+ * anyway; normalizing both sides keeps that long-accepted loss from forcing
+ * the conservative (entity-bearing) output.
+ */
+function trimBlockFinalText(node: unknown): void {
+  if (!node || typeof node !== "object") return;
+  const n = node as { type?: string; children?: unknown[] };
+  if (!Array.isArray(n.children)) return;
+  for (const child of n.children) trimBlockFinalText(child);
+  if ((n.type === "paragraph" || n.type === "heading") && n.children.length) {
+    const last = n.children[n.children.length - 1] as { type?: string; value?: string };
+    if (last.type === "text" && typeof last.value === "string") {
+      last.value = last.value.replace(/[ \t]+$/, "");
     }
+  }
+}
 
-    return char;
-  });
+/** Parse markdown and return a normalized, comparable JSON form (or null). */
+function normalizedParse(markdown: string): string | null {
+  try {
+    const tree = parseMarkdownToMdast(markdown);
+    const clone = JSON.parse(
+      JSON.stringify(tree, (key, value) => (key === "position" ? undefined : value))
+    ) as unknown;
+    trimBlockFinalText(clone);
+    return JSON.stringify(clone);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Documents larger than this skip the cosmetic pass entirely: verification
+ * costs a re-parse, and very large documents are routed to Source mode by the
+ * large-file pipeline anyway. Conservative output is always correct.
+ */
+const COSMETIC_VERIFY_SIZE_LIMIT = 300_000;
+
+/**
+ * Apply the cosmetic pass (entity restoration + escape stripping) only if the
+ * result re-parses to the exact same mdast as the conservative output. Falls
+ * back to entity-edits-only, then to the conservative string. This makes
+ * "the cosmetic pass never changes meaning" a structural invariant instead of
+ * a per-character guess (audit H6/H7).
+ */
+function applyCosmeticPass(markdown: string): string {
+  if (markdown.length > COSMETIC_VERIFY_SIZE_LIMIT) return markdown;
+  const ranges = buildCodeRanges(markdown);
+  const entityEdits = collectEntityEdits(markdown, ranges);
+  const escapeEdits = collectEscapeEdits(markdown, ranges);
+  if (!entityEdits.length && !escapeEdits.length) return markdown;
+
+  const reference = normalizedParse(markdown);
+  if (reference === null) return markdown;
+
+  const allEdits = [...entityEdits, ...escapeEdits].sort((a, b) => a.start - b.start);
+  const full = applyEdits(markdown, allEdits);
+  if (normalizedParse(full) === reference) return full;
+
+  if (escapeEdits.length && entityEdits.length) {
+    const entityOnly = applyEdits(markdown, entityEdits);
+    if (normalizedParse(entityOnly) === reference) return entityOnly;
+  }
+  return markdown;
 }
 
 /**
@@ -264,15 +391,10 @@ export function serializeMdastToMarkdown(
   const processor = getSerializer();
   let result = processor.stringify(mdast);
 
-  // Convert encoded space entities back to regular spaces.
-  // mdast-util-to-markdown encodes spaces as &#x20; when they appear
-  // before/after line breaks, but this is unnecessary for our use case.
-  result = result.replace(/&#x20;/g, " ");
-
-  // Strip unnecessary backslash escapes added by remark-stringify.
-  // Ranges are computed once and reused by the binary-search lookup inside
-  // stripUnnecessaryEscapes — avoids the previous O(N·M) some() scan.
-  result = stripUnnecessaryEscapes(result, buildCodeRanges(result));
+  // Verified cosmetic pass: restore serializer-emitted &#x20; entities and
+  // strip defensive escapes, accepted only when the cleaned string re-parses
+  // identically to the conservative one (audit H6/H7).
+  result = applyCosmeticPass(result);
 
   if (options.hardBreakStyle === "twoSpaces") {
     // Escape stripping may have shortened the string, shifting offsets —
