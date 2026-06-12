@@ -9,6 +9,9 @@
 use serde::Serialize;
 use std::path::Path;
 
+/// Menu-action orchestration + localized result dialog (audit 20260612).
+pub mod dialog;
+
 pub const CLI_PATH: &str = "/usr/local/bin/vmark";
 
 /// Shell script content installed to /usr/local/bin/vmark.
@@ -54,13 +57,9 @@ impl From<CliInstallError> for String {
 /// boundary (audit 20260612 deferred i18n).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CliCommandOutcome {
-    /// The `vmark` command was freshly installed.
     Installed,
-    /// The command was already present (no action taken).
     AlreadyInstalled,
-    /// The command was removed.
     Removed,
-    /// The command was not installed (nothing to remove).
     NotInstalled,
 }
 

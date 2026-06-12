@@ -24,7 +24,7 @@
     "src-tauri/src/mcp_bridge/state.rs": 824,
     "src-tauri/src/menu/dynamic.rs": 371,
     "src-tauri/src/menu/localized.rs": 722,
-    "src-tauri/src/menu_events.rs": 461,
+    "src-tauri/src/menu_events.rs": 425,
     "src-tauri/src/pandoc/commands.rs": 497,
     "src-tauri/src/pdf_export/bookmarks.rs": 399,
     "src-tauri/src/pdf_export/renderer.rs": 550,

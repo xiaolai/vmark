@@ -329,59 +329,7 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     // Toggles between install/uninstall based on current status.
     #[cfg(target_os = "macos")]
     if id == "install-cli" {
-        use tauri_plugin_dialog::DialogExt;
-        let app = app.clone();
-        // Use spawn_blocking because cli_install/uninstall call Command::output() (blocking I/O).
-        // Wrapped in spawn_logged so a panic inside the install flow doesn't silently
-        // disappear, leaving the user with no feedback.
-        crate::task::spawn_logged("menu-cli-install", async move {
-            use crate::cli_install::{CliCommandOutcome, CLI_PATH};
-            let result: Result<CliCommandOutcome, String> =
-                tauri::async_runtime::spawn_blocking(|| {
-                    let status = crate::cli_install::cli_install_status()?;
-                    if status.foreign {
-                        return Err(crate::cli_install::CliInstallError::ForeignFile.into());
-                    }
-                    if status.installed {
-                        crate::cli_install::cli_uninstall()
-                    } else {
-                        crate::cli_install::cli_install()
-                    }
-                })
-                .await
-                .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-
-            // Localize the dialog from the structured outcome rather than
-            // string-matching English Ok messages (audit 20260612 deferred).
-            let title = rust_i18n::t!("cli.dialogTitle").to_string();
-            match result {
-                Ok(outcome) => {
-                    let display = match outcome {
-                        CliCommandOutcome::Installed => format!(
-                            "{}\n\n{}",
-                            rust_i18n::t!("cli.installed", path = CLI_PATH),
-                            rust_i18n::t!("cli.runHint")
-                        ),
-                        CliCommandOutcome::AlreadyInstalled => {
-                            rust_i18n::t!("cli.alreadyInstalled", path = CLI_PATH).to_string()
-                        }
-                        CliCommandOutcome::Removed => {
-                            rust_i18n::t!("cli.removed", path = CLI_PATH).to_string()
-                        }
-                        CliCommandOutcome::NotInstalled => {
-                            rust_i18n::t!("cli.notInstalled").to_string()
-                        }
-                    };
-                    app.dialog().message(display).title(title).blocking_show();
-                }
-                Err(e) => {
-                    // Don't show dialog when user cancelled the admin prompt
-                    if e != crate::cli_install::CliInstallError::Cancelled.to_string() {
-                        app.dialog().message(e).title(title).blocking_show();
-                    }
-                }
-            }
-        });
+        crate::cli_install::dialog::run_install_toggle(app.clone());
         return;
     }
 
