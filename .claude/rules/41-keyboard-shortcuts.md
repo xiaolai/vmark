@@ -91,7 +91,7 @@ Some shortcuts are handled by frontend hooks that call `e.preventDefault()`:
 | Hook | Shortcuts Handled |
 |------|-------------------|
 | `useViewShortcuts.ts` | sourceMode, focusMode, typewriterMode, wordWrap, lineNumbers, toggleTerminal |
-| `useTabShortcuts.ts` | newTab, closeTab (Mod+W), toggleStatusBar |
+| `useTabShortcuts.ts` | newTab, closeTab (Mod+W), toggleStatusBar, nextTab/prevTab (Mod+Shift+]/[) |
 | `useFileExplorerShortcuts.ts` | toggleHiddenFiles |
 
 If you add a shortcut to the menu but the frontend intercepts it first, the menu event won't fire.

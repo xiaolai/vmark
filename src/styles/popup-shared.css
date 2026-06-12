@@ -144,10 +144,6 @@
   font-family: var(--font-mono);
 }
 
-/* Dark theme overrides */
-.dark-theme .popup-icon-btn:hover:not(:disabled) {
-  background: var(--hover-bg-dark);
-}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

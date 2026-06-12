@@ -26,6 +26,7 @@ import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { fileOpsError } from "@/utils/debug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
+import { cycleTabId } from "@/utils/tabCycling";
 
 /** Hook that handles keyboard shortcuts for new tab, close tab (with dirty check), and status bar toggle. */
 export function useTabShortcuts() {
@@ -47,6 +48,22 @@ export function useTabShortcuts() {
         const tabId = useTabStore.getState().createTab(windowLabel, null);
         useDocumentStore.getState().initDocument(tabId, "", null);
         return;
+      }
+
+      // Tab cycling (audit 20260612 H27 — there was no keyboard way to
+      // reach another tab). Wraps at both ends.
+      for (const [id, direction] of [
+        ["nextTab", "next"],
+        ["prevTab", "previous"],
+      ] as const) {
+        if (matchesShortcutEvent(e, shortcuts.getShortcut(id))) {
+          e.preventDefault();
+          const tabState = useTabStore.getState();
+          const ids = (tabState.tabs[windowLabel] ?? []).map((t) => t.id);
+          const target = cycleTabId(ids, tabState.activeTabId[windowLabel] ?? null, direction);
+          if (target) tabState.setActiveTab(windowLabel, target);
+          return;
+        }
       }
 
       // Cmd+W: Close active tab with dirty check (any tab count).

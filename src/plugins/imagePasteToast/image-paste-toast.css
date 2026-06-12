@@ -99,10 +99,6 @@
   color: var(--text-color);
 }
 
-/* Dark theme */
-.dark-theme .image-paste-toast-btn:hover {
-  background: var(--hover-bg-dark);
-}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

@@ -83,10 +83,12 @@ const lightModeColors = legacyLight;
  * emitted `--*` vars byte-identical to the historical literals while making
  * the typed catalog the single source of truth.
  *
- * Note: `--warning-*`, `--hover-bg*`, `--subtle-bg*`, and `--contrast-text`
- * are intentionally absent — the dark branch of `computeModeColorVars` never
+ * Note: `--warning-*`, `--subtle-bg*`, and `--contrast-text` are
+ * intentionally absent — the dark branch of `computeModeColorVars` never
  * emitted them (dark mode inherits the light/`:root` values for those), and
- * that behavior is preserved.
+ * that behavior is preserved. `--hover-bg`/`--hover-bg-strong` ARE emitted
+ * since audit 20260612 H15 — the inherited light tints were near-invisible
+ * on dark backgrounds.
  */
 const nightLegacy = night.color.legacy ?? {};
 const darkModeColors = {
@@ -117,6 +119,13 @@ const darkModeColors = {
   // Highlight mark (darker background for dark mode)
   "--highlight-bg": nightLegacy.highlightBg ?? "#5c5c00",
   "--highlight-text": nightLegacy.highlightText ?? "#fff3a3",
+  // Hover feedback (audit 20260612 H15): dark mode previously inherited the
+  // light rgba(0,0,0,…) tints — a black tint on a dark background is barely
+  // perceivable, and only 17 of 40+ consumers carried manual per-file
+  // overrides. Values mirror --hover-bg-dark/--hover-bg-dark-strong in
+  // index.css.
+  "--hover-bg": "rgba(255, 255, 255, 0.08)",
+  "--hover-bg-strong": "rgba(255, 255, 255, 0.12)",
 };
 
 /** Apply CSS variables from a config object */
@@ -227,6 +236,10 @@ export function computeModeColorVars(
         // Subtle block background for dark mode (light overlay)
         "--block-bg-subtle": colors.blockBgSubtle ?? nightLegacy.blockBgSubtle ?? "rgba(255, 255, 255, 0.03)",
         "--block-bg-subtle-hover": colors.blockBgSubtleHover ?? nightLegacy.blockBgSubtleHover ?? "rgba(255, 255, 255, 0.05)",
+        // Hover feedback — white tints; inherited light black tints were
+        // near-invisible on dark backgrounds (audit 20260612 H15)
+        "--hover-bg": darkModeColors["--hover-bg"],
+        "--hover-bg-strong": darkModeColors["--hover-bg-strong"],
       },
     };
   }

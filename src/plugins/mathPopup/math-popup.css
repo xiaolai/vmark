@@ -95,7 +95,3 @@
   border-bottom: var(--border-medium) solid var(--primary-color);
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
-
-.dark-theme .math-popup-btn:hover {
-  background: var(--hover-bg-dark);
-}

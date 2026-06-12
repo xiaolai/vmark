@@ -139,14 +139,7 @@
   color: var(--error-color);
 }
 
-/* Dark theme */
-.dark-theme .source-footnote-popup-btn:hover {
-  background: var(--hover-bg-dark);
-}
 
-.dark-theme .source-footnote-popup-label {
-  background: var(--hover-bg-dark);
-}
 
 .dark-theme .source-footnote-popup-textarea {
   background: var(--subtle-bg);
@@ -157,4 +150,9 @@
   .source-footnote-popup {
     animation: none;
   }
+}
+
+/* Dark mode: label chip uses the light overlay tint, not night bg-tertiary */
+.dark-theme .source-footnote-popup-label {
+  background: var(--hover-bg-dark);
 }

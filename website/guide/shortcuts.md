@@ -229,6 +229,8 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 |--------|----------|
 | New Window | `Mod + Shift + N` |
 | New Tab | `Mod + T` |
+| Next Tab | `Mod + Shift + ]` |
+| Previous Tab | `Mod + Shift + [` |
 | Close Tab | `Mod + W` |
 | Toggle Hidden Files | `Mod + Shift + .` |
 | Toggle All Files | _(customizable)_ |
