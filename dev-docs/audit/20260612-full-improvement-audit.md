@@ -78,16 +78,25 @@ matched the ✅ marker anywhere in a comment, so a NOT VERIFIED verdict quoting
 it could pass — all three gates are now line-anchored. A fourth finding is
 deferred below.
 
-Deferred (documented): multi-window MCP checkpoint writers (each document
-window has an independent write queue on the same JSONL; a stale-hydrated
-window's rewriteAll can truncate another window's append — pre-existing,
-reduced by the append-only change; proper fix is single-writer election or
-moving persistence to Rust); bulk re-translation of English-identical locale values
+Deferred (documented): bulk re-translation of English-identical locale values
 (use the translate-docs pipeline), CSP img-src tightening (needs a remote-image
 opt-in product decision — CSP is static config, runtime gating needs design),
 the 115-file size-rule campaign, popup-shim consolidation (62 consumers),
 Rust error-string i18n sweep (187 strings), remaining mediums in the lists
 above, and all `feature`-kind product findings.
+
+### Deferred follow-up pass (2026-06-12, branch `fix/audit-deferred-followup`)
+
+Worked the auto-fixable deferred backlog:
+
+| Item | Status |
+|---|---|
+| Multi-window MCP checkpoint writers | **Fixed** — clear is now a targeted on-disk line removal (`clearCheckpointsOnDisk`), so a clear in one window can't truncate another's appends; compaction merges the on-disk union with memory before writing. Residual read→write race during compaction documented; full elimination still needs a file lock or Rust-side persistence. |
+| 115-file size-rule campaign | **Gated, not burned** — added `scripts/check-file-size.mjs` + a frozen baseline of the 153 current violators, wired into `check:all`. It fails on new violations or growth and ratchets down only. Splitting the 153 files remains a campaign. |
+| Rust error-string i18n sweep | **Bounded slice fixed** — the user-facing CLI-install dialog is localized (10 locales) and its fragile English-text branch replaced with a structured `CliCommandOutcome`. The broad ~150-string sweep stays deferred: most strings are log-only or trigger silent fallbacks (e.g. `pty.rs` shell validation), and bulk-translating them into 9 locales is the same quality risk as the re-translation item below. |
+| Popup-shim consolidation | **Declined (documented)** — 47 non-test consumers + 27 test mocks would change for zero correctness/perf benefit (the shims already route to one store instance and are perf-tuned). High regression surface, pure cosmetic debt; the new file-size gate caps the shims from growing. Worth a dedicated, test-gated effort only if the dual import path becomes a real obstacle. |
+| Bulk locale re-translation | **Deferred** — hundreds of English-identical values across 9 locales; machine-translating them is low quality. Belongs in the `translate-docs` pipeline with review. |
+| CSP img-src / 4 unaudited subsystems / product features | **Deferred** — product decisions or fresh audit scope, not mechanical fixes. |
 
 ---
 
