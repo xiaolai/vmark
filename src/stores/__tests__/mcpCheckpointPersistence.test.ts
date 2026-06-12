@@ -286,4 +286,34 @@ describe("clearCheckpointsOnDisk (multi-window safe)", () => {
     fsMocks.readTextFile.mockRejectedValue(new Error("disk error"));
     await expect(clearCheckpointsOnDisk({ tabId: "tab-1" })).resolves.toBeUndefined();
   });
+
+  it("clears everything and writes empty when no filter is given", async () => {
+    fsMocks.exists.mockResolvedValue(true);
+    fsMocks.readTextFile.mockResolvedValue(
+      `${JSON.stringify(sampleCp)}\n${JSON.stringify({ ...sampleCp, id: "cp-2" })}\n`,
+    );
+    await clearCheckpointsOnDisk();
+    const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1] as string;
+    expect(wrote).toBe("");
+  });
+
+  it("treats a filter with neither filePath nor tabId as match-all", async () => {
+    fsMocks.exists.mockResolvedValue(true);
+    fsMocks.readTextFile.mockResolvedValue(`${JSON.stringify(sampleCp)}\n`);
+    await clearCheckpointsOnDisk({});
+    const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1] as string;
+    expect(wrote).toBe("");
+  });
+
+  it("drops valid-JSON lines that are not checkpoints", async () => {
+    fsMocks.exists.mockResolvedValue(true);
+    // {"foo":1} parses fine but fails isCheckpoint — must be dropped, not kept.
+    fsMocks.readTextFile.mockResolvedValue(
+      `{"foo":1}\n${JSON.stringify({ ...sampleCp, id: "cp-keep", tabId: "tab-9" })}\n`,
+    );
+    await clearCheckpointsOnDisk({ tabId: "tab-1" });
+    const wrote = fsMocks.writeTextFile.mock.calls.at(-1)?.[1] as string;
+    expect(wrote).toContain("cp-keep");
+    expect(wrote).not.toContain("foo");
+  });
 });
